@@ -1,5 +1,12 @@
 # Motionscaper AE scalar expression mapping
 
+This guide describes retained legacy exchange/converter contracts. The product
+bridge controls are removed. Current File Open and import behavior is the
+[native AEP/AEPX importer](motionscaper-after-effects-bridge.md); the legacy
+mappings below do not imply support in the native importer. Existing domain
+and host-fixture tests remain compatibility evidence.
+
+
 The pure translator admits scalar numeric expressions containing composition
 `time`, pre-expression `value`, finite numeric constants, standard Math functions,
 arithmetic, same-type comparisons/logical operators and conditionals. Motion
@@ -25,7 +32,7 @@ authority to execute source. The installed-side validator rejects untrusted
 members/calls, side effects, loose/coerced types, nonfinite literals and oversized
 expressions before returning a source string.
 
-**File → After Effects Bridge** offers separate import and export checkboxes,
+The legacy converter accepts separate import and export options,
 both off initially. Changing an option retires the prepared report and its
 acknowledgement. The project adapter currently maps scalar transform opacity;
 vector expressions and scalar channels inside vector properties require fallback.

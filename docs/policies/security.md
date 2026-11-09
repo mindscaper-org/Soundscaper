@@ -820,23 +820,26 @@ own-window/main-frame/document caller, atomically persists only the
 product-private language preference and updates interface copy in place after
 persistence; it exposes no paths, reload or foreign desktop services. Native
 project paths stay main-private. Ordinary File Open admits Adobe .aep and .aepx
-selections through a Motion-only chooser filter and routes their filenames to
-installed-AE bridge guidance without reading project bytes, importing a document
-or replacing its native Save binding. The lazy bridge retains dialog ownership
-until closure, including while its view loads; native release and
-acknowledgement failures retain cleanup authority for retry. OS-selected .mscape
-and .scape launch arguments admit at most 16 pending/open/active selections; the
-renderer can only take a bounded read capability or acknowledge its exact token.
-The pending notification carries no payload and confers no file authority. Cold
-startup, second-instance arguments and macOS open-file notifications use that
-same queue; reload or renderer loss revokes the current read token and reissues
-the queued selection. Authoring and archive reviews defer additional selections,
-retain the previous document and preserve retryable file release/acknowledgement
-authority. Project file reads and private save publication use the existing
-closed pathless capability methods; unknown or future archives remain exact-byte
-opaque custody without binding an editable native destination. Delivery uses the
-declared native carrier/encoder profile and an explicitly chosen destination,
-with retained cleanup authority when cancellation fails. Optional Developer ID
+selections through a Motion-only chooser filter and reads the selected project
+through its bounded native capability into the TypeScript AEP/AEPX import review
+without replacing its native Save binding. The importer never follows embedded
+media paths or executes expressions or plug-ins, retains exact original bytes in
+the project asset closure, and requires acknowledgement before publishing a new
+document. The lazy import dialog retains ownership until closure, including
+while its view loads; native release and acknowledgement failures retain cleanup
+authority for retry. OS-selected .mscape and .scape launch arguments admit at
+most 16 pending/open/active selections; the renderer can only take a bounded
+read capability or acknowledge its exact token. The pending notification carries
+no payload and confers no file authority. Cold startup, second-instance
+arguments and macOS open-file notifications use that same queue; reload or
+renderer loss revokes the current read token and reissues the queued selection.
+Authoring and archive reviews defer additional selections, retain the previous
+document and preserve retryable file release/acknowledgement authority. Project
+file reads and private save publication use the existing closed pathless
+capability methods; unknown or future archives remain exact-byte opaque custody
+without binding an editable native destination. Delivery uses the declared
+native carrier/encoder profile and an explicitly chosen destination, with
+retained cleanup authority when cancellation fails. Optional Developer ID
 packaging signs only a temporary copy of the verified Motion helper, requires
 the configured Apple Developer ID Application team and unchanged
 signature-stripped executable contents, and preserves the original compile

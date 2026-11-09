@@ -1,10 +1,11 @@
 # Direct After Effects format research
 
 Source reviews through 2026-11-08 of Storytold's Adobe interoperability projects
-and related format candidates. This is a source review, not an adopted dependency,
-executed parser qualification or installed-After-Effects result. Direct
-`.aep`/`.aepx` parsing remains separate feasibility work outside the first
-release's implemented M11 bridge. No installed AE environment is available.
+and related format candidates. External source claims below are pinned review
+evidence. Motionscaper now implements its own native AEP/AEPX reader, described
+in the [import contract](motionscaper-after-effects-bridge.md); the older bridge
+comparison is retained for the legacy converter contracts. No installed AE
+environment or universal rendering qualification is available.
 
 ## 2026-10-11: Storytold review
 
@@ -165,41 +166,31 @@ color, keyframe, project and effects crates, Serde and thiserror. Adopting it
 would require an independently reviewed dependency closure and a Motion adapter;
 it is not a standalone zero-dependency parser that can replace the bridge.
 
-| Concern | EffectCraft | Motionscaper bridge contract |
+| Concern | EffectCraft | Motionscaper import contract |
 | --- | --- | --- |
-| Native format | Reads binary AEP and XML AEPX; writes binary AEP. | Uses installed-AE scripts and inert exchange JSON. Selecting AEP/AEPX opens bridge instructions. Native parsing remains separate work. |
+| Native format | Reads binary AEP and XML AEPX; writes binary AEP. | Reads AEP/AEPX directly in TypeScript, retains the original bytes, and requires conversion review before creating a new document. Native writing is not implemented. |
 | Timing | [Frame mapping](https://github.com/storytold/effectcraft/blob/a41ff5015c6687db15a6f074a47b870b8f09fece/crates/aep/src/import/time.rs) retains exact rational NTSC rates and frame-aligned times. | Recovers exact 24000, 30000, 48000, 60000 and 120000 / 1001 rates from host floating clocks. Other rates use the reported bounded clock. Duration counts use the source rate before quantization, avoiding an added frame. |
 | Extreme stretch | [PR 3256](https://github.com/storytold/effectcraft/pull/3256) clamps out-of-range stretch and reports the correction. | Refuses magnitudes below 1 or above 9900 percent before source-time division, matching installed-import preflight. Valid negative stretch retains its sign; source data is not silently corrected. |
 | Separated Position | [Parity proposal 2760](https://github.com/storytold/effectcraft/pull/2760), still unmerged at this review, replaces inactive combined Position with the active axis channels. | Captures the leader's explicit separation state. Complete scalar axes become independent hold/linear or reviewed sampled curves. Missing state, duplicate/incomplete axes, unsupported easing or expressions are reported; stale combined coordinates are not substituted. Motion-authored reverse export uses combined Position; direct installed import of separated exchange data requires a separate host mapping. |
 | Text breaks | [Text mapping](https://github.com/storytold/effectcraft/blob/a41ff5015c6687db15a6f074a47b870b8f09fece/crates/aep/src/import/text.rs) treats U+0003 as a line break. | Retains U+0003 exactly in Source Text custody and converts it, CR and CRLF to Motion line feeds under reviewed text reflow. Names, fonts and other strings retain their existing control-character restrictions. |
 | Disabled shapes and image sequences | Reads shape visibility and sequence references. | Captured vector enable switches already control paint. Uncollected source image sequences are explicitly refused rather than represented by their first frame. |
-| Text, effects and renderer fidelity | Broader text, effect and layer-style mappings; unsupported data is reported. | Retains the reviewed text/font, shape, Gaussian and limited scene subsets and complete rendered fallback. No arbitrary effect, font substitution, expression execution or renderer compatibility follows from agreement with another importer. |
+| Text, effects and renderer fidelity | Broader text, effect and layer-style mappings; unsupported data is reported. | The native reader maps basic text with explicit fonts, static shapes/masks and authored numeric animation. Effects, advanced styles and scenes are reported; legacy exchange conversion has separate broader mappings. No font substitution, expression execution or renderer equivalence is implied. |
 
-These are independent TypeScript bridge changes informed by the source comparison;
-no EffectCraft code, crate or fixture is vendored. Upstream's reported AE renders
+The legacy comparison informed independent TypeScript conversion changes;
+no EffectCraft code or crate is vendored. The subsequent native importer includes an attributed, digest-pinned corpus binary/XML test pair. Upstream's reported AE renders
 do not qualify Motionscaper's installed-host matrix. Source custody, media
 verification, explicit import review and the installed-AE completion gate remain
-the [bridge's requirements](motionscaper-after-effects-bridge.md).
+the [import requirements](motionscaper-after-effects-bridge.md).
 
-## Native-format follow-on
+## Native implementation
 
-Keep the existing script/exchange/rendered-transfer workflow and its explicit
-installed-host qualification gate. Do not add these dependencies to the release
-branch on the basis of repository claims.
+The native implementation replaces the script/exchange product
+workflow. Its [current contract](motionscaper-after-effects-bridge.md) records
+hard limits, cancellation, exact original-source custody, unsupported entries,
+explicit media/font selection and transactional publication. The TypeScript
+reader is independently implemented from the pinned format facts. Corpus
+agreement is structural evidence, not a renderer correctness oracle.
 
-A separate feasibility spike should compare the pinned standalone Rust reader,
-the current EffectCraft container crate and py-aep on our own versioned fixtures, retaining
-their source and provenance records. Start with read-only extraction into
-Motionscaper's inert exchange/report model. Require hard limits, cancellation,
-exact original-AEP custody, explicit unsupported entries, and user-selected
-media access; never execute expressions/plugins or follow arbitrary source paths.
-Test duplicate names, parent/precomp references, fractional timing, malformed
-inputs, unknown chunks and save/reopen custody. Use upstream agreement only as a
-diagnostic, not the correctness oracle.
-
-Treat direct binary writing as a separate experiment comparing py-aep and
-EffectCraft's code-built writer, with new destinations and pinned target versions.
-Its acceptance still requires real installed-AE reopen/render evidence,
-unavailable here. None of these candidates eliminates that gate or provides
-native AE plug-in compatibility. The native-format review adopts no parser,
-vendored source, runtime asset or dependency.
+Direct binary writing remains a separate experiment requiring new destinations,
+pinned target versions and installed-AE reopen/render evidence. No parser
+candidate provides native plug-in compatibility or removes that qualification.

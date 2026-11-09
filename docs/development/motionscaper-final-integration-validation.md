@@ -931,11 +931,11 @@ The original completion gates remain unchanged.
 | M08 | Closed deterministic expression AST, stable references, procedural/audio queries, diagnostics and baking. | Current seek/order/cycle/budget/cancellation/audio/bake evidence. |
 | M09 | Perspective/orthographic scene authoring, lights/materials/shadows, translucent depth planes, deterministic lens/shutter sampling. | Linux maximum-quality, 64-plane, 32-light and index references pass on `0282106d9`; complete browser and other hardware/platform qualification remain open. |
 | M10 | Explicit saved-revision transfer, Frame successor connection/conform/Undo/Resume, native watcher, retained offline preview/finish/export. | Current full link/dual-origin/offline/atomic/concurrent export and actual platform-isolation evidence. |
-| M11 | Readable installed-host scripts, reviewed editable subset, sampled/rendered alternatives, immutable original/report/media custody. | Actual installed AE export/reimport, reference frames/subframes and tested host-version matrix; environment unavailable. |
+| M11 | Native TypeScript AEP/AEPX import review with original-file/media/font custody and a limited editable subset; retained legacy exchange converters. | Actual installed AE export/reimport, reference frames/subframes and tested host-version matrix; environment unavailable. |
 | M12 | Own candidate/stable packaging, source-bound web build/deployment, signing/updater configuration, associations, handbook/copy and capability register. | Complete Node/browser build pass on `bc586f975`; static, Linux unpacked packages/maxima and Windows unsigned software-GPU smoke pass on `0282106d9`. Complete browser/union coverage, remaining target/install/sign/update and real-AE gates remain open. Publication is a separate owner action. |
 
 File provides New Composition, Open/Save/Save Copy, media import, compositions,
-After Effects Bridge, Send Composition to Framescaper, Render and Render Queue.
+Import After Effects Project, Send Composition to Framescaper, Render and Render Queue.
 View opens the workspace, canvas, preview and timeline; Layer opens properties,
 paths, operators, appearance, compositing, tracking, expressions and scene tools.
 Help opens the own handbook/tutorials and the desktop's manual own-tag update

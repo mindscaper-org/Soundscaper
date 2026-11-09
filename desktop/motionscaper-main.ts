@@ -129,7 +129,7 @@ async function start(): Promise<void> {
 			if (!window) throw new Error('Motionscaper has no active document window.');
 			const selection = await dialog.showOpenDialog(window, { title: nativeCopy().motionscaperNativeOpenTitle, properties: ['openFile'], filters: [
 				{ name: nativeCopy().motionscaperNativeProjectFilter, extensions: ACCEPTED_PROJECT_FILE_EXTENSIONS.map(extension => extension.slice(1)) },
-				{ name: resolveMotionscaperAeCopy(currentDesktopLocale).motionscaperAfterEffectsBridge!, extensions: ['aep', 'aepx'] },
+				{ name: resolveMotionscaperAeCopy(currentDesktopLocale).motionscaperAepImport!, extensions: ['aep', 'aepx'] },
 			] });
 			return selection.canceled ? null : selection.filePaths[0] ?? null;
 		},

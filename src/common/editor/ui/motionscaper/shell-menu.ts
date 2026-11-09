@@ -56,7 +56,7 @@ export function createMotionscaperShellMenus(
 			item('motion-copy', copy.motionscaperSaveCopy, 'copy', options.hasProject),
 			item('motion-library', copy.motionscaperLibrary, 'library'),
 			item('motion-send', copy.motionscaperSendComposition, 'send', options.hasProject),
-			item('motion-after-effects', copy.motionscaperAfterEffectsBridge, 'after-effects'),
+			item('motion-after-effects', copy.motionscaperAepImport, 'after-effects'),
 			item('motion-render', copy.motionscaperRender, 'render', options.hasProject),
 			item('motion-render-queue', copy.motionscaperRenderQueue, 'render-queue')]),
 		}),

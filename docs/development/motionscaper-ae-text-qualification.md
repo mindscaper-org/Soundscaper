@@ -1,6 +1,13 @@
 # Motionscaper AE editable text staging
 
-The File > After Effects Bridge dialog offers separate opt-in text settings for
+This guide describes retained legacy exchange/converter contracts. The product
+bridge controls are removed. Current File Open and import behavior is the
+[native AEP/AEPX importer](motionscaper-after-effects-bridge.md); the legacy
+mappings below do not imply support in the native importer. Existing domain
+and host-fixture tests remain compatibility evidence.
+
+
+The legacy exchange converter accepts separate reviewed text settings for
 import and export. The user chooses destination line spacing, color interpretation,
 and explicit PostScript-name/font associations. The conversion report always
 retains the reflow warning. This is structural editable interchange, with no

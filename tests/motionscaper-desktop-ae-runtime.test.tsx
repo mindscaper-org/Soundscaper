@@ -18,7 +18,7 @@ import type { MotionscaperDocumentRuntimeProps } from '../src/common/editor/ui/m
 import { installReactTestDom } from './helpers/react-test-dom.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 
-for (const source of ['menu', 'native'] as const) test(`actual runtime holds warm launches throughout ${source} AE bridge lazy fallback until close`, async () => {
+for (const source of ['menu', 'native'] as const) test(`actual runtime holds warm launches throughout ${source} native AEP import lazy fallback until close`, async () => {
 	const directory = await mkdtemp(join(tmpdir(), 'motion-native-ae-runtime-'));
 	const require = createRequire(import.meta.url), repository = fileURLToPath(new URL('../', import.meta.url));
 	let allowBridge = () => undefined as void;
@@ -27,14 +27,14 @@ for (const source of ['menu', 'native'] as const) test(`actual runtime holds war
 	await writeFile(bridge, `import React from ${JSON.stringify(pathToFileURL(require.resolve('react')).href)};
 		await globalThis.__motionNativeAeGate;
 		export default function Bridge(props) { globalThis.__motionNativeAeProps = props;
-		return React.createElement('div', {role:'dialog'}, props.copy.motionscaperAfterEffectsBridge); }`);
+		return React.createElement('div', {role:'dialog'}, props.copy.motionscaperAepImport); }`);
 	const bundled = await build({ entryPoints: [join(repository, 'src/common/editor/ui/motionscaper/MotionscaperDocumentRuntime.tsx')],
 		bundle: true, write: false, platform: 'node', format: 'esm', target: 'node26', jsx: 'automatic',
 		loader: { '.css': 'empty', '.svg': 'text' },
 		define: { __SCAPE_PRODUCT__: '"motionscaper"', __SCAPE_FRAMESCAPER_LINE__: '"successor"', 'import.meta.env.PROD': 'false', 'import.meta.env.DEV': 'false' },
 		plugins: [{ name: 'held-bridge-import', setup(plugin) {
 			plugin.onResolve({ filter: /^\.\/Motion.*Dialog\.tsx$/ }, args => ({
-				path: args.path === './MotionAeBridgeDialog.tsx' ? bridge : join(repository, 'src/common/editor/ui/motionscaper', args.path), external: true,
+				path: args.path === './MotionAepImportDialog.tsx' ? bridge : join(repository, 'src/common/editor/ui/motionscaper', args.path), external: true,
 			}));
 			plugin.onResolve({ filter: /\.tsx?$/ }, args => args.kind === 'dynamic-import' ? { path: join(args.resolveDir, args.path), external: true } : undefined);
 			plugin.onResolve({ filter: /^[^./]/ }, args => ({ path: require.resolve(args.path), external: true }));
@@ -50,7 +50,7 @@ for (const source of ['menu', 'native'] as const) test(`actual runtime holds war
 	const snapshots: MotionscaperDocumentSnapshot[] = []; let takes = 0, opened = 0, reads = 0, binds = 0, releases = 0, completed = 0;
 	const request: MotionscaperDocumentRuntimeProps['request'] = source === 'menu' ? { id: 1, command: 'after-effects' } : {
 		id: 1, command: 'open', nativeArchive: { name: 'Original.AEPX',
-			input: createScapeArchiveByteSource({ size: 4096, maximumReadBytes: 4096, read: async () => { reads++; throw new Error('Adobe source must not be read.'); } }),
+			input: createScapeArchiveByteSource({ size: 4096, maximumReadBytes: 4096, read: async ({ length }) => { reads++; return new Uint8Array(length); } }),
 			bind: async () => { binds++; throw new Error('Adobe source must not bind.'); },
 			release: async () => { assert.equal(snapshots.at(-1)?.busy, true, 'busy fence precedes capability release'); releases++; },
 		}, onComplete: () => { completed++; },
@@ -65,7 +65,7 @@ for (const source of ['menu', 'native'] as const) test(`actual runtime holds war
 		assert.equal(dom.container.textContent.includes('Working'), true);
 		assert.equal(dom.container.querySelectorAll('[role="dialog"]').length, 0, 'the real lazy import remains unresolved');
 		assert.equal(snapshots.at(-1)?.busy, true, 'bridge ownership must not depend on mounted dialog DOM');
-		assert.equal(reads, 0); assert.equal(binds, 0); assert.equal(releases, source === 'native' ? 1 : 0); assert.equal(completed, releases);
+		assert.equal(reads, source === 'native' ? 1 : 0); assert.equal(binds, 0); assert.equal(releases, source === 'native' ? 1 : 0); assert.equal(completed, releases);
 		assert.equal(snapshots.at(-1)?.project, null); assert.equal(snapshots.at(-1)?.savedDigest, null);
 		installation = installMotionscaperDesktopLaunch({ files,
 			launch: { take: async () => { takes++; return takes === 1 ? { token: 'warm', name: 'warm.mscape', byteLength: 1 } : null; }, acknowledge: async () => undefined, onPending: () => () => undefined },
@@ -74,8 +74,8 @@ for (const source of ['menu', 'native'] as const) test(`actual runtime holds war
 		assert.equal(takes, 0); assert.equal(opened, 0);
 		await act(async () => { allowBridge(); await gate; });
 		assert.equal(dom.container.querySelectorAll('[role="dialog"]').length, 1); installation.wake(); assert.equal(takes, 0);
-		const props = Reflect.get(globalThis, '__motionNativeAeProps') as { initialAdobeName?: string; onClose(): void };
-		assert.equal(props.initialAdobeName, source === 'native' ? 'Original.AEPX' : undefined);
+		const props = Reflect.get(globalThis, '__motionNativeAeProps') as { initialFile?: File; onClose(): void };
+		assert.equal(props.initialFile?.name, source === 'native' ? 'Original.AEPX' : undefined);
 		await act(async () => { props.onClose(); });
 		assert.equal(snapshots.at(-1)?.busy, false); assert.equal(dom.container.querySelectorAll('[role="dialog"]').length, 0);
 		installation.wake(); await new Promise<void>(resolve => setImmediate(resolve)); assert.equal(opened, 1);

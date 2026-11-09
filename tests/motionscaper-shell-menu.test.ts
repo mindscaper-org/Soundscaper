@@ -3,13 +3,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-test('AE bridge is an idle File command available before a document is created', () => {
+test('Native AEP import is an idle File command available before a document is created', () => {
 	const commands: string[] = [];
 	const options = { copy: motionscaperCopy('en'), workspaceOpen: false, onToggleWorkspace: () => undefined, onCommand: (command: string) => { commands.push(command); }, hasProject: false };
 	const find = (menus: ReturnType<typeof createMotionscaperShellMenus>) => menus.find(({ id }) => id === 'file')?.items.find(({ id }) => id === 'motion-after-effects');
-	const item = find(createMotionscaperShellMenus(options)); assert.equal(item?.label, options.copy.motionscaperAfterEffectsBridge); item?.onClick?.(); assert.deepEqual(commands, ['after-effects']);
+	const item = find(createMotionscaperShellMenus(options)); assert.equal(item?.label, options.copy.motionscaperAepImport); item?.onClick?.(); assert.deepEqual(commands, ['after-effects']);
 	assert.equal(find(createMotionscaperShellMenus({ ...options, busy: true }))?.disabled, true);
-	assert.equal(find(createMotionscaperShellMenus({ ...options, copy: motionscaperCopy('de') }))?.label, motionscaperCopy('de').motionscaperAfterEffectsBridge);
+	assert.equal(find(createMotionscaperShellMenus({ ...options, copy: motionscaperCopy('de') }))?.label, motionscaperCopy('de').motionscaperAepImport);
 });
 import { motionscaperCopy } from '../src/common/editor/ui/motionscaper/motionscaper-copy.ts';
 import { MOTIONSCAPER_CANONICAL_ENGLISH_COPY } from '../src/common/i18n/editor-motionscaper-copy.ts';

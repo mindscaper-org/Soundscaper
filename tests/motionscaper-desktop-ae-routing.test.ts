@@ -15,27 +15,28 @@ import { openMotionscaperDesktopArchiveSelection, writeMotionscaperDesktopProjec
 import { MotionscaperDocumentSession } from '../src/motionscaper/editor-document-session.ts';
 import { createMotionscaperProjectStore } from '../src/motionscaper/editor-project-store.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
+import { readMotionscaperNativeAepSource } from '../src/motionscaper/editor-native-aep-source.ts';
 
 const settings = { title: 'Native original', width: 32, height: 32, frameRate: { num: 30, den: 1 }, durationFrames: 2 };
 function fixture() {
 	const store = createMotionscaperProjectStore({ indexedDB: createInstrumentedIndexedDB() as unknown as IDBFactory });
 	return { store, session: new MotionscaperDocumentSession(store) };
 }
-async function openAdobe(session: MotionscaperDocumentSession, selected: MotionDesktopArchiveInput, onAdobe: (name: string) => void): Promise<unknown> {
+async function openAdobe(session: MotionscaperDocumentSession, selected: MotionDesktopArchiveInput, onAdobe: (file: File) => void): Promise<unknown> {
 	return await openMotionscaperDesktopArchiveSelection(session, selected, undefined, undefined, onAdobe);
 }
 function unreadable(name: string, release: () => Promise<void>): MotionDesktopArchiveInput {
 	return { name, input: createScapeArchiveByteSource({ size: 32, maximumReadBytes: 32,
-		read: async () => { throw new Error('Adobe project bytes must not be read.'); } }),
+		read: async ({ offset, length }) => new Uint8Array(length).fill(offset % 256) }),
 		bind: async () => { throw new Error('Adobe project must not replace the native save binding.'); }, release };
 }
 
-for (const name of ['Original.aep', 'Original.AEPX']) test(`native Adobe selection ${name} routes by name, releases once and preserves dirty history and bound Save`, async () => {
+for (const name of ['Original.aep', 'Original.AEPX']) test(`native Adobe selection ${name} reads a native import file, releases once and preserves dirty history and bound Save`, async () => {
 	const root = await mkdtemp(join(tmpdir(), 'motion-native-ae-')), original = join(root, 'original.mscape'), adobe = join(root, name);
 	await writeFile(adobe, 'untouched Adobe source bytes');
 	let saveChoices = 0, reads = 0, binds = 0, releases = 0;
 	const authority = createMotionscaperFileAuthority({ chooseOpen: async () => adobe, chooseSave: async () => { saveChoices++; return original; } });
-	const files = { ...authority, read: async () => { reads++; throw new Error('Adobe project bytes must not be read.'); },
+	const files = { ...authority, read: async (request: Parameters<typeof authority.read>[0]) => { reads++; return await authority.read(request); },
 		bindOpened: async () => { binds++; throw new Error('Adobe cannot bind.'); },
 		release: async (request: { token: string }) => { releases++; await authority.release(request); } };
 	const { session, store } = fixture();
@@ -46,8 +47,8 @@ for (const name of ['Original.aep', 'Original.AEPX']) test(`native Adobe selecti
 		assert.equal(before.dirty, true); assert.equal(before.canUndo, true);
 		const selected = await selectMotionscaperDesktopArchive(files); assert.ok(selected);
 		const wrapped = { ...selected, release: async () => { events.push('release'); await selected.release(); } };
-		assert.equal(await openAdobe(session, wrapped, filename => { assert.equal(filename, name); events.push('bridge'); }), 'after-effects');
-		assert.deepEqual(events, ['bridge', 'release']); assert.equal(reads, 0); assert.equal(binds, 0); assert.equal(releases, 1);
+		assert.equal(await openAdobe(session, wrapped, file => { assert.equal(file.name, name); assert.equal(file.size, 28); events.push('native-import'); }), 'after-effects');
+		assert.deepEqual(events, ['native-import', 'release']); assert.equal(reads, 1); assert.equal(binds, 0); assert.equal(releases, 1);
 		assert.deepEqual(session.getSnapshot(), before); assert.deepEqual(await readFile(original), disk);
 		await session.undo(); assert.equal(session.getSnapshot().project?.title, 'Native original');
 		await session.redo(); assert.equal(session.getSnapshot().project?.title, 'Unsaved native draft');
@@ -57,7 +58,7 @@ for (const name of ['Original.aep', 'Original.AEPX']) test(`native Adobe selecti
 	} finally { await session.dispose(); await store.close(); await authority.dispose(); await rm(root, { recursive: true, force: true }); }
 });
 
-test('native Adobe cleanup failure keeps the intended bridge route and allows retry without project mutation', async () => {
+test('native Adobe cleanup failure keeps the intended native import route and allows retry without project mutation', async () => {
 	const { session, store } = fixture(); const cleanup = new Error('Native close failed.'); let attempts = 0, routes = 0;
 	const selected = unreadable('Retry.aep', async () => { if (++attempts === 1) throw cleanup; });
 	try {
@@ -68,20 +69,20 @@ test('native Adobe cleanup failure keeps the intended bridge route and allows re
 	} finally { await session.dispose(); await store.close(); }
 });
 
-test('native Adobe route preserves close then ACK retry semantics without reading or binding launch bytes', async () => {
+test('native Adobe route preserves close then ACK retry semantics without binding launch bytes', async () => {
 	const { session, store } = fixture(); const events: string[] = []; let failClose = true, failAck = true;
 	const files: MotionDesktopFiles = { selectOpen: async () => null,
-		read: async () => { throw new Error('No Adobe byte read.'); }, bindOpened: async () => { throw new Error('No Adobe binding.'); },
+		read: async ({ length }) => new Uint8Array(length), bindOpened: async () => { throw new Error('No Adobe binding.'); },
 		release: async () => { events.push('close'); if (failClose) { failClose = false; throw new Error('Close denied.'); } },
 		beginSave: async () => null, write: async () => undefined, commit: async () => { throw new Error('No save.'); }, cancel: async () => undefined };
 	const launch = { take: async () => ({ token: 'adobe', name: 'Warm.aepx', byteLength: 32 }),
 		acknowledge: async () => { events.push('ack'); if (failAck) { failAck = false; throw new Error('ACK denied.'); } }, onPending: () => () => undefined };
 	try {
 		const selected = await takeMotionscaperDesktopLaunch(files, launch); assert.ok(selected);
-		await assert.rejects(openAdobe(session, selected, () => { events.push('bridge'); }), /Close denied/u);
-		assert.deepEqual(events, ['bridge', 'close']);
-		await assert.rejects(selected.release(), /ACK denied/u); assert.deepEqual(events, ['bridge', 'close', 'close', 'ack']);
-		await selected.release(); await selected.release(); assert.deepEqual(events, ['bridge', 'close', 'close', 'ack', 'ack']);
+		await assert.rejects(openAdobe(session, selected, () => { events.push('native-import'); }), /Close denied/u);
+		assert.deepEqual(events, ['native-import', 'close']);
+		await assert.rejects(selected.release(), /ACK denied/u); assert.deepEqual(events, ['native-import', 'close', 'close', 'ack']);
+		await selected.release(); await selected.release(); assert.deepEqual(events, ['native-import', 'close', 'close', 'ack', 'ack']);
 		assert.equal(session.getSnapshot().project, null);
 	} finally { await session.dispose(); await store.close(); }
 });
@@ -90,13 +91,19 @@ test('Adobe suffixes remain outside global Scape project and OS launch admission
 	assert.equal(ACCEPTED_PROJECT_FILE_EXTENSIONS.some(extension => /aep/iu.test(extension)), false);
 	assert.deepEqual(motionLaunchPaths(['Original.aep', 'Original.AEPX'], '/tmp'), []);
 	const source = await readFile(new URL('../desktop/motionscaper-main.ts', import.meta.url), 'utf8');
-	assert.match(source, /motionscaperAfterEffectsBridge[\s\S]{0,100}extensions:\s*\['aep',\s*'aepx'\]/u);
+	assert.match(source, /motionscaperAepImport[\s\S]{0,100}extensions:\s*\['aep',\s*'aepx'\]/u);
 });
 
-test('the core archive owner refuses Adobe bytes when no bridge callback is available', async () => {
+test('the core archive owner refuses Adobe bytes when no native import callback is available', async () => {
 	const { session, store } = fixture(); let released = 0;
 	try {
-		await assert.rejects(openMotionscaperDesktopArchiveSelection(session, unreadable('Original.aep', async () => { released++; })), /After Effects Bridge/u);
+		await assert.rejects(openMotionscaperDesktopArchiveSelection(session, unreadable('Original.aep', async () => { released++; })), /native AEP import/iu);
 		assert.equal(released, 1); assert.equal(session.getSnapshot().project, null);
 	} finally { await session.dispose(); await store.close(); }
+});
+test('native AEP source reads honor the selected capability range limit and reject oversized sources before I/O', async () => {
+	const bytes = Uint8Array.from({ length: 51 }, (_, index) => index); let reads = 0;
+	const input = createScapeArchiveByteSource({ size: bytes.length, maximumReadBytes: 17, read: ({ offset, length }) => { reads++; return bytes.slice(offset, offset + length); } });
+	assert.deepEqual(new Uint8Array(await (await readMotionscaperNativeAepSource(input, 'Source.aep')).arrayBuffer()), bytes); assert.equal(reads, 3);
+	await assert.rejects(readMotionscaperNativeAepSource({ ...input, size: 64 * 1024 * 1024 + 1 }, 'Too large.aep'), /budget/iu); assert.equal(reads, 3);
 });

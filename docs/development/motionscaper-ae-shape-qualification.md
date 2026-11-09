@@ -1,5 +1,12 @@
 # Motionscaper AE editable shape staging
 
+This guide describes retained legacy exchange/converter contracts. The product
+bridge controls are removed. Current File Open and import behavior is the
+[native AEP/AEPX importer](motionscaper-after-effects-bridge.md); the legacy
+mappings below do not imply support in the native importer. Existing domain
+and host-fixture tests remain compatibility evidence.
+
+
 The project converters map ordered isolated Bezier path/solid-paint groups. Fill
 and stroke become separate editable path copies, with an explicit report. Static
 positive uniform group transforms are baked into geometry and stroke width.
@@ -14,7 +21,7 @@ published [shape property inventory](https://ae-scripting.docsforadobe.dev/match
 identifies the controls without defining their numeric popup mappings. A separate,
 explicitly selected calibration workflow establishes a user's reviewed labels:
 
-1. Download scripts from File > After Effects Bridge. Run
+1. Generate compatibility scripts with `node scripts/build-motionscaper-ae-bridge.mjs`. Run
    `Motionscaper-Prepare-Shape-Profile.jsx` in installed AE and confirm. This creates
    one new sample composition with five bounded groups. It does not save a project
    or change existing layers, files, preferences, or render-queue items.
@@ -55,7 +62,7 @@ documentation.
 
 Node tests exercise project roundtrips, actual CanvasKit painter-order/alpha
 pixels, closed profile admission, calibration ownership, generated ES3 execution,
-cancellation, overwrite refusal and cleanup errors. The browser workflow imports
+cancellation, overwrite refusal and cleanup errors. The retired bridge browser workflow imported
 a structural shape fixture, paints actual half-alpha pixels, saves/reopens the
 project and verifies editable reverse operations plus original exchange custody. These are automated contract
 checks, not installed-AE qualification. No AE installation was used to obtain

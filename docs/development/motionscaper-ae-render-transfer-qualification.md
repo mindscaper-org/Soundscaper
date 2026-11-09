@@ -1,6 +1,13 @@
 # Motion to After Effects complete rendered transfer
 
-File > After Effects Bridge > Rendered composition export prepares the full selected composition, independent of its work area. The immutable source revision, rational frame rate, dimensions, shutter sampling and depth-of-field sample count are pinned before media reads. The source project is never edited or saved by this operation.
+This guide describes retained legacy exchange/converter contracts. The product
+bridge controls are removed. Current File Open and import behavior is the
+[native AEP/AEPX importer](motionscaper-after-effects-bridge.md); the legacy
+mappings below do not imply support in the native importer. Existing domain
+and host-fixture tests remain compatibility evidence.
+
+
+The legacy rendered-composition transfer service prepares the full selected composition, independent of its work area. The immutable source revision, rational frame rate, dimensions, shutter sampling and depth-of-field sample count are pinned before media reads. The source project is never edited or saved by this operation.
 
 `editor-ae-render-package.ts` calls the maintained `renderMotionscaperDelivery` PNG pipeline. It does not substitute preview resolution or quality. The renderer prepares any expression audio needed to evaluate appearance, but the transferred output is image-only. All original audio and every retained asset, including unused sources, remain in `original.mscape` with the complete authored project and previous interchange custody.
 

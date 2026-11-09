@@ -884,7 +884,7 @@
 			"development": {
 				"status": "in-progress",
 				"summary": "Motionscaper develops a separate motion workspace reached through menus. It owns layered compositions, property animation, imported font and vector rendering, linear-SDR compositing, masks and mattes, tracking, bounded expressions, 2.5D scenes, retained media, and revision-pinned preview and delivery. The shared Soundscaper/Framescaper capability flags below do not grant authority to this workspace.",
-				"qualificationSummary": "Application source 70a02ba9e passed complete Node/static gates, five fixed Linux x64 software workflows, the original 300/1,200-frame native and controlled Chromium duration cases, and four bounded native maximum profiles. Original picture/alpha, native PCM/timestamps, memory and cleanup limits remain unchanged. These are source-bound software profiles, not other hardware/hosts or every maximum combination; lossy Opus is not exact PCM and OPFS does not qualify the OS picker. Its complete ordinary/linked/dual browser gate failed: 7,331 passes, 287 declared skips and eight failures. Linked39 and dual9 passed separately. Later committed playback-start, handbook and browser-probe repairs have focused validation. The affected native successor link/delivery regression subsequently passed on source 48a90f028; fresh complete gates and the accepted Node/Chromium coverage union remain pending. Three historical UI failures did not recur in bounded one-worker and four-worker diagnostics and remain unresolved. The repaired complete Motion Pages build passed local app/docs/staging checks but failed the live predecessor preflight; no deployment occurred. The AE bridge supports a reviewed editable subset; image-only fallback admits at most 256 frames, omits/mutes audio and retains original project/media custody. No universal editable-or-baked or installed-AE fidelity is claimed. Hardware GPU, macOS Safari, remaining native targets, signing, installation/update, installed After Effects and publication remain unqualified. All twelve first-release milestones remain In progress.",
+				"qualificationSummary": "Application source 70a02ba9e passed complete Node/static gates, five fixed Linux x64 software workflows, the original 300/1,200-frame native and controlled Chromium duration cases, and four bounded native maximum profiles. Original picture/alpha, native PCM/timestamps, memory and cleanup limits remain unchanged. These are source-bound software profiles, not other hardware/hosts or every maximum combination; lossy Opus is not exact PCM and OPFS does not qualify the OS picker. Its complete ordinary/linked/dual browser gate failed: 7,331 passes, 287 declared skips and eight failures. Linked39 and dual9 passed separately. Later committed playback-start, handbook and browser-probe repairs have focused validation. The affected native successor link/delivery regression subsequently passed on source 48a90f028; fresh complete gates and the accepted Node/Chromium coverage union remain pending. Three historical UI failures did not recur in bounded one-worker and four-worker diagnostics and remain unresolved. The repaired complete Motion Pages build passed local app/docs/staging checks but failed the live predecessor preflight; no deployment occurred. Native TypeScript AEP/AEPX import replaces the script bridge in the File menu. The bounded parser retains the original project bytes and explicitly selected media/fonts, reconstructs a limited editable subset, reports unsupported content and requires review before atomic publication. Pinned AE-generated binary/XML fixtures are structural format evidence; complete renderer fidelity and native AEP writing remain unqualified. Hardware GPU, macOS Safari, remaining native targets, signing, installation/update, installed After Effects and publication remain unqualified. All twelve first-release milestones remain In progress.",
 				"evidence": [
 					"tests/motionscaper-windows-helper-signing.test.ts",
 					"tests/browser/motionscaper-desktop-ae-routing.spec.ts",
@@ -897,7 +897,6 @@
 					"tests/browser/motionscaper-script-fonts.spec.ts",
 					"tests/browser/motionscaper-scene.spec.ts",
 					"tests/browser/motionscaper-authoring-workflow.spec.ts",
-					"tests/browser/motionscaper-ae-editable-text.spec.ts",
 					"tests/browser/motionscaper-updates.spec.ts",
 					"docs/development/motionscaper-ae-text-qualification.md",
 					"docs/development/motionscaper-native-scene-qualification.md",
@@ -905,14 +904,16 @@
 					"docs/development/motionscaper-platform-qualification.md",
 					"docs/development/motionscaper-ae-expressions.md",
 					"tests/browser/motionscaper-platform.spec.ts",
-					"tests/browser/motionscaper-ae-expressions.spec.ts",
 					"tests/browser/motionscaper-compositing-delivery.spec.ts",
 					"tests/browser/motionscaper-linked-editors.spec.ts",
 					"tests/browser/motionscaper-linked-native-menu.spec.ts",
 					"tests/browser/motionscaper-desktop-launch.spec.ts",
-					"tests/browser/motionscaper-ae-render-package.spec.ts",
 					"docs/development/motionscaper-ae-render-transfer-qualification.md",
-					"src/common/editor/ui/workspace/product-video-cpu-preview.ts"
+					"src/common/editor/ui/workspace/product-video-cpu-preview.ts",
+					"tests/browser/motionscaper-native-aep.spec.ts",
+					"tests/motionscaper-native-aep-import.test.ts",
+					"tests/motionscaper-native-aep-corpus.test.ts",
+					"src/common/editor/controller/import/native-aep-import.ts"
 				]
 			}
 		}

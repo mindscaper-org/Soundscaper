@@ -404,16 +404,7 @@
 		},
 		{
 			"files": [
-				"tests/browser/motionscaper-ae-blends.spec.ts",
-				"tests/browser/motionscaper-ae-bridge.spec.ts",
-				"tests/browser/motionscaper-ae-editable-masks.spec.ts",
-				"tests/browser/motionscaper-ae-editable-shapes.spec.ts",
-				"tests/browser/motionscaper-ae-editable-text.spec.ts",
-				"tests/browser/motionscaper-ae-expressions.spec.ts",
-				"tests/browser/motionscaper-ae-gaussian.spec.ts",
-				"tests/browser/motionscaper-ae-render-package.spec.ts",
-				"tests/browser/motionscaper-ae-scenes.spec.ts",
-				"tests/browser/motionscaper-ae-shape-profile.spec.ts",
+				"tests/browser/motionscaper-native-aep.spec.ts",
 				"tests/browser/motionscaper-appearance.spec.ts",
 				"tests/browser/motionscaper-archive-conflicts.spec.ts",
 				"tests/browser/motionscaper-audio-preview.spec.ts",

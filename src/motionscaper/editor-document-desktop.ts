@@ -12,6 +12,7 @@ import { prepareMotionscaperDocumentOpen, type MotionscaperDocumentOpen } from '
 import { exportMotionscaperArchive } from './editor-scape.ts';
 import { assertNativeSaveReceipt, MotionNativeSaveCleanupError, type MotionNativeSaveDriver, type MotionNativeSaveRecoveryDriver } from './editor-native-save.ts';
 import { inspectMotionscaperOpaqueArchive, type MotionscaperOpaqueArchive } from './editor-opaque-archive.ts';
+import { readMotionscaperNativeAepSource } from './editor-native-aep-source.ts';
 
 /** Normal Save returns a fenced candidate; only the owning document session may publish it. */
 export async function writeMotionscaperDesktopProject(project: MotionscaperProject, store: Pick<MotionscaperProjectStore, 'readAsset'>,
@@ -45,7 +46,7 @@ export async function openMotionscaperDesktopProject(session: MotionscaperDocume
 	files: MotionDesktopFiles | null = motionscaperDesktopFiles(),
 	onOpaque?: (archive: MotionscaperOpaqueArchive) => void | Promise<void>,
 	onReview?: (pending: MotionscaperDocumentOpen) => void | Promise<void>,
-	onAdobeProject?: (name: string) => void): Promise<'browser' | 'cancelled' | 'opened' | 'opaque' | 'review' | 'after-effects'> {
+	onAdobeProject?: (file: File) => void | Promise<void>): Promise<'browser' | 'cancelled' | 'opened' | 'opaque' | 'review' | 'after-effects'> {
 	if (!files) return 'browser';
 	const selected = await selectMotionscaperDesktopArchive(files);
 	if (!selected) return 'cancelled';
@@ -55,12 +56,12 @@ export async function openMotionscaperDesktopProject(session: MotionscaperDocume
 export async function openMotionscaperDesktopArchiveSelection(session: MotionscaperDocumentSession, selected: MotionDesktopArchiveInput,
 	onOpaque?: (archive: MotionscaperOpaqueArchive) => void | Promise<void>,
 	onReview?: (pending: MotionscaperDocumentOpen) => void | Promise<void>,
-	onAdobeProject?: (name: string) => void): Promise<'opened' | 'opaque' | 'review' | 'after-effects'> {
+	onAdobeProject?: (file: File) => void | Promise<void>): Promise<'opened' | 'opaque' | 'review' | 'after-effects'> {
 	let retained = false, failed = false; let failure: unknown; let result: 'opened' | 'opaque' | 'review' | 'after-effects' | undefined;
 	const inspect = async (): Promise<'opened' | 'opaque' | 'review' | 'after-effects'> => {
 		if (/\.aepx?$/iu.test(selected.name)) {
-			if (!onAdobeProject) throw new Error('Open this Adobe project through the After Effects Bridge.');
-			onAdobeProject(selected.name); return 'after-effects';
+			if (!onAdobeProject) throw new Error('Open this Adobe project through native AEP import review.');
+			await onAdobeProject(await readMotionscaperNativeAepSource(selected.input, selected.name)); return 'after-effects';
 		}
 		if (selected.recoveredPublication) {
 			if (!selected.markRecoveryReconciled) throw new Error('Native recovery requires an authenticated acknowledgement capability.');

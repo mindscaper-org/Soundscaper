@@ -25,9 +25,9 @@ copy of After Effects and a documented editable subset.
 - Defer imported 3D meshes, extruded geometry, automated subject rotoscoping,
   3D camera solving, content-aware removal, HDR/wide-gamut mastering, and
   unrestricted JavaScript.
-- Native Adobe plug-in hosting and direct general-purpose `.aep`/`.aepx`
-  parsing are separate feasibility work. The initial bridge can render
-  unsupported AE effects and plug-ins in installed After Effects.
+- Native Adobe plug-in hosting and general-purpose AEP writing remain separate
+  feasibility work. Direct AEP/AEPX import uses the bounded native reader and
+  reports unsupported content; it does not run Adobe plug-ins or expressions.
 
 ## How to execute the order
 
@@ -64,7 +64,7 @@ controls. Keyboard shortcuts may supplement the menu entry.
 | M08 | Expressions and procedural animation | M06 | Bounded, deterministic property expressions. |
 | M09 | 2.5D cameras, lights, and temporal rendering | M07, M08 | Complete 2.5D compositing with blur and depth of field. |
 | M10 | Linked Framescaper compositions | M02, M05, M09 | Saved revisions update portable, offline-renderable links. |
-| M11 | After Effects interchange bridge | M05, M06, M07, M08, M09 | Qualified editable exchange with explicit baking reports. |
+| M11 | Native After Effects import | M05, M06, M07, M08, M09 | Qualified editable exchange with explicit baking reports. |
 | M12 | Distribution and release qualification | M01–M11 | Both platforms pass the complete first-release gates. |
 
 The table is the default execution order. Its prerequisites identify the
@@ -295,20 +295,21 @@ closing Motionscaper leaves preview/export working. Test offline archive
 reopen, reconnect, interrupted transfer, atomic saves, incompatible updates,
 undo/resume, concurrent export, asset retention, and cross-origin isolation.
 
-## M11. After Effects interchange bridge
+## M11. Native After Effects import
 
-**Deliverables:** provide readable ExtendScript exporter/importer scripts run
-through installed After Effects and a versioned exchange package with media
-references. Reconstruct supported compositions, footage, parenting, transforms,
-keyframes/easing, text, shape paths, masks/mattes, cameras, lights, blend modes,
-and explicitly mapped effects as editable content.
+**Deliverables:** read `.aep` and `.aepx` directly in the browser and desktop
+through the existing File menu. Preserve the exact original project and
+explicitly selected media/fonts in the ordinary asset closure. Reconstruct
+supported compositions, source/layer identities, parenting, timing, transforms,
+numeric animation, text, static shape paths, masks/mattes and blends as editable
+content. Report unsupported effects, advanced styles, expressions, missing
+sources and renderer differences before atomic publication of a new document.
+Never follow embedded paths or execute project code.
 
-Translate the supported expression subset. Offer sampled keyframes or
-AE-rendered media for unsupported constructs; bake a complete composition when
-cross-layer dependencies make layer-level baking incorrect. Preserve source
-projects and emit a report distinguishing editable, sampled, rendered, and
-unsupported content, including missing media/fonts. Direct `.aep` selection
-leads to the bridge workflow rather than claiming native project support.
+The [native importer contract](motionscaper-after-effects-bridge.md) owns its
+limits and subset. The product bridge workflow is removed; legacy exchange
+converters remain for saved-document compatibility. Native AEP export and
+installed-host plug-in fidelity are separate work.
 
 **Completion gate:** real AE-generated fixtures and actual AE re-imports
 qualify the supported subset. Compare editable structure and reference frames;

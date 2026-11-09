@@ -23,7 +23,7 @@ import { ACCEPTED_PROJECT_FILE_EXTENSION_LIST } from '../../../project-file-exte
 const MotionOpaqueArchiveDialog = lazy(() => import('./MotionOpaqueArchiveDialog.tsx'));
 const MotionSendCompositionDialog = lazy(() => import('./MotionSendCompositionDialog.tsx'));
 const MotionCompositionsDialog = lazy(() => import('./MotionCompositionsDialog.tsx'));
-const MotionAeBridgeDialog = lazy(() => import('./MotionAeBridgeDialog.tsx'));
+const MotionAepImportDialog = lazy(() => import('./MotionAepImportDialog.tsx'));
 const MotionSceneDialog = lazy(() => import('./MotionSceneDialog.tsx'));
 const MotionAppearanceDialog = lazy(() => import('./MotionAppearanceDialog.tsx'));
 const MotionExpressionDialog = lazy(() => import('./MotionExpressionDialog.tsx'));
@@ -55,8 +55,8 @@ export default function MotionscaperDocumentRuntime({ copy, request, onChange, o
 	const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot, session.getSnapshot);
 	const [dialog, setDialog] = useState<'new' | 'settings' | 'open' | 'library' | 'preview' | 'render' | 'canvas' | 'render-queue' | 'import' | 'timeline' | 'properties' | 'paths' | 'operators' | 'tracking' | 'compositing' | 'expressions' | 'appearance' | 'compositions' | 'scene' | 'after-effects' | 'send' | MotionAuthoredLayerKind | null>(null);
 	const [targetCompositionId, setTargetCompositionId] = useState('');
-	const [bridgeName, setBridgeName] = useState<string | undefined>();
-	const bridgeOwned = useRef(false);
+	const [aepFile, setAepFile] = useState<File | undefined>();
+	const aepOwned = useRef(false);
 	const [layerClipboard, setLayerClipboard] = useState<MotionscaperLayerClipboard | null>(null);
 	const [keyframeClipboard, setKeyframeClipboard] = useState<MotionKeyframeClipboard | null>(null);
 	const [projects, setProjects] = useState<readonly MotionProjectSummary[]>([]);
@@ -73,7 +73,7 @@ export default function MotionscaperDocumentRuntime({ copy, request, onChange, o
 	const renderQueue = useRef<MotionscaperDeliveryQueue | null>(null);
 	const runtimeMounted = useRef(true);
 	const busy = pending || snapshot.busy;
-	useEffect(() => { onChange({ ...snapshot, busy: busy || opaqueArchive !== null || archiveReview !== null || nativeSelection !== null || bridgeOwned.current }); }, [snapshot, busy, opaqueArchive, archiveReview, nativeSelection, dialog, onChange]);
+	useEffect(() => { onChange({ ...snapshot, busy: busy || opaqueArchive !== null || archiveReview !== null || nativeSelection !== null || aepOwned.current }); }, [snapshot, busy, opaqueArchive, archiveReview, nativeSelection, dialog, onChange]);
 	useEffect(() => { runtimeMounted.current = true; return () => { runtimeMounted.current = false; void (async () => {
 		try { await renderQueue.current?.dispose(); } finally {
 			try { await linkSender.current?.dispose(); } finally {
@@ -98,9 +98,9 @@ export default function MotionscaperDocumentRuntime({ copy, request, onChange, o
 		try { await pending.open('import'); retainedOpen.current = null; setDialog(null); onProjectOpened(); }
 		catch (failure) { setArchiveReview(pending); setDialog(null); throw failure; }
 	}, [onProjectOpened]);
-	const showAdobeBridge = useCallback((name?: string) => {
-		bridgeOwned.current = true; onChange({ ...session.getSnapshot(), busy: true });
-		setBridgeName(name); setDialog('after-effects');
+	const showAepImport = useCallback((file?: File) => {
+		aepOwned.current = true; onChange({ ...session.getSnapshot(), busy: true });
+		setAepFile(file); setDialog('after-effects');
 	}, [onChange, session]);
 	const openNativeSelection = useCallback(async (native: MotionDesktopArchiveInput, complete?: () => void) => {
 		let completed = false;
@@ -109,26 +109,29 @@ export default function MotionscaperDocumentRuntime({ copy, request, onChange, o
 			retainedNative.current = null; setNativeSelection(null); complete?.();
 		} };
 		retainedNative.current = selected; setNativeSelection(selected);
-		if (/\.aepx?$/iu.test(selected.name)) { showAdobeBridge(selected.name); await selected.release(); return; }
+		if (/\.aepx?$/iu.test(selected.name)) {
+			const { readMotionscaperNativeAepSource } = await import('../../../../motionscaper/editor-native-aep-source.ts');
+			showAepImport(await readMotionscaperNativeAepSource(selected.input, selected.name)); await selected.release(); return;
+		}
 		const { openMotionscaperDesktopArchiveSelection } = await import('../../../../motionscaper/editor-document-desktop.ts');
 		await openMotionscaperDesktopArchiveSelection(session, selected, retainOpaque, reviewOpen);
-	}, [session, retainOpaque, reviewOpen, showAdobeBridge]);
+	}, [session, retainOpaque, reviewOpen, showAepImport]);
 	const openBrowserFile = useCallback(async (file: File) => {
-		if (/\.aepx?$/iu.test(file.name)) { showAdobeBridge(file.name); return; }
+		if (/\.aepx?$/iu.test(file.name)) { showAepImport(file); return; }
 		const { inspectMotionscaperOpaqueArchive } = await import('../../../../motionscaper/editor-opaque-archive.ts');
 		const opaque = await inspectMotionscaperOpaqueArchive(file, file.name);
 		if (opaque) await retainOpaque(opaque); else {
 			const { prepareMotionscaperDocumentOpen } = await import('../../../../motionscaper/editor-document-open.ts');
 			await reviewOpen(await prepareMotionscaperDocumentOpen(session, file, file.name));
 		}
-	}, [retainOpaque, session, reviewOpen, showAdobeBridge]);
+	}, [retainOpaque, session, reviewOpen, showAepImport]);
 	useEffect(() => {
 		if (request.id === lastRequest.current) return;
 		lastRequest.current = request.id;
 		setError(null);
 		const command = request.command;
 		setTargetCompositionId('');
-		setBridgeName(undefined);
+		setAepFile(undefined);
 		const kind = layerKinds.find((entry) => entry === command);
 		if (kind) { setDialog(kind); return; }
 		if (command === 'render' || command === 'render-queue') {
@@ -138,7 +141,7 @@ export default function MotionscaperDocumentRuntime({ copy, request, onChange, o
 				renderQueue.current ??= createMotionscaperDeliveryQueue({ store }); setDialog(command);
 			}); return;
 		}
-		if (command === 'after-effects') { showAdobeBridge(); return; }
+		if (command === 'after-effects') { showAepImport(); return; }
 		if (command === 'canvas' || command === 'new' || command === 'settings' || command === 'preview' || command === 'import' || command === 'timeline' || command === 'properties' || command === 'paths' || command === 'operators' || command === 'tracking' || command === 'compositing' || command === 'expressions' || command === 'appearance' || command === 'compositions' || command === 'scene') { setDialog(command); return; }
 		if (command === 'send') {
 			void run(async () => {
@@ -153,7 +156,7 @@ export default function MotionscaperDocumentRuntime({ copy, request, onChange, o
 			if (native) { void run(() => openNativeSelection(native, () => request.onComplete?.(false))); return; }
 			const file = request.file;
 			if (file) {
-				void run(() => openBrowserFile(file)).finally(() => request.onComplete?.(Boolean(retainedArchive.current || retainedOpen.current || bridgeOwned.current))); return;
+				void run(() => openBrowserFile(file)).finally(() => request.onComplete?.(Boolean(retainedArchive.current || retainedOpen.current || aepOwned.current))); return;
 			}
 			void run(async () => {
 				const { motionscaperDesktopFiles, selectMotionscaperDesktopArchive } = await import('../../../../motionscaper/desktop-file-adapter.ts');
@@ -186,9 +189,9 @@ export default function MotionscaperDocumentRuntime({ copy, request, onChange, o
 			document.body.append(link); link.click(); link.remove();
 			globalThis.setTimeout(() => URL.revokeObjectURL(url), 1000);
 		});
-	}, [request, run, session, store, onProjectOpened, retainOpaque, openBrowserFile, reviewOpen, openNativeSelection, showAdobeBridge]);
-	const close = () => { if (!busy) { bridgeOwned.current = false; setDialog(null); setError(null); } };
-	const opened = () => { bridgeOwned.current = false; setDialog(null); onProjectOpened(); };
+	}, [request, run, session, store, onProjectOpened, retainOpaque, openBrowserFile, reviewOpen, openNativeSelection, showAepImport]);
+	const close = () => { if (!busy) { aepOwned.current = false; setDialog(null); setError(null); } };
+	const opened = () => { aepOwned.current = false; setDialog(null); onProjectOpened(); };
 	const submit = (settings: MotionProjectSettings) => {
 		void run(async () => {
 			if (dialog === 'new') await session.create(settings);
@@ -211,7 +214,7 @@ export default function MotionscaperDocumentRuntime({ copy, request, onChange, o
 		<p role="alert">{error}</p><p>{copy.motionscaperArchiveNativeCleanup}</p>
 	</AudioEditorDialogShell>;
 	if (dialog === 'after-effects') return <Suspense fallback={<p role="status">{copy.motionscaperWorking}</p>}>
-			<MotionAeBridgeDialog copy={copy} store={store} busy={busy} initialAdobeName={bridgeName} project={snapshot.project ?? undefined}
+			<MotionAepImportDialog copy={copy} store={store} busy={busy} initialFile={aepFile}
 			onOpen={async (id) => { await session.open(id); opened(); }} onClose={close} />
 	</Suspense>;
 	if (dialog === 'compositions' && snapshot.project) return <Suspense fallback={<p role="status">{copy.motionscaperWorking}</p>}>

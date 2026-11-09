@@ -74,18 +74,20 @@ does not download or install an update. Browser builds omit this menu command.
 
 ## After Effects exchange {#after-effects-exchange}
 
-**File → After Effects Bridge** provides readable scripts and reviews supported
-exchange data before importing. `.aep` and `.aepx` files are opened through an
-installed copy of After Effects and the bridge scripts. The development bridge
-has not yet been qualified against installed After Effects. Review its report;
-unsupported scene intent and original media remain preserved in project custody.
+**File → Import After Effects Project** opens `.aep` and `.aepx` directly in
+Motionscaper. **File → Open** accepts these files too. Review the conversion
+report, select any original media and font files, and acknowledge the report
+before importing a new document. After Effects and bridge scripts are not
+required. The original project file stays byte-for-byte intact inside the saved
+Motionscaper project; embedded file paths are never opened automatically.
 
-The dialog offers separate import and export options for supported scalar
-opacity expressions using arithmetic, composition time, the value before the
-expression and standard Math functions. Both options start off. Review the new
-report after changing an option; other expression forms require explicit
-sampling or rendering. Original expression source remains in the retained
-exchange or `original.mscape` archive.
+Compositions, solids, precompositions, supported media, transforms, numeric
+animation, static vector paths and masks, and basic text with selected fonts
+have editable mappings. Missing media and unsupported content are reported;
+plug-ins, advanced styles, expressions and AE rendering can differ. Import
+accepts projects up to 64 MiB, media up to 64 MiB each, fonts up to 16 MiB each,
+and 256 MiB combined. Save and Save Copy use Motionscaper archives. Native AEP
+export is not implemented.
 
 The renderer supports SDR color and alpha with 2.5D layers, cameras, lights,
 shutter sampling, and depth of field. It does not claim HDR, full 3D meshes,
