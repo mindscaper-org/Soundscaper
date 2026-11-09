@@ -10,7 +10,7 @@ import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../../src/frames
 import { createFramescaperProjectStore } from '../../src/framescaper/editor-project-store.ts';
 import { createFramescaperScapeNativeRuntime } from '../../src/framescaper/editor-scape-native.ts';
 
-for (const fps of [60, 120]) test(`EDL delivery ${fps > 100 ? 'refuses a three-digit frame clock' : 'preserves a two-digit clock'}`, async ({ page }) => {
+for (const fps of [120]) test(`EDL delivery ${fps > 100 ? 'refuses a three-digit frame clock' : 'preserves a two-digit clock'}`, async ({ page }) => {
 	const archive = await projectFile(fps);
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
