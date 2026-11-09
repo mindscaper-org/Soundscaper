@@ -2,6 +2,7 @@ import { createAnalysisDocumentFingerprint } from './internal/analysis-document-
 import { normalizeSpectrumSize } from '../../specialized-audio-analysis.ts';
 import { renderSpecializedAnalysis, type SpectrumTrack } from './internal/specialized-analysis-report.ts';
 import { AUDIO_CLIPPING_FULL_SCALE_THRESHOLD } from '../../audio-clipping-regions.ts';
+import type { RepeatedSoundOptions, RepeatedSoundResult } from '../../repeated-sound.ts';
 import { createLocalizedError, setLocalizedStatus } from '../../../i18n/presentation-message.ts';
 import { measureBextLoudness } from '../../broadcast-loudness.ts';
 import { EBU_R128_MAXIMUM_CHANNELS } from '../../ebu-r128.js';
@@ -21,6 +22,7 @@ import { EDITOR_PROJECT_TASK_SCOPE, EditorProjectChangedError, isEditorDisposedE
 export interface AnalysisRange {
 	readonly startFrame: number;
 	readonly endFrame: number;
+	readonly trackIds?: readonly string[];
 }
 
 export interface AnalysisAudioBuffer {
@@ -76,6 +78,7 @@ interface AnalysisRequestSnapshot {
 }
 
 export type AnalysisRepeatRequest = Readonly<
+	| { readonly type: 'repeated-sound'; readonly options: RepeatedSoundOptions }
 	| { readonly type: 'levels'; readonly scope: string }
 	| { readonly type: 'loudness'; readonly scope: 'master' }
 	| { readonly type: 'spectrum' | 'clipping'; readonly scope: string; readonly options: Readonly<Record<string, unknown>> }
@@ -89,6 +92,7 @@ export interface AnalysisState {
 }
 
 export interface AnalysisDependencies {
+	readonly findRepeatedSound?: (options?: RepeatedSoundOptions) => Promise<RepeatedSoundResult>;
 	readonly lifetime: EditorControllerLifetime;
 	readonly copy: AnalysisCopy;
 	readonly state: AnalysisState;
@@ -155,6 +159,7 @@ export function createAudioAnalysisService(dependencies: AnalysisDependencies) {
 	function repeatLast(): Promise<unknown> {
 		const request = dependencies.state.lastAnalysisRequest;
 		if (!request) return Promise.resolve(null);
+		if (request.type === 'repeated-sound') return dependencies.findRepeatedSound?.(request.options) ?? Promise.resolve(null);
 		if (request.type === 'loudness') return measureLoudness();
 		if (request.type === 'levels') return run(request.scope);
 		if (request.type === 'contrast') return captureContrast(request.role, request.scope, request.options);

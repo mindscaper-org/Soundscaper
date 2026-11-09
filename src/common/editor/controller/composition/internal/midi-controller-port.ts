@@ -101,5 +101,6 @@ export function createMidiPendingAnalysisActions<Project extends object>(
 	return Object.freeze({
 		run: prepare(service.run), plotSpectrum: prepare(service.plotSpectrum), findClipping: prepare(service.findClipping),
 		contrast: prepare(service.captureContrast), repeatLast: prepare(service.repeatLast), measureLoudness: prepare(service.measureLoudness),
+		findRepeatedSound: prepare(service.findRepeatedSound),
 	});
 }

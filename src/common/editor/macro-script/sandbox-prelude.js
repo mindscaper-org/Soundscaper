@@ -248,6 +248,8 @@ function createApi() {
 			none: () => mutating('select.none')(),
 		},
 		effect: mutating('effect.apply'),
+		analyze: { repeatedSound: (options) => mutating('analyze.repeatedSound')(options ?? null) },
+		edit: { deleteAndCloseGap: mutating('edit.deleteAndCloseGap') },
 		effects: mutating('effect.chain'),
 		runSaved: mutating('macro.runSaved'),
 		command: mutating('command.run'),

@@ -10,10 +10,16 @@ import { formatLocalizedTemplate } from '../localization-template.ts';
 import { useSpectrumPlotPoints } from './spectrum-plot-points.ts';
 import { resolveAudioEditorColor } from '../timeline/TimelineOverlayComponents.jsx';
 import './analysis-dialog.css';
+import RepeatedSoundDialog from './RepeatedSoundDialog.tsx';
 
 const MODES = Object.freeze({ levels: 'analyzeSelection', spectrum: 'plotSpectrum', clipping: 'findClipping', contrast: 'contrast' });
 
-export default function AnalysisDialog({ mode, requestId = 0, controller, snapshot, copy, fileService, onClose }) {
+export default function AnalysisDialog(props) {
+	return props.mode === 'repeated-sound' || (props.mode === 'repeat' && props.snapshot.lastAnalysisRequest?.type === 'repeated-sound')
+		? <RepeatedSoundDialog {...props} repeat={props.mode === 'repeat'} /> : <ReportAnalysisDialog {...props} />;
+}
+
+function ReportAnalysisDialog({ mode, requestId = 0, controller, snapshot, copy, fileService, onClose }) {
 	const project = snapshot.project;
 	const projectId = project?.id ?? null;
 	const repeatRequest = mode === 'repeat' ? snapshot.lastAnalysisRequest : null;

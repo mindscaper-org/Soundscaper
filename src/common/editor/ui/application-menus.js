@@ -475,6 +475,7 @@ export default function createApplicationMenus({
 				{ id: 'analyze-selection', label: copy.analyzeSelection, disabled: selectionAnalyzerBlocked, onClick: () => actions.openAnalysis('levels') },
 				{ id: 'plot-spectrum', label: copy.plotSpectrum, disabled: selectionAnalyzerBlocked, onClick: () => actions.openAnalysis('spectrum') },
 				{ id: 'find-clipping', label: copy.findClipping, disabled: selectionAnalyzerBlocked, onClick: () => actions.openAnalysis('clipping') },
+				{ id: 'find-repeated-sound', label: copy.findRepeatedSound, disabled: selectionAnalyzerBlocked || editBlocked, onClick: () => actions.openAnalysis('repeated-sound') },
 				{ id: 'contrast', label: copy.contrast, disabled: selectionAnalyzerBlocked, onClick: () => actions.openAnalysis('contrast') },
 				{ id: 'measure-loudness', label: copy.measureLoudness, disabled: selectionAnalyzerBlocked, onClick: actions.measureLoudness },
 				{ id: 'nyquist-analyzers', label: copy.nyquist, items: nyquistItems('analyze') },

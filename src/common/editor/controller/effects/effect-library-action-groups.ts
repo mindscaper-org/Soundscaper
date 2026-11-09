@@ -119,6 +119,18 @@ export function createEffectMacroActions(
 		handleError: scope.handleError,
 	});
 	const scriptHost = createMacroScriptHost({
+		findRepeatedSound: async (params, signal) => {
+			const target = (actions ?? scope.getEditorActions?.())?.analysis as Readonly<{
+				findRepeatedSound?: (options: Readonly<Record<string, unknown>>, signal?: AbortSignal) => Promise<unknown>;
+			}> | undefined;
+			if (!target?.findRepeatedSound) throw new Error('Repeated sound analysis is unavailable.');
+			return target.findRepeatedSound(params, signal);
+		},
+		deleteAndCloseGap: () => {
+			const target = (actions ?? scope.getEditorActions?.())?.edit as Readonly<{ deletePerTrackRipple?: () => unknown }> | undefined;
+			if (!target?.deletePerTrackRipple) throw new Error('Delete and close gap is unavailable.');
+			return target.deletePerTrackRipple();
+		},
 		getProject: scope.getProject,
 		projectSampleRate: scope.projectSampleRate,
 		runEffectMacro: scope.runEffectMacro,

@@ -9,6 +9,9 @@ import type { EditorProjectGeneration } from '../shared/lifecycle.ts';
 import type { EditorTaskProgressCoordinator } from '../shared/task-progress.ts';
 import { resolveSelectionRange } from '../../selection-range.ts';
 import { calculateAudioAnalysisReportInWorker } from '../../audio-analysis-report-worker-client.ts';
+import type { RepeatedSoundOptions, RepeatedSoundResult } from '../../repeated-sound.ts';
+import type { AudioEditorCommand } from '../../commands/protocol.ts';
+import { EditorProjectChangedError } from '../shared/lifecycle.ts';
 
 interface AnalysisWorkerCopy {
 	readonly audioAnalysisWorkerFailed: string;
@@ -38,7 +41,9 @@ export type AnalysisCompositionState = AnalysisState & {
 	preferences?: { readonly spectrogram?: { readonly windowSize?: number } };
 };
 
-export type AnalysisActions = ReturnType<typeof createDeferredAudioAnalysisService>;
+export type AnalysisActions = ReturnType<typeof createDeferredAudioAnalysisService> & {
+	findRepeatedSound(options?: RepeatedSoundOptions, signal?: AbortSignal): Promise<RepeatedSoundResult>;
+};
 
 export interface AnalysisCompositionDependencies<Project extends AnalysisProject, Buffers>
 	extends Omit<AnalysisRenderDependencies<Project, Buffers>, 'getProject' | 'getSelectedTrackId' | 'copy'> {
@@ -46,7 +51,8 @@ export interface AnalysisCompositionDependencies<Project extends AnalysisProject
 	readonly productName: string;
 	readonly state: AnalysisCompositionState;
 	readonly copy: AnalysisDependencies['copy'] & AnalysisRenderDependencies<Project, Buffers>['copy']
-		& AnalysisWorkerCopy;
+		& AnalysisWorkerCopy & Readonly<Record<string, string>>;
+	readonly commit?: (command: AudioEditorCommand) => unknown;
 	readonly lifetime: AnalysisDependencies['lifetime'];
 	readonly projectGeneration: Pick<EditorProjectGeneration, 'capture' | 'assertCurrent'>;
 	readonly getProject: () => Project | null;
@@ -78,7 +84,30 @@ export function createAnalysisComposition<Project extends AnalysisProject, Buffe
 	};
 	const currentSelection = () => dependencies.getActiveSelection()
 		?? resolveSelectionRange(requireProject(), { selectedClipId: state.selectedClipId ?? null });
-	const service: AnalysisActions = dependencies.enabled ? createDeferredAudioAnalysisService({
+	const renderAudio = createAnalysisRenderer({ ...dependencies, getProject: requireProject, getSelectedTrackId: () => state.selectedTrackId });
+	const findRepeatedSound = async (options: RepeatedSoundOptions = {}, signal?: AbortSignal): Promise<RepeatedSoundResult> => {
+		dependencies.lifetime.assertActive(); signal?.throwIfAborted();
+		if (!dependencies.enabled) throw new Error(`${dependencies.productName} does not compose the analysis subsystem.`);
+		const token = dependencies.projectGeneration.capture(requireProject().id), revision = requireProject().revision;
+		const current = currentSelection(), selection = current ? { ...current, trackIds: current.trackIds?.slice() } : null;
+		const selectedTrackId = state.selectedTrackId, parameters = { ...options };
+		const { createRepeatedSoundService } = await import('./internal/repeated-sound-service.ts');
+		dependencies.projectGeneration.assertCurrent(token);
+		signal?.throwIfAborted();
+		if (requireProject().revision !== revision) throw new EditorProjectChangedError();
+		const result = await createRepeatedSoundService({ lifetime: dependencies.lifetime, copy,
+			getProject: requireProject, captureProject: () => token, assertProject: value => dependencies.projectGeneration.assertCurrent(value),
+			getSelection: () => selection, getSelectedTrackId: () => selectedTrackId, projectSampleRate: dependencies.projectSampleRate,
+			projectDurationFrames: () => dependencies.projectDurationFrames(requireProject()), renderAudio,
+			commit: command => { if (!dependencies.commit) throw new Error('Label publication is unavailable.'); return dependencies.commit(command); },
+			setProcessing: value => { state.analysisProcessing = value; }, publish: dependencies.publish,
+		})(parameters, signal);
+		state.lastAnalysisRequest = { type: 'repeated-sound', options: { similarityThreshold: parameters.similarityThreshold ?? .9 } };
+		dependencies.publish();
+		return result;
+	};
+	const service = dependencies.enabled ? createDeferredAudioAnalysisService({
+		findRepeatedSound,
 		lifetime: dependencies.lifetime, copy, state,
 		captureProject: () => dependencies.projectGeneration.capture(dependencies.getProject()?.id ?? null),
 		assertProject: (token) => dependencies.projectGeneration.assertCurrent(token),
@@ -110,12 +139,7 @@ export function createAnalysisComposition<Project extends AnalysisProject, Buffe
 		setContrastSelections: (value) => { state.contrastSelections = value; },
 		loadAnalysis: (key) => dependencies.store.loadAnalysis(key),
 		saveAnalysis: (key, value) => dependencies.store.saveAnalysis(key, value),
-		renderAudio: createAnalysisRenderer({
-			getProject: requireProject, getSelectedTrackId: () => state.selectedTrackId,
-			cloneProject: dependencies.cloneProject, projectSampleRate: dependencies.projectSampleRate,
-			hasMissingTimelineSources: dependencies.hasMissingTimelineSources,
-			copy, sourceBuffers: dependencies.sourceBuffers, renderSnapshot: dependencies.renderSnapshot,
-		}),
+		renderAudio,
 		analyzeChannels: async (channels, sampleRate, signal, options) => {
 			const result = await analyzeChannels(channels, sampleRate, copy, 65536, signal, options);
 			if (!isAnalysisResult(result)) throw new TypeError('The analysis worker returned an invalid result.');
@@ -134,6 +158,11 @@ export function createAnalysisComposition<Project extends AnalysisProject, Buffe
 	}) : createAbsentAnalysisService({ productName: dependencies.productName });
 	return Object.freeze({
 		...service,
+		findRepeatedSound: (options?: RepeatedSoundOptions, signal?: AbortSignal) => dependencies.taskProgress.run('analysis', copy.findRepeatedSound!, task => {
+			const cancellation = new AbortController();
+			task.setCancellation(() => cancellation.abort(new DOMException('The analysis was cancelled.', 'AbortError')));
+			return findRepeatedSound(options, signal ? AbortSignal.any([signal, cancellation.signal]) : cancellation.signal);
+		}, undefined, { key: 'findRepeatedSound' }),
 		run: (...args) => dependencies.taskProgress.run('analysis', copy.analysisRendering, () => service.run(...args), undefined, { key: "analysisRendering" }),
 		plotSpectrum: (...args) => dependencies.taskProgress.run('analysis', copy.analysisRendering, () => service.plotSpectrum(...args), undefined, { key: "analysisRendering" }),
 		findClipping: (...args) => dependencies.taskProgress.run('analysis', copy.analysisRendering, () => service.findClipping(...args), undefined, { key: "analysisRendering" }),

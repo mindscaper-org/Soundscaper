@@ -306,7 +306,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		enabled: composition.analysis, productName: product.name, state, copy, lifetime, projectGeneration, store, taskProgress,
 		getProject: () => documentState.project, getActiveSelection: activeSelection, projectDurationFrames, getImmutableProjectGeneration: getCommandProject,
 		cloneProject: projectRuntime.cloneProject, projectSampleRate: () => projectSampleRate(), sourceBuffers, hasMissingTimelineSources: bindings.hasMissingTimelineSources, analyzeChannels: analyzeChannelsInWorker,
-		renderSnapshot: (...args) => renderSnapshot(...args), showAnalysis: bindings.showAnalysis, setStatus: bindings.setStatus, publish: publishDocumentSnapshot, batchPresentation: documentChannel.batch, handleError: bindings.handleError,
+		renderSnapshot: (...args) => renderSnapshot(...args), commit: bindings.commit, showAnalysis: bindings.showAnalysis, setStatus: bindings.setStatus, publish: publishDocumentSnapshot, batchPresentation: documentChannel.batch, handleError: bindings.handleError,
 	});
 	const unsubscribeParametricEqErrors = typeof engine.subscribeParametricEqErrors === 'function' ? engine.subscribeParametricEqErrors((error) => bindings.handleError(error)) : () => {};
 	const unsubscribePlaybackErrors = typeof engine.subscribePlaybackErrors === 'function'

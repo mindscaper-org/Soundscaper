@@ -13,21 +13,22 @@ import { resolveSelectionRange } from '../../../../selection-range.ts';
  * below, and every argument is admitted before it reaches the editor.
  *
  * The table is deliberately small. A program can look at the project, move the
- * selection, and run the effects and commands a step-list macro can run — the
- * same vocabulary, so a program and a step list are provably the same reach. It
- * cannot open, save, export or import anything, touch preferences or storage,
+ * selection, run effects and commands, and find repeated sounds on that timeline.
+ * It cannot open, save, export or import anything, touch preferences or storage,
  * ask for a device, or reach another project: the run's blast radius is the one
  * project that was open when it started.
  */
 
 import { createMacroCommandStep, normalizeMacroCommandStep, type MacroCommandStep } from '../../../../macro-command-steps.ts';
-import type { MacroValue } from '../../../../macro-script/protocol.ts';
+import { normalizeMacroValue, type MacroValue } from '../../../../macro-script/protocol.ts';
 
 export interface MacroScriptTrack extends Readonly<Record<string, unknown>> {
 	readonly id: string;
 }
 
 export interface MacroScriptHostRuntime {
+	readonly findRepeatedSound?: (options: Readonly<Record<string, unknown>>, signal?: AbortSignal) => Promise<unknown>;
+	readonly deleteAndCloseGap?: () => unknown;
 	readonly getProject: () => Readonly<Record<string, unknown>> | null;
 	readonly projectSampleRate: () => number;
 	readonly runEffectMacro: (
@@ -83,7 +84,7 @@ export function createMacroScriptHost(runtime: MacroScriptHostRuntime) {
 			controller.signal.throwIfAborted();
 		};
 		let mutations = 0;
-		const dispatch = createDispatch(() => { mutations += 1; }, assertCurrent);
+		const dispatch = createDispatch(() => { mutations += 1; }, assertCurrent, controller.signal);
 		let dispatchTail: Promise<unknown> = Promise.resolve();
 		const trackedDispatch: MacroScriptDispatch = (method, args) => {
 			// Authored Promise.all calls still share one editor and its busy state.
@@ -117,6 +118,7 @@ export function createMacroScriptHost(runtime: MacroScriptHostRuntime) {
 	function createDispatch(
 		onMutation: () => void = () => undefined,
 		assertCurrent: () => void = () => undefined,
+		signal?: AbortSignal,
 	): MacroScriptDispatch {
 		return async (method, args) => {
 			assertCurrent();
@@ -134,7 +136,7 @@ export function createMacroScriptHost(runtime: MacroScriptHostRuntime) {
 				);
 			}
 			onMutation();
-			const value = await mutator(runtime, args, assertCurrent);
+			const value = await mutator(runtime, args, assertCurrent, signal);
 			assertCurrent();
 			return value;
 		};
@@ -143,6 +145,7 @@ export function createMacroScriptHost(runtime: MacroScriptHostRuntime) {
 
 type Handler = (
 	runtime: MacroScriptHostRuntime, args: readonly MacroValue[], assertCurrent: () => void,
+	signal?: AbortSignal,
 ) => MacroValue | Promise<MacroValue>;
 
 const READERS: Readonly<Record<string, Handler>> = Object.freeze({
@@ -168,6 +171,17 @@ const READERS: Readonly<Record<string, Handler>> = Object.freeze({
 });
 
 const MUTATORS: Readonly<Record<string, Handler>> = Object.freeze({
+	'analyze.repeatedSound': async (runtime, args, _assertCurrent, signal) => {
+		if (!runtime.findRepeatedSound) throw new Error('Repeated sound analysis is unavailable.');
+		const options = optionsOf(args[0]);
+		if (Object.keys(options).some(key => key !== 'similarityThreshold')) throw new RangeError('Unknown repeated sound option.');
+		return normalizeMacroValue(await runtime.findRepeatedSound(options, signal), 'Repeated sound result');
+	},
+	'edit.deleteAndCloseGap': async runtime => {
+		if (!runtime.deleteAndCloseGap) throw new Error('Delete and close gap is unavailable.');
+		await runtime.deleteAndCloseGap();
+		return readSelection(runtime);
+	},
 	'select.frames': (runtime, args) => {
 		const details = optionsOf(args[2]);
 		const selection = requireProject(runtime).selection as Record<string, unknown> | null | undefined;

@@ -203,6 +203,7 @@ Product availability follows each product profile’s command filters and each l
 | Fade shape handles | `show-fade-shape-handles` | — | View | Soundscaper, Framescaper | Soundscaper local |
 | Filter Curve EQ | `audacity-filter-curve-eq` | — | Effect > EQ and filters | Soundscaper | Soundscaper local |
 | Find clipping | `find-clipping` | — | Analyze | Soundscaper | Audacity |
+| Find repeated sound | `find-repeated-sound` | — | Analyze | Soundscaper | Soundscaper local |
 | First track | `track-view-first-track` | Ctrl+Home | Keyboard navigation | Soundscaper, Framescaper | Audacity |
 | Fit height | `fit-height` | Ctrl+Shift+F | View > Zoom | Soundscaper, Framescaper | Audacity |
 | Fit project to width | `zoom-to-fit-project` | Ctrl+F | View > Zoom | Soundscaper, Framescaper | Audacity |

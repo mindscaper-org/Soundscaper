@@ -7,8 +7,8 @@ sidebar:
 
 A macro program is a macro written as JavaScript instead of as a list of steps.
 It runs inside the editor against a small API called `sound`, which lets it read
-the open project, move the selection, and apply the same effects and commands a
-step-list macro can apply. Everything else, from files and the network to your
+the open project, move the selection, find repeated sounds, and apply effects
+and editing commands. Everything else, from files and the network to your
 other projects, is out of its reach.
 
 Programs are a Soundscaper feature. Framescaper has no macros palette.
@@ -193,6 +193,27 @@ an edge you omit keeps its current value.
 
 `sound.select.all()` selects the whole project on every track.
 `sound.select.none()` clears the selection.
+
+### `sound.analyze.repeatedSound(options)`
+
+Runs **Analyze → Find repeated sound** using the current selection as its
+example. Select exactly one audio track and an example between 20 milliseconds
+and 30 seconds. The entire track is searched. `options.similarityThreshold`
+ranges from `0.5` to `1` and defaults to `0.9`.
+
+Creates a label track and returns `{ trackId, sourceTrackId, matches }`.
+Each match has `startFrame`, `endFrame`, `similarity` and `original` fields;
+the original is always included. Matches are ordered by time. The new track
+and any subsequent edits belong to the program's single Undo entry. The
+result must also fit the program's ordinary response-size limits.
+
+### `sound.edit.deleteAndCloseGap()`
+
+Deletes the current time selection and closes the gap on each selected audio
+track using the editor's **Delete and close gap per track** operation.
+It is independent of the user's generic Delete preference. Returns the
+selection afterwards. For several intervals at their original positions,
+work backwards from the last interval.
 
 ### `sound.effect(type, params)`
 
