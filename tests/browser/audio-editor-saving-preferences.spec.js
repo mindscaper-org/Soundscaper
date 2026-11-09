@@ -2,6 +2,7 @@
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseDropdown, chooseExportProjectFileAction, chooseNestedCommandAction, waitForEditor } from './audio-editor-test-helpers.js';
 import { installDesktopSpeedWarmupManifest } from './helpers/desktop-speed-warmup-fixture.js';
+import { preparePackagedRuntimeSavingPreferences } from './helpers/packaged-runtime-page.js';
 
 for (const path of ['/embed/en/', '/framescaper/embed/en/']) test(`web saving and temporary-project preferences persist in ${path}`, async ({ page }) => {
 	let editor = await bootEditor(page, path);
@@ -27,7 +28,7 @@ for (const path of ['/embed/en/', '/framescaper/embed/en/']) test(`web saving an
 	await expect(limit).toHaveValue('4'); await expect(limit).toBeDisabled();
 });
 
-test('desktop saving defaults and temporary data folder selection are exposed in Preferences', async ({ page }) => {
+for (const path of ['/embed/en/', '/framescaper/embed/en/']) test(`desktop saving defaults and nightly close preferences in ${path}`, async ({ page }) => {
 	await installDesktopSpeedWarmupManifest(page);
 	await page.addInitScript(() => {
 		const status = { folder: '/original', selectedFolder: '/original', restartRequired: false };
@@ -41,7 +42,7 @@ test('desktop saving defaults and temporary data folder selection are exposed in
 			chooseTemporaryDataFolder: async () => ({ ...status, selectedFolder: '/chosen', restartRequired: true }),
 		} };
 	});
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, path);
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const dialog = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await expect(dialog.getByRole('group', { name: 'Auto-saving', exact: true }).getByRole('button')).toContainText('Off');
@@ -59,6 +60,14 @@ test('desktop saving defaults and temporary data folder selection are exposed in
 	await page.evaluate(() => globalThis.__requestProjectClose({ requestId: 'closing', reason: 'quit' }));
 	await expect.poll(() => page.evaluate(() => globalThis.__projectCloseResponse?.allow)).toBe(false);
 	await expect.poll(() => page.evaluate(() => globalThis.__projectClosePrompt?.message)).toContain('Unsaved desktop project');
+	await preparePackagedRuntimeSavingPreferences(page);
+	await page.evaluate(() => {
+		globalThis.__projectClosePrompt = null;
+		globalThis.__projectCloseResponse = null;
+		globalThis.__requestProjectClose({ requestId: 'nightly-closing', reason: 'quit' });
+	});
+	await expect.poll(() => page.evaluate(() => globalThis.__projectCloseResponse?.allow)).toBe(true);
+	expect(await page.evaluate(() => globalThis.__projectClosePrompt)).toBeNull();
 	expect(unexpectedDialogs).toEqual([]);
 });
 

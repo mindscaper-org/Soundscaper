@@ -14,6 +14,20 @@ export function usesPackagedRuntimeDiagnosticPage(file) {
 	return DIAGNOSTIC_PAGE_SPECS.has(file.split(/[\\/]/u).at(-1));
 }
 
+/** Configure the disposable test profile before workflows can close projects. */
+export async function preparePackagedRuntimeSavingPreferences(page) {
+	await page.getByRole('menubar', { name: 'Application menu', exact: true })
+		.getByRole('menuitem', { name: 'Edit', exact: true }).click();
+	await page.getByRole('menu', { name: 'Edit', exact: true })
+		.getByRole('menuitem', { name: /^Preferences(?:\s|$)/u }).click();
+	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+	await preferences.getByRole('tab', { name: /General$/u }).click();
+	await preferences.getByRole('group', { name: 'Ask to save projects when closing', exact: true })
+		.getByRole('button').click();
+	await page.getByRole('option', { name: 'Off', exact: true }).click();
+	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
+}
+
 export async function bypassPackagedRuntimeServiceWorker(context, page) {
 	const session = await context.newCDPSession(page);
 	try {
