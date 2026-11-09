@@ -4,7 +4,6 @@ import { expect, longTone, test, toneA } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields,
 	bootEditor,
 	chooseCommandAction,
-	chooseNestedCommandAction,
 	clipByName, closeClipProperties,
 	closeEffectsPanel,
 	collectClientErrors,
@@ -21,10 +20,8 @@ import {
 	addTrackAutomation,
 	addTrackRackEffect,
 	clipDurationFrames,
-	deleteClipRange,
 	deleteWholeClip,
 	editClipProperties,
-	expectContiguousSourceClips,
 	persistedProject,
 	revealTimelineClip,
 	selectClipHeader,
@@ -34,16 +31,10 @@ import {
 
 test.use({ viewport: { width: 1_600, height: 1_000 } });
 
+// Node checks all ten editorial variants through actual controller history and store/Scape reopen.
 const sessions = [
-	{ name: 'podcast cutdown survives duplicate-clip history and reload', action: 'duplicate-clip', tempo: 96, split: 0.36 },
-	{ name: 'music edit survives a per-track ripple deletion and reload', action: 'ripple-delete', tempo: 104, split: 0.43 },
-	{ name: 'dialogue assembly survives insert paste and reload', action: 'insert-paste', tempo: 112, split: 0.51 },
-	{ name: 'restored edit keeps a deleted clip after undo and reload', action: 'delete-undo', tempo: 88, split: 0.29 },
-	{ name: 'trim revision remains at the redone boundary after reload', action: 'trim-redo', tempo: 124, split: 0.62 },
 	{ name: 'duplicated processed track retains the original automated source', action: 'duplicate-track', tempo: 90, split: 0.47 },
-	{ name: 'muted and soloed edit keeps its clip and processing state', action: 'mute-solo', tempo: 118, split: 0.39 },
 	{ name: 'reversed and inverted phrase preserves its mixed automation state', action: 'reverse-invert', tempo: 132, split: 0.56 },
-	{ name: 'additional editorial split preserves envelopes and rack processing', action: 'second-split', tempo: 76, split: 0.67 },
 	{ name: 'removed accent restored by undo survives as part of the session', action: 'accent-delete-undo', tempo: 108, split: 0.33 },
 ];
 
@@ -150,40 +141,6 @@ async function applyEditorialRevision(page, editor, row, clips, action, projectI
 	const beforeClips = Number(await editor.getAttribute('data-clip-count'));
 	const evidence = {};
 	switch (action) {
-		case 'duplicate-clip':
-			await clips.first().locator('.clip-header').click();
-			await chooseCommandAction(page, editor, 'Edit', 'Duplicate');
-			await expect(editor).toHaveAttribute('data-clip-count', String(beforeClips + 1));
-			break;
-		case 'ripple-delete':
-			await deleteClipRange(page, editor, clips.first(), {
-				start: 0.2,
-				end: 0.52,
-				mode: 'Delete and close gap per track',
-			});
-			await expectContiguousSourceClips(page, projectId, longTone.name, 3);
-			break;
-		case 'insert-paste':
-			await clips.first().locator('.clip-header').click();
-			await chooseCommandAction(page, editor, 'Edit', 'Copy');
-			await chooseNestedCommandAction(page, editor, 'Edit', ['Paste', 'Insert']);
-			await expect.poll(async () => Number(await editor.getAttribute('data-clip-count')))
-				.toBeGreaterThan(beforeClips);
-			break;
-		case 'delete-undo':
-			await deleteWholeClip(page, editor, clips.last());
-			await editor.getByRole('button', { name: 'Undo', exact: true }).click();
-			await expect(editor).toHaveAttribute('data-clip-count', String(beforeClips));
-			break;
-		case 'trim-redo': {
-			const duration = await clipDurationFrames(page, editor, clips.first());
-			await editClipProperties(page, editor, clips.first(), {
-				durationFrame: Math.max(1, duration - 4_800),
-			});
-			await editor.getByRole('button', { name: 'Undo', exact: true }).click();
-			await editor.getByRole('button', { name: 'Redo', exact: true }).click();
-			break;
-		}
 		case 'duplicate-track':
 			evidence.sourceTrackId = await row.getAttribute('data-track-id');
 			evidence.trackIdsBefore = (await persistedProject(page, projectId)).tracks
@@ -197,12 +154,6 @@ async function applyEditorialRevision(page, editor, row, clips, action, projectI
 				.find(({ id }) => !evidence.trackIdsBefore.includes(id))?.id;
 			assertDuplicatedTrackState(await persistedProject(page, projectId), evidence);
 			break;
-		case 'mute-solo':
-			await row.getByRole('button', { name: 'Mute', exact: true }).click();
-			await row.getByRole('button', { name: 'Solo', exact: true }).click();
-			await expect(row.getByRole('button', { name: 'Mute', exact: true })).toHaveAttribute('aria-pressed', 'true');
-			await expect(row.getByRole('button', { name: 'Solo', exact: true })).toHaveAttribute('aria-pressed', 'true');
-			break;
 		case 'reverse-invert': {
 			const clipId = await clips.last().getAttribute('data-clip-id');
 			const dialog = await openClipProperties(page, editor, clips.last());
@@ -213,13 +164,6 @@ async function applyEditorialRevision(page, editor, row, clips, action, projectI
 			evidence.clipId = clipId;
 			break;
 		}
-		case 'second-split':
-			evidence.envelopePoints = envelopePointCount(await persistedProject(page, projectId));
-			await splitClip(page, editor, clips.first(), 0.52);
-			await expect(editor).toHaveAttribute('data-clip-count', String(beforeClips + 1));
-			await expect.poll(async () => envelopePointCount(await persistedProject(page, projectId)))
-				.toBeGreaterThanOrEqual(evidence.envelopePoints);
-			break;
 		case 'accent-delete-undo': {
 			await importFiles(editor, [toneA]);
 			const accent = clipByName(editor, toneA.name);
@@ -235,12 +179,6 @@ async function applyEditorialRevision(page, editor, row, clips, action, projectI
 }
 
 async function assertRestoredRevision(page, editor, row, action, evidence) {
-	if (action === 'mute-solo') {
-		await expect(row.getByRole('button', { name: 'Mute', exact: true }))
-			.toHaveAttribute('aria-pressed', 'true');
-		await expect(row.getByRole('button', { name: 'Solo', exact: true }))
-			.toHaveAttribute('aria-pressed', 'true');
-	}
 	if (action === 'reverse-invert') {
 		expect(evidence.clipId).toBeTruthy();
 		await revealTimelineClip(page, editor, evidence.clipId);
@@ -260,11 +198,7 @@ async function assertRestoredRevision(page, editor, row, action, evidence) {
 			page, await editor.getAttribute('data-project-id'),
 		), evidence);
 	}
-	if (action === 'second-split') {
-		expect(envelopePointCount(await persistedProject(
-			page, await editor.getAttribute('data-project-id'),
-		))).toBeGreaterThanOrEqual(evidence.envelopePoints);
-	}
+
 }
 
 function assertDuplicatedTrackState(project, evidence) {
@@ -282,10 +216,6 @@ function assertDuplicatedTrackState(project, evidence) {
 			points: points.map(({ id: pointId, ...point }) => point),
 		}));
 	expect(laneState(duplicateTrack.id)).toEqual(laneState(sourceTrack.id));
-}
-
-function envelopePointCount(project) {
-	return project.clips.reduce((total, clip) => total + (clip.envelope?.length ?? 0), 0);
 }
 
 async function trackRowIndex(editor, row) {
