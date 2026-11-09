@@ -2,12 +2,14 @@
 
 import { withWebFileLoadLimitContext } from '../../web-file-limit-failure.ts';
 import { partitionWorkspaceFiles } from './workspace-file-routing.js';
+import { isTimelineInterchangeFile } from '../../timeline-interchange-file.ts';
 
 interface RoutedImportController {
 	readonly project?: Readonly<{ id?: unknown }> | null;
 	readonly actions: Readonly<{
 		readonly project: Readonly<{
 			importFiles(files: readonly File[], options: Readonly<Record<string, unknown>>): PromiseLike<unknown> | unknown;
+			openInterchange?(file: File, options: Readonly<{ mediaFiles: readonly File[] }>): PromiseLike<unknown> | unknown;
 		}>;
 		readonly labels: Readonly<{ importFile(file: File): PromiseLike<unknown> | unknown }>;
 	}>;
@@ -26,8 +28,14 @@ export function importWorkspaceRoutedFiles({
 }>): Promise<number> {
 	return withWebFileLoadLimitContext(async () => {
 		const routed = partitionWorkspaceFiles(files);
-		for (const file of routed.projects) await openProjectFile(file);
-		if (routed.media.length) {
+		let companionMedia = false;
+		for (const file of routed.projects) {
+			if (isTimelineInterchangeFile(file.name) && controller.actions.project.openInterchange) {
+				await controller.actions.project.openInterchange(file, { mediaFiles: routed.media });
+				companionMedia = true;
+			} else await openProjectFile(file);
+		}
+		if (routed.media.length && !companionMedia) {
 			const result = await controller.actions.project.importFiles(routed.media, {
 				destination: 'auto', projectBinVisible, ...importOptions,
 			});

@@ -1,5 +1,6 @@
 import { useEditorSkin } from '../skins/EditorSkinProvider.tsx';
 import EditorToast, { EditorErrorToast, EditorWarningToast } from '../EditorToast.tsx';
+import { EditorNotificationSurfaces } from '../EditorNotificationProvider.tsx';
 import { Suspense } from 'react';
 import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
 
@@ -437,6 +438,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 			>{editorToolbar}</div>}
 
 			{(uiFlags.selectionToolbar || uiFlags.statusbar) && <AccessibleSelectionToolbar
+				menus={applicationMenus} locale={locale}
 				controller={controller}
 				snapshot={snapshot}
 				copy={copy}
@@ -451,6 +453,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 
 			<AudioEditorWorkspaceOverlays model={overlayModel} />
 			<EditorOverlayHost ref={setEditorOverlayTarget} />
+			<EditorNotificationSurfaces copy={copy} />
 			<AudioEditorButtonTooltips rootRef={editorRef} />
 			{webFileLimitPrompt && <WebFileLimitDialog copy={copy} productId={productId} onClose={dismissWebFileLimitPrompt} />}
 		</div>

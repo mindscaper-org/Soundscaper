@@ -26,6 +26,7 @@ import EditorTaskProgressBar from './EditorTaskProgressBar.tsx';
 import WorkspaceSwitcherControl from './WorkspaceSwitcherControl.jsx';
 import TransportAuditionMenu from './TransportAuditionMenu.tsx';
 import { createMusicalDurationTimeCodeMap } from '../time-code-musical-map.ts';
+import { useEditorStatusHelpPresentation } from '../useEditorStatusHelpPresentation.ts';
 import { FRAMESCAPER_INPUTS_COPY } from '../../../i18n/editor-framescaper-inputs-copy.ts';
 import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
 const FramescaperInputsSetupFlyout = lazyEditorModule(() => import('./FramescaperInputsSetupFlyout.tsx'));
@@ -307,7 +308,8 @@ export function AccessibleSelectionToolbar({
 	controller,
 	snapshot,
 	copy,
-	statusMessage,
+	statusMessage: operationStatusMessage,
+	menus = [], locale = 'en',
 	statusState,
 	durationFrames,
 	disabled,
@@ -316,6 +318,9 @@ export function AccessibleSelectionToolbar({
 	run,
 }) {
 	const wrapperRef = useRef(null);
+	const { instructionText, statusMessage, backgrounded, contextual } = useEditorStatusHelpPresentation({
+		rootRef: wrapperRef, controller, snapshot, copy, menus, locale, statusMessage: operationStatusMessage, showStatusbar,
+	});
 	const [statusTarget, setStatusTarget] = useState(null);
 	const [format, setFormat] = useState('hh:mm:ss+milliseconds');
 	const [durationFormat, setDurationFormat] = useState('hh:mm:ss+milliseconds');
@@ -390,11 +395,13 @@ export function AccessibleSelectionToolbar({
 				ref={wrapperRef}
 				className="kw-audio-editor__selection-surface kw-audio-editor__selection-surface--status-only"
 				data-selection-toolbar
+				data-backgrounded={backgrounded || undefined}
 				data-project-lock-status={projectLockStatus ? '' : undefined}
 			>
 				<p data-status data-editor-status data-state={statusState} role="status" aria-live="polite" tabIndex={0} title={statusMessage}>
 					{showStatusbar ? statusMessage : ''}
 				</p>
+				{contextual && <span className="selection-toolbar__instruction-text" title={instructionText}>{instructionText}</span>}
 				<EditorTaskProgressBar controller={controller} snapshot={snapshot} statusMessage={statusMessage} showLabel={!showStatusbar} cancelLabel={copy.cancel} />
 			</div>
 		);
@@ -417,7 +424,7 @@ export function AccessibleSelectionToolbar({
 				selectionStart={selectionStart}
 				selectionEnd={selectionEnd}
 				status={showStatusbar ? statusMessage : ''}
-				instructionText={copy.timelineHint}
+				instructionText={instructionText} backgrounded={backgrounded}
 				format={format}
 				durationFormat={durationFormat}
 				durationMusicalMap={durationMusicalMap}

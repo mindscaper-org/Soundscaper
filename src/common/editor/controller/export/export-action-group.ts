@@ -10,6 +10,7 @@ import { createOriginalOverwriteActions, type OriginalOverwriteState, type Origi
 import type { BlenderPublishRequest } from './blender-publication.ts';
 import type { InterchangeProductProjection } from '../../interchange-multicamera-delivery.ts';
 import type { InterchangeTimingRuntime } from './interchange-export-timing.ts';
+import type { OmfExportStore } from './internal/omf-export-action.ts';
 
 /** Delivery owns these optional workspace slots; reports remain inert domain data. */
 export interface ExportActionState extends OriginalOverwriteState {
@@ -29,7 +30,7 @@ export interface ExportActionState extends OriginalOverwriteState {
  */
 
 export interface ExportActionGroupRuntime {
-	readonly store?: InterchangeTimingRuntime['store'] & { readonly settingsRepository?: DeliveryPresetServiceRuntime['presetRepository'] };
+	readonly store?: InterchangeTimingRuntime['store'] & OmfExportStore & { readonly settingsRepository?: DeliveryPresetServiceRuntime['presetRepository'] };
 	readonly handleExportAction: (action: string, settings?: unknown) => Promise<unknown> | unknown;
 	readonly publishBlenderTracks?: (request: BlenderPublishRequest) => Promise<{ readonly revision: number }>;
 	readonly state: ExportActionState;
@@ -84,6 +85,10 @@ export function createExportActionGroup(runtime: ExportActionGroupRuntime) {
 		}) => exportProjectEdl({ ...interchange(), ...options }),
 		exportOtio: (options?: { sequenceId?: string }) => exportProjectOtio({ ...interchange(), ...options }),
 		exportFcpxml: (options?: { sequenceId?: string }) => exportProjectFcpxml({ ...interchange(), ...options }),
+		exportOmf: async (options?: { sequenceId?: string }) => {
+			const { exportProjectOmf } = await import('./internal/omf-export-action.ts');
+			return exportProjectOmf({ ...runtime, state: interchangeState }, options?.sequenceId);
+		},
 		presets: createDeliveryPresetService({
 			state, persistSetting, publishDocumentSnapshot, createId, fileService, presetRepository: runtime.store?.settingsRepository,
 		}),

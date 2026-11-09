@@ -68,6 +68,7 @@ import { MOTIONSCAPER_AE_COPY_BY_LOCALE } from './editor-motionscaper-ae-copy.ts
 import { MOTIONSCAPER_TRACKING_COPY_BY_LOCALE } from './editor-motionscaper-tracking-copy.ts';
 import { TRACK_HEIGHT_COPY_BY_LOCALE } from './editor-track-height-copy.ts';
 import { MIDI_COPY_BY_LOCALE } from './editor-midi-copy.ts';
+import { INTERCHANGE_COPY_BY_LOCALE } from './editor-interchange-copy.ts';
 
 export interface EditorCopyOwner {
 	readonly owner: string;
@@ -183,6 +184,7 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'clipInteractions', ...CLIP_INTERACTIONS_COPY_BY_LOCALE },
 	{ owner: 'trackHeight', ...TRACK_HEIGHT_COPY_BY_LOCALE },
 	{ owner: 'midi', ...MIDI_COPY_BY_LOCALE },
+	{ owner: 'interchange', ...INTERCHANGE_COPY_BY_LOCALE },
 	{ owner: 'keyboardMap', ...KEYBOARD_MAP_COPY_BY_LOCALE },
 	{ owner: 'id3Metadata', ...ID3_METADATA_COPY_BY_LOCALE },
 	{ owner: 'motionscaper', ...MOTIONSCAPER_COPY_BY_LOCALE },

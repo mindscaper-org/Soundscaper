@@ -140,7 +140,7 @@ export function createSesxService(runtime: NativeProjectServiceRuntime, helpers:
 				const created = createCurrentAudioEditorProject(plan.project as never);
 				importedProject = runtime.adaptAudacityProject
 					? await runtime.adaptAudacityProject(created)
-					: runtime.loadProject(created).project;
+					: runtime.createImportedProject ? await runtime.createImportedProject(plan.project) : runtime.loadProject(created).project;
 				assertReady();
 				const retainedIds = new Set(plan.media.map((binding) => binding.sourceId));
 				for (const sourceId of persistedSourceIds) {

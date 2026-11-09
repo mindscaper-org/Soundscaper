@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { addAup4CompatibilityItem } from './aup4-profile.js';
+import { readMidiClip, readMidiTrack } from './midi-model.ts';
 
 const WAVEFORM_DISPLAY_CONVERSION_CODES = Object.freeze({
 	'half-wave': 'HALF_WAVE_DISPLAY_CONVERTED',
@@ -23,6 +24,20 @@ export function aup4WaveformDisplayConversionCode(displayMode) {
  */
 
 export function reportOmittedProjectFeatures(project, normalizedProject, report) {
+	const clipById = new Map((project.clips || []).map((clip) => [String(clip.id), clip]));
+	for (const track of project.tracks || []) {
+		const owner = readMidiTrack(track);
+		const parts = (track.clipIds || []).map((id) => readMidiClip(clipById.get(String(id)))).filter(Boolean);
+		if (!owner && !parts.length) continue;
+		addAup4CompatibilityItem(report, {
+			code: 'MIDI_AUTHORING_CONVERTED', disposition: 'converted', severity: 'warning',
+			scope: { kind: 'track', trackId: String(track.id) },
+			data: { clips: parts.length, notes: parts.reduce((total, part) => total + part.notes.length, 0),
+				events: parts.reduce((total, part) => total + (part.interchange?.events.length || 0), 0) },
+			message: 'Editable MIDI notes, messages, and instrument settings are converted to the stored audio fallback in this Audacity project. Use Scape, DAWproject, or MIDI export to retain note authoring.',
+		});
+	}
+
 	const sourceById = new Map((project.sources || []).map((source) => [source.id, source]));
 	const videoTrackIds = new Set((project.tracks || [])
 		.filter(isAup4VideoTrack)

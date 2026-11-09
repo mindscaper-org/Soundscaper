@@ -42,6 +42,7 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	['new-midi-track', 'MIDI track (beta)', 'Tracks > Add new track', SOUNDSCAPER],
 	['export-otio', 'Export OpenTimelineIO', 'File > Export other', BOTH],
 	['export-fcpxml', 'Export FCPXML', 'File > Export other', BOTH],
+	['export-omf', 'Export OMF', 'File > Export other', BOTH],
 	['export-dawproject', 'Export DAWproject', 'File > Export other', BOTH],
 	['framescaper-import-image-sequence', 'Image sequence', 'File', FRAMESCAPER],
 	['framescaper-add-to-render-queue', 'Add to render queue', 'File > Export other', FRAMESCAPER],

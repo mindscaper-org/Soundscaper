@@ -13,6 +13,7 @@ import type { SourceProvenanceV1 } from './source-provenance.ts';
 import { buildSignatureMap, buildTempoMap } from './dawproject-import-maps.ts';
 import { dawprojectImportedClipFades } from './dawproject-import-fades.ts';
 import { dawprojectMarkerExtensions } from './dawproject-marker-metadata.ts';
+import { appendDawprojectMidi, type DawprojectMidiSource } from './dawproject-import-midi-project.ts';
 import { dawprojectImportColor } from './dawproject-colors.ts';
 import {
 	type Build,
@@ -78,6 +79,7 @@ export interface DawprojectImportPlan {
 	/** Options for `createCurrentAudioEditorProject`. */
 	readonly project: Record<string, unknown>;
 	readonly media: readonly DawprojectImportMediaBinding[];
+	readonly midiSources: readonly DawprojectMidiSource[];
 	readonly report: DawprojectImportReport;
 	readonly routingContext: DawprojectImportRoutingContext;
 }
@@ -158,6 +160,7 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 		// The regular native width is the maximum physical source width, as in audioTrackChannelCount.
 		trackWidths.set(track.id, Math.max(trackWidths.get(track.id) ?? 0, info.channelCount));
 	}
+	const midiSources = appendDawprojectMidi(flattened.midi, build, document, sources, clips, trackWidths);
 	reportTrackChannelWidths(document.tracks, build, trackWidths);
 	applyAutomation(flattened.automation, build);
 	const annotations = createMarkers(flattened.markers, build);
@@ -194,6 +197,7 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 			type: 'audio', id: track.id, name: track.name, gain: track.gain, pan: track.pan,
 			...(track.color ? { color: track.color } : {}),
 			mute: track.mute, solo: track.solo, clipIds: track.clipIds, envelope: track.envelope,
+			...(track.opaqueExtensions ? { opaqueExtensions: track.opaqueExtensions } : {}),
 		})),
 		trackFolders: build.folders,
 		sequences: [{ id: 'main-sequence', trackNodes: build.trackNodes }],
@@ -222,6 +226,7 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 			}))),
 		}),
 		media: Object.freeze(media),
+		midiSources,
 		report: Object.freeze({ ...sealed, direction: 'import' as const }),
 	});
 }

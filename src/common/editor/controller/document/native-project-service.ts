@@ -6,6 +6,7 @@ import { isAudioMediaKind } from '../../audio-media-kind.ts'; import { createLoc
 import { isScapeProjectFile } from '../../scape-project-format.ts';
 import { createDeferredDawprojectService } from '../import/deferred-dawproject-service.ts';
 import { createDeferredSesxService } from '../import/deferred-sesx-service.ts';
+import { createDeferredInterchangeService } from '../import/deferred-interchange-service.ts';
 import {
 	EDITOR_PROJECT_TASK_SCOPE,
 	type EditorProjectToken,
@@ -73,6 +74,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 	} = createNativeProjectOwnership(runtime);
 	const dawproject = createDeferredDawprojectService(runtime, { beginProjectTask, assertOwnership, beginImport, finishImport, persistSourceChunks, updateNativeProjectProgress, requireProject });
 	const sesx = createDeferredSesxService(runtime, { beginProjectTask, assertOwnership, beginImport, finishImport, persistSourceChunks, updateNativeProjectProgress, requireProject });
+	const interchange = createDeferredInterchangeService(runtime, { beginProjectTask, assertOwnership, beginImport, finishImport, persistSourceChunks, updateNativeProjectProgress, requireProject });
 	const audacitySave = createNativeAudacityProjectSave(runtime, {
 		assertOwnership, beginProjectTask, beginSave, failSave, finishSave,
 		getClient: getAup4Client,
@@ -92,6 +94,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 		openAudacityProject,
 		openAup4, openDawproject: dawproject.openDawproject, saveDawproject: dawproject.saveDawproject, openSesx: sesx.openSesx,
 		openScape,
+		openInterchange: interchange.openInterchange,
 		rememberAup4CompatibilityReport,
 		saveAup3: audacitySave.saveAup3,
 		saveAup4: audacitySave.saveAup4,

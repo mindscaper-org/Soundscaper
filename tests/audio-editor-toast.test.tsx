@@ -5,7 +5,7 @@ import test from 'node:test';
 import React, { act } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import EditorToast, { EditorWarningToast } from '../src/common/editor/ui/EditorToast.tsx';
+import EditorToast, { EditorWarningToast, type EditorToastProps } from '../src/common/editor/ui/EditorToast.tsx';
 import { iconNameToChar } from '../src/common/editor/audacity-iconcodes.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
@@ -82,6 +82,40 @@ test('persistent toasts remain visible until their owning state clears', async (
 	}
 });
 
+test('hover and keyboard focus pause the remaining toast lifetime independently', async (context) => {
+	context.mock.timers.enable({ apis: ['Date', 'setTimeout'] });
+	const fixture = await mountedToast();
+	let dismissals = 0;
+	try {
+		await fixture.render(() => { dismissals += 1; });
+		await act(async () => { context.mock.timers.tick(4_000); });
+		const section = fixture.dom.one('section');
+		await act(async () => { reactProps(section).onMouseEnter?.(); });
+		await act(async () => { context.mock.timers.tick(20_000); });
+		assert.equal(dismissals, 0);
+		await act(async () => { reactProps(section).onFocus?.(); reactProps(section).onMouseLeave?.(); });
+		await act(async () => { context.mock.timers.tick(20_000); });
+		assert.equal(dismissals, 0, 'focus keeps the countdown paused after the pointer leaves');
+		await act(async () => { reactProps(section).onBlur?.({ currentTarget: section, relatedTarget: null }); });
+		await act(async () => { context.mock.timers.tick(5_999); });
+		assert.equal(dismissals, 0);
+		await act(async () => { context.mock.timers.tick(1); });
+		assert.equal(dismissals, 1);
+	} finally { await fixture.cleanup(); }
+});
+
+test('actionable, error and progress notifications never expire automatically', async (context) => {
+	context.mock.timers.enable({ apis: ['setTimeout'] });
+	for (const extra of [{ actions: [{ label: 'Review', onClick() {} }] }, { type: 'error' as const }, { progress: 40 }]) {
+		const fixture = await mountedToast();
+		try {
+			await fixture.render(() => assert.fail('notification expired before its outcome'), false, extra);
+			await act(async () => { context.mock.timers.tick(60_000); });
+			assert.ok(fixture.dom.find('section'));
+		} finally { await fixture.cleanup(); }
+	}
+});
+
 async function mountedToast() {
 	const dom = installReactTestDom();
 	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
@@ -91,8 +125,8 @@ async function mountedToast() {
 	const root = createRoot(dom.container as unknown as Element);
 	return {
 		dom,
-		render: async (onDismiss: () => void, persistent = false) => {
-			await act(async () => root.render(<EditorToast id="compatibility" title="Compatibility" dismissLabel="Close" onDismiss={onDismiss} persistent={persistent} />));
+		render: async (onDismiss: () => void, persistent = false, extra: Partial<EditorToastProps> = {}) => {
+			await act(async () => root.render(<EditorToast id="compatibility" title="Compatibility" dismissLabel="Close" onDismiss={onDismiss} persistent={persistent} {...extra} />));
 		},
 		cleanup: async () => {
 			await act(async () => root.unmount());

@@ -16,6 +16,7 @@ import type { DeliveryReport } from '../../delivery-report.ts';
 import { reportInterchangeAudioOmissions } from './internal/interchange-audio-omissions.ts';
 import { reportInterchangePictureOmissions } from './internal/interchange-picture-omissions.ts';
 import { withInterchangeExportTiming, type InterchangeTimingRuntime } from './interchange-export-timing.ts';
+import { reportInterchangeMidiConversion } from '../../interchange-midi-report.ts';
 import { projectInterchangeMulticamera, reportInterchangeMulticameraConversion, type InterchangeProductProjection } from '../../interchange-multicamera-delivery.ts';
 import {
 	admitInterchangeVisualProject,
@@ -132,9 +133,9 @@ export function resolveDeliveredProject(
 async function deliver<T extends {
 	text: string; fileName: string; mimeType: string; report: DeliveryReport;
 }>(runtime: InterchangeRuntime, result: T, omissions: readonly InterchangeVisualOmission[], project: Readonly<Record<string, unknown>>, original: Readonly<Record<string, unknown>>): Promise<T> {
-	const report = reportInterchangeMulticameraConversion(reportInterchangePictureOmissions(
+	const report = reportInterchangeMidiConversion(reportInterchangeMulticameraConversion(reportInterchangePictureOmissions(
 		reportInterchangeAudioOmissions(reportInterchangeVisualOmissions(result.report, omissions), project), project), original, project, runtime.sequenceId,
-	);
+	), original);
 	const delivered = report !== result.report
 		? Object.freeze({ ...result, report })
 		: result;

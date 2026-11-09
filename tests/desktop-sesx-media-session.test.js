@@ -47,7 +47,7 @@ async function fixture(context, { maxScanEntries, extension = 'sesx' } = {}) {
 	return { temporary, sessionFolder, selectedFolder, store, owner, granted, chooseFolder: (path) => { folderChoice = path; } };
 }
 
-for (const extension of ['sesx', 'SES']) test(`${extension.toUpperCase()} direct relative media resolves inside the selected session folder`, async (context) => {
+for (const extension of ['sesx', 'SES', 'EDL', 'otio', 'fcpxml', 'omf', 'omfi']) test(`${extension.toUpperCase()} direct relative media resolves inside the selected session folder`, async (context) => {
 	const { sessionFolder, store, owner, granted } = await fixture(context, { extension });
 	await mkdir(join(sessionFolder, 'Audio Files'));
 	await writeFile(join(sessionFolder, 'Audio Files', 'take.wav'), 'media');
