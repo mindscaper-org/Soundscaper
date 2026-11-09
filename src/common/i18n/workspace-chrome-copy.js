@@ -20,7 +20,7 @@ const ENTRIES = Object.freeze([
 	['trackHeadersShow', 'Show track headers'],
 	['trackHeadersHide', 'Hide track headers'],
 	['notificationHistory', 'Notifications'],
-	['notificationHistoryOpen', 'Notification history…'],
+	['notificationHistoryOpen', 'Notification history'],
 	['notificationHistoryNote', 'Recent messages in this editor session. Project actions remain available only in their original notification or menu.'],
 	['notificationMute', 'Mute informational notifications'],
 	['notificationClear', 'Clear history'],

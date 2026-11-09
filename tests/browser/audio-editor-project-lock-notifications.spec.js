@@ -22,7 +22,7 @@ test.describe('project lock notifications', () => {
 		await expect(toast).toBeVisible();
 		await toast.getByRole('button', { name: 'Close', exact: true }).click();
 		await expect(toast).toBeHidden();
-		await chooseNestedCommandAction(page, editor, 'View', ['Notifications', 'Notification history…']);
+		await chooseNestedCommandAction(page, editor, 'View', ['Notifications', 'Notification history']);
 		const history = editor.getByRole('dialog', { name: 'Notifications', exact: true });
 		await expect(history).toContainText('This project is already open in another tab.');
 		await expect(history.getByRole('button', { name: 'Edit here', exact: true })).toHaveCount(0);
