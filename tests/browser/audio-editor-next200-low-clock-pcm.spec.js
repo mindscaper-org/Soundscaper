@@ -5,7 +5,9 @@ import { inspectWavBlobPcm } from '../../src/common/editor/wav-import.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseDropdown, chooseExportProjectFileAction, chooseNestedCommandAction, clipByName, disableNativeSavePicker, downloadBytes, openSourceMonitor, openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
 
-for (const rate of [1000, 48000]) test(`ordinary ${rate} Hz PCM File Import delivers its full audible extent`, async ({ page }) => {
+// Both source clocks have exact controller/store/archive PCM custody in Node.
+// The unusual 1000 Hz native delivery and physical Source Monitor gesture remain browser witnesses.
+for (const rate of [1000]) test(`ordinary ${rate} Hz PCM File Import delivers its full audible extent`, async ({ page }) => {
 	test.setTimeout(45_000);
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	await editor.locator('[data-import-input]').setInputFiles({ name: `Original ${rate}.wav`, mimeType: 'audio/wav', buffer: Buffer.from(await lowClockPcmFixture(rate).file.arrayBuffer()) });
@@ -21,7 +23,7 @@ for (const rate of [1000, 48000]) test(`ordinary ${rate} Hz PCM File Import deli
 	expect(Math.sqrt(energy / 46000)).toBeGreaterThan(.05);
 });
 
-for (const rate of [1000, 48000]) test(`ordinary ${rate} Hz PCM Source monitor supports Invert`, async ({ page }) => {
+for (const rate of [1000]) test(`ordinary ${rate} Hz PCM Source monitor supports Invert`, async ({ page }) => {
 	test.setTimeout(45_000);
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	const name = `Source ${rate}.wav`;
