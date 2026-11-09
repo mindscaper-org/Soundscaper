@@ -7,8 +7,9 @@ import { bootEditor, clipByName, closeDialog, disableNativeSavePicker, importFil
 test('a later explicit clip gain edit survives an in-progress normalization', async ({ page }) => {
 	test.setTimeout(60_000);
 	await disableNativeSavePicker(page);
+	// The render gate below holds the race open independently of recording length.
 	const recording = createWavFixture({ name: 'long-room-tone.wav', frequency: 440,
-		duration: 30, channelCount: 1, channelAmplitudes: [0.1] });
+		duration: 1, channelCount: 1, channelAmplitudes: [0.1] });
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [recording]);
 	const properties = await openClipProperties(page, editor, clipByName(editor, recording.name));
