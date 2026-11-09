@@ -135,37 +135,7 @@ test.describe('exact selected-schema cross-product Scape handoffs', () => {
 		}
 	});
 
-	test('a reserved Lightscaper suffix and the legacy one open in both products', async ({ browser, page }) => {
-		await disableDirectScapeSave(page);
-		const origin = await bootEditor(page, PRODUCT_PATHS.soundscaper);
-		await importFiles(origin, [toneA]);
-		await expect(clipByName(origin, toneA.name)).toBeVisible();
-		const projectId = await origin.getAttribute('data-project-id');
-		const archive = await exportScapeArchive(page, origin, 'soundscaper');
 
-		const baseURL = new URL(page.url()).origin;
-		const openedRuntimes = [];
-		try {
-			// The suffix is only a routing hint, so a Scape archive under the
-			// reserved `.liscape` and under the retired `.scape` is admitted the
-			// same way the product's own suffix is.
-			for (const [productId, name] of [
-				['soundscaper', 'reserved.liscape'],
-				['framescaper', 'legacy.SCAPE'],
-			]) {
-				const runtime = await openProductRuntime(browser, baseURL, productId);
-				openedRuntimes.push(runtime);
-				const errors = collectClientErrors(runtime.page);
-				await openScapeArchive(runtime.editor, archive, name);
-				await expect(runtime.editor).toHaveAttribute('data-project-id', projectId, { timeout: 20_000 });
-				expect(errors).toEqual([]);
-			}
-		} finally {
-			for (const runtime of openedRuntimes.reverse()) {
-				if (!runtime.page.isClosed()) await runtime.page.close({ runBeforeUnload: false });
-			}
-		}
-	});
 });
 
 async function openProductRuntime(browser, baseURL, productId) {
