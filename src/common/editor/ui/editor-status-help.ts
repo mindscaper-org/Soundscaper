@@ -48,7 +48,7 @@ function controlLabel(control: Element): string {
 	const ids = control.getAttribute('aria-labelledby');
 	const referenced = ids?.split(/\s+/u).map(id => control.ownerDocument.getElementById(id)?.textContent?.trim()).filter(Boolean).join(' ');
 	return referenced || control.getAttribute('aria-label')?.trim() || control.getAttribute('title')?.trim()
-		|| (control.tagName === 'BUTTON' || ['menuitem', 'menuitemcheckbox'].includes(control.getAttribute('role') ?? '') ? control.textContent?.replace(/[\uE000-\uF8FF]/gu, '').trim() : '') || '';
+		|| (control.tagName === 'BUTTON' || ['menuitem', 'menuitemcheckbox'].includes(control.getAttribute('role') ?? '') ? control.textContent?.replace(/\p{Co}/gu, '').trim() : '') || '';
 }
 
 function findMenu(menus: readonly StatusHelpMenu[], id: string | null | undefined, label: string): StatusHelpMenu | undefined {

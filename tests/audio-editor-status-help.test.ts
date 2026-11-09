@@ -5,6 +5,18 @@ import test from 'node:test';
 import { editorStatusHelp, statusHelpTransportCue } from '../src/common/editor/ui/editor-status-help.ts';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom } from './helpers/react-test-dom.ts';
+import { iconNameToChar } from '../src/common/editor/audacity-iconcodes.js';
+
+test('unnamed button labels omit private-use icons while retaining ordinary Unicode text', () => {
+	const dom = installReactTestDom();
+	try {
+		const root = dom.container as unknown as HTMLElement;
+		const button = document.createElement('button');
+		button.textContent = `${iconNameToChar('PLAY')}Play ♭${String.fromCodePoint(0xf0000)}`;
+		root.appendChild(button);
+		assert.equal(editorStatusHelp(button, root, ENGLISH_COPY, []), 'Play ♭');
+	} finally { dom.restore(); }
+});
 
 test('status help uses localized control names and only their current configured shortcut', () => {
 	const dom = installReactTestDom();
