@@ -69,13 +69,18 @@ the admitted matrix without a redundant general-purpose file library or its
 additional format surface.
 
 Every bundled payload has a pinned upstream archive or revision, license and
-notice closure, Emscripten 3.1.64 recipe, exact-byte staging audit, startup
+notice closure, Emscripten 3.1.64 recipe, exact-byte staging audit, first-use
 identity check, bounded parser/output validation, and a codec canary. The
 packaged runtime manifest authenticates each WASM file and the complete
 transitive JavaScript module closure that can load it. Canary, preflight, and
 execute each use a fresh, supervised Electron utility process; the main process
-never imports or executes the codec modules. Startup canaries run in batches of
-four, and at most four helper jobs may be active. Preflight and execute use
+never imports or executes the codec modules. Main registers the trusted codec
+IPC boundary before opening the editor, then prepares the bundled and OS tiers
+on the first admitted capability query or execution request. Concurrent requests
+share that preparation; canceled or revoked jobs stop waiting without executing,
+and application shutdown drains in-flight canaries. An unused codec service
+starts no helpers. Canary preparation runs in batches of four, and at most four
+helper jobs may be active. Preflight and execute use
 private sibling input/output scratch files, a 30-second default deadline with a
 five-minute hard ceiling, cancellation that kills the helper, and a bounded
 kill-completion deadline. Canary execution has a five-second ceiling. Helper
@@ -129,7 +134,7 @@ The test pins its stock decoder image by digest and verifies exact MP3 gapless
 sample counts and FLAC frame CRCs before invoking the independent decoder.
 
 Windows Media Foundation and macOS ARM64 AudioToolbox source adapters, exact
-source inspectors, output validators, and live startup canaries are implemented
+source inspectors, output validators, and live first-use canaries are implemented
 for 48 kHz stereo MP3 and AAC-LC/M4A decode, 48 kHz stereo 160 kbps AAC-LC/M4A
 encode, and—on Windows only—48 kHz stereo 192 kbps MP3 encode. The production
 workflow now builds the isolated Node-API codec addon target-native on mac-arm64,
@@ -139,7 +144,7 @@ repository source/build-plan identity, runs the native codec canaries, and
 records the toolchain and payload digest. macOS applies and verifies only the
 identity-free ad-hoc code seal required to execute the addon; it uses no
 certificate or trust identity. Windows needs no corresponding seal.
-Preparation, beforePack, afterPack, the package-content manifest, and startup
+Preparation, beforePack, afterPack, the package-content manifest, and runtime admission
 all bind the same exact manifest, payload, target, byte length, and SHA-256. A
 supported package build fails closed if that matching target-native result is
 absent or changes. Linux intentionally has no uniform OS tier and falls

@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { createLazyDesktopAudioCodecService } from '../desktop/desktop-audio-codec-lazy-service.ts';
 
 import {
 	desktopAudioCodecTargetFor,
@@ -87,6 +88,7 @@ test('registration composes main-owned runtime and bounded IPC from one private 
 		operatingSystemVersion: '15.6.1', forkUtilityProcess() {},
 		mkdir: async (...arguments_) => { directories.push(arguments_); },
 		loadModules: async () => ({
+			createLazyDesktopAudioCodecService,
 			createDesktopAudioStreamService: emptyStream,
 			createDesktopAudioStreamJobRunner: () => async () => 1,
 			createBundledAudioCodecRuntimeVerifier(options) {
@@ -128,6 +130,9 @@ test('registration composes main-owned runtime and bounded IPC from one private 
 		}),
 	});
 
+	assert.equal(isolatedLoads.length, 0, 'registration must not run codec canaries');
+	assert.equal(operatingSystemLoads.length, 0, 'registration must not probe OS codecs');
+	await ipcOptions[0].service.capabilities({});
 	assert.deepEqual(directories, [[
 		'/user-data/desktop-audio-codecs', { recursive: true, mode: 0o700 },
 	]]);
@@ -178,7 +183,7 @@ test('registration composes main-owned runtime and bounded IPC from one private 
 	assert.equal(ipcOptions[0].handle, handle);
 	assert.equal(ipcOptions[0].removeHandler, removeHandler);
 	assert.equal(ipcOptions[0].ownerFor, ownerFor);
-	assert.equal(ipcOptions[0].service, service);
+	assert.notStrictEqual(ipcOptions[0].service, service);
 	assert.deepEqual(Reflect.ownKeys(registration), ['revokeOwner', 'receiptSnapshot', 'dispose']);
 	assert.equal(Object.isFrozen(registration), true);
 	assert.deepEqual(registration.receiptSnapshot(), [observation]);
@@ -201,6 +206,7 @@ test('registration composes main-owned runtime and bounded IPC from one private 
 
 test('registration fails closed without any admitted bundled runtime', async () => {
 	const compositionOptions = [];
+	let registeredService;
 	await registerDesktopAudioCodecs({
 		channels: CHANNELS, handle() {}, removeHandler() {}, ownerFor: () => ({}),
 		externalFfmpegPreferences: externalPreferences(),
@@ -210,6 +216,7 @@ test('registration fails closed without any admitted bundled runtime', async () 
 		operatingSystemVersion: '10.0.26100', forkUtilityProcess() {},
 		mkdir: async () => undefined,
 		loadModules: async () => ({
+			createLazyDesktopAudioCodecService,
 			createDesktopAudioStreamService: emptyStream,
 			createDesktopAudioStreamJobRunner: () => async () => 1,
 			createBundledAudioCodecRuntimeVerifier: () => async () => ({}),
@@ -226,14 +233,16 @@ test('registration fails closed without any admitted bundled runtime', async () 
 			},
 			createDesktopAudioCodecRuntimeComposition(options) {
 				compositionOptions.push(options);
-				return {};
+				return { capabilities: async () => ({}), execute: async () => ({}) };
 			},
-			registerDesktopAudioCodecMainIpc: () => ({
-				revokeOwner: async () => false,
-				dispose: async () => undefined,
-			}),
+			registerDesktopAudioCodecMainIpc: ({ service }) => {
+				registeredService = service;
+				return { revokeOwner: async () => false, dispose: async () => undefined };
+			},
 		}),
 	});
+	assert.equal(compositionOptions.length, 0);
+	await registeredService.capabilities({});
 	assert.deepEqual(Reflect.ownKeys(compositionOptions[0]), [
 		'target', 'scratchRoot', 'externalFfmpegPreferences', 'onReceipt',
 	]);
@@ -277,6 +286,7 @@ test('registration teardown waits the streaming helper despite an earlier IPC cl
 		userDataPath: '/user-data', desktopRoot: '/app/desktop', runtimeRoot: '/runtime', packaged: false,
 		resourcesPath: '/resources', operatingSystemVersion: '6.16.0', forkUtilityProcess() {}, mkdir: async () => undefined,
 		loadModules: async () => ({
+			createLazyDesktopAudioCodecService,
 			createDesktopAudioStreamService: () => ({ command: async () => null, revokeOwner: async () => false,
 				dispose: async () => { entered(); await childExit.promise; } }),
 			createDesktopAudioStreamJobRunner: () => async () => 1,
