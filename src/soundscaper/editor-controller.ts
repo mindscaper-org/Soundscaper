@@ -147,6 +147,11 @@ export function createSoundscaperAudioEditorController(
 	return productController;
 }
 
+/** Construct detached batch editors through the product's shared-controller composition root. */
+function createSoundscaperMacroFileController(options: ControllerOptions): CommonAudioEditorController {
+	return createAudioEditorController(null, { ...options, productId: 'soundscaper', headless: true });
+}
+
 function createControllerFacade(
 	delegate: CommonAudioEditorController,
 	automation: Readonly<SoundscaperAutomationControllerBinding>,
@@ -156,7 +161,7 @@ function createControllerFacade(
 	recovery: ReturnType<typeof bindSoundscaperProjectRecovery>,
 	presentation: SoundscaperAudioEditorControllerPresentation,
 ): SoundscaperAudioEditorController {
-	const batch = createDesktopMacroFileBatchBinding(delegate, presentation);
+	const batch = createDesktopMacroFileBatchBinding(delegate, presentation, createSoundscaperMacroFileController);
 	let disposal: Promise<void> | null = null;
 	let shutdownStarted = false;
 	const assertActive = (): void => { if (shutdownStarted) throw new EditorDisposedError(); };

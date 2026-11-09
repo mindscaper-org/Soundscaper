@@ -182,6 +182,7 @@ function workspaceFileMenu(openDesktopFiles: (...args: unknown[]) => unknown): M
 		selectionActive: false, selectedClip: null, selectedAudioTrack: null, durationFrames: 0,
 		projectBinEffectivelyOpen: true, uiFlags: {}, desktopHostRuntime: null,
 		fileService: { isDesktop: true }, parityRuntime: { actions: null }, openDesktopFiles,
+		controller: { actions: { macros: {} } },
 		run: (operation: () => unknown) => operation(),
 	};
 	const menus = createWorkspaceApplicationMenus(new Proxy(input, {

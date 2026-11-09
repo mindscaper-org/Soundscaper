@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { createAudioEditorController } from '../common/editor/app.js';
+import type { createAudioEditorController } from '../common/editor/app.js';
 import type { ControllerOptions } from '../common/editor/controller/composition/controller-options.ts';
 import type { MacroFileBatchSession } from '../common/editor/controller/effects/macro-file-batch-service.ts';
 import { createSoundscaperProjectRuntimeSelection } from './editor-project-runtime-selection.ts';
@@ -7,6 +7,7 @@ import { createSoundscaperEphemeralProjectStore } from './editor-project-store.t
 import type { MacroBatchInput, MacroBatchTarget } from './desktop-macro-file-batch.ts';
 
 interface Options extends Pick<ControllerOptions, 'locale' | 'copy' | 'confirmFileSizeWarning' | 'confirmMonoConversion'> {
+	readonly createController: (options: ControllerOptions) => ReturnType<typeof createAudioEditorController>;
 	readonly fileService: NonNullable<ControllerOptions['fileService']>;
 	readonly savedMacros: readonly Readonly<{ id: string; name: string; effects: readonly Readonly<Record<string, unknown>>[] }>[];
 	readonly signal: AbortSignal;
@@ -16,7 +17,7 @@ interface Options extends Pick<ControllerOptions, 'locale' | 'copy' | 'confirmFi
 export async function createSoundscaperMacroFileSession(input: MacroBatchInput, options: Options): Promise<MacroFileBatchSession<MacroBatchTarget>> {
 	const runtime = createSoundscaperProjectRuntimeSelection();
 	const store = createSoundscaperEphemeralProjectStore();
-	const controller = createAudioEditorController(null, { ...options, productId: 'soundscaper', headless: true,
+	const controller = options.createController({ ...options,
 		store, projectRuntime: runtime, sessionController: runtime.createSessionController(),
 		sourceBufferCacheMaxBytes: 64 * 1024 * 1024, mixRenderMemoryLimitBytes: 128 * 1024 * 1024,
 	});

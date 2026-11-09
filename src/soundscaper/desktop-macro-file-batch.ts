@@ -11,7 +11,8 @@ type Parent = ReturnType<typeof createAudioEditorController>;
 
 /** Keep batch controller construction out of startup and bind its lifetime to the desktop editor. */
 export function createDesktopMacroFileBatchBinding(parent: Parent, options: Pick<ControllerOptions,
-	'fileService' | 'locale' | 'copy' | 'confirmFileSizeWarning' | 'confirmMonoConversion'>) {
+	'fileService' | 'locale' | 'copy' | 'confirmFileSizeWarning' | 'confirmMonoConversion'>,
+	createController: (options: ControllerOptions) => Parent) {
 	const fileService = options.fileService;
 	if (!fileService?.isDesktop) return null;
 	const active = new Map<AbortController, Promise<unknown>>();
@@ -34,7 +35,7 @@ export function createDesktopMacroFileBatchBinding(parent: Parent, options: Pick
 				catch (error) { if (error instanceof Error && error.name === 'AbortError') cancellation.abort(error); throw error; }
 			};
 			return runMacroFileBatch({ createSession: (input, sessionSignal) => createSoundscaperMacroFileSession(input, {
-				...options, fileService, savedMacros: parent.actions.macros.library.list(), signal: sessionSignal,
+				...options, fileService, createController, savedMacros: parent.actions.macros.library.list(), signal: sessionSignal,
 			}) }, { ...request, macro, signal, resolveAudioInput });
 		})();
 		active.set(cancellation, operation);
