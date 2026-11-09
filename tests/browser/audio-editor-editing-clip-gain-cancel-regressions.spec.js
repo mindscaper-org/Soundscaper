@@ -5,7 +5,7 @@ import { bootEditor, clipByName, chooseNestedCommandAction, importFiles } from '
 import { addClipGainPoint } from './helpers/complex-editing-workflows.js';
 
 test('Escape cancels clip-gain envelope dragging without persisting the preview', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const clip = clipByName(editor, monoTone.name);
 	await chooseNestedCommandAction(page, editor, 'Window', ['History']);

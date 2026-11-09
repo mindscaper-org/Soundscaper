@@ -11,7 +11,7 @@ for (const nonzero of [false, true]) test(`native Disjoin retains quiet audio wi
 		const middle = frame >= 12_000 && frame < 36_000;
 		values[frame] = Math.sin(2 * Math.PI * 1000 * frame / 48_000) * (middle ? (nonzero ? .0005 : 0) : .2);
 	}
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await editor.locator('[data-track-row]').first().locator('.track-control-panel__track-name-text').click();
 	await chooseNestedCommandAction(page, editor, 'Tracks', ['Remove tracks']);
 	await importFiles(editor, [{ name: 'Quiet passage.wav', mimeType: 'audio/wav',
@@ -45,7 +45,7 @@ function passagePeak(samples) {
 }
 
 test('legacy Disjoin shortcut truthfully declines the local near-silence classifier', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click();

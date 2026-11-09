@@ -32,7 +32,7 @@ test.describe('clip pitch and speed indicators', () => {
 
 	test('omits normal speed and preserves the direction of tiny speed changes', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		const clip = clipByName(editor, longTone.name);
 		const speed = clip.getByRole('button', { name: 'Clip speed', exact: true });
@@ -69,7 +69,7 @@ test.describe('clip pitch and speed indicators', () => {
 
 	test('opens clip properties with the clicked pitch or speed control focused', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const otherTone = { ...longTone, name: 'other-clip.wav' };
 		await importFiles(editor, [longTone, otherTone]);
 		const clip = clipByName(editor, longTone.name);
@@ -107,7 +107,7 @@ test.describe('clip pitch and speed indicators', () => {
 
 	test('double clicking an indicator resets only its own value and remains undoable', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		const clip = clipByName(editor, longTone.name);
 		const pitch = clip.getByRole('button', { name: 'Clip pitch', exact: true });

@@ -29,7 +29,7 @@ for (const variant of ['neighboring bin', 'skipped high-frequency bin', 'quieter
 				return result;
 			};
 		});
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		// The imported fixture and automatic programme context both own 48 kHz;
 		// an unconfigured native AudioContext can instead default to 44.1 kHz.
 		const programmeRate = 48_000;

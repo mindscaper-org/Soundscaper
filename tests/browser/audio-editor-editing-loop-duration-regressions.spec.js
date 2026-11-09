@@ -6,7 +6,7 @@ import { showClipTimingFields, bootEditor, clipByName, importFiles, openClipProp
 	chooseNestedCommandAction, clickClipInterior } from './audio-editor-test-helpers.js';
 
 test('the duration field changes a looped clip total length without stretching its period', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const clip = clipByName(editor, monoTone.name);
 	await clip.locator('.clip-header').click();
@@ -19,7 +19,7 @@ test('the duration field changes a looped clip total length without stretching i
 });
 
 test('Join can restore a looped clip after a split within its first repetition', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Editing$/u }).click();

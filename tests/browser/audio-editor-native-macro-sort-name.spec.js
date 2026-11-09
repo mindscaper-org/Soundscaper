@@ -3,7 +3,7 @@ import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, chooseCommandAction, closeDialog, importFiles } from './audio-editor-test-helpers.js';
 
 for (const lowercaseFirst of [true, false]) test(`native SortByName removes the lowercase owner with lowercaseFirst=${lowercaseFirst}`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await editor.locator('[data-track-row]').first().locator('.track-control-panel__track-name-text').click();
 	await chooseNestedCommandAction(page, editor, 'Tracks', ['Remove tracks']);
 	const upper = { ...toneA, name: 'B.wav' }, lower = { ...toneB, name: 'b.wav' };
@@ -25,7 +25,7 @@ for (const lowercaseFirst of [true, false]) test(`native SortByName removes the 
 });
 
 test('legacy native SortByName shortcuts decline the local case-fold ordering', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click();

@@ -10,7 +10,7 @@ for (const scenario of [
 	{ offset: 9600, empty: true, local: false, expectedStart: 0 },
 	{ offset: 9600, empty: false, local: true, expectedStart: 0 },
 ]) test(`all-selection origin with offset=${scenario.offset}, empty=${scenario.empty}, local=${scenario.local}`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	if (!scenario.empty) {
 		await editor.locator('[data-track-row]').first().locator('.track-control-panel__track-name-text').click();
 		await chooseNestedCommandAction(page, editor, 'Tracks', ['Remove tracks']);

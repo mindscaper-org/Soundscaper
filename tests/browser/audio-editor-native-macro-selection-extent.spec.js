@@ -11,7 +11,7 @@ for (const [fields, expected] of [
 	['Start="100"', [0, 4_800_000]],
 ]) test(`native time selection retains its declared extent: ${fields}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/'); await importFiles(editor, [toneA]);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
 	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
 	const choosing = page.waitForEvent('filechooser');

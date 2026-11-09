@@ -16,7 +16,7 @@ for (const channelCount of [2, 6]) {
 	test(`Source editor can process an ordinary ${channelCount}-channel recording`, async ({ page }) => {
 		test.setTimeout(60_000);
 		await disableNativeSavePicker(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const recording = createWavFixture({ name: `source-${channelCount}-channels.wav`, frequency: 750, duration: 1, channelCount });
 		await importFiles(editor, [recording]);
 		const before = await exportSamples(page, editor);
@@ -39,7 +39,7 @@ for (const channelCount of [2, 6]) {
 
 test('Source spectral editing processes an ordinary six-channel recording', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'six-channel-spectral.wav', frequency: 1000, duration: 1, channelCount: 6 });
 	await importFiles(editor, [recording]);
 	const clip = editor.locator('[data-clip-id]').first();

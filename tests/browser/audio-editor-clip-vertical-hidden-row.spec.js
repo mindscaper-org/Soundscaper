@@ -5,7 +5,7 @@ import { bootEditor, clipByName, importFiles } from './audio-editor-test-helpers
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 for (const direction of ['ArrowDown', 'ArrowUp']) test(`${direction} from an audio clip skips a collapsed folder's hidden clip`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const names = ['Visible first.wav', 'Collapsed middle.wav', 'Visible last.wav'];
 	await importFiles(editor, names.map(name => createWavFixture({ name, duration: .2 })));
 	const clips = names.map(name => clipByName(editor, name));

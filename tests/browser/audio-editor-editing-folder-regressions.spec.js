@@ -5,7 +5,7 @@ import { bootEditor, clipByName, importFiles, chooseCommandAction } from './audi
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('Move selection into new folder wraps every selected track', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA, toneB]);
 	const first = clipByName(editor, toneA.name);
 	const second = clipByName(editor, toneB.name);

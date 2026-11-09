@@ -41,7 +41,7 @@ function macrosPaletteStyleLoaded(page) {
 
 test.describe('macros palette libraries', () => {
 	test('loads its layout styles when the menu opens the dialog', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		expect(await macrosPaletteStyleLoaded(page)).toBe(false);
 
 		const manager = await openManager(page, editor);
@@ -53,7 +53,7 @@ test.describe('macros palette libraries', () => {
 
 	test('Tools > Macros lists the saved macros instead of fixed placeholders', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const manager = await openManager(page, editor);
 		await expect(manager.locator('[data-macro-id]')).toHaveText(['Restoration', 'Fade ends']);
 		await closeDialog(manager);
@@ -77,7 +77,7 @@ test.describe('macros palette libraries', () => {
 		// Include both full reloads alongside the library editing operations.
 		test.setTimeout(60_000);
 		const errors = collectClientErrors(page);
-		let editor = await bootEditor(page, '/embed/en/');
+		let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		let manager = await openManager(page, editor);
 		const macros = () => manager.locator('[data-macro-list]');
 		await expect(macros().getByRole('button')).toHaveText(['Restoration', 'Fade ends']);
@@ -119,7 +119,7 @@ test.describe('macros palette libraries', () => {
 
 	test('programs use the same icon actions for creation, file sharing, and deletion', async ({ page }, testInfo) => {
 		const errors = collectClientErrors(page);
-		let editor = await bootEditor(page, '/embed/en/');
+		let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		let manager = await openManager(page, editor);
 		const programs = () => manager.locator('[data-macro-programs]');
 		const actions = () => programs().locator('header').getByRole('button');

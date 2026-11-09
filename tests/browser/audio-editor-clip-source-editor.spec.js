@@ -8,7 +8,7 @@ test.describe('clip source editor', () => {
 
 	test('shows all media, trims without moving the project anchor, and keeps moved markers attached to samples', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		const clip = clipByName(editor, longTone.name);
 		const before = await clip.boundingBox();
@@ -51,7 +51,7 @@ test.describe('clip source editor', () => {
 
 	test('reuses timeline fade grips, previews waveform fades, and cancels captured drags with Escape', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		const clip = clipByName(editor, longTone.name);
 		const panel = await openSourceMonitor(page, editor, clip);
@@ -96,7 +96,7 @@ test.describe('clip source editor', () => {
 	});
 
 	test('source fades share boundary keyboard controls and their menu previews, cancels and applies one edit', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		const clip = clipByName(editor, longTone.name);
 		const panel = await openSourceMonitor(page, editor, clip);
@@ -138,7 +138,7 @@ test.describe('clip source editor', () => {
 
 	test('keeps painted waveform samples while zooming and panning across unused source media', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		const panel = await openSourceMonitor(page, editor, clipByName(editor, longTone.name));
 		const waveform = panel.getByRole('region', { name: 'Source waveform', exact: true });
@@ -184,7 +184,7 @@ test.describe('clip source editor', () => {
 
 	test('applies a selected source effect to every instance and restores both with undo', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		const original = clipByName(editor, longTone.name);
 		await original.focus(); await original.press('Enter');
@@ -208,7 +208,7 @@ test.describe('clip source editor', () => {
 
 	test('offers ruler modes and gives focused source playback its own transport', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		// Keep the timeline running while coverage checkpoints retire the source
 		// worklet; the transport assertions should not race the recording's end.

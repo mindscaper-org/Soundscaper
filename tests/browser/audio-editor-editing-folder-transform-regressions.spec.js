@@ -5,7 +5,7 @@ import { bootEditor, clipByName, importFiles } from './audio-editor-test-helpers
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('splitting stereo preserves the source track folder for both mono tracks', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = clipByName(editor, toneA.name);
 	const row = clip.locator('xpath=ancestor::div[@data-track-row][1]');
@@ -19,7 +19,7 @@ test('splitting stereo preserves the source track folder for both mono tracks', 
 });
 
 test('making a stereo track preserves the replaced mono tracks folder', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'other-mono.wav', frequency: 330, channelCount: 1 });
 	await importFiles(editor, [monoTone, recording]);
 	const first = clipByName(editor, monoTone.name);

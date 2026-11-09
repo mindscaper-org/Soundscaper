@@ -4,7 +4,7 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, closeDialog
 import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 
 for (const empty of [true, false]) test(`native SortByTime preserves chronological lane order with empty=${empty}`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	if (!empty) {
 		await editor.locator('[data-track-row]').first().locator('.track-control-panel__track-name-text').click();
 		await chooseNestedCommandAction(page, editor, 'Tracks', ['Remove tracks']);
@@ -28,7 +28,7 @@ for (const empty of [true, false]) test(`native SortByTime preserves chronologic
 });
 
 test('legacy native SortByTime shortcut truthfully declines changed empty-lane ordering', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });

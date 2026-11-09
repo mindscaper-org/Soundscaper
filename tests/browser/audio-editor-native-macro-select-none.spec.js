@@ -3,7 +3,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, closeDialog, importFiles } from './audio-editor-test-helpers.js';
 
 for (const clear of [false, true]) test(`native deselection preserves a later relative macro origin with clear=${clear}`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/'); await importFiles(editor, [toneA]);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
 	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
 	const choosing = page.waitForEvent('filechooser'); await manager.getByRole('button', { name: 'Import macro', exact: true }).click();
@@ -19,7 +19,7 @@ for (const clear of [false, true]) test(`native deselection preserves a later re
 });
 
 test('legacy SelectNone shortcuts disclose the incompatible reset while local clear still works', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/'); await importFiles(editor, [toneA]);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click();

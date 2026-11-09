@@ -12,7 +12,7 @@ test.describe('clip pointer edit workflows', () => {
 
 	test('moves and trims clips with frame-canonical pointer edits', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		await clip.scrollIntoViewIfNeeded();
@@ -62,7 +62,7 @@ test.describe('clip pointer edit workflows', () => {
 
 	test('moves, trims, and stretches a multi-selection as one clip set', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA, toneB]);
 		const firstClip = clipByName(editor, toneA.name);
 		const secondClip = clipByName(editor, toneB.name);

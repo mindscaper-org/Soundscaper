@@ -3,7 +3,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, closeDialog, importFiles, clipByName } from './audio-editor-test-helpers.js';
 
 for (const command of ['', 'SelectAll:', 'SelAllTracks:']) test(`native all-selection retains spectral scope with command=${command || 'unchanged'}`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/'); await importFiles(editor, [toneA]);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await importFiles(editor, [toneA]);
 	await clipByName(editor, toneA.name).locator('.clip-header').click();
 	await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
@@ -22,7 +22,7 @@ for (const command of ['', 'SelectAll:', 'SelAllTracks:']) test(`native all-sele
 });
 
 test('legacy native all-selection shortcuts disclose differing spectral behavior', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click();

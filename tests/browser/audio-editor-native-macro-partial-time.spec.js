@@ -3,7 +3,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, closeDialog, importFiles, clipByName } from './audio-editor-test-helpers.js';
 
 for (const explicitEnd of [true, false]) test(`native macro time defaults survive import with explicitEnd=${explicitEnd}`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/'); await importFiles(editor, [toneA]);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
 	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
 	const choosing = page.waitForEvent('filechooser'); await manager.getByRole('button', { name: 'Import macro', exact: true }).click();
@@ -20,7 +20,7 @@ for (const explicitEnd of [true, false]) test(`native macro time defaults surviv
 });
 
 for (const partial of [false, true]) test(`native macro frequency defaults survive import with partial=${partial}`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/'); await importFiles(editor, [toneA]);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await importFiles(editor, [toneA]);
 	await clipByName(editor, toneA.name).locator('.clip-header').click(); await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
 	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });

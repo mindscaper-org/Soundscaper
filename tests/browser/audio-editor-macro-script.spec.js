@@ -33,7 +33,7 @@ async function runProgram(page, editor, source) {
 test.describe('macro programs', () => {
 	test('a program reaches the editor and reports what it did', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 
 		const { manager, log } = await runProgram(page, editor, `
@@ -56,7 +56,7 @@ test.describe('macro programs', () => {
 	test('the sandbox denies the worker every ambient capability', async ({ page }) => {
 		// The boundary is the host's dispatch table; this is the defence in depth
 		// behind it, and it is one missing prototype walk away from being nothing.
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 
 		const { log } = await runProgram(page, editor, [
@@ -80,7 +80,7 @@ test.describe('macro programs', () => {
 	});
 
 	test('a program is deterministic, and asking for something it may not have is refused', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 
 		const { log } = await runProgram(page, editor, [
@@ -96,7 +96,7 @@ test.describe('macro programs', () => {
 	});
 
 	test('a program that throws reports the author\'s own line and changes nothing', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clipCount = await editor.getAttribute('data-clip-count');
 
@@ -122,7 +122,7 @@ test.describe('macro programs', () => {
 			await heldChunk;
 			await route.continue();
 		});
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
 		const originId = await editor.getAttribute('data-project-id');
