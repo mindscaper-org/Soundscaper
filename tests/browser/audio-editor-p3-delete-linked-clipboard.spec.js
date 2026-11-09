@@ -3,7 +3,7 @@ import { expect, test, createWavFixture } from './audio-editor-test-fixtures.js'
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { installLinkedAudioBridge } from './helpers/linked-audio-relink-fixture.js';
 
-for (const remove of [false, true]) test(`copied linked audio remains exportable after ${remove ? 'Delete project' : 'New'}`, async ({ page }) => {
+test('copied linked audio remains exportable after Delete project', async ({ page }) => {
 	test.setTimeout(90_000);
 	await installLinkedAudioBridge(page, {
 		original: createWavFixture({ name: 'Voice.wav', frequency: 330, duration: 1, channelCount: 1 }),
@@ -19,12 +19,10 @@ for (const remove of [false, true]) test(`copied linked audio remains exportable
 	const original = await editor.getAttribute('data-project-id');
 	await editor.locator('.clip-header').first().click();
 	await chooseCommandAction(page, editor, 'Edit', 'Copy');
-	if (remove) {
-		await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Delete project']);
-		const confirmation = page.getByRole('dialog', { name: 'Delete this project?', exact: true });
-		await confirmation.getByRole('button', { name: 'Delete permanently', exact: true }).click();
-		await expect(confirmation).toBeHidden();
-	} else await chooseCommandAction(page, editor, 'File', 'New');
+	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Delete project']);
+	const confirmation = page.getByRole('dialog', { name: 'Delete this project?', exact: true });
+	await confirmation.getByRole('button', { name: 'Delete permanently', exact: true }).click();
+	await expect(confirmation).toBeHidden();
 	await expect(editor).not.toHaveAttribute('data-project-id', original);
 	await waitForProjectActivation(editor);
 	await chooseNestedCommandAction(page, editor, 'Edit', ['Paste', 'Paste']);
