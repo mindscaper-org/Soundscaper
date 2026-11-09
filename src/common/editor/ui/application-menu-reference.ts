@@ -242,6 +242,7 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	['analysis', 'Analysis', 'Analyze', SOUNDSCAPER, 'setting'],
 	['analyze-selection', 'Analyze selection', 'Analyze', SOUNDSCAPER],
 	['find-repeated-sound', 'Find repeated sound', 'Analyze', SOUNDSCAPER],
+	['macro-apply-files', 'Apply to files', 'Tools > Macros', SOUNDSCAPER],
 	['measure-loudness', 'Measure loudness', 'Analyze', SOUNDSCAPER],
 	['native-analyzer-use', 'Vamp Plugins', 'Analyze', SOUNDSCAPER],
 	['framescaper-motion-tracking', 'Motion Tracking', 'Analyze', FRAMESCAPER],

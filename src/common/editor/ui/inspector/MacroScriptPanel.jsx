@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { macroScriptIsRunnable } from '../../macro-script-library.ts';
 import MacroScriptEditor from './MacroScriptEditor.jsx';
+import { createMacroAudioInputResolver } from '../../controller/effects/macro-audio-input-service.ts';
 
 /**
  * One macro program: the editor, the run, and what the run said.
@@ -12,7 +13,7 @@ import MacroScriptEditor from './MacroScriptEditor.jsx';
  * list and a detail pane, and so a program's log is discarded with the program
  * rather than outliving it.
  */
-export default function MacroScriptPanel({ controller, copy, script, blocked, onChange }) {
+export default function MacroScriptPanel({ controller, copy, script, blocked, onChange, fileService }) {
 	// A program the user wrote here is theirs. One that arrived from a file has
 	// no Run button until somebody has read it and said so, and the permission
 	// they give names the exact text they read.
@@ -44,6 +45,8 @@ export default function MacroScriptPanel({ controller, copy, script, blocked, on
 			const result = await controller.actions.macros.runScript({
 				name: script.name,
 				source: script.source,
+				...(fileService?.isDesktop ? { resolveAudioInput: createMacroAudioInputResolver(fileService,
+					(bytes, sampleRate) => controller.engine.decodeAudioData(bytes, { sampleRate })) } : {}),
 			});
 			if (runRef.current !== operation) return;
 			// The last line is the editor's, not the program's: a run that printed
@@ -70,7 +73,7 @@ export default function MacroScriptPanel({ controller, copy, script, blocked, on
 				setRunning(false);
 			}
 		}
-	}, [controller, copy.programApplied, copy.runCancelled, script.name, script.source]);
+	}, [controller, copy.programApplied, copy.runCancelled, script.name, script.source, fileService]);
 
 	return (
 		<MacroScriptEditor

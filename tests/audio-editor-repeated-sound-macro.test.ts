@@ -4,6 +4,28 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createMacroScriptHost } from '../src/common/editor/controller/effects/internal/macro/macro-script-host.ts';
 
+test('a macro resolves an explicitly selected input once and passes host-owned PCM to the analyzer', async () => {
+	let picked = 0;
+	const reference = { name: 'jingle.wav', sampleRate: 1000, channels: [new Float32Array(100).fill(.2)] };
+	const host = createMacroScriptHost({ getProject: () => ({ tracks: [], clips: [] }), projectSampleRate: () => 1000,
+		runEffectMacro: async () => undefined, runMacroCommand: () => undefined, setExactSelection: () => undefined,
+		listSavedMacros: () => [], beginMacroTransaction: () => ({ assertCurrent() {}, commit() {}, rollback() {} }),
+		findRepeatedSound: async (options, _signal, audio) => {
+			assert.deepEqual(options, { similarityThreshold: .9 });
+			assert.deepEqual(audio, reference);
+			return { trackId: 'labels', sourceTrackId: 'voice', matches: [] };
+		},
+	});
+	await host.runMacroScript({ name: 'Reference file', resolveAudioInput: async (key, rate) => {
+		picked += 1; assert.equal(key, 'jingle'); assert.equal(rate, 1000); return reference;
+	}, run: async dispatch => {
+		assert.deepEqual(await dispatch('input.audio', ['jingle']), { key: 'jingle', name: 'jingle.wav', sampleRate: 1000, channelCount: 1, frameCount: 100 });
+		await dispatch('input.audio', ['jingle']);
+		await dispatch('analyze.repeatedSound', [{ similarityThreshold: .9, referenceInput: 'jingle' }]);
+	} });
+	assert.equal(picked, 1);
+});
+
 test('macro analysis returns matches and gap-closing edits run in the same transaction', async () => {
 	const events: unknown[] = [];
 	const project = { id: 'podcast', tracks: [{ id: 'voice', type: 'audio' }], clips: [],

@@ -31,20 +31,20 @@ export interface EffectMacroApplicationMenu {
 /** Build Tools > Macros from the same saved library shown by Macro Manager. */
 export function createEffectMacroApplicationMenu(
 	macros: readonly EffectMacroApplicationMenuEntry[],
-	options: Readonly<{ label: string; editBlocked: boolean }>,
-	actions: Readonly<{ run: (macro: EffectMacroApplicationMenuEntry) => unknown }>,
+	options: Readonly<{ label: string; editBlocked: boolean; applyToFilesLabel?: string }>,
+	actions: Readonly<{ run: (macro: EffectMacroApplicationMenuEntry) => unknown; applyToFiles?: () => unknown }>,
 ): EffectMacroApplicationMenu {
 	return Object.freeze({
 		id: EFFECT_MACRO_APPLICATION_MENU_ID,
 		label: options.label,
-		disabled: macros.length === 0,
-		items: Object.freeze(macros.map((macro) => Object.freeze({
+		disabled: macros.length === 0 && !actions.applyToFiles,
+		items: Object.freeze([...(actions.applyToFiles ? [{ id: 'macro-apply-files', label: options.applyToFilesLabel ?? '', disabled: false, onClick: actions.applyToFiles }] : []), ...macros.map((macro) => Object.freeze({
 			id: `${EFFECT_MACRO_APPLICATION_MENU_ID}:${encodeURIComponent(macro.id)}`,
 			label: macro.name,
 			disabled: options.editBlocked
 				|| macro.effects.length === 0
 				|| effectMacroMissingEmbeddedNoiseProfile(macro.effects),
 			onClick: () => actions.run(macro),
-		}))),
+		}))]),
 	});
 }

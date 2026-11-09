@@ -16,6 +16,7 @@ import type { EditorActionFunctions } from '../composition/editor-action-functio
 import type { EditorActionResources } from '../composition/editor-action-resources.ts';
 import type { RestrictToCapability } from '../composition/action-facade-runtime.ts';
 import { createOwnedEffectPresetCatalog } from './internal/owned-effect-preset-catalog.ts';
+import type { MacroAudioInput, MacroAudioInputResolver } from '../../macro-audio-input.ts';
 
 export type EffectLibraryActionScope = Pick<EditorActionFunctions,
 	 'createStableId'
@@ -119,12 +120,12 @@ export function createEffectMacroActions(
 		handleError: scope.handleError,
 	});
 	const scriptHost = createMacroScriptHost({
-		findRepeatedSound: async (params, signal) => {
+		findRepeatedSound: async (params, signal, reference) => {
 			const target = (actions ?? scope.getEditorActions?.())?.analysis as Readonly<{
-				findRepeatedSound?: (options: Readonly<Record<string, unknown>>, signal?: AbortSignal) => Promise<unknown>;
+				findRepeatedSound?: (options: Readonly<Record<string, unknown>>, signal?: AbortSignal, reference?: MacroAudioInput) => Promise<unknown>;
 			}> | undefined;
 			if (!target?.findRepeatedSound) throw new Error('Repeated sound analysis is unavailable.');
-			return target.findRepeatedSound(params, signal);
+			return target.findRepeatedSound(params, signal, reference);
 		},
 		deleteAndCloseGap: () => {
 			const target = (actions ?? scope.getEditorActions?.())?.edit as Readonly<{ deletePerTrackRipple?: () => unknown }> | undefined;
@@ -148,7 +149,7 @@ export function createEffectMacroActions(
 			return program.cancelMacroProgram();
 		})),
 		runScript: restricted('audioMacros', (async (request: unknown) => {
-			const { name, source } = readScriptRequest(request, scope);
+			const { name, source, resolveAudioInput } = readScriptRequest(request, scope);
 			// The gate is on the bytes, not on the record the manager happens to hold,
 			// so reading an unreviewed program out of the list and passing its text
 			// straight here is not a way around it.
@@ -164,6 +165,10 @@ export function createEffectMacroActions(
 			try {
 				return await scriptHost.runMacroScript({
 					name,
+					resolveAudioInput: resolveAudioInput ? async (...args) => {
+						try { return await resolveAudioInput(...args); }
+						catch (error) { if (error instanceof Error && error.name === 'AbortError') cancel(); throw error; }
+					} : undefined,
 					run: async (dispatch, signal) => {
 						// Open the transaction before lazy loading so a project switch or
 						// dialog close during that await still cancels the run it owns.
@@ -230,12 +235,12 @@ type Sandbox = ReturnType<
 function readScriptRequest(
 	request: unknown,
 	scope: EffectLibraryActionScope,
-): Readonly<{ name: string; source: string }> {
+): Readonly<{ name: string; source: string; resolveAudioInput?: MacroAudioInputResolver }> {
 	const value = request && typeof request === 'object' ? request as Record<string, unknown> : {};
 	const source = typeof value.source === 'string' ? value.source : '';
 	if (!source.trim()) throw new RangeError('A macro program needs source to run.');
 	const name = String(value.name ?? '').trim() || publishedCopyFor(scope.copy).untitledMacro || 'Untitled macro';
-	return Object.freeze({ name, source });
+	return Object.freeze({ name, source, ...(typeof value.resolveAudioInput === 'function' ? { resolveAudioInput: value.resolveAudioInput as MacroAudioInputResolver } : {}) });
 }
 
 /** A library edit queued before reset admission must not repopulate its deleted settings. */

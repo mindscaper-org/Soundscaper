@@ -93,3 +93,13 @@ test('copies before the selected original are labeled in chronological order', a
 		{ title: 'Repeated sound 1' }, { title: 'Original sound' }, { title: 'Repeated sound 2' },
 	] } });
 });
+
+test('a reference audio file searches without a template selection and labels every match as a copy', async () => {
+	const f = fixture();
+	const result = await createRepeatedSoundService({ ...f.deps, getSelection: () => null })({}, undefined, {
+		name: 'jingle.wav', sampleRate: 1000,
+		channels: [Float32Array.from({ length: 128 }, (_, i) => Math.sin(i * i) * .3)],
+	});
+	assert.deepEqual(result.matches.map(match => [match.startFrame, match.original]), [[100, false], [14_950, false], [23_872, false]]);
+	assert.equal(f.reads[0]?.[0], 0, 'the external example is not read from the episode');
+});

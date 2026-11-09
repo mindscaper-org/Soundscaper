@@ -30,6 +30,7 @@ export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	'desktop/project-file-associations.js',
 	'desktop/project-saving-main-ipc.js',
 	'desktop/project-saving-preload.js',
+	'desktop/save-target-preload.js',
 	'desktop/temporary-project-storage.js',
 	...DESKTOP_ASSISTANCE_RUNTIME_FILES, ...DESKTOP_ARA_RUNTIME_FILES, ...DESKTOP_BLENDER_RUNTIME_FILES,
 	...DESKTOP_EXTERNAL_FFMPEG_RUNTIME_FILES,

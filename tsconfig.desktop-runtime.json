@@ -42,6 +42,7 @@
 		"desktop/original-file-overwrite.ts",
 		"desktop/project-saving-main-ipc.ts",
 		"desktop/project-saving-preload.ts",
+		"desktop/save-target-preload.ts",
 		"desktop/project-file-associations.ts",
 		"desktop/temporary-project-storage.ts",
 		"desktop/save-size-warning-dialog.ts",

@@ -54,6 +54,7 @@ Product availability follows each product profile’s command filters and each l
 | Analysis | `analysis` | — | Analyze | Soundscaper | Soundscaper local |
 | Analyze selection | `analyze-selection` | — | Analyze | Soundscaper | Soundscaper local |
 | Apply preset | `action://effects/presets/apply` | — | Effect dialog > Presets | Soundscaper | Audacity |
+| Apply to files | `macro-apply-files` | — | Tools > Macros | Soundscaper | Soundscaper local |
 | At zero crossings | `zero-cross` | Z | Select | Soundscaper, Framescaper | Audacity |
 | Attach | `framescaper-proxy-attach` | — | Tools > Proxies | Framescaper | Soundscaper local |
 | Audacity | `workspace-audacity` | — | View > Workspace; Window | Soundscaper | Soundscaper local |

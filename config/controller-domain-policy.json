@@ -149,6 +149,8 @@
 		"effects/effects-state.ts",
 		"effects/filter-curve-gesture.ts",
 		"effects/graphic-eq-gesture.ts",
+		"effects/macro-audio-input-service.ts",
+		"effects/macro-file-batch-service.ts",
 		"effects/macro-script-library-service.ts",
 		"effects/macro-transaction-metadata.ts",
 		"effects/native-plugin-scan-controller.ts",

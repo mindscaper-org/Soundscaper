@@ -17,6 +17,19 @@ export interface EditorMemoryDatabase {
 
 const memoryDatabases = new Map<string, EditorMemoryDatabase>();
 
+/** A temporary worker/controller never enters the shared degraded-library registry. */
+export function storeMemoryDatabase(name: string, options: Readonly<{ ephemeralMemory?: boolean; indexedDB?: unknown; preferOpfs?: boolean }>): EditorMemoryDatabase {
+	if (!options.ephemeralMemory) return getMemoryDatabase(name);
+	if (options.indexedDB !== null || options.preferOpfs !== false) throw new TypeError('Ephemeral storage requires explicit memory-only backends.');
+	return emptyMemoryDatabase();
+}
+
+function emptyMemoryDatabase(): EditorMemoryDatabase {
+	return { projects: new Map(), revisions: new Map(), settings: new Map(), analysis: new Map(), sources: new Map(), sourceChunks: new Map(),
+		mediaAssets: new Map(), mediaAssetChunks: new Map(), mediaAssetStaging: new Map(), videoDerivatives: new Map(),
+		linkedVideoOriginalBindings: new Map(), linkedOriginalProvisionalRoots: new Map() };
+}
+
 /**
  * Process-local degraded backend. Its module-scoped registry intentionally
  * mirrors IndexedDB database-name isolation without claiming durability.
@@ -24,20 +37,7 @@ const memoryDatabases = new Map<string, EditorMemoryDatabase>();
 export function getMemoryDatabase(name: string): EditorMemoryDatabase {
 	let database = memoryDatabases.get(name);
 	if (!database) {
-		database = {
-			projects: new Map(),
-			revisions: new Map(),
-			settings: new Map(),
-			analysis: new Map(),
-			sources: new Map(),
-			sourceChunks: new Map(),
-			mediaAssets: new Map(),
-			mediaAssetChunks: new Map(),
-			mediaAssetStaging: new Map(),
-			videoDerivatives: new Map(),
-			linkedVideoOriginalBindings: new Map(),
-			linkedOriginalProvisionalRoots: new Map(),
-		};
+		database = emptyMemoryDatabase();
 		memoryDatabases.set(name, database);
 	}
 	return database;

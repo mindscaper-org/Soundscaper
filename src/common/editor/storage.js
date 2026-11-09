@@ -1,7 +1,7 @@
 import { EditorStoreBlockedError, EditorStoreClosedError, EditorStoreVersionStaleError, memoryFallbackReason } from './storage/status.ts';
 import { ProjectRecoveryRepository } from './storage/project-recovery-repository.ts';
 import { openDatabase } from './storage/indexeddb-backend.ts';
-import { getMemoryDatabase } from './storage/memory-backend.ts';
+import { storeMemoryDatabase } from './storage/memory-backend.ts';
 import { createStorageRepositories } from './storage/repositories.ts';
 import { bindEditorProjectStoreProfileFromOptions } from './storage/project-store-profile-binding.ts';
 import { DEFAULT_OPFS_DIRECTORY_NAME } from './storage/opfs-repository.ts';
@@ -64,7 +64,7 @@ export class AudioEditorProjectStore {
 		this.closePromise = null;
 		this.clearPromise = null;
 		this.databasePromise = null;
-		this.memory = getMemoryDatabase(databaseName);
+		this.memory = storeMemoryDatabase(databaseName, options);
 		const repositories = repositoryFactory({
 			memory: this.memory,
 			database: () => this.#database(),

@@ -21,13 +21,14 @@ import { resolveSelectionRange } from '../../../../selection-range.ts';
 
 import { createMacroCommandStep, normalizeMacroCommandStep, type MacroCommandStep } from '../../../../macro-command-steps.ts';
 import { normalizeMacroValue, type MacroValue } from '../../../../macro-script/protocol.ts';
+import { admitMacroAudioInput, macroAudioInputKey, type MacroAudioInput, type MacroAudioInputResolver } from '../../../../macro-audio-input.ts';
 
 export interface MacroScriptTrack extends Readonly<Record<string, unknown>> {
 	readonly id: string;
 }
 
 export interface MacroScriptHostRuntime {
-	readonly findRepeatedSound?: (options: Readonly<Record<string, unknown>>, signal?: AbortSignal) => Promise<unknown>;
+	readonly findRepeatedSound?: (options: Readonly<Record<string, unknown>>, signal?: AbortSignal, reference?: MacroAudioInput) => Promise<unknown>;
 	readonly deleteAndCloseGap?: () => unknown;
 	readonly getProject: () => Readonly<Record<string, unknown>> | null;
 	readonly projectSampleRate: () => number;
@@ -50,6 +51,7 @@ export interface MacroScriptHostRuntime {
 
 export interface MacroScriptRunRequest {
 	readonly name: string;
+	readonly resolveAudioInput?: MacroAudioInputResolver;
 	readonly run: (dispatch: MacroScriptDispatch, signal: AbortSignal) => Promise<unknown>;
 }
 
@@ -84,7 +86,8 @@ export function createMacroScriptHost(runtime: MacroScriptHostRuntime) {
 			controller.signal.throwIfAborted();
 		};
 		let mutations = 0;
-		const dispatch = createDispatch(() => { mutations += 1; }, assertCurrent, controller.signal);
+		const dispatch = createDispatch(() => { mutations += 1; }, assertCurrent, controller.signal,
+			{ resolve: request.resolveAudioInput, values: new Map() });
 		let dispatchTail: Promise<unknown> = Promise.resolve();
 		const trackedDispatch: MacroScriptDispatch = (method, args) => {
 			// Authored Promise.all calls still share one editor and its busy state.
@@ -119,12 +122,13 @@ export function createMacroScriptHost(runtime: MacroScriptHostRuntime) {
 		onMutation: () => void = () => undefined,
 		assertCurrent: () => void = () => undefined,
 		signal?: AbortSignal,
+		inputs: MacroInputs = { values: new Map() },
 	): MacroScriptDispatch {
 		return async (method, args) => {
 			assertCurrent();
 			const handler = READERS[method];
 			if (handler) {
-				const value = await handler(runtime, args, assertCurrent);
+				const value = await handler(runtime, args, assertCurrent, signal, inputs);
 				assertCurrent();
 				return value;
 			}
@@ -136,7 +140,7 @@ export function createMacroScriptHost(runtime: MacroScriptHostRuntime) {
 				);
 			}
 			onMutation();
-			const value = await mutator(runtime, args, assertCurrent, signal);
+			const value = await mutator(runtime, args, assertCurrent, signal, inputs);
 			assertCurrent();
 			return value;
 		};
@@ -146,9 +150,27 @@ export function createMacroScriptHost(runtime: MacroScriptHostRuntime) {
 type Handler = (
 	runtime: MacroScriptHostRuntime, args: readonly MacroValue[], assertCurrent: () => void,
 	signal?: AbortSignal,
+	inputs?: MacroInputs,
 ) => MacroValue | Promise<MacroValue>;
 
+interface MacroInputs {
+	readonly resolve?: MacroAudioInputResolver;
+	readonly values: Map<string, MacroAudioInput>;
+}
+
 const READERS: Readonly<Record<string, Handler>> = Object.freeze({
+	'input.audio': async (runtime, args, assertCurrent, signal, inputs) => {
+		const key = macroAudioInputKey(args[0]);
+		if (!inputs) throw new Error('Macro audio input is unavailable.');
+		let audio = inputs.values.get(key);
+		if (!audio) {
+			if (inputs.values.size >= 4) throw new RangeError('A macro may use at most four input audio files.');
+			if (!inputs.resolve || !signal) throw new Error('Choose an input audio file when running this program.');
+			audio = admitMacroAudioInput(await inputs.resolve(key, runtime.projectSampleRate(), signal), runtime.projectSampleRate());
+			assertCurrent(); inputs.values.set(key, audio);
+		}
+		return { key, name: audio.name, sampleRate: audio.sampleRate, channelCount: audio.channels.length, frameCount: audio.channels[0]!.length };
+	},
 	'project.snapshot': (runtime) => ({
 		sampleRate: runtime.projectSampleRate(),
 		tracks: readTracks(runtime),
@@ -171,11 +193,14 @@ const READERS: Readonly<Record<string, Handler>> = Object.freeze({
 });
 
 const MUTATORS: Readonly<Record<string, Handler>> = Object.freeze({
-	'analyze.repeatedSound': async (runtime, args, _assertCurrent, signal) => {
+	'analyze.repeatedSound': async (runtime, args, _assertCurrent, signal, inputs) => {
 		if (!runtime.findRepeatedSound) throw new Error('Repeated sound analysis is unavailable.');
 		const options = optionsOf(args[0]);
-		if (Object.keys(options).some(key => key !== 'similarityThreshold')) throw new RangeError('Unknown repeated sound option.');
-		return normalizeMacroValue(await runtime.findRepeatedSound(options, signal), 'Repeated sound result');
+		if (Object.keys(options).some(key => key !== 'similarityThreshold' && key !== 'referenceInput')) throw new RangeError('Unknown repeated sound option.');
+		const { referenceInput, ...parameters } = options;
+		const reference = referenceInput === undefined ? undefined : inputs?.values.get(macroAudioInputKey(referenceInput));
+		if (referenceInput !== undefined && !reference) throw new Error('Load this reference with sound.input.audio first.');
+		return normalizeMacroValue(await runtime.findRepeatedSound(parameters, signal, reference), 'Repeated sound result');
 	},
 	'edit.deleteAndCloseGap': async runtime => {
 		if (!runtime.deleteAndCloseGap) throw new Error('Delete and close gap is unavailable.');

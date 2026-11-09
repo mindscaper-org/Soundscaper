@@ -8,8 +8,9 @@ sidebar:
 A macro program is a macro written as JavaScript instead of as a list of steps.
 It runs inside the editor against a small API called `sound`, which lets it read
 the open project, move the selection, find repeated sounds, and apply effects
-and editing commands. Everything else, from files and the network to your
-other projects, is out of its reach.
+and editing commands. On desktop it can ask for reference audio files you
+explicitly choose. General file access, the network and your other projects
+remain outside its API.
 
 Programs are a Soundscaper feature. Framescaper has no macros palette.
 
@@ -95,6 +96,24 @@ effect covers that clip. A program's selection calls change the time range and
 the set of selected tracks, but not which track has focus, so one run processes
 one track. If nothing is focused or the selection is empty, the run fails with
 the same message the Effect menu gives.
+
+### Apply to files (desktop) {#apply-to-files}
+
+Choose **Apply to files** in the macro manager, or **Tools → Macros → Apply to
+files**. The command is also available through command search on desktop. Pick
+a step-list macro or enabled program, choose audio files, then choose WAV
+(24-bit), FLAC (24-bit) or MP3 and an output folder.
+
+Each input opens in its own temporary project, with its audio track focused
+and the complete recording selected. The visible project is unchanged. Files
+are processed sequentially; a failed macro is not exported and later files can
+continue. Cancellation stops the current file and skips the rest. Completed
+outputs remain available.
+
+Outputs use `-processed` names and a number if necessary. Existing files are
+never overwritten. Programs can request reference audio through
+`sound.input.audio`; each named reference is chosen once and reused across
+the batch. An imported program must be reviewed and enabled before batch use.
 
 ## The `sound` API
 
@@ -194,6 +213,19 @@ an edge you omit keeps its current value.
 `sound.select.all()` selects the whole project on every track.
 `sound.select.none()` clears the selection.
 
+### `sound.input.audio(key)`
+
+On desktop, requests a reference audio file through the native file picker.
+The key is a name such as `'jingle'`: a letter followed by up to 63 letters,
+digits, underscores or hyphens. A program can use up to four named inputs.
+Each encoded file must be smaller than 16 MiB and decode to at most 30 seconds
+of mono or stereo audio. It is decoded at the current project's sample rate.
+
+Returns `{ key, name, sampleRate, channelCount, frameCount }`. The program
+receives metadata; PCM and file capabilities remain with the editor. Cancelling
+the picker cancels the program. During **Apply to files**, the same named
+reference is reused for subsequent files without reopening the picker.
+
 ### `sound.analyze.repeatedSound(options)`
 
 Runs **Analyze → Find repeated sound** using the current selection as its
@@ -201,10 +233,17 @@ example. Select exactly one audio track and an example between 20 milliseconds
 and 30 seconds. The entire track is searched. `options.similarityThreshold`
 ranges from `0.5` to `1` and defaults to `0.9`.
 
+To use a file instead of the selected example, first call
+`sound.input.audio('jingle')`, then pass `referenceInput: 'jingle'` in the
+options. Select one audio track; a time selection is unnecessary in this mode.
+Every match comes from that track. No synthetic original occurrence is added
+for an external reference, and this run does not replace Repeat last analyzer's
+selection-based request.
+
 Creates a label track and returns `{ trackId, sourceTrackId, matches }`.
 Each match has `startFrame`, `endFrame`, `similarity` and `original` fields;
-the original is always included. Matches are ordered by time. The new track
-and any subsequent edits belong to the program's single Undo entry. The
+the selected original is always included in selection mode. Matches are ordered
+by time. The new track and any subsequent edits belong to the program's single Undo entry. The
 result must also fit the program's ordinary response-size limits.
 
 ### `sound.edit.deleteAndCloseGap()`

@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+export { createMacroBatchSaveRequestHandler } from './macro-batch-save.ts';
 import { open } from 'node:fs/promises';
 import { basename, extname } from 'node:path';
 

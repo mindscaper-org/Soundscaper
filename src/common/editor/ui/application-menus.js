@@ -494,8 +494,9 @@ export default function createApplicationMenus({
 				{ id: 'manage-macros', label: copy.macrosPalette, disabled: !project, onClick: actions.openMacrosPalette },
 				createEffectMacroApplicationMenu(snapshot.macros?.library || [], {
 					label: copy.macros,
+					applyToFilesLabel: copy.macroApplyToFiles,
 					editBlocked: editBlocked || !project,
-				}, { run: actions.runMacro }),
+				}, { run: actions.runMacro, applyToFiles: actions.applyMacrosToFiles }),
 				{ id: 'nyquist-prompt', label: copy.nyquistPrompt, disabled: !project, onClick: () => actions.openNyquist() },
 			],
 		},

@@ -17,7 +17,7 @@ import { validateSoundscaperProject } from './editor-project-validation.ts'
 import { SOUNDSCAPER_PROJECT_STORAGE_PROFILE } from './editor-project-storage-profile.ts'
 
 const AUTHORITY_FIELDS = new Set([
-	'projectStorageProfile', 'databaseName', 'store', 'repositoryFactory', 'desktopProjectBridge',
+	'projectStorageProfile', 'databaseName', 'store', 'repositoryFactory', 'desktopProjectBridge', 'ephemeralMemory',
 ])
 const PRODUCT_CREATED_STORES = new WeakSet<AudioEditorProjectStore>()
 const PRODUCT_STORE_AUTHORITIES = new WeakMap<AudioEditorProjectStore, SoundscaperProjectStoreAuthority>()
@@ -32,6 +32,15 @@ export function createSoundscaperProjectStore(
 	optionsValue: AudioEditorProjectStoreOptions | unknown = {},
 ): AudioEditorProjectStore {
 	const options = copyCreationOptions(optionsValue)
+	return createSelectedStore(options)
+}
+
+/** Explicit temporary authority retains the exact product profile without shared library state. */
+export function createSoundscaperEphemeralProjectStore(): AudioEditorProjectStore {
+	return createSelectedStore({ indexedDB: null, preferOpfs: false, memoryFallback: true, ephemeralMemory: true })
+}
+
+function createSelectedStore(options: AudioEditorProjectStoreOptions): AudioEditorProjectStore {
 	let authority: SoundscaperProjectStoreAuthority | null = null
 	const store = createProjectStore({
 		...options,

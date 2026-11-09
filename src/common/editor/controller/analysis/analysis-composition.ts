@@ -12,6 +12,7 @@ import { calculateAudioAnalysisReportInWorker } from '../../audio-analysis-repor
 import type { RepeatedSoundOptions, RepeatedSoundResult } from '../../repeated-sound.ts';
 import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import { EditorProjectChangedError } from '../shared/lifecycle.ts';
+import type { MacroAudioInput } from '../../macro-audio-input.ts';
 
 interface AnalysisWorkerCopy {
 	readonly audioAnalysisWorkerFailed: string;
@@ -42,7 +43,7 @@ export type AnalysisCompositionState = AnalysisState & {
 };
 
 export type AnalysisActions = ReturnType<typeof createDeferredAudioAnalysisService> & {
-	findRepeatedSound(options?: RepeatedSoundOptions, signal?: AbortSignal): Promise<RepeatedSoundResult>;
+	findRepeatedSound(options?: RepeatedSoundOptions, signal?: AbortSignal, reference?: MacroAudioInput): Promise<RepeatedSoundResult>;
 };
 
 export interface AnalysisCompositionDependencies<Project extends AnalysisProject, Buffers>
@@ -85,7 +86,7 @@ export function createAnalysisComposition<Project extends AnalysisProject, Buffe
 	const currentSelection = () => dependencies.getActiveSelection()
 		?? resolveSelectionRange(requireProject(), { selectedClipId: state.selectedClipId ?? null });
 	const renderAudio = createAnalysisRenderer({ ...dependencies, getProject: requireProject, getSelectedTrackId: () => state.selectedTrackId });
-	const findRepeatedSound = async (options: RepeatedSoundOptions = {}, signal?: AbortSignal): Promise<RepeatedSoundResult> => {
+	const findRepeatedSound = async (options: RepeatedSoundOptions = {}, signal?: AbortSignal, reference?: MacroAudioInput): Promise<RepeatedSoundResult> => {
 		dependencies.lifetime.assertActive(); signal?.throwIfAborted();
 		if (!dependencies.enabled) throw new Error(`${dependencies.productName} does not compose the analysis subsystem.`);
 		const token = dependencies.projectGeneration.capture(requireProject().id), revision = requireProject().revision;
@@ -101,8 +102,8 @@ export function createAnalysisComposition<Project extends AnalysisProject, Buffe
 			projectDurationFrames: () => dependencies.projectDurationFrames(requireProject()), renderAudio,
 			commit: command => { if (!dependencies.commit) throw new Error('Label publication is unavailable.'); return dependencies.commit(command); },
 			setProcessing: value => { state.analysisProcessing = value; }, publish: dependencies.publish,
-		})(parameters, signal);
-		state.lastAnalysisRequest = { type: 'repeated-sound', options: { similarityThreshold: parameters.similarityThreshold ?? .9 } };
+		})(parameters, signal, reference);
+		if (!reference) state.lastAnalysisRequest = { type: 'repeated-sound', options: { similarityThreshold: parameters.similarityThreshold ?? .9 } };
 		dependencies.publish();
 		return result;
 	};
@@ -158,10 +159,10 @@ export function createAnalysisComposition<Project extends AnalysisProject, Buffe
 	}) : createAbsentAnalysisService({ productName: dependencies.productName });
 	return Object.freeze({
 		...service,
-		findRepeatedSound: (options?: RepeatedSoundOptions, signal?: AbortSignal) => dependencies.taskProgress.run('analysis', copy.findRepeatedSound!, task => {
+		findRepeatedSound: (options?: RepeatedSoundOptions, signal?: AbortSignal, reference?: MacroAudioInput) => dependencies.taskProgress.run('analysis', copy.findRepeatedSound!, task => {
 			const cancellation = new AbortController();
 			task.setCancellation(() => cancellation.abort(new DOMException('The analysis was cancelled.', 'AbortError')));
-			return findRepeatedSound(options, signal ? AbortSignal.any([signal, cancellation.signal]) : cancellation.signal);
+			return findRepeatedSound(options, signal ? AbortSignal.any([signal, cancellation.signal]) : cancellation.signal, reference);
 		}, undefined, { key: 'findRepeatedSound' }),
 		run: (...args) => dependencies.taskProgress.run('analysis', copy.analysisRendering, () => service.run(...args), undefined, { key: "analysisRendering" }),
 		plotSpectrum: (...args) => dependencies.taskProgress.run('analysis', copy.analysisRendering, () => service.plotSpectrum(...args), undefined, { key: "analysisRendering" }),

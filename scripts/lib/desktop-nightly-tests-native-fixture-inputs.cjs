@@ -11,6 +11,8 @@ module.exports = Object.freeze([
 	'native/soundscaper-professional-host/tests/os_audio_codec_self_test.cpp',
 	'desktop/preload.mjs',
 	'desktop/project-saving-preload.ts',
+	'desktop/save-target-preload.ts',
+	'desktop/macro-batch-save.ts',
 	'desktop/audiocom-authorization.ts',
 	'desktop/audiocom-links.ts',
 	'desktop/ara-preload.ts',

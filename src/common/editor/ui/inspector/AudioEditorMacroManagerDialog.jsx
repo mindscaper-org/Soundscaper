@@ -46,6 +46,7 @@ export function AudioEditorMacroManagerDialog({
 	draft,
 	onDraftChange,
 	onClose,
+	onApplyToFiles = undefined,
 }) {
 	const project = snapshot.project;
 	const projectIdentity = editorProjectEditSessionKey(controller, project?.id);
@@ -410,6 +411,9 @@ export function AudioEditorMacroManagerDialog({
 						className="audio-editor-dialog-footer audio-editor-macros-palette__footer"
 						rightContent={(
 							<>
+								{fileService?.isDesktop && onApplyToFiles && <Button variant="secondary" disabled={isRunning || (selectedScript ? scriptLibrary.blocked(selectedScript.source) : !effects.length || missingEmbeddedNoiseProfile)} onClick={() => onApplyToFiles(selectedScript
+									? { kind: 'script', name: selectedScript.name, source: selectedScript.source }
+									: { kind: 'steps', name: draft?.name || copy.untitledMacro, effects })}>{copy.macroApplyToFiles}</Button>}
 								{isRunning && (
 									<Button variant="secondary" onClick={() => controller.actions.macros.cancel()}>{managerCopy.cancelRun}</Button>
 								)}
@@ -454,6 +458,7 @@ export function AudioEditorMacroManagerDialog({
 							<MacroScriptPanel
 								key={`${projectIdentity || "none"}:${selectedScript.id}`}
 								controller={controller}
+								fileService={fileService}
 								copy={{ ...managerCopy }}
 								script={selectedScript}
 								blocked={blocked}

@@ -3,7 +3,7 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { throwAfterReadCapabilityRollback } from './file-capabilities.js';
+import { throwAfterReadCapabilityRollback, createMacroBatchSaveRequestHandler } from './file-capabilities.js';
 import { redispatchPendingProjectsAfterReadRelease } from './file-associations.js';
 import { registerSelectedReadCapability } from './read-selection-service.js';
 import { acceptsFile, validateFileChoice, validateSaveChoice } from './validation.js';
@@ -38,6 +38,10 @@ export function registerFileCapabilityIpc({
 	readCapabilities, saves, saveTargets, originalFiles = /** @type {OriginalFileCapabilityService | null} */ (null), sesxMediaSessions = null, windowFor,
 	projectDirectory = /** @type {(() => Promise<string | null>) | null} */ (null),
 }) {
+	const macroBatchSave = createMacroBatchSaveRequestHandler({ targets: saveTargets, chooseDirectory: async () => {
+		const result = await dialog.showOpenDialog(windowFor(), { title: 'Macro output folder', properties: ['openDirectory', 'createDirectory'] });
+		return result.canceled ? null : result.filePaths[0] ?? null;
+	} });
 	async function chooseFiles(event, value) {
 		const owner = ownerFor(event);
 		const choice = validateFileChoice(value);
@@ -66,6 +70,7 @@ export function registerFileCapabilityIpc({
 
 	async function chooseSaveTarget(event, value) {
 		const owner = ownerFor(event);
+		if (typeof value?.kind === 'string' && value.kind.startsWith('macro-file-')) return macroBatchSave(owner, value);
 		const choice = validateSaveChoice(value);
 		const register = (path) => originalFiles && choice.purpose === 'project' && /\.(?:sscape|fscape|liscape|scape)$/iu.test(path)
 			? originalFiles.registerProjectSave(path, { owner }) : saveTargets.registerPath(path, { owner, purpose: choice.purpose });

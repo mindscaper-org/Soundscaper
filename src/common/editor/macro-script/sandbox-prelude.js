@@ -228,6 +228,7 @@ function installDeterminism() {
 function createApi() {
 	const api = {
 		env: environment,
+		input: { audio: (key) => call('input.audio', key) },
 		log: {
 			info: (...values) => log('info', values),
 			warn: (...values) => log('warn', values),
