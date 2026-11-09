@@ -47,24 +47,38 @@ export const ACCEPTED_PROJECT_FILE_EXTENSIONS = Object.freeze([
 	'.scape',
 ]);
 
+// Mirrors ROUTE_LOCALES in src/common/i18n/locales.js without importing renderer
+// sources into the packaged main process. tests/desktop-locales.test.ts guards parity.
 export const SUPPORTED_LOCALES = Object.freeze([
 	'en',
 	'de',
 	'ar',
+	'cs',
+	'el',
 	'en-GB',
 	'es',
+	'fa',
 	'fi',
 	'fr',
 	'gl',
+	'he',
+	'hi',
 	'hy',
+	'id',
+	'it',
 	'ja',
 	'ko',
+	'nl',
 	'pl',
+	'pt-BR',
+	'pt-PT',
 	'ro',
 	'ru',
 	'tr',
 	'uk',
+	'vi',
 	'zh-CN',
+	'zh-TW',
 ]);
 
 export const READ_CAPABILITY_PREFIX = '/_desktop/read/';
