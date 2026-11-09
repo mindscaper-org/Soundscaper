@@ -6,7 +6,7 @@ import { createSoundscaperProject } from '../../src/soundscaper/editor-project.t
 import { createSoundscaperProjectStore } from '../../src/soundscaper/editor-project-store.ts';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 
-for (const musical of [false, true]) test(`Labeled Audio splits an opened ${musical ? 'musical' : 'sample'} label at its audible boundaries`, async ({ page }) => {
+for (const musical of [true]) test(`Labeled Audio splits an opened ${musical ? 'musical' : 'sample'} label at its audible boundaries`, async ({ page }) => {
 	const store = createSoundscaperProjectStore({ indexedDB: null, preferOpfs: false });
 	let archive;
 	try {

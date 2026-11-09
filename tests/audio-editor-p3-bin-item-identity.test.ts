@@ -9,6 +9,7 @@ import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-s
 import { createAudioClip, createAudioSource, createAudioTrack, createVideoSource, createVideoClip, createVideoTrack } from '../src/common/editor/project-media-factory.ts';
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
+import { assertEditedAudioArchiveCustody } from './helpers/edited-audio-archive-custody.ts';
 
 import { createFramescaperProject } from '../src/framescaper/editor-project.ts';
 import { applyFramescaperProjectCommand } from '../src/framescaper/editor-project-commands.ts';
@@ -17,16 +18,16 @@ import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescap
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 for (const collision of [false, true]) for (const grouped of [false, true]) {
 	test(`Move to Bin retains separate item identities (${collision ? 'occupied' : 'free'}, ${grouped ? 'group' : 'single'})`, async context => {
-		const source = createAudioSource({ id: 'sound', name: 'Sound', sampleRate: 48_000, channelCount: 1, frameCount: 480 });
+		const source = createAudioSource({ id: 'sound', name: 'Sound', sampleRate: 48_000, channelCount: 1, frameCount: 48_000 });
 		const clips = ['take', ...(grouped ? ['peer'] : [])].map(id => createAudioClip({ id, title: id, sourceId: source.id,
-			durationFrames: 480, sourceDurationFrames: 480, groupId: grouped ? 'group' : null }));
+				durationFrames: 48_000, sourceDurationFrames: 48_000, groupId: grouped ? 'group' : null }));
 		const bin = createAudioClip({ id: 'existing', title: 'Existing Bin recording', sourceId: source.id,
-			durationFrames: 480, sourceDurationFrames: 480, binItemId: collision ? 'take' : 'old-item' });
+			durationFrames: 48_000, sourceDurationFrames: 48_000, binItemId: collision ? 'take' : 'old-item' });
 		const project = createSoundscaperProject({ id: context.name, sources: [source], clips,
 			tracks: clips.map(clip => createAudioTrack({ id: `track-${clip.id}`, clipIds: [clip.id] })), projectBin: { clips: [bin, ...(collision ? [{ ...bin, id: 'existing-suffix', binItemId: 'take:bin:1' }] : [])] } });
 		const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
 		const writer = await store.beginSourceWrite(source.storageKey, source);
-		await writer.write([new Float32Array(480).fill(.25)]); await writer.commit();
+		await writer.write([new Float32Array(48_000).fill(.25)]); await writer.commit();
 		const archive = await exportScapeProject(project, store); assert.ok(archive.blob instanceof Blob);
 		const runtime = createSoundscaperProjectRuntimeSelection();
 		const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, store,
@@ -50,6 +51,9 @@ for (const collision of [false, true]) for (const grouped of [false, true]) {
 		controller.actions.edit.undo(); assert.deepEqual(controller.project?.clips, before.clips);
 		assert.deepEqual(controller.project?.projectBin.clips, before.projectBin.clips);
 		controller.actions.edit.redo(); assert.deepEqual(controller.project?.projectBin.clips, after.projectBin.clips);
+		await controller.actions.project.flush();
+		const reopened = await assertEditedAudioArchiveCustody(context, store, controller.project, [new Float32Array(48_000).fill(.25)]);
+		assert.deepEqual(reopened.projectBin, after.projectBin);
 	});
 }
 

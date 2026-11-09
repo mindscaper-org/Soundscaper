@@ -9,6 +9,7 @@ import { createAudioClip, createAudioSource, createAudioTrack } from '../src/com
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
+import { assertEditedAudioArchiveCustody } from './helpers/edited-audio-archive-custody.ts';
 
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 for (const groupId of ['constructor', 'toString', '__proto__']) test(`NP056: native grouped Copy/Paste preserves reserved identity ${groupId}`, async context => {
@@ -22,6 +23,7 @@ for (const groupId of ['constructor', 'toString', '__proto__']) test(`NP056: nat
 	const writer = await archiveStore.beginSourceWrite(source.storageKey, source);
 	await writer.write([new Float32Array(48_000).fill(.25)]); await writer.commit();
 	const archive = await exportScapeProject(original, archiveStore); assert.ok(archive.blob instanceof Blob);
+	const destination = await exportScapeProject(createSoundscaperProject({ id: 'clipboard-destination' }), archiveStore); assert.ok(destination.blob instanceof Blob);
 	await archiveStore.close();
 	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, store,
 		projectRuntime: runtime, sessionController: runtime.createSessionController(), scapeProjectRuntime: createSoundscaperScapeNativeRuntime(),
@@ -29,9 +31,10 @@ for (const groupId of ['constructor', 'toString', '__proto__']) test(`NP056: nat
 	context.after(async () => { await controller.dispose(); }); await controller.ready;
 	await controller.actions.project.openScapeFile(new File([archive.blob], 'Hidden stretch.sscape'), () => 'copy');
 	assert.equal(controller.getSnapshot().readOnly, false);
-	controller.actions.timeline.setExactSelection(0, 48_000, { trackIds: ['voice'] });
+	controller.actions.timeline.selectClip('first');
+	assert.deepEqual(controller.getSnapshot().project?.selection?.clipIds, ['first', 'second'], 'one selection follows the actual authored group');
 	controller.actions.edit.copy();
-	await controller.actions.project.create();
+	await controller.actions.project.openScapeFile(new File([destination.blob], 'Destination.sscape'), () => 'copy');
 	await controller.actions.edit.paste();
 	const pasted: unknown = controller.project; assert.ok(validateSoundscaperProject(pasted));
 	assert.equal(pasted.clips.length, 2);
@@ -40,4 +43,8 @@ for (const groupId of ['constructor', 'toString', '__proto__']) test(`NP056: nat
 	assert.notEqual(pasted.clips[0]?.groupId, groupId);
 	controller.actions.edit.undo(); assert.equal(controller.project?.clips.length, 0);
 	controller.actions.edit.redo(); assert.deepEqual(controller.project?.clips, pasted.clips);
+	await controller.actions.project.flush();
+	const reopened = await assertEditedAudioArchiveCustody(context, store, controller.project, [new Float32Array(48_000).fill(.25)]);
+	assert.equal(reopened.clips[0]?.groupId, pasted.clips[0]?.groupId);
+	assert.equal(reopened.clips[1]?.groupId, pasted.clips[0]?.groupId);
 });

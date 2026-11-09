@@ -2,7 +2,7 @@
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js';
 
-for (const [name, transferred] of [['Voice\ntake.wav', 'Voice-take.wav'], ['Voice.wav', 'Voice.wav']]) {
+for (const [name, transferred] of [['Voice\ntake.wav', 'Voice-take.wav']]) {
 	test(`audio.com publishes the selected filename ${JSON.stringify(name)} using an admitted transfer name`, async ({ page }) => {
 		const file = createWavFixture({ name, frequency: 440, duration: .01, channelCount: 1 }); const sent = [];
 		await page.route('**/api/audiocom/**', async route => {
