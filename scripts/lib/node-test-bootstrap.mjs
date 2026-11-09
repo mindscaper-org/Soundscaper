@@ -1,18 +1,83 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { isBuiltin, stripTypeScriptTypes } from 'node:module';
-import { dirname, extname, isAbsolute, join, relative, resolve } from 'node:path';
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { createRequire, findPackageJSON, isBuiltin, stripTypeScriptTypes } from 'node:module';
+import { dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { transformSync } from 'esbuild';
 import ts from 'typescript';
 
 const NATIVE_EXTENSIONS = new Set(['.js', '.mjs', '.cjs', '.ts']);
 // These APIs can start another module graph or interpreter outside static imports.
 const MODULE_LAUNCHERS = new Set(['child_process', 'worker_threads', 'module', 'vm']);
+const NATIVE_PACKAGE = '@noble/hashes';
+const NATIVE_PACKAGE_IMPORTS = new Set([`${NATIVE_PACKAGE}/sha2.js`, `${NATIVE_PACKAGE}/utils.js`]);
 
 function inside(directory, file) {
 	const path = relative(directory, file);
-	return path !== '..' && !path.startsWith('../') && !isAbsolute(path);
+	return path !== '..' && !path.startsWith(`..${sep}`) && !isAbsolute(path);
+}
+
+function nativePackageReader() {
+	const entries = new Map();
+	const records = new Map();
+	return (id, importer) => {
+		if (!NATIVE_PACKAGE_IMPORTS.has(id)) return false;
+		try {
+			if (realpathSync(importer) !== importer) return false;
+			const metadataFile = findPackageJSON(id, importer);
+			if (!metadataFile) return false;
+			const key = `${metadataFile}\0${id}`;
+			if (entries.has(key)) return entries.get(key);
+			entries.set(key, false);
+			const metadata = JSON.parse(readFileSync(metadataFile, 'utf8'));
+			const target = metadata.exports?.[`.${id.slice(NATIVE_PACKAGE.length)}`];
+			if (metadata.name !== NATIVE_PACKAGE || metadata.type !== 'module' || typeof target !== 'string'
+				|| !target.startsWith('./') || extname(target) !== '.js') return false;
+			const directory = realpathSync(dirname(metadataFile));
+			const entry = realpathSync(createRequire(importer).resolve(id));
+			if (!inside(directory, entry) || realpathSync(resolve(directory, target)) !== entry) return false;
+			const seen = new Set();
+			const closed = candidate => {
+				const file = realpathSync(candidate);
+				if (!inside(directory, file) || extname(file) !== '.js' || !statSync(file).isFile()) return false;
+				if (seen.has(file)) return true;
+				seen.add(file);
+				if (!records.has(file)) {
+					for (let parent = dirname(file); parent !== directory; parent = dirname(parent)) {
+						if (existsSync(join(parent, 'package.json'))) return false;
+					}
+					const source = readFileSync(file, 'utf8');
+					// The JS parser rejects TypeScript and JSX hidden behind a .js export.
+					transformSync(source, { loader: 'js' });
+					const syntax = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+					const record = { supported: syntax.parseDiagnostics.length === 0, dependencies: [] };
+					records.set(file, record);
+					const specifier = value => {
+						if (!value || !ts.isStringLiteralLike(value) || !/^\.\.?\//u.test(value.text)) record.supported = false;
+						else record.dependencies.push(resolve(dirname(file), value.text));
+					};
+					const visit = node => {
+						if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier) specifier(node.moduleSpecifier);
+						else if (ts.isCallExpression(node)) {
+							const name = node.expression.getText(syntax);
+							if (node.expression.kind === ts.SyntaxKind.ImportKeyword) specifier(node.arguments[0]);
+							else if (['require', 'eval', 'Function', 'process.getBuiltinModule'].includes(name)) record.supported = false;
+						} else if (ts.isNewExpression(node) && node.expression.getText(syntax) === 'Function') record.supported = false;
+						if (ts.isDecorator(node)) record.supported = false;
+						ts.forEachChild(node, visit);
+					};
+					visit(syntax);
+				}
+				const record = records.get(file);
+				return record.supported && record.dependencies.every(closed);
+			};
+			const admitted = closed(entry);
+			entries.set(key, admitted);
+			return admitted;
+		} catch {
+			return false;
+		}
+	};
 }
 
 function runtimeModuleSurface(source) {
@@ -60,11 +125,12 @@ function compatibleNativeTypeScript(source, options) {
 	}
 }
 
-function dependencyReader(repositoryRoot) {
+function dependencyReader(repositoryRoot, { nativePackages = false } = {}) {
 	const root = resolve(repositoryRoot);
 	const records = new Map();
 	const moduleDirectories = new Map();
 	const rootConfigDirectories = new Map();
+	const nativePackage = nativePackages ? nativePackageReader() : () => false;
 	let options;
 	const moduleDirectory = directory => {
 		if (!inside(root, directory)) return false;
@@ -108,7 +174,7 @@ function dependencyReader(repositoryRoot) {
 				if (MODULE_LAUNCHERS.has(id.replace(/^node:/u, ''))) record.native = false;
 				return;
 			}
-			if (!id.startsWith('.')) { record.native = false; return; }
+			if (!id.startsWith('.')) { if (!nativePackage(id, file)) record.native = false; return; }
 			const target = resolve(dirname(file), id);
 			if (!inside(root, target) || !existsSync(target) || !statSync(target).isFile()) {
 				record.native = false;
@@ -167,7 +233,7 @@ export function collectTestDependencies(repositoryRoot, testFiles, { testHelpers
 
 /** Closed JS and compatible erasable TS graphs omit hooks; unknown graphs keep them. */
 export function partitionNodeTestBootstrapBatches(repositoryRoot, testFiles) {
-	const read = dependencyReader(repositoryRoot);
+	const read = dependencyReader(repositoryRoot, { nativePackages: true });
 	const native = [], loaders = [];
 	for (const file of testFiles) {
 		const visited = new Set();

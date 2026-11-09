@@ -44,10 +44,12 @@ Use `--test-name-pattern='test name'` before the file to narrow a run further.
 
 The ordinary Node runner checks each selected test's dependency graph before
 choosing its bootstrap. Closed JavaScript and compatible, erasable TypeScript
-graphs use Node's native loader. Graphs requiring JSX, asset stubs, package
-resolution, TypeScript transforms, or different import/export behavior retain
-the `tsx` and asset hooks. This changes bootstrap cost without changing test
-selection, process concurrency, or shard membership.
+graphs use Node's native loader. The `@noble/hashes/sha2.js` and
+`@noble/hashes/utils.js` entrypoints also qualify when their unconditional ESM
+exports lead to a closed JavaScript package graph. Graphs requiring JSX, asset
+stubs, other package resolution, TypeScript transforms, or different import/export
+behavior retain the `tsx` and asset hooks. This changes bootstrap cost without
+changing test selection, process concurrency, or shard membership.
 
 | Change | Development check |
 | --- | --- |
