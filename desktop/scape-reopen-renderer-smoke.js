@@ -79,6 +79,11 @@ export async function runScapeReopenRendererSmoke(scope, plan) {
 			));
 			throw new Error(`Packaged Scape persisted-reopen UI exposed an alert or dialog (${exposed.join('; ')})`);
 		}
+		// Actionable completion notices stay until closed; running scans have no Close button.
+		for (const alert of alerts) {
+			alert.closest?.('[data-editor-toast^="native-plugin-scan-"]')
+				?.querySelector?.('button.kw-audio-editor__toast-close')?.click();
+		}
 		return alerts.length === 0;
 	};
 	const nextAnimationFrame = () => new Promise((resolve) => scope.requestAnimationFrame(resolve));

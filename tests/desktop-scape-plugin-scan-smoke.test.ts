@@ -65,6 +65,7 @@ const REOPEN_RESULT = {
 interface FakeElement {
 	textContent: string;
 	getAttribute: (name: string) => string | null;
+	querySelector?: (selector: string) => FakeElement | null;
 	querySelectorAll?: (selector: string) => FakeElement[];
 	closest?: (selector: string) => object | null;
 	click?: () => void;
@@ -76,6 +77,7 @@ interface FixtureOptions {
 	alertsByPoll?: FakeElement[][];
 	alertsByFrame?: FakeElement[][];
 	persistentAlerts?: FakeElement[];
+	dismissibleAlerts?: { id: string; tone: string; afterFrame?: number }[];
 	dialogs?: FakeElement[];
 	tickMilliseconds?: number;
 	initialWaveformSource?: 'peaks' | 'pcm';
@@ -87,6 +89,35 @@ const probes = [
 ];
 
 for (const probe of probes) {
+	for (const tone of ['info', 'success']) {
+		test(`${probe.name} dismisses the completed actionable ${tone} scan notice before accepting clean UI`, async () => {
+			const fixture = rendererFixture({
+				dismissibleAlerts: [{ id: 'native-plugin-scan-complete', tone }],
+				tickMilliseconds: 15_000,
+			});
+			const result: unknown = await probe.run(fixture.scope, probe.plan);
+
+			assert.deepEqual(result, probe.result);
+			assert.deepEqual(fixture.dismissals, ['native-plugin-scan-complete']);
+			assert.equal(fixture.polls, 1, 'dismissal must commit before the UI is accepted');
+			assert.equal(fixture.actions.every((action) => action.alertCount === 0), true);
+		});
+	}
+
+	for (const notice of [
+		{ id: 'native-plugin-scan-failed', tone: 'warning' },
+		{ id: 'native-plugin-scan-failed', tone: 'error' },
+		{ id: 'other-feature', tone: 'success' },
+	]) {
+		test(`${probe.name} refuses a dismissible ${notice.tone} ${notice.id} notice`, async () => {
+			const fixture = rendererFixture({ dismissibleAlerts: [notice] });
+
+			await assert.rejects(() => probe.run(fixture.scope, probe.plan), /exposed an alert or dialog/iu);
+			assert.deepEqual(fixture.dismissals, []);
+			assert.deepEqual(fixture.actions, []);
+		});
+	}
+
 	test(`${probe.name} waits for plugin scan progress and completion to disappear before success`, async () => {
 		const fixture = rendererFixture({
 			alertsByPoll: [
@@ -150,6 +181,19 @@ for (const probe of probes) {
 	});
 }
 
+test('Scape persisted-reopen dismisses a completed scan notice that arrives during playback', async () => {
+	const fixture = rendererFixture({
+		dismissibleAlerts: [{ id: 'native-plugin-scan-complete', tone: 'success', afterFrame: 1 }],
+	});
+	const result: unknown = await runScapeReopenRendererSmoke(fixture.scope, REOPEN_PLAN);
+
+	assert.deepEqual(result, REOPEN_RESULT);
+	assert.deepEqual(fixture.dismissals, ['native-plugin-scan-complete']);
+	assert.deepEqual(fixture.actions.map((action) => action.name), ['play', 'stop']);
+	assert.equal(fixture.actions.every((action) => action.alertCount === 0), true);
+	assert.equal(fixture.animationFrames, 3, 'playback must wait for dismissal to commit');
+});
+
 test('Scape persisted-reopen waits for scan alerts that return during playback and stopping', async () => {
 	const fixture = rendererFixture({
 		alertsByFrame: [
@@ -193,11 +237,19 @@ function element(attributes: Record<string, string>, textContent = ''): FakeElem
 	return { textContent, getAttribute: (name) => attributes[name] ?? null };
 }
 
-function toast(id: string, tone: string, role = 'alert'): FakeElement {
+function toast(id: string, tone: string, role = 'alert', onDismiss?: () => void): FakeElement {
+	const close = onDismiss ? { ...element({}, 'Close'), click: onDismiss } : null;
+	const section: FakeElement = {
+		...element({ 'data-editor-toast': id }),
+		querySelector: (selector) => selector === 'button.kw-audio-editor__toast-close' ? close : null,
+	};
 	return {
 		...element({ role }, `${tone}: ${id}`),
-		closest: (selector) => selector === SCAN_SELECTOR && id.startsWith('native-plugin-scan-')
-			&& (tone === 'info' || tone === 'success') ? {} : null,
+		closest(selector) {
+			if (!id.startsWith('native-plugin-scan-')) return null;
+			if (selector === '[data-editor-toast^="native-plugin-scan-"]') return section;
+			return selector === SCAN_SELECTOR && (tone === 'info' || tone === 'success') ? section : null;
+		},
 	};
 }
 
@@ -211,9 +263,15 @@ function rendererFixture(options: FixtureOptions = {}) {
 	let playheadX = 16;
 	let meterValue = -60;
 	const actions: { name: string; alertCount: number }[] = [];
-	const alerts = () => animationFrames > 0 && options.alertsByFrame
+	const dismissals: string[] = [];
+	const dismissible = (options.dismissibleAlerts ?? []).map(({ id, tone, afterFrame = 0 }) => ({
+		id, afterFrame, alert: toast(id, tone, 'alert', () => { dismissals.push(id); }),
+	}));
+	const transientAlerts = () => animationFrames > 0 && options.alertsByFrame
 		? options.alertsByFrame[animationFrames - 1] ?? []
 		: options.alertsByPoll?.[polls] ?? options.persistentAlerts ?? [];
+	const alerts = () => [...transientAlerts(), ...dismissible
+		.filter(({ id, afterFrame }) => animationFrames >= afterFrame && !dismissals.includes(id)).map(({ alert }) => alert)];
 	const recordAction = (name: string) => { actions.push({ name, alertCount: alerts().length }); };
 	const waveform: FakeElement = {
 		textContent: '',
@@ -336,6 +394,7 @@ function rendererFixture(options: FixtureOptions = {}) {
 	return {
 		scope,
 		actions,
+		dismissals,
 		get polls() { return polls; },
 		get animationFrames() { return animationFrames; },
 	};
