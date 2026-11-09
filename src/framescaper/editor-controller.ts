@@ -34,10 +34,8 @@ import { framescaperProjectTimelineImageFoundationShapeAssistance } from './edit
 import { materializeFramescaperSelectedMulticameraVisualPreviewProject } from
 	'./editor-selected-multicamera-visual-preview-project.ts';
 import { createFramescaperScapeNativeRuntime } from './editor-scape-native.ts';
-import { createFramescaperNativeRenderInputStreamProducer } from
-	'./editor-native-render-input-stream-producer.ts';
-import { FRAMESCAPER_NATIVE_RENDER_INPUT_PRODUCER_DEPENDENCIES_NATIVE_MEDIA } from
-	'./editor-native-render-input-producer.ts';
+import { createDeferredFramescaperNativeRenderInputStreamProducer } from
+	'./editor-native-render-input-deferred.ts';
 import { createFramescaperNativeProResProxyCandidateObserver } from
 	'./editor-native-prores-proxy-candidate.ts';
 import { createFramescaperVideoExportStrategy } from './video-export-strategy.ts';
@@ -95,13 +93,10 @@ export function createFramescaperAudioEditorController(
 	const openFxFrames = createFramescaperNativeOpenFxFrameRuntimeNativeMedia(nativeBridge);
 	const openFxExecute = openFxFrames?.execute.bind(openFxFrames);
 	const nativeRenderInputAuthority = createProductNativeRenderInputAuthorityBinding();
-	const prepareNativeRenderInputStream = createFramescaperNativeRenderInputStreamProducer(
+	const prepareNativeRenderInputStream = createDeferredFramescaperNativeRenderInputStreamProducer(
 		environment.runtime.profile,
 		{ authority: nativeRenderInputAuthority, store: environment.controllerStore },
-		openFxExecute ? Object.freeze({
-			...FRAMESCAPER_NATIVE_RENDER_INPUT_PRODUCER_DEPENDENCIES_NATIVE_MEDIA,
-			openFxExecute,
-		}) : FRAMESCAPER_NATIVE_RENDER_INPUT_PRODUCER_DEPENDENCIES_NATIVE_MEDIA,
+		openFxExecute,
 	);
 	let proxyComposition: FramescaperCapturedVideoProxyRuntimeComposition | null = null;
 	let proxyActions: FramescaperVideoProxyActionRuntime | null = null;

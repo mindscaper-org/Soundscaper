@@ -13,6 +13,7 @@ const TARGETS = Object.freeze(new Map([
 	['win32:arm64', 'win-arm64'],
 ]));
 const MODULE_METHODS = Object.freeze([
+	'createLazyDesktopAudioCodecService',
 	'createBundledAudioCodecElectronSpawn', 'createBundledAudioCodecRuntimeVerifier',
 	'createDesktopAudioCodecRuntimeComposition',
 	'createOperatingSystemAudioCodecElectronSpawn', 'createOsAudioCodecNativeVerifier',
@@ -50,27 +51,30 @@ export async function registerDesktopAudioCodecs(options) {
 			'project-library-runtime/desktop/bundled-audio-codec-helper-process.js',
 		),
 	});
-	const bundledRuntime = await modules.loadIsolatedBundledAudioCodecRuntime({
-		target, scratchRoot, verifyPayload: verifyBundledPayload, spawn: spawnBundled,
-	});
-	const verifyAddon = modules.createOsAudioCodecNativeVerifier(Object.freeze({
-		runtimeRoot: options.runtimeRoot, platform: options.platform, arch: options.architecture,
-	}));
-	const spawn = modules.createOperatingSystemAudioCodecElectronSpawn({
-		fork: options.forkUtilityProcess,
-		helperPath: join(options.desktopRoot, 'os-audio-codec-helper-process.js'),
-	});
-	const operatingSystemRuntime = await modules.loadOperatingSystemAudioCodecRuntime({
-		target, osVersion: options.operatingSystemVersion, scratchRoot, verifyAddon, spawn,
-	});
 	const receipts = createDesktopAudioCodecReceiptJournal();
-	const service = modules.createDesktopAudioCodecRuntimeComposition({
-		target, scratchRoot, externalFfmpegPreferences: options.externalFfmpegPreferences,
-		...(bundledRuntime === null ? {} : { createBundledRuntime: () => bundledRuntime }),
-		...(operatingSystemRuntime === null
-			? {} : { createOperatingSystemRuntime: () => operatingSystemRuntime }),
-		onReceipt: (observation) => { receipts.record(observation); },
+	const lazy = modules.createLazyDesktopAudioCodecService(async () => {
+		const bundledRuntime = await modules.loadIsolatedBundledAudioCodecRuntime({
+			target, scratchRoot, verifyPayload: verifyBundledPayload, spawn: spawnBundled,
+		});
+		const verifyAddon = modules.createOsAudioCodecNativeVerifier(Object.freeze({
+			runtimeRoot: options.runtimeRoot, platform: options.platform, arch: options.architecture,
+		}));
+		const spawn = modules.createOperatingSystemAudioCodecElectronSpawn({
+			fork: options.forkUtilityProcess,
+			helperPath: join(options.desktopRoot, 'os-audio-codec-helper-process.js'),
+		});
+		const operatingSystemRuntime = await modules.loadOperatingSystemAudioCodecRuntime({
+			target, osVersion: options.operatingSystemVersion, scratchRoot, verifyAddon, spawn,
+		});
+		return modules.createDesktopAudioCodecRuntimeComposition({
+			target, scratchRoot, externalFfmpegPreferences: options.externalFfmpegPreferences,
+			...(bundledRuntime === null ? {} : { createBundledRuntime: () => bundledRuntime }),
+			...(operatingSystemRuntime === null
+				? {} : { createOperatingSystemRuntime: () => operatingSystemRuntime }),
+			onReceipt: (observation) => { receipts.record(observation); },
+		});
 	});
+	const service = lazy.service;
 	const ipc = modules.registerDesktopAudioCodecMainIpc({
 		channels: Object.freeze({
 			desktopAudioCodecExecute: options.channels.desktopAudioCodecExecute,
@@ -97,7 +101,7 @@ export async function registerDesktopAudioCodecs(options) {
 			if (disposal !== null) return disposal;
 			receipts.clear();
 			options.removeHandler(options.channels.desktopAudioCodecStream);
-			disposal = completeAudioCodecTeardown([() => ipc.dispose(), () => stream.dispose()]).then(() => undefined)
+			disposal = completeAudioCodecTeardown([() => ipc.dispose(), () => stream.dispose(), () => lazy.dispose()]).then(() => undefined)
 				.catch((error) => { disposal = null; throw error; });
 			return disposal;
 		},
@@ -112,8 +116,9 @@ async function completeAudioCodecTeardown(steps) {
 }
 
 async function loadRuntimeModules() {
-	const [bundled, bundledPayload, bundledSpawn, composition, ipc, operatingSystem, electronSpawn, nativePayload, stream, streamRunner]
+	const [lazy, bundled, bundledPayload, bundledSpawn, composition, ipc, operatingSystem, electronSpawn, nativePayload, stream, streamRunner]
 		= await Promise.all([
+		import('./project-library-runtime/desktop/desktop-audio-codec-lazy-service.js'),
 		import('./project-library-runtime/desktop/bundled-audio-codec-isolated-runtime.js'),
 		import('./bundled-audio-codec-runtime-payload.mjs'),
 		import('./bundled-audio-codec-electron-spawn.mjs'),
@@ -126,6 +131,7 @@ async function loadRuntimeModules() {
 		import('./project-library-runtime/desktop/desktop-audio-stream-job-runner.js'),
 	]);
 	return Object.freeze({
+		createLazyDesktopAudioCodecService: lazy.createLazyDesktopAudioCodecService,
 		createBundledAudioCodecElectronSpawn: bundledSpawn.createBundledAudioCodecElectronSpawn,
 		createBundledAudioCodecRuntimeVerifier: bundledPayload.createBundledAudioCodecRuntimeVerifier,
 		createDesktopAudioCodecRuntimeComposition: composition.createDesktopAudioCodecRuntimeComposition,

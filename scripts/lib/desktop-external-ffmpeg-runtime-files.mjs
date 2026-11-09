@@ -47,6 +47,7 @@ export const DESKTOP_AUDIO_CODEC_RUNTIME_FILES = Object.freeze([
 	'desktop/desktop-audio-codec-capability-contract.js',
 	'desktop/desktop-audio-codec-capability-probe.js',
 	'desktop/desktop-audio-codec-main-ipc.js',
+	'desktop/desktop-audio-codec-lazy-service.js',
 	'desktop/desktop-audio-codec-ipc-queue.js',
 	'desktop/desktop-audio-codec-admission-snapshot.js',
 	'desktop/desktop-codec-operation-queue.js',

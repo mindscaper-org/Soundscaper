@@ -21,7 +21,7 @@ import {
 	encodeVideoKeyframeOfflineVideo,
 	encodeVideoKeyframeOfflineVideoToSink,
 	type VideoKeyframeOfflineVideoExportRequest,
-} from '../common/editor/ui/video-keyframe-offline-video-export.ts';
+} from '../common/editor/ui/video-export-offline-deferred.ts';
 import {
 	assertVideoKeyframeExportPlanV7,
 	type VideoKeyframeExportPlanV7,

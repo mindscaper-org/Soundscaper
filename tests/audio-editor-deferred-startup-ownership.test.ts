@@ -44,3 +44,30 @@ test('import-only preparation helpers load with the deferred import service', ()
 		assert.equal(chunkGroupForModulePath(path.replaceAll('/', '\\')), 'editor-import-admission', path);
 	}
 });
+
+test('offline video export helpers load with export rather than the preview shell', () => {
+	for (const name of [
+		'video-keyframe-offline-html-video-source-admission', 'video-keyframe-offline-html-video-source-resolver',
+		'video-keyframe-offline-rgba-admission', 'video-keyframe-offline-rgba-source',
+		'video-keyframe-offline-rgba-renderer', 'video-keyframe-offline-video-export-admission',
+		'video-keyframe-offline-video-export-sources', 'video-keyframe-offline-video-export-encoder',
+		'video-keyframe-offline-video-export-runner', 'video-keyframe-offline-video-export',
+	]) {
+		const path = `src/common/editor/ui/${name}.ts`;
+		assert.equal(chunkGroupForModulePath(path), 'editor-optional-export', path);
+		assert.equal(chunkGroupForModulePath(path.replaceAll('/', '\\')), 'editor-optional-export', path);
+	}
+	assert.equal(chunkGroupForModulePath('src/common/editor/ui/workspace/VideoPreviewPanel.jsx'), 'editor-shell');
+});
+
+test('repeated sound analysis and its FFT implementation stay deferred', () => {
+	for (const path of [
+		'src/common/editor/repeated-sound-correlation.ts',
+		'src/common/editor/controller/analysis/internal/repeated-sound-service.ts',
+	]) assert.equal(chunkGroupForModulePath(path), 'editor-optional-execution', path);
+});
+
+test('shared macro messages and project limits retain their narrow existing owners', () => {
+	assert.equal(chunkGroupForModulePath('src/common/editor/macro-script/protocol.ts'), 'editor-domain');
+	assert.equal(chunkGroupForModulePath('src/common/project-size-limits.ts'), 'project-interchange-foundations');
+});

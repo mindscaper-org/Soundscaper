@@ -43,7 +43,7 @@ const editorOptionalExportControllerModule = String.raw`(?:export[\\/](?:${contr
  * and otherwise read only by the same deferred video export service.
  */
 const editorOptionalExportFlatModule = String.raw`(?:ape-file-metadata|audio-container-metadata|audio-embedded-chapter-container|audio-export-output|audio-export-prefix-blob|binaural-render|delivery-conformance|delivery-conversion-inventory|delivery-video-conversion-inventory|file-backed-audio-export|flac-file-metadata|ogg-comment-metadata|loudness-normalization-render|platform-delivery-(?:licensing|presets)|platform-video-delivery-encoder|video-burn-in-font|video-delivery-encoder-tier|video-webcodecs-capability)`;
-export const editorOptionalControllerModule = String.raw`(?:analysis[\\/](?:analysis-service|internal[\\/](?:vamp-analysis-action|analysis-document-fingerprint|specialized-analysis-report))|document[\\/]internal[\\/]cross-product-handoff-(?:action|save-target)|import[\\/]internal[\\/](?:(?:dawproject[\\/]dawproject|sesx[\\/]sesx)-service|interchange[\\/]timeline-interchange-(?:service|media|video))|recording[\\/]internal[\\/]recording-checkpoint-writer|${editorOptionalExportControllerModule})`;
+export const editorOptionalControllerModule = String.raw`(?:analysis[\\/](?:analysis-service|internal[\\/](?:vamp-analysis-action|analysis-document-fingerprint|specialized-analysis-report|repeated-sound-service))|document[\\/]internal[\\/]cross-product-handoff-(?:action|save-target)|import[\\/]internal[\\/](?:(?:dawproject[\\/]dawproject|sesx[\\/]sesx)-service|interchange[\\/]timeline-interchange-(?:service|media|video))|recording[\\/]internal[\\/]recording-checkpoint-writer|${editorOptionalExportControllerModule})`;
 /**
  * The Framescaper capture and Web VCR implementation, loaded when a capture
  * gesture, a desktop bridge or durable recovery state asks for it.
@@ -142,12 +142,12 @@ export const EDITOR_MACRO_DEFAULTS_CHUNK_TEST =
 
 /** Effect and Analyze implementations reached only after their eager action facade runs. */
 export const EDITOR_OPTIONAL_EXECUTION_CHUNK_TEST = new RegExp(
-	`(?:${editorPath}(?:${editorOptionalExecutionModule}\\.(?:[cm]?[jt]s)|(?:flac|mpg123|opus|vorbis)[\\\\/]source-manifest\\.json|controller[\\\\/]analysis[\\\\/](?:analysis-service|internal[\\\\/](?:vamp-analysis-action|analysis-document-fingerprint|specialized-analysis-report))\\.ts)|(?:^|[\\\\/])desktop[\\\\/](?:bundled-(?:mpeg-audio|opus|wavpack)-stream|desktop-audio-stream-contract)\\.ts)$`,
+	`(?:${editorPath}(?:${editorOptionalExecutionModule}\\.(?:[cm]?[jt]s)|(?:flac|mpg123|opus|vorbis)[\\\\/]source-manifest\\.json|controller[\\\\/]analysis[\\\\/](?:analysis-service|internal[\\\\/](?:vamp-analysis-action|analysis-document-fingerprint|specialized-analysis-report|repeated-sound-service))\\.ts)|(?:^|[\\\\/])desktop[\\\\/](?:bundled-(?:mpeg-audio|opus|wavpack)-stream|desktop-audio-stream-contract)\\.ts)$`,
 );
 
 /** Audio/video delivery and Freesound clip materialization isolated from the eager controller graph. */
 export const EDITOR_OPTIONAL_EXPORT_CHUNK_TEST = new RegExp(
-	`${editorPath}(?:controller[\\\\/]${editorOptionalExportControllerModule}|${editorOptionalExportFlatModule})\\.ts$`,
+	`${editorPath}(?:controller[\\\\/]${editorOptionalExportControllerModule}|${editorOptionalExportFlatModule}|ui[\\\\/]video-keyframe-offline-(?:html-video-source-(?:admission|resolver)|rgba-(?:admission|source|renderer)|video-export(?:-(?:admission|sources|encoder|runner))?))\\.ts$`,
 );
 
 /** Capture and Web VCR implementation behind the deferred Framescaper capture runtime. */
@@ -238,6 +238,9 @@ const framescaperProjectFoundationModules = Object.freeze([
 	'editor-audio-finishing-finishing',
 	'editor-captured-video-proxy-preservation',
 	'editor-domain-runtime-profile',
+	'editor-controller-assistance-foundation-view',
+	'editor-native-render-input-deferred',
+	'editor-native-render-input-request',
 	// Eager controller bindings and deferred native actions share these pure guards.
 	'editor-native-action-bridge-availability',
 	'editor-native-plan-timing-authority',
@@ -418,12 +421,13 @@ export const FRAMESCAPER_TIMELINE_IMAGE_CHUNK_TEST =
  * imports, so sharing this owner does not grow the mounted transfer graph.
  */
 export const PROJECT_INTERCHANGE_FOUNDATION_CHUNK_TEST = new RegExp(
-	`(?:${editorPath}(?:import-file-extensions|project-schema-identity|controller[\\\\/](?:document[\\\\/]deferred-archive-runtime|shared[\\\\/]file-size-warning(?:-confirmation)?))|src[\\\\/]common[\\\\/](?:cross-product-handoff-intent|project-file-extensions))\\.ts$`,
+	`(?:${editorPath}(?:import-file-extensions|project-schema-identity|controller[\\\\/](?:document[\\\\/]deferred-archive-runtime|shared[\\\\/]file-size-warning(?:-confirmation)?))|src[\\\\/]common[\\\\/](?:cross-product-handoff-intent|project-file-extensions|project-size-limits))\\.ts$`,
 );
 
 /** Flat editor modules and `assistance/` domain modules shared by the shell and dialogs. */
 export const EDITOR_DOMAIN_CHUNK_TEST = new RegExp([
 	`${editorPath}(?!${editorOptionalArchiveModule}\\.(?:[cm]?[jt]s)$)(?!${editorOptionalExecutionModule}\\.(?:[cm]?[jt]s)$)(?!${editorOptionalCaptureFlatModule}\\.ts$)(?:[^\\\\/]+|assistance[\\\\/](?:internal[\\\\/]radix-two-fft-v1|[^\\\\/]+)|(?:design-system-adapters|platform)[\\\\/][^\\\\/]+)\\.(?:[cm]?[jt]s)$`,
+	String.raw`${editorPath}macro-script[\\/]protocol\.ts$`,
 	String.raw`src[\\/]common[\\/](?:(?:imaging|foundation|scape)[\\/][^\\/]+|media[\\/]bytes)\.(?:[cm]?[jt]s)$`,
 ].join('|'));
 
