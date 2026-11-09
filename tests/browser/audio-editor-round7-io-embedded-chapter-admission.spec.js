@@ -17,17 +17,8 @@ async function chapterDialog(page, labelText) {
 	return { dialog, editor };
 }
 
-test('an end-point chapter cannot be selected for an empty delivered chapter span', async ({ page }) => {
-	const { dialog } = await chapterDialog(page, '0.5\t0.5\tEnd of programme\n');
-	const chapters = dialog.getByRole('checkbox', { name: 'Embed labels as chapters', exact: true });
-	if (await chapters.isEnabled()) {
-		await chapters.check();
-		await dialog.getByRole('button', { name: 'Export', exact: true }).click();
-		await expect(page.locator('[data-editor-toast]')).toContainText('No labels occur in the exported range.');
-	}
-	await expect(chapters).toBeDisabled();
-});
-
+// Node covers exclusive-end admission through actual imported labels, PCM,
+// repository/archive, production checkbox and public export preflight.
 test('an in-range chapter still delivers an ordinary chapter-bearing MP3', async ({ page }) => {
 	const { dialog } = await chapterDialog(page, '0\t0\tOpening\n');
 	await dialog.getByRole('checkbox', { name: 'Embed labels as chapters', exact: true }).check();
