@@ -5,7 +5,9 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, disableNativeSavePicker } from './audio-editor-test-helpers.js';
 import { createDeterministicSilentVideoFixture } from './fixtures/deterministic-av-media.js';
 
-for (const frozen of [false, true]) test(`EDL discloses ordinary ${frozen ? 'frozen' : 'continuous'} video source timing`, async ({ page }) => {
+// The neutral/data matrix has actual controller/store/history/Scape/file-report
+// custody in audio-editor-video-report-archive-custody.test.ts. Keep native UI here.
+for (const frozen of [true]) test(`EDL discloses ordinary ${frozen ? 'frozen' : 'continuous'} video source timing`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
 	await editor.locator('[data-project-bin-input]').setInputFiles(createDeterministicSilentVideoFixture('Camera.webm'));

@@ -62,15 +62,15 @@ export async function reviewedVideoProjectCustody(context: TestContext, files: r
 	context.after(async () => { try { await controller.dispose(); } finally { await environment.close(); } });
 	await controller.ready;
 	assert.equal(controller.project?.id, project.id);
-	return { environment, controller, project, async verifyMedia(value: unknown) {
+	return { environment, controller, project, async verifyMedia(value: unknown, store = environment.store) {
 		const current = cloneFramescaperProject(PROFILE, value);
 		assert.equal(current.sources.length, files.length);
 		for (const fixture of files) {
 			const source = current.sources.find(source => source.name === fixture.name); assert.ok(source?.kind === 'video');
-			const blob = await environment.store.loadMediaAsset(source.storageKey); assert.ok(blob instanceof Blob);
+			const blob = await store.loadMediaAsset(source.storageKey); assert.ok(blob instanceof Blob);
 			assert.deepEqual(new Uint8Array(await blob.arrayBuffer()), fixture.bytes);
 			assert.equal(source.contentSha256, fixture.sha256);
-			const timing = await loadVideoTimingAsset(environment.store, source.timingAsset, { sourceSha256: fixture.sha256 });
+			const timing = await loadVideoTimingAsset(store, source.timingAsset, { sourceSha256: fixture.sha256 });
 			assert.equal(timing.status, 'available'); assert.equal(timing.index?.frameCount, source.sourceFrameCount);
 		}
 		return current;
