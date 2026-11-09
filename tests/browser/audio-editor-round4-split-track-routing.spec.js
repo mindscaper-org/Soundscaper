@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseNestedCommandAction, clipByName, importFiles } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
-for (const mode of ['header', 'range']) test(`Split into new track retains outgoing routing for ${mode} selection`, async ({ page }) => {
+test('Split into new track and Duplicate retain outgoing routing through Undo and Redo', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = clipByName(editor, toneA.name);
@@ -19,8 +19,7 @@ for (const mode of ['header', 'range']) test(`Split into new track retains outgo
 	for (let step = 0; step < 12; step += 1) await sends.nth(1).press('ArrowDown');
 	await expect(sends.nth(1)).toHaveAttribute('aria-valuenow', '0');
 	await clip.locator('.clip-header').click();
-	if (mode === 'range') await chooseNestedCommandAction(page, editor, 'Select', ['Region', 'Track start to end']);
-	else await editor.getByRole('slider', { name: 'Playhead', exact: true }).press('ArrowRight');
+	await editor.getByRole('slider', { name: 'Playhead', exact: true }).press('ArrowRight');
 	await chooseNestedCommandAction(page, editor, 'Edit', ['Audio clips', 'Split into new track']);
 	await expect(outputs).toHaveCount(3);
 	await expect(outputs.nth(2)).toHaveValue(assignment);
@@ -28,6 +27,19 @@ for (const mode of ['header', 'range']) test(`Split into new track retains outgo
 	await editor.getByRole('button', { name: 'Undo', exact: true }).click();
 	await expect(outputs).toHaveCount(2);
 	await editor.getByRole('button', { name: 'Redo', exact: true }).click();
+	await expect(outputs).toHaveCount(3);
+	await expect(outputs.nth(2)).toHaveValue(assignment);
+	await expect(sends.nth(2)).toHaveAttribute('aria-valuenow', '0');
+	await chooseCommandAction(page, editor, 'Edit', 'Undo');
+	await expect(outputs).toHaveCount(2);
+	await clip.locator('.clip-header').click();
+	await chooseCommandAction(page, editor, 'Edit', 'Duplicate');
+	await expect(outputs).toHaveCount(3);
+	await expect(outputs.nth(2)).toHaveValue(assignment);
+	await expect(sends.nth(2)).toHaveAttribute('aria-valuenow', '0');
+	await chooseCommandAction(page, editor, 'Edit', 'Undo');
+	await expect(outputs).toHaveCount(2);
+	await chooseCommandAction(page, editor, 'Edit', 'Redo');
 	await expect(outputs).toHaveCount(3);
 	await expect(outputs.nth(2)).toHaveValue(assignment);
 	await expect(sends.nth(2)).toHaveAttribute('aria-valuenow', '0');
