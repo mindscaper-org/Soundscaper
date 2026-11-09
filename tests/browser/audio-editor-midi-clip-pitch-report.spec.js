@@ -7,7 +7,7 @@ import { parseMidiFile, writeMidiFile } from '../../src/common/editor/midi-file.
 
 for (const ratio of [1, 2]) test(`MIDI linked pitch finishing report speed ${ratio}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const bytes = writeMidiFile({ sampleRate: 48000, tempos: [], signatures: [], tracks: [{ name: 'Pitch programme', durationFrames: 96000, notes: [{ id: 'n', pitch: 69, velocity: 100, channel: 0, startFrame: 0, durationFrames: 96000 }] }] });
 	await importFiles(editor, [{ name: 'Pitch programme.mid', mimeType: 'audio/midi', buffer: Buffer.from(bytes) }]);
 	const properties = await openClipProperties(page, editor, clipByName(editor, 'Pitch programme'));

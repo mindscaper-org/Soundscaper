@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
 test('a header-selected clip exposes its duration in Change Tempo', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await editor.locator('[data-clip-id]').first().locator('.clip-header').click();
 	await chooseNestedCommandAction(page, editor, 'Effect', ['Pitch and tempo', 'Change tempo']);

@@ -6,7 +6,7 @@ import { writeMidiFile } from '../../src/common/editor/midi-file.ts';
 
 for (const donorNotes of [false, true]) test(`a foreign channel controller reaches its owner with note-bearing donor=${donorNotes}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const note = { id: 'n', pitch: 69, channel: 1, velocity: 100, startFrame: 0, durationFrames: 48_000 };
 	const buffer = Buffer.from(writeMidiFile({ sampleRate: 48_000, tempos: [{ frame: 0, bpm: 120 }], signatures: [], tracks: [
 		{ name: 'Donor', notes: donorNotes ? [{ ...note, id: 'a', channel: 0, pitch: 57 }] : [],

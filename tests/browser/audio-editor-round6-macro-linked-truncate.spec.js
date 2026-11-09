@@ -6,7 +6,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('a linked Truncate Silence macro removes only the dialogue tracks shared pause', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recordings = [.3, .7].map((pause, index) => {
 		const file = createWavFixture({ name: `macro-dialogue-${index}.wav`, frequency: index ? 440 : 330,
 			duration: 2, channelCount: 1 });

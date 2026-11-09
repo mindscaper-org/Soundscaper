@@ -20,7 +20,7 @@ for (const [arrangement, files] of [
 	['interleaved MIDI', [first, midi, second]],
 ]) test(`dropping ${arrangement} preserves each WAV's track placement`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [bed]);
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
 	const bedRow = editor.locator('[data-track-row]').filter({

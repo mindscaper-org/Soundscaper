@@ -19,7 +19,7 @@ function midiKeyQueueFile(count, burst) {
 }
 
 for (const burst of [false, true]) test(`actual MIDI file key release queue work burst=${burst}`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await page.evaluate(() => {
 		globalThis.__keyQueueMoves = 0;
 		const splice = Array.prototype.splice;

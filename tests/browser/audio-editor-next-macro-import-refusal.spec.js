@@ -7,7 +7,7 @@ import { normalizeEffectMacroDraft } from '../../src/common/editor/effect-macros
 import { createEffect } from '../../src/common/editor/effects.js';
 
 test('a full saved macro library reports a refused file import and permits retry after removal', async ({ page }) => {
-	await bootEditor(page, '/embed/en/');
+	await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const library = createEffectMacroLibrary({ schemaVersion: 1, defaultsInitialized: true,
 		macros: Array.from({ length: 256 }, (_, index) => normalizeEffectMacroDraft({ id: `saved-${index}`,
 			name: `Saved ${index}`, effects: [createEffect('audacity-invert', { id: `invert-${index}` })] })) });

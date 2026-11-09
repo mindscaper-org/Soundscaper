@@ -7,7 +7,7 @@ import { parseMidiFile, writeMidiFile } from '../../src/common/editor/midi-file.
 import { renderMidiFrames } from '../../src/common/editor/engine/midi-synthesis.ts';
 const peak=values=>values.reduce((maximum,sample)=>Math.max(maximum,Math.abs(sample)),0);
 for(const finalVolume of [0,127])test(`independent second clip keeps volume after first ends with CC7=${finalVolume}`,async({page})=>{
-	await disableNativeSavePicker(page);const editor=await bootEditor(page,'/embed/en/');
+	await disableNativeSavePicker(page);const editor=await bootEditor(page,'/embed/en/', { showProjectBin: false });
 	await chooseNestedCommandAction(page,editor,'Tracks',['Remove tracks']);
 	const note={id:'n',pitch:69,channel:0,velocity:100,startFrame:0,durationFrames:24000};
 	const file=(name,volume)=>({name:`${name}.mid`,mimeType:'audio/midi',buffer:Buffer.from(writeMidiFile({sampleRate:48000,tempos:[],signatures:[],tracks:[{name,notes:[note],durationFrames:name==='First'?48000:24000,...(volume===null?{}:{events:[{frame:0,status:176,data:[7,127]},{frame:36000,status:176,data:[7,volume]}]})}]}))});

@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('Include tails completes the ordinary Noise Reduction spectral release', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'steady noise recording.wav', frequency: 1000,
 		duration: 1, channelCount: 1, channelAmplitudes: [.2] })]);
 	const dry = await exportSamples(page, editor);

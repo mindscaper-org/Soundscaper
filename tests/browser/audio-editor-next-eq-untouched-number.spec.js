@@ -3,7 +3,7 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { addRackEffect, bootEditor, chooseCommandAction, commitInput, importFiles, openEffectsForTrack } from './audio-editor-test-helpers.js';
 
 test('merely inspecting a rounded EQ number preserves precision and pending Redo', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'EQ recording.wav', duration: .25, channelCount: 1 })]);
 	const panel = await openEffectsForTrack(editor, 1);
 	await addRackEffect(page, panel, 'track', 'Parametric EQ');

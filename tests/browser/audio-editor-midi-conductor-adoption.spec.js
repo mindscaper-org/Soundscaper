@@ -7,7 +7,7 @@ import { readMidiClip } from '../../src/common/editor/midi-model.ts';
 
 for (const existing of [false, true]) test(`File Import retains a fast MIDI source with existing audio=${existing}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	if (existing) await importFiles(editor, [createWavFixture({ name: 'Existing.wav', duration: .1, channelCount: 1, frequency: 330 })]);
 	await expect(editor).toHaveAttribute('data-clip-count', existing ? '1' : '0');
 	await importFiles(editor, [{ name: 'Fast.mid', mimeType: 'audio/midi', buffer: Buffer.from(fastMidi()) }]);

@@ -10,7 +10,7 @@ for (const split of [false, true]) test(`MIDI note editing retains rendered leve
 	test.setTimeout(60_000);
 	await page.setViewportSize({ width: 1440, height: 1000 });
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const bed = createWavFixture({ name: 'Stereo bed.wav', sampleRate: 48000, channelCount: 2, frequency: 330, duration: 1 });
 	await importFiles(editor, [bed]);
 	await chooseNestedCommandAction(page, editor, 'Tracks', ['Add new track', 'MIDI track (beta)']);

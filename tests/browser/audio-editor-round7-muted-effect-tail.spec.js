@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('muting a delayed recording removes its irrelevant release from Export', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, ['dry', 'delayed'].map(name => createWavFixture({ name: `${name}.wav`,
 		frequency: 440, duration: 1, channelCount: 2 })));
 	const panel = await openEffectsForTrack(editor, 2);

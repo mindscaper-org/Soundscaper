@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clipByName, closeDialog, importFiles } from './audio-editor-test-helpers.js';
 
 test('generating with only a label track selected preserves unselected recordings', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await editor.locator('[data-track-row]').first().locator('.track-control-panel__track-name-text').click();
 	await chooseCommandAction(page, editor, 'Tracks', 'Remove tracks');

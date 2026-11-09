@@ -6,7 +6,7 @@ import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js'
 for (const cancel of [true, false]) {
 test(cancel ? 'Escape cancels a native macro step drag without saving the preview order'
 	: 'dropping a native macro step drag saves the preview order', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
 	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
 	await manager.getByRole('button', { name: 'New macro', exact: true }).click();

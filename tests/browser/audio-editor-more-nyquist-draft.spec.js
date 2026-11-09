@@ -6,7 +6,7 @@ import { bootEditor, chooseCommandAction, registerAudioEditorHooks } from './aud
 registerAudioEditorHooks();
 
 test('clearing the Nyquist prompt remains an empty saved draft after closing and reopening', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Tools', 'Nyquist prompt');
 	const dialog = page.getByRole('dialog', { name: 'Nyquist prompt', exact: true });
 	const source = dialog.getByRole('textbox', { name: 'Nyquist source', exact: true });

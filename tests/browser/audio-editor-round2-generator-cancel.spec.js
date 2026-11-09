@@ -4,7 +4,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js';
 
 test('Cancel stops generation before it publishes audio to the project', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Generate', 'Tone');
 	const dialog = page.getByRole('dialog', { name: 'Tone', exact: true });
 	const duration = dialog.getByRole('group', { name: 'Duration (seconds)', exact: true });

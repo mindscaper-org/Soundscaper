@@ -16,7 +16,7 @@ function midiFile(order) {
 }
 
 test('File Import refuses a same-tick late sustain press before creating a changed audible fallback', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [midiFile('after')]);
 	await expect(page.locator('[data-editor-toast="workspace-error"]')).toContainText('sustain and key-release order');
 	await expect(editor).toHaveAttribute('data-clip-count', '0');
@@ -24,7 +24,7 @@ test('File Import refuses a same-tick late sustain press before creating a chang
 
 for (const order of ['before', 'later']) test(`MIDI import retains its representable ${order} sustain behavior`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [midiFile(order)]);
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
 	const pcm = await exportSamples(page, editor);

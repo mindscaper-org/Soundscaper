@@ -4,7 +4,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
 test('moving a MIDI note after panning during the held drag follows the source time under the pointer', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'drag.mid', mimeType: 'audio/midi', buffer: Buffer.from('4d546864000000060000000101e04d54726b0000001400ff510307a12000903c648360803c0000ff2f00', 'hex') }]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Piano roll (beta)']);
 	const panel = editor.getByLabel('Piano roll (beta)', { exact: true });
@@ -25,7 +25,7 @@ test('moving a MIDI note after panning during the held drag follows the source t
 });
 
 test('held MIDI note placement follows source time after a wheel pan', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'draw-pan.mid', mimeType: 'audio/midi', buffer: Buffer.from('4d546864000000060000000101e04d54726b0000001400ff510307a12000903c648360803c0000ff2f00', 'hex') }]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Piano roll (beta)']);
 	const panel = editor.getByLabel('Piano roll (beta)', { exact: true });
@@ -42,7 +42,7 @@ test('held MIDI note placement follows source time after a wheel pan', async ({ 
 });
 
 test('held MIDI clip boundary resize follows source time after a wheel pan', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'trim-pan.mid', mimeType: 'audio/midi', buffer: Buffer.from('4d546864000000060000000101e04d54726b0000001500ff510307a12000903c648360803c008b20ff2f00', 'hex') }]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Piano roll (beta)']);
 	const panel = editor.getByLabel('Piano roll (beta)', { exact: true });
@@ -59,7 +59,7 @@ test('held MIDI clip boundary resize follows source time after a wheel pan', asy
 });
 
 test('held MIDI clip strip resize follows source time after a wheel pan', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'trim-pan.mid', mimeType: 'audio/midi', buffer: Buffer.from('4d546864000000060000000101e04d54726b0000001500ff510307a12000903c648360803c008b20ff2f00', 'hex') }]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Piano roll (beta)']);
 	const panel = editor.getByLabel('Piano roll (beta)', { exact: true });
@@ -78,7 +78,7 @@ test('held MIDI clip strip resize follows source time after a wheel pan', async 
 });
 
 test('held MIDI marquee tests the visible notes after viewport zoom', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'marquee-zoom.mid', mimeType: 'audio/midi', buffer: Buffer.from('4d546864000000060000000101e04d54726b0000001400ff510307a12000903c648360803c0000ff2f00', 'hex') }]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Piano roll (beta)']);
 	const panel = editor.getByLabel('Piano roll (beta)', { exact: true });

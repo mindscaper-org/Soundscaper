@@ -27,7 +27,7 @@ function lateEnergy(document) {
 
 for (const delta of [0, 1, 3]) test(`MIDI delivery retains a killed voice across tick rounding (${delta} source ticks)`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const bytes = midi(delta);
 	expect(lateEnergy(parseMidiFile(bytes))).toBe(0);
 	await importFiles(editor, [{ name: 'Killed voice.mid', mimeType: 'audio/midi', buffer: bytes }]);

@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('a native 24 kHz noise profile requires fresh capture before enabling a 48 kHz rack', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'native-noise-24000.wav', sampleRate: 24_000,
 		frequency: 750, duration: 0.8, channelCount: 1 })]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');

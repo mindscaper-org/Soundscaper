@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, collectClientErrors, waitForEditor } f
 
 test('an invalid macro edit reports its save refusal and can be corrected', async ({ page }) => {
 	const errors = collectClientErrors(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
 	let manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
 	const name = manager.getByRole('textbox', { name: 'Macro name', exact: true });

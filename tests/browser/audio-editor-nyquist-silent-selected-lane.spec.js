@@ -4,7 +4,7 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName,
 import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 
 test('the existing Nyquist Prompt applies one shared insertion across selected quiet lanes', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const files = [440,660].map((frequency,index) => createWavFixture({ name:`nyquist-quiet-${index}.wav`,frequency,duration:1,channelCount:1 }));
 	await importFiles(editor, files);
 	const properties = await openClipProperties(page, editor, clipByName(editor, files[1].name));

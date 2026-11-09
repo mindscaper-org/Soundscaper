@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 for (const selection of ['headers', 'range']) test(`a Nyquist generator replaces both recording tracks selected by ${selection}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const first = createWavFixture({ name: 'first-microphone.wav', frequency: 1000,
 		duration: 1, channelCount: 1, channelAmplitudes: [.2] });
 	const second = createWavFixture({ name: 'second-microphone.wav', frequency: 2000,

@@ -5,7 +5,7 @@ import { legacyAupFiles } from '../helpers/more200-legacy-aup-file.ts';
 import { writeMidiFile } from '../../src/common/editor/midi-file.ts';
 
 for (const midiPosition of ['none', 'first', 'middle']) test(`legacy project and selected AU blocks stay together: MIDI ${midiPosition}`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const { projectFile, dataFile } = legacyAupFiles('utf-8');
 	const legacy = { name: projectFile.name, mimeType: projectFile.type, buffer: Buffer.from(await projectFile.arrayBuffer()) };
 	const block = { name: dataFile.name, mimeType: dataFile.type, buffer: Buffer.from(await dataFile.arrayBuffer()) };

@@ -9,7 +9,7 @@ import { parseMidiFile, writeMidiFile } from '../../src/common/editor/midi-file.
 
 for (const destination of ['another field', 'another clip']) test(`a typed MIDI pitch commits before pointing to ${destination}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const bytes = writeMidiFile({ sampleRate: 48_000, tempos: [{ frame: 0, bpm: 120 }], signatures: [], tracks: [
 		{ name: 'First', notes: [{ id: 'a', pitch: 60, channel: 0, velocity: 90, startFrame: 0, durationFrames: 12_000 }] },
 		{ name: 'Second', notes: [{ id: 'b', pitch: 64, channel: 1, velocity: 90, startFrame: 0, durationFrames: 12_000 }] },

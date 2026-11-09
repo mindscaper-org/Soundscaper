@@ -4,7 +4,7 @@ import { bootEditor, clipByName, collectClientErrors, commitInput, disableNative
 import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('a selected mono effect keeps listening gain after another stereo clip ends', async ({ page }) => {
-	const clientErrors = collectClientErrors(page); await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
+	const clientErrors = collectClientErrors(page); await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const wide = createWavFixture({ name: 'Wide.wav', duration: .25, channelCount: 2, channelAmplitudes: [0, 0] });
 	const mono = createWavFixture({ name: 'Mono.wav', duration: 1, channelCount: 1, channelAmplitudes: [.25], frequency: 440 });
 	await importFiles(editor, [wide, mono]); const clip = clipByName(editor, mono.name);

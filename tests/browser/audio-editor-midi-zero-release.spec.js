@@ -7,7 +7,7 @@ const peak = values => values.reduce((maximum, value) => Math.max(maximum, Math.
 
 for (const zero of [false, true]) test(`MIDI immediate key release remains silent through file delivery: zero=${zero}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseNestedCommandAction(page, editor, 'Tracks', ['Remove tracks']);
 	const name = zero ? 'Zero release' : 'Normal release';
 	await importFiles(editor, [{ name: 'Release.mid', mimeType: 'audio/midi', buffer: Buffer.from(releaseFile(zero, name)) }]);

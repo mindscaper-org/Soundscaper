@@ -6,7 +6,7 @@ import { parseMidiFile, writeMidiFile } from '../../src/common/editor/midi-file.
 
 for (const trim of [0, 24000]) test(`RPN reset boundary through actual FileImport and source trim ${trim}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const setup = [[0, 101, 0], [0, 100, 0], [6000, 121, 0], [12000, 96, 0], [18000, 121, 0]];
 	const bytes = writeMidiFile({ sampleRate: 48000, tempos: [{ frame: 0, bpm: 120 }], signatures: [], tracks: [{ name: 'RPN reset boundaries',
 		events: setup.map(([frame, cc, value]) => ({ frame, status: 176, data: [cc, value] })),

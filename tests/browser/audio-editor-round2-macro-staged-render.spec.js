@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 test('a mixed offline and realtime macro renders its staged audio', async ({ page }) => {
 	test.setTimeout(60_000);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const original = await exportSamples(page, editor);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');

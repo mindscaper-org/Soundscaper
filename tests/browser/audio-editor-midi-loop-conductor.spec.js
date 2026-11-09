@@ -10,7 +10,7 @@ import { parseMidiFile, writeMidiFile } from '../../src/common/editor/midi-file.
 for (const [changes, length] of [[false, '4'], [true, '4'], [true, '4.25']]) {
 	test(`looped MIDI restores its source conductor with changes=${changes} and length=${length}`, async ({ page }) => {
 		await disableNativeSavePicker(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const bytes = writeMidiFile({ sampleRate: 48_000,
 			tempos: [{ frame: 0, bpm: 120 }, ...(changes ? [{ frame: 24_000, bpm: 60 }] : [])],
 			signatures: [{ frame: 0, numerator: 4, denominator: 4 },

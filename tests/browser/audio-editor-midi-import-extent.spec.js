@@ -5,7 +5,7 @@ import { strFromU8, unzipSync } from 'fflate';
 
 for (const [duration, rest] of [[0.5, '8170'], [3, '9450']]) test(`File Import preserves the MIDI file's ${duration}-second ending`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	// 480 PPQ, 120 BPM: key release at tick240, then the declared remaining rest.
 	const body = Buffer.from(`00ff510307a12000903c648170803c00${rest}ff2f00`, 'hex');
 	const length = Buffer.alloc(4); length.writeUInt32BE(body.length);

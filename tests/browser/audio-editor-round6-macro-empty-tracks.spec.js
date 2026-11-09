@@ -4,7 +4,7 @@ import { expect, test, monoTone } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
 test('native No tracks preserves the normal recording when Delete runs', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await chooseNestedCommandAction(page, editor, 'Select', ['Tracks', 'No tracks']);
@@ -14,7 +14,7 @@ test('native No tracks preserves the normal recording when Delete runs', async (
 });
 
 test('documented removal of all macro-selected tracks does not delete an unselected recording', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
 	const palette = page.getByRole('dialog', { name: 'Macros palette', exact: true });

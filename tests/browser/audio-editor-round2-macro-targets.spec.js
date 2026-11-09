@@ -16,7 +16,7 @@ async function runProgram(page, editor, source) {
 
 test('a step-list macro applies its effect to every audio track selected by Select all', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA, toneB]);
 	const before = await exportSamples(page, editor);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
@@ -36,7 +36,7 @@ test('a step-list macro applies its effect to every audio track selected by Sele
 
 test('two awaited concurrent macro effects cannot silently discard one request', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const before = await exportSamples(page, editor);
 	await runProgram(page, editor, "await sound.select.all(); await Promise.all([sound.effect('audacity-invert'), sound.effect('audacity-invert')]);");

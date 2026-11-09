@@ -8,7 +8,7 @@ import { initialMeterMidi } from '../helpers/midi-initial-meter-fixture.ts';
 
 test('MIDI picker and export retain the final initial meter and its later change', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'Initial meters.mid', mimeType: 'audio/midi', buffer: Buffer.from(initialMeterMidi()) }]);
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
 	const downloading = page.waitForEvent('download');
