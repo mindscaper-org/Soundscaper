@@ -3,6 +3,7 @@
 import type { MotionAsset } from './motion-asset.ts';
 import type { MotionComposition } from './motion-composition.ts';
 import type { MotionAeProjectCustody } from './motion-ae-project-custody.ts';
+import type { MotionNativeImportCustody } from './motion-native-import-custody.ts';
 
 export interface MotionscaperProject {
 	readonly schemaFamily: 'motionscaper'; readonly schemaVersion: 1;
@@ -10,4 +11,5 @@ export interface MotionscaperProject {
 	readonly primaryCompositionId: string; readonly compositions: readonly MotionComposition[];
 	readonly assets: readonly MotionAsset[];
 	readonly interchangeCustody?: MotionAeProjectCustody;
+	readonly nativeImport?: MotionNativeImportCustody;
 }

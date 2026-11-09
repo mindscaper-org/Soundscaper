@@ -6,6 +6,7 @@ import { normalizeMotionWorkArea } from './motion-composition-work-area.ts';
 import { MOTION_TRACKING_LIMITS, normalizeMotionTrackingResult } from './motion-tracking-contract.ts';
 import { normalizeMotionTrackingApplication } from './motion-tracking-application-contract.ts';
 import { normalizeMotionAsset } from './motion-asset.ts';
+import { normalizeMotionNativeImportCustody } from './motion-native-import-custody.ts';
 import { admitMotionProjectCustody, normalizeMotionAeProjectCustody } from './motion-ae-project-custody.ts';
 import type { MotionComposition } from './motion-composition.ts';
 import { normalizeMotionAudioPlacement, normalizeMotionLayer } from './motion-layer-validation.ts';
@@ -21,7 +22,7 @@ export function normalizeMotionscaperProject(value: unknown): MotionscaperProjec
 	admitMotionProjectCustody(value);
 	admitAudioEditorProjectValidationStructure(value, AUDIO_EDITOR_PROJECT_VALIDATION_HARD_LIMITS);
 	const fields = ['schemaFamily', 'schemaVersion', 'id', 'title', 'revision', 'sampleRate', 'primaryCompositionId', 'compositions', 'assets'];
-	const record = motionRecord(value, [...fields, 'interchangeCustody'], 'Motionscaper project', fields);
+	const record = motionRecord(value, [...fields, 'interchangeCustody', 'nativeImport'], 'Motionscaper project', fields);
 	if (record.schemaFamily !== 'motionscaper') throw new RangeError('Motionscaper project family must be motionscaper.');
 	if (record.schemaVersion !== 1) throw new RangeError('Motionscaper project version must be 1.');
 	const compositions = motionArray(record.compositions, 1024, 'project compositions', 1).map(normalizeMotionComposition);
@@ -33,6 +34,7 @@ export function normalizeMotionscaperProject(value: unknown): MotionscaperProjec
 		revision: motionInteger(record.revision, 'project revision'), sampleRate: motionInteger(record.sampleRate, 'project sample rate', 8000, 768000),
 		primaryCompositionId: motionId(record.primaryCompositionId), compositions, assets,
 		...(Object.hasOwn(record, 'interchangeCustody') ? { interchangeCustody: normalizeMotionAeProjectCustody(record.interchangeCustody, assets) } : {}),
+		...(Object.hasOwn(record, 'nativeImport') ? { nativeImport: normalizeMotionNativeImportCustody(record.nativeImport, assets) } : {}),
 	};
 	validateMotionscaperProjectGraph(project);
 	let analyses = 0; let samples = 0;

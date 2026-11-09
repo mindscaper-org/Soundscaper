@@ -9,7 +9,7 @@ import type { MotionscaperProjectCommand } from './editor-project-commands.ts';
 
 /** Place media at composition time zero; trim to its exact source duration without changing the frame grid. */
 export function createMotionscaperMediaCommands(project: MotionscaperProject, asset: MotionAsset, placementId: string, compositionId = project.primaryCompositionId): readonly MotionscaperProjectCommand[] {
-	if (asset.kind === 'font') throw new TypeError('A font is not a media placement.');
+	if (asset.kind === 'font' || asset.kind === 'attachment') throw new TypeError('Fonts and source attachments are not media placements.');
 	const composition = project.compositions.find((entry) => entry.id === compositionId);
 	if (!composition) throw new ReferenceError('The target media composition is missing.');
 	const retained = project.assets.find((entry) => entry.kind === asset.kind && entry.sha256 === asset.sha256);

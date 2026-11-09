@@ -42,7 +42,7 @@ export function convertMotionscaperAeExchange(input: unknown, options: Readonly<
 	if (options.bindings.length > 4096) throw new RangeError('AE media binding budget exceeded.');
 	for (const binding of options.bindings) {
 		const source = exchange.footage.find((item) => item.id === binding.footageId), asset = normalizeMotionAsset(binding.asset);
-		if (!source || source.path === null || source.byteLength !== asset.byteLength || (source.sha256 !== null && source.sha256 !== asset.sha256) || asset.kind === 'font'
+		if (!source || source.path === null || source.byteLength !== asset.byteLength || (source.sha256 !== null && source.sha256 !== asset.sha256) || asset.kind === 'font' || asset.kind === 'attachment'
 			|| (source.hasVideo && source.still !== (asset.kind === 'image')) || media.has(binding.footageId) || (source.hasVideo && (asset.kind === 'audio' || asset.width !== source.width || asset.height !== source.height))) throw new Error('AE media binding does not match retained source metadata.');
 		if (used.has(asset.id)) throw new Error('AE media destination identity is duplicated.'); used.add(asset.id);
 		media.set(binding.footageId, asset); assets.push(asset);

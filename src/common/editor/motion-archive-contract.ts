@@ -3,7 +3,7 @@ import type { MotionAsset } from './motion-asset.ts';
 import type { MotionscaperProject } from './motion-project-types.ts';
 import type { ScapeAssetDescriptor } from '../scape/archive-envelope.ts';
 import { safeScapeEntryId } from './scape-archive-media.ts';
-export const MOTION_ARCHIVE_ASSET_KINDS = ['motion-image', 'motion-footage', 'motion-audio', 'motion-font'] as const;
+export const MOTION_ARCHIVE_ASSET_KINDS = ['motion-image', 'motion-footage', 'motion-audio', 'motion-font', 'motion-attachment'] as const;
 
 export function motionArchiveAssetEntry(asset: MotionAsset): string {
 	return `media/${safeScapeEntryId(asset.id)}/original`;

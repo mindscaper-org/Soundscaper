@@ -202,6 +202,7 @@
 		"import/import-composition.ts",
 		"import/import-video-publication.ts",
 		"import/imported-audio-content-identity.ts",
+		"import/native-aep-import.ts",
 		"import/project-bin-linked-video-relink-service.ts",
 		"import/project-bin-types.ts",
 		"import/project-bin-video-playback.ts",

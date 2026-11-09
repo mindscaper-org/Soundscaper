@@ -222,8 +222,8 @@ copyright in the upstream translations, and those derived packs remain under
 GPLv3. Soundscaper is not affiliated with or endorsed by Audacity or Muse Group.
 
 The credential-free conversion job uses `saxes` 6.0.0 (ISC) and its
-`xmlchars` 2.2.0 dependency (MIT) to parse Qt TS XML. Both are development-time tools and
-are not included in the browser bundle. Their package sources and license texts
+`xmlchars` 2.2.0 dependency (MIT) to parse Qt TS XML. They also parse native After Effects AEPX import data and are included in the
+Motionscaper browser and desktop renderer bundles. Their package sources and license texts
 are available from <https://github.com/lddubeau/saxes/tree/v6.0.0> and
 <https://github.com/lddubeau/xmlchars/tree/v2.2.0>.
 
@@ -1269,3 +1269,13 @@ upstream notice and source hash in
 `src/common/editor/audacity-iconcodes.js` re-exports this shared inventory.
 
 Except for identified third-party portions under compatible licenses, the repository is distributed under AGPL-3.0-only. Before deploying the FFmpeg core, the release process must archive the exact corresponding source and build configuration alongside the deployed version and verify the enabled codec libraries and their notices.
+
+## Native AEP format fixtures
+
+The unmodified AE-generated binary/XML test pair in `tests/fixtures/native-aep/`
+comes from ArtCraft/EffectCraft Corpus commit
+`97262276f625afdeeb61787e4cbb74b3f17af510`, authored by vangel76.
+This distribution selects the MIT license; copyright, license, notice and
+per-file attribution are retained beside the fixtures. These are test data,
+not shipped application assets. The TypeScript reader is independently
+implemented using published format facts; no EffectCraft code is vendored.
