@@ -99,7 +99,9 @@ test.describe('regular effects converted from Nyquist', () => {
 		});
 	}
 
-	for (const effect of effects) {
+	// The complete selection/DSP/history/Scape matrix lives in the Node custody test.
+	// Keep both numeric-only and choice controls here; the live rack below still drives every effect.
+	for (const effect of effects.filter(({ type }) => type === 'multi-tap-delay' || type === 'notch-filter')) {
 		test(`applies ${effect.name} through its regular Effect menu without Nyquist`, async ({ page }) => {
 			const errors = collectClientErrors(page);
 			const nyquistRequests = collectNyquistRequests(page);
