@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import type { BrowserContext, Locator } from '@playwright/test';
 import { test } from './helpers/browser-coverage-fixture.js';
-import { motionMaximumQueueProgress, motionMaximumRetryProgress } from '../../desktop/motionscaper-native-maximum-ui.ts';
+import { motionMaximumQueueProgress, motionMaximumRetryProgress } from '../../desktop/motionscaper-native-maximum-progress.ts';
 
 async function maximumJob(context: BrowserContext, content = '<progress aria-label="Rendered frames" value="32767" max="32768"></progress>') {
 	const origin = 'http://127.0.0.1:4455';
