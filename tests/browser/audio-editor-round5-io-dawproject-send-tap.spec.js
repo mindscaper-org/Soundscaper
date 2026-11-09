@@ -12,7 +12,9 @@ function rms(samples) {
 	return Math.sqrt(window.reduce((sum, value) => sum + value ** 2, 0) / window.length);
 }
 
-for (const position of ['pre-fader', 'post-fader']) test(`DAWproject keeps an authored ${position} send and its audible level after reopening`, async ({ page }) => {
+// Node closes both taps; the parallel-send browser witness also renders pre/post.
+const position = 'pre-fader';
+test(`DAWproject keeps an authored ${position} send and its audible level after reopening`, async ({ page }) => {
 	test.setTimeout(90_000);
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });

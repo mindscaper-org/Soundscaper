@@ -6,7 +6,9 @@ import { writeDawprojectArchive } from '../../src/common/editor/dawproject-archi
 import { parseScapeProjectDocument } from '../../src/common/editor/scape-project-document.ts';
 import { encodeWav } from '../../src/common/editor/wav.js';
 
-for (const channels of [1, 2]) test(`DAWproject import reports ${channels === 1 ? 'changed mono' : 'unchanged stereo'} mixer-channel width`, async ({ page }) => {
+// Node verifies changed/unchanged width reports and reopened source PCM.
+const channels = 1;
+test(`DAWproject import reports ${channels === 1 ? 'changed mono' : 'unchanged stereo'} mixer-channel width`, async ({ page }) => {
 	test.setTimeout(60_000);
 	const archive = await writeDawprojectArchive({ metadataXml: '<MetaData><Title>Track widths</Title></MetaData>',
 		projectXml: `<Project version="1.0"><Application name="Track widths" version="1"/><Structure><Track id="voice" name="Voice" contentType="audio"><Channel role="regular" audioChannels="${channels}"/></Track></Structure><Arrangement><Lanes timeUnit="seconds"><Lanes track="voice"><Clips><Clip time="0" duration=".1"><Audio channels="2" sampleRate="48000" duration=".1" timeUnit="seconds"><File path="audio/voice.wav"/></Audio></Clip></Clips></Lanes></Lanes></Arrangement></Project>`,

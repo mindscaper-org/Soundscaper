@@ -7,7 +7,9 @@ import { bootEditor, chooseFileAction, chooseNestedCommandAction, disableNativeS
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 import { parseXmlDocument, walkXml } from '../../src/common/editor/dawproject-xml.ts';
 
-for (const channels of [2, 1]) test(`own DAWproject export and Open retain an authored ${channels}-channel group bus`, async ({ page }) => {
+// Node verifies the group/send width matrix through real DAW and Scape archives.
+const channels = 1;
+test(`own DAWproject export and Open retain an authored ${channels}-channel group bus`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);

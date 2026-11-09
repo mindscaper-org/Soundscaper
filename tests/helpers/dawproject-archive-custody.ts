@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { isDeliveryReport } from '../../src/common/editor/delivery-report.ts';
+import type { DawprojectImportReport } from '../../src/common/editor/dawproject-import-project.ts';
 import { createNativeProjectService } from '../../src/common/editor/controller/document/native-project-service.ts';
 import { readDawprojectArchive } from '../../src/common/editor/dawproject-archive.ts';
 import { parseDawprojectDocument } from '../../src/common/editor/dawproject-import.ts';
@@ -27,7 +29,9 @@ export async function dawprojectArchiveCustody(
 			const pcm = channels.get(source.storageKey);
 			assert.ok(pcm, `Missing independent source PCM for ${source.name}`);
 			const writer = await original.beginSourceWrite(source.storageKey, source);
-			await writer.write(pcm);
+			for (let offset = 0; offset < source.frameCount; offset += 65_536) {
+				await writer.write(pcm.map(channel => channel.subarray(offset, offset + 65_536)));
+			}
 			await writer.commit();
 		}
 		const saved: Blob[] = [];
@@ -55,6 +59,7 @@ export async function dawprojectArchiveCustody(
 			createStableId: prefix => `${prefix}-${String(++minted)}` });
 		const opened = await createNativeProjectService(importing.runtime).openDawproject(new File([blob], 'Roundtrip.dawproject'));
 		assert.ok(opened && validateSoundscaperProject(opened.project));
+		const report = readDawprojectImportReport(opened.report);
 		const native = createSoundscaperScapeNativeRuntime();
 		const portable = await native.exportScapeProject(opened.project, imported);
 		assert.ok(portable.blob);
@@ -65,8 +70,17 @@ export async function dawprojectArchiveCustody(
 		for (const source of documentProject.sources) {
 			if (source.kind === 'audio') pcm.set(source.name, await readPcm(reopenedStore, source.storageKey));
 		}
-		return { document, project: documentProject, pcm, report: opened.report };
+		return { document, project: documentProject, pcm, report };
 	} finally {
 		for (const store of stores) await store.close();
 	}
+}
+
+/** The shared validator admits export direction; DAW imports share its exact vocabulary. */
+export function readDawprojectImportReport(value: unknown): DawprojectImportReport {
+	assert.ok(value && typeof value === 'object');
+	assert.equal(Reflect.get(value, 'direction'), 'import');
+	const vocabulary = { ...value, direction: 'export' };
+	assert.ok(isDeliveryReport(vocabulary));
+	return { ...vocabulary, direction: 'import' };
 }
