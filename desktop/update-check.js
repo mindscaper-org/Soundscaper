@@ -1,5 +1,6 @@
 const RELEASES_API = 'https://api.github.com/repos/LeoWattenberg/Soundscaper/releases?per_page=20';
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const RC_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export class ReleaseChecker {
 	#currentVersion;
@@ -71,6 +72,14 @@ export function compareVersions(leftValue, rightValue) {
 	if (!left.prerelease.length && !right.prerelease.length) return 0;
 	if (!left.prerelease.length) return 1;
 	if (!right.prerelease.length) return -1;
+	const leftDate = datedReleaseCandidate(left.prerelease);
+	const rightDate = datedReleaseCandidate(right.prerelease);
+	if (leftDate && rightDate) {
+		for (let index = 0; index < leftDate.length; index += 1) {
+			if (leftDate[index] !== rightDate[index]) return leftDate[index] < rightDate[index] ? -1 : 1;
+		}
+		return 0;
+	}
 	const length = Math.max(left.prerelease.length, right.prerelease.length);
 	for (let index = 0; index < length; index += 1) {
 		const leftPart = left.prerelease[index];
@@ -86,6 +95,15 @@ export function compareVersions(leftValue, rightValue) {
 		return leftPart < rightPart ? -1 : 1;
 	}
 	return 0;
+}
+
+function datedReleaseCandidate(parts) {
+	if (parts.length !== 4 || parts[0] !== 'rc'
+		|| !/^(?:[1-9]|[12]\d|3[01])$/u.test(parts[2]) || !/^[a-z]+$/u.test(parts[3])) return null;
+	const month = RC_MONTHS.indexOf(parts[1]);
+	if (month < 0) return null;
+	// Match release:soundscaper:rc: calendar date, then a..z, aa..zz, aaa...
+	return [month, Number(parts[2]), parts[3].length, parts[3]];
 }
 
 function parseVersion(value) {
