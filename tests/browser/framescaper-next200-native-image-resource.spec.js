@@ -6,7 +6,9 @@ import { openFramescaperImageFramePackV1 } from '../../src/common/editor/timelin
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, collectClientErrors, disableNativeSavePicker, chooseExportProjectFileAction, downloadBytes } from './audio-editor-test-helpers.js';
 
-for (const format of ['png', 'jpeg', 'gif', 'webp', 'bmp']) for (const size of [format === 'png' ? 'large' : 'wide', 'small']) test(`native ${format} allocation obeys decoded admission: ${size}`, async ({ page }, testInfo) => {
+// Node covers all five preallocation refusals through the real authoring controller and store.
+// Keep one refusal UI witness and every native format's decode/RGBA/archive/reload workflow.
+for (const format of ['png', 'jpeg', 'gif', 'webp', 'bmp']) for (const size of format === 'png' ? ['large', 'small'] : ['small']) test(`native ${format} allocation obeys decoded admission: ${size}`, async ({ page }, testInfo) => {
 	const errors = collectClientErrors(page);
 	await page.addInitScript(() => {
 		globalThis.__nativeRasterOpens = [];
