@@ -5,6 +5,7 @@ import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
+import { createSoundscaperProjectStore } from '../src/soundscaper/editor-project-store.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { createImportedSourceProvenance, normalizeSourceProvenance } from '../src/common/editor/source-provenance.ts';
 import { createProjectAttributionReport } from '../src/common/editor/project-attribution-report.ts';
@@ -12,6 +13,8 @@ import { presentProjectAttributionReport, saveProjectAttributionCsv } from '../s
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
+import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
+import { assertEditedAudioArchiveCustody } from './helpers/edited-audio-archive-custody.ts';
 
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 for (const credit of ['Third credit', { credit: 'Nested credit' }] as const) {
@@ -29,7 +32,7 @@ for (const credit of ['Third credit', { credit: 'Nested credit' }] as const) {
 		await writer.write([Float32Array.of(.25, -.25, .5, -.5)]); await writer.commit();
 		const archive = await exportScapeProject(project, archiveStore); assert.ok(archive.blob instanceof Blob);
 		await archiveStore.close();
-		const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
+		const store = createSoundscaperProjectStore({ indexedDB: createInstrumentedIndexedDB(), preferOpfs: false });
 		const runtime = createSoundscaperProjectRuntimeSelection();
 		const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, store,
 			projectRuntime: runtime, sessionController: runtime.createSessionController(), scapeProjectRuntime: createSoundscaperScapeNativeRuntime(),
@@ -49,10 +52,11 @@ for (const credit of ['Third credit', { credit: 'Nested credit' }] as const) {
 		assert.deepEqual(publishedTags, tags, 'the UI publication retains every own data key');
 		assert.equal(Object.getPrototypeOf(publishedTags), Object.prototype);
 		assert.ok(Object.isFrozen(publishedTags));
-		const report = createProjectAttributionReport(published);
+		const reopened = await assertEditedAudioArchiveCustody(context, store, published, [Float32Array.of(.25, -.25, .5, -.5)]);
+		const report = createProjectAttributionReport(reopened);
 		const presented = presentProjectAttributionReport(report);
 		const field = presented.occurrences.flatMap(occurrence => occurrence.sources.flatMap(source => source.metadata))
-			.find(field => field.key.startsWith('raw.TXXX.__proto__'));
+			.find(field => field.key === (typeof credit === 'string' ? 'raw.TXXX.__proto__' : 'raw.TXXX.__proto__.credit'));
 		assert.equal(field?.value, typeof credit === 'string' ? credit : credit.credit);
 		let csv = '';
 		await saveProjectAttributionCsv(report, snapshot.project.title, { saveFile: request => { csv = request.text; return undefined; } });

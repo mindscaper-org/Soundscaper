@@ -5,22 +5,27 @@ import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
+import { createSoundscaperProjectStore } from '../src/soundscaper/editor-project-store.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
+import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
+import { assertEditedAudioArchiveCustody } from './helpers/edited-audio-archive-custody.ts';
 
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 for (const trackId of ['__proto__', 'constructor', 'toString', 'voice']) for (const operation of ['edit', 'drag'] as const) {
 	test(`P3-011: ${operation} duplicate retains recording placement for native track ${trackId}`, async context => {
-		const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
+		const sender = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: crypto.randomUUID() });
+		context.after(async () => { await sender.close(); });
+		const store = createSoundscaperProjectStore({ indexedDB: createInstrumentedIndexedDB(), preferOpfs: false });
 		const source = createAudioSource({ id: 'source', sampleRate: 48_000, channelCount: 1, frameCount: 4800 });
-		const writer = await store.beginSourceWrite(source.storageKey, source);
+		const writer = await sender.beginSourceWrite(source.storageKey, source);
 		await writer.write([new Float32Array(4800).fill(.25)]); await writer.commit();
 		const clip = createAudioClip({ id: 'clip', title: 'Voice', sourceId: source.id, timelineStartFrame: 4800, durationFrames: 4800, sourceDurationFrames: 4800 });
 		const project = createSoundscaperProject({ id: `duplicate-${trackId}`, sources: [source], clips: [clip],
 			tracks: [createAudioTrack({ id: trackId, name: 'Voice', clipIds: [clip.id] })] });
-		const archive = await exportScapeProject(project, store); assert.ok(archive.blob instanceof Blob);
+		const archive = await exportScapeProject(project, sender); assert.ok(archive.blob instanceof Blob);
 		const runtime = createSoundscaperProjectRuntimeSelection();
 		const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, store,
 			projectRuntime: runtime, sessionController: runtime.createSessionController(), scapeProjectRuntime: createSoundscaperScapeNativeRuntime(),
@@ -39,8 +44,11 @@ for (const trackId of ['__proto__', 'constructor', 'toString', 'voice']) for (co
 		const copiedIds = duplicate.clipIds; assert.ok(Array.isArray(copiedIds)); assert.equal(copiedIds.length, 1);
 		const copied = after.clips.find(clip => clip.id === copiedIds[0]); assert.ok(copied);
 		assert.equal(copied.sourceId, before.clips[0]!.sourceId); assert.equal(copied.timelineStartFrame, 4800);
+		assert.equal(copied.sourceStartFrame, 0); assert.equal(copied.durationFrames, 4800); assert.equal(copied.sourceDurationFrames, 4800);
 		assert.deepEqual(after.tracks.find(track => track.id === trackId)?.clipIds, [clip.id]);
 		controller.actions.edit.undo(); assert.deepEqual(controller.project?.tracks, before.tracks); assert.deepEqual(controller.project?.clips, before.clips);
 		controller.actions.edit.redo(); assert.deepEqual(controller.project?.tracks, after.tracks); assert.deepEqual(controller.project?.clips, after.clips);
+		await controller.actions.project.flush();
+		await assertEditedAudioArchiveCustody(context, store, controller.project, [new Float32Array(4800).fill(.25)]);
 	});
 }

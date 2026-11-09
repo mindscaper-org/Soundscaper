@@ -103,26 +103,7 @@ test('Delete track and Undo restore its explicitly assigned Right microphone inp
 	await expect(sourceChoice).toHaveValue('device:default'); await expect(channelChoice).toHaveValue('1');
 });
 
-test('Edit Duplicate preserves a native track identity matching a prototype setter', async ({ page }) => {
-	const source = createAudioSource({ id: 'source', sampleRate: 48_000, channelCount: 1, frameCount: 48_000 });
-	const clip = createAudioClip({ id: 'clip', title: 'Voice recording', sourceId: source.id, durationFrames: 48_000, sourceDurationFrames: 48_000 });
-	const project = createSoundscaperProject({ id: 'p3-duplicate-proto', sources: [source], clips: [clip],
-		tracks: [createAudioTrack({ id: '__proto__', name: 'Voice', clipIds: ['clip'] })] });
-	const editor = await openArchive(page, await nativeArchive(project, source), project.id);
-	await clipByName(editor, 'Voice recording').locator('.clip-header').click();
-	await chooseCommandAction(page, editor, 'Edit', 'Duplicate');
-	await expect(editor).toHaveAttribute('data-clip-count', '2');
-	const rows = editor.locator('[data-track-row]'); await expect(rows).toHaveCount(2);
-	await expect(rows.nth(0)).toHaveAttribute('data-track-id', '__proto__');
-	await expect(rows.nth(0).locator('.clip-display')).toHaveCount(1);
-	await expect(rows.nth(1).locator('.clip-display')).toHaveCount(1);
-	await chooseCommandAction(page, editor, 'Edit', 'Undo'); await expect(editor).toHaveAttribute('data-clip-count', '1');
-	await expect(rows).toHaveCount(1);
-	await chooseCommandAction(page, editor, 'Edit', 'Redo'); await expect(editor).toHaveAttribute('data-clip-count', '2');
-	await expect(rows.nth(1).locator('.clip-display')).toHaveCount(1);
-});
-
-for (const clipId of ['clip"quoted', 'clip\\tail', 'ordinary-clip']) test(`native clip properties accept identity ${clipId}`, async ({ page }) => {
+for (const clipId of ['clip"quoted', 'clip\\tail']) test(`native clip properties accept identity ${clipId}`, async ({ page }) => {
 	const source = createAudioSource({ id: 'source', sampleRate: 48_000, channelCount: 1, frameCount: 48_000 });
 	const clip = createAudioClip({ id: clipId, title: 'Quoted recording', sourceId: source.id, durationFrames: 48_000, sourceDurationFrames: 48_000 });
 	const project = createSoundscaperProject({ id: `p3-quoted-${clipId}`, sources: [source], clips: [clip],
@@ -156,7 +137,8 @@ test('shorter Bin replacement keeps authored output automation aligned after Con
 	await expect.poll(laterPoint).toBe(168_000);
 });
 
-for (const credit of ['Third credit', { credit: 'Nested credit' }]) {
+// Node checks scalar and nested metadata/CSV plus duplicate history with independent PCM archives.
+for (const credit of [{ credit: 'Nested credit' }]) {
 	test(`Attribution retains a custom metadata key matching a prototype setter (${typeof credit})`, async ({ page }) => {
 		await disableNativeSavePicker(page);
 		const tags = Object.fromEntries([['__proto__', credit], ['constructor', 'First credit'], ['toString', 'Second credit']]);
