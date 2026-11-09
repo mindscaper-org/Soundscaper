@@ -122,8 +122,14 @@ delete env[NATIVE_TEST_FIXTURE_ENV];
 let executionError = null;
 let exitCode = 0;
 try {
+	// Plan one source snapshot for this invocation, including isolated execution groups.
+	const nativeFiles = new Set(partitionNodeTestBootstrapBatches(root, testFiles)
+		.filter(batch => !batch.useLoaders).flatMap(batch => batch.files));
 	for (const { files: batch, useLoaders } of partitionNodeTestExecutionBatches(testFiles)
-		.flatMap(files => partitionNodeTestBootstrapBatches(root, files))) {
+		.flatMap(files => [
+			{ files: files.filter(file => nativeFiles.has(file)), useLoaders: false },
+			{ files: files.filter(file => !nativeFiles.has(file)), useLoaders: true },
+		].filter(batch => batch.files.length > 0))) {
 		// Authenticate a workflow artifact before starting sibling preparations.
 		if (desktopRuntimeFixtureDirectory === null && desktopFixtureArgument !== undefined && needsDesktopRuntimeTestFixture(batch)) {
 			const fixtureRoot = resolve(root, desktopFixtureArgument.slice('--desktop-runtime-fixture='.length));

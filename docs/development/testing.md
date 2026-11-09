@@ -42,6 +42,13 @@ The imports support TypeScript and stylesheet assets used by editor modules.
 Plain JavaScript tests without those dependencies can use `node --test` directly.
 Use `--test-name-pattern='test name'` before the file to narrow a run further.
 
+The ordinary Node runner checks each selected test's dependency graph before
+choosing its bootstrap. Closed JavaScript and compatible, erasable TypeScript
+graphs use Node's native loader. Graphs requiring JSX, asset stubs, package
+resolution, TypeScript transforms, or different import/export behavior retain
+the `tsx` and asset hooks. This changes bootstrap cost without changing test
+selection, process concurrency, or shard membership.
+
 | Change | Development check |
 | --- | --- |
 | Domain, helper, or controller | Focused Node regressions and `npm run typecheck` |
