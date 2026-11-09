@@ -7,15 +7,17 @@ import { createSoundscaperScapeNativeRuntime } from '../../src/soundscaper/edito
 import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/common/editor/project-media-factory.ts';
 import { createProjectStore } from '../../src/common/editor/storage.js';
 
-for (const mode of ['programme', 'object']) for (const multiline of [false, true]) {
-	test(`ADM ${mode} defaults admit ${multiline ? 'multiline' : 'ordinary'} existing descriptive names`, async ({ page }) => {
-		const name = multiline ? 'Opening\nRoom tone' : 'Opening Room tone';
+// Multiline defaults retain controller/history/PCM/Scape custody coverage in
+// audio-editor-adm-default-name-custody.test.ts; keep both metadata UI routes here.
+for (const mode of ['programme', 'object']) {
+	test(`ADM ${mode} defaults admit ordinary existing descriptive names`, async ({ page }) => {
+		const name = 'Opening Room tone';
 		const title = mode === 'programme' ? name : 'Ordinary programme';
 		const trackName = mode === 'object' ? name : 'Dialogue';
 		const source = createAudioSource({ id: 'source', storageKey: 'source', frameCount: 4800, sampleRate: 48000, channelCount: 1, name: 'Room.wav' });
 		const clip = createAudioClip({ id: 'clip', sourceId: source.id, durationFrames: 4800, sourceDurationFrames: 4800 });
 		const track = createAudioTrack({ id: 'track', name: trackName, clipIds: [clip.id] });
-		const project = createSoundscaperProject({ id: `adm-${mode}-${multiline}`, sampleRate: 48000, metadata: { title }, sources: [source], clips: [clip], tracks: [track],
+		const project = createSoundscaperProject({ id: `adm-${mode}-false`, sampleRate: 48000, metadata: { title }, sources: [source], clips: [clip], tracks: [track],
 			sequences: [{ id: 'main', trackIds: [track.id] }], primarySequenceId: 'main' });
 		expect(project.metadata.title).toBe(title);
 		const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: crypto.randomUUID() });
