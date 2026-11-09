@@ -19,7 +19,8 @@ test('Cancel while an effect preview worker is preparing releases the editor imm
 		};
 	});
 	const editor = await bootEditor(page, '/embed/en/');
-	await importFiles(editor, [createWavFixture({ name: 'cancel pending preview.wav', duration: 8 })]);
+	// The worker is held before processing, so a short clip exercises the same cancellation.
+	await importFiles(editor, [createWavFixture({ name: 'cancel pending preview.wav', duration: 0.25 })]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await chooseNestedCommandAction(page, editor, 'Effect', ['Delay and reverb', 'Reverb']);
 	const dialog = page.getByRole('dialog', { name: 'Apply effect', exact: true });
