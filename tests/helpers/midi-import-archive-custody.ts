@@ -7,6 +7,8 @@ import { createSoundscaperProjectRuntimeSelection } from '../../src/soundscaper/
 import { createSoundscaperProjectStore } from '../../src/soundscaper/editor-project-store.ts';
 import { createSoundscaperScapeNativeRuntime } from '../../src/soundscaper/editor-scape-native.ts';
 import { validateSoundscaperProject } from '../../src/soundscaper/editor-project-validation.ts';
+import type { SoundscaperProject } from '../../src/soundscaper/editor-project.ts';
+import type { AudioSourceLeaf } from '../../src/common/editor/project-media-types.ts';
 import { readMidiClip } from '../../src/common/editor/midi-model.ts';
 import { COPY, createAudioEditorController, createMemoryEngine } from './audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './audio-editor-controller-fixtures.js';
@@ -16,9 +18,14 @@ import { readPcm } from './project-store-pcm-fixture.ts';
 
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 type FileRequest = Readonly<{ suggestedName?: string; bytes?: Uint8Array | ArrayBuffer; text?: string }>;
+type PcmExpectation = 'audible' | 'silent' | Readonly<{ assertSamples(channels: readonly (readonly number[])[]): void }>;
+interface CustodyOptions {
+	/** A fixture may author an intentionally silent note or retain an older synthesized source after editing. */
+	readonly sourcePcmExpectation?: (source: AudioSourceLeaf, project: SoundscaperProject) => PcmExpectation;
+}
 
 /** Real MIDI parsing, synthesis, controller publication and portable storage. */
-export async function midiImportArchiveCustody(context: TestContext) {
+export async function midiImportArchiveCustody(context: TestContext, options: CustodyOptions = {}) {
 	const saved: FileRequest[] = [];
 	const sender = await open();
 	return { ...sender, saved, async reopen() {
@@ -39,14 +46,22 @@ export async function midiImportArchiveCustody(context: TestContext) {
 		const restored = recipient.controller.project;
 		assert.ok(validateSoundscaperProject(restored));
 		assert.equal(restored.sources.length, project.sources.length);
+		assert.deepEqual(restored.sources, project.sources);
+		assert.deepEqual(restored.clips, project.clips);
+		assert.deepEqual(restored.tracks, project.tracks);
+		assert.deepEqual(restored.tempo, project.tempo);
 		for (const source of restored.sources) {
+			assert.ok(source.kind === 'audio');
 			const expected = originalPcm.get(source.id); assert.ok(expected);
 			const samples = await readPcm(recipient.store, source.storageKey);
 			assert.equal(samples[0]?.length, source.frameCount);
 			assertPcmChannelsEqual(samples, expected, 'synthesized MIDI archive');
 			const authored = restored.clips.some(clip => clip.sourceId === source.id && (readMidiClip(clip)?.notes.length ?? 0) > 0);
-			if (authored) assert.ok(samples.some(channel => channel.some(value => Math.abs(value) > .01)), 'real synthesis must publish audible PCM');
-			else assert.ok(samples.every(channel => channel.every(value => value === 0)), 'empty MIDI lanes retain silent PCM');
+			const emptyLane = restored.clips.some(clip => clip.sourceId === source.id && readMidiClip(clip)?.notes.length === 0);
+			const expectation = options.sourcePcmExpectation?.(source, restored) ?? (authored ? 'audible' : 'silent');
+			if (emptyLane || expectation === 'silent') assert.ok(samples.every(channel => channel.every(value => value === 0)), 'empty lanes and explicitly silent fixtures retain every zero PCM sample');
+			else if (expectation === 'audible') assert.ok(samples.some(channel => channel.some(value => Math.abs(value) > .01)), 'real synthesis must publish audible PCM');
+			else expectation.assertSamples(samples);
 		}
 		return { ...recipient, project: restored };
 	} };
@@ -54,6 +69,12 @@ export async function midiImportArchiveCustody(context: TestContext) {
 	async function open() {
 		const runtime = createSoundscaperProjectRuntimeSelection();
 		const store = createSoundscaperProjectStore({ indexedDB: createInstrumentedIndexedDB(), preferOpfs: false });
+		let sourceWrites = 0;
+		const beginSourceWrite = store.beginSourceWrite.bind(store);
+		store.beginSourceWrite = (sourceId: string, metadata: Readonly<Record<string, unknown>> = {}) => {
+			sourceWrites++;
+			return beginSourceWrite(sourceId, metadata);
+		};
 		const service = createAudioEditorFileService();
 		const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, store,
 			projectRuntime: runtime, sessionController: runtime.createSessionController(),
@@ -66,8 +87,8 @@ export async function midiImportArchiveCustody(context: TestContext) {
 					size: request.bytes?.byteLength ?? new TextEncoder().encode(request.text ?? '').length };
 			} },
 		});
-		context.after(async () => { await controller.dispose(); });
+		context.after(async () => { try { await controller.dispose(); } finally { await store.close(); } });
 		await controller.ready;
-		return { controller, store };
+		return { controller, store, sourceWriteCount: () => sourceWrites };
 	}
 }

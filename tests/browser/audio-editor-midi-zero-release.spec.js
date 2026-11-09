@@ -5,7 +5,9 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 const peak = values => values.reduce((maximum, value) => Math.max(maximum, Math.abs(value)), 0);
 
-for (const zero of [false, true]) test(`MIDI immediate key release remains silent through file delivery: zero=${zero}`, async ({ page }) => {
+// Both release clocks have exact PCM/archive custody in
+// audio-editor-midi-expression-archive-custody.test.ts. Keep the native silent route.
+for (const zero of [true]) test(`MIDI immediate key release remains silent through file delivery: zero=${zero}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseNestedCommandAction(page, editor, 'Tracks', ['Remove tracks']);

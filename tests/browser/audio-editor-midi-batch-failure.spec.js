@@ -2,7 +2,9 @@
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor } from './audio-editor-test-helpers.js';
 
-for (const badFirst of [true, false]) test(`File Import keeps a healthy WAV beside a corrupt MIDI, badFirst=${badFirst}`, async ({ page }) => {
+// Both queue orders retain exact WAV PCM through real controller/store/archive
+// custody in audio-editor-midi-refusal-archive-custody.test.ts. Keep native error recovery.
+for (const badFirst of [true]) test(`File Import keeps a healthy WAV beside a corrupt MIDI, badFirst=${badFirst}`, async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	const bad = { name: 'Broken.mid', mimeType: 'audio/midi', buffer: Buffer.from('Not a MIDI file') };
 	await editor.locator('[data-import-input]').setInputFiles(badFirst ? [bad, toneA] : [toneA, bad]);

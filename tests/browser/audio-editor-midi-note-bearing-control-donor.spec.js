@@ -4,7 +4,9 @@ import { bootEditor, disableNativeSavePicker, importFiles } from './audio-editor
 import { exportSamples } from './helpers/round2-audio-export.js';
 import { writeMidiFile } from '../../src/common/editor/midi-file.ts';
 
-for (const donorNotes of [false, true]) test(`a foreign channel controller reaches its owner with note-bearing donor=${donorNotes}`, async ({ page }) => {
+// The two donor/data variants have real synthesis/store/archive custody in
+// audio-editor-midi-expression-archive-custody.test.ts. Keep native Solo/export here.
+for (const donorNotes of [true]) test(`a foreign channel controller reaches its owner with note-bearing donor=${donorNotes}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const note = { id: 'n', pitch: 69, channel: 1, velocity: 100, startFrame: 0, durationFrames: 48_000 };
