@@ -148,7 +148,7 @@ function buildClip(authored: TimelineInterchangeClip, source: Readonly<Record<st
 
 function ticks(time: Rational, rate: Rational, policy: 'point' | 'enclosingEnd' = 'point'): number {
 	const value = multiplyRationals(time, rate);
-	return roundRational(value.num, value.den, policy);
+	return roundRational(value.num, value.den, policy === 'enclosingEnd' ? 'enclosingEnd' : 'point');
 }
 
 function exactTime(time: Rational): ExactSourceTime { return { numerator: BigInt(time.num), denominator: BigInt(time.den) }; }

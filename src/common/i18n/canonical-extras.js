@@ -225,7 +225,7 @@ const COPY_ENTRIES = Object.freeze([
 	["rawPcmChannelCount","Channels"],
 	["rawPcmByteOffset","Byte offset"],
 	['rawPcmDetect', 'Detect'],
-	['rawPcmDetecting', 'Detecting raw audio format…'],
+	['rawPcmDetecting', 'Detecting raw audio format'],
 	['rawPcmDetected', 'Estimated format applied. Review the settings before importing.'],
 	['rawPcmNotDetected', 'Could not detect the format. Choose the settings manually.'],
 	["regularIntervalLabels","Regular interval labels"],

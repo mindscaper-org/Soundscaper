@@ -10,7 +10,7 @@ import { TIMELINE_INTERCHANGE_EXTENSION_LIST, isTimelineInterchangeFile } from '
 export { isProjectFileName };
 
 export const WORKSPACE_PROJECT_FILE_ACCEPT = `${ACCEPTED_PROJECT_FILE_EXTENSION_LIST},.aup,.aup3,.aup4,.dawproject,${TIMELINE_INTERCHANGE_EXTENSION_LIST},application/vnd.soundscaper.scape+zip,application/x-audacity-project,application/vnd.audacity.aup4`;
-export const WORKSPACE_IMPORT_FILE_ACCEPT = `audio/*,video/mp4,video/webm,application/ogg,application/x-ogg,${IMPORT_FILE_EXTENSION_LIST},${TIMELINE_INTERCHANGE_EXTENSION_LIST},application/x-cue,text/plain,text/vtt,application/x-subrip`;
+export const WORKSPACE_IMPORT_FILE_ACCEPT = `audio/*,video/mp4,video/webm,application/ogg,application/x-ogg,${IMPORT_FILE_EXTENSION_LIST},application/x-cue,text/plain,text/vtt,application/x-subrip`;
 export const WORKSPACE_OPEN_FILE_ACCEPT = `${WORKSPACE_PROJECT_FILE_ACCEPT},${WORKSPACE_IMPORT_FILE_ACCEPT}`;
 
 const LEGACY_AUDACITY_PROJECT_PATTERN = /\.(?:aup|aup3|aup4|dawproject|sesx?)$/iu;

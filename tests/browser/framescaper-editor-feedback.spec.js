@@ -13,7 +13,7 @@ test('Framescaper exposes contextual status help and notification history throug
 	await chooseCommandAction(page, editor, 'View', 'Contextual status help');
 	await editor.getByRole('button', { name: 'Undo', exact: true }).hover();
 	await expect(editor.getByText('Undo (Ctrl+Z)', { exact: true })).toBeVisible();
-	await chooseNestedCommandAction(page, editor, 'View', ['Notifications', 'Notification history…']);
+	await chooseNestedCommandAction(page, editor, 'View', ['Notifications', 'Notification history']);
 	const history = editor.getByRole('dialog', { name: 'Notifications', exact: true });
 	await expect(history).toBeVisible();
 	const mute = history.getByRole('checkbox', { name: 'Mute informational notifications', exact: true });

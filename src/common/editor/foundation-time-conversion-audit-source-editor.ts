@@ -6,6 +6,36 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
 /** Source editor display and authoring share the owning project tempo and sample grid. */
 export const FOUNDATION_TIME_CONVERSION_SOURCE_EDITOR_SITES: readonly FoundationTimeConversionSite[] = deepFreezeAuditSites([
 	{
+		id: 'timeline-interchange-video-source-extent',
+		file: 'src/common/editor/controller/import/internal/interchange/timeline-interchange-video.ts',
+		behavior: 'Decoded interchange video retains its exact native picture count and rounds the media duration to the nearest project sample for the source metadata sample clock.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
+		id: 'dawproject-midi-metadata-source-clock',
+		file: 'src/common/editor/dawproject-midi-metadata.ts',
+		behavior: 'DAWproject MIDI metadata maps each original note endpoint, stop and message position through the exact original-to-destination sample-rate ratio and rounds once to its nearest native source sample.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
+		id: 'timeline-interchange-import-clocks',
+		file: 'src/common/editor/timeline-interchange-project.ts',
+		behavior: 'Timeline imports round absolute clip endpoints to nearest sequence and source frames; offline source extents round outward to enclose every referenced edit.',
+		conversions: [{ helper: 'roundRational', policies: ['point', 'enclosingEnd'] }],
+	},
+	{
+		id: 'fcpxml-import-sequence-origin',
+		file: 'src/common/editor/timeline-interchange-fcpxml-import.ts',
+		behavior: 'FCPXML imports resolve the exact rational sequence timecode origin once to its nearest sequence frame before constructing the editable timeline.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
+		id: 'otio-import-sequence-origin',
+		file: 'src/common/editor/timeline-interchange-otio-import.ts',
+		behavior: 'OpenTimelineIO imports resolve the rational global start time once to its nearest sequence frame while retaining rational clip ranges for their owning source clocks.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
 		id: 'timed-id3-delivery-milliseconds',
 		file: 'src/common/editor/media-metadata.ts',
 		behavior: 'Timed ID3 lyric onsets retain exact source-millisecond coordinates through selected source windows and declared mastering segments, then round once to the nearest physical-file millisecond after subtracting the source origin and adding the delivered segment origin.',
