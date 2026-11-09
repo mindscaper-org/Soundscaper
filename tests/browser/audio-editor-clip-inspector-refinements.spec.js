@@ -92,6 +92,10 @@ test('a rejected property edit appears as a dismissible workspace toast', async 
 	await commitInput(panel.getByRole('textbox', { name: 'Start', exact: true }), '1e20');
 	const toast = editor.locator('[data-editor-toast="workspace-error"]');
 	await expect(toast).toBeVisible();
+	const editorBounds = await editor.boundingBox();
+	const toastBounds = await toast.boundingBox();
+	expect(toastBounds.y).toBeGreaterThan(editorBounds.y + editorBounds.height / 2);
+	await editor.getByRole('button', { name: 'Undo', exact: true }).click({ trial: true });
 	await expect(panel.getByRole('alert')).toHaveCount(0);
 	await toast.getByRole('button', { name: 'Close', exact: true }).click();
 	await expect(toast).toHaveCount(0);

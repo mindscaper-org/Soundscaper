@@ -1,7 +1,4 @@
 .kw-audio-editor__toasts {
-	top: 12px;
-	bottom: auto;
-	max-height: calc(100% - 24px);
 	gap: 8px;
 	overscroll-behavior: contain;
 	scrollbar-gutter: stable;
