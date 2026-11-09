@@ -54,6 +54,21 @@ test('macro analysis returns matches and gap-closing edits run in the same trans
 	await assert.rejects(host.createDispatch()('analyze.repeatedSound', [{ upload: true }]), /Unknown repeated sound option/);
 });
 
+test('a project change while analysis dependencies load prevents the analyzer from starting', async () => {
+	let current = true, analyses = 0;
+	const changed = new Error('The project changed.');
+	const host = createMacroScriptHost({ getProject: () => ({ tracks: [], clips: [] }), projectSampleRate: () => 1000,
+		runEffectMacro: async () => undefined, runMacroCommand: () => undefined, setExactSelection: () => undefined,
+		listSavedMacros: () => [], beginMacroTransaction: () => ({ assertCurrent() {}, commit() {}, rollback() {} }),
+		findRepeatedSound: async () => { analyses += 1; return { matches: [] }; },
+	});
+	const dispatch = host.createDispatch(() => undefined, () => { if (!current) throw changed; });
+	const running = dispatch('analyze.repeatedSound', []);
+	current = false;
+	await assert.rejects(running, changed);
+	assert.equal(analyses, 0);
+});
+
 test('cancelling a macro aborts its analyzer and rolls back the run', async () => {
 	let entered: (() => void) | undefined, rollback = false;
 	const ready = new Promise<void>(resolve => { entered = resolve; });

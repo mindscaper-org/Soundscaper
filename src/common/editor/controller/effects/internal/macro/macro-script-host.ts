@@ -20,7 +20,7 @@ import { resolveSelectionRange } from '../../../../selection-range.ts';
  */
 
 import { createMacroCommandStep, normalizeMacroCommandStep, type MacroCommandStep } from '../../../../macro-command-steps.ts';
-import { normalizeMacroValue, type MacroValue } from '../../../../macro-script/protocol.ts';
+import type { MacroValue } from '../../../../macro-script/protocol.ts';
 import { admitMacroAudioInput, macroAudioInputKey, type MacroAudioInput, type MacroAudioInputResolver } from '../../../../macro-audio-input.ts';
 
 export interface MacroScriptTrack extends Readonly<Record<string, unknown>> {
@@ -193,13 +193,15 @@ const READERS: Readonly<Record<string, Handler>> = Object.freeze({
 });
 
 const MUTATORS: Readonly<Record<string, Handler>> = Object.freeze({
-	'analyze.repeatedSound': async (runtime, args, _assertCurrent, signal, inputs) => {
+	'analyze.repeatedSound': async (runtime, args, assertCurrent, signal, inputs) => {
 		if (!runtime.findRepeatedSound) throw new Error('Repeated sound analysis is unavailable.');
 		const options = optionsOf(args[0]);
 		if (Object.keys(options).some(key => key !== 'similarityThreshold' && key !== 'referenceInput')) throw new RangeError('Unknown repeated sound option.');
 		const { referenceInput, ...parameters } = options;
 		const reference = referenceInput === undefined ? undefined : inputs?.values.get(macroAudioInputKey(referenceInput));
 		if (referenceInput !== undefined && !reference) throw new Error('Load this reference with sound.input.audio first.');
+		const { normalizeMacroValue } = await import('../../../../macro-script/protocol.ts');
+		assertCurrent();
 		return normalizeMacroValue(await runtime.findRepeatedSound(parameters, signal, reference), 'Repeated sound result');
 	},
 	'edit.deleteAndCloseGap': async runtime => {
