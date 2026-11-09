@@ -2,7 +2,8 @@
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
-for (const fields of ['K64 Q', 'K64']) test(`Allegro ${fields} retains its native implied note pitch`, async ({ page }) => {
+// The full key/duration matrix crosses controller, synthesis and archive boundaries in Node.
+for (const fields of ['K64 Q']) test(`Allegro ${fields} retains its native implied note pitch`, async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [{ name: 'Key duration.gro', mimeType: 'text/plain',
 		buffer: Buffer.from(`#track 0\nT0 -tempor:120\nT0 V0 ${fields} L100\n`) }]);

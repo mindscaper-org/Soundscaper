@@ -3,20 +3,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, disableNativeSavePicker, downloadBytes, importFiles } from './audio-editor-test-helpers.js';
 import { parseMidiFile, writeMidiFile } from '../../src/common/editor/midi-file.ts';
 
-for (const scope of ['V2 ', '']) test(`Allegro ${scope || 'default V0 '}text refuses an unretained channel without changing the project`, async ({ page }) => {
-	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
-	await editor.locator('[data-import-input]').setInputFiles({ name: 'Channel lyrics.gro', mimeType: 'text/plain',
-		buffer: Buffer.from(`T0 -tempor:120\nT0 ${scope}-lyrics:"hello"\nT0 V2 K60 P60 U0.5 L90\n`) });
-	await expect(page.locator('[data-editor-toast="workspace-error"]')).toContainText('Channel-scoped Allegro text');
-	await expect(editor).toHaveAttribute('data-clip-count', '0');
-	await importFiles(editor, [{ name: 'Global lyrics.gro', mimeType: 'text/plain',
-		buffer: Buffer.from('T0 -tempor:120\nT0 V- -lyrics:"hello"\nT0 V2 K60 P60 U0.5 L90\n') }]);
-	const events = await deliveredEvents(page, editor);
-	expect(events.filter(event => event.metaType === 5).map(event => new TextDecoder().decode(Uint8Array.from(event.data)))).toEqual(['hello']);
-	expect(events.filter(event => event.metaType === 32)).toEqual([]);
-});
-
+// Scoped Allegro text refusal and recovery are covered through the full controller in Node.
 test('the original raw MIDI channel-prefix file remains importable and exportable', async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');
