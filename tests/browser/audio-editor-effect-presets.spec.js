@@ -14,7 +14,7 @@ test.describe('effect presets Audacity ships', () => {
 
 	test('offers a shipped reverb preset in the effect dialog and applies its settings', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 
 		await page.keyboard.press('Control+k');
@@ -49,7 +49,7 @@ test.describe('effect presets Audacity ships', () => {
 
 	test('imports an Audacity text preset through the existing preset option', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 
 		await page.keyboard.press('Control+k');
@@ -85,7 +85,7 @@ test.describe('effect presets Audacity ships', () => {
 
 	test('opens effect details from both preset overflow menus', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await page.keyboard.press('Control+k');
 		await editor.locator('[data-editor-search-input]').fill('Reverb');
@@ -125,7 +125,7 @@ test.describe('effect presets Audacity ships', () => {
 	});
 
 	test('closes each preset action menu when its trigger is activated again', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await page.keyboard.press('Control+k');
 		await editor.locator('[data-editor-search-input]').fill('Reverb');
@@ -157,7 +157,7 @@ test.describe('effect presets Audacity ships', () => {
 
 	test('keeps preset menus clickable after dragging an effect dialog and preserves its skin', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/?useskin=sakura');
+		const editor = await bootEditor(page, '/embed/en/?useskin=sakura', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const panel = await openEffectsForTrack(editor, 1);
 		await addRackEffect(page, panel, 'track', 'Noise gate');

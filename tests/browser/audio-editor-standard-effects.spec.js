@@ -68,7 +68,7 @@ test.describe('regular effects converted from Nyquist', () => {
 	for (const sampleRate of [8000, 96000]) {
 		test(`filter cutoff controls follow the ${sampleRate} Hz project Nyquist limit`, async ({ page }) => {
 			const errors = collectClientErrors(page);
-			const editor = await bootEditor(page, '/embed/en/');
+			const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 			const samples = Array.from({ length: Math.round(sampleRate * .2) }, (_, frame) => .3 * Math.sin(2 * Math.PI * 330 * frame / sampleRate));
 			const bytes = await createAup3Fixture({ sampleRate, tracks: [{ name: 'Filter limits', clips: [{ samples }] }] });
 			const chooser = page.waitForEvent('filechooser');
@@ -103,7 +103,7 @@ test.describe('regular effects converted from Nyquist', () => {
 		test(`applies ${effect.name} through its regular Effect menu without Nyquist`, async ({ page }) => {
 			const errors = collectClientErrors(page);
 			const nyquistRequests = collectNyquistRequests(page);
-			const editor = await bootEditor(page, '/embed/en/');
+			const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 			await importFiles(editor, [toneA]);
 			await chooseCommandAction(page, editor, 'Select', 'Select all');
 			await chooseNestedCommandAction(page, editor, 'Effect', [effect.category, effect.name]);
@@ -124,7 +124,7 @@ test.describe('regular effects converted from Nyquist', () => {
 	test('Delay changes echo speed and retains complete echoes through the Effect menu', async ({ page }) => {
 		const errors = collectClientErrors(page);
 		const nyquistRequests = collectNyquistRequests(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const sampleRate = 48000;
 		const duration = .5;
 		const tone = createWavFixture({ name: 'complete-speed-echo.wav', frequency: 440, duration, sampleRate });
@@ -149,7 +149,7 @@ test.describe('regular effects converted from Nyquist', () => {
 	test('changing realtime gate lookahead keeps playback running and restores the setting', async ({ page }) => {
 		await recordStandardEffectNodes(page);
 		const errors = collectClientErrors(page);
-		let editor = await bootEditor(page, '/embed/en/');
+		let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [createWavFixture({ name: 'live-gate-lookahead.wav', frequency: 440, duration: 30 })]);
 		let panel = await openEffectsForTrack(editor, 1);
 		await addRackEffect(page, panel, 'track', 'Noise gate');
@@ -188,7 +188,7 @@ test.describe('regular effects converted from Nyquist', () => {
 		page.on('request', request => {
 			if (/staffpad[^/]*\.wasm(?:\?|$)/iu.test(request.url())) staffPadRequests.push(request.url());
 		});
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [createWavFixture({ name: 'live-pitched-delay.wav', frequency: 440, duration: 30 })]);
 		const panel = await openEffectsForTrack(editor, 1);
 		await addRackEffect(page, panel, 'track', 'Delay');
@@ -220,7 +220,7 @@ test.describe('regular effects converted from Nyquist', () => {
 		await recordStandardEffectNodes(page);
 		const errors = collectClientErrors(page);
 		const nyquistRequests = collectNyquistRequests(page);
-		let editor = await bootEditor(page, '/embed/en/');
+		let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		// Keep the source below the 32 MiB playback buffer limit: this test exercises live effects, not streamed PCM.
 		const liveTone = createWavFixture({ name: 'standard-live.wav', frequency: 440, duration: 80 });
 		await importFiles(editor, [liveTone]);

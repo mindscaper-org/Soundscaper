@@ -59,7 +59,7 @@ export async function chooseExportProjectFileAction(page, editor) {
  */
 export function registerAudioEditorHooks() {}
 
-export async function bootEditor(page, path, { defaultWorkspace = false } = {}) {
+export async function bootEditor(page, path, { defaultWorkspace = false, showProjectBin = true } = {}) {
 	await seedWorkspaceOnboardingComplete(page);
 	// Editor readiness below owns startup completion; unrelated page resources
 	// must not hold navigation open after the application can already be used.
@@ -76,7 +76,7 @@ export async function bootEditor(page, path, { defaultWorkspace = false } = {}) 
 		const effects = editor.locator('[data-workspace-panel="effects"]');
 		if (await effects.isVisible()) await closeWorkspacePanel(editor, 'effects');
 		const projectBin = editor.locator('[data-workspace-panel="project-bin"]');
-		if (!await projectBin.isVisible()) {
+		if (showProjectBin && !await projectBin.isVisible()) {
 			// Keep the pointer outside the compact View menu while opening it with the keyboard.
 			await chooseNestedCommandAction(page, editor, 'Window', ['Project bin'], {
 				openWithKeyboard: true,

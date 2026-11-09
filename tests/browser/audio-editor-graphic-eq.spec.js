@@ -30,7 +30,7 @@ test.describe('Audacity Graphic EQ fader bank', () => {
 
 	test('aligns all mixer faders with their bands and paints across them with cancellation and reset', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [tone]);
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 		await chooseNestedCommandAction(page, editor, 'Effect', ['EQ and filters', 'Graphic EQ']);
@@ -97,7 +97,7 @@ test.describe('Audacity Graphic EQ fader bank', () => {
 
 	test('persists every painted rack band and cancels a later sweep', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		let editor = await bootEditor(page, '/embed/en/');
+		let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [tone]);
 		let panel = await openEffectsForTrack(editor, 1);
 		await addRackEffect(page, panel, 'track', 'Graphic EQ');
