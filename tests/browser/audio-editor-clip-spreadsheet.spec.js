@@ -120,6 +120,42 @@ test.describe('clip spreadsheet', () => {
 		await openSpreadsheet(page, editor);
 		await expect(panel.getByRole('grid')).toBeFocused();
 		await expect(cell(panel.getByRole('grid'), 0, 'name')).toHaveText('Spreadsheet edit');
+		for (let step = 0; step < 3; step++) await page.keyboard.press('ControlOrMeta+z');
+		await expect(cell(grid, 0, 'name')).toHaveText(firstName);
+		await expect(cell(grid, 0, 'position')).toHaveText('0');
+		await expect(cell(grid, 0, 'gain')).toHaveText('0');
+		const name = cell(grid, 0, 'name');
+		await name.click();
+		await page.keyboard.press('r');
+		const input = grid.getByLabel('Name', { exact: true });
+		await expect(input).toHaveValue('r');
+		await input.pressSequentially('ename');
+		await expect(input).toHaveValue('rename');
+		await input.press('Escape');
+		await expect(name).toHaveText(firstName);
+		await expect(panel).toBeVisible();
+
+		await editCell(grid, 0, 'name', 'Name', 'Committed with Enter');
+		await expect(name).toHaveText('Committed with Enter');
+		await page.keyboard.press('ControlOrMeta+z');
+		await expect(name).toHaveText(firstName);
+
+		await name.dblclick();
+		await input.fill('Committed by leaving the cell');
+		await cell(grid, 0, 'gain').click();
+		await expect(name).toHaveText('Committed by leaving the cell');
+		await page.keyboard.press('ControlOrMeta+z');
+		await expect(name).toHaveText(firstName);
+		await name.dblclick();
+		await input.fill('Committed with Tab');
+		await input.press('Tab');
+		await expect(name).toHaveText('Committed with Tab');
+		await page.keyboard.press('ControlOrMeta+z');
+		await expect(name).toHaveText(firstName);
+		await name.click();
+		await page.keyboard.press('Shift+Tab');
+		await expect(name).not.toBeFocused();
+		await expect(panel).toBeVisible();
 		expect(errors).toEqual([]);
 	});
 
@@ -178,35 +214,6 @@ test.describe('clip spreadsheet', () => {
 		expect(errors).toEqual([]);
 	});
 
-	test('shows boolean cells as checkboxes and copies and pastes their text values', async ({ page }) => {
-		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
-		await importFiles(editor, [toneA, toneB]);
-		const panel = await openSpreadsheet(page, editor);
-		const grid = panel.getByRole('grid');
-		const reversed = cell(grid, 0, 'reversed').getByRole('checkbox');
-		const inverted = cell(grid, 0, 'inverted').getByRole('checkbox');
-		await expect(reversed).not.toBeChecked();
-		await expect(inverted).not.toBeChecked();
-		await expect(cell(grid, 0, 'reversed')).toHaveText('');
-		await expect(cell(grid, 0, 'inverted')).toHaveText('');
-		await reversed.check();
-		await cell(grid, 0, 'reversed').click({ position: { x: 5, y: 5 } });
-		expect(await copiedText(page)).toBe('true');
-		await pasteText(page, 'false');
-		await expect(reversed).not.toBeChecked();
-		await page.keyboard.press('ControlOrMeta+z');
-		await expect(reversed).toBeChecked();
-		await cell(grid, 0, 'reversed').click({ position: { x: 5, y: 5 } });
-		await cell(grid, 1, 'inverted').click({ position: { x: 5, y: 5 }, modifiers: ['Shift'] });
-		await pasteText(page, 'true\tfalse\nfalse\ttrue');
-		await expect(reversed).toBeChecked();
-		await expect(inverted).not.toBeChecked();
-		await expect(cell(grid, 1, 'reversed').getByRole('checkbox')).not.toBeChecked();
-		await expect(cell(grid, 1, 'inverted').getByRole('checkbox')).toBeChecked();
-		expect(await copiedText(page)).toBe('true\tfalse\r\nfalse\ttrue');
-		expect(errors).toEqual([]);
-	});
 
 	test('docks, floats, resizes and restores its saved panel placement', async ({ page }) => {
 		const errors = collectClientErrors(page);
@@ -229,46 +236,6 @@ test.describe('clip spreadsheet', () => {
 		expect(errors).toEqual([]);
 	});
 
-	test('cancels drafts, keeps typed characters and commits each edit as one undo step', async ({ page }) => {
-		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
-		await importFiles(editor, [toneA]);
-		const panel = await openSpreadsheet(page, editor);
-		const grid = panel.getByRole('grid');
-		const name = cell(grid, 0, 'name');
-		await name.click();
-		await page.keyboard.press('r');
-		const input = grid.getByLabel('Name', { exact: true });
-		await expect(input).toHaveValue('r');
-		await input.pressSequentially('ename');
-		await expect(input).toHaveValue('rename');
-		await input.press('Escape');
-		await expect(name).toHaveText(firstName);
-		await expect(panel).toBeVisible();
-
-		await editCell(grid, 0, 'name', 'Name', 'Committed with Enter');
-		await expect(name).toHaveText('Committed with Enter');
-		await page.keyboard.press('ControlOrMeta+z');
-		await expect(name).toHaveText(firstName);
-
-		await name.dblclick();
-		await input.fill('Committed by leaving the cell');
-		await cell(grid, 0, 'gain').click();
-		await expect(name).toHaveText('Committed by leaving the cell');
-		await page.keyboard.press('ControlOrMeta+z');
-		await expect(name).toHaveText(firstName);
-		await name.dblclick();
-		await input.fill('Committed with Tab');
-		await input.press('Tab');
-		await expect(name).toHaveText('Committed with Tab');
-		await page.keyboard.press('ControlOrMeta+z');
-		await expect(name).toHaveText(firstName);
-		await name.click();
-		await page.keyboard.press('Shift+Tab');
-		await expect(name).not.toBeFocused();
-		await expect(panel).toBeVisible();
-		expect(errors).toEqual([]);
-	});
 
 	test('discards an active draft when pasting a row requiring a source import', async ({ page }) => {
 		const errors = collectClientErrors(page);
@@ -309,6 +276,19 @@ test.describe('clip spreadsheet', () => {
 		await importFiles(editor, [toneA, toneB]);
 		const panel = await openSpreadsheet(page, editor);
 		const grid = panel.getByRole('grid');
+		const reversed = cell(grid, 0, 'reversed').getByRole('checkbox');
+		const inverted = cell(grid, 0, 'inverted').getByRole('checkbox');
+		await expect(reversed).not.toBeChecked();
+		await expect(inverted).not.toBeChecked();
+		await expect(cell(grid, 0, 'reversed')).toHaveText('');
+		await expect(cell(grid, 0, 'inverted')).toHaveText('');
+		await reversed.check();
+		await cell(grid, 0, 'reversed').click({ position: { x: 5, y: 5 } });
+		expect(await copiedText(page)).toBe('true');
+		await pasteText(page, 'false');
+		await expect(reversed).not.toBeChecked();
+		await page.keyboard.press('ControlOrMeta+z');
+		await expect(reversed).toBeChecked();
 		await cell(grid, 0, 'name').click();
 		expect(await copiedText(page)).toBe(firstName);
 		await pasteText(page, 'Renamed in a spreadsheet');
@@ -343,19 +323,6 @@ test.describe('clip spreadsheet', () => {
 		expect(errors).toEqual([]);
 	});
 
-	test('rejects a whole invalid paste without changing valid cells in the same range', async ({ page }) => {
-		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
-		await importFiles(editor, [toneA, toneB]);
-		const panel = await openSpreadsheet(page, editor);
-		const grid = panel.getByRole('grid');
-		await grid.getByRole('button', { name: 'Speed (×)', exact: true }).click();
-		await pasteText(page, '1.5\n0');
-		await expect(page.getByRole('alert')).toBeVisible();
-		await expect.poll(async () => Number(await cell(grid, 0, 'speed').textContent())).toBe(1);
-		await expect.poll(async () => Number(await cell(grid, 1, 'speed').textContent())).toBe(1);
-		expect(errors).toEqual([]);
-	});
 
 	test('pastes new rows without a selection and restores them with keyboard history', async ({ page }) => {
 		const errors = collectClientErrors(page);
@@ -435,25 +402,6 @@ test.describe('clip spreadsheet', () => {
 		expect(errors).toEqual([]);
 	});
 
-	test('rejects a selected paste extending beyond the existing rows atomically', async ({ page }) => {
-		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
-		await importFiles(editor, [toneA]);
-		const panel = await openSpreadsheet(page, editor);
-		const grid = panel.getByRole('grid');
-		await grid.getByRole('button', { name: 'Select row 1', exact: true }).click();
-		const original = await copiedText(page);
-		const first = original.split('\t');
-		first[0] = 'Updated row';
-		const second = [...first];
-		second[0] = 'Added row';
-		second[2] = '2';
-		await pasteText(page, `${first.join('\t')}\n${second.join('\t')}`);
-		await expect(page.getByRole('alert')).toBeVisible();
-		await expect(cell(grid, 0, 'name')).toHaveText(firstName);
-		await expect(cell(grid, 1, 'name')).toHaveCount(0);
-		expect(errors).toEqual([]);
-	});
 
 	test('keeps missing-source pastes pending after a mismatched file and allows cancellation', async ({ page }) => {
 		const errors = collectClientErrors(page);

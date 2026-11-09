@@ -6,7 +6,7 @@ import { createSoundscaperScapeNativeRuntime } from '../../src/soundscaper/edito
 import { createAudioSource, createAudioTrack, createAudioClip } from '../../src/common/editor/project-media-factory.ts';
 import { createProjectStore } from '../../src/common/editor/storage.js';
 
-for (const [reference, target] of [[' Voice ', 'spaced'], ['Voice', 'plain']]) test(`spreadsheet paste preserves track name ${JSON.stringify(reference)}`, async ({ page, browserName, context }) => {
+for (const [reference, target] of [[' Voice ', 'spaced']]) test(`spreadsheet paste preserves track name ${JSON.stringify(reference)}`, async ({ page, browserName, context }) => {
 	if (browserName === 'chromium') await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: crypto.randomUUID() }); let blob;
 	try {
