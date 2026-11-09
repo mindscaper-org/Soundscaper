@@ -13,6 +13,7 @@ import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { openWorkspaceProjectFile } from '../src/common/editor/ui/workspace/open-workspace-project-file.ts';
 import { partitionWorkspaceFiles, WORKSPACE_PROJECT_FILE_ACCEPT, WORKSPACE_IMPORT_FILE_ACCEPT } from '../src/common/editor/ui/workspace/workspace-file-routing.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
+import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 const MIME = 'application/vnd.soundscaper.scape+zip';
@@ -25,10 +26,12 @@ for (const [name, type, throughWorkspace] of [
 	const project = createSoundscaperProject({ id: 'mime-project', title: 'MIME project', sources: [source],
 		clips: [createAudioClip({ id: 'clip', title: 'Voice', sourceId: source.id, durationFrames: 480, sourceDurationFrames: 480 })],
 		tracks: [createAudioTrack({ id: 'track', name: 'Voice', clipIds: ['clip'] })] });
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
+	const sender = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: crypto.randomUUID() });
+	const store = createProjectStore({ indexedDB: createInstrumentedIndexedDB(), preferOpfs: false, databaseName: context.name });
+	context.after(async () => { await sender.close(); });
 	const pcm = Float32Array.from({ length: 480 }, (_, frame) => (frame % 19 - 9) / 16);
-	const writer = await store.beginSourceWrite(source.storageKey, source); await writer.write([pcm]); await writer.commit();
-	const archive = await exportScapeProject(project, store); assert.ok(archive.blob instanceof Blob);
+	const writer = await sender.beginSourceWrite(source.storageKey, source); await writer.write([pcm]); await writer.commit();
+	const archive = await exportScapeProject(project, sender); assert.ok(archive.blob instanceof Blob);
 	const runtime = createSoundscaperProjectRuntimeSelection();
 	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, store,
 		projectRuntime: runtime, sessionController: runtime.createSessionController(), scapeProjectRuntime: createSoundscaperScapeNativeRuntime(),
