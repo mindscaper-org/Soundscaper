@@ -2,10 +2,9 @@
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseFileAction, collectClientErrors } from './audio-editor-test-helpers.js';
 
+// TXT/SubRip/WebVTT permutations have exact routed controller/history/Scape custody in Node.
 for (const [name, mimeType, body] of [
-	['Session.text', 'text/plain', '0\t0.1\tOpening dialogue\n'],
 	['Session.sub', 'application/x-subrip', '1\n00:00:00,000 --> 00:00:00,100\nOpening dialogue\n'],
-	['Session.captions', 'text/vtt', 'WEBVTT\n\n00:00.000 --> 00:00.100\nOpening dialogue\n'],
 ]) test(`a ${mimeType} sidecar with a nonstandard suffix reaches the maintained label importer`, async ({ page }) => {
 	const errors = collectClientErrors(page);
 	const editor = await bootEditor(page, '/embed/en/');
