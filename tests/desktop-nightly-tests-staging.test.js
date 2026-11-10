@@ -65,6 +65,7 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'desktop/plugin-scan-results.ts', 'desktop/native-services-queue-status-projection.ts',
 		'vendor/audacity-design-system/components/src/component-copy.ts',
 		'tests/helpers/read-wave-pcm.ts', 'tests/helpers/read-riff-chunks.ts',
+		'tests/helpers/audacity-damaged-overflow-fixture.ts',
 	]) {
 		assert.deepEqual(await readFile(join(fixture.outputRoot, source)),
 			await readFile(new URL(`../${source}`, import.meta.url)),
