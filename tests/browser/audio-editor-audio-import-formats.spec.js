@@ -3,7 +3,7 @@
 import { expect, test, createWavFixture } from './audio-editor-test-fixtures.js';
 import { AUDIO_IMPORT_FORMATS as FORMATS, encodedAudioImportFixture, extendedWaveImportFixture as extendedWavFixture } from '../helpers/audio-format-import-cases.ts';
 import {
-	bootEditor, chooseFileAction, collectClientErrors, registerAudioEditorHooks,
+	bootEditor, chooseCommandAction, chooseFileAction, collectClientErrors, registerAudioEditorHooks,
 	sourcePeakChannels, waitForEditor, clipByName,
 } from './audio-editor-test-helpers.js';
 
@@ -168,6 +168,10 @@ test.describe('audio file import formats', () => {
 			}, { timeout: 60_000 });
 		}
 		await expect(editor).toHaveAttribute('data-clip-count', String(files.length));
+		await expect(editor.locator('[data-status]')).toHaveAttribute('data-state', 'success', { timeout: 20_000 });
+		// Keep the short decoder fixtures playing while asserting the transport.
+		await chooseCommandAction(page, editor, 'Select', 'Select all');
+		await editor.getByRole('button', { name: 'Loop selection', exact: true }).click();
 		await editor.getByRole('button', { name: 'Play', exact: true }).click();
 		await expect(editor.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 		await editor.getByRole('button', { name: 'Stop', exact: true }).click();
