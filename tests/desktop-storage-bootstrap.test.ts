@@ -42,6 +42,30 @@ test('resolving storage does not mutate files or Electron before the instance lo
 	await assert.rejects(f.storage.migrate(), /single-instance lock/u);
 });
 
+test('a synced portable profile is refused before Electron or storage migration writes', async t => {
+	const f = await fixture(t, 'win32', false, async userData => {
+		const executableDirectory = join(userData, '..', '..', 'application');
+		await mkdir(join(executableDirectory, 'Portable Settings'), { recursive: true });
+	});
+	// A directory symlink must not hide the provider path from the bootstrap.
+	const { symlink, rename } = await import('node:fs/promises');
+	const portable = join(f.home, 'application', 'Portable Settings');
+	const synced = join(f.home, 'OneDrive');
+	await rename(portable, synced);
+	await symlink(synced, portable, 'junction');
+	const storage = configureDesktopStorage({
+		app: {
+			getPath: name => { const path = f.paths.get(name); assert.ok(path); return path; },
+			setPath: (name, path) => { f.paths.set(name, path); },
+			setAppLogsPath: path => { f.paths.set('logs', path); },
+			commandLine: { getSwitchValue: () => '', appendSwitch: () => undefined },
+		}, appName: 'Soundscaper', platform: 'win32', environment: {}, argv: [],
+	});
+	assert.throws(() => storage.prepareBeforeReady(), /local.*unsynced/iu);
+	assert.equal(f.paths.has('sessionData'), false);
+	await assert.rejects(lstat(join(synced, 'logs')), { code: 'ENOENT' });
+});
+
 test('Linux configures Chromium and diagnostics paths synchronously before startup', async (t) => {
 	const f = await fixture(t);
 	f.storage.prepareBeforeReady();

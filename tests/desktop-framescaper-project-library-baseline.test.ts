@@ -136,7 +136,6 @@ test('Framescaper baseline IPC namespace is unique and complete', () => {
 
 test('Framescaper baseline registers its exact static channels and refuses foreign renderer handshakes', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'framescaper-baseline-ipc-'));
-	context.after(() => rm(root, { recursive: true, force: true }));
 	const main = await FramescaperDesktopProjectLibraryMain.start({
 		appDataPath: root,
 		owner: { product: 'framescaper', processId: 933, instanceId: 'baseline-owner' },
@@ -144,7 +143,7 @@ test('Framescaper baseline registers its exact static channels and refuses forei
 		onLeaseLost: () => undefined,
 		testControl: null,
 	});
-	context.after(() => main.close());
+	context.after(async () => { await main.close(); await rm(root, { recursive: true, force: true }); });
 	const handlers = new Map<string, (event: unknown, value?: unknown) => unknown>();
 	const renderer = {};
 	const registration = registerFramescaperDesktopProjectLibraryMainIpc({

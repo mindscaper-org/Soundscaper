@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { randomBytes } from 'node:crypto';
-import { chmod, mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { chmod } from 'node:fs/promises';
+import type { DatabaseSync } from 'node:sqlite';
+import { openLocalDesktopDatabase } from './desktop-database.ts';
 
 import {
 	assertSoundscaperDeliveryCurrentV1,
@@ -108,13 +108,7 @@ export class SoundscaperDeliveryService {
 			|| typeof options.filesystem.inspectFinal !== 'function') {
 			throw new TypeError('Soundscaper delivery startup requires a database and project authority.');
 		}
-		await mkdir(dirname(options.databasePath), { recursive: true, mode: 0o700 });
-		const database = new DatabaseSync(options.databasePath, {
-			allowExtension: false,
-			enableDoubleQuotedStringLiterals: false,
-			enableForeignKeyConstraints: true,
-			timeout: 100,
-		});
+		const database = openLocalDesktopDatabase(options.databasePath, { timeout: 100 });
 		try {
 			await chmod(options.databasePath, 0o600);
 			initializeSoundscaperDeliveryDatabase(database);
