@@ -6,7 +6,8 @@ import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
 
-for (const split of [false, true]) test(`MIDI note editing retains rendered level ${split ? 'after mixed stereo split' : 'on an ordinary mixed lane'}`, async ({ page }) => {
+// Source publication/store/Scape custody lives in audio-editor-midi-stereo-publication-custody.test.ts; both native mix states stay here.
+test('MIDI note editing retains ordinary and split stereo rendered levels', async ({ page }) => {
 	test.setTimeout(60_000);
 	await page.setViewportSize({ width: 1440, height: 1000 });
 	await disableNativeSavePicker(page);
@@ -36,13 +37,7 @@ for (const split of [false, true]) test(`MIDI note editing retains rendered leve
 	const noteRms = values => Math.sqrt(values.slice(145200, 147600).reduce((sum, value) => sum + value * value, 0) / 2400);
 	const original = noteRms(await exportSamples(page, editor));
 	expect(original).toBeGreaterThan(.001);
-	if (split) {
-		await chooseTrackMenuAction(page, editor, destination, ['Track channels', 'Split stereo to left/right mono']);
-		await expect(editor).toHaveAttribute('data-clip-count', '4');
-		const splitLevel = noteRms(await exportSamples(page, editor));
-		expect(splitLevel / original).toBeGreaterThan(.98);
-		expect(splitLevel / original).toBeLessThan(1.02);
-	}
+
 	await midi.locator('.clip-header').click();
 	await panel.getByRole('combobox', { name: 'Selected note', exact: true }).selectOption({ index: 1 });
 	const velocity = panel.getByRole('spinbutton', { name: 'Velocity', exact: true });
@@ -53,4 +48,26 @@ for (const split of [false, true]) test(`MIDI note editing retains rendered leve
 	const edited = noteRms(await exportSamples(page, editor));
 	expect(edited / original).toBeGreaterThan(.97);
 	expect(edited / original).toBeLessThan(1.01);
+
+	// Restore and authenticate the ordinary baseline before exercising the same native mix after splitting.
+	await velocity.fill('100');
+	await velocity.press('Enter');
+	await expect(velocity).toHaveValue('100');
+	const restored = noteRms(await exportSamples(page, editor));
+	expect(restored / original).toBeGreaterThan(.998);
+	expect(restored / original).toBeLessThan(1.002);
+	await chooseTrackMenuAction(page, editor, destination, ['Track channels', 'Split stereo to left/right mono']);
+	await expect(editor).toHaveAttribute('data-clip-count', '4');
+	const splitLevel = noteRms(await exportSamples(page, editor));
+	expect(splitLevel / original).toBeGreaterThan(.98);
+	expect(splitLevel / original).toBeLessThan(1.02);
+	await midi.locator('.clip-header').click();
+	await panel.getByRole('combobox', { name: 'Selected note', exact: true }).selectOption({ index: 1 });
+	await expect(velocity).toHaveValue('100');
+	await velocity.fill('99');
+	await velocity.press('Enter');
+	await expect(velocity).toHaveValue('99');
+	const splitEdited = noteRms(await exportSamples(page, editor));
+	expect(splitEdited / original).toBeGreaterThan(.97);
+	expect(splitEdited / original).toBeLessThan(1.01);
 });

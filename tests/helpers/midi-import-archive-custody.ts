@@ -10,6 +10,8 @@ import { validateSoundscaperProject } from '../../src/soundscaper/editor-project
 import type { SoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import type { AudioSourceLeaf } from '../../src/common/editor/project-media-types.ts';
 import { readMidiClip } from '../../src/common/editor/midi-model.ts';
+import { importSoundscaperAudacityProject } from '../../src/soundscaper/editor-audacity-project-import.ts';
+import { decodeAuBlockFile } from '../../src/common/editor/aup-legacy.js';
 import { COPY, createAudioEditorController, createMemoryEngine } from './audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './audio-editor-controller-fixtures.js';
 import { createInstrumentedIndexedDB } from './instrumented-indexeddb.js';
@@ -17,11 +19,13 @@ import { assertPcmChannelsEqual } from './assert-pcm-samples.ts';
 import { readPcm } from './project-store-pcm-fixture.ts';
 
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
-type FileRequest = Readonly<{ suggestedName?: string; bytes?: Uint8Array | ArrayBuffer; text?: string }>;
+type FileRequest = Readonly<{ suggestedName?: string; bytes?: Uint8Array | ArrayBuffer; text?: string; blob?: Blob }>;
 type PcmExpectation = 'audible' | 'silent' | Readonly<{ assertSamples(channels: readonly (readonly number[])[]): void }>;
 interface CustodyOptions {
 	/** A fixture may author an intentionally silent note or retain an older synthesized source after editing. */
 	readonly sourcePcmExpectation?: (source: AudioSourceLeaf, project: SoundscaperProject) => PcmExpectation;
+	/** Decode selected reviewed legacy blocks with the shipping AU owner, never a native decoder stub. */
+	readonly legacyAuImport?: boolean;
 }
 
 /** Real MIDI parsing, synthesis, controller publication and portable storage. */
@@ -76,15 +80,22 @@ export async function midiImportArchiveCustody(context: TestContext, options: Cu
 			return beginSourceWrite(sourceId, metadata);
 		};
 		const service = createAudioEditorFileService();
+		const engine = createMemoryEngine();
+		const codec = { ...createMemoryFfmpeg(), ...(options.legacyAuImport ? { decode: async (file: File) => ({
+			channels: [decodeAuBlockFile(new Uint8Array(await file.arrayBuffer()))], sampleRate: 48_000,
+		}) } : {}) };
 		const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, store,
 			projectRuntime: runtime, sessionController: runtime.createSessionController(),
 			scapeProjectRuntime: createSoundscaperScapeNativeRuntime(),
-			engine: createMemoryEngine() as unknown as Options['engine'],
+			...(options.legacyAuImport ? { adaptAudacityProject: importSoundscaperAudacityProject } : {}),
+			engine: (options.legacyAuImport ? { ...engine, decodeAudioData: async () => {
+				throw new DOMException('Native decoders are unavailable in Node', 'NotSupportedError');
+			} } : engine) as unknown as Options['engine'],
 			engineFactory: () => assert.fail('MIDI synthesis must not use a substitute audio renderer'),
-			ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'],
+			ffmpeg: codec as unknown as Options['ffmpeg'],
 			fileService: { ...service, saveFile: async (request: FileRequest = {}) => {
 				saved.push(request); return { method: 'node-fixture', fileName: request.suggestedName ?? 'Notes.mid',
-					size: request.bytes?.byteLength ?? new TextEncoder().encode(request.text ?? '').length };
+					size: request.bytes?.byteLength ?? request.blob?.size ?? new TextEncoder().encode(request.text ?? '').length };
 			} },
 		});
 		context.after(async () => { try { await controller.dispose(); } finally { await store.close(); } });
