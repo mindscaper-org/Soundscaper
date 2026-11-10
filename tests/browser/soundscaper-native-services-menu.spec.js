@@ -200,6 +200,20 @@ test('desktop startup scans in the background with a progress toast and a prefer
 	const editor = await bootEditor(page, '/embed/en/');
 	const toast = editor.getByRole('region', { name: 'Scanning for plugins', exact: true });
 	await expect(toast).toBeVisible();
+	const progressCopy = toast.getByText('0%', { exact: true });
+	await expect(progressCopy).toBeVisible();
+	for (const theme of ['dark', 'light']) {
+		await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
+		expect(await progressCopy.evaluate(element => getComputedStyle(element).color))
+			.toBe(await toast.evaluate(element => {
+				const probe = document.createElement('span');
+				probe.style.color = 'var(--muted)';
+				element.append(probe);
+				const color = getComputedStyle(probe).color;
+				probe.remove();
+				return color;
+			}));
+	}
 	await expect(page.getByRole('dialog')).toHaveCount(0);
 	await expect(toast.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
 	await page.evaluate(() => globalThis.__setSoundscaperPluginScanProgress(0.5));

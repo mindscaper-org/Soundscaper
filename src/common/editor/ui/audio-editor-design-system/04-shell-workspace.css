@@ -201,6 +201,7 @@
 }
 
 .kw-audio-editor__toast .toast {
+	--text-txt-secondary: var(--muted);
 	width: 100%;
 	padding: 12px 44px 0 12px;
 	background: transparent;
