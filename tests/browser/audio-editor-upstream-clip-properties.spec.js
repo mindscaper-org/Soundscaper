@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
+import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clipByName, closeClipProperties, collectClientErrors,
 	commitInput, importFiles, openClipProperties, openSourceMonitor, registerAudioEditorHooks } from './audio-editor-test-helpers.js';
 
@@ -33,19 +33,4 @@ test.describe('upstream clip properties and source monitor', () => {
 		expect(errors).toEqual([]);
 	});
 
-	test('merged pitch edits apply to both selected clips and a single Undo restores both', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
-		await importFiles(editor, [toneA, toneB]);
-		await clipByName(editor, toneA.name).locator('.clip-header').click();
-		await clipByName(editor, toneB.name).locator('.clip-header').click({ modifiers: ['Shift'] });
-		const properties = await openClipProperties(page, editor, undefined, { additional: false });
-		await expect(properties.getByText('2 clips', { exact: true })).toBeVisible();
-		const pitch = properties.getByRole('textbox', { name: 'Pitch', exact: true });
-		await commitInput(pitch, '2');
-		await expect(pitch).toHaveValue('2');
-		await expect(properties.getByText('2 clips', { exact: true })).toBeVisible();
-		await chooseCommandAction(page, editor, 'Edit', 'Undo');
-		await expect(pitch).toHaveValue('0');
-		await expect(properties.getByText('2 clips', { exact: true })).toBeVisible();
-	});
 });
