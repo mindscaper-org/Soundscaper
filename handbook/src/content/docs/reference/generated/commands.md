@@ -373,7 +373,7 @@ Product availability follows each product profile’s command filters and each l
 | Previous clip boundary to cursor | `select-previous-clip-boundary-to-cursor` | — | Select > Audio clips | Soundscaper, Framescaper | Audacity |
 | Previous item | `local://track-view-prev-item` | — | Keyboard navigation | Soundscaper, Framescaper | Soundscaper local |
 | Previous panel | `track-view-prev-panel` | Shift+F6; Shift+`; Shift+Tab; Ctrl+Shift+F6 | Keyboard navigation | Soundscaper, Framescaper | Audacity |
-| Privacy policy | `privacy-policy` | — | Help | Soundscaper, Framescaper | Soundscaper local |
+| Privacy & Code signing policy | `privacy-policy` | — | Help | Soundscaper, Framescaper | Soundscaper local |
 | Project bin | `panel-project-bin` | — | Window | Soundscaper, Framescaper | Soundscaper local |
 | Project properties | `project-properties` | — | File > Project management | Soundscaper, Framescaper | Audacity |
 | Project tempo | `playback-bpm` | — | Transport toolbar | Soundscaper, Framescaper | Audacity |
