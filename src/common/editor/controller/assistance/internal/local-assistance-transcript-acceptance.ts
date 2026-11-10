@@ -28,6 +28,11 @@ import {
 } from '../../../assistance/transcript-body-publication-v1.ts';
 import { MAX_TRANSCRIPT_LABEL_COMMANDS } from '../../../assistance/transcript-labels.ts';
 import { createAddLabelTrackCommand } from '../../../commands/factories.ts';
+import {
+	localAssistanceSourceFrameToTimelineFrame,
+	normalizeLocalAssistanceAudioAcceptanceAuthority,
+	type NormalizedLocalAssistanceAudioAcceptanceAuthority,
+} from './local-assistance-audio-acceptance-authority.ts';
 import type { AudioEditorCommand } from '../../../commands/protocol.ts';
 import type {
 	MediaAssetWriter,
@@ -101,13 +106,7 @@ interface NormalizedAcceptanceRequest {
 	readonly review: AssistanceSpeechRecognitionReviewV1;
 }
 
-interface NormalizedAuthority {
-	readonly fence: AssistanceSelectionFence;
-	readonly sampleRate: number;
-	readonly timelineStartFrame: number;
-	readonly timelineEndFrame: number;
-	readonly sourceStartFrame: number;
-	readonly sourceEndFrame: number;
+interface NormalizedAuthority extends NormalizedLocalAssistanceAudioAcceptanceAuthority {
 	readonly assistanceAssets: readonly Readonly<AssistanceAssetReferenceV1>[];
 	readonly tracks: readonly Readonly<Record<string, unknown>>[];
 }
@@ -128,7 +127,7 @@ export function createLocalAssistanceTranscriptAcceptance(
 			review: request.review,
 			selectedMedia: {
 				selectionFence: request.fence,
-				sampleRate: initial.sampleRate,
+				sampleRate: initial.sourceSampleRate,
 				sourceVideoTimingSha256: null,
 			},
 			model: request.model,
@@ -285,37 +284,10 @@ function normalizeTranscriptClaim(value: unknown): void {
 }
 
 function normalizeAuthority(value: LocalAssistanceTranscriptAcceptanceAuthority): NormalizedAuthority {
-	if (!value || typeof value !== 'object' || !value.project || typeof value.project !== 'object') {
-		throw new TypeError('Transcript acceptance requires selected-media authority.');
-	}
-	const fence = validateAssistanceSelectionFence(value.fence);
-	if (value.project.id !== fence.projectId || value.project.schemaFamily !== fence.schemaFamily
-		|| value.project.schemaVersion !== fence.schemaVersion
-		|| value.project.revision !== fence.revision) {
-		throw new AssistanceProposalStaleError();
-	}
-	const sampleRate = positiveInteger(value.project.sampleRate, 'selected project sample rate');
-	const timelineStartFrame = frame(value.startFrame, 'selected timeline start');
-	const timelineEndFrame = frame(value.endFrame, 'selected timeline end');
-	const sourceStartFrame = frame(value.sourceStartFrame, 'selected source start');
-	const sourceEndFrame = frame(value.sourceEndFrame, 'selected source end');
-	if (timelineEndFrame <= timelineStartFrame || sourceEndFrame <= sourceStartFrame
-		|| timelineEndFrame - timelineStartFrame !== sourceEndFrame - sourceStartFrame
-		|| sourceStartFrame !== fence.sourceStartFrame || sourceEndFrame !== fence.sourceEndFrame) {
-		throw new AssistanceProposalStaleError();
-	}
-	if (!Array.isArray(value.project.tracks)) {
-		throw new TypeError('Transcript acceptance requires the selected project track inventory.');
-	}
-	return Object.freeze({
-		fence,
-		sampleRate,
-		timelineStartFrame,
-		timelineEndFrame,
-		sourceStartFrame,
-		sourceEndFrame,
+	const authority = normalizeLocalAssistanceAudioAcceptanceAuthority(value,
+		'Transcript acceptance requires selected-media authority.');
+	return Object.freeze({ ...authority,
 		assistanceAssets: normalizeAssistanceAssetReferencesV1(value.project.assistanceAssets ?? []),
-		tracks: Object.freeze([...value.project.tracks]),
 	});
 }
 
@@ -355,12 +327,7 @@ function createTranscriptLabelCommands(
 }
 
 function projectFrame(sourceFrame: number, authority: NormalizedAuthority): number {
-	const result = authority.timelineStartFrame + (sourceFrame - authority.sourceStartFrame);
-	if (!Number.isSafeInteger(result) || result < authority.timelineStartFrame
-		|| result > authority.timelineEndFrame) {
-		throw new RangeError('A transcript segment exceeds its accepted timeline occurrence.');
-	}
-	return result;
+	return localAssistanceSourceFrameToTimelineFrame(sourceFrame, authority);
 }
 
 function ownedTranscriptTrack(track: Readonly<Record<string, unknown>>, assetId: string): boolean {
@@ -538,12 +505,3 @@ function digest(value: unknown, label: string): string {
 	return value;
 }
 
-function positiveInteger(value: unknown, label: string): number {
-	if (!Number.isSafeInteger(value) || Number(value) < 1) throw new RangeError(`The ${label} is invalid.`);
-	return Number(value);
-}
-
-function frame(value: unknown, label: string): number {
-	if (!Number.isSafeInteger(value) || Number(value) < 0) throw new RangeError(`The ${label} is invalid.`);
-	return Number(value);
-}

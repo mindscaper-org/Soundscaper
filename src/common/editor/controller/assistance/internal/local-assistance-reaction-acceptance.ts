@@ -314,7 +314,7 @@ function assertReviewWithinSelection(
 
 function reviewFrameCount(authority: NormalizedAuthority): number {
 	return Number(scaleSampleFrame(
-		authority.sourceEndFrame - authority.sourceStartFrame,
+		authority.timelineEndFrame - authority.timelineStartFrame,
 		authority.sampleRate,
 		ASSISTANCE_AUDIO_TAG_SAMPLE_RATE,
 		'point',

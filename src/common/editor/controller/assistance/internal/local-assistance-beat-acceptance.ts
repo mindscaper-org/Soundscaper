@@ -285,7 +285,7 @@ function assertReviewWithinSelection(
 	authority: NormalizedAuthority,
 ): void {
 	const frameCount = Number(scaleSampleFrame(
-		authority.sourceEndFrame - authority.sourceStartFrame,
+		authority.timelineEndFrame - authority.timelineStartFrame,
 		authority.sampleRate,
 		ASSISTANCE_BEAT_SAMPLE_RATE,
 		'point',
