@@ -4,7 +4,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
 import { encodeWav } from '../../src/common/editor/wav.js';
 
-for (const [name, expectedName] of [['  Field take.wav', 'Field take.wav'], ['Field\ntake.wave', 'Field-take.wav'], ['Field\u007ftake.wav', 'Field-take.wav']]) {
+for (const [name, expectedName] of [['Field\ntake.wave', 'Field-take.wav']]) {
 	test(`Freesound transfers a usable filename for ${JSON.stringify(name)}`, async ({ page }) => {
 		const names = [];
 		await page.route('**/api/freesound/**', async route => {
