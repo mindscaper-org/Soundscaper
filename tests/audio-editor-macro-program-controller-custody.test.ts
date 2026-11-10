@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { macroControllerCustody } from './helpers/macro-controller-custody.ts';
+import { clipboardDocument, clipboardProject } from './helpers/clipboard-source-custody.ts';
 
 const programs = [
 	{ name: 'omitted time edge', program: [
@@ -32,14 +33,19 @@ const programs = [
 		"sound.assert(refused, 'the stored cursor descriptor cannot run a different action');",
 	], range: [19200, 19200] },
 	{ name: 'callable virtual Date', program: [
+		'sound.assertEqual(Date.now(), 0); sound.assertEqual(Date.now(), 0);',
+		'const random = sound.random(); sound.assert(Number.isFinite(random) && random >= 0 && random < 1);',
 		"sound.assertEqual(Date(), new Date(Date.now()).toString());", 'await sound.wait(1234);',
 		"sound.assertEqual(Date(), new Date(1234).toString()); sound.assertEqual(Date.now(), 1234);",
+		"let refused = false; try { await sound.command('ExportWav'); } catch (error) { refused = true; }",
+		"sound.assert(refused, 'a program cannot request an unauthorised file export');",
 	], range: [0, 0] },
 ] as const;
 
 for (const entry of programs) test(`macro program ${entry.name} crosses the real controller and preserves archive PCM`, async context => {
 	const { controller, project, assertArchiveCustody } = await macroControllerCustody(context);
 	if (entry.name.includes('cursor')) await controller.actions.transport.seek(19_200);
+	const before = clipboardProject(controller.project), entries = controller.getSnapshot().history.undoEntries.length;
 	const result: unknown = await controller.actions.macros.runScript({ name: entry.name, source: entry.program.join('\n') });
 	assert.ok(result && typeof result === 'object' && 'calls' in result && typeof result.calls === 'number');
 	if (entry.name !== 'callable virtual Date') assert.ok(result.calls > 0);
@@ -49,6 +55,11 @@ for (const entry of programs) test(`macro program ${entry.name} crosses the real
 	if ('frequency' in entry) assert.deepEqual(after.selection.frequencyRange, entry.frequency);
 	assert.equal(after.clips.length, 1); assert.equal(after.tracks.length, 1); assert.equal(after.sources.length, 1);
 	assert.deepEqual(after.clips[0], project.clips[0]);
+	if (entry.name === 'callable virtual Date') {
+		assert.deepEqual(clipboardDocument(after), clipboardDocument(before));
+		assert.equal(controller.getSnapshot().history.undoEntries.length, entries);
+	}
 	const reopened = await assertArchiveCustody();
 	assert.equal(reopened.clips.length, 1); assert.equal(reopened.tracks.length, 1);
+	if (entry.name === 'callable virtual Date') assert.deepEqual(clipboardDocument(reopened), clipboardDocument(before));
 });

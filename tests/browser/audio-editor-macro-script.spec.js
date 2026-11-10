@@ -79,22 +79,6 @@ test.describe('macro programs', () => {
 		await expect(log).toContainText('ordinary js 123{"ok":true}');
 	});
 
-	test('a program is deterministic, and asking for something it may not have is refused', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
-		await importFiles(editor, [toneA]);
-
-		const { log } = await runProgram(page, editor, [
-			"sound.log.info('clock ' + Date.now() + ' ' + Date.now());",
-			"sound.log.info('random ' + sound.random().toFixed(6));",
-			"try { await sound.command('ExportWav'); } catch (error) { sound.log.info('refused ' + error.message); }",
-		].join('\n'));
-
-		await expect(log).toHaveAttribute('data-outcome', 'completed');
-		// The clock is virtual and only advances when the program waits or asks.
-		await expect(log).toContainText('clock 0 0');
-		await expect(log).toContainText('refused');
-	});
-
 	test('a program that throws reports the author\'s own line and changes nothing', async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
