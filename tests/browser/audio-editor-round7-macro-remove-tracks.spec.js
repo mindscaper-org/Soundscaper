@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, clipByName, collectClientErrors, impor
 
 test('the advertised RemoveTracks macro command removes its ordinary selected track', async ({ page }) => {
 	const errors = collectClientErrors(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await expect(editor).toHaveAttribute('data-track-count', '2');
 	await expect(clipByName(editor, toneA.name)).toBeVisible();

@@ -16,7 +16,7 @@ test('Nyquist analysis of an opened project honors the focused label destination
 	const archive = await exportScapeProject(project, { async getMediaAssetMetadata() { return null; },
 		async loadMediaAsset() { return null; }, readSourceChunks() { return (async function* empty() {})(); } });
 	expect(archive.blob).toBeInstanceOf(Blob);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const chooser = page.waitForEvent('filechooser');
 	await chooseFileAction(page, editor, 'Open');
 	await (await chooser).setFiles({ name: 'two-sequences.sscape', mimeType: SCAPE_MIME_TYPE,

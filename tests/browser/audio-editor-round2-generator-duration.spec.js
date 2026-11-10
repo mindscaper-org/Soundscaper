@@ -5,7 +5,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, chooseCommandAction, openClipProperties } from './audio-editor-test-helpers.js';
 
 test('DTMF delivers the exact total duration entered in its dialog', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Generate', 'DTMF tones');
 	const generator = page.getByRole('dialog', { name: 'DTMF tones', exact: true });
 	await generator.getByRole('textbox', { name: 'DTMF sequence', exact: true }).fill('1234567890');

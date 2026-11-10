@@ -21,7 +21,7 @@ for (const locked of [false, true]) test(`Amplify preserves ${locked ? 'locked l
 		};
 	});
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const file = createWavFixture({ name: 'amplify-target.wav', frequency: 440, duration: 1, channelCount: 1 });
 	await importFiles(editor, [file]);
 	const clip = clipByName(editor, file.name), row = clip.locator('xpath=ancestor::div[@data-track-row]');
@@ -54,7 +54,7 @@ for (const locked of [false, true]) test(`Amplify preserves ${locked ? 'locked l
 
 for (const locked of [false, true]) test(`direct Invert ${locked ? 'declines a locked target while retaining settings dialogs' : 'applies to the ordinary unlocked target'}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const file = createWavFixture({ name: 'invert-target.wav', frequency: 440, duration: 1, channelCount: 1 });
 	await importFiles(editor, [file]);
 	const clip = clipByName(editor, file.name), row = clip.locator('xpath=ancestor::div[@data-track-row]');

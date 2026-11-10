@@ -12,7 +12,7 @@ import {
 
 for (const length of [4, 15]) test(`an ordinary ${length === 4 ? 'short' : 'long'} Japanese track title exports extractable WAV stems`, async ({ page }, testInfo) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const title = '東京での録音'.repeat(length);
 	await editor.getByRole('button', { name: 'Rename track: browser-tone-a', exact: true }).dblclick();

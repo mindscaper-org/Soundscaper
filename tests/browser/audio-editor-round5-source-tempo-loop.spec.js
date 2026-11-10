@@ -16,7 +16,7 @@ function frequency(samples, start, end) {
 test('a Source tempo change retains the pitch and repetitions of a looped recording', async ({ page }) => {
 	test.setTimeout(60_000);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'source-loop-tempo.wav', frequency: 750,
 		duration: 0.8, channelCount: 1 });
 	await importFiles(editor, [recording]);

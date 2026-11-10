@@ -4,7 +4,7 @@ import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
 test('Select all tracks retains the effective time span of a header-selected clip', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA, toneB]);
 	await clipByName(editor, toneA.name).locator('.clip-header').click();
 	await chooseNestedCommandAction(page, editor, 'Select', ['Tracks', 'Select all tracks']);

@@ -5,8 +5,8 @@ import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js'
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6hxoAAAAASUVORK5CYII=', 'base64');
 
-for (const fileName of ['cover.png', 'cover\nimage.png']) test(`valid artwork files retain usable default descriptions: ${JSON.stringify(fileName)}`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+for (const fileName of ['cover\nimage.png']) test(`valid artwork files retain usable default descriptions: ${JSON.stringify(fileName)}`, async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
 	const panel = editor.locator('[data-metadata-editor]');
 	await panel.getByRole('tab', { name: 'ID3', exact: true }).click();

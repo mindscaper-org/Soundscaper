@@ -5,7 +5,7 @@ import { bootEditor, clipByName, importFiles } from './audio-editor-test-helpers
 
 for (const key of ['Enter', 'Escape']) {
 	test(`inline clip rename ${key} returns keyboard focus to its clip`, async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		await clip.locator('.clip-header').click();

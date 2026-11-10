@@ -23,7 +23,7 @@ test('export metadata editing retains an imported multiline title', async ({ pag
 		bytes=Buffer.from(await(await exportScapeProject(project,store)).blob.arrayBuffer());
 	} finally {await store.close();}
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await editor.locator('[data-aup4-input]').setInputFiles({name:'Multiline.sscape',mimeType:'application/zip',buffer:bytes});
 	await expect(editor).toHaveAttribute('data-project-id',project.id);
 	await expect(editor).toHaveAttribute('data-clip-count','1');

@@ -6,7 +6,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 for (const reversed of [false, true]) test(`Source Editor extends hidden media on its raw clock (reversed ${String(reversed)})`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'source-clock.wav', duration: 2, frequency: 500, channelCount: 1 })]);
 	const clip = editor.locator('[data-clip-id]').first();
 	const properties = await openClipProperties(page, editor, clip, { additional: false });

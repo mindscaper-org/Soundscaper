@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -14,13 +13,18 @@ import {
 	e2eExecutableCoverageKey,
 	sha256Digest,
 } from '../scripts/lib/e2e-coverage-integrity.mjs';
+import { createCommittedRepositoryFixture } from './helpers/committed-repository-fixture.ts';
 
 const BROWSER = 'browser-chromium-soundscaper-renderer';
 const MAIN = 'nightly-electron-soundscaper-main';
+const repositoryFixture = createCommittedRepositoryFixture(new Map([
+	['src/browser.js', 'export const browser = true;\n'],
+]));
 const workspaces = [];
 
 after(() => {
 	for (const workspace of workspaces) rmSync(workspace, { recursive: true, force: true });
+	repositoryFixture.dispose();
 });
 
 test('the capture-index builder copies exact evidence and emits a canonical bound contract', () => {
@@ -101,8 +105,7 @@ function makeFixture() {
 	const repositoryRoot = join(workspace, 'repository');
 	const captureRoot = join(workspace, 'capture');
 	const artifactRoot = join(workspace, 'prepared');
-	write(join(repositoryRoot, 'src/browser.js'), 'export const browser = true;\n');
-	const sourceRevision = commitFixtureRepository(repositoryRoot);
+	const sourceRevision = repositoryFixture.copyTo(repositoryRoot);
 	write(join(captureRoot, 'browser/app.js'), 'globalThis.browser = true;\n');
 	write(join(captureRoot, 'nightly/main.mjs'), 'export const packaged = true;\n');
 	writeProfile(
@@ -208,20 +211,6 @@ function scriptRecord(value) {
 		sourceMapSha256,
 		coverageKey: e2eExecutableCoverageKey({ sha256, sourceMapSha256, sources: script.sources }),
 	};
-}
-
-function commitFixtureRepository(repositoryRoot) {
-	for (const args of [
-		['init', '--quiet'],
-		['config', 'user.name', 'Coverage Fixture'],
-		['config', 'user.email', 'coverage@example.invalid'],
-		['add', 'src'],
-		['commit', '--quiet', '-m', 'fixture'],
-	]) {
-		const outcome = spawnSync('git', args, { cwd: repositoryRoot, encoding: 'utf8' });
-		assert.equal(outcome.status, 0, outcome.stderr);
-	}
-	return spawnSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8' }).stdout.trim();
 }
 
 function writeProfile(path, url) {

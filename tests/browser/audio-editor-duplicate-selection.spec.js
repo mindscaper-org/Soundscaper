@@ -10,7 +10,7 @@ test.describe('Duplicate selection', () => {
 
 	test('Ctrl+D and Edit Duplicate copy a clip to a new track at its original time with one undo', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const original = clipByName(editor, toneA.name);
 		const properties = await openClipProperties(page, editor, original);

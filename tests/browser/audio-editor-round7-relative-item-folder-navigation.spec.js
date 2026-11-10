@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, clipByName, importFiles } from './audi
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('chronological Next item and Previous item follow expanded timeline folders', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const names = ['First recording.wav', 'Folder recording.wav', 'Last recording.wav'];
 	await importFiles(editor, names.map(name => createWavFixture({ name, duration: .2, frequency: 440 })));
 	const clips = names.map(name => clipByName(editor, name));

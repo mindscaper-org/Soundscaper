@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, disableNativeSavePicker, downloadBytes
 
 test('editing an admitted multiline macro program name preserves its line break on export', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
 	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
 	const original = 'Opening\nRoom tone';

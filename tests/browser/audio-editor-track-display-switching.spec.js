@@ -8,7 +8,7 @@ test('long streamed audio settles into painted waveform and localized spectrum a
 	test.setTimeout(60_000);
 	const errors = collectClientErrors(page);
 	const tone = createWavFixture({ name: 'display-switching-tone.wav', frequency: 440, duration: 32.007, channelCount: 1 });
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [tone]);
 	await editor.getByRole('button', { name: 'Zoom out', exact: true }).click();
 	const clip = clipByName(editor, tone.name);

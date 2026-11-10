@@ -14,7 +14,7 @@ function frequency(samples) {
 
 test('trimming the source of a loop retains its audible playback rate', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'loop-trim-note.wav', frequency: 1000,
 		duration: 0.8, channelCount: 1 });
 	await importFiles(editor, [recording]);

@@ -5,7 +5,7 @@ import { strFromU8, unzipSync } from 'fflate';
 
 test('Selection toolbar only offers value entry while it has an operable range', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'selection-value.wav', frequency: 440, duration: 2, channelCount: 1 })]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	const start = editor.getByRole('group', { name: 'Selection start', exact: true });

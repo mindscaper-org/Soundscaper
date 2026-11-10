@@ -9,7 +9,7 @@ test.describe('upstream clip properties and source monitor', () => {
 
 	test('properties uses glyph fields while Source monitor retains the audio source editor without drawers', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		const properties = await openClipProperties(page, editor, clip, { additional: false });
@@ -34,7 +34,7 @@ test.describe('upstream clip properties and source monitor', () => {
 	});
 
 	test('merged pitch edits apply to both selected clips and a single Undo restores both', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA, toneB]);
 		await clipByName(editor, toneA.name).locator('.clip-header').click();
 		await clipByName(editor, toneB.name).locator('.clip-header').click({ modifiers: ['Shift'] });

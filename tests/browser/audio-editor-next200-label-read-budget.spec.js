@@ -9,14 +9,15 @@ import { bootEditor, chooseFileAction } from './audio-editor-test-helpers.js';
 let directory;
 test.beforeAll(async () => {
 	directory = await mkdtemp(path.join(tmpdir(), 'soundscaper-label-budget-'));
-	for (const format of ['srt', 'cue']) {
+	for (const format of ['cue']) {
 		const target = path.join(directory, `Too large.${format}`);
 		await writeFile(target, ''); await truncate(target, 3 * 16 * 1024 * 1024 + 4);
 	}
 });
 test.afterAll(async () => { if (directory) await rm(directory, { recursive: true, force: true }); });
 
-for (const format of ['srt', 'cue']) test(`File Import refuses oversized ${format} before allocating its full native buffer`, async ({ page }) => {
+// Both preflights and exact retry/archive custody run in Node; retain the real CUE chooser/Labels decision.
+for (const format of ['cue']) test(`File Import refuses oversized ${format} before allocating its full native buffer`, async ({ page }) => {
 	await page.addInitScript(() => {
 		const read = Blob.prototype.arrayBuffer;
 		window.__oversizedLabelReads = 0;

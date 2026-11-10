@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, disableNativeSavePicker } from './audi
 
 test('importing a copy of an authored program leaves the original runnable', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
 	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
 	await manager.getByRole('button', { name: 'New program', exact: true }).click();

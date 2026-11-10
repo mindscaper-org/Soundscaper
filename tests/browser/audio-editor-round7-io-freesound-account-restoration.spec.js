@@ -8,7 +8,7 @@ test.describe('Freesound upload restoration belongs to one account', () => {
 	for (const changeAccount of [false, true]) test(`ordinary delayed restoration ${changeAccount ? 'stays out of a newly connected account' : 'finishes for the original account'}`, async ({ page }) => {
 		const service = await ordinaryAccountService(page);
 		try {
-			const editor = await bootEditor(page, '/embed/en/');
+			const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 			const menu = await openNestedCommandMenu(page, editor, 'Window', []);
 			await getMenuItem(menu, 'Freesound').press('Enter');
 			const panel = editor.locator('[data-workspace-panel="freesound"]');
@@ -45,7 +45,7 @@ test.describe('Freesound upload restoration belongs to one account', () => {
 for (const changeAccount of [false, true]) test(`ordinary original-download expiry ${changeAccount ? 'preserves a newly connected account' : 'expires its original account'}`, async ({ page }) => {
 	const service = await ordinaryAccountService(page, 'original');
 	try {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const menu = await openNestedCommandMenu(page, editor, 'Window', []);
 		await getMenuItem(menu, 'Freesound').press('Enter');
 		const panel = editor.locator('[data-workspace-panel="freesound"]');

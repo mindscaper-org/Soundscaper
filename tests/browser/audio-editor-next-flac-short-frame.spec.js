@@ -10,7 +10,7 @@ test('File Import retains the final constant frame from an exported FLAC recordi
 		sampleRate: 48_000, channelCount: 1, settings: { compressionLevel: 5 }, maximumOutputBytes: 1024 ** 2 },
 	{ loadPayload: async (_format, url) => Uint8Array.from(await readFile(url)) });
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'Constant.flac', mimeType: 'audio/flac', buffer: Buffer.from(bytes) }]);
 	await expect(clipByName(editor, 'Constant.flac')).toBeVisible();
 	const dialog = await openExportDialog(page, editor);

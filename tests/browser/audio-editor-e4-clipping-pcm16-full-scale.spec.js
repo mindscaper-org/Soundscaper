@@ -3,18 +3,17 @@
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
-for (const [sample, regionCount] of [[32_767, 1], [-32_768, 1], [32_766, 0]]) {
-	test(`Find clipping reports signed PCM16 full scale ${sample}`, async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
-		await importFiles(editor, [{ name: `PCM16 ${sample}.wav`, mimeType: 'audio/wav', buffer: pcm16Recording(sample) }]);
-		await chooseCommandAction(page, editor, 'Select', 'Select all');
-		await chooseCommandAction(page, editor, 'Analyze', 'Find clipping');
-		const report = page.getByRole('dialog', { name: 'Find clipping', exact: true }).locator('[data-analysis-report="clipping"]');
-		await expect(report).toBeVisible();
-		await expect(report.locator('li')).toHaveCount(regionCount);
-		if (!regionCount) await expect(report).toContainText('No clipping regions');
-	});
-}
+// Signed and sub-full-scale permutations retain WAV/Scape PCM custody coverage in
+// audio-editor-clipping-pcm16-custody.test.ts; keep the native import/menu route here.
+test('Find clipping reports signed PCM16 full scale 32767', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	await importFiles(editor, [{ name: 'PCM16 32767.wav', mimeType: 'audio/wav', buffer: pcm16Recording(32_767) }]);
+	await chooseCommandAction(page, editor, 'Select', 'Select all');
+	await chooseCommandAction(page, editor, 'Analyze', 'Find clipping');
+	const report = page.getByRole('dialog', { name: 'Find clipping', exact: true }).locator('[data-analysis-report="clipping"]');
+	await expect(report).toBeVisible();
+	await expect(report.locator('li')).toHaveCount(1);
+});
 
 function pcm16Recording(sample) {
 	const frames = 48_000, channels = 2;

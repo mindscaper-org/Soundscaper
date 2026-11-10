@@ -15,7 +15,7 @@ test('an oversized remote Freesound upload history remains visible and removable
 				: { status: 'pending_moderation', soundId: 42 };
 		await route.fulfill({ json: { data } });
 	});
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseNestedCommandAction(page, editor, 'Window', ['Freesound']);
 	const uploads = editor.locator('[data-freesound-uploads="true"]');
 	await uploads.getByText('Upload to Freesound', { exact: true }).click();
@@ -57,7 +57,7 @@ test('an OS-opened project can start raw PCM import while an outgoing raw file r
 			return new Promise(resolve => { globalThis.__nextRawReadRelease = () => { void nativeRead.call(this).then(resolve); }; });
 		};
 	});
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseNestedCommandAction(page, editor, 'Tools', ['Import raw data']);
 	const dialog = page.locator('[data-import-surface="raw-pcm"]');
 	await dialog.locator('input[type="file"]').setInputFiles({ name: 'outgoing.raw', mimeType: 'application/octet-stream', buffer: Buffer.from([0, 0]) });

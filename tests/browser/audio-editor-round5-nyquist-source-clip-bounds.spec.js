@@ -7,7 +7,7 @@ import { showClipTimingFields, bootEditor, chooseCommandAction, chooseNestedComm
 import { exportSamples } from './helpers/round2-audio-export.js';
 
 async function selectMovedSource(page) {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const properties = await openClipProperties(page, editor, clipByName(editor, monoTone.name));
 	await showClipTimingFields(properties);

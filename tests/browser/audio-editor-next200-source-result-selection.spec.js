@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 for (const changesLength of [true, false]) test(`the next Source monitor effect keeps the complete ${changesLength ? 'repeated' : 'same-length'} result selected`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const file = createWavFixture({ name: 'Selected result.wav', duration: 1, frequency: 440, channelCount: 1 });
 	await importFiles(editor, [file]);
 	const panel = await openSourceMonitor(page, editor, clipByName(editor, file.name));

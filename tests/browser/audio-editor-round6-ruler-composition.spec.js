@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, importFiles } from './audio-editor-test-helpers.js';
 
 for (const key of ['Escape', 'Enter']) test(`the frequency ruler retains its unfinished native ${key} draft`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 	const ruler = editor.locator('[data-track-ruler]').first();

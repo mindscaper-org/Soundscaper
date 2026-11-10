@@ -5,7 +5,7 @@ import { bootEditor, clipByName, importFiles } from './audio-editor-test-helpers
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('Escape cancels a captured automation-point drag before release', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const row = clipByName(editor, toneA.name).locator('xpath=ancestor::div[@data-track-row][1]');
 	await chooseTrackMenuAction(page, editor, row, 'Add automation');
@@ -26,7 +26,7 @@ test('Escape cancels a captured automation-point drag before release', async ({ 
 });
 
 test('automation curve menus close when the user clicks another control', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const row = clipByName(editor, toneA.name).locator('xpath=ancestor::div[@data-track-row][1]');
 	await chooseTrackMenuAction(page, editor, row, 'Add automation');

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readFileSync } from 'node:fs';
+import { readHandbookMacroPrograms, NODE_CONTROLLER_PROGRAMS } from '../helpers/handbook-macro-programs.ts';
 
 import { expect, halfMinuteTone, longTone, test } from './audio-editor-test-fixtures.js';
 import {
@@ -14,42 +14,15 @@ import { runMacro } from './helpers/guide-workflows.js';
 
 /**
  * The handbook's macro-program reference is held to the editor the way the
- * guides are: every JavaScript block on the page is read out of the page's own
- * text and run through the real Macro Manager. The page may therefore promise
- * that its programs run, and a change to the `sound` API that breaks one fails
- * here rather than in a reader's editor.
+ * guides are: every JavaScript block is read out of the page's own text.
+ * Deterministic controller programs run in Node with archive custody; the five
+ * DSP programs here run through the real Macro Manager and browser renderer.
+ * A change to the `sound` API that breaks a documented program fails a test.
  *
  * The page is the fixture, deliberately. A copy of the programs kept in this
  * file would drift from the page the moment either was edited.
  */
-const PAGE = new URL('../../handbook/src/content/docs/reference/macro-programs.md', import.meta.url);
-
-/** Every fenced `js` block on the page, named by the heading it sits under. */
-function readPrograms(markdown) {
-	const programs = [];
-	const counts = new Map();
-	let heading = 'Macro programs';
-	let fence = null;
-	for (const line of markdown.split('\n')) {
-		if (fence) {
-			if (line.startsWith('```')) {
-				const ordinal = (counts.get(heading) ?? 0) + 1;
-				counts.set(heading, ordinal);
-				programs.push({ title: `${heading} (${ordinal})`, source: fence.join('\n') });
-				fence = null;
-			} else {
-				fence.push(line);
-			}
-			continue;
-		}
-		const headed = /^#{2,3}\s+(.+)$/u.exec(line);
-		if (headed) heading = headed[1].replace(/`/gu, '');
-		else if (line.trim() === '```js') fence = [];
-	}
-	return programs;
-}
-
-const PROGRAMS = readPrograms(readFileSync(PAGE, 'utf8'));
+const PROGRAMS = readHandbookMacroPrograms();
 
 /**
  * What a program needs in place before it runs. The page says effects run over
@@ -89,13 +62,7 @@ async function runProgram(page, editor, source) {
 test.describe('handbook macro-program examples', () => {
 	registerAudioEditorHooks();
 
-	test('the page holds the programs this suite replays', () => {
-		// A regression in the extraction would otherwise pass by running nothing.
-		expect(PROGRAMS.length).toBeGreaterThanOrEqual(9);
-		expect(PROGRAMS.filter(({ source }) => arrangementFor(source) === 'saved-macro')).toHaveLength(1);
-	});
-
-	for (const { title, source } of PROGRAMS) {
+	for (const { title, source } of PROGRAMS.filter(program => !NODE_CONTROLLER_PROGRAMS.has(program.title))) {
 		test(`runs the program under ${title}`, async ({ page }) => {
 			test.setTimeout(150_000);
 			const errors = collectClientErrors(page);

@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, clipByName, getMenuItem, importFiles, 
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('global Remove tracks respects the selected locked recording and recovers after unlocking', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'Protected recording.wav', duration: .2, frequency: 440 })]);
 	const recording = clipByName(editor, 'Protected recording.wav');
 	const track = recording.locator('xpath=ancestor::div[@data-track-row][1]');

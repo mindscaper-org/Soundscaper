@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('a header-selected macro effect matches the ordinary effect without mixing an overlapping neighbor', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const neighbor = createWavFixture({ name: 'unselected-neighbor.wav', frequency: 880, channelCount: 1 });
 	await importFiles(editor, [monoTone, neighbor]);
 	const selected = clipByName(editor, monoTone.name);

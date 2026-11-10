@@ -12,7 +12,7 @@ import {
 	registerAudioEditorHooks();
 
 	test('the trigger closes and reopens help while still hovered and focused', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await chooseCommandAction(page, editor, 'Tracks', 'Mix & Render');
 		const dialog = page.getByRole('dialog', { name: 'Mix & Render', exact: true });

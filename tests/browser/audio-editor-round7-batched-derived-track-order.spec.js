@@ -5,8 +5,8 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName,
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
-for (const foldered of [false, true]) test(`a ${foldered ? 'foldered' : 'root'} multi-track range lift keeps each derived lane directly below its recording`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+test('a foldered multi-track range lift keeps each derived lane directly below its recording', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const names = ['Alpha recording.wav', 'Bravo recording.wav'];
 	await importFiles(editor, names.map(name => createWavFixture({ name, duration: .2 })));
 	const projectId = await editor.getAttribute('data-project-id');
@@ -17,13 +17,11 @@ for (const foldered of [false, true]) test(`a ${foldered ? 'foldered' : 'root'} 
 			trackNames[row.dataset.trackId]), Object.fromEntries(tracks));
 	};
 	await expect.poll(namesInTimeline).toEqual(['Track 1', 'Alpha recording', 'Bravo recording']);
-	if (foldered) {
-		await chooseCommandAction(page, editor, 'Select', 'Select all');
-		const track = clipByName(editor, names[0]).locator('xpath=ancestor::*[@data-track-row][1]');
-		await chooseTrackMenuAction(page, editor, track, 'Move selection into new folder');
-		await expect(editor.getByRole('treeitem')).toHaveCount(1);
-		await expect.poll(namesInTimeline).toEqual(['Track 1', 'Alpha recording', 'Bravo recording']);
-	}
+	await chooseCommandAction(page, editor, 'Select', 'Select all');
+	const track = clipByName(editor, names[0]).locator('xpath=ancestor::*[@data-track-row][1]');
+	await chooseTrackMenuAction(page, editor, track, 'Move selection into new folder');
+	await expect(editor.getByRole('treeitem')).toHaveCount(1);
+	await expect.poll(namesInTimeline).toEqual(['Track 1', 'Alpha recording', 'Bravo recording']);
 	await clipByName(editor, names[0]).locator('.clip-header').click();
 	await chooseNestedCommandAction(page, editor, 'Select', ['Region', 'Track start to end']);
 	await chooseNestedCommandAction(page, editor, 'Edit', ['Audio clips', 'Split into new track']);

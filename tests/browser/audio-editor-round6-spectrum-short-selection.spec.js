@@ -4,7 +4,7 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, closeDialog, importFiles } from './audio-editor-test-helpers.js';
 
 test('Plot spectrum refuses a short recording until its configured window fits', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'short-calibration.wav', frequency: 750,
 		duration: 0.02, sampleRate: 48_000, channelCount: 2, channelAmplitudes: [0.5, 0.5] })]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');

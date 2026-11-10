@@ -12,7 +12,7 @@ test.describe('clip properties pitch and normalization', () => {
 	test.use({ viewport: { width: 1440, height: 1000 } });
 
 	test('percent pitch and speed show neutral values without altering the clip', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		const panel = await openClipProperties(page, editor, clipByName(editor, longTone.name));
 
@@ -25,7 +25,7 @@ test.describe('clip properties pitch and normalization', () => {
 
 	test('linked controls follow sample playback rate and retain the independent pitch when unlinked', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		const panel = await openClipProperties(page, editor, clipByName(editor, longTone.name));
 
@@ -56,7 +56,7 @@ test.describe('clip properties pitch and normalization', () => {
 
 	test('clip speeds below one percent retain the native value through reload', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		let editor = await bootEditor(page, '/embed/en/');
+		let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const recording = createWavFixture({ name: 'slow-clip.wav', frequency: 220, duration: 0.02, channelCount: 1 });
 		await importFiles(editor, [recording]);
 		let panel = await openClipProperties(page, editor, clipByName(editor, recording.name));
@@ -74,7 +74,7 @@ test.describe('clip properties pitch and normalization', () => {
 	});
 
 	test('neutral linked playback disables rendering in the panel and the clip menu', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		const clip = clipByName(editor, longTone.name);
 		const panel = await openClipProperties(page, editor, clip);
@@ -99,7 +99,7 @@ test.describe('clip properties pitch and normalization', () => {
 	});
 
 	test('Media settings keeps its gain dialog and normalization actions share a section', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		const panel = await openClipProperties(page, editor, clipByName(editor, longTone.name));
 		await expect(panel.getByRole('textbox', { name: 'Clip gain (dB)', exact: true })).toHaveCount(0);

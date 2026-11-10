@@ -8,7 +8,7 @@ const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAus
 
 test('Export Custom Metadata retains explicitly requested canonical artwork in the written WAV', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const dialog = await openExportDialog(page, editor);
 	await dialog.getByRole('button', { name: 'Metadata', exact: true }).click();

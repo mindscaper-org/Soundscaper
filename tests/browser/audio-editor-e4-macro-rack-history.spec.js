@@ -23,7 +23,7 @@ for (const [gainDb, cropped] of [[0, false], [6, false], [6, true]]) test(`an of
 		await writer.commit(); blob = (await exportScapeProject(project, store)).blob;
 	} finally { await store.close(); }
 	const errors = collectClientErrors(page); await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Recording.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-project-id', project.id); await waitForProjectActivation(editor);
 	const original = await exportSamples(page, editor);

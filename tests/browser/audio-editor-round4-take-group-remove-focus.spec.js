@@ -35,8 +35,8 @@ test('removing a normally recorded final take group restores the surviving Close
 			.getByRole('button', { name: 'Record loop into takes', exact: true }).click();
 		const record = editor.locator('[data-transport="record"] .kw-audio-editor__split-button-main button');
 		await expect(record).toHaveAttribute('aria-pressed', 'true', { timeout: 20_000 });
-		// Observe the ordinary recorder's durable PCM, without installing editor state.
-		await expect.poll(() => capturedFrameCount(page), { timeout: 30_000 }).toBeGreaterThanOrEqual(144_000);
+		// Two complete 0.8-second loops fit within two seconds of durable capture.
+		await expect.poll(() => capturedFrameCount(page), { timeout: 30_000 }).toBeGreaterThanOrEqual(96_000);
 		await record.click();
 		await expect(record).toHaveAttribute('aria-pressed', 'false', { timeout: 30_000 });
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved', { timeout: 30_000 });

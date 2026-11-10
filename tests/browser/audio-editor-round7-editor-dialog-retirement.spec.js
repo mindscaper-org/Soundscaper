@@ -8,7 +8,7 @@ import { SOUNDSCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 
 test('a retired track resample cannot dismiss a newer factory confirmation', async ({ page }) => {
 	const errors = collectClientErrors(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'dialog-recording.wav', frequency: 330, channelCount: 1 })]);
 	const clip = editor.locator('[data-clip-id][role="group"]').first();
 	await clip.locator('.clip-header').click();

@@ -4,7 +4,7 @@ import { bootEditor, chooseCommandAction, clipByName, closeClipProperties, impor
 import { expectClipSampleRate } from './audio-editor-clip-settings-test-helpers.js';
 
 test('Track Resample field Enter reaches the same confirmed operation as the footer', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const original = clipByName(editor, toneA.name).first();
 	const clipId = await original.getAttribute('data-clip-id');

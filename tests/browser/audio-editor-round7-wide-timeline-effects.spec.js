@@ -8,7 +8,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 for (const channelCount of [2, 4]) {
 	test(`a timeline Invert processes an ordinary ${channelCount}-channel recording`, async ({ page }) => {
 		await disableNativeSavePicker(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [createWavFixture({ name: `timeline-${channelCount}-channels.wav`,
 			frequency: 750, duration: 1, channelCount })]);
 		const original = await exportSamples(page, editor);

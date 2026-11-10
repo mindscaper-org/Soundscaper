@@ -6,7 +6,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('a single range macro Invert preserves the level at existing clip fades', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const before = await exportSamples(page, editor);
 	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');

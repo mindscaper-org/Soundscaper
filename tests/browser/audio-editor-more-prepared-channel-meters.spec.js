@@ -14,16 +14,14 @@ for (const right of ['opposite', 'silent']) test(`pitch-preserving playback mete
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [recording]);
 	const meter = editor.locator('[data-playback-meter]').first().getByRole('meter');
-	await editor.getByRole('button', { name: 'Play', exact: true }).click();
-	await expect.poll(async () => Number(await meter.getAttribute('aria-valuenow'))).toBeGreaterThan(-20);
-	await editor.getByRole('button', { name: 'Stop', exact: true }).click();
+	// A fresh meter prevents an earlier ordinary-playback reading from passing this check.
+	await expect(meter).toHaveAttribute('aria-valuenow', '-60');
 	await editor.getByRole('button', { name: 'Play options', exact: true }).click();
 	const preserve = editor.getByRole('menuitem', { name: 'Preserve pitch', exact: true });
 	if (await preserve.getAttribute('aria-checked') !== 'true') await preserve.click();
 	await editor.getByRole('slider', { name: 'Playback speed', exact: true }).fill('0.5');
 	await page.keyboard.press('Escape');
 	await editor.getByRole('button', { name: 'Play at speed', exact: true }).click();
-	await page.waitForTimeout(800);
 	await expect.poll(async () => Number(await meter.getAttribute('aria-valuenow'))).toBeGreaterThan(-20);
 	if (right === 'silent') {
 		const fills = meter.locator('.kw-audio-editor__playback-meter-peak');

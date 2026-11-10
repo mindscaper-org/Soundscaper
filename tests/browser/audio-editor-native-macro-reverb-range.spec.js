@@ -5,7 +5,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 for (const dryGainDb of [12, 10]) test(`authored Reverb keeps local gain and native compatibility at ${dryGainDb}dB`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'Reverb gain.wav', frequency: 440, duration: .25, channelCount: 1, channelAmplitudes: [.05] })]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	const before = await exportSamples(page, editor);

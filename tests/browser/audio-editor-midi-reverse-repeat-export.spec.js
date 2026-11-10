@@ -7,7 +7,7 @@ import { writeMidiFile } from '../../src/common/editor/midi-file.ts';
 
 test('a trimmed reversed MIDI loop exports 10000 repeats from the ordinary Length control', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const events = Array.from({ length: 5000 }, (_, index) => ({ frame: index * 64, status: 176, data: [7, index === 4999 ? 80 : index % 128] }));
 	const bytes = writeMidiFile({ sampleRate: 8000, tempos: [{ frame: 0, bpm: 120 }], signatures: [],
 		tracks: [{ name: 'Recorded fader and note', durationFrames: 324_000, notes: [{ id: 'n', startFrame: 320_000,

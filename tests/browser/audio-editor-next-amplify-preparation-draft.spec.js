@@ -9,7 +9,7 @@ test('Amplify keeps an edited gain draft while the current audio default is stil
 	let pending = 0;
 	await page.route('**/staffpad-*.wasm', async route => { pending++; await held; await route.continue(); });
 	try {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [createWavFixture({ name: 'Quiet.wav', duration: 1, frequency: 500, channelCount: 1 })]);
 		const clip = editor.locator('[data-clip-id]').first();
 		const properties = await openClipProperties(page, editor, clip, { additional: false });

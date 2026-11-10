@@ -18,7 +18,7 @@ async function observeAuxiliaryRelease(page) {
 
 test('a Contrast title move keeps its primary gesture after an auxiliary release', async ({ page }) => {
 	const errors = collectClientErrors(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Analyze', 'Contrast');
 	const dialog = page.getByRole('dialog', { name: 'Contrast', exact: true });

@@ -15,7 +15,7 @@ for (const rate of [48_000, 96_000]) test(`downloaded ${rate}Hz WAV assertions r
 		};
 	});
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'oracle.wav', frequency: 1000, duration: .1, channelCount: 1 })]);
 	await page.evaluate(() => { globalThis.__waveOracleDecodes = 0; globalThis.__observeWaveOracle = true; });
 	const samples = await exportSamples(page, editor, { sampleRate: rate });

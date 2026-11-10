@@ -5,7 +5,7 @@ import { openSourceMonitor } from './audio-editor-inspector-test-helpers.js';
 import { clipDescriptionForLocale } from './audio-editor-clip-locators.js';
 
 for (const locale of ['en', 'ar']) test(`Source monitor arrows follow visible recording tabs in ${locale}`, async ({ page }) => {
-	let editor = await bootEditor(page, '/embed/en/');
+	let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const third = { ...toneA, name: 'Third recording.wav' };
 	await importFiles(editor, [toneA, toneB, third]);
 	for (const [index, file] of [toneA, toneB, third].entries()) {

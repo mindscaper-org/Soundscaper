@@ -14,7 +14,7 @@ test.describe('realtime effect replacement picker', () => {
 
 	test('replaces the tall slot menu with the two-column picker and slot actions', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const effectsPanel = await openEffectsForTrack(editor, 0);
 		await addRackEffect(page, effectsPanel, 'track', 'Invert');
 

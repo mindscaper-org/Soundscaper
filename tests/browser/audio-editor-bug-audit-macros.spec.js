@@ -15,7 +15,7 @@ async function runProgram(page, editor, source) {
 }
 
 test('macro clip queries report the actual imported clip timing', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const { log } = await runProgram(page, editor, [
 		'const clips = await sound.project.clips();',
@@ -26,7 +26,7 @@ test('macro clip queries report the actual imported clip timing', async ({ page 
 });
 
 test('macro Select All selects the imported audio duration', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const { log } = await runProgram(page, editor, [
 		'await sound.select.all();',
@@ -38,7 +38,7 @@ test('macro Select All selects the imported audio duration', async ({ page }) =>
 });
 
 test('macro commands await mixing before querying the resulting tracks', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA, toneB]);
 	const { log } = await runProgram(page, editor, [
 		'await sound.select.all();',
@@ -52,7 +52,7 @@ test('macro commands await mixing before querying the resulting tracks', async (
 });
 
 test('editing a default macro selection command keeps its command identity', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
 	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
 	await manager.getByRole('button', { name: 'Fade ends', exact: true }).click();
@@ -66,7 +66,7 @@ test('editing a default macro selection command keeps its command identity', asy
 });
 
 test('one Undo reverses a step-list macro containing two track commands', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const tracks = Number(await editor.getAttribute('data-track-count'));
 	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');

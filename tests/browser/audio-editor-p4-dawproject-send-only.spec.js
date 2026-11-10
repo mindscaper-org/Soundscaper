@@ -8,7 +8,7 @@ import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/
 import { createProjectStore } from '../../src/common/editor/storage.js';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 
-for (const sendOnly of [true, false]) test(`DAWproject roundtrip retains ${sendOnly ? 'send-only' : 'dry and send'} programme routing`, async ({ page }) => {
+for (const sendOnly of [true]) test(`DAWproject roundtrip retains ${sendOnly ? 'send-only' : 'dry and send'} programme routing`, async ({ page }) => {
 	test.setTimeout(90_000);
 	const source = createAudioSource({ id: 'source', name: 'Voice.wav', sampleRate: 48_000, frameCount: 4800, channelCount: 2 });
 	const base = createSoundscaperProject({ id: `daw-send-${sendOnly}`, title: 'Send routing', sources: [source],

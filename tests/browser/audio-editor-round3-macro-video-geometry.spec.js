@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, importFiles
 import { createDeterministicAvFixture } from './fixtures/deterministic-av-media.js';
 
 test('macro project reads report a normally imported video clip in project sample frames', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createDeterministicAvFixture('camera.webm')]);
 	await expect(editor).toHaveAttribute('data-clip-count', '2');
 	await chooseNestedCommandAction(page, editor, 'Window', ['Video preview']);

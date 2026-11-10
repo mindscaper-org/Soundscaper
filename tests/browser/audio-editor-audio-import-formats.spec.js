@@ -1,70 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { expect, test, createWavFixture, readFile } from './audio-editor-test-fixtures.js';
-import { encodeDedicatedAudioPcm } from '../../src/common/editor/browser-dedicated-audio-codec.ts';
+import { expect, test, createWavFixture } from './audio-editor-test-fixtures.js';
+import { AUDIO_IMPORT_FORMATS as FORMATS, encodedAudioImportFixture, extendedWaveImportFixture as extendedWavFixture } from '../helpers/audio-format-import-cases.ts';
 import {
 	bootEditor, chooseFileAction, collectClientErrors, registerAudioEditorHooks,
 	sourcePeakChannels, waitForEditor, clipByName,
 } from './audio-editor-test-helpers.js';
 
-const FORMATS = [
-	['MP3', 'mp3', 'libmp3lame', 'audio/mpeg'],
-	['MP2', 'mp2', 'mp2', 'audio/mpeg'],
-	['FLAC', 'flac', 'flac', 'audio/flac'],
-	['Ogg Vorbis', 'ogg', 'libvorbis', 'audio/ogg'],
-	['Opus', 'opus', 'libopus', 'audio/ogg'],
-	['WavPack', 'wv', 'wavpack', 'audio/wavpack'],
-	['AIFF', 'aiff', 'pcm_s16be', 'audio/aiff'],
-	['AAC', 'aac', 'aac', 'audio/aac'],
-	['M4A', 'm4a', 'aac', 'audio/mp4'],
-	['Ogg Vorbis (.oga alias)', 'oga', 'libvorbis', ''],
-	['WavPack (.wavpack alias)', 'wavpack', 'wavpack', ''],
-	['AIFF (.aif alias)', 'aif', 'pcm_s16be', ''],
-	['AIFF-C little-endian PCM', 'aifc', 'pcm_s16le', ''],
-];
-
 async function encodedFixture(extension, codec, mimeType) {
-	if (extension === 'opus' || extension === 'wv' || extension === 'wavpack') {
-		// WavPack's admitted profile is lossless float32. Use the maintained
-		// encoder for that profile and for Opus (the test FFmpeg encoder traps).
-		const format = extension === 'wv' || extension === 'wavpack' ? 'wavpack' : 'opus';
-		const pcm = new Float32Array(48000 * 2);
-		for (let frame = 0; frame < 48000; frame++) {
-			pcm[frame * 2] = Math.sin(2 * Math.PI * 330 * frame / 48000) * 0.3;
-			pcm[frame * 2 + 1] = Math.sin(2 * Math.PI * 330 * frame / 48000 + Math.PI / 3) * 0.1;
-		}
-		const bytes = await encodeDedicatedAudioPcm({ format, input: new Uint8Array(pcm.buffer),
-			frameCount: 48000, channelCount: 2, sampleRate: 48000,
-			settings: format === 'opus' ? { bitrateKbps: 128, vbrMode: 1 } : { compressionLevel: 2 },
-			maximumOutputBytes: 1024 * 1024,
-		}, { loadPayload: async () => readFile(new URL(`../../src/common/editor/${format}/${format}.wasm`, import.meta.url)) });
-		return { name: `import-tone.${extension}`, mimeType, buffer: Buffer.from(bytes) };
-	}
-	// Produce actual media with the pinned test dependency, independently of
-	// the application's decoder. No external download or system FFmpeg needed.
-	const core = await (async () => {
-		const url = new URL('../../node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.js', import.meta.url);
-		globalThis.self ??= globalThis;
-		globalThis.location ??= url;
-		const [{ default: createCore }, wasmBinary] = await Promise.all([
-			import(url.href), readFile(new URL('../../node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.wasm', import.meta.url)),
-		]);
-		return createCore({ wasmBinary });
-	})();
-	const input = createWavFixture({ name: 'input.wav', frequency: 330,
-		duration: 1, channelCount: 2, channelAmplitudes: [0.3, 0.1] });
-	const name = `import-tone.${extension}`;
-	const logs = [];
-	core.setLogger(({ message }) => { logs.push(message); });
-	try {
-		core.FS.writeFile(input.name, input.buffer);
-		const result = core.exec('-hide_banner', '-nostdin', '-y', '-i', input.name, '-c:a', codec, name);
-		expect(result, logs.join('\n')).toBe(0);
-		return { name, mimeType, buffer: Buffer.from(core.FS.readFile(name)) };
-	} finally {
-		core.reset();
-		for (const path of [input.name, name]) { try { core.FS.unlink(path); } catch {} }
-	}
+	const fixture = await encodedAudioImportFixture(extension, codec, mimeType);
+	return { name: fixture.name, mimeType: fixture.mimeType, buffer: fixture.buffer };
 }
 
 async function importThroughFileMenu(page, editor, file) {
@@ -72,61 +17,6 @@ async function importThroughFileMenu(page, editor, file) {
 	await chooseFileAction(page, editor, 'Import');
 	await (await choosingFile).setFiles(file);
 	await expect(editor.locator('[data-status]')).toHaveAttribute('data-state', 'success', { timeout: 20_000 });
-}
-
-function extendedWavFixture(signature) {
-	const sampleRate = 48_000;
-	const channelCount = 2;
-	const frameCount = 4_800;
-	const bytesPerSample = 2;
-	const pcm = new Uint8Array(frameCount * channelCount * bytesPerSample);
-	const pcmView = new DataView(pcm.buffer);
-	for (let frame = 0; frame < frameCount; frame += 1) {
-		for (let channel = 0; channel < channelCount; channel += 1) {
-			const amplitude = channel === 0 ? 0.3 : 0.1;
-			const phase = channel === 0 ? 0 : Math.PI / 3;
-			const sample = Math.sin(2 * Math.PI * 330 * frame / sampleRate + phase) * amplitude;
-			pcmView.setInt16((frame * channelCount + channel) * bytesPerSample, Math.round(sample * 32767), true);
-		}
-	}
-	const format = new Uint8Array(16);
-	const formatView = new DataView(format.buffer);
-	formatView.setUint16(0, 1, true);
-	formatView.setUint16(2, channelCount, true);
-	formatView.setUint32(4, sampleRate, true);
-	formatView.setUint32(8, sampleRate * channelCount * bytesPerSample, true);
-	formatView.setUint16(12, channelCount * bytesPerSample, true);
-	formatView.setUint16(14, bytesPerSample * 8, true);
-	const ds64 = new Uint8Array(28);
-	const ds64View = new DataView(ds64.buffer);
-	ds64View.setBigUint64(8, BigInt(pcm.byteLength), true);
-	ds64View.setBigUint64(16, signature === 'RF64' ? BigInt(frameCount) : 0n, true);
-	const chunks = [riffChunk('ds64', ds64), riffChunk('fmt ', format), riffChunk('data', pcm, 0xffff_ffff)];
-	const bytes = new Uint8Array(12 + chunks.reduce((total, chunk) => total + chunk.byteLength, 0));
-	writeAscii(bytes, 0, signature);
-	const view = new DataView(bytes.buffer);
-	view.setUint32(4, 0xffff_ffff, true);
-	writeAscii(bytes, 8, 'WAVE');
-	let offset = 12;
-	for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
-	view.setBigUint64(20, BigInt(bytes.byteLength - 8), true);
-	return {
-		name: signature === 'RF64' ? 'field-recording.rf64' : 'spatial-master.bw64',
-		mimeType: '',
-		buffer: Buffer.from(bytes),
-	};
-}
-
-function riffChunk(id, payload, declaredSize = payload.byteLength) {
-	const chunk = new Uint8Array(8 + payload.byteLength + (payload.byteLength & 1));
-	writeAscii(chunk, 0, id);
-	new DataView(chunk.buffer).setUint32(4, declaredSize, true);
-	chunk.set(payload, 8);
-	return chunk;
-}
-
-function writeAscii(bytes, offset, text) {
-	for (let index = 0; index < text.length; index += 1) bytes[offset + index] = text.charCodeAt(index);
 }
 
 test.describe('audio file import formats', () => {
@@ -196,25 +86,34 @@ test.describe('audio file import formats', () => {
 		expect(peaks.channels[0].maximum).toBeGreaterThan(0.2);
 	});
 
-	for (const signature of ['RF64', 'BW64']) {
-		test(`${signature} imports through File > Import and survives reload`, async ({ page }) => {
-			const errors = collectClientErrors(page);
-			const file = extendedWavFixture(signature);
-			const editor = await bootEditor(page, '/embed/en/');
-			await importThroughFileMenu(page, editor, file);
+	// The two ds64 forms have independent controller/store/archive PCM custody in Node.
+	test('RF64 and BW64 import through one File chooser and survive reload independently', async ({ page }) => {
+		const errors = collectClientErrors(page);
+		const files = ['RF64', 'BW64'].map(signature => {
+			const fixture = extendedWavFixture(signature);
+			return { name: fixture.name, mimeType: fixture.mimeType, buffer: fixture.buffer };
+		});
+		const editor = await bootEditor(page, '/embed/en/');
+		await importThroughFileMenu(page, editor, files);
+		const originals = new Map();
+		for (const file of files) {
 			await expect(clipByName(editor, file.name)).toBeVisible();
 			await expect.poll(async () => (await sourcePeakChannels(page, file.name)).channelCount).toBe(2);
 			const peaks = await sourcePeakChannels(page, file.name);
 			expect(peaks.channelCount).toBe(2);
 			expect(peaks.channels[0].maximum).toBeGreaterThan(0.2);
 			expect(peaks.channels[1].maximum).toBeGreaterThan(0.05);
-			await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
-			await page.reload();
-			await expect(clipByName(await waitForEditor(page), file.name)).toBeVisible();
-			expect(await sourcePeakChannels(page, file.name)).toEqual(peaks);
-			expect(errors).toEqual([]);
-		});
-	}
+			originals.set(file.name, peaks);
+		}
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		await page.reload();
+		const restored = await waitForEditor(page);
+		for (const file of files) {
+			await expect(clipByName(restored, file.name)).toBeVisible();
+			expect(await sourcePeakChannels(page, file.name)).toEqual(originals.get(file.name));
+		}
+		expect(errors).toEqual([]);
+	});
 
 	test('a failed dedicated FLAC decode leaves the project untouched and the next import succeeds', async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/');
@@ -238,31 +137,50 @@ test.describe('audio file import formats', () => {
 		await expect(editor).toHaveAttribute('data-clip-count', '1');
 	});
 
-	for (const [label, extension, codec, mimeType] of FORMATS) {
-		test(`${label} imports stereo audio, plays, and survives reload`, async ({ page }) => {
-			test.setTimeout(60000);
-			const file = await encodedFixture(extension, codec, mimeType);
-			const errors = collectClientErrors(page);
-			const editor = await bootEditor(page, '/embed/en/');
-			await importThroughFileMenu(page, editor, file);
-			await expect(clipByName(editor, file.name)).toBeVisible();
-			await expect(editor).toHaveAttribute('data-clip-count', '1');
-			await expect.poll(async () => (await sourcePeakChannels(page, file.name)).channelCount).toBe(2);
-			const peaks = await sourcePeakChannels(page, file.name);
-			expect(peaks.channelCount).toBe(2);
-			expect(peaks.channels[0].maximum).toBeGreaterThan(0.2);
-			expect(peaks.channels[0].minimum).toBeLessThan(-0.2);
-			expect(peaks.channels[1].maximum).toBeGreaterThan(0.05);
-			expect(peaks.channels[1].maximum).toBeLessThan(0.2);
-			await editor.getByRole('button', { name: 'Play', exact: true }).click();
-			await expect(editor.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
-			await editor.getByRole('button', { name: 'Stop', exact: true }).click();
-			await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
-			await page.reload();
-			const restored = await waitForEditor(page);
-			await expect(clipByName(restored, file.name)).toBeVisible();
-			expect(await sourcePeakChannels(page, file.name)).toEqual(peaks);
-			expect(errors).toEqual([]);
-		});
-	}
+	// Payload variations have independent real-decoder/controller/Scape custody in Node.
+	// Keep actual native AAC/M4A, worker codec loading, playback and IndexedDB reload here.
+	test('all maintained formats import stereo audio, play and survive reload together', async ({ page }) => {
+		test.setTimeout(FORMATS.length * 60_000);
+		const files = [];
+		for (const [label, extension, codec, mimeType] of FORMATS) {
+			await test.step(`prepare ${label}`, async () => {
+				const file = await encodedFixture(extension, codec, mimeType);
+				files.push({ ...file, name: `${extension}-import.${extension}` });
+			}, { timeout: 60_000 });
+		}
+		const errors = collectClientErrors(page);
+		const editor = await bootEditor(page, '/embed/en/');
+		const choosingFile = page.waitForEvent('filechooser');
+		await chooseFileAction(page, editor, 'Import');
+		await (await choosingFile).setFiles(files);
+		const originals = new Map();
+		for (const file of files) {
+			await test.step(`decoded ${file.name}`, async () => {
+				await expect(clipByName(editor, file.name)).toBeVisible({ timeout: 20_000 });
+				await expect.poll(async () => (await sourcePeakChannels(page, file.name)).channelCount).toBe(2);
+				const peaks = await sourcePeakChannels(page, file.name);
+				expect(peaks.channelCount).toBe(2);
+				expect(peaks.channels[0].maximum).toBeGreaterThan(0.2);
+				expect(peaks.channels[0].minimum).toBeLessThan(-0.2);
+				expect(peaks.channels[1].maximum).toBeGreaterThan(0.05);
+				expect(peaks.channels[1].maximum).toBeLessThan(0.2);
+				originals.set(file.name, peaks);
+			}, { timeout: 60_000 });
+		}
+		await expect(editor).toHaveAttribute('data-clip-count', String(files.length));
+		await editor.getByRole('button', { name: 'Play', exact: true }).click();
+		await expect(editor.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
+		await editor.getByRole('button', { name: 'Stop', exact: true }).click();
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		await page.reload();
+		const restored = await waitForEditor(page);
+		for (const file of files) {
+			await test.step(`restored ${file.name}`, async () => {
+				await expect(clipByName(restored, file.name)).toBeVisible();
+				expect(await sourcePeakChannels(page, file.name)).toEqual(originals.get(file.name));
+			}, { timeout: 60_000 });
+		}
+		expect(errors).toEqual([]);
+	});
+
 });

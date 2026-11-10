@@ -4,7 +4,7 @@ import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
 test('Shift plus a vertical arrow on a media row extends its track selection', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA, toneB]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	const first = clipByName(editor, toneA.name).locator('xpath=ancestor::div[@data-track-row][1]')

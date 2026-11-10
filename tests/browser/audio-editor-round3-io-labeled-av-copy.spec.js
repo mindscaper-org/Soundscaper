@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, importFiles
 import { createDeterministicAvFixture } from './fixtures/deterministic-av-media.js';
 
 test('Copy labeled audio keeps separate linked pairs for two ordinary labeled excerpts', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createDeterministicAvFixture('camera.webm')]);
 	await expect(editor).toHaveAttribute('data-clip-count', '2');
 	await chooseNestedCommandAction(page, editor, 'Window', ['Video preview']);

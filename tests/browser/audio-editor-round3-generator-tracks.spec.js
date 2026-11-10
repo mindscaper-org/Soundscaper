@@ -10,7 +10,7 @@ const recordings = ['voice', 'music'].map((name, index) => createWavFixture({ na
 
 test('Generate Tone replaces audio across all selected tracks in one undoable action', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, recordings);
 	await expect(editor).toHaveAttribute('data-clip-count', '2');
 	await clipByName(editor, recordings[0].name).locator('.clip-header__name').click();

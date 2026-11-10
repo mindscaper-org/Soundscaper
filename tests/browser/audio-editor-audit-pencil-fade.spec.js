@@ -6,7 +6,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('a horizontal Pencil stroke through a fade exports the drawn level between pointer observations', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'Pencil fade.wav', frequency: 1000, duration: .002, channelCount: 1 });
 	await importFiles(editor, [recording]);
 	const clip = clipByName(editor, recording.name);

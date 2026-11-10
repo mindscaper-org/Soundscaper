@@ -16,11 +16,9 @@ async function contrast(locator, property = 'color', minimum = 4.5, outside = fa
 	await expect(locator.first()).toBeVisible();
 	for (const element of await locator.all()) {
 		if (!await element.isVisible() || !await element.isEnabled()) continue;
-		await element.evaluate(async (node) => {
+		const result = await element.evaluate(async (node, { property, outside }) => {
 			getComputedStyle(node).backgroundColor;
 			await Promise.all(node.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => {})));
-		});
-		const result = await element.evaluate((node, { property, outside }) => {
 			const rgb = (value) => {
 				const values = value.match(/[\d.]+/gu).map(Number);
 				if (value.startsWith('color(srgb ')) return values.map((v, i) => i < 3 ? v * 255 : v);

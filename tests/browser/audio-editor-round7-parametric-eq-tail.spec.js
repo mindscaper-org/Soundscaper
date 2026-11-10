@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('Include tails retains the actual Parametric EQ low-pass release', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'sub bass recording.wav', frequency: 10,
 		duration: 1, channelCount: 2, channelAmplitudes: [.5, .5] })]);
 	const dry = await exportSamples(page, editor);

@@ -4,7 +4,7 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { bootEditor, chooseCommandAction, importFiles, waitForEditor } from './audio-editor-test-helpers.js';
 
 test('changing the interface language keeps the current project when startup requests a new project', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'language-project.wav' })]);
 	const projectId = await editor.getAttribute('data-project-id');
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');

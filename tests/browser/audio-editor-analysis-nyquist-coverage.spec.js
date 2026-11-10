@@ -29,7 +29,7 @@ test.describe('analysis and Nyquist dialog coverage', () => {
 
 	test('opens the populated delivery report after measuring loudness', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [createWavFixture({
 			name: 'loudness-measurement.wav', frequency: 440, duration: 0.08, channelCount: 1,
 		})]);
@@ -46,7 +46,7 @@ test.describe('analysis and Nyquist dialog coverage', () => {
 	test('runs, presents, and exports every interactive analysis report', async ({ page }) => {
 		test.setTimeout(120_000);
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const fixture = clippedTone();
 		await importFiles(editor, [fixture]);
 		const properties = await openClipProperties(page, editor, clipByName(editor, fixture.name));
@@ -159,7 +159,7 @@ test.describe('analysis and Nyquist dialog coverage', () => {
 	test('uses prompt and bundled Nyquist controls, preview, output, and reset', async ({ page }) => {
 		test.setTimeout(150_000);
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [createWavFixture({
 			name: 'nyquist-dialog-coverage.wav', frequency: 440, duration: 0.08, channelCount: 1,
 		})]);

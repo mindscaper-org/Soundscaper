@@ -13,7 +13,7 @@ for (const tab of ['General', 'ID3']) test(`${tab} metadata edits preserve impor
 		archive = (await exportScapeProject(createSoundscaperProject({ id: 'multiline-metadata-file',
 			metadata: { tags: { 'X-NOTES': 'First line\nSecond line' } } }), store)).blob;
 	} finally { await store.close(); }
-	let editor = await bootEditor(page, '/embed/en/');
+	let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Notes.sscape', mimeType: 'application/zip', buffer: Buffer.from(await archive.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-project-id', 'multiline-metadata-file');
 	await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');

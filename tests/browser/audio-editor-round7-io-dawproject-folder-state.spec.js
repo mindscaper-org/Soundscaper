@@ -7,9 +7,11 @@ import { bootEditor, chooseDropdown, chooseFileAction, chooseNestedCommandAction
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 import { parseDawprojectDocument } from '../../src/common/editor/dawproject-import.ts';
 
-for (const mute of [false, true]) test(`own DAWproject archive and Open preserve folder mute=${mute}`, async ({ page }) => {
+// Node closes the folder/leaf mute matrix; retain actual mute, reopen and unmute.
+const mute = true;
+test(`own DAWproject archive and Open preserve folder mute=${mute}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const recording = clipByName(editor, monoTone.name);
 	const track = recording.locator('xpath=ancestor::div[@data-track-row][1]');

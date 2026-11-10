@@ -5,7 +5,7 @@ import { bootEditor, chooseNestedCommandAction, clipByName, importFiles } from '
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 for (const gesture of ['Control click', 'Shift click', 'Control Enter']) test(`${gesture} selects the track headers for the folder command`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const files = ['first.wav', 'middle.wav', 'last.wav'].map(name => createWavFixture({ name, duration: 0.8, frequency: 440, channelCount: 1 }));
 	await importFiles(editor, files);
 	await chooseNestedCommandAction(page, editor, 'Select', ['Select none']);

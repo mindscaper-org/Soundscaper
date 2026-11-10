@@ -6,7 +6,7 @@ import { showClipTimingFields, bootEditor, clipByName, importFiles, chooseNested
 	openClipProperties, closeClipProperties } from './audio-editor-test-helpers.js';
 
 test('Cursor to track end selects from the end when the cursor is beyond the selected track', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA, longTone]);
 	const clip = clipByName(editor, toneA.name);
 	await clip.locator('.clip-header').click();

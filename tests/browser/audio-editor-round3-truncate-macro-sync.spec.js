@@ -6,7 +6,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('an independent-track Truncate Silence macro preserves its stereo channel clock', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'stereo-dialogue.wav', frequency: 440, duration: 2 });
 	for (let channel = 0; channel < 2; channel++) {
 		const start = channel ? 33_600 : 14_400;

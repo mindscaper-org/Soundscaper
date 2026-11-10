@@ -72,7 +72,7 @@ test.describe('ported Audacity effect layouts', () => {
 
 	test('offers one Compressor and Limiter in the realtime effect picker', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const panel = await openEffectsForTrack(editor, 1);
 		await openRackPicker(panel, 'track');
@@ -85,7 +85,7 @@ test.describe('ported Audacity effect layouts', () => {
 	test('compressor places history above its two knob grids and compression curve', async ({ page }) => {
 		test.setTimeout(60_000);
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await useAudacityDarkTheme(page, editor);
 		await importFiles(editor, [toneA]);
 		const panel = await openEffectsForTrack(editor, 1);
@@ -143,7 +143,7 @@ test.describe('ported Audacity effect layouts', () => {
 
 	test('limiter uses history and a single row of large level and small character knobs', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await useAudacityDarkTheme(page, editor);
 		await importFiles(editor, [toneA]);
 		const panel = await openEffectsForTrack(editor, 1);
@@ -170,7 +170,7 @@ test.describe('ported Audacity effect layouts', () => {
 	for (const name of ['Compressor', 'Limiter']) {
 		test(`${name} selection dialog only shows the controls Audacity uses destructively`, async ({ page }) => {
 			const errors = collectClientErrors(page);
-			const editor = await bootEditor(page, '/embed/en/');
+			const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 			await importFiles(editor, [toneA]);
 			await chooseCommandAction(page, editor, 'Select', 'Select all');
 			await chooseNestedCommandAction(page, editor, 'Effect', ['Volume and compression', name]);
@@ -190,7 +190,7 @@ test.describe('ported Audacity effect layouts', () => {
 	test('Bass and Treble uses three large knobs with no invented card headings', async ({ page }) => {
 		test.setTimeout(60_000);
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const panel = await openEffectsForTrack(editor, 1);
 		await addRackEffect(page, panel, 'track', 'Bass and Treble');
@@ -228,7 +228,7 @@ test.describe('ported Audacity effect layouts', () => {
 
 	test('Reverb keeps its large space knobs beside the small tone and mix knobs', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 		await chooseNestedCommandAction(page, editor, 'Effect', ['Delay and reverb', 'Reverb (Audacity)']);
@@ -257,7 +257,7 @@ test.describe('ported Audacity effect layouts', () => {
 
 	test('Normalize keeps the peak field beside its checkbox and disables it without hiding it', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 		await chooseNestedCommandAction(page, editor, 'Effect', ['Volume and compression', 'Normalize']);
@@ -281,7 +281,7 @@ test.describe('ported Audacity effect layouts', () => {
 
 	test('Amplify links the new peak slider and amplification through their shared value', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 		await chooseNestedCommandAction(page, editor, 'Effect', ['Volume and compression', 'Amplify']);
@@ -306,7 +306,7 @@ test.describe('ported Audacity effect layouts', () => {
 
 	test('Change Pitch links its percentage, semitone and frequency inputs', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 		await chooseNestedCommandAction(page, editor, 'Effect', ['Pitch and tempo', 'Change pitch']);
@@ -327,7 +327,7 @@ test.describe('ported Audacity effect layouts', () => {
 
 	test('Noise Reduction keeps its two instruction cards and output modes connected to profile capture', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const panel = await openEffectsForTrack(editor, 1);
 		await addRackEffect(page, panel, 'track', 'Noise Reduction');

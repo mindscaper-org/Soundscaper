@@ -4,7 +4,7 @@ import { expect, test, monoTone, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
 test('Generate Silence retains selected stereo recording channels', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Tracks', 'Remove tracks');
 	await importFiles(editor, [monoTone, toneA]);
 	const row = clipByName(editor, toneA.name).locator('xpath=ancestor::*[@data-track-row][1]');

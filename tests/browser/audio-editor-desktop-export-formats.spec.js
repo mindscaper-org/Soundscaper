@@ -36,7 +36,7 @@ async function installCodecBridge(page, mode) {
 
 test('all audio formats remain visible and missing FFmpeg can be installed from selection', async ({ page }) => {
 	await installCodecBridge(page, 'missing');
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const dialog = await openExportDialog(page, editor);
 	await expect(dialog.getByText(/Configure FFmpeg/u)).toHaveCount(0);
@@ -58,7 +58,7 @@ test('all audio formats remain visible and missing FFmpeg can be installed from 
 
 test('an installed FFmpeg reports the missing encoder on selection without hiding formats', async ({ page }) => {
 	await installCodecBridge(page, 'unsupported');
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const dialog = await openExportDialog(page, editor);
 	await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'FLAC');
@@ -75,7 +75,7 @@ test('an installed FFmpeg reports the missing encoder on selection without hidin
 
 test('a codec bridge failure reports its actual error without claiming FFmpeg is missing', async ({ page }) => {
 	await installCodecBridge(page, 'probe-failed');
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const dialog = await openExportDialog(page, editor);
 	await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'Opus');
@@ -89,7 +89,7 @@ test('a codec bridge failure reports its actual error without claiming FFmpeg is
 
 test('editing the sample rate does not interrupt typing with a capability error', async ({ page }) => {
 	await installCodecBridge(page, 'available');
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const dialog = await openExportDialog(page, editor);
 	await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'MP3');
@@ -108,7 +108,7 @@ test('editing the sample rate does not interrupt typing with a capability error'
 
 test('desktop MP3 and M4A mixed exports offer opt-in embedded label chapters', async ({ page }) => {
 	await installCodecBridge(page, 'available');
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Edit', 'Add label');
 	const title = editor.getByRole('textbox', { name: /^Edit labels:/u });

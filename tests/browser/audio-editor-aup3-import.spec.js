@@ -17,7 +17,7 @@ test('opens a checkpointed Audacity 3 project through the File menu', async ({ p
 			}
 		};
 	});
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const samples = Array.from({ length: 65_536 }, (_, index) => Math.sin(index / 17) * 0.5);
 	const blocks = [{ samples }, { samples }, { samples: [0.25] }];
 	const bytes = await createAup3Fixture({ tracks: [
@@ -64,7 +64,7 @@ test('keeps shared Audacity blocks in one backing source after opening and reloa
 		database.run('UPDATE project SET dict = ?, doc = ? WHERE id = 1', [dictionary, document]);
 		bytes = database.export();
 	} finally { database.close(); }
-	let editor = await bootEditor(page, '/embed/en/');
+	let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const chooser = page.waitForEvent('filechooser');
 	await chooseFileAction(page, editor, 'Open');
 	await (await chooser).setFiles({ name: 'shared.aup3', mimeType: 'application/x-audacity-project', buffer: Buffer.from(bytes) });
@@ -91,7 +91,7 @@ test('keeps shared Audacity blocks in one backing source after opening and reloa
 });
 
 test('keeps the public AUP3 refusal readable and permits opening another AUP3', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const SQL = await initSqlJs();
 	const bytes = await createAup3Fixture({ SQL });
 	const database = new SQL.Database(bytes);

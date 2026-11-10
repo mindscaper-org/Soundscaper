@@ -8,7 +8,7 @@ import { persistedProject } from './helpers/complex-editing-workflows.js';
 const recording = Buffer.from(readFileSync(new URL('../fixtures/chromium-audio-only.webm.base64', import.meta.url), 'utf8'), 'base64');
 
 test('Clip spreadsheet loads an ordinary audio-only WebM source through its referenced-file picker', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'short-template.wav', frequency: 330, duration: 0.1 })]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Clip spreadsheet']);
 	const grid = editor.locator('[data-workspace-panel="clip-spreadsheet"]').getByRole('grid');

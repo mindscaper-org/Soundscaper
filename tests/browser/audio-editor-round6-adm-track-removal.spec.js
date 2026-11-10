@@ -8,7 +8,7 @@ import {
 
 for (const remove of [false, true]) test(`authored ADM exports ${remove ? 'after removing one recording' : 'both ordinary recordings'}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA, toneB]);
 	await expect(editor).toHaveAttribute('data-clip-count', '2');
 	await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');

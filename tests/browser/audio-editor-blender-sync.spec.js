@@ -39,10 +39,19 @@ test('desktop Blender export renders WAVs and live sync updates edits until stop
 	expect(latest.tracks[0].mute).toBe(true);
 	await chooseNestedCommandAction(page, editor, 'Tools', ['Desktop services', 'Stop live Blender sync']);
 	await expect.poll(() => page.evaluate(() => globalThis.__blenderProbe.stops.length)).toBe(2);
-	const commitCount = await page.evaluate(() => globalThis.__blenderProbe.commits.length);
+	const { beginCount, commitCount } = await page.evaluate(() => ({
+		beginCount: globalThis.__blenderProbe.begins.length,
+		commitCount: globalThis.__blenderProbe.commits.length,
+	}));
+	// Preserve the full debounce observation window after live sync has stopped.
+	await page.clock.install();
 	await track.getByRole('button', { name: 'Mute', exact: true }).click();
-	await page.waitForTimeout(500);
-	expect(await page.evaluate(() => globalThis.__blenderProbe.commits.length)).toBe(commitCount);
+	await expect(track.getByRole('button', { name: 'Mute', exact: true })).toHaveAttribute('aria-pressed', 'false');
+	await page.clock.fastForward(500);
+	expect(await page.evaluate(() => ({
+		beginCount: globalThis.__blenderProbe.begins.length,
+		commitCount: globalThis.__blenderProbe.commits.length,
+	}))).toEqual({ beginCount, commitCount });
 });
 
 test('browser Blender commands offer the desktop app while Framescaper omits them', async ({ page }) => {
@@ -69,7 +78,7 @@ async function dismissCompletionNotice(page, message) {
 async function installBlenderFixture(page) {
 	await installDesktopSpeedWarmupManifest(page);
 	await page.addInitScript(() => {
-		const probe = { commits: [], stops: [], current: null, chunks: [], selects: [] };
+		const probe = { begins: [], commits: [], stops: [], current: null, chunks: [], selects: [] };
 		let sessionIndex = 0;
 		const bridge = { getEnvironment: async () => null,
 			signalReady: async () => undefined,
@@ -77,7 +86,7 @@ async function installBlenderFixture(page) {
 			onCloseRequested: () => () => undefined, onWindowStateChanged: () => () => undefined,
 			blender: {
 				select: async ({ live }) => { probe.selects.push(live); return { sessionId: `blender-session-${String(++sessionIndex)}` }; },
-				begin: async (value) => { probe.current = value; probe.chunks = []; return { publicationId: 'publication' }; },
+				begin: async (value) => { probe.begins.push(value); probe.current = value; probe.chunks = []; return { publicationId: 'publication' }; },
 				write: async (value) => { probe.chunks.push({ trackId: value.trackId, offset: value.offset, bytes: Array.from(value.bytes) }); },
 				commit: async () => { probe.commits.push({ tracks: probe.current.tracks,
 					wavHeaders: probe.chunks.filter(({ offset }) => offset === 0).map(({ bytes }) => String.fromCharCode(...bytes.slice(0, 4))),

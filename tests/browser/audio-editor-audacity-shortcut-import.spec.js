@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, waitForEditor } from './audio-editor-test-helpers.js';
+import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
+import { bootEditor, chooseCommandAction, importFiles, waitForEditor } from './audio-editor-test-helpers.js';
 
 const EXPORTS = [
 	{
@@ -26,9 +26,9 @@ const EXPORTS = [
 	},
 ];
 
-for (const exported of EXPORTS) {
-	test(`reviews Audacity ${exported.version} shortcuts and keeps the applied bindings after reload`, async ({ page }) => {
-		let editor = await bootEditor(page, '/embed/en/');
+test('reviews both Audacity shortcut dialects and keeps their applied bindings after reload', async ({ page }) => {
+	let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	for (const exported of EXPORTS) {
 		let preferences = await openShortcutPreferences(page, editor);
 		let mono = await shortcutCommand(preferences, 'New mono track');
 		const original = await mono.getByRole('textbox').first().inputValue();
@@ -71,11 +71,12 @@ for (const exported of EXPORTS) {
 		for (const [index, binding] of exported.bindings.entries()) {
 			await expect(mono.getByRole('textbox').nth(index)).toHaveValue(binding);
 		}
-	});
-}
+		await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
+	}
+});
 
 test('canceling a shortcut import leaves the existing bindings unchanged', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const preferences = await openShortcutPreferences(page, editor);
 	const mono = await shortcutCommand(preferences, 'New mono track');
 	const original = await mono.getByRole('textbox').first().inputValue();
@@ -88,7 +89,7 @@ test('canceling a shortcut import leaves the existing bindings unchanged', async
 });
 
 test('malformed shortcut XML reports an error and preserves the saved shortcut', async ({ page }) => {
-	let editor = await bootEditor(page, '/embed/en/');
+	let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	let preferences = await openShortcutPreferences(page, editor);
 	let mono = await shortcutCommand(preferences, 'New mono track');
 	const original = await mono.getByRole('textbox').first().inputValue();
@@ -106,7 +107,7 @@ test('malformed shortcut XML reports an error and preserves the saved shortcut',
 });
 
 test('clearing a command and reassigning its shortcut applies the reviewed changes together', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const preferences = await openShortcutPreferences(page, editor);
 	const mono = await shortcutCommand(preferences, 'New mono track');
 	await expect(mono.getByRole('textbox').first()).toHaveValue('Ctrl+Shift+N');
@@ -135,33 +136,55 @@ test('clearing a command and reassigning its shortcut applies the reviewed chang
 	await expect(addLabel).toHaveCount(originalLabels + 1);
 });
 
-test('an entirely unsupported import explains its skips and cannot be applied', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
-	const preferences = await openShortcutPreferences(page, editor);
-	await chooseShortcutExport(page, preferences, `<audacitykeyboard audacityversion="3.7.7">
-		<command name="FutureAudacityCommand" key="Ctrl+Alt+Shift+F7"/>
-	</audacitykeyboard>`);
-	const review = preferences.getByRole('region', { name: 'Audacity shortcut import', exact: true });
-	await expect(review.getByRole('status')).toHaveText('0 commands ready to import; 1 skipped.');
-	await expect(review.getByRole('button', { name: 'Apply shortcuts', exact: true })).toBeDisabled();
-	await review.getByText('Skipped shortcuts', { exact: true }).click();
-	await expect(review.getByRole('listitem')).toHaveText('FutureAudacityCommand: Command unavailable');
-});
-
-for (const [command, version] of [['PlayLooped', '3.0.5'], ['Play', '3.7.7']]) {
-	test(`incompatible Audacity ${command} playback mode is reviewed as unavailable`, async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
-		const preferences = await openShortcutPreferences(page, editor);
-		await chooseShortcutExport(page, preferences, `<audacitykeyboard audacityversion="${version}">
-			<command name="${command}" key="Ctrl+Alt+Shift+F7"/>
-		</audacitykeyboard>`);
+// Node retains independent parser/session/store refusal matrices for these command families.
+test('unsupported shortcut dialects disclose every skip and preserve selected peers, ranges and bindings', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await importFiles(editor, [toneA, toneB]);
+	await chooseCommandAction(page, editor, 'Select', 'Select all');
+	for (const [name, frame] of [['Selection start', 9600], ['Selection end', 19200]]) {
+		const group = editor.getByRole('group', { name, exact: true });
+		await group.locator('.timecode__format-button').click();
+		await page.getByRole('menuitem', { name: 'samples', exact: true }).click();
+		await group.locator('.timecode-digit').first().click();
+		await page.keyboard.type(String(frame).padStart(12, '0')); await page.keyboard.press('Enter');
+		await expect(group.locator('.timecode-digit')).toHaveText([...String(frame).padStart(12, '0')]);
+	}
+	const playhead = editor.getByRole('group', { name: 'Playhead', exact: true });
+	await playhead.locator('.timecode__format-button').click();
+	await page.getByRole('menuitem', { name: 'samples', exact: true }).click();
+	let preferences = await openShortcutPreferences(page, editor);
+	let mix = await shortcutCommand(preferences, 'Mix & Render');
+	const originalMix = await mix.getByRole('textbox').first().inputValue();
+	const legacy = ['FutureAudacityCommand', 'SortByName', 'SortByTime', 'Disjoin', 'SelectAll', 'SelAllTracks', 'SelNextClip', 'SelPrevClip',
+		'CursorRight', 'CursorLongJumpRight', 'SelTrackStartToCursor', 'SelCursorToTrackEnd', 'TrackClose', 'MixAndRenderToNewTrack', 'SeekRightLong', 'Play'];
+	const modern = ['future-audacity-command', 'mix-and-render-to-new-track', 'track-close', 'seek-left-long'];
+	const imports = [
+		[legacy, `<audacitykeyboard audacityversion="3.7.7">${legacy.map(command => `<command name="${command}" key="Ctrl+Alt+Shift+F7"/>`).join('')}</audacitykeyboard>`],
+		[modern, `<Shortcuts>${modern.map(command => `<SC><key>${command}</key><seq>Ctrl+Alt+Shift+F7</seq></SC>`).join('')}</Shortcuts>`],
+		[['PlayLooped'], '<audacitykeyboard audacityversion="3.0.5"><command name="PlayLooped" key="Ctrl+Alt+Shift+F7"/></audacitykeyboard>'],
+	];
+	for (const [index, [commands, xml]] of imports.entries()) {
+		await chooseShortcutExport(page, preferences, xml);
 		const review = preferences.getByRole('region', { name: 'Audacity shortcut import', exact: true });
-		await expect(review.getByRole('status')).toHaveText('0 commands ready to import; 1 skipped.');
+		await expect(review.getByRole('status')).toHaveText(`0 commands ready to import; ${commands.length} skipped.`);
 		await expect(review.getByRole('button', { name: 'Apply shortcuts', exact: true })).toBeDisabled();
-		await review.getByText('Skipped shortcuts', { exact: true }).click();
-		await expect(review.getByRole('listitem')).toHaveText(`${command}: Command unavailable`);
-	});
-}
+		const skipped = review.getByText('Skipped shortcuts', { exact: true });
+		if (!await skipped.locator('..').evaluate(details => details.open)) await skipped.click();
+		await expect(review.getByRole('listitem')).toHaveText(commands.map(command => `${command}: Command unavailable`));
+		await expect(mix.getByRole('textbox').first()).toHaveValue(originalMix);
+		await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
+		await playhead.focus(); await page.keyboard.press('Control+Alt+Shift+F7');
+		await expect(editor).toHaveAttribute('data-clip-count', '2');
+		await expect(playhead.locator('.timecode-digit')).toHaveText([...'000000009600']);
+		for (const [name, frame] of [['Selection start', 9600], ['Selection end', 19200]]) {
+			await expect(editor.getByRole('group', { name, exact: true }).locator('.timecode-digit')).toHaveText([...String(frame).padStart(12, '0')]);
+		}
+		if (index < imports.length - 1) {
+			preferences = await openShortcutPreferences(page, editor);
+			mix = await shortcutCommand(preferences, 'Mix & Render');
+		}
+	}
+});
 
 async function openShortcutPreferences(page, editor) {
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');

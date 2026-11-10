@@ -35,7 +35,7 @@ test('Source pure Spectrogram does not offer amplitude-only zoom actions', async
 });
 
 async function sourceView(page, mode) {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const file = createWavFixture({ name: 'Source zoom.wav', sampleRate: 48000, frequency: 3000, duration: 1, channelCount: 1 });
 	await importFiles(editor, [file]);
 	const panel = await openSourceMonitor(page, editor, clipByName(editor, file.name));

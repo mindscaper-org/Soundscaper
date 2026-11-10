@@ -4,7 +4,7 @@ import { bootEditor, importFiles, registerAudioEditorHooks } from './audio-edito
 test.describe('Frequency ruler field editing', () => {
 	registerAudioEditorHooks();
 	test('an edited frequency field owns its stepping and caret arrows', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 		await editor.locator('[data-track-ruler]').first().click({ button: 'right' });

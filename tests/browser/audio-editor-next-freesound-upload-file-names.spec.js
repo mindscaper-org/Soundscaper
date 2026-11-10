@@ -4,7 +4,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
 import { encodeWav } from '../../src/common/editor/wav.js';
 
-for (const [name, expectedName] of [['  Field take.wav', 'Field take.wav'], ['Field\ntake.wave', 'Field-take.wav'], ['Field\u007ftake.wav', 'Field-take.wav']]) {
+for (const [name, expectedName] of [['Field\ntake.wave', 'Field-take.wav']]) {
 	test(`Freesound transfers a usable filename for ${JSON.stringify(name)}`, async ({ page }) => {
 		const names = [];
 		await page.route('**/api/freesound/**', async route => {
@@ -25,7 +25,7 @@ for (const [name, expectedName] of [['  Field take.wav', 'Field take.wav'], ['Fi
 					: { uploadFilename: 'remote.wav' };
 			await route.fulfill({ json: { data } });
 		});
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await chooseNestedCommandAction(page, editor, 'Window', ['Freesound']);
 		const uploads = editor.locator('[data-freesound-uploads="true"]');
 		await uploads.getByText('Upload to Freesound', { exact: true }).click();

@@ -6,7 +6,7 @@ import { bootEditor, chooseCommandAction, clipByName, closeClipProperties,
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('Clip properties retains live track lock and unlock admission', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = clipByName(editor, toneA.name);
 	const track = clip.locator('xpath=ancestor::div[@data-track-row]');

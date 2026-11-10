@@ -6,7 +6,7 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, commitInput
 registerAudioEditorHooks();
 
 async function openTone(page) {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Generate', 'Tone');
 	return page.getByRole('dialog', { name: 'Tone', exact: true });
 }

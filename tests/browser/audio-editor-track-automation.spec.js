@@ -32,7 +32,7 @@ test.describe('Soundscaper inline track automation', () => {
 
 	test('opts in per track, edits over clips, and yields every hit to clip gain', async ({ page }) => {
 		const clientErrors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		const clip = clipByName(editor, longTone.name);
 		const row = clip.locator('xpath=ancestor::div[@data-track-row]');
@@ -112,7 +112,7 @@ test.describe('Soundscaper inline track automation', () => {
 	});
 
 	test('focuses and dismisses the automation curve menu opened by keyboard', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const row = clipByName(editor, toneA.name).locator('xpath=ancestor::div[@data-track-row]');
 		await chooseTrackMenuAction(page, editor, row, 'Add automation');
@@ -137,7 +137,7 @@ test.describe('Soundscaper inline track automation', () => {
 
 	test('persists a pointer-edited lane while keeping its controls session-only', async ({ page }) => {
 		const clientErrors = collectClientErrors(page);
-		let editor = await bootEditor(page, '/embed/en/');
+		let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		let row = clipByName(editor, toneA.name).locator('xpath=ancestor::div[@data-track-row]');
 
@@ -194,7 +194,7 @@ test.describe('Soundscaper inline track automation', () => {
 
 	test('preserves authored automation through track ripple delete and insert paste', async ({ page }) => {
 		const clientErrors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		const row = clipByName(editor, longTone.name).locator('xpath=ancestor::div[@data-track-row]');
 

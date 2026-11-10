@@ -6,7 +6,7 @@ import { bootEditor, chooseCommandAction, clipByName, getMenuItem, importFiles,
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('Tracks Resample remains unavailable until its recording track is unlocked', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = clipByName(editor, toneA.name).first();
 	const clipId = await clip.getAttribute('data-clip-id');

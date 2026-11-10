@@ -17,7 +17,7 @@ test.describe('undo history playhead', () => {
 
 	test('undo hands back the playhead the edit was made from, and redo the one it was undone from', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const playhead = editor.getByRole('slider', { name: 'Playhead' });
 		const clip = clipByName(editor, toneA.name);

@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 for (const toggle of [false, true]) test(`a selected recording spectral band leaves its overlapping neighbor unchanged${toggle ? ' after toggling' : ''}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'selected-spectral.wav', frequency: 440,
 		duration: 2, channelCount: 1, channelAmplitudes: [.2] });
 	const neighbor = createWavFixture({ name: 'untouched-spectral.wav', frequency: 880,

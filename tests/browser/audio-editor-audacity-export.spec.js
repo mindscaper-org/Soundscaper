@@ -28,7 +28,7 @@ for (const { generation, userVersion } of [
 		test.setTimeout(90_000);
 		await disableNativeSavePicker(page);
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [monoTone]);
 		await expect(clipByName(editor, monoTone.name)).toHaveCount(1);
 

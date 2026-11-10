@@ -18,11 +18,13 @@ import { COPY, audioBuffer, createAudioEditorController, createMemoryEngine } fr
 import { createMemoryFfmpeg } from './audio-editor-controller-fixtures.js';
 import { createInstrumentedIndexedDB } from './instrumented-indexeddb.js';
 import { nativeSidecarFixture } from './framescaper-native-sidecar-fixture.ts';
+import { assertPcmChannelsEqual } from './assert-pcm-samples.ts';
 
 /** Exercise the actual import and portable archive owners with an independent recipient. */
 export async function importAndReopenAudio(context: TestContext, file: File, options: {
 	product?: 'soundscaper' | 'framescaper'; desktop?: boolean;
 	decoded?: { channels: readonly Float32Array[]; sampleRate: number };
+	codecRuntime?: NonNullable<Parameters<typeof createAudioEditorController>[1]>['ffmpeg'];
 } = {}) {
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const product = options.product ?? 'soundscaper', profile = FRAMESCAPER_PROJECT_RUNTIME_PROFILE;
@@ -37,11 +39,13 @@ export async function importAndReopenAudio(context: TestContext, file: File, opt
 	const engine = { ...createMemoryEngine(), ...(options.decoded ? { decodeAudioData: async () => {
 		assert.ok(options.decoded);
 		return audioBuffer(options.decoded.channels.map(channel => channel.slice()), options.decoded.sampleRate);
+	} } : options.codecRuntime ? { decodeAudioData: async () => {
+		throw new DOMException('Native audio decoding unavailable in Node', 'NotSupportedError');
 	} } : {}) };
 	const controller = createAudioEditorController(null, { headless: true, productId: product, locale: 'en', copy: COPY, store: sender,
 		projectRuntime: runtime as unknown as Options['projectRuntime'], sessionController: runtime.createSessionController(),
 		...(service ? { fileService: service } : {}), engine: engine as unknown as Options['engine'],
-		ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'] });
+		ffmpeg: options.codecRuntime ?? createMemoryFfmpeg() as unknown as Options['ffmpeg'] });
 	context.after(async () => { await controller.dispose(); await recipient.close(); await native?.close(); });
 	await controller.ready;
 	if (service) {
@@ -52,6 +56,8 @@ export async function importAndReopenAudio(context: TestContext, file: File, opt
 	} else await controller.actions.project.importFiles([file]);
 	const project = admit(controller.project);
 	assert.equal(project.sources.length, 1); assert.equal(project.clips.length, 1);
+	const decodedSource = project.sources[0]; assert.ok(decodedSource?.kind === 'audio');
+	const decodedChannels = await readChannels(sender, decodedSource);
 	const archive = product === 'framescaper' ? createFramescaperScapeNativeRuntime(profile) : createSoundscaperScapeNativeRuntime();
 	const exported = await archive.exportScapeProject(project, sender); assert.ok(exported.blob);
 	const reopened = await archive.importScapeProject(exported.blob, recipient); assert.equal(reopened.readOnly, false);
@@ -61,12 +67,18 @@ export async function importAndReopenAudio(context: TestContext, file: File, opt
 	const contribution = normalizeSourceProvenance(source.provenance).contributions[0]; assert.ok(contribution);
 	assert.ok(contribution.origin?.kind === 'local-file');
 	assert.equal(contribution.origin.originalFileName, file.name); assert.equal(contribution.origin.byteLength, file.size);
-	const samples = Array.from({ length: source.channelCount }, () => [] as number[]);
-	for await (const chunk of recipient.readSourceChunks(source.storageKey)) {
-		assert.equal(chunk.channels.length, samples.length);
-		for (let channel = 0; channel < samples.length; channel++) samples[channel]!.push(...chunk.channels[channel]!);
+	const channels = await readChannels(recipient, source);
+	assertPcmChannelsEqual(channels, decodedChannels, 'decoded PCM retained through Scape archive');
+	return { project: restored, source, contribution, channels };
+
+	async function readChannels(store: ReturnType<typeof createSoundscaperProjectStore>, descriptor: { channelCount: number; storageKey: string }) {
+		const samples = Array.from({ length: descriptor.channelCount }, () => [] as number[]);
+		for await (const chunk of store.readSourceChunks(descriptor.storageKey)) {
+			assert.equal(chunk.channels.length, samples.length);
+			for (let channel = 0; channel < samples.length; channel++) samples[channel]!.push(...chunk.channels[channel]!);
+		}
+		return samples.map(channel => Float32Array.from(channel));
 	}
-	return { project: restored, source, contribution, channels: samples.map(channel => Float32Array.from(channel)) };
 
 	function admit(value: unknown): SoundscaperProject | FramescaperProject {
 		if (product === 'framescaper') { assert.ok(validateFramescaperProject(profile, value)); return value; }

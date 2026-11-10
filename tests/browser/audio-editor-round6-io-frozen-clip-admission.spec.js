@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { unzipSync } from 'fflate';
+import { inspectWavBlobPcm } from '../../src/common/editor/wav-import.js';
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import {
 	addRackEffect, bootEditor, chooseDropdown, chooseNestedCommandAction, clipByName,
@@ -8,9 +9,11 @@ import {
 	openExportDialog, readDownloadBytes,
 } from './audio-editor-test-helpers.js';
 
-for (const frozen of [false, true]) test(`individual clip export ${frozen ? 'explains the normal frozen-track refusal' : 'delivers ordinary unfrozen PCM'}`, async ({ page }) => {
+// The retained workflow also exercises the ordinary 16-bit clip export after
+// Unfreeze, so it owns both sides of the availability boundary in one editor.
+for (const frozen of [true]) test(`individual clip export ${frozen ? 'explains the normal frozen-track refusal' : 'delivers ordinary unfrozen PCM'}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	if (frozen) {
 		const effects = await openEffectsForTrack(editor, 1);
@@ -55,11 +58,13 @@ for (const frozen of [false, true]) test(`individual clip export ${frozen ? 'exp
 		const restored = await openExportDialog(page, editor);
 		await expect(restored.locator('[data-export-clips-unavailable]')).toHaveCount(0);
 		await chooseDropdown(page, restored.locator('[data-export-field="output"]'), 'Individual clips (split by clips)');
+		await chooseDropdown(page, restored.locator('[data-export-field="bitDepth"]'), '16-bit PCM');
 		await restored.getByRole('button', { name: 'Export', exact: true }).click();
 		await expect(restored.locator('[data-export-download]')).toBeVisible({ timeout: 20_000 });
 		await expect(restored.locator('[data-export-download]')).toHaveAttribute('download', /\.zip$/u, { timeout: 20_000 });
 		const clips = Object.values(unzipSync(await readDownloadBytes(page, restored.locator('[data-export-download]'))));
 		expect(clips).toHaveLength(1);
+		expect((await inspectWavBlobPcm(new Blob([Uint8Array.from(clips[0])]))).bitDepth).toBe(16);
 		const restoredAudio = await audioMetrics(page, clips[0]);
 		expect(restoredAudio.frames).toBe(38_400);
 		expect(restoredAudio.peak).toBeGreaterThan(.1);

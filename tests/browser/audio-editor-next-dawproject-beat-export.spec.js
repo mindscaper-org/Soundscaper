@@ -10,7 +10,7 @@ import { encodeWav } from '../../src/common/editor/wav.js';
 
 test('a native musical fader keeps its audible slope through DAWproject export and reopen', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'Constant.wav', mimeType: 'audio/wav',
 		buffer: Buffer.from(encodeWav([new Float32Array(96_000).fill(0.25)], { sampleRate: 48_000, float: true })) }]);
 	const saving = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);

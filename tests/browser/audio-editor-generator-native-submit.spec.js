@@ -3,7 +3,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clipByName } from './audio-editor-test-helpers.js';
 
 for (const completion of ['footer', 'message Enter']) test(`Morse generation completes once through ${completion}`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Generate', 'Morse code');
 	const dialog = page.getByRole('dialog', { name: 'Morse code', exact: true });
 	const message = dialog.locator('[data-generator-field="text"] input');

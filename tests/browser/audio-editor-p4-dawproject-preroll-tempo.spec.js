@@ -5,7 +5,10 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 import { writeDawprojectArchive } from '../../src/common/editor/dawproject-archive.ts';
 import { encodeWav } from '../../src/common/editor/wav.js';
 
-for (const at of [-4, 0, null]) test(`File Open preserves a held tempo point at ${String(at)} before WAV delivery`, async ({ page }) => {
+// Node verifies all three imported clock positions with exact archived source PCM.
+// Retain the negative held point through actual browser rendering.
+const at = -4;
+test(`File Open preserves a held tempo point at ${String(at)} before WAV delivery`, async ({ page }) => {
 	test.setTimeout(60_000);
 	const xml = `<Project version="1.0"><Application name="Preroll tempo" version="1"/><Transport><Tempo unit="bpm" value="120" id="tempo"/></Transport>
 	<Structure><Track id="voice" name="Voice" contentType="audio"><Channel role="regular" audioChannels="2"/></Track></Structure>

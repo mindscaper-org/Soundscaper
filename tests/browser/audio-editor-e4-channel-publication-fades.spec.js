@@ -1,16 +1,17 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, disableNativeSavePicker, openClipProperties,
+import { bootEditor, chooseCommandAction, disableNativeSavePicker,
 	openExportDialog, readDownloadBytes, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 import { persistedProject } from './helpers/complex-editing-workflows.js';
-import { expectClipSampleRate, resampleClipFormat } from './audio-editor-clip-settings-test-helpers.js';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/common/editor/project-media-factory.ts';
 import { createProjectStore } from '../../src/common/editor/storage.js';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 
-for (const operation of ['merge', 'split', 'track-resample', 'clip-resample', 'render']) for (const microfades of [false, true]) {
+// Split and source-rate permutations exercise real PCM and archive reopening in
+// audio-editor-channel-publication-pcm.test.ts. These rows retain native rendering.
+for (const operation of ['merge', 'render']) for (const microfades of [false, true]) {
 	test(`${operation} preserves authored endpoints with new-clip fades ${microfades}`, async ({ page }) => {
 		const { project, blob } = await projectArchive(operation, microfades);
 		await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
@@ -26,24 +27,15 @@ for (const operation of ['merge', 'split', 'track-resample', 'clip-resample', 'r
 		await expect(editor).toHaveAttribute('data-project-id', project.id); await waitForProjectActivation(editor);
 		const before = await samples(page, editor);
 		await editor.locator('[data-clip-id="left-clip"] .clip-header').click();
-		if (operation === 'merge' || operation === 'split') {
+		if (operation === 'merge') {
 			await chooseTrackMenuAction(page, editor, editor.locator('[data-track-row][data-track-id="left"]'),
-				['Track channels', operation === 'merge' ? 'Make stereo track' : 'Split stereo to left/right mono']);
-		} else if (operation === 'track-resample') {
-			await chooseCommandAction(page, editor, 'Tracks', 'Resample');
-			const dialog = page.getByRole('dialog', { name: 'Resample', exact: true });
-			await dialog.getByRole('textbox').fill('24000');
-			await dialog.getByRole('button', { name: 'Resample', exact: true }).click(); await expect(dialog).toBeHidden();
-		} else if (operation === 'render') {
+				['Track channels', 'Make stereo track']);
+		} else {
 			await editor.locator('[data-clip-id="left-clip"]').first().getByRole('button', { name: 'Clip menu', exact: true }).click();
 			await page.locator('.audio-editor-clip-context-menu').getByRole('menuitem', { name: 'Render pitch and speed', exact: true }).click();
 			await expect.poll(async () => (await persistedProject(page, project.id)).clips[0].speedRatio).toBe(1);
-		} else {
-			const properties = await openClipProperties(page, editor, editor.locator('[data-clip-id="left-clip"]').first());
-			await resampleClipFormat(properties, 24_000);
-			await expectClipSampleRate(properties, 24_000);
 		}
-		await expect(editor).toHaveAttribute('data-clip-count', operation === 'split' ? '2' : '1');
+		await expect(editor).toHaveAttribute('data-clip-count', '1');
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved', { timeout: 20_000 });
 		const after = await samples(page, editor);
 		const current = await persistedProject(page, project.id);
@@ -77,7 +69,7 @@ async function samples(page, editor) {
 }
 
 async function projectArchive(operation, microfades) {
-	const source = createAudioSource({ id: 'source', sampleRate: 48_000, frameCount: operation === 'render' ? 9600 : 4800, channelCount: operation === 'split' ? 2 : 1 });
+	const source = createAudioSource({ id: 'source', sampleRate: 48_000, frameCount: operation === 'render' ? 9600 : 4800, channelCount: 1 });
 	const clips = (operation === 'merge' ? ['left', 'right'] : ['left']).map(id => createAudioClip({ id: `${id}-clip`,
 		sourceId: source.id, durationFrames: 4800, sourceDurationFrames: 4800,
 		...(operation === 'render' ? { sourceStartFrame: 2400, durationFrames: 2400, speedRatio: 2, linkPitchAndTempo: true } : {}), fadeInFrames: 0, fadeOutFrames: 0 }));

@@ -24,7 +24,7 @@ const observedMidiFactory=(dependencies)=>${factory[1]}({...dependencies,store:{
 }});`;
 		await route.fulfill({ response, body: observed });
 	});
-	const errors = collectClientErrors(page), editor = await bootEditor(page, '/embed/en/');
+	const errors = collectClientErrors(page), editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const bytes = writeMidiFile({ sampleRate: 48_000, tempos: [{ frame: 0, bpm: 120 }],
 		signatures: [{ frame: 0, numerator: 4, denominator: 4 }], tracks: [{ name: 'Requested note', durationFrames: 48_000,
 			notes: [{ id: 'note', pitch: 60, velocity: 100, channel: 0, startFrame: 0, durationFrames: 48_000 }] }] });

@@ -42,7 +42,7 @@ test.describe('project import formats', () => {
 			files: [{ path: 'audio/take.wav', blob: new Blob([audio.buffer], { type: 'audio/wav' }) }],
 		});
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const chooser = page.waitForEvent('filechooser');
 		await chooseFileAction(page, editor, 'Open');
 		await (await chooser).setFiles({ name: 'session.dawproject', mimeType: 'application/zip',
@@ -76,7 +76,7 @@ test.describe('project import formats', () => {
 		const projectPath = testInfo.outputPath('Legacy.aup');
 		await writeFile(projectPath, xml);
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const projectChooser = page.waitForEvent('filechooser');
 		await chooseFileAction(page, editor, 'Open');
 		const projectFileChooser = await projectChooser;

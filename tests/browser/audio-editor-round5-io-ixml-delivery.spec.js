@@ -9,12 +9,12 @@ import {
 // Unchanged BWF MetaEdit --in-iXML output over an ordinary Python wave recording.
 const recording = Buffer.from(readFileSync(new URL('../fixtures/bwfmetaedit-ixml-clock.wav.base64', import.meta.url), 'utf8').trim(), 'base64');
 
-for (const delivery of [
-	{ rate: 96_000, bits: 24, slate: 48_000, name: 'a resampled broadcast delivery keeps the recorder slate at its audible half-second position' },
-	{ rate: 48_000, bits: 16, slate: 24_000, name: 'an unchanged broadcast delivery preserves the original recorder XML' },
-]) test(delivery.name, async ({ page }) => {
+// Node covers both output clocks through import, Scape reopening and encoded XML.
+// The unchanged browser delivery remains in round6-io-bwf-import-metadata.
+const delivery = { rate: 96_000, bits: 24, slate: 48_000 };
+test('a resampled broadcast delivery keeps the recorder slate at its audible half-second position', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'production-take.wav', mimeType: 'audio/wav', buffer: recording }]);
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
 	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
@@ -37,7 +37,6 @@ for (const delivery of [
 	expect(xml).toContain(`<FILE_SAMPLE_RATE>${delivery.rate}</FILE_SAMPLE_RATE>`);
 	expect(xml).toContain(`<AUDIO_BIT_DEPTH>${delivery.bits}</AUDIO_BIT_DEPTH>`);
 	expect(xml).toContain('<DIGITIZER_SAMPLE_RATE>48000</DIGITIZER_SAMPLE_RATE>');
-	if (delivery.rate === 48_000) expect(xml).toBe(new TextDecoder().decode(riffChunks(recording).get('iXML')));
 });
 
 function riffChunks(bytes) {

@@ -6,7 +6,7 @@ import { readDawprojectArchive } from '../../src/common/editor/dawproject-archiv
 for (const [preset, shape, warning] of [['Constant power', 1, true], ['Linear', undefined, false], ['S-curve', 2, true]]) {
 	test(`DAWproject delivery truthfully reports the ${preset} fade it reopens as linear`, async ({ page }) => {
 		await disableNativeSavePicker(page);
-		const editor = await bootEditor(page, '/embed/en/'); await importFiles(editor, [toneA]);
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name); await clip.focus(); await clip.press('Enter');
 		const fade = clip.getByRole('slider', { name: 'Fade in', exact: true });
 		for (let count = 0; count < 4; count++) await fade.press('ArrowRight');

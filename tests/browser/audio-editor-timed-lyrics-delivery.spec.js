@@ -6,7 +6,7 @@ import { encodeWav } from '../../src/common/editor/wav.js';
 
 for (const selected of [false, true]) test(`timed ID3 lyrics follow the delivered audio origin: selection=${selected}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const samples = new Float32Array(48_000); samples.fill(.5, 36_000, 36_048);
 	await importFiles(editor, [{ name: 'Pulse.wav', mimeType: 'audio/wav',
 		buffer: Buffer.from(encodeWav([samples], { sampleRate: 48_000, bitDepth: 16, dither: false })) }]);

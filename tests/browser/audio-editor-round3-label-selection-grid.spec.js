@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clipByName, importFiles, showToolbarButton } from './audio-editor-test-helpers.js';
 
 test('selecting an authored label retains its exact region with the time grid enabled', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = await clipByName(editor, toneA.name).locator('.clip-display').boundingBox();
 	const ruler = await editor.locator('[data-ruler]').boundingBox();

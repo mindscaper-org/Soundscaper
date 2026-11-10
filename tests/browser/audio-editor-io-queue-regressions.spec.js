@@ -18,7 +18,7 @@ async function saveWavPreset(page, dialog, name) {
 
 test('a buffered BW64 delivery queue job downloads the file it marks delivered', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
 	const metadata = editor.locator('[data-workspace-panel="metadata"]');
@@ -43,7 +43,7 @@ test('a buffered BW64 delivery queue job downloads the file it marks delivered',
 
 test('a stems delivery batch drops the normalization hidden by its mode', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const dialog = await openExportDialog(page, editor);
 	await chooseDropdown(page, dialog.getByRole('group', { name: 'Loudness normalization', exact: true }), 'Streaming (-14 LUFS)');

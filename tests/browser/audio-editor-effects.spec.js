@@ -64,7 +64,7 @@ import { observeKnobWindowBlur } from './helpers/knob-window-blur-observer.js';
 
 	test('offers only supported rack effects and persists track and master effects', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		let effectsPanel = await openEffectsForTrack(editor, 0);
 
 		await openRackPicker(effectsPanel, 'track');
@@ -109,7 +109,7 @@ import { observeKnobWindowBlur } from './helpers/knob-window-blur-observer.js';
 
 	test('filters the realtime effect flyout as the user types', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const effectsPanel = await openEffectsForTrack(editor, 0);
 		await openRackPicker(effectsPanel, 'track');
 
@@ -134,7 +134,7 @@ import { observeKnobWindowBlur } from './helpers/knob-window-blur-observer.js';
 	test('renders an Audacity rack effect from the first offline quantum', async ({ page }) => {
 		await disableNativeSavePicker(page);
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		test.skip(!await page.evaluate(() => typeof globalThis.OfflineAudioContext === 'function'
 			|| typeof globalThis.webkitOfflineAudioContext === 'function'), 'OfflineAudioContext is unavailable in this browser.');
 		await importFiles(editor, [toneA]);
@@ -164,7 +164,7 @@ import { observeKnobWindowBlur } from './helpers/knob-window-blur-observer.js';
 	test('keeps rack knob updates live and ends Feedback delay gestures when the window blurs', async ({ page }) => {
 		const blurObserver = await observeKnobWindowBlur(page);
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const effectsPanel = await openEffectsForTrack(editor, 0);
 
 		await addRackEffect(page, effectsPanel, 'track', 'Reverb');
@@ -309,7 +309,7 @@ import { observeKnobWindowBlur } from './helpers/knob-window-blur-observer.js';
 		test.setTimeout(90_000);
 		await disableNativeSavePicker(page);
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		let effectsPanel = await openEffectsForTrack(editor, 1);
 
@@ -392,7 +392,7 @@ import { observeKnobWindowBlur } from './helpers/knob-window-blur-observer.js';
 
 	test('copies an ordered effect stack between tracks and exports it as an Audacity macro', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA, toneB]);
 		let effectsPanel = await openEffectsForTrack(editor, 1);
 
@@ -447,7 +447,7 @@ import { observeKnobWindowBlur } from './helpers/knob-window-blur-observer.js';
 
 	test('shows what the live compressor is doing to the signal while it plays', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		// The readout follows the signal, so the clip has to outlast the poll.
 		await importFiles(editor, [longTone]);
 		// The import lands on its own track; track 0 is the empty default.
@@ -485,7 +485,7 @@ import { observeKnobWindowBlur } from './helpers/knob-window-blur-observer.js';
 
 	test('manages a saved macro library with list, file, step, and run actions', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
 
@@ -587,7 +587,7 @@ import { observeKnobWindowBlur } from './helpers/knob-window-blur-observer.js';
 
 	test('runs a macro whose steps mix a realtime rack effect with an offline one', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
 
@@ -624,7 +624,7 @@ import { observeKnobWindowBlur } from './helpers/knob-window-blur-observer.js';
 
 	test('captures and restores a rack Noise Reduction profile', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		let effectsPanel = await openEffectsForTrack(editor, 1);
 		await openRackPicker(effectsPanel, 'track');
@@ -649,7 +649,7 @@ import { observeKnobWindowBlur } from './helpers/knob-window-blur-observer.js';
 
 	test('directly applies a setting-free Audacity selection effect with undo and redo', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await chooseNestedCommandAction(page, editor, 'Effect', ['Special', 'Invert']);
 
@@ -667,7 +667,7 @@ import { observeKnobWindowBlur } from './helpers/knob-window-blur-observer.js';
 
 	test('offers and destructively applies the parametric EQ from the selection Effect menu', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [monoTone]);
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 
@@ -696,7 +696,7 @@ import { observeKnobWindowBlur } from './helpers/knob-window-blur-observer.js';
 	});
 	test('offers the bitcrusher with its named modes and applies it to a selection', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [monoTone]);
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 

@@ -4,7 +4,7 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { bootEditor, clipByName, importFiles, openSourceMonitor } from './audio-editor-test-helpers.js';
 
 test('Select All in the source waveform accepts the uppercase key produced by Caps Lock', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const file = createWavFixture({ name: 'source-key.wav', duration: 2, channelCount: 1 });
 	await importFiles(editor, [file]);
 	const panel = await openSourceMonitor(page, editor, clipByName(editor, file.name));

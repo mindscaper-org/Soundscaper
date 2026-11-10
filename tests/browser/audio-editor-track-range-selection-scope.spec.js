@@ -5,7 +5,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 import { runSpectralRange } from './helpers/guide-spectral-range.js';
 for (const range of [false, true]) test(`Invert keeps unselected peer unchanged after track range=${range}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Tracks', 'Remove tracks');
 	await importFiles(editor, [
 		createWavFixture({ name: 'Music.wav', frequency: 440, duration: 1, channelCount: 1, channelAmplitudes: [.2] }),
@@ -28,7 +28,7 @@ function coefficient(values, frequency) {
 }
 
 for (const kind of ['range', 'tracks']) test(`${kind} selection command retains spectral playback`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();

@@ -4,7 +4,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor } from './audio-editor-test-helpers.js';
 
 test('opening an empty WAV reports the refusal while retaining the current project', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const id = await editor.getAttribute('data-project-id');
 	const tabs = await editor.getByRole('tab').count();
 	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Empty take.wav', mimeType: 'audio/wav', buffer: Buffer.alloc(0) });

@@ -13,7 +13,7 @@ for (const name of ['Back stereo', 'Front stereo']) test(`native Original WavPac
 	const native = await nativeOriginalImportFixture(file);
 	try {
 		await installNativeOriginalBridge(page, native);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await chooseFileAction(page, editor, 'Import');
 		await expect(editor).toHaveAttribute('data-clip-count', '1');
 		await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');

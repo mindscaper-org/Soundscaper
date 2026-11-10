@@ -20,7 +20,7 @@ for (const lookahead of [0, .1]) test(`saved limiter ${lookahead}s lookahead kee
 		await writer.write([samples]); await writer.commit(); blob = (await exportScapeProject(project, store)).blob;
 	} finally { await store.close(); }
 	const errors = collectClientErrors(page); await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Limiter.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-project-id', project.id); await waitForProjectActivation(editor);
 	const actual = await exportSamples(page, editor);

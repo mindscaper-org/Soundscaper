@@ -16,7 +16,7 @@ for (const encoding of ['utf-16le', 'utf-16be']) test(`File Open imports ${encod
 	await mkdir(dataDirectory);
 	await writeFile(join(dataDirectory, dataFile.name), new Uint8Array(await dataFile.arrayBuffer()));
 	try {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const choosingData = page.waitForEvent('filechooser');
 		await editor.locator('[data-aup4-input]').setInputFiles({ name: projectFile.name, mimeType: projectFile.type,
 			buffer: Buffer.from(await projectFile.arrayBuffer()) });

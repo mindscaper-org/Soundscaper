@@ -7,7 +7,7 @@ import { showClipTimingFields, bootEditor, chooseCommandAction, chooseNestedComm
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('Plot spectrum includes audio after a silent lead-in in the selected range', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const properties = await openClipProperties(page, editor, clipByName(editor, monoTone.name));
 	await showClipTimingFields(properties);
@@ -20,7 +20,7 @@ test('Plot spectrum includes audio after a silent lead-in in the selected range'
 });
 
 test('Plot spectrum preserves energy in stereo channels with opposite polarity', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const original = clipByName(editor, monoTone.name);
 	const row = original.locator('xpath=ancestor::div[@data-track-row][1]');

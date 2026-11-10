@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, importFiles } from './audio-editor-tes
 
 for (const [binding, chord] of [['Shift+<', 'Shift+Comma'], ['Shift+>', 'Shift+Period']]) {
 	test(`a saved ${binding} preference invokes its command before an older physical-key alias`, async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 		const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });

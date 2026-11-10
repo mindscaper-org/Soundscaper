@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { addRackEffect, bootEditor, disableNativeSavePicker, downloadBytes, importFiles, openEffectsForTrack } from './audio-editor-test-helpers.js';
 
 for (const rack of [false, true]) test(`Unicode preset downloads retain their distinct names; rack=${rack}`, async ({ page }) => {
-	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
+	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	let dialog;
 	if (rack) {

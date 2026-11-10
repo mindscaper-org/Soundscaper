@@ -5,7 +5,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 for (const allowClipping of [false, true]) test(`authored Amplify macro keeps its clipping policy with allowClipping=${allowClipping}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'Guarded gain.wav', frequency: 440, duration: 0.25, channelCount: 1, channelAmplitudes: [0.8] })]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	const before = await exportSamples(page, editor);

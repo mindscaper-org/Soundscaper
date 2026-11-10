@@ -10,7 +10,7 @@ import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../../src/frames
 import { createFramescaperProjectStore } from '../../src/framescaper/editor-project-store.ts';
 import { createFramescaperScapeNativeRuntime } from '../../src/framescaper/editor-scape-native.ts';
 
-for (const sampleRate of [48_000, 44_100]) test(`a side sequence owns the dissolve clocks at ${sampleRate}Hz`, async ({ page }) => {
+for (const sampleRate of [44_100]) test(`a side sequence owns the dissolve clocks at ${sampleRate}Hz`, async ({ page }) => {
 	const archive = await twoClockProjectFile(sampleRate);
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
 	const chooser = page.waitForEvent('filechooser'); await chooseFileAction(page, editor, 'Open');

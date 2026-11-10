@@ -5,7 +5,7 @@ const spectralTone = createWavFixture({ name: 'spectral-center-tone.wav', freque
 
 test('Ctrl and Meta wheel on a waveform ruler change only vertical zoom', async ({ page }) => {
 	const errors = collectClientErrors(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [longTone]);
 	const track = clipByName(editor, longTone.name).locator('xpath=ancestor::div[@data-track-row]');
 	const ruler = track.locator('[data-track-ruler]');
@@ -29,7 +29,7 @@ test('Ctrl and Meta wheel on a waveform ruler change only vertical zoom', async 
 
 test('spectral center drag snaps to selected audio and keeps bandwidth; the menu accepts an exact center', async ({ page }) => {
 	const errors = collectClientErrors(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [spectralTone]);
 	const track = clipByName(editor, spectralTone.name).locator('xpath=ancestor::div[@data-track-row]');
 	await setSpectrogramPreferences(page, editor);
@@ -105,7 +105,7 @@ async function waveformChecksum(waveform) {
 test('spectral center snapping keeps the audible frequency when a clip is looped', async ({ page }) => {
 	const errors = collectClientErrors(page);
 	await page.setViewportSize({ width: 1920, height: 900 });
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [spectralTone]);
 	const clip = clipByName(editor, spectralTone.name);
 	await clip.locator('.clip-header').click();

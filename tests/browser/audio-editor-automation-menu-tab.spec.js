@@ -5,7 +5,7 @@ import { bootEditor, clipByName, importFiles } from './audio-editor-test-helpers
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('Tab leaves and dismisses an ordinary automation curve menu', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const row = clipByName(editor, toneA.name).locator('xpath=ancestor::div[@data-track-row]');
 	await chooseTrackMenuAction(page, editor, row, 'Add automation');

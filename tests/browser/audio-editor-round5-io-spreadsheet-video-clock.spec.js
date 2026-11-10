@@ -6,7 +6,7 @@ import { videoTimingProbeMedia } from './fixtures/video-timing-probe-media.js';
 
 test('the spreadsheet source offset follows the actual trimmed video frame time', async ({ page }) => {
 	test.setTimeout(60_000);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = videoTimingProbeMedia.find(({ id }) => id === 'vfr-irregular-webm-v1');
 	await importFiles(editor, [recording.file]);
 	await closeWorkspacePanel(editor, 'video-preview');

@@ -14,7 +14,7 @@ test('Nyquist preview preserves the relative placement of two header-selected cl
 			return Reflect.apply(start, this, args);
 		};
 	});
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA, toneB]);
 	const first = clipByName(editor, toneA.name);
 	const second = clipByName(editor, toneB.name);

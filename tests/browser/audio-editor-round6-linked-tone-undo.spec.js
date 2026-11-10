@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { addRackEffect, bootEditor, closeDialog, commitInput, importFiles, openEffectsForTrack } from './audio-editor-test-helpers.js';
 
 for (const parameter of ['bassDb', 'trebleDb']) test(`one Undo restores an ordinary linked ${parameter} edit and its compensated volume`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const panel = await openEffectsForTrack(editor, 1);
 	await addRackEffect(page, panel, 'track', 'Bass and Treble');

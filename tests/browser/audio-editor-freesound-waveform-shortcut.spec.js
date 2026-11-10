@@ -27,7 +27,7 @@ test('Freesound waveform releases an assigned modified endpoint command', async 
 		if (path.endsWith('/waveform')) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="20"><path d="M0 10H100" stroke="black"/></svg>' });
 		return route.fulfill({ status: 404, body: '' });
 	});
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });

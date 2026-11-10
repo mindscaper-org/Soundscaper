@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, closeDialog, importFiles, openEffectsForTrack, openRackPicker } from './audio-editor-test-helpers.js';
 
 test('the native effect search keeps its unfinished composition until ordinary Escape', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const panel = await openEffectsForTrack(editor, 1);
 	const trigger = panel.locator('[data-effect-rack]').getByRole('button', { name: 'Add effect', exact: true }).first();

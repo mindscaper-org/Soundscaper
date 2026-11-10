@@ -16,7 +16,7 @@ test('OS File Open retires the outgoing export channel mapping draft', async ({ 
 	await page.addInitScript(() => Object.defineProperty(globalThis, 'launchQueue', {
 		configurable: true, value: { setConsumer(consumer) { globalThis.__more200MappingLaunch = consumer; } },
 	}));
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'Outgoing stereo.wav', duration: .1, channelCount: 2 })]);
 	const dialog = await openExportDialog(page, editor);
 	await dialog.locator('[data-export-channel-option="custom"] input').check();

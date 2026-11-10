@@ -10,7 +10,7 @@ import { showClipTimingFields,
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('duplicating a grouped track creates independent clip groups', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA, toneB]);
 	const first = clipByName(editor, toneA.name);
 	const second = clipByName(editor, toneB.name);
@@ -26,7 +26,7 @@ test('duplicating a grouped track creates independent clip groups', async ({ pag
 
 test('Silence preserves disjoint grouped clips and the unselected clip between them', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	await clipByName(editor, monoTone.name).locator('.clip-header').click();
 	await chooseCommandAction(page, editor, 'Edit', 'Copy');

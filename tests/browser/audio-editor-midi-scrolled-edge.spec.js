@@ -4,7 +4,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
 test('piano-roll edge resize uses the note position after a horizontal wheel pan', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'quarter.mid', mimeType: 'audio/midi',
 		buffer: Buffer.from('4d546864000000060000000101e04d54726b0000001400ff510307a12000903c648360803c0000ff2f00', 'hex') }]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Piano roll (beta)']);
@@ -31,7 +31,7 @@ test('piano-roll edge resize uses the note position after a horizontal wheel pan
 });
 
 test('a short MIDI note retains a body that can be dragged', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'staccato.mid', mimeType: 'audio/midi',
 		buffer: Buffer.from('4d546864000000060000000101e04d54726b0000001400ff510307a12000903c648360803c0000ff2f00', 'hex') }]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Piano roll (beta)']);
@@ -55,7 +55,7 @@ test('a short MIDI note retains a body that can be dragged', async ({ page }) =>
 });
 
 test('line-mode wheel input scrolls complete piano-roll note rows', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'scroll.mid', mimeType: 'audio/midi',
 		buffer: Buffer.from('4d546864000000060000000101e04d54726b0000001400ff510307a12000903c648360803c0000ff2f00', 'hex') }]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Piano roll (beta)']);

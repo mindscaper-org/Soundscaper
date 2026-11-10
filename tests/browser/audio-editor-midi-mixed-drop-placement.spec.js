@@ -14,13 +14,12 @@ const midi = {
 	buffer: Buffer.from('4d546864000000060000000101e04d54726b0000001400ff510307a12000903c648360803c0000ff2f00', 'hex'),
 };
 
+// Input-order variants retain real destination/PCM/store/Scape custody in audio-editor-midi-batch-import-archive-custody.test.ts.
 for (const [arrangement, files] of [
-	['ordinary WAV batch', [first, second]],
-	['trailing MIDI', [first, second, midi]],
 	['interleaved MIDI', [first, midi, second]],
 ]) test(`dropping ${arrangement} preserves each WAV's track placement`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [bed]);
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
 	const bedRow = editor.locator('[data-track-row]').filter({

@@ -4,7 +4,7 @@ import { bootEditor, chooseCommandAction, importFiles } from './audio-editor-tes
 
 for (const [command, playing] of [['AddLabel', true], ['AddLabelPlaying', false]]) {
 	test(`legacy ${command} import preserves the local ${playing ? 'live' : 'stopped'} label mode`, async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/'); await importFiles(editor, [halfMinuteTone]);
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await importFiles(editor, [halfMinuteTone]);
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 		const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });

@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { addRackEffect, bootEditor, chooseCommandAction, chooseNestedCommandAction, commitInput, importFiles, openEffectsForTrack } from './audio-editor-test-helpers.js';
 
 test('a suspended modified shortcut leaves a Filter Curve EQ point unchanged', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });

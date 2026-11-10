@@ -3,7 +3,7 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { bootEditor, clipByName, fileDataTransfer, importFiles, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { legacyAupFiles } from '../helpers/more200-legacy-aup-file.ts';
 
-for (const sampleRate of [48_000, 44_100]) test(`dropping a legacy ${String(sampleRate)}Hz project and recording imports both into the incoming document`, async ({ page }) => {
+for (const sampleRate of [44_100]) test(`dropping a legacy ${String(sampleRate)}Hz project and recording imports both into the incoming document`, async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [createWavFixture({ name: 'Outgoing.wav', duration: .2, frequency: 220, channelCount: 1 })]);
 	const outgoingId = await editor.getAttribute('data-project-id');

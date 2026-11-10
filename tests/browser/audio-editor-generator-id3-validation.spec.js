@@ -6,7 +6,7 @@ import {
 } from './audio-editor-test-helpers.js';
 
 test('a menu-entered unsupported DTMF symbol retains its public validation message across the worker', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Generate', 'DTMF tones');
 	const dialog = page.getByRole('dialog', { name: 'DTMF tones', exact: true });
 	await dialog.getByRole('textbox', { name: 'DTMF sequence', exact: true }).fill('K');
@@ -17,7 +17,7 @@ test('a menu-entered unsupported DTMF symbol retains its public validation messa
 
 test('a rating authored in Metadata receives a public field validation before WAV export', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
 	const panel = editor.locator('[data-metadata-editor]');

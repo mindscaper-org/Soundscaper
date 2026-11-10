@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, clipByName, importFiles } from './audi
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('global clip movement reaches displayed tracks around an ordinarily collapsed folder', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA, toneB, longTone]);
 	const clip = name => clipByName(editor, name);
 	const row = name => clip(name).locator('xpath=ancestor::div[@data-track-row][1]');

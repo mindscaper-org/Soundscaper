@@ -5,7 +5,7 @@ import { bootEditor, clipByName, importFiles } from './audio-editor-test-helpers
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('Make stereo offers only mono partners with the same mute and solo state', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const files = ['left', 'right'].map((name, index) => createWavFixture({ name: `${name}-mono.wav`,
 		frequency: 330 + index * 110, duration: 0.5, channelCount: 1 }));
 	await importFiles(editor, files);

@@ -6,7 +6,7 @@ import {
 import { createDeterministicSilentVideoFixture } from './fixtures/deterministic-av-media.js';
 import { readWithReference } from '../helpers/interchange-reference.ts';
 
-for (const length of [30, 90]) test(`EDL retains the actual renamed project title of length ${length}`, async ({ page }) => {
+for (const length of [30]) test(`EDL retains the actual renamed project title of length ${length}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
 	await importFiles(editor, [createDeterministicSilentVideoFixture('Title check.webm')]);

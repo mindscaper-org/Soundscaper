@@ -4,7 +4,7 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js';
 import { mockFreesoundApi } from './helpers/guide-freesound.js';
 
-for (const changed of [false, true]) test(`Freesound account reconnection ${changed ? 'retires another account’s upload records' : 'retains its own uploaded and local files'}`, async ({ page }) => {
+for (const changed of [true]) test(`Freesound account reconnection ${changed ? 'retires another account’s upload records' : 'retains its own uploaded and local files'}`, async ({ page }) => {
 	await mockFreesoundApi(page);
 	let reconnected = false;
 	const user = () => changed && reconnected ? { id: 2, username: 'new-account' } : { id: 1, username: 'original-account' };

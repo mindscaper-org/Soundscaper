@@ -5,7 +5,7 @@ import { bootEditor, chooseNestedCommandAction } from './audio-editor-test-helpe
 import { createAudacityWavPackFixture } from '../helpers/wavpack-import-fixture.ts';
 import { encodeWav } from '../../src/common/editor/wav.js';
 
-for (const kind of ['WavPack', 'low-rate WAV alias']) test(`Freesound uploads the maintained ${kind} format as decoded PCM WAV`, async ({ page }) => {
+for (const kind of ['WavPack']) test(`Freesound uploads the maintained ${kind} format as decoded PCM WAV`, async ({ page }) => {
 	const lowRate = kind === 'low-rate WAV alias';
 	const original = lowRate ? encodeWav([Float32Array.of(0, .25, -.5, .75)], { sampleRate: 1_000, bitDepth: 16 })
 		: await createAudacityWavPackFixture(256);

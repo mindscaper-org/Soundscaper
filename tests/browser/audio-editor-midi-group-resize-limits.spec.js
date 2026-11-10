@@ -6,7 +6,7 @@ import { strFromU8, unzipSync } from 'fflate';
 import { readMidiClip } from '../../src/common/editor/midi-model.ts';
 
 test('left resizing selected notes at source zero preserves their onset offsets', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const events = Buffer.from('00ff510307a12078903c648360803c008268903e648360803e0000ff2f00', 'hex');
 	const size = Buffer.alloc(4); size.writeUInt32BE(events.length);
 	const buffer = Buffer.concat([Buffer.from('4d546864000000060000000101e04d54726b', 'hex'), size, events]);
@@ -30,7 +30,7 @@ test('left resizing selected notes at source zero preserves their onset offsets'
 
 test('right resizing selected notes shares the shortest-note limit without moving their onsets', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const events = Buffer.from('00ff510307a12078903c648360803c008268903e648360803e0000ff2f00', 'hex');
 	const size = Buffer.alloc(4); size.writeUInt32BE(events.length);
 	const buffer = Buffer.concat([Buffer.from('4d546864000000060000000101e04d54726b', 'hex'), size, events]);

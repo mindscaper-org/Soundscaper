@@ -6,7 +6,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('separately requested Noise generates independent downloaded recordings', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const generate = async () => {
 		await chooseCommandAction(page, editor, 'Generate', 'Noise');
 		const dialog = page.getByRole('dialog', { name: 'Noise', exact: true });
@@ -40,7 +40,7 @@ test('separately requested Noise generates independent downloaded recordings', a
 
 test('independently generated noise layers add independent energy to the exported mix', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Tracks', 'Remove tracks');
 	let first = [];
 	for (let layer = 0; layer < 2; layer++) {

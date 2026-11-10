@@ -6,7 +6,7 @@ import { installControlledFocusCallbacks, holdFocusCallbacks, flushFocusCallback
 
 test('macro indentation caret handoff preserves characters typed before its frame', async ({ page }) => {
 	await installControlledFocusCallbacks(page, 'animation-frame');
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
 	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
 	await manager.getByRole('button', { name: 'New program', exact: true }).click();

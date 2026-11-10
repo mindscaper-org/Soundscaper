@@ -10,7 +10,7 @@ test('Audacity WavPack continuation blocks import completely and survive a reloa
 		mimeType: 'audio/wavpack',
 		buffer: Buffer.from(await createAudacityWavPackFixture()),
 	};
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, file);
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
 	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');

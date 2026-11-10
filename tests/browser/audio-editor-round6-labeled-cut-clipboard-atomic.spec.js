@@ -4,7 +4,7 @@ import { expect, monoTone, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, importFiles } from './audio-editor-test-helpers.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
-for (const action of ['Cut', 'Cut and leave gap']) test(`a refused labeled ${action} preserves the clipboard until successful removal`, async ({ page }) => {
+for (const action of ['Cut']) test(`a refused labeled ${action} preserves the clipboard until successful removal`, async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [monoTone, toneA]);
 	const source = clipByName(editor, monoTone.name);

@@ -5,9 +5,11 @@ import { expect, test, monoTone } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseFileAction, chooseNestedCommandAction, disableNativeSavePicker,
 	downloadBytes, importFiles } from './audio-editor-test-helpers.js';
 
-for (const bpm of [999, 1_000]) test(`native DAWproject download and Open retain ordinary authored ${bpm} BPM`, async ({ page }) => {
+// Node owns the tempo data matrix; retain the browser input's upper boundary.
+const bpm = 1_000;
+test(`native DAWproject download and Open retain ordinary authored ${bpm} BPM`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/en/');
+	const editor = await bootEditor(page, '/en/', { showProjectBin: false });
 	await page.locator('[data-sidebar] [data-workspace-select]').selectOption('music');
 	await importFiles(editor, [monoTone]);
 	const tempo = editor.locator('[data-action-id="playback-bpm"] input');

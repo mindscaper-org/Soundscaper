@@ -4,9 +4,11 @@ import { bootEditor, chooseNestedCommandAction, clipByName, closeClipProperties,
 import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 import { parseMidiFile, writeMidiFile } from '../../src/common/editor/midi-file.ts';
 
-for (const trim of [0, 24000]) test(`RPN reset boundary through actual FileImport and source trim ${trim}`, async ({ page }) => {
+// The reset/trim matrix has portable controller custody in
+// audio-editor-midi-chronology-archive-custody.test.ts; retain the actual trim UI.
+for (const trim of [24000]) test(`RPN reset boundary through actual FileImport and source trim ${trim}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const setup = [[0, 101, 0], [0, 100, 0], [6000, 121, 0], [12000, 96, 0], [18000, 121, 0]];
 	const bytes = writeMidiFile({ sampleRate: 48000, tempos: [{ frame: 0, bpm: 120 }], signatures: [], tracks: [{ name: 'RPN reset boundaries',
 		events: setup.map(([frame, cc, value]) => ({ frame, status: 176, data: [cc, value] })),

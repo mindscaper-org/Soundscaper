@@ -25,7 +25,7 @@ test('Get effects can remove an earlier installed plug-in when its optional cata
 		};
 	}, source);
 	await registerNyquistArchivePublication(page, ['HQ-Tone.ny']);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const menu = await openNestedCommandMenu(page, editor, 'Effect', ['Nyquist']);
 	await menu.getByRole('menuitem', { name: 'Get effects', exact: true }).click();
 	const catalog = page.getByRole('dialog', { name: 'Get effects', exact: true });

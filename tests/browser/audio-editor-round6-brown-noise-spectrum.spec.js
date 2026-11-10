@@ -9,7 +9,7 @@ import { calculateAudioSpectrum } from '../../src/common/editor/audio-spectrum.t
 test('normally generated Brown noise keeps its stronger low-frequency octave energy', async ({ page }) => {
 	test.setTimeout(90_000);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Generate', 'Noise');
 	const generator = page.getByRole('dialog', { name: 'Noise', exact: true });
 	await chooseDropdown(page, generator.locator('[data-generator-layout="noise"]').getByRole('group').first(), 'Brown');

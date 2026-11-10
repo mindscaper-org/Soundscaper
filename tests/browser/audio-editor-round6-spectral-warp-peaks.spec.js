@@ -9,7 +9,7 @@ test('spectral center snapping follows audible authored warp playback', async ({
 	test.setTimeout(120_000);
 	await disableNativeSavePicker(page);
 	await page.setViewportSize({ width: 1920, height: 1000 });
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'spectral-warp.wav', frequency: 512,
 		sampleRate: 8192, duration: 4, channelCount: 1, channelAmplitudes: [.5] });
 	await importFiles(editor, [recording]);

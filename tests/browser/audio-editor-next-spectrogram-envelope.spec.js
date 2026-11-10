@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('Spectrogram follows a clip envelope that silences the exported recording', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'envelope.wav', duration: 2, frequency: 440, channelCount: 1 })]);
 	const clip = editor.locator('[data-clip-id]').first();
 	const point = (await addClipGainPoint(page, editor, clip, .5)).first();

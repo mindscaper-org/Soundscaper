@@ -18,7 +18,7 @@ test.describe('Audacity project worker client workflows', () => {
 		test.setTimeout(90_000);
 		await installAup4BrowserProbe(page);
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 
 		const chooser = page.waitForEvent('filechooser');
 		await chooseFileAction(page, editor, 'Open');
@@ -81,7 +81,7 @@ test.describe('Audacity project worker client workflows', () => {
 		test.setTimeout(60_000);
 		await page.setViewportSize({ width: 390, height: 844 });
 		await installAup4BrowserProbe(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const originalProject = await editor.getAttribute('data-project-id');
 
 		const brokenChooser = page.waitForEvent('filechooser');
@@ -125,7 +125,7 @@ test.describe('Audacity project worker client workflows', () => {
 	test('cancels before staging, cleans up a failed publication, and permits export retry', async ({ page }) => {
 		test.setTimeout(60_000);
 		await installAup4BrowserProbe(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const status = editor.locator('[data-status]');
 		const errorToast = editor.locator('[data-editor-toast="workspace-error"]');
 
