@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { setImmediate } from 'node:timers/promises';
 import { encodeWav } from '../src/common/editor/wav.js';
 import { createFreesoundUploadMetadataDefaults } from '../src/common/editor/freesound-upload-metadata.ts';
 import { normalizeSourceProvenance } from '../src/common/editor/source-provenance.ts';
@@ -37,6 +38,21 @@ test('Freesound low-rate WAV alias uses the real CPU conversion and authenticate
 	const pcm = await independentUploadedWav(file, 1_000, 4, 24, Array.from(input[0]!));
 	await importFreesoundCustody(context, file, pcm, 1_000);
 	assert.deepEqual(new Uint8Array(await original.arrayBuffer()), bytes);
+});
+
+test('Freesound custody waits for a delayed WAV conversion to complete', async context => {
+	const samples = [.25, -.5];
+	const bytes = Uint8Array.from(encodeWav([Float32Array.from(samples)], { sampleRate: 48_000, bitDepth: 16 }));
+	const original = new File([bytes], 'delayed.wave', { type: 'audio/wav' });
+	const read = original.arrayBuffer.bind(original);
+	context.mock.method(original, 'arrayBuffer', async () => {
+		// Native I/O and cold module loading can outlast a fixed number of event-loop turns.
+		for (let turn = 0; turn < 250; turn++) await setImmediate();
+		return await read();
+	});
+	const { file, preparations } = await transferFreesoundFile(original, 'delayed.wav', 48_000);
+	assert.equal(preparations, 1);
+	await independentUploadedWav(file, 48_000, samples.length, 24, samples, 2 / 32_768);
 });
 
 for (const custom of [true, false]) test(`Freesound ${custom ? 'custom' : 'ordinary'} authored metadata survives actual Bin import, history and fresh Scape`, async context => {

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { setImmediate } from 'node:timers/promises';
 import type { TestContext } from 'node:test';
 import { encryptOAuthSecret, encodeBase64Url, hashCapability } from '../../functions/api/freesound/_shared/oauth-crypto.ts';
 import { handleFreesoundUploadRequest } from '../../functions/api/freesound/_shared/protected-handlers.ts';
@@ -63,9 +62,21 @@ export async function transferFreesoundFile(original: File, expectedName: string
 			} });
 		} });
 	queue.enqueueFiles([original]);
-	for (let attempts = 0; queue.getSnapshot().active; attempts++) {
-		assert.ok(attempts < 200, 'the real authenticated upload must settle'); await setImmediate();
-	}
+	await new Promise<void>((resolve, reject) => {
+		const timeout = setTimeout(() => {
+			unsubscribe();
+			queue.clear();
+			reject(new Error('The real authenticated upload did not settle within 10 seconds.'));
+		}, 10_000);
+		const unsubscribe = queue.subscribe(check);
+		check();
+		function check(): void {
+			if (queue.getSnapshot().active) return;
+			clearTimeout(timeout);
+			unsubscribe();
+			resolve();
+		}
+	});
 	const item = queue.getSnapshot().items[0]; assert.ok(item);
 	assert.equal(item.status, 'ready-to-publish', item.errorMessage ?? 'the authenticated upload must complete');
 	assert.equal(item.sourceKind, 'file'); assert.equal(item.uploadFilename, 'remote.wav');
