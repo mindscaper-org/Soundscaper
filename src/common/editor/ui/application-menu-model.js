@@ -7,7 +7,7 @@ export const EFFECT_MENU_GROUPS = Object.freeze([
 	['eqFilters', ['eq', 'highpass-filter', 'lowpass-filter', 'notch-filter', 'shelf-filter', 'audacity-bass-treble', 'audacity-filter-curve-eq', 'audacity-graphic-eq']],
 	['noiseRepair', ['deesser', 'noise-gate', 'audacity-click-removal', 'audacity-noise-reduction', 'audacity-repair']],
 	['delayReverb', ['multi-tap-delay', 'audacity-echo', 'audacity-reverb']],
-	['distortionModulation', ['audacity-distortion', 'bitcrusher', 'tremolo', 'vocoder', 'audacity-phaser', 'audacity-wahwah']],
+	['distortionModulation', ['auto-tune', 'audacity-distortion', 'bitcrusher', 'tremolo', 'vocoder', 'audacity-phaser', 'audacity-wahwah']],
 	['specialEffects', ['audacity-invert', 'audacity-repeat', 'audacity-reverse', 'audacity-truncate-silence', 'reviewed-utility-gain']],
 	['legacyEffects', ['audacity-legacy-compressor', 'audacity-classic-filters']],
 ]);

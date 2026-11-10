@@ -6,6 +6,11 @@ import AudacityPortEffectLayout from './AudacityPortEffectLayout.jsx';
 import { isAudacityNyquistPort } from './audacity-port-layouts.ts';
 
 const EFFECT_LAYOUTS = Object.freeze({
+	'auto-tune': [
+		{ titleKey: 'effectCardPitchShift', names: ['key', 'scale'], wide: true,
+			helpKey: 'effectAutoTuneHint', helpSubjectKey: 'effectNameAutoTune' },
+		{ titleKey: 'effectCardResponse', names: ['amount', 'retune', 'mix'], knobs: true, wide: true },
+	],
 	deesser: [
 		{ titleKey: 'effectCardDeesser', names: ['frequency', 'threshold', 'reduction'], knobs: true, wide: true },
 		{ titleKey: 'effectCardTiming', names: ['attack', 'release'], knobs: true, wide: true },

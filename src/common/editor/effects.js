@@ -25,6 +25,7 @@ import { STANDARD_FILTER_EFFECT_DEFINITIONS } from './first-party-effects/standa
 import { STANDARD_MODULATION_EFFECT_DEFINITIONS } from './first-party-effects/standard/modulation-definition.ts';
 import { NOISE_GATE_EFFECT_DEFINITION, normalizeNoiseGateParams } from './first-party-effects/standard/noise-gate-definition.ts';
 import { STANDARD_DELAY_EFFECT_DEFINITION } from './first-party-effects/standard/delay-definition.ts';
+import { AUTO_TUNE_EFFECT_DEFINITION, normalizeAutoTuneParams } from './first-party-effects/auto-tune/definition.ts';
 import { standardEffectTailSeconds } from './first-party-effects/standard/effect-tail.ts';
 import { noiseReductionClockTailFrames, noiseReductionProfileRate } from './audacity-effects/noise-reduction-clock.ts';
 import { delaySelectionPitchMode, delaySelectionDuration } from './first-party-effects/standard/delay-selection-contract.ts';
@@ -140,6 +141,7 @@ export const AUDIO_RACK_EFFECT_DEFINITIONS = Object.freeze({
 
 /** All effects which can be previewed and destructively applied to a selection. */
 export const AUDIO_SELECTION_EFFECT_DEFINITIONS = Object.freeze({
+	'auto-tune': AUTO_TUNE_EFFECT_DEFINITION,
 	...STANDARD_FILTER_EFFECT_DEFINITIONS,
 	...STANDARD_MODULATION_EFFECT_DEFINITIONS,
 	'noise-gate': NOISE_GATE_EFFECT_DEFINITION,
@@ -182,6 +184,7 @@ export function audioSelectionEffectAppliesToAllAudio(type) {
  * @returns {string}
  */
 export function audioSelectionEffectLabel(type, copyOrLocale = 'en') {
+	if (type === 'auto-tune') return canonicalCopyValue(effectNameCopyKey(type), copyOrLocale);
 	if (type === REVIEWED_UTILITY_GAIN_SELECTION_EFFECT_TYPE) return REVIEWED_UTILITY_GAIN_SELECTION_EFFECT_LABEL;
 	return ownMapValue(AUDACITY_EFFECT_DEFINITIONS, type)
 		? audacityEffectLabel(type, copyOrLocale)
@@ -195,6 +198,7 @@ export function audioSelectionEffectDefaults(type, effectId = null) {
 }
 
 export function normalizeAudioSelectionEffectParams(type, params = {}, effectId = null) {
+	if (type === 'auto-tune') return normalizeAutoTuneParams(params);
 	if (ownMapValue(AUDACITY_EFFECT_DEFINITIONS, type)) return normalizeAudacityEffectParams(type, params);
 	const definition = audioSelectionEffectDefinition(type);
 	const normalized = normalizeEffectParams(type, {
