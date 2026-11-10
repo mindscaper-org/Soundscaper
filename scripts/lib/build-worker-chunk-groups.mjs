@@ -12,8 +12,10 @@ export const workerChunkGroups = [
 		// Recovery and streaming chunks share the database vocabulary. If that
 		// vocabulary stays in the entry, importing it can execute the entry again
 		// in WebKit and install a second dispatcher with its own empty project map.
+		// Page recovery also shares CRC32 with snapshot writes. Keep that checksum
+		// leaf here so the lazy recovery chunk cannot import the dispatcher entry.
 		name: 'editor-audacity-project-core-worker',
-		test: /src[\\/]common[\\/]editor[\\/](?:audacity-binary-xml|aup[34]-(?:database|profile|conversion)(?:-[\w-]+)?)\.[jt]s$/,
+		test: /src[\\/]common[\\/]editor[\\/](?:(?:audacity-binary-xml|aup[34]-(?:database|profile|conversion)(?:-[\w-]+)?)\.[jt]s|wavpack[\\/]pcm\.js)$/,
 		priority: 97,
 		minSize: 0,
 		maxSize: 400_000,
