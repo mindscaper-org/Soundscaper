@@ -168,6 +168,7 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 	{ source: 'tests/electron/local-assistance-models', destination: 'tests/electron/local-assistance-models', kind: 'directory', label: 'real local assistance model tests', exclude: new Set(['AGENTS.md']) },
 	{ source: 'tests/aup3-fixture.js', destination: 'tests/aup3-fixture.js', kind: 'file', label: 'AUP3 browser support fixture' },
 	{ source: 'tests/helpers/aup4-database-harness.js', destination: 'tests/helpers/aup4-database-harness.js', kind: 'file', label: 'Audacity recovery browser SQLite fixture' },
+	{ source: 'tests/helpers/audacity-damaged-overflow-fixture.ts', destination: 'tests/helpers/audacity-damaged-overflow-fixture.ts', kind: 'file', label: 'Audacity recovery browser damaged overflow fixture' },
 	{ source: 'tests/helpers/png-fixture.mjs', destination: 'tests/helpers/png-fixture.mjs', kind: 'file', label: 'timeline image browser support fixture' },
 	{ source: 'tests/helpers/framescaper-ordinary-animation-fixture.ts', destination: 'tests/helpers/framescaper-ordinary-animation-fixture.ts', kind: 'file', label: 'ordinary animated image browser support fixture' },
 	{ source: 'tests/helpers/framescaper-ordinary-high-precision-image-fixture.ts', destination: 'tests/helpers/framescaper-ordinary-high-precision-image-fixture.ts', kind: 'file', label: 'ordinary high-precision PNG browser support fixture' },
