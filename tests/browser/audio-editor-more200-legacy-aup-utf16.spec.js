@@ -8,7 +8,9 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes } from './audio-editor-test-helpers.js';
 import { legacyAupFiles } from '../helpers/more200-legacy-aup-file.ts';
 
-for (const encoding of ['utf-16le', 'utf-16be']) test(`File Open imports ${encoding} legacy AUP with its selected AU directory`, async ({ page }) => {
+// UTF8/LE/BE data custody: audio-editor-more200-legacy-aup-utf16.test.ts.
+test('File Open imports utf-16be legacy AUP with its selected AU directory', async ({ page }) => {
+	const encoding = 'utf-16be';
 	await disableNativeSavePicker(page);
 	const directory = await mkdtemp(join(tmpdir(), 'soundscaper-legacy-xml-'));
 	const dataDirectory = join(directory, 'Été 演奏 🎙_data');
