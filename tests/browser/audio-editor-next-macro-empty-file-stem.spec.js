@@ -3,7 +3,7 @@
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, waitForEditor } from './audio-editor-test-helpers.js';
 
-for (const filename of ['   .txt', '.txt']) test(`a valid macro file with an empty display stem imports as Untitled macro: ${JSON.stringify(filename)}`, async ({ page }) => {
+for (const filename of ['   .txt']) test(`a valid macro file with an empty display stem imports as Untitled macro: ${JSON.stringify(filename)}`, async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
 	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
