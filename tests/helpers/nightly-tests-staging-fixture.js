@@ -182,6 +182,7 @@ export async function createFixture(context) {
 		['tests/browser/handbook/handbook.spec.js', 'export const handbook = true;\n'],
 		['tests/aup3-fixture.js', 'export const fixture = true;\n'],
 		['tests/helpers/aup4-database-harness.js', await readFile(new URL('./aup4-database-harness.js', import.meta.url), 'utf8')],
+		['tests/helpers/audacity-damaged-overflow-fixture.ts', await readFile(new URL('./audacity-damaged-overflow-fixture.ts', import.meta.url), 'utf8')],
 		['tests/helpers/png-fixture.mjs', await readFile(new URL('./png-fixture.mjs', import.meta.url), 'utf8')],
 		['tests/helpers/read-wave-pcm.ts', await readFile(new URL('./read-wave-pcm.ts', import.meta.url), 'utf8')],
 		['tests/helpers/read-riff-chunks.ts', await readFile(new URL('./read-riff-chunks.ts', import.meta.url), 'utf8')],
