@@ -1,16 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { DatabaseSync } from 'node:sqlite';
+import { configureDesktopDatabaseJournal } from './desktop-database.ts';
 
 /** Add Framescaper 1.0 writer, publication, and recovery state. */
 export function initializeFramescaperDesktopProjectLibraryLifecycleDatabase(
 	database: DatabaseSync,
 ): void {
+	configureDesktopDatabaseJournal(database);
 	database.exec(`
-		PRAGMA journal_mode = WAL;
-		PRAGMA synchronous = FULL;
-		PRAGMA trusted_schema = OFF;
-		PRAGMA foreign_keys = ON;
 		BEGIN IMMEDIATE;
 		CREATE TABLE IF NOT EXISTS library_lease (
 			singleton INTEGER PRIMARY KEY CHECK (singleton = 1),

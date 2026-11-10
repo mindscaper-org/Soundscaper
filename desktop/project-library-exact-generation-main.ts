@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { randomBytes } from 'node:crypto';
 import { chmod, mkdir } from 'node:fs/promises';
-import { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync } from 'node:sqlite';
+import { openLocalDesktopDatabase } from './desktop-database.ts';
 import {
 	framescaperDesktopProjectLibraryExactGenerationMetadataRevision as metadataRevision,
 	initializeFramescaperDesktopProjectLibraryExactGenerationDatabase as initializeDatabase,
@@ -136,15 +137,10 @@ export class FramescaperDesktopProjectLibraryExactGenerationMain {
 		configuration.validateHandshake(options.handshake);
 		const owner = configuration.validateOwner(options.owner);
 		const paths = configuration.createPaths(options.appDataPath);
-		await mkdir(paths.projectsRoot, { recursive: true, mode: 0o700 });
-		await mkdir(paths.managedMediaRoot, { recursive: true, mode: 0o700 });
-		const database = new DatabaseSync(paths.databasePath, {
-			allowExtension: false,
-			enableDoubleQuotedStringLiterals: false,
-			enableForeignKeyConstraints: true,
-			timeout: 50,
-		});
+		const database = openLocalDesktopDatabase(paths.databasePath, { timeout: 50 });
 		try {
+			await mkdir(paths.projectsRoot, { recursive: true, mode: 0o700 });
+			await mkdir(paths.managedMediaRoot, { recursive: true, mode: 0o700 });
 			initializeDatabase(database, configuration);
 			await chmod(paths.databasePath, 0o600);
 			const lifecycle = extension ? await extension.start({

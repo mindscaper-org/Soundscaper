@@ -24,14 +24,18 @@ import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 
 test('a migrated SQLite library reopens with its exact catalog, project and frozen PCM', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-library-migration-roundtrip-'));
-	context.after(() => rm(root, { recursive: true, force: true }));
+	const hosts: SoundscaperDesktopProjectLibraryMain[] = [];
+	context.after(async () => {
+		for (const host of hosts.reverse()) await host.close();
+		await rm(root, { recursive: true, force: true });
+	});
 	const legacyAppDataPath = join(root, 'config');
 	const projectLibraryAppDataPath = join(root, 'data');
 	const oldLibrary = join(legacyAppDataPath, 'kw.media', 'soundscaper-project-library', 'v1');
 	const originalPaths = createSoundscaperDesktopProjectLibraryPaths(legacyAppDataPath);
 	const handshake = createSoundscaperDesktopProjectLibraryHandshake();
 	const original = await start(legacyAppDataPath, 'original-library');
-	context.after(() => original.close());
+	hosts.push(original);
 	const originalSession = original.openSession(handshake);
 	const pcm = Uint8Array.from({ length: 36 }, (_value, index) => index);
 	const project = frozenProject(createHash('sha256').update(pcm).digest('hex'));
@@ -56,7 +60,7 @@ test('a migrated SQLite library reopens with its exact catalog, project and froz
 	await originalSession.close();
 	await original.close();
 
-	// A clean close checkpoints SQLite before any database or media files move.
+	// Close SQLite before any database or media files move.
 	await assert.rejects(lstat(`${originalPaths.databasePath}-wal`), { code: 'ENOENT' });
 	await assert.rejects(lstat(`${originalPaths.databasePath}-shm`), { code: 'ENOENT' });
 	await mkdir(dirname(oldLibrary), { recursive: true });
@@ -66,9 +70,8 @@ test('a migrated SQLite library reopens with its exact catalog, project and froz
 	});
 	await assert.rejects(lstat(oldLibrary), { code: 'ENOENT' });
 	const reopened = await start(projectLibraryAppDataPath, 'reopened-library');
-	context.after(() => reopened.close());
+	hosts.push(reopened);
 	const session = reopened.openSession(handshake);
-	context.after(() => session.close());
 	assert.deepEqual(await session.listProjects(), catalog);
 	const restored = await session.readProjectBundle(String(project.id));
 	assert.deepEqual(restored, committed);

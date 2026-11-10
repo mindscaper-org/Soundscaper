@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { DatabaseSync } from 'node:sqlite';
+import { configureDesktopDatabaseJournal } from './desktop-database.ts';
 
 import {
 	framescaperDesktopProjectLibraryNonNegative as nonNegative,
@@ -35,6 +36,7 @@ export function initializeFramescaperDesktopProjectLibraryExactGenerationDatabas
 	if (family !== 'framescaper') {
 		throw new TypeError('Framescaper desktop project schema family is invalid');
 	}
+	configureDesktopDatabaseJournal(database);
 	database.exec(`
 		BEGIN IMMEDIATE;
 		CREATE TABLE IF NOT EXISTS library_identity (

@@ -23,6 +23,7 @@ export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/scape-expanded-byte-budget.js',
 	...DESKTOP_5B_TRANSITIVE_RUNTIME_FILES,
 	'desktop/desktop-storage-paths.js', 'desktop/desktop-storage-migration.js', 'desktop/desktop-storage-migration-sync.js',
+	'desktop/desktop-database.js', 'desktop/local-storage-safety.js', 'desktop/local-storage-volume.js',
 	'desktop/desktop-storage-bootstrap.js', 'desktop/desktop-browser-cache.js',
 	'desktop/desktop-project-library-migration.js', 'desktop/desktop-projects-directory.js',
 	'desktop/application-lifecycle.js', 'desktop/main-trusted-ipc.js', 'desktop/save-size-warning-dialog.js', 'src/common/editor/controller/shared/file-size-warning.js', 'desktop/mcp-main-registration.js', 'desktop/mcp-service.js', 'desktop/original-file-overwrite.js',

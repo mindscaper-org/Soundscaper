@@ -10,6 +10,7 @@ import { resolveDesktopProjectsDirectory } from './desktop-projects-directory.ts
 import { migrateDesktopStorageEntries } from './desktop-storage-migration.ts';
 import { migrateDesktopStorageEntriesSync } from './desktop-storage-migration-sync.ts';
 import { resolveDesktopStoragePaths } from './desktop-storage-paths.ts';
+import { assertLocalDesktopStorage } from './local-storage-safety.ts';
 
 interface DesktopStorageApplication {
 	getPath(name: 'home' | 'appData' | 'userData' | 'exe'): string;
@@ -84,6 +85,10 @@ export function configureDesktopStorage(options: DesktopStorageBootstrapOptions)
 			});
 		},
 		prepareBeforeReady(): void {
+			if (prepared) return;
+			for (const path of new Set([paths.dataRoot, paths.stateRoot, paths.sessionDataRoot])) {
+				assertLocalDesktopStorage(path);
+			}
 			if (!prepared && portableRoot !== null) {
 				for (const path of [paths.logsRoot, paths.crashDumpsRoot]) mkdirSync(path, { recursive: true, mode: 0o700 });
 				app.setPath('sessionData', paths.sessionDataRoot);
