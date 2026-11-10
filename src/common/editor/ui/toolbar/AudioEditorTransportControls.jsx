@@ -1,5 +1,4 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Button } from '@soundscaper/design-system/Button';
 import { ContextMenuItem } from '@soundscaper/design-system/ContextMenuItem';
 import { Flyout } from '@soundscaper/design-system/Flyout';
@@ -22,7 +21,6 @@ import { formatOptionsLabel } from '../localization-template.ts';
 import { formatPlaybackSpeed } from '../meter-settings.ts';
 export { default as RecordFlyout } from './RecordFlyout.jsx';
 import { AudioDevicesFlyout } from './AudioDevicesFlyout.jsx';
-import EditorTaskProgressBar from './EditorTaskProgressBar.tsx';
 import WorkspaceSwitcherControl from './WorkspaceSwitcherControl.jsx';
 import TransportAuditionMenu from './TransportAuditionMenu.tsx';
 import { createMusicalDurationTimeCodeMap } from '../time-code-musical-map.ts';
@@ -321,7 +319,6 @@ export function AccessibleSelectionToolbar({
 	const { instructionText, statusMessage, backgrounded, contextual } = useEditorStatusHelpPresentation({
 		rootRef: wrapperRef, controller, snapshot, copy, menus, locale, statusMessage: operationStatusMessage, showStatusbar,
 	});
-	const [statusTarget, setStatusTarget] = useState(null);
 	const [format, setFormat] = useState('hh:mm:ss+milliseconds');
 	const [durationFormat, setDurationFormat] = useState('hh:mm:ss+milliseconds');
 	const editSession = editorProjectEditSessionKey(controller, snapshot.project?.id);
@@ -357,7 +354,6 @@ export function AccessibleSelectionToolbar({
 			status.tabIndex = 0;
 			status.title = statusMessage;
 		}
-		setStatusTarget(root.querySelector('.selection-toolbar__status'));
 		const timecodes = [...root.querySelectorAll('.selection-toolbar__timecodes .timecode')];
 		const timecodeLabels = [
 			copy.selectionStart || `${copy.selection}: ${copy.clipStart}`,
@@ -402,7 +398,6 @@ export function AccessibleSelectionToolbar({
 					{showStatusbar ? statusMessage : ''}
 				</p>
 				{contextual && <span className="selection-toolbar__instruction-text" title={instructionText}>{instructionText}</span>}
-				<EditorTaskProgressBar controller={controller} snapshot={snapshot} statusMessage={statusMessage} showLabel={!showStatusbar} cancelLabel={copy.cancel} />
 			</div>
 		);
 	}
@@ -436,10 +431,6 @@ export function AccessibleSelectionToolbar({
 				onSelectionEndChange={updateEnd}
 				showDuration
 			/>
-			{statusTarget && createPortal(
-				<EditorTaskProgressBar controller={controller} snapshot={snapshot} statusMessage={statusMessage} showLabel={!showStatusbar} cancelLabel={copy.cancel} />,
-				statusTarget,
-			)}
 		</div>
 	);
 }

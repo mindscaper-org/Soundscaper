@@ -13032,7 +13032,7 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/common/editor/ui/toolbar/EditorTaskProgressBar.tsx"
+							"path": "src/common/editor/ui/workspace/EditorTaskProgress.tsx"
 						},
 						{
 							"kind": "test",

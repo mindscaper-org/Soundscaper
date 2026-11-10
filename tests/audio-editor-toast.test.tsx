@@ -106,7 +106,7 @@ test('hover and keyboard focus pause the remaining toast lifetime independently'
 
 test('actionable, error and progress notifications never expire automatically', async (context) => {
 	context.mock.timers.enable({ apis: ['setTimeout'] });
-	for (const extra of [{ actions: [{ label: 'Review', onClick() {} }] }, { type: 'error' as const }, { progress: 40 }]) {
+	for (const extra of [{ actions: [{ label: 'Review', onClick() {} }] }, { type: 'error' as const }, { progress: 40 }, { progressContent: <progress aria-label="Saving project" /> }]) {
 		const fixture = await mountedToast();
 		try {
 			await fixture.render(() => assert.fail('notification expired before its outcome'), false, extra);
