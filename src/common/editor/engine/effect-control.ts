@@ -43,7 +43,7 @@ import { effectMessageHandler } from './effect-message-dispatch.ts';
 import { canRetainAdditionalAudacityState, isAdditionalContinuousAudacityEffect } from '../audacity-effects/live-update-geometry.ts';
 
 /** Rack effects whose processors accept a live parameter frame over their port. */
-const CONFIGURABLE_RACK_EFFECT_TYPES = new Set(['delay', 'bitcrusher', 'deesser', 'multiband-compressor']);
+const CONFIGURABLE_RACK_EFFECT_TYPES = new Set(['auto-tune', 'delay', 'bitcrusher', 'deesser', 'multiband-compressor']);
 
 export const engineEffectControlMethods = {
 configureRackEffect(scope, targetId, effectId, params, options = {}) {

@@ -12,6 +12,7 @@ import { isParametricEqType, projectEffectRacks } from './project-effects.ts';
 import type { EngineEffect, EngineProject } from './types.ts';
 import { ensureNativePluginRealtimeWorklet } from '../native-plugin-realtime-node.js';
 import { createAudioWorkletLoadOnce, type AudioWorkletLoadOnce } from '../audio-worklet-load-once.ts';
+import { ensureAutoTuneWorklet } from './auto-tune-node.ts';
 
 const dynamicsWorklet = workletModuleLoadOnce(dynamicsWorkletModuleUrl);
 const delayWorklet = workletModuleLoadOnce(() => new URL('../delay-worklet.js', import.meta.url));
@@ -70,9 +71,11 @@ export async function ensureProjectWorklets(
 	const needsParametricEq = usesParametricEq && !parametricEqWorklet.isLoaded(context);
 	const needsParametricEqWasm = usesParametricEq && !parametricEqWasmModules.has(context);
 	const usesNativePlugin = projectUsesNativePluginWorklet(project);
+	const usesAutoTune = projectUsesEffect(project, type => type === 'auto-tune');
 	if (!needsDynamics && !needsDelay && !needsBitcrusher && !needsBandDynamics && !needsAudacity && !needsParametricEq
-		&& !needsParametricEqWasm && !usesNativePlugin && !needsStandard && !usesStandardDelay) return;
+		&& !needsParametricEqWasm && !usesNativePlugin && !needsStandard && !usesStandardDelay && !usesAutoTune) return;
 	if (!context.audioWorklet?.addModule || typeof globalThis.AudioWorkletNode !== 'function') {
+		if (usesAutoTune) throw new Error('This browser cannot run Auto-Tune in realtime.');
 		if (needsStandard) throw new Error('This browser cannot run the selected real-time effect without bypassing it.');
 		if (needsBandDynamics) throw new Error('This browser cannot run the de-esser or multiband compressor without bypassing it.');
 		if (needsAudacity) throw new Error('This browser cannot run Audacity real-time effects without bypassing them.');
@@ -82,6 +85,7 @@ export async function ensureProjectWorklets(
 		return;
 	}
 	const loads: Promise<unknown>[] = [];
+	if (usesAutoTune) loads.push(ensureAutoTuneWorklet(context));
 	if (needsStandard) loads.push(ensureStandardEffectWorklet(context));
 	if (usesStandardDelay) loads.push(ensureStandardDelayRuntime(context));
 	if (needsBandDynamics) loads.push(ensureBandDynamicsWorklet(context));

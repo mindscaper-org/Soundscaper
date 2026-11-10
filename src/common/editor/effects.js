@@ -59,6 +59,7 @@ export { PARAMETRIC_EQ_BAND_TYPES, PARAMETRIC_EQ_MAXIMUM_BANDS, PARAMETRIC_EQ_SL
  */
 
 export const AUDIO_EFFECT_DEFINITIONS = Object.freeze({
+	'auto-tune': AUTO_TUNE_EFFECT_DEFINITION,
 	...STANDARD_FILTER_EFFECT_DEFINITIONS,
 	...STANDARD_MODULATION_EFFECT_DEFINITIONS,
 	'noise-gate': NOISE_GATE_EFFECT_DEFINITION,
@@ -184,7 +185,6 @@ export function audioSelectionEffectAppliesToAllAudio(type) {
  * @returns {string}
  */
 export function audioSelectionEffectLabel(type, copyOrLocale = 'en') {
-	if (type === 'auto-tune') return canonicalCopyValue(effectNameCopyKey(type), copyOrLocale);
 	if (type === REVIEWED_UTILITY_GAIN_SELECTION_EFFECT_TYPE) return REVIEWED_UTILITY_GAIN_SELECTION_EFFECT_LABEL;
 	return ownMapValue(AUDACITY_EFFECT_DEFINITIONS, type)
 		? audacityEffectLabel(type, copyOrLocale)

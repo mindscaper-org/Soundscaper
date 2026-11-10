@@ -21,9 +21,9 @@ const tone = (frequency: number, rate = RATE, seconds = 1, amplitude = .3) =>
 	Float32Array.from({ length: Math.round(rate * seconds) }, (_, frame) => amplitude * Math.sin(2 * Math.PI * frequency * frame / rate));
 const runtime = () => readFile(new URL('../src/common/editor/staffpad/staffpad.wasm', import.meta.url)).then(loadStaffPadWasm);
 
-test('Auto-Tune is a selection effect with validated musical controls and bounded admission', () => {
+test('Auto-Tune supports selection and rack effects with validated musical controls and bounded admission', () => {
 	assert.ok(audioSelectionEffectTypes().includes(TYPE));
-	assert.ok(!audioEffectTypes().includes(TYPE));
+	assert.ok(audioEffectTypes().includes(TYPE));
 	assert.equal(audioSelectionEffectLabel(TYPE), 'Auto-Tune');
 	assert.ok(EFFECT_MENU_GROUPS.some(([, types]) => types.includes(TYPE)));
 	assert.equal(nativeEffectParameterLabel(TYPE, 'retune', ENGLISH_COPY), 'Retune speed');

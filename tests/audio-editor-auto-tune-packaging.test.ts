@@ -9,12 +9,13 @@ import { DESKTOP_EXPECTED_RUNTIME_FILES } from '../scripts/lib/desktop-project-l
 
 test('Auto-Tune metadata shares the effect contract owner while its admission shares the domain', () => {
 	const root = 'src/common/editor/first-party-effects/auto-tune/';
-	for (const [module, owner] of [['definition', 'editor-effect-contracts'], ['contract', 'editor-domain']] as const) {
+	for (const [module, owner] of [['definition', 'editor-effect-contracts'], ['realtime-contract', 'editor-effect-contracts'], ['contract', 'editor-domain']] as const) {
 		for (const path of [`${root}${module}.ts`, `${root}${module}.ts`.replaceAll('/', '\\')]) {
 			assert.equal(chunkGroupForModulePath(path), owner, path);
 		}
 	}
 	assert.equal(WORKER_EFFECT_CONTRACT_CHUNK_TEST.test(`${root}definition.ts`), true);
+	assert.equal(WORKER_EFFECT_CONTRACT_CHUNK_TEST.test(`${root}realtime-contract.ts`), true);
 	for (const module of ['selection', 'pitch']) {
 		assert.notEqual(chunkGroupForModulePath(`${root}${module}.ts`), 'editor-effect-contracts');
 		assert.equal(WORKER_EFFECT_CONTRACT_CHUNK_TEST.test(`${root}${module}.ts`), false);

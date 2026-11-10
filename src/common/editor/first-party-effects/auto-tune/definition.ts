@@ -11,16 +11,17 @@ export interface AutoTuneParams {
 	readonly scale: AutoTuneScale;
 }
 
+const liveOnly = { automatable: false, automationBlockReason: 'Auto-Tune supports live controls but not timeline automation.' } as const;
 export const AUTO_TUNE_EFFECT_DEFINITION = Object.freeze({
 	defaults: Object.freeze({ amount: 100, retune: 20, mix: 100, key: 'c', scale: 'chromatic' }),
 	ranges: Object.freeze({
-		amount: [0, 100, { unit: '%', step: 1, taper: 'linear' }],
-		retune: [0, 500, { unit: 'ms', step: 1, taper: 'linear' }],
-		mix: [0, 100, { unit: '%', step: 1, taper: 'linear' }],
-	} satisfies Record<string, [number, number, { unit: string; step: number; taper: string }]>),
+		amount: [0, 100, { unit: '%', step: 1, taper: 'linear', ...liveOnly }],
+		retune: [0, 500, { unit: 'ms', step: 1, taper: 'linear', ...liveOnly }],
+		mix: [0, 100, { unit: '%', step: 1, taper: 'linear', ...liveOnly }],
+	} satisfies Record<string, [number, number, { unit: string; step: number; taper: string; automatable: false; automationBlockReason: string }]>),
 	choices: Object.freeze({
-		key: Object.freeze({ options: AUTO_TUNE_KEYS }),
-		scale: Object.freeze({ options: Object.freeze(['chromatic', 'major', 'minor'] as const) }),
+		key: Object.freeze({ options: AUTO_TUNE_KEYS, ...liveOnly }),
+		scale: Object.freeze({ options: Object.freeze(['chromatic', 'major', 'minor'] as const), ...liveOnly }),
 	}),
 });
 

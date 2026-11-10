@@ -15,7 +15,7 @@ type GestureBegin = () => unknown;
 type GestureCommit = (params: RackParams) => unknown;
 
 function supportsNativeCommit(type: string): boolean {
-	return isStandardEffect(type) || isAdditionalContinuousAudacityEffect(type) || ['audacity-echo', 'audacity-graphic-eq', 'audacity-filter-curve-eq', 'audacity-compressor', 'audacity-limiter', 'audacity-reverb', 'audacity-click-removal'].includes(type);
+	return type === 'auto-tune' || isStandardEffect(type) || isAdditionalContinuousAudacityEffect(type) || ['audacity-echo', 'audacity-graphic-eq', 'audacity-filter-curve-eq', 'audacity-compressor', 'audacity-limiter', 'audacity-reverb', 'audacity-click-removal'].includes(type);
 }
 
 export function nativeRackEffectCommit(

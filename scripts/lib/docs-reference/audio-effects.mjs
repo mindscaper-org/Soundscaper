@@ -64,7 +64,7 @@ const BROWSER_ADAPTATION_NOTES = Object.freeze({
 });
 
 const LOCAL_EFFECT_NOTES = Object.freeze({
-	'auto-tune': ['Solo voice or melody (65–1500 Hz); chromatic, major or natural minor pitch correction', 'Uses StaffPad with formant preservation; keeps duration and channel count'],
+	'auto-tune': ['Solo voice or melody (65–1500 Hz); chromatic, major or natural minor pitch correction', 'StaffPad formant preservation; fixed rack latency (about 72 ms at 48 kHz), live controls, no timeline automation'],
 	'multi-tap-delay': ['Finite echoes with StaffPad pitch shift; selections also offer changed-speed echoes and optional complete tails'],
 	'noise-gate': ['Lookahead opens the gate before transients; rack and selection timing are compensated', 'Linked or independent channels; optional frequency-selective gating'],
 	vocoder: ['Stereo uses the left channel as voice and the right as carrier; mono uses a synthesized carrier', 'Output keeps the input channel count'],
@@ -262,7 +262,7 @@ export function renderAudioEffectReference(context) {
 		'',
 		'## Why some effects are selection-only',
 		'',
-		'Auto-Tune analyzes a solo voice or melody instrument before rendering its pitch correction. Open Effect > Distortion and modulation > Auto-Tune, choose a key and scale, then preview or apply. Chromatic uses every semitone. Correction amount sets how far notes move toward the scale; Retune speed sets the response time in milliseconds (0 snaps immediately). Mix blends the original and corrected audio. Detection covers 65–1500 Hz and leaves unvoiced windows unshifted. Use isolated vocals or a single melody rather than chords or a full mix. The bundled StaffPad processor preserves formants and selection duration.',
+		'Auto-Tune corrects a solo voice or melody instrument in realtime racks or on a selection. Open Effect > Add realtime effects and add Auto-Tune to a track or master rack, or open Effect > Distortion and modulation > Auto-Tune to preview or apply a selection. Choose a key and scale; Chromatic uses every semitone. Correction amount sets how far notes move toward the scale; Retune speed sets the response time in milliseconds (0 snaps immediately). Mix blends the original and corrected audio. Detection covers 65–1500 Hz and leaves unvoiced windows unshifted. Use isolated vocals or a single melody rather than chords or a full mix. The bundled StaffPad processor preserves formants. Rack controls can change during playback without rebuilding the processor. Timeline automation is unavailable. The fixed processing delay is about 72 ms at 48 kHz, including with zero Mix or Correction amount; playback and export use rack latency compensation. Selection rendering keeps the original duration.',
 		'',
 		'These effects cannot be a realtime insert, because each one needs more of the selection than a live block gives it.',
 		'',
