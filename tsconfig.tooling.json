@@ -13,6 +13,7 @@
 		"playwright.config.mjs",
 		"playwright.check-all.config.ts",
 		"electron-builder.config.cjs",
+		"electron-builder.appx.config.cjs",
 		"scripts/performance/*.ts",
 		"scripts/diagnose-windows-make-arguments.ts",
 		"scripts/build-assistance-engine-part.ts",

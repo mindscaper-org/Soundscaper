@@ -86,7 +86,7 @@ export async function validateDesktopPackageInstalledLayout({
 		if (basename(resourcesRoot) !== 'resources') throw new Error('The Windows package resource layout is invalid.');
 		applicationRoot = dirname(resourcesRoot);
 		const relativeRoot = portableRelative(extraction, applicationRoot);
-		if (relativeRoot !== '' && relativeRoot !== productName) {
+		if (packageFormat === '.appx' ? relativeRoot !== 'app' : relativeRoot !== '' && relativeRoot !== productName) {
 			throw new Error('The Windows package application layout is invalid.');
 		}
 		executable = resolve(applicationRoot, `${productName}.exe`);

@@ -383,7 +383,7 @@ async function run(command, args, label, { execute = executeFile } = {}) {
 function assertFormatTarget(extension, targetId) {
 	const allowed = targetId.startsWith('linux-')
 		? ['.appimage', '.deb']
-		: targetId.startsWith('win-') ? ['.exe', '.zip'] : ['.dmg', '.pkg'];
+		: targetId.startsWith('win-') ? ['.exe', '.zip', '.appx'] : ['.dmg', '.pkg'];
 	if (!allowed.includes(extension)) {
 		throw new Error(`The desktop package format ${extension || '<none>'} does not match ${targetId}.`);
 	}
