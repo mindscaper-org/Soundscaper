@@ -15,7 +15,7 @@ import { reviewedVideoProjectCustody, currentReviewedVideoProject } from './revi
 import { COPY } from './audio-editor-controller-harness.js';
 
 /** Real Bin import/publication; native picture capture and all audio allocation remain unavailable. */
-export async function webmSourceFactsCustody(context: TestContext) {
+export async function webmSourceFactsCustody(context: TestContext, destination: 'project-bin' | 'timeline' = 'project-bin') {
 	const editor = await reviewedVideoProjectCustody(context, [], { num: 30, den: 1 });
 	const generation = new EditorProjectGeneration(); generation.activate(editor.project.id);
 	const nativeCalls: string[] = [];
@@ -48,7 +48,7 @@ export async function webmSourceFactsCustody(context: TestContext) {
 		createStableId: prefix => `${prefix}-${crypto.randomUUID()}`,
 		commit: command => editor.controller.actions.edit.commit(command),
 		findTrack: (project, id) => project.tracks.find(track => track.id === id) ?? null,
-		normalizeImportOptions: () => ({ destination: 'project-bin', trackId: null, timelineStartFrame: 0 }),
+		normalizeImportOptions: () => ({ destination, trackId: null, timelineStartFrame: 0 }),
 		preflightStorage: async bytes => { assert.ok(Number.isSafeInteger(bytes) && bytes > 0 && bytes < 1024 ** 3); },
 		stripExtension: name => name.replace(/\.[^.]+$/u, ''), warnEnvelope() {},
 		audioEditorVideoThumbnailTimes: () => unavailable('thumbnail extraction'),
