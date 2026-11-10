@@ -39,6 +39,8 @@ export default function AudacityRecoveryDialog({ open, copy, run, onClose }: Pro
 		</>} />}
 	>
 		<p id="audacity-recovery-description">{copy.recoverAudacityProjectDescription}</p>
+		<p><a href="https://soundscaper.org/docs/help/troubleshooting/#repair-an-aup3-file-offline"
+			target="_blank" rel="noreferrer">{copy.recoverAudacityOfflineHelp}</a></p>
 		<label>{copy.recoverAudacityProjectFile}<input type="file" accept=".aup3,.aup4"
 			disabled={pending} onChange={(event) => setFile(event.currentTarget.files?.[0] ?? null)} /></label>
 		<p role="status" aria-live="polite">{error}</p>
