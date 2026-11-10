@@ -41,6 +41,7 @@ const SOUNDSCAPER_SHARED_RUNTIME_EXCEPTIONS = new Set([
 const SOUNDSCAPER_SHARED_VIDEO_RUNTIME = /^src\/common\/editor\/video-[^/]+\.js$/u;
 const NIGHTLY_TEST_LAUNCHER_FILES = new Set([
 	'nightly-tests-assistance-host.mjs',
+	'nightly-tests-editor-host.mjs',
 	'nightly-tests-assistance.html',
 	'nightly-tests-main.mjs',
 	'nightly-tests-manifest.mjs',

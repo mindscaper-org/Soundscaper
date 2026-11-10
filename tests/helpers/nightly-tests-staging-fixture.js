@@ -73,6 +73,7 @@ export async function createFixture(context) {
 		['desktop/nightly-tests-main.mjs', 'export const launcher = true;\n'],
 		...['nightly-tests-control', 'nightly-tests-checkpoint-reporter', 'nightly-tests-pause-reports', 'process-tree-termination'].map((name) => [`desktop/${name}.ts`, 'export const control = true;\n']),
 		['desktop/nightly-tests-assistance-host.mjs', 'export const assistanceHost = true;\n'],
+		['desktop/nightly-tests-editor-host.mjs', 'export const editorHost = true;\n'],
 		['desktop/nightly-tests-assistance.html', '<!doctype html><title>Model tests</title>\n'],
 		['desktop/nightly-tests-manifest.mjs', 'export const manifest = true;\n'],
 		['desktop/nightly-tests-progress-window.mjs', 'export const progressWindow = true;\n'],

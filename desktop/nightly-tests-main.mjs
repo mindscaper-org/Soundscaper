@@ -4,6 +4,7 @@
 // runner module must leave a log and an acknowledged error, not a disappearing
 // Electron exception window inside the portable launcher's temporary directory.
 import { appendFileSync, mkdtempSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { takeCoverage } from 'node:v8';
@@ -15,7 +16,11 @@ const { app, dialog } = electron;
 const exitApplication = (code) => exitAfterCoverageCheckpoint({ checkpoint: takeCoverage,
 	exit: (exitCode) => app.exit(exitCode),
 	reportError: (error) => console.error('Nightly launcher V8 coverage checkpoint failed:', error) }, code);
-if (process.argv.includes('--soundscaper-nightly-assistance-host')) {
+if (process.argv.includes('--soundscaper-nightly-editor-host')) {
+	try {
+		createRequire(import.meta.url)('./nightly-tests-editor-host.mjs').startNightlyEditorHost(electron);
+	} catch (error) { console.error(error); exitApplication(2); }
+} else if (process.argv.includes('--soundscaper-nightly-assistance-host')) {
 	// Dynamic imports do not delay Electron readiness. Register this exact
 	// host-only scheme synchronously, before loading the assistance host.
 	// This branch owns its asynchronous helper flush and explicit exit too.

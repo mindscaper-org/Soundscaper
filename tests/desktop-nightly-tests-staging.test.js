@@ -147,6 +147,7 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'desktop/nightly-tests-main.mjs',
 		...['nightly-tests-control', 'nightly-tests-checkpoint-reporter', 'nightly-tests-pause-reports', 'process-tree-termination'].map((name) => `desktop/${name}.ts`),
 		'desktop/nightly-tests-assistance-host.mjs',
+		'desktop/nightly-tests-editor-host.mjs',
 		'desktop/nightly-tests-assistance.html',
 		'desktop/nightly-tests-manifest.mjs',
 		'desktop/nightly-tests-progress-window.mjs',

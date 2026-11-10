@@ -247,10 +247,30 @@ different commit or package therefore cannot satisfy the case.
 
 The diagnostic host automatically accepts its native local-assistance consent
 dialog. This is the consent test double; model downloads, model bytes, IPC, and
-inference results are real. It does not replace the existing browser UI tests
-for menus, settings, consent, progress, review, and applying results. The test
-host is packaged only in the nightly diagnostic launcher. The shipping editors'
-consent behavior and security settings are unchanged.
+inference results are real. The test host is packaged only in the nightly
+diagnostic launcher. The shipping editors' consent behavior and security
+settings are unchanged.
+
+`editor-workflows.spec.js` additionally boots the selected package's production
+main, preload, renderer, native services, and project library. It exercises all
+14 guided recipes and 16 Advanced recipes through the existing menus, including
+real transcript prerequisites and multi-stage indexing, reframe, highlights,
+and editorial generation. These cases preserve the separate primitive output
+quality checks. Source media includes mixed sample rates and two-second mono
+and stereo clips. Workflow progress, exact package identity, and measured GPU
+receipts accompany each successful run. Project edits must survive undo, redo,
+and reopen; indexed search must work before and after reopening the project.
+`editor-speech.spec.js` exercises actual preview playback, insertion, retained
+scripts, regeneration, undo, and reopen with Kokoro. Soundscaper runs editorial
+generation as well as its audio and text operations.
+Editorial acknowledgement must leave canonical state unchanged, including
+after reopening; generated prose stays transient.
+
+The editor host uses a disposable application-data directory and the selected
+product's authenticated ASAR and resources. It synchronously loads production
+main before Electron readiness, preserving production protocol and sandbox
+registration. Only the diagnostic launcher's native consent dialog is automated;
+it does not inject a replacement renderer bridge or model result.
 
 Decoded audio must remain finite, retain its geometry, contain changed PCM
 samples, and exceed the silence threshold. Transcripts and OCR must contain
@@ -272,6 +292,11 @@ required models for the target platform. The report names that model and target.
 On a catalog-supported platform, unavailable runtimes, failed downloads,
 insufficient resources, adapter errors, empty results, and inference failures
 **fail the case**. They are not converted to skips or successful stub results.
+The video menu cases are Framescaper-only. Make Highlights additionally uses
+the optional external FFmpeg shot detector: that editor case reports an explicit
+skip when the production preference service has no admitted compatible FFmpeg.
+It never silently installs a system executable. Other required model or workflow
+failures remain failures.
 
 ## Reports and model documentation
 

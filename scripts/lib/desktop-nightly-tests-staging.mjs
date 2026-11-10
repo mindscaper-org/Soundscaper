@@ -70,6 +70,7 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 	{ source: 'desktop/nightly-tests-main.mjs', destination: 'desktop/nightly-tests-main.mjs', kind: 'file', label: 'nightly test launcher' },
 	...['nightly-tests-control', 'nightly-tests-checkpoint-reporter', 'nightly-tests-pause-reports', 'process-tree-termination'].map((name) => ({ source: `desktop/${name}.ts`, destination: `desktop/${name}.ts`, kind: 'file', label: 'nightly test pause and resume' })),
 	{ source: 'desktop/nightly-tests-assistance-host.mjs', destination: 'desktop/nightly-tests-assistance-host.mjs', kind: 'file', label: 'nightly-only real assistance Electron host' },
+	{ source: 'desktop/nightly-tests-editor-host.mjs', destination: 'desktop/nightly-tests-editor-host.mjs', kind: 'file', label: 'nightly-only packaged editor workflow host' },
 	{ source: 'desktop/nightly-tests-assistance.html', destination: 'desktop/nightly-tests-assistance.html', kind: 'file', label: 'isolated assistance diagnostic document' },
 	{ source: 'desktop/nightly-tests-manifest.mjs', destination: 'desktop/nightly-tests-manifest.mjs', kind: 'file', label: 'nightly test manifest reader' },
 	{ source: 'desktop/nightly-tests-progress-window.mjs', destination: 'desktop/nightly-tests-progress-window.mjs', kind: 'file', label: 'visible nightly test progress window' },

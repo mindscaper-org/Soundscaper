@@ -75,6 +75,7 @@ test('normal product staging retains the nightly product seam and excludes only 
 		'desktop/main.mjs',
 		'desktop/nightly-tests-window.mjs',
 		'desktop/nightly-tests-assistance-host.mjs',
+		'desktop/nightly-tests-editor-host.mjs',
 		'desktop/nightly-tests-assistance.html',
 		'desktop/nightly-tests-main.mjs',
 		'desktop/nightly-tests-manifest.mjs',

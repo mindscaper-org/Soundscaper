@@ -219,7 +219,7 @@ has editable settings; installed alternative recognizers appear in a model picke
 and a sole installed recognizer is selected automatically. Advanced Local
 Processing retains the explicit primitive-operation workflow. The versioned
 `AssistanceWorkflow` contract owns the guided recipes
-and all fifteen Advanced primitive recipes. Each recipe is a closed stage graph
+and all sixteen Advanced primitive recipes. Each recipe is a closed stage graph
 with slotted inputs and outputs, exact model roles, versioned settings, progress,
 and one main-owned consent decision.
 
@@ -269,6 +269,10 @@ Forward audio at a different source sample rate remains eligible. Selection fenc
 retain native source frames while rendering and placement use project frames;
 preparation converts the selected boundaries between those clocks before
 resampling to the model's input profile. Publication rechecks both ranges.
+Transcript bodies retain the source sample rate and native frame coordinates;
+accepted labels and cleanup edits convert those coordinates to project frames.
+Model review bounds use the rendered selection's duration, including when the
+source rate is higher or lower than the project rate.
 
 Other proposals begin unselected and review surfaces are mutation-free. Cleanup
 review retains original/result audition, and crop and highlight proposals remain
@@ -318,6 +322,16 @@ runs the real worker on that target, and validates typed output. A passing small
 fixture proves that exact case, revision, and target; it is not a general model
 quality, performance, or device claim. Unsupported combinations must report
 typed unavailability.
+
+The nightly editor cases also launch the packaged production main and renderer,
+exercise every guided and Advanced recipe through its menu and real preload,
+and require measured GPU work for each workflow's models. Project edits
+check canonical state, undo, redo, and reopen; index cases exercise search
+before and after reopen. Speech generation checks preview playback, insertion,
+regeneration, undo, and reopen. The model-free highlight shot stage requires an
+admitted optional external FFmpeg; its absence is an explicit skip, separate
+from required-model failures.
+Editorial acknowledgement checks that generated text remains transient.
 
 The `m7-local-assistance-privacy` workload uses two selected and two deliberately
 unselected assets and requires:

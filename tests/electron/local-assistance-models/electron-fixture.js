@@ -23,13 +23,14 @@ import {
 	prepareLocalAssistanceRuntimeCoverage,
 } from './runtime-coverage.js';
 import { readModelGpuEvidence } from './model-gpu-evidence.ts';
+import { preparePackagedRuntimeSavingPreferences } from '../../browser/helpers/packaged-runtime-page.js';
 
 const STARTUP_TIMEOUT_MS = 90_000;
 const PUBLIC_DELIVERY_TIMEOUT_MS = 120_000;
 const CONTAINMENT_TIMEOUT_MS = 5_000;
 const LOG_LIMIT = 1_048_576;
 
-export async function launchModelTestElectron({ testInfo, productId = 'framescaper' }) {
+export async function launchModelTestElectron({ testInfo, productId = 'framescaper', editor = false }) {
 	if (process.env.SOUNDSCAPER_LOCAL_ASSISTANCE_REAL_MODELS !== '1') {
 		throw new Error('Real model execution requires SOUNDSCAPER_LOCAL_ASSISTANCE_REAL_MODELS=1.');
 	}
@@ -66,7 +67,9 @@ export async function launchModelTestElectron({ testInfo, productId = 'framescap
 			if (child?.pid && page) {
 				await completeLocalAssistanceCoverage({
 					child,
-					closePage: () => page.close(),
+					closePage: () => editor ? page.evaluate(() => {
+						void globalThis.soundscaperDesktop.v1.runWindowAction('quit');
+					}) : page.close(),
 					collector: coverageCollector,
 					timeoutMs: STARTUP_TIMEOUT_MS,
 				});
@@ -96,7 +99,7 @@ export async function launchModelTestElectron({ testInfo, productId = 'framescap
 	try {
 		await mkdir(gpuEvidenceRoot, { mode: 0o700 });
 		const port = await reserveLoopbackPort();
-		let environment = { ...process.env, SOUNDSCAPER_LOCAL_ASSISTANCE_PRODUCT_ID: productId,
+		let environment = { ...process.env, SCAPE_PRODUCT: productId, SOUNDSCAPER_LOCAL_ASSISTANCE_PRODUCT_ID: productId,
 			SOUNDSCAPER_ASSISTANCE_GPU_VALIDATION: '1',
 			SOUNDSCAPER_ASSISTANCE_GPU_EVIDENCE_ROOT: gpuEvidenceRoot };
 		delete environment.ELECTRON_RUN_AS_NODE;
@@ -121,7 +124,7 @@ export async function launchModelTestElectron({ testInfo, productId = 'framescap
 		child = spawn(executablePath, [
 			...(process.env.SOUNDSCAPER_NIGHTLY_TESTS_HOST_ENTRY
 				? [requiredPath('SOUNDSCAPER_NIGHTLY_TESTS_HOST_ENTRY')] : []),
-			'--soundscaper-nightly-assistance-host',
+			editor ? '--soundscaper-nightly-editor-host' : '--soundscaper-nightly-assistance-host',
 			`--user-data-dir=${profile}`,
 			'--remote-debugging-address=127.0.0.1',
 			`--remote-debugging-port=${String(port)}`,
@@ -137,10 +140,9 @@ export async function launchModelTestElectron({ testInfo, productId = 'framescap
 		page = context.pages()[0] ?? await context.waitForEvent('page', {
 			timeout: STARTUP_TIMEOUT_MS,
 		});
-		await page.waitForURL((url) => url.protocol === 'soundscaper-nightly-assistance:'
-			&& url.hostname === 'host' && url.pathname === '/', {
-			timeout: STARTUP_TIMEOUT_MS,
-		});
+		const hostUrl = (url) => editor ? url.protocol === `${productId}-app:` && url.hostname === 'bundle'
+			: url.protocol === 'soundscaper-nightly-assistance:' && url.hostname === 'host' && url.pathname === '/';
+		await page.waitForURL(hostUrl, { timeout: STARTUP_TIMEOUT_MS });
 		await page.waitForFunction(() =>
 			typeof globalThis.soundscaperDesktop?.v1?.localAssistance?.createJob === 'function'
 			&& typeof globalThis.soundscaperDesktop?.v1?.installAssistanceModel === 'function',
@@ -149,12 +151,15 @@ export async function launchModelTestElectron({ testInfo, productId = 'framescap
 			coverageCollector = await coverageLaunch.start({
 				context, page, mainProcessId: child.pid, timeoutMs: STARTUP_TIMEOUT_MS,
 			});
-			await page.waitForURL((url) => url.protocol === 'soundscaper-nightly-assistance:'
-				&& url.hostname === 'host' && url.pathname === '/', { timeout: STARTUP_TIMEOUT_MS });
+			await page.waitForURL(hostUrl, { timeout: STARTUP_TIMEOUT_MS });
 			await page.waitForFunction(() =>
 				typeof globalThis.soundscaperDesktop?.v1?.localAssistance?.createJob === 'function'
 				&& typeof globalThis.soundscaperDesktop?.v1?.installAssistanceModel === 'function',
 			undefined, { timeout: STARTUP_TIMEOUT_MS });
+		}
+		if (editor) {
+			await page.locator('[data-audio-editor]').waitFor({ timeout: STARTUP_TIMEOUT_MS });
+			await preparePackagedRuntimeSavingPreferences(page);
 		}
 		return Object.freeze({ page, processLog, close, packageIdentity,
 			readGpuEvidence: (jobId) => readModelGpuEvidence(gpuEvidenceRoot, jobId),

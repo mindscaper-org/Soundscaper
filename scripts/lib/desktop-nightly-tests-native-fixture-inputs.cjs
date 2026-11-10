@@ -21,4 +21,12 @@ module.exports = Object.freeze([
 	'src/common/editor/ara-contract.ts',
 	'src/common/editor/blender-contract.ts',
 	'vendor/audacity-design-system/components/src/component-copy.ts',
+	'vendor/audacity-design-system/components/src/Icon/icon-codes.ts',
+	'tests/helpers/audio-format-import-cases.ts',
+	'tests/helpers/dawproject-foreign-route.ts',
+	'tests/helpers/dawproject-master-route.ts',
+	'tests/helpers/handbook-macro-programs.ts',
+	'tests/helpers/matroska-metadata-custody-cases.ts',
+	'tests/helpers/mp4-text-metadata-cases.ts',
+	'tests/helpers/pcm-metadata-import-cases.ts',
 ]);

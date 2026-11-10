@@ -8,6 +8,16 @@ These small fixtures ship with the nightly test payload. Model weights are downl
 | `astronaut.png` | [scikit-image v0.20.0 NASA astronaut sample](https://github.com/scikit-image/scikit-image/blob/v0.20.0/skimage/data/astronaut.png) | `88431cd9653ccd539741b555fb0a46b61558b301d4110412b5bc28b5e3ea6cb5` | NASA photograph of Eileen Collins, public domain, as documented by [scikit-image](https://scikit-image.org/docs/stable/api/skimage.data.html#skimage.data.astronaut). |
 | `chelsea.png` | [scikit-image v0.20.0 Chelsea sample](https://github.com/scikit-image/scikit-image/blob/v0.20.0/skimage/data/chelsea.png) | `596aa1e7cb875eb79f437e310381d26b338a81c2da23439704a73c4651e8c4bb` | Photograph by Stefan van der Walt, released under CC0, as documented by [scikit-image](https://scikit-image.org/docs/0.20.x/api/skimage.data.html#skimage.data.chelsea). |
 
+`editor-workflows.webm` is a repository-authored 32-second VP8 composition of
+the two public-domain/CC0 photographs above and `LOCAL MODEL TEST` text. Its
+SHA-256 is `bed8440f0e32c8cdfdc8fca6dc8c6433b8ef318c3e2740ec9c7593b5e6beb29e`.
+It was authored with Chromium 151.0.7922.34 using
+`node tests/electron/local-assistance-models/generate-editor-video-fixture.mjs`.
+It has three image switches, readable text, and enough duration for highlight
+proposals. Tests consume committed bytes; they never record realtime media.
+Re-authoring requires a new digest in the reader and regression test.
+MediaRecorder output is not claimed to be byte-reproducible.
+
 Speech preparation converts the original 16-bit, 16 kHz mono recording into float32 and adds one second of silence at either end. DeepFilterNet receives a linearly resampled 48 kHz version with reproducible low-level hiss. The astronaut and cat photographs become two 512 × 512 RGBA frames, fitted without distortion on a white canvas and retaining distinct source-frame timing. The astronaut supplies a visible human face and Chelsea supplies a clear object, so the subject test can require results from both networks at the production confidence thresholds. The OCR input is generated locally on a white canvas with black `LOCAL MODEL` and `TEST` text; it contains no third-party media.
 
 Subject correctness requires a face on the astronaut frame (source frame 0) and a COCO cat (class 15) on the Chelsea frame (source frame 1). OCR correctness compares the known rendered text in reading order after Unicode, case, and whitespace normalization. It permits at most a 10% Levenshtein character error rate: at most one edit in this 16-character fixture. Reports retain the expected and recognized text, edit distance, and error rate, including when the case fails. The previously observed `LOCAL MODEI` / `TSET` output has three edits (18.75%) and fails this check.

@@ -326,7 +326,8 @@ test('real-model fixture wires private coverage before spawn and graceful close 
 	assert.match(source, /environment\.SCAPE_BROWSER_COVERAGE === '1'/u);
 	assert.ok(source.indexOf('prepareLocalAssistanceRuntimeCoverage({') < source.indexOf('child = spawn('));
 	assert.ok(source.indexOf('coverageLaunch.start({') < source.lastIndexOf('page.waitForFunction('));
-	assert.match(source, /completeLocalAssistanceCoverage\(\{[\s\S]*closePage: \(\) => page\.close\(\)/u);
+	assert.match(source, /completeLocalAssistanceCoverage\(\{[\s\S]*closePage: \(\) => editor \? page\.evaluate/u);
+	assert.match(source, /runWindowAction\('quit'\)[\s\S]*: page\.close\(\)/u);
 	assert.match(source, /closeBrowserConnection\(browser\)/u);
 	assert.match(source, /CONTAINMENT_TIMEOUT_MS/u);
 });
