@@ -6,6 +6,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 
 import { compareCodeUnits } from '../../../code-unit-order.ts';
+import { scaleSampleFrame } from '../../../timeline-time.ts';
 import {
 	normalizeAssistanceOperation,
 	type AssistanceOperation,
@@ -255,10 +256,12 @@ export function resolveLocalAssistanceSelectedMediaAuthority(
 	if (selectionStart < clipStart || selectionEnd > clipEnd || selectionEnd <= selectionStart) {
 		throw new RangeError('The assistance selection must remain inside the selected occurrence.');
 	}
-	const selectionFrames = selectionEnd - selectionStart;
 	const sourceStart = safeAdd(integer(clip.sourceStartFrame, 0, 'clip source start'),
-		selectionStart - clipStart, 'selected source start');
-	const sourceEnd = safeAdd(sourceStart, selectionFrames, 'selected source end');
+		Number(scaleSampleFrame(selectionStart - clipStart, project.sampleRate, Number(source.sampleRate), 'point')),
+		'selected source start');
+	const sourceEnd = safeAdd(integer(clip.sourceStartFrame, 0, 'clip source start'),
+		Number(scaleSampleFrame(selectionEnd - clipStart, project.sampleRate, Number(source.sampleRate), 'point')),
+		'selected source end');
 	if (sourceEnd > integer(source.frameCount, 1, 'source frame count')) {
 		throw new RangeError('The assistance selection exceeds its authenticated source.');
 	}
@@ -385,10 +388,11 @@ function selectedProject(value: unknown): SelectedMediaProject {
 }
 
 function assertIdentityTiming(clip: DataRecord, source: DataRecord, sampleRate: number): void {
+	const sourceRate = integer(source.sampleRate, 1, 'source sample rate');
 	if (clip.reversed !== false || clip.speedRatio !== 1 || clip.pitchCents !== 0
 		|| clip.stretchToTempo !== false || clip.anchor !== 'sample' || clip.warpMap !== null
-		|| clip.sourceDurationFrames !== clip.durationFrames
-		|| source.sampleRate !== sampleRate) {
+		|| clip.sourceDurationFrames !== Number(scaleSampleFrame(
+			integer(clip.durationFrames, 1, 'clip duration'), sampleRate, sourceRate, 'point'))) {
 		throw new Error('Selected-media preparation currently requires forward identity timing.');
 	}
 }

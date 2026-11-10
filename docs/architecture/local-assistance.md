@@ -265,6 +265,11 @@ video remain intact. Replacing linked audio detaches its A/V link, restored by u
 Derived PCM is stored at the project rate so subsequent effects can process it normally;
 provenance retains the authenticated model output identity.
 
+Forward audio at a different source sample rate remains eligible. Selection fences
+retain native source frames while rendering and placement use project frames;
+preparation converts the selected boundaries between those clocks before
+resampling to the model's input profile. Publication rechecks both ranges.
+
 Other proposals begin unselected and review surfaces are mutation-free. Cleanup
 review retains original/result audition, and crop and highlight proposals remain
 transport-backed and editable. Their explicit acceptance revalidates the aggregate fence.

@@ -34,6 +34,34 @@ const AUDIO = createWavFixture({
 test.describe('Local Assistance result acceptance', () => {
 	registerAudioEditorHooks();
 
+	for (const channelCount of [1, 2]) test(`reduces reverb on a two-second ${channelCount}-channel clip`, async ({ page }) => {
+		const audio = createWavFixture({ name: `short-${channelCount}.wav`, frequency: 330,
+			duration: 2, sampleRate: 44_100, channelCount });
+		await installMilestone7LocalAssistanceFixture(page);
+		const editor = await bootEditor(page, '/en/');
+		await importFiles(editor, [audio]);
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		const projectId = await editor.getAttribute('data-project-id');
+		const initial = await storedAudioSummary(page, projectId);
+		acceptConsentDialogs(page);
+		const clip = clipByName(editor, audio.name).first();
+		await clip.focus();
+		await page.keyboard.press('Enter');
+		await openAssistanceTask(page, editor, 'Reduce Reverb');
+		const processing = page.getByRole('dialog', { name: 'Reduce Reverb', exact: true });
+		await expect(processing.getByRole('progressbar', { name: 'Processing status' })).toBeVisible();
+		await expect.poll(() => milestone7FixtureSnapshot(page).then(({ progressEvents }) => progressEvents)).toBe(1);
+		await completeMilestone7Run(page);
+		await expect(processing).toBeHidden();
+		await expect(clipByName(editor, 'Reduced Reverb')).toBeVisible();
+		await expect.poll(() => storedAudioSummary(page, projectId)).toMatchObject({ clips: [{
+			sourceName: 'Reduced Reverb', durationFrames: 96_000, sourceFrameCount: 96_000,
+			sourceSampleRate: 48_000, channelCount,
+		}] });
+		await editor.getByRole('button', { name: 'Undo', exact: true }).click();
+		await expect.poll(() => storedAudioSummary(page, projectId)).toEqual(initial);
+	});
+
 	test('publishes reviewed reaction, beat, tempo, and cleanup results', async ({ page }) => {
 		test.setTimeout(240_000);
 		await stubStorageEstimate(page, { usage: 1024 ** 2, quota: 2 * 1024 ** 3 });
@@ -273,6 +301,9 @@ async function storedAudioSummary(page, projectId) {
 				clips: project.clips.map(({ id: clipId, sourceId, timelineStartFrame, durationFrames }) => ({
 					trackName: project.tracks.find(({ clipIds }) => clipIds?.includes(clipId))?.name,
 					sourceName: project.sources.find(({ id: candidate }) => candidate === sourceId)?.name,
+					sourceSampleRate: project.sources.find(({ id: candidate }) => candidate === sourceId)?.sampleRate,
+					sourceFrameCount: project.sources.find(({ id: candidate }) => candidate === sourceId)?.frameCount,
+					channelCount: project.sources.find(({ id: candidate }) => candidate === sourceId)?.channelCount,
 					startFrame: timelineStartFrame, durationFrames,
 				})),
 				projectBinClipCount: project.projectBin.clips.length,

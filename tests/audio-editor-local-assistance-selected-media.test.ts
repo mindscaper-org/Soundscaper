@@ -68,6 +68,31 @@ test('selected-media inventory exposes only operations with an exact audio input
 	assert.deepEqual(rendered, []);
 });
 
+test('two-second mono and stereo audio at a different source rate remains available for dereverb', async () => {
+	for (const channelCount of [1, 2]) {
+		const current = project({ schemaFamily: 'soundscaper',
+			selection: { startFrame: 24_000, endFrame: 120_000, clipIds: ['voice-clip'], trackIds: ['voice-track'] },
+			sources: [{ id: 'voice-source', name: 'Voice', kind: 'audio', contentSha256: SOURCE_SHA256,
+				sampleRate: 44_100, channelCount, frameCount: 132_300 }],
+			clips: [{ ...project().clips[0], avLinkId: null, sourceStartFrame: 22_050,
+				durationFrames: 96_000, sourceDurationFrames: 88_200 }],
+		});
+		const preparation = createLocalAssistanceSelectedMediaPreparation({
+			getProject: () => current, getSelectedClipId: () => 'voice-clip',
+			captureProject: () => null, assertProject: () => undefined,
+			renderDryTrackRange: async (_id, start, end) => Array.from({ length: channelCount }, () => new Float32Array(end - start)),
+		});
+		assert.equal((await preparation.listSelectedMedia()).sources.length, 1);
+		const prepared = await preparation.prepareSelectedMedia({ sourceId: 'voice-source', operation: 'dereverberation' });
+		assert.equal(prepared.selectionFence.sourceStartFrame, 22_050);
+		assert.equal(prepared.selectionFence.sourceEndFrame, 110_250);
+		const wav = new DataView(await prepared.inputs[0]!.bytes.arrayBuffer());
+		assert.equal(wav.getUint32(24, true), 44_100);
+		assert.equal(wav.getUint16(22, true), channelCount);
+		assert.equal(wav.getUint32(40, true), 88_200 * channelCount * 4);
+	}
+});
+
 test('an ordinary audio range selection resolves its unique occurrence without focused clip state', () => {
 	for (const clipIds of [[], ['voice-clip']]) {
 		const selectedProject = project({ selection: { startFrame: 48_000, endFrame: 96_000,

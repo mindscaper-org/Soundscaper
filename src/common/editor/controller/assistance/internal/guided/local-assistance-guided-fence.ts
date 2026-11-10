@@ -6,6 +6,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 
 import { compareCodeUnits } from '../../../../code-unit-order.ts';
+import { scaleSampleFrame } from '../../../../timeline-time.ts';
 import type {
 	AssistanceWorkflowFenceV1,
 	AssistanceWorkflowModelBindingV1,
@@ -119,16 +120,18 @@ function sourceRangeInventory(
 		const kind = [...kinds][0];
 		if (kind !== 'audio' && kind !== 'video') unavailable('selected-media-unavailable');
 		for (const occurrence of occurrences) assertForwardOccurrence(occurrence, kind);
-		const placementOffsets = kind === 'audio' ? occurrences.map((occurrence) => (
-			integer(occurrence.timelineStartFrame, 0, 'occurrence timeline start')
-				- integer(occurrence.sourceStartFrame, 0, 'occurrence source start')
-		)) : [0];
-		if (placementOffsets.some((offset) => !Number.isSafeInteger(offset))
-			|| new Set(placementOffsets).size !== 1) unavailable('timing-authority-unavailable');
 		const matchingSources = sources.filter(({ id }) => id === primitive.sourceId);
 		if (matchingSources.length !== 1 || matchingSources[0]!.kind !== kind
 			|| liveSource(matchingSources[0]!)) unavailable('source-custody-unavailable');
 		const source = matchingSources[0]!;
+		const placementOffsets = kind === 'audio' ? occurrences.map((occurrence) => (
+			integer(occurrence.timelineStartFrame, 0, 'occurrence timeline start')
+				- Number(scaleSampleFrame(integer(occurrence.sourceStartFrame, 0, 'occurrence source start'),
+					integer(source.sampleRate ?? project.sampleRate, 8_000, 'audio sample rate'),
+					integer(project.sampleRate, 8_000, 'project sample rate'), 'point'))
+		)) : [0];
+		if (placementOffsets.some((offset) => !Number.isSafeInteger(offset))
+			|| new Set(placementOffsets).size !== 1) unavailable('timing-authority-unavailable');
 		// A source-only workflow still carries the complete selected linked set. Narrowing
 		// this range to its source-local occurrence would make publication disagree with
 		// the exact primitive selection fence. Multi-source workflows distribute the set

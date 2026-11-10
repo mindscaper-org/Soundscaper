@@ -13,6 +13,7 @@ import {
 	createAddTrackCommand,
 } from '../../../../commands/factories.ts';
 import type { AudioEditorCommand } from '../../../../commands/protocol.ts';
+import { scaleSampleFrame } from '../../../../timeline-time.ts';
 import {
 	createAudioClip,
 	createAudioSource,
@@ -358,7 +359,12 @@ function normalizeAuthority(
 	const sourceStartFrame = integer(value.sourceStartFrame, 0, 'selected source start');
 	const sourceEndFrame = integer(value.sourceEndFrame, 1, 'selected source end');
 	const duration = timelineEndFrame - timelineStartFrame;
-	if (duration < 1 || sourceEndFrame - sourceStartFrame !== duration
+	const sourceRate = integer(source.sampleRate, 1, 'source sample rate');
+	const clipSourceStart = integer(clip.sourceStartFrame, 0, 'clip source start');
+	const clipTimelineStart = integer(clip.timelineStartFrame, 0, 'clip timeline start');
+	if (duration < 1 || sourceEndFrame <= sourceStartFrame
+		|| sourceStartFrame !== clipSourceStart + Number(scaleSampleFrame(timelineStartFrame - clipTimelineStart, projectSampleRate, sourceRate, 'point'))
+		|| sourceEndFrame !== clipSourceStart + Number(scaleSampleFrame(timelineEndFrame - clipTimelineStart, projectSampleRate, sourceRate, 'point'))
 		|| sourceStartFrame !== fence.sourceStartFrame || sourceEndFrame !== fence.sourceEndFrame) {
 		throw new AssistanceProposalStaleError();
 	}
