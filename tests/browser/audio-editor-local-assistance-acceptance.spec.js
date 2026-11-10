@@ -28,6 +28,7 @@ const AUDIO = createWavFixture({
 	name: 'assistance-acceptance.wav',
 	frequency: 330,
 	duration: 4,
+	sampleRate: 44_100,
 	channelCount: 1,
 });
 

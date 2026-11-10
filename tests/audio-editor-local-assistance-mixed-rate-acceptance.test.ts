@@ -8,7 +8,7 @@ import { createLocalAssistanceReactionReviewSession } from '../src/common/editor
 import { createLocalAssistanceBeatReviewSession } from '../src/common/editor/controller/assistance/internal/local-assistance-beat-acceptance.ts';
 import { createLocalAssistanceGuidedCleanupAcceptance } from '../src/common/editor/controller/assistance/internal/guided/local-assistance-guided-cleanup-acceptance.ts';
 import { createLocalAssistanceTranscriptCleanupSession } from '../src/common/editor/controller/assistance/internal/local-assistance-cleanup-acceptance.ts';
-import { normalizeLocalAssistanceAudioAcceptanceAuthority } from '../src/common/editor/controller/assistance/internal/local-assistance-audio-acceptance-authority.ts';
+import { localAssistanceSourceFrameToTimelineFrame, normalizeLocalAssistanceAudioAcceptanceAuthority } from '../src/common/editor/controller/assistance/internal/local-assistance-audio-acceptance-authority.ts';
 import { projectForCommand } from '../src/common/editor/project-command-projection.ts';
 import { MixedRateAssistanceFixture, assistanceClaim, assistanceModel, DIGEST } from './helpers/local-assistance-mixed-rate-fixture.ts';
 import { TranscriptStore } from './helpers/local-assistance-transcript-store.ts';
@@ -143,4 +143,16 @@ test('mixed-rate authority rejects altered source rates, selection extents, and 
 		{ ...authority, clip: { ...authority.clip, sourceStartFrame: 0 } },
 	]) assert.throws(() => normalizeLocalAssistanceAudioAcceptanceAuthority(altered, 'Missing authority'));
 	assert.equal(authority.fence.sourceSha256, DIGEST);
+});
+
+test('native rounding retains the exact selected project endpoints for trimmed occurrences', () => {
+	const authority = new MixedRateAssistanceFixture().currentAuthority();
+	const normalized = normalizeLocalAssistanceAudioAcceptanceAuthority({ ...authority,
+		startFrame: 72_001, endFrame: 168_003, sourceStartFrame: 44_101, sourceEndFrame: 132_303,
+		fence: { ...authority.fence, sourceStartFrame: 44_101, sourceEndFrame: 132_303 },
+	}, 'Missing authority');
+	assert.equal(localAssistanceSourceFrameToTimelineFrame(44_101, normalized), 72_001);
+	assert.equal(localAssistanceSourceFrameToTimelineFrame(132_303, normalized), 168_003);
+	assert.equal(localAssistanceSourceFrameToTimelineFrame(88_201, normalized), 120_001);
+	assert.throws(() => localAssistanceSourceFrameToTimelineFrame(132_304, normalized), RangeError);
 });
