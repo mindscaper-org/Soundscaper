@@ -22,6 +22,8 @@ for (const right of ['opposite', 'silent']) test(`pitch-preserving playback mete
 	await editor.getByRole('slider', { name: 'Playback speed', exact: true }).fill('0.5');
 	await page.keyboard.press('Escape');
 	await editor.getByRole('button', { name: 'Play at speed', exact: true }).click();
+	// Offline mixing and StaffPad preparation precede the realtime meter clock.
+	await expect(editor.getByRole('button', { name: 'Pause play at speed', exact: true })).toBeVisible({ timeout: 20_000 });
 	await expect.poll(async () => Number(await meter.getAttribute('aria-valuenow'))).toBeGreaterThan(-20);
 	if (right === 'silent') {
 		const fills = meter.locator('.kw-audio-editor__playback-meter-peak');
