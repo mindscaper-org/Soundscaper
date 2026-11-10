@@ -30,6 +30,30 @@ const ASSISTANCE_SITES: readonly FoundationTimeConversionSite[] = [
 		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
 	},
 	{
+		id: 'local-assistance-audio-publication-conversion',
+		file: 'src/common/editor/controller/assistance/internal/audio/local-assistance-audio-publication.ts',
+		behavior: 'Publication validates selected timeline boundaries against the nearest source frames before accepting reviewed audio.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
+		id: 'local-assistance-guided-fence-conversion',
+		file: 'src/common/editor/controller/assistance/internal/guided/local-assistance-guided-fence.ts',
+		behavior: 'Guided fences point-resolve each source start to the project clock to check linked occurrence placement.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
+		id: 'local-assistance-audio-acceptance-authority-conversion',
+		file: 'src/common/editor/controller/assistance/internal/local-assistance-audio-acceptance-authority.ts',
+		behavior: 'Acceptance point-resolves selection geometry and maps reviewed source rows to project frames using the requested point or enclosing boundary policy.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point', 'enclosingStart', 'enclosingEnd'] }],
+	},
+	{
+		id: 'local-assistance-selected-media-conversion',
+		file: 'src/common/editor/controller/assistance/internal/local-assistance-selected-media.ts',
+		behavior: 'Selected media point-resolves timeline boundaries and duration to the source clock to authenticate forward identity timing.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
 		id: 'local-text-to-speech-project-duration',
 		file: 'src/common/editor/controller/assistance/local-assistance-text-to-speech-project-service.ts',
 		behavior: 'Generated speech resolves its complete 24 kHz source length to the nearest project-rate frame count when placing a new track.',

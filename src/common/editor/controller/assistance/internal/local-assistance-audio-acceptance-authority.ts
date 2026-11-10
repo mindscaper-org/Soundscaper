@@ -104,7 +104,8 @@ export function localAssistanceSourceFrameToTimelineFrame(
 	if (sourceFrame === authority.sourceStartFrame) return authority.timelineStartFrame;
 	if (sourceFrame === authority.sourceEndFrame) return authority.timelineEndFrame;
 	const result = authority.timelineStartFrame + Number(scaleSampleFrame(
-		sourceFrame - authority.sourceStartFrame, authority.sourceSampleRate, authority.sampleRate, purpose));
+		sourceFrame - authority.sourceStartFrame, authority.sourceSampleRate, authority.sampleRate,
+		purpose === 'enclosingStart' ? 'enclosingStart' : purpose === 'enclosingEnd' ? 'enclosingEnd' : 'point'));
 	if (!Number.isSafeInteger(result)) throw new RangeError('An assistance timeline row exceeds safe timing.');
 	return Math.min(authority.timelineEndFrame, Math.max(authority.timelineStartFrame, result));
 }
