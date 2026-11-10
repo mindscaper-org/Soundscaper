@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { promisify } from 'node:util';
 
 import { createAnswersClient, readAnswers, writeTranslationPackets } from '../scripts/i18n-ai/answers.mjs';
 import { readTranslationCatalog, writeTranslationCatalog } from '../scripts/i18n-ai/catalog.mjs';
@@ -109,4 +111,12 @@ test('the command line exports packets and replays answers for a locale', async 
 	assert.equal(summary.translated, 2);
 	assert.match(err.join(''), /fr: replaying 2 answers from .* as claude-sonnet-5/u);
 	assert.equal((await readTranslationCatalog('fr', directory)).provenance.machine.model, 'claude-sonnet-5');
+});
+
+test('the standalone packet command reads the German reference with plain Node', async () => {
+	const output = await scratch();
+	await promisify(execFile)(process.execPath, ['scripts/i18n-ai.mjs', 'packets', '--locale', 'fr',
+		'--output', output, '--no-glossary', '--keys', 'downloadLink']);
+	const packet = JSON.parse(await readFile(join(output, 'fr', '001.json'), 'utf8'));
+	assert.equal(packet.messages.downloadLink, 'Download');
 });
