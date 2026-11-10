@@ -11,6 +11,7 @@ import assistanceNativeRuntimeManifest from '../config/assistance-native-runtime
 import { verifyAssistanceNativeRuntimePayload } from './assistance-native-runtime-payload.mjs';
 import { createSherpaDiarizerFactory } from './project-library-runtime/desktop/assistance-sherpa-diarizer.js';
 import { createSherpaRecognizerFactory } from './project-library-runtime/desktop/assistance-sherpa-recognizer.js';
+import { executeSherpaEnhancement } from './project-library-runtime/desktop/assistance-sherpa-enhancement-worker.js';
 import { createSherpaVadFactory } from './project-library-runtime/desktop/assistance-sherpa-vad.js';
 import { createSpeechRuntimeAdapter } from './project-library-runtime/desktop/assistance-speech-runtime.js';
 import { validateAssistanceSpeechJobGrant } from './project-library-runtime/desktop/assistance-speech-job-contract.js';
@@ -46,6 +47,11 @@ void run().finally(() => disposeNativeResources?.()).then(
 async function run() {
 	const grant = validateAssistanceSpeechJobGrant(gpuProfile ? workerData.grant : workerData);
 	if (grant.operation === 'status') return runtime.status();
+	if (grant.operation === 'enhance-speech') {
+		const module = await loadVerifiedRuntime();
+		return executeSherpaEnhancement(grant, module, { ...acceleration(),
+			disposeNativeResources, onProgress: (value) => parentPort?.postMessage({ type: 'progress', value }) });
+	}
 	const modelFiles = grant.operation === 'recognize'
 		? Object.values(grant.model)
 		: grant.operation === 'diarize-speakers' ? Object.values(grant.models) : [grant.model];

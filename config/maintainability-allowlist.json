@@ -4,7 +4,6 @@
 	"browserSpecMaxLines": 800,
 	"warnLines": 550,
 	"warningBandRatchets": {
-		"desktop/assistance-operation-service.ts": 582,
 		"desktop/assistance-staging-registry.ts": 584,
 		"desktop/assistance-workflow-custody.ts": 581,
 		"desktop/assistance-workflow-owned-video-highlight-stage-runtime.ts": 597,

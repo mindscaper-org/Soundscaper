@@ -19,7 +19,7 @@ const MODELS = Object.freeze([
 	['qwen3-4b-q4-k-m', '1.0.0', 'editorial-generation'],
 ]);
 
-export async function installMilestone7LocalAssistanceFixture(page) {
+export async function installMilestone7LocalAssistanceFixture(page, additionalModels = []) {
 	await installDesktopSpeedWarmupManifest(page);
 	await page.addInitScript(({ models }) => {
 		const artifactSha256 = '11'.repeat(32);
@@ -401,7 +401,7 @@ export async function installMilestone7LocalAssistanceFixture(page) {
 		function jsonBlob(value, slotId) {
 			return new Blob([JSON.stringify(value)], { type: outputMediaType(slotId) });
 		}
-	}, { models: MODELS });
+	}, { models: [...MODELS, ...additionalModels] });
 }
 
 export async function completeMilestone7Run(page) {

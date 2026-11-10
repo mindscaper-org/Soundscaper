@@ -1,8 +1,8 @@
 {
 	"schemaVersion": 1,
 	"recipeId": "sherpa-onnx-node-gpu-locked-build-v1",
-	"version": "1.13.5",
-	"sourceRevision": "3dc7c569f31ca2cd4a20ed6f7db780327e6714c5",
+	"version": "2.0.1",
+	"sourceRevision": "af2d8d81dbfa61c4cea4c568da78f3982edca005",
 	"nodeHeadersVersion": "26.5.0",
 	"nodeAddonApiVersion": "8.3.1",
 	"nativeRecipeFiles": {
@@ -15,33 +15,35 @@
 		"native/assistance-sherpa-gpu/node-disposal.cc": "1ac8742d404f91b99f10d128e063e745c7a7412266cc5755e26d7abfdb806463"
 	},
 	"patchSourceFiles": {
-		"sherpa-onnx/csrc/provider.h": "bbdac833c579b65caaab0b782d20e05cb1d8ca69afab82fc7a84ed3c5d7b2f4a",
-		"sherpa-onnx/csrc/provider.cc": "d215ae1e926747ef30c296ae11fb5faa5d1cdb4e15a8011696417cd7733ab1df",
-		"sherpa-onnx/csrc/session.cc": "98bb45adf41e78cc87a4718bf34b3bd96554472bf1dafabbc49431662e4e4403",
-		"cmake/onnxruntime.cmake": "63cb67a92e7e484e5b8428f33386165175a0f999215dc17ccfa5c424eecca01d",
-		"harmony-os/SherpaOnnxHar/sherpa_onnx/src/main/cpp/vad.cc": "ad989091a25d7170ee3629c92503fdc3b866362b246194538b5e1d6373c3e90a",
-		"harmony-os/SherpaOnnxHar/sherpa_onnx/src/main/cpp/non-streaming-asr.cc": "700c53f00971f1be65bd9392a245feacd709f9c6fcdd5ac0b03224105c074341",
-		"harmony-os/SherpaOnnxHar/sherpa_onnx/src/main/cpp/non-streaming-speaker-diarization.cc": "443cabbe447135b92e07373dc7f1cf9808b5292ac6184a556c2a548667126721",
+		"sherpa-onnx/csrc/provider.h": "d2cce3aa3846018790a4caeac7b5532512e857daa3a088b7682fbf14d92c3364",
+		"sherpa-onnx/csrc/provider.cc": "4920ddb6975464e0d42a3224e17f230f4a474fb0ee8d8547b7372fd51062557a",
+		"sherpa-onnx/csrc/session.cc": "a9947ef352e900ef715f5da8605bdfa523134d93bd751dbcff4843de11aa3695",
+		"cmake/onnxruntime.cmake": "00f4d52e6583022aae06f509243f9a02ee7a5a31f4f62fc4cce12047dfac7860",
+		"harmony-os/SherpaOnnxHar/sherpa_onnx/src/main/cpp/vad.cc": "7ecccab9d733791905a277572ecedaa31f71dcc4b1b22bbed07cc5b37edb5414",
+		"harmony-os/SherpaOnnxHar/sherpa_onnx/src/main/cpp/non-streaming-asr.cc": "8f2129adf991d6f224fa8278050669581d684871f06e71c29db40a5cfa281992",
+		"harmony-os/SherpaOnnxHar/sherpa_onnx/src/main/cpp/non-streaming-speaker-diarization.cc": "ffc3ff30c474b75491274c5f8edd6b9c1963f3f0e92455451507f3de1d1d27db",
 		"harmony-os/SherpaOnnxHar/sherpa_onnx/src/main/cpp/sherpa-onnx-node-addon-api.cc": "856a0559a9884ccc82fcd805e4ffaf97d4f44c149dd43bf98a777146c19858f1",
-		"sherpa-onnx/c-api/sherpa-onnx-symbols-c.exp": "7cd5e8a41aa10ec4109c146d387b4ae8ccf8f9675f6b5483b3b25c3744604dc9"
+		"sherpa-onnx/c-api/sherpa-onnx-symbols-c.exp": "f7195f7c45a21c1cce5e5bf2bb11437e8d4b15ae17cef0ac2ba5c0053fc28573",
+		"harmony-os/SherpaOnnxHar/sherpa_onnx/src/main/cpp/non-streaming-speech-denoiser.cc": "27159768723f165d3fb94c280093100953c10fc1b1ca6db0b39bb2a71cbe235e",
+		"harmony-os/SherpaOnnxHar/sherpa_onnx/src/main/cpp/streaming-speech-denoiser.cc": "cd45782a28d32e161f53e284baf142b168600fb6030fedf778b506ad4cfe4b4f"
 	},
 	"sources": [
 		{
 			"id": "sherpa-source",
-			"url": "https://codeload.github.com/k2-fsa/sherpa-onnx/tar.gz/3dc7c569f31ca2cd4a20ed6f7db780327e6714c5",
-			"root": "sherpa-onnx-3dc7c569f31ca2cd4a20ed6f7db780327e6714c5",
+			"url": "https://codeload.github.com/k2-fsa/sherpa-onnx/tar.gz/af2d8d81dbfa61c4cea4c568da78f3982edca005",
+			"root": "sherpa-onnx-af2d8d81dbfa61c4cea4c568da78f3982edca005",
 			"fetchContentId": "",
-			"byteLength": 11451260,
-			"sha256": "33723a7195bc3d3ecf127dac2675293e578a12fdb1d3de891ff17628c118b66c",
-			"integrity": "sha512-Pu5IhMT9dOkU8nXAb3kUQ0X+8RubN+KR3Q1AgwmV/wmXKnW/PSe5IZGf///Gr/7WLVioUZ/urhhW5KiBDVHANw=="
+			"byteLength": 11932226,
+			"sha256": "afcafe3c34bc2f15a363ad791fa1644a69bf0977a58c1b4f617468976c2faeb5",
+			"integrity": "sha512-UOWiiMdzsLCzvxED7sPddxNm7e6ghntHMatr+bjcjMFYkKbwGwfMrXDVpLDA22WwCFu1Qe1s64B4fnnOgJh9ZQ=="
 		},
 		{
 			"id": "kaldi-native-fbank",
-			"url": "https://codeload.github.com/csukuangfj/kaldi-native-fbank/tar.gz/refs/tags/v1.22.3",
-			"root": "kaldi-native-fbank-1.22.3",
+			"url": "https://codeload.github.com/csukuangfj/kaldi-native-fbank/tar.gz/refs/tags/v1.22.4",
+			"root": "kaldi-native-fbank-1.22.4",
 			"fetchContentId": "KALDI_NATIVE_FBANK",
-			"byteLength": 71144,
-			"sha256": "9176cc66fc7ce1edf85cf355b06e320c57db6297df74277f575183468893cf61"
+			"byteLength": 72131,
+			"sha256": "257fea639585ca6ee00860493bb9d7ab32488b8a5407ffe434c1f361ea545fae"
 		},
 		{
 			"id": "kaldi-decoder",
@@ -106,6 +108,14 @@
 			"fetchContentId": "HCLUST_CPP",
 			"byteLength": 22523,
 			"sha256": "8f14e024c709d73afb40ae69cb22de4b73dba67cbce40f2e518813da8139ab56"
+		},
+		{
+			"id": "utf8proc",
+			"url": "https://codeload.github.com/JuliaStrings/utf8proc/tar.gz/refs/tags/v2.12.0",
+			"root": "utf8proc-2.12.0",
+			"fetchContentId": "UTF8PROC",
+			"byteLength": 207976,
+			"sha256": "f564011d38b2888d583d510b08e69ffa15aa117155db1b9b49ef1dfe1fa25111"
 		},
 		{
 			"id": "node-addon-api",

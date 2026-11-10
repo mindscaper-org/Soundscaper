@@ -29,7 +29,7 @@ const fileRecord = (path, bytes) => ({ path, byteLength: bytes.length, sha256: s
 const descriptor = (path, bytes) => ({ path, byteLength: bytes.length, sha256: sha256(bytes) });
 
 function packageRecord(name, fileName, bytes, common = false) {
-	return { name, version: '1.13.5', sourceUrl: `https://registry.npmjs.org/${name}/-/${name}-1.13.5.tgz`,
+	return { name, version: '2.0.1', sourceUrl: `https://registry.npmjs.org/${name}/-/${name}-2.0.1.tgz`,
 		integrity: 'sha512-AAAA', ...(common ? { entry: 'sherpa-onnx.js' } : {}),
 		files: { [fileName]: { byteLength: bytes.length, sha256: sha256(bytes) } } };
 }
@@ -43,8 +43,8 @@ async function fixture(run) {
 		const handoffRoot = join(root, 'handoff');
 		const engine = Buffer.from('exact engine');
 		const common = Buffer.from('exact common');
-		const native = { schemaVersion: 1, runtimeId: 'sherpa-onnx-node', version: '1.13.5',
-			runtimePrefix: 'assistance/sherpa-onnx/1.13.5',
+		const native = { schemaVersion: 1, runtimeId: 'sherpa-onnx-node', version: '2.0.1',
+			runtimePrefix: 'assistance/sherpa-onnx/2.0.1',
 			commonPackage: packageRecord('sherpa-onnx-node', 'sherpa-onnx.js', common, true),
 			targets: Object.fromEntries(['linux-x64', 'linux-arm64', 'mac-arm64', 'win-x64', 'win-arm64']
 				.map((target) => [target, target === TARGET_ID
@@ -63,7 +63,7 @@ async function fixture(run) {
 			'assistance-kokoro-g2p-runtime-manifest.json': jsonBytes(kokoro),
 		};
 		const archiveInputs = [
-			{ familyId: FAMILIES[0], runtimeVersion: '1.13.5', runtimePrefix: native.runtimePrefix,
+			{ familyId: FAMILIES[0], runtimeVersion: '2.0.1', runtimePrefix: native.runtimePrefix,
 				installPath: native.runtimePrefix, files: [
 					fileRecord('node_modules/sherpa-onnx-node/sherpa-onnx.js', common),
 					fileRecord('node_modules/sherpa-onnx-linux-x64/engine', engine)] },

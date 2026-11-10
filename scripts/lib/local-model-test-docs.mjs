@@ -56,13 +56,14 @@ const SHERPA_TASKS = new Set([
 
 /** Build target support, not a claim that a particular machine completed inference. */
 export function localModelRuntimeAvailability(entry, { nativeRuntime, onnxRuntime, whisperBuild, llamaBuild,
-	sherpaArm64Build, kokoroG2pBuild }) {
+	sherpaArm64Build, sherpaGpuBuild, kokoroG2pBuild }) {
 	const familyId = entry.task === 'editorial-generation' ? 'llama-cpp' : entry.modelId.startsWith('whisper-') ? 'whisper-cpp'
-		: SHERPA_TASKS.has(entry.task) ? 'sherpa-onnx-node' : 'onnxruntime-node';
+		: SHERPA_TASKS.has(entry.task) || ['gtcrn', 'dpdfnet2-48khz', 'voxlock'].includes(entry.modelId) ? 'sherpa-onnx-node' : 'onnxruntime-node';
 	let version, targets;
 	if (familyId === 'sherpa-onnx-node') {
 		version = nativeRuntime.version;
 		targets = Object.keys(nativeRuntime.targets).filter((target) => nativeRuntime.targets[target].status === 'built');
+		if (sherpaGpuBuild?.version === version) targets.push(...sherpaGpuBuild.targets.map(({ id }) => id));
 		if (sherpaArm64Build?.recipeId === 'sherpa-onnx-node-win-arm64-package-build-v1'
 			&& sherpaArm64Build.version === version) targets.push('win-arm64');
 	} else if (familyId === 'onnxruntime-node') {
@@ -229,7 +230,7 @@ function indexPage(catalog, cases, runtimeSources) {
 }
 
 export async function generateLocalModelTestDocuments(repositoryRoot, { write = false } = {}) {
-	const [catalog, manifest, nativeRuntime, onnxRuntime, sherpaArm64Build, kokoroG2pBuild, catalogTasks] = await Promise.all([
+	const [catalog, manifest, nativeRuntime, onnxRuntime, sherpaArm64Build, kokoroG2pBuild, catalogTasks, sherpaGpuBuild] = await Promise.all([
 		readFile(resolve(repositoryRoot, 'config/local-model-catalog.json'), 'utf8').then(JSON.parse),
 		readFile(resolve(repositoryRoot, 'config/local-model-real-test-cases.json'), 'utf8').then(JSON.parse),
 		readFile(resolve(repositoryRoot, 'config/assistance-native-runtime-manifest.json'), 'utf8').then(JSON.parse),
@@ -237,6 +238,7 @@ export async function generateLocalModelTestDocuments(repositoryRoot, { write = 
 		readFile(resolve(repositoryRoot, 'config/assistance-sherpa-win-arm64-build.json'), 'utf8').then(JSON.parse),
 		readFile(resolve(repositoryRoot, 'config/assistance-kokoro-g2p-build-candidate.json'), 'utf8').then(JSON.parse),
 		readFile(resolve(repositoryRoot, 'config/milestone-7-model-catalog-tasks.json'), 'utf8').then(JSON.parse),
+		readFile(resolve(repositoryRoot, 'config/assistance-sherpa-gpu-build.json'), 'utf8').then(JSON.parse),
 	]);
 	const cases = validateLocalModelRealTestCases(manifest, catalog, { candidateTasks: catalogTasks.tasks });
 	const publishedIds = new Set(catalog.entries.map(({ modelId }) => modelId));
@@ -248,7 +250,7 @@ export async function generateLocalModelTestDocuments(repositoryRoot, { write = 
 	}), ...catalogTasks.tasks.filter(({ catalogModelId }) => !publishedIds.has(catalogModelId))
 		.map((task) => ({ ...task, modelId: task.catalogModelId, pendingPublication: true,
 			artifacts: task.artifacts.map((artifact) => ({ ...artifact, fileName: artifact.distributionFileName })) }))];
-	const runtimeSources = { nativeRuntime, onnxRuntime, sherpaArm64Build, kokoroG2pBuild,
+	const runtimeSources = { nativeRuntime, onnxRuntime, sherpaArm64Build, sherpaGpuBuild, kokoroG2pBuild,
 		whisperBuild: { version: WHISPER_RUNTIME_VERSION, targets: WHISPER_RUNTIME_BUILD_TARGETS },
 		llamaBuild: { version: LLAMA_RUNTIME_VERSION, targets: LLAMA_RUNTIME_BUILD_TARGETS } };
 	const documents = new Map([['index.md', indexPage({ ...catalog, entries }, cases, runtimeSources)],

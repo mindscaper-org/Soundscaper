@@ -26,18 +26,18 @@ identities rather than filesystem or module paths.
 
 | Runtime family | Current responsibility |
 | --- | --- |
-| Sherpa ONNX | Parakeet speech recognition, Silero voice-activity detection, and the pyannote/ERes2Net diarization pair |
+| Sherpa ONNX | Parakeet speech recognition, Silero voice-activity detection, the pyannote/ERes2Net diarization pair, GTCRN/DPDFNet enhancement, and VoxLock voice isolation |
 | ONNX Runtime | Alignment, enhancement, separation, tagging, beats, accurate shots, detection, saliency, OCR, text/image embeddings, and Kokoro speech synthesis |
 | whisper.cpp | Multilingual Whisper recognition through a fixed-argument, no-shell CLI |
 | llama.cpp | Optional Qwen editorial generation with grammar-constrained JSON |
 | Kokoro offline G2P | Pronunciation preprocessing, including GPU-capable learned English Tok2Vec/tagger inference |
 | External FFmpeg | Model-free fast shot detection through the separately admitted `scdet` command and live canary |
 
-Target packages generate and authenticate Sherpa ONNX 1.13.5, ONNX
+Target packages generate and authenticate Sherpa ONNX 2.0.1, ONNX
 Runtime 1.29.0, whisper.cpp v1.9.3, and llama.cpp b10509 closures for the five
 maintained desktop targets: macOS ARM64, Linux x64 and ARM64, and Windows x64
 and ARM64. Every newly built neural runtime provides a GPU option and portable
-CPU fallback. All 22 catalog models use one of these four neural runtime families;
+CPU fallback. All 25 catalog models use one of these four neural runtime families;
 the separate Kokoro G2P helper also accelerates its learned English POS models.
 New runtime archives authenticate the available providers per target:
 
@@ -108,7 +108,16 @@ operating-system sandbox, and native helper code remains trusted code.
 Sherpa recognition jobs admit a four-GiB peak RSS ceiling, matching the published
 Parakeet memory floor. Status, VAD, and diarization retain the legacy one-GiB
 ceiling. Main enforces the selected ceiling through helper heartbeats; exceeding
-it terminates the helper and reports a resource violation. Speech helper jobs
+it terminates the helper and reports a resource violation.
+
+Enhancement jobs retain the one-GiB RSS ceiling and process channels sequentially
+with bounded WAV windows. Their intermediate files live inside main-owned job
+staging so forced cancellation removes them with the job. All three Sherpa
+enhancers preserve 48 kHz output, channel count, and selection duration; GTCRN
+and VoxLock process at 16 kHz internally. VoxLock shares one enrollment sample
+across channels, selected from the loudest three-second window in the first
+15 seconds, and refuses shorter or silent selections.
+ Speech helper jobs
 preserve their main-owned operation identity so private GPU receipts correlate
 with the exact operation that requested inference.
 
@@ -157,7 +166,7 @@ publication, artifact digest, runtime/platform compatibility, selected-media
 authority, storage integrity, consent, and result authentication stay fail
 closed when the feature is used.
 
-The catalog currently offers 22 published model identities. Models and native
+The catalog currently offers 25 published model identities. Models and native
 engines remain outside ASAR, auto-update payloads, the Pages bundle, and
 JavaScript chunks. The full catalog is not installed with the application.
 

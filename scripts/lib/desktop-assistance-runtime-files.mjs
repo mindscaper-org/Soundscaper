@@ -2,6 +2,12 @@
 
 /** Exact compiled closure owned by desktop local assistance and its model store. */
 export const DESKTOP_ASSISTANCE_RUNTIME_FILES = Object.freeze([
+	'desktop/assistance-sherpa-enhancement-contract.js',
+	'desktop/assistance-sherpa-enhancement-capture.js',
+	'desktop/assistance-sherpa-enhancement-worker.js',
+	'desktop/assistance-sherpa-enhancement-operation.js',
+	'desktop/assistance-operation-speech-execution.js',
+	'src/common/editor/assistance/speech-enhancement-models.js',
 	'desktop/assistance-wave-channel-group-reader.js',
 	'src/common/editor/assistance/frame-pack-ordinal-range-index.js',
 	'src/common/editor/assistance/guided-terminal-output-capacity.js',

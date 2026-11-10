@@ -29,7 +29,7 @@ export interface AssistanceRuntimeDistribution {
 }
 
 const VERSIONS: Readonly<Record<AssistanceRuntimeDistributionFamily, string>> = Object.freeze({
-	'sherpa-onnx-node': '1.13.5',
+	'sherpa-onnx-node': '2.0.1',
 	'onnxruntime-node': ASSISTANCE_RUNTIME_FAMILY_DEFINITIONS['onnxruntime-node'].runtimeVersion,
 	'whisper-cpp': ASSISTANCE_RUNTIME_FAMILY_DEFINITIONS['whisper-cpp'].runtimeVersion,
 	'llama-cpp': ASSISTANCE_RUNTIME_FAMILY_DEFINITIONS['llama-cpp'].runtimeVersion,

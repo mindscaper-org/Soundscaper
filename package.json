@@ -271,6 +271,6 @@
 		"workerd@1.20261110.1": true
 	},
 	"optionalDependencies": {
-		"sherpa-onnx-node": "1.13.5"
+		"sherpa-onnx-node": "2.0.1"
 	}
 }

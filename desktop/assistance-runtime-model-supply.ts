@@ -3,6 +3,7 @@
 /** Runtime archives needed by each reviewed model in the local catalog. */
 
 import type { AssistanceRuntimeDistributionFamily } from './assistance-runtime-distribution.ts';
+import { isSherpaEnhancementModel } from '../src/common/editor/assistance/speech-enhancement-models.ts';
 
 const SHERPA_TASKS = new Set([
 	'voice-activity-detection', 'speaker-segmentation', 'speaker-embedding',
@@ -19,6 +20,7 @@ export function assistanceRuntimeFamiliesForModel(
 	modelId: string,
 	task: string,
 ): readonly AssistanceRuntimeDistributionFamily[] {
+	if (task === 'speech-enhancement' && isSherpaEnhancementModel(modelId)) return Object.freeze(['sherpa-onnx-node']);
 	if (task === 'speech-recognition') {
 		return Object.freeze([modelId === 'whisper-large-v3-turbo-ggml'
 			? 'whisper-cpp' : 'sherpa-onnx-node']);

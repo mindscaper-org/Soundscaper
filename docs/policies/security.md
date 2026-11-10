@@ -1511,7 +1511,7 @@ absent-caller and absent-launcher statements below are audit history, not
 current behavior.
 
 Local assistance adds separately bounded active and conditional model surfaces
-to that partial risk. Main authenticates the Sherpa ONNX 1.13.5 closure before
+to that partial risk. Main authenticates the Sherpa ONNX 2.0.1 closure before
 its lazy utility process and the worker verifies it again before native import.
 Stable regular-file grants bind selected media and every installed model;
 supervision enforces one job, heartbeat/RSS checks, termination cancellation,

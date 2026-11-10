@@ -295,10 +295,12 @@ export function helperJobGrantResourceUsage(
 		);
 	}
 	if (kind === 'assistance-speech') {
+		const speech = validateAssistanceSpeechJobGrant(grant);
+		const outputBytes = speech.operation === 'enhance-speech' ? speech.output.maximumByteLength : 0;
 		return Object.freeze({
 			inputBytes: assistanceSpeechGrantInputBytes(grant),
-			outputBytes: 0,
-			scratchBytes: 0,
+			outputBytes,
+			scratchBytes: outputBytes === 0 ? 0 : 2 * outputBytes + 2 * 1024 ** 2,
 			dataPlaneBytes: 0,
 			maximumInFlightChunks: 0,
 		});

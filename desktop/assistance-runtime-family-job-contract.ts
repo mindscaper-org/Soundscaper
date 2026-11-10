@@ -259,7 +259,7 @@ export function validateAssistanceRuntimeFamilyJobResultV1(
 	});
 }
 
-function inputGrant(value: unknown, jobId: string): AssistanceRuntimeFamilyInputGrantV1 {
+export function inputGrant(value: unknown, jobId: string): AssistanceRuntimeFamilyInputGrantV1 {
 	const record = exactRecord(value,
 		['claimId', 'role', 'mediaType', 'path', 'byteLength', 'sha256', 'identity'],
 		'runtime-family input grant');
@@ -275,7 +275,7 @@ function inputGrant(value: unknown, jobId: string): AssistanceRuntimeFamilyInput
 	});
 }
 
-function modelGrant(value: unknown): AssistanceRuntimeFamilyModelGrantV1 {
+export function modelGrant(value: unknown): AssistanceRuntimeFamilyModelGrantV1 {
 	const record = exactRecord(value,
 		['modelId', 'version', 'artifactRole', 'path', 'byteLength', 'sha256', 'identity'],
 		'runtime-family model grant');
@@ -293,7 +293,7 @@ function modelGrant(value: unknown): AssistanceRuntimeFamilyModelGrantV1 {
 	});
 }
 
-function outputGrant(value: unknown, jobId: string): AssistanceRuntimeFamilyOutputGrantV1 {
+export function outputGrant(value: unknown, jobId: string): AssistanceRuntimeFamilyOutputGrantV1 {
 	const record = exactRecord(value, [
 		'claimId', 'role', 'mediaType', 'path', 'maximumByteLength',
 		'initialByteLength', 'initialSha256', 'identity',
