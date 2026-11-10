@@ -7,7 +7,7 @@ inventory under `licenses/professional-native/`. The exact filenames, byte
 lengths, SHA-256 digests, source targets, and selected license arms are recorded
 in [`config/soundscaper-professional-native-notices.json`](config/soundscaper-professional-native-notices.json):
 
-- Electron 43.8.3 Node-API headers — MIT; all five targets
+- Electron 45.2.3 Node-API headers — MIT; all five targets
 - JUCE 9.0.1 — AGPL-3.0-only selected; all five targets
 - CLAP 1.2.4 — MIT; all five targets
 - VST3 SDK 3.8.0 build 66 — MIT; all five targets
@@ -528,7 +528,7 @@ reject application-supplied FFmpeg and libav executables or libraries, the
 FFmpeg media host. The desktop application therefore does not redistribute an
 FFmpeg/libav application codec provider or FFmpeg WebAssembly runtime.
 
-Electron itself is a distinct framework dependency. Stock Electron 43.8.3
+Electron itself is a distinct framework dependency. Stock Electron 45.2.3
 includes a Chromium `libffmpeg` media library with proprietary codec support.
 Desktop packaging sets electron-builder's `downloadAlternateFFmpeg` option so
 the stock library is replaced with Electron's matching alternate release asset,
@@ -542,7 +542,7 @@ against
 - macOS ARM64 uses `libffmpeg.dylib`; macOS x64 is unsupported and has no row;
 - Windows x64 and ARM64 use `ffmpeg.dll`.
 
-That manifest binds Electron 43.8.3, the exact five release-archive names and
+That manifest binds Electron 45.2.3, the exact five release-archive names and
 archive SHA-256 values, and each unpacked library's byte length and SHA-256.
 The after-pack verifier re-hashes the exact framework location before final
 package assembly. The library remains part of Electron/Chromium and its notices; it
@@ -667,13 +667,13 @@ source pinning, and an update to this document before distribution.
 
 ## Desktop runtime and build tooling
 
-- Electron 43.8.3 — MIT; source: <https://github.com/electron/electron/tree/v43.8.3>. Packaged desktop applications include Electron's license and `LICENSES.chromium.html`, which carries Chromium and bundled component notices.
-- `@modelcontextprotocol/core` 2.3.0 and `@modelcontextprotocol/server` 2.3.0 — the pinned desktop MCP protocol and server SDK packages. Their npm metadata declares Apache-2.0; the installed `LICENSE` files retain MIT for contributions without relicensing consent. Copyright the MCP project contributors; exact source packages: <https://registry.npmjs.org/@modelcontextprotocol/core/-/core-2.3.0.tgz> and <https://registry.npmjs.org/@modelcontextprotocol/server/-/server-2.3.0.tgz>.
-- `@modelcontextprotocol/node` 2.1.0 — the desktop MCP Node HTTP adapter. Its npm metadata declares MIT; its installed `LICENSE` records the Apache-2.0 transition with MIT retained for contributions without relicensing consent. Copyright the MCP project contributors; exact source package: <https://registry.npmjs.org/@modelcontextprotocol/node/-/node-2.1.0.tgz>.
-- `@hono/node-server` 1.19.17 — MIT; transitive HTTP adapter for the desktop MCP server; Copyright © 2022-present Yusuke Wada and Hono contributors; source and license: <https://github.com/honojs/node-server/tree/v1.19.17>.
-- `hono` 4.13.13 — MIT; transitive HTTP routing for the desktop MCP server; Copyright © 2021-present Yusuke Wada and Hono contributors; source and license: <https://github.com/honojs/hono/tree/v4.13.13>.
-- `zod` 4.6.6 — MIT; schema validation for desktop MCP tool inputs; Copyright © 2025 Colin McDonnell; source and license: <https://github.com/colinhacks/zod/tree/v4.6.6>.
-- electron-builder 26.17.0 — MIT; build-time packaging tool, not part of the application runtime; exact npm source package: <https://registry.npmjs.org/electron-builder/-/electron-builder-26.17.0.tgz> (`sha512-iYHBRiagS9sDIbZx1ZD113f5rEGQvtpvTvHf70ovHKJ8mRvxwIkWX7JCwfmVQmVS4eX735p7TZmoxHnBPwF3vA==`); upstream repository: <https://github.com/electron-userland/electron-builder>.
+- Electron 45.2.3 — MIT; source: <https://github.com/electron/electron/tree/v45.2.3>. Packaged desktop applications include Electron's license and `LICENSES.chromium.html`, which carries Chromium and bundled component notices.
+- `@modelcontextprotocol/core` 2.4.0 and `@modelcontextprotocol/server` 2.4.0 — the pinned desktop MCP protocol and server SDK packages. Their npm metadata declares Apache-2.0; the installed `LICENSE` files retain MIT for contributions without relicensing consent. Copyright the MCP project contributors; exact source packages: <https://registry.npmjs.org/@modelcontextprotocol/core/-/core-2.4.0.tgz> and <https://registry.npmjs.org/@modelcontextprotocol/server/-/server-2.4.0.tgz>.
+- `@modelcontextprotocol/node` 2.1.2 — the desktop MCP Node HTTP adapter. Its npm metadata declares Apache-2.0; its installed `LICENSE` records the Apache-2.0 transition with MIT retained for contributions without relicensing consent. Copyright the MCP project contributors; exact source package: <https://registry.npmjs.org/@modelcontextprotocol/node/-/node-2.1.2.tgz>.
+- `@hono/node-server` 2.1.6 — MIT; transitive HTTP adapter for the desktop MCP server; Copyright © 2022-present Yusuke Wada and Hono contributors; source and license: <https://github.com/honojs/node-server/tree/v2.1.6>.
+- `hono` 4.13.17 — MIT; transitive HTTP routing for the desktop MCP server; Copyright © 2021-present Yusuke Wada and Hono contributors; source and license: <https://github.com/honojs/hono/tree/v4.13.17>.
+- `zod` 4.6.7 — MIT; schema validation for desktop MCP tool inputs; Copyright © 2025 Colin McDonnell; source and license: <https://github.com/colinhacks/zod/tree/v4.6.7>.
+- electron-builder 26.18.1 — MIT; build-time packaging tool, not part of the application runtime; exact npm source package: <https://registry.npmjs.org/electron-builder/-/electron-builder-26.18.1.tgz> (`sha512-uA3To9X/D4ozwP8k/o/MCfKi/xETyPV0FkhTaqdgIT679uexsQ8QFE+PhF8x6PY8W1jIJrw9/yadTuOWTpmAew==`); upstream repository: <https://github.com/electron-userland/electron-builder>.
 - `@electron/fuses` 2.1.3 — MIT; build-time hardening tool used to disable unsafe Electron runtime switches during package finalization; source: <https://github.com/electron/fuses/tree/v2.1.3>.
 - `@resvg/resvg-js` 2.6.2 — MPL-2.0; unmodified build-time rasterizer used only to derive platform icons from the existing Soundscaper SVG mark; source: <https://github.com/yisibl/resvg-js/tree/v2.6.2>.
 - `wawoff2` 2.0.1 — MIT; pinned build-time WebAssembly compiler used only to derive the browser-delivery `MusescoreIcon.woff2` from the retained upstream TTF; source: <https://github.com/fontello/wawoff2/tree/2.0.1>.
@@ -690,21 +690,21 @@ normal desktop package or public release. It additionally distributes the
 following pinned tools solely so the extracted application can run its bundled
 browser workflows without an npm installation:
 
-- `@playwright/test` 1.62.1, `playwright` 1.62.1, and `playwright-core` 1.62.1 — Apache-2.0; Copyright Microsoft Corporation; source: <https://github.com/microsoft/playwright/tree/v1.62.1>
-- `@axe-core/playwright` 4.12.1 and `axe-core` 4.12.1 — MPL-2.0; Copyright Deque Systems, Inc.; source: <https://github.com/dequelabs/axe-core/tree/v4.12.1>
-- WinLDD `PrintDeps.exe` (Playwright revision 1007) — MIT; Copyright (c) 2020 Julien Waechter; source and embedded license header: <https://github.com/microsoft/playwright/blob/v1.62.1/browser_patches/winldd/PrintDeps.cpp>; binary-only archive recipe: <https://github.com/microsoft/playwright/blob/v1.62.1/browser_patches/winldd/archive.sh>; bundled terms: [`LICENSES/Playwright-winldd-MIT.txt`](LICENSES/Playwright-winldd-MIT.txt)
-- `esbuild` 0.28.1 — MIT; Copyright (c) 2020 Evan Wallace; source: <https://github.com/evanw/esbuild/tree/v0.28.1>; the browser specs compile the TypeScript sources they serve to each engine. Each package targets exactly one platform, so the artifact carries only the `@esbuild/<platform>-<architecture>` 0.28.1 binary package its own target runs, under the same MIT terms and the `esbuild` `LICENSE.md` staged beside it
+- `@playwright/test` 1.65.0, `playwright` 1.65.0, and `playwright-core` 1.65.0 — Apache-2.0; Copyright Microsoft Corporation; source: <https://github.com/microsoft/playwright/tree/v1.65.0>
+- `@axe-core/playwright` 4.14.0 and `axe-core` 4.14.0 — MPL-2.0; Copyright Deque Systems, Inc.; source: <https://github.com/dequelabs/axe-core/tree/v4.14.0>
+- WinLDD `PrintDeps.exe` (Playwright revision 1007) — MIT; Copyright (c) 2020 Julien Waechter; source and embedded license header: <https://github.com/microsoft/playwright/blob/v1.65.0/browser_patches/winldd/PrintDeps.cpp>; binary-only archive recipe: <https://github.com/microsoft/playwright/blob/v1.65.0/browser_patches/winldd/archive.sh>; bundled terms: [`LICENSES/Playwright-winldd-MIT.txt`](LICENSES/Playwright-winldd-MIT.txt)
+- `esbuild` 0.28.2 — MIT; Copyright (c) 2020 Evan Wallace; source: <https://github.com/evanw/esbuild/tree/v0.28.2>; the browser specs compile the TypeScript sources they serve to each engine. Each package targets exactly one platform, so the artifact carries only the `@esbuild/<platform>-<architecture>` 0.28.2 binary package its own target runs, under the same MIT terms and the `esbuild` `LICENSE.md` staged beside it
 - `typescript` 6.0.3 — Apache-2.0; Copyright Microsoft Corporation; source: <https://github.com/microsoft/TypeScript/tree/v6.0.3>
 
 Playwright's pinned browser inventory for that artifact identifies
-Chrome for Testing 151.0.7922.34 (Playwright revision 1234),
-Firefox 153.0 (Playwright revision 1538), and
-WebKit 26.5 (Playwright revision 2336). Platform-specific revision
+Chrome for Testing 158.0.8127.18 (Playwright revision 1254),
+Firefox 159.0 (Playwright revision 1572), and
+WebKit 27.2 (Playwright revision 2388). Platform-specific revision
 overrides remain recorded in the distributed `playwright-core/browsers.json`.
 The downloaded archives retain the license and notice material they provide,
 including Chromium's component notices and Playwright's LGPL-2.1 FFmpeg copy;
 the corresponding Playwright browser patches and build scripts are at
-<https://github.com/microsoft/playwright/tree/v1.62.1/browser_patches>.
+<https://github.com/microsoft/playwright/tree/v1.65.0/browser_patches>.
 
 The artifact also retains each staged npm package's installed `LICENSE`,
 `NOTICE`, and third-party-notice files. This deliberately broader diagnostic
@@ -758,20 +758,20 @@ The browser tools can distribute the following pinned browser-side packages as p
 - `@fontsource/inter` 5.3.0 — SIL Open Font License 1.1; self-hosted WOFF/WOFF2 distribution of Inter, Copyright 2016 The Inter Project Authors; source metadata and font files: <https://github.com/fontsource/font-files/tree/main/fonts/google/inter>; upstream font source: <https://github.com/rsms/inter>; full license text is retained in the installed package's `LICENSE` file
 - `@fontsource/nunito-sans` 5.3.0 — SIL Open Font License 1.1; self-hosted editor skin fonts, Copyright 2016 The Nunito Sans Project Authors; upstream: <https://github.com/Fonthausen/NunitoSans>; full license: `LICENSES/nunito-sans.txt`
 - `@fontsource/jetbrains-mono` 5.3.0 — SIL Open Font License 1.1; self-hosted editor skin fonts, Copyright 2020 The JetBrains Mono Project Authors; upstream: <https://github.com/JetBrains/JetBrainsMono>; full license: `LICENSES/jetbrains-mono.txt`
-- `@sqlite.org/sqlite-wasm` 3.53.0-build1 — official SQLite WebAssembly distribution; SQLite core is dedicated to the public domain; source and blessing: <https://sqlite.org/wasm/doc/trunk/index.md> and <https://sqlite.org/copyright.html>
-- `@zip.js/zip.js` 2.8.33 — BSD-3-Clause; Copyright © 2023 Gildas Lormeau; source and license: <https://github.com/gildas-lormeau/zip.js/tree/v2.8.33>
-- `@noble/hashes` 2.2.0 — MIT; Copyright © 2022 Paul Miller; source and license: <https://github.com/paulmillr/noble-hashes/tree/2.2.0>
+- `@sqlite.org/sqlite-wasm` 3.54.1-build1 — official SQLite WebAssembly distribution; SQLite core is dedicated to the public domain; source and blessing: <https://sqlite.org/wasm/doc/trunk/index.md> and <https://sqlite.org/copyright.html>
+- `@zip.js/zip.js` 2.24.0 — BSD-3-Clause; Copyright © 2023 Gildas Lormeau; source and license: <https://github.com/gildas-lormeau/zip.js/tree/v2.24.0>
+- `@noble/hashes` 2.4.0 — MIT; Copyright © 2022 Paul Miller; source and license: <https://github.com/paulmillr/noble-hashes/tree/2.4.0>
 - `fflate` 0.8.3 — MIT; source: <https://github.com/101arrowz/fflate>
-- `gettext-parser` 9.1.1 — MIT; Copyright (c) 2014-2015 Andris Reinman; source: <https://github.com/smhg/gettext-parser>; development-only PO parsing for reviewed community translation imports, excluded from the browser application
+- `gettext-parser` 10.0.0 — MIT; Copyright (c) 2014-2015 Andris Reinman; source: <https://github.com/smhg/gettext-parser>; development-only PO parsing for reviewed community translation imports, excluded from the browser application
 - `@types/gettext-parser` 9.0.0 — MIT; Copyright (c) Microsoft Corporation; source: <https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/gettext-parser>; development-only TypeScript declarations for the PO importer
 - `@echogarden/pffft-wasm` 0.4.2 — UCAR/NCAR permissive license; SIMD WebAssembly build of PFFFT used by spectrograms, spectral editing, and FFT-based effects; source: <https://github.com/echogarden-project/pffft-wasm>
-- `mediabunny` 1.55.3 — MPL-2.0; pure-TypeScript browser media toolkit used for browser-native AAC and MP4/WebM container generation; exact npm archive: <https://registry.npmjs.org/mediabunny/-/mediabunny-1.55.3.tgz> (`sha512-kpBhMiJHGmerizzObAT1XLZDyImO4ZEKXaxjjfxGVkycQ0U5of/xlLepm1Izp3P+3jlaedFSRI5fJnv3Q5xV6A==`); upstream source: <https://github.com/Vanilagy/mediabunny>; Soundscaper modifies FLAC end-of-file frame lookahead and empty-stream termination (2026-10-22), uncommon FLAC frame sample-rate kilohertz units, and bounded ordered MP4 localized-text data values (2026-10-24), and ID3 unsynchronisation byte removal, frame boundaries, optional payload-header decoding, legacy recording-date assembly, picture MIME fields and exact artwork descriptions, null-separated text lists, custom text-key custody, legacy user-defined text frames, UTC timestamp precision, empty UTF-16 field boundaries, genre references and refinements, and fallback fields, appended footer-tag discovery and repeated structured-frame custody, CRC-protected MPEG information-frame recognition and exclusion of terminal APE binary previews from MPEG packet traversal, plus bounded RIFF INFO Latin-1 text projection without argument-count overflow, plus MP4 multi-value cover-art, numeric-genre, reverse-DNS custom-tag reading, bounded localized QuickTime international-text records, modern metadata precedence over compatibility user data, order-independent MP4 metadata key tables, and own-key MP4/Matroska custom-tag custody, plus Matroska all-track tag targets, order-independent tag fields and track settings, nested-tag subject ownership, original-language tag selection, collision-safe Matroska attachment/tag namespaces with FileUID-preserving remux, repeated Matroska text records and repeated Xiph comment records (2026-10-23), with the MPL-preserving source and distribution changes in [`patches/npm/mediabunny+1.55.3.patch`](patches/npm/mediabunny+1.55.3.patch)
+- `mediabunny` 1.65.2 — MPL-2.0; pure-TypeScript browser media toolkit used for browser-native AAC and MP4/WebM container generation; exact npm archive: <https://registry.npmjs.org/mediabunny/-/mediabunny-1.65.2.tgz> (`sha512-goZpibvo/5hkc/56WVNm93Ini+o7K4y8aXA20c/BN1B+m3L5aHQa8MTvO+S1APg/YI8kMILtrX6QCqUtxLW7bA==`); upstream source: <https://github.com/Vanilagy/mediabunny>; Soundscaper modifies uncommon FLAC frame sample-rate kilohertz units, and bounded ordered MP4 localized-text data values (2026-10-24), and ID3 unsynchronisation byte removal, frame boundaries, optional payload-header decoding, legacy recording-date assembly, picture MIME fields and exact artwork descriptions, null-separated text lists, custom text-key custody, legacy user-defined text frames, UTC timestamp precision, empty UTF-16 field boundaries, genre references and refinements, and fallback fields, appended footer-tag discovery and repeated structured-frame custody, CRC-protected MPEG information-frame recognition and exclusion of terminal APE binary previews from MPEG packet traversal, plus MP4 multi-value cover-art, numeric-genre, reverse-DNS custom-tag reading, bounded localized QuickTime international-text records, modern metadata precedence over compatibility user data, order-independent MP4 metadata key tables, and own-key MP4/Matroska custom-tag custody, plus Matroska all-track tag targets, order-independent tag fields and track settings, nested-tag subject ownership, original-language tag selection, collision-safe Matroska attachment/tag namespaces with FileUID-preserving remux, repeated Matroska text records and repeated Xiph comment records (2026-10-23), with the MPL-preserving source and distribution changes in [`patches/npm/mediabunny+1.65.2.patch`](patches/npm/mediabunny+1.65.2.patch)
 - `@types/dom-mediacapture-transform` 0.1.12 — MIT; transitive compile-time definitions required by Mediabunny, represented in the npm production closure but not emitted as runtime JavaScript; exact npm archive: <https://registry.npmjs.org/@types/dom-mediacapture-transform/-/dom-mediacapture-transform-0.1.12.tgz> (`sha512-d7/QsLRwF864A5mgIM/YrfiglHoYn7zgCcAoJgW404r+2DwnNr7EBbLnCWpmOMgH8y0te73L1AV6H1bmauaWFw==`); source: <https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-mediacapture-transform>
 - `@types/dom-webcodecs` 0.1.13 — MIT; transitive compile-time WebCodecs definitions required by Mediabunny, represented in the npm production closure but not emitted as runtime JavaScript; exact npm archive: <https://registry.npmjs.org/@types/dom-webcodecs/-/dom-webcodecs-0.1.13.tgz> (`sha512-O5hkiFIcjjszPIYyUSyvScyvrBoV3NOEEZx/pMlsu44TKzWNkLVBBxnxJz42in5n3QIolYOcBYFCPZZ0h8SkwQ==`); source: <https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-webcodecs>
-- `react` 19.2.7 — MIT; Copyright © Meta Platforms, Inc. and affiliates; source and license: <https://github.com/facebook/react/tree/v19.2.7/packages/react>
-- `react-dom` 19.2.7 — MIT; Copyright © Meta Platforms, Inc. and affiliates; source and license: <https://github.com/facebook/react/tree/v19.2.7/packages/react-dom>
-- `scheduler` 0.27.0 — MIT; transitive React scheduler runtime; Copyright © Meta Platforms, Inc. and affiliates; source and license: <https://github.com/facebook/react/tree/v19.2.7/packages/scheduler>
-- `sql.js` 1.14.1 — MIT; source: <https://github.com/sql-js/sql.js> (retained for unrelated legacy tools; AUP4 uses the official SQLite WASM package)
+- `react` 19.2.9 — MIT; Copyright © Meta Platforms, Inc. and affiliates; source and license: <https://github.com/facebook/react/tree/v19.2.9/packages/react>
+- `react-dom` 19.2.9 — MIT; Copyright © Meta Platforms, Inc. and affiliates; source and license: <https://github.com/facebook/react/tree/v19.2.9/packages/react-dom>
+- `scheduler` 0.27.0 — MIT; transitive React scheduler runtime; Copyright © Meta Platforms, Inc. and affiliates; source and license: <https://github.com/facebook/react/tree/v19.2.9/packages/scheduler>
+- `sql.js` 1.16.0 — MIT; source: <https://github.com/sql-js/sql.js> (retained for unrelated legacy tools; AUP4 uses the official SQLite WASM package)
 
 ## PipeWire public headers
 
@@ -801,17 +801,17 @@ release targets.
 
 - `sherpa-onnx-node` 1.13.5 — Apache-2.0; Next-gen Kaldi speech runtime;
   source and license: <https://github.com/k2-fsa/sherpa-onnx>
-- `sherpa-onnx-darwin-arm64` 1.13.5 — Apache-2.0; prebuilt platform binary;
+- `sherpa-onnx-darwin-arm64` 1.13.8 — Apache-2.0; prebuilt platform binary;
   source and license: <https://github.com/k2-fsa/sherpa-onnx>
-- `sherpa-onnx-darwin-x64` 1.13.5 — Apache-2.0; prebuilt platform binary;
+- `sherpa-onnx-darwin-x64` 1.13.8 — Apache-2.0; prebuilt platform binary;
   source and license: <https://github.com/k2-fsa/sherpa-onnx>
-- `sherpa-onnx-linux-arm64` 1.13.5 — Apache-2.0; prebuilt platform binary;
+- `sherpa-onnx-linux-arm64` 1.13.8 — Apache-2.0; prebuilt platform binary;
   source and license: <https://github.com/k2-fsa/sherpa-onnx>
-- `sherpa-onnx-linux-x64` 1.13.5 — Apache-2.0; prebuilt platform binary;
+- `sherpa-onnx-linux-x64` 1.13.8 — Apache-2.0; prebuilt platform binary;
   source and license: <https://github.com/k2-fsa/sherpa-onnx>
-- `sherpa-onnx-win-ia32` 1.13.5 — Apache-2.0; prebuilt platform binary;
+- `sherpa-onnx-win-ia32` 1.13.8 — Apache-2.0; prebuilt platform binary;
   source and license: <https://github.com/k2-fsa/sherpa-onnx>
-- `sherpa-onnx-win-x64` 1.13.5 — Apache-2.0; prebuilt platform binary;
+- `sherpa-onnx-win-x64` 1.13.8 — Apache-2.0; prebuilt platform binary;
   source and license: <https://github.com/k2-fsa/sherpa-onnx>
 
 Upstream publishes no `win32-arm64` Node prebuild. Windows on ARM packages build

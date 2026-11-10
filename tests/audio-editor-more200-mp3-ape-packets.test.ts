@@ -9,7 +9,10 @@ import { apePreviewMp3Fixture, crcOffsetMp3Fixture } from './helpers/ordinary-co
 
 async function duration(file: Blob): Promise<number> {
 	const input = new Input({ source: new BlobSource(file), formats: [MP3] });
-	try { return await input.computeDuration(); } finally { input.dispose(); }
+	try {
+		const track = await input.getPrimaryAudioTrack(); assert.ok(track);
+		return await input.computeDuration() - await track.getFirstTimestamp();
+	} finally { input.dispose(); }
 }
 
 for (const header of [false, true]) for (const legacy of [false, true]) test(`MP3 binary APE preview stays outside programme packets (header=${String(header)}, ID3v1=${String(legacy)})`, async () => {
@@ -42,7 +45,7 @@ for (const bundle of ['mediabunny.cjs', 'mediabunny.node.cjs', 'mediabunny.mjs']
 		const imported=await import('./node_modules/mediabunny/dist/bundles/'+process.argv[1]);
 		const {Input,BlobSource,MP3}=imported.default??imported;
 		const input=new Input({source:new BlobSource(new Blob([Buffer.from(process.argv[2],'base64')])),formats:[MP3]});
-		try{console.log(await input.computeDuration());}finally{input.dispose();}
+		try{const track=await input.getPrimaryAudioTrack();console.log(await input.computeDuration()-await track.getFirstTimestamp());}finally{input.dispose();}
 	`, bundle, Buffer.from(await file.arrayBuffer()).toString('base64')], { timeout: 10_000 });
 	assert.equal(Math.round(Number(stdout) * 48_000), 6912);
 });

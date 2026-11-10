@@ -55,6 +55,21 @@ test('raw Scape layout accepts exact classic and Zip64 STORE descriptor profiles
 	}));
 });
 
+test('Zip64 streaming descriptors accept old and current writer placeholders without mixing them', async () => {
+	const source = await archiveBytes(await writeStreamArchive());
+	for (const size of [0n, 0x1_0000_0000n]) {
+		const bytes = source.slice();
+		const view = dataView(bytes);
+		const extra = 30 + view.getUint16(26, true);
+		assert.equal(view.getUint16(extra, true), 1);
+		view.setBigUint64(extra + 4, size, true);
+		view.setBigUint64(extra + 12, size, true);
+		await validateScapeArchiveLayout(new Blob([exactArrayBuffer(bytes)]));
+		view.setBigUint64(extra + 12, size === 0n ? 1n : 0n, true);
+		await assertLayoutRejects(bytes, /descriptor placeholders/iu);
+	}
+});
+
 test('raw Scape layout accepts exact adjacent entries and rejects gaps or overlaps', async (context) => {
 	const source = await archiveBytes(await writeEntriesArchive(['first.bin', 'other.bin']));
 	await validateScapeArchiveLayout(new Blob([exactArrayBuffer(source)]));
@@ -312,7 +327,7 @@ test('default archive-reader validation rejects offsets that zip.js repairs', as
 	const end = findLastSignature(bytes, END_SIGNATURE);
 	view.setUint32(end + 16, view.getUint32(end + 16, true) + 1, true);
 	const archive = new Blob([exactArrayBuffer(bytes)]);
-	const permissiveReader = new ZipReader(new BlobReader(archive), { useWebWorkers: false, strictness: 'strict' });
+	const permissiveReader = new ZipReader(new BlobReader(archive), { useWebWorkers: false, strictness: 'tolerant' });
 	assert.equal((await permissiveReader.getEntries()).length, 1);
 	await permissiveReader.close();
 	let actionCalled = false;

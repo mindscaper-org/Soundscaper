@@ -1,8 +1,8 @@
 diff --git a/node_modules/builder-util/out/util.js b/node_modules/builder-util/out/util.js
-index b7005a7..096c0b0 100644
+index d05ba71ce..02192dd6a 100644
 --- a/node_modules/builder-util/out/util.js
 +++ b/node_modules/builder-util/out/util.js
-@@ -285,6 +285,8 @@ function spawnAndWrite(command, args, data, options) {
+@@ -286,6 +286,8 @@ function spawnAndWrite(command, args, data, options) {
  function spawnAndWriteWithOutput(command, args, data, options) {
      const childProcess = doSpawn(command, args, { ...options, stdio: ["pipe", "pipe", "pipe"] });
      const isDebugEnabled = log_1.debug.enabled;
@@ -11,7 +11,7 @@ index b7005a7..096c0b0 100644
      return new Promise((resolve, reject) => {
          let stdout = "";
          let stderr = "";
-@@ -292,7 +294,7 @@ function spawnAndWriteWithOutput(command, args, data, options) {
+@@ -293,7 +295,7 @@ function spawnAndWriteWithOutput(command, args, data, options) {
          const timeout = setTimeout(() => {
              timedOut = true;
              childProcess.kill();
@@ -20,7 +20,7 @@ index b7005a7..096c0b0 100644
          childProcess.on("error", (err) => {
              clearTimeout(timeout);
              reject(err);
-@@ -313,7 +315,7 @@ function spawnAndWriteWithOutput(command, args, data, options) {
+@@ -314,7 +316,7 @@ function spawnAndWriteWithOutput(command, args, data, options) {
          childProcess.once("close", (code) => {
              clearTimeout(timeout);
              if (timedOut) {

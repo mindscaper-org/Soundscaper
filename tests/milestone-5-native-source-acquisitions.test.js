@@ -24,8 +24,8 @@ import { collectExtractedSourceTree } from '../native/framescaper-media-host/bui
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
 const EXPECTED_PINS = {
-	'electron-node-api-headers': ['43.8.3', null, 347211,
-		'd23630d0b98161bec7860dcc482187aca380b1e0da264c1ed5efb42bce79d604'],
+	'electron-node-api-headers': ['45.2.3', null, 350118,
+		'5300f8e7965734f7cc1aec0c89ce8c0b68644129b858fb0a530ebbd9cd4a4284'],
 	juce: ['9.0.1', 'e18f7f506c0b96f2c738a0bcd7fe6467a5005ad8', 23609832,
 		'1c43b675dcf3c99889fed6f68317873048b15449455974e22859275f17b2e69b'],
 	clap: ['1.2.4', '00113aabdccf69c2e27ac269c35b369770e8fa73', 2351103,
@@ -104,7 +104,7 @@ test('milestone-5 source packet pins and test-enables every native dependency', 
 	assert.deepEqual(requireMilestone5NativeSource(register, 'juce').uses, [
 		'native-audio-backends', 'vst3-host', 'vst2-host', 'audio-unit-host', 'lv2-host', 'ladspa-effect-host',
 	]);
-	assert.equal(requireMilestone5NativeSource(register, 'electron-node-api-headers').version, '43.8.3');
+	assert.equal(requireMilestone5NativeSource(register, 'electron-node-api-headers').version, '45.2.3');
 	assert.equal(requireMilestone5NativeSource(register, 'clap').version, '1.2.4');
 	assert.equal(requireMilestone5NativeSource(register, 'vst3-sdk').version, '3.8.0_build_66');
 	assert.equal(requireMilestone5NativeSource(register, 'asio-sdk').version, '2.3.4');

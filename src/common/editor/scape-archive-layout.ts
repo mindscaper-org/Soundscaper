@@ -343,7 +343,7 @@ function descriptorSizePlaceholdersMatch(
 ): boolean {
 	const exact = local.compressedSize === central.compressedSize
 		&& local.uncompressedSize === central.uncompressedSize;
-	if (local.zip64) {
+	if (local.zip64 && (local.compressedSize !== 0 || local.uncompressedSize !== 0)) {
 		return exact || (local.compressedSize === ZIP64_STREAM_SIZE_PLACEHOLDER
 			&& local.uncompressedSize === ZIP64_STREAM_SIZE_PLACEHOLDER);
 	}

@@ -207,15 +207,15 @@ async function releaseFixture(context, target, {
 		target,
 		artifact: { path: artifactPath, byteLength: bytes.byteLength, sha256: digest(bytes) },
 		electronHeaders: {
-			version: '43.8.3',
+			version: '45.2.3',
 			archive: {
-				byteLength: 347_211,
-				sha256: 'd23630d0b98161bec7860dcc482187aca380b1e0da264c1ed5efb42bce79d604',
+				byteLength: 350_118,
+				sha256: '5300f8e7965734f7cc1aec0c89ce8c0b68644129b858fb0a530ebbd9cd4a4284',
 			},
 			extractedTree: {
 				algorithm: 'framescaper-portable-source-tree-sha256-v1',
 				fileCount: 124,
-				sha256: '5bc877a323ccc4f07976724fa0c1f6205e443a32f61d743a227b6a7e5ab3ab87',
+				sha256: '77e7e4b05945c65f56dce70338dc2ab3e6c0ec78193ac8a51c51bd74a5eef1e6',
 			},
 		},
 		sourceIdentity,

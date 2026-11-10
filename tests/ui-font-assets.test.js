@@ -87,10 +87,10 @@ function fileName(path) {
 
 test('CI browser snapshots use the immutable Playwright Noble image', async () => {
 	const workflow = await readFile(new URL('.github/workflows/quality.yml', PROJECT_ROOT), 'utf8');
-	assert.match(workflow, /container:\s*\n\s+image: mcr\.microsoft\.com\/playwright:v1\.62\.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e/);
+	assert.match(workflow, /container:\s*\n\s+image: mcr\.microsoft\.com\/playwright:v1\.65\.0-noble@sha256:6e3fb709361521eb27161606e6da6d2674e5e89fa16516cb37d6fdd91372273d/);
 	assert.doesNotMatch(workflow, /name: Install Chromium/);
 
 	const lockfile = JSON.parse(await readFile(new URL('package-lock.json', PROJECT_ROOT), 'utf8'));
-	assert.equal(lockfile.packages['node_modules/@playwright/test'].version, '1.62.1');
-	assert.equal(lockfile.packages['node_modules/playwright-core'].version, '1.62.1');
+	assert.equal(lockfile.packages['node_modules/@playwright/test'].version, '1.65.0');
+	assert.equal(lockfile.packages['node_modules/playwright-core'].version, '1.65.0');
 });
