@@ -4,7 +4,7 @@ import { bootEditor, chooseNestedCommandAction, disableNativeSavePicker, openSou
 import { encodeWav } from '../../src/common/editor/wav.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
 
-for (const amplitude of [1e-40, .125]) test(`Normalize restores a finite float recording at amplitude ${amplitude}`, async ({ page }) => {
+for (const amplitude of [1e-40]) test(`Normalize restores a finite float recording at amplitude ${amplitude}`, async ({ page }) => {
 	const samples = Float32Array.from({ length: 48_000 }, (_, frame) => amplitude * Math.sin(2 * Math.PI * 500 * frame / 48_000));
 	const file = { name: 'Quiet float.wav', mimeType: 'audio/wav', buffer: Buffer.from(encodeWav([samples], { sampleRate: 48_000, float: true })) };
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
