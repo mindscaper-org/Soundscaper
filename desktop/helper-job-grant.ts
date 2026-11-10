@@ -171,6 +171,22 @@ export interface HelperPluginScanJobGrant {
 	readonly rootPath: string;
 	readonly format: HelperPluginFormat;
 	readonly identity: Readonly<HelperFileIdentity>;
+	readonly cursor?: PluginScanCursor;
+}
+
+export interface PluginScanCursor {
+	readonly candidateIndex: number;
+	readonly descriptorIndex: number;
+}
+
+export function validatePluginScanCursor(value: unknown): Readonly<PluginScanCursor> {
+	const record = grantRecord(value);
+	exactKeys(record, ['candidateIndex', 'descriptorIndex']);
+	if (!Number.isSafeInteger(record.candidateIndex) || Number(record.candidateIndex) < 0
+		|| !Number.isSafeInteger(record.descriptorIndex) || Number(record.descriptorIndex) < 0) {
+		throw new HelperContractViolationError('malformed', 'A plugin scan cursor requires non-negative safe indices.');
+	}
+	return Object.freeze({ candidateIndex: Number(record.candidateIndex), descriptorIndex: Number(record.descriptorIndex) });
 }
 
 export interface HelperPluginHostJobGrant {
@@ -367,11 +383,12 @@ function validateAudioDeviceGrant(value: unknown): HelperAudioDeviceJobGrant {
 
 function validatePluginScanGrant(value: unknown): HelperPluginScanJobGrant {
 	const record = grantRecord(value);
-	exactKeys(record, PLUGIN_SCAN_KEYS);
+	exactOptionalKeys(record, PLUGIN_SCAN_KEYS, ['cursor']);
 	return Object.freeze({
 		rootPath: absolutePath(record.rootPath, 'plug-in scan root'),
 		format: pluginFormat(record.format),
 		identity: fileIdentity(record.identity),
+		...(record.cursor === undefined ? {} : { cursor: validatePluginScanCursor(record.cursor) }),
 	});
 }
 

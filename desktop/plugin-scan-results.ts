@@ -15,7 +15,7 @@
  * shape later cannot reach a renderer merely by existing.
  */
 
-import { HELPER_PLUGIN_FORMATS, type HelperPluginFormat } from './helper-job-grant.ts';
+import { HELPER_PLUGIN_FORMATS, validatePluginScanCursor, type HelperPluginFormat, type PluginScanCursor } from './helper-job-grant.ts';
 import { HelperContractViolationError, MAXIMUM_HELPER_WIRE_MESSAGE_BYTES } from './helper-wire-admission.ts';
 
 /**
@@ -23,8 +23,8 @@ import { HelperContractViolationError, MAXIMUM_HELPER_WIRE_MESSAGE_BYTES } from 
  * reports the reason and no entries at all, so a caller can never mistake an
  * aborted walk for an empty directory; a root holding more plug-ins than one
  * answer carries reports `root-oversized` with the prefix that fits, so a
- * legitimate large folder is a bounded fact rather than an over-envelope answer
- * the supervisor tears the channel down for.
+ * legitimate large folder is returned as bounded pages that main follows before
+ * publishing the complete inventory. `root-oversized` pages carry a `next` cursor.
  */
 export const PLUGIN_SCAN_STATUSES = Object.freeze([
 	'scanned', 'root-oversized', 'unsupported-format', 'root-unreadable',
@@ -74,8 +74,8 @@ const SCAN_RESULT_OVERHEAD_BYTES = JSON.stringify({
 
 /**
  * Derived rather than declared: how many shortest-possible entries the envelope
- * carries. Entries of ordinary length reach the byte bound first, and a root
- * with more plug-ins than either bound admits answers `root-oversized`.
+ * carries per page. Entries of ordinary length reach the byte bound first;
+ * this limits transport pages, not the number of plug-ins in a scan.
  */
 export const MAXIMUM_PLUGIN_SCAN_ENTRIES = Math.floor(
 	(MAXIMUM_PLUGIN_SCAN_RESULT_BYTES - SCAN_RESULT_OVERHEAD_BYTES) / SMALLEST_SCAN_ENTRY_BYTES);
@@ -108,6 +108,8 @@ export interface HelperPluginScanResult {
 	readonly status: PluginScanStatus;
 	readonly detail: string;
 	readonly entries: readonly PluginScanEntry[];
+	/** Main follows this cursor before publishing the completed inventory. */
+	readonly next?: Readonly<PluginScanCursor>;
 }
 
 export type RendererPluginScanEntry = Omit<PluginScanEntry, 'binaryPath'>;
@@ -130,7 +132,7 @@ const SHA256 = /^[a-f\d]{64}$/u;
 
 export function validateHelperPluginScanResult(value: unknown): HelperPluginScanResult {
 	const record = plainRecord(value, 'A plug-in scan result');
-	exactKeys(record, RESULT_KEYS, 'A plug-in scan result');
+	exactKeys(record, Object.hasOwn(record, 'next') ? [...RESULT_KEYS, 'next'] : RESULT_KEYS, 'A plug-in scan result');
 	const format = enumValue(record.format, HELPER_PLUGIN_FORMATS, 'plug-in format');
 	const status = enumValue(record.status, PLUGIN_SCAN_STATUSES, 'plug-in scan status');
 	const entries = denseArray(record.entries, 'A plug-in scan result must carry its entry list.');
@@ -144,6 +146,9 @@ export function validateHelperPluginScanResult(value: unknown): HelperPluginScan
 	if (status === 'root-oversized' && entries.length === 0) {
 		malformed('A plug-in scan of an oversized root must publish the entries it did read.');
 	}
+	if (record.next !== undefined && status !== 'root-oversized') {
+		malformed('Only an incomplete plugin scan page may carry a continuation cursor.');
+	}
 	// Identity is format plus format-native stable id, so a root that answers
 	// with the same id twice has already lost the ability to say which
 	// installation it means. That is a helper fault, not a user choice.
@@ -154,6 +159,7 @@ export function validateHelperPluginScanResult(value: unknown): HelperPluginScan
 		status,
 		detail: boundedDetail(record.detail),
 		entries: Object.freeze(admitted),
+		...(Object.hasOwn(record, 'next') ? { next: validatePluginScanCursor(record.next) } : {}),
 	});
 	if (utf8ByteLength(JSON.stringify(result)) > MAXIMUM_PLUGIN_SCAN_RESULT_BYTES) {
 		throw new HelperContractViolationError('oversized',

@@ -10,14 +10,14 @@ import type { HelperFileIdentity } from './helper-job-grant.ts';
 import { nativeChildFileIdentityFromStat } from './native-child-file-identity.ts';
 import type { NativeChildIsolationPathGrant } from './native-child-isolation-launcher.ts';
 
-/** Retain the 513th candidate so each caller can report truncation after scanning 512. */
+/** Enumerate the complete root; helper result pages bound transport independently. */
 export async function collectProfessionalCandidates(
 	root: string,
 	admitLeaf: (path: string, metadata: Stats) => boolean,
 ): Promise<readonly string[]> {
 	const output: string[] = [];
 	async function visit(directory: string, depth: number): Promise<void> {
-		if (depth > 16 || output.length > 512) return;
+		if (depth > 16) return;
 		const entries = await readdir(directory, { withFileTypes: true });
 		entries.sort((left, right) => left.name.localeCompare(right.name, 'en'));
 		for (const entry of entries) {
@@ -26,7 +26,6 @@ export async function collectProfessionalCandidates(
 			if (metadata.isSymbolicLink()) continue;
 			if (admitLeaf(path, metadata)) output.push(path);
 			else if (metadata.isDirectory()) await visit(path, depth + 1);
-			if (output.length > 512) return;
 		}
 	}
 	await visit(root, 0);

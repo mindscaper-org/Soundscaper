@@ -24,7 +24,7 @@
  * and the Web Core editor is untouched.
  */
 
-import { HELPER_PLUGIN_FORMATS, type HelperPluginFormat } from './helper-job-grant.ts';
+import { HELPER_PLUGIN_FORMATS, type HelperPluginFormat, type PluginScanCursor } from './helper-job-grant.ts';
 import { HELPER_RESOURCE_HARD_LIMITS } from './helper-resource-policy.ts';
 import { HelperSupervisionError, type HelperJobRequest } from './helper-supervisor.ts';
 import { HelperContractViolationError } from './helper-wire-admission.ts';
@@ -276,13 +276,37 @@ export class DesktopPluginScanService {
 				if (!this.#consent.isGranted(format)) {
 					throw new ScanPreconditionError('consent-required');
 				}
-				return this.#supervisor.runJob({
-					kind: 'plugin-scan',
-					grant: { rootPath: root.path, format, identity: root.identity },
-					resourcePolicy: PLUGIN_SCAN_RESOURCE_POLICY,
-					signal: controller.signal,
-					validateResult: (value) => validateHelperPluginScanResult(value),
-				});
+				let cursor: Readonly<PluginScanCursor> | undefined;
+				const deadline = Date.now() + PLUGIN_SCAN_RESOURCE_POLICY.maximumJobDurationMs;
+				const entries: HelperPluginScanResult['entries'][number][] = [];
+				const stableIds = new Set<string>();
+				for (;;) {
+					controller.signal.throwIfAborted();
+					if (!this.#consent.isGranted(format)) throw new ScanPreconditionError('consent-required');
+					const remaining = deadline - Date.now();
+					if (remaining <= 0) throw new HelperSupervisionError('resource-violation', 'The plugin scan exceeded its time limit.');
+					const page = validateHelperPluginScanResult(await this.#supervisor.runJob({
+						kind: 'plugin-scan',
+						grant: { rootPath: root.path, format, identity: root.identity, ...(cursor ? { cursor } : {}) },
+						resourcePolicy: cursor ? { ...PLUGIN_SCAN_RESOURCE_POLICY, maximumJobDurationMs: remaining } : PLUGIN_SCAN_RESOURCE_POLICY,
+						signal: controller.signal,
+						validateResult: validateHelperPluginScanResult,
+					}));
+					if (page.format !== format) throw new HelperContractViolationError('malformed', 'The scan page changed its format.');
+					if (page.status !== 'scanned' && page.status !== 'root-oversized') return page;
+					for (const entry of page.entries) {
+						if (stableIds.has(entry.stableId)) throw new HelperContractViolationError('malformed', 'Scan pages repeated a plugin identity.');
+						stableIds.add(entry.stableId);
+						entries.push(entry);
+					}
+					if (!page.next) return Object.freeze({ format, status: page.status, detail: page.detail, entries: Object.freeze(entries) });
+					const previous = cursor ?? { candidateIndex: 0, descriptorIndex: 0 };
+					if (page.next.candidateIndex < previous.candidateIndex
+						|| page.next.candidateIndex === previous.candidateIndex && page.next.descriptorIndex <= previous.descriptorIndex) {
+						throw new HelperContractViolationError('malformed', 'The plugin scan cursor did not advance.');
+					}
+					cursor = page.next;
+				}
 			}) as HelperPluginScanResult;
 			if (controller.signal.aborted) {
 				// A scanner that answered as the abort landed still answered for

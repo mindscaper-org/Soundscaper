@@ -21,14 +21,14 @@ const vamp = createSoundscaperProfessionalVampPeer(options);
 for (const [owner, list] of [
 	['plugin', plugin.listPluginCandidates], ['vamp', vamp.listPluginCandidates],
 ] as const) {
-	test(`${owner} candidates retain English locale ordering, symlink skip, and the 513th sentinel`, async (context) => {
+	test(`${owner} candidates retain English locale ordering and skip symlinks without a count limit`, async (context) => {
 		const root = await realpath(await mkdtemp(join(tmpdir(), `professional-${owner}-walk-`)));
 		context.after(() => rm(root, { recursive: true, force: true }));
 		const names = Array.from({ length: 514 }, (_, index) => `candidate-${String(index).padStart(3, '0')}.so`);
 		names[0] = 'ä.so'; names[1] = 'Z.so'; names[2] = 'a.so';
 		await Promise.all(names.map((name) => writeFile(join(root, name), 'candidate')));
 		await symlink(join(root, names[0]!), join(root, '00-link.so'));
-		const ordered = names.slice().sort((left, right) => left.localeCompare(right, 'en')).slice(0, 513);
+		const ordered = names.slice().sort((left, right) => left.localeCompare(right, 'en'));
 		assert.deepEqual(await list(root, '.so'), ordered.map((name) => join(root, name)));
 	});
 

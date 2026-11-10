@@ -85,6 +85,11 @@ Failure preserves the last committed project revision. Offline work may retry
 from the same canonical plan when its recovery class permits it. Real-time work
 never replays stale packets silently.
 
+Effect plug-in discovery pages its descriptors within the 64 KiB control envelope.
+Main follows candidate and bundle-descriptor cursors before publishing the complete
+inventory, without a per-root plug-in count limit. Every page retains consent,
+cancellation, identity admission, and the root's shared duration budget.
+
 Every native feature is reached from an existing menu and begins disabled or
 unavailable until its exact capability checks pass. Removing or revoking every
 helper leaves a usable Web Core editor and a truthful capability report.

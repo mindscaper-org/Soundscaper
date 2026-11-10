@@ -69,7 +69,7 @@ export function createNativePluginScanJobRunner({
 			try {
 				candidates = [...new Set((await Promise.all(suffixes.map((suffix) => (
 					addon.listPluginCandidates(grant.rootPath, suffix, format)
-				)))).flat())];
+				)))).flat())].sort();
 			} catch (error) {
 				return refusalFor(format, 'root-unreadable',
 					error instanceof Error ? error.message : String(error));
@@ -81,36 +81,38 @@ export function createNativePluginScanJobRunner({
 				});
 			}
 			const entries = [];
-			const truncatedRoot = candidates.length > MAXIMUM_SCAN_ENTRIES;
-			let entryBudgetExhausted = false;
-			for (const [index, path] of candidates.slice(0, MAXIMUM_SCAN_ENTRIES).entries()) {
+			const cursor = grant.cursor ?? { candidateIndex: 0, descriptorIndex: 0 };
+			let next;
+			for (let index = cursor.candidateIndex; index < candidates.length; index += 1) {
 				if (cancelled) break;
+				const path = candidates[index];
 				// Announced BEFORE the dangerous call, never after: a crash during
 				// the inspection must leave main holding this candidate's identity.
-				onProgress((index + 1) / Math.min(candidates.length, MAXIMUM_SCAN_ENTRIES));
+				onProgress((index + 1) / candidates.length);
 				const digest = await hashFile(path);
 				const inspections = inspectionsFor(await addon.inspectPluginCandidate(path, format, {
 					identity: digest.identity, byteLength: digest.byteLength, sha256: digest.sha256, resourcePolicy,
 				}), digest);
-				for (const inspection of inspections) {
+				const start = index === cursor.candidateIndex ? cursor.descriptorIndex : 0;
+				for (let descriptorIndex = start; descriptorIndex < inspections.length; descriptorIndex += 1) {
+					const inspection = inspections[descriptorIndex];
 					const entry = describeEntry(path, digest, inspection);
+					const continuation = { candidateIndex: index, descriptorIndex };
 					if (entries.length >= MAXIMUM_PLUGIN_SCAN_ENTRIES
-						|| !fitsResultEnvelope({ format, status: 'root-oversized', entries: [...entries, entry] })) {
-						entryBudgetExhausted = true; break;
+						|| !fitsResultEnvelope({ format, status: 'root-oversized', entries: [...entries, entry], next: continuation })) {
+						next = continuation; break;
 					}
 					entries.push(entry);
 				}
-				if (entryBudgetExhausted) break;
+				if (next) break;
 				await new Promise((resolve) => { setTimeout(resolve, 0); });
 			}
-			const oversized = truncatedRoot || entryBudgetExhausted;
 			return Object.freeze({
 				format,
-				status: oversized ? 'root-oversized' : 'scanned',
-				detail: oversized
-					? `Only the first ${String(entries.length)} descriptors fit one scan result.`
-					: '',
+				status: next ? 'root-oversized' : 'scanned',
+				detail: '',
 				entries: Object.freeze(entries),
+				...(next ? { next: Object.freeze(next) } : {}),
 			});
 		})();
 		return Object.freeze({
