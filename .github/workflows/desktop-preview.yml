@@ -12,6 +12,12 @@ on:
       - 'framescaper-v*-beta.*'
       - 'framescaper-v*-rc.*'
   workflow_dispatch:
+    inputs:
+      appx:
+        description: Additional unsigned Windows AppX artifacts (no Store publication)
+        type: choice
+        options: [none, development, store]
+        default: none
 
 permissions:
   contents: read
@@ -652,6 +658,28 @@ jobs:
           --${{ matrix.target.platform }} --${{ matrix.target.arch }} --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: ${{ env.SCAPE_MAC_SIGNING == 'true' && 'true' || 'false' }}
+
+      - name: Package optional Windows AppX
+        if: github.event_name == 'workflow_dispatch' && inputs.appx != 'none' && matrix.target.platform == 'win'
+        run: >-
+          npm run desktop:appx -- --prepared --arch=${{ matrix.target.arch }}
+          ${{ inputs.appx == 'development' && '--development' || '' }}
+        env:
+          SCAPE_APPX_IDENTITY_NAME: ${{ vars[matrix.product == 'soundscaper' && 'SOUNDSCAPER_APPX_IDENTITY_NAME' || 'FRAMESCAPER_APPX_IDENTITY_NAME'] }}
+          SCAPE_APPX_PUBLISHER: ${{ vars.WINDOWS_STORE_PUBLISHER }}
+          SCAPE_APPX_PUBLISHER_DISPLAY_NAME: ${{ vars.WINDOWS_STORE_PUBLISHER_DISPLAY_NAME }}
+          SCAPE_APPX_VERSION: ${{ vars[matrix.product == 'soundscaper' && 'SOUNDSCAPER_APPX_VERSION' || 'FRAMESCAPER_APPX_VERSION'] }}
+
+      - name: Upload Windows AppX feasibility artifacts
+        if: github.event_name == 'workflow_dispatch' && inputs.appx != 'none' && matrix.target.platform == 'win'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: appx-${{ matrix.product }}-win-${{ matrix.target.arch }}
+          path: |
+            release/appx/*.appx
+            release/appx/*.json
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Install virtual display for Linux smoke
         if: runner.os == 'Linux'
