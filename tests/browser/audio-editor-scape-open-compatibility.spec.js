@@ -32,6 +32,7 @@ import {
 } from './audio-editor-test-helpers.js';
 import { createDeterministicAvFixture, createDeterministicSilentVideoFixture } from './fixtures/deterministic-av-media.js';
 import { inspectProjectCompatibilityReport, openProjectCompatibilityReport } from './helpers/project-compatibility-report.js';
+import { framescaperCompatibilityPublisher } from './helpers/framescaper-compatibility-publisher.ts';
 import {
 	createScapePcmPayload,
 	prepareSoundscaperV1Foundation,
@@ -143,13 +144,7 @@ test.describe('Scape open feature decisions', () => {
 
 	test('opens Framescaper v1 audio rack effects as persistent control-free bypass placeholders', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const publisher = await bootEditor(page, '/framescaper/embed/en/');
-		await expect(publisher).toHaveAttribute('data-product', 'framescaper');
-		const originalId = await publisher.getAttribute('data-project-id');
-		expect(originalId).toBeTruthy();
-		await importFiles(publisher, [toneA]);
-
-		const exported = await captureScapeArchive(page, publisher);
+		const { originalId, exported } = await framescaperCompatibilityPublisher(toneA);
 		const incomingId = `${originalId}-audio-effect`;
 		const archive = await rewriteArchive(exported, ({ project }) => {
 			project.id = incomingId;
@@ -169,7 +164,7 @@ test.describe('Scape open feature decisions', () => {
 				FRAMESCAPER_ASSISTANCE_PROJECT_RUNTIME_PROFILE, project,
 			);
 		});
-		const recipient = await bootEditor(page, '/framescaper/embed/en/');
+		const recipient = await openPublisherBase(page, originalId, exported);
 		await setScapeInput(recipient.locator('[data-aup4-input]'), archive);
 
 		const dialog = page.getByRole('dialog', { name: 'Project features unavailable', exact: true });
@@ -186,19 +181,14 @@ test.describe('Scape open feature decisions', () => {
 	test('plays an admitted Framescaper v1 audio-effects render', async ({ page }) => {
 		test.setTimeout(90_000);
 		const errors = collectClientErrors(page);
-		const publisher = await bootEditor(page, '/framescaper/embed/en/');
-		const originalId = await publisher.getAttribute('data-project-id');
-		expect(originalId).toBeTruthy();
-		await importFiles(publisher, [toneA, asymmetricStereoTone]);
-
-		const exported = await captureScapeArchive(page, publisher);
+		const { originalId, exported } = await framescaperCompatibilityPublisher(toneA, asymmetricStereoTone);
 		const incomingId = `${originalId}-audio-render`;
 		const archive = await audioEffectsRenderedFallbackArchive(exported, {
 			id: incomingId,
 			title: 'Framescaper v1 rendered fallback',
 			fallbackSourceName: asymmetricStereoTone.name,
 		});
-		const framescaper = await bootEditor(page, '/framescaper/embed/en/');
+		const framescaper = await openPublisherBase(page, originalId, exported);
 		await expect(framescaper).toHaveAttribute('data-product', 'framescaper');
 		await setScapeInput(framescaper.locator('[data-aup4-input]'), archive);
 
@@ -245,12 +235,7 @@ test.describe('Scape open feature decisions', () => {
 		test.setTimeout(120_000);
 		await stubStorageEstimate(page, { usage: 1024 ** 2, quota: 2 * 1024 ** 3 });
 		const errors = collectClientErrors(page);
-		const publisher = await bootEditor(page, '/framescaper/embed/en/');
-		const originalId = await publisher.getAttribute('data-project-id');
-		expect(originalId).toBeTruthy();
-		await importFiles(publisher, [toneA, asymmetricStereoTone]);
-
-		const exported = await captureScapeArchive(page, publisher);
+		const { originalId, exported } = await framescaperCompatibilityPublisher(toneA, asymmetricStereoTone);
 		const incomingId = `${originalId}-streamed-audio-render`;
 		const archive = await audioEffectsRenderedFallbackArchive(exported, {
 			id: incomingId,
@@ -258,7 +243,7 @@ test.describe('Scape open feature decisions', () => {
 			fallbackSourceName: asymmetricStereoTone.name,
 			fallbackFrameCount: OVERSIZED_FALLBACK_FRAME_COUNT,
 		});
-		const framescaper = await bootEditor(page, '/framescaper/embed/en/');
+		const framescaper = await openPublisherBase(page, originalId, exported);
 		const dialog = page.getByRole('dialog', { name: 'Project features unavailable', exact: true });
 		const temporaryArchive = await createTemporaryScapeArchive(archive);
 		try {
@@ -454,6 +439,18 @@ test.describe('Scape open feature decisions', () => {
 		expect(errors).toEqual([]);
 	});
 });
+
+async function openPublisherBase(page, originalId, exported) {
+	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	await expect(editor).toHaveAttribute('data-product', 'framescaper');
+	const input = editor.locator('[data-aup4-input]');
+	await setScapeInput(input, exported);
+	await expect(editor).toHaveAttribute('data-project-id', originalId);
+	await waitForProjectActivation(editor);
+	await expect(editor.locator('[data-editor-task-progress="import"]')).toHaveCount(0, { timeout: 60_000 });
+	await input.setInputFiles([]);
+	return editor;
+}
 
 async function captureScapeArchive(page, editor) {
 	await page.evaluate(() => {
