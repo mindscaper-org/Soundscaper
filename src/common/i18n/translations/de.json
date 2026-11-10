@@ -1627,7 +1627,7 @@
 		"leftChannel": ["machine","Left","Links"],
 		"legacyEffects": ["machine","Legacy effects","Veraltete Effekte"],
 		"legacyLinearFadeShape": ["machine","Linear curve (older project)","Lineare Kurve (älteres Projekt)"],
-		"legalLink": ["machine","Privacy policy","Datenschutzerklärung"],
+		"legalLink": ["human","Privacy & Code signing policy","Datenschutz & Code signing policy"],
 		"level": ["audacity","Level","Pegel"],
 		"liftDelete": ["machine","Delete and leave gap","Löschen und Lücke behalten"],
 		"lightTheme": ["machine","Light","Hell"],

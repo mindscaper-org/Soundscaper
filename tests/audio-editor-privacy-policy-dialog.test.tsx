@@ -19,10 +19,12 @@ test('the editor dialog renders the complete localized privacy policy', () => {
 		/>);
 		assert.match(markup, /role="dialog"/u);
 		assert.match(markup, /data-privacy-policy-dialog="true"/u);
-		assert.equal((markup.match(/<section id=/gu) || []).length, 13);
+		assert.equal((markup.match(/<section id=/gu) || []).length, 14);
 		for (const text of expected) assert.ok(markup.includes(text), `${locale} is missing ${text}`);
 		assert.match(markup, /privacy@support\.soundscaper\.org/u);
 		assert.match(markup, /Cloudflare/u);
+		assert.match(markup, /<section id="code-signing-policy"><h2>14\. Code signing policy/u);
+		assert.match(markup, /SignPath Foundation/u);
 	}
 });
 

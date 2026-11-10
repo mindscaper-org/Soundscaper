@@ -14,6 +14,9 @@ for (const [name, path] of [['Soundscaper', '/download/'], ['Framescaper', '/fra
 		await expect(page.getByRole('heading', { name: `Download ${name}`, exact: true })).toBeVisible();
 		await expect(page.getByRole('link', { name: `Open ${name}`, exact: true })).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Handbook', exact: true })).toHaveAttribute('href', '/docs/');
+		await page.getByRole('link', { name: 'Privacy & Code signing policy', exact: true }).click();
+		await expect(page.getByRole('dialog', { name: 'Privacy Policy', exact: true })).toBeVisible();
+		await expect(page.getByRole('heading', { name: '14. Code signing policy', exact: true })).toBeVisible();
 	});
 }
 

@@ -4,10 +4,12 @@ import { privacyPolicyLocale, privacyPolicyPath, privacyPolicyUrl } from './priv
 
 export { privacyPolicyLocale, privacyPolicyPath, privacyPolicyUrl };
 
-const EFFECTIVE_DATE = Object.freeze({ en: '3 November 2026', de: '3. November 2026' });
+const EFFECTIVE_DATE = Object.freeze({ en: '10 November 2026', de: '10. November 2026' });
 const CONTROLLER = 'Mindscaper';
 const ADDRESS = 'Kirke Allé 5a, 6400 Sønderborg';
 const CONTACT = 'privacy@support.soundscaper.org';
+const SIGNPATH_CREDIT = 'Free code signing provided by <a href="https://about.signpath.io">SignPath.io</a>, certificate by <a href="https://signpath.org">SignPath Foundation</a>';
+const SIGNING_TEAM_MEMBER = '<a href="https://github.com/LeoWattenberg">Leo Wattenberg</a>';
 
 const POLICY = Object.freeze({
 	en: Object.freeze({
@@ -50,6 +52,7 @@ const POLICY = Object.freeze({
 				<p>Technical data may be processed by Cloudflare as our hosting, content-delivery, asset-storage, security, database, and Freesound-proxy provider; by Migadu when you email us; and by GitHub during desktop update checks or when you use repository links. For the optional Freesound feature, Cloudflare processes the request and response data described above. If you connect your Freesound account, Soundscaper's database stores your Freesound user ID and username, encrypted Freesound access and refresh tokens, and OAuth and session records. Audio, submitted metadata, and pending-upload identifiers are not stored in Soundscaper's database. Freesound, a project operated by the Music Technology Group at Universitat Pompeu Fabra (UPF), receives the proxy's technical connection data and the necessary search values, sound IDs, download requests, uploaded audio, and submitted metadata, and returns metadata and audio to the proxy. UPF provides Freesound as an independent third-party service under Freesound's <a href="https://freesound.org/help/privacy/">own privacy policy</a>. User-selected model hosts, package managers, external-tool sources, and Web VCR sites receive data only when you initiate those connections.</p>
 				<p>For audio.com, Cloudflare processes the proxy requests and responses and stores encrypted provider tokens, encrypted temporary authorization values and opaque session records in separate database tables. We do not request your audio.com email address or store your provider username or account ID. Uploaded audio and publication metadata are not retained in Soundscaper’s database. audio.com receives the selected search, preview and upload data and the proxy’s technical connection data as an independent service under its <a href="https://audio.com/legal/privacy-notice">own privacy notice</a>.</p>
 				<p>On a self-hosted deployment configured for Audiocity, the optional panel displays the storage server address before connection. That server receives your sign-in credentials directly. Soundscaper forwards the searches, selected audio, and explicitly selected AUP3/AUP4 project archives to that server instead of audio.com. The proxy retains encrypted authorization and session records, not uploaded media or project archives. The server operator controls storage, access and deletion of uploaded files; disconnecting Soundscaper does not delete them. Local validation uses disposable local storage and does not contact audio.com.</p>
+				<p>See also the privacy policies of <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare</a>, <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub</a>, and <a href="https://www.migadu.com/privacy/">Migadu</a>.</p>
 				<p>Those independent services may also process data for their own purposes under their own privacy notices. We disclose information to authorities or professional advisers only where legally required or necessary to establish, exercise, or defend legal claims.</p>`),
 			section('retention-deletion', '9. Retention and deletion', `
 				<p>We do not receive or retain your local project and media data. Delete projects and models with the product controls. Use the Web VCR clear-data action to remove its isolated cookies, cache, and site storage. Clearing browser site data removes the web project library; deleting desktop application data removes its local library. Uninstalling a desktop build is designed to preserve its library, so uninstalling alone is not a deletion method.</p>
@@ -66,6 +69,17 @@ const POLICY = Object.freeze({
 				<p>Cloudflare, GitHub, Migadu, and user-selected services may process data outside Denmark or the European Economic Area. Where required, transfers are protected through an adequacy decision, approved contractual safeguards such as Standard Contractual Clauses, or another lawful transfer mechanism. Consult each provider’s privacy notice for its current locations and safeguards.</p>`),
 			section('changes', '13. Changes to this policy', `
 				<p>We will update this policy when the products, service providers, data practices, or legal requirements materially change. The current version and effective date are published on this page. Material changes will be highlighted where appropriate.</p>`),
+			section('code-signing-policy', '14. Code signing policy', `
+				<p>The SignPath application is being prepared for Soundscaper Windows releases. Signing through SignPath is planned and depends on acceptance and configuration.</p>
+				<p>For releases signed under this program: ${SIGNPATH_CREDIT}.</p>
+				<ul>
+					<li><strong>Authors:</strong> ${SIGNING_TEAM_MEMBER}</li>
+					<li><strong>Reviewers:</strong> ${SIGNING_TEAM_MEMBER}</li>
+					<li><strong>Approvers:</strong> ${SIGNING_TEAM_MEMBER}</li>
+				</ul>
+				<p>Signing requests must use verifiable automated builds from the <a href="https://github.com/mindscaper-org/Soundscaper">Soundscaper source repository</a>. Changes from contributors without commit access require review, and each signing request requires manual approval by the approver. Team members must use multi-factor authentication for repository and SignPath access. Upstream binaries may be included in packages but must not be signed with the project's SignPath certificate.</p>
+				<p><strong>Privacy:</strong> the <a href="/privacy/en/">privacy policy above</a> describes local media processing, network requests including desktop update checks, optional online services, and their privacy policies.</p>
+				<p>The signing program is subject to the <a href="https://signpath.org/terms">SignPath Foundation terms</a>.</p>`),
 		]),
 	}),
 	de: Object.freeze({
@@ -108,6 +122,7 @@ const POLICY = Object.freeze({
 				<p>Technische Daten können durch Cloudflare als Anbieter für Hosting, Inhaltsauslieferung, Dateispeicherung, Sicherheit, Datenbank und den Freesound-Proxy, durch Migadu bei E-Mails an uns und durch GitHub bei Desktop-Updateprüfungen oder Repositorylinks verarbeitet werden. Für die optionale Freesound-Funktion verarbeitet Cloudflare die oben beschriebenen Anfrage- und Antwortdaten. Wenn Sie Ihr Freesound-Konto verbinden, speichert die Soundscaper-Datenbank Ihre Freesound-Benutzer-ID und Benutzernamen, verschlüsselte Freesound-Zugriffs- und Aktualisierungstoken sowie OAuth- und Sitzungsdatensätze. Audiodaten, übermittelte Metadaten und Kennungen ausstehender Uploads werden nicht in der Soundscaper-Datenbank gespeichert. Freesound, ein von der Music Technology Group der Universitat Pompeu Fabra (UPF) betriebenes Projekt, erhält technische Verbindungsdaten des Proxys sowie die erforderlichen Suchwerte, Sound-IDs, Downloadanfragen, hochgeladenen Audiodaten und übermittelten Metadaten und liefert Metadaten und Audio an den Proxy zurück. UPF stellt Freesound als unabhängigen Drittanbieterdienst unter der <a href="https://freesound.org/help/privacy/">eigenen Datenschutzerklärung</a> von Freesound bereit. Von Ihnen gewählte Modellhosts, Paketmanager, Quellen externer Werkzeuge und Web-VCR-Seiten erhalten Daten nur, wenn Sie diese Verbindungen auslösen.</p>
 				<p>Für audio.com verarbeitet Cloudflare die Proxy-Anfragen und -Antworten und speichert verschlüsselte Anbietertoken, verschlüsselte vorübergehende Autorisierungswerte und nicht aussagekräftige Sitzungsdatensätze in getrennten Datenbanktabellen. Wir fragen Ihre audio.com-E-Mail-Adresse nicht ab und speichern weder Ihren Benutzernamen noch Ihre Kontokennung beim Anbieter. Hochgeladene Audiodaten und Veröffentlichungsmetadaten werden nicht in der Soundscaper-Datenbank aufbewahrt. audio.com erhält die gewählten Such-, Vorschau- und Upload-Daten und technische Verbindungsdaten des Proxys als unabhängiger Dienst nach seiner <a href="https://audio.com/legal/privacy-notice">eigenen Datenschutzerklärung</a>.</p>
 				<p>Bei einer selbst gehosteten Bereitstellung mit Audiocity zeigt das optionale Panel vor dem Verbinden die Adresse des Speicherservers. Dieser Server erhält Ihre Anmeldedaten direkt. Soundscaper leitet Suchanfragen, ausgewählte Audiodaten und ausdrücklich ausgewählte AUP3/AUP4-Projektarchive an diesen Server statt an audio.com weiter. Der Proxy speichert verschlüsselte Autorisierungs- und Sitzungsdatensätze, keine hochgeladenen Medien oder Projektarchive. Der Serverbetreiber bestimmt Speicherung, Zugriff und Löschung der hochgeladenen Dateien; das Trennen von Soundscaper löscht sie nicht. Die lokale Validierung verwendet getrennte lokale Testdaten und kontaktiert audio.com nicht.</p>
+				<p>Siehe auch die Datenschutzerklärungen von <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare</a>, <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub</a> und <a href="https://www.migadu.com/privacy/">Migadu</a>.</p>
 				<p>Diese unabhängigen Dienste können Daten nach ihren eigenen Datenschutzhinweisen auch für eigene Zwecke verarbeiten. Gegenüber Behörden oder professionellen Beratern legen wir Informationen nur offen, wenn dies gesetzlich vorgeschrieben oder zur Geltendmachung, Ausübung oder Verteidigung von Rechtsansprüchen erforderlich ist.</p>`),
 			section('retention-deletion', '9. Speicherdauer und Löschung', `
 				<p>Wir erhalten und speichern Ihre lokalen Projekt- und Mediendaten nicht. Löschen Sie Projekte und Modelle über die Produktfunktionen. Mit der Daten-löschen-Funktion von Web VCR entfernen Sie dessen isolierte Cookies, Cache- und Websitedaten. Das Löschen von Browser-Websitedaten entfernt die Web-Projektbibliothek; das Löschen der Desktop-Anwendungsdaten entfernt deren lokale Bibliothek. Eine Deinstallation soll die Desktopbibliothek erhalten und ist daher allein keine Löschmethode.</p>
@@ -124,6 +139,17 @@ const POLICY = Object.freeze({
 				<p>Cloudflare, GitHub, Migadu und von Ihnen gewählte Dienste können Daten außerhalb Dänemarks oder des Europäischen Wirtschaftsraums verarbeiten. Soweit erforderlich, werden Übermittlungen durch einen Angemessenheitsbeschluss, genehmigte vertragliche Garantien wie Standardvertragsklauseln oder einen anderen zulässigen Übermittlungsmechanismus geschützt. Aktuelle Verarbeitungsorte und Garantien entnehmen Sie der Datenschutzerklärung des jeweiligen Anbieters.</p>`),
 			section('changes', '13. Änderungen dieser Erklärung', `
 				<p>Wir aktualisieren diese Erklärung, wenn sich Produkte, Dienstleister, Datenpraktiken oder rechtliche Anforderungen wesentlich ändern. Die aktuelle Fassung und ihr Gültigkeitsdatum werden auf dieser Seite veröffentlicht. Auf wesentliche Änderungen weisen wir gegebenenfalls besonders hin.</p>`),
+			section('code-signing-policy', '14. Code signing policy (Codesignierung)', `
+				<p>Der SignPath-Antrag wird vorbereitet und betrifft Soundscaper-Veröffentlichungen für Windows. Die Signierung durch SignPath ist geplant und setzt die Annahme des Antrags und die Einrichtung voraus.</p>
+				<p>Für Veröffentlichungen, die im Rahmen dieses Programms signiert werden: ${SIGNPATH_CREDIT}.</p>
+				<ul>
+					<li><strong>Autoren:</strong> ${SIGNING_TEAM_MEMBER}</li>
+					<li><strong>Prüfer:</strong> ${SIGNING_TEAM_MEMBER}</li>
+					<li><strong>Freigabeverantwortliche:</strong> ${SIGNING_TEAM_MEMBER}</li>
+				</ul>
+				<p>Signieranfragen müssen überprüfbare automatisierte Builds aus dem <a href="https://github.com/mindscaper-org/Soundscaper">Soundscaper-Quellrepository</a> verwenden. Änderungen von Mitwirkenden ohne Commit-Zugriff müssen geprüft werden. Jede Signieranfrage muss vom Freigabeverantwortlichen manuell freigegeben werden. Teammitglieder müssen für Repository- und SignPath-Zugriffe Mehrfaktor-Authentifizierung verwenden. Binärdateien anderer Projekte dürfen in Paketen enthalten sein, aber nicht mit dem SignPath-Zertifikat des Projekts signiert werden.</p>
+				<p><strong>Datenschutz:</strong> Die <a href="/privacy/de/">obige Datenschutzerklärung</a> beschreibt die lokale Medienverarbeitung, Netzwerkanfragen einschließlich Desktop-Updateprüfungen, optionale Onlinedienste und deren Datenschutzerklärungen.</p>
+				<p>Für das Signierprogramm gelten die <a href="https://signpath.org/terms">Bedingungen der SignPath Foundation</a>.</p>`),
 		]),
 	}),
 });

@@ -59,7 +59,7 @@ export function renderDownloadPage(
 			<a class="button secondary" href="/en/">Open ${name}</a>
 		</section>
 	</main>
-	<footer><span>${name} · Free and open source</span><a href="https://${peer.toLowerCase()}.org/download/">Download ${peer}</a><a href="/privacy/en/">Privacy &amp; legal</a></footer>
+	<footer><span>${name} · Free and open source</span><a href="https://${peer.toLowerCase()}.org/download/">Download ${peer}</a><a href="/privacy/en/">Privacy &amp; Code signing policy</a></footer>
 </body>
 </html>`;
 }

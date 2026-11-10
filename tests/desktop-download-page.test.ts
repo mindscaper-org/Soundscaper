@@ -53,6 +53,7 @@ for (const product of ['soundscaper', 'framescaper'] as const) {
 		assert.equal(response.headers.get('cache-control'), 'no-store');
 		assert.match(html, new RegExp(`<h1>Download ${product === 'soundscaper' ? 'Soundscaper' : 'Framescaper'}</h1>`, 'u'));
 		assert.ok(html.includes(`href="https://${product}.org/download/"`));
+		assert.ok(html.includes('<a href="/privacy/en/">Privacy &amp; Code signing policy</a>'));
 		assert.ok(html.includes(`href="${RELEASES}/download/${current.tag_name}/${current.assets[0]?.name}"`));
 		assert.ok(html.includes(`href="${RELEASES}/tag/${current.tag_name}"`));
 		assert.ok(html.includes(`href="${RELEASES}/download/${current.tag_name}/SHA256SUMS"`));
@@ -78,12 +79,15 @@ test('no RC and an unavailable release feed leave a usable release link with dis
 	const request = new Request('https://soundscaper.org/download/');
 	const empty = await handleDownloadPageRequest(request, async () => Response.json([]));
 	assert.equal(empty.status, 200);
-	assert.match(await empty.text(), /No release candidate is available yet/u);
+	const emptyHtml = await empty.text();
+	assert.match(emptyHtml, /No release candidate is available yet/u);
+	assert.ok(emptyHtml.includes('<a href="/privacy/en/">Privacy &amp; Code signing policy</a>'));
 	const unavailable = await handleDownloadPageRequest(request, async () => new Response(null, { status: 503 }));
 	const html = await unavailable.text();
 	assert.equal(unavailable.status, 503);
 	assert.equal(unavailable.headers.get('retry-after'), '300');
 	assert.match(html, /could not load the latest release candidate/u);
+	assert.ok(html.includes('<a href="/privacy/en/">Privacy &amp; Code signing policy</a>'));
 	assert.ok(html.includes(`${RELEASES}?q=soundscaper`));
 });
 

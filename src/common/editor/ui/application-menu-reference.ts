@@ -276,7 +276,7 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	['desktop-discover-native-effects', 'Discover Native Effects', 'Edit > Preferences > Effects', BOTH, 'setting'],
 
 	// Help: local surfaces, install affordance, and desktop links.
-	['privacy-policy', 'Privacy policy', 'Help', BOTH, 'link'],
+	['privacy-policy', 'Privacy & Code signing policy', 'Help', BOTH, 'link'],
 	['community-translations', 'Contribute translations', 'Help', BOTH, 'link'],
 	['install-soundscaper', 'Install Soundscaper', 'Help', SOUNDSCAPER],
 	['install-framescaper', 'Install Framescaper', 'Help', FRAMESCAPER],
