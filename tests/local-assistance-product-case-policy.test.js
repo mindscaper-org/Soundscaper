@@ -18,6 +18,7 @@ const SOUNDSCAPER_CASES = Object.freeze([
 	'panns-audio-tags',
 	'parakeet-v2-transcript',
 	'parakeet-v3-transcript',
+	'qwen-editorial-proposals',
 	'silero-voice-activity',
 	'speaker-diarization',
 	'tiger-dialogue-music-effects',

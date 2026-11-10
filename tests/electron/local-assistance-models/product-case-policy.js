@@ -24,6 +24,7 @@ const PRODUCT_OPERATIONS = Object.freeze({
 		'audio-tagging',
 		'beat-tracking',
 		'dereverberation',
+		'editorial-generation',
 		'source-separation',
 		'speaker-diarization',
 		'speech-enhancement',
