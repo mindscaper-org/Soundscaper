@@ -12,7 +12,7 @@ import {
 } from './aup4-profile.js';
 import { readAup4ClipTiming } from './aup4-clip-timing.ts';
 import { sanitizeAup4ProjectRoot } from './aup4-sanitization.js';
-import { createCurrentAudioEditorProject } from './project-current.ts';
+import { createAudacityEditingProject } from './audacity-recovery-document-budget.ts';
 import {
 	createAudioClip,
 	createAudioSource,
@@ -358,7 +358,7 @@ export async function decodeAudacityProjectTree(root, loadBlock, options = {}) {
 		sequenceId: 'main-sequence',
 		idFactory,
 	});
-	const project = createCurrentAudioEditorProject({
+	const project = createAudacityEditingProject({
 		id: options.projectId || idFactory('project'),
 		title,
 		sampleRate: projectRate,
@@ -399,7 +399,7 @@ export async function decodeAudacityProjectTree(root, loadBlock, options = {}) {
 			aup4UnknownNodes: root.content.filter((entry) => entry.kind === 'node' && !knownRootChildren.has(entry.node.name)).map((entry) => opaqueNode(entry.node)),
 			aup4MasterEffects: opaqueNode(masterEffectsNode),
 		},
-	});
+	}, { recover: options.recover === true, report: compatibilityReport });
 	return {
 		project,
 		sources: sourceAudio,

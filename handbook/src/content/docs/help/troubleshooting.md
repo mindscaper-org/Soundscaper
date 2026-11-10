@@ -40,42 +40,30 @@ Read the compatibility report. AUP4 carries compatible audio editing state but
 omits video and can convert or omit effects and Soundscaper-only mixing state.
 Use a Scape project file — `.sscape` or `.fscape`, both of which open in either product — for complete project transfer.
 
-## Repair an AUP3 file offline {#repair-an-aup3-file-offline}
+## Recover a damaged Audacity project {#recover-a-damaged-audacity-project}
 
-Open **File → Project management → Recover Audacity project** to recover readable
-Audacity data into a new Soundscaper project. If a large project exceeds Soundscaper's
-document limits, or damaged SQLite pages prevent import, the repository also
-provides an offline tool that writes a fresh `.aup3` for Audacity. The recovery
-dialog links to these instructions.
+Open **File → Project management → Recover Audacity project**, choose the `.aup3`
+or `.aup4` file, then select **Recover project file**. The same recovery is tried
+when an ordinary Audacity import encounters damaged project data. Recovery
+creates a new editing copy and keeps the original file unchanged.
 
-Close Audacity and Soundscaper before starting. Keep the original file and any
-`-wal`, `-shm`, or `-journal` files together. The tool refuses active journal or
-WAL data; do not delete these files to bypass that refusal. Follow the
-repository's [contribution setup](https://github.com/mindscaper-org/Soundscaper/blob/main/CONTRIBUTING.md)
-to install the pinned Node.js version and npm dependencies, then run from that
-checkout:
+Recovery selects a readable saved document or autosave and checks audio in
+bounded ranges. If SQLite cannot read an audio block, recovery also tries its
+live database page chain. Readable prefixes are retained; unreadable samples
+become silence of the same duration. Recovery never guesses missing page links
+or imports deleted audio from the database freelist.
 
-```sh
-npm run repair:aup3 -- '/path/damaged.aup3' '/path/recovered.aup3'
-```
+Review the compatibility report for affected tracks and clips. If retained
+Audacity-only clip XML would exceed the project document limits, recovery omits
+that XML and original sample-block boundary hints, and reports that omission.
+Editable audio, clip timing, envelopes and track state remain. Keep the original
+for native-only clip fields. A project whose editable data still exceeds the
+limits cannot be recovered into one editing copy.
 
-Use a new output filename and allow enough disk space for a second project.
-Repair reads one audio block at a time rather than loading the entire file
-into memory. It selects a readable saved document or autosave, preserves its
-track and clip placement, copies referenced audio, and rebuilds waveform
-summaries. When SQLite cannot read a block, it tries the live database page
-chain and retains a readable PCM prefix. Unreadable samples become silence of
-the same duration. It never guesses missing page links or imports deleted audio
-from the database freelist.
-
-The output is published only after SQLite integrity and audio references pass
-validation. The adjacent `.recovery.json` report records the original SHA-256,
-document choice, and sample losses with their track and clip locations. Open the
-new file in Audacity and listen before relying on it. A readable recovered AUP3 can still exceed
-Soundscaper's document limits; the tool does not raise those limits. It requires
-a readable schema and project document, supports the maintained Audacity 3
-profile and sample-block sizes, and does not reconstruct lost edits or AUP4
-history.
+Listen to the recovered project before relying on it. Use the existing File
+menu export commands to save a new Audacity file. Keep the original and any
+`-wal`, `-shm`, or `-journal` files together; recovery cannot reconstruct edits
+that exist only in an unavailable journal or an unreadable project document.
 
 ## An export fails or does not play
 

@@ -24,8 +24,6 @@ test('pending Audacity file recovery keeps its progress dialog until the import 
 	const editor = await bootEditor(page, '/embed/en/');
 	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Recover Audacity project']);
 	const dialog = page.getByRole('dialog', { name: 'Recover Audacity project', exact: true });
-	await expect(dialog.getByRole('link', { name: 'Repair a large or severely damaged AUP3 file offline', exact: true }))
-		.toHaveAttribute('href', 'https://soundscaper.org/docs/help/troubleshooting/#repair-an-aup3-file-offline');
 	await page.keyboard.press('Escape');
 	await expect(dialog).toBeHidden();
 	await expect(editor.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true })).toBeFocused();

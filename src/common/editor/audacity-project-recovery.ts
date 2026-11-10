@@ -24,15 +24,15 @@ const children = audacityXmlChildren as unknown as (node: XmlNode, name: string)
 const attribute = audacityXmlAttribute as (node: XmlNode, name: string, fallback?: unknown) => unknown;
 
 /** Salvage only a private import copy. This never edits the source database. */
-export function recoverAudacityProjectDatabase(database: unknown) {
-	try { return inspectRecoveryDatabase(database); }
+export function recoverAudacityProjectDatabase(database: unknown, overrides: ReadonlyMap<number, RecoveredAudacityBlock> = new Map()) {
+	try { return inspectRecoveryDatabase(database, overrides); }
 	catch (error: unknown) {
 		if (error instanceof Aup4Error) throw error;
 		throw unrecoverable(error);
 	}
 }
 
-function inspectRecoveryDatabase(database: unknown) {
+function inspectRecoveryDatabase(database: unknown, overrides: ReadonlyMap<number, RecoveredAudacityBlock>) {
 	const adapter = createAup4DatabaseAdapter(database) as Adapter;
 	adapter.exec('PRAGMA trusted_schema = OFF');
 	const applicationId = Number(adapter.value('PRAGMA application_id'));
@@ -65,7 +65,7 @@ function inspectRecoveryDatabase(database: unknown) {
 			readable.push({ candidate, document });
 			try {
 				validateAup4References(database, document.root, { includeNestedWaveClips: true, allowMissingSampleBlocks: false });
-				return recoverDocument(database, { candidate, document }, { applicationId, userVersion, schemaObjects, failures, sqliteIssue });
+				return recoverDocument(database, { candidate, document }, { applicationId, userVersion, schemaObjects, failures, sqliteIssue }, overrides);
 			} catch (error: unknown) { failures.push(failure(candidate, error)); }
 		} catch (error: unknown) {
 			if (error instanceof Aup4Error && ['NEWER_XML', 'NEWER_DATABASE'].includes(error.code)) throw error;
@@ -74,7 +74,7 @@ function inspectRecoveryDatabase(database: unknown) {
 	}
 	const salvage = readable[0];
 	if (!salvage) throw unrecoverable(failures[0]?.message);
-	return recoverDocument(database, salvage, { applicationId, userVersion, schemaObjects, failures, sqliteIssue });
+	return recoverDocument(database, salvage, { applicationId, userVersion, schemaObjects, failures, sqliteIssue }, overrides);
 }
 
 function readCandidates(adapter: Adapter, tables: ReadonlySet<string>, failures: Failure[]): Candidate[] {
@@ -100,6 +100,7 @@ function readCandidates(adapter: Adapter, tables: ReadonlySet<string>, failures:
 function recoverDocument(database: unknown,
 	selected: { candidate: Candidate; document: ReturnType<typeof decodeAudacityBinaryXml> },
 	context: { applicationId: number; userVersion: number; schemaObjects: ReturnType<typeof readSchemaObjects>; failures: Failure[]; sqliteIssue: string },
+	overrides: ReadonlyMap<number, RecoveredAudacityBlock>,
 ) {
 	const sanitized = sanitizeAup4Document(selected.document);
 	const document = sanitized.document;
@@ -138,7 +139,7 @@ function recoverDocument(database: unknown,
 						setAttribute(block, 'length', count);
 						if (blockId < 0) continue;
 						let recovered = audio.get(blockId);
-						if (!recovered) recovered = inspectRecoverableAudacityBlock(database, blockId) ?? undefined;
+						if (!recovered) recovered = overrides.get(blockId) ?? inspectRecoverableAudacityBlock(database, blockId) ?? undefined;
 						if (recovered) audio.set(blockId, recovered);
 						const missingFrames = recovered ? Math.max(0, count - recovered.usableFrames)
 							+ recovered.unreadableRanges.reduce((sum, range) => sum + Math.max(0, Math.min(count, range.end) - range.start), 0)

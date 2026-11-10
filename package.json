@@ -165,7 +165,6 @@
 		"audit:kokoro-model-release": "node scripts/models/verify-kokoro-model-release.mjs",
 		"audit:ffmpeg-runtime": "node scripts/audit-ffmpeg-runtime.mjs",
 		"audit:aup3-interop": "node --import tsx scripts/audit-aup3-interop.mjs",
-		"repair:aup3": "node --import tsx scripts/repair-aup3.ts",
 		"audit:aup4-interop": "node scripts/audit-aup4-interop.mjs",
 		"audit:aup4-interop:release": "node scripts/audit-aup4-interop.mjs --require-native",
 		"audit:seven-zip": "node --import tsx scripts/audit-seven-zip-interop.mjs",

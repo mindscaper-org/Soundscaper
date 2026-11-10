@@ -40,6 +40,5 @@ export const PROJECT_RECOVERY_COPY_BY_LOCALE = Object.freeze({
 		recoverAudacityProjectFile: 'Audacity project file',
 		recoverAudacityProjectDescription: 'Recover readable AUP3 or AUP4 data into a new editing project. Damaged autosaves may be skipped and missing audio replaced with silence. The import report lists any losses; the original file stays unchanged.',
 		recoverAudacityProjectAction: 'Recover project file',
-		recoverAudacityOfflineHelp: 'Repair a large or severely damaged AUP3 file offline',
 	},
 });

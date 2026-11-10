@@ -219,15 +219,19 @@ retains the current workspace while the user chooses a new copy.
 Startup uses an empty workspace and defers saving and maintenance while that
 choice is pending.
 
-For AUP3 files that cannot fit an editor document, `npm run repair:aup3` uses
-`desktop/audacity-project-file-repair.ts` to rebuild a separate native SQLite
-file without constructing editor state. Its bounded page reader follows only
-the live sampleblocks tree and excludes the freelist; broken overflow chains
-retain a readable prefix and substitute silence for the remaining frames.
-The saved binary XML stays intact, summaries are regenerated, and integrity
-and reference validation precede exclusive output publication. The existing
-Audacity recovery dialog links to the offline workflow. This tool does not
-relax editor document limits or recover active WAL/journal state.
+Audacity project recovery tries live SQLite page chains when normal audio
+reads fail. Its bounded asynchronous range reader excludes the freelist and
+never guesses broken links. Readable PCM prefixes augment the ordinary recovery
+inventory; unreadable tails remain timed silence in the existing compatibility
+report. Import pulls recheck recovered block identity and keep one block cached.
+The original selected file is never modified. Browser Files and desktop selected
+range capabilities use the same worker path.
+
+Recovery first retains all imported metadata. If native clip XML exceeds the
+editor document node budget, it retries without native-only clip XML and source
+block-boundary hints, reporting that omission. Editable audio, timing, envelopes,
+track state and project/track extension data remain. Ordinary imports do not use
+this fallback, and all existing document limits remain in force.
 
 Soundscaper Scape recovery reads the owning-family document through the bounded
 archive reader, verifies its digest, and streams media verification before
