@@ -156,6 +156,26 @@ test.describe('dockable playback and recording meters', () => {
 		}
 	});
 
+	test('meter docks and columns never show scrollbars in a short workspace', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/', { defaultWorkspace: true });
+		for (const dock of ['right', 'left', 'top', 'bottom', 'floating']) {
+			await page.setViewportSize({ width: 1280, height: 800 });
+			for (const meter of METERS) {
+				if (await editor.locator(`[data-panel-dock="${dock}"] [data-workspace-panel="${meter.kind}-meter"]`).count() === 0) {
+					await dockMeterFromSettings(editor, meter, dock);
+				}
+			}
+			await page.setViewportSize({ width: 900, height: 380 });
+			const containers = editor.locator('[data-meter-dock], [data-meter-dock] > .kw-audio-editor__workspace-panel-column, [data-meter-panel]');
+			const overflow = await containers.evaluateAll(elements => elements.map(element => {
+				const style = getComputedStyle(element);
+				return [style.overflowX, style.overflowY];
+			}));
+			expect(overflow.length).toBeGreaterThan(0);
+			for (const axes of overflow) expect(axes.every(value => value === 'hidden' || value === 'clip')).toBe(true);
+		}
+	});
+
 	test('the meter grip drags into an empty dock and floating meter resize keeps the same width minimum', async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/', { defaultWorkspace: true });
 		const meter = METERS[0];
