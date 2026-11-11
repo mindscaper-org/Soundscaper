@@ -90,9 +90,19 @@ export function createNativePluginScanJobRunner({
 				// the inspection must leave main holding this candidate's identity.
 				onProgress((index + 1) / candidates.length);
 				const digest = await hashFile(path);
-				const inspections = inspectionsFor(await addon.inspectPluginCandidate(path, format, {
-					identity: digest.identity, byteLength: digest.byteLength, sha256: digest.sha256, resourcePolicy,
-				}), digest);
+				let inspected;
+				try {
+					inspected = await addon.inspectPluginCandidate(path, format, {
+						identity: digest.identity, byteLength: digest.byteLength, sha256: digest.sha256, resourcePolicy,
+					});
+				} catch {
+					// Professional inspections own a separate supervised peer and await
+					// its cleanup. A refused or crashed candidate must not discard the
+					// folder's healthy neighbours or poison the next scan.
+					if (cancelled) break;
+					inspected = { status: 'malformed' };
+				}
+				const inspections = inspectionsFor(inspected, digest);
 				const start = index === cursor.candidateIndex ? cursor.descriptorIndex : 0;
 				for (let descriptorIndex = start; descriptorIndex < inspections.length; descriptorIndex += 1) {
 					const inspection = inspections[descriptorIndex];
@@ -110,7 +120,8 @@ export function createNativePluginScanJobRunner({
 			return Object.freeze({
 				format,
 				status: next ? 'root-oversized' : 'scanned',
-				detail: '',
+				detail: entries.some((entry) => entry.compatibility !== 'compatible')
+					? 'Some plugins are incompatible. Review them in Plugin Manager.' : '',
 				entries: Object.freeze(entries),
 				...(next ? { next: Object.freeze(next) } : {}),
 			});

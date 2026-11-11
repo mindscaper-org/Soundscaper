@@ -165,6 +165,15 @@ main-owned grants. New installations automatically discover supported standard
 folders when the editor opens; saved discovery settings and folder choices are
 preserved. Consent remains per format.
 
+Each professional candidate is inspected in its own supervised peer. A refused
+or crashed candidate is reported as incompatible without discarding the folder's
+other results or blocking later scans. Plugin Manager retains incompatible
+observations without inventing channel layouts; they cannot receive hosting
+grants. Completed scans link to Plugin Manager for review and explicit recovery.
+Plug-in file identities retain the full unsigned 64-bit device and inode values:
+safe values keep their numeric representation, while larger NTFS identifiers use
+canonical decimal strings through authentication, registry storage and host grants.
+
 Registry identity is the format plus its native stable identifier. An installed
 binary additionally binds platform, architecture, version, and digest. A new or
 changed digest requires an explicit allow decision; path ordering never resolves

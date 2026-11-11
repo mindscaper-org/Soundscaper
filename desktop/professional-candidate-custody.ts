@@ -6,8 +6,7 @@ import type { Stats } from 'node:fs';
 import { lstat, readdir, realpath } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import type { HelperFileIdentity } from './helper-job-grant.ts';
-import { nativeChildFileIdentityFromStat } from './native-child-file-identity.ts';
+import { canonicalNativeChildFileIdentity, nativeChildFileIdentityFromStat, type NativeChildFileIdentity } from './native-child-file-identity.ts';
 import type { NativeChildIsolationPathGrant } from './native-child-isolation-launcher.ts';
 
 /** Enumerate the complete root; helper result pages bound transport independently. */
@@ -35,15 +34,15 @@ export async function collectProfessionalCandidates(
 /** Reopen only the reviewed immutable snapshot and bind its full device/inode identity. */
 export async function exactProfessionalCandidateGrant(
 	path: string,
-	expected: Readonly<HelperFileIdentity>,
+	expected: Readonly<NativeChildFileIdentity>,
 	allowDirectory: boolean,
 	diagnostic: string,
 ): Promise<NativeChildIsolationPathGrant> {
 	const metadata = await lstat(path, { bigint: true });
 	const identity = nativeChildFileIdentityFromStat(metadata);
+	const captured = canonicalNativeChildFileIdentity(expected);
 	if (metadata.isSymbolicLink() || (!metadata.isFile() && !(allowDirectory && metadata.isDirectory()))
-		|| Number(BigInt.asUintN(64, metadata.dev)) !== expected.dev
-		|| Number(BigInt.asUintN(64, metadata.ino)) !== expected.ino
+		|| identity.dev !== captured.dev || identity.ino !== captured.ino
 		|| await realpath(path) !== path) throw new Error(diagnostic);
 	return Object.freeze({
 		path, kind: metadata.isDirectory() ? 'directory' as const : 'file' as const, identity,

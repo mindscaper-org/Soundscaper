@@ -46,6 +46,13 @@ export function nativeChildFileIdentityFromStat(
 	});
 }
 
+/** Preserve legacy safe numbers; larger filesystem IDs cross JSON as decimal strings. */
+export function portableNativeChildFileIdentity(value: unknown): Readonly<NativeChildFileIdentity> {
+	const identity = canonicalNativeChildFileIdentity(value);
+	const portable = (part: string): NativeChildFileIdentityValue => Number.isSafeInteger(Number(part)) ? Number(part) : part;
+	return Object.freeze({ dev: portable(identity.dev), ino: portable(identity.ino) });
+}
+
 function component(value: unknown, label: string): string {
 	if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) return String(value);
 	if (typeof value === 'string' && CANONICAL_UNSIGNED.test(value) && BigInt(value) <= MAXIMUM_UINT64) return value;

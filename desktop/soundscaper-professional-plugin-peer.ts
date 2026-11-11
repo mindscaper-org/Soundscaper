@@ -6,7 +6,8 @@ import { realpath } from 'node:fs/promises';
 import { createAraPluginPeerMethods } from './ara-plugin-peer.ts';
 import { dirname } from 'node:path';
 
-import type { HelperFileIdentity, HelperPluginFormat } from './helper-job-grant.ts';
+import type { HelperPluginFormat } from './helper-job-grant.ts';
+import type { NativeChildFileIdentity } from './native-child-file-identity.ts';
 import { collectProfessionalCandidates, exactProfessionalCandidateGrant } from './professional-candidate-custody.ts';
 import {
 	isEnforcedNativeChildLaunch,
@@ -32,7 +33,7 @@ const STATUS = Object.freeze([
 ]);
 
 export interface ProfessionalPluginPeerContext {
-	readonly identity: Readonly<HelperFileIdentity>;
+	readonly identity: Readonly<NativeChildFileIdentity>;
 	readonly byteLength: number;
 	readonly sha256: string;
 	readonly resourcePolicy: HelperJobResourcePolicy;

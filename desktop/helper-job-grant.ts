@@ -10,6 +10,7 @@ import {
 	HelperContractViolationError,
 	assertHelperWireEnvelope,
 } from './helper-wire-admission.ts';
+import { portableNativeChildFileIdentity, type NativeChildFileIdentity } from './native-child-file-identity.ts';
 import {
 	assistanceSpeechGrantInputBytes,
 	validateAssistanceSpeechJobGrant,
@@ -170,7 +171,7 @@ export interface HelperAudioDeviceJobGrant {
 export interface HelperPluginScanJobGrant {
 	readonly rootPath: string;
 	readonly format: HelperPluginFormat;
-	readonly identity: Readonly<HelperFileIdentity>;
+	readonly identity: Readonly<NativeChildFileIdentity>;
 	readonly cursor?: PluginScanCursor;
 }
 
@@ -195,7 +196,7 @@ export interface HelperPluginHostJobGrant {
 	readonly binarySha256: string;
 	readonly format: HelperEffectPluginFormat;
 	readonly stableId: string;
-	readonly identity: Readonly<HelperFileIdentity>;
+	readonly identity: Readonly<NativeChildFileIdentity>;
 	readonly persistentPort?: HelperPersistentPortBinding;
 }
 
@@ -387,7 +388,7 @@ function validatePluginScanGrant(value: unknown): HelperPluginScanJobGrant {
 	return Object.freeze({
 		rootPath: absolutePath(record.rootPath, 'plug-in scan root'),
 		format: pluginFormat(record.format),
-		identity: fileIdentity(record.identity),
+		identity: portableNativeChildFileIdentity(record.identity),
 		...(record.cursor === undefined ? {} : { cursor: validatePluginScanCursor(record.cursor) }),
 	});
 }
@@ -404,7 +405,7 @@ function validatePluginHostGrant(value: unknown): HelperPluginHostJobGrant {
 		binarySha256: record.binarySha256,
 		format: effectPluginFormat(record.format),
 		stableId: stablePluginId(record.stableId),
-		identity: fileIdentity(record.identity),
+		identity: portableNativeChildFileIdentity(record.identity),
 		...(record.persistentPort === undefined ? {} : {
 			persistentPort: validateHelperPersistentPortBinding(record.persistentPort, 'plugin-rpc'),
 		}),

@@ -27,7 +27,7 @@
 		"desktop/openfx-main-service.ts": 592,
 		"desktop/plugin-host-isolation.ts": 577,
 		"desktop/plugin-instance-state.ts": 589,
-		"desktop/plugin-registry.ts": 586,
+		"desktop/plugin-registry.ts": 584,
 		"desktop/project-library-exact-generation-main.ts": 595,
 		"desktop/save-targets.js": 592,
 		"desktop/soundscaper-delivery-service.ts": 600,

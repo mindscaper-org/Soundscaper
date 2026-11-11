@@ -77,3 +77,17 @@ test('a hosted native effect mounts its generated parameter controls inside the 
 	assert.match(markup, /Loading plug-in parameters/u,
 		'the hosted instance owns the parameter surface instead of adding permanent editor chrome');
 });
+
+test('manager statuses distinguish incompatible plugins from compatible installations awaiting allowance', () => {
+	const state = { ...registryState(), registry: { entries: [
+		{ ...EFFECT_ENTRY, entryId: 'disabled', name: 'Disabled effect', eligible: false, ineligibleReason: 'allowance-required' },
+		{ ...EFFECT_ENTRY, entryId: 'broken', name: 'Broken effect', eligible: false, ineligibleReason: 'incompatible' },
+		EFFECT_ENTRY,
+	] } };
+	const markup = renderToStaticMarkup(<SoundscaperNativeEffectManagePanel
+		copy={COPY} state={state} disabled={false} perform={() => {}} />);
+	assert.match(markup, /Disabled effect<\/span><\/button><\/td><td>Fixture<\/td><td>ladspa<\/td><td>Disabled<\/td>/u);
+	assert.match(markup, /Broken effect<\/span><\/button><\/td><td>Fixture<\/td><td>ladspa<\/td><td>Incompatible<\/td>/u);
+	assert.match(markup, /LADSPA Gain<\/span><\/button><\/td><td>Fixture<\/td><td>ladspa<\/td><td>Ready to use<\/td>/u);
+	assert.doesNotMatch(markup, /Needs attention/u);
+});
