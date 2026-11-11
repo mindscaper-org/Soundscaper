@@ -10,8 +10,8 @@ test('native macro file import selects its new mono lane before RemoveTracks', a
 	await importFiles(editor, [toneA]); await expect(editor.locator('[data-track-row]')).toHaveCount(1);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	const names = await editor.locator('[data-track-row] .track-control-panel__track-name-text').allTextContents();
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	const choosing = page.waitForEvent('filechooser'); await manager.getByRole('button', { name: 'Import macro', exact: true }).click();
 	const source = 'NewMonoTrack:\nRemoveTracks:\n';
 	await (await choosing).setFiles({ name: 'Create and remove temporary lane.txt', mimeType: 'text/plain', buffer: Buffer.from(source) });

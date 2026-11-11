@@ -16,7 +16,8 @@ Programs are a Soundscaper feature. Framescaper has no macros palette.
 
 ## Where programs live
 
-Choose **Tools → Macros palette**. The dialog lists step-list macros and, under
+Open **Tools → Macros palette** for a dockable list with a Run button for each macro.
+Choose **Tools → Macro manager** to create or edit macros. The dialog lists step-list macros and, under
 **Programs**, the programs you have saved. Press **+ (New program)** in the
 Programs header to create one. The same action bar offers **Import program**,
 **Export program**, and **Delete program** for the selected program. The

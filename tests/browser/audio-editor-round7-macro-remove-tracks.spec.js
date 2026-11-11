@@ -9,8 +9,8 @@ test('the advertised RemoveTracks macro command removes its ordinary selected tr
 	await importFiles(editor, [toneA]);
 	await expect(editor).toHaveAttribute('data-track-count', '2');
 	await expect(clipByName(editor, toneA.name)).toBeVisible();
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const palette = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const palette = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await palette.locator('button[aria-label="New program"]').click();
 	const source = palette.locator('[data-macro-script-source]');
 	const log = palette.locator('[data-macro-script-log]');

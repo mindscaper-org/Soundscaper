@@ -19,6 +19,7 @@ export const WORKSPACE_PANEL_IDS = Object.freeze([
 	'freesound',
 	'audiocom',
 	'effects',
+	'macros-palette',
 	'mixer',
 	'analysis',
 	'recording-setup',
@@ -108,6 +109,7 @@ export function workspacePanelLabel(copy: EditorCopy, panelId: string): string {
 		'piano-roll': resolveMidiCopy(copy).pianoRoll,
 		[DEFERRED_WEB_VCR_PANEL_ID]: copy.webVcrTitle,
 		analysis: copy.analysisCommand,
+		'macros-palette': copy.macrosPalette,
 	};
 	if (analyzerLabels[panelId]) return analyzerLabels[panelId];
 	return copy[`panel${panelId[0].toUpperCase()}${panelId.slice(1)}`] || panelId;

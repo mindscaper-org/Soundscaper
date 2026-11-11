@@ -371,7 +371,7 @@ export function createWorkspaceApplicationMenus({
 					setDialog('resample');
 				},
 				openEffects: () => openEffects(snapshot.selectedTrackId),
-				openMacrosPalette: () => openSurface('macros-palette'),
+				openMacroManager: () => openSurface('macro-manager'),
 				applyMacrosToFiles: fileService.isDesktop && typeof controller.actions.macros?.applyToFiles === 'function' ? () => openSurface('macro-files') : undefined,
 				runMacro: (macro) => run(() => controller.actions.macros.run(macro)),
 				selectionEffectMutationLocked,

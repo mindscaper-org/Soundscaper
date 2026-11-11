@@ -13,8 +13,8 @@ test('macro programs retain header-relative, omitted-edge and cursor meanings in
 	const cursor = Number(await editor.getByRole('slider', { name: 'Playhead', exact: true }).getAttribute('aria-valuenow'));
 	expect(cursor).toBeGreaterThan(0);
 	await clip.locator('.clip-header').click();
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByLabel('New program', { exact: true }).click();
 	// Selection commands may move the playhead. Exercise the cursor commands
 	// before any other program changes the independent pointer-authored cursor.
@@ -37,7 +37,7 @@ test('macro programs retain header-relative, omitted-edge and cursor meanings in
 
 	// Restore a real clip-header selection for the separate header-read program.
 	await clip.locator('.clip-header').click();
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
 	await manager.getByLabel('New program', { exact: true }).click();
 	await manager.getByRole('textbox', { name: 'Program', exact: true }).fill([
 		'const selected = await sound.project.selection();',

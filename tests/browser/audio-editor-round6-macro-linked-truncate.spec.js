@@ -17,8 +17,8 @@ test('a linked Truncate Silence macro removes only the dialogue tracks shared pa
 	await clipByName(editor, recordings[0].name).locator('.clip-header').click();
 	await clipByName(editor, recordings[1].name).locator('.clip-header').click({ modifiers: ['Shift'] });
 	await expect(editor.locator('.clip-display[data-selected="true"]')).toHaveCount(2);
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New macro', exact: true }).click();
 	await manager.getByRole('button', { name: 'Add effect', exact: true }).click();
 	await page.getByRole('menu', { name: 'Choose an effect', exact: true })

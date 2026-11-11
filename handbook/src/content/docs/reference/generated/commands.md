@@ -264,7 +264,8 @@ Product availability follows each product profile’s command filters and each l
 | Low-pass filter | `lowpass-filter` | — | Effect > EQ and filters | Soundscaper | Soundscaper local |
 | MCP connection | `desktop-mcp-connection` | — | Tools > Desktop services | Soundscaper | Soundscaper local |
 | MIDI track (beta) | `new-midi-track` | — | Tracks > Add new track | Soundscaper | Soundscaper local |
-| Macros palette | `manage-macros` | — | Tools | Soundscaper | Audacity |
+| Macro manager | `manage-macros` | — | Tools | Soundscaper | Audacity |
+| Macros palette | `macros-palette` | — | Tools; Window | Soundscaper | Soundscaper local |
 | Make Highlights | `assistance-task-make-highlights` | — | Edit | Framescaper | Soundscaper local |
 | Make stereo track | `track-make-stereo` | — | Track context | Soundscaper, Framescaper | Audacity |
 | Manage labels | `open-label-editor` | — | Edit > Label; View | Soundscaper, Framescaper | Audacity |

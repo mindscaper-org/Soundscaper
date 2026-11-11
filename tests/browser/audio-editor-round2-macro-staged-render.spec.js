@@ -11,8 +11,8 @@ test('a mixed offline and realtime macro renders its staged audio', async ({ pag
 	await importFiles(editor, [toneA]);
 	const original = await exportSamples(page, editor);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New program', exact: true }).click();
 	await manager.getByRole('textbox', { name: 'Program', exact: true }).fill(
 		"await sound.effects([{type:'audacity-amplify',params:{gainDb:0}},{type:'audacity-invert',params:{}}]);",

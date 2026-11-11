@@ -9,8 +9,8 @@ test('macro Select all includes a label later than the final recording', async (
 	await importFiles(editor, [{ name: 'cue-labels.txt', mimeType: 'text/plain',
 		buffer: Buffer.from('2\t2\tEnd cue\n') }]);
 	await expect(editor.getByRole('group', { name: 'Edit labels: End cue', exact: true })).toBeVisible();
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New program', exact: true }).click();
 	await manager.getByRole('textbox', { name: 'Program', exact: true }).fill([
 		'const selected = await sound.select.all();',

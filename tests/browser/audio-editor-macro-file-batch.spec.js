@@ -68,8 +68,8 @@ test('desktop manager applies a program to separate files and reuses its chosen 
 	await desktopFiles(page, recordings());
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await importFiles(editor, [toneA]);
 	const projectId = await editor.getAttribute('data-project-id'), tracks = await editor.getAttribute('data-track-count');
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New program', exact: true }).click();
 	await manager.getByRole('textbox', { name: 'Program', exact: true }).fill(source);
 	await manager.getByRole('button', { name: 'Apply to files', exact: true }).click();
@@ -100,8 +100,8 @@ test('desktop manager applies a program to separate files and reuses its chosen 
 test('cancelling the shared reference picker skips later files and publishes no outputs', async ({ page }) => {
 	await desktopFiles(page, recordings(), true);
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New program', exact: true }).click();
 	await manager.getByRole('textbox', { name: 'Program', exact: true }).fill(source);
 	await manager.getByRole('button', { name: 'Apply to files', exact: true }).click();
@@ -116,7 +116,7 @@ test('cancelling the shared reference picker skips later files and publishes no 
 
 test('the web macro manager does not offer Apply to files', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await expect(manager.getByRole('button', { name: 'Apply to files', exact: true })).toHaveCount(0);
 });

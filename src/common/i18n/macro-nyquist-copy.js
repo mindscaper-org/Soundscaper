@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-/** Copy for the macros palette and the Nyquist prompt that macros can run. */
+/** Copy for the macro tools and the Nyquist prompt that macros can run. */
 export const MACRO_NYQUIST_COPY_BY_LOCALE = Object.freeze({
 	en: Object.freeze({
 			macrosPalette: 'Macros palette',
+			macroManager: 'Macro manager',
 			macroApplyToFiles: 'Apply to files',
 			macroBatchChooseFiles: 'Choose audio files',
 			macroBatchMacro: 'Macro',

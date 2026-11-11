@@ -5,8 +5,8 @@ import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js'
 
 test('a macro review acknowledgement belongs to the exact imported program text', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	const chooserPending = page.waitForEvent('filechooser');
 	await manager.getByRole('button', { name: 'Import program', exact: true }).click();
 	const chooser = await chooserPending;

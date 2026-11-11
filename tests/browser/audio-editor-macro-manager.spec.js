@@ -21,10 +21,10 @@ const FADE_STEPS = [
 ];
 
 async function openManager(page, editor) {
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await expect(manager).toBeVisible();
-	await expect(manager).toHaveAttribute('data-macros-palette', '');
+	await expect(manager).toHaveAttribute('data-macro-manager', '');
 	return manager;
 }
 
@@ -39,7 +39,7 @@ function macrosPaletteStyleLoaded(page) {
 	}));
 }
 
-test.describe('macros palette libraries', () => {
+test.describe('macro manager libraries', () => {
 	test('loads its layout styles when the menu opens the dialog', async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		expect(await macrosPaletteStyleLoaded(page)).toBe(false);

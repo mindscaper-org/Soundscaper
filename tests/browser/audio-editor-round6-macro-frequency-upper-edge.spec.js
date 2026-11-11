@@ -15,8 +15,8 @@ test('a program can author its first spectral lower bound while retaining the up
 	const clip = editor.locator('[data-clip-id]').first();
 	await clip.focus();
 	await clip.press('Control+a');
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const palette = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const palette = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await palette.getByRole('button', { name: 'New program', exact: true }).click();
 	await palette.getByRole('textbox', { name: 'Program', exact: true }).fill([
 		'await sound.select.frequencies({low:500});',

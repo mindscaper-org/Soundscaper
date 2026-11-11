@@ -7,8 +7,8 @@ test('a program refuses the interactive Contrast command before admitting it as 
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const palette = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const palette = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await palette.getByRole('button', { name: 'New program', exact: true }).click();
 	await palette.getByRole('textbox', { name: 'Program', exact: true }).fill([
 		"try { await sound.command('ContrastAnalyser'); }",

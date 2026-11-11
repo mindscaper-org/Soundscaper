@@ -7,8 +7,8 @@ test('an ordinary imported macro command keeps its numeric native composition', 
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [toneA]);
 	await clipByName(editor, toneA.name).locator('.clip-header').click();
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const palette = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const palette = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	const [chooser] = await Promise.all([
 		page.waitForEvent('filechooser'),
 		palette.getByRole('button', { name: 'Import macro', exact: true }).click(),
@@ -40,6 +40,6 @@ test('an ordinary imported macro command keeps its numeric native composition', 
 	await parameters.getByRole('button', { name: 'Close', exact: true }).click();
 	await expect(step).toContainText('start 0.4');
 	await palette.getByRole('button', { name: 'Close', exact: true }).last().click();
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
 	await expect(step).toContainText('start 0.4');
 });

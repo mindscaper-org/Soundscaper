@@ -9,8 +9,8 @@ test('a single range macro Invert preserves the level at existing clip fades', a
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const before = await exportSamples(page, editor);
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New program', exact: true }).click();
 	await manager.getByRole('textbox', { name: 'Program', exact: true }).fill("await sound.select.all(); await sound.effect('audacity-invert');");
 	await manager.getByRole('button', { name: 'Run program', exact: true }).click();

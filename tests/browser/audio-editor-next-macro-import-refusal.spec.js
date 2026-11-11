@@ -24,8 +24,8 @@ test('a full saved macro library reports a refused file import and permits retry
 	}), library);
 	await page.reload();
 	const editor = await waitForEditor(page);
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await expect(manager.locator('[data-macro-list]').getByRole('button')).toHaveCount(256);
 	const importFile = async () => {
 		const choosing = page.waitForEvent('filechooser');

@@ -5,8 +5,8 @@ import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js'
 
 test('returning to Program restores Tab indentation after leaving with the mouse', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const dialog = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const dialog = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await dialog.getByRole('button', { name: 'New program', exact: true }).click();
 	const source = dialog.getByRole('textbox', { name: 'Program', exact: true });
 	await source.fill("sound.log.info('Initial');");

@@ -19,8 +19,8 @@ function recording() {
 }
 
 async function program(page, editor, source) {
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const palette = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const palette = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await palette.getByRole('button', { name: 'New program', exact: true }).click();
 	await palette.getByRole('textbox', { name: 'Program', exact: true }).fill(source);
 	await palette.getByRole('button', { name: 'Run program', exact: true }).click();

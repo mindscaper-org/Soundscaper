@@ -28,8 +28,8 @@ for (const [gainDb, cropped] of [[0, false], [6, false], [6, true]]) test(`an of
 	await expect(editor).toHaveAttribute('data-project-id', project.id); await waitForProjectActivation(editor);
 	const original = await exportSamples(page, editor);
 	async function run(prefix) {
-		await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-		const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+		await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+		const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 		await manager.getByLabel('New program', { exact: true }).click();
 		await manager.getByRole('textbox', { name: 'Program', exact: true }).fill(`await sound.select.frames(48000,96000); await sound.effects([${prefix}{type:'delay',params:{time:.2,feedback:0,mix:1}}]);`);
 		await manager.getByRole('button', { name: 'Run program', exact: true }).click();

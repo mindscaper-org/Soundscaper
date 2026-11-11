@@ -491,7 +491,9 @@ export default function createApplicationMenus({
 				...createLocalModelManagerMenuItems({ desktopAvailable: typeof actions.openLocalModels === 'function', copy }, { open: actions.openLocalModels }),
 				...productItems.tools,
 				...desktopHost.tools,
-				{ id: 'manage-macros', label: copy.macrosPalette, disabled: !project, onClick: actions.openMacrosPalette },
+				{ id: 'macros-palette', label: copy.macrosPalette, disabled: !project, visibilityToggle: true,
+					checked: snapshot.preferences?.workspace?.panels?.['macros-palette']?.visible === true, onClick: () => viewMenu.togglePanel('macros-palette') },
+				{ id: 'manage-macros', label: copy.macroManager, disabled: !project, onClick: actions.openMacroManager },
 				createEffectMacroApplicationMenu(snapshot.macros?.library || [], {
 					label: copy.macros,
 					applyToFilesLabel: copy.macroApplyToFiles,

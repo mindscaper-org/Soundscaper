@@ -47,6 +47,7 @@ export function AudioEditorMacroManagerDialog({
 	onDraftChange,
 	onClose,
 	onApplyToFiles = undefined,
+	initialScriptId = null,
 }) {
 	const project = snapshot.project;
 	const projectIdentity = editorProjectEditSessionKey(controller, project?.id);
@@ -65,7 +66,7 @@ export function AudioEditorMacroManagerDialog({
 	const templateCopy = resolveEffectMacroTemplateCopy(locale, copy);
 	const managerCopy = resolveMacroManagerCopy(locale, copy);
 	const scripts = snapshot.macros?.scripts || [];
-	const [selectedScriptId, setSelectedScriptId] = useState(null);
+	const [selectedScriptId, setSelectedScriptId] = useState(initialScriptId);
 	const selectedScript = scripts.find((script) => script.id === selectedScriptId) || null;
 	const scriptLibrary = controller.actions.macros.scripts;
 	const createScript = () => {
@@ -401,11 +402,11 @@ export function AudioEditorMacroManagerDialog({
 		<>
 			<AudioEditorDialogShell
 				isOpen={isOpen && !selectedEffect}
-				title={copy.macrosPalette}
+				title={copy.macroManager}
 				onClose={onClose}
 				width={880}
 				className="audio-editor-macros-palette"
-				dataAttributes={{ 'data-macros-palette': '' }}
+				dataAttributes={{ 'data-macro-manager': '' }}
 				footer={(
 					<DialogFooter
 						className="audio-editor-dialog-footer audio-editor-macros-palette__footer"

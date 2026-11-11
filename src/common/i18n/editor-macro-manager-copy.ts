@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 const ENGLISH = Object.freeze({
+	run: 'Run',
+	editMacro: 'Edit macro',
+	macroOptions: 'Macro options',
+	paletteOptions: 'Macros palette options',
 	cancelRun: 'Cancel run',
 	runCancelled: 'Macro cancelled.',
 	newProgram: 'New program',
