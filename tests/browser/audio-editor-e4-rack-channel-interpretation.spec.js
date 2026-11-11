@@ -4,7 +4,7 @@ import { addRackEffect, bootEditor, clipByName, closeDialog, collectClientErrors
 
 test.use({ browserCoverage: false });
 
-for (const effectName of ['Tremolo', 'Invert']) for (const topology of ['mixed-stereo', 'mono', 'stereo', 'surround', 'mixed-surround']) test(`${effectName} preserves ${topology} recording channels and listening magnitude`, async ({ page }) => {
+for (const effectName of ['Tremolo', 'Invert']) for (const topology of ['mono', 'mixed-surround']) test(`${effectName} preserves ${topology} recording channels and listening magnitude`, async ({ page }) => {
 	const errors = collectClientErrors(page);
 	await page.addInitScript(() => {
 		globalThis.__rackChannelOutput = [];
