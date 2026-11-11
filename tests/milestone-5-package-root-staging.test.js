@@ -77,7 +77,7 @@ test('staging selects package names from the independent product release line', 
 	const repositoryRoot = await mkdtemp(join(tmpdir(), 'm5-divergent-release-lines-'));
 	context.after(() => rm(repositoryRoot, { recursive: true, force: true }));
 	const releaseLines = JSON.parse(await readFile(join(ROOT, 'config/product-release-lines.json'), 'utf8'));
-	releaseLines.products.framescaper.candidate.version = '0.9.0-rc.7';
+	releaseLines.products.framescaper.candidate.version = 'Framescaper-rc.2026.Nov.11.g';
 	await mkdir(join(repositoryRoot, 'config'), { recursive: true });
 	await writeFile(join(repositoryRoot, 'package.json'), JSON.stringify({
 		name: 'soundscaper', version: releaseLines.products.soundscaper.candidate.version,
@@ -89,8 +89,8 @@ test('staging selects package names from the independent product release line', 
 	const packageRoot = join(repositoryRoot, 'release/desktop');
 	const outputRoot = join(repositoryRoot, 'release/milestone-5-package');
 	const releaseNames = [
-		'Framescaper-0.9.0-rc.7-linux-x64.AppImage',
-		'Framescaper-0.9.0-rc.7-linux-x64.deb',
+		'Framescaper-rc.2026.Nov.11.g-linux-x64.AppImage',
+		'Framescaper-rc.2026.Nov.11.g-linux-x64.deb',
 		'runtime-manifest-framescaper-linux-x64.json',
 	];
 	await mkdir(packageRoot, { recursive: true });
@@ -114,10 +114,11 @@ async function packagingOutput(context) {
 	const root = await mkdtemp(join(tmpdir(), 'm5-package-root-'));
 	context.after(() => rm(root, { recursive: true, force: true }));
 	const packageRoot = join(root, 'desktop');
-	const version = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8')).version;
+	const lines = JSON.parse(await readFile(join(ROOT, 'config/product-release-lines.json'), 'utf8'));
+	const version = lines.products.soundscaper.candidate.version;
 	const releaseNames = [
-		`Soundscaper-${version}-linux-x64.AppImage`,
-		`Soundscaper-${version}-linux-x64.deb`,
+		`${version}-linux-x64.AppImage`,
+		`${version}-linux-x64.deb`,
 		'runtime-manifest-soundscaper-linux-x64.json',
 	];
 	await mkdir(packageRoot, { recursive: true });
@@ -127,7 +128,7 @@ async function packagingOutput(context) {
 	await mkdir(join(packageRoot, 'linux-unpacked', 'resources'), { recursive: true });
 	await mkdir(join(packageRoot, '.icon-set'), { recursive: true });
 	await writeFile(join(packageRoot, 'builder-debug.yml'), 'debug');
-	await writeFile(join(packageRoot, `Soundscaper-${version}-linux-x64.AppImage.blockmap`), 'map');
+	await writeFile(join(packageRoot, `${version}-linux-x64.AppImage.blockmap`), 'map');
 	await symlink(join(packageRoot, 'builder-debug.yml'), join(packageRoot, 'builder-debug-link.yml'));
 	return { packageRoot, outputRoot: join(root, 'milestone-5-package'), releaseNames };
 }

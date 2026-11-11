@@ -86,7 +86,9 @@ export function validateAssistanceRuntimeDistribution(
 			throw new TypeError('The runtime distribution family is invalid.');
 		}
 		const familyId = row.familyId as AssistanceRuntimeDistributionFamily;
-		const version = VERSIONS[familyId];
+		// Immutable diagnostic snapshots retain the previously published Sherpa runtime.
+		const version = familyId === 'sherpa-onnx-node' && row.runtimeVersion === '1.13.5'
+			? '1.13.5' : VERSIONS[familyId];
 		const prefix = familyId === 'sherpa-onnx-node'
 			? `assistance/sherpa-onnx/${version}` : `assistance/${familyId}/${version}`;
 		const installPath = familyId === 'sherpa-onnx-node' ? prefix : `${prefix}/${targetId}`;
