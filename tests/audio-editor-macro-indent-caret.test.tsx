@@ -17,7 +17,7 @@ test('macro indentation leaves a later typed caret intact', async () => {
 	const root = createRoot(dom.container as unknown as Element);
 	function Fixture() {
 		const [script, setScript] = useState({ id: 'script', name: 'Program', source: '' });
-		return <MacroScriptEditor copy={{}} script={script} log={[]} failure={null} running={false} blocked={false} onChange={setScript} onRun={() => undefined} onCancel={() => undefined} onTrust={() => undefined} />;
+		return <MacroScriptEditor copy={{}} script={script} log={[]} failure={null} running={false} onChange={setScript} onTrust={() => undefined} />;
 	}
 	try {
 		await act(async () => root.render(<Fixture />));

@@ -43,10 +43,15 @@ test('Macros palette is an opt-in dockable launcher with a separate Macro manage
 	await manager.getByRole('button', { name: 'New program', exact: true }).click();
 	await commitInput(manager.getByLabel('Program name', { exact: true }), 'Palette program');
 	await manager.getByRole('textbox', { name: 'Program', exact: true }).fill('await sound.command("NewMonoTrack");');
+	await expect(manager.getByRole('button', { name: 'Run program', exact: true })).toHaveCount(0);
+	await expect(manager.getByRole('button', { name: 'Run macro', exact: true })).toHaveCount(1);
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
+	await expect(editor).toHaveAttribute('data-track-count', '3');
+	await expect(manager.getByRole('button', { name: 'Run macro', exact: true })).toBeEnabled();
 	await closeDialog(manager);
 	const program = palette().getByRole('listitem', { name: 'Palette program', exact: true });
 	await program.getByRole('button', { name: 'Run', exact: true }).click();
-	await expect(editor).toHaveAttribute('data-track-count', '3');
+	await expect(editor).toHaveAttribute('data-track-count', '4');
 	await program.getByRole('button', { name: 'Palette program', exact: true }).click();
 	await expect(page.getByRole('dialog', { name: 'Macro manager', exact: true }).getByLabel('Program name', { exact: true })).toHaveValue('Palette program');
 	await closeDialog(page.getByRole('dialog', { name: 'Macro manager', exact: true }));
@@ -76,8 +81,10 @@ test('imported programs stay disabled in the palette until reviewed in the manag
 	const row = editor.getByRole('region', { name: 'Macros palette', exact: true }).getByRole('listitem', { name: 'Review', exact: true });
 	await expect(row.getByRole('button', { name: 'Run', exact: true })).toBeDisabled();
 	await row.getByRole('button', { name: 'Review', exact: true }).click();
+	await expect(manager.getByRole('button', { name: 'Run macro', exact: true })).toBeDisabled();
 	await manager.getByRole('checkbox').check();
 	await manager.getByRole('button', { name: 'Enable this program', exact: true }).click();
+	await expect(manager.getByRole('button', { name: 'Run macro', exact: true })).toBeEnabled();
 	await closeDialog(manager);
 	await row.getByRole('button', { name: 'Run', exact: true }).click();
 	await expect(editor).toHaveAttribute('data-track-count', '2');

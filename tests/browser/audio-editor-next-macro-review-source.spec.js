@@ -25,6 +25,6 @@ test('a macro review acknowledgement belongs to the exact imported program text'
 	await expect(enable).toBeDisabled();
 	await review.click();
 	await enable.click();
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 	await expect(manager.locator('[data-macro-script-log]')).toContainText('changed after review');
 });

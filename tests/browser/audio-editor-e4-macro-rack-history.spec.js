@@ -32,7 +32,7 @@ for (const [gainDb, cropped] of [[0, false], [6, false], [6, true]]) test(`an of
 		const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 		await manager.getByLabel('New program', { exact: true }).click();
 		await manager.getByRole('textbox', { name: 'Program', exact: true }).fill(`await sound.select.frames(48000,96000); await sound.effects([${prefix}{type:'delay',params:{time:.2,feedback:0,mix:1}}]);`);
-		await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+		await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 		await expect(manager.locator('[data-macro-script-log]')).toHaveAttribute('data-outcome', 'completed', { timeout: 15_000 });
 		await manager.getByRole('button', { name: 'Close', exact: true }).click();
 		return exportSamples(page, editor);

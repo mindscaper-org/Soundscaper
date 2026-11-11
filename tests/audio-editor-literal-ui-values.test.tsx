@@ -66,6 +66,6 @@ test('completed cloud saves retain the real archive filename', async () => {
 });
 
 test('macro review preserves imported provenance before consent', () => {
-	const html = renderToStaticMarkup(<MacroScriptEditor copy={{ reviewOrigin: 'Imported from {origin}' }} script={{ id: 'program', name: 'Review me', source: '', trust: 'unreviewed', origin: `${name}.soundscapemacro` }} log={[]} failure={null} running={false} blocked={false} runnable={false} onChange={noop} onRun={noop} onCancel={noop} onTrust={noop} />);
+	const html = renderToStaticMarkup(<MacroScriptEditor copy={{ reviewOrigin: 'Imported from {origin}' }} script={{ id: 'program', name: 'Review me', source: '', trust: 'unreviewed', origin: `${name}.soundscapemacro` }} log={[]} failure={null} running={false} runnable={false} onChange={noop} onTrust={noop} />);
 	assert.ok(html.includes(`Imported from ${escaped}.soundscapemacro`));
 });

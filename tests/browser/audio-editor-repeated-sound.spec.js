@@ -23,7 +23,7 @@ async function program(page, editor, source) {
 	const palette = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await palette.getByRole('button', { name: 'New program', exact: true }).click();
 	await palette.getByRole('textbox', { name: 'Program', exact: true }).fill(source);
-	await palette.getByRole('button', { name: 'Run program', exact: true }).click();
+	await palette.getByRole('button', { name: 'Run macro', exact: true }).click();
 	await expect(palette.locator('[data-macro-script-log]')).toHaveAttribute('data-outcome', 'completed');
 	await palette.getByRole('button', { name: 'Close', exact: true }).click();
 }

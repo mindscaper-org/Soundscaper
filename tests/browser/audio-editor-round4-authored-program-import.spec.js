@@ -23,7 +23,7 @@ test('importing a copy of an authored program leaves the original runnable', asy
 	await chooser.setFiles(path);
 	await expect(manager.locator('[data-macro-script-trust="imported-untrusted"]')).toHaveCount(1);
 	await manager.locator('[data-macro-script-trust="authored"]').click();
-	const run = manager.getByRole('button', { name: 'Run program', exact: true });
+	const run = manager.getByRole('button', { name: 'Run macro', exact: true });
 	await expect(run).toBeEnabled();
 	await run.click();
 	const log = manager.locator('[data-macro-script-log]');

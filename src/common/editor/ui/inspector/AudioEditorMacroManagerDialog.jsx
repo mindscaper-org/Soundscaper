@@ -21,6 +21,7 @@ import { takeSelectedFile } from '../file-input-selection.ts';
 import EffectParameterEditor from './EffectParameterEditor.jsx';
 import MacroCommandParameterEditor from './MacroCommandParameterEditor.tsx';
 import { macroStartsWithCommand } from './macro-run-target.ts';
+import { macroScriptIsRunnable } from '../../macro-script-library.ts';
 import MacroManagerLibraryList from './MacroManagerLibraryList.jsx';
 import MacroManagerStepList from './MacroManagerStepList.jsx';
 import MacroScriptPanel from './MacroScriptPanel.jsx';
@@ -69,6 +70,9 @@ export function AudioEditorMacroManagerDialog({
 	const [selectedScriptId, setSelectedScriptId] = useState(initialScriptId);
 	const selectedScript = scripts.find((script) => script.id === selectedScriptId) || null;
 	const scriptLibrary = controller.actions.macros.scripts;
+	const scriptRunControl = useRef(null);
+	const [isProgramRunning, setIsProgramRunning] = useState(false);
+	const scriptCanRun = selectedScript && macroScriptIsRunnable(selectedScript) && String(selectedScript.source).trim();
 	const createScript = () => {
 		const created = scriptLibrary.save({
 			name: resolveMacroManagerCopy(locale, publishedCopyFor(copy)).newProgram,
@@ -138,6 +142,7 @@ export function AudioEditorMacroManagerDialog({
 	const [message, setMessage] = usePresentationFeedback(copy);
 	const [messageState, setMessageState] = useState('info');
 	const [isRunning, setIsRunning] = useState(false);
+	const running = isRunning || isProgramRunning;
 	const [isCapturingProfile, setIsCapturingProfile] = useState(false);
 	const fileInputRef = useRef(null);
 	const scriptInputRef = useRef(null);
@@ -412,13 +417,13 @@ export function AudioEditorMacroManagerDialog({
 						className="audio-editor-dialog-footer audio-editor-macros-palette__footer"
 						rightContent={(
 							<>
-								{fileService?.isDesktop && onApplyToFiles && <Button variant="secondary" disabled={isRunning || (selectedScript ? scriptLibrary.blocked(selectedScript.source) : !effects.length || missingEmbeddedNoiseProfile)} onClick={() => onApplyToFiles(selectedScript
+								{fileService?.isDesktop && onApplyToFiles && <Button variant="secondary" disabled={running || (selectedScript ? scriptLibrary.blocked(selectedScript.source) : !effects.length || missingEmbeddedNoiseProfile)} onClick={() => onApplyToFiles(selectedScript
 									? { kind: 'script', name: selectedScript.name, source: selectedScript.source }
 									: { kind: 'steps', name: draft?.name || copy.untitledMacro, effects })}>{copy.macroApplyToFiles}</Button>}
-								{isRunning && (
+								{running && (
 									<Button variant="secondary" onClick={() => controller.actions.macros.cancel()}>{managerCopy.cancelRun}</Button>
 								)}
-								<Button variant="primary" icon={<Icon name="play" size={14} />} disabled={blocked || isRunning || !canStartRun || !effects.length || missingEmbeddedNoiseProfile} onClick={runMacro}>{copy.runMacro}</Button>
+								<Button variant="primary" icon={<Icon name="play" size={14} />} disabled={blocked || running || (selectedScript ? !scriptCanRun : !canStartRun || !effects.length || missingEmbeddedNoiseProfile)} onClick={selectedScript ? () => scriptRunControl.current?.run() : runMacro}>{copy.runMacro}</Button>
 							</>
 						)}
 					/>
@@ -459,6 +464,7 @@ export function AudioEditorMacroManagerDialog({
 							<MacroScriptPanel
 								key={`${projectIdentity || "none"}:${selectedScript.id}`}
 								controller={controller}
+								runControlRef={scriptRunControl} onRunningChange={setIsProgramRunning}
 								fileService={fileService}
 								copy={{ ...managerCopy }}
 								script={selectedScript}

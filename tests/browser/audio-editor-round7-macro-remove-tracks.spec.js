@@ -15,7 +15,7 @@ test('the advertised RemoveTracks macro command removes its ordinary selected tr
 	const source = palette.locator('[data-macro-script-source]');
 	const log = palette.locator('[data-macro-script-log]');
 	await source.fill("await sound.command('NewMonoTrack'); sound.log.info('created ordinary track');");
-	await palette.getByRole('button', { name: 'Run program', exact: true }).click();
+	await palette.getByRole('button', { name: 'Run macro', exact: true }).click();
 	await expect(log).toHaveAttribute('data-outcome', 'completed');
 	await expect(log).toContainText('created ordinary track');
 	await expect(editor).toHaveAttribute('data-track-count', '3');
@@ -26,7 +26,7 @@ test('the advertised RemoveTracks macro command removes its ordinary selected tr
 		"await sound.command('RemoveTracks');",
 		"sound.log.info('removed ordinary track');",
 	].join('\n'));
-	await palette.getByRole('button', { name: 'Run program', exact: true }).click();
+	await palette.getByRole('button', { name: 'Run macro', exact: true }).click();
 	await expect(log).toContainText('targets=1');
 	await expect(log).toHaveAttribute('data-outcome', 'completed');
 	await expect(log).toContainText('removed ordinary track');

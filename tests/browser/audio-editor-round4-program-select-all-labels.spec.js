@@ -16,7 +16,7 @@ test('macro Select all includes a label later than the final recording', async (
 		'const selected = await sound.select.all();',
 		"sound.log.info('All content ends at ' + selected.endFrame);",
 	].join('\n'));
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 	const log = manager.locator('[data-macro-script-log]');
 	await expect(log).toHaveAttribute('data-outcome', 'completed');
 	await expect(log).toContainText('All content ends at 96000');

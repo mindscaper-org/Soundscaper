@@ -21,8 +21,9 @@ Choose **Tools → Macro manager** to create or edit macros. The dialog lists st
 **Programs**, the programs you have saved. Press **+ (New program)** in the
 Programs header to create one. The same action bar offers **Import program**,
 **Export program**, and **Delete program** for the selected program. The
-detail pane shows its **Program name**, the **Program** text, and a **Run
-program** button. The text is saved as you type; there is no separate save step.
+detail pane shows its **Program name** and **Program** text. Use the shared
+**Run macro** button in the dialog footer to run the selected macro or program.
+The text is saved as you type; there is no separate save step.
 
 A program is stored with the editor's settings, not inside a project, so it is
 available in every project you open in this editor. Use **Export program** and
@@ -74,7 +75,7 @@ whatever a program manages to send it.
 
 ## Running a program
 
-Press **Run program**. The whole run is one entry in the project's history, so
+Press **Run macro**. The whole run is one entry in the project's history, so
 one **Undo** reverses everything the program did, however many changes it made.
 If the program throws, or is cancelled, or runs past its deadline, the project is
 put back exactly as it was before the run began.
@@ -498,8 +499,8 @@ the editor:
 }
 ```
 
-Importing stores the text and nothing more. An imported program has no **Run
-program** button; in its place the pane shows the program, the file it came from,
+Importing stores the text and nothing more. **Run macro** stays disabled until
+the program is reviewed. The pane shows the program, the file it came from,
 a note on what a program can do to the open project, and a checkbox reading *I
 have read this program and want to run it.* Ticking it enables **Enable this
 program**, and only then can the program run.

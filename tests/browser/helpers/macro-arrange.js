@@ -35,7 +35,7 @@ export async function arrangeWithMacro(page, editor, source, options = {}) {
 	const program = manager.locator('[data-macro-script-source]');
 	await expect(program).toBeVisible();
 	await program.fill(source.trim());
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 
 	const log = manager.locator('[data-macro-script-log]');
 	await expect(log).toHaveAttribute('data-outcome', /completed|failed/u, { timeout });

@@ -14,7 +14,7 @@ test('an ordinary macro helper error points to the authored throw rather than it
 		'}',
 		'checkSelection();',
 	].join('\n'));
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 	const failure = manager.locator('[data-macro-script-failure]');
 	await expect(failure).toContainText('Choose an audio region first.');
 	await expect(failure).toContainText('line 2:');

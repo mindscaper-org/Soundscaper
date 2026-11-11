@@ -23,7 +23,7 @@ test('generating with only a label track selected preserves unselected recording
 		'await sound.select.tracks({ track: labels.index });',
 		'await sound.select.time(0, 0.4);',
 	].join('\n'));
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 	await expect(manager.locator('[data-macro-script-log]')).toHaveAttribute('data-outcome', 'completed');
 	await closeDialog(manager);
 	await chooseCommandAction(page, editor, 'Generate', 'Tone');

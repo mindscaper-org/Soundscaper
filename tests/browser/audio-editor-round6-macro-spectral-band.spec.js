@@ -25,7 +25,7 @@ test('a macro effect preserves recording frequencies outside its authored spectr
 	await palette.getByRole('textbox', { name: 'Program', exact: true }).fill(
 		"await sound.effect('audacity-amplify', {gainDb:-12, allowClipping:true});",
 	);
-	await palette.getByRole('button', { name: 'Run program', exact: true }).click();
+	await palette.getByRole('button', { name: 'Run macro', exact: true }).click();
 	await expect(palette.locator('[data-macro-script-log]')).toHaveAttribute('data-outcome', 'completed');
 	await palette.getByRole('button', { name: 'Close', exact: true }).click();
 	const after = await exportSamples(page, editor);

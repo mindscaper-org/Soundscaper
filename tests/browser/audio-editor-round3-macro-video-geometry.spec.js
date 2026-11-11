@@ -17,7 +17,7 @@ test('macro project reads report a normally imported video clip in project sampl
 		'const clip = (await sound.project.clips(video.id))[0];',
 		"sound.log.info('video durationFrames=' + clip.durationFrames);",
 	].join('\n'));
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 	const log = manager.locator('[data-macro-script-log]');
 	await expect(log).toHaveAttribute('data-outcome', 'completed');
 	await expect(log).toContainText('video durationFrames=104000');

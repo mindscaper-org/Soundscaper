@@ -19,9 +19,8 @@ test('a macro name keyboard draft cancels without a blur save and commits on Ent
 	function Control() {
 		const [script, setScript] = useState({ id: 'program', name: 'Original', source: '' });
 		return <MacroScriptEditor script={script}
-			copy={{ programName: 'Program name' }} log={[]} running={false} blocked={false} failure={null}
-			onChange={(value: typeof script) => { changes.push(value); setScript(value); }}
-			onRun={() => undefined} onCancel={() => undefined} onTrust={() => undefined} />;
+			copy={{ programName: 'Program name' }} log={[]} running={false} failure={null}
+			onChange={(value: typeof script) => { changes.push(value); setScript(value); }} onTrust={() => undefined} />;
 	}
 	try {
 		await act(async () => root.render(<Control />));

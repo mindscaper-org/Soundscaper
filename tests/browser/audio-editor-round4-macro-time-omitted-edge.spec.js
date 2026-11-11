@@ -28,7 +28,7 @@ test('macro programs retain header-relative, omitted-edge and cursor meanings in
 		'const stored = await sound.project.selection();',
 		"sound.log.info('range ' + stored.startFrame + '-' + stored.endFrame);",
 	].join('\n'));
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 	const log = manager.locator('[data-macro-script-log]');
 	await expect(log).toHaveAttribute('data-outcome', 'completed');
 	for (const line of [`range 0-${cursor}`, `range ${cursor}-${cursor}`, 'stored cursor refused']) await expect(log).toContainText(line);
@@ -57,7 +57,7 @@ test('macro programs retain header-relative, omitted-edge and cursor meanings in
 		"sound.assert(Date() === new Date(Date.now()).toString(), 'Use the virtual clock');",
 		"console.log('Date call completed');",
 	].join('\n'));
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 	await expect(log).toHaveAttribute('data-outcome', 'completed');
 	for (const line of ['Selection frames 0..38400', 'Relative selection frames 28800..38400',
 		'Selection frames 9600..38400', 'selected tracks=0', 'range=0-38400', 'Date call completed']) await expect(log).toContainText(line);

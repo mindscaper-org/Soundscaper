@@ -14,7 +14,7 @@ test('a program refuses the interactive Contrast command before admitting it as 
 		"try { await sound.command('ContrastAnalyser'); }",
 		"catch (error) { sound.log.info(error.message); }",
 	].join('\n'));
-	await palette.getByRole('button', { name: 'Run program', exact: true }).click();
+	await palette.getByRole('button', { name: 'Run macro', exact: true }).click();
 	const log = palette.locator('[data-macro-script-log]');
 	await expect(log).toHaveAttribute('data-outcome', 'completed');
 	await expect(log).toContainText(/cannot run.*ContrastAnalyser/u);

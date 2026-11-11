@@ -17,7 +17,7 @@ test('a mixed offline and realtime macro renders its staged audio', async ({ pag
 	await manager.getByRole('textbox', { name: 'Program', exact: true }).fill(
 		"await sound.effects([{type:'audacity-amplify',params:{gainDb:0}},{type:'audacity-invert',params:{}}]);",
 	);
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 	await expect(manager.locator('[data-macro-script-log]')).toHaveAttribute('data-outcome', 'completed', { timeout: 10_000 });
 	await manager.getByRole('button', { name: 'Close', exact: true }).click();
 	const inverted = await exportSamples(page, editor);

@@ -22,7 +22,7 @@ test('a program can author its first spectral lower bound while retaining the up
 		'await sound.select.frequencies({low:500});',
 		"sound.log.info('selected the lower spectral edge');",
 	].join('\n'));
-	await palette.getByRole('button', { name: 'Run program', exact: true }).click();
+	await palette.getByRole('button', { name: 'Run macro', exact: true }).click();
 	const log = palette.locator('[data-macro-script-log]');
 	await expect(log).toHaveAttribute('data-outcome', /completed|failed/u);
 	await expect(log).toHaveAttribute('data-outcome', 'completed');

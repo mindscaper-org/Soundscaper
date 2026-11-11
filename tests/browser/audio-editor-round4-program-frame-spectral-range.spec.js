@@ -15,7 +15,7 @@ test('setting macro frame endpoints preserves a selected spectral band', async (
 		'await sound.select.frames(4800, 33600);',
 		"sound.log.info('Frame selection completed');",
 	].join('\n'));
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 	await expect(manager.locator('[data-macro-script-log]')).toHaveAttribute('data-outcome', 'completed');
 	await closeDialog(manager);
 	await editor.locator('[data-transport="play"]').getByRole('button', { name: 'Play options', exact: true }).click();

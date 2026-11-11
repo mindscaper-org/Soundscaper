@@ -15,7 +15,7 @@ test('a frequency-only macro command preserves the header-selected audio target'
 		"await sound.effect('audacity-invert');",
 		"sound.log.info('inverted the selected clip');",
 	].join('\n'));
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 	const log = manager.locator('[data-macro-script-log]');
 	await expect(log).toHaveAttribute('data-outcome', /completed|failed/u);
 	await expect(log).toHaveAttribute('data-outcome', 'completed');

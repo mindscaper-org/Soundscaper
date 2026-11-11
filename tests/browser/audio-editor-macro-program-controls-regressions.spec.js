@@ -42,7 +42,7 @@ test('an imported program remains reviewable and runnable in a normal window', a
 	await checkbox.click();
 	await expect(checkbox).toBeChecked();
 	await manager.locator('.audio-editor-macro-script__actions').getByRole('button').click();
-	await expect(manager.getByRole('button', { name: 'Run program', exact: true })).toBeEnabled();
+	await expect(manager.getByRole('button', { name: 'Run macro', exact: true })).toBeEnabled();
 });
 
 test('Escape then Tab leaves the program textarea without closing the palette', async ({ page }) => {

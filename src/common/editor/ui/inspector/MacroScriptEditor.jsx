@@ -27,10 +27,7 @@ export default function MacroScriptEditor({
 	running,
 	completed = false,
 	cancelled = false,
-	blocked,
 	onChange,
-	onRun,
-	onCancel,
 	onTrust,
 	runnable = true,
 }) {
@@ -176,13 +173,9 @@ export default function MacroScriptEditor({
 					</div>
 				</section>
 			)}
-			<div className="audio-editor-macro-script__actions">
-				{running
-					? <Button variant="secondary" onClick={onCancel}>{copy.cancelRun}</Button>
-					: runnable
-						? <Button variant="primary" disabled={blocked || !String(script.source || '').trim()} onClick={onRun}>{copy.runProgram}</Button>
-						: <Button variant="primary" disabled={!reviewed} onClick={onTrust}>{copy.enableProgram}</Button>}
-			</div>
+			{!runnable && <div className="audio-editor-macro-script__actions">
+				<Button variant="primary" disabled={!reviewed || running} onClick={onTrust}>{copy.enableProgram}</Button>
+			</div>}
 		</section>
 	);
 }

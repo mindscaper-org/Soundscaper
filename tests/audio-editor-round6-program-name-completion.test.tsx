@@ -25,9 +25,8 @@ for (const completion of ['Enter', 'Escape', 'blur'] as const) {
 				id: 'program', name: 'Original program', source: 'await sound.select.all();', trust: 'authored',
 			});
 			return <MacroScriptEditor copy={resolveMacroManagerCopy('en')} script={script}
-				log={[]} failure={null} running={false} blocked={false}
-				onChange={(next: Script) => { commits.push(next.name); setScript({ ...next, name: next.name.trim() }); }}
-				onRun={() => undefined} onCancel={() => undefined} onTrust={() => undefined} />;
+				log={[]} failure={null} running={false}
+				onChange={(next: Script) => { commits.push(next.name); setScript({ ...next, name: next.name.trim() }); }} onTrust={() => undefined} />;
 		}
 		try {
 			await act(async () => { root.render(<Control />); });
