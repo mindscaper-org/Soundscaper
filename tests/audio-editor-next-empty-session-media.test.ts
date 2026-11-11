@@ -12,6 +12,53 @@ import { registerDesktopReadCapability } from '../src/common/editor/desktop-read
 import { DESKTOP_MAIN_AUDIO_CODEC_RUNTIME_MARKER } from '../src/common/editor/desktop-main-audio-codec-runtime-marker.ts';
 import type { NativeProjectFileService } from '../src/common/editor/controller/document/native-project-types.ts';
 import { createFixture } from './helpers/native-project-service-fixture.ts';
+import { controllerSession } from './helpers/soundscaper-controller-session.ts';
+import { createMemoryEngine } from './helpers/audio-editor-controller-harness.js';
+import { readDawprojectImportReport } from './helpers/dawproject-archive-custody.ts';
+import { clipboardProject } from './helpers/clipboard-source-custody.ts';
+import { assertAudioProjectArchivePcm } from './helpers/audio-project-archive-pcm-custody.ts';
+import { assertPcmChannelsEqual } from './helpers/assert-pcm-samples.ts';
+import { resolveRuntimeProjectProjection } from '../src/common/editor/runtime-clip-projection.ts';
+
+test('exact partial DAWproject Open commits healthy PCM and its empty-media error through product storage and Scape', { timeout: 20_000 }, async context => {
+	type Options = NonNullable<Parameters<typeof controllerSession>[1]>;
+	const { controller, store } = await controllerSession(context, {
+		adaptAudacityProject: importSoundscaperAudacityProject,
+		engine: { ...createMemoryEngine(), async decodeAudioData() { assert.fail('Use the real PCM WAV decoder, not a native or synthetic decoded buffer.'); } } as unknown as Options['engine'],
+		engineFactory: () => { assert.fail('DAWproject custody must not render audio.'); },
+	});
+	const projectXml = `<Project version="1.0"><Structure><Track id="track" name="Recording" contentType="audio"><Channel role="regular"/></Track></Structure>
+	<Arrangement><Lanes timeUnit="seconds"><Lanes track="track"><Clips>
+	<Clip time="0" duration="0.1"><Audio timeUnit="seconds"><File path="empty.wav"/></Audio></Clip>
+	<Clip name="Healthy recording" time="0.1" duration="0.1"><Audio timeUnit="seconds"><File path="healthy.wav"/></Audio></Clip>
+	</Clips></Lanes></Lanes></Arrangement></Project>`;
+	const samples = new Float32Array(4_800).fill(0.25);
+	const archive = await writeDawprojectArchive({ metadataXml: '<MetaData/>', projectXml, files: [
+		{ path: 'empty.wav', blob: new Blob([]) },
+		{ path: 'healthy.wav', blob: new Blob([Uint8Array.from(encodeWav([samples], { sampleRate: 48_000, float: true }))]) },
+	] });
+	const previousId = controller.project?.id;
+	await controller.actions.project.openDawproject(new File([archive], 'Partial.dawproject', { type: 'application/zip' }));
+	const project = clipboardProject(controller.project);
+	assert.notEqual(project.id, previousId);
+	assert.equal(project.clips.length, 1); assert.equal(project.sources.length, 1);
+	const clip = resolveRuntimeProjectProjection(project).clips[0], source = project.sources[0]; assert.ok(clip && source?.kind === 'audio');
+	assert.equal(clip.title, 'Healthy recording'); assert.equal(clip.sourceId, source.id);
+	assert.deepEqual([clip.timelineStartFrame, clip.durationFrames, clip.sourceStartFrame, clip.sourceDurationFrames], [4800, 4800, 0, 4800]);
+	assert.deepEqual([source.sampleRate, source.frameCount, source.channelCount], [48000, 4800, 1]);
+	const report = readDawprojectImportReport(controller.getSnapshot().deliveryReport);
+	const errors = report.items.filter(item => item.severity === 'error');
+	assert.equal(errors.length, 1); assert.equal(errors[0]?.code, 'dawproject.media-undecodable');
+	assert.deepEqual(errors[0]?.scope, { kind: 'media', id: 'empty.wav' });
+	assert.deepEqual(errors[0]?.data, { path: 'empty.wav', external: false });
+	assert.match(JSON.stringify(errors[0]), /no decoder could read it/u);
+	assert.equal(controller.getSnapshot().history.canUndo, false, 'opening a new document establishes its baseline');
+	await controller.actions.project.flush({ forceCurrentSnapshot: true });
+	await assertAudioProjectArchivePcm(context, store, controller.project, (_name, channels) => {
+		assertPcmChannelsEqual(channels, [samples], 'all healthy DAWproject PCM, before and after fresh Scape');
+	});
+	assert.deepEqual(controller.getSnapshot().deliveryReport, report);
+});
 
 for (const format of ['sesx', 'dawproject'] as const) for (const emptyFirst of [true, false]) test(`${format} Open skips an empty ${emptyFirst ? 'first' : 'last'} media body and retains healthy PCM`, async () => {
 	const healthy = new Blob([Uint8Array.from(encodeWav([new Float32Array(4_800).fill(0.25)], { sampleRate: 48_000, float: true }))], { type: 'audio/wav' });
