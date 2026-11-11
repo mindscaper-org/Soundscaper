@@ -41,8 +41,10 @@ export class DesktopUpdateService {
 		try {
 			const result = await checkDesktopDistributionUpdates({ ...d, manual });
 			if (result.status === 'available') {
+				const version = result.version ?? '';
+				const name = version.startsWith(`${d.appName}.`) || version.startsWith(`${d.appName}-`) ? version : `${d.appName} ${version}`;
 				const { response } = await d.showMessage({ type: 'info', title: `${d.appName} update available`,
-					message: `${d.appName} ${result.version} is available.`,
+					message: `${name} is available.`,
 					buttons: ['Install now', 'Install on next launch', 'Skip'], defaultId: 0, cancelId: 2 });
 				if (response === 0 || response === 1) await d.install(response === 0 ? 'now' : 'next-launch');
 			} else if (manual && result.status === 'current') {

@@ -101,6 +101,26 @@ test('stable Soundscaper releases use the stable v tag namespace', () => {
 	assert.equal(selectUpdateInstaller(stable, { productName: 'Soundscaper', tagPrefix: 'v', version, platform: 'win32', arch: 'x64' }).sha256, sha256);
 });
 
+test('dated installers retain product, platform, architecture and release-tag binding', () => {
+	for (const productName of ['Soundscaper', 'Framescaper']) for (const channel of ['', '-alpha', '-beta', '-rc']) {
+		for (const [platform, os, extension, appImage] of [
+			['win32', 'win', 'exe', false], ['darwin', 'mac', 'pkg', false],
+			['linux', 'linux', 'deb', false], ['linux', 'linux', 'AppImage', true],
+		] as const) for (const arch of ['x64', 'arm64']) {
+			const version = `${productName}${channel}.2026.Nov.11.a`;
+			for (const stem of [version, `${productName}-${version}`]) {
+				const name = `${stem}-${os}-${arch}.${extension}`;
+				const release = { tag_name: version, assets: [{ name, size: body.length, digest: `sha256:${sha256}`,
+					browser_download_url: `https://github.com/LeoWattenberg/Soundscaper/releases/download/${version}/${name}`,
+				}] };
+				assert.equal(selectUpdateInstaller(release, { productName, tagPrefix: `${productName.toLowerCase()}-v`, version, platform, arch, appImage }).name, name);
+				assert.throws(() => selectUpdateInstaller({ ...release, tag_name: `soundscaper-v${version}` },
+					{ productName, tagPrefix: `${productName.toLowerCase()}-v`, version, platform, arch, appImage }), /installer/iu);
+			}
+		}
+	}
+});
+
 test('AppImage updates replace the old executable and retain its executable mode', async t => {
 	const f = await fixture(t);
 	const source = join(f.root, 'new.AppImage'), destination = join(f.root, 'current.AppImage');

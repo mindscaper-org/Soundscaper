@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { join } from 'node:path';
-import { ReleaseChecker, compareVersions } from './update-check.js';
+import { ReleaseChecker } from './project-library-runtime/desktop/update-check.js';
+import { compareVersions, releaseTagForVersion } from './project-library-runtime/desktop/release-version.js';
 import { DesktopUpdateInstallation, replaceUpdateAppImage, selectUpdateInstaller } from './project-library-runtime/desktop/update-installation.js';
 import { DesktopUpdateService } from './project-library-runtime/desktop/update-service.js';
 import { UPDATE_PREFERENCES_CHANNEL, updatePreferences } from './project-library-runtime/desktop/update-preferences.js';
@@ -16,7 +17,7 @@ export function createDesktopUpdates({ app, appName, tagPrefix, storage, setting
 		fetchImpl,
 		isNewer: (candidate, current) => compareVersions(candidate, current) > 0,
 		accepts: (installer) => {
-			const expected = selectUpdateInstaller({ tag_name: `${tagPrefix}${installer.version}`, assets: [{
+			const expected = selectUpdateInstaller({ tag_name: releaseTagForVersion(installer.version, tagPrefix), assets: [{
 				name: installer.name, size: installer.size, digest: `sha256:${installer.sha256}`, browser_download_url: installer.url,
 			}] }, { ...target, version: installer.version });
 			return expected.name === installer.name;

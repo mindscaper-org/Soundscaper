@@ -34,6 +34,7 @@
 		"desktop/application-lifecycle.ts",
 		"desktop/windows-store-distribution.ts",
 		"desktop/update-installation.ts",
+		"desktop/update-check.ts",
 		"desktop/update-service.ts",
 		"desktop/update-preferences.ts",
 		"desktop/desktop-storage-paths.ts",

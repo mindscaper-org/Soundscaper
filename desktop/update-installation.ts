@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { chmod, copyFile, lstat, mkdir, open, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { parseReleaseVersion, releaseTagForVersion } from './release-version.ts';
 
 const DOWNLOAD_ROOT = 'https://github.com/LeoWattenberg/Soundscaper/releases/download/';
 const MAX_INSTALLER_BYTES = 8 * 1024 ** 3;
@@ -27,23 +28,33 @@ function record(value: unknown): Record<string, unknown> {
 export function selectUpdateInstaller(release: unknown, target: InstallerTarget): UpdateInstaller {
 	const os = ({ win32: 'win', darwin: 'mac', linux: 'linux' } as Record<string, string>)[target.platform];
 	const extension = target.platform === 'win32' ? 'exe' : target.platform === 'darwin' ? 'pkg' : target.appImage ? 'AppImage' : 'deb';
-	const name = `${target.productName}-${target.version}-${os}-${target.arch}.${extension}`;
+	const version = parseReleaseVersion(target.version);
+	if (!version || (version.kind === 'calendar' && version.product !== target.productName)) throw new Error('No matching update installer.');
+	const suffix = `${os}-${target.arch}.${extension}`;
+	const names = [`${target.productName}-${target.version}-${suffix}`,
+		...(version.kind === 'calendar' ? [`${target.version}-${suffix}`] : [])];
+	const tag = releaseTagForVersion(target.version, target.tagPrefix);
 	const value = record(release);
-	const matches = (Array.isArray(value.assets) ? value.assets : []).map(record).filter(asset => asset.name === name);
+	const matches = (Array.isArray(value.assets) ? value.assets : []).map(record).filter(asset => typeof asset.name === 'string' && names.includes(asset.name));
 	const asset = matches.length === 1 ? matches[0]! : {};
-	if (!os || value.tag_name !== `${target.tagPrefix}${target.version}`
-		|| asset.browser_download_url !== `${DOWNLOAD_ROOT}${target.tagPrefix}${target.version}/${name}`
+	if (!os || value.tag_name !== tag
+		|| asset.browser_download_url !== `${DOWNLOAD_ROOT}${tag}/${asset.name}`
 		|| typeof asset.digest !== 'string' || !/^sha256:[a-f0-9]{64}$/u.test(asset.digest)) throw new Error('No matching update installer.');
-	return validateInstaller({ version: target.version, name, url: asset.browser_download_url,
+	return validateInstaller({ version: target.version, name: asset.name, url: asset.browser_download_url,
 		size: asset.size, sha256: typeof asset.digest === 'string' ? asset.digest.replace(/^sha256:/u, '') : null });
 }
 function validateInstaller(value: unknown): UpdateInstaller {
 	const item = record(value);
-	const match = /^(Soundscaper|Framescaper)-(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)-(win|mac|linux)-(x64|arm64)\.(exe|pkg|deb|AppImage)$/u.exec(String(item.name));
-	if (!match || item.version !== match[2] || typeof item.sha256 !== 'string' || !/^[a-f0-9]{64}$/u.test(item.sha256)
+	const version = parseReleaseVersion(item.version);
+	const match = /^(.*)-(win|mac|linux)-(x64|arm64)\.(exe|pkg|deb|AppImage)$/u.exec(String(item.name));
+	const product = version && match ? ['Soundscaper', 'Framescaper'].find(name =>
+		(version.kind !== 'calendar' || version.product === name)
+		&& (match[1] === `${name}-${version.text}` || (version.kind === 'calendar' && match[1] === version.text))) : null;
+	const tags = product && version ? version.kind === 'calendar' ? [version.text]
+		: [`${product.toLowerCase()}-v${version.text}`, ...(product === 'Soundscaper' ? [`v${version.text}`] : [])] : [];
+	if (!product || !version || item.version !== version.text || typeof item.sha256 !== 'string' || !/^[a-f0-9]{64}$/u.test(item.sha256)
 		|| typeof item.size !== 'number' || !Number.isSafeInteger(item.size) || item.size < 1 || item.size > MAX_INSTALLER_BYTES
-		|| ![`${DOWNLOAD_ROOT}${match[1]!.toLowerCase()}-v${item.version}/${item.name}`,
-			...(match[1] === 'Soundscaper' ? [`${DOWNLOAD_ROOT}v${item.version}/${item.name}`] : [])].includes(String(item.url))) {
+		|| !tags.some(tag => item.url === `${DOWNLOAD_ROOT}${tag}/${item.name}`)) {
 		throw new Error('Invalid update installer.');
 	}
 	return Object.freeze({ version: item.version as string, name: item.name as string,

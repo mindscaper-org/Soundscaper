@@ -12,7 +12,7 @@ import {
 	validateProductReleaseLines,
 } from '../scripts/lib/product-release-lines.mjs';
 import { desktopReleaseTargetPackageInventory } from '../scripts/desktop-release-assets.mjs';
-import { selectUpdate } from '../desktop/update-check.js';
+import { selectUpdate } from '../desktop/update-check.ts';
 
 const ROOT = new URL('../', import.meta.url);
 const RELEASE_LINES = validateProductReleaseLines(JSON.parse(

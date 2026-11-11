@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import { DesktopSettingsStore } from '../desktop/settings.js';
-import { ReleaseChecker } from '../desktop/update-check.js';
+import { ReleaseChecker } from '../desktop/update-check.ts';
 import { seedDesktopNightlyPackagedLocale } from '../scripts/lib/desktop-nightly-tests-packaged-runtime.mjs';
 
 test('disposable nightly profiles disable automatic update dialogs without changing desktop defaults', async context => {

@@ -13,6 +13,17 @@ when the preference is off. The update notification offers **Install now** and
 **Install on next launch**. Closing it or choosing **Skip** skips that update
 check without scheduling an installation.
 
+The checker also accepts named calendar release tags such as
+`Soundscaper.2026.Nov.11.a` and `Soundscaper-rc.2026.Nov.11.a` (and the equivalent
+Framescaper names). Comparison orders year, calendar month, numeric day, and
+build letters (`a` through `z`, then `aa`, `ab`, and so on). For an identical
+date and build, stable outranks `rc`, then `beta`, then `alpha`. A preview with a
+newer date or build is offered to a stable installation. Named calendar releases
+succeed the legacy semantic release line; legacy semantic versions retain their
+existing stable/preview filtering. Product identity and draft exclusion apply
+to both formats. Release creation and packaging still use the semantic versions
+in the release register.
+
 Accepting either installation option downloads the exact product, version and
 architecture's installer from its GitHub release and verifies its size and
 SHA-256 digest. **Install now** opens it immediately; **Install on next launch**
