@@ -104,7 +104,6 @@ test('content-addressed readers retain compatibility with revision-addressed fre
 
 test('a metadata save negotiates existing frozen PCM without upload or a temporary copy', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-reused-freeze-'));
-	context.after(() => rm(root, { recursive: true, force: true }));
 	const bytes = Uint8Array.from({ length: 36 }, (_value, index) => index);
 	const project = frozenProject(createHash('sha256').update(bytes).digest('hex'));
 	const descriptor = createSoundscaperDesktopProjectLibraryTransferBodies(project, documentDigest(project))[0]!;
@@ -132,7 +131,9 @@ test('a metadata save negotiates existing frozen PCM without upload or a tempora
 			},
 		},
 	});
-	context.after(() => main.close());
+	context.after(async () => {
+		try { await main.close(); } finally { await rm(root, { recursive: true, force: true }); }
+	});
 	const session = main.openSession(createSoundscaperDesktopProjectLibraryHandshake());
 	context.after(() => session.close());
 	const firstId = '1'.repeat(48);

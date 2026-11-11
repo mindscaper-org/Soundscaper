@@ -27,7 +27,6 @@ const PROJECT_ID = 'lease-matrix-renderer';
 // packaged build to find out.
 test('the lease renderer smoke creates, observes, advances, and reports conflict against real main', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-v1-lease-renderer-'));
-	context.after(() => rm(root, { recursive: true, force: true }));
 	const main = await SoundscaperDesktopProjectLibraryMain.start({
 		appDataPath: root,
 		owner: { product: 'soundscaper', processId: 921, instanceId: 'lease-renderer-main' },
@@ -35,7 +34,9 @@ test('the lease renderer smoke creates, observes, advances, and reports conflict
 		onLeaseLost: () => undefined,
 		testControl: null,
 	});
-	context.after(() => main.close());
+	context.after(async () => {
+		try { await main.close(); } finally { await rm(root, { recursive: true, force: true }); }
+	});
 	const session = main.openSession(createSoundscaperDesktopProjectLibraryHandshake());
 	context.after(() => session.close());
 	const scope = rendererScope(session);
@@ -92,7 +93,6 @@ test('the lease renderer smoke creates, observes, advances, and reports conflict
 
 test('the lease renderer smoke refuses a create whose destination already exists', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-v1-lease-create-'));
-	context.after(() => rm(root, { recursive: true, force: true }));
 	const main = await SoundscaperDesktopProjectLibraryMain.start({
 		appDataPath: root,
 		owner: { product: 'soundscaper', processId: 922, instanceId: 'lease-renderer-create' },
@@ -100,7 +100,9 @@ test('the lease renderer smoke refuses a create whose destination already exists
 		onLeaseLost: () => undefined,
 		testControl: null,
 	});
-	context.after(() => main.close());
+	context.after(async () => {
+		try { await main.close(); } finally { await rm(root, { recursive: true, force: true }); }
+	});
 	const session = main.openSession(createSoundscaperDesktopProjectLibraryHandshake());
 	context.after(() => session.close());
 	const scope = rendererScope(session);
@@ -123,7 +125,6 @@ test('the lease renderer smoke refuses a create whose destination already exists
 // arrives second publishes against a base main has already superseded.
 test('the lease renderer smoke publishes a contender against the base it was handed', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-v1-lease-contend-'));
-	context.after(() => rm(root, { recursive: true, force: true }));
 	const main = await SoundscaperDesktopProjectLibraryMain.start({
 		appDataPath: root,
 		owner: { product: 'soundscaper', processId: 923, instanceId: 'lease-renderer-contend' },
@@ -131,7 +132,9 @@ test('the lease renderer smoke publishes a contender against the base it was han
 		onLeaseLost: () => undefined,
 		testControl: null,
 	});
-	context.after(() => main.close());
+	context.after(async () => {
+		try { await main.close(); } finally { await rm(root, { recursive: true, force: true }); }
+	});
 	const session = main.openSession(createSoundscaperDesktopProjectLibraryHandshake());
 	context.after(() => session.close());
 	const scope = rendererScope(session);
@@ -188,7 +191,6 @@ test('the lease renderer smoke rethrows failures that are not a refusal by main'
 
 test('the product-neutral renderer smoke publishes through the Framescaper v1 bridge', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'framescaper-v1-lease-renderer-'));
-	context.after(() => rm(root, { recursive: true, force: true }));
 	const handshake = createFramescaperDesktopProjectLibraryHandshake();
 	const main = await FramescaperDesktopProjectLibraryMain.start({
 		appDataPath: root,
@@ -197,7 +199,9 @@ test('the product-neutral renderer smoke publishes through the Framescaper v1 br
 		onLeaseLost: () => undefined,
 		testControl: null,
 	});
-	context.after(() => main.close());
+	context.after(async () => {
+		try { await main.close(); } finally { await rm(root, { recursive: true, force: true }); }
+	});
 	const session = main.openSession(handshake);
 	context.after(() => session.close());
 	const api = {

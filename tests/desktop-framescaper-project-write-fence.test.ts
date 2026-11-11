@@ -69,7 +69,6 @@ type Bundle = Readonly<{
 
 async function setup(context: TestContext, checkpoint: ((phase: string) => void) | null = null) {
 	const root = await mkdtemp(join(tmpdir(), 'framescaper-write-fence-'));
-	context.after(() => rm(root, { recursive: true, force: true }));
 	const handshake = createFramescaperDesktopProjectLibraryHandshake();
 	const main = await FramescaperDesktopProjectLibraryMain.start({
 		appDataPath: root,
@@ -77,7 +76,9 @@ async function setup(context: TestContext, checkpoint: ((phase: string) => void)
 		handshake, onLeaseLost: () => undefined,
 		testControl: checkpoint ? { leaseTtlMs: 30_000, renewIntervalMs: 10_000, checkpoint } : null,
 	});
-	context.after(() => main.close());
+	context.after(async () => {
+		try { await main.close(); } finally { await rm(root, { recursive: true, force: true }); }
+	});
 	const session = main.openSession(handshake);
 	context.after(() => session.close());
 	return { main, session };
