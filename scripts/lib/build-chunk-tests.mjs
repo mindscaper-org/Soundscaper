@@ -179,9 +179,10 @@ export const EDITOR_FFMPEG_RUNTIME_CHUNK_TEST =
 	/src[\\/]common[\\/]editor[\\/](?:ffmpeg(?:-cfr-ingest|-media-file-operation|-pcm-exchange|-video-output|-video-source-characteristics|-video-timing-operation|-workerfs-name)?|video-(?:effect-ffmpeg|ffmpeg|keyframe-ffmpeg-operation))\.(?:js|ts)$/;
 
 /** Shared parameter editor plus its Audacity and parametric-EQ surface implementations. */
-export const EDITOR_EFFECT_PARAMETER_SURFACE_CHUNK_TEST = new RegExp(
+export const EDITOR_EFFECT_PARAMETER_SURFACE_CHUNK_TEST = new RegExp([
 	`${editorPath}(?:ui[\\/](?:Audacity(?:EffectLayout|DynamicsEffectLayout|PortEffectLayout|PitchControls|RateControls|SlidingStretchControls)|DynamicsActivityPanel|ParametricEqEditor|inspector[\\/]EffectParameter(?:Editor|Number))\\.jsx|ui[\\/](?:Audacity(?:ParameterKnob|LegacyEffectGraph|NoiseReductionControls)\\.tsx|audacity-(?:compression-curve|derived-controls|knob-warp|legacy-effect-graphs)\\.ts)|ui[\\/]inspector[\\/](?:FilterCurveEqEditor|GraphicEqEditor|AudacityNoiseProfileButton)\\.tsx|ui[\\/]dynamics-activity-canvas\\.ts|controller[\\/]effects[\\/](?:filter-curve-gesture|graphic-eq-gesture)\\.ts)$`,
-);
+	String.raw`${editorPath}ui[\\/]inspector[\\/]AutoTuneControlTrack\.tsx$`,
+].join('|'));
 
 /**
  * Effect rack consumer and the design-system components it alone loads.
@@ -426,7 +427,7 @@ export const PROJECT_INTERCHANGE_FOUNDATION_CHUNK_TEST = new RegExp(
 
 /** Flat editor modules and `assistance/` domain modules shared by the shell and dialogs. */
 export const EDITOR_DOMAIN_CHUNK_TEST = new RegExp([
-	`${editorPath}first-party-effects[\\\\/]auto-tune[\\\\/]contract\\.ts$`,
+	`${editorPath}first-party-effects[\\\\/]auto-tune[\\\\/](?:contract|control-notes|project-control)\\.ts$`,
 	`${editorPath}(?!${editorOptionalArchiveModule}\\.(?:[cm]?[jt]s)$)(?!${editorOptionalExecutionModule}\\.(?:[cm]?[jt]s)$)(?!${editorOptionalCaptureFlatModule}\\.ts$)(?:[^\\\\/]+|assistance[\\\\/](?:internal[\\\\/]radix-two-fft-v1|[^\\\\/]+)|(?:design-system-adapters|platform)[\\\\/][^\\\\/]+)\\.(?:[cm]?[jt]s)$`,
 	String.raw`${editorPath}macro-script[\\/]protocol\.ts$`,
 	String.raw`src[\\/]common[\\/](?:(?:imaging|foundation|scape)[\\/][^\\/]+|media[\\/]bytes)\.(?:[cm]?[jt]s)$`,
