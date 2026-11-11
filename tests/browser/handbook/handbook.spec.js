@@ -159,6 +159,36 @@ test('gives the comparison page full width while standard pages keep their readi
 	}
 });
 
+test('keeps wrapped comparison text inside cells without vertical table scrolling', async ({ page }) => {
+	await page.setViewportSize({ width: 1920, height: 1000 });
+	await page.goto(`${BASE}start/how-soundscaper-compares/`);
+	const overflow = await page.getByRole('table').evaluateAll((tables) => tables.flatMap((table) => {
+		const problems = [];
+		for (const container of [table, table.parentElement]) {
+			if (container.scrollHeight > container.clientHeight + 1) problems.push({ section: table.parentElement.getAttribute('aria-label'), verticalScroll: true });
+		}
+		for (const body of table.tBodies) {
+			for (const row of body.rows) {
+				for (const cell of row.cells) {
+					const bounds = cell.getBoundingClientRect();
+					const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+					while (walker.nextNode()) {
+						const node = walker.currentNode;
+						if (!node.textContent.trim() || node.parentElement.closest('[popover]')) continue;
+						const range = document.createRange();
+						range.selectNodeContents(node);
+						if ([...range.getClientRects()].some((rect) => rect.width > 0 && (rect.top < bounds.top - 1 || rect.bottom > bounds.bottom + 1 || rect.right > bounds.right + 1))) {
+							problems.push({ row: row.cells[0].textContent, text: node.textContent.trim() });
+						}
+					}
+				}
+			}
+		}
+		return problems;
+	}));
+	expect(overflow).toEqual([]);
+});
+
 test('renders comparison verdicts as accessible symbols with distinct colours', async ({ page }) => {
 	await page.goto(`${BASE}start/how-soundscaper-compares/`);
 	await expect(page.getByRole('heading', { level: 1, name: 'How Soundscaper compares' })).toBeVisible();

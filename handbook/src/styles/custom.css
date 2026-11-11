@@ -69,6 +69,7 @@
 
 .sl-markdown-content table.verdict-table {
 	display: table;
+	overflow: visible;
 	inline-size: 100%;
 	min-inline-size: 58rem;
 	table-layout: fixed;
@@ -77,6 +78,8 @@
 .sl-markdown-content .verdict-table :is(th, td) {
 	padding-inline: 0.5rem;
 	overflow-wrap: anywhere;
+	/* Firefox can under-size rows that mix multiline buttons and baseline text. */
+	vertical-align: top;
 }
 
 .sl-markdown-content .verdict-table :is(th, td):first-child {
@@ -111,21 +114,21 @@
 }
 
 .sl-markdown-content .comparison-table--grouped th.comparison-family-related {
-	background: var(--sl-color-accent-low);
-	border-block-end: 2px solid var(--sl-color-text-accent);
+	background: color-mix(in srgb, var(--sl-color-text-accent) 4%, var(--sl-color-gray-6));
+	border-block-end: 1px solid var(--sl-color-gray-4);
 }
 
 .sl-markdown-content .comparison-family-start {
-	border-inline-start: 1px solid var(--sl-color-gray-4);
+	border-inline-start: 1px solid var(--sl-color-gray-5);
 }
 
 .sl-markdown-content .comparison-category-start {
-	border-inline-start: 3px solid var(--sl-color-text-accent);
+	border-inline-start: 1px solid var(--sl-color-gray-4);
 }
 
 .sl-markdown-content .comparison-category-heading {
 	text-align: start;
-	color: var(--sl-color-text-accent);
+	color: var(--sl-color-gray-2);
 }
 
 .sl-markdown-content .comparison-category-label {
@@ -133,6 +136,8 @@
 	position: sticky;
 	inset-inline-start: calc(var(--comparison-feature-width) + 0.5rem);
 	inline-size: max-content;
+	font-size: var(--sl-text-sm);
+	font-weight: 500;
 }
 
 @media (max-width: 50rem) {
