@@ -178,7 +178,7 @@ Known architectural constraints that drive later work:
 | 8+. Framescaper Web VCR | **Implemented and enabled for testing** | Expose the default-hidden Record-menu surface with `framescaperWebVcr: true`; keep 4K unavailable. |
 | 8+C. Framescaper product origin | **Implemented for family-v1 — immediate no-legacy cutover; permanent transfer routes** | Keep the first-class editable-copy action and permanent cross-origin transfer ceremony verified without reopening the frozen family. |
 | 9. Stable release and owner QA | **Soundscaper workflow automated** | Rebuild, test, package, deploy, and publish the tagged Soundscaper revision; use private owner QA as helpful. |
-| 9+. Post-1.0 extensions | **Planned — MIDI and installable distribution** | Add MIDI after stable 1.0 and install both products from Chrome for Android as independent apps, with an optional Google Play Trusted Web Activity track. |
+| 9+. Post-1.0 extensions | **Planned — full MIDI integration, control surfaces, and installable distribution** | Extend MIDI after stable 1.0; add MCU then HUI control surfaces with separately gated EUCON feasibility; install both products from Chrome for Android as independent apps, with an optional Google Play Trusted Web Activity track. |
 
 Soundscaper has an independent release line and may ship without closing
 Framescaper milestones, payloads, or packaging. Framescaper stays in ordinary
@@ -983,8 +983,8 @@ while giving the owner useful optional QA and debugging tools.
 
 ## 9+. Post-1.0 extensions
 
-MIDI and installable distribution are explicitly post-release scope. Neither
-blocks the Soundscaper Stable 1.0 release.
+Full MIDI integration, hardware control surfaces, and installable distribution
+are explicitly post-release scope. None blocks the Soundscaper Stable 1.0 release.
 
 ### 8B. MIDI
 
@@ -1024,7 +1024,8 @@ Planned implementation:
 - **Shared / Web Core — Planned:** a focused reviewed built-in instrument and
   sampler only after event/timing stability.
 - **Electron Only — Planned:** native MIDI, MPE where supported, instruments,
-  control surfaces, MIDI clock, and MTC through isolated services.
+  MIDI clock, and MTC through isolated services. Hardware control surfaces use
+  the separate MCU/HUI sequence below and share the native MIDI service.
 - **Shared — Planned:** visible missing-instrument/device placeholders with
   frozen audio and preserved editable state.
 
@@ -1041,6 +1042,41 @@ Planned implementation:
 The legacy parity actions remain inert and menu-hidden; the beta has explicit
 menu commands. The full DAW goal remains a post-1.0 claim and closes only after
 this packet's remaining implementation and compatibility review pass.
+
+### 9+. Soundscaper hardware control surfaces
+
+**Status:** **Planned; post-1.0.** Implement Mackie Control Universal (MCU)
+first, then Human User Interface (HUI) compatibility. EUCON is a separate
+feasibility investigation and conditional adapter, not a committed support
+claim or a prerequisite for MCU/HUI delivery. Follow the
+[implementation plan](docs/development/control-surfaces.md) for bounded work
+packets, ownership, protocol evidence, acceptance, and stop conditions.
+
+- **Shared — Planned:** typed surface actions and feedback reuse existing
+  transport, recording, mixer, stable parameter addresses, and automation;
+  concurrent fader gestures preserve history and project-write authority.
+- **Electron Only — Planned:** opt-in setup inside **Edit > Preferences > Audio
+  settings**, explicit input/output pairing, supervised native MIDI sessions,
+  track banking, hardware feedback, and generation-fenced disconnect/reconnect.
+  Qualify exact payloads and device profiles across the maintained five-target
+  desktop matrix; device identities remain local to the installation.
+- **Electron Only — Feasibility required:** establish EUCON SDK terms,
+  AGPL-compatible distribution, runtime/platform availability, network/service
+  boundaries, and real-device test access before committing to supported targets.
+
+The baseline covers transport, volume/pan, mute/solo, track selection/banking,
+supported labels/meters, and automation touch/move/release. Plug-in pages,
+surround controls, generic MIDI learn, and Framescaper integration are separate
+scope. Existing file-based MIDI editing and Web Core fallback remain usable
+with surfaces disabled or unavailable; surface setup requires no new project
+schema. Any later MIDI event-model/schema change retains the 8B compatibility
+review above.
+
+**Exit gate:** independent MCU/HUI fixtures, editor and preferences workflows,
+simultaneous automation gestures, undo/save/reopen, authority loss, reconnect,
+real-device profiles, and exact packaged-target evidence satisfy the plan.
+EUCON remains unclaimed until its separate feasibility and implementation gates
+pass.
 
 ### 9+. Installable distribution (PWA and Trusted Web Activity)
 
@@ -1146,6 +1182,7 @@ documentation when that work lands.
 | Framescaper capture | Permissions, supported source combinations, long-recording sync, device loss, recovery, and normal media handoff. |
 | Framescaper Web VCR | Record-dropdown-only availability, isolated persistent HTTPS browsing, target/manual crop, local-mute independence, background capture, quit recovery, capability-gated resolution, cropped-only retention, and normal recorded-media handoff. |
 | MIDI (post-1.0 9+) | Tests derived from pinned Audacity design: migration, timing, fallback, instruments, accessibility, Scape, and AUP4. |
+| Control surfaces (post-1.0 9+) | Independent MCU/HUI traces, opt-in setup, bidirectional controls, concurrent automation/history, stale-project and reconnect fences, tested device profiles, and exact native-target packages; EUCON additionally requires SDK/distribution and platform feasibility. |
 | Framescaper origin transfer | Multi-project cutover across origins: resumable after a killed receiver, exactly one copy per project, reported omissions matching the round-trip fixture matrix, no side-effect deletion, and no redirect loop for an installed pre-cutover app. |
 | Installable distribution | Distinct installable apps with disjoint scopes, touch operation at the recorded tablet viewports, cross-origin isolation on installed and shell-served navigations, screen-off export or its enforced refusal, offline localized open/effect/export, and survival of a product-version bump. |
 | Accessibility | Keyboard and assistive-technology completion at supported zoom, contrast, locale, and direction. |
