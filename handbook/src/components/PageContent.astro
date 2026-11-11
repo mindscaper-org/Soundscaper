@@ -1,0 +1,18 @@
+---
+import Default from '@astrojs/starlight/components/TwoColumnContent.astro';
+
+const fullWidth = Astro.locals.starlightRoute.entry.data.layoutPreset === 'full-width';
+---
+
+<div class:list={{ 'full-width': fullWidth }}>
+	<Default>
+		<slot />
+		<slot name="right-sidebar" slot="right-sidebar" />
+	</Default>
+</div>
+
+<style>
+	.full-width {
+		--sl-content-width: 100%;
+	}
+</style>

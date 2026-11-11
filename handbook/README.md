@@ -73,6 +73,21 @@ in `scripts/lib/handbook-chrome.mjs` and one catalog per language under
 `handbook/i18n/`; the same run translates it. Everything else in the sidebar is
 a page's own frontmatter title and translates with the page.
 
+## Page layouts
+
+Pages use Starlight's standard reading layout by default. For wide comparisons
+or other content that needs the available width beside the handbook navigation,
+set this frontmatter preset:
+
+```yaml
+layoutPreset: full-width
+```
+
+The preset removes the article width limit and the expanding margins around
+the article. The navigation and table of contents retain their normal widths,
+and the mobile layout stays responsive. The comparison page at
+`start/how-soundscaper-compares.md` uses this preset.
+
 ## Authoring links
 
 Write internal links root-absolute and base-free: `[Project files](/projects-and-data/project-files/)`.

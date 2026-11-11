@@ -106,6 +106,9 @@ export default defineConfig({
 				? [{ ...chromeLabel('sidebar.framescaper'), items: [{ autogenerate: { directory: '' } }] }]
 				: soundscaperSidebar,
 			customCss: ['./src/styles/custom.css'],
+			components: {
+				TwoColumnContent: './src/components/PageContent.astro',
+			},
 		}),
 	],
 });

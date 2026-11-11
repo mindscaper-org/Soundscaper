@@ -1,5 +1,6 @@
 ---
 title: How Soundscaper compares
+layoutPreset: full-width
 description: Compare Soundscaper Web and Desktop with Audacity, Adobe Audition, Pro Tools Studio, and SoundCraft across editing, mixing, and delivery.
 sidebar:
   order: 3

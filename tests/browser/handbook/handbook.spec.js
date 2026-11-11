@@ -94,6 +94,43 @@ test('states a local model purpose and keeps packaged-test mechanics collapsed',
 	await expect(disclosure.getByText(/silero-voice-activity/u)).toBeVisible();
 });
 
+test('gives the comparison page full width while standard pages keep their reading layout', async ({ page }) => {
+	await page.setViewportSize({ width: 1600, height: 1000 });
+	await page.goto(`${BASE}start/how-soundscaper-compares/`);
+	const comparisonTitle = page.getByRole('heading', { level: 1, name: 'How Soundscaper compares' });
+	await expect(comparisonTitle).toBeVisible();
+	const comparisonWidth = (await comparisonTitle.boundingBox()).width;
+	expect(comparisonWidth).toBeGreaterThan(900);
+	const sidebarLink = page.getByRole('navigation', { name: 'Main', exact: true })
+		.getByRole('link', { name: 'How Soundscaper compares', exact: true });
+	const contents = page.getByRole('navigation', { name: 'On this page', exact: true });
+	await expect(sidebarLink).toBeVisible();
+	await expect(contents).toBeVisible();
+	for (const width of [1600, 2400]) {
+		await page.setViewportSize({ width, height: 1000 });
+		const titleBox = await comparisonTitle.boundingBox();
+		const sidebarBox = await sidebarLink.boundingBox();
+		const contentsBox = await contents.boundingBox();
+		expect(titleBox.x - (sidebarBox.x + sidebarBox.width)).toBeLessThanOrEqual(64);
+		expect(contentsBox.x - (titleBox.x + titleBox.width)).toBeLessThanOrEqual(64);
+		expect(contentsBox.width).toBeLessThanOrEqual(300);
+	}
+
+	await page.setViewportSize({ width: 1600, height: 1000 });
+	await page.goto(`${BASE}soundscaper/recording/`);
+	const standardTitle = page.getByRole('heading', { level: 1 });
+	await expect(standardTitle).toBeVisible();
+	expect((await standardTitle.boundingBox()).width).toBeLessThan(comparisonWidth - 180);
+	await expect(page.getByRole('navigation', { name: 'On this page', exact: true })).toBeVisible();
+
+	await page.setViewportSize({ width: 390, height: 844 });
+	await page.goto(`${BASE}start/how-soundscaper-compares/`);
+	await expect(comparisonTitle).toBeVisible();
+	await expect(page.getByRole('navigation', { name: 'On this page', exact: true })).toBeVisible();
+	const pageWidth = await page.evaluate(() => ({ content: document.documentElement.scrollWidth, viewport: window.innerWidth }));
+	expect(pageWidth.content).toBeLessThanOrEqual(pageWidth.viewport);
+});
+
 test('compares Web and Desktop with accessible symbols and explains the capability differences', async ({ page }) => {
 	await page.goto(`${BASE}start/how-soundscaper-compares/`);
 	await expect(page.getByRole('heading', { level: 1, name: 'How Soundscaper compares' })).toBeVisible();
