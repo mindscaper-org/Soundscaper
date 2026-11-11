@@ -16,11 +16,11 @@ const PROJECT_EXTENSIONS = Object.freeze(
 );
 const NATIVE_PROJECT_EXTENSION = PROJECT_FILE_EXTENSION.slice(1);
 const MEDIA_IMPORT_EXTENSIONS = Object.freeze([
-	'aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'cue', 'edl', 'otio', 'fcpxml', 'omf', 'omfi', 'flac', 'gro', 'm4a', 'm4v', 'mid', 'midi', 'mka', 'mov', 'mp2', 'mp3', 'mp4',
+	'aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'cue', 'edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf', 'flac', 'gro', 'm4a', 'm4v', 'mid', 'midi', 'mka', 'mov', 'mp2', 'mp3', 'mp4',
 	'oga', 'ogg', 'opus', 'rf64', 'srt', 'txt', 'vtt', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv',
 ]);
 const AUDIO_VIDEO_IMPORT_EXTENSIONS = Object.freeze(MEDIA_IMPORT_EXTENSIONS.filter(
-	(extension) => !['cue', 'gro', 'mid', 'midi', 'srt', 'txt', 'vtt', 'edl', 'otio', 'fcpxml', 'omf', 'omfi'].includes(extension),
+	(extension) => !['cue', 'gro', 'mid', 'midi', 'srt', 'txt', 'vtt', 'edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf'].includes(extension),
 ));
 const PROJECT_OPEN_EXTENSIONS = Object.freeze([
 	...new Set([...PROJECT_EXTENSIONS, 'aup', 'aup3', 'aup4', 'dawproject', 'ses', 'sesx', ...MEDIA_IMPORT_EXTENSIONS]),
@@ -97,14 +97,14 @@ const SAVE_PURPOSES = Object.freeze({
 	video: Object.freeze({
 		defaultExtension: 'mp4',
 		filters: [
-			{ name: 'Video', extensions: ['mp4', 'webm'] },
+			{ name: 'Video', extensions: ['mp4', 'mov', 'webm'] },
 			{ name: 'All files', extensions: ['*'] },
 		],
 	}),
 	media: Object.freeze({
 		defaultExtension: 'mp4',
 		filters: [
-			{ name: 'Audio and video', extensions: ['7z', 'aac', 'aif', 'aiff', 'flac', 'm4a', 'mp2', 'mp3', 'mp4', 'ogg', 'opus', 'wav', 'webm', 'wv', 'zip'] },
+			{ name: 'Audio and video', extensions: ['7z', 'aac', 'aif', 'aiff', 'flac', 'm4a', 'mp2', 'mp3', 'mp4', 'mov', 'ogg', 'opus', 'wav', 'webm', 'wv', 'zip'] },
 			{ name: 'All files', extensions: ['*'] },
 		],
 	}),
@@ -120,7 +120,7 @@ const SAVE_PURPOSES = Object.freeze({
 	// here rather than each adding a purpose of its own.
 	interchange: Object.freeze({
 		defaultExtension: 'edl',
-		filters: [{ name: 'Edit interchange', extensions: ['edl', 'otio', 'fcpxml', 'omf', 'omfi', 'xml', 'dawproject', 'mid', 'midi', 'gro'] }],
+		filters: [{ name: 'Edit interchange', extensions: ['edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf', 'xml', 'dawproject', 'mid', 'midi', 'gro'] }],
 	}),
 	translation: Object.freeze({
 		defaultExtension: 'json',

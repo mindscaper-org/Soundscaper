@@ -4,9 +4,11 @@ import { standardDelayTailSeconds } from './delay-definition.ts';
 import { isStandardFilterEffect, standardFilterTailSeconds } from './filters-definition.ts';
 import { standardVocoderTailSeconds } from './modulation-definition.ts';
 import { standardNoiseGateTailSeconds } from './noise-gate-definition.ts';
+import { humRemovalTailSeconds } from '../hum-removal/definition.ts';
 
 /** Startup-safe release contract; null delegates to other effect families. */
 export function standardEffectTailSeconds(type: string, params: Readonly<Record<string, unknown>>, sampleRate: number): number | null {
+	if (type === 'hum-removal') return humRemovalTailSeconds(params, sampleRate);
 	if (type === 'multi-tap-delay') return standardDelayTailSeconds(params, sampleRate);
 	if (type === 'vocoder') return standardVocoderTailSeconds(params, sampleRate);
 	if (type === 'noise-gate') return standardNoiseGateTailSeconds(params, sampleRate);

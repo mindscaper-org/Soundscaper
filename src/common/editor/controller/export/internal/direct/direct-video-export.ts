@@ -48,7 +48,7 @@ export type DirectVideoPreparation = Readonly<{
 export type DirectVideoOutput = Readonly<{
 	byteLength: number;
 	directDestination: DirectVideoDestination;
-	mimeType: 'video/mp4' | 'video/webm';
+	mimeType: 'video/mp4' | 'video/webm' | 'video/quicktime';
 }>;
 
 const preparedContracts = new WeakMap<DirectVideoDestination, DirectVideoContract>();
@@ -297,7 +297,7 @@ function saveRequest(
 
 function videoFileTypes(descriptor: VideoFormatDescriptor): readonly Readonly<Record<string, unknown>>[] {
 	return Object.freeze([Object.freeze({
-		description: descriptor.id === 'mp4' ? 'MP4 video' : 'WebM video',
+		description: descriptor.id === 'mov' ? 'MOV video' : descriptor.id === 'mp4' ? 'MP4 video' : 'WebM video',
 		accept: Object.freeze({
 			[descriptor.mimeType]: Object.freeze([`.${descriptor.extension}`]),
 		}),

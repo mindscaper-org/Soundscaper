@@ -21,6 +21,10 @@ export async function resolvePlatformVideoDeliveryEncoder(
 	request: VideoDeliveryEncoderTierRequest,
 ): Promise<VideoDeliveryEncoderDecision> {
 	if (fileService?.isDesktop !== true) return resolveVideoDeliveryEncoderTier(request);
+	if (request.format === 'mov') {
+		await assertDesktopVideoExportAvailable(fileService, request.format);
+		return VIDEO_DELIVERY_FFMPEG_ENCODER;
+	}
 	try {
 		return await resolveVideoDeliveryEncoderTier({ ...request, hardwareAcceleration: 'prefer-hardware' });
 	} catch (error) {

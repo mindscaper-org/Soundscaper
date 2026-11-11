@@ -19,6 +19,7 @@ Audio effects are registered by Soundscaper. Effects whose ID begins with `audac
 | Amplify | `audacity-amplify` | Volume and dynamics | No | Yes | — |
 | Auto Duck | `audacity-auto-duck` | Volume and dynamics | Yes | Yes | Needs a control track |
 | Auto-Tune | `auto-tune` | Pitch and tempo | Yes | Yes | Solo voice or melody (65–1500 Hz); chromatic, major or natural minor pitch correction; StaffPad formant preservation; fixed rack latency (about 72 ms at 48 kHz), live controls, no timeline automation |
+| Automatic phase correction | `automatic-phase-correction` | Noise and repair | No | Yes | Selection-only fixed stereo timing alignment, from 8 kHz to 384 kHz; Reference channel, duration and levels are preserved; ambiguous or inconsistent offsets remain unchanged; Analyze reports the offset and confidence; Original/Corrected and mono are preview-only controls |
 | Bass and Treble | `audacity-bass-treble` | EQ and filters | Yes | Yes | — |
 | Bitcrusher | `bitcrusher` | Distortion and modulation | Yes | Yes | — |
 | Change Pitch | `audacity-change-pitch` | Pitch and tempo | No | Yes | Uses the StaffPad time and pitch library |
@@ -38,6 +39,7 @@ Audio effects are registered by Soundscaper. Effects whose ID begins with `audac
 | Gate | `gate` | Volume and dynamics | Yes | No | — |
 | Graphic EQ | `audacity-graphic-eq` | EQ and filters | Yes | Yes | — |
 | High-pass filter | `highpass-filter` | EQ and filters | Yes | Yes | — |
+| Hum removal | `hum-removal` | Noise and repair | Yes | Yes | Harmonic notch bank with custom fundamental, harmonic count, notch width and reduction; Live controls, zero latency, no timeline automation; selections keep their duration |
 | Invert | `audacity-invert` | Special | Yes | Yes | — |
 | Legacy Compressor | `audacity-legacy-compressor` | Volume and dynamics | No | Yes | — |
 | Limiter | `audacity-limiter` | Volume and dynamics | Yes | Yes | — |
@@ -66,6 +68,12 @@ Audio effects are registered by Soundscaper. Effects whose ID begins with `audac
 | Utility Gain (Reviewed) | `reviewed-utility-gain` | Volume and dynamics | No | Yes | — |
 | Vocoder | `vocoder` | Distortion and modulation | Yes | Yes | Stereo uses the left channel as voice and the right as carrier; mono uses a synthesized carrier; Output keeps the input channel count |
 | Wahwah | `audacity-wahwah` | Distortion and modulation | Yes | Yes | — |
+
+## Hum removal {#hum-removal}
+
+Choose Effect > Noise removal and repair > Hum removal to preview or apply it to selected audio, or add Hum removal to a realtime rack. Set Fundamental frequency to 50 or 60 Hz for mains hum, or a custom value between 20 and 400 Hz. Harmonics includes the fundamental; only notches whose width fits below half the sample rate are used. Notch width is the nominal full-depth notch bandwidth in Hz and stays constant across the harmonic series. Reduction sets the attenuation at each notch center; zero leaves audio unchanged. Use narrow notches and the fewest harmonics that remove the hum to preserve wanted audio.
+
+The same causal filter bank processes selection previews, playback and export with independent channel histories and no added latency. Live parameter changes crossfade over 20 ms without rebuilding the rack; timeline automation is unavailable. Rack playback and export include filter release subject to the existing combined 10-second tail limit. Applying the effect to a selection keeps its duration. The downloadable Nyquist Comb Filter and Hum Remover remain separate selection effects.
 
 ## Regular streaming replacements {#regular-streaming-replacements}
 
@@ -125,6 +133,9 @@ Defaults and limits come from the same definitions the editor validates against,
 | Auto-Tune | `auto-tune` | Key | C | C; C♯ / D♭; D; D♯ / E♭; E; F; F♯ / G♭; G; G♯ / A♭; A; A♯ / B♭; B | — |
 | Auto-Tune | `auto-tune` | Scale | Chromatic | Chromatic; Major; Natural minor | — |
 | Auto-Tune | `auto-tune` | Control Track Id | — | Optional MIDI control track ID; empty uses the selected key and scale | — |
+| Automatic phase correction | `automatic-phase-correction` | Maximum correction (ms) | 5 | 0 to 10 | ms |
+| Automatic phase correction | `automatic-phase-correction` | Minimum confidence (%) | 85 | 50 to 100 | % |
+| Automatic phase correction | `automatic-phase-correction` | Reference channel | Left | Left; Right | — |
 | Bass and Treble | `audacity-bass-treble` | Bass | 0 | -30 to 30 | dB |
 | Bass and Treble | `audacity-bass-treble` | Treble | 0 | -30 to 30 | dB |
 | Bass and Treble | `audacity-bass-treble` | Output volume | 0 | -30 to 30 | dB |
@@ -188,6 +199,10 @@ Defaults and limits come from the same definitions the editor validates against,
 | Graphic EQ | `audacity-graphic-eq` | FIR filter length | 8191 | 21 to 8191 | — |
 | High-pass filter | `highpass-filter` | Cutoff frequency | 1000 | 0.1 to 192000 | Hz |
 | High-pass filter | `highpass-filter` | Rolloff | 6 dB/octave | 6 dB/octave; 12 dB/octave; 24 dB/octave; 36 dB/octave; 48 dB/octave | — |
+| Hum removal | `hum-removal` | Fundamental frequency | 50 | 20 to 400 | Hz |
+| Hum removal | `hum-removal` | Harmonics | 8 | 1 to 32 | — |
+| Hum removal | `hum-removal` | Notch width | 2 | 0.5 to 20 | Hz |
+| Hum removal | `hum-removal` | Reduction | 24 | 0 to 60 | dB |
 | Legacy Compressor | `audacity-legacy-compressor` | Threshold | -12 | -60 to -1 | dB |
 | Legacy Compressor | `audacity-legacy-compressor` | Noise floor | -40 | -80 to -20 | dB |
 | Legacy Compressor | `audacity-legacy-compressor` | Ratio | 2 | 1.1 to 10 | — |

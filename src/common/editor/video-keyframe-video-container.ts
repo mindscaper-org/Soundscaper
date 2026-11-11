@@ -14,7 +14,7 @@ export function assertFiniteVideoKeyframeContainer(
 	bytes: Uint8Array,
 	format: VideoKeyframeEncoderFormat,
 ): void {
-	if (format === 'mp4') assertFiniteMp4(bytes);
+	if (format === 'mp4' || format === 'mov') assertFiniteMp4(bytes);
 	else assertFiniteWebm(bytes);
 }
 

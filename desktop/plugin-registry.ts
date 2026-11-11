@@ -296,11 +296,7 @@ export class DesktopPluginRegistry {
 		});
 	}
 
-	/**
-	 * The only path from the registry to something that can run. It refuses an
-	 * instrument, an installation that is not the active one, and every ineligible
-	 * entry, so no arrangement of public calls hosts a scanned instrument.
-	 */
+	/** Grants only the selected, compatible, explicitly allowed installation. */
 	hostGrantFor(installationId: string): HelperPluginHostJobGrant {
 		const [entry, installation] = this.#locate(installationId);
 		const reason = this.#ineligibleReason(entry);
@@ -347,18 +343,15 @@ export class DesktopPluginRegistry {
 	}
 
 	#ineligibleReason(entry: Entry): PluginIneligibleReason | null {
-		// Checked across every installation rather than only the active one: an
-		// identity that is an instrument anywhere is never offered, whatever the
-		// user later selects.
-		if ([...entry.installations.values()].some(({ observation }) => observation.classification === 'instrument')) {
-			return 'instrument-not-offered';
-		}
+		const classifications = new Set([...entry.installations.values()].map(({ observation }) => observation.classification));
+		if (classifications.size !== 1) return 'classification-unknown';
+		if (classifications.has('instrument') && !['vst2', 'vst3', 'lv2'].includes(entry.format)) return 'instrument-not-offered';
 		const active = this.#active(entry);
 		if (!active) return 'identity-collision';
 		if (this.#isQuarantined(active.observation.binarySha256)) return 'quarantined';
 		const { observation } = active;
 		if (observation.compatibility !== 'compatible') return 'incompatible';
-		if (observation.classification !== 'effect') return 'classification-unknown';
+		if (observation.classification === 'unknown') return 'classification-unknown';
 		if (!observation.realtimeSupported && !observation.offlineSupported) return 'no-supported-mode';
 		if (!selectPluginHostTopology(observation)) return 'incompatible';
 		if (!active.allowed) return 'allowance-required';

@@ -129,7 +129,7 @@ test('admission has a finite format grammar and rejects hostile fields before FF
 	]) {
 		assert.throws(
 			() => admission(frameSource, unsafe),
-			/unsupported field|format must be mp4 or webm/u,
+			/unsupported field|format must be mp4, webm, or mov/u,
 		);
 	}
 	assert.throws(

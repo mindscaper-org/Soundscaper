@@ -3,6 +3,7 @@
 /** Addon-shaped async proxy for the actually isolated professional plug-in peer. */
 
 import { realpath } from 'node:fs/promises';
+import { validatePluginMidiEvents } from './plugin-midi-events.ts';
 import { createAraPluginPeerMethods } from './ara-plugin-peer.ts';
 import { dirname } from 'node:path';
 
@@ -201,6 +202,18 @@ export function createSoundscaperProfessionalPluginPeer(options: Readonly<{
 			const { inputChannels, outputChannels } = liveInstance(value).description;
 			return Object.freeze({ inputChannels, outputChannels });
 		},
+		pluginMidiEvents: async (value: PeerInstance, frames: number, events: unknown) => {
+			const messages = validatePluginMidiEvents(events, frames);
+			const answer = await liveInstance(value).session.request(20, writer => {
+				writer.unsigned32(frames); writer.unsigned32(messages.length);
+				for (const event of messages) {
+					writer.unsigned32(event.frame);
+					writer.unsigned32(event.data[0]! | event.data[1]! << 8 | (event.data[2] ?? 0) << 16);
+				}
+			});
+			answer.done();
+		},
+
 		processPluginBlock: async (
 			value: PeerInstance, frames: number, input: readonly Float32Array[] | null,
 			output: readonly Float32Array[],

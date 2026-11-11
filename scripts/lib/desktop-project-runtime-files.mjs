@@ -9,6 +9,7 @@ export const DESKTOP_PROJECT_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/frozen-record-id-index.js',
 	'src/common/editor/midi-file-types.js',
 	'src/common/editor/midi-model.js',
+	'src/common/editor/midi-native-instrument.js',
 	'src/common/editor/project-audio-warp-validation.js',
 	'src/common/editor/project-bext-metadata.js',
 	'src/common/editor/project-command-musical-labels.js',

@@ -64,8 +64,11 @@ export function normalizeRequest(value: VideoKeyframeVideoEncoderRequest, deskto
 	assertVideoKeyframeExportFrameSource(frameSource);
 	const producer = data(record, 'producer', 'video keyframe video encoder request');
 	const format = data(record, 'format', 'video keyframe video encoder request');
-	if (format !== 'mp4' && format !== 'webm') {
-		throw new RangeError('Video keyframe video encoder format must be mp4 or webm.');
+	if (format !== 'mp4' && format !== 'webm' && format !== 'mov') {
+		throw new RangeError('Video keyframe video encoder format must be mp4, webm, or mov.');
+	}
+	if (format === 'mov' && !desktopExternalFfmpeg) {
+		throw new RangeError('MOV export requires desktop external FFmpeg.');
 	}
 	const maximumOutputBytes = boundedMaximum(
 		optional(record, 'maximumOutputBytes', outputLimit),

@@ -13,6 +13,7 @@ import {
 import { createClipSpreadsheetAction } from './internal/clip-spreadsheet-action.ts';
 import { createAuditionOutputActions } from './internal/audition-output-actions.ts';
 import { createMidiActionGroup } from './midi-action-group.ts';
+import { createInterchangeFileImport } from './internal/interchange-file-import.ts';
 import { createMidiPendingAnalysisActions, createMidiPendingSnapshotAdmission } from './internal/midi-controller-port.ts';
 import { createMixerParameterActions } from './internal/mixer-parameter-actions.ts';
 import { createProjectOwnedFeatureActionFacades } from './internal/project-owned-feature-action-facades.ts';
@@ -169,7 +170,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			duplicate: afterMidiEdits(duplicateProject),
 			remove: deleteProject,
 			clear: clearLocalData,
-			importFiles: midi.importFiles,
+			importFiles: createInterchangeFileImport(midi.importFiles, openInterchange),
 			cancelTask: () => scope.taskProgress?.cancelActive() ?? false,
 			setTempo: (bpm: number) => commit({ type: 'tempo/set', bpm }),
 			setTimeSignature: (numerator: number, denominator: number) => commit({ type: 'tempo/set', numerator, denominator }),
@@ -500,7 +501,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			active: () => state.phase !== 'disposing' && state.phase !== 'disposed',
 		}, action => restricted('audioAnalysis', action)),
 		export: Object.freeze({ ...exportActions, exportEdl: afterMidiEdits(exportActions.exportEdl),
-			exportOtio: afterMidiEdits(exportActions.exportOtio), exportFcpxml: afterMidiEdits(exportActions.exportFcpxml), exportOmf: afterMidiEdits(exportActions.exportOmf) }),
+			exportOtio: afterMidiEdits(exportActions.exportOtio), exportFcpxml: afterMidiEdits(exportActions.exportFcpxml), exportOmf: afterMidiEdits(exportActions.exportOmf), exportAaf: afterMidiEdits(exportActions.exportAaf) }),
 		media: createProjectMediaActionGroup({
 			state, getProject, store, publishDocumentSnapshot, setStatus, copy, fileService, ffmpeg, commit, saveScape: () => Promise.resolve(saveCurrentScape()),
 		}),

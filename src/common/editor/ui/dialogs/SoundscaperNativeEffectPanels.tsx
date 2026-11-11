@@ -85,7 +85,7 @@ export function SoundscaperNativeEffectManagePanel({
 						|| (selected.installations.length > 1 && !installation.selected)}
 					data-native-plugin-instantiate={installation.installationId}
 					onClick={() => perform({ type: 'instantiate-plugin', installationId: installation.installationId })}>
-					{copy.instantiatePlugin}</Button>}
+					{selected.classification === 'instrument' ? copy.assignInstrument : copy.instantiatePlugin}</Button>}
 				</div>
 			</li>)}</ul>
 		</section> : visible.length > 0 && <p>{copy.choosePlugin}</p>}
@@ -119,22 +119,22 @@ function PluginInstanceControls({ copy, state, disabled, perform }: SoundscaperN
 			loading: copy.pluginParametersLoading,
 			unavailable: copy.pluginParametersUnavailable,
 		}} />
-		<details className="kw-processing-details"><summary>{copy.pluginOfflineDetails}</summary>
+		{instance.classification !== 'instrument' && <details className="kw-processing-details"><summary>{copy.pluginOfflineDetails}</summary>
 		<p>{formatLocalizedTemplate(copy.latencyFrames, { count: number.format(instance.latencySamples) })}</p>
 		<Button variant="secondary" disabled={disabled} data-native-plugin-run-offline="true"
 			onClick={() => perform({ type: 'run-plugin-offline', instanceId: instance.instanceId })}
-		>{copy.runPluginOffline}</Button></details>
-		<Button variant="secondary" disabled={disabled} data-native-plugin-bypass={String(!instance.bypassed)}
+		>{copy.runPluginOffline}</Button></details>}
+		{instance.classification !== 'instrument' && <Button variant="secondary" disabled={disabled} data-native-plugin-bypass={String(!instance.bypassed)}
 			onClick={() => perform({
 				type: 'set-plugin-bypassed', instanceId: instance.instanceId, bypassed: !instance.bypassed,
 			})}
-		>{instance.bypassed ? copy.enablePlugin : copy.bypassPlugin}</Button>
+		>{instance.bypassed ? copy.enablePlugin : copy.bypassPlugin}</Button>}
 		<Button variant="secondary" disabled={disabled} data-native-plugin-persist-state="true"
 			onClick={() => perform({
 				type: 'persist-plugin-state', instanceId: instance.instanceId,
 				generation: nextGeneration,
 			})}
-		>{copy.storePluginState}</Button>
+		>{instance.classification === 'instrument' ? copy.storeInstrumentState : copy.storePluginState}</Button>
 		<Button variant="secondary" disabled={disabled || state.pluginStateBody === null}
 			data-native-plugin-restore-state="true"
 			onClick={() => { if (state.pluginStateBody !== null) perform({

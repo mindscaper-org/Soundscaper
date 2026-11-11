@@ -217,6 +217,24 @@ describe linked WAV sources. Overlapping clips become separate tracks. Import
 reads embedded WAV/AIFF or retains linked references, and reports unsupported
 components. The profile does not carry picture or editable MIDI authoring.
 
+AAF uses standard AAF 1.2 objects in a bounded Compound File Binary container.
+File > Open, Import and drop routing read audio cuts through composition,
+master and source mobs, including linked media, embedded WAV/AIFF and
+uncompressed PCM essence. Missing sources retain offline edits for relinking.
+Single-input effect groups retain their cuts and report omitted processing;
+transitions become reported overlapping cuts. Other unsupported components keep
+their duration as a reported gap. Source offsets use the referenced slot's edit
+rate, independently of the composition rate.
+
+File > Export other > Export AAF writes mono/stereo audio cuts, source offsets,
+gaps, names and exact sequence timecode, and embeds whole sources as 24-bit WAV.
+It shares OMF's source staging and 256 MiB decoded-PCM limit. Overlapping clips
+use separate tracks. Picture, editable MIDI, processing and automation losses
+appear in the delivery report. The domain writer also supports linked WAV
+references. The AAF reader, writer and standard dictionary load on demand;
+normal products require no Python runtime. The dictionary seed and independent
+reader checks are described in the conformance reference.
+
 DAWproject is project exchange, not a rendered edit list. Muted tracks are
 exported as muted rather than omitted. Exact sample positions, beat-positioned
 tempo and signature maps, and float32 WAV media preserve the maintained scope.

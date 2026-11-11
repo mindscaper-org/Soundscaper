@@ -358,7 +358,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 								? copy.customFfmpeg
 								: descriptor.id === 'bwf' ? copy.broadcastWav : descriptor.label,
 						})),
-						...(hasTimelineVideo ? VIDEO_EXPORT_DIALOG_FORMATS.map((descriptor) => ({
+						...(hasTimelineVideo ? VIDEO_EXPORT_DIALOG_FORMATS.filter((descriptor) => (!descriptor.desktopOnly || desktop) && (!descriptor.productId || descriptor.productId === (productId || 'soundscaper'))).map((descriptor) => ({
 							value: descriptor.id,
 							label: copy[descriptor.labelKey],
 						})) : []),

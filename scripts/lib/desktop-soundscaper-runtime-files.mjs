@@ -86,6 +86,7 @@ export const DESKTOP_SOUNDSCAPER_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/native-plugin-effect.js',
 	'src/common/editor/native-plugin-realtime-contract.js',
 	'src/common/editor/native-plugin-realtime-node.js',
+	'src/common/editor/native-midi-port.js',
 	'src/common/editor/native-plugin-realtime-worklet.js',
 	'src/common/i18n/editor-project-recovery-copy.js',
 	'src/common/i18n/editor-recording-recovery-copy.js',

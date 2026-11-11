@@ -17,7 +17,7 @@ import {
 	type DesktopVideoH264Encoder,
 } from './desktop-video-h264-encoder.js';
 
-export type DesktopVideoCodecFormat = 'mp4' | 'webm';
+export type DesktopVideoCodecFormat = 'mp4' | 'webm' | 'mov';
 
 export interface DesktopVideoCodecOperationPlan {
 	readonly schemaVersion: 1;
@@ -77,7 +77,7 @@ export function normalizeDesktopVideoCodecOperationPlan(
 	if (data(record, 'schemaVersion') !== 1) {
 		throw new TypeError('Desktop video codec operation plan schemaVersion is unsupported.');
 	}
-	const format = enumValue(data(record, 'format'), ['mp4', 'webm'], 'format');
+	const format = enumValue(data(record, 'format'), ['mp4', 'webm', 'mov'], 'format');
 	const quality = enumValue(
 		data(record, 'quality'), VIDEO_DELIVERY_QUALITY_TIERS, 'quality',
 	);
@@ -181,14 +181,15 @@ export function createDesktopExternalFfmpegVideoCapabilities(
 			? { available: true, provider: 'external-ffmpeg' as const, reason: null }
 			: {
 				available: false, provider: null, reason: configured
-					? `The configured FFmpeg does not expose the exact ${format === 'mp4' ? 'H264/AAC MP4' : 'VP9/Opus WebM'} encoder and muxer set.`
-					: `Desktop ${format === 'mp4' ? 'MP4' : 'WebM'} export needs a compatible external FFmpeg. Manage it in Edit > Preferences > General.`,
+					? `The configured FFmpeg does not expose the exact ${format === 'mov' ? 'H264/AAC MOV' : format === 'mp4' ? 'H264/AAC MP4' : 'VP9/Opus WebM'} encoder and muxer set.`
+					: `Desktop ${format === 'mov' ? 'MOV' : format === 'mp4' ? 'MP4' : 'WebM'} export needs a compatible external FFmpeg. Manage it in Edit > Preferences > General.`,
 			});
 	};
 	return Object.freeze({
 		schemaVersion: 1,
 		formats: Object.freeze({
 			mp4: capability('mp4', [desktopVideoH264EncoderCandidates(value, platform)[0] ?? 'libx264', 'aac'], 'mp4'),
+			mov: capability('mov', ['libx264', 'aac'], 'mov'),
 			webm: capability('webm', ['libvpx-vp9', 'libopus'], 'webm'),
 		}),
 	});
@@ -223,7 +224,7 @@ function admittedWorkload(plan: Omit<DesktopVideoCodecOperationPlan, 'schemaVers
 }
 
 function outputPath(format: DesktopVideoCodecFormat): string {
-	return format === 'mp4' ? MP4_OUTPUT_SENTINEL : WEBM_OUTPUT_SENTINEL;
+	return format === 'mov' ? '/desktop-video-output.mov' : format === 'mp4' ? MP4_OUTPUT_SENTINEL : WEBM_OUTPUT_SENTINEL;
 }
 
 function closedRecord(value: unknown, fields: ReadonlySet<string>, name: string): Record<string, unknown> {

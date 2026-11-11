@@ -6,6 +6,7 @@
 	"type": "module",
 	"main": "desktop/main.mjs",
 	"imports": {
+		"#desktop-runtime/plugin-midi-events": "./desktop/plugin-midi-events.ts",
 		"#desktop-runtime/ffmpeg-video-source-characteristics": "./src/common/editor/ffmpeg-video-source-characteristics.ts",
 		"#desktop-runtime/ffmpeg-video-timing-probe": "./src/common/editor/ffmpeg-video-timing-probe.ts",
 		"#desktop-runtime/helper-contract": "./desktop/helper-contract.ts",

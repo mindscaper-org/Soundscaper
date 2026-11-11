@@ -725,6 +725,36 @@ The artifact also retains each staged npm package's installed `LICENSE`,
 distribution does not change the dependency surface of the normal Soundscaper
 or Framescaper desktop executables.
 
+## AAF standard dictionary
+
+The AAF exporter carries a standard dictionary seed generated with `pyaaf2 1.7.1`
+(MIT; <https://github.com/markreidvfx/pyaaf2>).
+`src/common/editor/aaf/standard-dictionary.json` retains its payload SHA-256.
+`scripts/generate-aaf-template.py` reproduces it from the pinned reference wheel
+in `config/interchange-conformance-tools.json`. The application uses its own
+TypeScript reader and writer and needs no Python runtime.
+
+The MIT License (MIT)
+
+Copyright (c) 2017 Mark Reid
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 ## Interchange conformance reference implementations
 
 The opt-in interchange reference tests execute these pinned Python packages as
@@ -736,6 +766,7 @@ them:
 - `otio-cmx3600-adapter 1.0.0` — Apache-2.0; source: <https://github.com/OpenTimelineIO/otio-cmx3600-adapter/tree/v1.0.0>
 - `otio-fcpx-xml-adapter 1.0.0` — Apache-2.0; source: <https://github.com/OpenTimelineIO/otio-fcpx-xml-adapter/tree/v1.0.0>
 - `xmlschema 3.4.5` — MIT; Copyright (c) 2016-2024 SISSA; source: <https://github.com/sissaschool/xmlschema/tree/v3.4.5>
+- `pyaaf2 1.7.1` — MIT; Copyright (c) 2017 Mark Reid; source: <https://github.com/markreidvfx/pyaaf2>; license text above.
 - `elementpath 4.8.0` — MIT; Copyright (c) 2018-2025 SISSA; source: <https://github.com/sissaschool/elementpath/tree/v4.8.0>
 
 Exact package versions and wheel SHA-256 verification rules are recorded in

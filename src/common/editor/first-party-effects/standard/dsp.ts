@@ -4,6 +4,7 @@ import { validateChannels } from '../dynamics/core.ts';
 import type { StandardEffectType } from './definition.ts';
 import { isStandardFilterEffect } from './filters-definition.ts';
 import { createStandardFilterProcessor } from './filters-dsp.ts';
+import { createHumRemovalProcessor } from '../hum-removal/dsp.ts';
 import { createTremoloProcessor } from './tremolo-dsp.ts';
 import { createVocoderProcessor } from './vocoder-dsp.ts';
 import { createNoiseGateProcessor, createOfflineNoiseGateProcessor } from './noise-gate-dsp.ts';
@@ -32,6 +33,7 @@ export interface StandardEffectProcessor {
 export function createStandardEffectProcessor(options: StandardEffectOptions): StandardEffectProcessor {
 	if (isStandardFilterEffect(options.type)) return createStandardFilterProcessor({ ...options, type: options.type, params: options.params ?? {} });
 	switch (options.type) {
+		case 'hum-removal': return createHumRemovalProcessor(options);
 		case 'tremolo': return createTremoloProcessor(options);
 		case 'vocoder': return createVocoderProcessor(options);
 		case 'noise-gate': return createNoiseGateProcessor(options);

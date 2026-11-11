@@ -23,9 +23,10 @@ const WORKING_DIRECTORY = '/private/video-canary';
 const FFPROBE_PATH = '/opt/ffprobe';
 const OUTPUT_LIMIT = 64 * 1024;
 
-test('inspects MP4 and WebM with one exact bounded shell-free ffprobe command', async () => {
+test('inspects MP4, MOV, and WebM with one exact bounded shell-free ffprobe command', async () => {
 	for (const [format, streams] of [
 		['mp4', [stream(0, 'video', 'h264'), stream(1, 'audio', 'aac')]],
+		['mov', [stream(0, 'video', 'h264'), stream(1, 'audio', 'aac')]],
 		['webm', [stream(0, 'video', 'vp9'), stream(1, 'audio', 'opus')]],
 	] as const) {
 		const requests: ExternalFfmpegProcessRequest[] = [];

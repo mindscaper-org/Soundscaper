@@ -43,7 +43,7 @@ test('video export formats apply when a maintained visual clip is assigned to a 
 		tracks: [],
 		projectBin: project.projectBin,
 	}), false);
-	assert.deepEqual(VIDEO_EXPORT_DIALOG_FORMATS.map(({ id }) => id), ['video-mp4', 'video-webm']);
+	assert.deepEqual(VIDEO_EXPORT_DIALOG_FORMATS.map(({ id }) => id), ['video-mp4', 'video-webm', 'video-mov']);
 	assert.equal(isVideoExportDialogFormat('video-mp4'), true);
 	assert.equal(isVideoExportDialogFormat('mp4'), false);
 });

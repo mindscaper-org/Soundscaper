@@ -83,6 +83,7 @@ export async function resolveVideoDeliveryEncoderTier(
 	encoder: unknown = (globalThis as Record<string, unknown>).VideoEncoder,
 	audioEncoder: unknown = (globalThis as Record<string, unknown>).AudioEncoder,
 ): Promise<VideoDeliveryEncoderDecision> {
+	if (request.format === 'mov') throw unavailable('MOV export requires desktop external FFmpeg.');
 	if (!request.eligible) {
 		throw unavailable('only a keyed frame delivery can use the browser-native encoder and muxer.');
 	}

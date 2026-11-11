@@ -3,7 +3,7 @@
 import type { Rational } from './timeline-time.ts';
 import type { DeliveryReportItem } from './delivery-report.ts';
 
-export type TimelineInterchangeFormat = 'edl' | 'otio' | 'fcpxml' | 'omf';
+export type TimelineInterchangeFormat = 'edl' | 'otio' | 'fcpxml' | 'omf' | 'aaf';
 export interface TimelineInterchangeClip {
 	readonly id: string;
 	readonly name: string;

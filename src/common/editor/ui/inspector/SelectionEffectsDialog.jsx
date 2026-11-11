@@ -20,6 +20,8 @@ import EffectParameterEditor from './EffectParameterEditor.jsx';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { LabeledDropdown } from './inspector-controls.jsx';
 import { effectPresetChoices, safeEffectLabel, samePresetParams } from './effect-helpers.ts';
+import PhaseCorrectionAudition from './PhaseCorrectionAudition.tsx';
+import { phaseCorrectionPreviewReports } from '../../first-party-effects/phase-correction/preview-contract.ts';
 
 export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fileService, onClose }) {
 	const project = snapshot.project;
@@ -43,6 +45,14 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 	const [message, setMessage] = usePresentationFeedback(copy);
 	const [selectedPresetId, setSelectedPresetId] = useState('');
 	const [presetName, setPresetName] = useState('');
+	const [phaseAudition, setPhaseAudition] = useState({ source: 'corrected', mono: false });
+	const [phaseAnalysis, setPhaseAnalysis] = useState(null);
+	const phaseAnalysisKey = JSON.stringify([selectionType, selectionParams, project?.selection, snapshot.selectedTrackId,
+		snapshot.selectedClipId, controller.actions.effects.readSourceSelection?.()]);
+	const rememberPhaseAnalysis = (result) => {
+		const reports = phaseCorrectionPreviewReports(result);
+		if (reports) setPhaseAnalysis({ project, key: phaseAnalysisKey, reports });
+	};
 	const projectIdentity = project?.id ?? null;
 	const { advancedSettings, onAdvancedSettings } = useAudacityEffectOptions(selectionType, `${projectIdentity}:${selectionType}`);
 	const currentProjectIdentity = useRef(projectIdentity);
@@ -262,7 +272,8 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 										type: selectionType,
 										params: selectionParams,
 										controlTrackId: eligibleControlTrackId || null,
-									}))}
+										...(selectionType === 'automatic-phase-correction' ? { phaseCorrection: phaseAudition } : {}),
+									}), rememberPhaseAnalysis)}
 							>{snapshot.effects?.previewing ? copy.stopPreview : copy.previewEffect}</Button>
 						</span>
 					)}
@@ -329,6 +340,13 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 						: undefined}
 					onChange={(changes) => changes.params && updateSelectionParams(changes.params)}
 				/>
+				{selectionType === 'automatic-phase-correction' && <PhaseCorrectionAudition
+					copy={copy} disabled={blocked || !effectTargetAvailable} options={phaseAudition}
+					reports={phaseAnalysis?.project === project && phaseAnalysis?.key === phaseAnalysisKey ? phaseAnalysis.reports : null}
+					onChange={(options) => { controller.actions.effects.cancelPreview(); setPhaseAudition(options); }}
+					onAnalyze={() => { void run(() => controller.actions.effects.previewSelection({ type: selectionType,
+						params: selectionParams, phaseCorrection: { analyzeOnly: true } }), rememberPhaseAnalysis); }}
+				/>}
 				{selectionType === 'eq' && snapshot.selection?.frequencyRange && (
 					<p className="audio-editor-panel-hint" data-parametric-eq-spectral-notice>
 						{copy.eqSpectralSelectionNotice || 'The EQ uses the spectral box time span and affects the full spectrum.'}

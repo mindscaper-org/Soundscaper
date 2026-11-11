@@ -626,14 +626,14 @@ described by the [native-services architecture](docs/architecture/native-service
 
 - **Electron Enhanced — Enabled for testing; payload-dependent:** contract v1 closes jobs/grants, supervision, 64 KiB control and authenticated data planes. Launcher source/contracts/tests implement Linux namespaces/Landlock/seccomp, macOS Seatbelt, and Windows AppContainer; an exact authenticated built launcher is still required to execute.
 - **Electron Enhanced — Menu-opt-in and active:** default-off routes enforce resource, custody, and publication bounds; payloads are reverified at staging, pack, and spawn, and helpers cannot publish project revisions.
-- **Electron Only — Enabled for testing:** scanning, quarantine, isolated hosting, continuity, and helper-owned vendor windows are fixture-tested. VST3, CLAP, AU, LV2, and OFX are platform-visible and defer execution to exact machine payload and containment checks; instruments wait for post-1.0 milestone 9+ (legacy packet 8B).
+- **Electron Only — Enabled for testing:** scanning, quarantine, isolated hosting, continuity, and helper-owned vendor windows are fixture-tested. VST3, CLAP, AU, LV2, and OFX are platform-visible and defer execution to exact machine payload and containment checks; VST2/VST3 and Linux LV2 instruments are available to MIDI beta tracks through Plugin Manager.
 
 ### Soundscaper native tier
 
 - **Electron Enhanced — Product route enabled for testing:** S30 inherits its exact S29 native-audio implementation: a persistent helper and direct `MessagePort` to an `AudioWorklet`; input feeds canonical recording publication, output feeds playback/monitoring, and loss preserves Web Core fallback. CoreAudio/WASAPI/PipeWire/ALSA are implemented; JACK stays discovery-only. Exact target payload and backend probes remain machine gates.
 - **Electron Only — Platform formats enabled for testing:** S30 delegates through exact S29 and inserts user-consented `native-plugin` effects with persistent RPC, real-time/offline render, exact V21 PDC, bounded state, bypass/frozen continuity, and helper-owned vendor windows. A scan or host operation still requires the exact authenticated payload, OS launcher, plug-in digest, consent, and quarantine state. Licensing and optional owner device checks remain separate from those execution gates.
-- **Planned for post-1.0 milestone 9+ (legacy packet 8B):** MIDI,
-  instruments, control surfaces, clock, and MTC are not implemented and do not
+- **Planned for post-1.0 milestone 9+ (legacy packet 8B):** native MIDI device
+  input, MPE, sampler instruments, control surfaces, clock, and MTC do not
   block stable 1.0.
 
 ### Framescaper native tier
@@ -1003,7 +1003,13 @@ provides both formats. Versioned note metadata and rendered PCM use existing
 audio carriers and survive project saves and history; see
 [project compatibility](docs/policies/project-compatibility.md).
 
-Device input, native MIDI services, MPE, sampler/plug-in instruments, and full
+Desktop VST2/VST3 instruments and Linux LV2 instruments can be assigned through
+**Effect > Plugin Manager** to the selected MIDI track. Isolated source renders
+retain channel messages, instrument settings and playable PCM for playback and
+audio export. The existing piano-roll instrument selector restores a built-in
+sound. Live MIDI device input is separate from this file/note-based workflow.
+
+Device input, native MIDI device services, MPE, sampler instruments, and full
 Audacity/AUP4 MIDI compatibility remain deferred. New schema allocation begins only after:
 
 1. the relevant Audacity design and source revision are public and pinned;
@@ -1024,7 +1030,7 @@ Planned implementation:
   file/editor fallback.
 - **Shared / Web Core — Planned:** a focused reviewed built-in instrument and
   sampler only after event/timing stability.
-- **Electron Only — Planned:** native MIDI, MPE where supported, instruments,
+- **Electron Only — Planned:** native MIDI devices, MPE where supported,
   MIDI clock, and MTC through isolated services. Hardware control surfaces use
   the separate MCU/HUI sequence below and share the native MIDI service.
 - **Shared — Planned:** visible missing-instrument/device placeholders with

@@ -6,6 +6,13 @@ import AudacityPortEffectLayout from './AudacityPortEffectLayout.jsx';
 import { isAudacityNyquistPort } from './audacity-port-layouts.ts';
 
 const EFFECT_LAYOUTS = Object.freeze({
+	'automatic-phase-correction': [
+		{ titleKey: 'effectNameAutomaticPhaseCorrection', names: ['reference', 'maximumShiftMs', 'minimumConfidence'], wide: true },
+	],
+	'hum-removal': [
+		{ titleKey: 'effectNameHumRemoval', names: ['frequency', 'harmonics', 'bandwidth', 'reduction'], wide: true,
+			helpKey: 'effectHumRemovalHint', helpSubjectKey: 'effectNameHumRemoval' },
+	],
 	'auto-tune': [
 		{ titleKey: 'effectCardPitchShift', names: ['controlTrackId', 'key', 'scale'], wide: true,
 			helpKey: 'effectAutoTuneHint', helpSubjectKey: 'effectNameAutoTune' },

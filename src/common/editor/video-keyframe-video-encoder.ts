@@ -99,8 +99,8 @@ export interface VideoKeyframeVideoEncoderResult {
 	readonly videoEncoder: VideoKeyframeVideoEncoderTier;
 	readonly codec?: string;
 	readonly format: VideoKeyframeEncoderFormat;
-	readonly extension: '.mp4' | '.webm';
-	readonly mimeType: 'video/mp4' | 'video/webm';
+	readonly extension: '.mp4' | '.webm' | '.mov';
+	readonly mimeType: 'video/mp4' | 'video/webm' | 'video/quicktime';
 	readonly frameCount: number;
 	readonly rgbaChunkCount: number;
 	readonly audioByteLength?: number;
@@ -114,8 +114,8 @@ export interface VideoKeyframeVideoSinkEncoderResult<Output> {
 	readonly videoEncoder: VideoKeyframeVideoEncoderTier;
 	readonly codec?: string;
 	readonly format: VideoKeyframeEncoderFormat;
-	readonly extension: '.mp4' | '.webm';
-	readonly mimeType: 'video/mp4' | 'video/webm';
+	readonly extension: '.mp4' | '.webm' | '.mov';
+	readonly mimeType: 'video/mp4' | 'video/webm' | 'video/quicktime';
 	readonly frameCount: number;
 	readonly rgbaChunkCount: number;
 	readonly audioByteLength?: number;

@@ -131,6 +131,13 @@ SOUNDSCAPER_PRO_API soundscaper_pro_status soundscaper_pro_plugin_open(
 	const char *format, const char *path, const char *stable_id,
 	double sample_rate, uint32_t maximum_frames,
 	soundscaper_pro_plugin_instance **instance);
+typedef struct soundscaper_pro_midi_event {
+	uint32_t frame;
+	uint32_t size;
+	uint8_t data[3];
+} soundscaper_pro_midi_event;
+SOUNDSCAPER_PRO_API soundscaper_pro_status soundscaper_pro_plugin_midi(
+	soundscaper_pro_plugin_instance *instance, const soundscaper_pro_midi_event *events, uint32_t count, uint32_t frames);
 SOUNDSCAPER_PRO_API soundscaper_pro_status soundscaper_pro_plugin_process(
 	soundscaper_pro_plugin_instance *instance, const float *const *inputs, uint32_t input_channels,
 	float **outputs, uint32_t output_channels, uint32_t frames);

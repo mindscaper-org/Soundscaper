@@ -264,6 +264,15 @@ after enabling it in the manager. Soundscaper builds controls from the LADSPA
 ports because this format has no vendor interface. Those control values and the
 effect's enabled or bypassed state are saved with the project.
 
+For a MIDI beta track, select the track and open **Effect → Plugin Manager**.
+Allow a discovered VST2/VST3 instrument (or an LV2 instrument on Linux), then
+choose **Assign instrument to MIDI track**. Use the parameter controls or vendor
+interface and choose **Apply instrument settings** to update the track's sound.
+Saved projects retain both the instrument settings and rendered audio, so they
+can play and export even when the instrument is unavailable. Editing or
+auditioning new notes requires that instrument. Choose a built-in sound from
+the piano roll's **Instrument** selector to switch back.
+
 Vamp plug-ins analyze audio instead of changing it. After enabling a Vamp
 installation, select an audio track to analyze that track, or leave no audio
 track selected to analyze the master mix. A time selection limits the analysis;
@@ -295,6 +304,13 @@ and APEv2 tags for WavPack. WAV and AIFF include ID3 metadata; AAC/M4A uses MP4
 metadata. MP3 chapter labels and descriptive metadata share one tag.
 
 ## Export
+
+When the timeline contains video, the desktop export dialog also offers **MOV
+video**. It writes H.264 video and optional AAC audio in a QuickTime `.mov`
+container using external FFmpeg. Choose **File → Export audio**, then select
+**MOV video** under **Format**. If FFmpeg is missing, the dialog offers to
+install it; an installed build must pass the MOV encoder and muxer checks.
+MOV export is unavailable in the browser editor.
 
 Choose **File → Export audio** for a mixed delivery or **Export selected audio**
 when only a selection should be rendered. Soundscaper can also export stems and

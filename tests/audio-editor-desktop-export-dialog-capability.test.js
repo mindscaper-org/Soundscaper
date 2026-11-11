@@ -18,7 +18,7 @@ test('desktop export dialog lists every format and checks the selected format wi
 	assert.match(dialog, /exportDialogCompressionLevels\(settings\.format, desktop\)/u);
 	assert.deepEqual(exportDialogCompressionLevels('wavpack', true), [0, 1, 2, 3, 4, 5]);
 	assert.match(dialog, /!availability\.available/u);
-	assert.match(dialog, /hasTimelineVideo \? VIDEO_EXPORT_DIALOG_FORMATS\.map/u);
+	assert.match(dialog, /hasTimelineVideo \? VIDEO_EXPORT_DIALOG_FORMATS/u);
 	assert.match(dialog, /<ExportFormatAvailabilityDialog/u);
 	assert.match(dialog, /exportDialogBitRateOptions\(settings\.format, desktop, settings\.sampleRate/u);
 	assert.match(dialog, /exportDialogVorbisQualityOptions\(desktop\)/u);

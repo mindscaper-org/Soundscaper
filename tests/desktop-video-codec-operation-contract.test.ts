@@ -109,11 +109,12 @@ test('desktop video capabilities require the full fixed A/V plan capability set'
 		},
 	});
 	const both = createDesktopExternalFfmpegVideoCapabilities(admission(
-		['libx264', 'aac', 'libvpx-vp9', 'libopus'], ['mp4', 'webm'],
+		['libx264', 'aac', 'libvpx-vp9', 'libopus'], ['mp4', 'webm', 'mov'],
 	));
 	assert.deepEqual(both.formats, {
 		mp4: { available: true, provider: 'external-ffmpeg', reason: null },
 		webm: { available: true, provider: 'external-ffmpeg', reason: null },
+		mov: { available: true, provider: 'external-ffmpeg', reason: null },
 	});
 
 	const partial = createDesktopExternalFfmpegVideoCapabilities(admission(

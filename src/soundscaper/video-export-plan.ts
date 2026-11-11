@@ -15,7 +15,7 @@ import type { VideoCanvasFit } from '../common/editor/video-canvas-fit.ts';
 import { resolveExactVideoExportCanvas, resolveVideoExportRange } from '../common/editor/video-export.js';
 
 export interface SoundscaperVideoKeyframeExportPlanRequest {
-	readonly format: 'mp4' | 'webm';
+	readonly format: 'mp4' | 'webm' | 'mov';
 	readonly range?: unknown;
 	readonly includeAudio: boolean;
 	readonly canvas?: unknown;
@@ -43,8 +43,8 @@ export function createSoundscaperVideoKeyframeExportPlan(
 	if (request.captions != null) {
 		throw new RangeError('The Soundscaper keyed desktop video path cannot deliver captions.');
 	}
-	if (request.format !== 'mp4' && request.format !== 'webm') {
-		throw new RangeError('Soundscaper keyed video format must be mp4 or webm.');
+	if (request.format !== 'mp4' && request.format !== 'webm' && request.format !== 'mov') {
+		throw new RangeError('Soundscaper keyed video format must be mp4, webm, or mov.');
 	}
 	const runtimeProject = runtime.projectForRuntimeConsumers(project) as Readonly<Record<string, unknown>>;
 	const range = resolveVideoExportRange(runtimeProject, (request.range ?? 'project') as never);

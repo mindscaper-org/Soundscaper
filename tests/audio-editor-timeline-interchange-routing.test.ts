@@ -6,7 +6,7 @@ import { openWorkspaceProjectFile } from '../src/common/editor/ui/workspace/open
 import { partitionWorkspaceFiles, WORKSPACE_OPEN_FILE_ACCEPT, WORKSPACE_IMPORT_FILE_ACCEPT } from '../src/common/editor/ui/workspace/workspace-file-routing.js';
 import { importWorkspaceRoutedFiles } from '../src/common/editor/ui/workspace/import-workspace-routed-files.ts';
 
-for (const extension of ['edl', 'otio', 'fcpxml', 'omf', 'omfi']) {
+for (const extension of ['edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf']) {
 	test(`${extension} uses shared Open and Import project routing`, async () => {
 		const file = new File(['fixture'], `session.${extension.toUpperCase()}`, { type: 'text/plain' });
 		assert.ok(WORKSPACE_OPEN_FILE_ACCEPT.includes(`.${extension}`));

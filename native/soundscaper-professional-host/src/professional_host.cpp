@@ -311,6 +311,13 @@ soundscaper_pro_status soundscaper_pro_plugin_open(
 	return status;
 }
 
+soundscaper_pro_status soundscaper_pro_plugin_midi(
+	soundscaper_pro_plugin_instance *instance, const soundscaper_pro_midi_event *events, uint32_t count, uint32_t frames)
+{
+	return instance == nullptr || instance->juce == nullptr ? SOUNDSCAPER_PRO_UNSUPPORTED
+		: instance->juce->midiEvents(events, count, frames);
+}
+
 soundscaper_pro_status soundscaper_pro_plugin_process(
 	soundscaper_pro_plugin_instance *instance, const float *const *inputs, uint32_t inputChannels,
 	float **outputs, uint32_t outputChannels, uint32_t frames)

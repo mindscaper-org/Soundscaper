@@ -62,6 +62,7 @@ Product availability follows each product profile’s command filters and each l
 | Audio warp and transients | `audio-warp-editor` | — | Effect > Pitch and tempo | Soundscaper | Soundscaper local |
 | Auto Duck | `audacity-auto-duck` | — | Effect > Volume and compression | Soundscaper | Soundscaper local |
 | Auto-Tune | `auto-tune` | — | Effect > Distortion and modulation | Soundscaper | Soundscaper local |
+| Automatic phase correction | `automatic-phase-correction` | — | Effect > Noise removal and repair | Soundscaper | Soundscaper local |
 | Automatically follow playback | `pan` | — | Transport | Soundscaper, Framescaper | Audacity |
 | Automation Lanes | `framescaper-audio-automation` | — | Tracks | Framescaper | Soundscaper local |
 | Background jobs | `framescaper-background-jobs` | — | Tools | Framescaper | Soundscaper local |
@@ -177,6 +178,7 @@ Product availability follows each product profile’s command filters and each l
 | Enable multi-track recording | `show-arm-controls` | — | View | Soundscaper | Soundscaper local |
 | Enable triplets | `snap-triplets` | — | View > Snapping | Soundscaper, Framescaper | Soundscaper local |
 | Enhance Dialogue | `assistance-task-enhance-dialogue` | — | Effect > Noise removal and repair | Soundscaper, Framescaper | Soundscaper local |
+| Export AAF | `export-aaf` | — | File > Export other | Soundscaper, Framescaper | Soundscaper local |
 | Export AUP3 | `save-aup3` | — | File > Export other | Soundscaper | Soundscaper local |
 | Export AUP4 | `save-aup4` | — | File > Export other | Soundscaper | Soundscaper local |
 | Export Allegro (beta) | `allegro-export-file` | — | File > Export other | Soundscaper | Soundscaper local |
@@ -226,6 +228,7 @@ Product availability follows each product profile’s command filters and each l
 | High-Pass Filter | `nyquist:highpass` | — | Nyquist | Soundscaper | Audacity |
 | High-pass filter | `highpass-filter` | — | Effect > EQ and filters | Soundscaper | Soundscaper local |
 | History | `toggle-history` | — | View | Soundscaper, Framescaper | Audacity |
+| Hum removal | `hum-removal` | — | Effect > Noise removal and repair | Soundscaper | Soundscaper local |
 | Identify Speakers | `assistance-task-identify-speakers` | — | Analyze > Speech | Soundscaper, Framescaper | Soundscaper local |
 | Image sequence | `framescaper-import-image-sequence` | — | File | Framescaper | Soundscaper local |
 | Import audio | `project-import` | Ctrl+Shift+I | File | Soundscaper, Framescaper | Audacity |
