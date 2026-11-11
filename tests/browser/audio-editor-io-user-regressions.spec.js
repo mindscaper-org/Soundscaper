@@ -85,6 +85,30 @@ test('a point label exports as a WebVTT cue with a playable duration', async ({ 
 
 test('Cancel in the raw PCM import dialog stops a pending ordinary recording import', async ({ page }) => {
 	test.setTimeout(90_000);
+	await page.addInitScript(() => {
+		const slices = new WeakSet(), slice = File.prototype.slice, read = Blob.prototype.arrayBuffer;
+		const state = globalThis.__rawImportRead = { pending: false, completed: false };
+		let released = false, resume;
+		const pending = new Promise(resolve => { resume = resolve; });
+		File.prototype.slice = function (...args) {
+			const result = slice.apply(this, args);
+			// Raw preparation reads the .raw file before importing starts; hold its real WAV input instead.
+			if (this.name === 'room-recording.wav') slices.add(result);
+			return result;
+		};
+		Blob.prototype.arrayBuffer = async function () {
+			if (!slices.has(this) || released) return read.call(this);
+			state.pending = true;
+			await pending;
+			const bytes = await read.call(this);
+			state.completed = true;
+			return bytes;
+		};
+		globalThis.__releaseRawImportRead = () => {
+			released = true; resume();
+			File.prototype.slice = slice; Blob.prototype.arrayBuffer = read;
+		};
+	});
 	const editor = await bootEditor(page, '/embed/en/');
 	await chooseCommandAction(page, editor, 'Tools', 'Import raw data');
 	const dialog = page.getByRole('dialog', { name: 'Import raw data', exact: true });
@@ -92,12 +116,19 @@ test('Cancel in the raw PCM import dialog stops a pending ordinary recording imp
 	await dialog.getByLabel('Raw PCM file').setInputFiles({
 		name: 'room-recording.raw', mimeType: 'application/octet-stream', buffer: Buffer.alloc(32 * 1024 * 1024),
 	});
-	await dialog.getByRole('button', { name: 'Import', exact: true }).click();
-	await expect(editor).toHaveAttribute('data-edit-block-reason', 'importing', { timeout: 30_000 });
-	await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
-	await expect(dialog).toBeHidden();
-	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing', { timeout: 45_000 });
-	await expect(editor).toHaveAttribute('data-clip-count', '0');
+	try {
+		await dialog.getByRole('button', { name: 'Import', exact: true }).click();
+		await expect.poll(() => page.evaluate(() => globalThis.__rawImportRead.pending)).toBe(true);
+		await expect(editor).toHaveAttribute('data-edit-block-reason', 'importing', { timeout: 30_000 });
+		// The import progress modal covers the raw settings dialog; its Cancel is the reachable control while reading.
+		const progress = editor.locator('[data-editor-task-progress="import"]');
+		await progress.getByRole('button', { name: 'Cancel', exact: true }).click({ timeout: 15_000 });
+		await page.evaluate(() => globalThis.__releaseRawImportRead());
+		await expect(dialog).toBeHidden();
+		await expect.poll(() => page.evaluate(() => globalThis.__rawImportRead.completed)).toBe(true);
+		await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing', { timeout: 45_000 });
+		await expect(editor).toHaveAttribute('data-clip-count', '0');
+	} finally { await page.evaluate(() => globalThis.__releaseRawImportRead?.()); }
 });
 
 test('a legacy AUP chosen through File Import asks for its data directory', async ({ page }) => {
