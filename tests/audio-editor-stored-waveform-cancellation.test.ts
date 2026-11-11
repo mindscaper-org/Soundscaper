@@ -46,9 +46,9 @@ test('stored waveform worker cancellation terminates an outstanding analysis ack
 	try {
 		const controller = new AbortController();
 		const pending = generateStoredWaveformPeaks({ async *readSourceChunks() {
-			pulled++; yield { channels: [Float32Array.of(0, 1)], frames: 2 };
-			pulled++; yield { channels: [Float32Array.of(1, 0)], frames: 2 };
-		} }, source, copy, { signal: controller.signal });
+			pulled++; yield { channels: [new Float32Array(32_768)], frames: 32_768 };
+			pulled++; yield { channels: [new Float32Array(32_768)], frames: 32_768 };
+		} }, { ...source, frameCount: 65_536 }, copy, { signal: controller.signal });
 		const rejected = assert.rejects(pending, { name: 'AbortError' });
 		await started.promise;
 		controller.abort();

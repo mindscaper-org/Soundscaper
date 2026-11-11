@@ -7,6 +7,9 @@ import { createWaveformPeakBuilder } from '../../waveform-peak-builder.ts';
 import { projectUnwarpedClipSourceRange } from '../../audio-clip-source-projection.ts';
 import { abortError, throwIfAborted } from '../shared/app-helpers.ts';
 
+// Avoid worker startup for at most 64 KiB of PCM, counted across all channels.
+const MAXIMUM_LOCAL_WAVEFORM_SAMPLES = 16_384;
+
 export {
 	WAVEFORM_PEAK_CACHE_PREFIX,
 	legacyPeakCacheKey,
@@ -186,7 +189,10 @@ export async function generateStoredWaveformPeaks(
 	options: StoredWaveformAnalysisOptions = {},
 ): Promise<WaveformPeaks> {
 	throwIfAborted(options.signal);
-	if (typeof Worker !== 'function') return generateStoredWaveformPeaksFallback(store, source, options);
+	if (typeof Worker !== 'function'
+		|| source.frameCount * source.channelCount <= MAXIMUM_LOCAL_WAVEFORM_SAMPLES) {
+		return generateStoredWaveformPeaksFallback(store, source, options);
+	}
 	const worker = new Worker(new URL('../../peaks-worker.js', import.meta.url), { type: 'module' });
 	let frames = 0;
 	try {
@@ -283,7 +289,10 @@ export async function generateWaveformPeaks(
 	signal?: AbortSignal,
 ): Promise<WaveformPeaks> {
 	throwIfAborted(signal);
-	if (typeof Worker !== 'function') return generateWaveformPeaksFallback(channels);
+	if (typeof Worker !== 'function'
+		|| (channels[0]?.length || 0) * channels.length <= MAXIMUM_LOCAL_WAVEFORM_SAMPLES) {
+		return generateWaveformPeaksFallback(channels);
+	}
 	const worker = new Worker(new URL('../../peaks-worker.js', import.meta.url), { type: 'module' });
 	try {
 		worker.postMessage({ type: 'start', channelCount: channels.length,

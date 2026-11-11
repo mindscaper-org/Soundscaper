@@ -25,7 +25,7 @@ for (const phase of ['start', 'chunk', 'finish']) {
 		Object.defineProperty(globalThis, 'Worker', { configurable: true, value: ProbeWorker });
 		const abort = new AbortController();
 		const reason = new DOMException('Project closed.', 'AbortError');
-		const operation = generateWaveformPeaks([Float32Array.of(.1, .2)], {
+		const operation = generateWaveformPeaks([new Float32Array(65_536)], {
 			audioAnalysisFailed: 'Analysis failed.', audioAnalysisWorkerFailed: 'Worker failed.',
 		}, 65_536, abort.signal);
 		await waiting;
