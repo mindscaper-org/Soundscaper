@@ -4,6 +4,13 @@ import type { UnifiedExactRenderRgbaFrameV13 } from '../common/editor/unified-ex
 import { DEFAULT_VIDEO_CLIP_COMPOSITION } from '../common/editor/video-clip-composition.ts';
 import { resolveVideoRenderDescription } from '../common/editor/video-render-description.ts';
 
+interface EffectSurface {
+	readonly source: HTMLCanvasElement;
+	readonly context: CanvasRenderingContext2D;
+	readonly compositor: ReturnType<typeof import('../common/editor/ui/video-preview-compositor.js')['createVideoPreviewCompositor']>;
+}
+const surfaces = new WeakMap<Document, EffectSurface>();
+
 /** Execute maintained browser effects over straight RGBA without changing transfer encoding. */
 export async function applyVideoExactBrowserEffectsFinishing(
 	frame: UnifiedExactRenderRgbaFrameV13,
@@ -15,16 +22,23 @@ export async function applyVideoExactBrowserEffectsFinishing(
 	if (!globalThis.document?.createElement) {
 		throw new Error('Selected finishing browser effects are unavailable outside a WebGL2 document.');
 	}
-	const source = globalThis.document.createElement('canvas');
-	source.width = frame.width;
-	source.height = frame.height;
-	const context = source.getContext('2d');
-	if (!context) throw new Error('Selected finishing browser effect source has no 2D context.');
-	context.putImageData(new ImageData(new Uint8ClampedArray(frame.pixels), frame.width, frame.height), 0, 0);
-	const output = globalThis.document.createElement('canvas');
 	const module = await import('../common/editor/ui/video-preview-compositor.js');
 	throwIfAborted(signal);
-	const compositor = module.createVideoPreviewCompositor(output);
+	let surface = surfaces.get(globalThis.document);
+	if (!surface) {
+		const source = globalThis.document.createElement('canvas');
+		const context = source.getContext('2d');
+		if (!context) throw new Error('Selected finishing browser effect source has no 2D context.');
+		const compositor = module.createVideoPreviewCompositor(globalThis.document.createElement('canvas'));
+		surface = { source, context, compositor };
+		surfaces.set(globalThis.document, surface);
+	}
+	// Rendering and capture below are synchronous, so concurrent async callers
+	// share this document-owned context without interleaving frame contents.
+	const { source, context, compositor } = surface;
+	source.width = frame.width;
+	source.height = frame.height;
+	context.putImageData(new ImageData(new Uint8ClampedArray(frame.pixels), frame.width, frame.height), 0, 0);
 	try {
 		const report = compositor.render([{
 			trackId: 'finishing-exact-effect-track', trackIndex: 0,
@@ -59,7 +73,11 @@ export async function applyVideoExactBrowserEffectsFinishing(
 			width: captured.width, height: captured.height,
 			pixels: captured.rgba.slice() as Uint8Array<ArrayBuffer>,
 		});
-	} finally { compositor.dispose(); }
+	} catch (error) {
+		surfaces.delete(globalThis.document);
+		compositor.dispose();
+		throw error;
+	}
 }
 
 function clone(frame: UnifiedExactRenderRgbaFrameV13): UnifiedExactRenderRgbaFrameV13 {

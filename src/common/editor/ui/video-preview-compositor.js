@@ -80,7 +80,7 @@ export class VideoPreviewCompositor {
 			alpha: true,
 			antialias: false,
 			depth: false,
-			preserveDrawingBuffer: false,
+			preserveDrawingBuffer: true,
 			premultipliedAlpha: false,
 			stencil: false,
 		});
@@ -520,6 +520,7 @@ export class VideoPreviewCompositor {
 		this.gl.deleteBuffer(this.positionBuffer);
 		for (const program of this.programs) this.gl.deleteProgram(program);
 		disposeVideoPreviewCompositionBlendRuntime(this.gl, this.compositionBlend);
+		this.gl.getExtension?.('WEBGL_lose_context')?.loseContext?.();
 	}
 }
 
