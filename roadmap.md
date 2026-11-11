@@ -178,7 +178,7 @@ Known architectural constraints that drive later work:
 | 8+. Framescaper Web VCR | **Implemented and enabled for testing** | Expose the default-hidden Record-menu surface with `framescaperWebVcr: true`; keep 4K unavailable. |
 | 8+C. Framescaper product origin | **Implemented for family-v1 — immediate no-legacy cutover; permanent transfer routes** | Keep the first-class editable-copy action and permanent cross-origin transfer ceremony verified without reopening the frozen family. |
 | 9. Stable release and owner QA | **Soundscaper workflow automated** | Rebuild, test, package, deploy, and publish the tagged Soundscaper revision; use private owner QA as helpful. |
-| 9+. Post-1.0 extensions | **Planned — full MIDI integration, control surfaces, and installable distribution** | Extend MIDI after stable 1.0; add MCU then HUI control surfaces with separately gated EUCON feasibility; install both products from Chrome for Android as independent apps, with an optional Google Play Trusted Web Activity track. |
+| 9+. Post-1.0 extensions | **Planned — full MIDI integration, control surfaces, ambisonics, and installable distribution** | Extend MIDI after stable 1.0; add MCU then HUI control surfaces with separately gated EUCON feasibility; add Soundscaper ambisonics through third order; install both products from Chrome for Android as independent apps, with an optional Google Play Trusted Web Activity track. |
 
 Soundscaper has an independent release line and may ship without closing
 Framescaper milestones, payloads, or packaging. Framescaper stays in ordinary
@@ -983,8 +983,9 @@ while giving the owner useful optional QA and debugging tools.
 
 ## 9+. Post-1.0 extensions
 
-Full MIDI integration, hardware control surfaces, and installable distribution
-are explicitly post-release scope. None blocks the Soundscaper Stable 1.0 release.
+Full MIDI integration, hardware control surfaces, first- through third-order
+ambisonics, and installable distribution are explicitly post-release scope.
+None blocks the Soundscaper Stable 1.0 release.
 
 ### 8B. MIDI
 
@@ -1077,6 +1078,40 @@ simultaneous automation gestures, undo/save/reopen, authority loss, reconnect,
 real-device profiles, and exact packaged-target evidence satisfy the plan.
 EUCON remains unclaimed until its separate feasibility and implementation gates
 pass.
+
+### 9+. Soundscaper ambisonics (orders 1–3)
+
+**Status:** **Planned; post-1.0.** Support full-sphere first-, second-, and
+third-order ambisonics as complete 4-, 9-, and 16-component workflows. Deliver
+first order end to end, then qualify second and third order on the same
+ACN/SN3D signal model. Follow the
+[implementation guide](docs/development/ambisonics.md) for ownership,
+conventions, work packets, compatibility, and independent acceptance evidence.
+
+- **Shared / Web Core — Planned:** explicit source interpretation, aligned
+  component editing, typed ambisonic tracks/buses, source encoding, scene
+  rotation, spatial automation, coherent-effect admission, and lossless Scape
+  persistence with a supported migration from the owning family-v1 baseline.
+- **Soundscaper Web and Electron — Planned:** opt-in actions through existing
+  Tracks, Effect, View, and File menus; measured-HRTF headphone decoding,
+  qualified speaker decoding, and component or decoded WAV/RF64 delivery.
+  Decoder assets and advertised desktop targets require their own provenance,
+  packaging, and bounded realtime evidence.
+- **Deferred:** orders above three, mixed/horizontal-only component sets,
+  microphone-specific A-format conversion, device head tracking, personalized
+  HRTFs, CAF ambix containers, ADM HOA authoring, and spatial compressed/video
+  delivery. Shared modules do not enable Framescaper implicitly.
+
+#### Ambisonics exit gate
+
+- Every order completes import/interpretation, editing, encoding/mixing,
+  rotation/automation, monitoring, component/decoded export, and save/reopen.
+- Independent coefficient, rotation, decoder, and file-reader fixtures verify
+  conventions and live/offline parity; width alone never establishes support.
+- Monitoring never sends raw components through speaker routing or the generic
+  first-pair fallback, and monitor settings never change component exports.
+- Existing migration, read-only custody, ADM passthrough, bounded resources,
+  accessibility, localization, licensing, and platform gates remain intact.
 
 ### 9+. Installable distribution (PWA and Trusted Web Activity)
 
@@ -1183,6 +1218,7 @@ documentation when that work lands.
 | Framescaper Web VCR | Record-dropdown-only availability, isolated persistent HTTPS browsing, target/manual crop, local-mute independence, background capture, quit recovery, capability-gated resolution, cropped-only retention, and normal recorded-media handoff. |
 | MIDI (post-1.0 9+) | Tests derived from pinned Audacity design: migration, timing, fallback, instruments, accessibility, Scape, and AUP4. |
 | Control surfaces (post-1.0 9+) | Independent MCU/HUI traces, opt-in setup, bidirectional controls, concurrent automation/history, stale-project and reconnect fences, tested device profiles, and exact native-target packages; EUCON additionally requires SDK/distribution and platform feasibility. |
+| Ambisonics (post-1.0 9+) | Independent first-/second-/third-order encoding, rotation, decoder, and WAV/RF64 fixtures; opt-in complete workflows; coherent component editing/effects; monitoring/export isolation; migration and Scape preservation; and qualified web/desktop resource and asset evidence. |
 | Framescaper origin transfer | Multi-project cutover across origins: resumable after a killed receiver, exactly one copy per project, reported omissions matching the round-trip fixture matrix, no side-effect deletion, and no redirect loop for an installed pre-cutover app. |
 | Installable distribution | Distinct installable apps with disjoint scopes, touch operation at the recorded tablet viewports, cross-origin isolation on installed and shell-served navigations, screen-off export or its enforced refusal, offline localized open/effect/export, and survival of a product-version bump. |
 | Accessibility | Keyboard and assistive-technology completion at supported zoom, contrast, locale, and direction. |
