@@ -30,7 +30,7 @@ test('Framescaper v1 exposes native work only through menus and retains its watc
 	await expect(getMenuItem(tools, 'Background jobs')).toBeDisabled();
 	await expect(getMenuItem(tools, 'Watch folders')).toBeDisabled();
 	await page.keyboard.press('Escape');
-	await openNativePreferences(page, editor, 'Media', 'Native media and scratch');
+	await openNativePreferences(page, editor, 'Advanced', 'Native media and scratch');
 
 	let dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
 	await expect(dialog).toBeVisible();
@@ -112,7 +112,7 @@ test('a native watch claim imports one video into the Project Bin and acknowledg
 	await installNativeServicesFixture(page, { watchedVideo });
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
 	const projectId = await editor.getAttribute('data-project-id');
-	await openNativePreferences(page, editor, 'Media', 'Native media and scratch');
+	await openNativePreferences(page, editor, 'Advanced', 'Native media and scratch');
 	let dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
 	await dialog.locator('[data-native-service-preference="native-media"]').check();
 	await dialog.locator('button').filter({ hasText: /^Close$/u }).click();
@@ -313,7 +313,7 @@ async function openAuthoredOpenFxInteract(page) {
 	await chooseNestedCommandAction(page, editor, 'Generate', ['Video Generators', 'Add Solid'], SLOW_WORKFLOW);
 	await expect(editor.getByRole('group', { name: 'Video clip: Solid', exact: true })).toHaveCount(1, SLOW_WORKFLOW);
 	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved', SLOW_WORKFLOW);
-	await openNativePreferences(page, editor, 'Media', 'Native media and scratch');
+	await openNativePreferences(page, editor, 'Advanced', 'Native media and scratch');
 	let dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
 	await dialog.locator('[data-native-service-preference="native-media"]').check();
 	await dialog.locator('button').filter({ hasText: /^Close$/u }).click();

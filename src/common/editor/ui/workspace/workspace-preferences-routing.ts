@@ -8,15 +8,14 @@ const PREFERENCE_PAGES = new Set([
 	'playback-recording',
 	'editing',
 	'effects',
-	'media',
 	'workspace',
 	'shortcuts',
 	'track-display',
 ]);
 
 /**
- * Preferences opens on General. Desktop hosts also expose Media; native audio
- * and plugin configuration are reached through the Audio and Effects pages.
+ * Preferences opens on General. Native audio and plugin configuration are
+ * reached through the Audio and Effects pages.
  */
 export function workspacePreferencesPage(requestedSection: unknown): string {
 	if (typeof requestedSection === 'string' && PREFERENCE_PAGES.has(requestedSection)) {

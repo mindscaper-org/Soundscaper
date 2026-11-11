@@ -44,8 +44,6 @@ function desktopOffers({ productId, copy, locale, organization, onUnavailable }:
 	const services = [
 		...(soundscaper ? [leaf('blender-start-live-sync', blender.startSync),
 			leaf('blender-stop-live-sync', blender.stopSync)] : []),
-		leaf('desktop-use-native-probe-helper', copy.useNativeProbeHelper),
-		leaf('desktop-clear-probe-helper-quarantine', copy.clearProbeHelperQuarantine),
 		leaf('desktop-clear-audio-helper-quarantine', copy.clearAudioHelperQuarantine),
 		leaf('desktop-discover-native-effects', copy.discoverNativeEffects),
 		...(soundscaper ? [leaf('desktop-mcp-connection', copy['ui.desktopMcp.connection'] || 'MCP connection')] : []),

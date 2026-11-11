@@ -12,6 +12,7 @@ test('Preferences opens on General the way Audacity does', () => {
 	assert.equal(workspacePreferencesPage('general'), 'general');
 	assert.equal(workspacePreferencesPage('nonsense'), 'general');
 	assert.equal(workspacePreferencesPage('sound-activation'), 'general');
+	assert.equal(workspacePreferencesPage('media'), 'general');
 });
 
 test('every preference page is reachable on both hosts', () => {

@@ -10,28 +10,26 @@ import { createAudioEditorPreferencesV1 } from '../src/common/editor/preferences
 import WorkspacePreferencesDialog from '../src/common/editor/ui/dialogs/WorkspacePreferencesDialog.jsx';
 import AdvancedPreferencesPage from '../src/common/editor/ui/dialogs/AdvancedPreferencesPage.tsx';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
-import type { NativePreferenceEntry } from '../src/common/editor/ui/local-processing-menus.ts';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
-function renderPage(initialPage: string, productId = 'soundscaper', nativePreferences: readonly NativePreferenceEntry[] = []): string {
+function renderPage(initialPage: string, productId = 'soundscaper', isDesktop = false): string {
 	return renderToStaticMarkup(<WorkspacePreferencesDialog
 		controller={{ actions: { preferences: {} } }}
 		snapshot={{ preferences: createAudioEditorPreferencesV1() }}
-		copy={ENGLISH_COPY} locale="en" fileService={{ isDesktop: false }} menus={[{ id: 'tools', nativePreferences }]}
+		copy={ENGLISH_COPY} locale="en" fileService={{ isDesktop }} menus={[]}
 		run={() => undefined} initialPage={initialPage} productId={productId}
 		onTogglePanel={() => undefined} onClose={() => undefined}
 	/>);
 }
 
-test('browser Preferences exposes Media whenever menu-derived media controls exist', () => {
+test('Preferences omits Media on both hosts and routes old Media requests to General', () => {
 	for (const productId of ['soundscaper', 'framescaper']) {
-		assert.doesNotMatch(renderPage('general', productId), /aria-controls="dialog-panel-media"/u);
-		const markup = renderPage('media', productId, [{ id: 'desktop-use-native-probe-helper', section: 'media',
-			label: 'Use Native Probe Helper', onClick: () => undefined }]);
-		assert.match(markup, /aria-controls="dialog-panel-media"/u);
-		assert.match(markup, /role="tabpanel"[^>]*aria-label="Media"/u);
-		assert.match(markup, />Use Native Probe Helper</u);
+		for (const isDesktop of [false, true]) {
+			const markup = renderPage('media', productId, isDesktop);
+			assert.doesNotMatch(markup, /aria-controls="dialog-panel-media"/u);
+			assert.match(markup, /role="tabpanel"[^>]*aria-label="General"/u);
+		}
 	}
 });
 
