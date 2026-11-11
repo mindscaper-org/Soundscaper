@@ -15,8 +15,8 @@ test('batched WAV and AIFF imports bind their own Attribution fields and native 
 	await (await choosing).setFiles(await Promise.all(fixtures.map(async ({ file }) => ({
 		name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()),
 	}))));
-	await expect(editor).toHaveAttribute('data-clip-count', String(fixtures.length));
-	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing', { timeout: 30_000 });
+	await expect(editor).toHaveAttribute('data-clip-count', String(fixtures.length), { timeout: 30_000 });
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
 	await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
 	const panel = editor.locator('[data-workspace-panel="metadata"]');
 	await panel.getByRole('tab', { name: 'Attribution', exact: true }).click();

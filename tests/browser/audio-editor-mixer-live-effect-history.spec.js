@@ -75,6 +75,9 @@ for (const gesture of ['keyboard', 'pointer']) for (const when of ['before', 'du
 		await expect.poll(elapsed, { intervals: [20] }).toBeGreaterThan(.6);
 		if (when === 'during') await changeGain();
 		await expect.poll(elapsed, { intervals: [20] }).toBeGreaterThan(3);
+		await expect.poll(() => page.evaluate(() => Math.max(0,
+			...globalThis.__mixerProgrammePackets.flatMap(packet => packet.peaks))),
+		{ message: 'the native output must receive the delayed burst' }).toBeGreaterThan(.1);
 		const actual = await page.evaluate(() => ({ starts: globalThis.__mixerProgrammeStarts.length,
 			peak: Math.max(0, ...globalThis.__mixerProgrammePackets.flatMap(packet => packet.peaks)),
 		}));

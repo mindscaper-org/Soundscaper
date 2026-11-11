@@ -35,8 +35,13 @@ for (const variant of ['generic', 'proper', 'audio']) test(`ordinary ${variant} 
 	}
 	const audios = project.sources.filter(source => source.kind === 'audio'); expect(audios).toHaveLength(1);
 	const audio = audios[0]; expect(audio.channelCount).toBe(2); expect(audio.frameCount).toBeGreaterThan(0);
-	const pcm = Buffer.from(entries[`audio/${audio.id}.f32c`]); let peak = 0;
-	for (let offset = 4; offset < pcm.byteLength; offset += 4) { const value = pcm.readFloatLE(offset); expect(Number.isFinite(value)).toBe(true); peak = Math.max(peak, Math.abs(value)); }
+	const pcm = Buffer.from(entries[`audio/${audio.id}.f32c`]); let peak = 0, nonFiniteSamples = 0;
+	for (let offset = 4; offset < pcm.byteLength; offset += 4) {
+		const value = pcm.readFloatLE(offset);
+		if (!Number.isFinite(value)) nonFiniteSamples += 1;
+		peak = Math.max(peak, Math.abs(value));
+	}
+	expect(nonFiniteSamples).toBe(0);
 	expect(peak).toBeGreaterThan(.1);
 	await expect(editor.locator('[data-editor-toast="workspace-status-error"]')).toHaveCount(0);
 });

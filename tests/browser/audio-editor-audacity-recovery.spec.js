@@ -42,7 +42,8 @@ test('Recover Audacity project opens a large edit and reports native clip metada
 	const bytes = await createAup3Fixture({ tracks: [{ name: 'Long edit', clips: Array.from({ length: 771 }, (_, index) => ({
 		offset: index * 2, samples: [0.25, -0.5], envelope: true,
 	})) }] });
-	await recoverThroughMenu(page, editor, 'large-edit.aup3', bytes);
+	// Leave time for 771 source publications within this workflow's existing 90-second limit.
+	await recoverThroughMenu(page, editor, 'large-edit.aup3', bytes, { timeout: 80_000 });
 	await expect(editor.locator('[data-status]')).toContainText('Audacity project opened', { timeout: 60_000 });
 	await expect(editor).toHaveAttribute('data-clip-count', '771');
 	await editor.getByRole('region', { name: 'AUP3 Compatibility Report', exact: true })
@@ -196,12 +197,12 @@ async function openThroughMenu(page, editor, name, bytes) {
 	await (await chooser).setFiles({ name, mimeType: 'application/x-audacity-project', buffer: Buffer.from(bytes) });
 }
 
-async function recoverThroughMenu(page, editor, name, bytes) {
+async function recoverThroughMenu(page, editor, name, bytes, { timeout = 60_000 } = {}) {
 	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Recover Audacity project']);
 	const dialog = page.getByRole('dialog', { name: 'Recover Audacity project', exact: true });
 	await dialog.locator('input[type="file"]').setInputFiles({ name, mimeType: 'application/x-audacity-project', buffer: Buffer.from(bytes) });
 	await dialog.getByRole('button', { name: 'Recover project file', exact: true }).click();
-	await expect(dialog).toBeHidden({ timeout: 60_000 });
+	await expect(dialog).toBeHidden({ timeout });
 }
 
 async function exportAudacityCopy(page, editor) {

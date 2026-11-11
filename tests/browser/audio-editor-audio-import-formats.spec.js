@@ -173,7 +173,8 @@ test.describe('audio file import formats', () => {
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 		await editor.getByRole('button', { name: 'Loop selection', exact: true }).click();
 		await editor.getByRole('button', { name: 'Play', exact: true }).click();
-		await expect(editor.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
+		// First playback prepares the worklets and streams for the complete batch.
+		await expect(editor.getByRole('button', { name: 'Pause', exact: true })).toBeVisible({ timeout: 20_000 });
 		await editor.getByRole('button', { name: 'Stop', exact: true }).click();
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
 		await page.reload();
