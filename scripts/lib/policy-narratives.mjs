@@ -2,6 +2,7 @@
 
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { wrapPolicyNarrativeText } from './policy-narrative-text.mjs';
 
 // Policy narratives that appear in both a register and a markdown
 // document are derived, not hand-mirrored: the register text is the single
@@ -60,6 +61,7 @@ export const POLICY_NARRATIVE_BINDINGS = Object.freeze([
 		['external-project-document-validation', 'maintained-project-publication-admission'],
 		['native-plugin-hosting', 'trusted-windows-effect-processes'],
 		['audiocom-proxy-boundary', 'bounded-audiocom-oauth-media-proxy'],
+		['macro-program-untrusted-code-runtime', 'macro-program-byte-bound-consent'],
 	].map(([riskId, controlId]) => Object.freeze({
 		marker: controlId,
 		register: 'config/production-security-matrix.json',
@@ -471,21 +473,10 @@ export function renderPolicyNarrative(text, binding) {
 	for (const token of NARRATIVE_CODE_ID_TOKENS) {
 		rendered = rendered.replace(new RegExp(`(?<!\`)\\b${token}\\b(?!\`)`, 'gu'), `\`${token}\``);
 	}
-	if (binding.wrap) rendered = wrapText(rendered, binding.wrap);
+	if (binding.wrap) rendered = wrapPolicyNarrativeText(rendered, binding.wrap);
 	return rendered;
 }
 
-function wrapText(text, width) {
-	const lines = [];
-	let line = '';
-	for (const word of text.split(' ')) {
-		if (line === '') line = word;
-		else if (line.length + 1 + word.length <= width) line += ` ${word}`;
-		else { lines.push(line); line = word; }
-	}
-	if (line !== '') lines.push(line);
-	return lines.join('\n');
-}
 
 export async function loadPolicyNarratives(repositoryRoot) {
 	assert(typeof repositoryRoot === 'string' && repositoryRoot, 'repositoryRoot is required');

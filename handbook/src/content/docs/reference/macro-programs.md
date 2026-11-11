@@ -103,7 +103,7 @@ the same message the Effect menu gives.
 
 Choose **Apply to files** in the macro manager, or **Tools → Macros → Apply to
 files**. The command is also available through command search on desktop. Pick
-a step-list macro or enabled program and an output format: WAV (24-bit), FLAC
+a step-list macro or program and an output format: WAV (24-bit), FLAC
 (24-bit) or MP3. **Choose audio files** opens the input picker; the selected
 files appear in a scrollable table. **Choose output folder** selects the
 destination and shows its full path. Press **Run macro** when both selections
@@ -503,16 +503,11 @@ the editor:
 }
 ```
 
-Importing stores the text and nothing more. **Run macro** stays disabled until
-the program is reviewed. The pane shows the program, the file it came from,
-a note on what a program can do to the open project, and a checkbox reading *I
-have read this program and want to run it.* Ticking it enables **Enable this
-program**, and only then can the program run.
-
-That permission is for the exact text you read. If the program changes
-afterwards, whether you edit it or import a newer copy over it, the review
-appears again until you enable the new text. Programs you write in the manager
-yourself need no review.
+Importing stores the program and its file origin without executing it. Imported
+programs use the same **Run macro** button and sandbox as programs you write in
+the manager. Editing or reimporting a program does not require a separate
+acknowledgement. Each execution starts only when you choose **Run macro** or
+**Run** in the Macros palette.
 
 ## Examples
 

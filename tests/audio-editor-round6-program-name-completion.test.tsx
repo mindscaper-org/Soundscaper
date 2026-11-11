@@ -26,7 +26,7 @@ for (const completion of ['Enter', 'Escape', 'blur'] as const) {
 			});
 			return <MacroScriptEditor copy={resolveMacroManagerCopy('en')} script={script}
 				log={[]} failure={null} running={false}
-				onChange={(next: Script) => { commits.push(next.name); setScript({ ...next, name: next.name.trim() }); }} onTrust={() => undefined} />;
+				onChange={(next: Script) => { commits.push(next.name); setScript({ ...next, name: next.name.trim() }); }} />;
 		}
 		try {
 			await act(async () => { root.render(<Control />); });

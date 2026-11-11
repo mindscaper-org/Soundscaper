@@ -65,7 +65,9 @@ test('completed cloud saves retain the real archive filename', async () => {
 	} finally { archives.dispose(); }
 });
 
-test('macro review preserves imported provenance before consent', () => {
-	const html = renderToStaticMarkup(<MacroScriptEditor copy={{ reviewOrigin: 'Imported from {origin}' }} script={{ id: 'program', name: 'Review me', source: '', trust: 'unreviewed', origin: `${name}.soundscapemacro` }} log={[]} failure={null} running={false} runnable={false} onChange={noop} onTrust={noop} />);
-	assert.ok(html.includes(`Imported from ${escaped}.soundscapemacro`));
+test('the program editor preserves authored literal names without an import warning', () => {
+	const html = renderToStaticMarkup(<MacroScriptEditor copy={{ sandboxNotice: 'Sandboxed program' }} script={{ id: 'program', name, source: '', origin: `${name}.soundscapemacro` }} log={[]} failure={null} running={false} onChange={noop} />);
+	assert.ok(html.includes(escaped));
+	assert.ok(!html.includes('data-macro-script-review'));
+	assert.ok(!html.includes('role="checkbox"'));
 });

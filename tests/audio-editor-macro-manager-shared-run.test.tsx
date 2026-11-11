@@ -82,13 +82,16 @@ test('selecting a program preserves the footer cancellation for a pending step m
 		});
 		assert.equal(reactProps(fixture.button(ENGLISH_COPY.runMacro)).disabled, false);
 		assert.equal(fixture.scriptRuns.length, 0);
+		await click(fixture.button(ENGLISH_COPY.runMacro));
+		assert.equal(fixture.scriptRuns.length, 1);
 	} finally {
+		for (const run of fixture.scriptRuns) run.settlement.resolve({ log: [] });
 		fixture.settlePending();
 		await fixture.cleanup();
 	}
 });
 
-test('the shared button still requires review when an imported program duplicates authored text', async () => {
+test('the shared button runs an imported copy without approval even when its text matches another program', async () => {
 	const fixture = await mountedMacroManagerFixture();
 	try {
 		await fixture.render(macroSnapshot('project-a'));
@@ -98,10 +101,13 @@ test('the shared button still requires review when an imported program duplicate
 			schemaVersion: 1, kind: 'script', engine: 'soundscaper-macro-js/1', name: 'Imported copy', source,
 		})], 'copy.soundscapemacro'));
 		assert.equal(fixture.scripts.list().at(-1)?.trust, 'imported-untrusted');
-		assert.equal(fixture.scripts.blocked(source), false, 'the shared source already has permission elsewhere');
-		assert.equal(reactProps(fixture.button(ENGLISH_COPY.runMacro)).disabled, true);
+		assert.equal(fixture.scripts.blocked(source), false, 'source availability does not depend on legacy review markers');
+		assert.equal(reactProps(fixture.button(ENGLISH_COPY.runMacro)).disabled, false);
 		assert.equal(fixture.scriptRuns.length, 0);
+		await click(fixture.button(ENGLISH_COPY.runMacro));
+		assert.equal(fixture.scriptRuns.length, 1);
 	} finally {
+		for (const run of fixture.scriptRuns) run.settlement.resolve({ log: [] });
 		fixture.settlePending();
 		await fixture.cleanup();
 	}

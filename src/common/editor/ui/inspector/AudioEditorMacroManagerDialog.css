@@ -248,8 +248,7 @@
 	color: var(--success, var(--text));
 }
 
-/* A macro written as a program: the source, what the run said, and — for one
-   that arrived from a file — the review that has to happen before it can run. */
+/* A macro program and its execution log. */
 
 .audio-editor-macro-script {
 	display: flex;
@@ -306,36 +305,6 @@
 	color: var(--warning, var(--text));
 }
 
-/* The gate is deliberately the loudest thing in the panel: this is the only
-   place the editor accepts executable content from a file. */
-.audio-editor-macro-script__review {
-	padding: 10px;
-	background: var(--danger-bg);
-	border: 1px solid var(--danger-line);
-	border-radius: 5px;
-}
-
-.audio-editor-macro-script__review h4 {
-	margin: 0 0 6px;
-	color: var(--danger);
-	font-size: var(--editor-font-size, 12px);
-}
-
-.audio-editor-macro-script__review-acknowledge {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	margin-top: 8px;
-	font-size: var(--editor-font-size, 12px);
-	cursor: pointer;
-}
-
-.audio-editor-macro-script__actions {
-	display: flex;
-	justify-content: flex-end;
-	gap: 8px;
-}
-
 .audio-editor-macros-palette__programs ul {
 	margin: 0;
 	padding: 6px;
@@ -365,10 +334,7 @@
 	background: var(--control);
 }
 
-.audio-editor-macros-palette__program-untrusted {
-	color: var(--danger);
-	font-size: var(--editor-font-size, 12px);
-}
+
 
 @media (max-width: 620px) {
 	.audio-editor-macros-palette__content {

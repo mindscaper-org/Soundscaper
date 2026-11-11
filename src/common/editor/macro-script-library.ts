@@ -9,11 +9,8 @@
  * lose every macro they had. A separate key means an older build simply does
  * not read this one.
  *
- * A record carries the trust the program has earned rather than a flag, and the
- * permission is for the exact bytes it was given for. A program written here is
- * the user's own and runs. One that arrived from a file runs only after somebody
- * has read it and said so — and editing it afterwards does not launder it,
- * because the permission still names the text that was actually reviewed.
+ * Legacy review metadata stays readable for older versions of this library.
+ * Imported programs execute only through an explicit sandboxed Run action.
  */
 
 export const MACRO_SCRIPT_LIBRARY_SCHEMA_VERSION = 1;
@@ -29,7 +26,7 @@ export interface MacroScriptRecord {
 	readonly name: string;
 	readonly source: string;
 	readonly trust: MacroScriptTrust;
-	/** The source this trust was granted for; anything else re-arms the gate. */
+	/** Legacy review metadata, preserved for older library readers. */
 	readonly trustedSource: string | null;
 	readonly origin: string | null;
 }
@@ -95,26 +92,12 @@ export function deleteMacroScript(state: unknown, scriptId: string): MacroScript
 	return freezeLibrary(current.scripts.filter((script) => script.id !== id));
 }
 
-/**
- * Whether this exact program may run.
- *
- * A program the user wrote here is theirs. One that arrived from a file has to
- * be looked at, and the permission is for the bytes they looked at — a single
- * character elsewhere is a different program.
- */
+/** Nonempty programs are available to the same sandbox regardless of origin. */
 export function macroScriptIsRunnable(script: Readonly<Partial<MacroScriptRecord>>): boolean {
-	if (script.trust === 'authored') return true;
-	return script.trust === 'imported-trusted' && script.trustedSource === script.source;
+	return typeof script.source === 'string' && script.source.trim().length > 0;
 }
 
-/**
- * Grant this program permission to run, for exactly the bytes it holds now.
- *
- * The permission is not a flag on the record but a copy of the source it was
- * given for, so a later edit — from a re-import, from a sync, from anything
- * that is not the user typing here — leaves the record trusted for a program
- * that is no longer in it, and it stops being runnable.
- */
+/** Preserve the legacy review marker for older consumers of the v1 library. */
 export function trustMacroScript(state: unknown, scriptId: string): MacroScriptLibraryState {
 	const current = createMacroScriptLibrary(state);
 	const id = String(scriptId ?? '');
@@ -125,23 +108,12 @@ export function trustMacroScript(state: unknown, scriptId: string): MacroScriptL
 		: candidate));
 }
 
-/**
- * Whether this exact text is text the user has been shown and has not enabled.
- *
- * The gate lives on the bytes rather than on the record, because the run action
- * is handed a name and a source rather than a library ID. Checking the record
- * would leave the obvious bypass — read the untrusted program out of the list
- * and pass its text straight to the runner — open.
- */
+/** Compatibility adapter: origin and legacy review metadata do not block execution. */
 export function macroScriptSourceIsBlocked(
-	scripts: readonly Readonly<Partial<MacroScriptRecord>>[],
+	_scripts: readonly Readonly<Partial<MacroScriptRecord>>[],
 	source: string,
 ): boolean {
-	const text = String(source ?? '');
-	const matching = scripts.filter((script) => script.source === text);
-	// Importing another copy cannot revoke permission already given to these
-	// exact bytes. Its own record still requires review in the palette.
-	return matching.length > 0 && !matching.some(macroScriptIsRunnable);
+	return !macroScriptIsRunnable({ source });
 }
 
 export function normalizeMacroScript(value: unknown): MacroScriptRecord {

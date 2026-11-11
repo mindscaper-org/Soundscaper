@@ -150,10 +150,6 @@ export function createEffectMacroActions(
 		})),
 		runScript: restricted('audioMacros', (async (request: unknown) => {
 			const { name, source, resolveAudioInput } = readScriptRequest(request, scope);
-			// The gate is on the bytes, not on the record the manager happens to hold,
-			// so reading an unreviewed program out of the list and passing its text
-			// straight here is not a way around it.
-			if (scripts.blocked(source)) throw new Error('MACRO_SCRIPT_NOT_TRUSTED');
 			const task = scope.startMacroScriptTask();
 			let runSandbox: Sandbox | null = null;
 			const cancel = () => {
@@ -209,7 +205,7 @@ export function createEffectMacroActions(
 			list: restricted('audioMacros', () => scripts.list()),
 			save: restricted('audioMacros', writableLibraryAction(scope, (script: unknown) => scripts.save(script))),
 			delete: restricted('audioMacros', writableLibraryAction(scope, (scriptId: string) => scripts.delete(scriptId))),
-			// Importing stores text and nothing else; enabling it is a separate act.
+			// Importing stores text and nothing else; running it is a separate action.
 			import: restricted('audioMacros', writableLibraryAction(scope, (text: unknown, origin?: unknown) => scripts.import(text, origin))),
 			export: restricted('audioMacros', ((scriptId: string) => scripts.export(scriptId))),
 			trust: restricted('audioMacros', writableLibraryAction(scope, (scriptId: string) => scripts.trust(scriptId))),

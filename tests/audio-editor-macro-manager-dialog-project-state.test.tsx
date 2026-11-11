@@ -396,60 +396,33 @@ test('Framescaper keeps its shared Macro Manager unchanged', async () => {
 	}
 });
 
-test('an imported program keeps the shared Run macro button disabled until enabled', async () => {
-	// This is the only place the editor accepts executable content from a file,
-	// so importing stores text and nothing else: no run, no permission, and a
-	// list entry that says out loud what is still owed.
+test('an imported program is ready for Run macro without a foreign-code warning or automatic execution', async () => {
 	const fixture = await mountedMacroManagerFixture();
 	try {
 		await fixture.render(macroSnapshot('project-a'));
 		await changeFile(fixture.importScriptInput(), new File([JSON.stringify({
-			schemaVersion: 1,
-			kind: 'script',
-			engine: 'soundscaper-macro-js/1',
-			name: 'Sweep',
-			source: 'await sound.select.all();',
+			schemaVersion: 1, kind: 'script', engine: 'soundscaper-macro-js/1',
+			name: 'Sweep', source: 'await sound.select.all();',
 		})], 'sweep.soundscapemacro'));
-
 		assert.equal(fixture.message(), MANAGER_COPY.programImported);
-		assert.deepEqual(fixture.scripts.list().map(({ name, trust }) => ({ name, trust })), [
-			{ name: 'Sweep', trust: 'imported-untrusted' },
-		]);
-		assert.equal(fixture.program('Sweep').textContent.includes(MANAGER_COPY.notTrusted), true);
+		assert.equal(fixture.scripts.list()[0]?.origin, 'sweep.soundscapemacro');
+		assert.equal(fixture.program('Sweep').textContent.includes(MANAGER_COPY.notTrusted), false);
 		assert.equal(fixture.scriptRuns.length, 0, 'importing never runs anything');
 		assert.equal(fixture.selectedMacroName(), null);
-		assert.equal(fixture.button(ENGLISH_COPY.runMacro).hasAttribute('disabled'), true);
+		assert.equal(reactProps(fixture.button(ENGLISH_COPY.runMacro)).disabled, false);
+		assert.equal(fixture.review(), null);
+		assert.equal(fixture.find('[role="checkbox"]'), null);
+		assert.equal(fixture.buttonLabels().includes(MANAGER_COPY.enableProgram), false);
+		await click(fixture.button(ENGLISH_COPY.runMacro));
+		assert.equal(fixture.scriptRuns.length, 1);
+		await act(async () => { fixture.scriptRuns[0]!.settlement.resolve({ log: [] }); await Promise.resolve(); });
 		const scriptName = fixture.scriptNameInput();
 		await act(async () => { reactProps(scriptName).onFocus?.(); });
 		await changeText(scriptName, '');
 		assert.equal(fixture.scripts.list()[0]?.name, 'Sweep');
 		assert.equal(fixture.scriptNameInput().value, '');
-
-		// The acknowledgement enables the shared footer action only after review.
-		const review = fixture.review();
-		assert.ok(review, 'an unreviewed program shows the review gate');
-		assert.equal(reactProps(fixture.button(ENGLISH_COPY.runMacro)).disabled, true);
-		const enable = fixture.button(MANAGER_COPY.enableProgram);
-		assert.equal(reactProps(enable).disabled, true);
-
-		await click(fixture.find('[role="checkbox"]')!);
-		await click(fixture.button(MANAGER_COPY.enableProgram));
-		assert.equal(fixture.scripts.list()[0]!.trust, 'imported-trusted');
-		assert.equal(reactProps(fixture.button(ENGLISH_COPY.runMacro)).disabled, false);
-		assert.equal(fixture.review(), null);
-
-		await changeFile(fixture.importScriptInput(), new File([JSON.stringify({
-			schemaVersion: 1,
-			kind: 'script',
-			engine: 'soundscaper-macro-js/1',
-			name: 'Second program',
-			source: 'await sound.select.none();',
-		})], 'second.soundscapemacro'));
-		const secondReview = fixture.find('[role="checkbox"]');
-		assert.ok(secondReview, 'a second unreviewed program shows a fresh review gate');
-		assert.equal(secondReview.getAttribute('aria-checked'), 'false');
-		assert.equal(reactProps(fixture.button(MANAGER_COPY.enableProgram)).disabled, true);
 	} finally {
+		for (const run of fixture.scriptRuns) run.settlement.resolve({ log: [] });
 		fixture.settlePending();
 		await fixture.cleanup();
 	}

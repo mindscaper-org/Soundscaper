@@ -67,7 +67,7 @@ test('Macros palette is an opt-in dockable launcher with a separate Macro manage
 	expect(errors).toEqual([]);
 });
 
-test('imported programs stay disabled in the palette until reviewed in the manager', async ({ page }) => {
+test('imported programs are ready to run in the palette without a separate review', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
 	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
@@ -79,11 +79,10 @@ test('imported programs stay disabled in the palette until reviewed in the manag
 	await closeDialog(manager);
 	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
 	const row = editor.getByRole('region', { name: 'Macros palette', exact: true }).getByRole('listitem', { name: 'Review', exact: true });
-	await expect(row.getByRole('button', { name: 'Run', exact: true })).toBeDisabled();
+	await expect(row.getByRole('button', { name: 'Run', exact: true })).toBeEnabled();
 	await row.getByRole('button', { name: 'Review', exact: true }).click();
-	await expect(manager.getByRole('button', { name: 'Run macro', exact: true })).toBeDisabled();
-	await manager.getByRole('checkbox').check();
-	await manager.getByRole('button', { name: 'Enable this program', exact: true }).click();
+	await expect(manager.getByRole('checkbox')).toHaveCount(0);
+	await expect(manager.getByRole('button', { name: 'Enable this program', exact: true })).toHaveCount(0);
 	await expect(manager.getByRole('button', { name: 'Run macro', exact: true })).toBeEnabled();
 	await closeDialog(manager);
 	await row.getByRole('button', { name: 'Run', exact: true }).click();

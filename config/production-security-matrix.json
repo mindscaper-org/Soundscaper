@@ -11159,7 +11159,7 @@
 				},
 				{
 					"id": "macro-program-byte-bound-consent",
-					"summary": "This is the only place the editor accepts executable content from a file, so importing one stores text and grants nothing. The program lands unreviewed with the file it came from recorded, shows its source with the sentence about what it can do to the open project, and gains a Run button only after a person ticks an acknowledgement and enables it. The permission is a copy of the exact bytes it was granted for rather than a flag, so editing the program afterwards does not launder it, and the check runs against the source handed to the runner rather than the record the manager holds, which closes reading the unreviewed program out of the list and passing its text straight to the run action. The transport is a .soundscapemacro JSON envelope rather than a bare .js file, so the artifact is not something the recipient's own operating system will run outside this sandbox.",
+					"summary": "Imported macro programs are stored as bounded source text with their file origin. Importing or editing does not run code. Every nonempty program, including records with legacy review metadata, is available to the shared Run macro action without a separate acknowledgement. Each explicit run uses the same restricted worker and host dispatch allowlist. The .soundscapemacro JSON envelope is validated before storage and does not launch as a desktop script.",
 					"evidence": [
 						{
 							"kind": "implementation",

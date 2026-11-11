@@ -14,8 +14,7 @@ import { createMacroAudioInputResolver } from '../../controller/effects/macro-au
  * rather than outliving it.
  */
 export default function MacroScriptPanel({ controller, copy, script, blocked, onChange, fileService, runControlRef = undefined, onRunningChange = undefined }) {
-	// A program the user wrote here is theirs. Imported programs require review;
-	// that permission belongs to the exact text the user read.
+	// Authored and imported programs use the same sandbox and explicit Run action.
 	const runnable = macroScriptIsRunnable(script);
 	const [log, setLog] = useState([]);
 	const [failure, setFailure] = useState(null);
@@ -92,9 +91,7 @@ export default function MacroScriptPanel({ controller, copy, script, blocked, on
 			running={running}
 			completed={completed}
 			cancelled={cancelled}
-			runnable={runnable}
 			onChange={onChange}
-			onTrust={() => controller.actions.macros.scripts.trust(script.id)}
 		/>
 	);
 }

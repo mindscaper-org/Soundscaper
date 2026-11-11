@@ -29,7 +29,7 @@ test('Program Tab escape belongs to the current focus session', async () => {
 		const [script, setScript] = useState({ id: 'authored', name: 'Program', source: 'code' });
 		return <MacroScriptEditor script={script} onChange={setScript} log={[]} failure={null}
 			copy={{ programName: 'Program name', program: 'Program', tabHint: 'Escape then Tab',
-				sandboxNotice: 'Program', runProgram: 'Run' }} running={false} onTrust={() => {}} />;
+				sandboxNotice: 'Program', runProgram: 'Run' }} running={false} />;
 	}
 	try {
 		await act(async () => root.render(<Editor />));

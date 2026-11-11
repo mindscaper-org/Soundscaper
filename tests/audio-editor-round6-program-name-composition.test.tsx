@@ -21,7 +21,7 @@ for (const key of ['Enter', 'Escape'] as const) test(`program name preserves its
 		await act(async () => { root.render(<MacroScriptEditor copy={resolveMacroManagerCopy('en')}
 			script={{ id: 'program', name: 'Original', source: 'await sound.select.all();', trust: 'authored' }}
 			log={[]} failure={null} running={false}
-			onChange={(next: { name: string }) => { committed.push(next.name); }} onTrust={() => undefined} />); });
+			onChange={(next: { name: string }) => { committed.push(next.name); }} />); });
 		const input = dom.one('.text-input__field');
 		Object.defineProperty(input, 'blur', { configurable: true, value: () => {
 			input.ownerDocument.activeElement = input.ownerDocument.body;
