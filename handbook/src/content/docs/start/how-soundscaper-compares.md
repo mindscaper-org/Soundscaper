@@ -96,6 +96,7 @@ those workflows before relying on it for a session.
 
 **Workflow references**
 
+- [Soundscaper interchange profiles](https://github.com/LeoWattenberg/Soundscaper/blob/main/docs/architecture/delivery-and-interchange.md#interchange-profiles) document import and export scope.
 - [Soundscaper effect inventory](/reference/generated/audio-effects/) and [Audition restoration effects](https://helpx.adobe.com/audition/desktop/effects-reference/noise-reduction-restoration-effects.html).
 - [Audacity export formats](https://www.audacityteam.org/manual/getting-started/export-your-audio/), [PCM writer](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/au3/modules/import-export/mod-pcm/ExportPCM.cpp), and [WavPack options](https://manual.audacityteam.org/man/wavpack_export_options.html).
 - [Pro Tools audio-file support](https://kb.avid.com/pkb/articles/en_US/Knowledge/Pro-Tools-Audio-File-Type-and-Session-Support) and [QuickTime export](https://www.avid.com/resource-center/quicktime-and-file-support-improvements-in-pro-tools-2021-6).
@@ -304,16 +305,19 @@ See [export formats](/reference/generated/formats/), [clip delivery](/soundscape
 
 ## Interchange with other tools
 
+Both Soundscaper editions import and export EDL, OpenTimelineIO, FCPXML, OMF,
+and DAWproject.
+
 | Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Pro Tools Studio | SoundCraft 0.19.0 |
 | --- | --- | --- | --- | --- | --- | --- |
 | Audacity projects | + — AUP–AUP4 :: AUP, AUP3, and AUP4 in; AUP3 and AUP4 out with a compatibility report | + — AUP–AUP4 :: AUP, AUP3, and AUP4 in; AUP3 and AUP4 out with a compatibility report | ~ — No AUP3 export :: AUP, AUP3, and AUP4 import; AUP4 export. | / | / | / |
 | Audition sessions | / | ~ — Import only | / | + | / | / |
 | Legacy Cool Edit / Audition sessions | / | ~ — Import only :: Recognized binary `.ses` layouts, with missing-media and omission reports; no export | / | / | / | / |
-| EDL | ~ — Export only | ~ — Export only | / | / | ~ — Session text | ~ — Session text |
-| OpenTimelineIO | ~ — Export only | ~ — Export only | / | / | / | / |
-| FCPXML | ~ — Export only | ~ — Export only | / | + | / | / |
-| DAWproject | + | + | / | / | / | / |
-| OMF | / | / | / | ~ | + | / |
+| EDL | + — :: Import and export CMX3600 cuts; export uses one selected sequence track. | + — :: Import and export CMX3600 cuts; export uses one selected sequence track. | / | / | ~ — Session text | ~ — Session text |
+| OpenTimelineIO | + — :: Import and export audio/video tracks, gaps, and supported nested stacks. | + — :: Import and export audio/video tracks, gaps, and supported nested stacks. | / | / | / | / |
+| FCPXML | + — :: Import and export timeline spines, asset clips, and connected lanes. | + — :: Import and export timeline spines, asset clips, and connected lanes. | / | + | / | / |
+| DAWproject | + — :: Import and export media and supported project structure, with an exchange report. | + — :: Import and export media and supported project structure, with an exchange report. | / | / | / | / |
+| OMF | + — :: Import and export OMF2 audio. Export embeds mono/stereo 24-bit WAV, with a 256 MiB decoded-PCM limit. | + — :: Import and export OMF2 audio. Export embeds mono/stereo 24-bit WAV, with a 256 MiB decoded-PCM limit. | / | ~ | + | / |
 | Round-trip with a video editor | ~ — Framescaper copy :: File-menu handoff creates a separate editable Framescaper copy, with a conversion report | ~ — Framescaper copy :: File-menu handoff creates a separate editable Framescaper copy, with a conversion report | / | + — Premiere Pro | ~ — AAF / OMF | / |
 | Blender track export and live sync | / | + — :: WAV track bundle and one-way edit updates through the bundled Blender 4.2+ add-on | / | / | / | / |
 | Labels and markers exchange | + | + | + | + | ~ — Session text | ~ — Text / MIDI |

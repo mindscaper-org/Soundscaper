@@ -199,6 +199,13 @@ test('compares Web and Desktop with accessible symbols and explains the capabili
 		}
 	}
 	await expect(row('Click, hum, and sibilance tools')).toHaveCount(0);
+	for (const format of ['EDL', 'OpenTimelineIO', 'FCPXML', 'OMF', 'DAWproject']) {
+		for (const column of [1, 2]) {
+			const cell = row(format).getByRole('cell').nth(column);
+			await expect(cell.getByRole('img', { name: 'Supported', exact: true })).toBeVisible();
+			await expect(cell.getByRole('button')).toHaveAccessibleDescription(/import and export/iu);
+		}
+	}
 });
 
 test('keeps comparison sources collapsed and reveals cell details on hover, focus, and tap', async ({ page, isMobile }) => {
