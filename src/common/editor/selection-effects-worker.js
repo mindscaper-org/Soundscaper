@@ -17,6 +17,8 @@ globalThis.onmessage = async ({ data }) => {
 			return;
 		}
 		const context = normalizeSelectionEffectWorkerContext(data.context);
+		let phaseCorrectionAnalysis = null;
+		context.onPhaseCorrectionAnalysis = (analysis) => { phaseCorrectionAnalysis = analysis; };
 		context.onProgress = (progress) => globalThis.postMessage({ type: 'progress', requestId: data.requestId, ratio: progress });
 		if (data.wasmModule instanceof WebAssembly.Module) context.wasmModule = data.wasmModule;
 		const output = data.operation === 'apply-chain'
@@ -29,7 +31,8 @@ globalThis.onmessage = async ({ data }) => {
 			data.params || {},
 			context,
 		);
-		globalThis.postMessage({ type: 'result', requestId: data.requestId, channels: output }, output.map((channel) => channel.buffer));
+		globalThis.postMessage({ type: 'result', requestId: data.requestId, channels: output,
+			...(phaseCorrectionAnalysis ? { phaseCorrectionAnalysis } : {}) }, output.map((channel) => channel.buffer));
 	} catch (error) {
 		globalThis.postMessage({
 			type: 'error',

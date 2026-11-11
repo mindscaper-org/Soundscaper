@@ -31,6 +31,7 @@ const CATEGORY_LABELS = Object.freeze({
  * rather than guessed from the identifier.
  */
 const LOCAL_EFFECT_CATEGORIES = Object.freeze({
+	'automatic-phase-correction': 'repair',
 	'auto-tune': 'pitch-tempo',
 	deesser: 'repair',
 	'hum-removal': 'repair',
@@ -66,6 +67,7 @@ const BROWSER_ADAPTATION_NOTES = Object.freeze({
 });
 
 const LOCAL_EFFECT_NOTES = Object.freeze({
+	'automatic-phase-correction': ['Selection-only fixed stereo timing alignment, from 8 kHz to 384 kHz', 'Reference channel, duration and levels are preserved; ambiguous or inconsistent offsets remain unchanged', 'Analyze reports the offset and confidence; Original/Corrected and mono are preview-only controls'],
 	'hum-removal': ['Harmonic notch bank with custom fundamental, harmonic count, notch width and reduction', 'Live controls, zero latency, no timeline automation; selections keep their duration'],
 	'auto-tune': ['Solo voice or melody (65–1500 Hz); chromatic, major or natural minor pitch correction', 'StaffPad formant preservation; fixed rack latency (about 72 ms at 48 kHz), live controls, no timeline automation'],
 	'multi-tap-delay': ['Finite echoes with StaffPad pitch shift; selections also offer changed-speed echoes and optional complete tails'],

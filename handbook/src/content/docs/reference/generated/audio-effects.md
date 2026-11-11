@@ -19,6 +19,7 @@ Audio effects are registered by Soundscaper. Effects whose ID begins with `audac
 | Amplify | `audacity-amplify` | Volume and dynamics | No | Yes | — |
 | Auto Duck | `audacity-auto-duck` | Volume and dynamics | Yes | Yes | Needs a control track |
 | Auto-Tune | `auto-tune` | Pitch and tempo | Yes | Yes | Solo voice or melody (65–1500 Hz); chromatic, major or natural minor pitch correction; StaffPad formant preservation; fixed rack latency (about 72 ms at 48 kHz), live controls, no timeline automation |
+| Automatic phase correction | `automatic-phase-correction` | Noise and repair | No | Yes | Selection-only fixed stereo timing alignment, from 8 kHz to 384 kHz; Reference channel, duration and levels are preserved; ambiguous or inconsistent offsets remain unchanged; Analyze reports the offset and confidence; Original/Corrected and mono are preview-only controls |
 | Bass and Treble | `audacity-bass-treble` | EQ and filters | Yes | Yes | — |
 | Bitcrusher | `bitcrusher` | Distortion and modulation | Yes | Yes | — |
 | Change Pitch | `audacity-change-pitch` | Pitch and tempo | No | Yes | Uses the StaffPad time and pitch library |
@@ -132,6 +133,9 @@ Defaults and limits come from the same definitions the editor validates against,
 | Auto-Tune | `auto-tune` | Key | C | C; C♯ / D♭; D; D♯ / E♭; E; F; F♯ / G♭; G; G♯ / A♭; A; A♯ / B♭; B | — |
 | Auto-Tune | `auto-tune` | Scale | Chromatic | Chromatic; Major; Natural minor | — |
 | Auto-Tune | `auto-tune` | Control Track Id | — | Optional MIDI control track; empty uses key and scale | — |
+| Automatic phase correction | `automatic-phase-correction` | Maximum correction (ms) | 5 | 0 to 10 | ms |
+| Automatic phase correction | `automatic-phase-correction` | Minimum confidence (%) | 85 | 50 to 100 | % |
+| Automatic phase correction | `automatic-phase-correction` | Reference channel | Left | Left; Right | — |
 | Bass and Treble | `audacity-bass-treble` | Bass | 0 | -30 to 30 | dB |
 | Bass and Treble | `audacity-bass-treble` | Treble | 0 | -30 to 30 | dB |
 | Bass and Treble | `audacity-bass-treble` | Output volume | 0 | -30 to 30 | dB |

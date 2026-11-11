@@ -147,6 +147,7 @@ export interface EffectTargetOptions {
 
 export interface EffectDefinitionForSelection {
 	readonly lengthChanging?: boolean;
+	readonly fullSpectrumOnly?: boolean;
 }
 
 export interface SpectralBoxOptions {
@@ -290,6 +291,7 @@ export function createEffectSelectionService(runtime: EffectSelectionServiceRunt
 		const frequencyRange = runtime.activeSelection()?.frequencyRange;
 		if (target.sourceId) return null;
 		if (!frequencyRange || runtime.state.audacityEffectType === 'eq') return null;
+		if (definition.fullSpectrumOnly) throw createLocalizedError(Error, runtime.copy, 'effectPhaseCorrectionFullSpectrumRequired');
 		if (definition.lengthChanging) throw createLocalizedError(Error, runtime.copy, 'spectralEffectLengthChanging');
 		return {
 			minimumFrequency: frequencyRange.minimumFrequency,

@@ -26,6 +26,7 @@ import { STANDARD_MODULATION_EFFECT_DEFINITIONS } from './first-party-effects/st
 import { NOISE_GATE_EFFECT_DEFINITION, normalizeNoiseGateParams } from './first-party-effects/standard/noise-gate-definition.ts';
 import { STANDARD_DELAY_EFFECT_DEFINITION } from './first-party-effects/standard/delay-definition.ts';
 import { AUTO_TUNE_EFFECT_DEFINITION, normalizeAutoTuneParams } from './first-party-effects/auto-tune/definition.ts';
+import { FIRST_PARTY_SELECTION_EFFECT_DEFINITIONS } from './first-party-effects/selection-definitions.ts';
 import { HUM_REMOVAL_EFFECT_DEFINITION } from './first-party-effects/hum-removal/definition.ts';
 import { REVERB_EFFECT_DEFINITION } from './first-party-effects/reverb/definition.ts';
 import { standardEffectTailSeconds } from './first-party-effects/standard/effect-tail.ts';
@@ -139,13 +140,7 @@ export const AUDIO_RACK_EFFECT_DEFINITIONS = Object.freeze({
 /** All effects which can be previewed and destructively applied to a selection. */
 export const AUDIO_SELECTION_EFFECT_DEFINITIONS = Object.freeze({
 	'hum-removal': HUM_REMOVAL_EFFECT_DEFINITION,
-	'auto-tune': AUTO_TUNE_EFFECT_DEFINITION,
-	...STANDARD_FILTER_EFFECT_DEFINITIONS,
-	...STANDARD_MODULATION_EFFECT_DEFINITIONS,
-	'noise-gate': NOISE_GATE_EFFECT_DEFINITION,
-	'multi-tap-delay': STANDARD_DELAY_EFFECT_DEFINITION,
-	deesser: DEESSER_EFFECT_DEFINITION,
-	'multiband-compressor': MULTIBAND_COMPRESSOR_EFFECT_DEFINITION,
+	...FIRST_PARTY_SELECTION_EFFECT_DEFINITIONS,
 	...AUDACITY_EFFECT_DEFINITIONS,
 	eq: Object.freeze({
 		...AUDIO_EFFECT_DEFINITIONS.eq,
@@ -185,7 +180,7 @@ export function audioSelectionEffectLabel(type, copyOrLocale = 'en') {
 	if (type === REVIEWED_UTILITY_GAIN_SELECTION_EFFECT_TYPE) return REVIEWED_UTILITY_GAIN_SELECTION_EFFECT_LABEL;
 	return ownMapValue(AUDACITY_EFFECT_DEFINITIONS, type)
 		? audacityEffectLabel(type, copyOrLocale)
-		: audioEffectLabel(type, copyOrLocale);
+		: ownMapValue(AUDIO_SELECTION_EFFECT_DEFINITIONS, type) ? canonicalCopyValue(effectNameCopyKey(type), copyOrLocale) : audioEffectLabel(type, copyOrLocale);
 }
 
 export function audioSelectionEffectDefaults(type, effectId = null) {

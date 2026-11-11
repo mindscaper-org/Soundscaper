@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { createAutoTuneControlLookup, type AutoTuneControlNote } from './first-party-effects/auto-tune/control-notes.ts';
+import type { PhaseCorrectionContext } from './first-party-effects/phase-correction/selection.ts';
 
-export interface SelectionEffectWorkerRuntimeContext {
+export interface SelectionEffectWorkerRuntimeContext extends PhaseCorrectionContext {
 	controlNotes?: readonly AutoTuneControlNote[];
 	afterChannels?: Float32Array[];
 	beforeChannels?: Float32Array[];
@@ -28,6 +29,7 @@ export function normalizeSelectionEffectWorkerContext(
 		if (Array.isArray(channels)) context[key] = channels.map(asFloat32Array);
 	}
 	if (typeof value.effectId === 'string') context.effectId = value.effectId;
+	if (value.phaseCorrectionAnalyzeOnly === true) Object.assign(context, { phaseCorrectionAnalyzeOnly: true });
 	if (Object.hasOwn(value, 'noiseProfile')) context.noiseProfile = value.noiseProfile;
 	if (Object.hasOwn(value, 'spectralSelection')) {
 		context.spectralSelection = value.spectralSelection;
