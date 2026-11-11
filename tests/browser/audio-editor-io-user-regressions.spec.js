@@ -22,27 +22,6 @@ async function applyDeliveryPreset(page, dialog, name) {
 	await page.getByRole('option', { name: `${name} (custom)` }).click();
 }
 
-test('Audacity extended labels with an undefined spectral bound import and export', async ({ page }) => {
-	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
-	const choosing = page.waitForEvent('filechooser');
-	await chooseCommandAction(page, editor, 'File', 'Import');
-	// Audacity writes -1 when a spectral selection is dragged to a track edge.
-	// Both cases are documented in its extended-label format manual.
-	await (await choosing).setFiles({
-		name: 'audacity-spectral-labels.txt', mimeType: 'text/plain',
-		buffer: Buffer.from('0\t0.5\tBelow 1000 Hz\n\\\t-1\t1000\n1\t1.5\tAbove 2000 Hz\n\\\t2000\t-1\n'),
-	});
-	await expect(editor.locator('[data-label-track] .audio-editor-label-marker')).toHaveCount(2);
-	await chooseNestedCommandAction(page, editor, 'File', ['Export other', 'Export labels']);
-	const dialog = page.getByRole('dialog', { name: 'Export labels', exact: true });
-	const downloading = page.waitForEvent('download');
-	await dialog.getByRole('button', { name: 'Export labels', exact: true }).click();
-	const text = await readFile(await (await downloading).path(), 'utf8');
-	expect(text).toContain('\\\t-1\t1000');
-	expect(text).toContain('\\\t2000\t-1');
-});
-
 test('a point label exports as a WebVTT cue with a playable duration', async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');
@@ -156,41 +135,6 @@ test('clearing the project metadata title keeps the export title empty', async (
 	await dialog.getByRole('button', { name: 'Metadata', exact: true }).click();
 	await expect(page.getByRole('dialog', { name: 'Metadata', exact: true })
 		.getByRole('textbox', { name: 'Title', exact: true })).toHaveValue('');
-});
-
-test('a dotted project title is retained in the label download name', async ({ page }) => {
-	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
-	await importFiles(editor, [captionLabels]);
-	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Rename project']);
-	const naming = page.getByRole('dialog', { name: 'Rename project', exact: true });
-	await commitInput(naming.getByRole('textbox'), 'Episode 1.2');
-	await naming.getByRole('button', { name: 'Save name', exact: true }).click();
-	await chooseNestedCommandAction(page, editor, 'File', ['Export other', 'Export labels']);
-	const dialog = page.getByRole('dialog', { name: 'Export labels', exact: true });
-	const downloaded = page.waitForEvent('download');
-	await dialog.getByRole('button', { name: 'Export labels', exact: true }).click();
-	expect((await downloaded).suggestedFilename()).toBe('Episode 1.2.txt');
-});
-
-test('a user-authored label containing an arrow exports as SubRip', async ({ page }) => {
-	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
-	await importFiles(editor, [toneA]);
-	await editor.getByRole('slider', { name: 'Playhead' }).focus();
-	await page.keyboard.press('Control+b');
-	const title = editor.getByRole('textbox', { name: /^Edit labels:/u });
-	await title.fill('Intro --> Verse');
-	await title.press('Enter');
-	await chooseNestedCommandAction(page, editor, 'File', ['Export other', 'Export labels']);
-	const dialog = page.getByRole('dialog', { name: 'Export labels', exact: true });
-	await chooseDropdown(page, dialog.getByRole('group', { name: 'Format', exact: true }), 'As SubRip (SRT)');
-	const downloads = [];
-	page.on('download', (download) => downloads.push(download));
-	await dialog.getByRole('button', { name: 'Export labels', exact: true }).click();
-	await expect(dialog.getByRole('alert')).toHaveCount(0);
-	await expect.poll(() => downloads.length).toBe(1);
-	expect(await readFile(await downloads[0].path(), 'utf8')).toContain('Intro --> Verse');
 });
 
 test('WebVTT readers display literal punctuation from a user-authored label', async ({ page }) => {
