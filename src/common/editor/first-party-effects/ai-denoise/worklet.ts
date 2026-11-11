@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { AiDenoiseStream } from './stream.ts';
-import { aiDenoiseGeometry } from './contract.ts';
+import { aiDenoiseRackGeometry } from './contract.ts';
 
 declare const sampleRate: number;
 declare class AudioWorkletProcessor { readonly port: MessagePort; constructor(options?: AudioWorkletNodeOptions); }
@@ -13,13 +13,13 @@ class AiDenoiseWorklet extends AudioWorkletProcessor {
 	constructor(options: AudioWorkletNodeOptions = {}) {
 		super(options);
 		const channels = Number((options.processorOptions as { channelCount?: unknown })?.channelCount);
-		aiDenoiseGeometry(sampleRate, channels);
+		aiDenoiseRackGeometry(sampleRate, channels);
 		this.port.onmessage = (event: MessageEvent): void => {
 			if (event.data?.type === 'dispose') { this.dispose(); return; }
 			if (event.data?.type !== 'attach' || this.peer || this.closed || event.ports.length !== 1) return;
 			this.peer = event.ports[0]!;
 			// Electron utility ports support cloned PCM, not transferred ArrayBuffers.
-			this.stream = new AiDenoiseStream(channels, block => this.peer!.postMessage(block));
+			this.stream = new AiDenoiseStream(channels, block => this.peer!.postMessage(block), sampleRate);
 			this.peer.onmessage = ({ data }: MessageEvent): void => {
 				try {
 					if (data?.type === 'error') throw new Error('The AI denoising helper stopped.');

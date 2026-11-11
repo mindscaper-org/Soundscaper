@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { normalizeProjectSampleRate } from '../../project-sample-rate.ts';
+import { defaultWindowedSincRadius } from '../../resample-geometry.ts';
 
 export const AI_DENOISE_TYPE = 'ai-denoise';
 export const AI_DENOISE_RATE = 48_000;
@@ -25,6 +27,18 @@ export function aiDenoiseGeometry(rate: number, channels: number): void {
 	if (rate !== AI_DENOISE_RATE || channels !== 1 && channels !== 2) {
 		throw new RangeError('Real-time AI denoising requires 48 kHz mono or stereo audio.');
 	}
+}
+/** The graph accepts project rates; the native PCM grant always uses the model rate. */
+export function aiDenoiseRackGeometry(rate: number, channels: number): void {
+	normalizeProjectSampleRate(rate);
+	if (channels !== 1 && channels !== 2) throw new RangeError('Real-time AI denoising requires mono or stereo audio.');
+}
+export function aiDenoiseLatencyFrames(rate: number): number {
+	normalizeProjectSampleRate(rate);
+	if (rate === AI_DENOISE_RATE) return AI_DENOISE_LATENCY;
+	return Math.ceil(AI_DENOISE_LATENCY * rate / AI_DENOISE_RATE
+		+ defaultWindowedSincRadius(rate, AI_DENOISE_RATE)
+		+ defaultWindowedSincRadius(AI_DENOISE_RATE, rate) * rate / AI_DENOISE_RATE);
 }
 export function aiDenoiseRequest(value: unknown): AiDenoiseRequest {
 	const row = value as Partial<AiDenoiseRequest> | null;

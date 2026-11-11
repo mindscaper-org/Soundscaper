@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { createAudioWorkletLoadOnce } from '../audio-worklet-load-once.ts';
-import { AI_DENOISE_CONNECT, AI_DENOISE_TYPE, aiDenoiseGeometry } from '../first-party-effects/ai-denoise/contract.ts';
+import { AI_DENOISE_CONNECT, AI_DENOISE_TYPE, AI_DENOISE_RATE, aiDenoiseRackGeometry } from '../first-party-effects/ai-denoise/contract.ts';
 import { projectEffectRacks } from './project-effects.ts';
 import { rackEffectChannelCount, type RackChannelProject } from '../rack-effect-channel-width.ts';
 import type { EngineProject } from './types.ts';
@@ -48,7 +48,7 @@ async function prepareOwned(context: BaseAudioContext, project: EngineProject,
 			if (selected.has(key)) throw new Error('AI denoising requires unique effect identities within a rack.');
 			selected.add(key);
 			const channels = rackEffectChannelCount(project as RackChannelProject, rack.scope, rack.targetId);
-			aiDenoiseGeometry(context.sampleRate, channels);
+			aiDenoiseRackGeometry(context.sampleRate, channels);
 			const previous = entries.get(key);
 			if (previous?.channels === channels && previous.isAlive()) continue;
 			previous?.dispose();
@@ -115,7 +115,7 @@ async function openNode(context: BaseAudioContext, channels: number): Promise<En
 			pair.port2.onmessageerror = (): void => finish(new Error('AI denoising initialization failed.'));
 			pair.port2.start();
 			const sessionId = Array.from(crypto.getRandomValues(new Uint8Array(20)), byte => byte.toString(16).padStart(2, '0')).join('');
-			window.postMessage({ type: AI_DENOISE_CONNECT, request: { sessionId, sampleRate: context.sampleRate, channelCount: channels } }, window.location.origin, [pair.port1]);
+			window.postMessage({ type: AI_DENOISE_CONNECT, request: { sessionId, sampleRate: AI_DENOISE_RATE, channelCount: channels } }, window.location.origin, [pair.port1]);
 		});
 		return entry;
 	} catch (error) { dispose(); throw error; }

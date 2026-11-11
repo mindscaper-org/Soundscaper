@@ -66,7 +66,7 @@ const BROWSER_ADAPTATION_NOTES = Object.freeze({
 });
 
 const LOCAL_EFFECT_NOTES = Object.freeze({
-	'ai-denoise': ['Desktop only; install DPDFNet2 through Model Manager', '48 kHz mono or stereo; fixed rack latency of 85.33 ms; requires a passing device speed probe'],
+	'ai-denoise': ['Desktop only; install DPDFNet2 through Model Manager', 'Mono or stereo; automatically resampled to 48 kHz and back', '85.33 ms compensated latency at 48 kHz; other rates include resampler lookahead; requires a passing device speed probe'],
 	'auto-tune': ['Solo voice or melody (65–1500 Hz); chromatic, major or natural minor pitch correction', 'StaffPad formant preservation; fixed rack latency (about 72 ms at 48 kHz), live controls, no timeline automation'],
 	'multi-tap-delay': ['Finite echoes with StaffPad pitch shift; selections also offer changed-speed echoes and optional complete tails'],
 	'noise-gate': ['Lookahead opens the gate before transients; rack and selection timing are compensated', 'Linked or independent channels; optional frequency-selective gating'],

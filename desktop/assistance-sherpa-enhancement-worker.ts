@@ -40,6 +40,7 @@ export async function executeSherpaEnhancement(value: unknown, runtime: unknown,
 	if (typeof module.OnlineSpeechDenoiser !== 'function') throw new TypeError('Sherpa lacks the streaming denoiser.');
 	const storage = createNodeAssistanceFloat32WaveStorageV1();
 	const executor = createSherpaNativeExecutorV1(options);
+	const expectedRate = speechEnhancementModel(grant.modelId)!.sampleRate;
 	let progress = 0;
 	const source = await storage.openSource(grant.input, RATE);
 	// Main removes the entire job tree after forced worker cancellation as well.
@@ -47,7 +48,7 @@ export async function executeSherpaEnhancement(value: unknown, runtime: unknown,
 	const channelSources: AssistanceFloat32WaveSourceV1[] = [];
 	let output: AssistanceFloat32WaveSinkV1 | undefined;
 	try {
-		const voiceSample = grant.modelId === 'voxlock' ? await voiceReference(source, directory) : undefined;
+		const voiceSample = grant.modelId === 'voxlock' ? await voiceReference(source, directory, expectedRate) : undefined;
 		for (let channel = 0; channel < source.geometry.channelCount; channel += 1) {
 			const channelOutput = await temporaryOutput(grant.output, join(directory, `channel-${channel}.wav`));
 			const geometry = { ...source.geometry, channelCount: 1, byteLength: 44 + source.geometry.frameCount * 4 };
@@ -56,25 +57,30 @@ export async function executeSherpaEnhancement(value: unknown, runtime: unknown,
 				try {
 					const model = modelConfig(grant, options.providerForModel?.(grant.modelId, provider) ?? provider, voiceSample);
 					const denoiser = callSherpaNativeV1(() => new module.OnlineSpeechDenoiser!({ model }));
-					const expectedRate = speechEnhancementModel(grant.modelId)!.sampleRate;
 					if (denoiser.sampleRate !== expectedRate) throw new RangeError('The denoiser sample rate differs from its reviewed model.');
+					const inputResampler = createStreamingWindowedSincResampler(RATE, expectedRate, 1);
 					const resampler = createStreamingWindowedSincResampler(expectedRate, RATE, 1);
 					let written = 0, generated = 0;
 					const write = async (audio: Audio): Promise<void> => {
-						if (audio.sampleRate !== expectedRate || !(audio.samples instanceof Float32Array)
+						if (!(audio.samples instanceof Float32Array)
+							|| audio.sampleRate !== expectedRate && !(audio.samples.length === 0 && audio.sampleRate === 0)
 							|| audio.samples.some((sample) => !Number.isFinite(sample))) throw new TypeError('The denoiser returned invalid audio.');
 						generated += audio.samples.length;
 						const samples = resampler.push([audio.samples])[0]!;
 						const frames = Math.min(samples.length, geometry.frameCount - written);
 						if (frames > 0) { await sink.writeFrames([samples.subarray(0, frames)]); written += frames; }
 					};
+					const run = async (samples: Float32Array): Promise<void> => {
+						if (samples.length) await write(callSherpaNativeV1(() => denoiser.run({ samples, sampleRate: expectedRate, enableExternalBuffer: false })));
+					};
 					for (let start = 0; start < geometry.frameCount; start += CHUNK) {
 						const samples = (await source.readFrames({ startFrame: start,
 							frameCount: Math.min(CHUNK, geometry.frameCount - start), channelStart: channel, channelCount: 1 }))[0]!;
-						await write(callSherpaNativeV1(() => denoiser.run({ samples, sampleRate: RATE, enableExternalBuffer: false })));
+						await run(inputResampler.push([samples])[0]!);
 						progress = Math.max(progress, (channel + Math.min(1, (start + CHUNK) / geometry.frameCount)) / source.geometry.channelCount);
 						options.onProgress?.(progress);
 					}
+					await run(inputResampler.finish(Math.round(geometry.frameCount * expectedRate / RATE))[0]!);
 					await write(callSherpaNativeV1(() => denoiser.flush(false)));
 					// Upstream flush pads the final hop. Only that bounded tail can differ.
 					if (Math.abs(generated - Math.round(geometry.frameCount * expectedRate / RATE)) > expectedRate / 10) {
@@ -119,7 +125,7 @@ function modelConfig(grant: SherpaEnhancementGrant, provider: string, voiceSampl
 }
 
 /** One shared voice for every channel, chosen from the loudest three-second window. */
-async function voiceReference(source: AssistanceFloat32WaveSourceV1, directory: string): Promise<string> {
+async function voiceReference(source: AssistanceFloat32WaveSourceV1, directory: string, sampleRate: number): Promise<string> {
 	const frames = Math.min(source.geometry.frameCount, 15 * RATE), window = 3 * RATE, hop = RATE / 100;
 	if (frames < window) throw new RangeError('VoxLock needs at least three seconds of selected audio.');
 	let bestEnergy = -1, reference: Float32Array | undefined;
@@ -136,7 +142,11 @@ async function voiceReference(source: AssistanceFloat32WaveSourceV1, directory: 
 	}
 	if (!reference || bestEnergy <= 0) throw new RangeError('VoxLock needs an audible voice reference.');
 	const path = join(directory, 'voice.wav');
-	const header = createWavHeader({ sampleRate: RATE, channelCount: 1, totalFrames: window, bitDepth: 32, float: true });
-	await writeFile(path, Buffer.concat([Buffer.from(header), Buffer.from(reference.buffer)]), { flag: 'wx', mode: 0o600 });
+	const outputFrames = Math.round(window * sampleRate / RATE);
+	const resampler = createStreamingWindowedSincResampler(RATE, sampleRate, 1);
+	const body = resampler.push([reference])[0]!, tail = resampler.finish(outputFrames)[0]!;
+	const header = createWavHeader({ sampleRate, channelCount: 1, totalFrames: outputFrames, bitDepth: 32, float: true });
+	await writeFile(path, Buffer.concat([Buffer.from(header), Buffer.from(body.buffer, body.byteOffset, body.byteLength),
+		Buffer.from(tail.buffer, tail.byteOffset, tail.byteLength)]), { flag: 'wx', mode: 0o600 });
 	return path;
 }

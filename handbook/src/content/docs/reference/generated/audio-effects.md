@@ -16,7 +16,7 @@ Audio effects are registered by Soundscaper. Effects whose ID begins with `audac
 
 | Effect | Effect ID | Category | Realtime rack | Selection | Notes |
 | --- | --- | --- | --- | --- | --- |
-| AI denoising (DPDFNet2) | `ai-denoise` | Noise and repair | Yes | No | Desktop only; install DPDFNet2 through Model Manager; 48 kHz mono or stereo; fixed rack latency of 85.33 ms; requires a passing device speed probe |
+| AI denoising (DPDFNet2) | `ai-denoise` | Noise and repair | Yes | No | Desktop only; install DPDFNet2 through Model Manager; Mono or stereo; automatically resampled to 48 kHz and back; 85.33 ms compensated latency at 48 kHz; other rates include resampler lookahead; requires a passing device speed probe |
 | Amplify | `audacity-amplify` | Volume and dynamics | No | Yes | — |
 | Auto Duck | `audacity-auto-duck` | Volume and dynamics | Yes | Yes | Needs a control track |
 | Auto-Tune | `auto-tune` | Pitch and tempo | Yes | Yes | Solo voice or melody (65–1500 Hz); chromatic, major or natural minor pitch correction; StaffPad formant preservation; fixed rack latency (about 72 ms at 48 kHz), live controls, no timeline automation |

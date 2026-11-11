@@ -10,7 +10,7 @@ import test from 'node:test';
 import { build } from 'esbuild';
 
 const required = ['SCAPE_AI_DENOISE_TEST_RUNTIME_ROOT', 'SCAPE_AI_DENOISE_TEST_MANIFEST', 'SCAPE_AI_DENOISE_TEST_MODEL', 'SCAPE_AI_DENOISE_TEST_AUDIO'];
-for (const channels of [1, 2]) test(`real Electron utility ports sustain ${channels === 1 ? 'mono' : 'stereo'} denoising during a UI stall`, {
+for (const rate of [48000, 44100, 96000]) for (const channels of [1, 2]) test(`real Electron utility ports sustain ${channels === 1 ? 'mono' : 'stereo'} denoising at ${rate} Hz during a UI stall`, {
 	skip: process.platform !== 'linux' || required.some(key => !process.env[key]), timeout: 90_000,
 }, async t => {
 	const directory = await mkdtemp(join(tmpdir(), 'scape-ai-denoise-'));
@@ -29,17 +29,17 @@ for (const channels of [1, 2]) test(`real Electron utility ports sustain ${chann
 			registerProcessor('denoise-capture',Capture);`);
 		await writeFile(join(directory, 'index.html'), `<!doctype html><script type="module">
 			try {
-			const context=new AudioContext({sampleRate:48000}); await context.suspend();
+			const context=new AudioContext({sampleRate:${rate}}); await context.suspend();
 			await context.audioWorklet.addModule('/worklet.js');await context.audioWorklet.addModule('/capture.js');
 			const node=new AudioWorkletNode(context,'kw-ai-denoise',{outputChannelCount:[${channels}],channelCount:${channels},
 				channelCountMode:'explicit',processorOptions:{channelCount:${channels}}});
 			const decoded=await context.decodeAudioData(await (await fetch('/speech.wav')).arrayBuffer());
-			const buffer=context.createBuffer(${channels},decoded.length,48000);for(let c=0;c<${channels};c++)buffer.copyToChannel(decoded.getChannelData(c%decoded.numberOfChannels),c);
+			const buffer=context.createBuffer(${channels},decoded.length,${rate});for(let c=0;c<${channels};c++)buffer.copyToChannel(decoded.getChannelData(c%decoded.numberOfChannels),c);
 			const capture=new AudioWorkletNode(context,'denoise-capture',{channelCount:${channels}});
 			let failed=false,stalled=false,metrics;const finish=value=>{if(failed)return;failed=true;node.port.postMessage({type:'dispose'});window.denoiseTest.result({...value,metrics});};
 			node.port.onmessage=({data})=>{if(data.type==='error')finish({error:data.message});};
-			capture.port.onmessage=({data})=>{if(data.frames>=48000&&!stalled){stalled=true;const end=performance.now()+500;while(performance.now()<end){}}
-				if(data.frames>=144000)finish({...data,stalled});};
+			capture.port.onmessage=({data})=>{if(data.frames>=${rate}&&!stalled){stalled=true;const end=performance.now()+500;while(performance.now()<end){}}
+				if(data.frames>=${rate * 3})finish({...data,stalled});};
 			const pair=new MessageChannel();pair.port2.onmessage=({data})=>{if(data.type==='ready'){metrics=data.metrics;
 				node.port.postMessage({type:'attach'},[pair.port2]);node.connect(capture).connect(context.destination);
 				const source=context.createBufferSource();source.buffer=buffer;source.connect(node);source.start();void context.resume();
@@ -57,6 +57,6 @@ for (const channels of [1, 2]) test(`real Electron utility ports sustain ${chann
 		const result = JSON.parse(line.slice('AI_DENOISE_RESULT:'.length)) as { error?: string; frames: number; energy: number; finite: boolean; stalled: boolean };
 		t.diagnostic(JSON.stringify(result));
 		assert.equal(result.error, undefined);
-		assert.ok(result.frames >= 144000); assert.ok(result.energy > 1, JSON.stringify(result)); assert.equal(result.finite, true); assert.equal(result.stalled, true);
+		assert.ok(result.frames >= rate * 3); assert.ok(result.energy > 1, JSON.stringify(result)); assert.equal(result.finite, true); assert.equal(result.stalled, true);
 	} finally { await rm(directory, { recursive: true, force: true }); }
 });

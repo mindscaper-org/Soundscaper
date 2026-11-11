@@ -113,8 +113,11 @@ it terminates the helper and reports a resource violation.
 Enhancement jobs retain the one-GiB RSS ceiling and process channels sequentially
 with bounded WAV windows. Their intermediate files live inside main-owned job
 staging so forced cancellation removes them with the job. All three Sherpa
-enhancers preserve 48 kHz output, channel count, and selection duration; GTCRN
-and VoxLock process at 16 kHz internally. VoxLock shares one enrollment sample
+enhancers preserve 48 kHz output, channel count, and selection duration. The
+worker explicitly resamples GTCRN and VoxLock input to 16 kHz before calling
+the denoiser, then resamples its output back to 48 kHz. VoxLock's enrollment
+WAV is also conformed to 16 kHz. Each resampler retains history across bounded
+chunks and flushes to the exact selected duration. VoxLock shares one enrollment sample
 across channels, selected from the loudest three-second window in the first
 15 seconds, and refuses shorter or silent selections.
  Speech helper jobs
@@ -150,7 +153,13 @@ first. The rack never downloads a model or runtime implicitly. Saved effects
 retain their ordinary enabled/bypass state; web playback requires bypassing this
 desktop-only processor.
 
-The processor admits 48 kHz mono and stereo racks. Before audio is scheduled,
+The processor admits mono and stereo racks at every supported project sample
+rate. Source playback first conforms each clip to the graph clock. A stateful
+windowed-sinc resampler in the AudioWorklet then converts graph PCM to the
+model's 48 kHz clock before inference; a second resampler returns processed PCM
+to the graph rate. Both retain their history across quanta, preserve channel
+order, and filter frequencies above the destination Nyquist limit. Native PCM
+grants remain strictly 48 kHz. Before audio is scheduled,
 main authenticates the installed model and runtime and grants a bounded PCM
 port to a dedicated utility process. Each channel owns one persistent streaming
 denoiser. Authenticated GPU providers are tried in fresh processes before CPU
@@ -161,7 +170,9 @@ rack; admission requires mean work of at most 7.5 ms and p99 below 10 ms per
 
 The AudioWorklet collects 480-frame hops across 128-frame rendering quanta. A
 16-slot bounded pool and a fixed 4096-frame delay (85.33 ms at 48 kHz) keep
-inference off the rendering thread. Existing mixer PDC accounts for that delay;
+inference off the rendering thread. At other rates, the delay scales to graph
+frames and includes both resamplers' lookahead, rounded up to one graph frame.
+Existing mixer PDC accounts for that delay;
 hardware I/O adds its own latency. Electron utility ports clone bounded PCM
 bodies rather than transferring ArrayBuffers. The renderer UI and main process
 do not relay individual audio blocks. A missed deadline or malformed reply

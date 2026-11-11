@@ -58,7 +58,7 @@ import { createStandardEffectNode, disposeStandardEffectNode } from './standard-
 import { autoTuneRealtimeGeometry } from '../first-party-effects/auto-tune/realtime-contract.ts';
 import { createAutoTuneNode, disposeAutoTuneNode } from './auto-tune-node.ts';
 import { createAiDenoiseNode, disposeAiDenoiseNode } from './ai-denoise-node.ts';
-import { AI_DENOISE_LATENCY } from '../first-party-effects/ai-denoise/contract.ts';
+import { aiDenoiseLatencyFrames } from '../first-party-effects/ai-denoise/contract.ts';
 import { registerAutoTuneControl } from './auto-tune-control.ts';
 import type { ScheduledParameterRegistry } from './scheduled-parameter-registry.ts';
 import type { EngineEffect, UnknownRecord } from './types.ts';
@@ -111,7 +111,7 @@ export function effectRackLatencyFrames(
 }
 
 export function effectLatencyFrames(effect: EngineEffect, sampleRate: number): number {
-	if (effect.type === 'ai-denoise') return AI_DENOISE_LATENCY;
+	if (effect.type === 'ai-denoise') return aiDenoiseLatencyFrames(sampleRate);
 	if (isNativePluginEffect(effect)) {
 		const fallback = nonNegativeInteger(effect.params?.latencyFrames, 0);
 		return nativePluginRuntimeLatencyFrames(effect.params?.instanceId, fallback);
