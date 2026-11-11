@@ -43,7 +43,7 @@ test('Model Manager keyboard removal keeps focus on Install or the surviving fil
 	await expect(install).toBeFocused();
 	await install.press('Enter');
 	await expect(remove).toBeEnabled();
-	await manager.getByRole('button', { name: 'Availability', exact: true }).click();
+	await manager.getByRole('button', { name: /^Availability:/u }).click();
 	await page.getByRole('option', { name: 'Installed', exact: true }).click();
 	await remove.focus();
 	await remove.press('Enter');

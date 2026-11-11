@@ -9,7 +9,8 @@ test('marker renaming retains its composing Enter until the name is complete', a
 	const panel = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
 	await panel.getByRole('button', { name: 'Add marker at playhead', exact: true }).click();
 	const marker = panel.locator('[data-timeline-annotation]').first();
-	const originalLabel = await marker.getAttribute('aria-label');
+	const originalLabel = await marker.textContent();
+	expect(originalLabel).toBeTruthy();
 	await marker.focus();
 	await marker.press('F2');
 	const input = panel.getByRole('group', { name: 'Edit annotation', exact: true }).getByRole('textbox');
@@ -22,12 +23,12 @@ test('marker renaming retains its composing Enter until the name is complete', a
 	});
 	expect(prevented).toBe(false);
 	await expect(input).toBeFocused();
-	await expect(marker).toHaveAttribute('aria-label', originalLabel);
+	await expect(marker).toHaveText(originalLabel);
 	await input.fill('東京の場面');
 	await input.press('Enter');
-	await expect(marker).toHaveAttribute('aria-label', /^東京の場面,/u);
+	await expect(marker).toHaveText(/^東京の場面/u);
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');
-	await expect(marker).toHaveAttribute('aria-label', originalLabel);
+	await expect(marker).toHaveText(originalLabel);
 	await chooseCommandAction(page, editor, 'Edit', 'Redo');
-	await expect(marker).toHaveAttribute('aria-label', /^東京の場面,/u);
+	await expect(marker).toHaveText(/^東京の場面/u);
 });

@@ -11,7 +11,7 @@ test('a selected audio preset loses its reset/export authority when the dialog c
 	const fixture = await mountedExportDialog({ video: true, presets: [validateDeliveryPreset({ schemaVersion: 1, id: 'wav', label: 'My WAV', kind: 'audio', format: 'wav', settings: { sampleRate: 48_000, sampleFormat: 'int24' } })] });
 	try {
 		const banner = fixture.dom.one('[data-delivery-presets]');
-		await fixture.click(button(banner, 'Preset'));
+		await fixture.click(button(banner, 'Preset: No preset'));
 		const body = document.body as unknown as ReactTestElement;
 		const option = body.querySelectorAll('[role="option"]').find(option => option.textContent === 'My WAV (custom)');
 		assert.ok(option);

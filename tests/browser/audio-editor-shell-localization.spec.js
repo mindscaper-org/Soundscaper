@@ -129,7 +129,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		const settingsSection = page.locator('[data-sidebar] .website-sidebar-settings');
 		await expect(workspaceSelect).toBeEnabled();
 		await expect(settingsSection.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
-		await expect(settingsSection.getByRole('button', { name: 'Switch color theme', exact: true })).toBeVisible();
+		await expect(settingsSection.getByRole('button', { name: /^Switch color theme:/u })).toBeVisible();
 		await expect(settingsSection.getByRole('combobox', { name: 'Language', exact: true })).toBeVisible();
 		await expect(settingsSection.getByRole('combobox', { name: 'Workspace', exact: true })).toBeVisible();
 		const [sidebarBounds, settingsBounds] = await Promise.all([
@@ -225,7 +225,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		await page.goto('/en/');
 
 		const sidebar = page.locator('[data-sidebar]');
-		const themeToggle = page.getByRole('button', { name: 'Switch color theme', exact: true });
+		const themeToggle = page.getByRole('button', { name: /^Switch color theme:/u });
 		await expect(themeToggle).toHaveAttribute('aria-pressed', 'true');
 		await expect(themeToggle).toContainText('Dark');
 

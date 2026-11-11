@@ -126,8 +126,8 @@ test.describe('native timeline annotations', () => {
 		const imported = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
 		await expect(imported).toBeVisible();
 		await expect(imported.locator('[data-timeline-annotation]')).toHaveCount(2, { timeout: 30_000 });
-		await expect(imported.getByRole('button', { name: /Slate, Marker/u })).toBeVisible();
-		await expect(imported.getByRole('button', { name: /Verse, Region/u })).toBeVisible();
+		await expect(imported.getByRole('button', { name: /^Slate.*Marker/u })).toBeVisible();
+		await expect(imported.getByRole('button', { name: /^Verse.*Region/u })).toBeVisible();
 		expect(errors).toEqual([]);
 	});
 
@@ -349,7 +349,7 @@ test.describe('native timeline annotations', () => {
 			await chooseNestedCommandAction(homePage, home, 'Window', ['Markers']);
 			const returnedPanel = home.getByRole('region', { name: 'Markers and named regions', exact: true });
 			await expect(returnedPanel.locator('[data-timeline-annotation]')).toHaveCount(1);
-			await expect(returnedPanel.getByRole('button', { name: /Cross-product cue, Marker/u })).toBeVisible();
+			await expect(returnedPanel.getByRole('button', { name: /^Cross-product cue.*Marker/u })).toBeVisible();
 			expect(homeErrors).toEqual([]);
 		} finally {
 			for (const openedPage of openedPages.reverse()) {

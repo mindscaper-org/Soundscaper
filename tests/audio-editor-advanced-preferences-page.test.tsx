@@ -73,7 +73,7 @@ test('Advanced leaves optimization unchanged until the user chooses a mode in ei
 			assert.ok(group);
 			const trigger = group.querySelector('.dropdown__trigger');
 			assert.ok(trigger);
-			assert.equal(trigger.getAttribute('aria-label'), ENGLISH_COPY.optimizeFor);
+			assert.equal(trigger.getAttribute('aria-label'), `${ENGLISH_COPY.optimizeFor}: ${ENGLISH_COPY.optimizeForMemory}`);
 			assert.ok(trigger.textContent.includes(ENGLISH_COPY.optimizeForMemory));
 			assert.equal(updates.length, productId === 'soundscaper' ? 0 : 1);
 			await act(async () => {

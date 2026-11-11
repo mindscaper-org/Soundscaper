@@ -26,7 +26,8 @@ test('task dialog has a task title and no mode or workflow picker', () => {
 	assert.match(html, /Enhance Dialogue/);
 	assert.doesNotMatch(html, /role="tablist"|id="local-assistance-guided-workflow"/);
 	assert.match(html, /Selected media/);
-	assert.doesNotMatch(html, /<select|aria-haspopup="listbox"|Technical details|Exact settings|<fieldset/);
+	assert.match(html, /aria-label="Model"/);
+	assert.doesNotMatch(html, /Technical details|Exact settings/);
 });
 
 test('model-manager task filter uses exact workflow models, including selected recognizer', () => {

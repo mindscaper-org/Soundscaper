@@ -79,10 +79,10 @@ test.describe('Audacity Graphic EQ fader bank', () => {
 		await expect(oneKhz).toHaveAttribute('aria-valuenow', '6');
 		await expect(dialog.getByRole('slider', { name: '800 Hz', exact: true })).toHaveAttribute('aria-valuenow', '0');
 		await expect(dialog.getByRole('slider', { name: '1250 Hz', exact: true })).toHaveAttribute('aria-valuenow', '0');
-		await expect(dialog.getByRole('button', { name: 'Interpolation', exact: true })).toHaveCount(0);
+		await expect(dialog.getByRole('button', { name: /^Interpolation:/u })).toHaveCount(0);
 		await dialog.getByRole('button', { name: 'More options', exact: true }).click();
 		await page.getByRole('menuitem', { name: 'Advanced settings', exact: true }).click();
-		await dialog.getByRole('button', { name: 'Interpolation', exact: true }).click();
+		await dialog.getByRole('button', { name: /^Interpolation:/u }).click();
 		await page.getByRole('option', { name: 'Cosine', exact: true }).click();
 		await capturePassingScreenshot(dialog, { path: 'test-results/graphic-eq-dialog.png' });
 		await dialog.getByRole('button', { name: 'Apply to selection', exact: true }).click();

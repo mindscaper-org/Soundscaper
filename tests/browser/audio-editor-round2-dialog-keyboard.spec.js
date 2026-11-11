@@ -15,14 +15,14 @@ test('F2 in the docked Markers list focuses the annotation name for renaming', a
 	await chooseNestedCommandAction(page, editor, 'Window', ['Markers']);
 	const panel = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
 	await panel.getByRole('button', { name: 'Add marker at playhead', exact: true }).click();
-	const marker = panel.getByRole('button', { name: /Unnamed annotation, Marker,/u });
+	const marker = panel.getByRole('button', { name: /^Unnamed annotation/u });
 	await expect(marker).toBeFocused();
 	await marker.press('F2');
 	const name = panel.getByRole('textbox', { name: 'Name', exact: true });
 	await expect(name).toBeFocused();
 	await name.pressSequentially('Opening cue');
 	await name.press('Enter');
-	await expect(panel.getByRole('button', { name: /Opening cue, Marker,/u })).toBeFocused();
+	await expect(panel.getByRole('button', { name: /^Opening cue/u })).toBeFocused();
 });
 
 test('Enter commits an inspector name and Escape discards a later rename draft', async ({ page }) => {

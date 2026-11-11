@@ -140,11 +140,11 @@ test.describe('Soundscaper mastering sequence delivery', () => {
 		if (!await panel.isVisible()) {
 			await chooseNestedCommandAction(page, editor, 'Window', ['Markers']);
 		}
-		const removedRegion = panel.getByRole('button', { name: /Opening, Region/u });
+		const removedRegion = panel.getByRole('button', { name: /^Opening.*Region/u });
 		await removedRegion.press('Enter');
 		await panel.getByRole('group', { name: 'Edit annotation', exact: true })
 			.getByRole('button', { name: 'Remove selected annotations', exact: true }).click();
-		await expect(panel.getByRole('button', { name: /Opening, Region/u })).toHaveCount(0);
+		await expect(panel.getByRole('button', { name: /^Opening.*Region/u })).toHaveCount(0);
 		await chooseCommandAction(page, editor, 'Tools', 'Mastering sequences');
 		mastering = page.getByRole('dialog', { name: 'Mastering sequences', exact: true });
 		await expect(mastering.getByText('Region unavailable', { exact: true })).toBeVisible();
@@ -174,7 +174,7 @@ async function addNamedRegion(page, editor, panel, startX, endX, name) {
 		.getByRole('textbox', { name: 'Name', exact: true });
 	await input.fill(name);
 	await input.press('Enter');
-	await expect(row.locator('[data-timeline-annotation]')).toHaveAttribute('aria-label', new RegExp(`^${name}, Region`, 'u'));
+	await expect(row.locator('[data-timeline-annotation]')).toHaveAccessibleName(new RegExp(`^${name}.*Region`, 'u'));
 }
 
 async function readProjectFromScape(archive) {

@@ -50,7 +50,7 @@ test('missing effects retain their external names in both compatibility and mixe
 test('routing node and port labels preserve authored tokens without consuming later placeholders', () => {
 	const project = createSoundscaperProject({ id: 'literal-routing', tracks: [createAudioTrack({ id: 'track', name })] });
 	const html = renderToStaticMarkup(<SoundscaperRoutingGraphView project={project} graph={project.mixer} disabled={false} copy={SOUNDSCAPER_ROUTING_GRAPH_COPY} dismissLabel="Close" onCommit={noop} />);
-	assert.ok(html.includes(`aria-label="Track ${escaped}, 2 Channels, 0 inputs, 1 outputs"`));
+	assert.ok(html.includes(`aria-description="Track ${escaped}, 2 Channels, 0 inputs, 1 outputs"`));
 	assert.ok(html.includes(`aria-label="Start connection from ${escaped}"`));
 });
 

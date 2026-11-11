@@ -15,9 +15,9 @@ test('ordinary libsndfile WAV cue indices become timeline markers', async ({ pag
 	await chooseNestedCommandAction(page, editor, 'Window', ['Markers']);
 	const panel = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
 	await expect(panel).toBeVisible();
-	await expect(panel.getByRole('button', { name: /^Unnamed annotation, Marker,/u })).toHaveCount(2);
-	await expect(panel.getByRole('button', { name: 'Unnamed annotation, Marker, 0.025 s', exact: true })).toBeVisible();
-	await expect(panel.getByRole('button', { name: 'Unnamed annotation, Marker, 0.050 s', exact: true })).toBeVisible();
+	await expect(panel.getByRole('button', { name: /^Unnamed annotation/u })).toHaveCount(2);
+	await expect(panel.getByRole('button', { name: /^Unnamed annotation.*Marker.*0\.025 s/u })).toBeVisible();
+	await expect(panel.getByRole('button', { name: /^Unnamed annotation.*Marker.*0\.050 s/u })).toBeVisible();
 	await chooseCommandAction(page, editor, 'View', 'Markers');
 	await expect(editor.getByRole('listbox', { name: 'Markers and named regions', exact: true })).toBeVisible();
 });

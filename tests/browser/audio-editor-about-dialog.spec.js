@@ -3,7 +3,7 @@ import { expect } from '@playwright/test';
 import { test } from './audio-editor-test-fixtures.js';
 import { waitForEditor } from './audio-editor-test-helpers.js';
 
-const { version: applicationVersion } = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
+const { releaseVersion: applicationVersion } = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
 
 test('Help About exposes version, credits, license and enabled modules with keyboard tabs', async ({ page }) => {
 	await page.goto('/en/');
