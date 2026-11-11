@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { classifyImageFormatSignature, type ReviewedImageFormat } from '../imaging/image-format-signature.ts';
+import { encodedImageIsAnimated } from '../imaging/image-animation-topology.ts';
 import { admitImageDecodeWorkload, IMAGE_IMPORT_LIMITS } from '../imaging/image-import-admission.ts';
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from './controller/shared/file-size-warning.ts';
 import { routeImageDecoder } from './image-decoder-routing.ts';
@@ -104,12 +105,14 @@ export async function decodeFramescaperBrowserNativeImageV1(
 		const notices: string[] = [];
 		let presentationTicks = 0n;
 		let fallbackCount = 0;
+		// A one-frame animation still carries authored timing; static decoders can synthesize it.
+		const animated = metadata.topology === 'animated' || encodedImageIsAnimated(request.bytes, classification.format);
 		const frames = [];
 		for (let index = 0; index < metadata.frameCount; index += 1) {
 			cancelled(request.signal);
 			const decoded = await session.decodeFrame(index, request.signal);
 			const rgba = normalizedRgba(decoded.rgba, metadata.width, metadata.height, index);
-			const embedded = metadata.topology === 'single' ? null : positiveDuration(decoded.durationMicroseconds);
+			const embedded = animated ? positiveDuration(decoded.durationMicroseconds) : null;
 			const durationTicks = BigInt(embedded ?? FALLBACK_DURATION_MICROSECONDS);
 			if (embedded === null) fallbackCount += 1;
 			frames.push(Object.freeze({ presentationTicks, durationTicks, rgba }));
