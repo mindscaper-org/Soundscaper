@@ -10,7 +10,7 @@ import { autoTuneCorrection, createAutoTuneControlLookup } from '../src/common/e
 import { applyAutoTune } from '../src/common/editor/first-party-effects/auto-tune/selection.ts';
 import { createAutoTuneProcessor } from '../src/common/editor/first-party-effects/auto-tune/dsp.ts';
 import { loadStaffPadWasm } from '../src/common/editor/staffpad/runtime.js';
-import { registerAutoTuneControl, scheduleAutoTuneControls } from '../src/common/editor/engine/auto-tune-control.ts';
+import { registerAutoTuneControl, scheduleAutoTuneControls, setOfflineAutoTuneControlWindows, initialAutoTuneControlSchedules } from '../src/common/editor/engine/auto-tune-control.ts';
 import { ScheduledParameterRegistry } from '../src/common/editor/engine/scheduled-parameter-registry.ts';
 import { clipLoopUpdateFields } from '../src/common/editor/audio-clip-loop.ts';
 import { normalizeSelectionEffectWorkerContext } from '../src/common/editor/selection-effects-worker-context.ts';
@@ -58,6 +58,18 @@ test('graph schedules align MIDI to seek, transport speed, context rate and upst
 	assert.deepEqual(packets, [{ type: 'control-notes', fromFrame: 192256, toFrame: 192656, notes: [
 		{ startFrame: 192256, endFrame: 192356, pitch: 69 }, { startFrame: 192456, endFrame: 192656, pitch: 72 },
 	] }]);
+});
+
+test('offline nodes receive MIDI control before processing concatenated render windows', () => {
+	const context = { sampleRate: rate };
+	setOfflineAutoTuneControlWindows(context, fixture(), [{ startFrame: 1000, endFrame: 1200 },
+		{ startFrame: 1200, endFrame: 1400 }], rate);
+	assert.deepEqual(initialAutoTuneControlSchedules(context, 'midi', 64), [
+		{ type: 'control-notes', fromFrame: 64, toFrame: 264, notes: [{ startFrame: 64, endFrame: 164, pitch: 69 }] },
+		{ type: 'control-notes', fromFrame: 264, toFrame: 464, notes: [{ startFrame: 264, endFrame: 464, pitch: 72 }] },
+	]);
+	assert.deepEqual(initialAutoTuneControlSchedules({ sampleRate: rate }, 'midi', 64), []);
+	assert.deepEqual(initialAutoTuneControlSchedules(context, '', 64), []);
 });
 
 test('worker context retains validated MIDI notes and extreme intervals stay in the audited native range', () => {

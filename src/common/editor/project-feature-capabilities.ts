@@ -124,6 +124,7 @@ export function isProjectFeatureVideoCapabilityId(
 
 /** Maintained rack processors owned by the first-party audio-effects capability. */
 export const PROJECT_FEATURE_AUDIO_EFFECT_TYPES = Object.freeze([
+	'auto-tune',
 	'highpass',
 	'lowpass',
 	'eq',

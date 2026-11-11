@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createAudioWorkletLoadOnce } from '../audio-worklet-load-once.ts';
+import { initialAutoTuneControlSchedules } from './auto-tune-control.ts';
 import { autoTuneRealtimeGeometry } from '../first-party-effects/auto-tune/realtime-contract.ts';
 
 const modules = new WeakMap<BaseAudioContext, WebAssembly.Module>();
@@ -25,14 +26,15 @@ interface WorkletNodeConstructor {
 }
 
 export function createAutoTuneNode(context: BaseAudioContext, WorkletNode: WorkletNodeConstructor | null,
-	params: Record<string, unknown>, channelCount: number): AudioWorkletNode {
+	params: Record<string, unknown>, channelCount: number, latencyFrames = 0): AudioWorkletNode {
 	const module = modules.get(context);
 	if (!worklet.isLoaded(context) || !module || !WorkletNode) throw new Error('The Auto-Tune processor was not loaded.');
 	autoTuneRealtimeGeometry(context.sampleRate, channelCount);
 	const node = new WorkletNode(context, 'kw-auto-tune', {
 		numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [channelCount],
 		channelCount, channelCountMode: 'explicit', channelInterpretation: 'discrete',
-		processorOptions: { params, channelCount, staffPadWasmModule: module },
+		processorOptions: { params, channelCount, staffPadWasmModule: module,
+			controlSchedules: initialAutoTuneControlSchedules(context, String(params.controlTrackId || ''), latencyFrames) },
 	});
 	nodes.add(node);
 	return node;

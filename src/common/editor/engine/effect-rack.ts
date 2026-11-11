@@ -248,7 +248,7 @@ export function applyEffect(
 	if (type === 'auto-tune' || isStandardEffect(type)) {
 		const width = clamp(positiveInteger(options.effectChannelCount, 2), 1, 32);
 		const processor = addNode(nodes, type === 'auto-tune'
-			? createAutoTuneNode(context, audioWorkletNodeConstructor(), params, width)
+			? createAutoTuneNode(context, audioWorkletNodeConstructor(), params, width, nonNegativeInteger(options.parameterLatencyFrames, 0))
 			: createStandardEffectNode(context, audioWorkletNodeConstructor(), type, params, width));
 		connect(input, processor);
 		registerEffectNode(effect, processor, options);

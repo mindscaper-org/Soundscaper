@@ -16,6 +16,7 @@ interface Settings {
 	readonly channelCount?: number;
 	readonly params?: Readonly<Record<string, unknown>>;
 	readonly staffPadWasmModule?: WebAssembly.Module;
+	readonly controlSchedules?: readonly { readonly notes: readonly AutoTuneControlNote[]; readonly fromFrame: number; readonly toFrame: number }[];
 }
 interface Control {
 	readonly type?: string; readonly params?: Readonly<Record<string, unknown>>;
@@ -31,6 +32,9 @@ export class AutoTuneWorkletProcessor extends AudioWorkletProcessor {
 		if (!(settings?.staffPadWasmModule instanceof WebAssembly.Module)) throw new Error('Auto-Tune requires the compiled StaffPad module.');
 		this.processor = createAutoTuneProcessor({ sampleRate, channelCount: settings.channelCount ?? 2,
 			params: settings.params, staffPadRuntime: instantiateStaffPadWasm(settings.staffPadWasmModule) });
+		for (const schedule of settings.controlSchedules ?? []) {
+			this.processor.scheduleControlNotes(schedule.notes, schedule.fromFrame, schedule.toFrame);
+		}
 		this.port.onmessage = ({ data }: MessageEvent<Control>): void => {
 			if (this.disposed) return;
 			try {
