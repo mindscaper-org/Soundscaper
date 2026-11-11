@@ -109,7 +109,7 @@ export async function decodeFramescaperBrowserNativeImageV1(
 			cancelled(request.signal);
 			const decoded = await session.decodeFrame(index, request.signal);
 			const rgba = normalizedRgba(decoded.rgba, metadata.width, metadata.height, index);
-			const embedded = positiveDuration(decoded.durationMicroseconds);
+			const embedded = metadata.topology === 'single' ? null : positiveDuration(decoded.durationMicroseconds);
 			const durationTicks = BigInt(embedded ?? FALLBACK_DURATION_MICROSECONDS);
 			if (embedded === null) fallbackCount += 1;
 			frames.push(Object.freeze({ presentationTicks, durationTicks, rgba }));
