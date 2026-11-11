@@ -10,6 +10,7 @@ import { productHref } from '../../../product-web-links.js';
 import { AUDIO_EDITOR_DEFAULT_STARTUP_MODE } from '../../startup-preferences.ts';
 import { rememberLocaleProjectHandoff } from '../../controller/document/locale-project-handoff.ts';
 import DesktopFfmpegPreferencePanel from './DesktopFfmpegPreferencePanel.tsx';
+import DesktopUpdatePreferencesPanel from './DesktopUpdatePreferencesPanel.tsx';
 import PreferenceDropdownField from './PreferenceDropdownField.jsx';
 
 const STARTUP_RADIO_GROUP_NAME = 'audio-editor-program-start';
@@ -145,6 +146,8 @@ export default function GeneralPreferencesPage({
 			<SavingPreferencesPanel controller={controller} preferences={snapshot.preferences.saving} copy={copy} desktop={fileService.isDesktop} run={run} />
 			{fileService.isDesktop && (
 				<>
+					<Separator />
+					<DesktopUpdatePreferencesPanel fileService={fileService} copy={copy} run={run} />
 					<Separator />
 					<DesktopFfmpegPreferencePanel fileService={fileService} copy={copy} />
 				</>

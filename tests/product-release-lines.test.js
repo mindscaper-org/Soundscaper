@@ -145,7 +145,7 @@ test('browser and desktop builds resolve the selected product version from relea
 	assert.match(desktop, /applicationVersion,/u, 'the runtime stage manifest uses the selected version');
 	assert.match(desktop, /desktop\/product\.json'\), productMetadata/u);
 	assert.match(constants, /productConfig\.updateTagPrefix/u);
-	assert.match(main, /currentVersion:\s*app\.getVersion\(\).*tagPrefix:\s*UPDATE_TAG_PREFIX/u);
+	assert.match(main, /createDesktopUpdates\(\{ app,.*tagPrefix:\s*UPDATE_TAG_PREFIX/u);
 	assert.match(main, /version:\s*app\.getVersion\(\)/u, 'diagnostics/environment reports the Electron version');
 	assert.match(main, /app\.getVersion\(\) !== DECLARED_APPLICATION_VERSION/u);
 

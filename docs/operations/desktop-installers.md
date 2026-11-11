@@ -5,6 +5,23 @@ an NSIS setup program and macOS offers a PKG installer alongside the DMG.
 The download page prefers the PKG for Apple silicon Macs; explicit DMG links
 remain available.
 
+## Update checks
+
+General preferences includes **Check for updates**, enabled by default. Automatic
+checks run at most once every 24 hours; Help's manual check remains available
+when the preference is off. The update notification offers **Install now** and
+**Install on next launch**. Closing it or choosing **Skip** skips that update
+check without scheduling an installation.
+
+Accepting either installation option downloads the exact product, version and
+architecture's installer from its GitHub release and verifies its size and
+SHA-256 digest. **Install now** opens it immediately; **Install on next launch**
+stores it locally and verifies it again before opening it at the next startup.
+Windows uses the EXE, macOS the PKG, and Linux the Debian package, retaining
+system installation prompts. AppImage launches replace their current AppImage
+atomically and restart through the normal project-close flow. Microsoft Store
+builds continue to use Store updates.
+
 ## Portable settings
 
 Before launching, create a folder named exactly `Portable Settings` in the same
@@ -21,8 +38,10 @@ the temporary extraction directory. On macOS, the executable is inside
 `Soundscaper.app/Contents/MacOS/` or `Framescaper.app/Contents/MacOS/`.
 
 Portable startup does not import or move the installed profile's settings or
-projects. User-selected external model directories and other external paths
-remain explicit selections. An explicit `--user-data-dir` and diagnostic test
+projects. Portable profiles skip automatic and manual update checks and pending
+installations; their update preference is disabled. User-selected external model
+directories and other external paths remain explicit selections. An explicit
+`--user-data-dir` and diagnostic test
 launches take precedence over automatic portable-folder detection.
 System components can still maintain shared font and GPU-driver caches and
 certificate databases in their normal operating-system locations.

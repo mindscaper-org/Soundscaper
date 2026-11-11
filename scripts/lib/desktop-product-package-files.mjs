@@ -168,8 +168,8 @@ export function soundscaperMainSource(sourceValue) {
 		/import \{ createDesktopLinkedVideoLocatorRuntime \} from '\.\/linked-video-locator-runtime\.js';\n/u,
 	];
 	for (const pattern of framesImports) source = replaceOnce(source, pattern, '', 'Framescaper main import');
-	source = replaceOnce(source, 'EXTERNAL_DESTINATIONS, FRAMESCAPER_WEB_VCR_ENABLED,',
-		'EXTERNAL_DESTINATIONS,', 'Framescaper capture feature flag');
+	source = replaceOnce(source, '\tFRAMESCAPER_WEB_VCR_ENABLED,\n',
+		'', 'Framescaper capture feature flag');
 	const replacement = [
 		"import {",
 		"\tdeferredWebVcrSmokeTrust, disposeDesktopCaptureSecurity,",
@@ -209,8 +209,8 @@ export function soundscaperMainSource(sourceValue) {
 		'Soundscaper MCP IPC registration');
 	source = replaceRange(source,
 		'\tnativeServices = await startFramescaperNativeServicesRegistration({',
-		'\treleaseChecker =',
-		'\treleaseChecker =',
+		'\tupdates = createDesktopUpdates(',
+		'\tupdates = createDesktopUpdates(',
 		'deferred native services startup');
 	source = replaceOnce(source,
 		"\tlinkedVideoLocators = createDesktopLinkedVideoLocatorRuntime({ readCapabilities, registryPath: resolve(desktopStorage.dataRoot, 'linked-video-locators-project-v1.json'), confirmFileSizeWarning: createDesktopSaveSizeWarningConfirmation((options) => dialog.showMessageBox(options), 'linking') });\n\tawait linkedVideoLocators.ready();\n",

@@ -76,6 +76,7 @@ export function configureDesktopStorage(options: DesktopStorageBootstrapOptions)
 	let prepared = false;
 	return Object.freeze({
 		...paths,
+		portable: portableRoot !== null,
 		xdgEnabled: enabled,
 		renderInputRoot,
 		projectsDirectory(): Promise<string | null> {

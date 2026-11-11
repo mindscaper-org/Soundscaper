@@ -8,6 +8,8 @@ export class ReleaseChecker {
 	#now;
 	#settings;
 	#tagPrefix;
+	#availableRelease = null;
+	#availableVersion = null;
 
 	constructor({ currentVersion, settings, fetchImpl = fetch, now = Date.now, tagPrefix = 'v' }) {
 		this.#currentVersion = currentVersion;
@@ -18,6 +20,8 @@ export class ReleaseChecker {
 	}
 
 	async check({ manual = false } = {}) {
+		this.#availableRelease = null;
+		this.#availableVersion = null;
 		const settings = this.#settings.snapshot();
 		if (!settings.updatesEnabled && !manual) return Object.freeze({ status: 'disabled' });
 		const now = this.#now();
@@ -39,6 +43,8 @@ export class ReleaseChecker {
 			if (!response.ok) throw new Error(`GitHub returned HTTP ${response.status}`);
 			const releases = await response.json();
 			const release = selectUpdate(releases, this.#currentVersion, this.#tagPrefix);
+			this.#availableRelease = release;
+			this.#availableVersion = release ? normalizeVersion(String(release.tag_name).slice(this.#tagPrefix.length)) : null;
 			return release
 				? Object.freeze({ status: 'available', version: normalizeVersion(String(release.tag_name).slice(this.#tagPrefix.length)), prerelease: release.prerelease === true })
 				: Object.freeze({ status: 'current' });
@@ -48,6 +54,9 @@ export class ReleaseChecker {
 				: Object.freeze({ status: 'offline' });
 		}
 	}
+
+	get availableRelease() { return this.#availableRelease; }
+	get availableVersion() { return this.#availableVersion; }
 }
 
 export function selectUpdate(releases, currentVersion, tagPrefix = 'v') {

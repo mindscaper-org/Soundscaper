@@ -130,7 +130,7 @@ test('desktop smoke pins the complete sorted preload v1 bridge contract', () => 
 		'startMcp',
 		'startNativeVampAnalyzer',
 		'statDesktopVideoCodecOutput',
-		'stopMcp', 'temporaryDataStatus',
+		'stopMcp', 'temporaryDataStatus', 'updatePreferences',
 		'writeChunk',
 		'writeDesktopVideoCodecInput',
 	]);
@@ -250,7 +250,7 @@ test('desktop smoke accepts the exact product-isolated Soundscaper preload surfa
 		'signalReady',
 		'startMcp',
 		'startNativeVampAnalyzer',
-		'stopMcp', 'temporaryDataStatus',
+		'stopMcp', 'temporaryDataStatus', 'updatePreferences',
 		'writeChunk',
 	]);
 	const source = await readFile(resolve(ROOT, 'desktop', 'preload.mjs'), 'utf8');

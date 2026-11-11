@@ -236,6 +236,12 @@ export class DesktopSettingsStore {
 		return settings.ofxConsentEnabled;
 	}
 
+	async setUpdatesEnabled(enabled) {
+		if (typeof enabled !== 'boolean') throw new TypeError('Update preference must be a boolean.');
+		const settings = await this.#update((current) => ({ ...current, updatesEnabled: enabled }));
+		return settings.updatesEnabled;
+	}
+
 	async recordUpdateCheck(timestamp = Date.now()) {
 		const lastUpdateCheck = new Date(timestamp).toISOString();
 		await this.#update((settings) => ({ ...settings, lastUpdateCheck }));
