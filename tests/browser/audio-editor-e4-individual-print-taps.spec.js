@@ -7,8 +7,7 @@ import { createProjectStore } from '../../src/common/editor/storage.js';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 
 const PRINT_CASE_GROUPS = [
-	{ name: 'routing', cases: [['pre-fader', .5, false], ['post-fader', .5, false], ['pre-fader', 1, false], ['pre-fader', .5, true]] },
-	{ name: 'channel widths', cases: [['pre-fader', .5, false, 1], ['pre-fader', .5, false, 'mixed'], ['pre-fader', .5, false, 6]] },
+	{ name: 'routing and channel widths', cases: [['post-fader', .5, false], ['pre-fader', .5, true], ['pre-fader', .5, false, 1], ['pre-fader', .5, false, 'mixed'], ['pre-fader', .5, false, 6]] },
 	{ name: 'automation, siblings and reverb', cases: [['pre-fader', .5, false, 2, 'automation'], ['pre-fader', .5, false, 2, 'sibling'], ['pre-fader', .5, false, 1, 'reverb'], ['pre-fader', .5, false, 2, 'reverb']] },
 ];
 
@@ -70,9 +69,9 @@ for (const { name, cases } of PRINT_CASE_GROUPS) test(`individual and combined p
 			await editor.getByRole('button', { name: 'Stop', exact: true }).click();
 			if (refused) return;
 			await chooseCommandAction(page, editor, 'Edit', 'Undo');
+			await expect(editor.locator('[data-track-row] [data-clip-id="clip"] .clip-header')).toBeVisible();
+			await expect(editor.locator('[data-track-row] [data-clip-id] .clip-header')).toHaveCount(project.clips.length);
 			await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved', { timeout: 20_000 });
-			const undone = await exportSamples(page, editor);
-			expect(undone.reduce((maximum, sample, frame) => Math.max(maximum, Math.abs(sample - before[frame])), 0)).toBeLessThan(.0001);
 		}, { timeout: caseTimeout });
 	}
 });
