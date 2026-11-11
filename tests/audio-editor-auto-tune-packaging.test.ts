@@ -22,8 +22,10 @@ test('Auto-Tune metadata shares the effect contract owner while its admission sh
 	}
 });
 
-test('desktop effect registry ships the new definition it imports', () => {
-	const path = 'src/common/editor/first-party-effects/auto-tune/definition.js';
-	assert.equal(DESKTOP_EFFECT_RUNTIME_FILES.includes(path), true);
-	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes(path), true);
+test('desktop effect registry ships its definition and transitive control contracts', () => {
+	for (const module of ['control-notes', 'definition', 'realtime-contract']) {
+		const path = `src/common/editor/first-party-effects/auto-tune/${module}.js`;
+		assert.equal(DESKTOP_EFFECT_RUNTIME_FILES.includes(path), true, path);
+		assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes(path), true, path);
+	}
 });
