@@ -2,6 +2,7 @@
 
 /** Copy shared by regular selection effects and their realtime rack controls. */
 export const STANDARD_EFFECT_COPY_ENTRIES = Object.freeze([
+	['effectNameAiDenoise', 'AI denoising (DPDFNet2)'],
 	['effectNameAutoTune', 'Auto-Tune'],
 	['effectParamAutoTuneAmount', 'Correction amount'],
 	['effectParamAutoTuneRetune', 'Retune speed'],

@@ -29,6 +29,7 @@ import { AUTO_TUNE_EFFECT_DEFINITION, normalizeAutoTuneParams } from './first-pa
 import { standardEffectTailSeconds } from './first-party-effects/standard/effect-tail.ts';
 import { noiseReductionClockTailFrames, noiseReductionProfileRate } from './audacity-effects/noise-reduction-clock.ts';
 import { delaySelectionPitchMode, delaySelectionDuration } from './first-party-effects/standard/delay-selection-contract.ts';
+import { effectParameterChoice as choiceValue, effectParameterRange as range } from './effect-parameter-validation.ts';
 import {
 	BITCRUSHER_EFFECT_DEFINITION, BITCRUSHER_EFFECT_TYPE,
 } from './first-party-effects/bitcrusher/definition.js';
@@ -59,6 +60,7 @@ export { PARAMETRIC_EQ_BAND_TYPES, PARAMETRIC_EQ_MAXIMUM_BANDS, PARAMETRIC_EQ_SL
  */
 
 export const AUDIO_EFFECT_DEFINITIONS = Object.freeze({
+	'ai-denoise': { defaults: {}, ranges: {} },
 	'auto-tune': AUTO_TUNE_EFFECT_DEFINITION,
 	...STANDARD_FILTER_EFFECT_DEFINITIONS,
 	...STANDARD_MODULATION_EFFECT_DEFINITIONS,
@@ -437,20 +439,6 @@ function normalizeEffectParams(type, params, effectId = null) {
 		output[name] = choiceValue(params[name], choice.options, `${type}.${name}`);
 	}
 	return output;
-}
-
-function choiceValue(value, options, name) {
-	const match = options.find((option) => String(option) === String(value));
-	if (match === undefined) throw new RangeError(`${name} is not a supported option.`);
-	return match;
-}
-
-function range(value, minimum, maximum, name) {
-	const number = Number(value);
-	if (!Number.isFinite(number) || number < minimum || number > maximum) {
-		throw new RangeError(`${name} must be between ${minimum} and ${maximum}.`);
-	}
-	return number;
 }
 
 function clone(value) {

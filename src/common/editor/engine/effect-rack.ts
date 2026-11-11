@@ -57,6 +57,8 @@ import { standardDelayLatencyFrames } from '../first-party-effects/standard/dela
 import { createStandardEffectNode, disposeStandardEffectNode } from './standard-effect-node.ts';
 import { autoTuneRealtimeGeometry } from '../first-party-effects/auto-tune/realtime-contract.ts';
 import { createAutoTuneNode, disposeAutoTuneNode } from './auto-tune-node.ts';
+import { createAiDenoiseNode, disposeAiDenoiseNode } from './ai-denoise-node.ts';
+import { AI_DENOISE_LATENCY } from '../first-party-effects/ai-denoise/contract.ts';
 import { registerAutoTuneControl } from './auto-tune-control.ts';
 import type { ScheduledParameterRegistry } from './scheduled-parameter-registry.ts';
 import type { EngineEffect, UnknownRecord } from './types.ts';
@@ -109,6 +111,7 @@ export function effectRackLatencyFrames(
 }
 
 export function effectLatencyFrames(effect: EngineEffect, sampleRate: number): number {
+	if (effect.type === 'ai-denoise') return AI_DENOISE_LATENCY;
 	if (isNativePluginEffect(effect)) {
 		const fallback = nonNegativeInteger(effect.params?.latencyFrames, 0);
 		return nativePluginRuntimeLatencyFrames(effect.params?.instanceId, fallback);
@@ -172,6 +175,14 @@ export function applyEffect(
 	if (explicitSidechainInput && !explicitSidechainCapable) {
 		if (nativePlugin) throw new Error('Native plug-ins do not admit a sidechain in host contract v1.');
 		throw new Error(`Effect ${String(effect.id)} does not expose a sidechain input.`);
+	}
+	if (type === 'ai-denoise') {
+		const processor = addNode(nodes, createAiDenoiseNode(context, effectGraphKey(options.scope, options.targetId, effect.id), positiveInteger(options.effectChannelCount, 2)));
+		connect(input, processor);
+		registerEffectNode(effect, processor, options);
+		if (options.onParametricEqError) attachEffectProcessorErrorPort(processor, options.onParametricEqError,
+			effectProcessorErrorContext(options, effect.id, { fallbackMessage: 'AI denoising failed.', processorErrorMessage: 'AI denoising missed its processing deadline.' }));
+		return processor;
 	}
 	if (nativePlugin) {
 		if (!isNativePluginRealtimeWorkletLoaded(context)) {
@@ -449,6 +460,7 @@ export function safeMessageSequence(value: unknown, name: string): number {
 }
 
 export function disposeEffectNodeBindings(node: AudioNode): void {
+	disposeAiDenoiseNode(node);
 	disposeAutoTuneNode(node);
 	disposeStandardEffectNode(node);
 	releaseDynamicsAnalysisTelemetry(node as AudioWorkletNode);

@@ -13,6 +13,7 @@ import type { EngineEffect, EngineProject } from './types.ts';
 import { ensureNativePluginRealtimeWorklet } from '../native-plugin-realtime-node.js';
 import { createAudioWorkletLoadOnce, type AudioWorkletLoadOnce } from '../audio-worklet-load-once.ts';
 import { ensureAutoTuneWorklet } from './auto-tune-node.ts';
+import { prepareAiDenoise } from './ai-denoise-node.ts';
 
 const dynamicsWorklet = workletModuleLoadOnce(dynamicsWorkletModuleUrl);
 const delayWorklet = workletModuleLoadOnce(() => new URL('../delay-worklet.js', import.meta.url));
@@ -57,7 +58,9 @@ export function getParametricEqWasmModule(context: BaseAudioContext): WebAssembl
 export async function ensureProjectWorklets(
 	context: BaseAudioContext,
 	project: EngineProject,
+	options: Readonly<{ trackId?: unknown; includeMaster?: boolean }> = {},
 ): Promise<void> {
+	await prepareAiDenoise(context, project, options);
 	const needsDynamics = projectUsesDynamicsWorklet(project) && !dynamicsWorklet.isLoaded(context);
 	const needsDelay = projectUsesDelayWorklet(project) && !delayWorklet.isLoaded(context);
 	const needsBitcrusher = projectUsesBitcrusherWorklet(project) && !bitcrusherWorklet.isLoaded(context);

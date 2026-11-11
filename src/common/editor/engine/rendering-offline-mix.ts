@@ -129,7 +129,7 @@ export async function renderMix(this: EngineRuntimeHost, {
 		let parametricEqFailure = null;
 		let graph = null;
 		try {
-			await ensureProjectWorklets(context, this.project);
+			await ensureProjectWorklets(context, this.project, { trackId, includeMaster });
 			graph = buildProjectGraph(context, context.destination, this.project, {
 				metering: false,
 				respectMuteSolo,

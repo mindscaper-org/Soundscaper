@@ -17,7 +17,8 @@ export default function EffectPicker({
 	unavailableEffectTypes = /** @type {readonly string[]} */ ([]),
 	onClose, onChoose, onCopyEffect = null, onRemoveEffect = null,
 }) {
-	const types = useMemo(() => effectTypes || audioEffectTypes(), [effectTypes]);
+	const types = useMemo(() => (effectTypes || audioEffectTypes()).filter(type => type !== 'ai-denoise'
+		|| Boolean(globalThis.scapeDesktop || globalThis.soundscaperDesktop)), [effectTypes]);
 	const themeVariables = useAudioEditorThemeVariables();
 	const triggerRef = useRef(anchor);
 	const searchRef = useRef(null);

@@ -16,6 +16,9 @@
 		"types": ["node"]
 	},
 	"include": [
+		"desktop/ai-denoise-preload.ts",
+		"desktop/ai-denoise-sessions.ts",
+		"desktop/ai-denoise-helper-process.ts",
 		"desktop/audiocom-integration.ts",
 		"desktop/audiocom-authorization.ts",
 		"desktop/audiocom-links.ts",
