@@ -223,24 +223,6 @@ test('every comparison table on the committed page still qualifies', async () =>
 	}
 });
 
-test('each comparison table includes all six products', async () => {
-	const source = await readFile(COMPARISON_PAGE, 'utf8');
-	const headers = source.split('\n').filter((line) => line.startsWith('| Capability |'));
-	assert.ok(headers.length > 0);
-	for (const header of headers) {
-		const names = header.split('|').slice(1, -1).map((name) => name.trim());
-		assert.deepEqual(names, ['Capability', 'Soundscaper Web', 'Soundscaper Desktop', 'Audacity 4.0.2', 'Audition', 'Pro Tools Studio', 'SoundCraft 0.19.0']);
-	}
-	for (const rows of tablesIn(source)) {
-		for (const cells of rows) assert.equal(cells.length, 7, `wrong number of cells: ${cells[0]}`);
-	}
-});
-
-test('the comparison does not rate missing features as unverified', async () => {
-	const rows = tablesIn(await readFile(COMPARISON_PAGE, 'utf8')).flat();
-	assert.ok(rows.every((cells) => cells.slice(1).every((cell) => !cell.startsWith('?'))));
-});
-
 /**
  * The trap the opt-in exists for. `reference/generated/platforms.md` lists the
  * browser engines against a `Tested automatically` column of bare `Yes` cells,

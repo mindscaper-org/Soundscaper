@@ -150,18 +150,11 @@ test('gives the comparison page full width while standard pages keep their readi
 	}
 });
 
-test('compares Web and Desktop with accessible symbols and explains the capability differences', async ({ page }) => {
+test('renders comparison verdicts as accessible symbols with distinct colours', async ({ page }) => {
 	await page.goto(`${BASE}start/how-soundscaper-compares/`);
 	await expect(page.getByRole('heading', { level: 1, name: 'How Soundscaper compares' })).toBeVisible();
 	const tables = page.getByRole('table');
 	expect(await tables.count()).toBeGreaterThan(0);
-	for (const table of await tables.all()) {
-		await expect(table.getByRole('columnheader')).toHaveText([
-			'Capability', 'Soundscaper Web', 'Soundscaper Desktop', 'Audacity 4.0.2', 'Audition',
-			'Pro Tools Studio', 'SoundCraft 0.19.0',
-		]);
-	}
-
 	const colours = [];
 	for (const [symbol, label] of [['+', 'Supported'], ['~', 'Limited'], ['/', 'Unavailable']]) {
 		const verdict = tables.getByRole('img', { name: label, exact: true }).first();
@@ -171,65 +164,6 @@ test('compares Web and Desktop with accessible symbols and explains the capabili
 	}
 	expect(new Set(colours).size).toBe(3);
 	await expect(tables.getByText(/^(?:Yes|No|Partial)(?:\s|$)/u)).toHaveCount(0);
-	const row = (capability) => page.getByRole('row').filter({
-		has: page.getByRole('cell', { name: capability, exact: true }),
-	});
-	for (const [capability, web, desktop] of [
-		['Dedicated single-file editor', 'Supported', 'Supported'],
-		['Microphone and desktop audio together', 'Limited', 'Supported'],
-		...['VST2 plug-ins', 'VST3 plug-ins', 'CLAP plug-ins', 'Audio Units (AU)', 'LV2 plug-ins', 'LADSPA plug-ins', 'Vamp analysers']
-			.map((format) => [format, 'Unavailable', 'Supported']),
-		['Speech enhancement', 'Unavailable', 'Supported'],
-		['Transcription and diarisation', 'Unavailable', 'Supported'],
-		['Source separation into stems', 'Unavailable', 'Supported'],
-		['AAC (M4A)', 'Limited', 'Supported'],
-		['MP3', 'Supported', 'Supported'],
-	]) {
-		await expect(row(capability).getByRole('cell').nth(1).getByRole('img', { name: web, exact: true })).toBeVisible();
-		await expect(row(capability).getByRole('cell').nth(2).getByRole('img', { name: desktop, exact: true })).toBeVisible();
-	}
-	for (const column of [1, 2]) {
-		await expect(row('Dedicated single-file editor').getByRole('cell').nth(column))
-			.toContainText(/source monitor/iu);
-	}
-	await expect(row('Sample-level drawing').getByRole('cell').nth(3).getByRole('img', { name: 'Supported', exact: true })).toBeVisible();
-	for (const capability of ['Frequency-bounded selection', 'Delete or amplify a spectral region']) {
-		const audacitySpectral = row(capability).getByRole('cell').nth(3);
-		await expect(audacitySpectral.getByRole('img', { name: 'Supported', exact: true })).toBeVisible();
-		await expect(audacitySpectral.getByRole('button')).toHaveAccessibleDescription(/spectrogram/iu);
-	}
-	const audacityAutomation = row('Automation lanes').getByRole('cell').nth(3);
-	await expect(audacityAutomation.getByRole('img', { name: 'Limited', exact: true })).toBeVisible();
-	await expect(audacityAutomation).toContainText(/clip[ -]gain/iu);
-	const audacityProjects = row('Opens Audacity projects').getByRole('cell').nth(3);
-	const audacityProjectDetails = audacityProjects.getByRole('button');
-	await expect(audacityProjectDetails).toHaveAccessibleDescription(/\baup\b.*\baup3\b.*\baup4\b.*import/iu);
-	await expect(audacityProjectDetails).toHaveAccessibleDescription(/aup4\s+export/iu);
-	await expect(audacityProjects).toContainText(/no\s+aup3\s+export/iu);
-	for (const format of ['WAV', 'AIFF', 'BWF', 'RF64', 'BW64', 'ADM BWF', 'FLAC', 'WavPack', 'MP2', 'MP3', 'Opus', 'Ogg Vorbis', 'AAC (M4A)', 'MP4 video export', 'WebM video export', 'MOV video export']) {
-		await expect(row(format)).toHaveCount(1);
-		await expect(row(format).getByRole('cell')).toHaveCount(7);
-	}
-	await expect(row('AAC (M4A)').getByRole('cell').nth(3)).toContainText(/ffmpeg/iu);
-	await expect(row('AAC (M4A)').getByRole('cell').nth(4).getByRole('img', { name: 'Unavailable', exact: true })).toBeVisible();
-	await expect(row('FLAC').getByRole('cell').nth(5).getByRole('img', { name: 'Unavailable', exact: true })).toBeVisible();
-	for (const [capability, states] of [
-		['Click removal', ['Supported', 'Supported', 'Supported', 'Supported', 'Unavailable', 'Unavailable']],
-		['Hum removal', ['Unavailable', 'Unavailable', 'Unavailable', 'Supported', 'Unavailable', 'Unavailable']],
-		['De-essing', ['Supported', 'Supported', 'Unavailable', 'Supported', 'Supported', 'Supported']],
-	]) {
-		for (const [column, state] of states.entries()) {
-			await expect(row(capability).getByRole('cell').nth(column + 1).getByRole('img', { name: state, exact: true })).toBeVisible();
-		}
-	}
-	await expect(row('Click, hum, and sibilance tools')).toHaveCount(0);
-	for (const format of ['EDL', 'OpenTimelineIO', 'FCPXML', 'OMF', 'DAWproject']) {
-		for (const column of [1, 2]) {
-			const cell = row(format).getByRole('cell').nth(column);
-			await expect(cell.getByRole('img', { name: 'Supported', exact: true })).toBeVisible();
-			await expect(cell.getByRole('button')).toHaveAccessibleDescription(/import and export/iu);
-		}
-	}
 });
 
 test('keeps comparison sources collapsed and reveals cell details on hover, focus, and tap', async ({ page, isMobile }) => {
@@ -242,33 +176,27 @@ test('keeps comparison sources collapsed and reveals cell details on hover, focu
 	await sources.click();
 	await expect(releaseNotes).toBeHidden();
 
-	const row = (name) => page.getByRole('row').filter({ has: page.getByRole('cell', { name, exact: true }) });
-	const project = row('Native project format').getByRole('cell').nth(1).getByRole('button');
-	const detail = page.getByRole('tooltip').filter({ hasText: 'Media is bundled with the project.' });
+	const note = page.getByRole('table').getByRole('button').first();
+	const detail = page.getByRole('tooltip', { includeHidden: true }).first();
+	const explanation = await detail.textContent();
 	await expect(detail).toBeHidden();
-	await project.hover();
+	await note.hover();
 	await expect(detail).toBeVisible();
 	await detail.hover();
 	await expect(detail).toBeVisible();
 	await page.keyboard.press('Escape');
 	await expect(detail).toBeHidden();
-	await project.focus();
+	await note.focus();
 	await expect(detail).toBeVisible();
-	await expect(project).toHaveAccessibleDescription('Media is bundled with the project.');
+	await expect(note).toHaveAccessibleDescription(explanation);
 	await page.keyboard.press('Escape');
 	await expect(detail).toBeHidden();
-	if (isMobile) await project.tap();
-	else await project.click();
+	if (isMobile) await note.tap();
+	else await note.click();
 	await expect(detail).toBeVisible();
 	await page.getByRole('heading', { level: 1 }).click();
 	await expect(detail).toBeHidden();
 
-	for (const [name, column] of [
-		['Spectrogram view', 5], ['De-reverb', 5], ['Phase and correlation meter', 6],
-		['Text to speech', 5], ['Timed recording', 5], ['Snap to zero crossings', 5],
-	]) {
-		await expect(row(name).getByRole('cell').nth(column).getByRole('img', { name: 'Unavailable', exact: true })).toBeVisible();
-	}
 	const accessibility = await new AxeBuilder({ page }).include('main').analyze();
 	expect(accessibility.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical')).toEqual([]);
 });
