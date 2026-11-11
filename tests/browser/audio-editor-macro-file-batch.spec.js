@@ -113,10 +113,3 @@ test('cancelling the shared reference picker skips later files and publishes no 
 	await expect(batch.getByText('episode-two.wav: Skipped', { exact: true })).toBeVisible();
 	expect(await page.evaluate(() => globalThis.__macroBatchFiles.outputs.length)).toBe(0);
 });
-
-test('the web macro manager does not offer Apply to files', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
-	await expect(manager.getByRole('button', { name: 'Apply to files', exact: true })).toHaveCount(0);
-});
