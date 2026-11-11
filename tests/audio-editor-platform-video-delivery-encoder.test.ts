@@ -78,7 +78,8 @@ test('desktop format discovery admits WebCodecs formats independently of a host 
 		assert.equal(capabilities.formats.mp4.available, true);
 		assert.equal(capabilities.formats.webm.available, true);
 		assert.equal(capabilities.formats.mp4.provider, 'webcodecs');
-		assert.equal(capabilities.notice, null);
+		assert.equal(capabilities.formats.mov.available, false);
+		assert.match(capabilities.notice ?? '', /MOV/u);
 	});
 });
 

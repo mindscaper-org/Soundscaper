@@ -335,5 +335,5 @@ test('video export format inventory is frozen and rejects unknown containers', (
 	assert.equal(getVideoExportFormat('vp9'), VIDEO_EXPORT_FORMATS.webm);
 	assert.equal(getVideoExportFormat('h264'), VIDEO_EXPORT_FORMATS.mp4);
 	assert.ok(Object.values(VIDEO_EXPORT_FORMATS).every(Object.isFrozen));
-	assert.throws(() => getVideoExportFormat('mov'), /Unsupported video export format/);
+	assert.throws(() => getVideoExportFormat('avi'), /Unsupported video export format/);
 });

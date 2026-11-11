@@ -16,7 +16,7 @@ import {
 } from '../src/soundscaper/video-export-strategy.ts';
 import { framescaperV20Options } from './helpers/framescaper-model-fixture.ts';
 
-test('Soundscaper V29 keyed strategy reaches buffered and sink encoders with one exact active pair', async () => {
+for (const format of ['mp4', 'mov'] as const) test(`Soundscaper V29 keyed strategy reaches buffered and sink encoders with one exact active pair (${format})`, async () => {
 	const runtime = createSoundscaperProjectRuntimeSelection();
 	const project = createSoundscaperProject(framescaperV20Options() as never);
 	const canonicalJson = JSON.stringify(project);
@@ -28,14 +28,14 @@ test('Soundscaper V29 keyed strategy reaches buffered and sink encoders with one
 	const strategy = createSoundscaperVideoExportStrategy(runtime, {
 		async encodeOffline(request: VideoKeyframeOfflineVideoExportRequest) {
 			calls.push(request as unknown as Readonly<Record<string, unknown>>);
-			return encoderResult('mp4');
+			return encoderResult(format);
 		},
 		async encodeOfflineToSink(
 			request: VideoKeyframeOfflineVideoExportRequest,
 			sink: FfmpegOutputSink<unknown>,
 		) {
 			calls.push(request as unknown as Readonly<Record<string, unknown>>);
-			return { ...encoderResult('mp4'), output: sink, outputChunkCount: 1 };
+			return { ...encoderResult(format), output: sink, outputChunkCount: 1 };
 		},
 	});
 	const exportProject = strategy.createExportProject({
@@ -46,7 +46,7 @@ test('Soundscaper V29 keyed strategy reaches buffered and sink encoders with one
 	assert.equal(Object.isFrozen(canonicalSource), false);
 	assert.equal(Object.isFrozen(canonicalTempoMap), false);
 	const plan = strategy.createPlan({
-		canonicalProject: project, exportProject, format: 'mp4', range: 'project',
+		canonicalProject: project, exportProject, format, range: 'project',
 		includeAudio: true, canvas: undefined,
 	});
 	assert.ok(plan);
@@ -57,11 +57,14 @@ test('Soundscaper V29 keyed strategy reaches buffered and sink encoders with one
 	const request = encodeRequest(project, exportProject, plan);
 	const buffered = await strategy.encode(request);
 	assert.equal(buffered.videoEncoder, 'ffmpeg');
+	assert.equal(buffered.extension, `.${format}`);
+	assert.equal(buffered.mimeType, format === 'mov' ? 'video/quicktime' : 'video/mp4');
 	const sink = Object.freeze({ kind: 'sink' });
 	const direct = await strategy.encodeToSink(request, sink as never);
 	assert.strictEqual(direct.output, sink);
 	assert.equal(calls.length, 2);
 	assert.equal(calls.every((call) => call.project === exportProject), true);
+
 });
 
 test('Soundscaper V29 keyed strategy refuses fallback, caption, and detached plan authority', () => {
@@ -192,11 +195,11 @@ function dependencies() {
 	};
 }
 
-function encoderResult(format: 'mp4' | 'webm') {
+function encoderResult(format: 'mp4' | 'webm' | 'mov') {
 	return {
 		bytes: Uint8Array.of(1, 2, 3, 4), byteLength: 4, format,
 		extension: `.${format}` as const,
-		mimeType: format === 'mp4' ? 'video/mp4' as const : 'video/webm' as const,
+		mimeType: format === 'mov' ? 'video/quicktime' as const : format === 'mp4' ? 'video/mp4' as const : 'video/webm' as const,
 		videoEncoder: 'ffmpeg' as const,
 	};
 }

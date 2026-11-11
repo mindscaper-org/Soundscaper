@@ -24,6 +24,7 @@ test('desktop video IPC exposes only closed primitive DTOs and forwards renderer
 				formats: {
 					mp4: { available: false, provider: null, reason: 'test unavailable' },
 					webm: { available: false, provider: null, reason: 'test unavailable' },
+					mov: { available: false, provider: null, reason: 'test unavailable' },
 				},
 			};
 		},

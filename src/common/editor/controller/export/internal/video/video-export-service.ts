@@ -132,7 +132,7 @@ export function createEditorVideoExportAction(
 			const admittedFallbacks = await admitVideoRenderedFallbackExport(canonicalProject, delivery, {
 				store, verifyProjectFallbackIntegrity,
 			}, { signal: abort.signal, assertCurrent: assertVideoExportCurrent });
-			const descriptor = getVideoExportFormat(formatValue) as Readonly<{ id: 'mp4' | 'webm' }>;
+			const descriptor = getVideoExportFormat(formatValue) as Readonly<{ id: 'mp4' | 'webm' | 'mov' }>;
 			const format = descriptor.id;
 			const includeAudio = requestedSettings.includeAudio !== false
 				&& exportProject.clips.some((clip: RuntimeValue) => clip.kind === 'audio');

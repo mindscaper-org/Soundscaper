@@ -296,6 +296,13 @@ metadata. MP3 chapter labels and descriptive metadata share one tag.
 
 ## Export
 
+When the timeline contains video, the desktop export dialog also offers **MOV
+video**. It writes H.264 video and optional AAC audio in a QuickTime `.mov`
+container using external FFmpeg. Choose **File → Export audio**, then select
+**MOV video** under **Format**. If FFmpeg is missing, the dialog offers to
+install it; an installed build must pass the MOV encoder and muxer checks.
+MOV export is unavailable in the browser editor.
+
 Choose **File → Export audio** for a mixed delivery or **Export selected audio**
 when only a selection should be rendered. Soundscaper can also export stems and
 labels.

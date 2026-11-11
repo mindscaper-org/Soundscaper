@@ -97,14 +97,14 @@ const SAVE_PURPOSES = Object.freeze({
 	video: Object.freeze({
 		defaultExtension: 'mp4',
 		filters: [
-			{ name: 'Video', extensions: ['mp4', 'webm'] },
+			{ name: 'Video', extensions: ['mp4', 'mov', 'webm'] },
 			{ name: 'All files', extensions: ['*'] },
 		],
 	}),
 	media: Object.freeze({
 		defaultExtension: 'mp4',
 		filters: [
-			{ name: 'Audio and video', extensions: ['7z', 'aac', 'aif', 'aiff', 'flac', 'm4a', 'mp2', 'mp3', 'mp4', 'ogg', 'opus', 'wav', 'webm', 'wv', 'zip'] },
+			{ name: 'Audio and video', extensions: ['7z', 'aac', 'aif', 'aiff', 'flac', 'm4a', 'mp2', 'mp3', 'mp4', 'mov', 'ogg', 'opus', 'wav', 'webm', 'wv', 'zip'] },
 			{ name: 'All files', extensions: ['*'] },
 		],
 	}),

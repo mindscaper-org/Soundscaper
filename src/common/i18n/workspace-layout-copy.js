@@ -31,6 +31,7 @@ export const WORKSPACE_LAYOUT_COPY_BY_LOCALE = Object.freeze({
 			videoSilent: 'No audio',
 			videoResolution: '{width} × {height}',
 			videoExportMp4: 'MP4 video',
+			videoExportMov: 'MOV video',
 			videoExportWebm: 'WebM video',
 			panelHistory: 'History',
 			panelLabels: 'Labels',

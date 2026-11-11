@@ -238,6 +238,10 @@ test('compiled desktop audio main entry points are importable from the staged ru
 	)).href);
 	assert.equal(typeof composition.createDesktopAudioCodecRuntimeComposition, 'function');
 	assert.equal(typeof ipc.registerDesktopAudioCodecMainIpc, 'function');
+	const video = await import(pathToFileURL(join(
+		outputRoot, 'desktop/external-ffmpeg-video-operation-service.js',
+	)).href);
+	assert.equal(typeof video.createExternalFfmpegVideoOperationService, 'function');
 });
 
 test('FLAC staging refuses a pre-existing destination symlink', async (context) => {

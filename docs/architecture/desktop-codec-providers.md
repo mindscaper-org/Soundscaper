@@ -197,7 +197,9 @@ current execution-verified external FFmpeg pair. Browser delivery retains its
 WebCodecs admission and has no FFmpeg fallback.
 
 The external tier implements the closed desktop keyed-RGBA delivery path:
-H.264/AAC in MP4 and VP9/Opus in WebM. For MP4, main prefers
+H.264/AAC in MP4 or MOV and VP9/Opus in WebM. MOV requires external FFmpeg's
+`libx264`, `aac`, and `mov` muxer, and always selects the external provider;
+browser-native format discovery cannot admit it. For MP4, main prefers
 `h264_videotoolbox` on macOS or `h264_mf` on Windows after token eligibility and
 an exact execution canary. An unavailable or failed native canary may fall back
 to independently verified `libx264`; AAC uses `aac`. The chosen H.264 encoder
@@ -209,9 +211,9 @@ floor; x264 retains CRF/preset controls. Both executable hashes are rechecked
 before and after candidate canaries and real execution. WebM uses
 `libvpx-vp9`/`libopus`. Capability tokens are only a prerequisite. Each exact
 format must also pass a live, one-frame 16x16 RGBA plus 48 kHz stereo-audio
-canary. The resulting finite MP4 or WebM structure must validate, then the exact
+canary. The resulting finite MP4, MOV, or WebM structure must validate, then the exact
 admitted `ffprobe` must report exactly two streams at indices 0 and 1: 16x16
-`yuv420p` H.264 plus 48 kHz stereo AAC for MP4, or 16x16 `yuv420p` VP9 plus
+`yuv420p` H.264 plus 48 kHz stereo AAC for MP4 or MOV, or 16x16 `yuv420p` VP9 plus
 48 kHz stereo Opus for WebM, before the format is exposed.
 Renderer requests remain pathless and owner-scoped. Main binds video to private
 descriptor 3 and optional audio to descriptor 4, creates private scratch and

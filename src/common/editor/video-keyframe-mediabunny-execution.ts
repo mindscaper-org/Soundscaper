@@ -82,6 +82,10 @@ export async function executeVideoKeyframeMediabunnyEncoder(
 	dependencies: VideoKeyframeMediabunnyExecutionDependencies = DEFAULT_DEPENDENCIES,
 ): Promise<VideoKeyframeMediabunnyExecutionResult> {
 	const { workload, frameSource, producer, webCodecs } = request;
+	const { format, extension, mimeType } = workload;
+	if (format === 'mov' || extension === '.mov' || mimeType === 'video/quicktime') {
+		throw new RangeError('MOV export requires desktop external FFmpeg.');
+	}
 	if (workload.videoEncoder !== 'webcodecs') {
 		throw new Error('Mediabunny execution requires a WebCodecs-admitted workload.');
 	}
@@ -116,7 +120,7 @@ export async function executeVideoKeyframeMediabunnyEncoder(
 	try {
 		assertReady(request);
 		muxer = await dependencies.createMuxer({
-			format: workload.format,
+			format,
 			videoCodec: workload.format === 'mp4' ? 'h264' : 'vp9',
 			width: workload.width,
 			height: workload.height,
@@ -188,9 +192,9 @@ export async function executeVideoKeyframeMediabunnyEncoder(
 				audioByteLength: request.audioSource.byteLength,
 				audioChunkCount: muxed.audioChunkCount,
 			} : {}),
-			format: workload.format,
-			extension: workload.extension,
-			mimeType: workload.mimeType,
+			format,
+			extension,
+			mimeType,
 			decoderConfigObserved: muxed.decoderConfigObserved,
 		});
 	} catch (error) {

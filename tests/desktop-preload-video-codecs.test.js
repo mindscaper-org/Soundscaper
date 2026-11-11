@@ -18,6 +18,7 @@ const CAPABILITIES = Object.freeze({
 	formats: Object.freeze({
 		mp4: Object.freeze({ available: true, provider: 'external-ffmpeg', reason: null }),
 		webm: Object.freeze({ available: false, provider: null, reason: 'Configure FFmpeg.' }),
+		mov: Object.freeze({ available: true, provider: 'external-ffmpeg', reason: null }),
 	}),
 });
 
@@ -34,6 +35,7 @@ test('preload exposes closed primitive video session DTOs without path or argv a
 	});
 	assert.equal(JSON.stringify(await fixture.bridge.getDesktopVideoExportCapabilities()), JSON.stringify(CAPABILITIES));
 	assert.equal((await fixture.bridge.beginDesktopVideoCodecOperation(PLAN)).operationId, ID);
+	assert.equal((await fixture.bridge.beginDesktopVideoCodecOperation({ ...PLAN, format: 'mov' })).operationId, ID);
 	assert.equal((await fixture.bridge.writeDesktopVideoCodecInput({
 		operationId: ID, role: 'video', offset: 0, bytes: Uint8Array.of(1, 2),
 	})).offset, 2);

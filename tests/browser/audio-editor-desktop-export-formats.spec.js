@@ -3,6 +3,7 @@
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseDropdown, importFiles, openExportDialog } from './audio-editor-test-helpers.js';
 import { installDesktopSpeedWarmupManifest } from './helpers/desktop-speed-warmup-fixture.js';
+import { videoRetimePreviewMedia } from './fixtures/video-retime-preview-media.js';
 
 async function installCodecBridge(page, mode) {
 	await installDesktopSpeedWarmupManifest(page);
@@ -14,6 +15,13 @@ async function installCodecBridge(page, mode) {
 			location: state.installed ? '/usr/bin/ffmpeg' : null, detail: '',
 		});
 		Object.defineProperty(globalThis, 'soundscaperDesktop', { configurable: true, value: { v1: {
+			getDesktopVideoExportCapabilities: async () => ({ schemaVersion: 1, formats: Object.fromEntries(
+				['mp4', 'webm', 'mov'].map(format => {
+					const available = state.installed && !(state.mode === 'unsupported' && format === 'mov');
+					return [format, { available, provider: available ? 'external-ffmpeg' : null,
+						reason: available ? null : 'The configured FFmpeg does not expose the MOV muxer.' }];
+				}),
+			) }),
 			getExternalFfmpegStatus: async () => status(),
 			installExternalFfmpeg: async () => { state.installations += 1; state.installed = true; return status(); },
 			getDesktopAudioCodecCapabilities: async query => {
@@ -33,6 +41,45 @@ async function installCodecBridge(page, mode) {
 		} } });
 	}, { mode });
 }
+
+test('MOV video requires FFmpeg and rechecks the selected format after explicit installation', async ({ page }) => {
+	await installCodecBridge(page, 'missing');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await importFiles(editor, [videoRetimePreviewMedia.file]);
+	const dialog = await openExportDialog(page, editor);
+	await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'MOV video');
+	const dependency = page.getByRole('alertdialog', { name: 'FFmpeg is not installed', exact: true });
+	await expect(dependency).toContainText('MOV video export requires FFmpeg');
+	await expect.poll(() => page.evaluate(() => globalThis.__exportCodecFixture.installations)).toBe(0);
+	await dependency.getByRole('button', { name: 'Install FFmpeg', exact: true }).click();
+	await expect(dependency).toHaveCount(0);
+	await expect(dialog.locator('[data-export-field="format"]').getByRole('button')).toContainText('MOV video');
+	await expect(dialog.getByRole('button', { name: 'Export', exact: true })).toBeEnabled();
+});
+
+test('the browser export dialog keeps MOV out of its supported video choices', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await importFiles(editor, [videoRetimePreviewMedia.file]);
+	const dialog = await openExportDialog(page, editor);
+	await dialog.locator('[data-export-field="format"]').getByRole('button').click();
+	await expect(page.getByRole('option', { name: 'MP4 video', exact: true })).toBeVisible();
+	await expect(page.getByRole('option', { name: 'MOV video', exact: true })).toHaveCount(0);
+});
+
+test('MP4 support does not admit MOV when the configured FFmpeg lacks the MOV muxer', async ({ page }) => {
+	await installCodecBridge(page, 'unsupported');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await importFiles(editor, [videoRetimePreviewMedia.file]);
+	const dialog = await openExportDialog(page, editor);
+	await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'MOV video');
+	const problem = page.getByRole('alertdialog', { name: 'MOV video export unavailable', exact: true });
+	await expect(problem).toContainText('MOV muxer');
+	await expect(problem.getByRole('button', { name: 'Install FFmpeg' })).toHaveCount(0);
+	await problem.getByRole('button', { name: 'Close', exact: true }).last().click();
+	await expect(dialog.getByRole('button', { name: 'Export', exact: true })).toBeDisabled();
+	await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'MP4 video');
+	await expect(dialog.getByRole('button', { name: 'Export', exact: true })).toBeEnabled();
+});
 
 test('all audio formats remain visible and missing FFmpeg can be installed from selection', async ({ page }) => {
 	await installCodecBridge(page, 'missing');

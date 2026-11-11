@@ -46,7 +46,7 @@ import {
 
 const RGBA_BYTES_PER_PIXEL = 4;
 
-export type VideoKeyframeExportPlanFormatV7 = 'mp4' | 'webm';
+export type VideoKeyframeExportPlanFormatV7 = 'mp4' | 'webm' | 'mov';
 
 export interface VideoKeyframeExportPlanV7 extends Readonly<Record<string, unknown>> {
 	readonly version: 7;
@@ -54,7 +54,7 @@ export interface VideoKeyframeExportPlanV7 extends Readonly<Record<string, unkno
 	readonly format: VideoKeyframeExportPlanFormatV7;
 	readonly container: VideoKeyframeExportPlanFormatV7;
 	readonly extension: VideoKeyframeExportPlanFormatV7;
-	readonly mimeType: 'video/mp4' | 'video/webm';
+	readonly mimeType: 'video/mp4' | 'video/webm' | 'video/quicktime';
 	readonly sampleRate: number;
 	readonly duration: Readonly<{ readonly num: number; readonly den: number }>;
 	readonly range: Readonly<{
@@ -122,7 +122,7 @@ export interface VideoKeyframeExportPlanV7Request {
 
 interface FormatDescriptor {
 	readonly format: VideoKeyframeExportPlanFormatV7;
-	readonly mimeType: 'video/mp4' | 'video/webm';
+	readonly mimeType: 'video/mp4' | 'video/webm' | 'video/quicktime';
 	readonly video: 'h264' | 'vp9';
 	readonly videoEncoder: 'libx264' | 'libvpx-vp9';
 	readonly audio: 'aac' | 'opus';
@@ -162,6 +162,10 @@ const CLIP_MAXIMUM = 100_000;
 const FORMATS: Readonly<Record<VideoKeyframeExportPlanFormatV7, FormatDescriptor>> = Object.freeze({
 	mp4: Object.freeze({
 		format: 'mp4', mimeType: 'video/mp4', video: 'h264', videoEncoder: 'libx264',
+		audio: 'aac', audioEncoder: 'aac',
+	}),
+	mov: Object.freeze({
+		format: 'mov', mimeType: 'video/quicktime', video: 'h264', videoEncoder: 'libx264',
 		audio: 'aac', audioEncoder: 'aac',
 	}),
 	webm: Object.freeze({
@@ -481,7 +485,7 @@ function gcd(left: bigint, right: bigint): bigint {
 }
 
 function exactFormat(value: unknown): VideoKeyframeExportPlanFormatV7 {
-	if (value !== 'mp4' && value !== 'webm') throw new RangeError('Video keyframe export format must be mp4 or webm.');
+	if (value !== 'mp4' && value !== 'webm' && value !== 'mov') throw new RangeError('Video keyframe export format must be mp4, webm, or mov.');
 	return value;
 }
 

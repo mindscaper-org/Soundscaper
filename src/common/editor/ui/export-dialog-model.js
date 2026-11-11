@@ -20,6 +20,7 @@ export const VIDEO_EXPORT_DIALOG_FORMATS = Object.freeze([
 		id: 'video-webm',
 		labelKey: 'videoExportWebm',
 	}),
+	Object.freeze({ id: 'video-mov', labelKey: 'videoExportMov', desktopOnly: true, productId: 'soundscaper' }),
 ]);
 
 const VIDEO_EXPORT_DIALOG_FORMAT_IDS = new Set(VIDEO_EXPORT_DIALOG_FORMATS.map(({ id }) => id));

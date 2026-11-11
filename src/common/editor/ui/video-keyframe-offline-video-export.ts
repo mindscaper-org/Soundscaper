@@ -276,8 +276,8 @@ async function executeOfflineVideo<Output>(
 
 function normalizeRequest(value: unknown): NormalizedRequest {
 	const request = closedRecord(value, 'offline video export request', REQUEST_FIELDS);
-	if (request.format !== 'mp4' && request.format !== 'webm') {
-		throw new RangeError('Offline video export format must be mp4 or webm.');
+	if (request.format !== 'mp4' && request.format !== 'webm' && request.format !== 'mov') {
+		throw new RangeError('Offline video export format must be mp4, webm, or mov.');
 	}
 	if (!(request.signal instanceof AbortSignal)) throw new TypeError('Offline video export requires an AbortSignal.');
 	if (typeof request.assertCurrent !== 'function') throw new TypeError('Offline video export requires assertCurrent.');
