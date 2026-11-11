@@ -6,7 +6,7 @@ import { bootEditor, chooseCommandAction, closeClipProperties, collectClientErro
 	importFiles, openClipProperties } from './audio-editor-test-helpers.js';
 import { SOUNDSCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 
-test('a retired track resample cannot dismiss a newer factory confirmation', async ({ page }) => {
+test('track resampling finishes its blocking dialog before opening a factory confirmation', async ({ page }) => {
 	const errors = collectClientErrors(page);
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'dialog-recording.wav', frequency: 330, channelCount: 1 })]);
@@ -30,12 +30,12 @@ test('a retired track resample cannot dismiss a newer factory confirmation', asy
 		const pending = await resample();
 		await expect.poll(() => page.evaluate(() => window.__round7ResampleSourceReadPending === true)).toBe(true);
 		await expect(pending).toBeVisible();
-		await pending.getByRole('button', { name: 'Cancel', exact: true }).click();
+		await expect(page.locator('[data-task-progress-dialog]')).toBeVisible();
+		await page.evaluate(() => window.__round7ReleaseResampleStorage());
 		await expect(pending).toBeHidden();
 		await chooseCommandAction(page, editor, 'Help', 'Revert to factory settings');
 		const confirmation = page.getByRole('dialog', { name: 'Revert to factory settings', exact: true });
 		await expect(confirmation).toBeVisible();
-		await page.evaluate(() => window.__round7ReleaseResampleStorage());
 		await expect(editor.locator('[data-editor-status]')).toHaveAttribute('title', 'Done');
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
 		await expect(confirmation).toBeVisible();

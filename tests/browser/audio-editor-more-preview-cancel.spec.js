@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { taskProgressCancel } from './helpers/task-progress.js';
 
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, importFiles } from './audio-editor-test-helpers.js';
@@ -26,6 +27,8 @@ test('Cancel while an effect preview worker is preparing releases the editor imm
 	const dialog = page.getByRole('dialog', { name: 'Apply effect', exact: true });
 	await dialog.getByRole('button', { name: 'Preview', exact: true }).click();
 	await expect.poll(() => page.evaluate(() => globalThis.__heldPreviewWorkers.length)).toBe(1);
+	await taskProgressCancel(page).click();
+	await expect(page.locator('[data-task-progress-dialog]')).toBeHidden();
 	await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
 	await expect(dialog).toBeHidden();
 	await expect.poll(() => page.evaluate(() => globalThis.__heldPreviewWorkers[0].__previewTerminated === true)).toBe(true);

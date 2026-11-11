@@ -1,3 +1,4 @@
+import { taskProgressCancel } from './helpers/task-progress.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import {
 	bootEditor,
@@ -10,7 +11,6 @@ import {
 	registerAudioEditorHooks,
 } from './audio-editor-test-helpers.js';
 import { cancelHeldDirectWrite, installDirectPcmTarget } from './helpers/direct-pcm-save-target.js';
-
 const CHANNEL_COUNT = 32;
 const BW64_FRAME_COUNT = 1_588_800;
 const BW64_SAMPLE_RATE = 384_000;
@@ -107,7 +107,7 @@ test.describe('direct native PCM File System Access publication', () => {
 		await expect.poll(() => page.evaluate(() => globalThis.__directPcmSave.sessions[1]?.totalBytes || 0), {
 			timeout: PCM_COMPLETION_TIMEOUT_MS / 2,
 		}).toBeGreaterThan(44);
-		await exportDialog.getByRole('button', { name: 'Cancel export' }).click();
+		await taskProgressCancel(page).click();
 		await expect(exportDialog.getByRole('button', { name: 'Export', exact: true })).toBeVisible({ timeout: 15_000 });
 		const cancelled = await inspectDirectWavTarget(page, 1);
 		expect(cancelled.opens).toBe(1);
@@ -123,7 +123,7 @@ test.describe('direct native PCM File System Access publication', () => {
 		await expect.poll(() => page.evaluate(() => globalThis.__directPcmSave.sessions[2]?.commitStarted || 0), {
 			timeout: PCM_COMPLETION_TIMEOUT_MS,
 		}).toBe(1);
-		await exportDialog.getByRole('button', { name: 'Cancel export' }).click();
+		await taskProgressCancel(page).click();
 		await expect(exportDialog.getByRole('button', { name: 'Export', exact: true })).toBeVisible({ timeout: 15_000 });
 		const cancelledStatus = await inspectEditorStatus(editor);
 		const cancelledOutput = await inspectExportOutput(exportDialog);
@@ -246,7 +246,7 @@ test.describe('direct native PCM File System Access publication', () => {
 		await expect.poll(() => page.evaluate(() => globalThis.__directPcmSave.sessions[1]?.totalBytes || 0), {
 			timeout: PCM_COMPLETION_TIMEOUT_MS / 2,
 		}).toBeGreaterThan(54);
-		await exportDialog.getByRole('button', { name: 'Cancel export' }).click();
+		await taskProgressCancel(page).click();
 		await expect(exportDialog.getByRole('button', { name: 'Export', exact: true })).toBeVisible({ timeout: 15_000 });
 		const cancelled = await inspectDirectAiffTarget(page, 1);
 		expect(cancelled.opens).toBe(1);
@@ -358,7 +358,7 @@ test.describe('direct native PCM File System Access publication', () => {
 		await expect.poll(() => page.evaluate(() => globalThis.__directPcmSave.sessions[1]?.hasNonzeroPcm || false), {
 			timeout: PCM_COMPLETION_TIMEOUT_MS / 2,
 		}).toBe(true);
-		await exportDialog.getByRole('button', { name: 'Cancel export' }).click();
+		await taskProgressCancel(page).click();
 		await expect(exportDialog.getByRole('button', { name: 'Export', exact: true })).toBeVisible({ timeout: 15_000 });
 		const cancelled = await inspectDirectBwfTarget(page, 1);
 		expect(cancelled.opens).toBe(1);
@@ -483,7 +483,7 @@ test.describe('direct native PCM File System Access publication', () => {
 		await expect.poll(() => page.evaluate(() => globalThis.__directPcmSave.sessions[1]?.hasNonzeroPcm || false), {
 			timeout: BW64_COMPLETION_TIMEOUT_MS,
 		}).toBe(true);
-		await cancelHeldDirectWrite(page, exportDialog.getByRole('button', { name: 'Cancel export' }), 1);
+		await cancelHeldDirectWrite(page, taskProgressCancel(page), 1);
 		await expect(exportDialog.getByRole('button', { name: 'Export', exact: true })).toBeVisible({ timeout: 15_000 });
 		const cancelled = await inspectDirectBw64Target(page, 1);
 		expect(cancelled.opens).toBe(1);

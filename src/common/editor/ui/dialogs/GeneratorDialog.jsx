@@ -78,7 +78,9 @@ export default function GeneratorDialog({ type, controller, snapshot = {}, copy,
 			() => controller.actions.generators.generate(type, { ...options, signal: generationId.signal }),
 		).then(() => {
 			if (activeGenerationRef.current === generationId) onClose();
-		}).catch(() => undefined).finally(() => {
+		}).catch((error) => {
+			if (error?.name === 'AbortError' && activeGenerationRef.current === generationId) onClose();
+		}).finally(() => {
 			if (activeGenerationRef.current !== generationId) return;
 			activeGenerationRef.current = null;
 			setPending(false);

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { admitAudioExportBlob, prepareAudioExportBlobWithWarning as prepareAudioExportBlob } from '../../../audio-export-output.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
-import { audioExportPublicationProgress, NO_AUDIO_EXPORT_PROGRESS as NO_TASK_PROGRESS } from './audio/audio-export-progress.ts';
+import { audioExportPublicationProgress, setAudioExportCancellation, NO_AUDIO_EXPORT_PROGRESS as NO_TASK_PROGRESS } from './audio/audio-export-progress.ts';
 import { isVideoExportRequestFormat } from '../../../video-export-request-format.ts';
 import { inheritTrackFolderMediaStateProjectionV12 } from '../../../track-folder-media-runtime.ts';
 import { createExportRenderProject, exportReplacementTrackIds } from '../export-render-project.ts';
@@ -173,7 +173,7 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 		});
 		const { generation, abort, assertCurrent: assertExportCurrent } = exportOperation;
 		const progressTask = taskProgress?.begin?.('export', copy.rendering, 0, { key: 'rendering' }) || NO_TASK_PROGRESS;
-		progressTask.setCancellation?.(() => { abort.abort(); });
+		setAudioExportCancellation(progressTask, () => { void handleExportAction('cancel', null, null, executionOwner); });
 		let exportProject = createExportRenderProject(deliveredProject, exportReplacementTrackIds(delivery));
 		let exportRenderSources: ExportRenderSources;
 		let pendingCleanup = null;

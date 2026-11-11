@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { taskProgressCancel } from './helpers/task-progress.js';
 
 import {
 	expect,
@@ -117,7 +118,7 @@ test.describe('direct File System Access stem archives', () => {
 		await chooseDropdown(page, exportDialog.locator('[data-export-field="bitDepth"]'), '16-bit PCM');
 		await exportDialog.getByRole('button', { name: 'Export', exact: true }).click();
 
-		const cancel = exportDialog.getByRole('button', { name: 'Cancel export' });
+		const cancel = taskProgressCancel(page);
 		await expect(cancel).toBeVisible();
 		await expect.poll(() => page.evaluate(() => globalThis.__directPcmSave.sessions[0]?.totalBytes || 0), {
 			timeout: 20_000,
