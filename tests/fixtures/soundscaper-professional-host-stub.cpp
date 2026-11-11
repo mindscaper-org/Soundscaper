@@ -58,6 +58,10 @@ extern "C" soundscaper_pro_status soundscaper_pro_plugin_process(
 		for (uint32_t frame = 0u; frame < frames; ++frame) output[channel][frame] = input[channel][frame] * 2.0f;
 	return SOUNDSCAPER_PRO_OK;
 }
+extern "C" soundscaper_pro_status soundscaper_pro_plugin_midi(
+	soundscaper_pro_plugin_instance *, const soundscaper_pro_midi_event *, uint32_t count, uint32_t) {
+	return count == 0u ? SOUNDSCAPER_PRO_OK : SOUNDSCAPER_PRO_FORMAT_REFUSED;
+}
 extern "C" uint32_t soundscaper_pro_plugin_latency(soundscaper_pro_plugin_instance *) { return 32u; }
 extern "C" soundscaper_pro_status soundscaper_pro_plugin_audio_topology(
 	soundscaper_pro_plugin_instance *, uint32_t *inputs, uint32_t *outputs) {

@@ -347,8 +347,8 @@ test('parametric EQ accepts zero through twelve uniquely identified bands and va
 test('selection effect registry includes Auto-Tune, regular streaming effects, canonical EQ and reviewed Utility Gain', () => {
 	assert.deepEqual(
 		audioSelectionEffectTypes(),
-		['auto-tune', 'highpass-filter', 'lowpass-filter', 'notch-filter', 'shelf-filter', 'tremolo', 'vocoder',
-			'noise-gate', 'multi-tap-delay', 'deesser', 'multiband-compressor', ...audacityEffectTypes(),
+		['hum-removal', 'auto-tune', 'highpass-filter', 'lowpass-filter', 'notch-filter', 'shelf-filter', 'tremolo', 'vocoder',
+			'noise-gate', 'multi-tap-delay', 'deesser', 'multiband-compressor', 'automatic-phase-correction', ...audacityEffectTypes(),
 			'eq', 'bitcrusher', 'reviewed-utility-gain'],
 	);
 	assert.equal(AUDIO_SELECTION_EFFECT_DEFINITIONS.eq.maximumBands, 12);
