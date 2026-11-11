@@ -118,6 +118,13 @@ those workflows before relying on it for a session.
 - [Generate Speech](https://helpx.adobe.com/audition/desktop/effects-reference/generate-tones-effect.html)
 - [Adobe Podcast Enhance Speech](https://podcast.adobe.com/en/guides/what-is-enhance-speech)
 
+**Additional production workflows** — reviewed on **11 November 2026**.
+
+- Adobe documents [music Remix](https://helpx.adobe.com/audition/desktop/mixing-multitrack-sessions/creating-remix.html), [automatic dialogue alignment](https://business.adobe.com/blog/the-latest/celebrating-25-years-of-adobe-audition), [adaptive noise reduction, learned-sound removal, and automatic phase correction](https://helpx.adobe.com/audition/desktop/effects-reference/noise-reduction-restoration-effects.html), and [HUI control surfaces](https://helpx.adobe.com/audition/desktop/workspace-and-setup/control-surface-support.html).
+- Avid documents [MIDI device workflows](https://www.avid.com/pro-tools/features/midi), [score editing and printing](https://resources.avid.com/SupportFiles/PT/Intro_to_Pro_Tools.pdf#page=29), and [hardware inserts](https://www.avid.com/resource-center/exploring-increased-voices-tracks-and-io-in-pro-tools-2021-6). Its [tier comparison](https://www.avid.com/pro-tools/comparison) confirms Studio's control-surface and AAF support.
+- Soundscaper's [MIDI carrier scope](https://github.com/LeoWattenberg/Soundscaper/blob/main/docs/policies/project-compatibility.md#beta-midi-editable-carriers), [deferred device contracts](https://github.com/LeoWattenberg/Soundscaper/blob/main/src/common/editor/platform/contract-policy.ts), [effect inventory](/reference/generated/audio-effects/), and [interchange profiles](https://github.com/LeoWattenberg/Soundscaper/blob/main/docs/architecture/delivery-and-interchange.md#interchange-profiles) establish its current limits. Note editing and basic synthesis do not provide MIDI device recording or instrument plug-in hosting; profile-based noise reduction does not provide adaptive denoising or learned-sound removal.
+- SoundCraft's pinned [hardware gaps](https://github.com/storytold/soundcraft/blob/v0.19.0/docs/hardware-parity.md), [score view](https://github.com/storytold/soundcraft/blob/v0.19.0/crates/ui-egui/src/panels/score_editor.rs), [score export](https://github.com/storytold/soundcraft/blob/v0.19.0/crates/engine/src/score.rs), and [format assessment](https://github.com/storytold/soundcraft/blob/v0.19.0/docs/file-format-parity.md) distinguish notation output from editing and device access. Audacity's pinned menus and bundled effect lists above do not expose these additional production workflows.
+
 </details>
 
 
@@ -165,6 +172,7 @@ Desktop projects reference original media by default. Consolidate media before m
 | Loop recording into takes | + | + | / | ~ — Clip take list | + | ~ — Desktop only |
 | Take comping | + — :: Audition, promote, edit comp regions, flatten as one undoable edit | + — :: Audition, promote, edit comp regions, flatten as one undoable edit | / | / | + | + |
 | Input monitoring and metering | + | + | + | + | + | ~ — Desktop only :: Desktop input monitoring; recording unavailable on Web and FreeBSD |
+| MIDI keyboard recording | / | / | / | / | + | / — :: MIDI device input is not implemented. |
 
 Recording depends on your browser, operating system, and audio hardware. See [record audio](/soundscaper/recording/) for inputs, monitoring, takes, and recovery.
 
@@ -195,6 +203,9 @@ Soundscaper can [import Audacity keyboard shortcuts](/reference/generated/comman
 | Delete or amplify a spectral region | + | + | + — :: Bundled Nyquist Delete selection and Amplify selection effects are available in the spectrogram context menu. | ~ — Apply effect | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / |
 | Repair short damage | + | + | + | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / — :: Requires a third-party repair plug-in on desktop. |
 | Broadband noise reduction | + | + | + | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / — :: Requires a third-party noise-reduction plug-in on desktop. |
+| Real-time adaptive denoising | / — :: Noise Reduction uses a captured noise profile. | / — :: Noise Reduction uses a captured noise profile; optional speech enhancement is offline. | / — :: Noise Reduction uses a captured noise profile. | + — :: Adaptive Noise Reduction tracks changing broadband noise in real time. | / — :: Requires an external noise-reduction plug-in. | / |
+| Learned sound removal | / | / | / | + — :: Sound Remover learns a sound model, such as a siren or ringing phone, and removes matching sounds. | / — :: Requires an external restoration plug-in. | / |
+| Automatic phase correction | / | / | / | + — :: Automatically aligns stereo channels to correct phase and tape-head azimuth errors. | / — :: Requires an external alignment plug-in, such as Auto-Align. | / |
 | De-reverb | / | + — Local model | / | + | / — :: Requires the separate Acoustica Ultimate / DeVerberate plug-in. | / — :: Requires a third-party de-reverb plug-in on desktop. |
 | Click removal | + | + | + | + | / — :: Requires the external RX De-click plug-in with an active plan. | / |
 | Hum removal | / | / | / | + — :: Built-in DeHummer effect. | / — :: Requires the external RX De-hum plug-in with an active plan. | / |
@@ -223,9 +234,13 @@ Soundscaper can [import Audacity keyboard shortcuts](/reference/generated/comman
 | ARA clip editing | / | + — :: One mono or stereo clip through an allowed ARA-capable VST3 plug-in and matching native runtime | / | / | + | / |
 | Nyquist scripting | + | + | + | / | / | / |
 | Sandboxed effect packages | ~ — WebAssembly :: Reviewed WebAssembly packages, one ships and external ones are fenced | ~ — WebAssembly :: Reviewed WebAssembly packages, one ships and external ones are fenced | / | / | / | / |
-| Virtual instruments | / | / | / | / | + | + |
+| Instrument plug-in hosting | / | / | / | / | + | + |
+| Score editing and printing | / | / | / | / | + | ~ — View / print :: Read-only notation view and SVG score export; notes are edited in the piano roll. |
 
 See [plug-in management](/help/local-processing/#manage-plugins-and-devices), [macro programs](/reference/macro-programs/), and [commands](/reference/generated/commands/). Desktop ARA edits one mono or stereo clip at a time, up to 128 MiB of decoded audio.
+
+Soundscaper's opt-in MIDI beta edits notes and uses a basic synthesizer; it does
+not record MIDI devices or host instrument plug-ins.
 
 ## Mixing, routing, and automation
 
@@ -237,6 +252,9 @@ See [plug-in management](/help/local-processing/#manage-plugins-and-devices), [m
 | VCA groups | + | + | / | / | + | + |
 | Sidechain input | + | + | / | + | + | / |
 | Cue and control-room mixes | + | + | / | / | + | ~ — Routing limits :: Sends and buses; physical channel routing is a documented gap |
+| Hardware insert effects | / | / | / | / | + — :: Routes a track through outboard audio hardware using paired interface inputs and outputs. | / |
+| Hardware control surfaces | / | / | / | + — HUI | + — EUCON / HUI | / |
+| MIDI output to hardware | / | / | / | / | + | / — :: MIDI device output is not implemented. |
 | Plug-in delay compensation | + | + | / | + | + | + |
 | Automation lanes | + | + | ~ — Clip gain | + | + | + |
 | Automation modes | + | + | / | ~ — No trim | + | + |
@@ -319,6 +337,7 @@ and DAWproject.
 | FCPXML | + — :: Import and export timeline spines, asset clips, and connected lanes. | + — :: Import and export timeline spines, asset clips, and connected lanes. | / | + | / | / |
 | DAWproject | + — :: Import and export media and supported project structure, with an exchange report. | + — :: Import and export media and supported project structure, with an exchange report. | / | / | / | / |
 | OMF | + — :: Import and export OMF2 audio. Export embeds mono/stereo 24-bit WAV, with a 256 MiB decoded-PCM limit. | + — :: Import and export OMF2 audio. Export embeds mono/stereo 24-bit WAV, with a 256 MiB decoded-PCM limit. | / | ~ | + | / |
+| AAF | / | / | / | / | + — Import / export | / |
 | Round-trip with a video editor | ~ — Framescaper copy :: File-menu handoff creates a separate editable Framescaper copy, with a conversion report | ~ — Framescaper copy :: File-menu handoff creates a separate editable Framescaper copy, with a conversion report | / | + — Premiere Pro | ~ — AAF / OMF | / |
 | Blender track export and live sync | / | + — :: WAV track bundle and one-way edit updates through the bundled Blender 4.2+ add-on | / | / | / | / |
 | Labels and markers exchange | + | + | + | + | ~ — Session text | ~ — Text / MIDI |
@@ -347,6 +366,8 @@ Transfers can omit unsupported state; review the exchange report. See [project f
 | Source separation into stems | / | + — Local model | / | / | / — :: Vocal extraction is available through the external SpectraLayers Go plug-in. | / |
 | Text to speech | / | + — Kokoro :: Kokoro voices with optional model, engine, and offline pronunciation helper | / | + — OS voices | / — :: Requires the VoiceWunder ARA plug-in. | / |
 | Automatic ducking | + | + | + | + | ~ — Sidechain | / |
+| Music remix to target duration | / | / | / | + — Remix :: Analyses and rearranges musical passages to fit a target duration. | / | / |
+| Automatic dialogue alignment | / | / | / | + — :: Warps a replacement dialogue performance to match the timing of a reference recording. | / — :: Requires an external alignment plug-in, such as VocAlign. | / |
 | Beat and shot detection | / | ~ — Beats only :: Beat detection with an optional model; shot detection is in Framescaper | / | ~ — Remix | ~ — Beat Detective | ~ — Beat Analysis |
 | Local media processing | + — :: Browser processing; optional sharing sends only what you choose | + — :: Local editing and offline inference after model installation; optional sharing | + | + — :: Local editing and restoration; separate Adobe online services have their own upload workflows | + | + |
 | Models are optional and removable | / | + | / | / | ~ — Speech engine | / |
@@ -357,8 +378,9 @@ Install optional models and engines with **Tools → Model Manager**. See [local
 
 Soundscaper combines browser access, Linux desktop builds, production routing,
 and local assistance. Audacity provides a free audio-editing workflow;
-Audition adds dedicated restoration and Premiere Pro integration. Pro Tools
-Studio offers AAX instruments, session exchange, and Dolby Atmos. SoundCraft
+Audition adds adaptive restoration, music Remix, dialogue alignment, and Premiere
+Pro integration. Pro Tools Studio adds MIDI hardware, notation, outboard inserts,
+control surfaces, AAF exchange, and Dolby Atmos. SoundCraft
 offers open-source MIDI and instruments, with pre-alpha recording and
 interchange limitations.
 
