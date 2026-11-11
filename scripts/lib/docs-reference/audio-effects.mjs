@@ -57,6 +57,7 @@ const LOCAL_EFFECT_CATEGORIES = Object.freeze({
 /** Parameters whose value is a structure rather than a scalar or a choice. */
 const STRUCTURED_LOCAL_PARAMETERS = Object.freeze({
 	'eq.bands': 'Each band has a type, frequency, gain, Q, and slope',
+	'auto-tune.controlTrackId': 'Optional MIDI control track ID; empty uses the selected key and scale',
 });
 
 const BROWSER_ADAPTATION_NOTES = Object.freeze({

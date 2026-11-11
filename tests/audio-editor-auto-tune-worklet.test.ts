@@ -11,7 +11,7 @@ class ProcessorBase {
 	readonly port = { onmessage: null as ((event: { data: unknown }) => void) | null,
 		postMessage: (message: unknown): void => { this.messages.push(message); } };
 }
-Object.assign(globalThis, { AudioWorkletProcessor: ProcessorBase, sampleRate: 48000 });
+Object.assign(globalThis, { AudioWorkletProcessor: ProcessorBase, sampleRate: 48000, currentFrame: 0 });
 const { AutoTuneWorkletProcessor } = await import('../src/common/editor/first-party-effects/auto-tune/worklet.ts');
 const module = await WebAssembly.compile(await readFile(new URL('../src/common/editor/staffpad/staffpad.wasm', import.meta.url)));
 
@@ -22,6 +22,7 @@ test('real Auto-Tune worklet matches the streaming kernel, accepts controls and 
 		staffPadRuntime: instantiateStaffPadWasm(module) });
 	try {
 		for (let block = 0; block < 400; block++) {
+			Object.assign(globalThis, { currentFrame: block * 128 });
 			if (block === 200) {
 				worklet.port.onmessage?.({ data: { type: 'configure', params: { key: 'c', scale: 'major', mix: 50 }, revision: 1 } } as MessageEvent);
 				reference.updateParams({ key: 'c', scale: 'major', mix: 50 });

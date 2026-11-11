@@ -205,6 +205,7 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	['bitcrusher', 'Bitcrusher', 'Effect > Distortion and modulation', SOUNDSCAPER],
 	['tremolo', 'Tremolo', 'Effect > Distortion and modulation', SOUNDSCAPER],
 	['vocoder', 'Vocoder', 'Effect > Distortion and modulation', SOUNDSCAPER],
+	['auto-tune', 'Auto-Tune', 'Effect > Distortion and modulation', SOUNDSCAPER],
 	['audacity-phaser', 'Phaser', 'Effect > Distortion and modulation', SOUNDSCAPER],
 	['audacity-wahwah', 'Wahwah', 'Effect > Distortion and modulation', SOUNDSCAPER],
 	['audacity-invert', 'Invert', 'Effect > Special', SOUNDSCAPER],

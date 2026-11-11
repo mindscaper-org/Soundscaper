@@ -124,6 +124,7 @@ Defaults and limits come from the same definitions the editor validates against,
 | Auto-Tune | `auto-tune` | Mix | 100 | 0 to 100 | % |
 | Auto-Tune | `auto-tune` | Key | C | C; C♯ / D♭; D; D♯ / E♭; E; F; F♯ / G♭; G; G♯ / A♭; A; A♯ / B♭; B | — |
 | Auto-Tune | `auto-tune` | Scale | Chromatic | Chromatic; Major; Natural minor | — |
+| Auto-Tune | `auto-tune` | Control Track Id | — | Optional MIDI control track ID; empty uses the selected key and scale | — |
 | Bass and Treble | `audacity-bass-treble` | Bass | 0 | -30 to 30 | dB |
 | Bass and Treble | `audacity-bass-treble` | Treble | 0 | -30 to 30 | dB |
 | Bass and Treble | `audacity-bass-treble` | Output volume | 0 | -30 to 30 | dB |

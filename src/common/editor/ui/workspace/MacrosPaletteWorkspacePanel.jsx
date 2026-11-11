@@ -3,7 +3,7 @@
 import { Suspense, useRef, useState } from 'react';
 import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
 import { selectAudioEditorEditBlock } from '../../edit-blocking.ts';
-import { effectMacroMissingEmbeddedNoiseProfile } from '../../effect-macro-templates.ts';
+import { effectMacroMissingEmbeddedNoiseProfile } from '../../effect-macro-readiness.ts';
 import { macroScriptIsRunnable } from '../../macro-script-library.ts';
 import { createMacroAudioInputResolver } from '../../controller/effects/macro-audio-input-service.ts';
 import { macroStartsWithCommand } from '../inspector/macro-run-target.ts';
