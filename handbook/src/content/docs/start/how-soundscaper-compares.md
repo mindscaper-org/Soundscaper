@@ -96,6 +96,7 @@ those workflows before relying on it for a session.
 
 **Workflow references**
 
+- Audacity's [bundled Nyquist effects](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/share/nyquist-plug-ins/CMakeLists.txt), [spectral delete implementation](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/share/nyquist-plug-ins/spectral-delete.ny), [spectral effect registrations](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/src/effects/nyquist/internal/nyquisteffectsrepository.cpp), and [spectrogram context menu](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/src/spectrogram/view/trackspectrogramcontextmenumodel.cpp) establish spectral delete and amplification support. Spectral rows were rechecked on **11 November 2026**.
 - [Soundscaper interchange profiles](https://github.com/LeoWattenberg/Soundscaper/blob/main/docs/architecture/delivery-and-interchange.md#interchange-profiles) document import and export scope.
 - [Soundscaper effect inventory](/reference/generated/audio-effects/) and [Audition restoration effects](https://helpx.adobe.com/audition/desktop/effects-reference/noise-reduction-restoration-effects.html).
 - [Audacity export formats](https://www.audacityteam.org/manual/getting-started/export-your-audio/), [PCM writer](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/au3/modules/import-export/mod-pcm/ExportPCM.cpp), and [WavPack options](https://manual.audacityteam.org/man/wavpack_export_options.html).
@@ -189,9 +190,9 @@ Soundscaper can [import Audacity keyboard shortcuts](/reference/generated/comman
 | Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Pro Tools Studio | SoundCraft 0.19.0 |
 | --- | --- | --- | --- | --- | --- | --- |
 | Spectrogram view | + | + | + | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / |
-| Frequency-bounded selection | + | + | / — :: Disabled in Audacity 4.0.2. | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / |
+| Frequency-bounded selection | + | + | + — :: Frequency selections are available in the spectrogram view; some menu and toolbar entries remain disabled. | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / |
 | Spectral brush | + | + | / — :: Disabled in Audacity 4.0.2. | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / |
-| Delete or amplify a spectral region | + | + | / | ~ — Apply effect | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / |
+| Delete or amplify a spectral region | + | + | + — :: Bundled Nyquist Delete selection and Amplify selection effects are available in the spectrogram context menu. | ~ — Apply effect | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / |
 | Repair short damage | + | + | + | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / — :: Requires a third-party repair plug-in on desktop. |
 | Broadband noise reduction | + | + | + | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / — :: Requires a third-party noise-reduction plug-in on desktop. |
 | De-reverb | / | + — Local model | / | + | / — :: Requires the separate Acoustica Ultimate / DeVerberate plug-in. | / — :: Requires a third-party de-reverb plug-in on desktop. |

@@ -193,6 +193,11 @@ test('compares Web and Desktop with accessible symbols and explains the capabili
 			.toContainText(/source monitor/iu);
 	}
 	await expect(row('Sample-level drawing').getByRole('cell').nth(3).getByRole('img', { name: 'Supported', exact: true })).toBeVisible();
+	for (const capability of ['Frequency-bounded selection', 'Delete or amplify a spectral region']) {
+		const audacitySpectral = row(capability).getByRole('cell').nth(3);
+		await expect(audacitySpectral.getByRole('img', { name: 'Supported', exact: true })).toBeVisible();
+		await expect(audacitySpectral.getByRole('button')).toHaveAccessibleDescription(/spectrogram/iu);
+	}
 	const audacityAutomation = row('Automation lanes').getByRole('cell').nth(3);
 	await expect(audacityAutomation.getByRole('img', { name: 'Limited', exact: true })).toBeVisible();
 	await expect(audacityAutomation).toContainText(/clip[ -]gain/iu);
