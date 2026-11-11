@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { autoTuneControlTrackIds } from '../../first-party-effects/auto-tune/project-control.ts';
 
 import {
 	createAddClipCommand,
@@ -136,6 +137,7 @@ export function createMixRenderSnapshot(
 		.filter(isActiveAutoDuckEffect)
 		.map((effect) => String(effect.context?.controlTrackId || ''))
 		.filter((trackId) => findControllerTrack(snapshot, trackId)?.type === 'audio'));
+	if (renderEffects) for (const id of autoTuneControlTrackIds([...targetTracks, ...relevantBuses])) controlTrackIds.add(id);
 	const renderTrackIds = new Set([...targetIds, ...controlTrackIds]);
 	snapshot.tracks = snapshot.tracks
 		.filter((track) => track.type === 'audio' && renderTrackIds.has(track.id))

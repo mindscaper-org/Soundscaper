@@ -64,6 +64,7 @@ import { DesktopRendererOwnershipCleanup } from './renderer-ownership-cleanup.js
 import { AtomicSaveManager, SaveTargetStore } from './save-targets.js'; import { createDesktopSaveSizeWarningConfirmation } from './project-library-runtime/desktop/save-size-warning-dialog.js';
 import { DesktopSettingsStore } from './settings.js';
 import { ReleaseChecker } from './update-check.js';
+import { checkDesktopDistributionUpdates, configureWindowsApplicationIdentity } from './project-library-runtime/desktop/windows-store-distribution.js';
 import {
 	desktopWindowOptions, hideNativeWindowButtons, installDesktopApplicationMenu,
 	onWindowStateChanged, registerFocusedWindowAccelerators,
@@ -211,7 +212,7 @@ async function startApplication() {
 		if (projectLibraryStartup === libraryStartup) projectLibraryStartup = null;
 	}
 	if (applicationShutdown.requested) return;
-	if (process.platform === 'win32') app.setAppUserModelId(APP_ID);
+	configureWindowsApplicationIdentity({ platform: process.platform, windowsStore: process.windowsStore, appId: APP_ID, setAppUserModelId: (identity) => app.setAppUserModelId(identity) });
 	const resources = resourceRoots();
 	settings = new DesktopSettingsStore(resolve(desktopStorage.configRoot, 'desktop-settings.json'));
 	await settings.load([app.getLocale(), ...app.getPreferredSystemLanguages()]);
@@ -461,7 +462,7 @@ function lockNavigation(window) {
 }
 
 async function checkForUpdates(manual) {
-	const result = await releaseChecker.check({ manual });
+	const result = await checkDesktopDistributionUpdates({ windowsStore: process.windowsStore, manual, checkRelease: (options) => releaseChecker.check(options), openExternal: (url) => shell.openExternal(url) });
 	if (result.status === 'available' && mainWindow) {
 		const response = await dialog.showMessageBox(mainWindow, {
 			type: 'info',

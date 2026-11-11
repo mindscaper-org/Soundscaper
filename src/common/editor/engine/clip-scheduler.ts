@@ -45,6 +45,7 @@ import type {
 import { scheduleProjectAutomationLanesV21 } from './project-automation-scheduler-v21.ts';
 import type { ScheduledParameterRegistry } from './scheduled-parameter-registry.ts';
 import { createOfflineChunkResampleBuffer } from './offline-chunk-resample.ts';
+import { scheduleAutoTuneControls } from './auto-tune-control.ts';
 
 export interface ChunkStreamHandle {
 	readonly ready: Promise<unknown>;
@@ -275,6 +276,7 @@ export async function scheduleProjectClips({
 		actualContextStartTime = prepareUnstartedPlaybackStart({
 			context, candidate: confirmed, leadSeconds: startLeadSeconds, checkDeadline, allowRebase: canRebase, signal,
 			prepare(startTime) {
+				scheduleAutoTuneControls(project, parameterRegistry, { fromFrame, toFrame, contextStartTime: startTime, sampleRate, contextSampleRate: context.sampleRate || sampleRate, transportRate });
 				scheduleProjectGains({ context, project, gainParams: gains, fromFrame, toFrame, contextStartTime: startTime, sampleRate, transportRate });
 				if (parameterRegistry) scheduleProjectAutomationLanesV21(project, parameterRegistry, {
 					fromFrame, toFrame, contextStartTime: startTime, sampleRate, contextSampleRate: context.sampleRate || sampleRate, transportRate, tempoMap: project.tempoMap,

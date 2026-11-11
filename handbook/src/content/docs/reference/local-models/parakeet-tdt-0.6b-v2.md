@@ -12,7 +12,7 @@ Turn selected speech into a timed transcript for captions and transcript editing
 
 ## Current availability {#current-availability}
 
-Desktop builds can download and authenticate the required sherpa-onnx-node 1.13.5 engine for macOS arm64, Linux arm64, Linux x64, Windows arm64, Windows x64. Install this model and its required runtime through Model Manager, then run its task locally. These are supported build targets; consult the nightly test report for results on a particular package and machine. The desktop build has no downloadable engine for macOS x64 even though model weights are listed for those platforms.
+Desktop builds can download and authenticate the required sherpa-onnx-node 2.0.1 engine for macOS arm64, Linux arm64, Linux x64, Windows arm64, Windows x64. Install this model and its required runtime through Model Manager, then run its task locally. These are supported build targets; consult the nightly test report for results on a particular package and machine. The desktop build has no downloadable engine for macOS x64 even though model weights are listed for those platforms.
 
 ## Use this model {#use-this-model}
 

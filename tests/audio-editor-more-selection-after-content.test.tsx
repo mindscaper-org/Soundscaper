@@ -3,46 +3,60 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { act } from 'react';
-import { createRoot } from 'react-dom/client';
+import GeneratorDialog from '../src/common/editor/ui/dialogs/GeneratorDialog.jsx';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
-import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
-import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
-import { AccessibleSelectionToolbar } from '../src/common/editor/ui/toolbar/AudioEditorTransportControls.jsx';
-import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
+import { selectionControllerCustody, selectionWav } from './helpers/selection-controller-custody.tsx';
+import { clipboardDocument, clipboardProject } from './helpers/clipboard-source-custody.ts';
+import { reactProps } from './helpers/react-test-dom.ts';
 
-for (const sampleRate of [44_100, 48_000]) test(`precise selection entry includes blank timeline after a ${sampleRate}Hz imported clip`, async () => {
-	const dom = installReactTestDom();
-	window.getComputedStyle = () => ({ display: 'block', visibility: 'visible' }) as CSSStyleDeclaration;
-	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean; React?: typeof React };
-	const priorAct = globals.IS_REACT_ACT_ENVIRONMENT, priorReact = globals.React;
-	const previousObserver = Object.getOwnPropertyDescriptor(globalThis, 'MutationObserver');
-	Object.defineProperty(globalThis, 'MutationObserver', { configurable: true, value: class { observe() {} disconnect() {} } });
-	globals.IS_REACT_ACT_ENVIRONMENT = true; globals.React = React;
-	const root = createRoot(dom.container as unknown as Element);
-	const source = createAudioSource({ id: 'source', sampleRate, frameCount: sampleRate, channelCount: 1 });
-	const clip = createAudioClip({ id: 'clip', sourceId: source.id, durationFrames: sampleRate, sourceDurationFrames: sampleRate });
-	const project = createSoundscaperProject({ id: 'selection-after-content', sampleRate, sources: [source], clips: [clip],
-		tracks: [createAudioTrack({ id: 'track', clipIds: [clip.id] })] });
-	const selections: number[][] = [], telemetry = { taskProgress: null };
-	const controller = { subscribeTelemetry: () => () => undefined, getTelemetrySnapshot: () => telemetry,
-		actions: { timeline: { setSelection: (start: number, end: number) => { selections.push([start, end]); } } } };
+for (const sampleRate of [44_100, 48_000]) test(`precise selection beyond a ${sampleRate}Hz source reaches real Silence generation and fresh Scape`, async context => {
+	const input = selectionWav('one second.wav', sampleRate, 1, sampleRate);
+	const f = await selectionControllerCustody(context, input);
 	try {
-		await act(async () => { root.render(<AccessibleSelectionToolbar controller={controller}
-			snapshot={{ project, selection: { startFrame: 0, endFrame: sampleRate } }} copy={ENGLISH_COPY}
-			statusMessage="Ready" statusState="success" durationFrames={sampleRate} disabled={false}
-			showSelectionToolbar showStatusbar run={(operation: () => unknown) => operation()} />); });
-		const end = dom.container.querySelectorAll('.timecode')[1]; assert.ok(end);
+		await f.controller.actions.timeline.selectAll();
+		await f.toolbar();
+		const end = f.fixture.dom.container.querySelectorAll('.timecode')[1]; assert.ok(end);
 		const display = end.querySelector('.timecode__display'); assert.ok(display);
-		await act(async () => { reactProps(display).onDoubleClick?.({}); });
-		const input = end.querySelector('input'); assert.ok(input);
-		await act(async () => { reactProps(input).onChange?.({ currentTarget: { value: '2' } }); });
-		await act(async () => { reactProps(input).onKeyDown?.({ key: 'Enter', preventDefault() {}, stopPropagation() {} }); });
-		assert.deepEqual(selections, [[0, sampleRate * 2]], 'the same two-second range the ruler can select is authored precisely');
-	} finally {
-		await act(async () => { root.unmount(); });
-		globals.IS_REACT_ACT_ENVIRONMENT = priorAct; globals.React = priorReact;
-		if (previousObserver) Object.defineProperty(globalThis, 'MutationObserver', previousObserver);
-		else Reflect.deleteProperty(globalThis, 'MutationObserver');
-		dom.restore();
-	}
+		await act(async () => { reactProps(display).onDoubleClick({}); });
+		const field = end.querySelector('input'); assert.ok(field);
+		await act(async () => { reactProps(field).onChange({ currentTarget: { value: '2' } }); });
+		await act(async () => {
+			reactProps(field).onKeyDown({ key: 'Enter', preventDefault() {}, stopPropagation() {} }); await f.fixture.settle();
+		});
+		assert.deepEqual([f.controller.project?.selection.startFrame, f.controller.project?.selection.endFrame], [0, sampleRate * 2]);
+		assert.equal(end.querySelector('.timecode__display')?.textContent, '00h00m02.000s');
+		const before = clipboardProject(f.controller.project), entries = f.controller.getSnapshot().history.undoEntries.length;
+		const original = before.clips[0]; assert.ok(original);
+		const owner = before.tracks.find(track => Array.isArray(track.clipIds) && track.clipIds.includes(original.id)); assert.ok(owner);
+		assert.equal(f.controller.getSnapshot().selectedTrackId, owner.id, 'the imported mono lane retains focus');
+		let closed = 0;
+		await f.fixture.render(<GeneratorDialog type="silence" controller={f.controller} snapshot={f.controller.getSnapshot()}
+			copy={ENGLISH_COPY} locale="en" run={f.fixture.run} onClose={() => { closed += 1; }} />);
+		assert.ok(f.fixture.dom.container.querySelectorAll('.timecode__display').some(node => node.textContent === '00h00m02.000s'));
+		const form = f.fixture.dom.container.querySelector('form'); assert.ok(form);
+		await act(async () => {
+			reactProps(form).onSubmit({ preventDefault() {} });
+			// The production UI runner queues its handoff before invoking the real generator.
+			await Promise.resolve(); await f.fixture.settle();
+		});
+		assert.equal(closed, 1);
+		const after = clipboardProject(f.controller.project);
+		assert.equal(f.controller.getSnapshot().history.undoEntries.length, entries + 1);
+		assert.equal(after.tracks.length, 2);
+		assert.equal(after.clips.length, 1);
+		assert.deepEqual(after.tracks.filter(track => track.id !== owner.id), before.tracks.filter(track => track.id !== owner.id));
+		for (const clip of after.clips) assert.deepEqual([clip.timelineStartFrame, clip.durationFrames, clip.sourceStartFrame, clip.sourceDurationFrames], [0, sampleRate * 2, 0, sampleRate * 2]);
+		const generated = after.sources.filter(source => !before.sources.some(prior => prior.id === source.id));
+		assert.equal(generated.length, 1);
+		assert.equal(generated[0]?.channelCount, 1);
+		for (const source of generated) assert.deepEqual([source.sampleRate, source.frameCount], [sampleRate, sampleRate * 2]);
+		await act(async () => { f.controller.actions.edit.undo(); });
+		assert.deepEqual(clipboardDocument(clipboardProject(f.controller.project)), clipboardDocument(before));
+		await act(async () => { f.controller.actions.edit.redo(); });
+		assert.deepEqual(clipboardDocument(clipboardProject(f.controller.project)), clipboardDocument(after));
+		await f.archive((_name, channels) => {
+			assert.equal(channels.length, 1);
+			for (const channel of channels) { assert.equal(channel.length, sampleRate * 2); for (const sample of channel) assert.equal(sample, 0); }
+		});
+	} finally { await f.dispose(); }
 });

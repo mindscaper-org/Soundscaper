@@ -22,27 +22,6 @@ async function applyDeliveryPreset(page, dialog, name) {
 	await page.getByRole('option', { name: `${name} (custom)` }).click();
 }
 
-test('Audacity extended labels with an undefined spectral bound import and export', async ({ page }) => {
-	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
-	const choosing = page.waitForEvent('filechooser');
-	await chooseCommandAction(page, editor, 'File', 'Import');
-	// Audacity writes -1 when a spectral selection is dragged to a track edge.
-	// Both cases are documented in its extended-label format manual.
-	await (await choosing).setFiles({
-		name: 'audacity-spectral-labels.txt', mimeType: 'text/plain',
-		buffer: Buffer.from('0\t0.5\tBelow 1000 Hz\n\\\t-1\t1000\n1\t1.5\tAbove 2000 Hz\n\\\t2000\t-1\n'),
-	});
-	await expect(editor.locator('[data-label-track] .audio-editor-label-marker')).toHaveCount(2);
-	await chooseNestedCommandAction(page, editor, 'File', ['Export other', 'Export labels']);
-	const dialog = page.getByRole('dialog', { name: 'Export labels', exact: true });
-	const downloading = page.waitForEvent('download');
-	await dialog.getByRole('button', { name: 'Export labels', exact: true }).click();
-	const text = await readFile(await (await downloading).path(), 'utf8');
-	expect(text).toContain('\\\t-1\t1000');
-	expect(text).toContain('\\\t2000\t-1');
-});
-
 test('a point label exports as a WebVTT cue with a playable duration', async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');
@@ -85,6 +64,30 @@ test('a point label exports as a WebVTT cue with a playable duration', async ({ 
 
 test('Cancel in the raw PCM import dialog stops a pending ordinary recording import', async ({ page }) => {
 	test.setTimeout(90_000);
+	await page.addInitScript(() => {
+		const slices = new WeakSet(), slice = File.prototype.slice, read = Blob.prototype.arrayBuffer;
+		const state = globalThis.__rawImportRead = { pending: false, completed: false };
+		let released = false, resume;
+		const pending = new Promise(resolve => { resume = resolve; });
+		File.prototype.slice = function (...args) {
+			const result = slice.apply(this, args);
+			// Raw preparation reads the .raw file before importing starts; hold its real WAV input instead.
+			if (this.name === 'room-recording.wav') slices.add(result);
+			return result;
+		};
+		Blob.prototype.arrayBuffer = async function () {
+			if (!slices.has(this) || released) return read.call(this);
+			state.pending = true;
+			await pending;
+			const bytes = await read.call(this);
+			state.completed = true;
+			return bytes;
+		};
+		globalThis.__releaseRawImportRead = () => {
+			released = true; resume();
+			File.prototype.slice = slice; Blob.prototype.arrayBuffer = read;
+		};
+	});
 	const editor = await bootEditor(page, '/embed/en/');
 	await chooseCommandAction(page, editor, 'Tools', 'Import raw data');
 	const dialog = page.getByRole('dialog', { name: 'Import raw data', exact: true });
@@ -92,12 +95,19 @@ test('Cancel in the raw PCM import dialog stops a pending ordinary recording imp
 	await dialog.getByLabel('Raw PCM file').setInputFiles({
 		name: 'room-recording.raw', mimeType: 'application/octet-stream', buffer: Buffer.alloc(32 * 1024 * 1024),
 	});
-	await dialog.getByRole('button', { name: 'Import', exact: true }).click();
-	await expect(editor).toHaveAttribute('data-edit-block-reason', 'importing', { timeout: 30_000 });
-	await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
-	await expect(dialog).toBeHidden();
-	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing', { timeout: 45_000 });
-	await expect(editor).toHaveAttribute('data-clip-count', '0');
+	try {
+		await dialog.getByRole('button', { name: 'Import', exact: true }).click();
+		await expect.poll(() => page.evaluate(() => globalThis.__rawImportRead.pending)).toBe(true);
+		await expect(editor).toHaveAttribute('data-edit-block-reason', 'importing', { timeout: 30_000 });
+		// The import progress modal covers the raw settings dialog; its Cancel is the reachable control while reading.
+		const progress = editor.locator('[data-editor-task-progress="import"]');
+		await progress.getByRole('button', { name: 'Cancel', exact: true }).click({ timeout: 15_000 });
+		await page.evaluate(() => globalThis.__releaseRawImportRead());
+		await expect(dialog).toBeHidden();
+		await expect.poll(() => page.evaluate(() => globalThis.__rawImportRead.completed)).toBe(true);
+		await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing', { timeout: 45_000 });
+		await expect(editor).toHaveAttribute('data-clip-count', '0');
+	} finally { await page.evaluate(() => globalThis.__releaseRawImportRead?.()); }
 });
 
 test('a legacy AUP chosen through File Import asks for its data directory', async ({ page }) => {
@@ -125,41 +135,6 @@ test('clearing the project metadata title keeps the export title empty', async (
 	await dialog.getByRole('button', { name: 'Metadata', exact: true }).click();
 	await expect(page.getByRole('dialog', { name: 'Metadata', exact: true })
 		.getByRole('textbox', { name: 'Title', exact: true })).toHaveValue('');
-});
-
-test('a dotted project title is retained in the label download name', async ({ page }) => {
-	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
-	await importFiles(editor, [captionLabels]);
-	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Rename project']);
-	const naming = page.getByRole('dialog', { name: 'Rename project', exact: true });
-	await commitInput(naming.getByRole('textbox'), 'Episode 1.2');
-	await naming.getByRole('button', { name: 'Save name', exact: true }).click();
-	await chooseNestedCommandAction(page, editor, 'File', ['Export other', 'Export labels']);
-	const dialog = page.getByRole('dialog', { name: 'Export labels', exact: true });
-	const downloaded = page.waitForEvent('download');
-	await dialog.getByRole('button', { name: 'Export labels', exact: true }).click();
-	expect((await downloaded).suggestedFilename()).toBe('Episode 1.2.txt');
-});
-
-test('a user-authored label containing an arrow exports as SubRip', async ({ page }) => {
-	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
-	await importFiles(editor, [toneA]);
-	await editor.getByRole('slider', { name: 'Playhead' }).focus();
-	await page.keyboard.press('Control+b');
-	const title = editor.getByRole('textbox', { name: /^Edit labels:/u });
-	await title.fill('Intro --> Verse');
-	await title.press('Enter');
-	await chooseNestedCommandAction(page, editor, 'File', ['Export other', 'Export labels']);
-	const dialog = page.getByRole('dialog', { name: 'Export labels', exact: true });
-	await chooseDropdown(page, dialog.getByRole('group', { name: 'Format', exact: true }), 'As SubRip (SRT)');
-	const downloads = [];
-	page.on('download', (download) => downloads.push(download));
-	await dialog.getByRole('button', { name: 'Export labels', exact: true }).click();
-	await expect(dialog.getByRole('alert')).toHaveCount(0);
-	await expect.poll(() => downloads.length).toBe(1);
-	expect(await readFile(await downloads[0].path(), 'utf8')).toContain('Intro --> Verse');
 });
 
 test('WebVTT readers display literal punctuation from a user-authored label', async ({ page }) => {

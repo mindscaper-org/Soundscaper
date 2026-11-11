@@ -79,6 +79,9 @@ Models are published from `https://assets.soundscaper.org/models/` and verified 
 | `speech-3d-speaker-eres2net` | Speaker embedding | 1.0.0 | Mirrored byte-for-byte from upstream | 2 GiB | Linux arm64; Linux x64; Windows arm64; Windows x64; macOS arm64; macOS x64 |
 | `pyannote-segmentation-3.0` | Speaker segmentation | 3.0.0 | Mirrored byte-for-byte from upstream | 2 GiB | Linux arm64; Linux x64; Windows arm64; Windows x64; macOS arm64; macOS x64 |
 | `deepfilternet3` | Speech enhancement | 3.0.0 | Mirrored byte-for-byte from upstream | 2 GiB | Linux arm64; Linux x64; Windows arm64; Windows x64; macOS arm64; macOS x64 |
+| `dpdfnet2-48khz` | Speech enhancement | 1.0.0 | Mirrored byte-for-byte from upstream | 2 GiB | Linux arm64; Linux x64; Windows arm64; Windows x64; macOS arm64 |
+| `gtcrn` | Speech enhancement | 1.0.0 | Mirrored byte-for-byte from upstream | 2 GiB | Linux arm64; Linux x64; Windows arm64; Windows x64; macOS arm64 |
+| `voxlock` | Speech enhancement | 1.1.1 | Mirrored byte-for-byte from upstream | 2 GiB | Linux arm64; Linux x64; Windows arm64; Windows x64; macOS arm64 |
 | `parakeet-tdt-0.6b-v2` | Speech recognition | 2.0.0 | Mirrored byte-for-byte from upstream | 4 GiB | Linux arm64; Linux x64; Windows arm64; Windows x64; macOS arm64; macOS x64 |
 | `parakeet-tdt-0.6b-v3` | Speech recognition | 3.0.0 | Mirrored byte-for-byte from upstream | 4 GiB | Linux arm64; Linux x64; Windows arm64; Windows x64; macOS arm64; macOS x64 |
 | `whisper-large-v3-turbo-ggml` | Speech recognition | 1.0.0 | Mirrored byte-for-byte from upstream | 4 GiB | Linux arm64; Linux x64; Windows arm64; Windows x64; macOS arm64; macOS x64 |

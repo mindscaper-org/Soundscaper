@@ -329,10 +329,10 @@ async function openBrowserAudioImportSession(file: Blob, signal?: AbortSignal, r
 			const { inspectMp3GaplessGeometry } = await import('./mp3-gapless-import.ts');
 			const gapless = await inspectMp3GaplessGeometry(file);
 			if (gapless) {
-				if (gapless.sampleRate !== sampleRate || Math.abs(Math.round(durationSeconds * sampleRate) - gapless.encodedFrames) > 1) {
+				if (gapless.sampleRate !== sampleRate || Math.abs(Math.round((endTimestamp - timelineOrigin) * sampleRate) - gapless.encodedFrames) > 1) {
 					throw new Error('The MP3 gapless geometry differs from its encoded packet duration.');
 				}
-				origin += gapless.leadingFrames / sampleRate;
+				origin = timelineOrigin + gapless.leadingFrames / sampleRate;
 				durationSeconds = gapless.sourceFrames / sampleRate;
 			}
 		}

@@ -24,6 +24,8 @@ import {
 	canonicalNativeChildFileIdentity,
 	type CanonicalNativeChildFileIdentity,
 } from './native-child-file-identity.ts';
+import { validateSherpaEnhancementGrant, validateSherpaEnhancementResult,
+	type SherpaEnhancementGrant, type SherpaEnhancementResult } from './assistance-sherpa-enhancement-contract.ts';
 
 export const ASSISTANCE_SPEECH_JOB_SUBCONTRACT_VERSION = 1;
 export const ASSISTANCE_SPEECH_FILE_MAXIMUM_BYTES = 4 * 1024 ** 3;
@@ -89,9 +91,11 @@ export type AssistanceSpeechJobGrant =
 	| AssistanceSpeechStatusGrant
 	| AssistanceSpeechRecognitionGrant
 	| AssistanceSpeechVoiceActivityGrant
-	| AssistanceSpeechDiarizationGrant;
+	| AssistanceSpeechDiarizationGrant
+	| SherpaEnhancementGrant;
+
 export type AssistanceSpeechJobResult = SpeechRuntimeStatus | SpeechRecognitionResult
-	| VoiceActivityResult | SpeakerDiarizationResult;
+	| VoiceActivityResult | SpeakerDiarizationResult | SherpaEnhancementResult;
 
 const SHA256 = /^[a-f0-9]{64}$/u;
 const MODEL_ID = /^[a-z\d][a-z\d.-]{0,62}[a-z\d]$/u;
@@ -109,6 +113,7 @@ const STATUS_RESULT_KEYS = Object.freeze(['available', 'reason', 'moduleId']);
 export function validateAssistanceSpeechJobGrant(value: unknown): AssistanceSpeechJobGrant {
 	assertHelperWireEnvelope(value);
 	const record = plainRecord(value, 'An assistance speech grant must be a plain record.');
+	if (record.operation === 'enhance-speech') return validateSherpaEnhancementGrant(value);
 	if (record.operation === 'status') {
 		exactKeys(record, STATUS_KEYS, 'An assistance status grant');
 		assertRuntimeModule(record.moduleId);
@@ -185,6 +190,7 @@ export function validateAssistanceSpeechJobGrant(value: unknown): AssistanceSpee
 export function assistanceSpeechGrantInputBytes(value: unknown): number {
 	const grant = validateAssistanceSpeechJobGrant(value);
 	if (grant.operation === 'status') return 0;
+	if (grant.operation === 'enhance-speech') return grant.input.byteLength + grant.models.reduce((sum, file) => sum + file.byteLength, 0);
 	if (grant.operation === 'detect-voice-activity') return grant.audio.bytes + grant.model.bytes;
 	if (grant.operation === 'diarize-speakers') {
 		return grant.audio.bytes + grant.models.segmentation.bytes + grant.models.embedding.bytes;
@@ -198,6 +204,7 @@ export function validateAssistanceSpeechJobResult(
 	grantValue: unknown,
 ): AssistanceSpeechJobResult {
 	const grant = validateAssistanceSpeechJobGrant(grantValue);
+	if (grant.operation === 'enhance-speech') return validateSherpaEnhancementResult(value, grant);
 	if (grant.operation === 'recognize') return normalizeRecognition(value);
 	if (grant.operation === 'detect-voice-activity') return normalizeVoiceActivityResult(value);
 	if (grant.operation === 'diarize-speakers') return normalizeSpeakerDiarizationResult(value);

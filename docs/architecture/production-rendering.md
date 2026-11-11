@@ -117,6 +117,22 @@ relationship while retaining the editable state. Commit turns rendered media
 into canonical project media through an undoable edit; history-aware storage
 keeps referenced derived bodies alive for as long as an undo entry needs them.
 
+## MIDI pitch control
+
+Auto-Tune's optional `params.controlTrackId` names an editable MIDI track by
+stable ID. The default empty ID retains key/scale correction. Control pitches
+come from keyed notes projected through MIDI clip timing, including trim,
+stretch, reversal, musical anchors and loops; instrument audio, mute and solo
+do not affect those pitches. Chords choose the nearest active absolute pitch,
+ties prefer the lower note, and rests leave pitch unchanged. Correction stays
+within the pinned StaffPad ABI's one-octave range.
+
+Selection preview/application and realtime/offline racks share that projection.
+Rack schedules use the audio-context frame clock with upstream PDC and the
+detector's analysis delay; successive loop windows retain their own timing.
+Subset renders preserve MIDI control media with a silent assignment. Missing
+or non-MIDI control tracks are refused instead of silently switching to a scale.
+
 ## Reviewed audio effects
 
 Reviewed effect packages execute only from the release-pinned catalog. Packages

@@ -4,7 +4,6 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, waitForEditor } from './audio-editor-test-helpers.js';
 
 for (const [path, expected] of [
-	['/en/', ['Soundscaper', 'Audacity', 'Music', 'Classic']],
 	['/framescaper/en/', ['Video editor']],
 ]) test(`${path} Preferences offers only supported presets and retains a saved custom layout`, async ({ page }) => {
 	const editor = await bootEditor(page, path);

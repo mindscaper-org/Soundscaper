@@ -19,6 +19,7 @@ import TransportToolbarGroup, { COMPACT_BAR_TRANSPORT_BUTTONS, DRAWER_TRANSPORT_
 import ProjectTabs from './ProjectTabs.jsx';
 import ProjectFeatureCompatibilityNotice from './ProjectFeatureCompatibilityNotice.tsx';
 import TimedRecordingToast from './TimedRecordingToast.tsx';
+import EditorTaskProgress from './EditorTaskProgress.tsx';
 import StorageCapacityPanel from './StorageCapacityPanel.tsx';
 import VideoEditorWorkspacePanels from './VideoEditorWorkspacePanels.jsx';
 import WorkspacePanelDock from './WorkspacePanelDock.jsx';
@@ -294,6 +295,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 				<StorageCapacityPanel snapshot={snapshot} locale={locale} copy={copy} controller={controller} run={run} />
 			)}
 			<div className="kw-audio-editor__toasts">
+				<EditorTaskProgress controller={controller} snapshot={snapshot} statusMessage={statusMessage} cancelLabel={copy.cancel} overlayTarget={editorOverlayTarget} />
 				{(snapshot.scheduledRecording || snapshot.activeTimedRecording) && <TimedRecordingToast
 					key={snapshot.scheduledRecording?.startTimeMs ?? snapshot.activeTimedRecording?.startTimeMs}
 					scheduled={snapshot.scheduledRecording}

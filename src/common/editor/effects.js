@@ -25,6 +25,7 @@ import { STANDARD_FILTER_EFFECT_DEFINITIONS } from './first-party-effects/standa
 import { STANDARD_MODULATION_EFFECT_DEFINITIONS } from './first-party-effects/standard/modulation-definition.ts';
 import { NOISE_GATE_EFFECT_DEFINITION, normalizeNoiseGateParams } from './first-party-effects/standard/noise-gate-definition.ts';
 import { STANDARD_DELAY_EFFECT_DEFINITION } from './first-party-effects/standard/delay-definition.ts';
+import { AUTO_TUNE_EFFECT_DEFINITION, normalizeAutoTuneParams } from './first-party-effects/auto-tune/definition.ts';
 import { standardEffectTailSeconds } from './first-party-effects/standard/effect-tail.ts';
 import { noiseReductionClockTailFrames, noiseReductionProfileRate } from './audacity-effects/noise-reduction-clock.ts';
 import { delaySelectionPitchMode, delaySelectionDuration } from './first-party-effects/standard/delay-selection-contract.ts';
@@ -58,6 +59,7 @@ export { PARAMETRIC_EQ_BAND_TYPES, PARAMETRIC_EQ_MAXIMUM_BANDS, PARAMETRIC_EQ_SL
  */
 
 export const AUDIO_EFFECT_DEFINITIONS = Object.freeze({
+	'auto-tune': AUTO_TUNE_EFFECT_DEFINITION,
 	...STANDARD_FILTER_EFFECT_DEFINITIONS,
 	...STANDARD_MODULATION_EFFECT_DEFINITIONS,
 	'noise-gate': NOISE_GATE_EFFECT_DEFINITION,
@@ -140,6 +142,7 @@ export const AUDIO_RACK_EFFECT_DEFINITIONS = Object.freeze({
 
 /** All effects which can be previewed and destructively applied to a selection. */
 export const AUDIO_SELECTION_EFFECT_DEFINITIONS = Object.freeze({
+	'auto-tune': AUTO_TUNE_EFFECT_DEFINITION,
 	...STANDARD_FILTER_EFFECT_DEFINITIONS,
 	...STANDARD_MODULATION_EFFECT_DEFINITIONS,
 	'noise-gate': NOISE_GATE_EFFECT_DEFINITION,
@@ -195,6 +198,7 @@ export function audioSelectionEffectDefaults(type, effectId = null) {
 }
 
 export function normalizeAudioSelectionEffectParams(type, params = {}, effectId = null) {
+	if (type === 'auto-tune') return normalizeAutoTuneParams(params);
 	if (ownMapValue(AUDACITY_EFFECT_DEFINITIONS, type)) return normalizeAudacityEffectParams(type, params);
 	const definition = audioSelectionEffectDefinition(type);
 	const normalized = normalizeEffectParams(type, {
@@ -422,7 +426,7 @@ export function projectEffectTailFrames(project, {
 
 function normalizeEffectParams(type, params, effectId = null) {
 	if (type === 'eq') return normalizeParametricEqEffectParams(params, effectId);
-
+	if (type === 'auto-tune') return normalizeAutoTuneParams(params);
 	const definition = ownMapValue(AUDIO_EFFECT_DEFINITIONS, type) ?? ownMapValue(AUDIO_SELECTION_EFFECT_DEFINITIONS, type);
 	const output = {};
 	for (const [name, [minimum, maximum, metadata]] of Object.entries(definition.ranges)) {

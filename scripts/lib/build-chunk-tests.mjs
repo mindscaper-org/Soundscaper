@@ -179,9 +179,10 @@ export const EDITOR_FFMPEG_RUNTIME_CHUNK_TEST =
 	/src[\\/]common[\\/]editor[\\/](?:ffmpeg(?:-cfr-ingest|-media-file-operation|-pcm-exchange|-video-output|-video-source-characteristics|-video-timing-operation|-workerfs-name)?|video-(?:effect-ffmpeg|ffmpeg|keyframe-ffmpeg-operation))\.(?:js|ts)$/;
 
 /** Shared parameter editor plus its Audacity and parametric-EQ surface implementations. */
-export const EDITOR_EFFECT_PARAMETER_SURFACE_CHUNK_TEST = new RegExp(
+export const EDITOR_EFFECT_PARAMETER_SURFACE_CHUNK_TEST = new RegExp([
 	`${editorPath}(?:ui[\\/](?:Audacity(?:EffectLayout|DynamicsEffectLayout|PortEffectLayout|PitchControls|RateControls|SlidingStretchControls)|DynamicsActivityPanel|ParametricEqEditor|inspector[\\/]EffectParameter(?:Editor|Number))\\.jsx|ui[\\/](?:Audacity(?:ParameterKnob|LegacyEffectGraph|NoiseReductionControls)\\.tsx|audacity-(?:compression-curve|derived-controls|knob-warp|legacy-effect-graphs)\\.ts)|ui[\\/]inspector[\\/](?:FilterCurveEqEditor|GraphicEqEditor|AudacityNoiseProfileButton)\\.tsx|ui[\\/]dynamics-activity-canvas\\.ts|controller[\\/]effects[\\/](?:filter-curve-gesture|graphic-eq-gesture)\\.ts)$`,
-);
+	String.raw`${editorPath}ui[\\/]inspector[\\/]AutoTuneControlTrack\.tsx$`,
+].join('|'));
 
 /**
  * Effect rack consumer and the design-system components it alone loads.
@@ -199,7 +200,7 @@ export const DESIGN_SYSTEM_EDITOR_SHELL_COMPONENT_CHUNK_TEST = /(?:^|[\\/])vendo
 // through the desktop codec composition that dynamically imports the adapter.
 export const EDITOR_DESKTOP_VIDEO_CODEC_RUNTIME_CHUNK_TEST = /(?:src[\\/]common[\\/]editor[\\/]desktop-video-codec-runtime\.ts|desktop[\\/]desktop-video-(?:codec-operation-contract|h264-encoder)\.ts)$/;
 export const EDITOR_CODEC_FOUNDATION_CHUNK_TEST = /(?:src[\\/]common[\\/]editor[\\/](?:wavpack[\\/]|staffpad[\\/]|parametric-eq[\\/](?:authorities|parameters|design|wasm-runtime|wasm-loader)\.js$)|desktop[\\/]desktop-audio-(?:codec-(?:capability|operation)-contract|decode-formats)\.ts$)/;
-export const EDITOR_EFFECT_CONTRACT_CHUNK_TEST = /(?:src[\\/]common[\\/](?:i18n[\\/]action-parity\.js|editor[\\/](?:selection-effect-chain-contract\.ts|audacity-effects[\\/](?:(?:classic-filter-coefficients|contracts|factory-preset-tables|factory-presets|live-capabilities|live-capability-policy|manifest)\.js|(?:audacity-dynamics-lookahead|audacity-filter-release|curve-text|live-update-geometry|noise-reduction-clock|pcm-channel-validation|reverb-parameters)\.ts)|first-party-effects[\\/](?:(?:bitcrusher|parametric-eq)[\\/]definition\.js|parametric-eq[\\/]coefficients\.ts|dynamics[\\/]definition\.ts|standard[\\/](?:definition|filters-definition|filters-coefficients|modulation-definition|noise-gate-definition|delay-definition|delay-pitch-admission|delay-selection-contract|parameter-range|effect-tail|nyquist-replacements|selection-contract)\.ts)|nyquist[\\/](?:(?:plugin-parser|plugin-registry|plugins[\\/]catalog)\.js|audio-budget\.ts)|reviewed-effects[\\/](?:errors|manifest|selection-effect-contract|utility-gain-package)\.ts)))$/;
+export const EDITOR_EFFECT_CONTRACT_CHUNK_TEST = /(?:src[\\/]common[\\/](?:i18n[\\/]action-parity\.js|editor[\\/](?:selection-effect-chain-contract\.ts|audacity-effects[\\/](?:(?:classic-filter-coefficients|contracts|factory-preset-tables|factory-presets|live-capabilities|live-capability-policy|manifest)\.js|(?:audacity-dynamics-lookahead|audacity-filter-release|curve-text|live-update-geometry|noise-reduction-clock|pcm-channel-validation|reverb-parameters)\.ts)|first-party-effects[\\/](?:auto-tune[\\/](?:definition|realtime-contract)\.ts|(?:bitcrusher|parametric-eq)[\\/]definition\.js|parametric-eq[\\/]coefficients\.ts|dynamics[\\/]definition\.ts|standard[\\/](?:definition|filters-definition|filters-coefficients|modulation-definition|noise-gate-definition|delay-definition|delay-pitch-admission|delay-selection-contract|parameter-range|effect-tail|nyquist-replacements|selection-contract)\.ts)|nyquist[\\/](?:(?:plugin-parser|plugin-registry|plugins[\\/]catalog)\.js|audio-budget\.ts)|reviewed-effects[\\/](?:errors|manifest|selection-effect-contract|utility-gain-package)\.ts)))$/;
 /**
  * Soundscaper family-v1 project and archive authority shared with transfer pages.
  *
@@ -426,6 +427,7 @@ export const PROJECT_INTERCHANGE_FOUNDATION_CHUNK_TEST = new RegExp(
 
 /** Flat editor modules and `assistance/` domain modules shared by the shell and dialogs. */
 export const EDITOR_DOMAIN_CHUNK_TEST = new RegExp([
+	`${editorPath}first-party-effects[\\\\/]auto-tune[\\\\/](?:contract|control-notes|project-control)\\.ts$`,
 	`${editorPath}(?!${editorOptionalArchiveModule}\\.(?:[cm]?[jt]s)$)(?!${editorOptionalExecutionModule}\\.(?:[cm]?[jt]s)$)(?!${editorOptionalCaptureFlatModule}\\.ts$)(?:[^\\\\/]+|assistance[\\\\/](?:internal[\\\\/]radix-two-fft-v1|[^\\\\/]+)|(?:design-system-adapters|platform)[\\\\/][^\\\\/]+)\\.(?:[cm]?[jt]s)$`,
 	String.raw`${editorPath}macro-script[\\/]protocol\.ts$`,
 	String.raw`src[\\/]common[\\/](?:(?:imaging|foundation|scape)[\\/][^\\/]+|media[\\/]bytes)\.(?:[cm]?[jt]s)$`,

@@ -64,7 +64,10 @@ export const HELPER_JOB_RESOURCE_HARD_LIMITS = Object.freeze({
 	'ofx-scan': ofxLimits('ofx-scan'),
 	'ofx-host': ofxLimits('ofx-host'),
 	'assistance-speech': Object.freeze({ ...legacyLimits('assistance-speech'),
-		maximumRssBytes: HELPER_SPEECH_RECOGNITION_MAXIMUM_RSS_BYTES }),
+		maximumRssBytes: HELPER_SPEECH_RECOGNITION_MAXIMUM_RSS_BYTES,
+		maximumOutputBytes: 4 * 1024 ** 3,
+		maximumScratchBytes: 8 * 1024 ** 3 + 2 * 1024 ** 2,
+		maximumDataPlaneBytes: 0, maximumInFlightChunks: 0 }),
 } as const satisfies Readonly<Record<HelperJobKind, Readonly<{
 	maximumInputBytes: number;
 	maximumJobDurationMs: number;

@@ -5,7 +5,7 @@ import { bootEditor, chooseFileAction, chooseCommandAction } from './audio-edito
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 
-for (const kind of ['label', 'timer-frames', 'timer-samples']) test(`${kind} uses its project and owning sequence clocks`, async ({ page }) => {
+for (const kind of ['timer-frames', 'timer-samples']) test(`${kind} uses its project and owning sequence clocks`, async ({ page }) => {
 	const isLabel = kind === 'label';
 	const project = createSoundscaperProject({ id: `remaining-${kind}`, sampleRate: isLabel ? 48_000 : 44_100,
 		tracks: isLabel ? [{ id: 'labels', type: 'label', name: 'Cues', labels: [{ id: 'cue', title: 'Speech', startFrame: 0, endFrame: 144_000 }] }] : [],

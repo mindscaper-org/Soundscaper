@@ -38,6 +38,7 @@ import { nativeRackEffectCommit } from './live-rack-effect-gesture.ts';
 import { nativeEffectParamRange } from './native-effect-param-range.ts';
 import { audacityAdvancedParameters } from './audacity-effect-options.ts';
 import AudacityNoiseProfileButton from './AudacityNoiseProfileButton.tsx';
+import AutoTuneControlTrack from './AutoTuneControlTrack.tsx';
 import { audacityNyquistControl, isAudacityNyquistPort } from '../audacity-port-layouts.ts';
 
 export default function EffectParameterEditor({
@@ -75,7 +76,7 @@ export default function EffectParameterEditor({
 		if (definition || effect.type === 'missing' || effect.type === 'eq') return null;
 		const nyquistPort = isAudacityNyquistPort(effect.type);
 		const parameterNames = Object.entries(effect.params || {}).filter(([name, value]) => (
-			(typeof value === 'number' || nativeParameterChoices(effect.type, name) !== null)
+			(typeof value === 'number' || nativeParameterChoices(effect.type, name) !== null || effect.type === 'auto-tune' && name === 'controlTrackId')
 			&& (!nyquistPort || advancedSettings || !audacityAdvancedParameters(effect.type).includes(name))
 		)).map(([name]) => name);
 		return { params: Object.fromEntries(parameterNames.map((name) => [name, {}])) };
@@ -196,6 +197,8 @@ export default function EffectParameterEditor({
 		}
 		const nyquistPort = isAudacityNyquistPort(effect.type);
 			const renderNativeParameter = (name) => {
+			if (effect.type === 'auto-tune' && name === 'controlTrackId') return <AutoTuneControlTrack tracks={tracks}
+				value={effect.params?.controlTrackId || ''} copy={copy} disabled={disabled} onChange={(controlTrackId) => update({ params: { controlTrackId } })} />;
 			const choices = nativeParameterChoices(effect.type, name);
 			if (choices) {
 				return (
@@ -211,7 +214,7 @@ export default function EffectParameterEditor({
 								String(option) === String(next)
 							))),
 						})}
-						disabled={disabled}
+						disabled={disabled || Boolean(effect.type === 'auto-tune' && effect.params?.controlTrackId && ['key', 'scale'].includes(name))}
 						hook={`effect-param-${name}`}
 					/>
 				);

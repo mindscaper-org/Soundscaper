@@ -250,7 +250,7 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 				});
 				if (channelOffset !== processedChannels.length) throw createLocalizedError(Error, copy, 'effectChannelLayoutChanged');
 			} else {
-				results = await processIndependentSelectionTargets({ dryResults, effectType: type, sampleRate, params,
+				results = await processIndependentSelectionTargets({ dryResults, effectType: type, sampleRate, params, project: getProject(),
 					definition, spectralSelections, controlChannels, controlTrackId: state.audacityControlTrackId,
 					noiseProfile: state.audacityNoiseProfile, contextFrames, afterContextFrames,
 					projectFrameCount: () => projectDurationFrames(getProject()), renderDryRange: renderCurrentDryTrackRange,

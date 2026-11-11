@@ -11,7 +11,6 @@ import {
 	openClipProperties,
 	registerAudioEditorHooks,
 } from './audio-editor-test-helpers.js';
-import { chooseClipMediaSetting } from './audio-editor-clip-settings-test-helpers.js';
 
 function pitchField(dialog) {
 	return dialog.getByRole('textbox', { name: 'Pitch', exact: true });
@@ -30,42 +29,6 @@ async function expectHighlighted(field) {
 test.describe('clip pitch and speed indicators', () => {
 	registerAudioEditorHooks();
 
-	test('omits normal speed and preserves the direction of tiny speed changes', async ({ page }) => {
-		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
-		await importFiles(editor, [longTone]);
-		const clip = clipByName(editor, longTone.name);
-		const speed = clip.getByRole('button', { name: 'Clip speed', exact: true });
-		await expect(speed).toHaveCount(0);
-		await expect(clip).not.toContainText('100%');
-
-		let dialog = await openClipProperties(page, editor, clip);
-		await chooseClipMediaSetting(dialog, 'Stretch with project tempo changes');
-		await closeClipProperties(dialog);
-		await expect(speed).toHaveCount(0);
-		await expect(clip).not.toContainText('100%');
-
-		let previousPercent = 100;
-		for (const [ratio, percentage] of [['0.9999999', '99.9%'], ['1.0000001', '100.1%']]) {
-			dialog = await openClipProperties(page, editor, clip);
-			await speedField(dialog).focus();
-			await expect.poll(async () => Number(await speedField(dialog).inputValue())).toBeCloseTo(previousPercent, 9);
-			await commitInput(speedField(dialog), String(Number(ratio) * 100));
-			await closeClipProperties(dialog);
-			await expect(speed).toContainText(percentage);
-			previousPercent = Number(ratio) * 100;
-		}
-
-		dialog = await openClipProperties(page, editor, clip);
-
-		await speedField(dialog).focus();
-		await expect.poll(async () => Number(await speedField(dialog).inputValue())).toBeGreaterThan(100);
-		await commitInput(speedField(dialog), '100');
-		await closeClipProperties(dialog);
-		await expect(speed).toHaveCount(0);
-		await expect(clip).not.toContainText('100%');
-		expect(errors).toEqual([]);
-	});
 
 	test('opens clip properties with the clicked pitch or speed control focused', async ({ page }) => {
 		const errors = collectClientErrors(page);

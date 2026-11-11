@@ -44,7 +44,7 @@ const JUCE_VST3_VERSION_HEADER = `${JUCE_VST3_SDK_CLOSURE}/pluginterfaces/vst/vs
 const LV2_INCLUDE_ROOT = 'include';
 
 const EXPECTED = Object.freeze({
-	'electron-node-api-headers': Object.freeze({ version: '43.8.3', commit: null, license: 'MIT' }),
+	'electron-node-api-headers': Object.freeze({ version: '45.2.3', commit: null, license: 'MIT' }),
 	juce: Object.freeze({ version: '9.0.1', commit: 'e18f7f506c0b96f2c738a0bcd7fe6467a5005ad8', license: 'AGPL-3.0-only' }),
 	fst: Object.freeze({ version: '0.177.0', commit: '30f49e6fe97cb822eaadcc6e1ae9941d004bff54', license: 'GPL-3.0-or-later' }),
 	clap: Object.freeze({ version: '1.2.4', commit: '00113aabdccf69c2e27ac269c35b369770e8fa73', license: 'MIT' }),
@@ -154,7 +154,7 @@ function authenticatedBuildPlan({
 	assertFile(snapshotRoots.clap, 'include/clap/clap.h', 'direct CLAP 1.2.4 ABI');
 	assertFile(snapshotRoots['vamp-plugin-sdk'], 'vamp/vamp.h', 'Vamp SDK 2.10 C ABI');
 	assertFile(snapshotRoots['vamp-plugin-sdk'], 'vamp-hostsdk/PluginHostAdapter.h', 'Vamp SDK 2.10 host adapter');
-	assertFile(snapshotRoots['electron-node-api-headers'], 'include/node/node_api.h', 'Electron 43.8.3 Node-API headers');
+	assertFile(snapshotRoots['electron-node-api-headers'], 'include/node/node_api.h', 'Electron 45.2.3 Node-API headers');
 	if (target.startsWith('win-')) assertFile(snapshotRoots['asio-sdk'], 'common/asio.h', 'ASIO SDK 2.3.4');
 	if (target.startsWith('linux-')) assertFile(snapshotRoots.lv2, `${LV2_INCLUDE_ROOT}/lv2/core/lv2.h`, 'LV2 1.18.10 headers');
 	if (target.startsWith('linux-')) assertFile(snapshotRoots['ladspa-sdk'], 'src/ladspa.h', 'LADSPA SDK 1.17 header');

@@ -191,6 +191,28 @@ project locks and exact-current deletion. Open projects can exceed the limit.
 A native-selected temporary root moves the closed library on the next startup;
 non-overwriting storage migration preserves conflicting destination data.
 
+Desktop working storage is admitted before database open, profile startup, and
+temporary-folder selection or migration. Canonical paths must be on a positively
+identified local volume and outside recognized cloud-sync roots. Linux admits
+known local filesystem types; Windows probes drive type (including mapped
+drives), and macOS queries the volume's local-resource flag. Unknown locality
+fails closed. Symlinks are resolved for directory admission. Provider path
+names, OneDrive environment roots, and Dropbox registrations detect common sync
+configurations; arbitrary sync software and external mutation remain outside
+this detection boundary. Save completed Scape archives for sharing or backup
+instead of synchronizing working storage.
+
+Both project catalogs and the delivery/native-services databases use DELETE
+rollback journaling with FULL synchronous commits. The shared database opener
+refuses existing WAL/SHM sidecars before SQLite construction, preserving both
+main and sidecars for recovery review: a legitimate interrupted legacy WAL is
+indistinguishable from a stale restored one. A clean, checkpointed legacy
+database changes journal mode without changing schema or storage identity.
+Hot rollback journals retain SQLite's normal crash recovery. Revision and
+digest checks establish consistency, not freshness against a coherent rollback
+of all stored state. These guards do not fence arbitrary same-user filesystem
+writers or a volume that changes after admission.
+
 Autosave retains an immutable document generation during its debounce and only
 materializes the snapshot when saving starts. Preparation and persistence share
 one failure boundary. Controller history compaction memoizes immutable past

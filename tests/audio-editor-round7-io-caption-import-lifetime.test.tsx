@@ -9,8 +9,15 @@ import { applyFramescaperProjectCommand } from '../src/framescaper/editor-projec
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
 import type { FramescaperCaptionFileService } from '../src/common/editor/ui/framescaper-caption-file-interchange.ts';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
+import { open } from 'node:fs/promises';
+import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
+import { normalizeVideoCaptionTrackV1 } from '../src/common/editor/video-caption-track-v27.ts';
+import { nativeSidecarFixture } from './helpers/framescaper-native-sidecar-fixture.ts';
+import { mountControllerDataDom } from './helpers/controller-data-dom.ts';
+import { framescaperLifetimeController, LifetimeFinishingDialog, lifetimeButton, lifetimeChange } from './helpers/framescaper-lifetime-controller-fixture.tsx';
+import { deferred } from './helpers/async-test-control.ts';
 
-for (const mode of ['healthy', 'closed', 'new-project', 'retargeted'] as const) test(`pending caption file belongs to its original dialog and project (${mode})`, async () => {
+for (const mode of ['healthy', 'closed', 'new-project', 'retargeted'] as const) test(`pending caption file belongs to its original dialog and project (${mode})`, async context => {
 	const dom = installReactTestDom();
 	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const priorAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
@@ -68,4 +75,56 @@ for (const mode of ['healthy', 'closed', 'new-project', 'retargeted'] as const) 
 		await act(async () => { root.unmount(); });
 		dom.restore(); actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
 	}
+	if (mode === 'new-project') await actualCaptionLifetime(context);
 });
+
+async function actualCaptionLifetime(context: test.TestContext): Promise<void> {
+	const reading = deferred<void>(), started = deferred<void>();
+	const text = '1\n00:00:00,100 --> 00:00:00,500\nOriginal dialogue\n\n';
+	const native = await nativeSidecarFixture('dialogue.srt', text, {
+		async openSelectedFile(...args) { started.resolve(); await reading.promise; return open(...args); },
+	});
+	const fixture = mountControllerDataDom();
+	try {
+		const { controller, persisted } = await framescaperLifetimeController(context);
+		const fileService = createAudioEditorFileService({ bridge: native.bridge, fetch: native.fetch });
+		const render = (key: string) => fixture.render(<LifetimeFinishingDialog key={key} surface="captions"
+			controller={controller} fixture={fixture} fileService={fileService} />);
+		const click = async (label: string) => { await act(async () => { reactProps(lifetimeButton(fixture.dom.container, label)).onClick({}); }); };
+		await render('original');
+		await click('Choose sidecar file');
+		await started.promise;
+		assert.equal(reactProps(lifetimeButton(fixture.dom.container, 'Choose sidecar file')).disabled, true);
+		const outgoing = await persisted();
+		await click('Close');
+		await act(async () => { await controller.actions.project.create({}); });
+		assert.notEqual(controller.project?.id, outgoing.id);
+		await render('replacement');
+		assert.equal(Boolean(reactProps(lifetimeButton(fixture.dom.container, 'Choose sidecar file')).disabled), false);
+		const before = await persisted(), history = structuredClone(controller.getSnapshot().history);
+		await act(async () => { reading.resolve(); await fixture.settle(); });
+		assert.equal(native.releases.length, 1, 'real host capability is retired after the complete caption consumer');
+		assert.deepEqual(await persisted(), before, 'late physical caption cannot mutate the replacement repository');
+		assert.deepEqual(controller.getSnapshot().history, history);
+		await act(async () => {
+			lifetimeChange(fixture.dom.container, 'Track ID', 'new-captions');
+			lifetimeChange(fixture.dom.container, 'Sidecar text', text.replace('Original dialogue', 'New dialogue'));
+		});
+		await click('Import sidecar text');
+		await act(async () => { await fixture.settle(); });
+		const project = await persisted();
+		assert.ok(Array.isArray(project.videoCaptionTracks)); assert.equal(project.videoCaptionTracks.length, 1);
+		const track = normalizeVideoCaptionTrackV1(project.videoCaptionTracks[0]);
+		assert.equal(track.sequenceId, project.primarySequenceId);
+		assert.deepEqual(track.cues.map(({ startFrame, endFrame, text }) => ({ startFrame, endFrame, text })), [
+			{ startFrame: 4_800, endFrame: 24_000, text: 'New dialogue' },
+		]);
+		assert.equal(track.id, 'new-captions');
+		assert.match(fixture.dom.container.textContent, /No interchange losses\./u);
+		assert.equal(controller.getSnapshot().history.undoEntries.length, history.undoEntries.length + 1);
+		await act(async () => { controller.actions.edit.undo(); });
+		assert.deepEqual((await persisted()).videoCaptionTracks, []);
+		await act(async () => { controller.actions.edit.redo(); });
+		assert.deepEqual((await persisted()).videoCaptionTracks, project.videoCaptionTracks);
+	} finally { reading.resolve(); try { await fixture.dispose(); } finally { await native.close(); } }
+}

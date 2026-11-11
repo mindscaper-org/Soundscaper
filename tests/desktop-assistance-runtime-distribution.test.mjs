@@ -100,7 +100,7 @@ test('distribution archive uses the USTAR prefix for a deep Python payload path'
 test('packaging authority binds all five archive file inventories to ASAR source manifests', async () => {
 	const targetId = 'linux-x64';
 	const sourceFile = { path: 'engine', byteLength: 6, sha256: 'a'.repeat(64), executable: true };
-	const native = { version: '1.13.5', runtimePrefix: 'assistance/sherpa-onnx/1.13.5',
+	const native = { version: '2.0.1', runtimePrefix: 'assistance/sherpa-onnx/2.0.1',
 		commonPackage: { name: 'sherpa-onnx-node', files: { engine: { byteLength: 6, sha256: 'a'.repeat(64) } } },
 		targets: { [targetId]: { status: 'built', package: { name: 'sherpa-onnx-linux-x64', files: { engine: {
 			byteLength: 6, sha256: 'a'.repeat(64) } } } } } };
@@ -113,7 +113,7 @@ test('packaging authority binds all five archive file inventories to ASAR source
 		targetId, executable: 'engine',
 		files: [sourceFile] };
 	const bundles = ['sherpa-onnx-node', ...familyIds, 'kokoro-g2p'].map((familyId) => {
-		const runtimeVersion = familyId === 'sherpa-onnx-node' ? '1.13.5'
+		const runtimeVersion = familyId === 'sherpa-onnx-node' ? '2.0.1'
 			: familyId === 'kokoro-g2p' ? '0.9.4' : '1.0.0';
 		const runtimePrefix = familyId === 'sherpa-onnx-node'
 			? native.runtimePrefix : `assistance/${familyId}/${runtimeVersion}`;

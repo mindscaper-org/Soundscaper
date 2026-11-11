@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { chmod, mkdir } from 'node:fs/promises';
-import { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync } from 'node:sqlite';
+import { openLocalDesktopDatabase } from './desktop-database.ts';
+import { assertLocalDesktopStorage } from './local-storage-safety.ts';
 import { readSoundscaperDesktopProjectRecoveryCandidates, listSoundscaperDesktopProjectRecoverySummaries } from './soundscaper-project-recovery-reader.ts';
 
 import { admitLowerOnly } from '../src/common/editor/lower-only-seam.ts';
@@ -147,7 +149,7 @@ export class SoundscaperDesktopProjectLibraryMain {
 		const leaseTtlMs = options.testControl?.leaseTtlMs ?? LEASE_TTL_MS;
 		const paths = createSoundscaperDesktopProjectLibraryPaths(options.appDataPath);
 		await createPrivateLibrary(paths);
-		const database = new DatabaseSync(paths.databasePath, {
+		const database = openLocalDesktopDatabase(paths.databasePath, {
 			allowExtension: false,
 			enableDoubleQuotedStringLiterals: false,
 			enableForeignKeyConstraints: true,
@@ -393,6 +395,7 @@ function lowerOnlyMilliseconds(value: unknown, ceiling: number, name: string): n
 async function createPrivateLibrary(
 	paths: Readonly<SoundscaperDesktopProjectLibraryPaths>,
 ): Promise<void> {
+	assertLocalDesktopStorage(paths.libraryRoot);
 	await mkdir(paths.projectsRoot, { recursive: true, mode: 0o700 });
 	await mkdir(paths.managedMediaRoot, { recursive: true, mode: 0o700 });
 	await Promise.all([

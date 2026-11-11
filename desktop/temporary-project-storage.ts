@@ -4,6 +4,7 @@ import { mkdir, readFile, rename, writeFile, access } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { migrateDesktopStorageEntries } from './desktop-storage-migration.ts';
+import { assertLocalDesktopStorage } from './local-storage-safety.ts';
 
 export class TemporaryProjectStorage {
 	#active: string;
@@ -18,6 +19,8 @@ export class TemporaryProjectStorage {
 				this.#active = folder(value.active); this.#selected = folder(value.selected);
 			}
 		} catch (error) { if (!(error instanceof SyntaxError) && (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+		assertLocalDesktopStorage(this.#active);
+		assertLocalDesktopStorage(this.#selected);
 		if (this.#active !== this.#selected) {
 			await migrateDesktopStorageEntries([{
 				source: join(this.#active, this.appName, 'project-library', 'v1'),
@@ -33,6 +36,7 @@ export class TemporaryProjectStorage {
 	}
 	async select(path: string): Promise<ReturnType<TemporaryProjectStorage['status']>> {
 		const selected = folder(path);
+		assertLocalDesktopStorage(selected);
 		await mkdir(selected, { recursive: true, mode: 0o700 });
 		await access(selected, constants.W_OK);
 		await this.#persist(this.#active, selected);

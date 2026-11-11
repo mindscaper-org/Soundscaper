@@ -288,6 +288,7 @@ export function registerAssistance({
 			models: createService(),
 			runtime,
 			voiceActivityRuntime: runtime,
+			enhancementRuntime: runtime,
 			diarizationRuntime: runtime,
 			shotDetectionRuntime,
 			additionalRuntime: runtimeFamilies.operations,

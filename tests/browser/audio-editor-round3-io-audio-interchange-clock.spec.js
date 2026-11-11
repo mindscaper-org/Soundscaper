@@ -6,14 +6,16 @@ import {
 	downloadBytes, importFiles,
 } from './audio-editor-test-helpers.js';
 
-for (const format of ['FCPXML', 'OpenTimelineIO']) {
-	test(`${format} retains the half-second source trim of an ordinary 32 kHz WAV`, async ({ page }) => {
-		await disableNativeSavePicker(page);
-		const editor = await bootEditor(page, '/framescaper/embed/en/');
-		await importFiles(editor, [createWavFixture({ name: 'native-rate.wav', frequency: 440,
-			duration: 1, sampleRate: 32_000, channelCount: 1 })]);
-		const clip = clipByName(editor, 'native-rate.wav');
-		for (let step = 0; step < 5; step += 1) await clip.press('Control+Shift+ArrowRight');
+test('FCPXML and OpenTimelineIO retain the native 32 kHz WAV half-second trim', async ({ page }) => {
+	const caseTimeout = test.info().timeout;
+	test.setTimeout(caseTimeout * 2);
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	await importFiles(editor, [createWavFixture({ name: 'native-rate.wav', frequency: 440,
+		duration: 1, sampleRate: 32_000, channelCount: 1 })]);
+	const clip = clipByName(editor, 'native-rate.wav');
+	for (let step = 0; step < 5; step += 1) await clip.press('Control+Shift+ArrowRight');
+	for (const format of ['FCPXML', 'OpenTimelineIO']) await test.step(format, async () => {
 		await expect(clip).toHaveAccessibleName(/starts at 0\.5 seconds, 0\.5 seconds long/u);
 		const downloading = page.waitForEvent('download');
 		await chooseNestedCommandAction(page, editor, 'File', ['Export other', `Export ${format}`]);
@@ -26,5 +28,5 @@ for (const format of ['FCPXML', 'OpenTimelineIO']) {
 			const delivered = audio.children.find(child => child.OTIO_SCHEMA === 'Clip.1');
 			expect(delivered.source_range.start_time).toEqual({ OTIO_SCHEMA: 'RationalTime.1', value: 24_000, rate: 48_000 });
 		}
-	});
-}
+	}, { timeout: caseTimeout });
+});

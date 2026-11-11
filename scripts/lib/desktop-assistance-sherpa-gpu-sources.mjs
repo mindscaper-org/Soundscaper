@@ -56,17 +56,18 @@ export async function patchSherpaGpuSources(root, recipe) {
 		const source = await readFile(join(root, path), 'utf8');
 		if (hash(Buffer.from(source)) !== sha256) throw new Error(`The reviewed Sherpa patch source ${path} has changed.`);
 		let patched;
-		if (path.endsWith('/provider.h')) patched = source.replace('  kCPU = 0,', '  kWebGPU = 8,  // WebGpuExecutionProvider\n  kCPU = 0,');
+		if (path.endsWith('/provider.h')) patched = source.replace('  kCPU = 0,', '  kWebGPU = 9,  // WebGpuExecutionProvider; 8 belongs to OpenVINO.\n  kCPU = 0,');
 		else if (path.endsWith('/provider.cc')) patched = source.replace('  if (s == "cpu") {', '  if (s == "webgpu") {\n    return Provider::kWebGPU;\n  } else if (s == "cpu") {');
 		else if (path.endsWith('/sherpa-onnx-symbols-c.exp')) {
 			patched = `${source.trimEnd()}\n_SherpaOnnxReleaseWebGpuProvider\n`;
 		} else if (path.endsWith('/sherpa-onnx-node-addon-api.cc')) {
 			patched = source.replace('Napi::Object Init(Napi::Env env, Napi::Object exports) {',
 				'void InitScapeSpeechDisposal(Napi::Env env, Napi::Object exports);\n\nNapi::Object Init(Napi::Env env, Napi::Object exports) {\n  InitScapeSpeechDisposal(env, exports);');
-		} else if (/\/(?:vad|non-streaming-asr|non-streaming-speaker-diarization)\.cc$/u.test(path)) {
+		} else if (/\/(?:vad|non-streaming-asr|non-streaming-speaker-diarization|non-streaming-speech-denoiser|streaming-speech-denoiser)\.cc$/u.test(path)) {
 			patched = `#include "owned-external.h"\n${source}`;
 			for (const name of ['SherpaOnnxVoiceActivityDetector', 'SherpaOnnxOfflineRecognizer',
-				'SherpaOnnxOfflineStream', 'SherpaOnnxOfflineSpeakerDiarization']) {
+				'SherpaOnnxOfflineStream', 'SherpaOnnxOfflineSpeakerDiarization',
+				'SherpaOnnxOfflineSpeechDenoiser', 'SherpaOnnxOnlineSpeechDenoiser']) {
 				patched = patched.replaceAll(`Napi::External<${name}>`, `ScapeOwnedExternal<${name}>`);
 			}
 		} else if (path.endsWith('/session.cc')) {
@@ -89,7 +90,7 @@ export async function sherpaGpuSourceNotices(roots, downloads) {
 		kaldifst: ['LICENSE'], openfst: ['COPYING'], kissfft: ['COPYING'],
 		eigen: ['COPYING.MPL2', 'COPYING.BSD', 'COPYING.APACHE', 'COPYING.MINPACK'],
 		'simple-sentencepiece': ['LICENSE'], json: ['LICENSE.MIT'], 'hclust-cpp': ['LICENSE'],
-		'node-addon-api': ['LICENSE.md'],
+		'utf8proc': ['LICENSE.md'], 'node-addon-api': ['LICENSE.md'],
 	};
 	const sections = [];
 	for (const [id, names] of Object.entries(licenses)) {

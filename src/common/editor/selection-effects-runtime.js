@@ -23,10 +23,15 @@ import { isStandardEffect } from './first-party-effects/standard/definition.ts';
 import { applyStandardEffect } from './first-party-effects/standard/dsp.ts';
 import { applyStandardDelaySelection } from './first-party-effects/standard/delay-selection.ts';
 import { applySelectionEffectSpectralContext } from './selection-effect-spectral-context.ts';
+import { applyAutoTune } from './first-party-effects/auto-tune/selection.ts';
 
 export async function applyAudioSelectionEffectAsync(type, channels, sampleRate, params = {}, context = {}) {
 	if (!AUDIO_SELECTION_EFFECT_DEFINITIONS[type]) {
 		throw new RangeError(`Unsupported selection effect: ${type}.`);
+	}
+	if (type === 'auto-tune') {
+		const output = await applyAutoTune(channels, sampleRate, normalizeAudioSelectionEffectParams(type, params), context);
+		return applySelectionEffectSpectralContext(channels, output, sampleRate, context);
 	}
 	if (isStandardEffect(type)) {
 		const normalized = normalizeAudioSelectionEffectParams(type, params);

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { DatabaseSync } from 'node:sqlite';
+import { configureDesktopDatabaseJournal } from './desktop-database.ts';
 
 import {
 	assertNativeQueueRecordV2,
@@ -36,7 +37,7 @@ export function initializeFramescaperNativeServicesDatabaseV3(database: Database
 	if (initial > FRAMESCAPER_NATIVE_SERVICES_DATABASE_V3_VERSION) {
 		throw new Error('The Framescaper native services V3 database was written by a newer build.');
 	}
-	database.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA trusted_schema = OFF; PRAGMA foreign_keys = ON;');
+	configureDesktopDatabaseJournal(database);
 	if (initial < FRAMESCAPER_NATIVE_SERVICES_DATABASE_V3_VERSION) {
 		initializeFramescaperNativeServicesDatabase(database);
 		database.exec('BEGIN IMMEDIATE');

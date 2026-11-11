@@ -55,6 +55,9 @@ import { isStandardEffect } from '../first-party-effects/standard/definition.ts'
 import { noiseGateLatencyFrames } from '../first-party-effects/standard/noise-gate-definition.ts';
 import { standardDelayLatencyFrames } from '../first-party-effects/standard/delay-definition.ts';
 import { createStandardEffectNode, disposeStandardEffectNode } from './standard-effect-node.ts';
+import { autoTuneRealtimeGeometry } from '../first-party-effects/auto-tune/realtime-contract.ts';
+import { createAutoTuneNode, disposeAutoTuneNode } from './auto-tune-node.ts';
+import { registerAutoTuneControl } from './auto-tune-control.ts';
 import type { ScheduledParameterRegistry } from './scheduled-parameter-registry.ts';
 import type { EngineEffect, UnknownRecord } from './types.ts';
 import { effectSupportsExplicitSidechain } from '../effect-explicit-sidechain-capability.ts';
@@ -118,6 +121,7 @@ export function effectLatencyFrames(effect: EngineEffect, sampleRate: number): n
 	}
 	if (effect.type === 'noise-gate') return noiseGateLatencyFrames(effect.params || {}, sampleRate);
 	if (effect.type === 'multi-tap-delay') return standardDelayLatencyFrames(effect.params || {}, sampleRate);
+	if (effect.type === 'auto-tune') return autoTuneRealtimeGeometry(sampleRate, 1).latencyFrames;
 	if (!isAudacityLiveEffect(effect.type)) return 0;
 	const capability = audacityLiveEffectCapability(effect.type);
 	if (effect.type === 'audacity-noise-reduction') {
@@ -241,11 +245,14 @@ export function applyEffect(
 		}
 		return processor;
 	}
-	if (isStandardEffect(type)) {
+	if (type === 'auto-tune' || isStandardEffect(type)) {
 		const width = clamp(positiveInteger(options.effectChannelCount, 2), 1, 32);
-		const processor = addNode(nodes, createStandardEffectNode(context, audioWorkletNodeConstructor(), type, params, width));
+		const processor = addNode(nodes, type === 'auto-tune'
+			? createAutoTuneNode(context, audioWorkletNodeConstructor(), params, width)
+			: createStandardEffectNode(context, audioWorkletNodeConstructor(), type, params, width));
 		connect(input, processor);
 		registerEffectNode(effect, processor, options);
+		if (type === 'auto-tune') registerAutoTuneControl(options.parameterRegistry, processor.port, String(params.controlTrackId || ''), nonNegativeInteger(options.parameterLatencyFrames, 0));
 		if (typeof options.onParametricEqError === 'function') {
 			attachEffectProcessorErrorPort(processor, options.onParametricEqError, effectProcessorErrorContext(
 				options, effect.id, { fallbackMessage: 'The real-time effect processor failed.',
@@ -442,6 +449,7 @@ export function safeMessageSequence(value: unknown, name: string): number {
 }
 
 export function disposeEffectNodeBindings(node: AudioNode): void {
+	disposeAutoTuneNode(node);
 	disposeStandardEffectNode(node);
 	releaseDynamicsAnalysisTelemetry(node as AudioWorkletNode);
 	releaseEffectProcessorErrorPort(node);

@@ -1,0 +1,396 @@
+{
+	"schemaVersion": 1,
+	"sherpaVersion": "2.0.1",
+	"sourceRevision": "af2d8d81dbfa61c4cea4c568da78f3982edca005",
+	"models": [
+		{
+			"fileName": "voxlock_enroll.onnx",
+			"byteLength": 12476014,
+			"sha256": "5d06048c156bb8cd422d29848e6d38fb26a7b39f6f7fd92eccf2a6ed1ce003c6",
+			"metadata": {
+				"model_type": "voxlock",
+				"model_role": "enroll",
+				"version": "1",
+				"model_version": "1.1.1",
+				"precision": "fp32",
+				"sample_rate": "16000",
+				"n_fft": "512",
+				"hop_length": "128",
+				"window_length": "512",
+				"window_type": "hann",
+				"num_freq_bins": "257",
+				"context_dim": "512",
+				"voice_sample_seconds": "3",
+				"model_url": "https://huggingface.co/arbazsiddiqui/voxlock",
+				"hf_revision": "a50f4e1d109301d4b6f61dec57ebb1a61e7d8f03",
+				"code_url": "https://github.com/arbazsiddiqui/voxlock",
+				"license": "Apache-2.0",
+				"comment": "VoxLock target-speaker voice isolation. The enroll model runs once on 3 seconds of the caller's voice; the chunk model runs on each chunk of the call."
+			},
+			"inputs": [
+				{
+					"name": "enroll",
+					"shape": [
+						1,
+						"Te"
+					]
+				}
+			],
+			"outputs": [
+				{
+					"name": "enroll_mag",
+					"shape": [
+						"Sqrtenroll_mag_dim_0",
+						257,
+						"Fe"
+					]
+				},
+				{
+					"name": "context",
+					"shape": [
+						1,
+						512,
+						"Fc"
+					]
+				}
+			]
+		},
+		{
+			"fileName": "voxlock_chunk_int8.onnx",
+			"byteLength": 66608910,
+			"sha256": "df61a9d0062b0adbcf1182302b1eb8b815f15ac47ea4923e8e164c1aff64121d",
+			"metadata": {
+				"onnx.infer": "onnxruntime.quant",
+				"model_type": "voxlock",
+				"model_role": "chunk",
+				"version": "1",
+				"model_version": "1.1.1",
+				"precision": "int8",
+				"sample_rate": "16000",
+				"n_fft": "512",
+				"hop_length": "128",
+				"window_length": "512",
+				"window_type": "hann",
+				"num_freq_bins": "257",
+				"context_dim": "512",
+				"voice_sample_seconds": "3",
+				"model_url": "https://huggingface.co/arbazsiddiqui/voxlock",
+				"hf_revision": "a50f4e1d109301d4b6f61dec57ebb1a61e7d8f03",
+				"code_url": "https://github.com/arbazsiddiqui/voxlock",
+				"license": "Apache-2.0",
+				"comment": "VoxLock target-speaker voice isolation. The enroll model runs once on 3 seconds of the caller's voice; the chunk model runs on each chunk of the call.",
+				"state_shape": "6,32,256",
+				"frames_per_chunk": "100",
+				"output_gain": "-0.5"
+			},
+			"inputs": [
+				{
+					"name": "wav",
+					"shape": [
+						1,
+						"S"
+					]
+				},
+				{
+					"name": "enroll_mag",
+					"shape": [
+						1,
+						257,
+						"Fe"
+					]
+				},
+				{
+					"name": "context",
+					"shape": [
+						1,
+						512,
+						"Fc"
+					]
+				},
+				{
+					"name": "h",
+					"shape": [
+						6,
+						32,
+						256
+					]
+				},
+				{
+					"name": "c",
+					"shape": [
+						6,
+						32,
+						256
+					]
+				}
+			],
+			"outputs": [
+				{
+					"name": "frames",
+					"shape": [
+						"Addframes_dim_0",
+						"K",
+						512
+					]
+				},
+				{
+					"name": "h_out",
+					"shape": [
+						6,
+						"Concath_out_dim_1",
+						256
+					]
+				},
+				{
+					"name": "c_out",
+					"shape": [
+						6,
+						"Concatc_out_dim_1",
+						256
+					]
+				}
+			]
+		},
+		{
+			"fileName": "gtcrn_simple.onnx",
+			"byteLength": 535638,
+			"sha256": "e77603ac0c23dac3227dd2d7135b3a585cbee2679048aecfa886657d3ae1b534",
+			"metadata": {
+				"model_type": "gtcrn",
+				"comment": "gtcrn_simple",
+				"version": "1",
+				"sample_rate": "16000",
+				"model_url": "https://github.com/Xiaobin-Rong/gtcrn/blob/main/stream/onnx_models/gtcrn_simple.onnx",
+				"maintainer": "k2-fsa",
+				"comment2": "Please see also https://github.com/Xiaobin-Rong/gtcrn",
+				"conv_cache_shape": "2,1,16,16,33",
+				"tra_cache_shape": "2,3,1,1,16",
+				"inter_cache_shape": "2,1,33,16",
+				"n_fft": "512",
+				"hop_length": "256",
+				"window_length": "512",
+				"window_type": "hann_sqrt"
+			},
+			"inputs": [
+				{
+					"name": "mix",
+					"shape": [
+						1,
+						257,
+						1,
+						2
+					]
+				},
+				{
+					"name": "conv_cache",
+					"shape": [
+						2,
+						1,
+						16,
+						16,
+						33
+					]
+				},
+				{
+					"name": "tra_cache",
+					"shape": [
+						2,
+						3,
+						1,
+						1,
+						16
+					]
+				},
+				{
+					"name": "inter_cache",
+					"shape": [
+						2,
+						1,
+						33,
+						16
+					]
+				}
+			],
+			"outputs": [
+				{
+					"name": "enh",
+					"shape": [
+						1,
+						257,
+						1,
+						2
+					]
+				},
+				{
+					"name": "conv_cache_out",
+					"shape": [
+						2,
+						1,
+						16,
+						16,
+						33
+					]
+				},
+				{
+					"name": "tra_cache_out",
+					"shape": [
+						2,
+						3,
+						1,
+						1,
+						16
+					]
+				},
+				{
+					"name": "inter_cache_out",
+					"shape": [
+						2,
+						1,
+						33,
+						16
+					]
+				}
+			]
+		},
+		{
+			"fileName": "dpdfnet2_48khz_hr.onnx",
+			"byteLength": 10596848,
+			"sha256": "0b399f8a58dc4d70d8cd97541f5c39869406145193b957d00a03b66070944928",
+			"metadata": {
+				"model_type": "dpdfnet",
+				"version": "1",
+				"profile": "dpdfnet2_48khz_hr",
+				"sample_rate": "48000",
+				"n_fft": "960",
+				"hop_length": "480",
+				"window_length": "960",
+				"window_type": "vorbis",
+				"normalized": "0",
+				"center": "1",
+				"pad_mode": "reflect",
+				"freq_bins": "481",
+				"erb_bins": "32",
+				"spec_bins": "96",
+				"state_size": "56436",
+				"erb_norm_state_size": "481",
+				"spec_norm_state_size": "96"
+			},
+			"inputs": [
+				{
+					"name": "spec",
+					"shape": [
+						1,
+						1,
+						481,
+						2
+					]
+				},
+				{
+					"name": "state_in",
+					"shape": [
+						56436
+					]
+				}
+			],
+			"outputs": [
+				{
+					"name": "spec_e",
+					"shape": [
+						1,
+						1,
+						481,
+						2
+					]
+				},
+				{
+					"name": "state_out",
+					"shape": [
+						"Concatstate_out_dim_0"
+					]
+				}
+			]
+		}
+	],
+	"validation": {
+		"onnxChecker": "onnx 1.20.1 full graph validation passed",
+		"execution": "See the focused production-worker tests and target packaged nightly cases; this record does not certify every GPU or platform.",
+		"linuxX64": {
+			"fixture": {
+				"source": "https://github.com/arbazsiddiqui/voxlock/releases/download/sherpa-onnx-models/voxlock_test_call.wav",
+				"sha256": "16342ff0b5cefb64cc012a3185c641f8762a78803fa0d9f4966b288669b132b4",
+				"license": "CC-BY-4.0",
+				"preparation": "Mono 48 kHz Float32 WAV using the production streaming windowed-sinc resampler."
+			},
+			"requestedProviders": [
+				"webgpu",
+				"cpu"
+			],
+			"checks": [
+				"exact-length",
+				"finite-audio",
+				"changed-audio",
+				"non-silent"
+			],
+			"results": [
+				{
+					"modelId": "gtcrn",
+					"elapsedMs": 127303,
+					"byteLength": 2689964,
+					"sha256": "c6eaefd72b31dd2ce6918ad202ddd148f3b9f27d9ae009a400edd2466b9e940f",
+					"frames": 672480,
+					"peak": 0.41010069847106934
+				},
+				{
+					"modelId": "dpdfnet2-48khz",
+					"elapsedMs": 3542,
+					"byteLength": 2689964,
+					"sha256": "c53d7f4416743cff8310a2e7c734f73597eaa2e21252e488059d48861e0adb86",
+					"frames": 672480,
+					"peak": 0.40821316838264465
+				},
+				{
+					"modelId": "voxlock",
+					"elapsedMs": 76752,
+					"byteLength": 2689964,
+					"sha256": "037fa65c3925f6b8a7b67baeb719d2cb7c44321bbfce4ccc99bbe51594f58db3",
+					"frames": 672480,
+					"peak": 0.44182345271110535
+				}
+			],
+			"limitations": "DPDFNet hit the local WebGPU 16-storage-buffer limit and successfully retried on CPU. Other targets and physical GPU kernel execution require their packaged nightly cases."
+		}
+	},
+	"sourceEvidence": [
+		{
+			"path": "LICENSES/local-models/sherpa-enhancement/dpdfnet-LICENSE",
+			"byteLength": 11357,
+			"sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+		},
+		{
+			"path": "LICENSES/local-models/sherpa-enhancement/dpdfnet-README.md",
+			"byteLength": 11726,
+			"sha256": "04e7bcc44873bb393bf7be4d62f251892de94dfa68d2722467ce2d00022c740c"
+		},
+		{
+			"path": "LICENSES/local-models/sherpa-enhancement/gtcrn-LICENSE",
+			"byteLength": 1069,
+			"sha256": "c467165e5860b4a7494ef4a6e2788e4115d95b5b8989bb5f86287089adddf794"
+		},
+		{
+			"path": "LICENSES/local-models/sherpa-enhancement/gtcrn-README.md",
+			"byteLength": 4419,
+			"sha256": "7f890b7a9b1d7b49613733878e104233a3a3019854b3105007be69db37e33413"
+		},
+		{
+			"path": "LICENSES/local-models/sherpa-enhancement/voxlock-README.md",
+			"byteLength": 7999,
+			"sha256": "f3d0e5e681d982aeec18b1166d49a47c9ac30dc59482fe0c8201441e87d7d33a"
+		},
+		{
+			"path": "LICENSES/local-models/sherpa-enhancement/dpdfnet-MODEL-CARD.md",
+			"url": "https://huggingface.co/Ceva-IP/DPDFNet/raw/dd6818d00f50c836fed43a6243ebe49116de5964/README.md",
+			"byteLength": 4970,
+			"sha256": "2c4866591f488f690d6997969f313a32c93b107ac1c2dc84984513601f122af3"
+		}
+	]
+}

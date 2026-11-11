@@ -3,6 +3,7 @@ import { createMixerRoutingClosureIndex } from '../../../../mixer-routing-closur
 import type { StripRef } from '../../../../parameter-address.ts';
 import { mixerEndpointKeyV21, type MixerGraphV21 } from '../../../../mixer-graph-v21.ts';
 import type { ControllerTrack } from '../../track-domain-types.ts';
+import { autoTuneControlTrackIds } from '../../../../first-party-effects/auto-tune/project-control.ts';
 
 export interface MixRenderDetectorClosure {
 	readonly controlTrackIds: ReadonlySet<string>;
@@ -38,8 +39,11 @@ export function prepareMixRenderDetectorClosure(graph: MixerGraphV21, tracks: re
 			detectorSources.push(edge.source);
 		}
 		const closure = routes.detector(detectorSources), strips = closure.strips;
+		const owners = [...tracks.filter(track => programme.has(`track:${track.id}`) || strips.has(`track:${track.id}`)),
+			...[...graph.groups, ...graph.sends, ...graph.cues].filter(node => programme.has(`mixer-node:${node.id}`) || strips.has(`mixer-node:${node.id}`))];
+		const midiControls = autoTuneControlTrackIds(owners);
 		for (const id of closure.edgeIds) edgeIds.add(id);
-		return { controlTrackIds: new Set(tracks.filter(track => strips.has(`track:${track.id}`)).map(track => track.id)),
+		return { controlTrackIds: new Set([...tracks.filter(track => strips.has(`track:${track.id}`)).map(track => track.id), ...midiControls]),
 			nodeIds: new Set([...graph.groups, ...graph.sends, ...graph.cues].filter(node => strips.has(`mixer-node:${node.id}`)).map(node => node.id)), edgeIds };
 	};
 }

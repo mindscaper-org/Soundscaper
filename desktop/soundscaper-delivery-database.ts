@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { DatabaseSync } from 'node:sqlite';
+import { configureDesktopDatabaseJournal } from './desktop-database.ts';
 
 /** `SSDL` — deliberately distinct from both project-library databases. */
 export const SOUNDSCAPER_DELIVERY_APPLICATION_ID = 0x5353444c;
@@ -31,12 +32,7 @@ export function initializeSoundscaperDeliveryDatabase(database: DatabaseSync): n
 			'The Soundscaper delivery database was written by a newer build and is refused.',
 		);
 	}
-	database.exec(`
-		PRAGMA journal_mode = WAL;
-		PRAGMA synchronous = FULL;
-		PRAGMA trusted_schema = OFF;
-		PRAGMA foreign_keys = ON;
-	`);
+	configureDesktopDatabaseJournal(database);
 	database.exec('BEGIN IMMEDIATE');
 	try {
 		if (version < 1) applyVersionOne(database);

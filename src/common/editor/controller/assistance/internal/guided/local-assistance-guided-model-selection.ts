@@ -4,6 +4,7 @@
 
 import type { AssistanceWorkflowSettingsV1 } from '../../../../assistance/workflow-settings-v1.ts';
 import type { LocalAssistanceModel } from '../../../../assistance/local-assistance-bridge.ts';
+import { speechEnhancementModel } from '../../../../assistance/speech-enhancement-models.ts';
 
 interface ExactGuidedModel {
 	readonly modelId: string;
@@ -49,6 +50,11 @@ export function localAssistanceGuidedModelMatches(
 	model: Pick<LocalAssistanceModel, 'modelId' | 'version' | 'task'>,
 	settings: AssistanceWorkflowSettingsV1,
 ): boolean {
+	if (slotId === 'enhancer' && settings.workflowId === 'enhance-dialogue') {
+		const selected = speechEnhancementModel(settings.modelId ?? 'deepfilternet3')!;
+		return model.modelId === selected.modelId && model.version === selected.version
+			&& model.task === 'speech-enhancement';
+	}
 	const requirement = slotId === 'speech-recognizer'
 		? settings.workflowId === 'transcribe-captions' && settings.recognizer === 'whisper'
 			? WHISPER : PARAKEET

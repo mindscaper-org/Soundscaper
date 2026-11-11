@@ -14,6 +14,7 @@ import type {
 } from '../../assistance/workflow-settings-v1.ts';
 import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
 import type { LocalAssistanceModel } from '../../assistance/local-assistance-bridge.ts';
+import { SPEECH_ENHANCEMENT_MODELS, type SpeechEnhancementModelId } from '../../assistance/speech-enhancement-models.ts';
 import { assistanceTaskRecognizerChoices } from '../local-assistance-task-controls.ts';
 
 type Copy = Readonly<Record<string, string | undefined>>;
@@ -70,8 +71,17 @@ export default function LocalAssistanceGuidedSettings({
 					LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceCleanupPresetAggressive)}</option>
 			</SelectSetting>
 		</SettingsGroup>;
+		case 'enhance-dialogue': return <SettingsGroup copy={copy}>
+			<SelectSetting label={copy.assistanceModelName || 'Model'} value={settings.modelId ?? 'deepfilternet3'}
+				disabled={disabled} onChange={(modelId) => commit({ ...settings, modelId: modelId as SpeechEnhancementModelId })}>
+				{SPEECH_ENHANCEMENT_MODELS.map((model) => <option key={model.modelId} value={model.modelId}>
+					{text(copy, `localAssistanceEnhancer.${model.modelId}`, model.label)}
+				</option>)}
+			</SelectSetting>
+			{settings.modelId === 'voxlock' && <p>{text(copy, 'localAssistanceVoxLockReference',
+				LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceVoxLockReference)}</p>}
+		</SettingsGroup>;
 		case 'identify-speakers':
-		case 'enhance-dialogue':
 		case 'reduce-reverb':
 		case 'separate-dialogue-music-effects': return null;
 		case 'mark-reactions': return <SettingsGroup copy={copy}>

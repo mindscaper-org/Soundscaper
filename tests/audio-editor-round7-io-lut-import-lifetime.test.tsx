@@ -11,12 +11,23 @@ import { applyFramescaperProjectCommand } from '../src/framescaper/editor-projec
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
 import { bindFramescaperCubeLutActionsFinishing, createFramescaperCubeLutActionsFinishing } from '../src/framescaper/editor-cube-lut-actions-finishing.ts';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
+import { open } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
+import { framescaperCandidateAuthoringActionRuntimeFor } from '../src/common/editor/ui/framescaper-candidate-authoring-actions.ts';
+import { createFramescaperVisualInspectorCommand, createFramescaperVisualInspectorModel } from '../src/common/editor/ui/framescaper-visual-inspector-model.ts';
+import { normalizeVideoGeneratorClipV1 } from '../src/common/editor/video-visual-model-v24.ts';
+import { normalizeVideoVisualPresentationV1 } from '../src/common/editor/video-visual-presentation-v27.ts';
+import { nativeSidecarFixture } from './helpers/framescaper-native-sidecar-fixture.ts';
+import { mountControllerDataDom } from './helpers/controller-data-dom.ts';
+import { framescaperLifetimeController, LifetimeFinishingDialog, lifetimeButton } from './helpers/framescaper-lifetime-controller-fixture.tsx';
+import { deferred } from './helpers/async-test-control.ts';
 
 const LUT = ['TITLE "Identity"', 'LUT_3D_SIZE 2', '0 0 0', '1 0 0', '0 1 0', '1 1 0',
 	'0 0 1', '1 0 1', '0 1 1', '1 1 1', ''].join('\n');
 
 for (const phase of ['choice', 'read', 'metadata'] as const) {
-for (const closed of [false, true]) test(`pending LUT ${phase} ${closed ? 'is retired by Close' : 'publishes for its original open dialog'}`, { timeout: 5000 }, async () => {
+for (const closed of [false, true]) test(`pending LUT ${phase} ${closed ? 'is retired by Close' : 'publishes for its original open dialog'}`, { timeout: 5000 }, async context => {
 	const dom = installReactTestDom();
 	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const priorAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
@@ -77,5 +88,57 @@ for (const closed of [false, true]) test(`pending LUT ${phase} ${closed ? 'is re
 		resume(); await act(async () => root.unmount());
 		dom.restore(); actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
 	}
+	if (phase === 'read' && closed) await actualLutLifetime(context);
 });
+}
+
+async function actualLutLifetime(context: test.TestContext): Promise<void> {
+	const reading = deferred<void>(), started = deferred<void>();
+	const native = await nativeSidecarFixture('identity.cube', LUT, {
+		async openSelectedFile(...args) { started.resolve(); await reading.promise; return open(...args); },
+	});
+	const fixture = mountControllerDataDom();
+	const failures: unknown[] = [];
+	const observedFixture = { ...fixture, run(operation: () => unknown): Promise<unknown> {
+		const pending = Promise.resolve().then(operation);
+		// Observe settlement for cleanup while returning the original rejection to the real dialog.
+		void fixture.run(() => pending.catch((error: unknown) => { failures.push(error); }));
+		return pending;
+	} };
+	try {
+		const { controller, environment, persisted } = await framescaperLifetimeController(context);
+		const authoring = framescaperCandidateAuthoringActionRuntimeFor(controller); assert.ok(authoring);
+		await authoring.run('video-solid');
+		const clip = normalizeVideoGeneratorClipV1(controller.project?.clips.at(-1));
+		const inspector = createFramescaperVisualInspectorModel({ project: controller.project, selectedClipId: clip.id });
+		controller.actions.edit.commit(createFramescaperVisualInspectorCommand(controller.project, clip.id, {
+			generator: inspector.generator, opacity: .5, blendMode: inspector.blendMode,
+			maskId: inspector.maskId, maskWidth: inspector.maskWidth, presetId: null,
+		}));
+		const before = await persisted(), history = structuredClone(controller.getSnapshot().history);
+		assert.ok(Array.isArray(before.videoVisualPresentations)); assert.equal(before.videoVisualPresentations.length, 1);
+		assert.equal(normalizeVideoVisualPresentationV1(before.videoVisualPresentations[0]).opacity, .5);
+		const fileService = createAudioEditorFileService({ bridge: native.bridge, fetch: native.fetch });
+		await fixture.render(<LifetimeFinishingDialog surface="grading-presets" controller={controller}
+			fixture={observedFixture} fileService={fileService} />);
+		const target = fixture.dom.container.querySelector('select'); assert.ok(target);
+		assert.match(String(reactProps(target).value), /^presentation:/u);
+		await act(async () => { reactProps(lifetimeButton(fixture.dom.container, 'Choose .cube LUT')).onClick({}); });
+		await started.promise;
+		assert.equal(reactProps(lifetimeButton(fixture.dom.container, 'Choose .cube LUT')).disabled, true);
+		await act(async () => { reactProps(lifetimeButton(fixture.dom.container, 'Close')).onClick({}); });
+		await act(async () => { reading.resolve(); await fixture.settle(); });
+		assert.equal(native.releases.length, 1);
+		const project = await persisted(), sha256 = createHash('sha256').update(LUT).digest('hex');
+		assert.ok(Array.isArray(project.videoVisualPresentations)); assert.equal(project.videoVisualPresentations.length, 1);
+		const presentation = normalizeVideoVisualPresentationV1(project.videoVisualPresentations[0]);
+		assert.equal(presentation.opacity, .5);
+		assert.equal(presentation.grade?.lut != null, false);
+		const storageKey = `lut-sha256:${sha256}`;
+		assert.deepEqual(project, before, 'closed actual target cannot publish a LUT or repository edit');
+		assert.deepEqual(controller.getSnapshot().history, history);
+		assert.equal(await environment.store.getMediaAssetMetadata(storageKey), null);
+		assert.equal(failures.length, 1);
+		assert.ok(failures[0] instanceof DOMException); assert.equal(failures[0].name, 'AbortError');
+	} finally { reading.resolve(); try { await fixture.dispose(); } finally { await native.close(); } }
 }

@@ -66,7 +66,7 @@ missing, stale, or damaged bundles are rebuilt from the pinned inputs.
 
 | Engine | Models |
 | --- | --- |
-| Sherpa ONNX 1.13.5 | Silero VAD, both Parakeet models, Pyannote segmentation and ERes2Net speaker embeddings |
+| Sherpa ONNX 2.0.1 | Silero VAD, both Parakeet models, Pyannote segmentation, ERes2Net speaker embeddings, GTCRN/DPDFNet enhancement, and VoxLock voice isolation |
 | ONNX Runtime Node 1.29.0 | DeepFilterNet3, YuNet, D-FINE, U²-Net-P, PP-OCRv4, Nomic, SigLIP2, wav2vec2, TIGER-DnR, PANNs CNN10, both Beat This checkpoints, TransNetV2, Dereverb Room and Kokoro |
 | whisper.cpp v1.9.3 | Whisper large-v3 turbo GGML |
 | llama.cpp b10509 | Qwen3 4B Q4_K_M |

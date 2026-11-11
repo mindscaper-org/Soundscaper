@@ -43,10 +43,16 @@ export async function labelFileProfileCustody(context: TestContext) {
 			saved.push(new File([blob], name, { type: blob.type })); return { method: 'node-fixture', fileName: name, size: blob.size };
 		} } };
 	const sender = await controllerSession(context, options);
-	return { ...sender, saved, async import(file: File) {
+	return { ...sender, saved, async import(file: File, { cueLabels = false }: Readonly<{ cueLabels?: boolean }> = {}) {
+		let cueRequests = 0;
 		assert.equal(await importWorkspaceRoutedFiles({ controller: sender.controller, files: [file], importOptions: {}, projectBinVisible: false,
-			openProjectFile: () => assert.fail('A label file must not open a project'), requestCueImport: () => assert.fail('These label files contain no CUE sheet'),
+			openProjectFile: () => assert.fail('A label file must not open a project'), requestCueImport: selected => {
+				assert.equal(cueLabels, true, 'Ordinary label files must not request a CUE choice');
+				assert.equal(selected, file); cueRequests++;
+				return sender.controller.actions.labels.importCueFile(selected, 'labels');
+			},
 		}), 1);
+		assert.equal(cueRequests, cueLabels ? 1 : 0, 'The selected input reaches its owning import route');
 	}, async reopen() {
 		await sender.controller.actions.project.flush();
 		const project = labelFileProject(sender.controller.project); assert.equal(project.sources.length, 0);

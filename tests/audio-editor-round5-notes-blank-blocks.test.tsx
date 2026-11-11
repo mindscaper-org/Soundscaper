@@ -2,12 +2,16 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import React, { act } from 'react';
-import { createRoot } from 'react-dom/client';
+import React, { act, useSyncExternalStore } from 'react';
 import { formatRecordingNotes } from '../src/common/editor/recording-notes-markdown.ts';
-import RecordingNotesPanel from '../src/common/editor/ui/workspace/RecordingNotesPanel.tsx';
+import WorkspacePanelContent from '../src/common/editor/ui/workspace/WorkspacePanelContent.jsx';
+import { readProjectRecordingNotes } from '../src/common/editor/recording-notes.ts';
 import { WORKSPACE_LAYOUT_COPY_BY_LOCALE } from '../src/common/i18n/workspace-layout-copy.js';
-import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
+import { reactProps } from './helpers/react-test-dom.ts';
+import { mountControllerDataDom } from './helpers/controller-data-dom.ts';
+import { createClipboardCustody, clipboardDocument, clipboardProject } from './helpers/clipboard-source-custody.ts';
+import { assertEditedAudioArchiveCustody } from './helpers/edited-audio-archive-custody.ts';
+import { COPY } from './helpers/audio-editor-controller-harness.js';
 
 for (const format of ['heading', 'bullets', 'numbered-list'] as const) {
 	test(`${format} preserves selected blank separators and removes only its own block markers`, () => {
@@ -23,36 +27,62 @@ for (const format of ['heading', 'bullets', 'numbered-list'] as const) {
 	});
 }
 
-test('the mounted Numbered list action does not invent a note in the selected empty paragraph', async () => {
-	const dom = installReactTestDom();
-	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
-	const priorAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
-	actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
-	const root = createRoot(dom.container as unknown as Element);
-	let value = 'First take\n\nSecond take';
-	let start = 0;
-	let end = value.length;
-	const render = () => root.render(<RecordingNotesPanel value={value} disabled={false}
-		copy={WORKSPACE_LAYOUT_COPY_BY_LOCALE.en} onChange={next => { value = next; render(); }} />);
+type Controller = Awaited<ReturnType<typeof createClipboardCustody>>['controller'];
+type Fixture = ReturnType<typeof mountControllerDataDom>;
+function Notes({ controller, fixture }: Readonly<{ controller: Controller; fixture: Fixture }>) {
+	const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+	return <WorkspacePanelContent panelId="recording-notes" controller={controller} snapshot={snapshot}
+		copy={{ ...COPY, ...WORKSPACE_LAYOUT_COPY_BY_LOCALE.en }} locale="en" run={fixture.run} fileService={null}
+		playbackMeterSettings={null} showArmControls={false} displayAudioSupported={false}
+		onOpenEffects={() => assert.fail('Recording notes must not open effects.')} effectsPanelTarget={null}
+		onEffectWindowChange={() => assert.fail('Recording notes have no effect window.')} blocked={false} />;
+}
+
+test('the mounted Numbered list action does not invent a note in the selected empty paragraph', async context => {
+	const { controller, store } = await createClipboardCustody(context);
+	const before = clipboardProject(controller.project), initialHistory = controller.getSnapshot().history.undoEntries.length;
+	const fixture = mountControllerDataDom();
+	let start = 0, end = 0;
+	const literal = 'First take\n\nSecond take', numbered = '1. First take\n\n2. Second take';
+	const expectNotes = (value: string, entries: number) => {
+		const project = clipboardProject(controller.project);
+		assert.equal(readProjectRecordingNotes(project), value);
+		assert.deepEqual(clipboardDocument(project), { ...clipboardDocument(before), metadata: { ...before.metadata, recordingNotes: value } });
+		assert.equal(controller.getSnapshot().history.undoEntries.length, initialHistory + entries);
+	};
 	try {
-		await act(async () => { render(); });
-		const textarea = dom.one('[data-recording-notes-editor]');
+		await fixture.render(<Notes controller={controller} fixture={fixture} />);
+		const textarea = fixture.dom.one('[data-recording-notes-editor]');
 		Object.defineProperties(textarea, {
-			selectionStart: { configurable: true, get: () => start },
-			selectionEnd: { configurable: true, get: () => end },
-			setSelectionRange: { configurable: true, value: (nextStart: number, nextEnd: number) => {
-				start = nextStart; end = nextEnd;
-			} },
+			selectionStart: { configurable: true, get: () => start }, selectionEnd: { configurable: true, get: () => end },
+			setSelectionRange: { configurable: true, value: (nextStart: number, nextEnd: number) => { start = nextStart; end = nextEnd; } },
 		});
-		await act(async () => { reactProps(dom.one('[data-recording-notes-format="numbered-list"]')).onClick(); });
-		assert.equal(value, '1. First take\n\n2. Second take');
-		await act(async () => { reactProps(dom.one('[data-recording-notes-toggle]')).onClick(); });
-		const preview = dom.one('[data-recording-notes-preview]');
-		assert.equal(preview.querySelectorAll('li').length, 2);
-		assert.equal(preview.textContent, 'First takeSecond take');
-	} finally {
-		await act(async () => { root.unmount(); });
-		actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
-		dom.restore();
-	}
+		await act(async () => { reactProps(textarea).onChange({ currentTarget: { value: literal } }); await fixture.settle(); });
+		expectNotes(literal, 1); assert.equal(textarea.value, literal);
+		start = 0; end = literal.length;
+		const format = () => fixture.dom.one('[data-recording-notes-format="numbered-list"]');
+		await act(async () => { reactProps(format()).onClick(); await fixture.settle(); });
+		expectNotes(numbered, 2); assert.equal(textarea.value, numbered);
+		await act(async () => { reactProps(fixture.dom.one('[data-recording-notes-toggle]')).onClick(); });
+		const preview = fixture.dom.one('[data-recording-notes-preview]');
+		assert.deepEqual(preview.querySelectorAll('li').map(item => item.textContent), ['First take', 'Second take']);
+		assert.equal(preview.textContent, 'First takeSecond take'); expectNotes(numbered, 2);
+		await act(async () => { reactProps(fixture.dom.one('[data-recording-notes-toggle]')).onClick(); });
+		assert.equal(textarea.value, numbered); start = 0; end = numbered.length;
+		await act(async () => { reactProps(format()).onClick(); await fixture.settle(); });
+		expectNotes(literal, 3); assert.equal(textarea.value, literal);
+		for (const expected of [numbered, literal]) {
+			await act(async () => { controller.actions.edit.undo(); });
+			assert.equal(readProjectRecordingNotes(controller.project), expected); assert.equal(textarea.value, expected);
+		}
+		for (const expected of [numbered, literal]) {
+			await act(async () => { controller.actions.edit.redo(); });
+			assert.equal(readProjectRecordingNotes(controller.project), expected); assert.equal(textarea.value, expected);
+		}
+		expectNotes(literal, 3);
+		await act(async () => { await controller.actions.project.flush(); });
+		const reopened = await assertEditedAudioArchiveCustody(context, store, controller.project, []);
+		assert.equal(readProjectRecordingNotes(reopened), literal);
+		assert.deepEqual(clipboardDocument(reopened), { ...clipboardDocument(before), metadata: { ...before.metadata, recordingNotes: literal } });
+	} finally { await fixture.dispose(); }
 });

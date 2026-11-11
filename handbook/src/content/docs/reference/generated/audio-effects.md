@@ -18,6 +18,7 @@ Audio effects are registered by Soundscaper. Effects whose ID begins with `audac
 | --- | --- | --- | --- | --- | --- |
 | Amplify | `audacity-amplify` | Volume and dynamics | No | Yes | — |
 | Auto Duck | `audacity-auto-duck` | Volume and dynamics | Yes | Yes | Needs a control track |
+| Auto-Tune | `auto-tune` | Pitch and tempo | Yes | Yes | Solo voice or melody (65–1500 Hz); chromatic, major or natural minor pitch correction; StaffPad formant preservation; fixed rack latency (about 72 ms at 48 kHz), live controls, no timeline automation |
 | Bass and Treble | `audacity-bass-treble` | EQ and filters | Yes | Yes | — |
 | Bitcrusher | `bitcrusher` | Distortion and modulation | Yes | Yes | — |
 | Change Pitch | `audacity-change-pitch` | Pitch and tempo | No | Yes | Uses the StaffPad time and pitch library |
@@ -80,6 +81,8 @@ Vocoder uses 10 to 240 logarithmically spaced bands from 20 Hz to just below hal
 
 ## Why some effects are selection-only
 
+Auto-Tune corrects a solo voice or melody instrument in realtime racks or on a selection. Open Effect > Add realtime effects and add Auto-Tune to a track or master rack, or open Effect > Distortion and modulation > Auto-Tune to preview or apply a selection. Choose a key and scale; Chromatic uses every semitone. Correction amount sets how far notes move toward the scale; Retune speed sets the response time in milliseconds (0 snaps immediately). Mix blends the original and corrected audio. Detection covers 65–1500 Hz and leaves unvoiced windows unshifted. Use isolated vocals or a single melody rather than chords or a full mix. The bundled StaffPad processor preserves formants. Rack controls can change during playback without rebuilding the processor. Timeline automation is unavailable. The fixed processing delay is about 72 ms at 48 kHz, including with zero Mix or Correction amount; playback and export use rack latency compensation. Selection rendering keeps the original duration.
+
 These effects cannot be a realtime insert, because each one needs more of the selection than a live block gives it.
 
 | Effect | Effect ID | Reason |
@@ -116,6 +119,11 @@ Defaults and limits come from the same definitions the editor validates against,
 | Auto Duck | `audacity-auto-duck` | Outer fade up | 0.5 | 0 to 3 | s |
 | Auto Duck | `audacity-auto-duck` | Threshold | -30 | -100 to 0 | dB |
 | Auto Duck | `audacity-auto-duck` | Maximum pause | 1 | 0 or more | s |
+| Auto-Tune | `auto-tune` | Correction amount | 100 | 0 to 100 | % |
+| Auto-Tune | `auto-tune` | Retune speed | 20 | 0 to 500 | ms |
+| Auto-Tune | `auto-tune` | Mix | 100 | 0 to 100 | % |
+| Auto-Tune | `auto-tune` | Key | C | C; C♯ / D♭; D; D♯ / E♭; E; F; F♯ / G♭; G; G♯ / A♭; A; A♯ / B♭; B | — |
+| Auto-Tune | `auto-tune` | Scale | Chromatic | Chromatic; Major; Natural minor | — |
 | Bass and Treble | `audacity-bass-treble` | Bass | 0 | -30 to 30 | dB |
 | Bass and Treble | `audacity-bass-treble` | Treble | 0 | -30 to 30 | dB |
 | Bass and Treble | `audacity-bass-treble` | Output volume | 0 | -30 to 30 | dB |

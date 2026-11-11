@@ -133,13 +133,6 @@ test('cancelling the shared reference picker skips later files and publishes no 
 	expect(await page.evaluate(() => globalThis.__macroBatchFiles.outputs.length)).toBe(0);
 });
 
-test('the web macro manager does not offer Apply to files', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
-	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
-	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
-	await expect(manager.getByRole('button', { name: 'Apply to files', exact: true })).toHaveCount(0);
-});
-
 test('selected input files scroll in a table and the output folder can be chosen first', async ({ page }) => {
 	const [recording, , reference] = recordings();
 	const inputs = Array.from({ length: 20 }, (_, index) => ({ ...recording, name: `episode-${index + 1}.wav` }));

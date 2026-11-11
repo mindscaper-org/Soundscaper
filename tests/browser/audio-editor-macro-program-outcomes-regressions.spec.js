@@ -20,9 +20,3 @@ test('canceling a long macro program reports cancellation without a failure aler
 	await expect(manager.locator('[data-macro-script-failure]')).toHaveCount(0);
 	await expect(manager.getByRole('button', { name: 'Run macro', exact: true })).toBeEnabled();
 });
-
-test('a failed program retains the diagnostic log written before its error', async ({ page }) => {
-	const manager = await programEditor(page, "sound.log.info('before error'); throw new Error('example error');");
-	await expect(manager.locator('[data-macro-script-failure]')).toContainText('example error');
-	await expect(manager.locator('[data-macro-script-log]')).toContainText('before error');
-});

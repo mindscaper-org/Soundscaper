@@ -31,7 +31,7 @@
 		},
 		{
 			"id": "electron-runtime-assets",
-			"description": "Separately admitted runtime assets staged beside the Electron renderer, including exact reviewed libFLAC, libopus/libogg, libvorbis/libogg, WavPack, mpg123, LAME, and TwoLAME WebAssembly audio providers. Their runtime manifest authenticates each WASM file and its complete transitive JavaScript module closure before fresh supervised utility-process execution. Desktop targets whose assistance manifest row is built also stage the exact manifest-authenticated sherpa-onnx 1.13.5 local-assistance Node and native runtime. Application-supplied FFmpeg/libav, FFmpeg WebAssembly, and unqualified bundled WebM/AV1 payloads are excluded. Electron's separately inventoried alternate framework libffmpeg remains part of the Electron shell.",
+			"description": "Separately admitted runtime assets staged beside the Electron renderer, including exact reviewed libFLAC, libopus/libogg, libvorbis/libogg, WavPack, mpg123, LAME, and TwoLAME WebAssembly audio providers. Their runtime manifest authenticates each WASM file and its complete transitive JavaScript module closure before fresh supervised utility-process execution. Desktop targets whose assistance manifest row is built also stage the exact manifest-authenticated sherpa-onnx 2.0.1 local-assistance Node and native runtime. Application-supplied FFmpeg/libav, FFmpeg WebAssembly, and unqualified bundled WebM/AV1 payloads are excluded. Electron's separately inventoried alternate framework libffmpeg remains part of the Electron shell.",
 			"artifactStatus": "distributed",
 			"noticeDeliveryStatus": "implemented",
 			"evidence": ["config/assistance-native-runtime-manifest.json", "desktop/assistance-native-runtime-payload.mjs", "scripts/lib/desktop-codec-policy.mjs", "scripts/lib/desktop-bundled-audio-runtime.mjs", "scripts/lib/desktop-bundled-audio-codec-runtime-closure.mjs", "scripts/lib/desktop-bundled-codec-notices.mjs", "desktop/bundled-audio-codec-runtime-payload.mjs", "scripts/desktop-prepare.mjs", "scripts/desktop-before-pack.mjs", "scripts/desktop-after-pack.mjs", "tests/assistance-native-runtime-payload.test.js", "tests/desktop-audio-codec-runtime-staging.test.js", "tests/desktop-bundled-audio-codec-runtime-payload.test.js", "tests/desktop-bundled-codec-notices.test.js", "electron-builder.config.cjs"]
@@ -45,7 +45,7 @@
 		},
 		{
 			"id": "desktop-release-assets",
-			"description": "Public desktop packages, notices, checksums, and source archives required for content actually redistributed. Each package contains the seven exact reviewed compressed-audio WebAssembly providers, the exact verified Electron alternate framework libffmpeg for its target, and the target-supported manifest-authenticated sherpa-onnx 1.13.5 local-assistance Node and native runtime. Release assembly emits one preferred corresponding-source ZIP for those seven providers before SHA256SUMS: it fail-closed validates their exact shipped WASM identities, source manifests, upstream archives, Soundscaper wrappers, in-tree WavPack snapshot, build scripts and transitive helpers, configuration, relink instructions, and license texts, and records every included source byte in a deterministic internal receipt. This desktop source delivery does not enable any future reactivation of the retained legacy FFmpeg WebAssembly publication tooling. macOS ARM64 and Windows x64/ARM64 Soundscaper packages additionally require a target-native, canary-tested repository-owned operating-system codec addon whose exact manifest, payload, target, byte length, and SHA-256 are authenticated through staging and packaging; Linux has no OS codec payload and macOS x64 is unsupported. User-installed external FFmpeg remains outside this artifact closure and is not copied into the release set.",
+			"description": "Public desktop packages, notices, checksums, and source archives required for content actually redistributed. Each package contains the seven exact reviewed compressed-audio WebAssembly providers, the exact verified Electron alternate framework libffmpeg for its target, and the target-supported manifest-authenticated sherpa-onnx 2.0.1 local-assistance Node and native runtime. Release assembly emits one preferred corresponding-source ZIP for those seven providers before SHA256SUMS: it fail-closed validates their exact shipped WASM identities, source manifests, upstream archives, Soundscaper wrappers, in-tree WavPack snapshot, build scripts and transitive helpers, configuration, relink instructions, and license texts, and records every included source byte in a deterministic internal receipt. This desktop source delivery does not enable any future reactivation of the retained legacy FFmpeg WebAssembly publication tooling. macOS ARM64 and Windows x64/ARM64 Soundscaper packages additionally require a target-native, canary-tested repository-owned operating-system codec addon whose exact manifest, payload, target, byte length, and SHA-256 are authenticated through staging and packaging; Linux has no OS codec payload and macOS x64 is unsupported. User-installed external FFmpeg remains outside this artifact closure and is not copied into the release set.",
 			"artifactStatus": "build-only",
 			"noticeDeliveryStatus": "implemented",
 			"evidence": ["config/assistance-native-runtime-manifest.json", "desktop/assistance-native-runtime-payload.mjs", "config/electron-alternate-ffmpeg-manifest.json", "config/desktop-bundled-codec-corresponding-source.json", "docs/reference/bundled-codec-corresponding-source.md", "src/common/editor/flac/source-manifest.json", "src/common/editor/opus/source-manifest.json", "src/common/editor/vorbis/source-manifest.json", "src/common/editor/wavpack/source-manifest.json", "src/common/editor/mpg123/source-manifest.json", "src/common/editor/lame/source-manifest.json", "src/common/editor/twolame/source-manifest.json", "scripts/lib/desktop-codec-policy.mjs", "scripts/lib/desktop-bundled-audio-runtime.mjs", "scripts/lib/desktop-bundled-codec-notices.mjs", "scripts/lib/desktop-bundled-codec-corresponding-source.mjs", "scripts/lib/bundled-codec-source-input.mjs", "scripts/lib/electron-alternate-ffmpeg.mjs", "scripts/desktop-release-assets.mjs", "tests/assistance-native-runtime-payload.test.js", "tests/desktop-release-package-inventory.test.js", "tests/desktop-audio-codec-runtime-staging.test.js", "tests/desktop-bundled-codec-notices.test.js", "tests/desktop-bundled-codec-corresponding-source.test.js", "THIRD_PARTY_LICENSES.md"]
@@ -121,67 +121,67 @@
 		{
 			"lockPath": "node_modules/@hono/node-server",
 			"name": "@hono/node-server",
-			"version": "1.19.17",
+			"version": "2.1.6",
 			"license": "MIT",
 			"direct": false,
 			"role": "desktop-mcp-server-runtime",
 			"artifactSurfaces": ["electron-shell"],
-			"noticeMarker": "`@hono/node-server` 1.19.17",
+			"noticeMarker": "`@hono/node-server` 2.1.6",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "desktop/mcp-service.ts"]
 		},
 		{
 			"lockPath": "node_modules/@modelcontextprotocol/core",
 			"name": "@modelcontextprotocol/core",
-			"version": "2.3.0",
+			"version": "2.4.0",
 			"license": "Apache-2.0",
 			"direct": false,
 			"role": "desktop-mcp-server-runtime",
 			"artifactSurfaces": ["electron-shell"],
-			"noticeMarker": "`@modelcontextprotocol/core` 2.3.0",
+			"noticeMarker": "`@modelcontextprotocol/core` 2.4.0",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "desktop/mcp-service.ts"]
 		},
 		{
 			"lockPath": "node_modules/@modelcontextprotocol/node",
 			"name": "@modelcontextprotocol/node",
-			"version": "2.1.0",
-			"license": "MIT",
+			"version": "2.1.2",
+			"license": "Apache-2.0",
 			"direct": true,
 			"role": "desktop-mcp-server-runtime",
 			"artifactSurfaces": ["electron-shell"],
-			"noticeMarker": "`@modelcontextprotocol/node` 2.1.0",
+			"noticeMarker": "`@modelcontextprotocol/node` 2.1.2",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "desktop/mcp-service.ts"]
 		},
 		{
 			"lockPath": "node_modules/@modelcontextprotocol/server",
 			"name": "@modelcontextprotocol/server",
-			"version": "2.3.0",
+			"version": "2.4.0",
 			"license": "Apache-2.0",
 			"direct": true,
 			"role": "desktop-mcp-server-runtime",
 			"artifactSurfaces": ["electron-shell"],
-			"noticeMarker": "`@modelcontextprotocol/server` 2.3.0",
+			"noticeMarker": "`@modelcontextprotocol/server` 2.4.0",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "desktop/mcp-service.ts"]
 		},
 		{
 			"lockPath": "node_modules/@noble/hashes",
 			"name": "@noble/hashes",
-			"version": "2.2.0",
+			"version": "2.4.0",
 			"license": "MIT",
 			"direct": true,
 			"role": "application-runtime",
 			"artifactSurfaces": ["web-pages-bundle", "electron-renderer", "electron-shell"],
-			"noticeMarker": "`@noble/hashes` 2.2.0",
+			"noticeMarker": "`@noble/hashes` 2.4.0",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md"]
 		},
 		{
 			"lockPath": "node_modules/@sqlite.org/sqlite-wasm",
 			"name": "@sqlite.org/sqlite-wasm",
-			"version": "3.53.0-build1",
+			"version": "3.54.1-build1",
 			"license": "Apache-2.0",
 			"direct": true,
 			"role": "application-runtime",
 			"artifactSurfaces": ["web-pages-bundle", "electron-renderer"],
-			"noticeMarker": "`@sqlite.org/sqlite-wasm` 3.53.0-build1",
+			"noticeMarker": "`@sqlite.org/sqlite-wasm` 3.54.1-build1",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md"]
 		},
 		{
@@ -209,12 +209,12 @@
 		{
 			"lockPath": "node_modules/@zip.js/zip.js",
 			"name": "@zip.js/zip.js",
-			"version": "2.8.33",
+			"version": "2.24.0",
 			"license": "BSD-3-Clause",
 			"direct": true,
 			"role": "application-runtime",
 			"artifactSurfaces": ["web-pages-bundle", "electron-renderer"],
-			"noticeMarker": "`@zip.js/zip.js` 2.8.33",
+			"noticeMarker": "`@zip.js/zip.js` 2.24.0",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md"]
 		},
 		{
@@ -231,45 +231,45 @@
 		{
 			"lockPath": "node_modules/hono",
 			"name": "hono",
-			"version": "4.13.13",
+			"version": "4.13.17",
 			"license": "MIT",
 			"direct": false,
 			"role": "desktop-mcp-server-runtime",
 			"artifactSurfaces": ["electron-shell"],
-			"noticeMarker": "`hono` 4.13.13",
+			"noticeMarker": "`hono` 4.13.17",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "desktop/mcp-service.ts"]
 		},
 		{
 			"lockPath": "node_modules/mediabunny",
 			"name": "mediabunny",
-			"version": "1.55.3",
+			"version": "1.65.2",
 			"license": "MPL-2.0",
 			"direct": true,
 			"role": "browser-media-container-runtime",
 			"artifactSurfaces": ["web-pages-bundle", "electron-renderer"],
-			"noticeMarker": "`mediabunny` 1.55.3",
+			"noticeMarker": "`mediabunny` 1.65.2",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "src/common/editor/browser-webcodecs-aac.ts", "src/common/editor/video-mediabunny-muxer.ts"]
 		},
 		{
 			"lockPath": "node_modules/react",
 			"name": "react",
-			"version": "19.2.7",
+			"version": "19.2.9",
 			"license": "MIT",
 			"direct": true,
 			"role": "application-runtime",
 			"artifactSurfaces": ["web-pages-bundle", "electron-renderer"],
-			"noticeMarker": "`react` 19.2.7",
+			"noticeMarker": "`react` 19.2.9",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md"]
 		},
 		{
 			"lockPath": "node_modules/react-dom",
 			"name": "react-dom",
-			"version": "19.2.7",
+			"version": "19.2.9",
 			"license": "MIT",
 			"direct": true,
 			"role": "application-runtime",
 			"artifactSurfaces": ["web-pages-bundle", "electron-renderer"],
-			"noticeMarker": "`react-dom` 19.2.7",
+			"noticeMarker": "`react-dom` 19.2.9",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md"]
 		},
 		{
@@ -286,89 +286,107 @@
 		{
 			"lockPath": "node_modules/sherpa-onnx-darwin-arm64",
 			"name": "sherpa-onnx-darwin-arm64",
-			"version": "1.13.5",
+			"version": "2.0.1",
 			"license": "Apache-2.0",
 			"direct": false,
 			"role": "optional-native-assistance-runtime-platform-binary",
 			"artifactSurfaces": ["electron-runtime-assets", "desktop-release-assets"],
-			"noticeMarker": "`sherpa-onnx-darwin-arm64` 1.13.5",
+			"noticeMarker": "`sherpa-onnx-darwin-arm64` 2.0.1",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "docs/architecture/local-assistance.md"]
 		},
 		{
 			"lockPath": "node_modules/sherpa-onnx-darwin-x64",
 			"name": "sherpa-onnx-darwin-x64",
-			"version": "1.13.5",
+			"version": "2.0.1",
 			"license": "Apache-2.0",
 			"direct": false,
 			"role": "optional-native-assistance-runtime-platform-binary",
 			"artifactSurfaces": [],
-			"noticeMarker": "`sherpa-onnx-darwin-x64` 1.13.5",
+			"noticeMarker": "`sherpa-onnx-darwin-x64` 2.0.1",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "docs/architecture/local-assistance.md"]
 		},
 		{
 			"lockPath": "node_modules/sherpa-onnx-linux-arm64",
 			"name": "sherpa-onnx-linux-arm64",
-			"version": "1.13.5",
+			"version": "2.0.1",
 			"license": "Apache-2.0",
 			"direct": false,
 			"role": "optional-native-assistance-runtime-platform-binary",
 			"artifactSurfaces": ["electron-runtime-assets", "desktop-release-assets"],
-			"noticeMarker": "`sherpa-onnx-linux-arm64` 1.13.5",
+			"noticeMarker": "`sherpa-onnx-linux-arm64` 2.0.1",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "docs/architecture/local-assistance.md"]
 		},
 		{
 			"lockPath": "node_modules/sherpa-onnx-linux-x64",
 			"name": "sherpa-onnx-linux-x64",
-			"version": "1.13.5",
+			"version": "2.0.1",
 			"license": "Apache-2.0",
 			"direct": false,
 			"role": "optional-native-assistance-runtime-platform-binary",
 			"artifactSurfaces": ["electron-runtime-assets", "desktop-release-assets"],
-			"noticeMarker": "`sherpa-onnx-linux-x64` 1.13.5",
+			"noticeMarker": "`sherpa-onnx-linux-x64` 2.0.1",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "docs/architecture/local-assistance.md"]
 		},
 		{
 			"lockPath": "node_modules/sherpa-onnx-node",
 			"name": "sherpa-onnx-node",
-			"version": "1.13.5",
+			"version": "2.0.1",
 			"license": "Apache-2.0",
 			"direct": false,
 			"role": "optional-native-assistance-runtime",
 			"artifactSurfaces": ["electron-runtime-assets", "desktop-release-assets"],
-			"noticeMarker": "`sherpa-onnx-node` 1.13.5",
+			"noticeMarker": "`sherpa-onnx-node` 2.0.1",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "docs/architecture/local-assistance.md"]
+		},
+		{
+			"lockPath": "node_modules/sherpa-onnx-win-arm64",
+			"name": "sherpa-onnx-win-arm64",
+			"version": "2.0.1",
+			"license": "Apache-2.0",
+			"direct": false,
+			"role": "optional-native-assistance-runtime-platform-binary",
+			"artifactSurfaces": [
+				"electron-runtime-assets",
+				"desktop-release-assets"
+			],
+			"noticeMarker": "`sherpa-onnx-win-arm64` 2.0.1",
+			"evidence": [
+				"package-lock.json",
+				"THIRD_PARTY_LICENSES.md",
+				"docs/architecture/local-assistance.md"
+			]
 		},
 		{
 			"lockPath": "node_modules/sherpa-onnx-win-ia32",
 			"name": "sherpa-onnx-win-ia32",
-			"version": "1.13.5",
+			"version": "2.0.1",
 			"license": "Apache-2.0",
 			"direct": false,
 			"role": "optional-native-assistance-runtime-platform-binary",
 			"artifactSurfaces": [],
-			"noticeMarker": "`sherpa-onnx-win-ia32` 1.13.5",
+			"noticeMarker": "`sherpa-onnx-win-ia32` 2.0.1",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "docs/architecture/local-assistance.md"]
 		},
 		{
 			"lockPath": "node_modules/sherpa-onnx-win-x64",
 			"name": "sherpa-onnx-win-x64",
-			"version": "1.13.5",
+			"version": "2.0.1",
 			"license": "Apache-2.0",
 			"direct": false,
 			"role": "optional-native-assistance-runtime-platform-binary",
 			"artifactSurfaces": ["electron-runtime-assets", "desktop-release-assets"],
-			"noticeMarker": "`sherpa-onnx-win-x64` 1.13.5",
+			"noticeMarker": "`sherpa-onnx-win-x64` 2.0.1",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "docs/architecture/local-assistance.md"]
 		},
 		{
 			"lockPath": "node_modules/zod",
 			"name": "zod",
-			"version": "4.6.6",
+			"version": "4.6.7",
 			"license": "MIT",
 			"direct": true,
 			"role": "desktop-mcp-server-runtime",
 			"artifactSurfaces": ["electron-shell"],
-			"noticeMarker": "`zod` 4.6.6",
+			"noticeMarker": "`zod` 4.6.7",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "desktop/mcp-service.ts"]
 		}
 	],
@@ -376,12 +394,12 @@
 		{
 			"name": "electron",
 			"lockPath": "node_modules/electron",
-			"version": "43.8.3",
+			"version": "45.2.3",
 			"license": "MIT",
-			"declaredVersion": "43.8.3",
+			"declaredVersion": "45.2.3",
 			"role": "packaged-desktop-runtime",
 			"artifactSurfaces": ["electron-shell"],
-			"noticeMarker": "Electron 43.8.3",
+			"noticeMarker": "Electron 45.2.3",
 			"evidence": ["package-lock.json", "electron-builder.config.cjs", "THIRD_PARTY_LICENSES.md"]
 		}
 	],
@@ -613,7 +631,7 @@
 		"bundledFfmpegWasm": false,
 		"electronFrameworkFfmpeg": {
 			"status": "distributed-verified-framework-exception",
-			"electronVersion": "43.8.3",
+			"electronVersion": "45.2.3",
 			"profile": "electron-alternate-without-proprietary-codecs",
 			"upstreamIntent": "omit-proprietary-codec-support",
 			"providerTier": false,
@@ -747,7 +765,7 @@
 			"payloadManifest": "runtime/native/soundscaper-os-audio-codec/<target>/os-audio-codec-native-payload-manifest.json",
 			"payloadStatus": "target-native-ci-build-required-mac-arm64-win-x64-win-arm64",
 			"buildTargets": ["mac-arm64", "win-x64", "win-arm64"],
-			"buildChecks": ["pinned-electron-43.8.3-headers", "repository-source-closure", "build-plan", "target-toolchain", "native-ctest-canaries", "payload-byte-length-and-sha256"],
+			"buildChecks": ["pinned-electron-45.2.3-headers", "repository-source-closure", "build-plan", "target-toolchain", "native-ctest-canaries", "payload-byte-length-and-sha256"],
 			"packageChecks": ["canonical-build-result", "exact-two-file-target-subtree", "manifest-payload-summary-equality", "before-pack-verification", "after-pack-verification", "content-manifest-closure", "startup-reauthentication"],
 			"codeSeal": { "mac-arm64": "ad-hoc-execution-check-before-hash", "win-x64": "not-applicable", "win-arm64": "not-applicable" },
 			"windows": {
@@ -1650,6 +1668,120 @@
 		}
 	],
 	"localModelEvidence": [
+		{
+			"id": "gtcrn",
+			"purpose": "Lightweight speech noise reduction through the Sherpa streaming denoiser.",
+			"runtimeFormat": "onnx",
+			"codeLicense": "MIT",
+			"weightsLicense": "MIT",
+			"attributionRequired": false,
+			"distributionStatus": "permitted",
+			"blockedBy": [],
+			"requirements": {
+				"weights-and-code-license-review": {
+					"status": "recorded",
+					"summary": "The official repository distributes the streaming ONNX checkpoint under its MIT license; no separate restrictive checkpoint terms are stated. The retained README and license record the reviewed scope."
+				},
+				"training-data-provenance-record": {
+					"status": "recorded",
+					"summary": "The upstream README names DNS3 and VCTK-DEMAND as the checkpoint training datasets."
+				},
+				"model-card-and-use-restrictions": {
+					"status": "recorded",
+					"summary": "No additional use restriction is stated beyond MIT. Enhancement and speaker isolation can remove wanted audio and require user review."
+				},
+				"versioned-download-notices-and-hashes": {
+					"status": "recorded",
+					"summary": "The exact ONNX artifacts are pinned by size and SHA-256, structurally inspected, and identity-mirrored to immutable product asset keys. Public HEAD, Range, CORS and complete hash readback are recorded in evidence/local-model-publication/sherpa-enhancement.json. Offline notices retain the first-party grants."
+				}
+			},
+			"provenanceSources": [
+				"https://github.com/Xiaobin-Rong/gtcrn",
+				"https://github.com/k2-fsa/sherpa-onnx/releases/download/speech-enhancement-models/"
+			],
+			"evidence": [
+				"LICENSES/local-models/sherpa-enhancement",
+				"evidence/sherpa-enhancement-models.json",
+				"evidence/local-model-publication/sherpa-enhancement.json",
+				"THIRD_PARTY_LICENSES.md"
+			]
+		},
+		{
+			"id": "dpdfnet2-48khz",
+			"purpose": "Full-band 48 kHz speech enhancement through the Sherpa DPDFNet2 denoiser.",
+			"runtimeFormat": "onnx",
+			"codeLicense": "Apache-2.0",
+			"weightsLicense": "Apache-2.0",
+			"attributionRequired": false,
+			"distributionStatus": "permitted",
+			"blockedBy": [],
+			"requirements": {
+				"weights-and-code-license-review": {
+					"status": "recorded",
+					"summary": "The upstream model and code declare Apache-2.0. Retained first-party license/model-card evidence and source URLs accompany the unmodified Sherpa-compatible ONNX bytes."
+				},
+				"training-data-provenance-record": {
+					"status": "recorded",
+					"summary": "The upstream repository describes speech enhancement training and links its evaluation data; a complete per-recording training inventory is not published."
+				},
+				"model-card-and-use-restrictions": {
+					"status": "recorded",
+					"summary": "No additional use restriction is stated beyond Apache-2.0. Enhancement and speaker isolation can remove wanted audio and require user review."
+				},
+				"versioned-download-notices-and-hashes": {
+					"status": "recorded",
+					"summary": "The exact ONNX artifacts are pinned by size and SHA-256, structurally inspected, and identity-mirrored to immutable product asset keys. Public HEAD, Range, CORS and complete hash readback are recorded in evidence/local-model-publication/sherpa-enhancement.json. Offline notices retain the first-party grants."
+				}
+			},
+			"provenanceSources": [
+				"https://github.com/ceva-ip/DPDFNet",
+				"https://github.com/k2-fsa/sherpa-onnx/releases/download/speech-enhancement-models/"
+			],
+			"evidence": [
+				"LICENSES/local-models/sherpa-enhancement",
+				"evidence/sherpa-enhancement-models.json",
+				"evidence/local-model-publication/sherpa-enhancement.json",
+				"THIRD_PARTY_LICENSES.md"
+			]
+		},
+		{
+			"id": "voxlock",
+			"purpose": "Keep the main speaker while suppressing competing voices using one shared enrollment sample.",
+			"runtimeFormat": "onnx",
+			"codeLicense": "Apache-2.0",
+			"weightsLicense": "Apache-2.0",
+			"attributionRequired": false,
+			"distributionStatus": "permitted",
+			"blockedBy": [],
+			"requirements": {
+				"weights-and-code-license-review": {
+					"status": "recorded",
+					"summary": "The upstream model and code declare Apache-2.0. Retained first-party license/model-card evidence and source URLs accompany the unmodified Sherpa-compatible ONNX bytes."
+				},
+				"training-data-provenance-record": {
+					"status": "recorded",
+					"summary": "The retained model card names LibriSpeech and AMI, and identifies the Wespeaker VoxCeleb ECAPA-TDNN512 base model. This records upstream disclosure, not an independent training-data audit."
+				},
+				"model-card-and-use-restrictions": {
+					"status": "recorded",
+					"summary": "No additional use restriction is stated beyond Apache-2.0. Enhancement and speaker isolation can remove wanted audio and require user review."
+				},
+				"versioned-download-notices-and-hashes": {
+					"status": "recorded",
+					"summary": "The exact ONNX artifacts are pinned by size and SHA-256, structurally inspected, and identity-mirrored to immutable product asset keys. Public HEAD, Range, CORS and complete hash readback are recorded in evidence/local-model-publication/sherpa-enhancement.json. Offline notices retain the first-party grants."
+				}
+			},
+			"provenanceSources": [
+				"https://huggingface.co/arbazsiddiqui/voxlock",
+				"https://github.com/arbazsiddiqui/voxlock/releases/download/sherpa-onnx-models/"
+			],
+			"evidence": [
+				"LICENSES/local-models/sherpa-enhancement",
+				"evidence/sherpa-enhancement-models.json",
+				"evidence/local-model-publication/sherpa-enhancement.json",
+				"THIRD_PARTY_LICENSES.md"
+			]
+		},
 		{
 			"id": "silero-vad-v6",
 			"purpose": "Voice activity detection and silence segmentation for every speech pipeline stage.",

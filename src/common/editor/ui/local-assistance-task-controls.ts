@@ -6,6 +6,7 @@ import type { AssistanceGuidedWorkflowId } from '../assistance/workflow-recipes.
 import { defaultAssistanceWorkflowSettingsV1,
 	type AssistanceWorkflowSettingsV1 } from '../assistance/workflow-settings-v1.ts';
 import { assistanceTaskModelFilter } from '../controller/assistance/local-assistance-task-models.ts';
+import { SPEECH_ENHANCEMENT_MODELS } from '../assistance/speech-enhancement-models.ts';
 
 type Model = Pick<LocalAssistanceModel, 'modelId' | 'version' | 'task'>;
 type Copy = Readonly<Record<string, string | undefined>>;
@@ -27,6 +28,11 @@ export function assistanceTaskRecognizerChoices(models: readonly Model[]): reado
 export function assistanceTaskSettingsForModels(
 	settings: AssistanceWorkflowSettingsV1, models: readonly Model[],
 ): AssistanceWorkflowSettingsV1 {
+	if (settings.workflowId === 'enhance-dialogue') {
+		const choices = enhancementChoices(models);
+		return choices.length === 1 && settings.modelId === undefined && choices[0]!.modelId !== 'deepfilternet3'
+			? { ...settings, modelId: choices[0]!.modelId } : settings;
+	}
 	if (settings.workflowId !== 'transcribe-captions') return settings;
 	const choices = assistanceTaskRecognizerChoices(models);
 	return choices.length === 1 && settings.recognizer !== choices[0]!.recognizer
@@ -34,10 +40,19 @@ export function assistanceTaskSettingsForModels(
 }
 
 export function assistanceTaskHasControls(settings: AssistanceWorkflowSettingsV1, models: readonly Model[]): boolean {
+	if (settings.workflowId === 'enhance-dialogue') {
+		const choices = enhancementChoices(models);
+		return choices.length > 1 || choices.some(({ modelId }) => modelId === 'voxlock');
+	}
 	if (settings.workflowId === 'transcribe-captions' && assistanceTaskRecognizerChoices(models).length > 1) return true;
 	return !['enhance-dialogue', 'reduce-reverb', 'separate-dialogue-music-effects',
 		'identify-speakers', 'index-transcript'].includes(settings.workflowId)
 		&& !settings.workflowId.startsWith('advanced:');
+}
+
+function enhancementChoices(models: readonly Model[]) {
+	return SPEECH_ENHANCEMENT_MODELS.filter((choice) => models.some((model) => model.modelId === choice.modelId
+		&& model.version === choice.version && model.task === 'speech-enhancement'));
 }
 
 export function assistanceTaskActionLabel(workflowId: AssistanceGuidedWorkflowId, copy: Copy): string {

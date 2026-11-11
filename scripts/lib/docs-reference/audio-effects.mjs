@@ -31,6 +31,7 @@ const CATEGORY_LABELS = Object.freeze({
  * rather than guessed from the identifier.
  */
 const LOCAL_EFFECT_CATEGORIES = Object.freeze({
+	'auto-tune': 'pitch-tempo',
 	deesser: 'repair',
 	'multiband-compressor': 'volume',
 	highpass: 'eq',
@@ -63,6 +64,7 @@ const BROWSER_ADAPTATION_NOTES = Object.freeze({
 });
 
 const LOCAL_EFFECT_NOTES = Object.freeze({
+	'auto-tune': ['Solo voice or melody (65–1500 Hz); chromatic, major or natural minor pitch correction', 'StaffPad formant preservation; fixed rack latency (about 72 ms at 48 kHz), live controls, no timeline automation'],
 	'multi-tap-delay': ['Finite echoes with StaffPad pitch shift; selections also offer changed-speed echoes and optional complete tails'],
 	'noise-gate': ['Lookahead opens the gate before transients; rack and selection timing are compensated', 'Linked or independent channels; optional frequency-selective gating'],
 	vocoder: ['Stereo uses the left channel as voice and the right as carrier; mono uses a synthesized carrier', 'Output keeps the input channel count'],
@@ -259,6 +261,8 @@ export function renderAudioEffectReference(context) {
 		'Vocoder uses 10 to 240 logarithmically spaced bands from 20 Hz to just below half the sample rate, with the same band-width settings as the bundled Nyquist effect. Distance controls an eighth-order envelope low-pass filter: higher values smooth the voice envelope more slowly. In stereo, the left channel supplies the voice envelope and the right channel supplies the carrier. Mono input uses sine carriers at the band centers, mixed with optional white noise and radar pulses. Both channels preserves the voice on the left and puts vocoded audio on the right; Vocoded audio duplicates the processed signal into the first stereo pair. Additional channels pass through unchanged. The processor normalizes against its largest output peak since playback began, with a bounded gain, then applies Output gain. Unlike Nyquist’s whole-selection normalization, this cannot anticipate later peaks, so the beginning may be louder. The output keeps the input channel count. Rack playback and export include its filter and envelope release, subject to the existing combined 10-second tail limit.',
 		'',
 		'## Why some effects are selection-only',
+		'',
+		'Auto-Tune corrects a solo voice or melody instrument in realtime racks or on a selection. Open Effect > Add realtime effects and add Auto-Tune to a track or master rack, or open Effect > Distortion and modulation > Auto-Tune to preview or apply a selection. Choose a key and scale; Chromatic uses every semitone. Correction amount sets how far notes move toward the scale; Retune speed sets the response time in milliseconds (0 snaps immediately). Mix blends the original and corrected audio. Detection covers 65–1500 Hz and leaves unvoiced windows unshifted. Use isolated vocals or a single melody rather than chords or a full mix. The bundled StaffPad processor preserves formants. Rack controls can change during playback without rebuilding the processor. Timeline automation is unavailable. The fixed processing delay is about 72 ms at 48 kHz, including with zero Mix or Correction amount; playback and export use rack latency compensation. Selection rendering keeps the original duration.',
 		'',
 		'These effects cannot be a realtime insert, because each one needs more of the selection than a live block gives it.',
 		'',

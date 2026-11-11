@@ -1,28 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { readFileSync } from 'node:fs';
-import { strFromU8, unzipSync } from 'fflate';
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, chooseDropdown, chooseExportProjectFileAction, chooseFileAction, disableNativeSavePicker, downloadBytes, importFiles, openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, chooseDropdown, chooseFileAction, disableNativeSavePicker, importFiles, openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
 
 // Native BWF MetaEdit26.08.1 --in-iXML over stereo48kHz16bit recording.
 const recording = Buffer.from(readFileSync(new URL('../fixtures/bwfmetaedit-file-uid.wav.base64', import.meta.url), 'utf8').trim(), 'base64');
-const uid = 'RECORDER-FILE-UNIQUE-0001';
 const warning = 'The source file identifier was omitted from newly rendered audio files.';
 
-test('native Save retains the original recorder file identity as source context', async ({ page }) => {
-	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
-	await importFiles(editor, [{ name: 'Recorder.wav', mimeType: 'audio/wav', buffer: recording }]);
-	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
-	const downloading = page.waitForEvent('download');
-	await chooseExportProjectFileAction(page, editor);
-	const download = await downloading;
-	const entries = unzipSync(await downloadBytes(download)); await download.delete();
-	const project = JSON.parse(strFromU8(entries['project.json']));
-	expect(project.metadata.ixml.rawXml).toContain(`<FILE_UID>${uid}</FILE_UID>`);
-});
-
+// Physical source FILE_UID/PCM custody: audio-editor-ixml-file-identity.test.ts.
 test('different rendered BWF ranges retain family context without claiming the source physical identity', async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });

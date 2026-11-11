@@ -2,6 +2,7 @@ import { createWavFixture, expect, longTone, test } from './audio-editor-test-fi
 import {
 	bootEditor,
 	chooseCommandAction,
+	chooseExportProjectFileAction,
 	chooseDropdown,
 	disableNativeSavePicker,
 	importFiles,
@@ -13,7 +14,7 @@ import {
 test.describe('audio editor task progress', () => {
 	registerAudioEditorHooks();
 
-	test('announces bounded work in the status area and removes it after completion', async ({ page }) => {
+	test('announces blocking work in a dialog and removes it after completion', async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/');
 		await editor.evaluate((root) => {
 			globalThis.__taskProgressEvents = [];
@@ -22,6 +23,7 @@ test.describe('audio editor task progress', () => {
 				if (!progress) return;
 				const bar = progress.querySelector('[role="progressbar"]');
 				globalThis.__taskProgressEvents.push({
+					modal: Boolean(progress.closest('[role="dialog"][aria-modal="true"]')),
 					kind: progress.getAttribute('data-editor-task-progress'),
 					indeterminate: progress.hasAttribute('data-indeterminate'),
 					role: bar?.getAttribute('role'),
@@ -35,11 +37,37 @@ test.describe('audio editor task progress', () => {
 		const events = await page.evaluate(() => globalThis.__taskProgressEvents);
 		expect(events.some((event) => (
 			event.kind === 'import'
+			&& event.modal
 			&& event.indeterminate
 			&& event.role === 'progressbar'
 			&& event.value === null
 		))).toBe(true);
 		await expect(editor.locator('[data-editor-task-progress]')).toHaveCount(0);
+		await expect(editor.locator('[data-task-progress-dialog]')).toHaveCount(0);
+	});
+
+	test('keeps a non-blocking project save in a toast while the status bar is hidden', async ({ page }) => {
+		await page.addInitScript(() => {
+			Object.defineProperty(globalThis, 'showSaveFilePicker', { configurable: true, value: async () => {
+				await new Promise((resolve) => { globalThis.__releaseProgressSavePicker = resolve; });
+				throw new DOMException('Cancelled', 'AbortError');
+			} });
+		});
+		const editor = await bootEditor(page, '/embed/en/');
+		await chooseCommandAction(page, editor, 'View', 'Status bar');
+		await chooseExportProjectFileAction(page, editor);
+		const toast = editor.getByRole('region', { name: 'Saving project', exact: true });
+		await expect(toast).toBeVisible();
+		await expect(toast.getByRole('progressbar')).toBeVisible();
+		await expect(toast.getByRole('progressbar')).not.toHaveAttribute('aria-valuenow');
+		await expect(editor.getByRole('dialog')).toHaveCount(0);
+		await expect(toast.getByRole('button')).toHaveCount(0);
+		// The editor remains interactive while the save owns its progress toast.
+		await chooseCommandAction(page, editor, 'View', 'Status bar');
+		await expect(toast).toBeVisible();
+		await expect(editor.locator('[data-selection-toolbar]').getByRole('progressbar')).toHaveCount(0);
+		await page.evaluate(() => { globalThis.__releaseProgressSavePicker(); });
+		await expect(toast).toHaveCount(0);
 	});
 
 	test('streams MP3 past the old frame ceiling and reports encoding progress with the status bar hidden', async ({ page }) => {
@@ -58,6 +86,7 @@ test.describe('audio editor task progress', () => {
 					label: bar.getAttribute('aria-label'),
 					value: Number(bar.getAttribute('aria-valuenow')),
 					visible: progress.getBoundingClientRect().height > 0,
+					modal: Boolean(progress.closest('[role="dialog"][aria-modal="true"]')),
 				});
 			}).observe(root, { attributes: true, childList: true, subtree: true });
 		});
@@ -75,11 +104,11 @@ test.describe('audio editor task progress', () => {
 		const bytes = await readDownloadBytes(page, download);
 		expect(bytes.length).toBeGreaterThan(1_000_000);
 		const progress = await page.evaluate(() => globalThis.__encodingProgress);
-		expect(progress.some((event) => event.visible && /encoding/iu.test(event.label) && event.value > 70 && event.value < 95)).toBe(true);
+		expect(progress.some((event) => event.visible && event.modal && /encoding/iu.test(event.label) && event.value > 70 && event.value < 95)).toBe(true);
 		await expect(editor.locator('[data-editor-task-progress]')).toHaveCount(0);
 	});
 
-	test('cancels an import from its active progress bar and releases the task for another import', async ({ page }) => {
+	test('contains focus in the blocking dialog and cancels an import for another import', async ({ page }) => {
 		await page.addInitScript(() => {
 			globalThis.__slowImportReads = true;
 			const read = Blob.prototype.arrayBuffer;
@@ -89,12 +118,26 @@ test.describe('audio editor task progress', () => {
 			};
 		});
 		const editor = await bootEditor(page, '/embed/en/');
+		await chooseCommandAction(page, editor, 'View', 'Status bar');
 		await editor.locator('[data-import-input]').setInputFiles([longTone]);
-		const progress = editor.locator('[data-editor-task-progress="import"]');
+		const dialog = editor.getByRole('dialog');
+		await expect(dialog).toBeVisible();
+		await expect(dialog).toHaveAttribute('aria-modal', 'true');
+		const progress = dialog.locator('[data-editor-task-progress="import"]');
 		await expect(progress).toBeVisible();
 		await expect(progress.getByRole('button', { name: 'Cancel', exact: true })).toBeEnabled();
+		await expect(dialog).toBeFocused();
+		await page.keyboard.press('Tab');
+		await expect(progress.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
+		await page.keyboard.press('Tab');
+		await expect(dialog.getByRole('button', { name: /^Resize:/u })).toBeFocused();
+		await page.keyboard.press('Tab');
+		await expect(progress.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
+		await page.keyboard.press('Escape');
+		await expect(dialog).toBeVisible();
 		await progress.getByRole('button', { name: 'Cancel', exact: true }).click();
 		await expect(progress).toHaveCount(0, { timeout: 10_000 });
+		await expect(dialog).toHaveCount(0);
 		await page.evaluate(() => { globalThis.__slowImportReads = false; });
 		await importFiles(editor, [longTone]);
 		await expect(editor.locator('[data-editor-task-progress]')).toHaveCount(0);

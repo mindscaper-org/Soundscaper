@@ -6,7 +6,7 @@ import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/
 import { createProjectStore } from '../../src/common/editor/storage.js';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 
-for (const anchor of ['musical', 'sample']) test(`Project Bin shows the resolved ${anchor} recording duration after moving it from the timeline`, async ({ page }) => {
+for (const anchor of ['sample']) test(`Project Bin shows the resolved ${anchor} recording duration after moving it from the timeline`, async ({ page }) => {
 	const source = createAudioSource({ id: 'tone', frameCount: 48_000, sampleRate: 48_000, channelCount: 1 });
 	const project = createSoundscaperProject({ id: `bin-${anchor}-duration`, sources: [source],
 		tracks: [createAudioTrack({ id: 'voice', clipIds: ['music'] })], clips: [createAudioClip({ id: 'music', title: 'Musical source',

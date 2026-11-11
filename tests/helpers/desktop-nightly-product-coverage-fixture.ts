@@ -93,7 +93,7 @@ async function write(path: string, contents: string) {
 function assistanceRuntimeDistribution() {
 	const targetId = 'linux-x64';
 	const families = [
-		['sherpa-onnx-node', '1.13.5', 'sherpa-onnx'],
+		['sherpa-onnx-node', '2.0.1', 'sherpa-onnx'],
 		['onnxruntime-node', '1.29.0', 'onnxruntime-node'],
 		['whisper-cpp', 'v1.9.3', 'whisper-cpp'],
 		['llama-cpp', 'b10509', 'llama-cpp'],

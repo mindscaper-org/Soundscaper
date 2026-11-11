@@ -7,7 +7,7 @@ inventory under `licenses/professional-native/`. The exact filenames, byte
 lengths, SHA-256 digests, source targets, and selected license arms are recorded
 in [`config/soundscaper-professional-native-notices.json`](config/soundscaper-professional-native-notices.json):
 
-- Electron 43.8.3 Node-API headers — MIT; all five targets
+- Electron 45.2.3 Node-API headers — MIT; all five targets
 - JUCE 9.0.1 — AGPL-3.0-only selected; all five targets
 - CLAP 1.2.4 — MIT; all five targets
 - VST3 SDK 3.8.0 build 66 — MIT; all five targets
@@ -528,7 +528,7 @@ reject application-supplied FFmpeg and libav executables or libraries, the
 FFmpeg media host. The desktop application therefore does not redistribute an
 FFmpeg/libav application codec provider or FFmpeg WebAssembly runtime.
 
-Electron itself is a distinct framework dependency. Stock Electron 43.8.3
+Electron itself is a distinct framework dependency. Stock Electron 45.2.3
 includes a Chromium `libffmpeg` media library with proprietary codec support.
 Desktop packaging sets electron-builder's `downloadAlternateFFmpeg` option so
 the stock library is replaced with Electron's matching alternate release asset,
@@ -542,7 +542,7 @@ against
 - macOS ARM64 uses `libffmpeg.dylib`; macOS x64 is unsupported and has no row;
 - Windows x64 and ARM64 use `ffmpeg.dll`.
 
-That manifest binds Electron 43.8.3, the exact five release-archive names and
+That manifest binds Electron 45.2.3, the exact five release-archive names and
 archive SHA-256 values, and each unpacked library's byte length and SHA-256.
 The after-pack verifier re-hashes the exact framework location before final
 package assembly. The library remains part of Electron/Chromium and its notices; it
@@ -667,13 +667,13 @@ source pinning, and an update to this document before distribution.
 
 ## Desktop runtime and build tooling
 
-- Electron 43.8.3 — MIT; source: <https://github.com/electron/electron/tree/v43.8.3>. Packaged desktop applications include Electron's license and `LICENSES.chromium.html`, which carries Chromium and bundled component notices.
-- `@modelcontextprotocol/core` 2.3.0 and `@modelcontextprotocol/server` 2.3.0 — the pinned desktop MCP protocol and server SDK packages. Their npm metadata declares Apache-2.0; the installed `LICENSE` files retain MIT for contributions without relicensing consent. Copyright the MCP project contributors; exact source packages: <https://registry.npmjs.org/@modelcontextprotocol/core/-/core-2.3.0.tgz> and <https://registry.npmjs.org/@modelcontextprotocol/server/-/server-2.3.0.tgz>.
-- `@modelcontextprotocol/node` 2.1.0 — the desktop MCP Node HTTP adapter. Its npm metadata declares MIT; its installed `LICENSE` records the Apache-2.0 transition with MIT retained for contributions without relicensing consent. Copyright the MCP project contributors; exact source package: <https://registry.npmjs.org/@modelcontextprotocol/node/-/node-2.1.0.tgz>.
-- `@hono/node-server` 1.19.17 — MIT; transitive HTTP adapter for the desktop MCP server; Copyright © 2022-present Yusuke Wada and Hono contributors; source and license: <https://github.com/honojs/node-server/tree/v1.19.17>.
-- `hono` 4.13.13 — MIT; transitive HTTP routing for the desktop MCP server; Copyright © 2021-present Yusuke Wada and Hono contributors; source and license: <https://github.com/honojs/hono/tree/v4.13.13>.
-- `zod` 4.6.6 — MIT; schema validation for desktop MCP tool inputs; Copyright © 2025 Colin McDonnell; source and license: <https://github.com/colinhacks/zod/tree/v4.6.6>.
-- electron-builder 26.17.0 — MIT; build-time packaging tool, not part of the application runtime; exact npm source package: <https://registry.npmjs.org/electron-builder/-/electron-builder-26.17.0.tgz> (`sha512-iYHBRiagS9sDIbZx1ZD113f5rEGQvtpvTvHf70ovHKJ8mRvxwIkWX7JCwfmVQmVS4eX735p7TZmoxHnBPwF3vA==`); upstream repository: <https://github.com/electron-userland/electron-builder>.
+- Electron 45.2.3 — MIT; source: <https://github.com/electron/electron/tree/v45.2.3>. Packaged desktop applications include Electron's license and `LICENSES.chromium.html`, which carries Chromium and bundled component notices.
+- `@modelcontextprotocol/core` 2.4.0 and `@modelcontextprotocol/server` 2.4.0 — the pinned desktop MCP protocol and server SDK packages. Their npm metadata declares Apache-2.0; the installed `LICENSE` files retain MIT for contributions without relicensing consent. Copyright the MCP project contributors; exact source packages: <https://registry.npmjs.org/@modelcontextprotocol/core/-/core-2.4.0.tgz> and <https://registry.npmjs.org/@modelcontextprotocol/server/-/server-2.4.0.tgz>.
+- `@modelcontextprotocol/node` 2.1.2 — the desktop MCP Node HTTP adapter. Its npm metadata declares Apache-2.0; its installed `LICENSE` records the Apache-2.0 transition with MIT retained for contributions without relicensing consent. Copyright the MCP project contributors; exact source package: <https://registry.npmjs.org/@modelcontextprotocol/node/-/node-2.1.2.tgz>.
+- `@hono/node-server` 2.1.6 — MIT; transitive HTTP adapter for the desktop MCP server; Copyright © 2022-present Yusuke Wada and Hono contributors; source and license: <https://github.com/honojs/node-server/tree/v2.1.6>.
+- `hono` 4.13.17 — MIT; transitive HTTP routing for the desktop MCP server; Copyright © 2021-present Yusuke Wada and Hono contributors; source and license: <https://github.com/honojs/hono/tree/v4.13.17>.
+- `zod` 4.6.7 — MIT; schema validation for desktop MCP tool inputs; Copyright © 2025 Colin McDonnell; source and license: <https://github.com/colinhacks/zod/tree/v4.6.7>.
+- electron-builder 26.18.1 — MIT; build-time packaging tool, not part of the application runtime; exact npm source package: <https://registry.npmjs.org/electron-builder/-/electron-builder-26.18.1.tgz> (`sha512-uA3To9X/D4ozwP8k/o/MCfKi/xETyPV0FkhTaqdgIT679uexsQ8QFE+PhF8x6PY8W1jIJrw9/yadTuOWTpmAew==`); upstream repository: <https://github.com/electron-userland/electron-builder>.
 - `@electron/fuses` 2.1.3 — MIT; build-time hardening tool used to disable unsafe Electron runtime switches during package finalization; source: <https://github.com/electron/fuses/tree/v2.1.3>.
 - `@resvg/resvg-js` 2.6.2 — MPL-2.0; unmodified build-time rasterizer used only to derive platform icons from the existing Soundscaper SVG mark; source: <https://github.com/yisibl/resvg-js/tree/v2.6.2>.
 - `wawoff2` 2.0.1 — MIT; pinned build-time WebAssembly compiler used only to derive the browser-delivery `MusescoreIcon.woff2` from the retained upstream TTF; source: <https://github.com/fontello/wawoff2/tree/2.0.1>.
@@ -683,6 +683,20 @@ artifacts. Build-only packaging and icon tools are not shipped. Soundscaper does
 not modify these packages; their installed license files and upstream source are
 available from the pinned links above.
 
+## Node DSP test runtime
+
+`node-web-audio-api` 2.2.0 — BSD-3-Clause; Copyright (c) 2021-present IRCAM –
+Centre Pompidou (France, Paris). This unmodified development dependency supplies
+Web Audio for Node DSP integration tests and is excluded from the browser and
+packaged desktop runtime dependencies. Exact npm archive:
+<https://registry.npmjs.org/node-web-audio-api/-/node-web-audio-api-2.2.0.tgz>
+(`sha512-qM3dW3Z5HIz+O+++Uiia8x0OSNHcfJGUlexpCTdAkw8JlM17Ru1nV9a94wlxNRXqxT0Lr/ewwEnBXUwGMt24AA==`);
+upstream source: <https://github.com/ircam-ismm/node-web-audio-api/tree/030018b81025d1797569b06d6295fadd32d2354e>;
+license: <https://github.com/ircam-ismm/node-web-audio-api/blob/030018b81025d1797569b06d6295fadd32d2354e/LICENSE>.
+Its native backend includes the MIT-licensed `web-audio-api` 1.7.0 Rust core
+(<https://github.com/orottier/web-audio-api-rs/tree/v1.7.0>) and MPL-2.0-licensed
+Symphonia 0.6.0 (<https://github.com/pdeljanov/Symphonia/tree/v0.6.0>).
+
 ## Nightly-with-tests diagnostic tooling
 
 The opt-in `nightly-with-tests` CI artifact is a diagnostic test runner, not a
@@ -690,21 +704,21 @@ normal desktop package or public release. It additionally distributes the
 following pinned tools solely so the extracted application can run its bundled
 browser workflows without an npm installation:
 
-- `@playwright/test` 1.62.1, `playwright` 1.62.1, and `playwright-core` 1.62.1 — Apache-2.0; Copyright Microsoft Corporation; source: <https://github.com/microsoft/playwright/tree/v1.62.1>
-- `@axe-core/playwright` 4.12.1 and `axe-core` 4.12.1 — MPL-2.0; Copyright Deque Systems, Inc.; source: <https://github.com/dequelabs/axe-core/tree/v4.12.1>
-- WinLDD `PrintDeps.exe` (Playwright revision 1007) — MIT; Copyright (c) 2020 Julien Waechter; source and embedded license header: <https://github.com/microsoft/playwright/blob/v1.62.1/browser_patches/winldd/PrintDeps.cpp>; binary-only archive recipe: <https://github.com/microsoft/playwright/blob/v1.62.1/browser_patches/winldd/archive.sh>; bundled terms: [`LICENSES/Playwright-winldd-MIT.txt`](LICENSES/Playwright-winldd-MIT.txt)
-- `esbuild` 0.28.1 — MIT; Copyright (c) 2020 Evan Wallace; source: <https://github.com/evanw/esbuild/tree/v0.28.1>; the browser specs compile the TypeScript sources they serve to each engine. Each package targets exactly one platform, so the artifact carries only the `@esbuild/<platform>-<architecture>` 0.28.1 binary package its own target runs, under the same MIT terms and the `esbuild` `LICENSE.md` staged beside it
+- `@playwright/test` 1.65.0, `playwright` 1.65.0, and `playwright-core` 1.65.0 — Apache-2.0; Copyright Microsoft Corporation; source: <https://github.com/microsoft/playwright/tree/v1.65.0>
+- `@axe-core/playwright` 4.14.0 and `axe-core` 4.14.0 — MPL-2.0; Copyright Deque Systems, Inc.; source: <https://github.com/dequelabs/axe-core/tree/v4.14.0>
+- WinLDD `PrintDeps.exe` (Playwright revision 1007) — MIT; Copyright (c) 2020 Julien Waechter; source and embedded license header: <https://github.com/microsoft/playwright/blob/v1.65.0/browser_patches/winldd/PrintDeps.cpp>; binary-only archive recipe: <https://github.com/microsoft/playwright/blob/v1.65.0/browser_patches/winldd/archive.sh>; bundled terms: [`LICENSES/Playwright-winldd-MIT.txt`](LICENSES/Playwright-winldd-MIT.txt)
+- `esbuild` 0.28.2 — MIT; Copyright (c) 2020 Evan Wallace; source: <https://github.com/evanw/esbuild/tree/v0.28.2>; the browser specs compile the TypeScript sources they serve to each engine. Each package targets exactly one platform, so the artifact carries only the `@esbuild/<platform>-<architecture>` 0.28.2 binary package its own target runs, under the same MIT terms and the `esbuild` `LICENSE.md` staged beside it
 - `typescript` 6.0.3 — Apache-2.0; Copyright Microsoft Corporation; source: <https://github.com/microsoft/TypeScript/tree/v6.0.3>
 
 Playwright's pinned browser inventory for that artifact identifies
-Chrome for Testing 151.0.7922.34 (Playwright revision 1234),
-Firefox 153.0 (Playwright revision 1538), and
-WebKit 26.5 (Playwright revision 2336). Platform-specific revision
+Chrome for Testing 158.0.8127.18 (Playwright revision 1254),
+Firefox 159.0 (Playwright revision 1572), and
+WebKit 27.2 (Playwright revision 2388). Platform-specific revision
 overrides remain recorded in the distributed `playwright-core/browsers.json`.
 The downloaded archives retain the license and notice material they provide,
 including Chromium's component notices and Playwright's LGPL-2.1 FFmpeg copy;
 the corresponding Playwright browser patches and build scripts are at
-<https://github.com/microsoft/playwright/tree/v1.62.1/browser_patches>.
+<https://github.com/microsoft/playwright/tree/v1.65.0/browser_patches>.
 
 The artifact also retains each staged npm package's installed `LICENSE`,
 `NOTICE`, and third-party-notice files. This deliberately broader diagnostic
@@ -758,20 +772,20 @@ The browser tools can distribute the following pinned browser-side packages as p
 - `@fontsource/inter` 5.3.0 — SIL Open Font License 1.1; self-hosted WOFF/WOFF2 distribution of Inter, Copyright 2016 The Inter Project Authors; source metadata and font files: <https://github.com/fontsource/font-files/tree/main/fonts/google/inter>; upstream font source: <https://github.com/rsms/inter>; full license text is retained in the installed package's `LICENSE` file
 - `@fontsource/nunito-sans` 5.3.0 — SIL Open Font License 1.1; self-hosted editor skin fonts, Copyright 2016 The Nunito Sans Project Authors; upstream: <https://github.com/Fonthausen/NunitoSans>; full license: `LICENSES/nunito-sans.txt`
 - `@fontsource/jetbrains-mono` 5.3.0 — SIL Open Font License 1.1; self-hosted editor skin fonts, Copyright 2020 The JetBrains Mono Project Authors; upstream: <https://github.com/JetBrains/JetBrainsMono>; full license: `LICENSES/jetbrains-mono.txt`
-- `@sqlite.org/sqlite-wasm` 3.53.0-build1 — official SQLite WebAssembly distribution; SQLite core is dedicated to the public domain; source and blessing: <https://sqlite.org/wasm/doc/trunk/index.md> and <https://sqlite.org/copyright.html>
-- `@zip.js/zip.js` 2.8.33 — BSD-3-Clause; Copyright © 2023 Gildas Lormeau; source and license: <https://github.com/gildas-lormeau/zip.js/tree/v2.8.33>
-- `@noble/hashes` 2.2.0 — MIT; Copyright © 2022 Paul Miller; source and license: <https://github.com/paulmillr/noble-hashes/tree/2.2.0>
+- `@sqlite.org/sqlite-wasm` 3.54.1-build1 — official SQLite WebAssembly distribution; SQLite core is dedicated to the public domain; source and blessing: <https://sqlite.org/wasm/doc/trunk/index.md> and <https://sqlite.org/copyright.html>
+- `@zip.js/zip.js` 2.24.0 — BSD-3-Clause; Copyright © 2023 Gildas Lormeau; source and license: <https://github.com/gildas-lormeau/zip.js/tree/v2.24.0>
+- `@noble/hashes` 2.4.0 — MIT; Copyright © 2022 Paul Miller; source and license: <https://github.com/paulmillr/noble-hashes/tree/2.4.0>
 - `fflate` 0.8.3 — MIT; source: <https://github.com/101arrowz/fflate>
-- `gettext-parser` 9.1.1 — MIT; Copyright (c) 2014-2015 Andris Reinman; source: <https://github.com/smhg/gettext-parser>; development-only PO parsing for reviewed community translation imports, excluded from the browser application
+- `gettext-parser` 10.0.0 — MIT; Copyright (c) 2014-2015 Andris Reinman; source: <https://github.com/smhg/gettext-parser>; development-only PO parsing for reviewed community translation imports, excluded from the browser application
 - `@types/gettext-parser` 9.0.0 — MIT; Copyright (c) Microsoft Corporation; source: <https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/gettext-parser>; development-only TypeScript declarations for the PO importer
 - `@echogarden/pffft-wasm` 0.4.2 — UCAR/NCAR permissive license; SIMD WebAssembly build of PFFFT used by spectrograms, spectral editing, and FFT-based effects; source: <https://github.com/echogarden-project/pffft-wasm>
-- `mediabunny` 1.55.3 — MPL-2.0; pure-TypeScript browser media toolkit used for browser-native AAC and MP4/WebM container generation; exact npm archive: <https://registry.npmjs.org/mediabunny/-/mediabunny-1.55.3.tgz> (`sha512-kpBhMiJHGmerizzObAT1XLZDyImO4ZEKXaxjjfxGVkycQ0U5of/xlLepm1Izp3P+3jlaedFSRI5fJnv3Q5xV6A==`); upstream source: <https://github.com/Vanilagy/mediabunny>; Soundscaper modifies FLAC end-of-file frame lookahead and empty-stream termination (2026-10-22), uncommon FLAC frame sample-rate kilohertz units, and bounded ordered MP4 localized-text data values (2026-10-24), and ID3 unsynchronisation byte removal, frame boundaries, optional payload-header decoding, legacy recording-date assembly, picture MIME fields and exact artwork descriptions, null-separated text lists, custom text-key custody, legacy user-defined text frames, UTC timestamp precision, empty UTF-16 field boundaries, genre references and refinements, and fallback fields, appended footer-tag discovery and repeated structured-frame custody, CRC-protected MPEG information-frame recognition and exclusion of terminal APE binary previews from MPEG packet traversal, plus bounded RIFF INFO Latin-1 text projection without argument-count overflow, plus MP4 multi-value cover-art, numeric-genre, reverse-DNS custom-tag reading, bounded localized QuickTime international-text records, modern metadata precedence over compatibility user data, order-independent MP4 metadata key tables, and own-key MP4/Matroska custom-tag custody, plus Matroska all-track tag targets, order-independent tag fields and track settings, nested-tag subject ownership, original-language tag selection, collision-safe Matroska attachment/tag namespaces with FileUID-preserving remux, repeated Matroska text records and repeated Xiph comment records (2026-10-23), with the MPL-preserving source and distribution changes in [`patches/npm/mediabunny+1.55.3.patch`](patches/npm/mediabunny+1.55.3.patch)
+- `mediabunny` 1.65.2 — MPL-2.0; pure-TypeScript browser media toolkit used for browser-native AAC and MP4/WebM container generation; exact npm archive: <https://registry.npmjs.org/mediabunny/-/mediabunny-1.65.2.tgz> (`sha512-goZpibvo/5hkc/56WVNm93Ini+o7K4y8aXA20c/BN1B+m3L5aHQa8MTvO+S1APg/YI8kMILtrX6QCqUtxLW7bA==`); upstream source: <https://github.com/Vanilagy/mediabunny>; Soundscaper modifies uncommon FLAC frame sample-rate kilohertz units, and bounded ordered MP4 localized-text data values (2026-10-24), and ID3 unsynchronisation byte removal, frame boundaries, optional payload-header decoding, legacy recording-date assembly, picture MIME fields and exact artwork descriptions, null-separated text lists, custom text-key custody, legacy user-defined text frames, UTC timestamp precision, empty UTF-16 field boundaries, genre references and refinements, and fallback fields, appended footer-tag discovery and repeated structured-frame custody, CRC-protected MPEG information-frame recognition and exclusion of terminal APE binary previews from MPEG packet traversal, plus MP4 multi-value cover-art, numeric-genre, reverse-DNS custom-tag reading, bounded localized QuickTime international-text records, modern metadata precedence over compatibility user data, order-independent MP4 metadata key tables, and own-key MP4/Matroska custom-tag custody, plus Matroska all-track tag targets, order-independent tag fields and track settings, nested-tag subject ownership, original-language tag selection, collision-safe Matroska attachment/tag namespaces with FileUID-preserving remux, repeated Matroska text records and repeated Xiph comment records (2026-10-23), with the MPL-preserving source and distribution changes in [`patches/npm/mediabunny+1.65.2.patch`](patches/npm/mediabunny+1.65.2.patch)
 - `@types/dom-mediacapture-transform` 0.1.12 — MIT; transitive compile-time definitions required by Mediabunny, represented in the npm production closure but not emitted as runtime JavaScript; exact npm archive: <https://registry.npmjs.org/@types/dom-mediacapture-transform/-/dom-mediacapture-transform-0.1.12.tgz> (`sha512-d7/QsLRwF864A5mgIM/YrfiglHoYn7zgCcAoJgW404r+2DwnNr7EBbLnCWpmOMgH8y0te73L1AV6H1bmauaWFw==`); source: <https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-mediacapture-transform>
 - `@types/dom-webcodecs` 0.1.13 — MIT; transitive compile-time WebCodecs definitions required by Mediabunny, represented in the npm production closure but not emitted as runtime JavaScript; exact npm archive: <https://registry.npmjs.org/@types/dom-webcodecs/-/dom-webcodecs-0.1.13.tgz> (`sha512-O5hkiFIcjjszPIYyUSyvScyvrBoV3NOEEZx/pMlsu44TKzWNkLVBBxnxJz42in5n3QIolYOcBYFCPZZ0h8SkwQ==`); source: <https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/dom-webcodecs>
-- `react` 19.2.7 — MIT; Copyright © Meta Platforms, Inc. and affiliates; source and license: <https://github.com/facebook/react/tree/v19.2.7/packages/react>
-- `react-dom` 19.2.7 — MIT; Copyright © Meta Platforms, Inc. and affiliates; source and license: <https://github.com/facebook/react/tree/v19.2.7/packages/react-dom>
-- `scheduler` 0.27.0 — MIT; transitive React scheduler runtime; Copyright © Meta Platforms, Inc. and affiliates; source and license: <https://github.com/facebook/react/tree/v19.2.7/packages/scheduler>
-- `sql.js` 1.14.1 — MIT; source: <https://github.com/sql-js/sql.js> (retained for unrelated legacy tools; AUP4 uses the official SQLite WASM package)
+- `react` 19.2.9 — MIT; Copyright © Meta Platforms, Inc. and affiliates; source and license: <https://github.com/facebook/react/tree/v19.2.9/packages/react>
+- `react-dom` 19.2.9 — MIT; Copyright © Meta Platforms, Inc. and affiliates; source and license: <https://github.com/facebook/react/tree/v19.2.9/packages/react-dom>
+- `scheduler` 0.27.0 — MIT; transitive React scheduler runtime; Copyright © Meta Platforms, Inc. and affiliates; source and license: <https://github.com/facebook/react/tree/v19.2.9/packages/scheduler>
+- `sql.js` 1.16.0 — MIT; source: <https://github.com/sql-js/sql.js> (retained for unrelated legacy tools; AUP4 uses the official SQLite WASM package)
 
 ## PipeWire public headers
 
@@ -792,32 +806,33 @@ symbol resolution alone cannot reach them.
 
 The optional on-device assistance features load their speech runtime from
 `sherpa-onnx-node`, declared as an optional dependency so the editor installs,
-builds, and runs without it. The authenticated 1.13.5 closure is admitted for
-macOS arm64, Linux x64/arm64, and Windows x64. Windows arm64 remains excluded
-until an authenticated Node-API addon and complete package closure exists.
-The upstream optional-dependency closure also contains macOS x64 and Windows
-ia32 packages; they are listed for notice completeness, not as Milestone 7
-release targets.
+builds, and runs without it. Desktop preparation builds the authenticated
+2.0.1 Node-API closure against the pinned GPU-capable ONNX Runtime on macOS
+ARM64, Linux x64/ARM64, and Windows x64/ARM64. Every target retains its GPU
+providers and CPU fallback. The npm platform packages are installation seeds;
+their native binaries do not replace the authenticated source build.
 
-- `sherpa-onnx-node` 1.13.5 — Apache-2.0; Next-gen Kaldi speech runtime;
+- `sherpa-onnx-node` 2.0.1 — Apache-2.0; Next-gen Kaldi speech runtime;
   source and license: <https://github.com/k2-fsa/sherpa-onnx>
-- `sherpa-onnx-darwin-arm64` 1.13.5 — Apache-2.0; prebuilt platform binary;
+- `sherpa-onnx-darwin-arm64` 2.0.1 — Apache-2.0; Next-gen Kaldi speech runtime;
   source and license: <https://github.com/k2-fsa/sherpa-onnx>
-- `sherpa-onnx-darwin-x64` 1.13.5 — Apache-2.0; prebuilt platform binary;
+- `sherpa-onnx-darwin-x64` 2.0.1 — Apache-2.0; Next-gen Kaldi speech runtime;
   source and license: <https://github.com/k2-fsa/sherpa-onnx>
-- `sherpa-onnx-linux-arm64` 1.13.5 — Apache-2.0; prebuilt platform binary;
+- `sherpa-onnx-linux-arm64` 2.0.1 — Apache-2.0; Next-gen Kaldi speech runtime;
   source and license: <https://github.com/k2-fsa/sherpa-onnx>
-- `sherpa-onnx-linux-x64` 1.13.5 — Apache-2.0; prebuilt platform binary;
+- `sherpa-onnx-linux-x64` 2.0.1 — Apache-2.0; Next-gen Kaldi speech runtime;
   source and license: <https://github.com/k2-fsa/sherpa-onnx>
-- `sherpa-onnx-win-ia32` 1.13.5 — Apache-2.0; prebuilt platform binary;
+- `sherpa-onnx-win-arm64` 2.0.1 — Apache-2.0; Next-gen Kaldi speech runtime;
   source and license: <https://github.com/k2-fsa/sherpa-onnx>
-- `sherpa-onnx-win-x64` 1.13.5 — Apache-2.0; prebuilt platform binary;
+- `sherpa-onnx-win-ia32` 2.0.1 — Apache-2.0; Next-gen Kaldi speech runtime;
+  source and license: <https://github.com/k2-fsa/sherpa-onnx>
+- `sherpa-onnx-win-x64` 2.0.1 — Apache-2.0; Next-gen Kaldi speech runtime;
   source and license: <https://github.com/k2-fsa/sherpa-onnx>
 
-Upstream publishes no `win32-arm64` Node prebuild. Windows on ARM packages build
-the Node-API wrapper from the pinned Sherpa source and link it to the official
-ARM64 libraries. Its build receipt includes the source and tool identities and
-the exact resulting file hashes; the upstream license notices accompany it.
+Version 2 removes bundled espeak-ng and piper-phonemize. Soundscaper's Sherpa
+build keeps TTS disabled; Kokoro uses its separately authenticated runtime.
+The GPU closure also includes utf8proc 2.12.0 under MIT, with its Unicode
+Data Files and Software License notices retained in `SHERPA_NOTICES.txt`.
 
 Desktop packages also redistribute these CPU runtimes. Their exact upstream
 sources, license files, and target payloads are authenticated during packaging;
@@ -879,6 +894,261 @@ public download does not substitute for the catalog entry required to
 install and execute a model.
 
 ### Mirrored assistance models
+
+- GTCRN 1.0.0 — MIT; Copyright (c) 2024 Rong Xiaobin. The official streaming
+  ONNX checkpoint is mirrored without modification. Source, weights, and license:
+  <https://github.com/Xiaobin-Rong/gtcrn/tree/502ebfab64da7c4a9af78dcb9c6ceef1ebb01c73>.
+- DPDFNet2 48 kHz 1.0.0 — Apache-2.0; Ceva-IP and contributors. The
+  `dpdfnet2_48khz_hr.onnx` artifact is identity-mirrored from Sherpa's reviewed
+  speech-enhancement release. Source and license:
+  <https://github.com/ceva-ip/DPDFNet/tree/9bd9844a227bb6aa57e55588d8d0e961fcff1c46>;
+  model publisher: <https://huggingface.co/Ceva-IP/DPDFNet>.
+- VoxLock 1.1.1 — Apache-2.0; Arbaz Siddiqui and contributors. The enrollment
+  and int8 chunk graphs retain upstream's Sherpa metadata and are mirrored
+  without changes. Model card and weight revision:
+  <https://huggingface.co/arbazsiddiqui/voxlock/tree/a50f4e1d109301d4b6f61dec57ebb1a61e7d8f03>;
+  model release: <https://github.com/arbazsiddiqui/voxlock/releases/tag/sherpa-onnx-models>.
+  The card names LibriSpeech and AMI and the Wespeaker VoxCeleb ECAPA-TDNN512
+  base model; a complete independent training-data audit is not claimed.
+
+The exact mirrored enhancement artifacts are:
+
+- `gtcrn/1.0.0/gtcrn_simple.onnx`: 535638 bytes; SHA-256 `e77603ac0c23dac3227dd2d7135b3a585cbee2679048aecfa886657d3ae1b534`.
+- `dpdfnet2-48khz/1.0.0/dpdfnet2_48khz_hr.onnx`: 10596848 bytes; SHA-256 `0b399f8a58dc4d70d8cd97541f5c39869406145193b957d00a03b66070944928`.
+- `voxlock/1.1.1/voxlock_enroll.onnx`: 12476014 bytes; SHA-256 `5d06048c156bb8cd422d29848e6d38fb26a7b39f6f7fd92eccf2a6ed1ce003c6`.
+- `voxlock/1.1.1/voxlock_chunk_int8.onnx`: 66608910 bytes; SHA-256 `df61a9d0062b0adbcf1182302b1eb8b815f15ac47ea4923e8e164c1aff64121d`.
+
+GTCRN's MIT license:
+
+```text
+MIT License
+
+Copyright (c) 2024 Rong Xiaobin
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+DPDFNet and VoxLock use the Apache-2.0 license reproduced below:
+
+```text
+Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+   APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "[]"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+   Copyright [yyyy] [name of copyright owner]
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+```
 
 Each model below has exact artifact digests. Public HEAD, byte-range, CORS, and
 full SHA-256 readback records for the additional artifacts are retained in

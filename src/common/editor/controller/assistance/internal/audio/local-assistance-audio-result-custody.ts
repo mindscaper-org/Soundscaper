@@ -4,6 +4,7 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
+import { speechEnhancementModel, type SpeechEnhancementModelId } from '../../../../assistance/speech-enhancement-models.ts';
 
 import type { AssistanceSelectionFence } from '../../../../assistance/proposal-session.ts';
 import { validateAssistanceSelectionFence } from '../../../../assistance/proposal-session.ts';
@@ -17,8 +18,8 @@ export type LocalAssistanceAudioOutputSlot =
 	'enhanced-audio' | 'dereverberated-audio' | 'dialogue' | 'music' | 'effects';
 
 export interface LocalAssistanceAudioModelBinding {
-	readonly modelId: 'deepfilternet3' | 'dereverb-room' | 'tiger-dnr';
-	readonly version: '3.0.0' | '1.0.0';
+	readonly modelId: SpeechEnhancementModelId | 'dereverb-room' | 'tiger-dnr';
+	readonly version: '3.0.0' | '1.0.0' | '1.1.1';
 	readonly task: LocalAssistanceAudioOperation;
 	readonly artifactSha256s: readonly string[];
 }
@@ -209,8 +210,8 @@ function normalizeModel(
 		throw new RangeError('Assistance audio publication requires one exact model binding.');
 	}
 	const record = exactRecord(value[0], MODEL_FIELDS, 'assistance audio model binding');
-	const profile = OUTPUT_PROFILES[operation];
-	if (record.modelId !== profile.modelId || record.version !== profile.version
+	const profile = operation === 'speech-enhancement' ? speechEnhancementModel(record.modelId) : OUTPUT_PROFILES[operation];
+	if (!profile || record.modelId !== profile.modelId || record.version !== profile.version
 		|| record.task !== operation) {
 		throw new TypeError('Assistance audio publication has the wrong exact model binding.');
 	}
