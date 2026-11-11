@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 import rehypeVerdictTables from '../handbook/src/plugins/rehype-verdict-tables.mjs';
+import rehypeComparisonDetails from '../handbook/src/plugins/rehype-comparison-details.mjs';
 
 const COMPARISON_PAGE = 'handbook/src/content/docs/start/how-soundscaper-compares.md';
 // Generated from the repository by `scripts/docs-reference.mjs`, and the reason
@@ -20,6 +21,7 @@ const table = (rows) => element('table', [element('tbody', rows.map(row))]);
 // otherwise.
 const transform = (tree, page = COMPARISON_PAGE) => {
 	rehypeVerdictTables()(tree, { path: page });
+	rehypeComparisonDetails()(tree);
 	return tree;
 };
 
@@ -118,6 +120,31 @@ test('unverified capabilities have a distinct accessible verdict', () => {
 	assert.deepEqual(cell.children[1], text(' not verified'));
 });
 
+test('comparison details preserve inline markup and give each tooltip a unique description link', () => {
+	const tree = transform(table([
+		['Native project', [text('+ — '), element('code', [text('.sscape')]), text(' :: Media is bundled.')], '/ — :: Requires an external plug-in.'],
+	]));
+	const [, project, external] = cellsOf(tree);
+	const [projectNote] = project.children;
+	const [trigger, tooltip] = projectNote.children;
+	assert.equal(projectNote.tagName, 'comparison-note');
+	assert.equal(trigger.tagName, 'button');
+	assert.equal(tooltip.properties.role, 'tooltip');
+	assert.equal(tooltip.properties.popover, 'auto');
+	assert.equal(trigger.properties.ariaDescribedBy, tooltip.properties.id);
+	assert.ok(trigger.children.some((node) => node.tagName === 'code'));
+	assert.deepEqual(tooltip.children, [text('Media is bundled.')]);
+	const [externalNote] = external.children;
+	assert.notEqual(externalNote.children[1].properties.id, tooltip.properties.id);
+	assert.deepEqual(externalNote.children[0].children[0].children, [text('/')]);
+});
+
+test('detail syntax in an ordinary table is left alone', () => {
+	const tree = table([['Term', 'Value :: explanation']]);
+	rehypeComparisonDetails()(tree);
+	assert.deepEqual(cellsOf(tree)[1].children, [text('Value :: explanation')]);
+});
+
 test('a verdict whose detail opens with markup keeps the word space the em dash held', () => {
 	const tree = transform(table([
 		['Native project format', [text('+ — '), element('code', [text('.sscape')]), text(', a portable archive')]],
@@ -185,6 +212,11 @@ test('each comparison table includes all six products', async () => {
 	for (const rows of tablesIn(source)) {
 		for (const cells of rows) assert.equal(cells.length, 7, `wrong number of cells: ${cells[0]}`);
 	}
+});
+
+test('the comparison does not rate missing features as unverified', async () => {
+	const rows = tablesIn(await readFile(COMPARISON_PAGE, 'utf8')).flat();
+	assert.ok(rows.every((cells) => cells.slice(1).every((cell) => !cell.startsWith('?'))));
 });
 
 /**

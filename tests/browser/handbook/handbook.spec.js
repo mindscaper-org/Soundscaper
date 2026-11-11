@@ -126,7 +126,7 @@ test('gives the comparison page full width while standard pages keep their readi
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.goto(`${BASE}start/how-soundscaper-compares/`);
 	await expect(comparisonTitle).toBeVisible();
-	await expect(page.getByRole('navigation', { name: 'On this page', exact: true })).toBeVisible();
+	await expect(page.getByRole('navigation', { name: /^On this page/u })).toBeVisible();
 	const pageWidth = await page.evaluate(() => ({ content: document.documentElement.scrollWidth, viewport: window.innerWidth }));
 	expect(pageWidth.content).toBeLessThanOrEqual(pageWidth.viewport);
 });
@@ -170,19 +170,61 @@ test('compares Web and Desktop with accessible symbols and explains the capabili
 	}
 	for (const column of [1, 2]) {
 		await expect(row('Dedicated single-file editor').getByRole('cell').nth(column))
-			.toContainText(/source waveform editor in source monitor/iu);
+			.toContainText(/source monitor/iu);
 	}
 	await expect(row('Sample-level drawing').getByRole('cell').nth(3).getByRole('img', { name: 'Supported', exact: true })).toBeVisible();
 	const audacityAutomation = row('Automation lanes').getByRole('cell').nth(3);
 	await expect(audacityAutomation.getByRole('img', { name: 'Limited', exact: true })).toBeVisible();
 	await expect(audacityAutomation).toContainText(/clip[ -]gain/iu);
 	const audacityProjects = row('Opens Audacity projects').getByRole('cell').nth(3);
-	await expect(audacityProjects).toContainText(/\baup\b.*\baup3\b.*\baup4\b.*import/iu);
-	await expect(audacityProjects).toContainText(/aup4\s+export/iu);
+	const audacityProjectDetails = audacityProjects.getByRole('button');
+	await expect(audacityProjectDetails).toHaveAccessibleDescription(/\baup\b.*\baup3\b.*\baup4\b.*import/iu);
+	await expect(audacityProjectDetails).toHaveAccessibleDescription(/aup4\s+export/iu);
 	await expect(audacityProjects).toContainText(/no\s+aup3\s+export/iu);
 	await expect(row('Lossy output').getByRole('cell').nth(2)).toContainText(/ffmpeg/iu);
 	await expect(row('Lossy output').getByRole('cell').nth(3)).toContainText(/ffmpeg/iu);
 	await expect(row('Lossy output').getByRole('cell').nth(4)).toContainText(/formats|mp3|aac/iu);
+});
+
+test('keeps comparison sources collapsed and reveals cell details on hover, focus, and tap', async ({ page, isMobile }) => {
+	await page.goto(`${BASE}start/how-soundscaper-compares/`);
+	const sources = page.getByText('Where these claims come from', { exact: true });
+	const releaseNotes = page.getByRole('link', { name: 'release notes', exact: true });
+	await expect(releaseNotes).toBeHidden();
+	await sources.click();
+	await expect(releaseNotes).toBeVisible();
+	await sources.click();
+	await expect(releaseNotes).toBeHidden();
+
+	const row = (name) => page.getByRole('row').filter({ has: page.getByRole('cell', { name, exact: true }) });
+	const project = row('Native project format').getByRole('cell').nth(1).getByRole('button');
+	const detail = page.getByRole('tooltip').filter({ hasText: 'Media is bundled with the project.' });
+	await expect(detail).toBeHidden();
+	await project.hover();
+	await expect(detail).toBeVisible();
+	await detail.hover();
+	await expect(detail).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(detail).toBeHidden();
+	await project.focus();
+	await expect(detail).toBeVisible();
+	await expect(project).toHaveAccessibleDescription('Media is bundled with the project.');
+	await page.keyboard.press('Escape');
+	await expect(detail).toBeHidden();
+	if (isMobile) await project.tap();
+	else await project.click();
+	await expect(detail).toBeVisible();
+	await page.getByRole('heading', { level: 1 }).click();
+	await expect(detail).toBeHidden();
+
+	for (const [name, column] of [
+		['Spectrogram view', 5], ['De-reverb', 5], ['Phase and correlation meter', 6],
+		['Text to speech', 5], ['Timed recording', 5], ['Snap to zero crossings', 5],
+	]) {
+		await expect(row(name).getByRole('cell').nth(column).getByRole('img', { name: 'Unavailable', exact: true })).toBeVisible();
+	}
+	const accessibility = await new AxeBuilder({ page }).include('main').analyze();
+	expect(accessibility.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical')).toEqual([]);
 });
 
 // The generated reference pages carry the widest and longest tables in the

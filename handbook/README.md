@@ -88,6 +88,23 @@ the article. The navigation and table of contents retain their normal widths,
 and the mobile layout stays responsive. The comparison page at
 `start/how-soundscaper-compares.md` uses this preset.
 
+## Comparison cells
+
+Use `+`, `~`, or `/` for supported, partial, or unavailable capabilities.
+Missing features and capabilities supplied only by external plug-ins use `/`.
+Hosting rows rate the ability to load the plug-in itself.
+
+Keep visible labels short. Add ` :: ` after the label for an explanation shown
+on hover, keyboard focus, or tap:
+
+```markdown
+| Native project | + — `.sscape` :: Media is bundled with the project. |
+```
+
+The table transform retains inline formatting and links each explanation to
+its trigger with an accessible description. Escape or tapping elsewhere
+closes the explanation.
+
 ## Authoring links
 
 Write internal links root-absolute and base-free: `[Project files](/projects-and-data/project-files/)`.

@@ -1,9 +1,11 @@
 ---
 import Default from '@astrojs/starlight/components/TwoColumnContent.astro';
+import ComparisonNotes from './ComparisonNotes.astro';
 
 const fullWidth = Astro.locals.starlightRoute.entry.data.layoutPreset === 'full-width';
 ---
 
+<ComparisonNotes />
 <div class:list={{ 'full-width': fullWidth }}>
 	<Default>
 		<slot />

@@ -100,6 +100,40 @@
 	white-space: nowrap;
 }
 
+.comparison-note-trigger {
+	border: 0;
+	padding: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: start;
+	text-decoration: underline dotted;
+	text-underline-offset: 0.25em;
+	cursor: help;
+}
+
+.comparison-note-trigger:focus-visible {
+	outline: 2px solid var(--sl-color-text-accent);
+	outline-offset: 3px;
+}
+
+.comparison-note-detail {
+	position: fixed;
+	inset: auto;
+	margin: 0;
+	max-width: min(22rem, calc(100vw - 2rem));
+	border: 1px solid var(--sl-color-gray-4);
+	border-radius: 0.3rem;
+	padding: 0.75rem;
+	background: var(--sl-color-bg);
+	color: var(--sl-color-text);
+	font-size: var(--sl-text-sm);
+	line-height: 1.5;
+	text-align: start;
+	white-space: normal;
+	box-shadow: 0 0.3rem 1rem rgb(0 0 0 / 25%);
+}
+
 @media (prefers-contrast: more) {
 	.sl-markdown-content .verdict-cell {
 		background-color: transparent;
