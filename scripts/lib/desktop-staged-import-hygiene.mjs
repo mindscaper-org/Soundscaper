@@ -22,9 +22,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { builtinModules } from 'node:module';
 import { dirname, join, relative, resolve, sep } from 'node:path';
-
-const MODULE_SPECIFIER =
-	/(?:\bfrom\s+|\bimport\s*\(\s*|\bimport\s+|\brequire\s*\(\s*)['"]([^'"]*)['"]/gu;
+import { desktopModuleSpecifiers } from './desktop-module-specifiers.ts';
 const NODE_BUILTINS = new Set(builtinModules.map((name) => name.replace(/^node:/u, '')));
 
 function isPackagedRuntimeSpecifier(specifier) {
@@ -44,7 +42,7 @@ export async function assertStagedDesktopImportsResolve(applicationRoot) {
 		if (!/\.[cm]?js$/u.test(name)) continue;
 		const source = await readFile(join(root, name), 'utf8');
 		assertNoTypeScriptImportSpecifiers(`Staged desktop source ${name}`, source);
-		for (const [, specifier] of source.matchAll(MODULE_SPECIFIER)) {
+		for (const specifier of desktopModuleSpecifiers(source)) {
 			if (!isPackagedRuntimeSpecifier(specifier)) {
 				throw new Error(
 					`Staged desktop source ${name} retained unpackaged dependency ${specifier}`,
@@ -67,7 +65,7 @@ export async function assertStagedDesktopImportsResolve(applicationRoot) {
 
 /** Refuses source that would need a TypeScript loader the package does not ship. */
 export function assertNoTypeScriptImportSpecifiers(label, source) {
-	if (/(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)['"][^'"]*\.[cm]?tsx?['"]/u.test(source)) {
+	if (desktopModuleSpecifiers(source).some(specifier => /\.[cm]?tsx?(?:[?#].*)?$/u.test(specifier))) {
 		throw new Error(`${label} retained a TypeScript import`);
 	}
 }

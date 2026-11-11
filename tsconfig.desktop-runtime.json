@@ -257,6 +257,7 @@
 		"desktop/assistance-sherpa-recognizer.ts",
 		"desktop/assistance-sherpa-gpu-validation.ts",
 		"desktop/assistance-sherpa-vad.ts",
+		"desktop/assistance-sherpa-enhancement-worker.ts",
 		"desktop/assistance-speech-runtime.ts",
 		"desktop/external-display-controller.ts",
 		"desktop/external-ffmpeg-audio-operation-runner.ts",
