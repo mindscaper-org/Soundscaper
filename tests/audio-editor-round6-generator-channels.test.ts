@@ -2,6 +2,15 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import React, { act, useSyncExternalStore } from 'react';
+import GeneratorDialog from '../src/common/editor/ui/dialogs/GeneratorDialog.jsx';
+import { createTrackSelectionContextMenuItems } from '../src/common/editor/ui/timeline/track-selection-context-menu.ts';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
+import { selectionControllerCustody, selectionWav } from './helpers/selection-controller-custody.tsx';
+import { clipboardDocument, clipboardProject } from './helpers/clipboard-source-custody.ts';
+import { reactProps } from './helpers/react-test-dom.ts';
+import { readCustodyPcm } from './helpers/audio-project-archive-pcm-custody.ts';
+import { assertPcmChannelsEqual } from './helpers/assert-pcm-samples.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { audioTrackChannelCount } from '../src/common/editor/project-audio-factory.js';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
@@ -87,4 +96,76 @@ test('a later generator width failure rolls every unpublished source back withou
 	assert.equal(fixture.sourcePeaks.size, 0);
 	assert.equal(fixture.deletedSources.length, 2);
 	assert.equal(fixture.state.audacityEffectProcessing, false);
+});
+
+
+test('actual Silence preserves the original mono/stereo recordings, channel menu, history and complete PCM custody', async context => {
+	const mono = selectionWav('browser-mono-tone.wav', 38_400, 1, 48_000, 440), stereo = selectionWav('browser-tone-a.wav', 38_400, 2, 48_000, 330);
+	const f = await selectionControllerCustody(context, mono), { controller, fixture } = f;
+	let closed = 0;
+	const Dialog = () => {
+		const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+		return React.createElement(GeneratorDialog, { type: 'silence', controller, snapshot, copy: ENGLISH_COPY, locale: 'en', run: fixture.run, onClose: () => { closed++; } });
+	};
+	try {
+		const empty = clipboardProject(controller.project).tracks.find(track => track.id === 'empty'); assert.ok(empty && Array.isArray(empty.clipIds) && empty.clipIds.length === 0);
+		controller.actions.track.remove(empty.id);
+		await controller.actions.project.importFiles([stereo.file]);
+		const imported = clipboardProject(controller.project); assert.equal(imported.clips.length, 2); assert.equal(imported.tracks.length, 2); assert.equal(imported.sources.length, 2);
+		const originalPcm = async () => {
+			for (const input of [mono, stereo]) {
+				const source = clipboardProject(controller.project).sources.find(value => value.name === input.file.name); assert.ok(source?.kind === 'audio');
+				assertPcmChannelsEqual(await readCustodyPcm(f.store, source), input.pcm, `every original ${input.file.name} RIFF16 sample`);
+			}
+		};
+		await originalPcm();
+		const stereoSource = imported.sources.find(source => source.name === stereo.file.name); assert.ok(stereoSource?.kind === 'audio');
+		const stereoClip = imported.clips.find(clip => clip.sourceId === stereoSource.id); assert.ok(stereoClip);
+		const stereoTrack = imported.tracks.find(track => Array.isArray(track.clipIds) && track.clipIds.includes(stereoClip.id)); assert.ok(stereoTrack);
+		const expectStereoMenu = () => {
+			const current = clipboardProject(controller.project);
+			const tracks = current.tracks.map(track => { assert.ok(Array.isArray(track.clipIds) && track.clipIds.every((id: unknown): id is string => typeof id === 'string')); return { ...track, clipIds: track.clipIds }; });
+			const track = tracks.find(value => value.id === stereoTrack.id); assert.ok(track);
+			const capabilities: unknown = controller.getSnapshot().capabilities; assert.ok(capabilities && typeof capabilities === 'object');
+			const audioEffects: unknown = Reflect.get(capabilities, 'audioEffects'); assert.equal(audioEffects, true);
+			const menu = createTrackSelectionContextMenuItems({ project: { tracks, clips: current.clips, sources: current.sources }, track,
+				copy: ENGLISH_COPY, audioEffects: audioEffects === true, blocked: false, actions: controller.actions.track });
+			const split = menu.audio[0]?.items?.find(item => item.id === 'track-split-stereo-to-lr'); assert.ok(split); assert.equal(split.label, 'Split stereo to left/right mono'); assert.equal(split.disabled, false);
+		};
+		expectStereoMenu();
+		await controller.actions.timeline.selectClip(imported.clips.find(clip => clip.sourceId !== stereoSource.id)!.id);
+		controller.actions.timeline.selectAll();
+		const before = clipboardProject(controller.project), history = controller.getSnapshot().history.undoEntries.length;
+		assert.deepEqual([before.selection.startFrame, before.selection.endFrame], [0, 38_400]);
+		assert.deepEqual(new Set(before.selection.trackIds), new Set(before.tracks.map(track => track.id)));
+		await fixture.render(React.createElement(Dialog));
+		const button = fixture.dom.container.querySelectorAll('button').find(node => node.textContent === ENGLISH_COPY.generate); assert.ok(button); assert.equal(button.hasAttribute('disabled'), false);
+		await act(async () => { reactProps(button).onClick(); await Promise.resolve(); await fixture.settle(); });
+		assert.equal(closed, 1);
+		const after = clipboardProject(controller.project); assert.equal(after.clips.length, 2); assert.equal(after.tracks.length, 2);
+		assert.deepEqual(after.tracks.map(track => track.id), before.tracks.map(track => track.id));
+		for (const [index, track] of after.tracks.entries()) {
+			const clipIds = track.clipIds; assert.ok(Array.isArray(clipIds)); assert.equal(clipIds.length, 1);
+			const clipId: unknown = clipIds[0]; assert.equal(typeof clipId, 'string');
+			const clip = after.clips.find(value => value.id === clipId); assert.ok(clip?.kind === 'audio');
+			const source = after.sources.find(value => value.id === clip.sourceId); assert.ok(source?.kind === 'audio');
+			assert.deepEqual([source.sampleRate, source.frameCount, source.channelCount], [48_000, 38_400, index === 0 ? 1 : 2]);
+			assert.equal(source.name, ENGLISH_COPY.silenceGenerator);
+			assert.deepEqual([clip.timelineStartFrame, clip.durationFrames, clip.sourceStartFrame, clip.sourceDurationFrames], [0, 38_400, 0, 38_400]);
+			assert.ok(!before.sources.some(value => value.id === source.id));
+		}
+		assert.equal(controller.getSnapshot().history.undoEntries.length, history + 1); expectStereoMenu();
+		await act(async () => { controller.actions.edit.undo(); }); assert.deepEqual(clipboardDocument(clipboardProject(controller.project)), clipboardDocument(before)); expectStereoMenu(); await originalPcm();
+		await act(async () => { controller.actions.edit.redo(); }); assert.deepEqual(clipboardDocument(clipboardProject(controller.project)), clipboardDocument(after)); expectStereoMenu();
+		await fixture.render(null);
+		const reopened = await f.archive((name, channels) => {
+			if (name === stereo.file.name) assertPcmChannelsEqual(channels, stereo.pcm, 'every original stereo RIFF16 sample');
+			else {
+				assert.equal(name, ENGLISH_COPY.silenceGenerator); assert.ok(channels.length === 1 || channels.length === 2);
+				for (const channel of channels) { assert.equal(channel.length, 38_400); for (const sample of channel) assert.equal(sample, 0, 'real CPU Silence sample'); }
+			}
+		});
+		assert.equal(reopened.sources.length, 2, 'only the two live generated replacement sources belong in the final archive');
+		assert.deepEqual(clipboardDocument(reopened), clipboardDocument(after));
+	} finally { await f.dispose(); }
 });
