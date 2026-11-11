@@ -25,7 +25,7 @@ test.describe('Sherpa enhancement model choices', () => {
 		for (const [index, [modelId, version]] of MODELS.entries()) {
 			const clip = clipByName(editor, audio.name).first(); await clip.focus(); await page.keyboard.press('Enter');
 			const dialog = await openAssistanceTask(page, editor, 'Enhance Dialogue');
-			const picker = dialog.getByRole('button', { name: 'Model', exact: true });
+			const picker = dialog.getByRole('button', { name: /^Model(?::|$)/u });
 			await expect(picker).toBeVisible(); await picker.click();
 			await page.getByRole('option', { name: new RegExp(`^${modelId === 'dpdfnet2-48khz' ? 'DPDFNet2' : modelId === 'gtcrn' ? 'GTCRN' : 'VoxLock'}`, 'u') }).click();
 			if (modelId === 'voxlock') await expect(dialog).toContainText('loudest three seconds');

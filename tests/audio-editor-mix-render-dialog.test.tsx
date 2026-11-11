@@ -401,7 +401,7 @@ function dropdownTrigger(root: ReactTestElement): ReactTestElement {
 	assert.ok(group, 'Missing labelled Mix down to dropdown group.');
 	const trigger = group.querySelector('.dropdown__trigger');
 	assert.ok(trigger, 'Missing Mix down to dropdown trigger.');
-	assert.equal(trigger.getAttribute('aria-label'), 'Mix down to');
+	assert.equal(trigger.getAttribute('aria-label'), `Mix down to: ${trigger.querySelector('.dropdown__text')?.textContent}`);
 	return trigger;
 }
 
