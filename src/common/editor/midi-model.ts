@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { MidiFileEvent, MidiFileSignature, MidiFileTempo } from './midi-file-types.ts';
+import { normalizeMidiNativeInstrument, type MidiNativeInstrument } from './midi-native-instrument.ts';
 
 export const MIDI_EXTENSION_KEY = 'soundscaper.midi';
 export const MIDI_INSTRUMENTS = ['sine', 'triangle', 'square', 'sawtooth'] as const;
 export const MIDI_MAXIMUM_NOTES = 200_000;
-export type MidiInstrument = typeof MIDI_INSTRUMENTS[number];
+export type MidiInstrument = typeof MIDI_INSTRUMENTS[number] | MidiNativeInstrument;
 
 /** Note coordinates are in the fallback source's sample-frame space. */
 export interface MidiNote {
@@ -76,7 +77,14 @@ export function withMidiClipData<Value extends Carrier>(value: Value, data: Midi
 }
 
 export function withMidiTrackData<Value extends Carrier>(value: Value, data: MidiTrackData): Value {
-	return withCarrierData(value, normalizeMidiTrackData(data));
+	return withCarrierData(value, serializeMidiTrackData(data));
+}
+
+export function serializeMidiTrackData(data: MidiTrackData) {
+	const normalized = normalizeMidiTrackData(data);
+	// Older beta readers retain their understood waveform and the saved PCM.
+	return typeof normalized.instrument === 'string' ? normalized
+		: { ...normalized, instrument: 'triangle' as const, nativeInstrument: normalized.instrument };
 }
 
 /** A destructive audio edit makes its resulting waveform the authoritative content. */
@@ -154,10 +162,13 @@ export function normalizeMidiClipData(value: unknown): MidiClipData {
 
 export function normalizeMidiTrackData(value: unknown): MidiTrackData {
 	const input = versionedData(value, 'MIDI track');
-	if (!MIDI_INSTRUMENTS.includes(input.instrument as MidiInstrument)) throw new RangeError('MIDI track.instrument is unsupported.');
+	const selected = input.nativeInstrument ?? input.instrument;
+	const instrument = typeof selected === 'object' ? normalizeMidiNativeInstrument(selected) : selected;
+	if (typeof instrument === 'string' && !MIDI_INSTRUMENTS.includes(instrument as typeof MIDI_INSTRUMENTS[number])) throw new RangeError('MIDI track.instrument is unsupported.');
+	if (!instrument || typeof instrument !== 'string' && typeof instrument !== 'object') throw new RangeError('MIDI track.instrument is unsupported.');
 	return {
 		version: 1,
-		instrument: input.instrument as MidiInstrument,
+		instrument: instrument as MidiInstrument,
 		...(input.program === undefined ? {} : { program: integer(input.program, 0, 127, 'MIDI track.program') }),
 	};
 }

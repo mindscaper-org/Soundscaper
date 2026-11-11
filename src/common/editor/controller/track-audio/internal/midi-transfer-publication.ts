@@ -25,7 +25,7 @@ export async function prepareMidiTransferPublication(
 		const data = readMidiClip(clip), owner = newOwners.get(clip.id);
 		if (!data || !owner) continue;
 		const old = oldClips.get(clip.id);
-		if (old && old.sourceId === clip.sourceId && oldOwners.get(clip.id)?.instrument === owner.instrument) continue;
+		if (old && old.sourceId === clip.sourceId && JSON.stringify(oldOwners.get(clip.id)?.instrument) === JSON.stringify(owner.instrument)) continue;
 		const source = typeof clip.sourceId === 'string' ? sources.get(clip.sourceId) : undefined;
 		if (source?.kind !== 'audio' || !Number.isSafeInteger(source.sampleRate) || Number(source.sampleRate) < 1
 			|| !Number.isSafeInteger(source.frameCount) || Number(source.frameCount) < 1) {

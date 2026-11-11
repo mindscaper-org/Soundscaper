@@ -89,7 +89,7 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 				const sourceId = beforeClips.get(id)?.sourceId;
 				if (!sourceId) continue;
 				const instruments = reusable.get(sourceId) ?? new Set<string>();
-				instruments.add(instrument); reusable.set(sourceId, instruments);
+				instruments.add(JSON.stringify(instrument)); reusable.set(sourceId, instruments);
 			}
 		}
 		const clips = new Map(after.clips.map(clip => [clip.id, clip]));
@@ -97,7 +97,7 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 			const instrument = readMidiTrack(track)?.instrument;
 			return instrument && track.clipIds?.some(id => {
 				const clip = clips.get(id);
-				return clip && readMidiClip(clip) && !reusable.get(clip.sourceId)?.has(instrument);
+				return clip && readMidiClip(clip) && !reusable.get(clip.sourceId)?.has(JSON.stringify(instrument));
 			});
 		});
 		if (!changedInstrument && !hasPendingEdits()) return scope.commit(command, selection, options);

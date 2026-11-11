@@ -233,6 +233,7 @@ endif()
 include(CTest)
 if(BUILD_TESTING)
 	include(cmake/vst2-self-test.cmake)
+	include(cmake/midi-self-test.cmake)
 endif()
 if(BUILD_TESTING)
 	add_executable(soundscaper_os_mp3_profile_self_test

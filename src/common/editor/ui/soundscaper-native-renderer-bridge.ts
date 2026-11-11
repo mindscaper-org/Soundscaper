@@ -17,8 +17,9 @@ import {
 	subscribeNativePluginRuntime,
 	waitForNativePluginRuntime,
 } from '../native-plugin-realtime-node.js';
-import { sha256 } from '@noble/hashes/sha2.js';
-import { bytesToHex } from '@noble/hashes/utils.js';
+import { installationIdFor, offlineInstanceId, assertOfflineIdentity } from './soundscaper-native-renderer-identity.ts';
+import { withSoundscaperNativeMidiBridge } from '../controller/track-audio/native-midi-instrument-runtime.ts';
+import type { MidiInstrument } from '../midi-model.ts';
 import type { EnginePublicApi } from '../engine/public-api.ts';
 import type {
 	NativeAudioSessionOpenRequestV1,
@@ -53,13 +54,17 @@ type NativeAudioControllerPort = NativeControllerPort & NonNullable<Parameters<t
 		timedRecordingPreparing?: boolean; timedRecording?: unknown; timedRecordingCancelling?: boolean;
 		recordingPoolSources?: readonly unknown[];
 	}>;
-	actions: NativeControllerPort['actions'] & Readonly<{ audioDevices?: Readonly<{ refresh(options: Readonly<{
+	actions: NativeControllerPort['actions'] & Readonly<{ midi?: { setInstrument(trackId: string, instrument: MidiInstrument): Promise<unknown> }; audioDevices?: Readonly<{ refresh(options: Readonly<{
 		probe: false; nativeInventory: NativeAudioInventory;
 	}>): Promise<unknown>; }> }>;
 }>;
 
 /** Adds renderer-owned direct-port lifecycle without widening the preload API. */
-export function createSoundscaperNativeRendererBridge(options: Readonly<{
+export function createSoundscaperNativeRendererBridge(options: Parameters<typeof createNativeEffectRendererBridge>[0]) {
+	return withSoundscaperNativeMidiBridge(options, createNativeEffectRendererBridge(options));
+}
+
+function createNativeEffectRendererBridge(options: Readonly<{
 	bridge: SoundscaperNativeServicesBridge;
 	engine: EnginePublicApi;
 	controller?: NativeAudioControllerPort | null;
@@ -561,25 +566,5 @@ export function createSoundscaperNativeRendererBridge(options: Readonly<{
 	): NativePluginInstanceProjectionV1 {
 		const latencySamples = nativePluginReportedLatencyFrames(instance.instanceId, instance.latencySamples);
 		return Object.freeze({ ...instance, latencySamples });
-	}
-}
-
-const TEXT_ENCODER = new TextEncoder();
-function installationIdFor(binarySha256: string, stableId: string): string {
-	return `i${bytesToHex(sha256(TEXT_ENCODER.encode(`${binarySha256}\0${stableId}`))).slice(0, 15)}`;
-}
-
-function offlineInstanceId(instanceId: string, sequence: number): string {
-	return `o${bytesToHex(sha256(TEXT_ENCODER.encode(`${instanceId}\0${String(sequence)}`))).slice(0, 31)}`;
-}
-
-function assertOfflineIdentity(
-	instance: NativePluginInstanceProjectionV1,
-	state: NativePluginProjectStateV1,
-	runtimeInstanceId: string,
-): void {
-	if (instance.instanceId !== runtimeInstanceId || instance.format !== state.format
-		|| instance.stablePluginId !== state.stablePluginId || instance.binarySha256 !== state.binarySha256) {
-		throw new Error('The offline native plug-in no longer matches the persisted project identity.');
 	}
 }

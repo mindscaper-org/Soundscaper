@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readMidiClip, readMidiTrack, type MidiNote, type MidiClipData } from './midi-model.ts';
+import { readMidiClip, readMidiTrack, serializeMidiTrackData, type MidiNote, type MidiClipData } from './midi-model.ts';
 import { midiClipOccurrences } from './midi-project-source-projection.ts';
 import { createMidiClipNoteProjection } from './midi-project-note-projection.ts';
 import { createMidiClipEventProjection } from './midi-project-event-projection.ts';
@@ -18,10 +18,10 @@ export function dawprojectTrackMidiAttributes(track: DataRecord, context: Dawpro
 	const hasNotes = owner !== null || clips.some(clip => readMidiClip(clip) !== null);
 	const hasAudio = clips.some(clip => clip && readMidiClip(clip) === null);
 	if (owner) addDeliveryReportItem(context.draft, { code: 'dawproject.midi-instrument-metadata', disposition: 'converted', severity: 'warning',
-		scope: { kind: 'track', id: String(track.id) }, data: { instrument: owner.instrument, program: owner.program ?? null },
+		scope: { kind: 'track', id: String(track.id) }, data: { instrument: typeof owner.instrument === 'string' ? owner.instrument : owner.instrument.name, program: owner.program ?? null },
 		message: 'Instrument and program settings are retained in a Soundscaper comment namespace; other DAWs must assign an instrument to the standard Notes.' });
 	return { contentType: hasNotes ? hasAudio ? 'audio notes' : 'notes' : 'audio',
-		...(owner ? { comment: dawprojectMidiComment(owner) } : {}) };
+		...(owner ? { comment: dawprojectMidiComment(serializeMidiTrackData(owner)) } : {}) };
 }
 
 export function buildDawprojectMidiClip(clip: DataRecord, context: DawprojectExportContext): XmlElement | null {

@@ -87,6 +87,7 @@ export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	'desktop/plugin-scan-results.js',
 	'desktop/plugin-scan-service.js', 'desktop/plugin-scan-progress.js', 'desktop/plugin-discovery-defaults.js',
 	'desktop/plugin-registry.js',
+	'desktop/plugin-midi-events.js',
 	'desktop/plugin-quarantine.js',
 	'desktop/plugin-consent.js',
 	'desktop/plugin-standard-roots.js',
