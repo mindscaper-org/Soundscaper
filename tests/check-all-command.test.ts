@@ -20,7 +20,7 @@ test('check-all command schedules fixture jobs, reports failures, waits for fres
 	await mkdir(join(fixture, 'scripts/lib'), { recursive: true });
 	await mkdir(join(fixture, 'node_modules/@playwright/test'), { recursive: true });
 	for (const file of ['check-all.ts', 'check-all-task.ts',
-		'lib/check-all-plan.ts', 'lib/check-all-scheduler.ts', 'lib/check-all-process.ts', 'lib/check-all-output.ts',
+		'lib/check-all-plan.ts', 'lib/check-all-scheduler.ts', 'lib/check-all-process.ts', 'lib/check-all-output.ts', 'lib/check-all-logs.ts',
 		'lib/lint-shards.mjs', 'lib/node-test-shards.mjs']) {
 		await cp(join(root, 'scripts', file), join(fixture, 'scripts', file));
 	}
@@ -40,6 +40,7 @@ test('check-all command schedules fixture jobs, reports failures, waits for fres
 		console.log('passing-result-noise');
 		console.log('Error: expected stdout diagnostic');
 		console.error('Error: expected stderr diagnostic');
+		if (process.env.FIXTURE_HOLD === '1') await new Promise(() => { setInterval(() => {}, 1000); });
 		// Hold the first wave until all four jobs start, even on a busy runner.
 		const deadline = Date.now() + 10_000;
 		while (readFileSync('activity.jsonl', 'utf8').trim().split('\\n').length < 4) {
@@ -62,13 +63,25 @@ test('check-all command schedules fixture jobs, reports failures, waits for fres
 	const env: NodeJS.ProcessEnv = { ...process.env, npm_execpath: join(fixture, 'fake-npm.mjs') };
 	delete env.NODE_TEST_CONTEXT;
 	delete env.NODE_V8_COVERAGE;
-	async function run(fail: boolean): Promise<{ code: number | null; output: string }> {
+	async function run(fail: boolean, interrupt = false): Promise<{ code: number | null; output: string }> {
 		let output = '';
-		const child = spawn(process.execPath, ['scripts/check-all.ts'], { cwd: fixture, env: { ...env, FIXTURE_FAIL: fail ? '1' : '0' }, stdio: ['ignore', 'pipe', 'pipe'] });
+		let started!: () => void;
+		const ready = new Promise<void>(resolveReady => { started = resolveReady; });
+		const child = spawn(process.execPath, ['scripts/check-all.ts'], { cwd: fixture, env: { ...env, FIXTURE_FAIL: fail ? '1' : '0', FIXTURE_HOLD: interrupt ? '1' : '0' }, stdio: ['ignore', 'pipe', 'pipe'] });
 		context.after(() => { child.kill('SIGINT'); });
-		child.stdout.on('data', (chunk: Buffer) => { output += chunk.toString(); });
+		child.stdout.on('data', (chunk: Buffer) => {
+			output += chunk.toString();
+			if (output.includes('prepare/interchange: Error: expected stderr diagnostic')) started();
+		});
 		child.stderr.on('data', (chunk: Buffer) => { output += chunk.toString(); });
-		const code = await new Promise<number | null>((resolveExit, reject) => { child.once('error', reject); child.once('close', resolveExit); });
+		const completed = new Promise<number | null>((resolveExit, reject) => { child.once('error', reject); child.once('close', resolveExit); });
+		if (interrupt) {
+			await Promise.race([ready, completed.then(() => { throw new Error(`Fixture exited before live logs were checked: ${output}`); })]);
+			assert.match(await readFile(join(fixture, 'test-results/check-all/logs/prepare-interchange.log'), 'utf8'), /passing-result-noise/u);
+			assert.match(await readFile(join(fixture, 'test-results/check-all/run.log'), 'utf8'), /prepare\/interchange: Error: expected stderr diagnostic/u);
+			child.kill('SIGINT');
+		}
+		const code = await completed;
 		return { code, output };
 	}
 	const { code, output } = await run(true);
@@ -82,6 +95,8 @@ test('check-all command schedules fixture jobs, reports failures, waits for fres
 	assert.doesNotMatch(output, /^FAIL .*expected (?:stdout|stderr) diagnostic/mu);
 	await assert.rejects(readFile(join(fixture, '.wrangler/check-all.lock')), { code: 'ENOENT' });
 	assert.match(await readFile(join(fixture, 'test-results/check-all/logs/node-common-1.log'), 'utf8'), /passing-result-noise/u);
+	assert.match(await readFile(join(fixture, 'test-results/check-all/run.log'), 'utf8'), /FAIL node\/common-1: fixture assertion failed/u);
+	assert.match(await readFile(join(fixture, 'test-results/check-all/logs/browser-previews.log'), 'utf8'), /servers-ready/u);
 	const activity = (await readFile(join(fixture, 'activity.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line) as { type: string; name: string });
 	const active = new Set<string>();
 	let maximum = 0;
@@ -103,5 +118,17 @@ test('check-all command schedules fixture jobs, reports failures, waits for fres
 	const reportStart = successful.findIndex(event => event.type === 'start' && event.name.startsWith('report-local'));
 	assert.ok(reportStart >= 0);
 	assert.equal(successful.slice(0, reportStart).filter(event => event.type === 'end' && event.name.startsWith('compact-v8')).length, 4);
+	await assert.rejects(readFile(join(fixture, '.wrangler/check-all.lock')), { code: 'ENOENT' });
+	const interrupted = await run(false, true);
+	assert.equal(interrupted.code, 130, interrupted.output);
+	assert.match(await readFile(join(fixture, 'test-results/check-all/run.log'), 'utf8'), /interrupted/u);
+	assert.match(await readFile(join(fixture, 'test-results/check-all/logs/prepare-interchange.log'), 'utf8'), /passing-result-noise/u);
+	await assert.rejects(readFile(join(fixture, '.wrangler/check-all.lock')), { code: 'ENOENT' });
+	const taskScript = join(fixture, 'scripts/check-all-task.ts');
+	await writeFile(taskScript, `if (process.argv.at(-2) === '-e') throw new Error('fixture memory probe rejected');\n${await readFile(taskScript, 'utf8')}`);
+	const rejected = await run(false);
+	assert.equal(rejected.code, 1, rejected.output);
+	assert.match(await readFile(join(fixture, 'test-results/check-all/run.log'), 'utf8'), /FAIL setup:.*Cannot enforce the 8 GiB shard limit/u);
+	assert.match(await readFile(join(fixture, 'test-results/check-all/logs/probe.log'), 'utf8'), /fixture memory probe rejected/u);
 	await assert.rejects(readFile(join(fixture, '.wrangler/check-all.lock')), { code: 'ENOENT' });
 });
