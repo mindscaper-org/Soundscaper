@@ -12,6 +12,7 @@ const COMPARISON_PAGE = 'handbook/src/content/docs/start/how-soundscaper-compare
 const PLATFORMS_PAGE = 'handbook/src/content/docs/reference/generated/platforms.md';
 
 const text = (value) => ({ type: 'text', value });
+const textOf = (node) => node.type === 'text' ? node.value : (node.children ?? []).map(textOf).join('');
 const element = (tagName, children) => ({ type: 'element', tagName, properties: {}, children });
 const row = (cells) => element('tr', cells.map((cell) => element('td', Array.isArray(cell) ? cell : [text(cell)])));
 
@@ -165,6 +166,49 @@ test('comparison layout moves keyboard scrolling to a named region and preserves
 	rehypeComparisonLayout()(tree);
 	assert.equal(tree.children[1], region);
 	assert.equal(region.children[0], comparison);
+});
+
+test('comparison groups span related products and retain accessible column and row headers', () => {
+	const products = ['Recorder Web', 'Recorder Desktop', 'Mixer 2', 'Composer Suite', 'Performer 3'];
+	const header = element('tr', ['Capability', ...products].map((name) => element('th', [text(name)])));
+	const comparison = element('table', [element('thead', [header]), element('tbody', [row(['Feature', '+', '+', '/', '~', '+'])])]);
+	comparison.properties.className = ['verdict-table'];
+	const tree = { type: 'root', children: [comparison] };
+	const layout = rehypeComparisonLayout({ groups: [
+		{ label: 'Recording', families: [['Recorder Web', 'Recorder Desktop'], ['Mixer']] },
+		{ label: 'Composition', families: [['Composer', 'Performer']] },
+	] });
+	layout(tree);
+	const grouped = tree.children[0].children[0];
+	const head = grouped.children.find((child) => child.tagName === 'thead');
+	const [categories, columns] = head.children;
+	assert.equal(categories.children[0].properties.rowSpan, 2);
+	assert.equal(categories.children[0].properties.scope, 'col');
+	assert.deepEqual(categories.children.slice(1).map((cell) => [textOf(cell), cell.properties.colSpan, cell.properties.scope]), [
+		['Recording', 3, 'colgroup'], ['Composition', 2, 'colgroup'],
+	]);
+	assert.deepEqual(columns.children.map((cell) => cell.children[0].value), products);
+	assert.ok(columns.children.every((cell) => cell.properties.scope === 'col'));
+	assert.ok(classesOf(columns.children[0]).includes('comparison-family-related'));
+	assert.ok(classesOf(columns.children[1]).includes('comparison-family-related'));
+	assert.ok(classesOf(columns.children[2]).includes('comparison-family-start'));
+	assert.ok(classesOf(columns.children[3]).includes('comparison-category-start'));
+	const feature = grouped.children.find((child) => child.tagName === 'tbody').children[0].children[0];
+	assert.equal(feature.tagName, 'th');
+	assert.equal(feature.properties.scope, 'row');
+	assert.ok(classesOf(feature).includes('comparison-feature-heading'));
+	assert.match(grouped.properties.style, /--comparison-product-count: 5/u);
+	layout(tree);
+	assert.equal(head.children.length, 2);
+});
+
+test('comparison grouping rejects headers that no longer match its layout configuration', () => {
+	const comparison = element('table', [element('thead', [element('tr', [
+		element('th', [text('Capability')]), element('th', [text('Unexpected product')]),
+	])])]);
+	comparison.properties.className = ['verdict-table'];
+	const layout = rehypeComparisonLayout({ groups: [{ label: 'Focus', families: [['Expected product']] }] });
+	assert.throws(() => layout({ type: 'root', children: [comparison] }), /headers do not match/u);
 });
 
 test('a verdict whose detail opens with markup keeps the word space the em dash held', () => {

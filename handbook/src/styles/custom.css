@@ -83,6 +83,64 @@
 	inline-size: 25%;
 }
 
+.sl-markdown-content table.comparison-table--grouped {
+	--comparison-feature-width: 14rem;
+	min-inline-size: calc(var(--comparison-feature-width) + var(--comparison-product-count) * 8rem);
+}
+
+.sl-markdown-content .comparison-table--grouped :is(th, td):first-child {
+	inline-size: auto;
+}
+
+.sl-markdown-content .comparison-feature-column {
+	inline-size: var(--comparison-feature-width);
+}
+
+.sl-markdown-content .comparison-feature-heading {
+	position: sticky;
+	inset-inline-start: 0;
+	z-index: 1;
+	background: var(--sl-color-bg);
+	font-weight: 400;
+	box-shadow: 1px 0 var(--sl-color-gray-4);
+}
+
+.sl-markdown-content .comparison-table--grouped thead th {
+	background: var(--sl-color-gray-6);
+	font-weight: 600;
+}
+
+.sl-markdown-content .comparison-table--grouped th.comparison-family-related {
+	background: var(--sl-color-accent-low);
+	border-block-end: 2px solid var(--sl-color-text-accent);
+}
+
+.sl-markdown-content .comparison-family-start {
+	border-inline-start: 1px solid var(--sl-color-gray-4);
+}
+
+.sl-markdown-content .comparison-category-start {
+	border-inline-start: 3px solid var(--sl-color-text-accent);
+}
+
+.sl-markdown-content .comparison-category-heading {
+	text-align: start;
+	color: var(--sl-color-text-accent);
+}
+
+.sl-markdown-content .comparison-category-label {
+	display: block;
+	position: sticky;
+	inset-inline-start: calc(var(--comparison-feature-width) + 0.5rem);
+	inline-size: max-content;
+}
+
+@media (max-width: 50rem) {
+	.sl-markdown-content table.comparison-table--grouped {
+		--comparison-feature-width: 10rem;
+	}
+}
+
 .sl-markdown-content .verdict-cell {
 	background-color: var(--verdict-tint);
 }

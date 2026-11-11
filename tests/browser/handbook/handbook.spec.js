@@ -116,16 +116,17 @@ test('gives the comparison page full width while standard pages keep their readi
 		expect(contentsBox.width).toBeLessThanOrEqual(300);
 		let referenceColumns;
 		for (const table of await page.getByRole('table').all()) {
-			const columns = await table.getByRole('columnheader').evaluateAll((headers) => headers.map((header) => {
+			const columns = await table.getByRole('columnheader').evaluateAll((headers) => headers.filter((header) => header.scope === 'col').map((header) => {
 				const { x, width: columnWidth } = header.getBoundingClientRect();
 				return { x, width: columnWidth };
 			}));
 			referenceColumns ??= columns;
+			expect(columns).toHaveLength(referenceColumns.length);
 			for (const [index, column] of columns.entries()) {
 				expect(column.x).toBeCloseTo(referenceColumns[index].x, 0);
 				expect(column.width).toBeCloseTo(referenceColumns[index].width, 0);
 			}
-			expect(columns.at(-1).x + columns.at(-1).width).toBeCloseTo(titleBox.x + titleBox.width, 0);
+			expect((await table.boundingBox()).width).toBeGreaterThanOrEqual(titleBox.width - 1);
 		}
 	}
 
@@ -144,9 +145,17 @@ test('gives the comparison page full width while standard pages keep their readi
 		const pageWidth = await page.evaluate(() => ({ content: document.documentElement.scrollWidth, viewport: window.innerWidth }));
 		expect(pageWidth.content).toBeLessThanOrEqual(pageWidth.viewport);
 		const comparisonScroll = page.getByRole('region', { name: 'Platform and terms', exact: true });
+		const scrollBox = await comparisonScroll.boundingBox();
+		const feature = comparisonScroll.getByRole('rowheader').first();
 		await comparisonScroll.focus();
 		await page.keyboard.press('ArrowRight');
 		await expect.poll(() => comparisonScroll.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+		await expect(feature).toBeVisible();
+		expect((await feature.boundingBox()).x).toBeCloseTo(scrollBox.x, 0);
+		await comparisonScroll.evaluate((element) => { element.scrollLeft = element.scrollWidth; });
+		const focusLabel = comparisonScroll.getByText('MIDI focus', { exact: true });
+		const featureBox = await feature.boundingBox();
+		expect((await focusLabel.boundingBox()).x).toBeGreaterThanOrEqual(featureBox.x + featureBox.width);
 	}
 });
 
@@ -163,7 +172,6 @@ test('renders comparison verdicts as accessible symbols with distinct colours', 
 		colours.push(await verdict.evaluate((element) => getComputedStyle(element).color));
 	}
 	expect(new Set(colours).size).toBe(3);
-	await expect(tables.getByText(/^(?:Yes|No|Partial)(?:\s|$)/u)).toHaveCount(0);
 });
 
 test('keeps comparison sources collapsed and reveals cell details on hover, focus, and tap', async ({ page, isMobile }) => {

@@ -1,13 +1,15 @@
 ---
 title: How Soundscaper compares
 layoutPreset: full-width
-description: Compare Soundscaper Web and Desktop with Audacity, Adobe Audition, Pro Tools Studio, and SoundCraft across editing, mixing, and delivery.
+description: Compare Soundscaper with audio editors and music production DAWs across recording, editing, mixing, MIDI, and delivery.
 sidebar:
   order: 3
 ---
 
 Compare Soundscaper Web and Desktop with Audacity 4.0.2, Adobe Audition,
-Pro Tools Studio, and ArtCraft SoundCraft 0.19.0 (pre-alpha).
+Ardour 9.10, Hindenburg Pro 2, Pro Tools Studio, ArtCraft SoundCraft 0.19.0
+(pre-alpha), FL Studio 2026 All Plugins Edition, Ableton Live 12 Suite,
+and Bitwig Studio 6.
 
 ## Reading the tables
 
@@ -18,6 +20,12 @@ Pro Tools Studio, and ArtCraft SoundCraft 0.19.0 (pre-alpha).
 Hover, focus, or tap an underlined cell for details. Ratings cover built-in
 features; plug-in hosting rows rate the host itself. Optional Soundscaper models
 and engines are part of its built-in assistance workflow.
+
+**Audio focus** and **MIDI focus** describe workflow emphasis on a spectrum.
+Ardour and Pro Tools combine MIDI tools with a recording and mixing focus;
+Live and Bitwig also record and edit audio. Shared header shading keeps related
+editors together. Scroll horizontally to compare all products; capability names
+stay visible.
 
 <details>
 <summary>Where these claims come from</summary>
@@ -93,6 +101,21 @@ or hardware access in a browser. Its [known gaps](https://github.com/storytold/s
 also describe limitations in audio-device routing and recording, so evaluate
 those workflows before relying on it for a session.
 
+**Ardour, Hindenburg, FL Studio, Live, and Bitwig**
+
+These columns were reviewed on **11 November 2026**, against the editions below
+and their published manuals or source. They were not tested in running builds.
+
+- **Ardour 9.10**, official full binaries: [release](https://ardour.org/whatsnew.html), [features](https://ardour.org/features.html), [manual](https://manual.ardour.org/toc/), [bundled processors](https://manual.ardour.org/bundled-plugins/), [export profiles](https://manual.ardour.org/exporting/edit-export-format-profile/), [interchange](https://manual.ardour.org/working-with-sessions/interchange-with-other-daws/), and [video tools](https://manual.ardour.org/video-timeline/setup/). The [pinned export registry](https://github.com/Ardour/ardour/blob/820eaaa7f53daab5c4e48831018dc4bbd6ff625c/libs/ardour/export_format_manager.cc) distinguishes export formats from RF64 session recording. Distribution and source builds can have different codec/helper availability.
+- **Hindenburg Pro 2.05, build 2754**: [features](https://hindenburg.com/products/radio-podcast/features/), [user guides](https://hindenburg.com/academy/guides/guides-hindenburg-pro/), [export formats](https://hindenburg.com/academy/features/features-hindenburg-pro/?product=6124&search=loudness), [plug-in support](https://hindenburg.uservoice.com/knowledgebase/articles/2005057-vsts-and-au-an-overview-of-all-types-of-external), [system requirements](https://hindenburg.com/products/radio-podcast/specs/), [release history](https://hindenburg.com/support/release-notes/hindenburg-series/), and [transcription FAQ](https://hindenburg.uservoice.com/knowledgebase/articles/2004043-transcription-faqs). Transcription runs locally, with plan/hour and language-pack limits qualified in the table.
+- **FL Studio 2026 All Plugins Edition, 26.1.7.5**: [edition comparison](https://www.image-line.com/fl-studio/compare-editions/), [current changes](https://www.image-line.com/fl-studio-learning/fl-studio-online-manual/html/WhatsNew.htm), [Playlist](https://www.image-line.com/fl-studio-learning/fl-studio-online-manual/html/playlist.htm), [Edison](https://www.image-line.com/fl-studio-learning/fl-studio-online-manual/html/plugins/Edison_3.htm), [plug-in formats](https://www.image-line.com/fl-studio-learning/fl-studio-online-manual/html/basics_externalplugins.htm), [audio export](https://www.image-line.com/fl-studio-learning/fl-studio-online-manual/html/fformats_save_export.htm), [Emphasis metering](https://www.image-line.com/fl-studio-learning/fl-studio-online-manual/html/plugins/Emphasis.htm), and [ZGameEditor video](https://www.image-line.com/fl-studio-learning/fl-studio-online-manual/html/plugins/ZGameEditor%20Visualizer.htm). Producer and Signature editions include fewer first-party tools; FL Cloud services are separate.
+- **Ableton Live 12.4.16 Suite**: [stable release history](https://www.ableton.com/en/release-notes/live-12/), [workflow concepts](https://www.ableton.com/en/manual/live-concepts/), [recording](https://www.ableton.com/en/manual/recording-new-clips/), [comping](https://www.ableton.com/en/manual/comping/), [effects](https://www.ableton.com/en/manual/live-audio-effect-reference/), [export](https://www.ableton.com/en/manual/managing-files-and-sets/), [included Surround Panner](https://www.ableton.com/en/packs/surround-panner/), and [local stem separation](https://help.ableton.com/hc/en-us/articles/23730994755996-Stem-Separation-in-Ableton-Live-FAQ). ARA announced for the [Live 13 public beta](https://www.ableton.com/en/release-notes/live-13-beta/) is outside this stable-version comparison.
+- **Bitwig Studio 6.1.7**, full edition: [release history](https://www.bitwig.com/previous_releases/), [features](https://www.bitwig.com/feature-list/), [workflow overview](https://www.bitwig.com/overview/), [audio editing](https://www.bitwig.com/userguide/latest/working_with_audio_events/), [export formats](https://downloads.bitwig.com/stable/4.0/Release-Notes-4.0.html), [audio export](https://www.bitwig.com/userguide/latest/exporting_audio/), [DAWproject export](https://www.bitwig.com/userguide/latest/exporting_projects/), and [video limitations](https://www.bitwig.com/support/technical_support/does-bitwig-studio-support-video-34/). Essentials and Producer have different limits. Native plug-in process isolation is distinguished from Soundscaper's reviewed WebAssembly packages.
+
+The broad groups reflect our assessment of workflow emphasis. Ardour and
+[Pro Tools](https://www.avid.com/pro-tools/features/midi) have substantial MIDI
+workflows; FL Studio, Live, and Bitwig also record, edit, and mix audio.
+
 
 **Workflow references**
 
@@ -130,112 +153,112 @@ those workflows before relying on it for a session.
 
 ## Platform and terms
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Pro Tools Studio | SoundCraft 0.19.0 |
-| --- | --- | --- | --- | --- | --- | --- |
-| Licence | + — AGPL-3.0-only | + — AGPL-3.0-only | + — GPL | / — Proprietary | / — Proprietary | + — MIT / Apache-2.0 |
-| Cost | + — Free | + — Free | + — Free | / — Subscription | / — Paid | + — Free |
-| Runs in a browser | + | / | / | / | / | + — Self-hosted |
-| Desktop builds | / | + — Win, Mac, Linux | + — Win, Mac, Linux | ~ — Win, Mac | ~ — Win, Mac | + — Win, Mac, Linux, FreeBSD |
-| Works with no account | + — :: Local editing needs no account; optional sharing has its own sign-in | + — :: Local editing needs no account; optional sharing has its own sign-in | + | / | / | + |
-| Cloud project storage | ~ — Manual archives :: Manual AUP3/AUP4 archive storage on a configured Audiocity server; no automatic sync | ~ — Manual archives :: Manual AUP3/AUP4 archive storage on a configured Audiocity server; no automatic sync | + — audio.com | / | + | / |
+| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Licence | + — AGPL-3.0-only | + — AGPL-3.0-only | + — GPL | / — Proprietary | + — GPL-2.0-or-later | / — Proprietary | / — Proprietary | + — MIT / Apache-2.0 | / — Proprietary | / — Proprietary | / — Proprietary |
+| Cost | + — Free | + — Free | + — Free | / — Subscription | ~ — Source / paid builds :: Source code is free; official full ready-to-run builds require payment. Distribution packages have their own terms. | / — Paid :: Subscription or perpetual licence; service packages differ. | / — Paid | + — Free | / — Paid, perpetual | / — Paid | / — Paid |
+| Runs in a browser | + | / | / | / | / | / | / | + — Self-hosted | / | / | / |
+| Desktop builds | / | + — Win, Mac, Linux | + — Win, Mac, Linux | ~ — Win, Mac | + — Win, Mac, Linux | ~ — Win, Mac | ~ — Win, Mac | + — Win, Mac, Linux, FreeBSD | ~ — Win, Mac | ~ — Win, Mac | + — Win, Mac, Linux |
+| Works with no account | + — :: Local editing needs no account; optional sharing has its own sign-in | + — :: Local editing needs no account; optional sharing has its own sign-in | + | / | + — :: No account is needed to run the editor; obtaining official binaries is a separate download/payment workflow. | / | / | + | / | / — :: An Ableton account is needed for authorization, including the offline authorization-file route. | / — :: License activation uses a Bitwig account; offline activation is available after obtaining an activation file. |
+| Cloud project storage | ~ — Manual archives :: Manual AUP3/AUP4 archive storage on a configured Audiocity server; no automatic sync | ~ — Manual archives :: Manual AUP3/AUP4 archive storage on a configured Audiocity server; no automatic sync | + — audio.com | / | / | / | + | / | + — FL Cloud :: Project ZIP backups on save; not continuous background sync. | / — :: Ableton Cloud transfers Note and Move ideas into Live; it is not cloud backup or synchronization for Live Sets. | / |
 
 [Web or desktop](/start/web-or-desktop/) covers platform limits. Optional sharing does not automatically back up a Soundscaper project; see [storage and backups](/projects-and-data/storage-backups-and-privacy/).
 
 ## Project and session model
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Pro Tools Studio | SoundCraft 0.19.0 |
-| --- | --- | --- | --- | --- | --- | --- |
-| Native project format | + — `.sscape` :: Media is bundled with the project. | + — `.sscape` :: `.sscape`; original imported media is referenced by default, with consolidation for portability | + — `.aup4` | + — `.sesx` | + — `.ptx` | + — `.scraft` / `.scraftz` |
-| Opens Audacity projects | + — AUP–AUP4 :: Imports AUP, AUP3, and AUP4; exports AUP3 and AUP4. | + — AUP–AUP4 :: Imports AUP, AUP3, and AUP4; exports AUP3 and AUP4. | ~ — No AUP3 export :: AUP, AUP3, and AUP4 import; AUP4 export. | / | / | / |
-| Non-destructive clip timeline | + | + | + | + | + | + |
-| Dedicated single-file editor | + — Source monitor | + — Source monitor | / | + — Waveform editor | / | / |
-| Mono and stereo content on one track | + | + | / | / | / | ~ — Channel conversion :: Source widths can share a track; mono repeats on stereo tracks, while stereo on mono loses a channel |
-| Nested track folders | + | + | / | / | + | + |
-| Project bin | + | + | / | ~ — Files panel | + — Clips list | + — Clips list |
-| Project recording notes | + — Markdown | + — Markdown | ~ — Labels | ~ — Markers :: Marker names and file metadata, no Markdown notebook in the audited documentation | ~ — Track comments | ~ — Session comments |
-| Autosave and crash recovery | + — :: Local recovery saves, interrupted-take recovery, and damaged-project repair | + | + | + | + | + |
-| Markers and named regions | + | + | ~ — Labels | + | + | + |
-| Tempo and time-signature maps | + | + | ~ — One tempo | ~ — One tempo | + | + |
+| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Native project format | + — `.sscape` :: Media is bundled with the project. | + — `.sscape` :: `.sscape`; original imported media is referenced by default, with consolidation for portability | + — `.aup4` | + — `.sesx` | + — `.ardour` :: An XML session file and a folder of referenced audio/MIDI media; archives can consolidate media. | + — `.nhsx` | + — `.ptx` | + — `.scraft` / `.scraftz` | + — `.flp` / ZIP | + — `.als` | + — `.bwproject` |
+| Opens Audacity projects | + — AUP–AUP4 :: Imports AUP, AUP3, and AUP4; exports AUP3 and AUP4. | + — AUP–AUP4 :: Imports AUP, AUP3, and AUP4; exports AUP3 and AUP4. | ~ — No AUP3 export :: AUP, AUP3, and AUP4 import; AUP4 export. | / | / | / | / | / | / | / | / |
+| Non-destructive clip timeline | + | + | + | + | + | + | + | + | + | + | + |
+| Dedicated single-file editor | + — Source monitor | + — Source monitor | / | + — Waveform editor | / | / | / | / | + — Edison | / — :: Live can launch an external sample editor; it has no separate built-in waveform-file editor. | / — :: The Detail Editor edits clip events; it is not a separate destructive waveform-file editor. |
+| Mono and stereo content on one track | + | + | / | / | + — :: Multichannel tracks accept regions with fewer channels; missing channels can be replicated or left silent. | + | / | ~ — Channel conversion :: Source widths can share a track; mono repeats on stereo tracks, while stereo on mono loses a channel | + | + | + |
+| Nested track folders | + | + | / | / | / | / | + | + | ~ — Track groups :: Playlist parent/sub-track grouping; no multi-level folder hierarchy documented. | + — Group tracks | + — Group tracks |
+| Project bin | + | + | / | ~ — Files panel | + — Sources / regions | + — Clipboards | + — Clips list | + — Clips list | + — Browser / Picker | ~ — Browser | ~ — Used Files |
+| Project recording notes | + — Markdown | + — Markdown | ~ — Labels | ~ — Markers :: Marker names and file metadata, no Markdown notebook in the audited documentation | ~ — Track comments :: Mixer strips have comments and the session has descriptive metadata; no Markdown project notebook. | ~ — Metadata / manuscript :: Session metadata, region descriptions, and editable transcripts; no Markdown notebook. | ~ — Track comments | ~ — Session comments | + — Project info | ~ — Info Text | ~ — Project / section notes |
+| Autosave and crash recovery | + — :: Local recovery saves, interrupted-take recovery, and damaged-project repair | + | + | + | + | + | + | + | + | + | + |
+| Markers and named regions | + | + | ~ — Labels | + | + | + | + | + | + | ~ — Locators | ~ — Cue markers |
+| Tempo and time-signature maps | + | + | ~ — One tempo | ~ — One tempo | + | / | + | + | + | + | + |
 
 Desktop projects reference original media by default. Consolidate media before moving them; see [project files](/projects-and-data/project-files/). [Recording notes](/soundscaper/recording/) travel with the project.
 
 ## Recording
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Pro Tools Studio | SoundCraft 0.19.0 |
-| --- | --- | --- | --- | --- | --- | --- |
-| Multitrack recording | + | + | ~ — One device | + | + — 64 inputs | ~ — Desktop only :: Desktop recording; unavailable on Web and FreeBSD; physical channel routing and shared-clock duplex capture are gaps |
-| Microphone and desktop audio together | ~ — Browser-dependent :: Built in where the browser and operating system expose display audio | + — OS-dependent :: Microphone plus Windows desktop loopback; other systems use a loopback input | / | ~ — Loopback device | ~ — Loopback routing | ~ — Limited routing |
-| Timed recording | + | + | / — :: Disabled in Audacity 4.0.2. | / | / | / |
-| Sound-activated recording | + | + | / — :: Disabled in Audacity 4.0.2. | / | / | / |
-| Count-in before the take | + | + | ~ — Lead-in | ~ — Pre-roll | + | / — :: The countoff setting has no recording implementation in the reviewed source. |
-| Punch recording | + | + | ~ — Lead-in | + | + — QuickPunch | ~ — Desktop only |
-| Loop recording into takes | + | + | / | ~ — Clip take list | + | ~ — Desktop only |
-| Take comping | + — :: Audition, promote, edit comp regions, flatten as one undoable edit | + — :: Audition, promote, edit comp regions, flatten as one undoable edit | / | / | + | + |
-| Input monitoring and metering | + | + | + | + | + | ~ — Desktop only :: Desktop input monitoring; recording unavailable on Web and FreeBSD |
-| MIDI keyboard recording | / | / | / | / | + | / — :: MIDI device input is not implemented. |
+| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Multitrack recording | + | + | ~ — One device | + | + | + | + — 64 inputs | ~ — Desktop only :: Desktop recording; unavailable on Web and FreeBSD; physical channel routing and shared-clock duplex capture are gaps | + | + | + |
+| Microphone and desktop audio together | ~ — Browser-dependent :: Built in where the browser and operating system expose display audio | + — OS-dependent :: Microphone plus Windows desktop loopback; other systems use a loopback input | / | ~ — Loopback device | ~ — OS routing :: Requires suitable system loopback, JACK or PipeWire routing, rather than a built-in desktop-audio capture picker. | + — Audio Device :: Hindenburg Audio Device routes application and system audio alongside microphone inputs. | ~ — Loopback routing | ~ — Limited routing | ~ — Device routing :: Requires system audio presented by a loopback or aggregate audio device. | ~ — Loopback routing | ~ — Loopback routing |
+| Timed recording | + | + | / — :: Disabled in Audacity 4.0.2. | / | / | / | / | / | / | / | / |
+| Sound-activated recording | + | + | / — :: Disabled in Audacity 4.0.2. | / | + — Lua processor :: The bundled Voice/Level Activate processor starts transport above a level threshold; armed tracks then record. | / | / | / | + — Edison | / | / |
+| Count-in before the take | + | + | ~ — Lead-in | ~ — Pre-roll | + | ~ — Pre-roll | + | / — :: The countoff setting has no recording implementation in the reviewed source. | + | + | + |
+| Punch recording | + | + | ~ — Lead-in | + | + | + | + — QuickPunch | ~ — Desktop only | + — Record markers :: Playlist start/stop recording markers automate punch-in and punch-out. | + | + |
+| Loop recording into takes | + | + | / | ~ — Clip take list | + | / | + | ~ — Desktop only | + — Playlist / Edison | + | + |
+| Take comping | + — :: Audition, promote, edit comp regions, flatten as one undoable edit | + — :: Audition, promote, edit comp regions, flatten as one undoable edit | / | / | + — Playlists / layers | / | + | + | / — :: Takes can be assembled and consolidated manually; no dedicated comp lanes in the reviewed manual. | + | + |
+| Input monitoring and metering | + | + | + | + | + | + | + | ~ — Desktop only :: Desktop input monitoring; recording unavailable on Web and FreeBSD | + | + | + |
+| MIDI keyboard recording | / | / | / | / | + | / | + | / — :: MIDI device input is not implemented. | + | + | + |
 
 Recording depends on your browser, operating system, and audio hardware. See [record audio](/soundscaper/recording/) for inputs, monitoring, takes, and recovery.
 
 ## Timeline editing
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Pro Tools Studio | SoundCraft 0.19.0 |
-| --- | --- | --- | --- | --- | --- | --- |
-| Ripple edit variants | + | + | + | ~ — Delete | ~ — Shuffle | ~ — Shuffle |
-| Split, join, and split at silences | + | + | + | ~ — No join | + | + |
-| Clip groups | + | + | + | + | + | + |
-| Clip gain | + | + | + | + | + | + |
-| Per-clip pitch and speed | + | + | + | ~ — Pitch effect | + | ~ — Elastic Audio |
-| Follow tempo changes | + | + | + | / | + | ~ — Reapply conform |
-| Beat-aware quantisation and groove | + | + | / | / | + — Beat Detective | ~ — Clip / MIDI quantise :: Clip-start quantisation; MIDI quantisation with adjustable swing and strength |
-| Snap to zero crossings | + | + | + | + | / | / |
-| Sample-level drawing | + | + | + | + | + | / |
-| Keyboard-only editing | + | + | + — :: Keyboard navigation, with more editing and zoom shortcuts restored in 4.0.2 | ~ — :: Some panels require mouse input. | ~ — :: Extensive keyboard shortcuts. | ~ — :: Commands Focus shortcuts, with documented collisions and partial list focus |
+| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Ripple edit variants | + | + | + | ~ — Delete | + | + | ~ — Shuffle | ~ — Shuffle | ~ — Clip slip trim :: The documented ripple tool changes clip bounds; it does not provide full multitrack ripple insertion/deletion. | ~ — Time commands :: Insert Silence, Cut Time, and Delete Time move later material across the arrangement. | ~ — Time commands |
+| Split, join, and split at silences | + | + | + | ~ — No join | + — :: Split and combine/uncombine audio regions, plus Strip Silence. | ~ — No silence split :: Split and region assembly; no automatic split-at-silence tool documented. | + | + | + — Playlist / Edison | ~ — Split / consolidate :: Split and Consolidate are built in; no automatic split-at-silence command is documented. | ~ — Onset splits :: Split, Consolidate, and slicing at detected onsets are available; no split-at-silence command is documented. |
+| Clip groups | + | + | + | + | ~ — Compounds / groups :: Audio regions on one track can form reversible compounds; track groups link edits across tracks. | + | + | + | + | ~ — Linked tracks :: Linked-track editing coordinates clips across tracks; it is not an arbitrary clip-group system. | ~ — Meta clips :: Group-track meta clips edit child clips together; these are not arbitrary cross-track clip groups. |
+| Clip gain | + | + | + | + | + | + | + | + | + | + | + — Event gain |
+| Per-clip pitch and speed | + | + | + | ~ — Pitch effect | + — Rendered :: Region pitch-shift and time-stretch create processed audio while retaining the original source. | ~ — Time stretch | + | ~ — Elastic Audio | + | + | + |
+| Follow tempo changes | + | + | + | / | ~ — Cue stretching :: Cue clips can follow tempo with time-stretching. Timeline audio regions can move with musical time but do not automatically stretch with the tempo map. | / | + | ~ — Reapply conform | + — Stretch mode | + — Warp | + |
+| Beat-aware quantisation and groove | + | + | / | / | ~ — Rhythm Ferret :: Audio onset detection and slicing, plus MIDI quantisation/swing; no continuous groove warp map. | / | + — Beat Detective | ~ — Clip / MIDI quantise :: Clip-start quantisation; MIDI quantisation with adjustable swing and strength | + — Newtime / groove | + | + |
+| Snap to zero crossings | + | + | + | + | / | / | / | / | + — Edison | ~ — Samplers only :: Simpler and Sampler snap sample-region and loop boundaries to zero crossings; arrangement edits do not. | ~ — Sampler only :: Sampler's waveform-region edits can snap to zero crossings; the Arranger has no equivalent documented snap mode. |
+| Sample-level drawing | + | + | + | + | / | / | + | / | + — Edison | / | / |
+| Keyboard-only editing | + | + | + — :: Keyboard navigation, with more editing and zoom shortcuts restored in 4.0.2 | ~ — :: Some panels require mouse input. | ~ — Shortcuts :: Extensive configurable shortcuts; some editing operations remain pointer-based. | ~ — Shortcuts :: Extensive region, transport, clipboard, and manuscript shortcuts. | ~ — :: Extensive keyboard shortcuts. | ~ — :: Commands Focus shortcuts, with documented collisions and partial list focus | ~ — Shortcuts :: Editing and navigation shortcuts; some controls remain mouse-oriented. | ~ — :: Extensive shortcuts and keyboard/accessibility navigation; some graphical editing still needs pointer input. | ~ — :: Keyboard editing workflows are documented; some graphical editing still requires pointer input. |
 
 Soundscaper can [import Audacity keyboard shortcuts](/reference/generated/commands/) from Preferences. Unsupported commands and conflicting bindings are reported.
 
 ## Spectral work and restoration
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Pro Tools Studio | SoundCraft 0.19.0 |
-| --- | --- | --- | --- | --- | --- | --- |
-| Spectrogram view | + | + | + | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / |
-| Frequency-bounded selection | + | + | + — :: Frequency selections are available in the spectrogram view; some menu and toolbar entries remain disabled. | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / |
-| Spectral brush | + | + | / — :: Disabled in Audacity 4.0.2. | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / |
-| Delete or amplify a spectral region | + | + | + — :: Bundled Nyquist Delete selection and Amplify selection effects are available in the spectrogram context menu. | ~ — Apply effect | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / |
-| Repair short damage | + | + | + | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / — :: Requires a third-party repair plug-in on desktop. |
-| Broadband noise reduction | + | + | + | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / — :: Requires a third-party noise-reduction plug-in on desktop. |
-| Real-time adaptive denoising | / — :: Noise Reduction uses a captured noise profile. | / — :: Noise Reduction uses a captured noise profile; optional speech enhancement is offline. | / — :: Noise Reduction uses a captured noise profile. | + — :: Adaptive Noise Reduction tracks changing broadband noise in real time. | / — :: Requires an external noise-reduction plug-in. | / |
-| Learned sound removal | + | + | + | + — :: Sound Remover learns a sound model, such as a siren or ringing phone, and removes matching sounds. | / — :: Requires an external restoration plug-in. | / |
-| Automatic phase correction | / | / | / | + — :: Automatically aligns stereo channels to correct phase and tape-head azimuth errors. | / — :: Requires an external alignment plug-in, such as Auto-Align. | / |
-| De-reverb | / | + — Local model | / | + | / — :: Requires the separate Acoustica Ultimate / DeVerberate plug-in. | / — :: Requires a third-party de-reverb plug-in on desktop. |
-| Click removal | + | + | + | + | / — :: Requires the external RX De-click plug-in with an active plan. | / |
-| Hum removal | / | / | / | + — :: Built-in DeHummer effect. | / — :: Requires the external RX De-hum plug-in with an active plan. | / |
-| De-essing | + | + | / | + | + — :: Included Avid Dynamics III De-Esser. | + |
-| Diagnostics panel | ~ — Clipping only | ~ — Clipping only | ~ — Clipping only | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / |
+| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Spectrogram view | + | + | + | + | + — Analysis / live :: Region/export analysis and the bundled ACE Inline Spectrogram provide viewing; no spectral editing. | / | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / | + — Edison | ~ — Effects only :: Spectral Resonator and Spectral Time include live spectrogram displays; there is no timeline spectral editor. | / |
+| Frequency-bounded selection | + | + | + — :: Frequency selections are available in the spectrogram view; some menu and toolbar entries remain disabled. | + | / | / | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / | / | / | / |
+| Spectral brush | + | + | / — :: Disabled in Audacity 4.0.2. | + | / | / | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / | / | / | / |
+| Delete or amplify a spectral region | + | + | + — :: Bundled Nyquist Delete selection and Amplify selection effects are available in the spectrogram context menu. | ~ — Apply effect | / | / | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / | / | / | / |
+| Repair short damage | + | + | + | + | / — :: Requires an external restoration plug-in or editor. | / | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / — :: Requires a third-party repair plug-in on desktop. | + — Edison :: Denoise, declick, and declip tools. | / | / |
+| Broadband noise reduction | + | + | + | + | / — :: Requires an external noise-reduction plug-in. | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / — :: Requires a third-party noise-reduction plug-in on desktop. | + — Edison | / | / |
+| Real-time adaptive denoising | / — :: Noise Reduction uses a captured noise profile. | / — :: Noise Reduction uses a captured noise profile; optional speech enhancement is offline. | / — :: Noise Reduction uses a captured noise profile. | + — :: Adaptive Noise Reduction tracks changing broadband noise in real time. | / — :: Requires an external noise-reduction plug-in. | / | / — :: Requires an external noise-reduction plug-in. | / | / — :: Edison's denoisers are offline processors. | / | / |
+| Learned sound removal | + | + | + | + — :: Sound Remover learns a sound model, such as a siren or ringing phone, and removes matching sounds. | / | / | / — :: Requires an external restoration plug-in. | / | / | / | / |
+| Automatic phase correction | / | / | / | + — :: Automatically aligns stereo channels to correct phase and tape-head azimuth errors. | / | / | / — :: Requires an external alignment plug-in, such as Auto-Align. | / | / | / | / |
+| De-reverb | / | + — Local model | / | + | / — :: Requires an external de-reverb plug-in. | / | / — :: Requires the separate Acoustica Ultimate / DeVerberate plug-in. | / — :: Requires a third-party de-reverb plug-in on desktop. | + — Edison AI :: General or vocal models; optimized for samples shorter than 30 seconds. | / | / |
+| Click removal | + | + | + | + | / — :: Requires an external restoration plug-in. | / | / — :: Requires the external RX De-click plug-in with an active plan. | / | + — Edison | / | / |
+| Hum removal | / | / | / | + — :: Built-in DeHummer effect. | + — Notch bank :: Bundled ACE Notch Bank removes fixed harmonic noise such as mains hum; it does not adapt to changing noise. | / | / — :: Requires the external RX De-hum plug-in with an active plan. | / | / | / | / |
+| De-essing | + | + | / | + | / — :: No dedicated de-esser in the reviewed built-in effect list; external de-essers can be hosted. | / | + — :: Included Avid Dynamics III De-Esser. | + | + — Maximus | + — Multiband Dynamics :: The manual documents de-essing with the built-in Multiband Dynamics device. | + — De-Esser |
+| Diagnostics panel | ~ — Clipping only | ~ — Clipping only | ~ — Clipping only | + | ~ — Analysis :: Range/region and export loudness analysis, without a dedicated restoration-diagnostics panel. | / | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / | / | / | / |
 
 
 
 ## Effects and plug-ins
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Pro Tools Studio | SoundCraft 0.19.0 |
-| --- | --- | --- | --- | --- | --- | --- |
-| Built-in effect suite | + — :: Audacity-derived effects, bundled Nyquist plug-ins, and first-party effects such as Bitcrusher and De-esser | + — :: Audacity-derived effects, bundled Nyquist plug-ins, and first-party effects such as Bitcrusher and De-esser | + — :: Built-in processors, generators, and bundled Nyquist plug-ins | + | + | + |
-| Real-time effect rack per track | + — :: A wider real-time set than upstream; optional parallel processing for eligible built-in stacks | + — :: A wider real-time set than upstream; optional parallel processing for eligible built-in stacks | + | + — 16 slots | + | + — 10 slots |
-| Parametric EQ | + | + | ~ — Curve / graphic | + | + | + — :: Built-in 1-band and 7-band EQ with adjustable frequency, gain, and Q |
-| Effect presets | + | + | + | + | + | + |
-| Macros and batch chains | + — :: Saved step-list macros, templates, and JavaScript macro programs | + — :: Saved step-list macros, templates, and JavaScript macro programs | / — :: Disabled in Audacity 4.0.2. | + | / — :: SoundFlow provides external automation. | ~ — CLI scripting |
-| VST2 plug-ins | / | + | / | + | / | / |
-| VST3 plug-ins | / | + | + | + | / | ~ — Desktop only :: Desktop; signed macOS builds restrict third-party VST3; unavailable on Web |
-| AAX plug-ins | / | / | / | / | + | / |
-| CLAP plug-ins | / | + | / | / | / | ~ — Desktop only |
-| Audio Units (AU) | / | + — Mac | + — Mac | + — Mac | / | ~ — Mac :: MacOS desktop; unavailable on Web; plug-in editor views are a documented gap |
-| LV2 plug-ins | / | + — Linux | + — Linux | / | / | / |
-| LADSPA plug-ins | / | + — Linux | / | / | / | / |
-| Vamp analysers | / | + | / | / | / | / |
-| ARA clip editing | / | + — :: One mono or stereo clip through an allowed ARA-capable VST3 plug-in and matching native runtime | / | / | + | / |
-| Nyquist scripting | + | + | + | / | / | / |
-| Sandboxed effect packages | ~ — WebAssembly :: Reviewed WebAssembly packages, one ships and external ones are fenced | ~ — WebAssembly :: Reviewed WebAssembly packages, one ships and external ones are fenced | / | / | / | / |
-| Instrument plug-in hosting | / | / | / | / | + | + |
-| Score editing and printing | / | / | / | / | + | ~ — View / print :: Read-only notation view and SVG score export; notes are edited in the piano roll. |
+| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Built-in effect suite | + — :: Audacity-derived effects, bundled Nyquist plug-ins, and first-party effects such as Bitcrusher and De-esser | + — :: Audacity-derived effects, bundled Nyquist plug-ins, and first-party effects such as Bitcrusher and De-esser | + — :: Built-in processors, generators, and bundled Nyquist plug-ins | + | + — ACE / Lua | ~ — Dialogue tools :: Built-in EQ, compressor, noise reduction, voice profiling, and meters. | + | + | + — All Plugins | + | + |
+| Real-time effect rack per track | + — :: A wider real-time set than upstream; optional parallel processing for eligible built-in stacks | + — :: A wider real-time set than upstream; optional parallel processing for eligible built-in stacks | + | + — 16 slots | + | + | + | + — 10 slots | + — 10 slots :: Patcher or chained mixer tracks can extend the effect chain. | + | + |
+| Parametric EQ | + | + | ~ — Curve / graphic | + | + — ACE EQ | + | + | + — :: Built-in 1-band and 7-band EQ with adjustable frequency, gain, and Q | + — Parametric EQ 2 | + — EQ Eight | + — EQ+ |
+| Effect presets | + | + | + | + | + | + | + | + | + | + | + |
+| Macros and batch chains | + — :: Saved step-list macros, templates, and JavaScript macro programs | + — :: Saved step-list macros, templates, and JavaScript macro programs | / — :: Disabled in Audacity 4.0.2. | + | + — Lua scripting | / | / — :: SoundFlow provides external automation. | ~ — CLI scripting | ~ — Scripts / CLI :: Edison processing scripts and command-line batch rendering; no general effect-chain macro editor. | / — :: Rack Macro controls map parameters; they do not run editing macros or batch-processing chains. | / — :: Controller scripts integrate devices and mappings; no editing or batch-processing macro runner is documented. |
+| VST2 plug-ins | / | + | / | + | + | + — :: Official plug-in support lists VST alongside VST3 and AU; current requirements emphasize VST3 on Windows and AU on macOS. | / | / | + | + | + |
+| VST3 plug-ins | / | + | + | + | + | ~ — Windows :: Current Windows requirements list VST3; macOS requirements list AU. | / | ~ — Desktop only :: Desktop; signed macOS builds restrict third-party VST3; unavailable on Web | + | + | + |
+| AAX plug-ins | / | / | / | / | / | / | + | / | / | / | / |
+| CLAP plug-ins | / | + | / | / | / | / | / | ~ — Desktop only | + | / | + |
+| Audio Units (AU) | / | + — Mac | + — Mac | + — Mac | + — Mac | + — Mac | / | ~ — Mac :: MacOS desktop; unavailable on Web; plug-in editor views are a documented gap | + — Mac | + — Mac | / |
+| LV2 plug-ins | / | + — Linux | + — Linux | / | + | / | / | / | / | / | / |
+| LADSPA plug-ins | / | + — Linux | / | / | + | / | / | / | / | / | / |
+| Vamp analysers | / | + | / | / | + — Lua analysis :: Bundled analyzers and a Lua-accessible Vamp host; not audio effect inserts. | / | / | / | / | / | / |
+| ARA clip editing | / | + — :: One mono or stereo clip through an allowed ARA-capable VST3 plug-in and matching native runtime | / | / | / | / | + | / | / | / — :: ARA 2 is announced for the Live 13 public beta; the compared stable Live 12 release does not support it. | / |
+| Nyquist scripting | + | + | + | / | / | / | / | / | / | / | / |
+| Sandboxed effect packages | ~ — WebAssembly :: Reviewed WebAssembly packages, one ships and external ones are fenced | ~ — WebAssembly :: Reviewed WebAssembly packages, one ships and external ones are fenced | / | / | / | / | / | / | / | / | ~ — Native plug-ins :: CLAP/VST plug-ins can run in isolated host processes; there is no reviewed WebAssembly effect-package format. |
+| Instrument plug-in hosting | / | / | / | / | + | / | + | + | + | + | + |
+| Score editing and printing | / | / | / | / | / | / | + | ~ — View / print :: Read-only notation view and SVG score export; notes are edited in the piano roll. | ~ — PDF export :: Piano-roll notes export as a PDF score; no notation editor. | / | / |
 
 See [plug-in management](/help/local-processing/#manage-plugins-and-devices), [macro programs](/reference/macro-programs/), and [commands](/reference/generated/commands/). Desktop ARA edits one mono or stereo clip at a time, up to 128 MiB of decoded audio.
 
@@ -244,48 +267,48 @@ not record MIDI devices or host instrument plug-ins.
 
 ## Mixing, routing, and automation
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Pro Tools Studio | SoundCraft 0.19.0 |
-| --- | --- | --- | --- | --- | --- | --- |
-| Mixer with channel strips | + | + | ~ — Track controls | + | + | + |
-| Buses and submixes | + | + | / | + | + | + |
-| Sends | + | + | / | + | + | + — 10 sends |
-| VCA groups | + | + | / | / | + | + |
-| Sidechain input | + | + | / | + | + | / |
-| Cue and control-room mixes | + | + | / | / | + | ~ — Routing limits :: Sends and buses; physical channel routing is a documented gap |
-| Hardware insert effects | / | / | / | / | + — :: Routes a track through outboard audio hardware using paired interface inputs and outputs. | / |
-| Hardware control surfaces | / | / | / | + — HUI | + — EUCON / HUI | / |
-| MIDI output to hardware | / | / | / | / | + | / — :: MIDI device output is not implemented. |
-| Plug-in delay compensation | + | + | / | + | + | + |
-| Automation lanes | + | + | ~ — Clip gain | + | + | + |
-| Automation modes | + | + | / | ~ — No trim | + | + |
-| Curve shapes | + | + | ~ — Clip gain | + | + | ~ — Linear |
-| Track freeze | + | + | / | ~ — Bounce | + | ~ — Commit only :: Freeze sets a flag without freezing audio. Commit renders a new track. |
+| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Mixer with channel strips | + | + | ~ — Track controls | + | + | ~ — Track controls | + | + | + — 500 inserts | + | + |
+| Buses and submixes | + | + | / | + | + | / | + | + | + | + — Group / return tracks | + |
+| Sends | + | + | / | + | + | / | + | + — 10 sends | + | + — 12 returns | + |
+| VCA groups | + | + | / | / | + | / | + | + | / | / | / |
+| Sidechain input | + | + | / | + | + | / | + | / | + | + | + |
+| Cue and control-room mixes | + | + | / | / | + — Foldback / monitor | / | + | ~ — Routing limits :: Sends and buses; physical channel routing is a documented gap | + — Device outputs | + — Cue output | + — Studio / cue routing |
+| Hardware insert effects | / | / | / | / | + — :: Hardware sends/returns with latency measurement and compensation. | / | + — :: Routes a track through outboard audio hardware using paired interface inputs and outputs. | / | / — :: Mixer outputs and returns can be routed manually; no integrated hardware-insert workflow is documented. | + — External Audio Effect | + — HW FX |
+| Hardware control surfaces | / | / | / | + — HUI | + — MCU / MIDI / OSC | / | + — EUCON / HUI | / | + — MIDI / MCU | + — Push / control scripts | + — Controller scripts |
+| MIDI output to hardware | / | / | / | / | + | / | + | / — :: MIDI device output is not implemented. | + | + — External Instrument | + — HW Instrument |
+| Plug-in delay compensation | + | + | / | + | + | / | + | + | + | + | + |
+| Automation lanes | + | + | ~ — Clip gain | + | + | ~ — Volume envelopes | + | + | + — Automation clips | + | + |
+| Automation modes | + | + | / | ~ — No trim | + — :: Manual/read/write, touch and latch, with separate trim automation. | / | + | + | ~ — Record / edit :: Live event recording and automation clips; no standard touch/latch/trim mode set. | ~ — Touch / latch :: Mouse changes use touch-style recording; MIDI controls use latch-style recording. No trim mode is documented. | ~ — Touch / latch / write :: Relative clip automation is supported; no dedicated mixer trim mode is documented. |
+| Curve shapes | + | + | ~ — Clip gain | + | ~ — Linear / step | ~ — Fades | + | ~ — Linear | + | + | + |
+| Track freeze | + | + | / | ~ — Bounce | ~ — Audio tracks :: Audio tracks support freeze/unfreeze; MIDI instrument tracks use other bounce/export workflows. | / | + | ~ — Commit only :: Freeze sets a flag without freezing audio. Commit renders a new track. | ~ — Consolidate :: Render mixer/Playlist tracks and disable sources; no reversible Freeze/Unfreeze command. | + | ~ — Bounce :: Bounce and Bounce in Place render audio; an automatic reversible freeze/unfreeze command is not documented. |
 
 
 
 ## Metering and analysis
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Pro Tools Studio | SoundCraft 0.19.0 |
-| --- | --- | --- | --- | --- | --- | --- |
-| Loudness meter | + — EBU R 128 | + — EBU R 128 | / | + — Loudness Radar | / — :: Requires a separately purchased metering plug-in, such as Decibel. | / — Bounce report only |
-| Phase and correlation meter | + | + | / | + | / — :: Requires a separately purchased metering plug-in, such as Decibel. | / — :: Requires a third-party desktop metering plug-in; host restrictions apply. |
-| Surround metering | + | + | / | ~ — 5.1 | + | + |
-| Spectrum plot | + | + | / — :: Disabled in Audacity 4.0.2. | + | / — :: Requires a separately purchased metering plug-in, such as Decibel. | / |
-| Clipping and RMS in the waveform | + | + | + | ~ — Statistics panel | + | ~ — RMS only :: RMS waveform view; no clipping highlight found in audited source |
-| Speech-intelligibility contrast | + | + | / — :: Disabled in Audacity 4.0.2. | / | / | / |
+| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Loudness meter | + — EBU R 128 | + — EBU R 128 | / | + — Loudness Radar | ~ — Range analysis :: The Loudness Assistant measures integrated, short-term and momentary LUFS for a range/session; no continuously updating integrated-LUFS rack meter in the reviewed bundle. | + — EBU R 128 | / — :: Requires a separately purchased metering plug-in, such as Decibel. | / — Bounce report only | + — Emphasis LUFS | / — :: Peak/RMS meters are built in; LUFS metering needs an additional device or plug-in. | / |
+| Phase and correlation meter | + | + | / | + | / — :: Requires an external metering plug-in; the source tree's underscored correlation-meter example is excluded from installed scripts. | / | / — :: Requires a separately purchased metering plug-in, such as Decibel. | / — :: Requires a third-party desktop metering plug-in; host restrictions apply. | + — Wave Candy | / | / |
+| Surround metering | + | + | / | ~ — 5.1 | + — Multichannel | / | + | + | / | / | / |
+| Spectrum plot | + | + | / — :: Disabled in Audacity 4.0.2. | + | + — Spectral analysis | / | / — :: Requires a separately purchased metering plug-in, such as Decibel. | / | + — Wave Candy | + — Spectrum | + — Spectrum Analyzer |
+| Clipping and RMS in the waveform | + | + | + | ~ — Statistics panel | ~ — Clipping only :: Waveforms highlight clipping; RMS is available in meters and analysis, not as a waveform overlay. | / | + | ~ — RMS only :: RMS waveform view; no clipping highlight found in audited source | / | / — :: Peak/RMS track meters are available; the waveform does not display the comparison's clipping/RMS overlays. | / |
+| Speech-intelligibility contrast | + | + | / — :: Disabled in Audacity 4.0.2. | / | / | / | / | / | / | / | / |
 
 Soundscaper waveform display options are in **Track visualization** and **Preferences → Track display**.
 
 ## Channels and immersive audio
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Pro Tools Studio | SoundCraft 0.19.0 |
-| --- | --- | --- | --- | --- | --- | --- |
-| Channels per file | + — 32 | + — 32 | + - 32 | + — 32 | + — Multichannel | + — Multichannel |
-| Surround mixing | + — 7.1.4 | + — 7.1.4 | / | ~ — 5.1 | + — Dolby Atmos | + — 9.1.6 |
-| Object-based audio | + | + | / | / | + | ~ — No Atmos renderer :: Object and bed routing; Dolby Atmos renderer integration is a gap |
-| ADM authoring and passthrough | + | + | / | / | + — Export | / |
-| Binaural render | + | + | / | ~ — Ambisonics | + | / |
-| Ambisonics | / | / | / | + — First order | + — Third order | + |
+| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Channels per file | + — 32 | + — 32 | + — 32 | + — 32 | + — Multichannel | ~ — Mono / stereo | + — Multichannel | + — Multichannel | ~ — Mono / stereo | ~ — Mono / stereo | ~ — Mono / stereo |
+| Surround mixing | + — 7.1.4 | + — 7.1.4 | / | ~ — 5.1 | ~ — Static VBAP :: Multichannel routing and the built-in VBAP panner; the documented VBAP panner does not play automation. | / | + — Dolby Atmos | + — 9.1.6 | ~ — Hardware routing :: Separate stereo mixer outputs can feed 5.1/7.1 speakers; native mix-file export is mono/stereo. | ~ — Surround Panner :: The first-party Max for Live Surround Panner is included with Suite and routes to four-, six-, or eight-speaker setups. Native tracks and audio-file exports remain mono/stereo. | / |
+| Object-based audio | + | + | / | / | / — :: Requires external object-based rendering tools. | / | + | ~ — No Atmos renderer :: Object and bed routing; Dolby Atmos renderer integration is a gap | / | / | / |
+| ADM authoring and passthrough | + | + | / | / | / | / | + — Export | / | / | / | / |
+| Binaural render | + | + | / | ~ — Ambisonics | / — :: Requires an external binaural decoder or renderer. | / | + | / | / | / | / |
+| Ambisonics | / | / | / | + — First order | / — :: Multichannel routing is available, but Ambisonic encoding/decoding requires external plug-ins. | / | + — Third order | + | / | / | / |
 
 
 
@@ -293,32 +316,32 @@ Soundscaper waveform display options are in **Track visualization** and **Prefer
 
 Format ratings describe export support, not import.
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Pro Tools Studio | SoundCraft 0.19.0 |
-| --- | --- | --- | --- | --- | --- | --- |
-| WAV | + | + | + | + | + | + |
-| AIFF | + | + | + | + | + | + |
-| BWF | + | + | / | + | + | + — :: WAV bounces carry a Broadcast Wave time reference. |
-| RF64 | + — :: WAV output automatically uses RF64 above the RIFF size limit. | + — :: WAV output automatically uses RF64 above the RIFF size limit. | + — :: Available through Other uncompressed files. | + | + | + |
-| BW64 | + | + | / | / | / — :: BW64 reading is supported; the documented bounce formats use WAV/RF64 or ADM BWF. | / — :: Reads BW64; large-file output uses RF64. |
-| ADM BWF | + — :: Writes ADM metadata in a BW64 container. | + — :: Writes ADM metadata in a BW64 container. | / | / | + — :: Dolby Atmos ADM master export. | / |
-| FLAC | + | + | + | + | / | + |
-| WavPack | + | + | + | / | / | / |
-| MP2 | + | + | + | + | / | / |
-| MP3 | + | + | + | + | + | / |
-| Opus | + | + | + | / | / | / |
-| Ogg Vorbis | + | + | + | + | / | / |
-| AAC (M4A) | ~ — Browser-dependent :: Requires an available browser AAC encoder. | + — :: Uses a supported desktop encoder, including a configured FFmpeg provider. | ~ — FFmpeg :: Requires the optional FFmpeg codec library through Audacity's export workflow. | / — :: Requires a separate Adobe Media Encoder handoff. | ~ — Mac :: M4A export is documented on macOS; AAC in a MOV file is a separate video-bounce option. | / |
-| Custom encoder settings | + — FFmpeg :: Format controls (CLI) | + — FFmpeg :: Format controls (CLI) | + — FFmpeg :: GUI controls | + | ~ — Format controls | ~ — Bit depth / dither |
-| Descriptive metadata | + — :: Project ID3 fields, artwork, lyrics, credits, and format-specific export tags | + | + | + | + — MP3 ID3 | ~ — BWF timing |
-| Export queue | + | + | / | ~ — Batch Process | / — :: Bounce Factory Lite provides external batch bouncing. | / |
-| Stems and alternates in one pass | + | + | ~ — Tracks only :: Export Multiple writes each track separately, but does not queue the mix and alternate renders together | ~ — One stem | + | ~ — Mix or stems |
-| Region-by-region delivery | + — :: Mastering sequences with per-region metadata, gaps, and fades | + — :: Mastering sequences with per-region metadata, gaps, and fades | + | + | ~ — Selected range | ~ — Selected range |
-| Individual clip delivery | + — :: Single-clip export or one rendered file per audio clip in an archive | + — :: Single-clip export or one rendered file per audio clip in an archive | ~ — No archive :: Single-clip export and labelled splits; no clip archive in the audited build | ~ — Mixdown / archive :: Selected clips mixdown or trimmed session archive in the documented workflow | + | + |
-| Embedded podcast chapters | ~ — MP3 / M4A :: Label chapters in a single MP3 or M4A mix; M4A depends on browser codec support | ~ — MP3 / M4A :: Label chapters in a single MP3 or M4A mix; M4A requires an available desktop encoder | / | / | / | / |
-| Loudness normalisation on export | + | + | ~ — Apply effect first | + | ~ — Process first | + — Normalise |
-| Dither and channel mapping | + | + | ~ — Dither only | + | ~ — Export layouts :: Dither and mono, multiple-mono, or interleaved export options | ~ — Stereo fold-down |
-| Delivery report | + | + | / | / | / | ~ — Peak / LUFS |
-| Render queue survives a restart | / | + | / | / | / — :: Bounce Factory Lite provides an external queue; restart recovery is undocumented. | / |
+| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| WAV | + | + | + | + | + | + | + | + | + | + | + |
+| AIFF | + | + | + | + | + | + | + | + | ~ — Edison | + | / — :: AIFF import is supported; the documented audio-export formats do not include AIFF. |
+| BWF | + | + | / | + | + | / | + | + — :: WAV bounces carry a Broadcast Wave time reference. | / | + — :: Live 12 documents import and export using Broadcast Wave for large audio files. | / |
+| RF64 | + — :: WAV output automatically uses RF64 above the RIFF size limit. | + — :: WAV output automatically uses RF64 above the RIFF size limit. | + — :: Available through Other uncompressed files. | + | / — :: Ardour 9 records to RF64, but the reviewed audio-export registry exposes WAV/W64 rather than RF64. | / | + | + | / | + — :: Live 12 supports importing and exporting audio files above 4 GB, including RF64. | / |
+| BW64 | + | + | / | / | / | / | / — :: BW64 reading is supported; the documented bounce formats use WAV/RF64 or ADM BWF. | / — :: Reads BW64; large-file output uses RF64. | / | / | / |
+| ADM BWF | + — :: Writes ADM metadata in a BW64 container. | + — :: Writes ADM metadata in a BW64 container. | / | / | / | / | + — :: Dolby Atmos ADM master export. | / | / | / | / |
+| FLAC | + | + | + | + | + | + | / | + | + | + | + |
+| WavPack | + | + | + | / | / | / | / | / | ~ — Edison :: Edison exports WavPack; project mix export does not offer it directly. | / | / |
+| MP2 | + | + | + | + | / | + | / | / | / | / | / |
+| MP3 | + | + | + | + | + — :: Official binaries include encoding support; source/distribution builds depend on their libsndfile or FFmpeg configuration. | + | + | / | + | + — 320 kbps CBR | + |
+| Opus | + | + | + | / | + — :: Ogg Opus export is enabled in official binaries; other builds require a suitable libsndfile version. | + | / | / | / | / | + |
+| Ogg Vorbis | + | + | + | + | + | / | / | / | + | / | + |
+| AAC (M4A) | ~ — Browser-dependent :: Requires an available browser AAC encoder. | + — :: Uses a supported desktop encoder, including a configured FFmpeg provider. | ~ — FFmpeg :: Requires the optional FFmpeg codec library through Audacity's export workflow. | / — :: Requires a separate Adobe Media Encoder handoff. | / — :: No standalone M4A/AAC audio export format in the reviewed registry; video muxing is a separate workflow. | + | ~ — Mac :: M4A export is documented on macOS; AAC in a MOV file is a separate video-bounce option. | / | + | / — :: M4A import on macOS and AAC in exported video do not provide standalone M4A audio export. | / |
+| Custom encoder settings | + — FFmpeg :: Format controls (CLI) | + — FFmpeg :: Format controls (CLI) | + — FFmpeg :: GUI controls | + | ~ — Format controls :: Sample rate, PCM depth/dither and codec-specific quality options; no arbitrary audio-encoder command line. | ~ — Format controls | ~ — Format controls | ~ — Bit depth / dither | ~ — Format controls | ~ — Format controls | ~ — Format profiles |
+| Descriptive metadata | + — :: Project ID3 fields, artwork, lyrics, credits, and format-specific export tags | + | + | + | + | + — ID3 | + — MP3 ID3 | ~ — BWF timing | ~ — Title / genre / author :: Project Info writes title, genre and author to rendered audio; no artwork, lyrics, or podcast chapter authoring is documented. | ~ — BWF timing :: Broadcast Wave output is supported; the reviewed export dialog has no descriptive ID3-tag editor. | + — Project tags :: Project Info fields are written as output tags where the selected format supports them. |
+| Export queue | + | + | / | ~ — Batch Process | ~ — Batch ranges / formats :: One export operation can process several ranges and formats; no persistent reorderable job queue. | ~ — Multi-target :: Configured publishing targets run in one publishing operation. | / — :: Bounce Factory Lite provides external batch bouncing. | / | ~ — CLI batch :: Batch rendering via command line; no interactive export queue. | / | / |
+| Stems and alternates in one pass | + | + | ~ — Tracks only :: Export Multiple writes each track separately, but does not queue the mix and alternate renders together | ~ — One stem | + — :: Export multiple channel configurations, time spans and formats in one batch. | ~ — Export tracks :: Exports tracks separately; alternate mixes need separate exports. | + | ~ — Mix or stems | ~ — Stems + master :: Split mixer tracks includes the master; arbitrary alternate mixes need separate renders. | ~ — Tracks / mix :: All Individual Tracks exports track stems, returns, and the main mix together; alternate-mix recipes are not queued. | ~ — Tracks / mix :: Selected tracks, groups, and the project master can be exported together; no alternate-mix recipe queue is documented. |
+| Region-by-region delivery | + — :: Mastering sequences with per-region metadata, gaps, and fades | + — :: Mastering sequences with per-region metadata, gaps, and fades | + | + | + — Ranges / regions | + — Chapters | ~ — Selected range | ~ — Selected range | + — Edison regions | ~ — Selected range | ~ — Selected range |
+| Individual clip delivery | + — :: Single-clip export or one rendered file per audio clip in an archive | + — :: Single-clip export or one rendered file per audio clip in an archive | ~ — No archive :: Single-clip export and labelled splits; no clip archive in the audited build | ~ — Mixdown / archive :: Selected clips mixdown or trimmed session archive in the documented workflow | ~ — Files only :: Selected audio regions can be bounced/exported individually; no documented per-clip archive delivery. | ~ — Selection / clipboard :: Exports selected audio or clipboard entries; no clip archive documented. | + | + | ~ — Edison files :: Save an individual sample, selection, or region; no rendered clip archive is documented. | ~ — Consolidate / render :: Consolidation creates individual audio files, or a selected time range can be rendered; no rendered clip-archive delivery is documented. | ~ — Bounce / render :: Bounce creates an audio file for a selected clip, or Export Audio renders its time range; no rendered clip-archive delivery is documented. |
+| Embedded podcast chapters | ~ — MP3 / M4A :: Label chapters in a single MP3 or M4A mix; M4A depends on browser codec support | ~ — MP3 / M4A :: Label chapters in a single MP3 or M4A mix; M4A requires an available desktop encoder | / | / | / — :: Creates chapter sidecar files; embedding them into a container is a separate operation. | + — M4A | / | / | / | / | / |
+| Loudness normalisation on export | + | + | ~ — Apply effect first | + | + | + | ~ — Process first | + — Normalise | / — :: Local render offers peak processing; FL Cloud mastering is a separate online service. | / — :: Export normalization targets sample peak, not a LUFS loudness standard. | / |
+| Dither and channel mapping | + | + | ~ — Dither only | + | + | ~ — Mono / stereo :: Mono/stereo output selection; dither controls not documented. | ~ — Export layouts :: Dither and mono, multiple-mono, or interleaved export options | ~ — Stereo fold-down | ~ — Dither / mono :: Dither plus stereo, merged mono, left-only, and right-only exports; no surround channel map. | ~ — Dither / mono :: Several dither choices and mono/stereo export; no arbitrary multichannel file mapping. | ~ — Dither / stereo |
+| Delivery report | + | + | / | / | + — Export analysis | ~ — Music usage | / | ~ — Peak / LUFS | / | / | / |
+| Render queue survives a restart | / | + | / | / | / | / | / — :: Bounce Factory Lite provides an external queue; restart recovery is undocumented. | / | / | / | / |
 
 See [export formats](/reference/generated/formats/), [clip delivery](/soundscaper/edit-mix-and-export/#export-clips), [metadata](/soundscaper/edit-mix-and-export/#project-metadata), and [podcast chapters](/soundscaper/edit-mix-and-export/#embedded-chapters).
 
@@ -327,50 +350,51 @@ See [export formats](/reference/generated/formats/), [clip delivery](/soundscape
 Both Soundscaper editions import and export EDL, OpenTimelineIO, FCPXML, OMF,
 and DAWproject.
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Pro Tools Studio | SoundCraft 0.19.0 |
-| --- | --- | --- | --- | --- | --- | --- |
-| Audacity projects | + — AUP–AUP4 :: AUP, AUP3, and AUP4 in; AUP3 and AUP4 out with a compatibility report | + — AUP–AUP4 :: AUP, AUP3, and AUP4 in; AUP3 and AUP4 out with a compatibility report | ~ — No AUP3 export :: AUP, AUP3, and AUP4 import; AUP4 export. | / | / | / |
-| Audition sessions | / | ~ — Import only | / | + | / | / |
-| Legacy Cool Edit / Audition sessions | / | ~ — Import only :: Recognized binary `.ses` layouts, with missing-media and omission reports; no export | / | / | / | / |
-| EDL | + — :: Import and export CMX3600 cuts; export uses one selected sequence track. | + — :: Import and export CMX3600 cuts; export uses one selected sequence track. | / | / | ~ — Session text | ~ — Session text |
-| OpenTimelineIO | + — :: Import and export audio/video tracks, gaps, and supported nested stacks. | + — :: Import and export audio/video tracks, gaps, and supported nested stacks. | / | / | / | / |
-| FCPXML | + — :: Import and export timeline spines, asset clips, and connected lanes. | + — :: Import and export timeline spines, asset clips, and connected lanes. | / | + | / | / |
-| DAWproject | + — :: Import and export media and supported project structure, with an exchange report. | + — :: Import and export media and supported project structure, with an exchange report. | / | / | / | / |
-| OMF | + — :: Import and export OMF2 audio. Export embeds mono/stereo 24-bit WAV, with a 256 MiB decoded-PCM limit. | + — :: Import and export OMF2 audio. Export embeds mono/stereo 24-bit WAV, with a 256 MiB decoded-PCM limit. | / | ~ | + | / |
-| AAF | / | / | / | / | + — Import / export | / |
-| Round-trip with a video editor | ~ — Framescaper copy :: File-menu handoff creates a separate editable Framescaper copy, with a conversion report | ~ — Framescaper copy :: File-menu handoff creates a separate editable Framescaper copy, with a conversion report | / | + — Premiere Pro | ~ — AAF / OMF | / |
-| Blender track export and live sync | / | + — :: WAV track bundle and one-way edit updates through the bundled Blender 4.2+ add-on | / | / | / | / |
-| Labels and markers exchange | + | + | + | + | ~ — Session text | ~ — Text / MIDI |
+| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Audacity projects | + — AUP–AUP4 :: AUP, AUP3, and AUP4 in; AUP3 and AUP4 out with a compatibility report | + — AUP–AUP4 :: AUP, AUP3, and AUP4 in; AUP3 and AUP4 out with a compatibility report | ~ — No AUP3 export :: AUP, AUP3, and AUP4 import; AUP4 export. | / | / | / | / | / | / | / | / |
+| Audition sessions | / | ~ — Import only | / | + | / | ~ — Import only | / | / | / | / | / |
+| Pro Tools sessions | / | / | / | / | ~ — Import only :: Basic PTF/PTX import brings in audio-region placement and MIDI notes; unsupported versions/state may be omitted. | ~ — PTX import :: Opens Pro Tools PTX sessions; no PTX export. | + | / | / | / | / |
+| Legacy Cool Edit / Audition sessions | / | ~ — Import only :: Recognized binary `.ses` layouts, with missing-media and omission reports; no export | / | / | / | / | / | / | / | / | / |
+| EDL | + — :: Import and export CMX3600 cuts; export uses one selected sequence track. | + — :: Import and export CMX3600 cuts; export uses one selected sequence track. | / | / | / | / — :: AES31 export is a different interchange format from CMX3600 EDL. | ~ — Session text | ~ — Session text | / | / | / |
+| OpenTimelineIO | + — :: Import and export audio/video tracks, gaps, and supported nested stacks. | + — :: Import and export audio/video tracks, gaps, and supported nested stacks. | / | / | / | / | / | / | / | / | / |
+| FCPXML | + — :: Import and export timeline spines, asset clips, and connected lanes. | + — :: Import and export timeline spines, asset clips, and connected lanes. | / | + | / | ~ — Import only | / | / | / | / | / |
+| DAWproject | + — :: Import and export media and supported project structure, with an exchange report. | + — :: Import and export media and supported project structure, with an exchange report. | / | / | / | / | / | / | / | / | + — Import / export |
+| OMF | + — :: Import and export OMF2 audio. Export embeds mono/stereo 24-bit WAV, with a 256 MiB decoded-PCM limit. | + — :: Import and export OMF2 audio. Export embeds mono/stereo 24-bit WAV, with a 256 MiB decoded-PCM limit. | / | ~ | / — :: Requires an external session converter such as AATranslator. | / | + | / | / | / | / |
+| AAF | / | / | / | / | ~ — Import only :: Native AAF session import includes fades, volume automation, pan and multichannel regions; no native AAF export. | ~ — Export only | + — Import / export | / | / | / | / |
+| Round-trip with a video editor | ~ — Framescaper copy :: File-menu handoff creates a separate editable Framescaper copy, with a conversion report | ~ — Framescaper copy :: File-menu handoff creates a separate editable Framescaper copy, with a conversion report | / | + — Premiere Pro | ~ — AAF in / stems out :: Native AAF import and audio/video or stem delivery; no editable video-editor round-trip integration. | ~ — Session exchange :: Imports FCPXML and exports AAF/AES31; no live video-editor round-trip. | ~ — AAF / OMF | / | / | / | / |
+| Blender track export and live sync | / | + — :: WAV track bundle and one-way edit updates through the bundled Blender 4.2+ add-on | / | / | / | / | / | / | / | / | / |
+| Labels and markers exchange | + | + | + | + | ~ — Sidecar export :: CUE, TOC and chapter mark files; not a general marker-list round trip. | ~ — Chapters / subtitles | ~ — Session text | ~ — Text / MIDI | ~ — WAV markers | ~ — QuickTime markers :: Embedded QuickTime markers are displayed; no general label/marker exchange workflow is documented. | ~ — DAWproject :: Supported project data can travel through DAWproject; no standalone Audacity-label exchange is documented. |
 
 Transfers can omit unsupported state; review the exchange report. See [project formats](/projects-and-data/project-files/), [Blender sync](https://github.com/LeoWattenberg/Soundscaper/blob/main/docs/development/desktop-blender.md), and [Framescaper handoff](https://github.com/LeoWattenberg/Soundscaper/blob/main/docs/decisions/product-origins.md).
 
 ## Video
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Pro Tools Studio | SoundCraft 0.19.0 |
-| --- | --- | --- | --- | --- | --- | --- |
-| Import video for reference | + | + | / | ~ — Preview only | + — One track | + |
-| Video timeline editing | + Basic edits - :: Advanced editing in Framescaper | +  Basic edits - :: Advanced editing in Framescaper | / | / | ~ — One track | ~ — Sync offset |
-| MP4 video export | ~ — Codec-dependent :: Requires browser WebCodecs support for the selected video and audio encoders. | + | / | / | / | / |
-| WebM video export | + — :: Requires browser WebCodecs support for the selected video and audio encoders. | + | / | / | / | / |
-| MOV video export | / | / | / | / — :: Audition's MOV export is audio-only. | + — :: Video bounce uses QuickTime MOV; available codecs vary by platform. | / |
-| Compositing, grading, and effects | ~ — Framescaper copy | ~ — Framescaper copy | / | / | / | / |
+| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Import video for reference | + | + | / | ~ — Preview only | + — :: Official binaries bundle the video monitor/decoder tools. | + | + — One track | + | + — ZGameEditor | + | / — :: Bitwig documents video playback through an external VST plug-in rather than a built-in video track. |
+| Video timeline editing | + — Basic edits :: Advanced editing in Framescaper | + — Basic edits :: Advanced editing in Framescaper | / | / | ~ — Offset / range :: One reference video with timing offset and export-range trimming; no multitrack video edit timeline. | / | ~ — One track | ~ — Sync offset | / | ~ — Trim / arrange | / |
+| MP4 video export | ~ — Codec-dependent :: Requires browser WebCodecs support for the selected video and audio encoders. | + | / | / | + — :: Integrated FFmpeg video mux/export; official binaries include the required tools and available encoders determine codec options. | ~ — Original picture :: Exports the original video with the edited audio; no picture editing. | / | / | + — ZGameEditor | ~ — OS codecs :: Video export uses the operating system's available encoders; MPEG-4 output is documented. | / |
+| WebM video export | + — :: Requires browser WebCodecs support for the selected video and audio encoders. | + | / | / | + — :: Integrated FFmpeg video mux/export; official binaries include the required tools and available encoders determine codec options. | / | / | / | / | / | / |
+| MOV video export | / | / | / | / — :: Audition's MOV export is audio-only. | + — :: Integrated FFmpeg video mux/export; official binaries include the required tools and available encoders determine codec options. | ~ — Original picture :: Exports the original video with the edited audio; no picture editing. | + — :: Video bounce uses QuickTime MOV; available codecs vary by platform. | / | / | ~ — OS codecs :: QuickTime movie export depends on available operating-system encoders. | / |
+| Compositing, grading, and effects | ~ — Framescaper copy | ~ — Framescaper copy | / | / | / | / | / | / | ~ — ZGameEditor :: Layered visualizations, image/video sources, and visual effects; not a full video editor. | / | / |
 
 
 
 ## Machine assistance
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Pro Tools Studio | SoundCraft 0.19.0 |
-| --- | --- | --- | --- | --- | --- | --- |
-| Speech enhancement | / | + — Local model | / | ~ — Repair controls :: Essential Sound repair and clarity controls; Adobe Podcast's AI Enhance Speech is a separate service | / — :: Provided by partner plug-ins rather than a built-in speech-enhancement processor. | / |
-| Transcription and diarisation | / | + — Local models | / | / | + — Separate engine :: Speech-to-text engine installed separately; speaker detection | / |
-| Source separation into stems | / | + — Local model | / | / | / — :: Vocal extraction is available through the external SpectraLayers Go plug-in. | / |
-| Text to speech | / | + — Kokoro :: Kokoro voices with optional model, engine, and offline pronunciation helper | / | + — OS voices | / — :: Requires the VoiceWunder ARA plug-in. | / |
-| Automatic ducking | + | + | + | + | ~ — Sidechain | / |
-| Music remix to target duration | / | / | / | + — Remix :: Analyses and rearranges musical passages to fit a target duration. | / | / |
-| Automatic dialogue alignment | / | / | / | + — :: Warps a replacement dialogue performance to match the timing of a reference recording. | / — :: Requires an external alignment plug-in, such as VocAlign. | / |
-| Beat and shot detection | / | ~ — Beats only :: Beat detection with an optional model; shot detection is in Framescaper | / | ~ — Remix | ~ — Beat Detective | ~ — Beat Analysis |
-| Local media processing | + — :: Browser processing; optional sharing sends only what you choose | + — :: Local editing and offline inference after model installation; optional sharing | + | + — :: Local editing and restoration; separate Adobe online services have their own upload workflows | + | + |
-| Models are optional and removable | / | + | / | / | ~ — Speech engine | / |
+| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Speech enhancement | / | + — Local model | / | ~ — Repair controls :: Essential Sound repair and clarity controls; Adobe Podcast's AI Enhance Speech is a separate service | / | ~ — Voice Profile / NR | / — :: Provided by partner plug-ins rather than a built-in speech-enhancement processor. | / | + — Edison vocal denoise | / | / |
+| Transcription and diarisation | / | + — Local models | / | / | / | ~ — Paid hours :: Offline transcription with speaker detection; hours/language models require an eligible plan or transcription package. | + — Separate engine :: Speech-to-text engine installed separately; speaker detection | / | / | / | / |
+| Source separation into stems | / | + — Local model | / | / | / | / | / — :: Vocal extraction is available through the external SpectraLayers Go plug-in. | / | + — Local AI | + — Local :: Suite separates vocals, drums, bass, and other instruments locally. | / — :: Spectral Suite splits harmonic, noise, loudness, or transient components; no instrument-source stem separator is documented. |
+| Text to speech | / | + — Kokoro :: Kokoro voices with optional model, engine, and offline pronunciation helper | / | + — OS voices | / | / | / — :: Requires the VoiceWunder ARA plug-in. | / | ~ — Windows :: Included Speech Synthesizer is Windows-only. | / | / |
+| Automatic ducking | + | + | + | + | ~ — Sidechain :: Configure a sidechain compressor/send; no dedicated automatic envelope-generation workflow. | + — Magic Levels | ~ — Sidechain | / | + — Maximus / sidechain | ~ — Sidechain | ~ — Sidechain |
+| Music remix to target duration | / | / | / | + — Remix :: Analyses and rearranges musical passages to fit a target duration. | / | / | / | / | / | / | / |
+| Automatic dialogue alignment | / | / | / | + — :: Warps a replacement dialogue performance to match the timing of a reference recording. | / | / | / — :: Requires an external alignment plug-in, such as VocAlign. | / | / | / | / |
+| Beat and shot detection | / | ~ — Beats only :: Beat detection with an optional model; shot detection is in Framescaper | / | ~ — Remix | ~ — Beats / onsets :: Built-in Vamp beat/onset analysis and Rhythm Ferret; no shot detection. | / | ~ — Beat Detective | ~ — Beat Analysis | ~ — Beats only | ~ — Beats only | ~ — Beats only |
+| Local media processing | + — :: Browser processing; optional sharing sends only what you choose | + — :: Local editing and offline inference after model installation; optional sharing | + | + — :: Local editing and restoration; separate Adobe online services have their own upload workflows | + | + — :: Editing and installed transcription models run locally; licence and transcription-hour checks periodically require internet. | + | + | + — :: Editing, rendering, stem separation, and Edison processing are local; FL Cloud services are separate. | + — :: Audio processing and Suite's stem separation run locally; optional Splice and Cloud services have separate network workflows. | + |
+| Models are optional and removable | / | + | / | / | / | ~ — Language packs :: Transcription language packs download on demand; a model-removal interface is not documented. | ~ — Speech engine | / | ~ — Download on use :: AI processing models download when first required; no model-manager removal workflow documented. | / — :: The reviewed documentation does not expose an independent model install/remove manager for bundled stem separation. | / |
 
 Install optional models and engines with **Tools → Model Manager**. See [local assistance](/reference/generated/local-assistance/) and [processing requirements](/help/local-processing/).
 
@@ -383,5 +407,10 @@ Pro integration. Pro Tools Studio adds MIDI hardware, notation, outboard inserts
 control surfaces, AAF exchange, and Dolby Atmos. SoundCraft
 offers open-source MIDI and instruments, with pre-alpha recording and
 interchange limitations.
+
+Ardour offers a full studio workflow with open source code; Hindenburg centres
+on spoken-word editing and publishing. FL Studio, Live, and Bitwig emphasise
+composition, instruments, and performance, with different audio editing and
+delivery capabilities.
 
 Keep an editable backup when moving between applications.
