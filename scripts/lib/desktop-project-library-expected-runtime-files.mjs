@@ -36,7 +36,6 @@ export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	'desktop/windows-store-distribution.js',
 	'desktop/update-installation.js', 'desktop/update-service.js', 'desktop/update-preferences.js',
 	'desktop/update-check.js', 'src/common/release/release-version.js',
-	'src/common/editor/first-party-effects/auto-tune/control-notes.js', 'src/common/editor/first-party-effects/auto-tune/realtime-contract.js',
 	...DESKTOP_ASSISTANCE_RUNTIME_FILES, ...DESKTOP_ARA_RUNTIME_FILES, ...DESKTOP_BLENDER_RUNTIME_FILES,
 	...DESKTOP_EXTERNAL_FFMPEG_RUNTIME_FILES,
 	'desktop/framescaper-capture-desktop-port.js',
