@@ -11,6 +11,7 @@ import {
 	basename, extname, isAbsolute, join, resolve,
 } from 'node:path';
 import { promisify } from 'node:util';
+import { parseReleaseVersion } from '../../src/common/release/release-version.ts';
 
 import { auditExtractedDesktopPackageContent } from './desktop-package-content-manifest.mjs';
 import { extractPkgApplication } from './desktop-pkg-extraction.mjs';
@@ -287,6 +288,11 @@ function expectedDmgExtractionLayout({ artifact, productId, targetId }) {
 	const name = basename(artifact);
 	const prefix = `${productName}-`;
 	const suffix = '-mac-arm64.dmg';
+	const calendar = parseReleaseVersion(name.slice(0, -suffix.length));
+	if (name.endsWith(suffix) && calendar?.kind === 'calendar' && calendar.product === productName) {
+		const volumeName = `${calendar.text}-arm64`;
+		return { applicationsLinkPath: `${volumeName}/Applications`, volumeName };
+	}
 	if (!name.startsWith(prefix) || !name.endsWith(suffix)) {
 		throw new Error('The DMG artifact name does not bind its product and target.');
 	}

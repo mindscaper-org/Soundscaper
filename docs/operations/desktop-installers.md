@@ -21,8 +21,8 @@ date and build, stable outranks `rc`, then `beta`, then `alpha`. A preview with 
 newer date or build is offered to a stable installation. Named calendar releases
 succeed the legacy semantic release line; legacy semantic versions retain their
 existing stable/preview filtering. Product identity and draft exclusion apply
-to both formats. Release creation and packaging still use the semantic versions
-in the release register.
+to both formats. Release creation and public package names use calendar versions; native numeric
+package fields are derived as described in the [release process](release.md).
 
 Accepting either installation option downloads the exact product, version and
 architecture's installer from its GitHub release and verifies its size and

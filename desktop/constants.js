@@ -11,13 +11,14 @@ export function resolveDesktopProductId(value, defaultProductId = productConfig.
 }
 
 export const PRODUCT_ID = resolveDesktopProductId(process.env.SCAPE_PRODUCT);
-const PRODUCT_METADATA_MATCHES = productConfig.schemaVersion === 1 && productConfig.id === PRODUCT_ID;
+const PRODUCT_METADATA_MATCHES = [1, 2].includes(productConfig.schemaVersion) && productConfig.id === PRODUCT_ID;
 export const DECLARED_APPLICATION_VERSION = PRODUCT_METADATA_MATCHES
 	? productConfig.applicationVersion
 	: null;
 export const APPLICATION_VERSION_CHANNEL = PRODUCT_METADATA_MATCHES
 	? productConfig.applicationVersionChannel
 	: 'candidate';
+export const DECLARED_PACKAGE_VERSION = PRODUCT_METADATA_MATCHES ? productConfig.packageVersion ?? productConfig.applicationVersion : null;
 export const RELEASE_CHANNEL = PRODUCT_METADATA_MATCHES
 	? productConfig.releaseChannel
 	: PRODUCT_ID === 'framescaper' ? 'deferred' : 'candidate';

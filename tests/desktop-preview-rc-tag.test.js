@@ -16,24 +16,26 @@ test('checked-in packaging metadata agrees with the selected Soundscaper release
 		json('package.json'), json('package-lock.json'), json('desktop/product.json'),
 	]);
 	const version = resolveProductApplicationVersion('soundscaper', releaseLines);
-	assert.equal(metadata.version, version);
-	assert.equal(lock.version, version);
-	assert.equal(lock.packages[''].version, version);
+	const numeric = resolveProductDesktopMetadata('soundscaper', releaseLines).packageVersion;
+	assert.equal(metadata.releaseVersion, version);
+	assert.equal(metadata.version, numeric);
+	assert.equal(lock.version, numeric);
+	assert.equal(lock.packages[''].version, numeric);
 	assert.deepEqual(desktop, resolveProductDesktopMetadata('soundscaper', releaseLines));
 });
 
 test('product-owned previews exclude the Soundscaper stable tag and any release-admission step', async () => {
 	for (const product of Object.values(releaseLines.products)) {
-		assert.equal(product.candidate.tagPrefix, `${product.productId}-v`);
+		assert.equal(product.candidate.tagPrefix, product.productId === 'soundscaper' ? 'Soundscaper' : 'Framescaper');
 	}
-	assert.equal(releaseLines.products.soundscaper.stable.tagPrefix, 'v');
+	assert.equal(releaseLines.products.soundscaper.stable.tagPrefix, 'Soundscaper');
 	const workflow = await readFile(new URL('../.github/workflows/desktop-preview.yml', import.meta.url), 'utf8');
-	assert.match(workflow, /'soundscaper-v\*-beta\.\*'/u);
-	assert.match(workflow, /'soundscaper-v\*-rc\.\*'/u);
-	assert.match(workflow, /'framescaper-v\*-rc\.\*'/u);
+	for (const product of ['Soundscaper', 'Framescaper']) for (const channel of ['alpha', 'beta', 'rc']) {
+		assert.ok(workflow.includes(`'${product}-${channel}.*'`));
+	}
 	assert.doesNotMatch(workflow, /- 'v\*'/u);
 	assert.match(workflow, /resolveProductReleaseTag\(tag/u);
 	assert.doesNotMatch(workflow, /release admission|qualification|stable-1:admission/iu);
 	const stable = await readFile(new URL('../.github/workflows/soundscaper-stable-1.yml', import.meta.url), 'utf8');
-	assert.match(stable, /tags:\s*\n\s*- 'v1\.0\.0'/u);
+	assert.match(stable, /tags:\s*\n\s*- 'Soundscaper\.\[0-9\]\*'/u);
 });

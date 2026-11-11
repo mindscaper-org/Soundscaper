@@ -19,8 +19,8 @@ for (const [currentVersion, version, tag, name] of [
 	const output = join(root, 'registration.mjs');
 	await build({ entryPoints: ['desktop/update-registration.mjs'], outfile: output, platform: 'node', format: 'esm', bundle: true,
 		plugins: [{ name: 'update-runtime-source', setup(builder) {
-			builder.onResolve({ filter: /\/project-library-runtime\/desktop\/(?:update-[a-z]+|release-version)\.js$/ }, args => ({
-				path: fileURLToPath(new URL(`../desktop/${args.path.split('/').at(-1)!.replace('.js', '.ts')}`, import.meta.url)),
+			builder.onResolve({ filter: /\/project-library-runtime\/(?:desktop\/update-[a-z]+|src\/common\/release\/release-version)\.js$/ }, args => ({
+				path: fileURLToPath(new URL(`../${args.path.split('/project-library-runtime/')[1]!.replace('.js', '.ts')}`, import.meta.url)),
 			}));
 		} }],
 	});
@@ -33,7 +33,8 @@ for (const [currentVersion, version, tag, name] of [
 	const opened: string[] = [];
 	const messages: string[] = [];
 	const handlers = new Map<string, (event: unknown, value?: boolean) => Promise<unknown>>();
-	const ports = { app: { getVersion: () => currentVersion }, appName: 'Soundscaper', tagPrefix: 'soundscaper-v',
+	const ports = { app: { getVersion: () => currentVersion!.startsWith('Soundscaper') ? '2026.1110.3' : currentVersion }, currentVersion,
+		appName: 'Soundscaper', tagPrefix: 'soundscaper-v',
 		storage: { stateRoot: root, portable: false }, settings, platform: 'win32', arch: 'x64', appImage: undefined, windowsStore: false,
 		shell: { openPath: async (path: string) => { opened.push(path); return ''; } },
 		dialog: { showMessageBox: async (_window: unknown, options: { message: string }) => { messages.push(options.message); return { response: 1 }; } }, windowFor: () => ({ isDestroyed: () => false }),

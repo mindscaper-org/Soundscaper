@@ -25,7 +25,10 @@ test('PKG customization always shows a mandatory app and an initially unselected
 	}
 });
 
-test('PKG builds a separate no-payload FFmpeg component beside an exact app copy and signs the product', async (context) => {
+for (const [version, artifactName, numeric] of [
+	['1.0.0-rc.Oct.30.a', 'Framescaper-1.0.0-rc.Oct.30.a', '1.0.0'],
+	['Framescaper-rc.2026.Nov.11.a', 'Framescaper-rc.2026.Nov.11.a', '2026.1111.2'],
+]) test(`PKG assembles and signs exact application and optional FFmpeg components for ${version}`, async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'scape-pkg-test-'));
 	context.after(() => rm(root, { recursive: true, force: true }));
 	const appPath = join(root, 'mac-arm64', 'Framescaper.app');
@@ -35,7 +38,7 @@ test('PKG builds a separate no-payload FFmpeg component beside an exact app copy
 	let distribution = '';
 	let packageInfo = '';
 	const artifact = await buildMacInstaller({
-		appPath, outDir: root, productId: 'framescaper', version: '1.0.0-rc.Oct.30.a',
+		appPath, outDir: root, productId: 'framescaper', version,
 		installerIdentity: 'Developer ID Installer: Example (ABCDEFGHIJ)', keychain: '/tmp/signing.keychain',
 	}, {
 		executeFile: async (command: string, args: readonly string[]) => {
@@ -59,9 +62,10 @@ test('PKG builds a separate no-payload FFmpeg component beside an exact app copy
 			return { stdout: '' };
 		},
 	});
-	assert.equal(artifact, join(root, 'Framescaper-1.0.0-rc.Oct.30.a-mac-arm64.pkg'));
+	assert.equal(artifact, join(root, `${artifactName}-mac-arm64.pkg`));
 	assert.deepEqual(calls.map(([command]) => command), ['/usr/libexec/PlistBuddy', 'ditto', 'pkgbuild', 'pkgbuild', 'pkgutil', 'pkgutil', 'productbuild']);
 	const application = calls[2]![1];
+	assert.equal(application[application.indexOf('--version') + 1], numeric);
 	assert.equal(application.includes('--scripts'), false);
 	assert.equal(application[application.indexOf('--compression') + 1], 'legacy');
 	assert.equal(application[application.indexOf('--install-location') + 1], '/Applications');

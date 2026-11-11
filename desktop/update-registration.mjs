@@ -1,19 +1,19 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { join } from 'node:path';
 import { ReleaseChecker } from './project-library-runtime/desktop/update-check.js';
-import { compareVersions, releaseTagForVersion } from './project-library-runtime/desktop/release-version.js';
+import { compareVersions, releaseTagForVersion } from './project-library-runtime/src/common/release/release-version.js';
 import { DesktopUpdateInstallation, replaceUpdateAppImage, selectUpdateInstaller } from './project-library-runtime/desktop/update-installation.js';
 import { DesktopUpdateService } from './project-library-runtime/desktop/update-service.js';
 import { UPDATE_PREFERENCES_CHANNEL, updatePreferences } from './project-library-runtime/desktop/update-preferences.js';
 
 export function createDesktopUpdates({ app, appName, tagPrefix, storage, settings, shell, dialog, windowFor, handle,
-	platform = process.platform, arch = process.arch, windowsStore = process.windowsStore, appImage = process.env.APPIMAGE, fetchImpl = fetch }) {
+	currentVersion = app.getVersion(), platform = process.platform, arch = process.arch, windowsStore = process.windowsStore, appImage = process.env.APPIMAGE, fetchImpl = fetch }) {
 	const available = !storage.portable && windowsStore !== true;
 	handle(UPDATE_PREFERENCES_CHANNEL, (_event, enabled) => updatePreferences(settings, available, enabled));
-	const checker = new ReleaseChecker({ currentVersion: app.getVersion(), settings, tagPrefix, fetchImpl });
+	const checker = new ReleaseChecker({ currentVersion, settings, tagPrefix, fetchImpl });
 	const target = { productName: appName, tagPrefix, platform, arch, appImage: !!appImage };
 	const installation = new DesktopUpdateInstallation({
-		root: join(storage.stateRoot, 'updates'), currentVersion: app.getVersion(),
+		root: join(storage.stateRoot, 'updates'), currentVersion,
 		fetchImpl,
 		isNewer: (candidate, current) => compareVersions(candidate, current) > 0,
 		accepts: (installer) => {

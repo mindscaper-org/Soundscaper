@@ -9,7 +9,7 @@ if (nightlyPackageArch !== undefined && nightlyPackageArch !== 'x64' && nightlyP
 module.exports = {
 	appId: 'org.soundscaper.desktop.nightly-tests',
 	productName: 'Soundscaper Nightly Tests',
-	artifactName: 'Soundscaper-${version}-nightly-with-tests-${os}-${arch}.${ext}',
+	artifactName: `${require('./package.json').releaseVersion ?? 'Soundscaper-${version}'}-nightly-with-tests-\${os}-\${arch}.\${ext}`,
 	compression: 'normal',
 	asar: true,
 	npmRebuild: false,

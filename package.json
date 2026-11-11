@@ -1,6 +1,6 @@
 {
 	"name": "soundscaper",
-	"version": "1.0.0-rc.Nov.9.b",
+	"version": "2026.1111.2",
 	"description": "A local-first multitrack audio editor for the web and desktop.",
 	"private": true,
 	"type": "module",
@@ -273,5 +273,6 @@
 	},
 	"optionalDependencies": {
 		"sherpa-onnx-node": "2.0.1"
-	}
+	},
+	"releaseVersion": "Soundscaper-rc.2026.Nov.11.a"
 }

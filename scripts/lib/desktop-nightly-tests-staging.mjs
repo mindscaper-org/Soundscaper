@@ -241,7 +241,7 @@ export async function stageDesktopNightlyTests({
 		await pruneFrameworkLinkerStubs(join(temporaryOutput, '.local-browsers'));
 		await pruneUnpackableSymlinks(join(temporaryOutput, '.local-browsers'));
 		await stageLicenses(root, temporaryOutput, runtimePackages);
-		await writeJson(join(temporaryOutput, 'package.json'), nightlyTestsPackage(projectPackage.version));
+		await writeJson(join(temporaryOutput, 'package.json'), nightlyTestsPackage(projectPackage.version, projectPackage.releaseVersion));
 
 		const payloadPaths = [
 			'.local-browsers',
@@ -266,7 +266,7 @@ export async function stageDesktopNightlyTests({
 		const manifest = {
 			schemaVersion: 1,
 			kind: 'soundscaper-desktop-nightly-tests',
-			applicationVersion: projectPackage.version,
+			applicationVersion: projectPackage.releaseVersion ?? projectPackage.version,
 			sourceRevision,
 			target: normalizedTarget,
 			browserRevisions,
@@ -294,6 +294,7 @@ async function validateRequiredInputs(root) {
 	for (const path of ['LICENSE', 'THIRD_PARTY_LICENSES.md']) {
 		await assertRegularFile(join(root, path), `required ${path}`);
 	}
+	for (const name of ['release-version.ts', 'release-packaging.ts']) await assertRegularFile(join(root, 'src/common/release', name), 'calendar release module');
 	await assertRegularFile(
 		join(root, 'LICENSES/Playwright-winldd-MIT.txt'),
 		'required Playwright WinLDD MIT notice',
@@ -513,12 +514,12 @@ async function describePayload(path, manifestPath) {
 	}
 }
 
-function nightlyTestsPackage(version) {
+function nightlyTestsPackage(version, releaseVersion) {
 	return {
 		name: 'soundscaper-nightly-tests',
 		productName: 'Soundscaper Nightly Tests',
 		desktopName: 'org.soundscaper.desktop.nightly-tests',
-		version,
+		version, ...(releaseVersion ? { releaseVersion } : {}),
 		description: 'Portable Soundscaper Playwright browser test runner',
 		main: 'desktop/nightly-tests-main.mjs',
 		type: 'module',

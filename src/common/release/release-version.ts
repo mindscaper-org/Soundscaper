@@ -33,8 +33,8 @@ export function parseReleaseVersion(value: unknown): ReleaseVersion | null {
 export function versionFromReleaseTag(tag: string, tagPrefix: string): ReleaseVersion | null {
 	const named = parseReleaseVersion(tag);
 	if (named?.kind === 'calendar') {
-		const product = tagPrefix === 'framescaper-v' ? 'Framescaper'
-			: tagPrefix === 'soundscaper-v' || tagPrefix === 'v' ? 'Soundscaper' : null;
+		const product = tagPrefix === 'framescaper-v' || tagPrefix === 'Framescaper' ? 'Framescaper'
+			: ['soundscaper-v', 'v', 'Soundscaper'].includes(tagPrefix) ? 'Soundscaper' : null;
 		return named.product === product ? named : null;
 	}
 	if (!tag.startsWith(tagPrefix)) return null;

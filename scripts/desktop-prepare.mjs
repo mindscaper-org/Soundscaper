@@ -415,7 +415,7 @@ async function stageApplication(
 		name: `${PRODUCT_ID}-desktop`,
 		productName: PRODUCT_NAME,
 		desktopName: `org.${PRODUCT_ID}.desktop`,
-		version: applicationVersion,
+		version: productMetadata.packageVersion ?? applicationVersion, releaseVersion: applicationVersion,
 		description: PRODUCT_ID === 'framescaper' ? 'Local-first video editor' : 'Local-first multitrack audio editor',
 		main: 'desktop/main.mjs',
 		type: 'module',

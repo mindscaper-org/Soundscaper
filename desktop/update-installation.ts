@@ -3,7 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { chmod, copyFile, lstat, mkdir, open, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { parseReleaseVersion, releaseTagForVersion } from './release-version.ts';
+import { parseReleaseVersion, releaseTagForVersion } from '../src/common/release/release-version.ts';
 
 const DOWNLOAD_ROOT = 'https://github.com/LeoWattenberg/Soundscaper/releases/download/';
 const MAX_INSTALLER_BYTES = 8 * 1024 ** 3;

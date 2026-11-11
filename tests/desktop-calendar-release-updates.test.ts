@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ReleaseChecker, selectUpdate } from '../desktop/update-check.ts';
-import { compareVersions } from '../desktop/release-version.ts';
+import { compareVersions } from '../src/common/release/release-version.ts';
 
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 function release(tag_name: string, prerelease = false, draft = false) { return { tag_name, prerelease, draft }; }

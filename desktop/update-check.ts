@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { compareVersions, isPreviewVersion, parseReleaseVersion, versionFromReleaseTag } from './release-version.ts';
+import { compareVersions, isPreviewVersion, parseReleaseVersion, versionFromReleaseTag } from '../src/common/release/release-version.ts';
 
 const RELEASES_API = 'https://api.github.com/repos/LeoWattenberg/Soundscaper/releases?per_page=20';
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;

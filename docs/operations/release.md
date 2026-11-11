@@ -37,42 +37,57 @@ To create the next Soundscaper RC locally, run:
 npm run release:soundscaper:rc
 ```
 
-The command keeps the active version's major, minor, and patch numbers and uses
-the machine's local date with an English month abbreviation. A new day starts
-at `1.0.0-rc.Oct.29.a`; another run that day advances to `.b`, then `.c`
-(after `.z`, `.aa`). It also advances past matching local Soundscaper tags.
-It synchronizes the version metadata, stages all nonignored changes in the
-repository (including new files and deletions), commits them, and creates an
-annotated `soundscaper-v<version>` tag on that commit. Framescaper's release
-line is preserved. Finish any merge, rebase, or other Git operation first.
+The command uses the machine's local year, English month abbreviation, day,
+and the next build letter: `Soundscaper-rc.2026.Nov.11.a`, then `.b`, through
+`.z`, `.aa`, and so on. A new date starts at `.a`. It advances past existing
+local Soundscaper tags for that date across all channels. Framescaper retains
+its independent release line.
 
-The command prints the exact push command and leaves pushing to you:
+It synchronizes metadata, stages all nonignored changes (including new files
+and deletions), commits them, and creates an annotated tag equal to the release
+name. Finish any merge, rebase, or other Git operation first. The command prints
+the exact push command and leaves pushing to you:
 
 ```sh
-git push --atomic origin HEAD refs/tags/soundscaper-v1.0.0-rc.Oct.29.b
+git push --atomic origin HEAD refs/tags/Soundscaper-rc.2026.Nov.11.b
 ```
 
-If a commit hook fails, the files and staged changes remain for correction and
-no tag is created. If tagging fails after the commit succeeds, the command
-prints how to tag that existing commit without creating another RC.
+If a commit hook fails, changes remain staged and no tag is created. A tag
+failure preserves the release commit and prints the command for tagging it.
 
-`config/product-release-lines.json` is the version authority for both products.
-For Soundscaper, run `npm run release:soundscaper:prepare -- <version>` with a
-plain stable version or a full `-rc.*` or `-beta.*` version. The command selects
-the matching channel in the register and synchronizes `package.json`, both root
-version fields in `package-lock.json`, and `desktop/product.json`. It prints the
-matching tag and preserves Framescaper's independent release line.
+`config/product-release-lines.json` is the version authority. Schema 3 uses
+named calendar releases exclusively:
 
-If you edit the register directly, run `npm run release:soundscaper:prepare`
-without a version to synchronize those packaging files. Use
-`npm run release:soundscaper:prepare -- --check` to check consistency without
-writing files. Policy inventories refer to the register; a version bump does
-not require policy, checksum, or test-fixture edits.
+- Stable: `Soundscaper.2026.Nov.11.a`.
+- Preview: `Soundscaper-alpha.2026.Nov.11.a`, `Soundscaper-beta.2026.Nov.11.a`,
+  or `Soundscaper-rc.2026.Nov.11.a`.
+- Framescaper uses its own name with the same date and channel grammar.
 
-Commit the register and synchronized packaging files together. For an RC or
-beta, push the printed `soundscaper-v<version>` tag to start the desktop preview
-workflow. It assembles packages and checksums in its `release-inventory`
-artifact; GitHub prerelease publication remains a separate step.
+Prepare any channel with `npm run release:soundscaper:prepare -- <release-name>`.
+The tag is exactly that release name. The command selects the channel and
+synchronizes the register, `package.json`, both root lockfile version fields,
+and `desktop/product.json`. Run it without a version to synchronize an edited
+register, or with `--check` to check without writing. Commit these files together.
+
+Public versions, download filenames, application diagnostics, and update checks
+use the full calendar name. Numeric package fields required by npm,
+electron-builder, Apple, Debian, and Windows are derived mechanically as
+`year.MMDD.revision`. The revision is four times the zero-based build-letter
+ordinal plus the channel rank: alpha 0, beta 1, rc 2, stable 3. Thus
+`Soundscaper-rc.2026.Nov.11.a` has package version `2026.1111.2`, and its next
+RC build has `2026.1111.6`. Date, build-letter, and channel order stay identical
+in every package format. Native 16-bit revision fields permit 16,384 build
+letters per day; larger values are rejected before metadata is written.
+`package.json.releaseVersion` and the desktop product metadata retain the public
+name. The desktop checks the numeric installed package version against its
+metadata and supplies the public name to the editor and updater.
+
+Preview tags run the desktop preview workflow, including alpha and beta.
+Stable `Soundscaper.<year>.<month>.<day>.<build>` tags run the stable publishing
+workflow. Publication remains an explicit push by the owner. Historical
+schema-2 metadata and old downloads remain readable for existing installations.
+An installed checker that understands only historical semantic tags needs a
+manual first upgrade to a build with calendar-tag support.
 
 ## FFmpeg runtime assets
 

@@ -6,7 +6,7 @@ import test from 'node:test';
 
 import { DesktopSettingsStore } from '../desktop/settings.js';
 import { ReleaseChecker, selectUpdate } from '../desktop/update-check.ts';
-import { compareVersions } from '../desktop/release-version.ts';
+import { compareVersions } from '../src/common/release/release-version.ts';
 
 test('desktop settings choose an OS locale and persist atomically', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-settings-'));

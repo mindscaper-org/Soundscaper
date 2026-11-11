@@ -50,7 +50,7 @@ test.describe('release candidate download pages', () => {
 		test(`${product} offers its current RC on desktop and narrow screens without JavaScript`, async ({ page, context }) => {
 			const id = product.toLowerCase();
 			const origin = `https://${id}.org`;
-			const version = '1.0.0-rc.Oct.29.b';
+			const version = `${product}-rc.2026.Oct.29.b`;
 			await context.setExtraHTTPHeaders({
 				'Sec-CH-UA-Platform': '"Windows"', 'Sec-CH-UA-Arch': '"x86"', 'Sec-CH-UA-Bitness': '"64"',
 			});
@@ -66,7 +66,7 @@ test.describe('release candidate download pages', () => {
 				await expect(page.getByRole('heading', { name: platform, exact: true })).toBeVisible();
 			}
 			await expect(page.getByRole('link', { name: 'Windows x64 installer' })).toHaveAttribute('href',
-				`https://github.com/LeoWattenberg/Soundscaper/releases/download/${id}-v${version}/${product}-${version}-win-x64.exe`);
+				`https://github.com/LeoWattenberg/Soundscaper/releases/download/${version}/${version}-win-x64.exe`);
 			await expect(page.getByRole('link', { name: 'Windows ARM64 installer' })).toHaveCount(0);
 			await page.setViewportSize({ width: 375, height: 812 });
 			await expect(page.getByRole('link', { name: 'Linux ARM64 AppImage' })).toBeVisible();
@@ -129,9 +129,9 @@ test('download pages are accessible in light and dark mode', async ({ page, cont
 async function mockDownloadPage(context, product, targets = ['win-x64.exe', 'mac-arm64.pkg', 'mac-arm64.dmg', 'linux-arm64.AppImage']) {
 	const id = product.toLowerCase();
 	const origin = `https://${id}.org`;
-	const version = '1.0.0-rc.Oct.29.b';
+	const version = `${product}-rc.2026.Oct.29.b`;
 	const assets = targets.map(target => ({
-		name: `${product}-${version}-${target}`, state: 'uploaded',
+		name: `${version}-${target}`, state: 'uploaded',
 	}));
 	assets.push({ name: 'SHA256SUMS', state: 'uploaded' });
 	// Use fixed release data for layout checks. The tests above exercise local
@@ -139,7 +139,7 @@ async function mockDownloadPage(context, product, targets = ['win-x64.exe', 'mac
 	await context.route(`${origin}/download/`, async route => {
 		const request = new Request(route.request().url(), { headers: route.request().headers() });
 		const response = await handleDownloadPageRequest(request, async () => Response.json([{
-			tag_name: `${id}-v${version}`, published_at: '2026-10-30T12:00:00Z', draft: false, assets,
+			tag_name: version, published_at: '2026-10-30T12:00:00Z', draft: false, assets,
 		}]));
 		await route.fulfill({ status: response.status, headers: Object.fromEntries(response.headers), body: await response.text() });
 	});

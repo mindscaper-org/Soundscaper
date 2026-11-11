@@ -3,6 +3,7 @@
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { releaseArtifactStem } from '../src/common/release/release-packaging.ts';
 
 import {
 	assertDesktopCodecPolicy,
@@ -238,7 +239,7 @@ export function validateDesktopReleasePackageInventory(
 			const productName = productId === 'framescaper' ? 'Framescaper' : 'Soundscaper';
 			const version = desktopReleaseApplicationVersion(productId, applicationVersionAuthority);
 			for (const arch of ['x64', 'arm64']) {
-				assert(flatpaks.includes(`${productName}-${version}-linux-${arch}.flatpak`),
+				assert(flatpaks.includes(`${releaseArtifactStem(version, productName)}-linux-${arch}.flatpak`),
 					`Expected exactly one ${productName} ${arch} Flatpak.`);
 			}
 		}
@@ -267,10 +268,10 @@ export function desktopReleaseTargetPackageInventory(productId, targetId, applic
 	assert(typeof applicationVersion === 'string' && applicationVersion.length > 0,
 		'Desktop release application version is invalid.');
 	const productName = productId === 'framescaper' ? 'Framescaper' : 'Soundscaper';
-	const version = escapeRegex(applicationVersion);
+	const version = escapeRegex(releaseArtifactStem(applicationVersion, productName));
 	return Object.freeze(RELEASE_TARGET_PACKAGE_ROWS[targetId].map(([label, suffix]) => Object.freeze({
 		label,
-		pattern: new RegExp(`^${productName}-${version}-${suffix}$`, 'u'),
+		pattern: new RegExp(`^${version}-${suffix}$`, 'u'),
 	})));
 }
 

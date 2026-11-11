@@ -156,6 +156,7 @@ export async function createFixture(context) {
 		['scripts/lib/packaged-executable-resource-identity.mjs', 'export const packagedExecutableResourceIdentity = true;\n'],
 		['scripts/lib/packaged-webassembly-coverage.mjs', 'export const packagedWebAssemblyCoverage = true;\n'],
 		['scripts/lib/browser-product-site-plan.mjs', 'export const sitePlan = true;\n'],
+		...await Promise.all(['release-version.ts', 'release-packaging.ts'].map(async name => [`src/common/release/${name}`, await readFile(new URL(`../../src/common/release/${name}`, import.meta.url), 'utf8')])),
 		['scripts/lib/product-release-lines.mjs', await readFile(new URL('../../scripts/lib/product-release-lines.mjs', import.meta.url), 'utf8')],
 		['config/product-release-lines.json', await readFile(new URL('../../config/product-release-lines.json', import.meta.url), 'utf8')],
 		['scripts/lib/build-source-map-relocation.mjs', 'export const relocation = true;\n'],
