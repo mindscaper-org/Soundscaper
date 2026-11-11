@@ -58,8 +58,9 @@ restoreHost();
 const StandardEffectProcessor = workletModule.StandardEffectProcessor as unknown as HostedConstructor;
 const SAMPLE_RATE = 48_000;
 const EFFECTS: readonly StandardEffectType[] = ['multi-tap-delay', 'highpass-filter', 'lowpass-filter',
-	'noise-gate', 'notch-filter', 'shelf-filter', 'tremolo', 'vocoder'];
+	'noise-gate', 'notch-filter', 'shelf-filter', 'tremolo', 'vocoder', 'hum-removal'];
 const CUSTOM_PARAMS: Readonly<Record<StandardEffectType, Readonly<Record<string, unknown>>>> = {
+	'hum-removal': { frequency: 60, harmonics: 5, bandwidth: 3, reduction: 30 },
 	'multi-tap-delay': { time: .001, echoes: 3, echoGain: -9, mix: .8 },
 	'highpass-filter': { frequency: 300, rolloff: 48 },
 	'lowpass-filter': { frequency: 1400, rolloff: 36 },
@@ -107,7 +108,7 @@ function hostedRender(type: StandardEffectType, input: readonly Float32Array[], 
 	return output;
 }
 
-test('all eight actual worklet processors match shared DSP and asynchronous selection processing', async () => {
+test('all standard worklet processors match shared DSP and asynchronous selection processing', async () => {
 	const restoreSampleRate = installGlobal('sampleRate', SAMPLE_RATE);
 	try {
 		const input = signal(3072);

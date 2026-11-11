@@ -33,6 +33,7 @@ const CATEGORY_LABELS = Object.freeze({
 const LOCAL_EFFECT_CATEGORIES = Object.freeze({
 	'auto-tune': 'pitch-tempo',
 	deesser: 'repair',
+	'hum-removal': 'repair',
 	'multiband-compressor': 'volume',
 	highpass: 'eq',
 	lowpass: 'eq',
@@ -57,6 +58,7 @@ const LOCAL_EFFECT_CATEGORIES = Object.freeze({
 /** Parameters whose value is a structure rather than a scalar or a choice. */
 const STRUCTURED_LOCAL_PARAMETERS = Object.freeze({
 	'eq.bands': 'Each band has a type, frequency, gain, Q, and slope',
+	'auto-tune.controlTrackId': 'Optional MIDI control track; empty uses key and scale',
 });
 
 const BROWSER_ADAPTATION_NOTES = Object.freeze({
@@ -64,6 +66,7 @@ const BROWSER_ADAPTATION_NOTES = Object.freeze({
 });
 
 const LOCAL_EFFECT_NOTES = Object.freeze({
+	'hum-removal': ['Harmonic notch bank with custom fundamental, harmonic count, notch width and reduction', 'Live controls, zero latency, no timeline automation; selections keep their duration'],
 	'auto-tune': ['Solo voice or melody (65–1500 Hz); chromatic, major or natural minor pitch correction', 'StaffPad formant preservation; fixed rack latency (about 72 ms at 48 kHz), live controls, no timeline automation'],
 	'multi-tap-delay': ['Finite echoes with StaffPad pitch shift; selections also offer changed-speed echoes and optional complete tails'],
 	'noise-gate': ['Lookahead opens the gate before transients; rack and selection timing are compensated', 'Linked or independent channels; optional frequency-selective gating'],
@@ -247,6 +250,12 @@ export function renderAudioEffectReference(context) {
 		'## Effects',
 		'',
 		inventory,
+		'',
+		'## Hum removal {#hum-removal}',
+		'',
+		'Choose Effect > Noise removal and repair > Hum removal to preview or apply it to selected audio, or add Hum removal to a realtime rack. Set Fundamental frequency to 50 or 60 Hz for mains hum, or a custom value between 20 and 400 Hz. Harmonics includes the fundamental; only notches whose width fits below half the sample rate are used. Notch width is the nominal full-depth notch bandwidth in Hz and stays constant across the harmonic series. Reduction sets the attenuation at each notch center; zero leaves audio unchanged. Use narrow notches and the fewest harmonics that remove the hum to preserve wanted audio.',
+		'',
+		'The same causal filter bank processes selection previews, playback and export with independent channel histories and no added latency. Live parameter changes crossfade over 20 ms without rebuilding the rack; timeline automation is unavailable. Rack playback and export include filter release subject to the existing combined 10-second tail limit. Applying the effect to a selection keeps its duration. The downloadable Nyquist Comb Filter and Hum Remover remain separate selection effects.',
 		'',
 		'## Regular streaming replacements {#regular-streaming-replacements}',
 		'',

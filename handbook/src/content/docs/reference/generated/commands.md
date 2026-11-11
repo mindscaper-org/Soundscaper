@@ -226,6 +226,7 @@ Product availability follows each product profile’s command filters and each l
 | High-Pass Filter | `nyquist:highpass` | — | Nyquist | Soundscaper | Audacity |
 | High-pass filter | `highpass-filter` | — | Effect > EQ and filters | Soundscaper | Soundscaper local |
 | History | `toggle-history` | — | View | Soundscaper, Framescaper | Audacity |
+| Hum removal | `hum-removal` | — | Effect > Noise removal and repair | Soundscaper | Soundscaper local |
 | Identify Speakers | `assistance-task-identify-speakers` | — | Analyze > Speech | Soundscaper, Framescaper | Soundscaper local |
 | Image sequence | `framescaper-import-image-sequence` | — | File | Framescaper | Soundscaper local |
 | Import audio | `project-import` | Ctrl+Shift+I | File | Soundscaper, Framescaper | Audacity |

@@ -136,6 +136,7 @@ export const PROJECT_FEATURE_AUDIO_EFFECT_TYPES = Object.freeze([
 	'highpass-filter',
 	'lowpass-filter',
 	'noise-gate',
+	'hum-removal',
 	'notch-filter',
 	'shelf-filter',
 	'tremolo',

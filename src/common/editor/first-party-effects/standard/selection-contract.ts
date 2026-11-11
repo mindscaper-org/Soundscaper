@@ -3,6 +3,7 @@
 import type { StandardEffectType } from './definition.ts';
 import { normalizeStandardDelayParams, standardDelayCapacityFrames, standardDelayPitchQueueFrames } from './delay-definition.ts';
 import { noiseGateLatencyFrames } from './noise-gate-definition.ts';
+import { humRemovalStateBytes } from '../hum-removal/definition.ts';
 import { STAFFPAD_MAXIMUM_MEMORY_BYTES } from '../../staffpad/parameters.js';
 import { delaySelectionPitchMode, standardDelaySelectionOutputFrames, standardDelaySpeedScratchFrames } from './delay-selection-contract.ts';
 
@@ -19,6 +20,7 @@ export function standardEffectStateBytes(type: StandardEffectType, params: Reado
 	rate: number, channels: number): number {
 	if (!Number.isInteger(channels) || channels < 1 || channels > 32) throw new RangeError('channelCount must be between 1 and 32.');
 	if (!Number.isFinite(rate) || rate < 8000 || rate > 384000) throw new RangeError('sampleRate must be between 8000 and 384000 Hz.');
+	if (type === 'hum-removal') return humRemovalStateBytes(params, rate, channels);
 	const frequency = type === 'noise-gate' ? Number(params.gateFrequency ?? 0) : Number(params.frequency ?? 0);
 	if (type !== 'tremolo' && frequency >= rate / 2) throw new RangeError('Filter frequency must be below Nyquist.');
 	if (type === 'noise-gate') return channels * noiseGateLatencyFrames(params, rate) * Float32Array.BYTES_PER_ELEMENT;

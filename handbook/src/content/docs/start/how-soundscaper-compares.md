@@ -184,7 +184,7 @@ bindings are reported.
 | Repair short damage | + — Repair | + — Repair | + — Repair | + — Auto Heal and Spot Healing Brush |
 | Broadband noise reduction | + — with a captured profile | + — with a captured profile | + — with a captured profile | + — Noise Reduction, Adaptive Noise Reduction, DeNoise |
 | De-reverb | / — desktop assistance only | + — Reduce Reverb, with optional model and engine installed | / | + — DeReverb |
-| Click, hum, and sibilance tools | ~ — Click Removal and De-esser; no dedicated hum remover | ~ — Click Removal and De-esser; no dedicated hum remover | ~ — Click Removal only | + — DeClicker, DeHummer, DeEsser, Click/Pop Eliminator |
+| Click, hum, and sibilance tools | + — Click Removal, Hum removal, and De-esser; realtime racks and selections | + — Click Removal, Hum removal, and De-esser; realtime racks and selections | ~ — Click Removal only | + — DeClicker, DeHummer, DeEsser, Click/Pop Eliminator |
 | Diagnostics panel | ~ — Find Clipping as an analyser | ~ — Find Clipping as an analyser | ~ — Find Clipping as an analyser | + — diagnostics with per-issue repair |
 
 ## Effects and plug-ins
