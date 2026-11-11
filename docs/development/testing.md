@@ -202,6 +202,11 @@ Maintainers can run that gate and the complete ordinary Playwright suite
 npm run check-all
 ```
 
+Playwright stays pinned to 1.64.1 while its Firefox file-chooser interception
+[reports cancellation before selection](https://github.com/microsoft/playwright/issues/43994).
+Verify both selection and cancellation through Generate > Add Images before
+updating the pin; application cancellation handlers must still honor real cancellation.
+
 `check-all` schedules up to four checks or test shards at once. It splits lint
 using the existing eight lint shards, Node suites across four execution slots,
 and browser suites into four partitions spanning all three engines. Each
