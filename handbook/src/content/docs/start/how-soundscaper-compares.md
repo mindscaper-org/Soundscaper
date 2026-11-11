@@ -116,6 +116,17 @@ The broad groups reflect our assessment of workflow emphasis. Ardour and
 [Pro Tools](https://www.avid.com/pro-tools/features/midi) have substantial MIDI
 workflows; FL Studio, Live, and Bitwig also record, edit, and mix audio.
 
+**Processing locality** — reviewed on **11 November 2026**.
+
+The exclusivity row also counts optional cloud AI services offered by the vendor
+or through native integrations:
+
+- Audacity's [audio.com plans](https://audio.com/subscriptions) include online AI tools such as [Voice Extractor](https://audio.com/tools/voice-extractor).
+- Adobe's [Podcast Enhance Speech](https://podcast.adobe.com/en/guides/what-is-enhance-speech) processes uploaded recordings.
+- Pro Tools' [Splice integration](https://www.avid.com/pro-tools/splice-integration) and [Live's Splice integration](https://splice.com/plans/ableton-live/about) upload audio for AI sample matching.
+- ArtCraft offers [Studio](https://getartcraft.com/studio) with [paid image/video generation](https://getartcraft.com/pricing) using [models including GPT Image and Veo](https://getartcraft.com/faq/models-supported). SoundCraft's own audio engine runs locally.
+- [FL Cloud](https://www.image-line.com/fl-cloud/faq) adds integrated AI mastering to FL Studio.
+
 
 **Workflow references**
 
@@ -384,6 +395,10 @@ Transfers can omit unsupported state; review the exchange report. See [project f
 
 ## Machine assistance
 
+For “Exclusively local media processing”, even optional cloud AI services from
+the vendor or native integrations rule out a `+`. Storage/sharing, model
+downloads, and licence checks alone do not affect this rating.
+
 | Capability | Soundscaper<br>Web | Soundscaper<br>Desktop | Audacity<br>4.0.2 | Audition | Ardour<br>9.10 | Hindenburg<br>Pro 2 | Pro Tools<br>Studio | SoundCraft<br>0.19.0 | FL Studio<br>2026 | Ableton Live<br>12 Suite | Bitwig Studio<br>6.1 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Speech enhancement | / | + — Local model | / | ~ — Repair controls :: Essential Sound repair and clarity controls; Adobe Podcast's AI Enhance Speech is a separate service | / | ~ — Voice Profile / NR | / — :: Provided by partner plug-ins rather than a built-in speech-enhancement processor. | / | + — Edison vocal denoise | / | / |
@@ -394,7 +409,7 @@ Transfers can omit unsupported state; review the exchange report. See [project f
 | Music remix to target duration | / | / | / | + — Remix :: Analyses and rearranges musical passages to fit a target duration. | / | / | / | / | / | / | / |
 | Automatic dialogue alignment | / | / | / | + — :: Warps a replacement dialogue performance to match the timing of a reference recording. | / | / | / — :: Requires an external alignment plug-in, such as VocAlign. | / | / | / | / |
 | Beat and shot detection | / | ~ — Beats only :: Beat detection with an optional model; shot detection is in Framescaper | / | ~ — Remix | ~ — Beats / onsets :: Built-in Vamp beat/onset analysis and Rhythm Ferret; no shot detection. | / | ~ — Beat Detective | ~ — Beat Analysis | ~ — Beats only | ~ — Beats only | ~ — Beats only |
-| Local media processing | + — :: Browser processing; optional sharing sends only what you choose | + — :: Local editing and offline inference after model installation; optional sharing | + | + — :: Local editing and restoration; separate Adobe online services have their own upload workflows | + | + — :: Editing and installed transcription models run locally; licence and transcription-hour checks periodically require internet. | + | + | + — :: Editing, rendering, stem separation, and Edison processing are local; FL Cloud services are separate. | + — :: Audio processing and Suite's stem separation run locally; optional Splice and Cloud services have separate network workflows. | + |
+| Exclusively local media processing | + — :: Browser processing; optional sharing sends only what you choose. | + — :: Local editing and offline inference after model installation; optional sharing. | / — :: Editing is local, but the associated audio.com service offers online AI separation and transcription. | / — :: Editing and restoration are local, but Adobe offers cloud AI speech enhancement through Podcast Enhance Speech. | + | + — :: Editing and installed transcription models run locally; licence and transcription-hour checks periodically require internet. | / — :: Speech-to-text runs locally, but integrated Splice Search with Sound uploads audio for AI matching. | / — :: SoundCraft's audio engine is local, but its vendor offers cloud AI image/video generation through ArtCraft Studio. | / — :: Local editing and AI separation are available, but FL Cloud offers cloud AI mastering. | / — :: Stem separation runs locally, but integrated Splice Search with Sound uploads audio for AI matching. | + |
 | Models are optional and removable | / | + | / | / | / | ~ — Language packs :: Transcription language packs download on demand; a model-removal interface is not documented. | ~ — Speech engine | / | ~ — Download on use :: AI processing models download when first required; no model-manager removal workflow documented. | / — :: The reviewed documentation does not expose an independent model install/remove manager for bundled stem separation. | / |
 
 Install optional models and engines with **Tools → Model Manager**. See [local assistance](/reference/generated/local-assistance/) and [processing requirements](/help/local-processing/).
