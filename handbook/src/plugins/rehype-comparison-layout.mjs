@@ -1,4 +1,9 @@
-const textOf = (node) => node.type === 'text' ? node.value : (node.children ?? []).map(textOf).join('');
+function textOf(node) {
+	if (node.type === 'text') return node.value;
+	// Markdown HTML is still raw here; line breaks separate words in product names.
+	if (node.tagName === 'br' || (node.type === 'raw' && /^<br\s*\/?>$/iu.test(node.value.trim()))) return ' ';
+	return (node.children ?? []).map(textOf).join('');
+}
 
 const element = (tagName, properties, children = []) => ({ type: 'element', tagName, properties, children });
 

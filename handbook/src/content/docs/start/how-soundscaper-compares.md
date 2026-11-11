@@ -153,7 +153,7 @@ workflows; FL Studio, Live, and Bitwig also record, edit, and mix audio.
 
 ## Platform and terms
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| Capability | Soundscaper<br>Web | Soundscaper<br>Desktop | Audacity<br>4.0.2 | Audition | Ardour<br>9.10 | Hindenburg<br>Pro 2 | Pro Tools<br>Studio | SoundCraft<br>0.19.0 | FL Studio<br>2026 | Ableton Live<br>12 Suite | Bitwig Studio<br>6.1 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Licence | + — AGPL-3.0-only | + — AGPL-3.0-only | + — GPL | / — Proprietary | + — GPL-2.0-or-later | / — Proprietary | / — Proprietary | + — MIT / Apache-2.0 | / — Proprietary | / — Proprietary | / — Proprietary |
 | Cost | + — Free | + — Free | + — Free | / — Subscription | ~ — Source / paid builds :: Source code is free; official full ready-to-run builds require payment. Distribution packages have their own terms. | / — Paid :: Subscription or perpetual licence; service packages differ. | / — Paid | + — Free | / — Paid, perpetual | / — Paid | / — Paid |
@@ -166,7 +166,7 @@ workflows; FL Studio, Live, and Bitwig also record, edit, and mix audio.
 
 ## Project and session model
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| Capability | Soundscaper<br>Web | Soundscaper<br>Desktop | Audacity<br>4.0.2 | Audition | Ardour<br>9.10 | Hindenburg<br>Pro 2 | Pro Tools<br>Studio | SoundCraft<br>0.19.0 | FL Studio<br>2026 | Ableton Live<br>12 Suite | Bitwig Studio<br>6.1 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Native project format | + — `.sscape` :: Media is bundled with the project. | + — `.sscape` :: `.sscape`; original imported media is referenced by default, with consolidation for portability | + — `.aup4` | + — `.sesx` | + — `.ardour` :: An XML session file and a folder of referenced audio/MIDI media; archives can consolidate media. | + — `.nhsx` | + — `.ptx` | + — `.scraft` / `.scraftz` | + — `.flp` / ZIP | + — `.als` | + — `.bwproject` |
 | Opens Audacity projects | + — AUP–AUP4 :: Imports AUP, AUP3, and AUP4; exports AUP3 and AUP4. | + — AUP–AUP4 :: Imports AUP, AUP3, and AUP4; exports AUP3 and AUP4. | ~ — No AUP3 export :: AUP, AUP3, and AUP4 import; AUP4 export. | / | / | / | / | / | / | / | / |
@@ -184,7 +184,7 @@ Desktop projects reference original media by default. Consolidate media before m
 
 ## Recording
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| Capability | Soundscaper<br>Web | Soundscaper<br>Desktop | Audacity<br>4.0.2 | Audition | Ardour<br>9.10 | Hindenburg<br>Pro 2 | Pro Tools<br>Studio | SoundCraft<br>0.19.0 | FL Studio<br>2026 | Ableton Live<br>12 Suite | Bitwig Studio<br>6.1 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Multitrack recording | + | + | ~ — One device | + | + | + | + — 64 inputs | ~ — Desktop only :: Desktop recording; unavailable on Web and FreeBSD; physical channel routing and shared-clock duplex capture are gaps | + | + | + |
 | Microphone and desktop audio together | ~ — Browser-dependent :: Built in where the browser and operating system expose display audio | + — OS-dependent :: Microphone plus Windows desktop loopback; other systems use a loopback input | / | ~ — Loopback device | ~ — OS routing :: Requires suitable system loopback, JACK or PipeWire routing, rather than a built-in desktop-audio capture picker. | + — Audio Device :: Hindenburg Audio Device routes application and system audio alongside microphone inputs. | ~ — Loopback routing | ~ — Limited routing | ~ — Device routing :: Requires system audio presented by a loopback or aggregate audio device. | ~ — Loopback routing | ~ — Loopback routing |
@@ -201,7 +201,7 @@ Recording depends on your browser, operating system, and audio hardware. See [re
 
 ## Timeline editing
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| Capability | Soundscaper<br>Web | Soundscaper<br>Desktop | Audacity<br>4.0.2 | Audition | Ardour<br>9.10 | Hindenburg<br>Pro 2 | Pro Tools<br>Studio | SoundCraft<br>0.19.0 | FL Studio<br>2026 | Ableton Live<br>12 Suite | Bitwig Studio<br>6.1 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Ripple edit variants | + | + | + | ~ — Delete | + | + | ~ — Shuffle | ~ — Shuffle | ~ — Clip slip trim :: The documented ripple tool changes clip bounds; it does not provide full multitrack ripple insertion/deletion. | ~ — Time commands :: Insert Silence, Cut Time, and Delete Time move later material across the arrangement. | ~ — Time commands |
 | Split, join, and split at silences | + | + | + | ~ — No join | + — :: Split and combine/uncombine audio regions, plus Strip Silence. | ~ — No silence split :: Split and region assembly; no automatic split-at-silence tool documented. | + | + | + — Playlist / Edison | ~ — Split / consolidate :: Split and Consolidate are built in; no automatic split-at-silence command is documented. | ~ — Onset splits :: Split, Consolidate, and slicing at detected onsets are available; no split-at-silence command is documented. |
@@ -218,7 +218,7 @@ Soundscaper can [import Audacity keyboard shortcuts](/reference/generated/comman
 
 ## Spectral work and restoration
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| Capability | Soundscaper<br>Web | Soundscaper<br>Desktop | Audacity<br>4.0.2 | Audition | Ardour<br>9.10 | Hindenburg<br>Pro 2 | Pro Tools<br>Studio | SoundCraft<br>0.19.0 | FL Studio<br>2026 | Ableton Live<br>12 Suite | Bitwig Studio<br>6.1 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Spectrogram view | + | + | + | + | + — Analysis / live :: Region/export analysis and the bundled ACE Inline Spectrogram provide viewing; no spectral editing. | / | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / | + — Edison | ~ — Effects only :: Spectral Resonator and Spectral Time include live spectrogram displays; there is no timeline spectral editor. | / |
 | Frequency-bounded selection | + | + | + — :: Frequency selections are available in the spectrogram view; some menu and toolbar entries remain disabled. | + | / | / | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / | / | / | / |
@@ -239,7 +239,7 @@ Soundscaper can [import Audacity keyboard shortcuts](/reference/generated/comman
 
 ## Effects and plug-ins
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| Capability | Soundscaper<br>Web | Soundscaper<br>Desktop | Audacity<br>4.0.2 | Audition | Ardour<br>9.10 | Hindenburg<br>Pro 2 | Pro Tools<br>Studio | SoundCraft<br>0.19.0 | FL Studio<br>2026 | Ableton Live<br>12 Suite | Bitwig Studio<br>6.1 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Built-in effect suite | + — :: Audacity-derived effects, bundled Nyquist plug-ins, and first-party effects such as Bitcrusher and De-esser | + — :: Audacity-derived effects, bundled Nyquist plug-ins, and first-party effects such as Bitcrusher and De-esser | + — :: Built-in processors, generators, and bundled Nyquist plug-ins | + | + — ACE / Lua | ~ — Dialogue tools :: Built-in EQ, compressor, noise reduction, voice profiling, and meters. | + | + | + — All Plugins | + | + |
 | Real-time effect rack per track | + — :: A wider real-time set than upstream; optional parallel processing for eligible built-in stacks | + — :: A wider real-time set than upstream; optional parallel processing for eligible built-in stacks | + | + — 16 slots | + | + | + | + — 10 slots | + — 10 slots :: Patcher or chained mixer tracks can extend the effect chain. | + | + |
@@ -268,7 +268,7 @@ Manager. Live MIDI device recording remains unavailable.
 
 ## Mixing, routing, and automation
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| Capability | Soundscaper<br>Web | Soundscaper<br>Desktop | Audacity<br>4.0.2 | Audition | Ardour<br>9.10 | Hindenburg<br>Pro 2 | Pro Tools<br>Studio | SoundCraft<br>0.19.0 | FL Studio<br>2026 | Ableton Live<br>12 Suite | Bitwig Studio<br>6.1 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Mixer with channel strips | + | + | ~ — Track controls | + | + | ~ — Track controls | + | + | + — 500 inserts | + | + |
 | Buses and submixes | + | + | / | + | + | / | + | + | + | + — Group / return tracks | + |
@@ -289,7 +289,7 @@ Manager. Live MIDI device recording remains unavailable.
 
 ## Metering and analysis
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| Capability | Soundscaper<br>Web | Soundscaper<br>Desktop | Audacity<br>4.0.2 | Audition | Ardour<br>9.10 | Hindenburg<br>Pro 2 | Pro Tools<br>Studio | SoundCraft<br>0.19.0 | FL Studio<br>2026 | Ableton Live<br>12 Suite | Bitwig Studio<br>6.1 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Loudness meter | + — EBU R 128 | + — EBU R 128 | / | + — Loudness Radar | ~ — Range analysis :: The Loudness Assistant measures integrated, short-term and momentary LUFS for a range/session; no continuously updating integrated-LUFS rack meter in the reviewed bundle. | + — EBU R 128 | / — :: Requires a separately purchased metering plug-in, such as Decibel. | / — Bounce report only | + — Emphasis LUFS | / — :: Peak/RMS meters are built in; LUFS metering needs an additional device or plug-in. | / |
 | Phase and correlation meter | + | + | / | + | / — :: Requires an external metering plug-in; the source tree's underscored correlation-meter example is excluded from installed scripts. | / | / — :: Requires a separately purchased metering plug-in, such as Decibel. | / — :: Requires a third-party desktop metering plug-in; host restrictions apply. | + — Wave Candy | / | / |
@@ -302,7 +302,7 @@ Soundscaper waveform display options are in **Track visualization** and **Prefer
 
 ## Channels and immersive audio
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| Capability | Soundscaper<br>Web | Soundscaper<br>Desktop | Audacity<br>4.0.2 | Audition | Ardour<br>9.10 | Hindenburg<br>Pro 2 | Pro Tools<br>Studio | SoundCraft<br>0.19.0 | FL Studio<br>2026 | Ableton Live<br>12 Suite | Bitwig Studio<br>6.1 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Channels per file | + — 32 | + — 32 | + — 32 | + — 32 | + — Multichannel | ~ — Mono / stereo | + — Multichannel | + — Multichannel | ~ — Mono / stereo | ~ — Mono / stereo | ~ — Mono / stereo |
 | Surround mixing | + — 7.1.4 | + — 7.1.4 | / | ~ — 5.1 | ~ — Static VBAP :: Multichannel routing and the built-in VBAP panner; the documented VBAP panner does not play automation. | / | + — Dolby Atmos | + — 9.1.6 | ~ — Hardware routing :: Separate stereo mixer outputs can feed 5.1/7.1 speakers; native mix-file export is mono/stereo. | ~ — Surround Panner :: The first-party Max for Live Surround Panner is included with Suite and routes to four-, six-, or eight-speaker setups. Native tracks and audio-file exports remain mono/stereo. | / |
@@ -317,7 +317,7 @@ Soundscaper waveform display options are in **Track visualization** and **Prefer
 
 Format ratings describe export support, not import.
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| Capability | Soundscaper<br>Web | Soundscaper<br>Desktop | Audacity<br>4.0.2 | Audition | Ardour<br>9.10 | Hindenburg<br>Pro 2 | Pro Tools<br>Studio | SoundCraft<br>0.19.0 | FL Studio<br>2026 | Ableton Live<br>12 Suite | Bitwig Studio<br>6.1 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | WAV | + | + | + | + | + | + | + | + | + | + | + |
 | AIFF | + | + | + | + | + | + | + | + | ~ — Edison | + | / — :: AIFF import is supported; the documented audio-export formats do not include AIFF. |
@@ -351,7 +351,7 @@ See [export formats](/reference/generated/formats/), [clip delivery](/soundscape
 Both Soundscaper editions import and export EDL, OpenTimelineIO, FCPXML, OMF,
 and DAWproject.
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| Capability | Soundscaper<br>Web | Soundscaper<br>Desktop | Audacity<br>4.0.2 | Audition | Ardour<br>9.10 | Hindenburg<br>Pro 2 | Pro Tools<br>Studio | SoundCraft<br>0.19.0 | FL Studio<br>2026 | Ableton Live<br>12 Suite | Bitwig Studio<br>6.1 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Audacity projects | + — AUP–AUP4 :: AUP, AUP3, and AUP4 in; AUP3 and AUP4 out with a compatibility report | + — AUP–AUP4 :: AUP, AUP3, and AUP4 in; AUP3 and AUP4 out with a compatibility report | ~ — No AUP3 export :: AUP, AUP3, and AUP4 import; AUP4 export. | / | / | / | / | / | / | / | / |
 | Audition sessions | / | ~ — Import only | / | + | / | ~ — Import only | / | / | / | / | / |
@@ -371,7 +371,7 @@ Transfers can omit unsupported state; review the exchange report. See [project f
 
 ## Video
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| Capability | Soundscaper<br>Web | Soundscaper<br>Desktop | Audacity<br>4.0.2 | Audition | Ardour<br>9.10 | Hindenburg<br>Pro 2 | Pro Tools<br>Studio | SoundCraft<br>0.19.0 | FL Studio<br>2026 | Ableton Live<br>12 Suite | Bitwig Studio<br>6.1 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Import video for reference | + | + | / | ~ — Preview only | + — :: Official binaries bundle the video monitor/decoder tools. | + | + — One track | + | + — ZGameEditor | + | / — :: Bitwig documents video playback through an external VST plug-in rather than a built-in video track. |
 | Video timeline editing | + — Basic edits :: Advanced editing in Framescaper | + — Basic edits :: Advanced editing in Framescaper | / | / | ~ — Offset / range :: One reference video with timing offset and export-range trimming; no multitrack video edit timeline. | / | ~ — One track | ~ — Sync offset | / | ~ — Trim / arrange | / |
@@ -384,7 +384,7 @@ Transfers can omit unsupported state; review the exchange report. See [project f
 
 ## Machine assistance
 
-| Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Ardour 9.10 | Hindenburg Pro 2 | Pro Tools Studio | SoundCraft 0.19.0 | FL Studio 2026 | Ableton Live 12 Suite | Bitwig Studio 6.1 |
+| Capability | Soundscaper<br>Web | Soundscaper<br>Desktop | Audacity<br>4.0.2 | Audition | Ardour<br>9.10 | Hindenburg<br>Pro 2 | Pro Tools<br>Studio | SoundCraft<br>0.19.0 | FL Studio<br>2026 | Ableton Live<br>12 Suite | Bitwig Studio<br>6.1 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Speech enhancement | / | + — Local model | / | ~ — Repair controls :: Essential Sound repair and clarity controls; Adobe Podcast's AI Enhance Speech is a separate service | / | ~ — Voice Profile / NR | / — :: Provided by partner plug-ins rather than a built-in speech-enhancement processor. | / | + — Edison vocal denoise | / | / |
 | Transcription and diarisation | / | + — Local models | / | / | / | ~ — Paid hours :: Offline transcription with speaker detection; hours/language models require an eligible plan or transcription package. | + — Separate engine :: Speech-to-text engine installed separately; speaker detection | / | / | / | / |
