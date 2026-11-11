@@ -189,6 +189,16 @@ test('compares Web and Desktop with accessible symbols and explains the capabili
 	await expect(row('AAC (M4A)').getByRole('cell').nth(3)).toContainText(/ffmpeg/iu);
 	await expect(row('AAC (M4A)').getByRole('cell').nth(4).getByRole('img', { name: 'Unavailable', exact: true })).toBeVisible();
 	await expect(row('FLAC').getByRole('cell').nth(5).getByRole('img', { name: 'Unavailable', exact: true })).toBeVisible();
+	for (const [capability, states] of [
+		['Click removal', ['Supported', 'Supported', 'Supported', 'Supported', 'Unavailable', 'Unavailable']],
+		['Hum removal', ['Unavailable', 'Unavailable', 'Unavailable', 'Supported', 'Unavailable', 'Unavailable']],
+		['De-essing', ['Supported', 'Supported', 'Unavailable', 'Supported', 'Supported', 'Supported']],
+	]) {
+		for (const [column, state] of states.entries()) {
+			await expect(row(capability).getByRole('cell').nth(column + 1).getByRole('img', { name: state, exact: true })).toBeVisible();
+		}
+	}
+	await expect(row('Click, hum, and sibilance tools')).toHaveCount(0);
 });
 
 test('keeps comparison sources collapsed and reveals cell details on hover, focus, and tap', async ({ page, isMobile }) => {

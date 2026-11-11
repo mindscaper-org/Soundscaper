@@ -96,6 +96,7 @@ those workflows before relying on it for a session.
 
 **Workflow references**
 
+- [Soundscaper effect inventory](/reference/generated/audio-effects/) and [Audition restoration effects](https://helpx.adobe.com/audition/desktop/effects-reference/noise-reduction-restoration-effects.html).
 - [Audacity export formats](https://www.audacityteam.org/manual/getting-started/export-your-audio/), [PCM writer](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/au3/modules/import-export/mod-pcm/ExportPCM.cpp), and [WavPack options](https://manual.audacityteam.org/man/wavpack_export_options.html).
 - [Pro Tools audio-file support](https://kb.avid.com/pkb/articles/en_US/Knowledge/Pro-Tools-Audio-File-Type-and-Session-Support) and [QuickTime export](https://www.avid.com/resource-center/quicktime-and-file-support-improvements-in-pro-tools-2021-6).
 - [SoundCraft WAV writer](https://github.com/storytold/soundcraft/blob/v0.19.0/crates/audio-io/src/wav.rs): large-file output uses RF64, while BW64 is accepted for reading.
@@ -193,7 +194,9 @@ Soundscaper can [import Audacity keyboard shortcuts](/reference/generated/comman
 | Repair short damage | + | + | + | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / — :: Requires a third-party repair plug-in on desktop. |
 | Broadband noise reduction | + | + | + | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / — :: Requires a third-party noise-reduction plug-in on desktop. |
 | De-reverb | / | + — Local model | / | + | / — :: Requires the separate Acoustica Ultimate / DeVerberate plug-in. | / — :: Requires a third-party de-reverb plug-in on desktop. |
-| Click, hum, and sibilance tools | ~ — Clicks, sibilance | ~ — Clicks, sibilance | ~ — Clicks | + | ~ — De-esser :: RX De-click and De-hum with an active plan; Dynamics III De-Esser | ~ — De-esser :: Built-in de-esser; no dedicated click or hum tool in the processor inventory |
+| Click removal | + | + | + | + | / — :: Requires the external RX De-click plug-in with an active plan. | / |
+| Hum removal | / | / | / | + — :: Built-in DeHummer effect. | / — :: Requires the external RX De-hum plug-in with an active plan. | / |
+| De-essing | + | + | / | + | + — :: Included Avid Dynamics III De-Esser. | + |
 | Diagnostics panel | ~ — Clipping only | ~ — Clipping only | ~ — Clipping only | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / |
 
 
