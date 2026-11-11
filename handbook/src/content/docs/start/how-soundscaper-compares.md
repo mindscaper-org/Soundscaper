@@ -204,7 +204,7 @@ Soundscaper can [import Audacity keyboard shortcuts](/reference/generated/comman
 | Repair short damage | + | + | + | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / — :: Requires a third-party repair plug-in on desktop. |
 | Broadband noise reduction | + | + | + | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. | / — :: Requires a third-party noise-reduction plug-in on desktop. |
 | Real-time adaptive denoising | / — :: Noise Reduction uses a captured noise profile. | / — :: Noise Reduction uses a captured noise profile; optional speech enhancement is offline. | / — :: Noise Reduction uses a captured noise profile. | + — :: Adaptive Noise Reduction tracks changing broadband noise in real time. | / — :: Requires an external noise-reduction plug-in. | / |
-| Learned sound removal | / | / | / | + — :: Sound Remover learns a sound model, such as a siren or ringing phone, and removes matching sounds. | / — :: Requires an external restoration plug-in. | / |
+| Learned sound removal | + | + | + | + — :: Sound Remover learns a sound model, such as a siren or ringing phone, and removes matching sounds. | / — :: Requires an external restoration plug-in. | / |
 | Automatic phase correction | / | / | / | + — :: Automatically aligns stereo channels to correct phase and tape-head azimuth errors. | / — :: Requires an external alignment plug-in, such as Auto-Align. | / |
 | De-reverb | / | + — Local model | / | + | / — :: Requires the separate Acoustica Ultimate / DeVerberate plug-in. | / — :: Requires a third-party de-reverb plug-in on desktop. |
 | Click removal | + | + | + | + | / — :: Requires the external RX De-click plug-in with an active plan. | / |
@@ -280,7 +280,7 @@ Soundscaper waveform display options are in **Track visualization** and **Prefer
 
 | Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Pro Tools Studio | SoundCraft 0.19.0 |
 | --- | --- | --- | --- | --- | --- | --- |
-| Channels per file | + — 32 | + — 32 | ~ — Mono / stereo | + — 32 | + — Multichannel | + — Multichannel |
+| Channels per file | + — 32 | + — 32 | + - 32 | + — 32 | + — Multichannel | + — Multichannel |
 | Surround mixing | + — 7.1.4 | + — 7.1.4 | / | ~ — 5.1 | + — Dolby Atmos | + — 9.1.6 |
 | Object-based audio | + | + | / | / | + | ~ — No Atmos renderer :: Object and bed routing; Dolby Atmos renderer integration is a gap |
 | ADM authoring and passthrough | + | + | / | / | + — Export | / |
@@ -308,7 +308,7 @@ Format ratings describe export support, not import.
 | Opus | + | + | + | / | / | / |
 | Ogg Vorbis | + | + | + | + | / | / |
 | AAC (M4A) | ~ — Browser-dependent :: Requires an available browser AAC encoder. | + — :: Uses a supported desktop encoder, including a configured FFmpeg provider. | ~ — FFmpeg :: Requires the optional FFmpeg codec library through Audacity's export workflow. | / — :: Requires a separate Adobe Media Encoder handoff. | ~ — Mac :: M4A export is documented on macOS; AAC in a MOV file is a separate video-bounce option. | / |
-| Custom encoder settings | ~ — Format controls | ~ — Format controls | + — FFmpeg | + | ~ — Format controls | ~ — Bit depth / dither |
+| Custom encoder settings | + — FFmpeg :: Format controls (CLI) | + — FFmpeg :: Format controls (CLI) | + — FFmpeg :: GUI controls | + | ~ — Format controls | ~ — Bit depth / dither |
 | Descriptive metadata | + — :: Project ID3 fields, artwork, lyrics, credits, and format-specific export tags | + | + | + | + — MP3 ID3 | ~ — BWF timing |
 | Export queue | + | + | / | ~ — Batch Process | / — :: Bounce Factory Lite provides external batch bouncing. | / |
 | Stems and alternates in one pass | + | + | ~ — Tracks only :: Export Multiple writes each track separately, but does not queue the mix and alternate renders together | ~ — One stem | + | ~ — Mix or stems |
@@ -349,9 +349,9 @@ Transfers can omit unsupported state; review the exchange report. See [project f
 | Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Pro Tools Studio | SoundCraft 0.19.0 |
 | --- | --- | --- | --- | --- | --- | --- |
 | Import video for reference | + | + | / | ~ — Preview only | + — One track | + |
-| Video timeline editing | ~ — Basic edits | ~ — Basic edits | / | / | ~ — One track | ~ — Sync offset |
+| Video timeline editing | + Basic edits - :: Advanced editing in Framescaper | +  Basic edits - :: Advanced editing in Framescaper | / | / | ~ — One track | ~ — Sync offset |
 | MP4 video export | ~ — Codec-dependent :: Requires browser WebCodecs support for the selected video and audio encoders. | + | / | / | / | / |
-| WebM video export | ~ — Codec-dependent :: Requires browser WebCodecs support for the selected video and audio encoders. | + | / | / | / | / |
+| WebM video export | + — :: Requires browser WebCodecs support for the selected video and audio encoders. | + | / | / | / | / |
 | MOV video export | / | / | / | / — :: Audition's MOV export is audio-only. | + — :: Video bounce uses QuickTime MOV; available codecs vary by platform. | / |
 | Compositing, grading, and effects | ~ — Framescaper copy | ~ — Framescaper copy | / | / | / | / |
 
