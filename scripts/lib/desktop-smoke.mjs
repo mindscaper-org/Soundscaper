@@ -78,7 +78,7 @@ export const DESKTOP_SMOKE_EXPECTED_BRIDGE = Object.freeze([
 	'patchFinalPrefix',
 	'persistNativePluginState',
 	'persistentDelivery',
-	'prepareBatchSaveTarget', 'prepareOriginalOverwrite',
+	'planBatchSaveOutputs', 'prepareBatchSaveTarget', 'prepareOriginalOverwrite',
 	'probeHelperAvailability',
 	'pushNativeVampAnalyzerPcm',
 	'readDesktopVideoCodecOutput',

@@ -105,7 +105,8 @@ export function createAudioEditorFileService(options = {}) {
 		chooseSesxMediaFolder: (request) => bridge?.chooseSesxMediaFolder?.(request) ?? Promise.resolve({ status: 'cancelled' }),
 		releaseSesxSession: (sessionReadId) => bridge?.releaseSesxSession?.(sessionReadId) ?? Promise.resolve(false),
 		chooseSaveTarget,
-		chooseBatchSaveDirectory: (suggestedNames) => bridge?.chooseBatchSaveDirectory?.({ suggestedNames }) ?? null,
+		chooseBatchSaveDirectory: (suggestedNames = []) => bridge?.chooseBatchSaveDirectory?.({ suggestedNames }) ?? null,
+		planBatchSaveOutputs: (batchId, suggestedNames) => bridge?.planBatchSaveOutputs?.({ batchId, suggestedNames }) ?? null,
 		prepareBatchSaveTarget: (batchId, index) => bridge?.prepareBatchSaveTarget?.({ batchId, index }) ?? null,
 		releaseBatchSaveDirectory: (batchId) => bridge?.releaseBatchSaveDirectory?.(batchId),
 		prepareSave,
@@ -168,7 +169,7 @@ export function createAudioEditorFileService(options = {}) {
 	async function withReadDescriptors(descriptors, request = {}, consume) {
 		if (!Array.isArray(descriptors)) throw new TypeError('Desktop read descriptors must be an array.');
 		if (typeof consume !== 'function') throw new TypeError('A desktop read consumer is required.');
-		const readIds = uniqueReadIds(descriptors);
+		const readIds = request.retainReads === true ? [] : uniqueReadIds(descriptors);
 		return withDesktopOriginalReadCleanup(descriptors, bridge?.releaseOriginalFile?.bind(bridge), () => withReadCleanup(readIds, releaseRead, async () => {
 			let aggregateBytes = 0;
 			for (const descriptor of descriptors) {

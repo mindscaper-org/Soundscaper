@@ -32,7 +32,8 @@ export async function createSoundscaperMacroFileSession(input: MacroBatchInput, 
 	};
 	try {
 		await controller.ready; options.signal.throwIfAborted();
-		await options.fileService.withReadDescriptors([input], { signal: options.signal }, async (files: readonly File[]) => {
+		// The dialog retains input reads; temporary projects receive no original-file write grant.
+		await options.fileService.withReadDescriptors([{ ...input, originalFile: undefined }], { signal: options.signal, retainReads: true }, async (files: readonly File[]) => {
 			await controller.actions.project.importFiles(files, { signal: options.signal });
 		});
 		options.signal.throwIfAborted();

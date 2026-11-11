@@ -103,8 +103,12 @@ the same message the Effect menu gives.
 
 Choose **Apply to files** in the macro manager, or **Tools → Macros → Apply to
 files**. The command is also available through command search on desktop. Pick
-a step-list macro or enabled program, choose audio files, then choose WAV
-(24-bit), FLAC (24-bit) or MP3 and an output folder.
+a step-list macro or enabled program and an output format: WAV (24-bit), FLAC
+(24-bit) or MP3. **Choose audio files** opens the input picker; the selected
+files appear in a scrollable table. **Choose output folder** selects the
+destination and shows its full path. Press **Run macro** when both selections
+are ready. You can choose the folder first, change the format, or run the batch
+again using the same selections.
 
 Each input opens in its own temporary project, with its audio track focused
 and the complete recording selected. The visible project is unchanged. Files
