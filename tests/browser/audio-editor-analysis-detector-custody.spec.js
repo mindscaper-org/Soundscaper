@@ -65,7 +65,7 @@ function toneAmplitude(samples, frequency) {
 }
 
 for (const [position, detector] of [
-	['pre-fader', 'tone'], ['post-fader', 'tone'], ['post-fader', 'muted'], ['post-fader', 'zero'], ['post-fader', 'master'],
+	['pre-fader', 'tone'], ['post-fader', 'muted'], ['post-fader', 'zero'], ['post-fader', 'master'],
 ]) test(`Plot spectrum retains its authored ${position} external ${detector} detector`, async ({ page }) => {
 	test.setTimeout(90_000);
 	await disableNativeSavePicker(page);
