@@ -222,13 +222,13 @@ function validPackageSource(value, common) {
 	if (value.sourceBuild === undefined) return value.sourceUrl.startsWith('https://registry.npmjs.org/');
 	const source = value.sourceBuild;
 	if (!common && source?.recipeId === sherpaGpuRecipe.recipeId) {
+		if (Object.values(retainedBuilds.targets).some(({ packageSha256 }) =>
+			packageSha256.includes(digest(Buffer.from(JSON.stringify(value)))))) return true;
 		const pinned = sherpaGpuRecipe.sources.find(({ id }) => id === 'sherpa-source');
 		return plainRecord(source) && JSON.stringify(Object.keys(source).sort()) === JSON.stringify([
 			'recipeId', 'recipeSha256', 'sourceRevision', 'sourceSha256',
 		]) && source.sourceRevision === sherpaGpuRecipe.sourceRevision && source.sourceSha256 === pinned.sha256
-			&& (source.recipeSha256 === digest(Buffer.from(JSON.stringify(sherpaGpuRecipe)))
-				|| Object.values(retainedBuilds.targets).some(({ packageSha256 }) =>
-					packageSha256.includes(digest(Buffer.from(JSON.stringify(value))))))
+			&& source.recipeSha256 === digest(Buffer.from(JSON.stringify(sherpaGpuRecipe)))
 			&& value.sourceUrl === pinned.url && value.integrity === pinned.integrity
 			&& value.version === sherpaGpuRecipe.version;
 	}
