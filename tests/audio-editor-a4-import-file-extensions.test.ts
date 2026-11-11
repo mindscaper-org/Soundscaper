@@ -17,7 +17,7 @@ test('the complete import registry supplies chooser, MIME conflict and filename 
 		assert.equal(isScapeProjectFile({ name, type: SCAPE_MIME_TYPE }), false);
 		assert.equal(maintainedAiffMimeType({ name, type: 'audio/aiff' }), /^\.aif[fc]?$/u.test(suffix) ? 'audio/aiff' : null);
 		const file = { name, type: 'text/plain' };
-		if (['.edl', '.otio', '.fcpxml', '.omf', '.omfi'].includes(suffix)) {
+		if (['.edl', '.otio', '.fcpxml', '.omf', '.omfi', '.aaf'].includes(suffix)) {
 			assert.deepEqual(partitionWorkspaceFiles([file]), { projects: [file], media: [], labels: [], cues: [] });
 		} else if (!['.txt', '.srt', '.vtt', '.cue'].includes(suffix)) assert.deepEqual(partitionWorkspaceFiles([file]), { projects: [], media: [file], labels: [], cues: [] });
 	}
