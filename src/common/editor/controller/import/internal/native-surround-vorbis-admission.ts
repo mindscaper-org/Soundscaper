@@ -75,7 +75,8 @@ export async function nativeSurroundVorbisAdmission(file: Blob, signal?: AbortSi
 				const packet = next.value, count = Math.round(packet.duration * sampleRate);
 				if (packet.byteLength < 1 || packet.byteLength > 1024 ** 2 || count < 0 || count > 8192
 					|| packets > 1 && count === 0 || Math.abs(packet.duration * sampleRate - count) > 1e-5) return null;
-				lastFrames = count; frames += count;
+				// The first packet primes overlap; its advertised duration contributes no PCM.
+				lastFrames = count; if (packets > 1) frames += count;
 				if ((frames + 1) * channelCount * 4 > MAXIMUM_PCM_BYTES) return null;
 			}
 			if (page.packets === 0) continue;

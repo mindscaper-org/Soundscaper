@@ -75,11 +75,13 @@ export async function decodeImportedVideoAudio(
 	assertMinimumVideoAudioWindow(options.durationSeconds, options.projectSampleRate);
 	let audioOffsetSeconds = 0, durationSeconds = options.durationSeconds, audioTrackCount = 0;
 	let nativeTimingShared = true;
+	let packetDecodePreferred = false;
 	try {
 		const timing = await readVideoContainerAudioTiming(options.file, options.signal);
 		audioOffsetSeconds = timing.offsetSeconds;
 		audioTrackCount = timing.audioTrackCount;
 		nativeTimingShared = timing.nativeTimingShared;
+		packetDecodePreferred = timing.packetDecodePreferred === true;
 		if (timing.programmeEndSeconds !== null) durationSeconds = Math.max(durationSeconds, timing.programmeEndSeconds);
 	} catch { throwIfAborted(options.signal); }
 	const workloadReader = await createVideoAudioWorkloadReader(options.file, options.signal);
@@ -94,7 +96,7 @@ export async function decodeImportedVideoAudio(
 		const budgetDurationSeconds = workload ? durationSeconds : options.durationSeconds;
 		const nativeRate = options.nativeContextSampleRate ?? options.projectSampleRate;
 		const plan = planVideoAudioWorkload(workload, budgetDurationSeconds, options.projectSampleRate, nativeRate);
-		let nativeWholeFile = nativeTimingShared && plan.nativeWholeFile;
+		let nativeWholeFile = nativeTimingShared && plan.nativeWholeFile && !packetDecodePreferred;
 		// Native engines choose different programmes. Every possible choice must fit
 		// and share its authored endpoint before whole-file decoding is admitted.
 		if (nativeWholeFile && audioTrackCount > 1) {

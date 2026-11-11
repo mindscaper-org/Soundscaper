@@ -10,6 +10,7 @@ interface VideoContainerAudioTiming {
 	readonly audioTrackCount: number;
 	/** A native decoder may choose any programme only when all have these timings. */
 	readonly nativeTimingShared: boolean;
+	readonly packetDecodePreferred?: boolean;
 	/** Authenticated ISO AAC-LC presentation end, relative to picture zero. */
 	readonly programmeEndSeconds: number | null;
 }
@@ -75,7 +76,12 @@ async function inspectVideoContainerAudioTiming(blob: Blob, signal: AbortSignal 
 			} catch { throwIfAborted(signal); nativeTimingShared = false; }
 		}
 		throwIfAborted(signal);
-		return { offsetSeconds, programmeEndSeconds, audioTrackCount, nativeTimingShared };
+		const config = await audio.getDecoderConfig();
+		const packetDecodePreferred = config !== null
+			&& (await import('../../../browser-container-opus-decoder.ts')).hasReviewedContainerOpusPreSkip(config);
+		throwIfAborted(signal);
+		return { offsetSeconds, programmeEndSeconds, audioTrackCount, nativeTimingShared,
+			...(packetDecodePreferred ? { packetDecodePreferred: true } : {}) };
 	} finally {
 		signal?.removeEventListener('abort', onAbort);
 		input.dispose();

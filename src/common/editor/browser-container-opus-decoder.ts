@@ -1,18 +1,21 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 interface ConfigurableAudioTrack {
+	readonly id?: number;
 	getDecoderConfig(): Promise<AudioDecoderConfig | null>;
 }
 
 /** Some native Opus decoders advertise support but retain the header's lookahead. */
 export async function preferContainerOpusPreSkipDecoder(track: ConfigurableAudioTrack, signal?: AbortSignal,
-	options: Readonly<{ opusTimestampsIncludePreSkip?: boolean }> = {}): Promise<void> {
+	options: Readonly<{ opusTimestampsIncludePreSkip?: boolean; source?: Blob }> = {}): Promise<void> {
 	const config = await track.getDecoderConfig();
 	signal?.throwIfAborted();
 	if (!config || !hasReviewedContainerOpusPreSkip(config)) return;
 	const { preferReviewedAudioImportDecoder } = await import('./browser-reviewed-streamed-audio-decoders.ts');
+	const opusTimestampOffsetSeconds = options.source && track.id !== undefined && !options.opusTimestampsIncludePreSkip
+		? await (await import('./matroska-opus-end-padding.ts')).readMatroskaRoundedCodecDelay(options.source, track.id, signal) : 0;
 	signal?.throwIfAborted();
-	if (preferReviewedAudioImportDecoder('opus', config, options)) track.getDecoderConfig = () => Promise.resolve(config);
+	if (preferReviewedAudioImportDecoder('opus', config, { ...options, opusTimestampOffsetSeconds })) track.getDecoderConfig = () => Promise.resolve(config);
 }
 
 /** The existing reviewed ABI owns mapping-family0 mono/stereo only; retain other native profiles. */
