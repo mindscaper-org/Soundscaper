@@ -5,6 +5,7 @@ import { previewRenderedClipStarts, previewGeometryFromTargets, type PreviewGeom
 import { independentTrackEffectParams } from './independent-track-effect-params.ts';
 import { paulstretchPreviewInputFrames } from './paulstretch-preview-prefix.ts';
 import { speedDelayPreviewInputFrames } from './speed-delay-preview-prefix.ts';
+import { autoTuneSelectionContext } from '../../../first-party-effects/auto-tune/project-control.ts';
 
 export interface SelectionEffectPreviewRuntime {
 	readonly effectPreviewProject?: () => PreviewGeometryProject;
@@ -200,6 +201,7 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 				const { preview, spectralSelection } = targets[index]!;
 				const channels = previewChannelSets[index];
 				const effectContext: RuntimeValue = {};
+				if (type === 'auto-tune') Object.assign(effectContext, autoTuneSelectionContext(getProject(), params, preview.startFrame, channels[0].length, sampleRate));
 				if (spectralSelection) effectContext.spectralSelection = spectralSelection;
 				if (definition.requiresControlTrack) {
 					effectContext.controlChannels = runtime.renderControlTrackRange ? await runtime.renderControlTrackRange(state.audacityControlTrackId, preview) : await renderDryTrackRange(

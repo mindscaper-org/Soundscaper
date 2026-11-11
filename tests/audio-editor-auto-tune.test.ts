@@ -29,7 +29,7 @@ test('Auto-Tune supports selection and rack effects with validated musical contr
 	assert.equal(nativeEffectParameterLabel(TYPE, 'retune', ENGLISH_COPY), 'Retune speed');
 	assert.equal(nativeEffectOptionLabel(TYPE, 'key', 'c-sharp', ENGLISH_COPY), 'C♯ / D♭');
 	assert.equal(nativeEffectOptionLabel(TYPE, 'scale', 'minor', ENGLISH_COPY), 'Natural minor');
-	assert.deepEqual(audioSelectionEffectDefaults(TYPE), { amount: 100, retune: 20, mix: 100, key: 'c', scale: 'chromatic' });
+	assert.deepEqual(audioSelectionEffectDefaults(TYPE), { amount: 100, retune: 20, mix: 100, key: 'c', scale: 'chromatic', controlTrackId: '' });
 	for (const params of [{ key: 'h' }, { scale: 'invalid' }, { amount: 101 }, { retune: -1 }, { mix: NaN }]) {
 		assert.throws(() => normalizeAudioSelectionEffectParams(TYPE, params), RangeError);
 	}

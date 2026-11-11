@@ -2,8 +2,10 @@
 
 import { instantiateStaffPadWasm } from '../../staffpad/wasm-instance.ts';
 import { createAutoTuneProcessor } from './dsp.ts';
+import type { AutoTuneControlNote } from './control-notes.ts';
 
 declare const sampleRate: number;
+declare const currentFrame: number;
 declare class AudioWorkletProcessor {
 	readonly port: MessagePort;
 	constructor(options?: AudioWorkletNodeOptions);
@@ -15,7 +17,10 @@ interface Settings {
 	readonly params?: Readonly<Record<string, unknown>>;
 	readonly staffPadWasmModule?: WebAssembly.Module;
 }
-interface Control { readonly type?: string; readonly params?: Readonly<Record<string, unknown>>; }
+interface Control {
+	readonly type?: string; readonly params?: Readonly<Record<string, unknown>>;
+	readonly notes?: readonly AutoTuneControlNote[]; readonly fromFrame?: number; readonly toFrame?: number;
+}
 
 export class AutoTuneWorkletProcessor extends AudioWorkletProcessor {
 	private readonly processor: ReturnType<typeof createAutoTuneProcessor>;
@@ -30,6 +35,7 @@ export class AutoTuneWorkletProcessor extends AudioWorkletProcessor {
 			if (this.disposed) return;
 			try {
 				if (data.type === 'configure') this.processor.updateParams(data.params ?? {});
+				else if (data.type === 'control-notes') this.processor.scheduleControlNotes(data.notes ?? [], Number(data.fromFrame), Number(data.toFrame));
 				else if (data.type === 'reset') this.processor.reset();
 				else if (data.type === 'dispose') this.dispose();
 			} catch (error) { this.fail(error); }
@@ -47,7 +53,7 @@ export class AutoTuneWorkletProcessor extends AudioWorkletProcessor {
 	process(inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
 		const output = outputs[0] ?? [];
 		if (!this.disposed) {
-			try { if (output.length) this.processor.processBlock(inputs[0] ?? [], output, output[0].length); }
+			try { if (output.length) this.processor.processBlock(inputs[0] ?? [], output, output[0].length, currentFrame); }
 			catch (error) { this.fail(error); }
 		}
 		if (this.disposed) for (const channel of output) channel.fill(0);

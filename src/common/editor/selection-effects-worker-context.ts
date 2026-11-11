@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { createAutoTuneControlLookup, type AutoTuneControlNote } from './first-party-effects/auto-tune/control-notes.ts';
 
 export interface SelectionEffectWorkerRuntimeContext {
+	controlNotes?: readonly AutoTuneControlNote[];
 	afterChannels?: Float32Array[];
 	beforeChannels?: Float32Array[];
 	controlChannels?: Float32Array[];
@@ -16,6 +18,11 @@ export function normalizeSelectionEffectWorkerContext(
 ): SelectionEffectWorkerRuntimeContext {
 	if (!isRecord(value)) return {};
 	const context: SelectionEffectWorkerRuntimeContext = {};
+	if (Object.hasOwn(value, 'controlNotes')) {
+		const notes = value.controlNotes as readonly AutoTuneControlNote[];
+		createAutoTuneControlLookup(notes);
+		context.controlNotes = notes;
+	}
 	for (const key of ['afterChannels', 'beforeChannels', 'controlChannels'] as const) {
 		const channels = value[key];
 		if (Array.isArray(channels)) context[key] = channels.map(asFloat32Array);

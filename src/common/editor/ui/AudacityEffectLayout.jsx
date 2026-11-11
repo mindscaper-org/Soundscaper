@@ -7,7 +7,7 @@ import { isAudacityNyquistPort } from './audacity-port-layouts.ts';
 
 const EFFECT_LAYOUTS = Object.freeze({
 	'auto-tune': [
-		{ titleKey: 'effectCardPitchShift', names: ['key', 'scale'], wide: true,
+		{ titleKey: 'effectCardPitchShift', names: ['controlTrackId', 'key', 'scale'], wide: true,
 			helpKey: 'effectAutoTuneHint', helpSubjectKey: 'effectNameAutoTune' },
 		{ titleKey: 'effectCardResponse', names: ['amount', 'retune', 'mix'], knobs: true, wide: true },
 	],

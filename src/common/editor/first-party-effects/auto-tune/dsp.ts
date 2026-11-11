@@ -5,6 +5,7 @@ import { normalizeAutoTuneParams } from './definition.ts';
 import { autoTuneRealtimeGeometry } from './realtime-contract.ts';
 import { createAutoTunePitchDetector, nearestAutoTuneNote } from './pitch.ts';
 import { createAutoTuneNativeStream } from './native-stream.ts';
+import { autoTuneCorrection, createAutoTuneControlLookup, type AutoTuneControlNote } from './control-notes.ts';
 
 export function createAutoTuneProcessor(options: {
 	readonly sampleRate: number;
@@ -23,9 +24,21 @@ export function createAutoTuneProcessor(options: {
 	const native = createAutoTuneNativeStream(options.staffPadRuntime, sampleRate, channelCount, geometry);
 	const hop = Math.round(sampleRate / 100);
 	let cursor = 0, untilAnalysis = geometry.analysisFrames, correction = 0, ratio = 1, disposed = false;
+	let controlNotes: readonly AutoTuneControlNote[] = [];
+	let control = createAutoTuneControlLookup(controlNotes);
+	let clock = 0;
 	function assertActive(): void { if (disposed) throw new Error('Auto-Tune processor was disposed.'); }
 	return {
 		latencyFrames: geometry.latencyFrames,
+		scheduleControlNotes(notes: readonly AutoTuneControlNote[], fromFrame: number, toFrame: number): void {
+			assertActive();
+			if (!Number.isSafeInteger(fromFrame) || fromFrame < 0 || !Number.isSafeInteger(toFrame) || toFrame <= fromFrame) throw new RangeError('Invalid Auto-Tune control window.');
+			if (notes.some(note => note.startFrame < fromFrame || note.endFrame > toFrame)) throw new RangeError('Auto-Tune control notes exceed their schedule window.');
+			const next = [...controlNotes.filter(note => note.endFrame > clock - geometry.analysisDelayFrames && note.startFrame < fromFrame)
+				.map(note => ({ ...note, endFrame: Math.min(note.endFrame, fromFrame) })), ...notes];
+			control = createAutoTuneControlLookup(next);
+			controlNotes = next;
+		},
 		updateParams(params: Readonly<Record<string, unknown>>): void {
 			assertActive();
 			settings = normalizeAutoTuneParams({ ...settings, ...params });
@@ -36,9 +49,10 @@ export function createAutoTuneProcessor(options: {
 			for (const channel of history) channel.fill(0);
 			audible.fill(0);
 			cursor = 0; untilAnalysis = geometry.analysisFrames; correction = 0; ratio = 1;
+			controlNotes = []; control = createAutoTuneControlLookup([]); clock = 0;
 		},
 		dispose(): void { if (!disposed) { disposed = true; native.dispose(); } },
-		processBlock(input: readonly Float32Array[], output: readonly Float32Array[], frames: number): void {
+		processBlock(input: readonly Float32Array[], output: readonly Float32Array[], frames: number, contextFrame = clock): void {
 			assertActive();
 			const capacity = history[0].length;
 			for (let frame = 0; frame < frames; frame++) {
@@ -56,9 +70,11 @@ export function createAutoTuneProcessor(options: {
 					if (frequency === 0) correction = 0;
 					else {
 						const midi = 69 + 12 * Math.log2(frequency / 440);
-						const target = (nearestAutoTuneNote(midi, settings.key, settings.scale) - midi) * settings.amount / 100;
+						const note = settings.controlTrackId ? control(contextFrame + frame - geometry.analysisDelayFrames, midi)
+							: nearestAutoTuneNote(midi, settings.key, settings.scale);
+						const target = note === null ? 0 : autoTuneCorrection(midi, note, settings.amount);
 						const smoothing = settings.retune === 0 ? 1 : -Math.expm1(-hop / (sampleRate * settings.retune / 1000));
-						correction += smoothing * (target - correction);
+						correction = note === null ? 0 : correction + smoothing * (target - correction);
 					}
 					ratio = 2 ** (correction / 12);
 					untilAnalysis = hop;
@@ -71,6 +87,7 @@ export function createAutoTuneProcessor(options: {
 				}
 				cursor = (cursor + 1) % capacity;
 			}
+			clock = contextFrame + frames;
 		},
 	};
 }

@@ -7,8 +7,10 @@ import { STAFFPAD_MAXIMUM_RENDER_BYTES } from '../../staffpad/parameters.js';
 import { normalizeAutoTuneParams, type AutoTuneParams } from './definition.ts';
 import { autoTunePeakBytes } from './contract.ts';
 import { createAutoTunePitchDetector, nearestAutoTuneNote } from './pitch.ts';
+import { autoTuneCorrection, createAutoTuneControlLookup, type AutoTuneControlNote } from './control-notes.ts';
 
 interface Context {
+	readonly controlNotes?: readonly AutoTuneControlNote[];
 	readonly staffPadRuntime?: StaffPadWasmRuntime;
 	readonly staffPadWasmSource?: Parameters<typeof loadStaffPadWasm>[0];
 	readonly isCancelled?: () => boolean;
@@ -29,6 +31,7 @@ export async function applyAutoTune(input: readonly Float32Array[], sampleRate: 
 	const channels = assertAudacityEffectOutput(input);
 	const frames = channels[0].length;
 	const settings = normalizeAutoTuneParams(params);
+	if (settings.controlTrackId && !context.controlNotes) throw new RangeError('Auto-Tune requires MIDI control notes for its selected control track.');
 	if (autoTunePeakBytes(frames, { sampleRate, channelCount: channels.length }) > STAFFPAD_MAXIMUM_RENDER_BYTES) {
 		throw new RangeError('The Auto-Tune selection exceeds its render memory limit. Reduce the selection or channel count.');
 	}
@@ -92,6 +95,7 @@ export async function applyAutoTune(input: readonly Float32Array[], sampleRate: 
 async function analyze(channels: readonly Float32Array[], rate: number, hop: number,
 	settings: AutoTuneParams, context: Context): Promise<Float32Array> {
 	const detect = createAutoTunePitchDetector(channels, rate);
+	const control = settings.controlTrackId ? createAutoTuneControlLookup(context.controlNotes!) : null;
 	const contour = new Float32Array(Math.ceil(channels[0].length / hop) + 1);
 	const smoothing = settings.retune === 0 ? 1 : -Math.expm1(-hop / (rate * settings.retune / 1000));
 	let correction = 0;
@@ -101,8 +105,9 @@ async function analyze(channels: readonly Float32Array[], rate: number, hop: num
 		if (frequency === 0) correction = 0;
 		else {
 			const midi = 69 + 12 * Math.log2(frequency / 440);
-			const target = (nearestAutoTuneNote(midi, settings.key, settings.scale) - midi) * settings.amount / 100;
-			correction += smoothing * (target - correction);
+			const note = control ? control(index * hop, midi) : nearestAutoTuneNote(midi, settings.key, settings.scale);
+			if (note === null) correction = 0;
+			else correction += smoothing * (autoTuneCorrection(midi, note, settings.amount) - correction);
 		}
 		contour[index] = correction;
 		if (index % 32 === 0) {

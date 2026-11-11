@@ -426,7 +426,7 @@ export function projectEffectTailFrames(project, {
 
 function normalizeEffectParams(type, params, effectId = null) {
 	if (type === 'eq') return normalizeParametricEqEffectParams(params, effectId);
-
+	if (type === 'auto-tune') return normalizeAutoTuneParams(params);
 	const definition = ownMapValue(AUDIO_EFFECT_DEFINITIONS, type) ?? ownMapValue(AUDIO_SELECTION_EFFECT_DEFINITIONS, type);
 	const output = {};
 	for (const [name, [minimum, maximum, metadata]] of Object.entries(definition.ranges)) {

@@ -57,6 +57,7 @@ import { standardDelayLatencyFrames } from '../first-party-effects/standard/dela
 import { createStandardEffectNode, disposeStandardEffectNode } from './standard-effect-node.ts';
 import { autoTuneRealtimeGeometry } from '../first-party-effects/auto-tune/realtime-contract.ts';
 import { createAutoTuneNode, disposeAutoTuneNode } from './auto-tune-node.ts';
+import { registerAutoTuneControl } from './auto-tune-control.ts';
 import type { ScheduledParameterRegistry } from './scheduled-parameter-registry.ts';
 import type { EngineEffect, UnknownRecord } from './types.ts';
 import { effectSupportsExplicitSidechain } from '../effect-explicit-sidechain-capability.ts';
@@ -251,6 +252,7 @@ export function applyEffect(
 			: createStandardEffectNode(context, audioWorkletNodeConstructor(), type, params, width));
 		connect(input, processor);
 		registerEffectNode(effect, processor, options);
+		if (type === 'auto-tune') registerAutoTuneControl(options.parameterRegistry, processor.port, String(params.controlTrackId || ''), nonNegativeInteger(options.parameterLatencyFrames, 0));
 		if (typeof options.onParametricEqError === 'function') {
 			attachEffectProcessorErrorPort(processor, options.onParametricEqError, effectProcessorErrorContext(
 				options, effect.id, { fallbackMessage: 'The real-time effect processor failed.',

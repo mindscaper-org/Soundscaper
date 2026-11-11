@@ -9,11 +9,12 @@ export interface AutoTuneParams {
 	readonly mix: number;
 	readonly key: AutoTuneKey;
 	readonly scale: AutoTuneScale;
+	readonly controlTrackId: string;
 }
 
 const liveOnly = { automatable: false, automationBlockReason: 'Auto-Tune supports live controls but not timeline automation.' } as const;
 export const AUTO_TUNE_EFFECT_DEFINITION = Object.freeze({
-	defaults: Object.freeze({ amount: 100, retune: 20, mix: 100, key: 'c', scale: 'chromatic' }),
+	defaults: Object.freeze({ amount: 100, retune: 20, mix: 100, key: 'c', scale: 'chromatic', controlTrackId: '' }),
 	ranges: Object.freeze({
 		amount: [0, 100, { unit: '%', step: 1, taper: 'linear', ...liveOnly }],
 		retune: [0, 500, { unit: 'ms', step: 1, taper: 'linear', ...liveOnly }],
@@ -38,5 +39,7 @@ export function normalizeAutoTuneParams(params: Readonly<Record<string, unknown>
 	const scale = params.scale ?? definition.defaults.scale;
 	if (!AUTO_TUNE_KEYS.some(option => option === key)) throw new RangeError('auto-tune.key is not a supported option.');
 	if (!definition.choices.scale.options.some(option => option === scale)) throw new RangeError('auto-tune.scale is not a supported option.');
-	return { ...numbers, key: key as AutoTuneKey, scale: scale as AutoTuneScale };
+	const controlTrackId = params.controlTrackId ?? '';
+	if (typeof controlTrackId !== 'string' || controlTrackId.length > 512 || controlTrackId !== controlTrackId.trim()) throw new RangeError('auto-tune.controlTrackId must be a bounded track ID.');
+	return { ...numbers, key: key as AutoTuneKey, scale: scale as AutoTuneScale, controlTrackId };
 }

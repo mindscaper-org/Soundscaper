@@ -2,6 +2,7 @@
 
 import { STAFFPAD_MAXIMUM_MEMORY_BYTES } from '../../staffpad/parameters.js';
 import { selectionEffectSpectralScratchBytes } from '../../selection-effect-spectral-context-contract.ts';
+import { AUTO_TUNE_CONTROL_BYTES } from './control-notes.ts';
 
 export function autoTuneOutputFrames(frames: number): number {
 	if (!Number.isSafeInteger(frames) || frames < 1) throw new RangeError('inputFrames must be a positive safe integer.');
@@ -21,7 +22,7 @@ export function autoTunePeakBytes(frames: number, options: {
 	// the bounded native heap and detector/ABI scratch. Channel pairs render serially.
 	const bytes = frames * channels * Float32Array.BYTES_PER_ELEMENT * 4
 		+ (Math.ceil(frames / Math.round(rate / 100)) + 1) * Float32Array.BYTES_PER_ELEMENT
-		+ STAFFPAD_MAXIMUM_MEMORY_BYTES + 4 * 1024 ** 2
+		+ STAFFPAD_MAXIMUM_MEMORY_BYTES + 4 * 1024 ** 2 + AUTO_TUNE_CONTROL_BYTES
 		+ selectionEffectSpectralScratchBytes(frames, channels, options.spectralWindowSize);
 	if (!Number.isSafeInteger(bytes)) throw new RangeError('The Auto-Tune selection byte estimate is too large.');
 	return bytes;

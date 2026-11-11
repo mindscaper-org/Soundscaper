@@ -63,6 +63,7 @@ configureRackEffect(scope, targetId, effectId, params, options = {}) {
 			...effect,
 			params: { ...(effect.params || {}), ...params },
 		}).params;
+		if (configurable === 'auto-tune' && (normalized as Readonly<Record<string, unknown>>).controlTrackId !== (effect.params?.controlTrackId ?? '')) return false;
 		if (continuous) {
 			const sampleRate = this.context?.sampleRate || this.sampleRate;
 			if (!canRetainAdditionalAudacityState(configurable, normalizeEffect(effect).params, normalized)

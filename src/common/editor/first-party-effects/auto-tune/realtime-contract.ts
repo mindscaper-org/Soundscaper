@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { AUTO_TUNE_CONTROL_BYTES } from './control-notes.ts';
 
 /** All buffers are fixed before audio starts. The detector needs two periods
  * at 65 Hz; hold programme input by half its window to use a centered estimate.
@@ -22,5 +23,5 @@ export function autoTuneRealtimeGeometry(sampleRate: number, channelCount: numbe
 	const nativeBytes = 16 * 1024 ** 2 + Math.ceil(channelCount / 2) * (fft * 256 + 65536);
 	if (nativeBytes > 64 * 1024 ** 2) throw new RangeError('Auto-Tune exceeds its native memory limit. Reduce channels or sample rate.');
 	return { analysisFrames, analysisDelayFrames, nativeBlockFrames, deliveryFrames, latencyFrames, queueFrames,
-		stateBytes: nativeBytes + channelCount * (latencyFrames + analysisFrames + queueFrames + 1024) * 4 };
+		stateBytes: nativeBytes + channelCount * (latencyFrames + analysisFrames + queueFrames + 1024) * 4 + AUTO_TUNE_CONTROL_BYTES };
 }
