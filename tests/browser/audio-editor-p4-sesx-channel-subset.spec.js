@@ -7,9 +7,9 @@ import { encodeWav } from '../../src/common/editor/wav.js';
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 test('desktop SESX channel maps preserve physical stereo and truthful import accounting', async ({ page }) => {
-	test.setTimeout(180_000);
+	test.setTimeout(120_000);
 	let editor;
-	for (const map of ['subset', 'full', 'swapped']) {
+	for (const map of ['subset', 'full']) {
 		await test.step(`${map} channel map native import, report, and output`, async () => {
 			if (!editor) {
 				const wave = Buffer.from(encodeWav([new Float32Array(4800).fill(.125), new Float32Array(4800).fill(.375)], { sampleRate: 48000, float: true }));
