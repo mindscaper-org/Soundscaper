@@ -47,6 +47,7 @@ const SOURCE_EXTENSION_SUBSTITUTIONS = Object.freeze({
 // readDesktopPreloadSource bundles these runtime imports from
 // their maintained TypeScript owners. Audit their staged destinations too.
 const PRELOAD_FIXTURE_ALIASES = Object.freeze({
+	'./project-library-runtime/desktop/update-preferences.js': './update-preferences.ts',
 	'./project-library-runtime/desktop/desktop-audio-codec-operation-contract.js': './desktop-audio-codec-operation-contract.ts',
 	'./project-library-runtime/desktop/desktop-audio-codec-capability-contract.js': './desktop-audio-codec-capability-contract.ts',
 	'./project-library-runtime/desktop/project-saving-preload.js': './project-saving-preload.ts',
