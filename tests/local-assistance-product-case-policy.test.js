@@ -13,6 +13,8 @@ const SOUNDSCAPER_CASES = Object.freeze([
 	'beat-this-small-beats',
 	'deepfilter-enhancement',
 	'dereverb-room-speech',
+	'dpdfnet2-48khz-speech-enhancement',
+	'gtcrn-speech-enhancement',
 	'kokoro-speech-generation',
 	'nomic-text-embedding',
 	'panns-audio-tags',
@@ -22,6 +24,7 @@ const SOUNDSCAPER_CASES = Object.freeze([
 	'silero-voice-activity',
 	'speaker-diarization',
 	'tiger-dialogue-music-effects',
+	'voxlock-speech-enhancement',
 	'wav2vec2-word-alignment',
 	'whisper-turbo-transcript',
 ]);

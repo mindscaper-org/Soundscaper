@@ -300,7 +300,7 @@ test('the default ZIP reader verifies a stored asset CRC before publication', as
 	const corrupted = await corruptEntryCrc(archive, 'media/video-source/original', body.byteLength);
 	const before = await inventory(targetStore);
 
-	await assert.rejects(importScapeProject(corrupted, targetStore), /invalid signature/iu);
+	await assert.rejects(importScapeProject(corrupted, targetStore), /invalid CRC32/iu);
 	assert.deepEqual(await inventory(targetStore), before);
 });
 

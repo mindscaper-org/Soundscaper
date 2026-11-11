@@ -94,9 +94,9 @@ test('post-snapshot grants refuse inode drift, symlinks and noncanonical parents
 	const directory = join(root, 'bundle.so');
 	await mkdir(directory);
 	const directoryIdentity = await stat(directory);
-	assert.equal((await exactProfessionalCandidateGrant(directory, directoryIdentity, true,
+	assert.equal((await exactProfessionalCandidateGrant(directory, { dev: directoryIdentity.dev, ino: directoryIdentity.ino }, true,
 		'Plugin identity drift')).kind, 'directory');
-	await assert.rejects(() => exactProfessionalCandidateGrant(directory, directoryIdentity, false,
+	await assert.rejects(() => exactProfessionalCandidateGrant(directory, { dev: directoryIdentity.dev, ino: directoryIdentity.ino }, false,
 		'Vamp identity drift'), { message: 'Vamp identity drift' });
 	const aliasedRoot = join(root, 'alias');
 	await symlink(root, aliasedRoot);

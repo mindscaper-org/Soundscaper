@@ -282,7 +282,7 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.ok(browserJob.includes('name: Browser / ${{ matrix.project }}'));
 	assert.ok(browserJob.includes(gate), `${label} browser must wait for the verified build`);
 	assert.match(browserJob, /matrix:\n\s+project: \[chromium, webkit\]/u);
-	assert.match(browserJob, /container:\n\s+image: mcr\.microsoft\.com\/playwright:v1\.62\.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e\n\s+options: --user 1001/u);
+	assert.match(browserJob, /container:\n\s+image: mcr\.microsoft\.com\/playwright:v1\.64\.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f\n\s+options: --user 1001/u);
 	assert.match(browserJob, /npm install --global --prefix "\$HOME\/\.local" npm@12\.0\.1/u);
 	assert.match(browserJob, /name: verified-soundscaper-browser-site-build/u);
 	assertEngineIsSharded(browserJob, `${label} browser`, 'npm run test:browser:built -- --project=${{ matrix.project }}', browserShardCount);

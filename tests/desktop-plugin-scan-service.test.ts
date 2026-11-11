@@ -38,6 +38,7 @@ test('the discovery service cannot reach an execution surface at all', () => {
 		'./helper-supervisor.ts',
 		'./helper-wire-admission.ts',
 		'./native-addon-payload.ts',
+		'./native-child-file-identity.ts',
 		'./plugin-scan-results.ts',
 	]);
 	assert.equal(/plugin-host/u.test(SERVICE_SOURCE), false, 'the scan service must not name the hosting job kind');

@@ -20,7 +20,8 @@ const onnxRuntime = JSON.parse(await readFile(resolve(root, 'config/assistance-o
 const sherpaArm64Build = JSON.parse(await readFile(resolve(root, 'config/assistance-sherpa-win-arm64-build.json'), 'utf8'));
 const kokoroG2pBuild = JSON.parse(await readFile(resolve(root, 'config/assistance-kokoro-g2p-build-candidate.json'), 'utf8'));
 const kokoroG2pReady = kokoroG2pBuild.status === 'package-generated';
-const runtimeSources = { nativeRuntime, onnxRuntime, sherpaArm64Build, kokoroG2pBuild,
+const sherpaGpuBuild = JSON.parse(await readFile(resolve(root, 'config/assistance-sherpa-gpu-build.json'), 'utf8'));
+const runtimeSources = { nativeRuntime, onnxRuntime, sherpaArm64Build, sherpaGpuBuild, kokoroG2pBuild,
 	whisperBuild: { version: WHISPER_RUNTIME_VERSION, targets: WHISPER_RUNTIME_BUILD_TARGETS },
 	llamaBuild: { version: LLAMA_RUNTIME_VERSION, targets: LLAMA_RUNTIME_BUILD_TARGETS } };
 test('real model cases cover every published and explicitly required candidate model', () => {
@@ -51,7 +52,7 @@ test('real model cases reject duplicates, foreign models, and a mismatched fixtu
 		[(value) => value.cases.push(value.cases[0]), /duplicate/u],
 		[(value) => { value.cases[0].modelIds = ['unknown-model']; }, /unknown-model/u],
 		[(value) => { value.cases[0].fixtureId = 'transcript-text'; }, /fixture/u],
-		[(value) => { value.cases[0].validation = 'changed-audio'; }, /validation/u],
+		[(value) => { value.cases[0].validation = 'unknown-output'; }, /validation/u],
 		[(value) => { value.cases[0].operation = 'source-separation'; }, /operation/u],
 		[(value) => { value.cases[0].documentation.modelTitles = {}; }, /title/u],
 	]) {
@@ -179,7 +180,7 @@ test('Windows ARM64 catalog admission requires its package-generated native runt
 	assert.ok(silero.platforms.includes('win32-arm64'));
 	assert.ok(localModelRuntimeAvailability(silero, runtimeSources).availablePlatforms.includes('win32-arm64'));
 	assert.ok(localModelRuntimeAvailability(silero,
-		{ ...runtimeSources, sherpaArm64Build: undefined }).missingPlatforms.includes('win32-arm64'));
+		{ ...runtimeSources, sherpaArm64Build: undefined, sherpaGpuBuild: undefined }).missingPlatforms.includes('win32-arm64'));
 });
 
 test('native availability follows packaged file inventories and build recipes', () => {

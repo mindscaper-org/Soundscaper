@@ -61,7 +61,7 @@ test('the container demuxer reads the pinned CFR MP4 timing exactly', async () =
 		fieldOrder: null,
 		hasAlpha: false,
 		videoCodec: 'h264',
-		colour: { primaries: null, transfer: null, matrix: null, range: null },
+		colour: { primaries: null, transfer: null, matrix: 'bt470bg', range: 'limited' },
 		audioStreams: [],
 		extractedAudioStreamIndex: null,
 		startTimecode: null,

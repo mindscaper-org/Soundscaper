@@ -126,6 +126,6 @@ test('Stable 1 binds the downloaded site artifact before policy verification and
 	const download = workflow.indexOf('name: Download the built Soundscaper site');
 	const deploy = workflow.indexOf('name: Deploy Soundscaper Stable 1 to Pages');
 	const verify = workflow.indexOf('name: Verify the live Soundscaper deployment');
-	const publish = workflow.indexOf('name: Publish Soundscaper 1.0.0');
+	const publish = workflow.indexOf('name: Publish Soundscaper stable release');
 	assert.ok(download >= 0 && download < deploy && deploy < verify && verify < publish);
 });
