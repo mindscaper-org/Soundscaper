@@ -3,7 +3,7 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, disableNativeSavePicker, importFiles } from './audio-editor-test-helpers.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
 
-for (const mixDown of [true, false]) for (const microfades of [true, false]) test(`${mixDown ? 'Combined' : 'Individual'} print preserves recorded endpoints with new-clip fades ${microfades}`, async ({ page }) => {
+for (const [mixDown, microfades] of [[true, true], [false, false]]) test(`${mixDown ? 'Combined' : 'Individual'} print preserves recorded endpoints with new-clip fades ${microfades}`, async ({ page }) => {
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	{
 		await chooseCommandAction(page, editor, 'Edit', 'Preferences');

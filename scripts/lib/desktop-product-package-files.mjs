@@ -168,8 +168,8 @@ export function soundscaperMainSource(sourceValue) {
 		/import \{ createDesktopLinkedVideoLocatorRuntime \} from '\.\/linked-video-locator-runtime\.js';\n/u,
 	];
 	for (const pattern of framesImports) source = replaceOnce(source, pattern, '', 'Framescaper main import');
-	source = replaceOnce(source, 'EXTERNAL_DESTINATIONS, FRAMESCAPER_WEB_VCR_ENABLED,',
-		'EXTERNAL_DESTINATIONS,', 'Framescaper capture feature flag');
+	source = replaceOnce(source, '\tFRAMESCAPER_WEB_VCR_ENABLED,\n',
+		'', 'Framescaper capture feature flag');
 	const replacement = [
 		"import {",
 		"\tdeferredWebVcrSmokeTrust, disposeDesktopCaptureSecurity,",
@@ -209,8 +209,8 @@ export function soundscaperMainSource(sourceValue) {
 		'Soundscaper MCP IPC registration');
 	source = replaceRange(source,
 		'\tnativeServices = await startFramescaperNativeServicesRegistration({',
-		'\treleaseChecker =',
-		'\treleaseChecker =',
+		'\tupdates = createDesktopUpdates(',
+		'\tupdates = createDesktopUpdates(',
 		'deferred native services startup');
 	source = replaceOnce(source,
 		"\tlinkedVideoLocators = createDesktopLinkedVideoLocatorRuntime({ readCapabilities, registryPath: resolve(desktopStorage.dataRoot, 'linked-video-locators-project-v1.json'), confirmFileSizeWarning: createDesktopSaveSizeWarningConfirmation((options) => dialog.showMessageBox(options), 'linking') });\n\tawait linkedVideoLocators.ready();\n",
@@ -305,8 +305,9 @@ export function soundscaperConstantsSource(sourceValue) {
 	source = replaceRange(source, 'export const PRODUCT_ID',
 		'export const SETTINGS_SCHEMA_VERSION = 1;', [
 			"export const PRODUCT_ID = 'soundscaper';",
-			'const PRODUCT_METADATA_MATCHES = productConfig.schemaVersion === 1 && productConfig.id === PRODUCT_ID;',
+			'const PRODUCT_METADATA_MATCHES = [1, 2].includes(productConfig.schemaVersion) && productConfig.id === PRODUCT_ID;',
 			'export const DECLARED_APPLICATION_VERSION = PRODUCT_METADATA_MATCHES ? productConfig.applicationVersion : null;',
+			'export const DECLARED_PACKAGE_VERSION = PRODUCT_METADATA_MATCHES ? productConfig.packageVersion ?? productConfig.applicationVersion : null;',
 			"export const APPLICATION_VERSION_CHANNEL = PRODUCT_METADATA_MATCHES ? productConfig.applicationVersionChannel : 'candidate';",
 			"export const RELEASE_CHANNEL = PRODUCT_METADATA_MATCHES ? productConfig.releaseChannel : 'candidate';",
 			"export const APP_NAME = 'Soundscaper';",

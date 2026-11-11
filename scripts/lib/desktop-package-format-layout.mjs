@@ -7,6 +7,8 @@ import {
 	basename, dirname, isAbsolute, relative, resolve, sep,
 } from 'node:path';
 import { inflateSync } from 'node:zlib';
+import { parseReleaseVersion } from '../../src/common/release/release-version.ts';
+import { calendarPackageVersion } from '../../src/common/release/release-packaging.ts';
 
 // electron-builder 26.18.1's reviewed no-EULA launcher varies only by the
 // product executable. A dependency update must deliberately repin these bytes.
@@ -341,7 +343,7 @@ function expectedDesktopEntry(productId, applicationVersion) {
 		'Type=Application',
 		`Icon=${productId}`,
 		`StartupWMClass=org.${productId}`,
-		`X-AppImage-Version=${applicationVersion}`,
+		`X-AppImage-Version=${parseReleaseVersion(applicationVersion)?.kind === 'calendar' ? calendarPackageVersion(applicationVersion) : applicationVersion}`,
 		`Comment=${framescaper
 			? 'Framescaper is a local-first video editor with offline project and media export support.'
 			: 'Soundscaper is a local-first multitrack audio editor with offline project and media export support.'}`,

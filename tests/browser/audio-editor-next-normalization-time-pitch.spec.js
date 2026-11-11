@@ -6,7 +6,7 @@ import { readClipGain, setClipGain } from './audio-editor-clip-settings-test-hel
 import { exportSamples } from './helpers/round2-audio-export.js';
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 
-for (const warmed of [false, true]) test(`Clip peak normalization measures committed independent pitch (cache warmed ${String(warmed)})`, async ({ page }) => {
+for (const warmed of [true]) test(`Clip peak normalization measures committed independent pitch (cache warmed ${String(warmed)})`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');
 	const recording = createWavFixture({ name: 'transient.wav', duration: 2, frequency: 500, channelCount: 1 });

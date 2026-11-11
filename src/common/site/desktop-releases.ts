@@ -2,6 +2,7 @@
 
 import type { DesktopDownloadProductId } from '../editor/desktop-download-links.ts';
 import { DESKTOP_DOWNLOAD_TARGETS, type DesktopDownloadTarget } from '../editor/desktop-download-target.ts';
+import { compareVersions, parseReleaseVersion } from '../release/release-version.ts';
 
 // GitHub redirects owner/name URLs after a transfer; repository IDs stay fixed.
 const RELEASES_API = 'https://api.github.com/repositories/1299822768/releases';
@@ -56,7 +57,9 @@ export function selectLatestDesktopRc(releases: unknown, productId: DesktopDownl
 	for (const value of releases as unknown[]) {
 		if (value === null || typeof value !== 'object' || Array.isArray(value)) continue;
 		const release = value as GitHubRelease;
-		if (release.draft !== false || typeof release.tag_name !== 'string' || !rcTag.test(release.tag_name)
+		const named = parseReleaseVersion(release.tag_name);
+		const namedRc = named?.kind === 'calendar' && named.product.toLowerCase() === productId && named.channel === 'rc';
+		if (release.draft !== false || typeof release.tag_name !== 'string' || (!namedRc && !rcTag.test(release.tag_name))
 			|| typeof release.published_at !== 'string' || !Number.isFinite(Date.parse(release.published_at))) continue;
 		const tag = release.tag_name;
 		const releaseUrl = `${RELEASES_WEB}/download/${encodeURIComponent(tag)}`;
@@ -66,13 +69,13 @@ export function selectLatestDesktopRc(releases: unknown, productId: DesktopDownl
 		});
 		if (installers.length === 0) continue;
 		const publishedAt = new Date(release.published_at).toISOString();
-		if (latest !== null && (publishedAt < latest.publishedAt || (publishedAt === latest.publishedAt && tag <= latest.tag))) continue;
+		if (latest !== null && !newerRelease(tag, Date.parse(publishedAt), latest.tag, Date.parse(latest.publishedAt))) continue;
 		const resources = ['SHA256SUMS', 'sources.zip', 'THIRD_PARTY_LICENSES.md', 'Soundscaper-AGPL-3.0.txt']
 			.filter(name => Array.isArray(release.assets) && release.assets.some((asset: unknown) =>
 				asset !== null && typeof asset === 'object' && 'name' in asset && asset.name === name
 				&& 'state' in asset && asset.state === 'uploaded'))
 			.map(name => ({ name, url: `${releaseUrl}/${encodeURIComponent(name)}` }));
-		latest = { tag, version: tag.slice(`${productId}-v`.length), publishedAt,
+		latest = { tag, version: namedRc ? tag : tag.slice(`${productId}-v`.length), publishedAt,
 			url: `${RELEASES_WEB}/tag/${encodeURIComponent(tag)}`, installers, resources };
 	}
 	return latest;
@@ -101,8 +104,7 @@ export function selectLatestDesktopRelease(
 			publishedAt,
 			tag: release.tag_name,
 		};
-		if (latest === null || candidate.publishedAt > latest.publishedAt
-			|| (candidate.publishedAt === latest.publishedAt && candidate.tag > latest.tag)) latest = candidate;
+		if (latest === null || newerRelease(candidate.tag, candidate.publishedAt, latest.tag, latest.publishedAt)) latest = candidate;
 	}
 	return latest?.url ?? null;
 }
@@ -160,6 +162,8 @@ async function readBoundedJson(response: Response): Promise<unknown> {
 }
 
 function productReleaseTag(productId: DesktopDownloadProductId, tag: string): boolean {
+	const named = parseReleaseVersion(tag);
+	if (named?.kind === 'calendar') return named.product.toLowerCase() === productId;
 	return productId === 'soundscaper'
 		? SOUNDSCAPER_RELEASE_TAG.test(tag)
 		: FRAMESCAPER_RELEASE_TAG.test(tag);
@@ -174,14 +178,24 @@ function desktopInstallerName(
 	if (!Array.isArray(assets)) return null;
 	const prefix = productId === 'soundscaper' ? 'Soundscaper-' : 'Framescaper-';
 	const version = tag.replace(/^(?:soundscaper-|framescaper-)?v/u, '');
+	const named = parseReleaseVersion(tag)?.kind === 'calendar';
 	for (const value of assets as unknown[]) {
 		if (value === null || typeof value !== 'object' || Array.isArray(value)) continue;
 		const asset = value as Readonly<{ name?: unknown; state?: unknown }>;
 		if (asset.state !== 'uploaded' || typeof asset.name !== 'string') continue;
 		if (target !== null) {
-			if (asset.name === `${prefix}${version}-${target}`) return asset.name;
+			if (asset.name === `${named ? tag : `${prefix}${version}`}-${target}`) return asset.name;
+		} else if (named) {
+			if (DESKTOP_DOWNLOAD_TARGETS.some(target => asset.name === `${tag}-${target}`)) return asset.name;
 		} else if (asset.name.startsWith(prefix) && !/source/iu.test(asset.name)
 			&& /\.(?:AppImage|deb|dmg|pkg|exe|zip|flatpak)$/iu.test(asset.name)) return asset.name;
 	}
 	return null;
+}
+
+function newerRelease(tag: string, published: number, previousTag: string, previousPublished: number): boolean {
+	const next = parseReleaseVersion(tag), previous = parseReleaseVersion(previousTag);
+	if (next?.kind === 'calendar') return previous?.kind !== 'calendar' || compareVersions(next, previous) > 0;
+	if (previous?.kind === 'calendar') return false;
+	return published > previousPublished || (published === previousPublished && tag > previousTag);
 }

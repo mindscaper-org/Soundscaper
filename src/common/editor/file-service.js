@@ -138,6 +138,7 @@ export function createAudioEditorFileService(options = {}) {
 		readNativeTierControls: nativeTierControlsAvailable ? () => bridge.readNativeTierControls() : undefined,
 		applyNativeTierControl: nativeTierControlsAvailable ? (request) => bridge.applyNativeTierControl(request) : undefined,
 		checkForUpdates: () => bridge?.checkForUpdates?.(),
+		updatePreferences: (enabled) => bridge?.updatePreferences?.(enabled),
 		openExternal: (destination) => bridge?.openExternal?.(destination),
 		editText: (command) => bridge?.editText?.(command),
 		onOpenProject: (listener) => subscribeBridgeEvent(bridge, 'onOpenProject', listener),

@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { compareVersions, ReleaseChecker, selectUpdate } from '../desktop/update-check.js';
+import { ReleaseChecker, selectUpdate } from '../desktop/update-check.ts';
+import { compareVersions } from '../src/common/release/release-version.ts';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 

@@ -334,6 +334,18 @@ test('nightly test preparation creates the clean-checkout desktop icon and defau
 	assert.equal(splash.toString('ascii', 0, 2), 'BM');
 });
 
+test('nightly staging retains the public calendar name separately from the numeric package version', async (context) => {
+	const fixture = await createFixture(context);
+	const packagePath = join(fixture.repositoryRoot, 'package.json');
+	const metadata = await readJson(packagePath);
+	await writeFile(packagePath, JSON.stringify({ ...metadata, version: '2026.1111.2', releaseVersion: 'Soundscaper-rc.2026.Nov.11.a' }));
+	const result = await stageDesktopNightlyTests(fixture);
+	assert.equal(result.manifest.applicationVersion, 'Soundscaper-rc.2026.Nov.11.a');
+	const packaged = await readJson(join(fixture.outputRoot, 'package.json'));
+	assert.equal(packaged.version, '2026.1111.2');
+	assert.equal(packaged.releaseVersion, 'Soundscaper-rc.2026.Nov.11.a');
+});
+
 test('nightly test staging rejects missing inputs before replacing an existing payload', async (context) => {
 	const fixture = await createFixture(context);
 	await mkdir(fixture.outputRoot, { recursive: true });

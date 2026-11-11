@@ -15,55 +15,38 @@ import {
 
 function documents() {
 	return {
-		releaseLines: {
-			schemaVersion: 2,
-			products: {
-				soundscaper: {
-					productId: 'soundscaper', applicationVersionChannel: 'candidate',
-					releaseChannel: 'candidate',
-					candidate: { version: '1.0.0-rc.1', tagPrefix: 'soundscaper-v' },
-					stable: { version: '1.0.0', tagPrefix: 'v' },
-				},
-				framescaper: {
-					productId: 'framescaper', applicationVersionChannel: 'candidate',
-					releaseChannel: 'deferred',
-					candidate: { version: '1.0.0-rc.1', tagPrefix: 'framescaper-v' },
-					stable: { version: '1.0.0', tagPrefix: 'framescaper-v' },
-				},
-			},
-		},
-		packageMetadata: { name: 'soundscaper', version: '1.0.0-rc.1', private: true },
-		packageLock: {
-			name: 'soundscaper', version: '1.0.0-rc.1', lockfileVersion: 3,
-			packages: { '': { name: 'soundscaper', version: '1.0.0-rc.1' } },
-		},
-		desktopProduct: {
-			schemaVersion: 1, id: 'soundscaper', applicationVersion: '1.0.0-rc.1',
-			applicationVersionChannel: 'candidate', releaseChannel: 'candidate',
-			updateTagPrefix: 'soundscaper-v',
-		},
+		releaseLines: { schemaVersion: 3, products: {
+			soundscaper: { productId: 'soundscaper', applicationVersionChannel: 'candidate', releaseChannel: 'candidate',
+				candidate: { version: 'Soundscaper-rc.2026.Oct.28.a', tagPrefix: 'Soundscaper' }, stable: { version: 'Soundscaper.2026.Oct.28.a', tagPrefix: 'Soundscaper' } },
+			framescaper: { productId: 'framescaper', applicationVersionChannel: 'candidate', releaseChannel: 'deferred',
+				candidate: { version: 'Framescaper-rc.2026.Oct.28.a', tagPrefix: 'Framescaper' }, stable: { version: 'Framescaper.2026.Oct.28.a', tagPrefix: 'Framescaper' } },
+		} },
+		packageMetadata: { name: 'soundscaper', version: '2026.1028.2', releaseVersion: 'Soundscaper-rc.2026.Oct.28.a', private: true },
+		packageLock: { name: 'soundscaper', version: '2026.1028.2', lockfileVersion: 3, packages: { '': { name: 'soundscaper', version: '2026.1028.2' } } },
+		desktopProduct: { schemaVersion: 2, id: 'soundscaper', applicationVersion: 'Soundscaper-rc.2026.Oct.28.a', packageVersion: '2026.1028.2',
+			applicationVersionChannel: 'candidate', releaseChannel: 'candidate', updateTagPrefix: 'Soundscaper' },
 	};
 }
 
 test('release preparation selects the stable line and synchronizes version metadata', () => {
-	const prepared = createSoundscaperReleasePreparation(documents(), '1.0.0');
+	const prepared = createSoundscaperReleasePreparation(documents(), 'Soundscaper.2026.Oct.28.a');
 	assert.equal(prepared.releaseLines.products.soundscaper.applicationVersionChannel, 'stable');
 	assert.equal(prepared.releaseLines.products.soundscaper.releaseChannel, 'stable');
-	assert.equal(prepared.releaseLines.products.soundscaper.stable.version, '1.0.0');
-	assert.equal(prepared.packageMetadata.version, '1.0.0');
-	assert.equal(prepared.packageLock.version, '1.0.0');
-	assert.equal(prepared.packageLock.packages[''].version, '1.0.0');
+	assert.equal(prepared.releaseLines.products.soundscaper.stable.version, 'Soundscaper.2026.Oct.28.a');
+	assert.equal(prepared.packageMetadata.version, '2026.1028.3');
+	assert.equal(prepared.packageLock.version, '2026.1028.3');
+	assert.equal(prepared.packageLock.packages[''].version, '2026.1028.3');
 	assert.deepEqual(prepared.desktopProduct, {
-		schemaVersion: 1, id: 'soundscaper', applicationVersion: '1.0.0',
-		applicationVersionChannel: 'stable', releaseChannel: 'stable', updateTagPrefix: 'v',
+		schemaVersion: 2, id: 'soundscaper', applicationVersion: 'Soundscaper.2026.Oct.28.a', packageVersion: '2026.1028.3',
+		applicationVersionChannel: 'stable', releaseChannel: 'stable', updateTagPrefix: 'Soundscaper',
 	});
 });
 
 test('stable release verification binds the tag to every synchronized metadata surface without mutation', () => {
-	const prepared = createSoundscaperReleasePreparation(documents(), '1.0.0');
+	const prepared = createSoundscaperReleasePreparation(documents(), 'Soundscaper.2026.Oct.28.a');
 	const before = structuredClone(prepared);
-	assert.deepEqual(assertSoundscaperReleaseMetadataSynchronized(prepared, 'v1.0.0'), {
-		productId: 'soundscaper', channel: 'stable', version: '1.0.0',
+	assert.deepEqual(assertSoundscaperReleaseMetadataSynchronized(prepared, 'Soundscaper.2026.Oct.28.a'), {
+		productId: 'soundscaper', channel: 'stable', version: 'Soundscaper.2026.Oct.28.a',
 	});
 	assert.deepEqual(prepared, before);
 
@@ -77,7 +60,7 @@ test('stable release verification binds the tag to every synchronized metadata s
 		const drifted = structuredClone(prepared);
 		mutate(drifted);
 		assert.throws(
-			() => assertSoundscaperReleaseMetadataSynchronized(drifted, 'v1.0.0'),
+			() => assertSoundscaperReleaseMetadataSynchronized(drifted, 'Soundscaper.2026.Oct.28.a'),
 			/release|synchron|metadata/iu,
 			label,
 		);
@@ -89,8 +72,8 @@ test('stable release verification binds the tag to every synchronized metadata s
 });
 
 test('release preparation selects candidates and preserves the other release lines and package fields', () => {
-	for (const version of ['2.0.0-rc.Apr.2.b', '2.0.0-beta.2']) {
-		const current = createSoundscaperReleasePreparation(documents(), '1.0.0');
+	for (const [version, numeric] of [['Soundscaper-rc.2027.Apr.2.b', '2027.402.6'], ['Soundscaper-beta.2027.Apr.2.a', '2027.402.1']]) {
+		const current = createSoundscaperReleasePreparation(documents(), 'Soundscaper.2026.Oct.28.a');
 		current.packageMetadata.dependencies = { example: '3.0.0' };
 		current.packageLock.packages['node_modules/example'] = { version: '3.0.0' };
 		const before = structuredClone(current);
@@ -101,11 +84,11 @@ test('release preparation selects candidates and preserves the other release lin
 		assert.deepEqual(prepared.releaseLines.products.soundscaper.stable,
 			current.releaseLines.products.soundscaper.stable);
 		assert.deepEqual(prepared.releaseLines.products.framescaper, current.releaseLines.products.framescaper);
-		assert.equal(prepared.packageMetadata.version, version);
-		assert.equal(prepared.packageLock.version, version);
-		assert.equal(prepared.packageLock.packages[''].version, version);
+		assert.equal(prepared.packageMetadata.version, numeric);
+		assert.equal(prepared.packageLock.version, numeric);
+		assert.equal(prepared.packageLock.packages[''].version, numeric);
 		assert.equal(prepared.desktopProduct.applicationVersion, version);
-		assert.equal(prepared.desktopProduct.updateTagPrefix, 'soundscaper-v');
+		assert.equal(prepared.desktopProduct.updateTagPrefix, 'Soundscaper');
 		assert.equal(prepared.desktopProduct.releaseChannel, 'candidate');
 		assert.deepEqual(prepared.packageMetadata.dependencies, current.packageMetadata.dependencies);
 		assert.deepEqual(prepared.packageLock.packages['node_modules/example'],
@@ -116,7 +99,7 @@ test('release preparation selects candidates and preserves the other release lin
 
 test('preparation repairs generated metadata from an edited release register without a version argument', () => {
 	const current = documents();
-	current.releaseLines.products.soundscaper.candidate.version = '2.0.0-rc.2';
+	current.releaseLines.products.soundscaper.candidate.version = 'Soundscaper-rc.2027.Apr.2.b';
 	current.packageMetadata.version = '0.0.1';
 	current.packageLock.version = '0.0.2';
 	current.packageLock.packages[''].version = '0.0.3';
@@ -124,15 +107,15 @@ test('preparation repairs generated metadata from an edited release register wit
 	const before = structuredClone(current);
 	const prepared = createSoundscaperReleasePreparation(current);
 	assert.deepEqual(prepared.releaseLines, before.releaseLines);
-	assert.equal(prepared.packageMetadata.version, '2.0.0-rc.2');
-	assert.equal(prepared.packageLock.version, '2.0.0-rc.2');
-	assert.equal(prepared.packageLock.packages[''].version, '2.0.0-rc.2');
-	assert.equal(prepared.desktopProduct.applicationVersion, '2.0.0-rc.2');
+	assert.equal(prepared.packageMetadata.version, '2027.402.6');
+	assert.equal(prepared.packageLock.version, '2027.402.6');
+	assert.equal(prepared.packageLock.packages[''].version, '2027.402.6');
+	assert.equal(prepared.desktopProduct.applicationVersion, 'Soundscaper-rc.2027.Apr.2.b');
 	assert.deepEqual(current, before);
 });
 
 test('release preparation refuses invalid versions and malformed package identities', () => {
-	for (const version of ['v1.0.0', '1.0.0-rc.01', '1.0.0-preview.1', 'latest', '']) {
+	for (const version of ['1.0.0', '1.0.0-rc.01', '1.0.0-preview.1', 'latest', '']) {
 		assert.throws(() => createSoundscaperReleasePreparation(documents(), version), /version/iu);
 	}
 	for (const mutate of [
@@ -153,7 +136,7 @@ test('release preparation CLI accepts a version, synchronization, or a read-only
 	assert.deepEqual(parseSoundscaperReleasePrepareArguments(['1.2.3-rc.2']), { version: '1.2.3-rc.2' });
 	assert.deepEqual(parseSoundscaperReleasePrepareArguments([]), {});
 	assert.deepEqual(parseSoundscaperReleasePrepareArguments(['--check']), { checkOnly: true });
-	for (const args of [['1.0.0', 'extra'], ['--version=1.0.0'], ['--check', '1.0.0']]) {
+	for (const args of [['Soundscaper.2026.Oct.28.a', 'extra'], ['--version=1.0.0'], ['--check', 'Soundscaper.2026.Oct.28.a']]) {
 		assert.throws(() => parseSoundscaperReleasePrepareArguments(args), /version|check/iu);
 	}
 });
@@ -188,7 +171,7 @@ test('candidate preparation changes only the authority and derived packaging doc
 	const root = await fixture(context, documents());
 	const before = await contents(root);
 	const output = [];
-	const options = { repositoryRoot: root, version: '2.0.0-rc.Apr.2.b', writeOutput: value => output.push(value) };
+	const options = { repositoryRoot: root, version: 'Soundscaper-rc.2027.Apr.2.b', writeOutput: value => output.push(value) };
 	const prepared = await prepareSoundscaperRelease(options);
 	const after = await contents(root);
 	assert.deepEqual(Object.keys(after).filter(path => before[path] !== after[path]).sort(),
@@ -196,7 +179,7 @@ test('candidate preparation changes only the authority and derived packaging doc
 	for (const [name, path] of Object.entries(DOCUMENT_PATHS)) {
 		assert.deepEqual(JSON.parse(after[path]), prepared[name]);
 	}
-	assert.match(output.join(''), /soundscaper-v2\.0\.0-rc\.Apr\.2\.b/u);
+	assert.match(output.join(''), /Soundscaper-rc\.2027\.Apr\.2\.b/u);
 	await prepareSoundscaperRelease({ repositoryRoot: root, writeOutput: () => {} });
 	assert.deepEqual(await contents(root), after);
 });
@@ -212,14 +195,14 @@ test('a read-only release check rejects drift without repairing or rewriting any
 	assert.equal(checkedStat.ino, metadataStat.ino);
 	assert.equal(checkedStat.mtimeNs, metadataStat.mtimeNs);
 	const drifted = documents().releaseLines;
-	drifted.products.soundscaper.candidate.version = '2.0.0-rc.3';
+	drifted.products.soundscaper.candidate.version = 'Soundscaper-rc.2027.Apr.2.c';
 	await writeFile(join(root, DOCUMENT_PATHS.releaseLines), `${JSON.stringify(drifted, null, '\t')}\n`);
 	const stale = await contents(root);
 	await assert.rejects(prepareSoundscaperRelease(options), /synchronized/iu);
 	assert.deepEqual(await contents(root), stale);
 	await prepareSoundscaperRelease({ repositoryRoot: root, writeOutput: () => {} });
 	await prepareSoundscaperRelease(options);
-	assert.equal(JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).version, '2.0.0-rc.3');
+	assert.equal(JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).version, '2027.402.10');
 });
 
 test('invalid release versions fail before changing any checked-in file', async context => {

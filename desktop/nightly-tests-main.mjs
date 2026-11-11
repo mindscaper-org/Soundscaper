@@ -140,7 +140,7 @@ async function startNightlyTests() {
 			import('../scripts/lib/desktop-nightly-tests-runtime.mjs'),
 		]);
 		if (reportingFailure) return;
-		const applicationVersion = app.getVersion();
+		const applicationVersion = createRequire(import.meta.url)('../package.json').releaseVersion ?? app.getVersion();
 		const payloadRoot = resolve(process.resourcesPath, 'nightly-tests');
 		const sourceRevision = await readDesktopNightlyTestsSourceRevision({ payloadRoot, applicationVersion });
 		if (reportingFailure) return;

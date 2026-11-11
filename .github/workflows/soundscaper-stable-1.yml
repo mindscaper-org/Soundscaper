@@ -1,9 +1,9 @@
-name: Soundscaper Stable 1
+name: Soundscaper stable release
 
 on:
   push:
     tags:
-      - 'v1.0.0'
+      - 'Soundscaper.[0-9]*'
 
 permissions: {}
 concurrency: { group: soundscaper-stable-1, cancel-in-progress: false }
@@ -30,7 +30,7 @@ jobs:
           from './scripts/prepare-soundscaper-release.mjs';
           const release = await verifyCheckedInSoundscaperRelease({
           repositoryRoot: process.cwd(), tag: process.env.RELEASE_TAG });
-          if (release.version !== '1.0.0') throw new Error('The tag does not match Soundscaper Stable 1');"
+          if (release.channel !== 'stable') throw new Error('The tag does not match the Soundscaper stable release');"
       - run: npm ci
       - name: Resolve the interchange download cache identity
         id: interchange-cache-key
@@ -501,7 +501,7 @@ jobs:
         env: { GH_TOKEN: "${{ github.token }}", GH_REPO: "${{ github.repository }}" }
         run: >-
           gh release create "$GITHUB_REF_NAME" release/desktop/*
-          --draft --verify-tag --title "Soundscaper 1.0.0" --generate-notes
+          --draft --verify-tag --title "$GITHUB_REF_NAME" --generate-notes
 
   deploy-web:
     name: Deploy the web release
@@ -541,7 +541,7 @@ jobs:
           retention-days: 90
 
   publish-release:
-    name: Publish Soundscaper 1.0.0
+    name: Publish Soundscaper stable release
     needs: deploy-web
     permissions:
       contents: write

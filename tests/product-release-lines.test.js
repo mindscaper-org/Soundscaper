@@ -12,7 +12,7 @@ import {
 	validateProductReleaseLines,
 } from '../scripts/lib/product-release-lines.mjs';
 import { desktopReleaseTargetPackageInventory } from '../scripts/desktop-release-assets.mjs';
-import { selectUpdate } from '../desktop/update-check.js';
+import { selectUpdate } from '../desktop/update-check.ts';
 
 const ROOT = new URL('../', import.meta.url);
 const RELEASE_LINES = validateProductReleaseLines(JSON.parse(
@@ -23,11 +23,11 @@ test('product release lines select declared versions and active channels', () =>
 	for (const [productId, product] of Object.entries(RELEASE_LINES.products)) {
 		const channel = product.applicationVersionChannel;
 		assert.equal(resolveProductApplicationVersion(productId, RELEASE_LINES), product[channel].version);
-		assert.equal(product.candidate.tagPrefix, `${productId}-v`);
-		assert.equal(product.stable.tagPrefix, productId === 'soundscaper' ? 'v' : 'framescaper-v');
+		assert.equal(product.candidate.tagPrefix, productId === 'soundscaper' ? 'Soundscaper' : 'Framescaper');
+		assert.equal(product.stable.tagPrefix, product.candidate.tagPrefix);
 		for (const releaseChannel of ['candidate', 'stable']) {
 			const tag = expectedProductReleaseTag(productId, RELEASE_LINES, releaseChannel);
-			assert.equal(tag, `${product[releaseChannel].tagPrefix}${product[releaseChannel].version}`);
+			assert.equal(tag, product[releaseChannel].version);
 			if (product.releaseChannel !== releaseChannel) {
 				assert.throws(() => resolveProductReleaseTag(tag, RELEASE_LINES), /not active|deferred/iu);
 			} else {
@@ -41,11 +41,14 @@ test('product release lines select declared versions and active channels', () =>
 
 function fixtureReleaseLines() {
 	const lines = structuredClone(RELEASE_LINES);
+	lines.schemaVersion = 2;
 	for (const product of Object.values(lines.products)) {
 		product.applicationVersionChannel = 'candidate';
 		product.releaseChannel = 'candidate';
 		product.candidate.version = '1.0.0-rc.1';
 		product.stable.version = '1.0.0';
+		product.candidate.tagPrefix = `${product.productId}-v`;
+		product.stable.tagPrefix = product.productId === 'soundscaper' ? 'v' : 'framescaper-v';
 	}
 	return lines;
 }
@@ -141,13 +144,13 @@ test('browser and desktop builds resolve the selected product version from relea
 	assert.doesNotMatch(vite, /package\.json[^\n]+version/iu);
 	assert.match(desktop, /resolveProductApplicationVersion\(\s*PRODUCT_ID/iu);
 	assert.doesNotMatch(desktop, /applicationVersion:\s*projectPackage\.version/iu);
-	assert.match(desktop, /version:\s*applicationVersion/iu, 'Electron package metadata uses the selected version');
+	assert.match(desktop, /version:\s*productMetadata.packageVersion/iu, 'Electron package metadata uses the selected version');
 	assert.match(desktop, /applicationVersion,/u, 'the runtime stage manifest uses the selected version');
 	assert.match(desktop, /desktop\/product\.json'\), productMetadata/u);
 	assert.match(constants, /productConfig\.updateTagPrefix/u);
-	assert.match(main, /currentVersion:\s*app\.getVersion\(\).*tagPrefix:\s*UPDATE_TAG_PREFIX/u);
-	assert.match(main, /version:\s*app\.getVersion\(\)/u, 'diagnostics/environment reports the Electron version');
-	assert.match(main, /app\.getVersion\(\) !== DECLARED_APPLICATION_VERSION/u);
+	assert.match(main, /createDesktopUpdates\(\{ app,.*tagPrefix:\s*UPDATE_TAG_PREFIX/u);
+	assert.match(main, /version:\s*APPLICATION_VERSION/u, 'diagnostics/environment reports the Electron version');
+	assert.match(main, /app\.getVersion\(\) !== DECLARED_PACKAGE_VERSION/u);
 
 	const divergent = fixtureReleaseLines();
 	divergent.products.soundscaper.candidate.version = '1.0.0-rc.7';

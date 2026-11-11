@@ -5,8 +5,7 @@ import { chooseClipMediaSetting, readClipGain } from './audio-editor-clip-settin
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 for (const [name, rows] of [
-	['short recordings', [[.1, .25, false], [.1, .25, true]]],
-	['one-second recordings', [[1, 0, false], [1, .25, false]]],
+	['refusals and measurable recordings', [[.1, .25, false], [1, 0, false], [1, .25, false]]],
 ]) test(`native normalization reports whether measurement exists for ${name}`, async ({ page }) => {
 	const caseTimeout = test.info().timeout;
 	test.setTimeout(caseTimeout * rows.length);

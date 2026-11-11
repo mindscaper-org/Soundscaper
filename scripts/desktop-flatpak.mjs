@@ -13,6 +13,8 @@ import { promisify } from 'node:util';
 import { extractFile } from '@electron/asar';
 
 import { readProductReleaseLines, resolveProductApplicationVersion } from './lib/product-release-lines.mjs';
+import { parseReleaseVersion } from '../src/common/release/release-version.ts';
+import { calendarPackageVersion, releaseArtifactStem } from '../src/common/release/release-packaging.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const executeFile = promisify(execFile);
@@ -49,7 +51,8 @@ export async function buildDesktopFlatpak(options, { runCommand = run } = {}) {
 	const applicationId = `org.${product}.desktop`;
 	const architecture = ARCHITECTURES[arch];
 	const version = resolveProductApplicationVersion(product, await readProductReleaseLines(repositoryRoot));
-	const packageName = `${productName}-${version}-linux-${arch}.deb`;
+	const packageVersion = parseReleaseVersion(version)?.kind === 'calendar' ? calendarPackageVersion(version) : version;
+	const packageName = `${releaseArtifactStem(version, productName)}-linux-${arch}.deb`;
 	const matches = (await readdir(packagesRoot, { withFileTypes: true }))
 		.filter((entry) => entry.name === packageName);
 	if (matches.length !== 1 || !matches[0].isFile() || matches[0].isSymbolicLink()) {
@@ -60,7 +63,7 @@ export async function buildDesktopFlatpak(options, { runCommand = run } = {}) {
 	const metadata = Object.fromEntries(String(stdout).trim().split('\n')
 		.map((line) => line.split(/:\s*/u, 2)));
 	if (metadata.Package !== `${product}-desktop` || metadata.Architecture !== architecture.deb
-		|| metadata.Version !== version.replaceAll('-', '~')) {
+		|| metadata.Version !== packageVersion.replaceAll('-', '~')) {
 		throw new Error('Flatpak Debian package metadata does not match its selected product, version, and architecture.');
 	}
 	const stageRoot = resolve(repositoryRoot, '.desktop-build/flatpak', `${product}-${arch}`);
@@ -78,7 +81,8 @@ export async function buildDesktopFlatpak(options, { runCommand = run } = {}) {
 	await requireRegularFile(archivePath, 'ASAR archive');
 	const applicationMetadata = JSON.parse(extractFile(archivePath, 'package.json').toString('utf8'));
 	if (applicationMetadata.name !== `${product}-desktop` || applicationMetadata.productName !== productName
-		|| applicationMetadata.version !== version || applicationMetadata.desktopName !== `org.${product}.desktop`) {
+		|| applicationMetadata.version !== packageVersion || applicationMetadata.desktopName !== `org.${product}.desktop`
+		|| (packageVersion !== version && applicationMetadata.releaseVersion !== version)) {
 		throw new Error('Flatpak application metadata does not match its selected product and version.');
 	}
 	const applicationClosure = await describeApplicationClosure(applicationRoot);
@@ -107,7 +111,7 @@ export async function buildDesktopFlatpak(options, { runCommand = run } = {}) {
 		throw new Error('Flatpak builder changed the authenticated application closure.');
 	}
 	await mkdir(outputRoot, { recursive: true });
-	const bundlePath = resolve(outputRoot, `${productName}-${version}-linux-${arch}.flatpak`);
+	const bundlePath = resolve(outputRoot, `${releaseArtifactStem(version, productName)}-linux-${arch}.flatpak`);
 	await rm(bundlePath, { force: true });
 	await rm(`${bundlePath}.sha256`, { force: true });
 	await rm(resolve(outputRoot, `${product}-${arch}-manifest.json`), { force: true });

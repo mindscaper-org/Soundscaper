@@ -121,6 +121,7 @@ export const DESKTOP_SMOKE_EXPECTED_BRIDGE = Object.freeze([
 	'statDesktopVideoCodecOutput',
 	'stopMcp',
 	'temporaryDataStatus',
+	'updatePreferences',
 	'writeChunk',
 	'writeDesktopVideoCodecInput',
 ]);

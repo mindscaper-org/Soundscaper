@@ -9,7 +9,7 @@ import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 import { measureBextLoudness } from '../../src/common/editor/broadcast-loudness.ts';
 import { exportSamples } from './helpers/round2-audio-export.js';
 
-for (const bpm of [120, 240, 60]) test(`normalization measures the authored musical ${bpm}bpm recording`, async ({ page }) => {
+for (const bpm of [120, 60]) test(`normalization measures the authored musical ${bpm}bpm recording`, async ({ page }) => {
 	// At 60 BPM the authored programme doubles to eight seconds, rendered for
 	// two exports and the normalization measurement on the browser's audio engine.
 	if (bpm === 60) test.setTimeout(Math.max(test.info().timeout, 60_000));

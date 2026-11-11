@@ -27,7 +27,7 @@ function createDesktopAppxConfig(base, environment = process.env) {
 	return {
 		...base,
 		forceCodeSigning: false,
-		artifactName: '${productName}-${version}-store-${arch}.${ext}',
+		artifactName: base.extraMetadata?.releaseVersion ? `${base.extraMetadata.releaseVersion}-store-\${arch}.\${ext}` : '${productName}-${version}-store-${arch}.${ext}',
 		directories: { ...base.directories, output: 'release/appx' },
 		// Preserve the authenticated native payloads byte for byte. The Store
 		// signs the enclosing AppX; local sideload testing signs that package only.

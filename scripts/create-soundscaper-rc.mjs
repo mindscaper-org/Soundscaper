@@ -9,23 +9,25 @@ import { promisify } from 'node:util';
 
 import { prepareSoundscaperRelease } from './prepare-soundscaper-release.mjs';
 import { readProductReleaseLines, resolveProductApplicationVersion } from './lib/product-release-lines.mjs';
+import { parseReleaseVersion } from '../src/common/release/release-version.ts';
 
 const execute = promisify(execFile);
 const REPOSITORY_ROOT = resolve(import.meta.dirname, '..');
-const TAG_PREFIX = 'soundscaper-v';
+const TAG_PREFIX = 'Soundscaper';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const GIT_OPERATIONS = ['MERGE_HEAD', 'CHERRY_PICK_HEAD', 'REVERT_HEAD', 'rebase-merge', 'rebase-apply', 'sequencer'];
 
 export function nextSoundscaperRcVersion(currentVersion, now, tags = []) {
 	if (!(now instanceof Date) || !Number.isFinite(now.getTime())) throw new TypeError('The RC date must be valid.');
-	const match = /^((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))(?:-(?:rc|beta)\.[0-9A-Za-z.-]+)?$/u.exec(currentVersion);
-	if (!match) throw new TypeError('The current Soundscaper version is invalid.');
-	const prefix = `${match[1]}-rc.${MONTHS[now.getMonth()]}.${now.getDate()}.`;
-	const versions = [currentVersion, ...tags.filter(tag => tag.startsWith(TAG_PREFIX)).map(tag => tag.slice(TAG_PREFIX.length))];
+	if (!parseReleaseVersion(currentVersion)) throw new TypeError('The current Soundscaper version is invalid.');
+	const prefix = `Soundscaper-rc.${now.getFullYear()}.${MONTHS[now.getMonth()]}.${now.getDate()}.`;
+	const versions = [currentVersion, ...tags];
 	let latest = '';
 	for (const version of versions) {
-		if (!version.startsWith(prefix)) continue;
-		const suffix = version.slice(prefix.length);
+		const parsed = parseReleaseVersion(version);
+		if (parsed?.kind !== 'calendar' || parsed.product !== 'Soundscaper' || parsed.year !== now.getFullYear()
+			|| parsed.month !== now.getMonth() || parsed.day !== now.getDate()) continue;
+		const suffix = parsed.build;
 		if (/^[a-z]+$/u.test(suffix)
 			&& (suffix.length > latest.length || (suffix.length === latest.length && suffix > latest))) latest = suffix;
 	}
@@ -41,25 +43,25 @@ export async function createSoundscaperRc({ repositoryRoot = REPOSITORY_ROOT, no
 	const currentVersion = resolveProductApplicationVersion('soundscaper', releaseLines);
 	const tags = (await git(['tag', '--list', `${TAG_PREFIX}*`])).split(/\r?\n/u);
 	const version = nextSoundscaperRcVersion(currentVersion, now, tags);
-	const tag = `${TAG_PREFIX}${version}`;
+	const tag = version;
 	await prepareSoundscaperRelease({ repositoryRoot: root, version, writeOutput: () => {} });
 	try {
 		// The owner command includes staged, unstaged, new, and deleted files;
 		// Git's ignore rules continue to exclude local build output and notes.
 		await git(['add', '--all', '--', '.']);
-		await git(['commit', '--message', `chore(release): prepare Soundscaper ${version}`]);
+		await git(['commit', '--message', `chore(release): prepare ${version}`]);
 	} catch (error) {
 		throw new Error(`RC commit failed; your changes are preserved and no tag was created.\n${error.message}`, { cause: error });
 	}
 	const commit = await git(['rev-parse', 'HEAD']);
 	try {
-		await git(['tag', '--annotate', tag, commit, '--message', `Soundscaper ${version}`]);
+		await git(['tag', '--annotate', tag, commit, '--message', `${version}`]);
 	} catch (error) {
 		throw new Error(`RC commit ${commit} was created, but tagging failed.\n`
 			+ `After fixing the Git error, tag that commit with:\n`
-			+ `git tag --annotate ${tag} ${commit} --message 'Soundscaper ${version}'\n${error.message}`, { cause: error });
+			+ `git tag --annotate ${tag} ${commit} --message '${version}'\n${error.message}`, { cause: error });
 	}
-	writeOutput(`Created Soundscaper ${version}\nCommit: ${commit}\nTag: ${tag}\n\n`
+	writeOutput(`Created ${version}\nCommit: ${commit}\nTag: ${tag}\n\n`
 		+ `Push when ready:\ngit push --atomic origin HEAD refs/tags/${tag}\n`);
 	return { version, tag, commit };
 }

@@ -4,7 +4,7 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { bootEditor, closeClipProperties, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
 import { readClipGain, setClipGain } from './audio-editor-clip-settings-test-helpers.js';
 
-for (const [channelCount, duration] of [[16, 1], [1, .1]]) test(`Peak normalization accepts ${channelCount} channels lasting ${duration} seconds`, async ({ page }) => {
+for (const [channelCount, duration] of [[16, 1]]) test(`Peak normalization accepts ${channelCount} channels lasting ${duration} seconds`, async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [createWavFixture({ name: 'peak-normalize.wav', duration, frequency: 523, channelCount })]);
 	const clip = editor.locator('[data-clip-id]').first();

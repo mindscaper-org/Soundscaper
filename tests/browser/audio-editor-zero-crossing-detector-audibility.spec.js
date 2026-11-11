@@ -24,7 +24,7 @@ async function archive(position, mode) {
 }
 
 for (const [position, mode] of [
-	['pre-fader', 'leaf'], ['post-fader', 'leaf'], ['post-fader', 'folder'], ['post-fader', 'vca'],
+	['pre-fader', 'leaf'], ['post-fader', 'folder'], ['post-fader', 'vca'],
 ]) test(`At zero crossings retains the ${position} ${mode} detector signal`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');

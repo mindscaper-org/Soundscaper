@@ -7,10 +7,12 @@ on:
     - cron: '17 2 * * *'
   push:
     tags:
-      - 'soundscaper-v*-beta.*'
-      - 'soundscaper-v*-rc.*'
-      - 'framescaper-v*-beta.*'
-      - 'framescaper-v*-rc.*'
+      - 'Soundscaper-alpha.*'
+      - 'Soundscaper-beta.*'
+      - 'Soundscaper-rc.*'
+      - 'Framescaper-alpha.*'
+      - 'Framescaper-beta.*'
+      - 'Framescaper-rc.*'
   workflow_dispatch:
     inputs:
       appx:

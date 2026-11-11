@@ -122,6 +122,7 @@ test('sandbox preload exposes only the versioned narrow bridge', async () => {
 	const baseFields = [
 		'chooseBatchSaveDirectory', 'planBatchSaveOutputs', 'prepareBatchSaveTarget', 'releaseBatchSaveDirectory',
 		'rememberProjectFile', 'restoreProjectFile', 'temporaryDataStatus', 'chooseTemporaryDataFolder', 'confirmProjectSave',
+		'updatePreferences',
 		'captureExternalMedia', 'resolveExternalMedia', 'prepareOriginalOverwrite', 'releaseOriginalFile',
 		'abortWrite', 'applyNativeTierControl', 'ara', 'awaitVideoSourceProbe', 'beginDesktopVideoCodecOperation', 'beginVideoSourceProbe', 'beginWrite', 'bindNativeAudioSession', 'calibrateNativeAudioSession',
 			'cancelAssistanceModelInstall', 'cancelDesktopAudioCodecOperation', 'cancelDesktopVideoCodecOperation', 'cancelNativeVampAnalyzer', 'cancelVideoSourceProbe',

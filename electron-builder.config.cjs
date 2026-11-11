@@ -4,6 +4,8 @@ const professionalNativePayloadManifest = require('./config/soundscaper-professi
 const productId = resolveDesktopProductId(process.env.SCAPE_PRODUCT);
 const framescaper = productId === 'framescaper';
 const productName = framescaper ? 'Framescaper' : 'Soundscaper';
+const releaseMetadata = require('./scripts/lib/product-release-lines.mjs').resolveProductDesktopMetadata(productId);
+const releaseName = releaseMetadata.applicationVersion;
 // Development builds use ad-hoc seals; credentialed release jobs explicitly
 // select a Developer ID identity and require notarization.
 const signing = require('./scripts/lib/desktop-signing-config.cjs').desktopSigningConfig();
@@ -27,7 +29,9 @@ module.exports = {
 	forceCodeSigning: signing.forceCodeSigning,
 	appId: framescaper ? 'org.framescaper.desktop' : 'org.soundscaper.desktop',
 	productName,
-	artifactName: '${productName}-${version}-${os}-${arch}.${ext}',
+	artifactName: `${releaseName}-\${os}-\${arch}.\${ext}`,
+	buildVersion: releaseMetadata.packageVersion,
+	extraMetadata: { version: releaseMetadata.packageVersion, releaseVersion: releaseName },
 	compression: 'maximum',
 	asar: true,
 	// Stock Electron enables proprietary codecs in its Chromium FFmpeg library.
@@ -123,8 +127,9 @@ module.exports = {
 		},
 	},
 	dmg: {
+		title: `${releaseName}-\${arch}`,
 		sign: signing.mac.notarize,
-		artifactName: '${productName}-${version}-mac-${arch}.${ext}',
+		artifactName: `${releaseName}-mac-\${arch}.\${ext}`,
 	},
 	linux: {
 		icon: '.desktop-build/icons/linux',
@@ -139,10 +144,10 @@ module.exports = {
 		target: ['AppImage', 'deb'],
 	},
 	appImage: {
-		artifactName: '${productName}-${version}-linux-${arch}.${ext}',
+		artifactName: `${releaseName}-linux-\${arch}.\${ext}`,
 	},
 	deb: {
-		artifactName: '${productName}-${version}-linux-${arch}.${ext}',
+		artifactName: `${releaseName}-linux-\${arch}.\${ext}`,
 		recommends: ['ffmpeg'],
 	},
 	publish: null,

@@ -22,6 +22,7 @@ const ENTRIES = Object.freeze([
 	['waveformLowMidCrossover', 'Low/mid crossover (Hz)'],
 	['waveformMidHighCrossover', 'Mid/high crossover (Hz)'],
 	['savingSection', 'Saving'],
+	['updatesSection', 'Updates'],
 	['autoSaving', 'Auto-saving'],
 	['askBeforeClosing', 'Ask to save projects when closing'],
 	['savingOn', 'On'],

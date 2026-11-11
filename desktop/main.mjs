@@ -21,8 +21,8 @@ import {
 	APP_NAME,
 	APP_ORIGIN,
 	APP_SCHEME,
-	DECLARED_APPLICATION_VERSION,
-	EXTERNAL_DESTINATIONS, FRAMESCAPER_WEB_VCR_ENABLED,
+	DECLARED_APPLICATION_VERSION, DECLARED_PACKAGE_VERSION,
+	FRAMESCAPER_WEB_VCR_ENABLED,
 	IPC, MAX_READ_CAPABILITIES_PER_OWNER,
 	PRODUCT_ID, RELEASE_CHANNEL,
 	SESSION_PARTITION,
@@ -63,8 +63,8 @@ import { RendererSaveOwnership } from './renderer-save-owner.js';
 import { DesktopRendererOwnershipCleanup } from './renderer-ownership-cleanup.js';
 import { AtomicSaveManager, SaveTargetStore } from './save-targets.js'; import { createDesktopSaveSizeWarningConfirmation } from './project-library-runtime/desktop/save-size-warning-dialog.js';
 import { DesktopSettingsStore } from './settings.js';
-import { ReleaseChecker } from './update-check.js';
-import { checkDesktopDistributionUpdates, configureWindowsApplicationIdentity } from './project-library-runtime/desktop/windows-store-distribution.js';
+import { createDesktopUpdates } from './update-registration.mjs';
+import { configureWindowsApplicationIdentity } from './project-library-runtime/desktop/windows-store-distribution.js';
 import {
 	desktopWindowOptions, hideNativeWindowButtons, installDesktopApplicationMenu,
 	onWindowStateChanged, registerFocusedWindowAccelerators,
@@ -80,12 +80,13 @@ const SOAK_DEBUG_ENABLED = PRODUCT_ID === 'soundscaper' && soakDebugProcessMetri
 const readCapabilities = new ReadCapabilityStore({ confirmFileSizeWarning: createDesktopSaveSizeWarningConfirmation((options) => dialog.showMessageBox(options), 'loading') });
 const saveTargets = new SaveTargetStore(); const originalFiles = new OriginalFileOverwriteStore({ reads: readCapabilities, targets: saveTargets, acceptsFile, cleanDisplayName: cleanReadCapabilityDisplayName, maximumCount: MAX_READ_CAPABILITIES_PER_OWNER });
 const saves = new AtomicSaveManager({ targets: saveTargets, confirmFileSizeWarning: createDesktopSaveSizeWarningConfirmation((options) => dialog.showMessageBox(options)) });
-if (DECLARED_APPLICATION_VERSION !== null && app.getVersion() !== DECLARED_APPLICATION_VERSION) throw new Error('Packaged application version does not match its selected product release line.');
+const APPLICATION_VERSION = DECLARED_APPLICATION_VERSION ?? app.getVersion();
+if (DECLARED_PACKAGE_VERSION !== null && app.getVersion() !== DECLARED_PACKAGE_VERSION) throw new Error('Packaged application version does not match its selected product release line.');
 const rendererSaveOwnership = new RendererSaveOwnership();
 const { handle, on } = createTrustedDesktopIpc({ ipcMain, windowFor: () => mainWindow, assertDocumentUrl: assertEditorDocumentUrl });
 let mainWindow = null; const sesxMediaSessions = new SesxMediaSessionStore({ readCapabilities, dialog, windowFor: () => mainWindow });
 let nightlyTestsWindow = null;
-let settings = null, releaseChecker = null; let temporaryProjectStorage = null, projectFileAssociations = null;
+let settings = null, updates = null; let temporaryProjectStorage = null, projectFileAssociations = null;
 let blender = null;
 let rendererReady = false;
 let pendingClose = null;
@@ -226,7 +227,7 @@ async function startApplication() {
 		onFenced: (error) => { console.error('Framescaper native services were fenced:', cleanError(error)); void exitApplication(1); },
 		...createFramescaperNativeServicesElectronPorts(settings, (error) => console.error('Framescaper native service failed:', cleanError(error))),
 	});
-	releaseChecker = new ReleaseChecker({ currentVersion: app.getVersion(), settings, tagPrefix: UPDATE_TAG_PREFIX });
+	updates = createDesktopUpdates({ app, currentVersion: APPLICATION_VERSION, appName: APP_NAME, tagPrefix: UPDATE_TAG_PREFIX, storage: desktopStorage, settings, shell, dialog, windowFor: () => mainWindow, handle });
 	freesound = await createDesktopFreesoundIntegration({ appOrigin: APP_ORIGIN, apiOrigin: 'https://soundscaper.org', channels: IPC, filePath: resolve(desktopStorage.stateRoot, 'freesound-session.json'), handle, platform: process.platform, productId: PRODUCT_ID, safeStorage, shell }); audiocom = await createDesktopAudiocomIntegration({ appOrigin: APP_ORIGIN, apiOrigin: 'https://soundscaper.org', channels: IPC, filePath: resolve(desktopStorage.stateRoot, 'audiocom-session.json'), handle, platform: process.platform, productId: PRODUCT_ID, safeStorage, shell });
 	const desktopSession = session.fromPartition(SESSION_PARTITION);
 	await desktopSession.protocol.handle(APP_SCHEME, createProtocolHandler({
@@ -246,7 +247,7 @@ async function startApplication() {
 	await createWindow();
 	nightlyTestsWindow = await createDesktopNightlyTestsWindow({ argv: process.argv, BrowserWindow, icon: desktopWindowOptions({ rendererRoot: resources.renderer, productId: PRODUCT_ID }).icon });
 	nightlyTestsWindow?.once('closed', () => { nightlyTestsWindow = null; });
-	void checkForUpdates(false);
+	void updates.startup().catch((error) => console.error('Desktop update failed:', cleanError(error)));
 
 	app.on('activate', () => {
 		if (!BrowserWindow.getAllWindows().length) void createWindow();
@@ -381,7 +382,7 @@ async function registerIpcHandlers(desktopSession) {
 		removeHandler: (channel) => ipcMain.removeHandler(channel),
 		session: desktopSession,
 	});
-	soundscaperDelivery = await startSoundscaperDeliveryRegistration({ productId: PRODUCT_ID, applicationVersion: app.getVersion(), declaredApplicationVersion: DECLARED_APPLICATION_VERSION, releaseChannel: RELEASE_CHANNEL, nativePayloadLocation: Object.freeze({ applicationRoot: dirname(__dirname), packaged: app.isPackaged, resourcesPath: process.resourcesPath, platform: process.platform, arch: process.arch }), userDataPath: desktopStorage.stateRoot, instanceId: randomUUID(), processId: process.pid, projectLibraryRuntime, handle, removeHandler: (channel) => ipcMain.removeHandler(channel), on: (channel, listener) => ipcMain.on(channel, listener), removeListener: (channel, listener) => ipcMain.removeListener(channel, listener), ownerFor: rendererSaveOwnerFor, dialog, windowFor: () => mainWindow });
+	soundscaperDelivery = await startSoundscaperDeliveryRegistration({ productId: PRODUCT_ID, applicationVersion: APPLICATION_VERSION, declaredApplicationVersion: DECLARED_APPLICATION_VERSION, releaseChannel: RELEASE_CHANNEL, nativePayloadLocation: Object.freeze({ applicationRoot: dirname(__dirname), packaged: app.isPackaged, resourcesPath: process.resourcesPath, platform: process.platform, arch: process.arch }), userDataPath: desktopStorage.stateRoot, instanceId: randomUUID(), processId: process.pid, projectLibraryRuntime, handle, removeHandler: (channel) => ipcMain.removeHandler(channel), on: (channel, listener) => ipcMain.on(channel, listener), removeListener: (channel, listener) => ipcMain.removeListener(channel, listener), ownerFor: rendererSaveOwnerFor, dialog, windowFor: () => mainWindow });
 	nativeServices?.registerRendererBridge({ handle, ownerFor: rendererSaveOwnerFor, removeHandler: (channel) => ipcMain.removeHandler(channel), on: (channel, listener) => ipcMain.on(channel, listener), removeListener: (channel, listener) => ipcMain.removeListener(channel, listener) });
 	linkedVideoLocators.registerIpc({ dialog, handle, ownerFor: rendererSaveOwnerFor, windowFor: () => mainWindow });
 	nativeTier = registerDesktopNativeTier({ channels: IPC, handle, ownerFor: rendererSaveOwnerFor, readCapabilities, settings, desktopRoot: __dirname, packaged: app.isPackaged, resourcesPath: process.resourcesPath, userDataPath: desktopStorage.configRoot, stateDataPath: desktopStorage.stateRoot, parentWindow: () => mainWindow, productId: PRODUCT_ID, nativePluginStateAuthority: () => projectLibraryRuntime.nativePluginStateAuthority() });
@@ -392,11 +393,11 @@ async function registerIpcHandlers(desktopSession) {
 	handle(IPC.environment, () => ({
 		platform: process.platform,
 		arch: process.arch,
-		version: app.getVersion(),
+		version: APPLICATION_VERSION,
 		development: !app.isPackaged,
 		locale: settings.snapshot().locale,
 		supportedLocales: [...SUPPORTED_LOCALES], runtimeVersions: { electron: process.versions.electron, chromium: process.versions.chrome, node: process.versions.node },
-		capabilities: { displayAudio: process.platform === 'win32', updates: settings.snapshot().updatesEnabled },
+		capabilities: { displayAudio: process.platform === 'win32', updates: !desktopStorage.portable && process.windowsStore !== true && settings.snapshot().updatesEnabled },
 	}));
 	if (SOAK_DEBUG_ENABLED) { handle(IPC.soakDebugProcessMetrics, () => collectSoakDebugProcessMetrics(app)); handle(IPC.soakDebugCoverageCheckpoint, checkpointSoakMainCoverage); }
 	registerProjectSavingIpc({ channels: IPC, handle, ownerFor: rendererSaveOwnerFor, files: projectFileAssociations, storage: temporaryProjectStorage, chooseFolder: async (defaultPath) => { const result = await dialog.showOpenDialog(mainWindow, { title: 'Temporary data folder', defaultPath, properties: ['openDirectory', 'createDirectory'] }); return result.canceled ? null : result.filePaths[0] ?? null; }, prompt: (options) => dialog.showMessageBox(mainWindow, options) });
@@ -411,7 +412,7 @@ async function registerIpcHandlers(desktopSession) {
 		await mainWindow.loadURL(`${APP_ORIGIN}/`);
 		return locale;
 	});
-	handle(IPC.checkForUpdates, () => checkForUpdates(true));
+	handle(IPC.checkForUpdates, () => updates.check(true));
 	assistance = registerAssistance({ channels: IPC, handle, on, sendToRenderer, app, storagePaths: desktopStorage, settings, dialog, windowFor: () => mainWindow, externalFfmpegPreferences: externalFfmpegPreferences.service }); assistanceSemanticSearch = registerAssistanceSemanticSearchMainIpc({ handle, removeHandler: (channel) => ipcMain.removeHandler(channel), ownerFor: rendererSaveOwnerFor, query: assistance.semanticQuery });
 	registerHostAffordances({ channels: IPC, handle, windowFor: () => mainWindow });
 	handle(IPC.windowAction, (_event, action) => runCurrentWindowAction(action));
@@ -459,27 +460,6 @@ function lockNavigation(window) {
 		if (!isEditorDocumentUrl(url)) event.preventDefault();
 	});
 	window.webContents.on('will-attach-webview', (event) => event.preventDefault());
-}
-
-async function checkForUpdates(manual) {
-	const result = await checkDesktopDistributionUpdates({ windowsStore: process.windowsStore, manual, checkRelease: (options) => releaseChecker.check(options), openExternal: (url) => shell.openExternal(url) });
-	if (result.status === 'available' && mainWindow) {
-		const response = await dialog.showMessageBox(mainWindow, {
-			type: 'info',
-			title: `${APP_NAME} update available`,
-			message: `${APP_NAME} ${result.version} is available.`,
-			detail: 'Updates are never downloaded or installed automatically.',
-			buttons: ['View Release', 'Later'],
-			defaultId: 0,
-			cancelId: 1,
-		});
-		if (response.response === 0) await shell.openExternal(EXTERNAL_DESTINATIONS.releases);
-	} else if (manual && result.status === 'current' && mainWindow) {
-		await dialog.showMessageBox(mainWindow, { type: 'info', title: `${APP_NAME} is up to date`, message: 'You are using the newest available release.' });
-	} else if (manual && result.status === 'error' && mainWindow) {
-		await dialog.showMessageBox(mainWindow, { type: 'warning', title: 'Could not check for updates', message: result.message });
-	}
-	return result;
 }
 
 function sendToRenderer(channel, value) {

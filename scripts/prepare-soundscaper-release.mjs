@@ -5,6 +5,8 @@ import { constants } from 'node:fs';
 import { copyFile, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { parseReleaseVersion } from '../src/common/release/release-version.ts';
+import { calendarPackageVersion } from '../src/common/release/release-packaging.ts';
 
 import {
 	expectedProductReleaseTag,
@@ -15,7 +17,6 @@ import {
 } from './lib/product-release-lines.mjs';
 
 const DEFAULT_REPOSITORY_ROOT = fileURLToPath(new URL('..', import.meta.url));
-const STABLE_SEMVER = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u;
 const DOCUMENT_PATHS = Object.freeze({
 	releaseLines: 'config/product-release-lines.json',
 	packageMetadata: 'package.json',
@@ -43,8 +44,11 @@ export function createSoundscaperReleasePreparation(documents, versionValue) {
 	assertPackageDocuments(documents.packageMetadata, documents.packageLock);
 	if (versionValue !== undefined) {
 		if (typeof versionValue !== 'string') throw new TypeError('The Soundscaper version must be a string.');
-		const channel = STABLE_SEMVER.test(versionValue) ? 'stable' : 'candidate';
+		const parsed = parseReleaseVersion(versionValue);
+		if (parsed?.kind !== 'calendar' || parsed.text !== versionValue || parsed.product !== 'Soundscaper') throw new TypeError('The Soundscaper version must be a named calendar version.');
+		const channel = parsed.channel === 'stable' ? 'stable' : 'candidate';
 		releaseLines.products.soundscaper[channel].version = versionValue;
+		releaseLines.products.soundscaper[channel].tagPrefix = 'Soundscaper';
 		releaseLines.products.soundscaper.applicationVersionChannel = channel;
 		releaseLines.products.soundscaper.releaseChannel = channel;
 	}
@@ -52,9 +56,11 @@ export function createSoundscaperReleasePreparation(documents, versionValue) {
 	const version = resolveProductApplicationVersion('soundscaper', validatedReleaseLines);
 	const packageMetadata = structuredClone(documents.packageMetadata);
 	const packageLock = structuredClone(documents.packageLock);
-	packageMetadata.version = version;
-	packageLock.version = version;
-	packageLock.packages[''].version = version;
+	const packageVersion = parseReleaseVersion(version)?.kind === 'calendar' ? calendarPackageVersion(version) : version;
+	packageMetadata.version = packageVersion;
+	packageMetadata.releaseVersion = version;
+	packageLock.version = packageVersion;
+	packageLock.packages[''].version = packageVersion;
 	return Object.freeze({
 		releaseLines: structuredClone(validatedReleaseLines),
 		packageMetadata,
@@ -93,8 +99,8 @@ export async function prepareSoundscaperRelease(options = {}) {
 	const version = resolveProductApplicationVersion('soundscaper', prepared.releaseLines);
 	const tag = expectedProductReleaseTag('soundscaper', prepared.releaseLines);
 	(options.writeOutput ?? ((value) => process.stdout.write(value)))(
-		options.checkOnly ? `Soundscaper ${version} metadata is synchronized (${tag}).\n`
-			: `Soundscaper ${version} metadata prepared; commit it before pushing ${tag}.\n`,
+		options.checkOnly ? `${version} metadata is synchronized (${tag}).\n`
+			: `${version} metadata prepared; commit it before pushing ${tag}.\n`,
 	);
 	return prepared;
 }
@@ -160,7 +166,9 @@ function readReleaseLines(documents) {
 function assertSynchronizedSoundscaperMetadata(documents) {
 	const releaseLines = readReleaseLines(documents);
 	const version = resolveProductApplicationVersion('soundscaper', releaseLines);
-	assertPackageDocuments(documents.packageMetadata, documents.packageLock, version);
+	const packageVersion = parseReleaseVersion(version)?.kind === 'calendar' ? calendarPackageVersion(version) : version;
+	assertPackageDocuments(documents.packageMetadata, documents.packageLock, packageVersion);
+	if (parseReleaseVersion(version)?.kind === 'calendar' && documents.packageMetadata.releaseVersion !== version) throw new Error('The public release version is not synchronized.');
 	const expectedDesktop = resolveProductDesktopMetadata('soundscaper', releaseLines);
 	if (JSON.stringify(documents.desktopProduct) !== JSON.stringify(expectedDesktop)) {
 		throw new Error('The checked-in Soundscaper desktop metadata is not synchronized.');
