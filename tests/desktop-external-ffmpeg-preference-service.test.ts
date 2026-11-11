@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { posix } from 'node:path';
 import test from 'node:test';
 
 import {
@@ -74,6 +75,43 @@ test('an incompatible manual selection stays selected but has no trusted evidenc
 	assert.deepEqual(settings.calls, [['select', PATH], ['clear-evidence', PATH]]);
 	assert.equal(service.admission(), null);
 	assert.equal((await service.choose()).state, 'unsupported');
+});
+
+test('automatically detected selections remain automatic across rescans and service restarts', async () => {
+	const settings = settingsFixture(null);
+	const probes: Array<string | null> = [];
+	let detected = available();
+	const options = ports(settings, {
+		probe: (path) => { probes.push(path); return Promise.resolve(detected); },
+	});
+	const service = createExternalFfmpegPreferenceService(options);
+	assert.equal((await service.rescan()).state, 'ready');
+	assert.equal(settings.snapshot().externalFfmpegSelection?.source, 'automatic');
+	detected = available({ executablePath: '/newer/ffmpeg', version: '9.1.0' });
+	assert.equal((await service.rescan()).location, '/newer/ffmpeg');
+	assert.equal((await createExternalFfmpegPreferenceService(options).rescan()).state, 'ready');
+	assert.equal(settings.snapshot().externalFfmpegSelection?.source, 'automatic');
+	assert.equal(settings.snapshot().externalFfmpegSelection?.identity?.version, '9.1.0');
+	assert.deepEqual(probes, [null, null, null]);
+});
+
+test('browsing an automatically detected path pins it for later rescans and installation', async () => {
+	const settings = settingsFixture(null);
+	const probes: Array<string | null> = [];
+	const options = ports(settings, {
+		choose: () => Promise.resolve(PATH),
+		probe: (path) => { probes.push(path); return Promise.resolve(available()); },
+		confirm: () => Promise.resolve(true),
+		install: () => Promise.resolve({ status: 'installed', exitCode: 0, stdout: '', stderr: '' }),
+	});
+	const service = createExternalFfmpegPreferenceService(options);
+	await service.rescan();
+	await service.choose();
+	assert.equal(settings.snapshot().externalFfmpegSelection?.source, 'manual');
+	const reopened = createExternalFfmpegPreferenceService(options);
+	await reopened.rescan();
+	await reopened.install();
+	assert.deepEqual(probes, [null, PATH, PATH, PATH]);
 });
 
 test('cancelled Browse preserves state and Clear removes selection and admission', async () => {
@@ -237,15 +275,16 @@ function settingsFixture(selection: ReturnType<ExternalFfmpegPreferenceSettings[
 	return {
 		calls,
 		snapshot: () => ({ externalFfmpegSelection: current }),
-		setExternalFfmpegSelection: (path) => {
-			calls.push(['select', path]); current = { executablePath: path, identity: null, capabilities: null };
+		setExternalFfmpegSelection: (path, source = 'manual') => {
+			calls.push(source === 'manual' ? ['select', path] : ['select', path, source]);
+			current = { executablePath: path, source, identity: null, capabilities: null };
 			return Promise.resolve(current);
 		},
 		setExternalFfmpegProbeMetadata: (value) => {
-			calls.push(['evidence', value]); current = value; return Promise.resolve(current);
+			calls.push(['evidence', value]); current = { ...current, ...value }; return Promise.resolve(current);
 		},
 		clearExternalFfmpegProbeMetadata: (path) => {
-			calls.push(['clear-evidence', path]); current = { executablePath: path, identity: null, capabilities: null };
+			calls.push(['clear-evidence', path]); current = { ...current, executablePath: path, identity: null, capabilities: null };
 			return Promise.resolve(current);
 		},
 		clearExternalFfmpegSelection: () => { calls.push(['clear']); current = null; return Promise.resolve(null); },
@@ -266,15 +305,19 @@ function ports(settings: SettingsFixture, overrides: Partial<Parameters<typeof c
 }
 
 function available(overrides: Readonly<{
+	readonly executablePath?: string;
+	readonly version?: string;
 	readonly ffmpegSha256?: string;
 	readonly capabilityDigest?: string;
 }> = {}): ExternalFfmpegPreferenceProbeResult {
 	const ffmpegSha256 = overrides.ffmpegSha256 ?? IDENTITY.ffmpegSha256;
+	const executablePath = overrides.executablePath ?? PATH;
+	const ffprobePath = posix.join(posix.dirname(executablePath), 'ffprobe');
 	const identity = Object.freeze({
-		...IDENTITY, ffmpegSha256,
+		...IDENTITY, ffmpegSha256, ffprobePath, version: overrides.version ?? IDENTITY.version,
 		executablePairClosureSha256: externalFfmpegExecutablePairClosureSha256({
-			ffmpegPath: PATH, ffmpegSha256,
-			ffprobePath: IDENTITY.ffprobePath, ffprobeSha256: IDENTITY.ffprobeSha256,
+			ffmpegPath: executablePath, ffmpegSha256,
+			ffprobePath, ffprobeSha256: IDENTITY.ffprobeSha256,
 		}),
 	});
 	const capabilities = Object.freeze({
@@ -283,7 +326,7 @@ function available(overrides: Readonly<{
 	});
 	return {
 		status: 'available',
-		evidence: { executablePath: PATH, identity, capabilities },
+		evidence: { executablePath, identity, capabilities },
 		capabilities: {
 			encoders: ['libopus'], decoders: ['opus'], muxers: ['opus'],
 			demuxers: ['ogg'], filters: ['aresample'],

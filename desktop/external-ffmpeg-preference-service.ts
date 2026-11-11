@@ -53,13 +53,15 @@ export type ExternalFfmpegPreferenceProbeResult =
 
 export interface ExternalFfmpegPreferenceSelection {
 	readonly executablePath: string;
+	/** Legacy selections without provenance retain their manual priority. */
+	readonly source?: 'manual' | 'automatic';
 	readonly identity: ExternalFfmpegProbeEvidence['identity'] | null;
 	readonly capabilities: ExternalFfmpegProbeEvidence['capabilities'] | null;
 }
 
 export interface ExternalFfmpegPreferenceSettings {
 	snapshot(): Readonly<{ readonly externalFfmpegSelection: ExternalFfmpegPreferenceSelection | null }>;
-	setExternalFfmpegSelection(path: string): Promise<ExternalFfmpegPreferenceSelection>;
+	setExternalFfmpegSelection(path: string, source?: 'manual' | 'automatic'): Promise<ExternalFfmpegPreferenceSelection>;
 	setExternalFfmpegProbeMetadata(evidence: ExternalFfmpegProbeEvidence): Promise<ExternalFfmpegPreferenceSelection>;
 	clearExternalFfmpegProbeMetadata(path: string): Promise<ExternalFfmpegPreferenceSelection>;
 	clearExternalFfmpegSelection(): Promise<null>;
@@ -122,6 +124,11 @@ export function createExternalFfmpegPreferenceService(
 		return exposedStatus();
 	};
 
+	const manualSelectionPath = (): string | null => {
+		const selected = options.settings.snapshot().externalFfmpegSelection;
+		return selected?.source === 'automatic' ? null : selected?.executablePath ?? null;
+	};
+
 	const probe = async (selectedPath: string | null): Promise<ExternalFfmpegPreferenceStatus> => {
 		const probeEpoch = mutationEpoch;
 		let result: ExternalFfmpegPreferenceProbeResult;
@@ -153,8 +160,9 @@ export function createExternalFfmpegPreferenceService(
 		catch { return fail('error', 'FFmpeg returned invalid capability evidence.'); }
 		try {
 			const selected = options.settings.snapshot().externalFfmpegSelection;
-			if (selected?.executablePath !== result.evidence.executablePath) {
-				await options.settings.setExternalFfmpegSelection(result.evidence.executablePath);
+			const source = selectedPath === null ? 'automatic' : 'manual';
+			if (selected?.executablePath !== result.evidence.executablePath || (selected.source ?? 'manual') !== source) {
+				await options.settings.setExternalFfmpegSelection(result.evidence.executablePath, source);
 				if (probeEpoch !== mutationEpoch) return exposedStatus();
 			}
 			await options.settings.setExternalFfmpegProbeMetadata(result.evidence);
@@ -203,7 +211,7 @@ export function createExternalFfmpegPreferenceService(
 			return exposedStatus();
 		}),
 		rescan: () => exclusive('probing', () => (
-			probe(options.settings.snapshot().externalFfmpegSelection?.executablePath ?? null)
+			probe(manualSelectionPath())
 		)),
 		install: () => exclusive('installing', async () => {
 			const previous = current;
@@ -217,7 +225,7 @@ export function createExternalFfmpegPreferenceService(
 				return exposedStatus();
 			}
 			const outcome = await options.install(planResult.plan);
-			if (outcome.status === 'installed') return probe(null);
+			if (outcome.status === 'installed') return probe(manualSelectionPath());
 			if (outcome.status === 'cancelled') {
 				current = previous;
 				return exposedStatus();

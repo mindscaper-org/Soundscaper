@@ -175,7 +175,14 @@ and browser publication keeps its existing limits.
 
 Edit > Preferences > General shows the canonical location and detected version,
 with Browse beside the path and a Rescan action. Install is offered only while
-FFmpeg is not ready. Installation uses the exact WinGet package id
+FFmpeg is not ready. A manual selection stays pinned across rescans and installs;
+if that pair is missing or incompatible, its failure is reported without
+switching to another installation. Automatic discovery probes all detected
+pairs and chooses the newest compatible numeric major/minor/patch version,
+using discovery order to break equal-version ties. Saved automatic selections
+remain automatic on subsequent scans. Legacy saved paths without selection
+provenance retain manual priority; Clear followed by Rescan enables automatic
+selection again. Installation uses the exact WinGet package id
 `BtbN.FFmpeg.GPL.8.1` or an already installed Homebrew binary with
 `brew install ffmpeg`. These in-app actions require an existing package manager
 and do not bootstrap it or invoke `sudo`.
