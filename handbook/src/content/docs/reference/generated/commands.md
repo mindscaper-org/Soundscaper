@@ -179,6 +179,7 @@ Product availability follows each product profile’s command filters and each l
 | Enable multi-track recording | `show-arm-controls` | — | View | Soundscaper | Soundscaper local |
 | Enable triplets | `snap-triplets` | — | View > Snapping | Soundscaper, Framescaper | Soundscaper local |
 | Enhance Dialogue | `assistance-task-enhance-dialogue` | — | Effect > Noise removal and repair | Soundscaper, Framescaper | Soundscaper local |
+| Export AAF | `export-aaf` | — | File > Export other | Soundscaper, Framescaper | Soundscaper local |
 | Export AUP3 | `save-aup3` | — | File > Export other | Soundscaper | Soundscaper local |
 | Export AUP4 | `save-aup4` | — | File > Export other | Soundscaper | Soundscaper local |
 | Export Allegro (beta) | `allegro-export-file` | — | File > Export other | Soundscaper | Soundscaper local |

@@ -11,3 +11,12 @@ test('DAWproject curve and clock adapters stay in their lazy archive closure', (
 		assert.equal(chunkGroupForModulePath(path), null, path);
 	}
 });
+
+test('AAF parsing, writing and embedded export stay behind optional interchange entries', () => {
+	for (const name of ['compound-reader', 'compound-writer', 'export', 'import', 'object-table', 'object-writer', 'wave']) {
+		const path = `src/common/editor/aaf-${name}.ts`;
+		assert.ok(EDITOR_OPTIONAL_ARCHIVE_CHUNK_TEST.test(path), path);
+		assert.equal(chunkGroupForModulePath(path), null, path);
+	}
+	assert.equal(chunkGroupForModulePath('src/common/editor/controller/export/internal/embedded-audio-interchange-export-action.ts'), 'editor-optional-export');
+});

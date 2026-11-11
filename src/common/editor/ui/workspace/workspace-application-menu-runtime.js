@@ -247,6 +247,7 @@ export function createWorkspaceApplicationMenus({
 				exportEdl: () => run(() => controller.actions.export.exportEdl()),
 				exportOtio: () => run(() => controller.actions.export.exportOtio()),
 				exportFcpxml: () => run(() => controller.actions.export.exportFcpxml()),
+				exportAaf: () => run(() => controller.actions.export.exportAaf()),
 				exportOmf: () => run(() => controller.actions.export.exportOmf()),
 				consolidateMedia: () => run(() => controller.actions.media.consolidate()),
 				trimMedia: () => run(() => controller.actions.media.trim()),

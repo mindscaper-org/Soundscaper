@@ -14,7 +14,7 @@ import { stageTimelineInterchangeMedia } from './timeline-interchange-media.ts';
 import type { TimelineInterchangeFinalizer } from './timeline-interchange-video.ts';
 
 const MAXIMUM_TEXT_BYTES = 32 * 1024 * 1024;
-const MAXIMUM_OMF_BYTES = 512 * 1024 * 1024;
+const MAXIMUM_BINARY_BYTES = 512 * 1024 * 1024;
 
 export interface TimelineInterchangeOpenOptions {
 	readonly mediaFiles?: readonly File[];
@@ -25,7 +25,7 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 	return Object.freeze({ openInterchange });
 
 	async function openInterchange(file: NativeProjectFile, options: TimelineInterchangeOpenOptions = {}) {
-		if (!file || !isTimelineInterchangeFile(file.name)) throw new TypeError('Choose an EDL, OTIO, FCPXML, or OMF file.');
+		if (!file || !isTimelineInterchangeFile(file.name)) throw new TypeError('Choose an EDL, OTIO, FCPXML, OMF, or AAF file.');
 		if (runtime.editingBlocked()) return undefined;
 		const operation = helpers.beginProjectTask('timeline-interchange-open');
 		const signal = operation.task.signal;
@@ -38,10 +38,11 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 		helpers.beginImport(operation.task);
 		try {
 			setLocalizedStatus(runtime.setStatus, runtime.copy, 'importing');
-			const binary = /\.omfi?$/iu.test(file.name);
-			if (file.size > (binary ? MAXIMUM_OMF_BYTES : MAXIMUM_TEXT_BYTES)) throw new RangeError('The interchange document exceeds its import size limit.');
-			const document = binary
-				? (await import('../../../../omf-import.ts')).parseOmfDocument(new Uint8Array(await file.arrayBuffer()))
+			const binary = /\.(?:omfi?|aaf)$/iu.test(file.name);
+			if (file.size > (binary ? MAXIMUM_BINARY_BYTES : MAXIMUM_TEXT_BYTES)) throw new RangeError('The interchange document exceeds its import size limit.');
+			const document = /\.aaf$/iu.test(file.name)
+				? (await import('../../../../aaf-import.ts')).parseAafDocument(new Uint8Array(await file.arrayBuffer()))
+				: binary ? (await import('../../../../omf-import.ts')).parseOmfDocument(new Uint8Array(await file.arrayBuffer()))
 				: parseTimelineInterchange(file.name, await readTimelineText(file), { edlRate: options.edlRate });
 			assertCurrent();
 			const media = new Map<string, Readonly<Record<string, unknown>>>();
