@@ -16,7 +16,7 @@ test('deleting a custom effect preset returns keyboard control to the preset pic
 	await prompt.getByRole('textbox').fill('Keyboard room');
 	await prompt.getByRole('textbox').press('Enter');
 	await expect(prompt).toBeHidden();
-	const picker = dialog.getByRole('button', { name: 'Preset', exact: true });
+	const picker = dialog.getByRole('button', { name: /^Preset(?::|$)/u });
 	await expect(picker).toContainText('Keyboard room');
 	const remove = dialog.getByRole('button', { name: 'Delete preset', exact: true });
 	await remove.focus();

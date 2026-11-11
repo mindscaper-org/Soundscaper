@@ -73,7 +73,7 @@ async function saveAudioPreset(page, dialog, name) {
 	await prompt.getByRole('textbox', { name: 'Preset name', exact: true }).fill(name);
 	await prompt.getByRole('button', { name: 'Save preset', exact: true }).click();
 	await expect(prompt).toBeHidden();
-	await expect(dialog.getByRole('button', { name: 'Preset', exact: true })).toContainText(name);
+	await expect(dialog.getByRole('button', { name: /^Preset(?::|$)/u })).toContainText(name);
 }
 
 async function installFailOnceSaveTarget(page) {

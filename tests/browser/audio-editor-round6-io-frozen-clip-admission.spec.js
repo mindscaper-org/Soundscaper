@@ -29,7 +29,7 @@ for (const frozen of [true]) test(`individual clip export ${frozen ? 'explains t
 	}
 	const dialog = await openExportDialog(page, editor);
 	await dialog.locator('[data-export-field="output"]').getByRole('button').click();
-	await expect(page.getByRole('listbox', { name: 'Output', exact: true })).toBeVisible();
+	await expect(page.getByRole('listbox', { name: /^Output(?::|$)/u })).toBeVisible();
 	const option = page.getByRole('option', { name: 'Individual clips (split by clips)', exact: true });
 	if (frozen) {
 		await expect(option).toHaveCount(0);

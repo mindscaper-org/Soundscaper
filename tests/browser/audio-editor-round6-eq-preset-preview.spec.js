@@ -37,7 +37,7 @@ test('selecting a Parametric EQ preset also changes the active preview processor
 	await output.press('Enter');
 	await dialog.getByRole('button', { name: 'Preview', exact: true }).click();
 	await expect(dialog.getByRole('button', { name: 'Stop preview', exact: true })).toBeVisible();
-	await dialog.getByRole('button', { name: 'Preset', exact: true }).click();
+	await dialog.getByRole('button', { name: /^Preset(?::|$)/u }).click();
 	await page.getByRole('option', { name: 'Quiet preview (custom)*', exact: true }).click();
 	await expect(output).toHaveValue('-12');
 	await expect.poll(() => page.evaluate(() => window.__round6EqPreviewMessages.some(

@@ -114,11 +114,11 @@ test('Plugin Manager filters installed rows and allows only the selected install
 	const dialog = page.getByRole('dialog', { name: 'Plugin Manager', exact: true });
 	const search = dialog.getByRole('textbox', { name: 'Search plugins' });
 	await expect(dialog.locator('[data-native-plugin-entry]')).toHaveCount(3);
-	await dialog.getByRole('button', { name: 'Status', exact: true }).click();
+	await dialog.getByRole('button', { name: /^Status(?::|$)/u }).click();
 	await page.getByRole('option', { name: 'Incompatible', exact: true }).click();
 	await expect(dialog.locator('[data-native-plugin-entry]')).toHaveCount(1);
 	await expect(dialog.getByRole('row', { name: 'Broken Fixture VST2 Incompatible', exact: true })).toBeVisible();
-	await dialog.getByRole('button', { name: 'Status', exact: true }).click();
+	await dialog.getByRole('button', { name: /^Status(?::|$)/u }).click();
 	await page.getByRole('option', { name: 'Disabled', exact: true }).click();
 	await expect(dialog.locator('[data-native-plugin-entry]')).toHaveCount(1);
 	await dialog.getByRole('button', { name: 'Echo', exact: true }).click();

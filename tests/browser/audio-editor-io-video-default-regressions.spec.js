@@ -30,7 +30,7 @@ test('a saved video preset tolerates an invalid canvas draft while refusing subm
 	const naming = page.getByRole('dialog', { name: 'Save as new preset', exact: true });
 	await naming.getByRole('textbox', { name: 'Preset name', exact: true }).fill('Small portrait');
 	await naming.getByRole('button', { name: 'Save preset', exact: true }).click();
-	await expect(dialog.getByRole('button', { name: 'Preset', exact: true })).toContainText('Small portrait');
+	await expect(dialog.getByRole('button', { name: /^Preset(?::|$)/u })).toContainText('Small portrait');
 	const width = dialog.getByRole('spinbutton', { name: 'Width', exact: true });
 	await width.fill('0');
 	await expect(width).toHaveValue('0');

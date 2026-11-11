@@ -25,7 +25,7 @@ test.describe('effect presets Audacity ships', () => {
 
 		const dialog = page.locator('[data-selection-effects-dialog]');
 		await expect(dialog).toBeVisible();
-		const presets = dialog.getByRole('button', { name: 'Preset', exact: true });
+		const presets = dialog.getByRole('button', { name: /^Preset(?::|$)/u });
 		await expect(presets).toContainText('Default preset');
 		await presets.click();
 
@@ -71,7 +71,7 @@ test.describe('effect presets Audacity ships', () => {
 			].join(' ')),
 		});
 
-		const presets = dialog.getByRole('button', { name: 'Preset', exact: true });
+		const presets = dialog.getByRole('button', { name: /^Preset(?::|$)/u });
 		await presets.click();
 		const imported = page.getByRole('option', { name: 'Vocal room (custom)', exact: true });
 		await expect(imported).toBeVisible();

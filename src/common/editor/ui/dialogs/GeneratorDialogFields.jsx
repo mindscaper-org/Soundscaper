@@ -57,8 +57,9 @@ export function GeneratorNumberField({ name, label, ariaLabel = label, value, mi
 export function GeneratorSelect({ label, value, disabled = false, onChange, options }) {
 	const wrapperRef = useRef(null);
 	useEffect(() => {
-		wrapperRef.current?.querySelector('.dropdown__trigger')?.setAttribute('aria-label', label);
-	}, [label]);
+		const trigger = wrapperRef.current?.querySelector('.dropdown__trigger');
+		trigger?.setAttribute('aria-label', `${label}: ${trigger.querySelector('.dropdown__text')?.textContent || ''}`);
+	}, [label, value, options]);
 	return (
 		<div ref={wrapperRef} className="kw-audio-editor-dialog__field" data-generator-field={label} role="group" aria-label={label}>
 			<span>{label}</span>

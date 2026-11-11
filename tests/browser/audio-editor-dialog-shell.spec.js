@@ -151,7 +151,7 @@ test.describe('shared audio editor dialog behavior', () => {
 		const editor = await bootEditor(page);
 		await chooseCommand(page, editor, 'Generate', 'Chirp');
 		const dialog = page.getByRole('dialog', { name: 'Chirp', exact: true });
-		const waveform = dialog.getByRole('button', { name: 'Waveform', exact: true });
+		const waveform = dialog.getByRole('button', { name: /^Waveform(?::|$)/u });
 		const startAmplitude = dialog.locator('[data-generator-field="startAmplitude"] input');
 		const endAmplitude = dialog.locator('[data-generator-field="endAmplitude"] input');
 

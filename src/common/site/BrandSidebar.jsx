@@ -115,7 +115,7 @@ export default function BrandSidebar({ locale, productId = 'soundscaper' }) {
 						</select>
 					</label>
 					<div className="website-sidebar-actions">
-						<button className="website-theme-toggle" type="button" data-theme-toggle aria-label={copy.theme} aria-pressed={String(theme === 'dark')} onClick={toggleTheme}>
+						<button className="website-theme-toggle" type="button" data-theme-toggle aria-label={`${copy.theme}: ${theme === 'dark' ? copy.dark : copy.light}`} aria-pressed={String(theme === 'dark')} onClick={toggleTheme}>
 							<span className="website-theme-toggle-track" aria-hidden="true"><span className="website-theme-toggle-thumb"></span></span>
 							<span data-theme-label>{theme === 'dark' ? copy.dark : copy.light}</span>
 						</button>

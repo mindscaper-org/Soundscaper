@@ -14,11 +14,11 @@ async function saveDeliveryPreset(page, dialog, name) {
 	const naming = page.getByRole('dialog', { name: 'Save as new preset', exact: true });
 	await naming.getByRole('textbox', { name: 'Preset name', exact: true }).fill(name);
 	await naming.getByRole('button', { name: 'Save preset', exact: true }).click();
-	await expect(dialog.getByRole('button', { name: 'Preset', exact: true })).toContainText(name);
+	await expect(dialog.getByRole('button', { name: /^Preset(?::|$)/u })).toContainText(name);
 }
 
 async function applyDeliveryPreset(page, dialog, name) {
-	await dialog.getByRole('button', { name: 'Preset', exact: true }).click();
+	await dialog.getByRole('button', { name: /^Preset(?::|$)/u }).click();
 	await page.getByRole('option', { name: `${name} (custom)` }).click();
 }
 

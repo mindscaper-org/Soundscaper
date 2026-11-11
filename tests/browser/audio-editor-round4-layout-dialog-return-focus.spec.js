@@ -8,7 +8,7 @@ test('closing Preferences after choosing Compact returns to a visible menu contr
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Appearance$/u }).click();
-	const layout = preferences.getByRole('button', { name: 'Layout', exact: true });
+	const layout = preferences.getByRole('button', { name: /^Layout(?::|$)/u });
 	await layout.click();
 	await page.getByRole('option', { name: 'Compact (menus and track headers in drawers)', exact: true }).click();
 	await expect(editor.locator('[data-chrome-layout]')).toHaveAttribute('data-chrome-layout', 'compact');

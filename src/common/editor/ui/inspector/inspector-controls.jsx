@@ -83,8 +83,9 @@ export function LabeledDropdown({ label, options, value, onChange, disabled, hoo
 		onChange(next);
 	};
 	useEffect(() => {
-		wrapperRef.current?.querySelector('.dropdown__trigger')?.setAttribute('aria-label', label);
-	}, [label]);
+		const trigger = wrapperRef.current?.querySelector('.dropdown__trigger');
+		trigger?.setAttribute('aria-label', `${label}: ${trigger.querySelector('.dropdown__text')?.textContent || ''}`);
+	}, [label, value, options]);
 	return (
 		<div ref={wrapperRef} className="audio-editor-field" role="group" aria-label={label} {...dataHook}>
 			<span>{label}</span>

@@ -15,7 +15,7 @@ async function overlapStereoClips(page) {
 	const trackName = (await track.locator('.track-control-panel__track-name-text').textContent()).trim();
 	const properties = await openClipProperties(page, editor, incoming, { additional: false });
 	await commitInput(properties.getByRole('textbox', { name: 'Start', exact: true }), '0.4');
-	await properties.getByRole('button', { name: 'Track', exact: true }).click();
+	await properties.getByRole('button', { name: /^Track(?::|$)/u }).click();
 	await page.getByRole('option', { name: trackName, exact: true }).click();
 	await closeClipProperties(properties);
 	await expect(incoming.locator('xpath=ancestor::*[@data-track-row][1]')).toHaveAttribute('data-track-id', trackId);

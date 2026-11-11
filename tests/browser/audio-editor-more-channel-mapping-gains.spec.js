@@ -19,7 +19,7 @@ test('reviewing an imported routing preset preserves its delivered attenuation a
 				channelMapping: { channels: [{ inputs: [{ channel: 0, gain: .25 }, { channel: 1, gain: -.5 }] }] },
 			} }] })),
 	});
-	await dialog.getByRole('button', { name: 'Preset', exact: true }).click();
+	await dialog.getByRole('button', { name: /^Preset(?::|$)/u }).click();
 	await page.getByRole('option', { name: 'Quiet difference (custom)', exact: true }).click();
 	await dialog.locator('[data-export-channel-action="edit-mapping"] button').click();
 	await page.locator('[data-export-channel-mapping]').getByRole('button', { name: 'Apply', exact: true }).click();
