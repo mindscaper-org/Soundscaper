@@ -1,3 +1,4 @@
+import { originPrivateFileSystemAvailable } from './helpers/storage-capabilities.js';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { taskProgressCancel } from './helpers/task-progress.js';
 
@@ -35,7 +36,8 @@ for (const stage of ['write', 'close']) test(`Cancel export during native archiv
 		}
 	});
 	const editor = await bootEditor(page, '/embed/en/');
-	test.skip(!await page.evaluate(() => globalThis.__ordinaryZipStorageAvailable),
+	test.skip(!await originPrivateFileSystemAvailable(page)
+		|| !await page.evaluate(() => globalThis.__ordinaryZipStorageAvailable),
 		'This browser does not provide native origin-storage writable streams.');
 	await importFiles(editor, [monoTone]);
 	const dialog = await openExportDialog(page, editor);

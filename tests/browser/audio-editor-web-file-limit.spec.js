@@ -28,7 +28,7 @@ test.describe('browser file limit download prompt', () => {
 			test.setTimeout(60_000);
 			await page.addInitScript(() => {
 				const storage = navigator.storage ?? {};
-				if (!navigator.storage) Object.defineProperty(navigator, 'storage', { configurable: true, value: storage });
+				Object.defineProperty(navigator, 'storage', { configurable: true, value: storage });
 				const estimate = typeof storage.estimate === 'function' ? storage.estimate.bind(storage) : null;
 				Object.defineProperty(storage, 'estimate', {
 					configurable: true,

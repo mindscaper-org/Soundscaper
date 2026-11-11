@@ -1,3 +1,4 @@
+import { originPrivateFileSystemAvailable } from './helpers/storage-capabilities.js';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, monoTone, test, toneA, toneB } from './audio-editor-test-fixtures.js';
@@ -137,7 +138,8 @@ function intersection(left, right) {
 }
 
 async function durableEditorInventory(page) {
-	return page.evaluate(async ({ databaseName, opfsDirectoryName }) => {
+	const opfsAvailable = await originPrivateFileSystemAvailable(page);
+	return page.evaluate(async ({ databaseName, opfsDirectoryName, opfsAvailable }) => {
 		const result = (request) => new Promise((resolve, reject) => {
 			request.onsuccess = () => resolve(request.result);
 			request.onerror = () => reject(request.error);
@@ -203,7 +205,7 @@ async function durableEditorInventory(page) {
 			}
 		}
 
-		if (typeof navigator.storage?.getDirectory === 'function') {
+		if (opfsAvailable) {
 			const root = await navigator.storage.getDirectory();
 			let sourceDirectory = null;
 			try {
@@ -240,5 +242,5 @@ async function durableEditorInventory(page) {
 				`${String(byteLength)}:${sha256}`
 			)))].sort(),
 		};
-	}, { databaseName: SOUNDSCAPER_DATABASE_NAME, opfsDirectoryName: SOUNDSCAPER_OPFS_DIRECTORY_NAME });
+	}, { databaseName: SOUNDSCAPER_DATABASE_NAME, opfsDirectoryName: SOUNDSCAPER_OPFS_DIRECTORY_NAME, opfsAvailable });
 }

@@ -7,7 +7,9 @@ import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js'
 test('Cancel during generator storage preflight releases processing before the estimate returns', async ({ page }) => {
 	await page.addInitScript(() => {
 		if (typeof navigator.storage?.estimate !== 'function') return;
-		const estimate = navigator.storage.estimate.bind(navigator.storage);
+		const storage = navigator.storage;
+		Object.defineProperty(navigator, 'storage', { configurable: true, value: storage });
+		const estimate = storage.estimate.bind(storage);
 		navigator.storage.estimate = async function () {
 			if (globalThis.__nextHoldGeneratorEstimate) {
 				globalThis.__nextGeneratorEstimateStarted = true;

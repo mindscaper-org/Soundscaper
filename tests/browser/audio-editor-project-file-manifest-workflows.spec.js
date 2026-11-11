@@ -1,3 +1,4 @@
+import { originPrivateFileSystemAvailable } from './helpers/storage-capabilities.js';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 
@@ -233,7 +234,8 @@ async function corruptLastAudioAsset(archive) {
 }
 
 async function scapeStorageSnapshot(page) {
-	return page.evaluate(async ({ databaseName, opfsDirectoryName }) => {
+	const opfsAvailable = await originPrivateFileSystemAvailable(page);
+	return page.evaluate(async ({ databaseName, opfsDirectoryName, opfsAvailable }) => {
 		const result = (request) => new Promise((resolve, reject) => {
 			request.onsuccess = () => resolve(request.result);
 			request.onerror = () => reject(request.error);
@@ -282,7 +284,7 @@ async function scapeStorageSnapshot(page) {
 		}
 		const storedRows = await normalize(rows);
 		let opfsFiles = null;
-		if (typeof navigator.storage?.getDirectory === 'function') {
+		if (opfsAvailable) {
 			const root = await navigator.storage.getDirectory();
 			let directory;
 			try {
@@ -307,5 +309,5 @@ async function scapeStorageSnapshot(page) {
 			}
 		}
 		return { storedRows, opfsFiles };
-	}, { databaseName: SOUNDSCAPER_DATABASE_NAME, opfsDirectoryName: SOUNDSCAPER_OPFS_DIRECTORY_NAME });
+	}, { databaseName: SOUNDSCAPER_DATABASE_NAME, opfsDirectoryName: SOUNDSCAPER_OPFS_DIRECTORY_NAME, opfsAvailable });
 }
