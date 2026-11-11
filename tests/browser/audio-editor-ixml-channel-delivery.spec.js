@@ -8,38 +8,46 @@ import { bootEditor, chooseDropdown, chooseFileAction, disableNativeSavePicker, 
 const recording = Buffer.from(readFileSync(new URL('../fixtures/bwfmetaedit-mid-side.wav.base64', import.meta.url), 'utf8').trim(), 'base64');
 const warning = 'Recorder track names and roles were omitted because the export changes channel routing.';
 
-for (const layout of ['Stereo', 'Mono']) test(`BWF ${layout} export retains truthful recorder channel metadata`, async ({ page }) => {
+test('BWF Stereo and Mono exports retain truthful recorder channel metadata', async ({ page }) => {
+	const caseTimeout = test.info().timeout;
+	test.setTimeout(caseTimeout * 2);
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [{ name: 'Mid-side.wav', mimeType: 'audio/wav', buffer: recording }]);
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
-	const dialog = await openExportDialog(page, editor);
-	await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'Broadcast WAV (BWF)');
-	await chooseDropdown(page, dialog.locator('[data-export-field="bitDepth"]'), '16-bit PCM');
-	await dialog.getByRole('radio', { name: layout, exact: true }).check();
-	await dialog.getByRole('button', { name: 'Export', exact: true }).click();
-	const link = dialog.locator('[data-export-download]');
-	await expect(link).toBeVisible({ timeout: 20_000 });
-	const chunks = riffChunks(await readDownloadBytes(page, link));
-	const format = chunks.get('fmt ');
-	expect(new DataView(format.buffer, format.byteOffset, format.byteLength).getUint16(2, true)).toBe(layout === 'Mono' ? 1 : 2);
-	const xml = new TextDecoder().decode(chunks.get('iXML'));
-	expect(xml).toContain('<NOTE>Mid-side location take</NOTE>');
-	if (layout === 'Stereo') {
-		expect(xml).toBe(new TextDecoder().decode(riffChunks(recording).get('iXML')));
-		expect(xml).toContain('<CHANNEL_INDEX>4</CHANNEL_INDEX>');
-		expect(xml).toContain('<CHANNEL_INDEX>6</CHANNEL_INDEX>');
-	} else {
-		expect(xml).not.toContain('<TRACK_LIST>');
-		expect(xml).not.toContain('M-MID_SIDE');
-		expect(xml).not.toContain('S-MID_SIDE');
-	}
-	await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
-	await expect(dialog).toBeHidden();
-	await chooseFileAction(page, editor, 'Delivery Report');
-	const report = page.getByRole('dialog', { name: 'Delivery Report', exact: true });
-	if (layout === 'Mono') await expect(report).toContainText(warning);
-	else await expect(report).not.toContainText(warning);
+	for (const layout of ['Stereo', 'Mono']) await test.step(`${layout} recorder delivery`, async () => {
+		const dialog = await openExportDialog(page, editor);
+		await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'Broadcast WAV (BWF)');
+		await chooseDropdown(page, dialog.locator('[data-export-field="bitDepth"]'), '16-bit PCM');
+		await dialog.getByRole('radio', { name: layout, exact: true }).check();
+		const previousDownload = await dialog.locator('[data-export-download]').count() ? await dialog.locator('[data-export-download]').getAttribute('href') : null;
+		await dialog.getByRole('button', { name: 'Export', exact: true }).click();
+		const link = dialog.locator('[data-export-download]');
+		await expect(link).toBeVisible({ timeout: 20_000 });
+		await expect.poll(() => link.getAttribute('href')).not.toBe(previousDownload);
+		const chunks = riffChunks(await readDownloadBytes(page, link));
+		const format = chunks.get('fmt ');
+		expect(new DataView(format.buffer, format.byteOffset, format.byteLength).getUint16(2, true)).toBe(layout === 'Mono' ? 1 : 2);
+		const xml = new TextDecoder().decode(chunks.get('iXML'));
+		expect(xml).toContain('<NOTE>Mid-side location take</NOTE>');
+		if (layout === 'Stereo') {
+			expect(xml).toBe(new TextDecoder().decode(riffChunks(recording).get('iXML')));
+			expect(xml).toContain('<CHANNEL_INDEX>4</CHANNEL_INDEX>');
+			expect(xml).toContain('<CHANNEL_INDEX>6</CHANNEL_INDEX>');
+		} else {
+			expect(xml).not.toContain('<TRACK_LIST>');
+			expect(xml).not.toContain('M-MID_SIDE');
+			expect(xml).not.toContain('S-MID_SIDE');
+		}
+		await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+		await expect(dialog).toBeHidden();
+		await chooseFileAction(page, editor, 'Delivery Report');
+		const report = page.getByRole('dialog', { name: 'Delivery Report', exact: true });
+		if (layout === 'Mono') await expect(report).toContainText(warning);
+		else await expect(report).not.toContainText(warning);
+		await report.locator('.audio-editor-dialog-footer').getByRole('button', { name: 'Close', exact: true }).click();
+		await expect(report).toBeHidden();
+	}, { timeout: caseTimeout });
 });
 
 function riffChunks(bytes) {
