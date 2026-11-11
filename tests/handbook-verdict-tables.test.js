@@ -109,6 +109,15 @@ test('symbol sources decorate every product column and expose each meaning witho
 	assert.equal(products[3].children.length, 1);
 });
 
+test('unverified capabilities have a distinct accessible verdict', () => {
+	const tree = transform(table([['Capability', '? — not verified']]));
+	const [, cell] = cellsOf(tree);
+	assert.deepEqual(classesOf(cell), ['verdict-cell', 'verdict-cell--unknown']);
+	assert.deepEqual(cell.children[0].children, [text('?')]);
+	assert.equal(cell.children[0].properties.ariaLabel, 'Not verified');
+	assert.deepEqual(cell.children[1], text(' not verified'));
+});
+
 test('a verdict whose detail opens with markup keeps the word space the em dash held', () => {
 	const tree = transform(table([
 		['Native project format', [text('+ — '), element('code', [text('.sscape')]), text(', a portable archive')]],
@@ -162,6 +171,19 @@ test('every comparison table on the committed page still qualifies', async () =>
 	for (const rows of tables) {
 		const tree = transform(table(rows));
 		assert.deepEqual(classesOf(tree), ['verdict-table'], `uncoloured table starting with row: ${rows[0]?.join(' | ')}`);
+	}
+});
+
+test('each comparison table includes all six products', async () => {
+	const source = await readFile(COMPARISON_PAGE, 'utf8');
+	const headers = source.split('\n').filter((line) => line.startsWith('| Capability |'));
+	assert.ok(headers.length > 0);
+	for (const header of headers) {
+		const names = header.split('|').slice(1, -1).map((name) => name.trim());
+		assert.deepEqual(names, ['Capability', 'Soundscaper Web', 'Soundscaper Desktop', 'Audacity 4.0.2', 'Audition', 'Pro Tools Studio', 'SoundCraft 0.19.0']);
+	}
+	for (const rows of tablesIn(source)) {
+		for (const cells of rows) assert.equal(cells.length, 7, `wrong number of cells: ${cells[0]}`);
 	}
 });
 

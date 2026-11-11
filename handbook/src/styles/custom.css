@@ -40,7 +40,7 @@
 
 /*
  * Comparison matrices. `src/plugins/rehype-verdict-tables.mjs` tags the cells
- * of a table whose every comparison cell reads +, ~ or / (or a legacy verdict
+ * of a table whose every comparison cell reads +, ~, / or ? (or a legacy verdict
  * word). Distinct symbols and accessible labels repeat the colour's meaning.
  */
 :root {
@@ -81,6 +81,12 @@
 .sl-markdown-content .verdict--no {
 	--verdict-tint: var(--verdict-no-tint);
 	--verdict-text: var(--verdict-no-text);
+}
+
+.sl-markdown-content .verdict-cell--unknown,
+.sl-markdown-content .verdict--unknown {
+	--verdict-tint: transparent;
+	--verdict-text: var(--sl-color-text);
 }
 
 .sl-markdown-content .verdict {
