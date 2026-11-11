@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 import rehypeVerdictTables from '../handbook/src/plugins/rehype-verdict-tables.mjs';
 import rehypeComparisonDetails from '../handbook/src/plugins/rehype-comparison-details.mjs';
+import rehypeComparisonLayout from '../handbook/src/plugins/rehype-comparison-layout.mjs';
 
 const COMPARISON_PAGE = 'handbook/src/content/docs/start/how-soundscaper-compares.md';
 // Generated from the repository by `scripts/docs-reference.mjs`, and the reason
@@ -143,6 +144,27 @@ test('detail syntax in an ordinary table is left alone', () => {
 	const tree = table([['Term', 'Value :: explanation']]);
 	rehypeComparisonDetails()(tree);
 	assert.deepEqual(cellsOf(tree)[1].children, [text('Value :: explanation')]);
+});
+
+test('comparison layout moves keyboard scrolling to a named region and preserves ordinary tables', () => {
+	const comparison = transform(table([['Feature', '+']]));
+	comparison.properties.tabIndex = 0;
+	const ordinary = table([['Format', 'WAV']]);
+	ordinary.properties.tabIndex = 0;
+	const tree = { type: 'root', children: [element('h2', [text('Export and delivery')]), comparison, ordinary] };
+	rehypeComparisonLayout()(tree);
+	const region = tree.children[1];
+	assert.equal(region.tagName, 'div');
+	assert.equal(region.properties.role, 'region');
+	assert.equal(region.properties.ariaLabel, 'Export and delivery');
+	assert.equal(region.properties.tabIndex, 0);
+	assert.equal(region.children[0], comparison);
+	assert.equal(comparison.properties.tabIndex, undefined);
+	assert.equal(tree.children[2], ordinary);
+	assert.equal(ordinary.properties.tabIndex, 0);
+	rehypeComparisonLayout()(tree);
+	assert.equal(tree.children[1], region);
+	assert.equal(region.children[0], comparison);
 });
 
 test('a verdict whose detail opens with markup keeps the word space the em dash held', () => {

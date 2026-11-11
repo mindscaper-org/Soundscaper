@@ -114,6 +114,19 @@ test('gives the comparison page full width while standard pages keep their readi
 		expect(titleBox.x - (sidebarBox.x + sidebarBox.width)).toBeLessThanOrEqual(64);
 		expect(contentsBox.x - (titleBox.x + titleBox.width)).toBeLessThanOrEqual(64);
 		expect(contentsBox.width).toBeLessThanOrEqual(300);
+		let referenceColumns;
+		for (const table of await page.getByRole('table').all()) {
+			const columns = await table.getByRole('columnheader').evaluateAll((headers) => headers.map((header) => {
+				const { x, width: columnWidth } = header.getBoundingClientRect();
+				return { x, width: columnWidth };
+			}));
+			referenceColumns ??= columns;
+			for (const [index, column] of columns.entries()) {
+				expect(column.x).toBeCloseTo(referenceColumns[index].x, 0);
+				expect(column.width).toBeCloseTo(referenceColumns[index].width, 0);
+			}
+			expect(columns.at(-1).x + columns.at(-1).width).toBeCloseTo(titleBox.x + titleBox.width, 0);
+		}
 	}
 
 	await page.setViewportSize({ width: 1600, height: 1000 });
@@ -123,12 +136,18 @@ test('gives the comparison page full width while standard pages keep their readi
 	expect((await standardTitle.boundingBox()).width).toBeLessThan(comparisonWidth - 180);
 	await expect(page.getByRole('navigation', { name: 'On this page', exact: true })).toBeVisible();
 
-	await page.setViewportSize({ width: 390, height: 844 });
-	await page.goto(`${BASE}start/how-soundscaper-compares/`);
-	await expect(comparisonTitle).toBeVisible();
-	await expect(page.getByRole('navigation', { name: /^On this page/u })).toBeVisible();
-	const pageWidth = await page.evaluate(() => ({ content: document.documentElement.scrollWidth, viewport: window.innerWidth }));
-	expect(pageWidth.content).toBeLessThanOrEqual(pageWidth.viewport);
+	for (const width of [1280, 390]) {
+		await page.setViewportSize({ width, height: 844 });
+		await page.goto(`${BASE}start/how-soundscaper-compares/`);
+		await expect(comparisonTitle).toBeVisible();
+		await expect(page.getByRole('navigation', { name: /^On this page/u })).toBeVisible();
+		const pageWidth = await page.evaluate(() => ({ content: document.documentElement.scrollWidth, viewport: window.innerWidth }));
+		expect(pageWidth.content).toBeLessThanOrEqual(pageWidth.viewport);
+		const comparisonScroll = page.getByRole('region', { name: 'Platform and terms', exact: true });
+		await comparisonScroll.focus();
+		await page.keyboard.press('ArrowRight');
+		await expect.poll(() => comparisonScroll.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+	}
 });
 
 test('compares Web and Desktop with accessible symbols and explains the capability differences', async ({ page }) => {

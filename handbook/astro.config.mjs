@@ -8,6 +8,7 @@ import rehypeHandbookBase from './src/plugins/rehype-handbook-base.mjs';
 import rehypeHandbookHeadingIds from './src/plugins/rehype-handbook-heading-ids.mjs';
 import rehypeVerdictTables from './src/plugins/rehype-verdict-tables.mjs';
 import rehypeComparisonDetails from './src/plugins/rehype-comparison-details.mjs';
+import rehypeComparisonLayout from './src/plugins/rehype-comparison-layout.mjs';
 import { chromeLabel, chromeRecord } from '../scripts/lib/handbook-chrome.mjs';
 import { starlightLocaleConfig } from '../scripts/lib/handbook-locales.mjs';
 import { webBuildRouting } from '../scripts/lib/product-web-routing.mjs';
@@ -72,6 +73,7 @@ export default defineConfig({
 				rehypeAccessibleTables,
 				rehypeVerdictTables,
 				rehypeComparisonDetails,
+				rehypeComparisonLayout,
 				[rehypeHandbookBase, { productId }],
 			],
 		}),

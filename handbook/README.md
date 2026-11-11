@@ -105,6 +105,9 @@ The table transform retains inline formatting and links each explanation to
 its trigger with an accessible description. Escape or tapping elsewhere
 closes the explanation.
 
+Comparison tables fill the article with shared column widths. On narrow
+screens, each table scrolls horizontally in a named, keyboard-focusable region.
+
 ## Authoring links
 
 Write internal links root-absolute and base-free: `[Project files](/projects-and-data/project-files/)`.
