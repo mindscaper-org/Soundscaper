@@ -28,6 +28,13 @@ test('desktop runtime compilation emits importable JavaScript with rewritten ext
 	// reported set to the shipped manifest and keep the checks below, which say
 	// something the manifest cannot: that the output actually imports.
 	assert.deepEqual(result.files, [...DESKTOP_EXPECTED_RUNTIME_FILES]);
+	const effects = await import(pathToFileURL(join(outputRoot, 'src/common/editor/effects.js')).href);
+	assert.deepEqual(effects.createEffect('hum-removal', { id: 'packaged-hum' }).params,
+		{ frequency: 50, harmonics: 8, bandwidth: 2, reduction: 24 });
+	assert.deepEqual(effects.audioSelectionEffectDefaults('automatic-phase-correction'),
+		{ reference: 'left', maximumShiftMs: 5, minimumConfidence: 85 });
+	assert.deepEqual(effects.AUDIO_EFFECT_DEFINITIONS.reverb.defaults,
+		{ mix: .2, decay: 2, preDelay: .01 });
 	assert.ok(result.files.includes('src/common/media/indexeddb.js'));
 	assert.ok(result.files.includes('src/common/media/bytes.js'));
 	assert.equal(result.files.includes('src/common/editor/storage/indexeddb-backend.js'), false,
