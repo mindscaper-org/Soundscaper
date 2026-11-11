@@ -96,6 +96,9 @@ those workflows before relying on it for a session.
 
 **Workflow references**
 
+- [Audacity export formats](https://www.audacityteam.org/manual/getting-started/export-your-audio/), [PCM writer](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/au3/modules/import-export/mod-pcm/ExportPCM.cpp), and [WavPack options](https://manual.audacityteam.org/man/wavpack_export_options.html).
+- [Pro Tools audio-file support](https://kb.avid.com/pkb/articles/en_US/Knowledge/Pro-Tools-Audio-File-Type-and-Session-Support) and [QuickTime export](https://www.avid.com/resource-center/quicktime-and-file-support-improvements-in-pro-tools-2021-6).
+- [SoundCraft WAV writer](https://github.com/storytold/soundcraft/blob/v0.19.0/crates/audio-io/src/wav.rs): large-file output uses RF64, while BW64 is accepted for reading.
 - [discontinued Creative Cloud Synced files](https://helpx.adobe.com/creative-cloud/kb/eol-creative-cloud-synced-files.html)
 - [system requirements](https://helpx.adobe.com/audition/desktop/introduction/system-requirements.html)
 - [Audacity label tracks](https://manual.audacityteam.org/man/label_tracks.html)
@@ -265,10 +268,23 @@ Soundscaper waveform display options are in **Track visualization** and **Prefer
 
 ## Export and delivery
 
+Format ratings describe export support, not import.
+
 | Capability | Soundscaper Web | Soundscaper Desktop | Audacity 4.0.2 | Audition | Pro Tools Studio | SoundCraft 0.19.0 |
 | --- | --- | --- | --- | --- | --- | --- |
-| Lossless output | + — :: Native WAV, AIFF, BWF, and BW64; FLAC and WavPack through dedicated codecs | + — :: Native WAV, AIFF, BWF, and BW64; FLAC and WavPack through dedicated codecs | + | + | + | + |
-| Lossy output | ~ — AAC varies | + — :: MP3, MP2, Opus, Ogg Vorbis, and AAC through supported codec providers, including configured FFmpeg | + — :: MP3, Opus, and Ogg Vorbis; additional formats through optional FFmpeg | ~ — Fixed formats :: MP2, MP3, and Ogg Vorbis; more through Adobe Media Encoder, no general FFmpeg target | + — MP3, AAC | / |
+| WAV | + | + | + | + | + | + |
+| AIFF | + | + | + | + | + | + |
+| BWF | + | + | / | + | + | + — :: WAV bounces carry a Broadcast Wave time reference. |
+| RF64 | + — :: WAV output automatically uses RF64 above the RIFF size limit. | + — :: WAV output automatically uses RF64 above the RIFF size limit. | + — :: Available through Other uncompressed files. | + | + | + |
+| BW64 | + | + | / | / | / — :: BW64 reading is supported; the documented bounce formats use WAV/RF64 or ADM BWF. | / — :: Reads BW64; large-file output uses RF64. |
+| ADM BWF | + — :: Writes ADM metadata in a BW64 container. | + — :: Writes ADM metadata in a BW64 container. | / | / | + — :: Dolby Atmos ADM master export. | / |
+| FLAC | + | + | + | + | / | + |
+| WavPack | + | + | + | / | / | / |
+| MP2 | + | + | + | + | / | / |
+| MP3 | + | + | + | + | + | / |
+| Opus | + | + | + | / | / | / |
+| Ogg Vorbis | + | + | + | + | / | / |
+| AAC (M4A) | ~ — Browser-dependent :: Requires an available browser AAC encoder. | + — :: Uses a supported desktop encoder, including a configured FFmpeg provider. | ~ — FFmpeg :: Requires the optional FFmpeg codec library through Audacity's export workflow. | / — :: Requires a separate Adobe Media Encoder handoff. | ~ — Mac :: M4A export is documented on macOS; AAC in a MOV file is a separate video-bounce option. | / |
 | Custom encoder settings | ~ — Format controls | ~ — Format controls | + — FFmpeg | + | ~ — Format controls | ~ — Bit depth / dither |
 | Descriptive metadata | + — :: Project ID3 fields, artwork, lyrics, credits, and format-specific export tags | + | + | + | + — MP3 ID3 | ~ — BWF timing |
 | Export queue | + | + | / | ~ — Batch Process | / — :: Bounce Factory Lite provides external batch bouncing. | / |
@@ -307,7 +323,9 @@ Transfers can omit unsupported state; review the exchange report. See [project f
 | --- | --- | --- | --- | --- | --- | --- |
 | Import video for reference | + | + | / | ~ — Preview only | + — One track | + |
 | Video timeline editing | ~ — Basic edits | ~ — Basic edits | / | / | ~ — One track | ~ — Sync offset |
-| Video export | ~ — Codec-dependent :: MP4 and WebM where browser WebCodecs support the required codecs | + — MP4 / WebM | / | / | ~ — Codec-dependent | / |
+| MP4 video export | ~ — Codec-dependent :: Requires browser WebCodecs support for the selected video and audio encoders. | + | / | / | / | / |
+| WebM video export | ~ — Codec-dependent :: Requires browser WebCodecs support for the selected video and audio encoders. | + | / | / | / | / |
+| MOV video export | / | / | / | / — :: Audition's MOV export is audio-only. | + — :: Video bounce uses QuickTime MOV; available codecs vary by platform. | / |
 | Compositing, grading, and effects | ~ — Framescaper copy | ~ — Framescaper copy | / | / | / | / |
 
 

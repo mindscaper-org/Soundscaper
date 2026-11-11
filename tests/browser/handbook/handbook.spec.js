@@ -163,7 +163,8 @@ test('compares Web and Desktop with accessible symbols and explains the capabili
 		['Speech enhancement', 'Unavailable', 'Supported'],
 		['Transcription and diarisation', 'Unavailable', 'Supported'],
 		['Source separation into stems', 'Unavailable', 'Supported'],
-		['Lossy output', 'Limited', 'Supported'],
+		['AAC (M4A)', 'Limited', 'Supported'],
+		['MP3', 'Supported', 'Supported'],
 	]) {
 		await expect(row(capability).getByRole('cell').nth(1).getByRole('img', { name: web, exact: true })).toBeVisible();
 		await expect(row(capability).getByRole('cell').nth(2).getByRole('img', { name: desktop, exact: true })).toBeVisible();
@@ -181,9 +182,13 @@ test('compares Web and Desktop with accessible symbols and explains the capabili
 	await expect(audacityProjectDetails).toHaveAccessibleDescription(/\baup\b.*\baup3\b.*\baup4\b.*import/iu);
 	await expect(audacityProjectDetails).toHaveAccessibleDescription(/aup4\s+export/iu);
 	await expect(audacityProjects).toContainText(/no\s+aup3\s+export/iu);
-	await expect(row('Lossy output').getByRole('cell').nth(2)).toContainText(/ffmpeg/iu);
-	await expect(row('Lossy output').getByRole('cell').nth(3)).toContainText(/ffmpeg/iu);
-	await expect(row('Lossy output').getByRole('cell').nth(4)).toContainText(/formats|mp3|aac/iu);
+	for (const format of ['WAV', 'AIFF', 'BWF', 'RF64', 'BW64', 'ADM BWF', 'FLAC', 'WavPack', 'MP2', 'MP3', 'Opus', 'Ogg Vorbis', 'AAC (M4A)', 'MP4 video export', 'WebM video export', 'MOV video export']) {
+		await expect(row(format)).toHaveCount(1);
+		await expect(row(format).getByRole('cell')).toHaveCount(7);
+	}
+	await expect(row('AAC (M4A)').getByRole('cell').nth(3)).toContainText(/ffmpeg/iu);
+	await expect(row('AAC (M4A)').getByRole('cell').nth(4).getByRole('img', { name: 'Unavailable', exact: true })).toBeVisible();
+	await expect(row('FLAC').getByRole('cell').nth(5).getByRole('img', { name: 'Unavailable', exact: true })).toBeVisible();
 });
 
 test('keeps comparison sources collapsed and reveals cell details on hover, focus, and tap', async ({ page, isMobile }) => {
