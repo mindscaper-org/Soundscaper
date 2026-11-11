@@ -1,6 +1,6 @@
 ---
 title: How Soundscaper compares
-description: Compare Soundscaper Web and Desktop with Audacity 4.0.2 and Adobe Audition, including VST2, recording recovery, project exchange, local assistance, and delivery.
+description: Compare Soundscaper Web and Desktop with Audacity, Adobe Audition, Pro Tools Studio, and SoundCraft across editing, mixing, and delivery.
 sidebar:
   order: 3
 ---
@@ -9,7 +9,8 @@ Soundscaper re-implements Audacity 4 on the web and adds a production layer on
 top of it. Adobe Audition is the commercial post-production tool both are
 usually measured against. This page compares Soundscaper Web, Soundscaper
 Desktop, Audacity 4.0.2, and Audition so you can tell which edition already does
-the job you have.
+the job you have. A focused comparison with Pro Tools Studio and ArtCraft
+SoundCraft follows below.
 
 ## How to read this page
 
@@ -65,6 +66,45 @@ sample rates. These fixes are included in the comparison; the release still
 leaves the Macros, Contrast, Plot Spectrum, timed-recording, and sound-activation
 menu entries disabled. See the [4.0.2 changelog](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/CHANGELOG.txt)
 and menu source above.
+
+## Pro Tools Studio and SoundCraft
+
+This overview compares the paid **Pro Tools Studio** tier with ArtCraft's
+**SoundCraft 0.19.0**. Pro Tools also has Intro, Artist, and Ultimate tiers
+with different limits. SoundCraft is a separate DAW from ArtCraft, not the
+Soundcraft mixing-console brand. Its developers describe it as pre-alpha;
+the capabilities below are documented, not verified here against running builds.
+The SoundCraft column covers both its desktop and self-hosted browser builds
+where documented, with platform differences called out.
+
+Sources: Avid's [tier comparison](https://www.avid.com/pro-tools/comparison)
+and [Pro Tools overview](https://www.avid.com/pro-tools); SoundCraft's
+[version 0.19.0 feature tour](https://github.com/storytold/soundcraft/blob/v0.19.0/README.md),
+[release](https://github.com/storytold/soundcraft/releases/tag/v0.19.0),
+[known gaps](https://github.com/storytold/soundcraft/blob/v0.19.0/docs/gaps.md),
+and [installation guide](https://craft.wiki/apps/soundcraft/install-update/).
+
+| Capability | Soundscaper Web | Soundscaper Desktop | Pro Tools Studio | SoundCraft 0.19.0 |
+| --- | --- | --- | --- | --- |
+| Licence and cost | + — AGPL-3.0-only, free | + — AGPL-3.0-only, free | ~ — proprietary; subscription or perpetual licence | + — MIT or Apache-2.0, free |
+| Platforms | + — browser | + — Windows, macOS, Linux | ~ — Windows and macOS | + — Windows, macOS, Linux, FreeBSD, and a self-hosted browser build |
+| Project format | + — `.sscape` with bundled media | + — `.sscape`, referenced media by default | + — `.ptx` session | + — `.scraft` on desktop; `.scraftz` bundles in the browser |
+| Multitrack recording | + — several sources at once | + — several sources at once | + — up to 64 simultaneous inputs | ~ — desktop recording; unavailable on Web and FreeBSD; physical channel routing and a shared-clock duplex path are gaps |
+| Loop recording and comping | + — take lanes and comp regions | + — take lanes and comp regions | + — track comping | + — playlists per take and comping lanes |
+| Tempo and meter maps | + | + | + | + — including tempo ramps |
+| Virtual instruments and MIDI | / | / | + — instrument and MIDI tracks | ~ — instrument and MIDI tracks; MIDI device input and output are listed as gaps |
+| Mixer, buses, sends, and VCAs | + | + | + | + — ten sends per track, routing folders, and VCAs |
+| Automation and delay compensation | + — track and effect lanes, with plug-in delay compensation | + — track and effect lanes, with plug-in delay compensation | + — advanced automation and automatic plug-in delay compensation | + — live automation passes and automatic plug-in delay compensation |
+| Third-party plug-ins | / — native plug-ins require Desktop | + — VST3, CLAP, AU, LV2, Linux LADSPA, and Vamp, subject to platform | ~ — AAX; AAX DSP with supported hardware | ~ — desktop CLAP, VST3, and AU; signed macOS VST3 builds have restrictions; unavailable on Web |
+| Immersive mixing | + — beds up to 7.1.4 and objects | + — beds up to 7.1.4 and objects | + — surround, Dolby Atmos, and ADM export | ~ — surround up to 9.1.6 and object/bed routing; ADM and Dolby Atmos delivery are listed as gaps |
+| Video reference | + — timeline video with linked audio | + — timeline video with linked audio | + — one video track | + — picture track and synchronized video window |
+| Delivery | + — lossless and lossy audio; some codecs depend on the browser | + — lossless and lossy audio through supported providers | + — multi-stem bounce | ~ — WAV, AIFF, and FLAC bounce; compressed export is listed as a gap |
+| Session interchange | + — Audacity and DAWproject, among other formats | + — Audacity and DAWproject, among other formats | + — AAF, OMF, and MXF | ~ — no AAF, OMF, or `.ptx` session exchange listed |
+
+SoundCraft's desktop plug-in and hardware features do not imply native plug-in
+or hardware access in a browser. Its [known gaps](https://github.com/storytold/soundcraft/blob/v0.19.0/docs/gaps.md)
+also describe limitations in audio-device routing and recording, so evaluate
+those workflows before relying on it for a session.
 
 ## Platform and terms
 
