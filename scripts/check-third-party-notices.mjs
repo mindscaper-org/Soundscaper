@@ -41,6 +41,7 @@ const trackedVersions = [
 	'gettext-parser',
 	'hono',
 	'mediabunny',
+	'node-web-audio-api',
 	'playwright',
 	'playwright-core',
 	'react',

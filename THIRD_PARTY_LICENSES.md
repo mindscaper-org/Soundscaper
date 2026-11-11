@@ -683,6 +683,20 @@ artifacts. Build-only packaging and icon tools are not shipped. Soundscaper does
 not modify these packages; their installed license files and upstream source are
 available from the pinned links above.
 
+## Node DSP test runtime
+
+`node-web-audio-api` 2.2.0 — BSD-3-Clause; Copyright (c) 2021-present IRCAM –
+Centre Pompidou (France, Paris). This unmodified development dependency supplies
+Web Audio for Node DSP integration tests and is excluded from the browser and
+packaged desktop runtime dependencies. Exact npm archive:
+<https://registry.npmjs.org/node-web-audio-api/-/node-web-audio-api-2.2.0.tgz>
+(`sha512-qM3dW3Z5HIz+O+++Uiia8x0OSNHcfJGUlexpCTdAkw8JlM17Ru1nV9a94wlxNRXqxT0Lr/ewwEnBXUwGMt24AA==`);
+upstream source: <https://github.com/ircam-ismm/node-web-audio-api/tree/030018b81025d1797569b06d6295fadd32d2354e>;
+license: <https://github.com/ircam-ismm/node-web-audio-api/blob/030018b81025d1797569b06d6295fadd32d2354e/LICENSE>.
+Its native backend includes the MIT-licensed `web-audio-api` 1.7.0 Rust core
+(<https://github.com/orottier/web-audio-api-rs/tree/v1.7.0>) and MPL-2.0-licensed
+Symphonia 0.6.0 (<https://github.com/pdeljanov/Symphonia/tree/v0.6.0>).
+
 ## Nightly-with-tests diagnostic tooling
 
 The opt-in `nightly-with-tests` CI artifact is a diagnostic test runner, not a
