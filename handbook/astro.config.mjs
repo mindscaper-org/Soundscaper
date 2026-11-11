@@ -13,6 +13,7 @@ import { chromeLabel, chromeRecord } from '../scripts/lib/handbook-chrome.mjs';
 import { starlightLocaleConfig } from '../scripts/lib/handbook-locales.mjs';
 import { webBuildRouting } from '../scripts/lib/product-web-routing.mjs';
 import { SOUNDSCAPER_GUIDE_GROUPS } from './guides/soundscaper.mjs';
+import rehypeComparisonSummary from './src/plugins/rehype-comparison-summary.mjs';
 
 const routing = webBuildRouting();
 const { productId } = routing;
@@ -80,6 +81,7 @@ export default defineConfig({
 					] },
 					{ label: 'MIDI focus', families: [['FL Studio'], ['Ableton Live', 'Bitwig Studio']] },
 				] }],
+				rehypeComparisonSummary,
 				[rehypeHandbookBase, { productId }],
 			],
 		}),

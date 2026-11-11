@@ -1,6 +1,7 @@
 ---
 import Default from '@astrojs/starlight/components/TwoColumnContent.astro';
 import ComparisonNotes from './ComparisonNotes.astro';
+import ComparisonProgress from './ComparisonProgress.astro';
 
 const fullWidth = Astro.locals.starlightRoute.entry.data.layoutPreset === 'full-width';
 ---
@@ -12,6 +13,7 @@ const fullWidth = Astro.locals.starlightRoute.entry.data.layoutPreset === 'full-
 		<slot name="right-sidebar" slot="right-sidebar" />
 	</Default>
 </div>
+{fullWidth && <ComparisonProgress />}
 
 <style>
 	.full-width {

@@ -27,6 +27,9 @@ Live and Bitwig also record and edit audio. Shared header shading keeps related
 editors together. Scroll horizontally to compare all products; capability names
 stay visible.
 
+Product headers count rows as they pass above the table. The charts at the end
+total all comparison rows.
+
 <details>
 <summary>Where these claims come from</summary>
 
@@ -478,3 +481,9 @@ composition, instruments, and performance, with different audio editing and
 delivery capabilities.
 
 Keep an editable backup when moving between applications.
+
+## Verdict totals {#verdict-totals}
+
+Each comparison row counts once, including individual export formats.
+
+<!-- comparison-summary -->

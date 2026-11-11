@@ -1,0 +1,15 @@
+---
+import '../styles/comparison-progress.css';
+---
+
+<comparison-progress hidden></comparison-progress>
+
+<script>
+	import { installComparisonProgress } from '../comparison/progress-controller';
+	class ComparisonProgress extends HTMLElement {
+		#dispose?: () => void;
+		connectedCallback() { this.#dispose = installComparisonProgress(); }
+		disconnectedCallback() { this.#dispose?.(); }
+	}
+	customElements.define('comparison-progress', ComparisonProgress);
+</script>
