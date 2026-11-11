@@ -24,6 +24,7 @@ import {
 } from './project-library-runtime/desktop/plugin-registry.js';
 import { DesktopPluginScanService } from './project-library-runtime/desktop/plugin-scan-service.js';
 import { createPluginScanProgressSupervisor } from './project-library-runtime/desktop/plugin-scan-progress.js';
+import { nativeChildFileIdentityFromStat, portableNativeChildFileIdentity } from './project-library-runtime/desktop/native-child-file-identity.js';
 import { createDefaultPluginDiscoveryConsent } from './project-library-runtime/desktop/plugin-discovery-defaults.js';
 import { createDesktopNativeAddonHelperSupervisor } from './native-helper-registration.mjs';
 import { productionSoundscaperPluginFormatActivated } from './soundscaper-native-activation-policy.mjs';
@@ -497,15 +498,12 @@ function scanRootLocation(root) {
 function fileIdentity(path, admits = (entry) => entry.isFile()) {
 	let entry;
 	try {
-		entry = statSync(path);
+		entry = statSync(path, { bigint: true });
 	} catch {
 		return null;
 	}
 	if (!admits(entry)) return null;
-	const dev = Number(entry.dev);
-	const ino = Number(entry.ino);
-	if (!Number.isSafeInteger(dev) || !Number.isSafeInteger(ino) || dev < 0 || ino < 0) return null;
-	return Object.freeze({ dev, ino });
+	return portableNativeChildFileIdentity(nativeChildFileIdentityFromStat(entry));
 }
 
 function pluginCandidateIdentity(path) {

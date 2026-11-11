@@ -80,13 +80,13 @@ test('native configuration moves to preferences while effect use and management 
 		{ id: 'effect', items: [{ id: 'native-effect-manage' }] },
 		{ id: 'tools', items: [{ id: 'parallel-stack-processing', items: [{ id: 'parallel-stack-enabled' }] },
 			{ id: 'desktop-services', items: [{ id: 'desktop-clear-audio-helper-quarantine' },
-				{ id: 'desktop-use-native-probe-helper' }, { id: 'desktop-discover-native-effects' }] },
+				{ id: 'desktop-discover-native-effects' }] },
 			{ id: 'framescaper-native-media-preferences' }, { id: 'manage-local-models' }] },
 	]);
 	assert.deepEqual(result[1].items?.map((entry) => entry.id), ['manage-local-models']);
 	assert.deepEqual(result[0].items?.map((entry) => entry.id), ['native-effect-manage']);
 	assert.deepEqual((result[1].nativePreferences as { section: string }[]).map((entry) => entry.section),
-		['advanced', 'audio', 'media', 'effects', 'media']);
+		['advanced', 'audio', 'effects', 'advanced']);
 });
 
 test('task destinations match the editing task, with no generic assistance submenu', () => {

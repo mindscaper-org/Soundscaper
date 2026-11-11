@@ -12,8 +12,8 @@ import {
 registerAudioEditorHooks();
 
 async function openProgramEditor(page, editor, source) {
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await expect(manager).toBeVisible();
 	await manager.locator('[data-macro-programs]').getByRole('button', { name: 'New program', exact: true }).click();
 	const program = manager.locator('[data-macro-script-source]');
@@ -24,7 +24,7 @@ async function openProgramEditor(page, editor, source) {
 
 async function runProgram(page, editor, source) {
 	const { manager } = await openProgramEditor(page, editor, source);
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 	const log = manager.locator('[data-macro-script-log]');
 	await expect(log).toHaveAttribute('data-outcome', /completed|failed/u, { timeout: 30_000 });
 	return { manager, log };
@@ -135,7 +135,7 @@ test.describe('macro programs', () => {
 		});
 
 		try {
-			await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+			await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 			await expect.poll(() => chunkRequested).toBe(true);
 			await expect(log).toHaveAttribute('data-outcome', 'running');
 			// The dialog owns pointer focus; this click models the project action
@@ -167,7 +167,7 @@ test.describe('macro programs', () => {
 			await expect(editor).toHaveAttribute('data-track-count', nextTracks ?? '0');
 			// The command is a real edit once its sandbox is available; undo this
 			// control run so both projects remain in their original state.
-			await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+			await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 			await expect(log).toHaveAttribute('data-outcome', 'completed', { timeout: 30_000 });
 			await expect(editor).toHaveAttribute('data-track-count', String(Number(nextTracks) + 1));
 

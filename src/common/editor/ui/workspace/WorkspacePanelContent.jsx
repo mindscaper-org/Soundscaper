@@ -65,6 +65,7 @@ const DEFERRED_WORKSPACE_PANELS = Object.freeze({
 		'web-vcr': lazyEditorModule(() => import('./WebVcrPanel.tsx')),
 	} : {}),
 	...(SOUNDSCAPER_BUILD ? {
+		'macros-palette': lazyEditorModule(() => import('./MacrosPaletteWorkspacePanel.jsx')),
 		freesound: lazyEditorModule(() => import('./FreesoundPanelContainer.tsx')),
 		audiocom: lazyEditorModule(() => import('./AudiocomPanelContainer.tsx')),
 		'clip-spreadsheet': lazyEditorModule(() => import('../clip-spreadsheet/ClipSpreadsheetPanel.tsx')),

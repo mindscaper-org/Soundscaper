@@ -27,15 +27,15 @@ import { chooseCommandAction } from '../audio-editor-test-helpers.js';
  */
 export async function arrangeWithMacro(page, editor, source, options = {}) {
 	const { timeout = 30_000 } = options;
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await expect(manager).toBeVisible();
 	await manager.locator('[data-macro-programs]')
 		.getByRole('button', { name: 'New program', exact: true }).click();
 	const program = manager.locator('[data-macro-script-source]');
 	await expect(program).toBeVisible();
 	await program.fill(source.trim());
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 
 	const log = manager.locator('[data-macro-script-log]');
 	await expect(log).toHaveAttribute('data-outcome', /completed|failed/u, { timeout });

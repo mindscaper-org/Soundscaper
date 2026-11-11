@@ -17,7 +17,7 @@ test('Soundscaper video does not offer its refused caption delivery', async ({ p
 	await expect(editor.getByText('A normal caption', { exact: true })).toBeVisible();
 	const dialog = await openExportDialog(page, editor);
 	await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'WebM video');
-	await expect(dialog.getByRole('button', { name: 'Captions from', exact: true })).toHaveCount(0);
+	await expect(dialog.getByRole('button', { name: /^Captions from(?::|$)/u })).toHaveCount(0);
 	await expect(dialog.locator('[data-export-field="captionDeliveryUnavailable"]')).toContainText('Soundscaper');
 	await expect(dialog.locator('[data-export-field="captionDeliveryUnavailable"]')).toContainText('Export labels');
 	const webGl2Available = await page.evaluate(hasWebGl2Capability);

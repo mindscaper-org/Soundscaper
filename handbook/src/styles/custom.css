@@ -33,14 +33,15 @@
 	filter: drop-shadow(0 1rem 2rem rgb(15 23 42 / 20%));
 }
 
-.sl-markdown-content table:focus-visible {
+.sl-markdown-content table:focus-visible,
+.sl-markdown-content .comparison-table-scroll:focus-visible {
 	outline: 3px solid var(--sl-color-text-accent);
 	outline-offset: 0.25rem;
 }
 
 /*
  * Comparison matrices. `src/plugins/rehype-verdict-tables.mjs` tags the cells
- * of a table whose every comparison cell reads +, ~ or / (or a legacy verdict
+ * of a table whose every comparison cell reads +, ~, / or ? (or a legacy verdict
  * word). Distinct symbols and accessible labels repeat the colour's meaning.
  */
 :root {
@@ -59,6 +60,27 @@
 	--verdict-partial-tint: rgb(245 158 11 / 16%);
 	--verdict-no-text: #9f1239;
 	--verdict-no-tint: rgb(244 63 94 / 10%);
+}
+
+.sl-markdown-content .comparison-table-scroll {
+	max-inline-size: 100%;
+	overflow-x: auto;
+}
+
+.sl-markdown-content table.verdict-table {
+	display: table;
+	inline-size: 100%;
+	min-inline-size: 58rem;
+	table-layout: fixed;
+}
+
+.sl-markdown-content .verdict-table :is(th, td) {
+	padding-inline: 0.5rem;
+	overflow-wrap: anywhere;
+}
+
+.sl-markdown-content .verdict-table :is(th, td):first-child {
+	inline-size: 25%;
 }
 
 .sl-markdown-content .verdict-cell {
@@ -83,6 +105,12 @@
 	--verdict-text: var(--verdict-no-text);
 }
 
+.sl-markdown-content .verdict-cell--unknown,
+.sl-markdown-content .verdict--unknown {
+	--verdict-tint: transparent;
+	--verdict-text: var(--sl-color-text);
+}
+
 .sl-markdown-content .verdict {
 	display: inline-block;
 	min-inline-size: 1em;
@@ -92,6 +120,40 @@
 	line-height: 1;
 	text-align: center;
 	white-space: nowrap;
+}
+
+.comparison-note-trigger {
+	border: 0;
+	padding: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: start;
+	text-decoration: underline dotted;
+	text-underline-offset: 0.25em;
+	cursor: help;
+}
+
+.comparison-note-trigger:focus-visible {
+	outline: 2px solid var(--sl-color-text-accent);
+	outline-offset: 3px;
+}
+
+.comparison-note-detail {
+	position: fixed;
+	inset: auto;
+	margin: 0;
+	max-width: min(22rem, calc(100vw - 2rem));
+	border: 1px solid var(--sl-color-gray-4);
+	border-radius: 0.3rem;
+	padding: 0.75rem;
+	background: var(--sl-color-bg);
+	color: var(--sl-color-text);
+	font-size: var(--sl-text-sm);
+	line-height: 1.5;
+	text-align: start;
+	white-space: normal;
+	box-shadow: 0 0.3rem 1rem rgb(0 0 0 / 25%);
 }
 
 @media (prefers-contrast: more) {

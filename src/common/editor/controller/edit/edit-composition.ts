@@ -299,9 +299,13 @@ export function createEditComposition<History extends ControllerRuntimeHistory>(
 		generateSelectionSilence: (...args: Parameters<AudioGeneratorService['generateSelectionSilence']>) => (
 			generate(() => generators.generateSelectionSilence(...args))
 		),
-		generateSignal: (...args: Parameters<AudioGeneratorService['generateSignal']>) => (
-			generate(() => generators.generateSignal(...args))
-		),
+		generateSignal: (type: Parameters<AudioGeneratorService['generateSignal']>[0], options: Parameters<AudioGeneratorService['generateSignal']>[1] = {}) =>
+			taskProgress.run('generate', copy.generatingAudio, task => {
+				const cancellation = new AbortController();
+				task.setCancellation(() => cancellation.abort());
+				return generators.generateSignal(type, { ...options,
+					signal: options.signal ? AbortSignal.any([options.signal, cancellation.signal]) : cancellation.signal });
+			}, undefined, { key: 'generatingAudio' }),
 		repeatLastGenerator: (...args: Parameters<AudioGeneratorService['repeatLast']>) => (
 			generate(() => generators.repeatLast(...args))
 		),

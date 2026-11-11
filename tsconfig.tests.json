@@ -5,6 +5,6 @@
 		"tsBuildInfoFile": "./node_modules/.cache/typescript/tests.tsbuildinfo",
 		"types": ["node", "vite/client"]
 	},
-	"include": ["desktop/**/*.ts", "src/**/*.ts", "src/**/*.tsx", "src/vite-env.d.ts", "tests/**/*.test.ts", "tests/**/*.test.tsx", "tests/**/*.typecheck.ts", "tests/electron/local-assistance-models/model-test-fixture.ts", "tests/electron/local-assistance-models/editor-workflow-driver.ts", "tests/fixtures/streaming-analysis-worker.ts", "tests/browser/fixtures/live-effect-tone-project.ts", "tests/helpers/framescaper-exact-export-fixture.ts", "tests/helpers/persisted-video-project-fixture.ts"],
+	"include": ["desktop/**/*.ts", "src/**/*.ts", "src/**/*.tsx", "src/vite-env.d.ts", "tests/**/*.test.ts", "tests/**/*.test.tsx", "tests/**/*.typecheck.ts", "tests/electron/local-assistance-models/model-test-fixture.ts", "tests/electron/local-assistance-models/editor-workflow-driver.ts", "tests/fixtures/streaming-analysis-worker.ts", "tests/browser/fixtures/live-effect-tone-project.ts", "tests/helpers/opus-padding-reference.ts", "tests/helpers/framescaper-exact-export-fixture.ts", "tests/helpers/persisted-video-project-fixture.ts"],
 	"exclude": ["dist", "node_modules", "test-results"]
 }

@@ -76,26 +76,18 @@ function createMacroActions(options: Readonly<{
 	) as unknown as MacroScriptActions;
 }
 
-test('a program nobody has reviewed does not run, however it reaches the runner', async () => {
-	// The gate is on the bytes rather than on the record the manager happens to
-	// hold, so reading the unreviewed program out of the list and handing its
-	// text straight to the runner is not a way around it.
-	const macros = createMacroActions();
+test('an imported program reaches the sandbox task only after an explicit run', async () => {
+	let starts = 0;
+	const macros = createMacroActions({ startMacroScriptTask: () => { starts++; throw new Error('Sandbox task entered'); } });
 	const imported = macros.scripts.import(
 		serializeMacroScriptEnvelope({ name: 'Sweep', source: 'await sound.select.all();' }),
 		'sweep.soundscapemacro',
 	);
-	assert.equal(imported.trust, 'imported-untrusted');
-	assert.equal(macros.scripts.blocked('await sound.select.all();'), true);
-	await assert.rejects(
-		() => macros.runScript({ name: 'Sweep', source: 'await sound.select.all();' }),
-		/MACRO_SCRIPT_NOT_TRUSTED/u,
-	);
-
-	// Importing stores text and grants nothing; enabling it is a separate act,
-	// and it is what lifts the gate.
-	macros.scripts.trust(imported.id);
+	assert.equal(imported.origin, 'sweep.soundscapemacro');
+	assert.equal(starts, 0, 'importing must not execute the program');
 	assert.equal(macros.scripts.blocked('await sound.select.all();'), false);
+	await assert.rejects(macros.runScript({ name: 'Sweep', source: 'await sound.select.all();' }), /Sandbox task entered/u);
+	assert.equal(starts, 1);
 });
 
 test('a project lifecycle cancellation stops a script during sandbox loading', async () => {
@@ -115,7 +107,7 @@ test('a project lifecycle cancellation stops a script during sandbox loading', a
 	assert.equal(rolledBack, true);
 });
 
-test('importing a program never runs it and never grants it anything', () => {
+test('importing stores source and provenance without running the program', () => {
 	const macros = createMacroActions();
 	assert.throws(() => macros.scripts.import('await sound.select.all();'), /not a macro program file/u);
 	const imported = macros.scripts.import(

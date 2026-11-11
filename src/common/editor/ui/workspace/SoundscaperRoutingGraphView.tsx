@@ -387,7 +387,7 @@ function RoutingNodeCard(props: RoutingNodeCardProps) {
 			className="kw-routing-graph__node-main"
 			tabIndex={tabIndex}
 			aria-pressed={selected}
-			aria-label={fill(copy.nodeAccessibility, { detail: node.detail, label: node.label, channelDescription: node.channelCount === null ? '' : `, ${node.channelCount} ${copy.channels}`, inputs: String(counts.inputs), outputs: String(counts.outputs) })}
+			aria-description={fill(copy.nodeAccessibility, { detail: node.detail, label: node.label, channelDescription: node.channelCount === null ? '' : `, ${node.channelCount} ${copy.channels}`, inputs: String(counts.inputs), outputs: String(counts.outputs) })}
 			onClick={() => props.onSelect(selection)}
 			onKeyDown={(event) => nodeKeyDown(event, node, selection, props)}
 		>

@@ -1,5 +1,6 @@
 import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
+import { z } from 'astro/zod';
 import { docsSchema } from '@astrojs/starlight/schema';
 import { handbookContentPlan } from '../../scripts/lib/handbook-product-content.mjs';
 import { webBuildProductId } from '../../scripts/lib/product-web-routing.mjs';
@@ -13,6 +14,10 @@ export const collections = {
 			pattern: [...plan.patterns],
 			...(plan.generateId ? { generateId: plan.generateId } : {}),
 		}),
-		schema: docsSchema(),
+		schema: docsSchema({
+			extend: z.object({
+				layoutPreset: z.enum(['default', 'full-width']).default('default'),
+			}),
+		}),
 	}),
 };

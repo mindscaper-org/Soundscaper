@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-/** Copy for the macros palette and the Nyquist prompt that macros can run. */
+/** Copy for the macro tools and the Nyquist prompt that macros can run. */
 export const MACRO_NYQUIST_COPY_BY_LOCALE = Object.freeze({
 	en: Object.freeze({
 			macrosPalette: 'Macros palette',
+			macroManager: 'Macro manager',
 			macroApplyToFiles: 'Apply to files',
 			macroBatchChooseFiles: 'Choose audio files',
 			macroBatchMacro: 'Macro',
@@ -11,14 +12,22 @@ export const MACRO_NYQUIST_COPY_BY_LOCALE = Object.freeze({
 			macroBatchWav: 'WAV (24-bit)',
 			macroBatchFlac: 'FLAC (24-bit)',
 			macroBatchMp3: 'MP3',
-			macroBatchRun: 'Choose output folder and run',
+			macroBatchRun: 'Run macro',
+			macroBatchChooseFolder: 'Choose output folder',
+			macroBatchOutputFolder: 'Output folder',
+			macroBatchNoOutputFolder: 'No output folder selected.',
+			macroBatchInputFiles: 'Input files',
+			macroBatchFile: 'File',
+			macroBatchStatus: 'Status',
+			macroBatchReady: 'Ready',
+			macroBatchRunning: 'Running',
 			macroBatchHint: 'Process each file in a separate temporary project. Outputs get new names; existing files are kept. Programs may ask for reference audio, reused across the batch.',
 			macroBatchDesktop: 'Applying macros to files requires the desktop app.',
 			macroBatchCompleted: 'Completed',
 			macroBatchFailed: 'Failed',
 			macroBatchCancelled: 'Cancelled',
 			macroBatchSkipped: 'Skipped',
-			macroBatchEmpty: 'Choose audio files and a macro to begin.',
+			macroBatchEmpty: 'Choose audio files, an output folder and a macro to begin.',
 			nyquistLanguage: 'Language',
 			nyquistLanguageLisp: 'Lisp',
 			nyquistLanguageSal: 'SAL',

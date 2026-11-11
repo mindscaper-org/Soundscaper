@@ -13,8 +13,8 @@ test('macro programs retain header-relative, omitted-edge and cursor meanings in
 	const cursor = Number(await editor.getByRole('slider', { name: 'Playhead', exact: true }).getAttribute('aria-valuenow'));
 	expect(cursor).toBeGreaterThan(0);
 	await clip.locator('.clip-header').click();
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByLabel('New program', { exact: true }).click();
 	// Selection commands may move the playhead. Exercise the cursor commands
 	// before any other program changes the independent pointer-authored cursor.
@@ -28,7 +28,7 @@ test('macro programs retain header-relative, omitted-edge and cursor meanings in
 		'const stored = await sound.project.selection();',
 		"sound.log.info('range ' + stored.startFrame + '-' + stored.endFrame);",
 	].join('\n'));
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 	const log = manager.locator('[data-macro-script-log]');
 	await expect(log).toHaveAttribute('data-outcome', 'completed');
 	for (const line of [`range 0-${cursor}`, `range ${cursor}-${cursor}`, 'stored cursor refused']) await expect(log).toContainText(line);
@@ -37,7 +37,7 @@ test('macro programs retain header-relative, omitted-edge and cursor meanings in
 
 	// Restore a real clip-header selection for the separate header-read program.
 	await clip.locator('.clip-header').click();
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
 	await manager.getByLabel('New program', { exact: true }).click();
 	await manager.getByRole('textbox', { name: 'Program', exact: true }).fill([
 		'const selected = await sound.project.selection();',
@@ -57,7 +57,7 @@ test('macro programs retain header-relative, omitted-edge and cursor meanings in
 		"sound.assert(Date() === new Date(Date.now()).toString(), 'Use the virtual clock');",
 		"console.log('Date call completed');",
 	].join('\n'));
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 	await expect(log).toHaveAttribute('data-outcome', 'completed');
 	for (const line of ['Selection frames 0..38400', 'Relative selection frames 28800..38400',
 		'Selection frames 9600..38400', 'selected tracks=0', 'range=0-38400', 'Date call completed']) await expect(log).toContainText(line);

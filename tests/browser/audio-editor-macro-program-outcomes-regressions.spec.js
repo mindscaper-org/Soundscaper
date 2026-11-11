@@ -5,11 +5,11 @@ import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js'
 
 async function programEditor(page, source) {
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New program', exact: true }).click();
 	await manager.getByRole('textbox', { name: 'Program', exact: true }).fill(source);
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 	return manager;
 }
 
@@ -18,5 +18,5 @@ test('canceling a long macro program reports cancellation without a failure aler
 	await manager.getByRole('button', { name: 'Cancel run', exact: true }).click();
 	await expect(manager.locator('[data-macro-script-log]')).toHaveAttribute('data-outcome', 'cancelled');
 	await expect(manager.locator('[data-macro-script-failure]')).toHaveCount(0);
-	await expect(manager.getByRole('button', { name: 'Run program', exact: true })).toBeEnabled();
+	await expect(manager.getByRole('button', { name: 'Run macro', exact: true })).toBeEnabled();
 });

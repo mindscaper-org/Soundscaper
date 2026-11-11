@@ -18,7 +18,6 @@ export function createDesktopMacroFileBatchBinding(parent: Parent, options: Pick
 	const active = new Map<AbortController, Promise<unknown>>();
 	const applyToFiles: DesktopMacroFileBatchAction = async request => {
 		const macro = structuredClone(request.macro);
-		if (macro.kind === 'script' && parent.actions.macros.scripts.blocked(macro.source)) throw new Error('MACRO_SCRIPT_NOT_TRUSTED');
 		const cancellation = new AbortController();
 		const signal = AbortSignal.any([request.signal, cancellation.signal]);
 		const operation = (async () => {

@@ -226,7 +226,7 @@ test('capability output must have its heading and contain only sanitized bounded
 	}
 });
 
-test('discovery preserves locator priority and selects the first compatible candidate', async () => {
+test('discovery skips incompatible candidates and reports empty discovery', async () => {
 	const candidates = [candidateInput('/old'), candidateInput('/good')];
 	const result = await discoverExternalFfmpeg({
 		locator: { discover: () => Promise.resolve(candidates) },
@@ -240,6 +240,55 @@ test('discovery preserves locator priority and selects the first compatible cand
 	assert.deepEqual(await discoverExternalFfmpeg({
 		locator: { discover: () => Promise.resolve([]) }, runner: fixtureRunner([]),
 	}), { status: 'unavailable', reason: 'no-candidates', attempts: [] });
+});
+
+test('automatic discovery chooses the newest compatible numeric version across all sources', async () => {
+	const candidates = [
+		{ ...candidateInput('/managed'), source: 'managed-package' as const },
+		candidateInput('/package'),
+		{ ...candidateInput('/path'), source: 'system-path' as const },
+		candidateInput('/older-major'), candidateInput('/older-minor'),
+		candidateInput('/equal'), candidateInput('/unsupported'),
+	];
+	const result = await discoverExternalFfmpeg({
+		locator: { discover: () => Promise.resolve(candidates) },
+		runner: fixtureRunner([], { versionByRoot: new Map([
+			['/managed', '9.1.9'], ['/package', '9.1.2'], ['/path', '9.1.10'],
+			['/older-major', '8.99.999'], ['/older-minor', '9.0.999'],
+			['/equal', '9.1.10'], ['/unsupported', '10.0.0'],
+		]) }),
+	});
+	assert.equal(result.status, 'available');
+	if (result.status !== 'available') return;
+	assert.equal(result.selected.ffmpegPath, '/path/ffmpeg');
+	assert.equal(result.probe.version.normalized, '9.1.10');
+	assert.equal(result.attempts.length, candidates.length);
+});
+
+test('a manual selection wins over newer automatic candidates regardless of locator order', async () => {
+	const result = await discoverExternalFfmpeg({
+		locator: { discover: () => Promise.resolve([
+			candidateInput('/automatic'),
+			{ ...candidateInput('/manual'), source: 'user-selected' as const },
+		]) },
+		runner: fixtureRunner([], { versionByRoot: new Map([['/manual', '4.4.8']]) }),
+	});
+	assert.equal(result.status, 'available');
+	if (result.status !== 'available') return;
+	assert.equal(result.selected.ffmpegPath, '/manual/ffmpeg');
+	assert.equal(result.attempts.length, 1);
+});
+
+test('an incompatible manual selection never falls back to automatic candidates', async () => {
+	const result = await discoverExternalFfmpeg({
+		locator: { discover: () => Promise.resolve([
+			{ ...candidateInput('/manual'), source: 'user-selected' as const },
+			candidateInput('/automatic'),
+		]) },
+		runner: fixtureRunner([], { versionByRoot: new Map([['/manual', '4.3.9']]) }),
+	});
+	assert.equal(result.status, 'unavailable');
+	assert.equal(result.attempts.length, 1);
 });
 
 interface RunnerFixtureOptions {

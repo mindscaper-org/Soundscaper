@@ -73,6 +73,41 @@ in `scripts/lib/handbook-chrome.mjs` and one catalog per language under
 `handbook/i18n/`; the same run translates it. Everything else in the sidebar is
 a page's own frontmatter title and translates with the page.
 
+## Page layouts
+
+Pages use Starlight's standard reading layout by default. For wide comparisons
+or other content that needs the available width beside the handbook navigation,
+set this frontmatter preset:
+
+```yaml
+layoutPreset: full-width
+```
+
+The preset removes the article width limit and the expanding margins around
+the article. The navigation and table of contents retain their normal widths,
+and the mobile layout stays responsive. The comparison page at
+`start/how-soundscaper-compares.md` uses this preset.
+
+## Comparison cells
+
+Use `+`, `~`, or `/` for supported, partial, or unavailable capabilities.
+Missing features and capabilities supplied only by external plug-ins use `/`.
+Hosting rows rate the ability to load the plug-in itself.
+
+Keep visible labels short. Add ` :: ` after the label for an explanation shown
+on hover, keyboard focus, or tap:
+
+```markdown
+| Native project | + — `.sscape` :: Media is bundled with the project. |
+```
+
+The table transform retains inline formatting and links each explanation to
+its trigger with an accessible description. Escape or tapping elsewhere
+closes the explanation.
+
+Comparison tables fill the article with shared column widths. On narrow
+screens, each table scrolls horizontally in a named, keyboard-focusable region.
+
 ## Authoring links
 
 Write internal links root-absolute and base-free: `[Project files](/projects-and-data/project-files/)`.

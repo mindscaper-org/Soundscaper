@@ -441,16 +441,29 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 		rack,
 		macro,
 		worker,
-		execution,
+		execution: { ...execution, previewAudacityEffectFromController: (request: Parameters<typeof execution.previewAudacityEffectFromController>[0] = {}) =>
+			taskProgress.run('effect', copy.audacityProcessing, task => {
+				task.setCancellation(() => { controls.cancelAudacityEffectPreview(); });
+				return execution.previewAudacityEffectFromController(request);
+			}, undefined, { key: 'audacityPreviewProcessing' }) },
 		persistAudacityEffectResult,
 		runEffectMacro: (request: Parameters<EffectMacro['runEffectMacro']>[0]) => (
-			taskProgress.run('effect', processing(copy.macroProcessing), () => macro.runEffectMacro(request), undefined, { key: copy.macroProcessing ? 'macroProcessing' : 'audacityProcessing' })
+			taskProgress.run('effect', processing(copy.macroProcessing), task => {
+				task.setCancellation(() => { macro.cancelEffectMacro(); });
+				return macro.runEffectMacro(request);
+			}, undefined, { key: copy.macroProcessing ? 'macroProcessing' : 'audacityProcessing' })
 		),
 		applyAudacityEffectFromController: (...args: Parameters<EffectControls['applyAudacityEffectFromController']>) => (
-			taskProgress.run('effect', copy.audacityProcessing, () => controls.applyAudacityEffectFromController(...args), undefined, { key: "audacityProcessing" })
+			taskProgress.run('effect', copy.audacityProcessing, task => {
+				task.setCancellation(() => { execution.cancelSelectedAudacityEffect(); });
+				return controls.applyAudacityEffectFromController(...args);
+			}, undefined, { key: 'audacityProcessing' })
 		),
 		repeatLastAudacityEffect: (...args: Parameters<EffectControls['repeatLastAudacityEffect']>) => (
-			taskProgress.run('effect', copy.audacityProcessing, () => controls.repeatLastAudacityEffect(...args), undefined, { key: "audacityProcessing" })
+			taskProgress.run('effect', copy.audacityProcessing, task => {
+				task.setCancellation(() => { execution.cancelSelectedAudacityEffect(); });
+				return controls.repeatLastAudacityEffect(...args);
+			}, undefined, { key: 'audacityProcessing' })
 		),
 		applySpectralSelection: (...args: Parameters<EffectAudio['applySpectralSelection']>) => (
 			taskProgress.run('effect', processing(copy.spectralProcessing), () => audio.applySpectralSelection(...args), undefined, { key: copy.spectralProcessing ? 'spectralProcessing' : 'audacityProcessing' })

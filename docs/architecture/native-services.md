@@ -165,6 +165,15 @@ main-owned grants. New installations automatically discover supported standard
 folders when the editor opens; saved discovery settings and folder choices are
 preserved. Consent remains per format.
 
+Each professional candidate is inspected in its own supervised peer. A refused
+or crashed candidate is reported as incompatible without discarding the folder's
+other results or blocking later scans. Plugin Manager retains incompatible
+observations without inventing channel layouts; they cannot receive hosting
+grants. Completed scans link to Plugin Manager for review and explicit recovery.
+Plug-in file identities retain the full unsigned 64-bit device and inode values:
+safe values keep their numeric representation, while larger NTFS identifiers use
+canonical decimal strings through authentication, registry storage and host grants.
+
 Registry identity is the format plus its native stable identifier. An installed
 binary additionally binds platform, architecture, version, and digest. A new or
 changed digest requires an explicit allow decision; path ordering never resolves
@@ -190,8 +199,19 @@ output to diagnostics, so plug-in logging cannot corrupt framed RPC replies.
 
 VST2, VST3 and CLAP are cross-platform effect targets, Audio Units is macOS-only,
 LADSPA and LV2 effects are Linux-only, and Vamp is an analyzer rather than an
-effect. Instrument descriptors may be discovered but are not materialized by
-this surface.
+effect. VST2/VST3 instruments and Linux LV2 instruments can be assigned to a
+selected MIDI beta track from Plugin Manager. Instruments retain the same
+consent, installation allowance, binary identity, containment and quarantine
+checks as effects. They compile source notes and MIDI channel messages through
+separate bounded native sessions, preserving stereo/multichannel PCM and
+compensating reported latency before source publication. Playback, seeking,
+loops and audio export consume that saved PCM without reopening the instrument.
+Unavailable instruments leave the saved audio playable; new MIDI edits and
+auditions fail explicitly until the exact installation is available again.
+Vendor controls and interfaces use the existing manager; **Apply instrument
+settings** captures state and regenerates the track atomically. Identity and
+base64 vendor state (at most 12 MiB before encoding) travel in the existing
+opaque MIDI track carrier, including history and native project saves.
 
 VST2 uses JUCE's legacy host with the authenticated FST 0.177.0
 GPL-3.0-or-later compatibility headers, without the proprietary Steinberg SDK.

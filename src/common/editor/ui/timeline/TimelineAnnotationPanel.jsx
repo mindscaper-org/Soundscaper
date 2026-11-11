@@ -130,7 +130,6 @@ const TimelineAnnotationRow = React.memo(function TimelineAnnotationRow({ row, i
 							data-annotation-id={annotation.id}
 							aria-pressed={row.selected}
 							aria-disabled={blocked}
-							aria-label={`${annotation.name || copy.unnamedTimelineAnnotation}, ${annotation.kind === 'marker' ? copy.timelineMarker : copy.timelineRegion}, ${row.timingLabel}`}
 							tabIndex={row.focused ? 0 : -1}
 							onClick={(event) => select(event, annotation)}
 							onDoubleClick={() => {

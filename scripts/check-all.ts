@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createWriteStream, mkdirSync, openSync, closeSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, openSync, closeSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import type { Writable } from 'node:stream';
 import { finished } from 'node:stream/promises';
 import { resolve } from 'node:path';
+import { stripVTControlCharacters } from 'node:util';
 
+import { createCheckAllLog } from './lib/check-all-logs.ts';
 import { createCheckAllPlan } from './lib/check-all-plan.ts';
 import { CheckAllDisplay, createCheckOutputReader } from './lib/check-all-output.ts';
 import { startLimitedProcess } from './lib/check-all-process.ts';
@@ -28,7 +31,16 @@ async function checkAll(): Promise<void> {
 	writeFileSync(lock, `${process.pid}\n`);
 	const controller = new AbortController();
 	const processes = new Set<ReturnType<typeof startLimitedProcess>>();
-	const display = new CheckAllDisplay(process.stdout, tasks.length);
+	const openLogs = new Set<Writable>();
+	let runLog: Writable | undefined;
+	const output = {
+		isTTY: process.stdout.isTTY, columns: process.stdout.columns,
+		write(text: string): boolean {
+			runLog?.write(stripVTControlCharacters(text));
+			return process.stdout.write(text);
+		},
+	};
+	const display = new CheckAllDisplay(output, tasks.length);
 	let servers: Promise<void> | undefined;
 	let timer: ReturnType<typeof setInterval> | undefined;
 	const logs = resolve(root, 'test-results/check-all/logs');
@@ -38,20 +50,26 @@ async function checkAll(): Promise<void> {
 		controller.abort();
 		for (const child of processes) void child.stop().catch(error => display.failure('cleanup', String(error)));
 	};
-	const abort = (): void => cancel(130);
+	const abort = (): void => {
+		output.write(`check-all: interrupted; partial results: ${resolve(logs, '../run.log')}\n`);
+		cancel(130);
+	};
 	process.on('SIGINT', abort);
 	process.on('SIGTERM', abort);
 	try {
-		rmSync(resolve(root, 'coverage/check-all'), { recursive: true, force: true });
 		rmSync(logs, { recursive: true, force: true });
-		mkdirSync(logs, { recursive: true });
+		runLog = openLog(resolve(logs, '../run.log'));
+		output.write(`check-all: 4 slots, 8 GiB per shard, shared previews capped at 8 GiB. Logs: ${logs}\n`);
+		rmSync(resolve(root, 'coverage/check-all'), { recursive: true, force: true });
 		let diagnostic = '';
-		const probe = startLimitedProcess(root, 'probe', ['-e', ''], { onOutput: chunk => { diagnostic = (diagnostic + chunk).slice(-8_192); } });
+		const probe = startLimitedProcess(root, 'probe', ['-e', ''], {
+			log: openLog(resolve(logs, 'probe.log')),
+			onOutput: chunk => { diagnostic = (diagnostic + chunk).slice(-8_192); },
+		});
 		processes.add(probe);
 		try {
 			if (await probe.completed !== 0) throw new Error(`Cannot enforce the 8 GiB shard limit. A systemd user session and cgroup v2 memory controller are required.\n${diagnostic}`);
 		} finally { await probe.stop(); processes.delete(probe); }
-		process.stdout.write(`check-all: 4 slots, 8 GiB per shard, shared previews capped at 8 GiB. Logs: ${logs}\n`);
 		timer = setInterval(() => display.render(), process.stdout.isTTY ? 200 : 5_000);
 		const states = await runCheckTasks(tasks, async task => {
 			if (task.browser) {
@@ -67,12 +85,14 @@ async function checkAll(): Promise<void> {
 		display.finish();
 		const failed = [...states].filter(([, state]) => state === 'failed' || state === 'blocked').map(([id, state]) => `${id} (${state})`);
 		if (failed.length) {
-			process.stdout.write(`${failed.join(', ')}\nSee ${logs}\n`);
+			output.write(`${failed.join(', ')}\nSee ${logs}\n`);
 			exitCode ||= 1;
-		} else process.stdout.write('All checks passed.\n');
+		} else output.write('All checks passed.\n');
 	} catch (error) {
-		if (!controller.signal.aborted) throw error;
-		exitCode ||= 130;
+		if (!controller.signal.aborted) {
+			display.failure('setup', error instanceof Error ? error.stack ?? error.message : String(error));
+			exitCode ||= 1;
+		} else exitCode ||= 130;
 	} finally {
 		if (timer) clearInterval(timer);
 		controller.abort();
@@ -81,13 +101,25 @@ async function checkAll(): Promise<void> {
 			process.off('SIGINT', abort);
 			process.off('SIGTERM', abort);
 			rmSync(lock, { force: true });
+			for (const log of openLogs) log.end();
+			await Promise.all([...openLogs].map(log => finished(log)));
 		}
 	}
 	process.exitCode = exitCode;
 
+	function openLog(file: string): Writable {
+		const log = createCheckAllLog(file);
+		openLogs.add(log);
+		log.once('error', error => {
+			process.stderr.write(`Cannot write ${file}: ${error.message}\n`);
+			cancel(1);
+		});
+		return log;
+	}
+
 	async function execute(task: CheckTask): Promise<number> {
 		const file = resolve(logs, `${task.id.replaceAll('/', '-')}.log`);
-		const log = createWriteStream(file);
+		const log = openLog(file);
 		let tail = '';
 		let reported = false;
 		const output = (chunk: Buffer, stderr: boolean): void => {
@@ -105,7 +137,6 @@ async function checkAll(): Promise<void> {
 		});
 		const child = startLimitedProcess(root, task.id, task.args, { env: { ...process.env, ...task.env }, log, onOutput: output });
 		processes.add(child);
-		log.once('error', error => { display.failure(task.id, String(error)); cancel(1); });
 		try {
 			const code = await child.completed;
 			reader.finish();
@@ -127,6 +158,7 @@ async function checkAll(): Promise<void> {
 				if (event.type === 'start' && event.id === 'servers-ready') { ready = true; resolveReady(); }
 			}, line => { if (line.trim()) display.diagnostic('previews', line.trimEnd()); });
 			const child = startLimitedProcess(root, 'browser-previews', [resolve(root, 'scripts/check-all-browser-servers.ts')], {
+				log: openLog(resolve(logs, 'browser-previews.log')),
 				onOutput: chunk => reader.write(chunk),
 			});
 			processes.add(child);

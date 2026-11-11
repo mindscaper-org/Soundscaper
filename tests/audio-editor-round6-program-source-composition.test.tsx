@@ -22,8 +22,7 @@ for (const key of ['Escape', 'Tab'] as const) test(`Program returns composing ${
 		const [script, setScript] = useState<Script>({ id: 'authored', name: 'Program', source: '// とう' });
 		return <MacroScriptEditor script={script} onChange={(next: Script) => {
 			changes.push(next.source); setScript(next);
-		}} log={[]} failure={null} copy={resolveMacroManagerCopy('en')} running={false} blocked={false}
-			onRun={() => undefined} onCancel={() => undefined} onTrust={() => undefined} />;
+		}} log={[]} failure={null} copy={resolveMacroManagerCopy('en')} running={false} />;
 	}
 	try {
 		await act(async () => root.render(<Control />));

@@ -17,5 +17,5 @@ test('Enter in an effect preset name saves through the same form as the footer a
 	await name.fill('Keyboard preset');
 	await name.press('Enter');
 	await expect(prompt).toBeHidden();
-	await expect(dialog.getByRole('button', { name: 'Preset', exact: true })).toContainText('Keyboard preset');
+	await expect(dialog.getByRole('button', { name: /^Preset(?::|$)/u })).toContainText('Keyboard preset');
 });

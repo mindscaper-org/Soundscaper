@@ -37,7 +37,7 @@ async function expectHistoryControls(dialog) {
 }
 
 async function expectPresetAndBypass(page, dialog, presetName, threshold) {
-	const preset = dialog.getByRole('button', { name: 'Preset', exact: true });
+	const preset = dialog.getByRole('button', { name: /^Preset(?::|$)/u });
 	await preset.click();
 	await page.getByRole('option', { name: presetName, exact: true }).click();
 	await expect(preset).toContainText(presetName);
@@ -115,7 +115,7 @@ test.describe('ported Audacity effect layouts', () => {
 			expect(Math.abs(controls[lower].x - controls[upper].x)).toBeLessThan(2);
 		}
 		await expect(dialog.getByRole('heading', { name: /^(Timing|Compression|Response)$/u })).toHaveCount(0);
-		const defaultPreset = dialog.getByRole('button', { name: 'Preset', exact: true });
+		const defaultPreset = dialog.getByRole('button', { name: /^Preset(?::|$)/u });
 		const threshold = parameter(dialog, 'Threshold').getByRole('spinbutton');
 		const defaultThreshold = await threshold.inputValue();
 		await expect(defaultPreset).toContainText('Default preset');
@@ -245,7 +245,7 @@ test.describe('ported Audacity effect layouts', () => {
 		const small = await box(parameter(dialog, 'Damping').getByRole('slider'));
 		expect(large.height).toBeGreaterThan(small.height * 1.4);
 		await expect(dialog.getByRole('heading', { name: /^(Space|Tone|Mix)$/u })).toHaveCount(0);
-		const preset = dialog.getByRole('button', { name: 'Preset', exact: true });
+		const preset = dialog.getByRole('button', { name: /^Preset(?::|$)/u });
 		await preset.click();
 		await page.getByRole('option', { name: 'Cathedral', exact: true }).click();
 		await expect(parameter(dialog, 'Room size').getByRole('spinbutton')).toHaveValue('90');

@@ -81,7 +81,7 @@ test('the real web macro manager with a usable batch callback does not offer App
 			'the same usable callback can receive an actual initialized macro');
 		await render(web);
 		assert.equal(web.isDesktop, false);
-		assert.equal(palette.dom.container.querySelectorAll('[data-macros-palette]').length, 1,
+		assert.equal(palette.dom.container.querySelectorAll('[data-macro-manager]').length, 1,
 			'the actual manager is mounted rather than absent along with its actions');
 		assert.equal(batchButtons().length, 0);
 		assert.equal(applied.length, 1);

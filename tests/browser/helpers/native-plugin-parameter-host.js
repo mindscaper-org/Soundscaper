@@ -19,8 +19,8 @@ export async function openInstalledGain(page, options = {}) {
 /** Desktop host fixture over the production preload relay and plug-in RPC port. */
 export async function installNativePluginParameterHost(page, options = {}) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(({ parameterCount, holdParameterReads, parameterLabel, vendorUi, allowBypass }) => {
-		const format = vendorUi ? 'clap' : 'ladspa';
+	await page.addInitScript(({ parameterCount, holdParameterReads, parameterLabel, vendorUi, allowBypass, instrument }) => {
+		const format = instrument ? 'vst3' : vendorUi ? 'clap' : 'ladspa';
 		const values = Array.from({ length: parameterCount }, () => .25);
 		const heldParameterReplies = [];
 		let readsHeld = holdParameterReads;
@@ -41,11 +41,11 @@ export async function installNativePluginParameterHost(page, options = {}) {
 				encoder.encode(`${requestId}:${await digest(bytes)}`))) });
 		const binaryHash = digest(encoder.encode('Installed test gain plug-in, version 1'));
 		const instance = async (instanceId) => ({ instanceId, entryId: 'gain', stablePluginId: 'org.test.gain',
-			format, binarySha256: await binaryHash, inputChannels: 2, outputChannels: 2,
+			format, binarySha256: await binaryHash, inputChannels: instrument ? 0 : 2, outputChannels: 2,
 			state: 'ready', enabled: true, bypassed, latencySamples: 0 });
 		const refused = async () => { throw new Error('This host fixture does not offer that operation.'); };
 		const quarantine = { loaded: true, degraded: false, records: [], pendingFaults: 0 };
-		const registry = { entries: [{ entryId: 'gain', format: format.toUpperCase(), name: 'Test Gain', vendor: 'Test host',
+		const registry = { entries: [{ entryId: 'gain', classification: instrument ? 'instrument' : 'effect', format: format.toUpperCase(), name: 'Test Gain', vendor: 'Test host',
 			eligible: true, ineligibleReason: null, installations: [{ installationId: 'gain-install',
 				version: '1', allowed: true, selected: true, quarantined: false }] }] };
 		const plugins = { enabled: true, quarantined: false, payload: { status: 'available', reason: null },
@@ -80,9 +80,10 @@ export async function installNativePluginParameterHost(page, options = {}) {
 			reportNativeAudioSessionLoss: refused, closeNativeAudioSession: refused,
 			setNativePluginInstallationAllowed: refused, selectNativePluginInstallation: refused,
 			instantiateNativePlugin: async ({ installationId, instanceId: requested }) => {
-				if (installationId !== 'gain-install') throw new Error('The requested installation is absent.');
+				if (installationId !== 'gain-install' && (!instrument || !installationId.startsWith('i'))) throw new Error('The requested installation is absent.');
 				const instanceId = requested || 'test-gain-1';
 				const channel = new MessageChannel();
+				const heldNotes = new Set();
 				channel.port1.onmessage = (event) => {
 					const request = event.data;
 					requests.push(request.kind);
@@ -115,6 +116,17 @@ export async function installNativePluginParameterHost(page, options = {}) {
 							values[request.index] = request.value;
 							reply({ kind: 'parameter-value', index: request.index, value: request.value });
 						}, delay);
+					} else if (request.kind === 'latency') reply({ kind: 'latency', reportedLatencyFrames: 0 });
+					else if (request.kind === 'topology') reply({ kind: 'topology', inputChannels: 0, outputChannels: 2 });
+					else if (request.kind === 'process-midi') {
+						for (let frame = 0; frame < request.frameCount; frame++) {
+							for (const event of request.events.filter(event => event.frame === frame)) {
+								if ((event.data[0] & 240) === 144) heldNotes.add(event.data[1]);
+								if ((event.data[0] & 240) === 128) heldNotes.delete(event.data[1]);
+							}
+							for (const plane of request.output) plane[frame] = heldNotes.size ? values[0] : 0;
+						}
+						reply({ kind: 'processed', output: request.output, reportedLatencyFrames: 0 });
 					} else if (request.kind === 'process') {
 						for (let c = 0; c < request.output.length; c += 1) {
 							for (let i = 0; i < request.frameCount; i += 1) request.output[c][i] = (request.input[c]?.[i] || 0) * values[0];
@@ -156,5 +168,5 @@ export async function installNativePluginParameterHost(page, options = {}) {
 		};
 		Object.defineProperty(globalThis, 'soundscaperDesktop', { configurable: true, value: Object.freeze({ v1: bridge }) });
 	}, { parameterCount: options.parameterCount ?? 1, holdParameterReads: options.holdParameterReads === true,
-		parameterLabel: options.parameterLabel ?? '', vendorUi: options.vendorUi === true, allowBypass: options.allowBypass === true });
+		parameterLabel: options.parameterLabel ?? '', vendorUi: options.vendorUi === true, allowBypass: options.allowBypass === true, instrument: options.instrument === true });
 }

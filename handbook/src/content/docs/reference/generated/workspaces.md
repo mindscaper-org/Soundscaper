@@ -39,6 +39,7 @@ Choose a workspace directly from **Window**. This menu lists open projects first
 | Freesound | `freesound` | Right | Hidden | Hidden | Hidden | Hidden | Hidden |
 | audio.com | `audiocom` | Right | Hidden | Hidden | Hidden | Hidden | Hidden |
 | Effects | `effects` | Left | Visible | Visible | Hidden | Hidden | Visible |
+| Macros palette | `macros-palette` | Right | Hidden | Hidden | Hidden | Hidden | Hidden |
 | Mixer | `mixer` | Bottom | Hidden | Visible | Hidden | Hidden | Hidden |
 | Analysis | `analysis` | Right | Hidden | Hidden | Hidden | Hidden | Hidden |
 | Recording setup | `recording-setup` | Bottom | Hidden | Hidden | Hidden | Hidden | Hidden |

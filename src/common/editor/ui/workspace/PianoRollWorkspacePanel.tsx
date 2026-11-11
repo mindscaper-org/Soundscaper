@@ -5,7 +5,7 @@ import { NoteGrid } from '@soundscaper/design-system/PianoRoll/NoteGrid';
 import { PianoKeyboard } from '@soundscaper/design-system/PianoRoll/PianoKeyboard';
 import { PianoRollRuler } from '@soundscaper/design-system/PianoRoll/PianoRollRuler';
 import { PianoRollClipStrip } from '@soundscaper/design-system/PianoRoll/PianoRollClipStrip';
-import { readMidiClip, readMidiTrack, type MidiInstrument, type MidiNote } from '../../midi-model.ts';
+import { readMidiClip, readMidiTrack, MIDI_INSTRUMENTS, type MidiInstrument, type MidiNote } from '../../midi-model.ts';
 import { createStableId } from '../../stable-id.js';
 import type { EditorAudioClip, EditorAudioTrack } from '../../types.ts';
 import { resolveMidiCopy } from '../../../i18n/editor-midi-copy.ts';
@@ -55,7 +55,7 @@ interface PianoRollWorkspacePanelProps {
 const KEY_PITCHES: Readonly<Record<string, number>> = {
 	a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12,
 };
-const INSTRUMENTS: readonly MidiInstrument[] = ['sine', 'triangle', 'square', 'sawtooth'];
+const INSTRUMENTS = MIDI_INSTRUMENTS;
 const SUBDIVISIONS = [1, 2, 4, 8, 16, 32] as const;
 type Subdivision = typeof SUBDIVISIONS[number];
 
@@ -244,8 +244,9 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 
 	return <div ref={panelRef} className="kw-audio-editor__piano-roll" aria-label={copy.pianoRoll} onKeyDown={keyDown}>
 		<div ref={controlsRef} className="kw-audio-editor__piano-roll-controls">
-			<label>{copy.instrument}<select value={instrument} disabled={disabled}
+			<label>{copy.instrument}<select value={typeof instrument === 'string' ? instrument : 'native'} disabled={disabled}
 				onChange={event => { const value = event.currentTarget.value as MidiInstrument; edit(() => controller.actions.midi.setInstrument(track.id, value)); }}>
+				{typeof instrument !== 'string' && <option value="native">{instrument.name}</option>}
 				{INSTRUMENTS.map(value => <option key={value} value={value}>{copy[value]}</option>)}
 			</select></label>
 			<label>{copy.snap}<select value={subdivision} onChange={event => setSubdivision(Number(event.currentTarget.value) as Subdivision)}>

@@ -6,8 +6,8 @@ import { bootEditor, chooseCommandAction, disableNativeSavePicker } from './audi
 test('importing a copy of an authored program leaves the original runnable', async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New program', exact: true }).click();
 	await manager.getByRole('textbox', { name: 'Program', exact: true }).fill("sound.log.info('Original authored program ran');");
 	const [download] = await Promise.all([
@@ -23,7 +23,7 @@ test('importing a copy of an authored program leaves the original runnable', asy
 	await chooser.setFiles(path);
 	await expect(manager.locator('[data-macro-script-trust="imported-untrusted"]')).toHaveCount(1);
 	await manager.locator('[data-macro-script-trust="authored"]').click();
-	const run = manager.getByRole('button', { name: 'Run program', exact: true });
+	const run = manager.getByRole('button', { name: 'Run macro', exact: true });
 	await expect(run).toBeEnabled();
 	await run.click();
 	const log = manager.locator('[data-macro-script-log]');

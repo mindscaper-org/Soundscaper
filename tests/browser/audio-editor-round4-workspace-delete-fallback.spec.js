@@ -9,7 +9,7 @@ test('deleting the active Framescaper custom workspace restores its supported vi
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Workspace$/u }).click();
-	const preset = preferences.getByRole('button', { name: 'Workspace preset', exact: true });
+	const preset = preferences.getByRole('button', { name: /^Workspace preset(?::|$)/u });
 	await preferences.getByRole('textbox', { name: 'Workspace name', exact: true }).fill('Picture review');
 	await preferences.getByRole('button', { name: 'Create from current layout', exact: true }).click();
 	await expect(preset).toHaveText(/Picture review/u);

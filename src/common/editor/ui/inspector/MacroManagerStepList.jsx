@@ -39,7 +39,7 @@ export default function MacroManagerStepList({
 		containerRef: stackRef,
 		groupId: 'effects-panel',
 		selector: '.effect-slot',
-		ariaLabel: copy.macrosPalette,
+		ariaLabel: copy.macroManager,
 		startTabIndex: 0,
 	});
 	const initTabIndices = stepTabGroup.initTabIndices;
@@ -61,7 +61,7 @@ export default function MacroManagerStepList({
 					ref={stackRef}
 					className="audio-editor-macros-palette__stack"
 					{...stepTabGroup.containerProps}
-					aria-label={copy.macrosPalette}
+					aria-label={copy.macroManager}
 					onKeyDown={stepTabGroup.onKeyDown}
 					onBlur={stepTabGroup.onBlur}
 					onFocus={stepTabGroup.onFocus}

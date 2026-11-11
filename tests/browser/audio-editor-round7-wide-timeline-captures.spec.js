@@ -8,11 +8,11 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 for (const channelCount of [2, 4]) {
 	test(`a macro Invert captures every channel of an ordinary ${channelCount}-channel recording`, async ({ page }) => {
 		const { editor, original } = await importRecording(page, channelCount, true);
-		await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-		const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+		await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+		const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 		await manager.getByRole('button', { name: 'New program', exact: true }).click();
 		await manager.getByRole('textbox', { name: 'Program', exact: true }).fill("await sound.effect('audacity-invert');");
-		await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+		await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 		await expect(manager.locator('[data-macro-script-log]')).toHaveAttribute('data-outcome', 'completed', { timeout: 10_000 });
 		await manager.getByRole('button', { name: 'Close', exact: true }).click();
 		const actual = await exportSamples(page, editor);

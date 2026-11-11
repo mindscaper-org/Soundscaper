@@ -50,7 +50,7 @@ See [all how-to guides](/guides/).
 
 - [Understand project files and Audacity interchange](/projects-and-data/project-files/)
 - [Protect locally stored work](/projects-and-data/storage-backups-and-privacy/)
-- [Compare Soundscaper with Audacity 4 and Audition](/start/how-soundscaper-compares/)
+- [Compare Soundscaper with Audacity, Audition, Pro Tools, and SoundCraft](/start/how-soundscaper-compares/)
 
 ## Find an exact answer
 

@@ -4,11 +4,11 @@ import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, closeDialog, importFiles } from './audio-editor-test-helpers.js';
 
 async function runProgram(page, editor, source) {
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New program', exact: true }).click();
 	await manager.getByRole('textbox', { name: 'Program', exact: true }).fill(source);
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 	const log = manager.locator('[data-macro-script-log]');
 	await expect(log).toHaveAttribute('data-outcome', /completed|failed/u);
 	return { manager, log };
@@ -53,8 +53,8 @@ test('macro commands await mixing before querying the resulting tracks', async (
 
 test('editing a default macro selection command keeps its command identity', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'Fade ends', exact: true }).click();
 	await manager.locator('[data-macro-steps] .effect-slot').first().getByRole('button', { name: 'Select effect', exact: true }).click();
 	const settings = page.getByRole('dialog', { name: 'Select', exact: true });
@@ -69,8 +69,8 @@ test('one Undo reverses a step-list macro containing two track commands', async 
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const tracks = Number(await editor.getAttribute('data-track-count'));
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	const [chooser] = await Promise.all([
 		page.waitForEvent('filechooser'),
 		manager.getByRole('button', { name: 'Import macro', exact: true }).click(),

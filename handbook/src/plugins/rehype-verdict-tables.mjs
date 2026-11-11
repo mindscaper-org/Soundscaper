@@ -2,7 +2,7 @@
  * Renders comparison markers as colour-coded, accessible symbols.
  *
  * The comparison pages are written as ordinary Markdown tables whose cells
- * read `+`, `~` or `/`, optionally followed by an em-dash and the detail that
+ * read `+`, `~`, `/` or `?`, optionally followed by an em-dash and the detail that
  * qualifies the verdict. Legacy `Yes`, `Partial` and `No` cells also work.
  * This transform tags each one for the stylesheet: the cell gets
  * `verdict-cell verdict-cell--<state>` and the source marker itself
@@ -63,6 +63,7 @@ const VERDICT_STATES = new Map([
 	['+', 'yes'],
 	['~', 'partial'],
 	['/', 'no'],
+	['?', 'unknown'],
 	['Yes', 'yes'],
 	['Partial', 'partial'],
 	['No', 'no'],
@@ -72,6 +73,7 @@ const VERDICT_SYMBOLS = {
 	yes: { symbol: '+', label: 'Supported' },
 	partial: { symbol: '~', label: 'Limited' },
 	no: { symbol: '/', label: 'Unavailable' },
+	unknown: { symbol: '?', label: 'Not verified' },
 };
 
 // The exact separator the comparison sources are written with.

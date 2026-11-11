@@ -38,7 +38,7 @@ test('imported audio presets reset omitted settings in the actual downloaded WAV
 		],
 	})) });
 	for (const name of ['Telephone', 'Default WAV']) {
-		await presets.getByRole('button', { name: 'Preset', exact: true }).click();
+		await presets.getByRole('button', { name: /^Preset(?::|$)/u }).click();
 		await page.getByRole('option', { name: `${name} (custom)`, exact: true }).click();
 	}
 	await expect(dialog.locator('[data-export-field="sampleRate"] input')).toHaveValue(String(originalRate));

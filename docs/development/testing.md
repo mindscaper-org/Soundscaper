@@ -202,6 +202,11 @@ Maintainers can run that gate and the complete ordinary Playwright suite
 npm run check-all
 ```
 
+Playwright stays pinned to 1.64.1 while its Firefox file-chooser interception
+[reports cancellation before selection](https://github.com/microsoft/playwright/issues/43994).
+Verify both selection and cancellation through Generate > Add Images before
+updating the pin; application cancellation handlers must still honor real cancellation.
+
 `check-all` schedules up to four checks or test shards at once. It splits lint
 using the existing eight lint shards, Node suites across four execution slots,
 and browser suites into four partitions spanning all three engines. Each
@@ -242,7 +247,10 @@ periodic snapshots. Command diagnostics retain their task prefix, even when
 they contain expected errors; `FAIL` identifies reported test failures or
 failed commands. Full command output is saved under
 `test-results/check-all/logs/`; browser diagnostics have separate directories under
-`test-results/check-all/`. Independent checks continue after a failure, while
+`test-results/check-all/`. The progress summary and failures are also written to
+`test-results/check-all/run.log` from startup. Task output is written as it arrives,
+including the memory-controller probe and shared previews; partial logs remain
+available after Ctrl-C. Independent checks continue after a failure, while
 checks that need a failed prerequisite are marked blocked. Any failed or blocked
 check produces a nonzero exit. Ctrl-C terminates all owned scopes and their
 descendants. A worktree lock prevents overlapping `check-all` invocations; after

@@ -2,7 +2,9 @@
 
 /** Shared curve and definition dependencies of the desktop effect registry. */
 export const DESKTOP_EFFECT_RUNTIME_FILES = Object.freeze([
+	'src/common/editor/first-party-effects/auto-tune/control-notes.js',
 	'src/common/editor/first-party-effects/auto-tune/definition.js',
+	'src/common/editor/first-party-effects/auto-tune/realtime-contract.js',
 	'src/common/editor/audacity-effects/filter-curve.js',
 	'src/common/editor/audacity-effects/audacity-filter-release.js',
 	'src/common/editor/audacity-effects/live-update-geometry.js',

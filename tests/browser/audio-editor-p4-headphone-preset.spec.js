@@ -13,7 +13,7 @@ async function saveAs(page, dialog, name) {
 	await naming.getByRole('textbox', { name: 'Preset name', exact: true }).fill(name);
 	await naming.getByRole('button', { name: 'Save preset', exact: true }).click();
 	await expect(naming).toBeHidden();
-	await expect(dialog.getByRole('button', { name: 'Preset', exact: true })).toContainText(name);
+	await expect(dialog.getByRole('button', { name: /^Preset(?::|$)/u })).toContainText(name);
 }
 
 for (const mode of ['ordinary', 'headphones', 'headphones-file']) test(`delivery preset restores ${mode} rendering after a fresh reload`, async ({ page }, testInfo) => {
@@ -42,18 +42,18 @@ for (const mode of ['ordinary', 'headphones', 'headphones-file']) test(`delivery
 	dialog = await openExportDialog(page, editor);
 	await expect(dialog.getByRole('checkbox', { name: 'Render for headphones', exact: true })).not.toBeChecked();
 	if (fromFile) {
-		await dialog.getByRole('button', { name: 'Preset', exact: true }).click();
+		await dialog.getByRole('button', { name: /^Preset(?::|$)/u }).click();
 		await page.getByRole('option', { name: new RegExp(`^${name} \\(custom\\)`, 'u') }).click();
 		await dialog.getByRole('button', { name: 'Delete preset', exact: true }).click();
-		await expect(dialog.getByRole('button', { name: 'Preset', exact: true })).toContainText('No preset');
+		await expect(dialog.getByRole('button', { name: /^Preset(?::|$)/u })).toContainText('No preset');
 		await dialog.getByRole('checkbox', { name: 'Render for headphones', exact: true }).uncheck();
 		await dialog.getByRole('button', { name: 'More options', exact: true }).click();
 		const choosing = page.waitForEvent('filechooser');
 		await page.getByRole('menuitem', { name: 'Import preset', exact: true }).click();
 		await (await choosing).setFiles({ name: 'headphones.json', mimeType: 'application/json', buffer: file });
-		await expect(dialog.getByRole('button', { name: 'Preset', exact: true })).toBeEnabled();
+		await expect(dialog.getByRole('button', { name: /^Preset(?::|$)/u })).toBeEnabled();
 	}
-	await dialog.getByRole('button', { name: 'Preset', exact: true }).click();
+	await dialog.getByRole('button', { name: /^Preset(?::|$)/u }).click();
 	await page.getByRole('option', { name: new RegExp(`^${name} \\(custom\\)`, 'u') }).click();
 	await dialog.getByRole('button', { name: 'Export', exact: true }).click();
 	const link = dialog.locator('[data-export-download]'); await expect(link).toBeVisible({ timeout: 20_000 });

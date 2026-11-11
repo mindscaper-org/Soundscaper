@@ -11,6 +11,10 @@ import {
 	stageDesktopApplicationSources,
 } from '../scripts/lib/desktop-project-library-runtime.mjs';
 
+test('desktop compiler inventory declares each runtime member exactly once', () => {
+	assert.equal(new Set(DESKTOP_EXPECTED_RUNTIME_FILES).size, DESKTOP_EXPECTED_RUNTIME_FILES.length);
+});
+
 async function runtimeInventory(context: TestContext, files: readonly string[]) {
 	const root = await mkdtemp(join(tmpdir(), 'desktop-closed-inventory-'));
 	context.after(() => rm(root, { recursive: true, force: true }));

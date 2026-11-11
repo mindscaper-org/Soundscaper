@@ -44,6 +44,7 @@ test('other native backends, widths and codec headers keep their original channe
 		'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36',
 		'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/18.4 Safari/605.1.15',
 		FIREFOX.replace('X11; Linux x86_64', 'Android; Mobile'), '',
+		FIREFOX.replaceAll('140.0', '157.0'), FIREFOX.replaceAll('140.0', '159.0'),
 	]) await backend(userAgent, async () => { assert.ok(normalizeNativeContainerAudio(native, null, encoded) === native); });
 	await backend(FIREFOX, async () => {
 		assert.equal(normalizeNativeContainerAudio(nativeBuffer(2), null, encoded).numberOfChannels, 2);

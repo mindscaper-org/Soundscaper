@@ -14,8 +14,8 @@ test('an independent-track Truncate Silence macro preserves its stereo channel c
 	}
 	await importFiles(editor, [recording]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New macro', exact: true }).click();
 	await manager.getByRole('button', { name: 'Add effect', exact: true }).click();
 	await page.getByRole('menu', { name: 'Choose an effect', exact: true }).getByRole('menuitem', { name: 'Truncate Silence', exact: true }).click();

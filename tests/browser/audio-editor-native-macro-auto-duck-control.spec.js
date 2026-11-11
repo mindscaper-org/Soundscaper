@@ -23,8 +23,8 @@ for (const precedingSilent of [false, true]) test(`native AutoDuck follows contr
 		.locator('.track-control-panel__track-name-text').click({ modifiers: ['ControlOrMeta'] });
 	await expect(editor.locator('[data-time-selection-overlay]')).toHaveCount(1);
 	const before = await exportSamples(page, editor);
-	await chooseCommandAction(page,editor,'Tools','Macros palette');
-	const manager = page.getByRole('dialog',{name:'Macros palette',exact:true});
+	await chooseCommandAction(page,editor,'Tools','Macro manager');
+	const manager = page.getByRole('dialog',{name:'Macro manager',exact:true});
 	const choosing = page.waitForEvent('filechooser'); await manager.getByRole('button',{name:'Import macro',exact:true}).click();
 	await (await choosing).setFiles({name:'Native duck.txt',mimeType:'text/plain',buffer:Buffer.from(text)});
 	await manager.getByRole('button',{name:'Run macro',exact:true}).click(); await expect(manager).toContainText('Macro applied.');

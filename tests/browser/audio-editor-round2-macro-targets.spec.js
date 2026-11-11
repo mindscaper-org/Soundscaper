@@ -5,11 +5,11 @@ import { bootEditor, chooseCommandAction, disableNativeSavePicker, importFiles }
 import { exportSamples } from './helpers/round2-audio-export.js';
 
 async function runProgram(page, editor, source) {
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New program', exact: true }).click();
 	await manager.getByRole('textbox', { name: 'Program', exact: true }).fill(source);
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 	await expect(manager.locator('[data-macro-script-log]')).toHaveAttribute('data-outcome', 'completed', { timeout: 30_000 });
 	await manager.getByRole('button', { name: 'Close', exact: true }).click();
 }
@@ -20,8 +20,8 @@ test('a step-list macro applies its effect to every audio track selected by Sele
 	await importFiles(editor, [toneA, toneB]);
 	const before = await exportSamples(page, editor);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New macro', exact: true }).click();
 	await manager.getByRole('button', { name: 'Add effect', exact: true }).click();
 	await page.getByRole('menu', { name: 'Choose an effect', exact: true }).getByRole('menuitem', { name: 'Invert', exact: true }).click();

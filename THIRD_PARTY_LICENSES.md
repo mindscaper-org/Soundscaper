@@ -704,21 +704,21 @@ normal desktop package or public release. It additionally distributes the
 following pinned tools solely so the extracted application can run its bundled
 browser workflows without an npm installation:
 
-- `@playwright/test` 1.65.0, `playwright` 1.65.0, and `playwright-core` 1.65.0 — Apache-2.0; Copyright Microsoft Corporation; source: <https://github.com/microsoft/playwright/tree/v1.65.0>
+- `@playwright/test` 1.64.1, `playwright` 1.64.1, and `playwright-core` 1.64.1 — Apache-2.0; Copyright Microsoft Corporation; source: <https://github.com/microsoft/playwright/tree/v1.64.1>
 - `@axe-core/playwright` 4.14.0 and `axe-core` 4.14.0 — MPL-2.0; Copyright Deque Systems, Inc.; source: <https://github.com/dequelabs/axe-core/tree/v4.14.0>
-- WinLDD `PrintDeps.exe` (Playwright revision 1007) — MIT; Copyright (c) 2020 Julien Waechter; source and embedded license header: <https://github.com/microsoft/playwright/blob/v1.65.0/browser_patches/winldd/PrintDeps.cpp>; binary-only archive recipe: <https://github.com/microsoft/playwright/blob/v1.65.0/browser_patches/winldd/archive.sh>; bundled terms: [`LICENSES/Playwright-winldd-MIT.txt`](LICENSES/Playwright-winldd-MIT.txt)
+- WinLDD `PrintDeps.exe` (Playwright revision 1007) — MIT; Copyright (c) 2020 Julien Waechter; source and embedded license header: <https://github.com/microsoft/playwright/blob/v1.64.1/browser_patches/winldd/PrintDeps.cpp>; binary-only archive recipe: <https://github.com/microsoft/playwright/blob/v1.64.1/browser_patches/winldd/archive.sh>; bundled terms: [`LICENSES/Playwright-winldd-MIT.txt`](LICENSES/Playwright-winldd-MIT.txt)
 - `esbuild` 0.28.2 — MIT; Copyright (c) 2020 Evan Wallace; source: <https://github.com/evanw/esbuild/tree/v0.28.2>; the browser specs compile the TypeScript sources they serve to each engine. Each package targets exactly one platform, so the artifact carries only the `@esbuild/<platform>-<architecture>` 0.28.2 binary package its own target runs, under the same MIT terms and the `esbuild` `LICENSE.md` staged beside it
 - `typescript` 6.0.3 — Apache-2.0; Copyright Microsoft Corporation; source: <https://github.com/microsoft/TypeScript/tree/v6.0.3>
 
 Playwright's pinned browser inventory for that artifact identifies
-Chrome for Testing 158.0.8127.18 (Playwright revision 1254),
-Firefox 159.0 (Playwright revision 1572), and
-WebKit 27.2 (Playwright revision 2388). Platform-specific revision
+Chrome for Testing 156.0.8078.4 (Playwright revision 1248),
+Firefox 157.0 (Playwright revision 1555), and
+WebKit 27.2 (Playwright revision 2370). Platform-specific revision
 overrides remain recorded in the distributed `playwright-core/browsers.json`.
 The downloaded archives retain the license and notice material they provide,
 including Chromium's component notices and Playwright's LGPL-2.1 FFmpeg copy;
 the corresponding Playwright browser patches and build scripts are at
-<https://github.com/microsoft/playwright/tree/v1.65.0/browser_patches>.
+<https://github.com/microsoft/playwright/tree/v1.64.1/browser_patches>.
 
 The artifact also retains each staged npm package's installed `LICENSE`,
 `NOTICE`, and third-party-notice files. This deliberately broader diagnostic

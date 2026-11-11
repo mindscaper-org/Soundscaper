@@ -175,3 +175,18 @@ test('a missing standard folder does not erase an earlier scan failure', async (
 	assert.equal(f.controller.getSnapshot().status, 'failed');
 	assert.equal(f.controller.getSnapshot().detail, 'System VST3 folder: Scanner failed');
 });
+
+test('a completed folder with incompatible candidates retains its warning while later folders succeed', async () => {
+	const f = fixture();
+	const operation = f.controller.scan();
+	await flush();
+	f.jobs[0]!.resolve({ status: 'described', scan: { status: 'scanned',
+		detail: 'Some plugins are incompatible. Review them in Plugin Manager.', entries: [{}, {}] } });
+	await flush();
+	f.jobs[1]!.resolve(result);
+	await operation;
+	assert.equal(f.controller.getSnapshot().status, 'failed');
+	assert.equal(f.controller.getSnapshot().found, 3);
+	assert.equal(f.controller.getSnapshot().detail,
+		'System VST3 folder: Some plugins are incompatible. Review them in Plugin Manager.');
+});

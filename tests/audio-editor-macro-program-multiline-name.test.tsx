@@ -20,8 +20,7 @@ for (const original of ['Opening\nRoom tone', 'Single line']) test(`macro progra
 	function Fixture() {
 		const [script, setScript] = useState({ id: 'first', name: original, source: '' });
 		return <><MacroScriptEditor key={script.id} script={script} onChange={(next: typeof script) => { names.push(next.name); setScript(next); }}
-			copy={resolveMacroManagerCopy('en')} log={[]} failure={null} running={false} blocked={false}
-			onRun={() => undefined} onCancel={() => undefined} onTrust={() => undefined} />
+			copy={resolveMacroManagerCopy('en')} log={[]} failure={null} running={false} />
 			<button data-switch onClick={() => setScript({ id: 'second', name: 'Second program', source: '' })}>Second program</button></>;
 	}
 	const nameField = () => {

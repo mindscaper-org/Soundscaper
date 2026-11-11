@@ -91,7 +91,6 @@ Product availability follows each product profile’s command filters and each l
 | Classic Filters | `audacity-classic-filters` | — | Effect > Legacy effects | Soundscaper | Soundscaper local |
 | Clean Filler & Silence | `assistance-task-clean-filler-silence` | — | Effect > Noise removal and repair | Soundscaper, Framescaper | Soundscaper local |
 | Clear Audio Helper Quarantine | `desktop-clear-audio-helper-quarantine` | — | Edit > Preferences > Audio settings | Soundscaper, Framescaper | Soundscaper local |
-| Clear Probe Helper Quarantine | `desktop-clear-probe-helper-quarantine` | — | Edit > Preferences > Media | Soundscaper, Framescaper | Soundscaper local |
 | Clear all local editor data | `clear-data` | — | File > Project management | Soundscaper, Framescaper | Soundscaper local |
 | Clear loop region | `clear-loop-region` | Shift+Alt+L | Select > Looping | Soundscaper, Framescaper | Audacity |
 | Clear recent projects | `clear-recent` | — | File > Open recent | Soundscaper, Framescaper | Audacity |
@@ -268,7 +267,8 @@ Product availability follows each product profile’s command filters and each l
 | Low-pass filter | `lowpass-filter` | — | Effect > EQ and filters | Soundscaper | Soundscaper local |
 | MCP connection | `desktop-mcp-connection` | — | Tools > Desktop services | Soundscaper | Soundscaper local |
 | MIDI track (beta) | `new-midi-track` | — | Tracks > Add new track | Soundscaper | Soundscaper local |
-| Macros palette | `manage-macros` | — | Tools | Soundscaper | Audacity |
+| Macro manager | `manage-macros` | — | Tools | Soundscaper | Audacity |
+| Macros palette | `macros-palette` | — | Tools; Window | Soundscaper | Soundscaper local |
 | Make Highlights | `assistance-task-make-highlights` | — | Edit | Framescaper | Soundscaper local |
 | Make stereo track | `track-make-stereo` | — | Track context | Soundscaper, Framescaper | Audacity |
 | Manage labels | `open-label-editor` | — | Edit > Label; View | Soundscaper, Framescaper | Audacity |
@@ -315,7 +315,7 @@ Product availability follows each product profile’s command filters and each l
 | Mute/Unmute Focused Track | `track-mute` | Shift+U | Track context | Soundscaper, Framescaper | Audacity |
 | NTSC drop frames | `snap-video-ntsc-drop` | — | View > Snapping > Video frames | Soundscaper, Framescaper | Soundscaper local |
 | NTSC frames (29.97 fps) | `snap-video-ntsc` | — | View > Snapping > Video frames | Soundscaper, Framescaper | Soundscaper local |
-| Native media and scratch | `framescaper-native-media-preferences` | — | Edit > Preferences > Media | Framescaper | Soundscaper local |
+| Native media and scratch | `framescaper-native-media-preferences` | — | Edit > Preferences > Advanced | Framescaper | Soundscaper local |
 | New | `file-new` | Ctrl+N | File | Soundscaper, Framescaper | Audacity |
 | New label track | `new-label-track` | — | Tracks | Soundscaper, Framescaper | Audacity |
 | New mono track | `new-mono-track` | Ctrl+Shift+N | Tracks | Soundscaper, Framescaper | Audacity |
@@ -539,7 +539,6 @@ Product availability follows each product profile’s command filters and each l
 | Unlink audio | `video-unlink-audio` | — | Edit > Audio clips | Soundscaper, Framescaper | Soundscaper local |
 | Unmute Tracks | `unmute-tracks` | Ctrl+Alt+Shift+U | Tracks > Mute/Unmute | Soundscaper, Framescaper | Audacity |
 | Unmute all tracks | `local://unmute-all` | Ctrl+Shift+U | Tracks | Soundscaper, Framescaper | Soundscaper local |
-| Use Native Probe Helper | `desktop-use-native-probe-helper` | — | Edit > Preferences > Media | Soundscaper, Framescaper | Soundscaper local |
 | Utility Gain (Reviewed) | `reviewed-utility-gain` | — | Effect > Special | Soundscaper | Soundscaper local |
 | Vamp Plugins | `native-analyzer-use` | — | Analyze | Soundscaper | Soundscaper local |
 | Video editor | `workspace-video-editor` | — | View > Workspace; Window | Framescaper | Soundscaper local |

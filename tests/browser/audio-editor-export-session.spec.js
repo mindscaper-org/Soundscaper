@@ -1,3 +1,4 @@
+import { taskProgressCancel } from './helpers/task-progress.js';
 import { clipDescriptionForLocale } from './audio-editor-clip-locators.js';
 import { Uint8ArrayReader, Uint8ArrayWriter, ZipReader } from '@zip.js/zip.js';
 
@@ -415,7 +416,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		await chooseDropdown(page, exportDialog.locator('[data-export-field="format"]'), 'WAV');
 
 		await exportDialog.getByRole('button', { name: 'Export', exact: true }).click();
-		const cancel = exportDialog.getByRole('button', { name: 'Cancel export' });
+		const cancel = taskProgressCancel(page);
 		await expect(cancel).toBeVisible();
 		const progress = exportDialog.locator('.audio-editor-dialog-footer [data-export-progress]');
 		await expect(progress).toBeVisible();

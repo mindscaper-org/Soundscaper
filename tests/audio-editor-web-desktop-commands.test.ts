@@ -19,7 +19,6 @@ for (const productId of ['soundscaper', 'framescaper']) {
 			'overwrite-original-file', 'ara-clip-editor', 'text-to-speech',
 			'local-assistance', 'local-assistance-indexed-search', 'manage-local-models',
 			'desktop-check-updates', 'desktop-view-source',
-			'desktop-use-native-probe-helper', 'desktop-clear-probe-helper-quarantine',
 			'desktop-clear-audio-helper-quarantine', 'desktop-discover-native-effects',
 			...ASSISTANCE_TASKS.filter(task => !task.video || productId === 'framescaper')
 				.map(task => `assistance-task-${task.workflowId}`),
@@ -63,13 +62,14 @@ for (const productId of ['soundscaper', 'framescaper']) {
 		const preferences = tools?.nativePreferences as readonly NativePreferenceEntry[];
 		assert.deepEqual(preferences.map(({ id, section }) => [id, section]), [
 			['parallel-stack-processing', 'advanced'],
-			...(productId === 'framescaper' ? [['framescaper-native-media-preferences', 'media']] : []),
-			['desktop-use-native-probe-helper', 'media'],
-			['desktop-clear-probe-helper-quarantine', 'media'],
+			...(productId === 'framescaper' ? [['framescaper-native-media-preferences', 'advanced']] : []),
 			['desktop-clear-audio-helper-quarantine', 'audio'],
 			['desktop-discover-native-effects', 'effects'],
 		]);
 		assert.equal(preferences[0], existing);
+		for (const id of ['desktop-use-native-probe-helper', 'desktop-clear-probe-helper-quarantine']) {
+			assert.equal(findMenuItem([...menus, ...preferences], id), null, id);
+		}
 		for (const entry of preferences) {
 			assert.ok(entry.id);
 			assert.equal(findMenuItem(menus, entry.id), null, entry.id);

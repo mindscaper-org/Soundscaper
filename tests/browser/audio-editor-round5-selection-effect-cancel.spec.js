@@ -4,9 +4,17 @@ import { expect, test, createWavFixture } from './audio-editor-test-fixtures.js'
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction,
 	importFiles } from './audio-editor-test-helpers.js';
 import { SOUNDSCAPER_DATABASE_NAME, SOUNDSCAPER_OPFS_DIRECTORY_NAME } from './helpers/editor-databases.js';
+import { taskProgressCancel } from './helpers/task-progress.js';
 
 test('Cancel during selection-effect rendering leaves the recording unchanged', async ({ page }) => {
 	test.setTimeout(60_000);
+	await page.addInitScript(() => {
+		const post = Worker.prototype.postMessage;
+		Worker.prototype.postMessage = function (request, ...rest) {
+			if (request?.operation === 'apply' && request.effectType === 'audacity-reverb') return;
+			return Reflect.apply(post, this, [request, ...rest]);
+		};
+	});
 	const editor = await bootEditor(page, '/embed/en/');
 	const recording = createWavFixture({ name: 'room-recording.wav', frequency: 440,
 		duration: 30, channelCount: 1, channelAmplitudes: [0.1] });
@@ -20,9 +28,10 @@ test('Cancel during selection-effect rendering leaves the recording unchanged', 
 	const original = await cancellationSnapshot(page, await editor.getAttribute('data-project-id'));
 	await dialog.getByRole('button', { name: 'Apply to selection', exact: true }).click();
 	await expect(editor.locator('[data-editor-task-progress]')).toBeVisible();
+	await taskProgressCancel(page).click();
+	await expect(editor.locator('[data-editor-task-progress]')).toBeHidden({ timeout: 30_000 });
 	await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
 	await expect(dialog).toBeHidden();
-	await expect(editor.locator('[data-editor-task-progress]')).toBeHidden({ timeout: 30_000 });
 	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
 	expect(await cancellationSnapshot(page, await editor.getAttribute('data-project-id'))).toEqual(original);
 });

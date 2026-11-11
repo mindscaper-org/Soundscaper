@@ -10,9 +10,9 @@ for (const [path, expected] of [
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Workspace$/u }).click();
-	const preset = preferences.getByRole('button', { name: 'Workspace preset', exact: true });
+	const preset = preferences.getByRole('button', { name: /^Workspace preset(?::|$)/u });
 	await preset.click();
-	const menu = page.getByRole('listbox', { name: 'Workspace preset', exact: true });
+	const menu = page.getByRole('listbox', { name: /^Workspace preset(?::|$)/u });
 	await expect(menu).toBeVisible();
 	await expect(menu.getByRole('option')).toHaveText(expected);
 	await page.keyboard.press('Escape');

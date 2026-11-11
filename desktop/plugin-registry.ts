@@ -8,9 +8,10 @@
 import { createHash } from 'node:crypto';
 
 import {
-	type HelperFileIdentity, type HelperEffectPluginFormat, type HelperPluginHostJobGrant,
+	type HelperEffectPluginFormat, type HelperPluginHostJobGrant,
 	HELPER_EFFECT_PLUGIN_FORMATS, validateHelperJobGrant,
 } from './helper-job-grant.ts';
+import { portableNativeChildFileIdentity, type NativeChildFileIdentity } from './native-child-file-identity.ts';
 import {
 	admitPluginBundleStableIds,
 	installationIdFor,
@@ -67,7 +68,7 @@ export interface PluginScanObservation {
 	readonly name: string; readonly vendor: string; readonly version: string;
 	readonly platform: string; readonly architecture: string;
 	readonly binaryPath: string; readonly binaryBytes: number; readonly binarySha256: string;
-	readonly identity: Readonly<HelperFileIdentity>;
+	readonly identity: Readonly<NativeChildFileIdentity>;
 	readonly classification: PluginClassification;
 	readonly topologies: readonly PluginChannelTopology[];
 	readonly realtimeSupported: boolean; readonly offlineSupported: boolean;
@@ -295,11 +296,7 @@ export class DesktopPluginRegistry {
 		});
 	}
 
-	/**
-	 * The only path from the registry to something that can run. It refuses an
-	 * instrument, an installation that is not the active one, and every ineligible
-	 * entry, so no arrangement of public calls hosts a scanned instrument.
-	 */
+	/** Grants only the selected, compatible, explicitly allowed installation. */
 	hostGrantFor(installationId: string): HelperPluginHostJobGrant {
 		const [entry, installation] = this.#locate(installationId);
 		const reason = this.#ineligibleReason(entry);
@@ -346,18 +343,15 @@ export class DesktopPluginRegistry {
 	}
 
 	#ineligibleReason(entry: Entry): PluginIneligibleReason | null {
-		// Checked across every installation rather than only the active one: an
-		// identity that is an instrument anywhere is never offered, whatever the
-		// user later selects.
-		if ([...entry.installations.values()].some(({ observation }) => observation.classification === 'instrument')) {
-			return 'instrument-not-offered';
-		}
+		const classifications = new Set([...entry.installations.values()].map(({ observation }) => observation.classification));
+		if (classifications.size !== 1) return 'classification-unknown';
+		if (classifications.has('instrument') && !['vst2', 'vst3', 'lv2'].includes(entry.format)) return 'instrument-not-offered';
 		const active = this.#active(entry);
 		if (!active) return 'identity-collision';
 		if (this.#isQuarantined(active.observation.binarySha256)) return 'quarantined';
 		const { observation } = active;
-		if (observation.classification !== 'effect') return 'classification-unknown';
 		if (observation.compatibility !== 'compatible') return 'incompatible';
+		if (observation.classification === 'unknown') return 'classification-unknown';
 		if (!observation.realtimeSupported && !observation.offlineSupported) return 'no-supported-mode';
 		if (!selectPluginHostTopology(observation)) return 'incompatible';
 		if (!active.allowed) return 'allowance-required';
@@ -422,7 +416,7 @@ export interface PluginScanEntryContext {
 	readonly format: PluginFormat;
 	readonly platform: string;
 	readonly architecture: string;
-	readonly identity: Readonly<HelperFileIdentity>;
+	readonly identity: Readonly<NativeChildFileIdentity>;
 	readonly bundleStableIds?: readonly string[];
 }
 
@@ -453,7 +447,7 @@ export function pluginObservationFromScanEntry(
 		throw new PluginRegistryError('untranslatable-scan-entry',
 			'A plug-in scan entry named a compatibility result this registry has no verdict for.');
 	}
-	if (entry.channelSupport.length === 0) {
+	if (compatibility === 'compatible' && entry.channelSupport.length === 0) {
 		throw new PluginRegistryError('untranslatable-scan-entry',
 			'A plug-in scan entry that claims no channel layout cannot be recorded as an installation.');
 	}
@@ -500,12 +494,9 @@ function admitObservation(value: unknown): PluginScanObservation {
 		binaryPath: absolutePath(record.binaryPath),
 		binaryBytes: boundedInteger(record.binaryBytes, 1, Number.MAX_SAFE_INTEGER, 'binary byte length'),
 		binarySha256,
-		identity: Object.freeze({
-			dev: boundedInteger(identity.dev, 0, Number.MAX_SAFE_INTEGER, 'file device'),
-			ino: boundedInteger(identity.ino, 0, Number.MAX_SAFE_INTEGER, 'file inode'),
-		}),
+		identity: portableNativeChildFileIdentity(identity),
 		classification: enumValue(record.classification, PLUGIN_CLASSIFICATIONS, 'plug-in classification'),
-		topologies: admitTopologies(record.topologies),
+		topologies: admitTopologies(record.topologies, record.compatibility !== 'compatible'),
 		realtimeSupported: booleanValue(record.realtimeSupported, 'real-time support'),
 		offlineSupported: booleanValue(record.offlineSupported, 'offline support'),
 		reportedLatencyFrames: record.reportedLatencyFrames === null ? null
@@ -516,9 +507,9 @@ function admitObservation(value: unknown): PluginScanObservation {
 	return Object.freeze(admitted);
 }
 
-function admitTopologies(value: unknown): readonly PluginChannelTopology[] {
-	if (!Array.isArray(value) || value.length === 0 || value.length > MAXIMUM_PLUGIN_TOPOLOGIES) {
-		throw new TypeError(`A plug-in must report between one and ${String(MAXIMUM_PLUGIN_TOPOLOGIES)} channel topologies.`);
+function admitTopologies(value: unknown, unavailable: boolean): readonly PluginChannelTopology[] {
+	if (!Array.isArray(value) || !unavailable && value.length === 0 || value.length > MAXIMUM_PLUGIN_TOPOLOGIES) {
+		throw new TypeError(`A compatible plug-in must report between one and ${String(MAXIMUM_PLUGIN_TOPOLOGIES)} channel topologies.`);
 	}
 	return Object.freeze(value.map((entry) => {
 		const record = plainRecord(entry, 'A plug-in channel topology');

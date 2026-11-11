@@ -124,3 +124,66 @@ function vint(bytes: Uint8Array, start: number, retainMarker: boolean): Readonly
 	const value = unsigned(bytes, start, width);
 	return { width, value: retainMarker ? value : value & ((1n << BigInt(width * 7)) - 1n) };
 }
+
+/** Undo the demuxer's tick-rounded CodecDelay before the reviewed decoder removes pre-skip. */
+export async function readMatroskaRoundedCodecDelay(file: Blob, trackId: number, signal?: AbortSignal): Promise<number> {
+	const reader = createVideoTimingDemuxReader(file, { signal, maximumTotalBytes: 4 * 1024 ** 2 });
+	const read = (offset: number, length: number) => raceAbortableRead(() => reader.readAtMost(offset, length), signal);
+	const signature = await read(0, 4);
+	if (signature.length !== 4 || signature.some((byte, index) => byte !== [0x1a, 0x45, 0xdf, 0xa3][index])) return 0;
+	let count = 0, scale = 1_000_000, delay = 0;
+	async function header(offset: number, end: number): Promise<Element> {
+		if (++count > 4096) throw new RangeError('The Matroska codec-delay index exceeds its header bound.');
+		const bytes = await read(offset, Math.min(16, end - offset));
+		const id = vint(bytes, 0, true), size = vint(bytes, id.width, false);
+		const body = offset + id.width + size.width;
+		const unknown = size.value === (1n << BigInt(size.width * 7)) - 1n;
+		const stop = unknown ? end : body + Number(size.value);
+		if (!Number.isSafeInteger(stop) || stop < body || stop > end) throw new RangeError('The Matroska codec-delay index is truncated.');
+		return { id: Number(id.value), body, end: stop, unknown };
+	}
+	async function integer(element: Element): Promise<number> {
+		const length = element.end - element.body;
+		if (element.unknown || length < 1 || length > 8) throw new RangeError('The Matroska codec delay is invalid.');
+		const bytes = await read(element.body, length), value = Number(unsigned(bytes, 0, length));
+		if (bytes.length !== length || !Number.isSafeInteger(value)) throw new RangeError('The Matroska codec delay is unsafe.');
+		return value;
+	}
+	async function inspect(element: Element): Promise<void> {
+		for (let offset = element.body; offset < element.end;) {
+			const child = await header(offset, element.end);
+			if (child.id === 0x2ad7b1) scale = await integer(child);
+			else if (child.id === 0xae) {
+				let type = 0, number = 0, trackDelay = 0;
+				for (let position = child.body; position < child.end;) {
+					const field = await header(position, child.end);
+					if (field.id === 0x83) type = await integer(field);
+					else if (field.id === 0xd7) number = await integer(field);
+					else if (field.id === 0x56aa) trackDelay = await integer(field);
+					if (field.unknown) throw new RangeError('The Matroska track field has unknown size.');
+					position = field.end;
+				}
+				if (type === 2 && number === trackId) { delay = trackDelay; return; }
+			}
+			if (child.unknown) throw new RangeError('The Matroska codec-delay metadata has unknown size.');
+			offset = child.end;
+		}
+	}
+	for (let offset = 0; offset < file.size;) {
+		const element = await header(offset, file.size);
+		if (element.id === SEGMENT) {
+			for (let position = element.body; position < element.end;) {
+				const child = await header(position, element.end);
+				if (child.id === 0x1549a966 || child.id === 0x1654ae6b) await inspect(child);
+				if (child.id === CLUSTER) break;
+				if (child.unknown) throw new RangeError('The Matroska codec-delay segment child has unknown size.');
+				position = child.end;
+			}
+			break;
+		}
+		if (element.unknown) throw new RangeError('The Matroska codec-delay index has unknown size.');
+		offset = element.end;
+	}
+	if (scale < 1) throw new RangeError('The Matroska timestamp scale is invalid.');
+	return Math.round(delay / scale) * scale / 1_000_000_000;
+}

@@ -5,8 +5,8 @@ import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js'
 
 test('Escape cancels a macro program name draft without closing its palette', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New program', exact: true }).click();
 	const name = manager.getByRole('textbox', { name: 'Program name', exact: true });
 	const original = await name.inputValue();

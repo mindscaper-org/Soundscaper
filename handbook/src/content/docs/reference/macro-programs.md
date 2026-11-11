@@ -16,12 +16,14 @@ Programs are a Soundscaper feature. Framescaper has no macros palette.
 
 ## Where programs live
 
-Choose **Tools → Macros palette**. The dialog lists step-list macros and, under
+Open **Tools → Macros palette** for a dockable list with a Run button for each macro.
+Choose **Tools → Macro manager** to create or edit macros. The dialog lists step-list macros and, under
 **Programs**, the programs you have saved. Press **+ (New program)** in the
 Programs header to create one. The same action bar offers **Import program**,
 **Export program**, and **Delete program** for the selected program. The
-detail pane shows its **Program name**, the **Program** text, and a **Run
-program** button. The text is saved as you type; there is no separate save step.
+detail pane shows its **Program name** and **Program** text. Use the shared
+**Run macro** button in the dialog footer to run the selected macro or program.
+The text is saved as you type; there is no separate save step.
 
 A program is stored with the editor's settings, not inside a project, so it is
 available in every project you open in this editor. Use **Export program** and
@@ -73,7 +75,7 @@ whatever a program manages to send it.
 
 ## Running a program
 
-Press **Run program**. The whole run is one entry in the project's history, so
+Press **Run macro**. The whole run is one entry in the project's history, so
 one **Undo** reverses everything the program did, however many changes it made.
 If the program throws, or is cancelled, or runs past its deadline, the project is
 put back exactly as it was before the run began.
@@ -101,8 +103,12 @@ the same message the Effect menu gives.
 
 Choose **Apply to files** in the macro manager, or **Tools → Macros → Apply to
 files**. The command is also available through command search on desktop. Pick
-a step-list macro or enabled program, choose audio files, then choose WAV
-(24-bit), FLAC (24-bit) or MP3 and an output folder.
+a step-list macro or program and an output format: WAV (24-bit), FLAC
+(24-bit) or MP3. **Choose audio files** opens the input picker; the selected
+files appear in a scrollable table. **Choose output folder** selects the
+destination and shows its full path. Press **Run macro** when both selections
+are ready. You can choose the folder first, change the format, or run the batch
+again using the same selections.
 
 Each input opens in its own temporary project, with its audio track focused
 and the complete recording selected. The visible project is unchanged. Files
@@ -497,16 +503,11 @@ the editor:
 }
 ```
 
-Importing stores the text and nothing more. An imported program has no **Run
-program** button; in its place the pane shows the program, the file it came from,
-a note on what a program can do to the open project, and a checkbox reading *I
-have read this program and want to run it.* Ticking it enables **Enable this
-program**, and only then can the program run.
-
-That permission is for the exact text you read. If the program changes
-afterwards, whether you edit it or import a newer copy over it, the review
-appears again until you enable the new text. Programs you write in the manager
-yourself need no review.
+Importing stores the program and its file origin without executing it. Imported
+programs use the same **Run macro** button and sandbox as programs you write in
+the manager. Editing or reimporting a program does not require a separate
+acknowledgement. Each execution starts only when you choose **Run macro** or
+**Run** in the Macros palette.
 
 ## Examples
 

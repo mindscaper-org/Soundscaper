@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 import rehypeVerdictTables from '../handbook/src/plugins/rehype-verdict-tables.mjs';
+import rehypeComparisonDetails from '../handbook/src/plugins/rehype-comparison-details.mjs';
+import rehypeComparisonLayout from '../handbook/src/plugins/rehype-comparison-layout.mjs';
 
 const COMPARISON_PAGE = 'handbook/src/content/docs/start/how-soundscaper-compares.md';
 // Generated from the repository by `scripts/docs-reference.mjs`, and the reason
@@ -20,6 +22,7 @@ const table = (rows) => element('table', [element('tbody', rows.map(row))]);
 // otherwise.
 const transform = (tree, page = COMPARISON_PAGE) => {
 	rehypeVerdictTables()(tree, { path: page });
+	rehypeComparisonDetails()(tree);
 	return tree;
 };
 
@@ -107,6 +110,61 @@ test('symbol sources decorate every product column and expose each meaning witho
 	assert.deepEqual(products[0].children[1], text(' unavailable in the browser'));
 	assert.deepEqual(products[1].children[1], text(' optional model install'));
 	assert.equal(products[3].children.length, 1);
+});
+
+test('unverified capabilities have a distinct accessible verdict', () => {
+	const tree = transform(table([['Capability', '? — not verified']]));
+	const [, cell] = cellsOf(tree);
+	assert.deepEqual(classesOf(cell), ['verdict-cell', 'verdict-cell--unknown']);
+	assert.deepEqual(cell.children[0].children, [text('?')]);
+	assert.equal(cell.children[0].properties.ariaLabel, 'Not verified');
+	assert.deepEqual(cell.children[1], text(' not verified'));
+});
+
+test('comparison details preserve inline markup and give each tooltip a unique description link', () => {
+	const tree = transform(table([
+		['Native project', [text('+ — '), element('code', [text('.sscape')]), text(' :: Media is bundled.')], '/ — :: Requires an external plug-in.'],
+	]));
+	const [, project, external] = cellsOf(tree);
+	const [projectNote] = project.children;
+	const [trigger, tooltip] = projectNote.children;
+	assert.equal(projectNote.tagName, 'comparison-note');
+	assert.equal(trigger.tagName, 'button');
+	assert.equal(tooltip.properties.role, 'tooltip');
+	assert.equal(tooltip.properties.popover, 'auto');
+	assert.equal(trigger.properties.ariaDescribedBy, tooltip.properties.id);
+	assert.ok(trigger.children.some((node) => node.tagName === 'code'));
+	assert.deepEqual(tooltip.children, [text('Media is bundled.')]);
+	const [externalNote] = external.children;
+	assert.notEqual(externalNote.children[1].properties.id, tooltip.properties.id);
+	assert.deepEqual(externalNote.children[0].children[0].children, [text('/')]);
+});
+
+test('detail syntax in an ordinary table is left alone', () => {
+	const tree = table([['Term', 'Value :: explanation']]);
+	rehypeComparisonDetails()(tree);
+	assert.deepEqual(cellsOf(tree)[1].children, [text('Value :: explanation')]);
+});
+
+test('comparison layout moves keyboard scrolling to a named region and preserves ordinary tables', () => {
+	const comparison = transform(table([['Feature', '+']]));
+	comparison.properties.tabIndex = 0;
+	const ordinary = table([['Format', 'WAV']]);
+	ordinary.properties.tabIndex = 0;
+	const tree = { type: 'root', children: [element('h2', [text('Export and delivery')]), comparison, ordinary] };
+	rehypeComparisonLayout()(tree);
+	const region = tree.children[1];
+	assert.equal(region.tagName, 'div');
+	assert.equal(region.properties.role, 'region');
+	assert.equal(region.properties.ariaLabel, 'Export and delivery');
+	assert.equal(region.properties.tabIndex, 0);
+	assert.equal(region.children[0], comparison);
+	assert.equal(comparison.properties.tabIndex, undefined);
+	assert.equal(tree.children[2], ordinary);
+	assert.equal(ordinary.properties.tabIndex, 0);
+	rehypeComparisonLayout()(tree);
+	assert.equal(tree.children[1], region);
+	assert.equal(region.children[0], comparison);
 });
 
 test('a verdict whose detail opens with markup keeps the word space the em dash held', () => {

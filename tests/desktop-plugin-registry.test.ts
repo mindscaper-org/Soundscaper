@@ -200,34 +200,26 @@ test('a further installation re-opens a choice the user already made', () => {
 	assert.equal(registryErrorCode(() => registry.hostGrantFor(first.installationId)), 'identity-collision');
 });
 
-test('an instrument is recorded and is never materializable', () => {
+test('VST and LV2 instruments require allowance and accept a zero-input output bus', () => {
+	for (const format of ['vst2', 'vst3', 'lv2'] as const) {
+		const registry = createRegistry();
+		const instrument = recorded(registry.record(observation({ format, classification: 'instrument',
+			topologies: [{ inputChannels: 0, outputChannels: 2 }] })));
+		assert.equal(entry(registry, instrument.entryId).ineligibleReason, 'allowance-required');
+		assert.throws(() => registry.hostGrantFor(instrument.installationId));
+		registry.allow(instrument.installationId);
+		assert.equal(registry.eligibility(instrument.entryId).eligible, true);
+		assert.equal(registry.hostDescriptorFor(instrument.installationId).inputChannels, 0);
+		assert.equal(registry.hostGrantFor(instrument.installationId).format, format);
+	}
+});
+
+test('mixed effect and instrument identities cannot be silently selected', () => {
 	const registry = createRegistry();
-	const instrument = recorded(registry.record(observation({
-		stableId: 'com.example.synth',
-		name: 'Example Synth',
-		classification: 'instrument',
-	})));
-	const view = entry(registry, instrument.entryId);
-	assert.equal(view.classification, 'instrument');
-	assert.equal(view.eligible, false);
-	assert.equal(view.ineligibleReason, 'instrument-not-offered');
-	assert.equal(registryErrorCode(() => registry.hostGrantFor(instrument.installationId)), 'instrument-not-offered');
-
-	// No sequence of user decisions promotes it.
-	registry.allow(instrument.installationId);
-	registry.select(instrument.installationId);
-	assert.equal(entry(registry, instrument.entryId).ineligibleReason, 'instrument-not-offered');
-	assert.equal(registryErrorCode(() => registry.hostGrantFor(instrument.installationId)), 'instrument-not-offered');
-	assert.equal(registry.eligibility(instrument.entryId).eligible, false);
-
-	// An identity that is an instrument in any installation is never offered.
-	const mixed = createRegistry();
-	const effect = recorded(mixed.record(observation()));
-	mixed.record(observation({ binarySha256: DIGEST_B, binaryPath: '/opt/x.vst3', classification: 'instrument' }));
-	mixed.select(effect.installationId);
-	assert.equal(entry(mixed, effect.entryId).classification, 'unknown');
-	assert.equal(entry(mixed, effect.entryId).ineligibleReason, 'instrument-not-offered');
-	assert.equal(registryErrorCode(() => mixed.hostGrantFor(effect.installationId)), 'instrument-not-offered');
+	const effect = recorded(registry.record(observation()));
+	registry.record(observation({ binarySha256: DIGEST_B, binaryPath: '/opt/x.vst3', classification: 'instrument' }));
+	registry.allow(effect.installationId); registry.select(effect.installationId);
+	assert.equal(registry.eligibility(effect.entryId).eligible, false);
 });
 
 test('every newly discovered digest requires an explicit user allowance with no signature bypass', () => {

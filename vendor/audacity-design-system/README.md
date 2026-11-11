@@ -645,7 +645,9 @@ are the places where the two keyboard models meet, so a future sync should re-ch
     grips. `Button` forwards native button attributes and `ContextMenu` accepts
     an accessible label, preserving menu semantics without DOM mutation in
     consumer code. Covered by the mounted inspector, exact-time and error-routing
-    regressions and ordinary Clip properties browser workflows. Upstream-PR
+    regressions and ordinary Clip properties browser workflows. Choice names
+    include the visible selected value; custom color controls retain their own
+    accessible names, covered by the browser accessibility workflow. Upstream-PR
     candidates; the selective upstream pin remains unchanged.
 
 81. The clip properties `NumberField` reveals its full authored precision on

@@ -132,7 +132,7 @@ Defaults and limits come from the same definitions the editor validates against,
 | Auto-Tune | `auto-tune` | Mix | 100 | 0 to 100 | % |
 | Auto-Tune | `auto-tune` | Key | C | C; C♯ / D♭; D; D♯ / E♭; E; F; F♯ / G♭; G; G♯ / A♭; A; A♯ / B♭; B | — |
 | Auto-Tune | `auto-tune` | Scale | Chromatic | Chromatic; Major; Natural minor | — |
-| Auto-Tune | `auto-tune` | Control Track Id | — | Optional MIDI control track; empty uses key and scale | — |
+| Auto-Tune | `auto-tune` | Control Track Id | — | Optional MIDI control track ID; empty uses the selected key and scale | — |
 | Automatic phase correction | `automatic-phase-correction` | Maximum correction (ms) | 5 | 0 to 10 | ms |
 | Automatic phase correction | `automatic-phase-correction` | Minimum confidence (%) | 85 | 50 to 100 | % |
 | Automatic phase correction | `automatic-phase-correction` | Reference channel | Left | Left; Right | — |

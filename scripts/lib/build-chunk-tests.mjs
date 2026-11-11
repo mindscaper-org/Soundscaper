@@ -74,7 +74,7 @@ export const EDITOR_ASSISTANCE_SEMANTIC_SEARCH_RUNTIME_CHUNK_TEST =
 	/src[\\/]common[\\/]editor[\\/](?:assistance[\\/]local-assistance-semantic-search-bridge|ui[\\/]local-assistance-semantic-search-source)\.ts$/;
 /** Catalog preflight must load before the optional inference and dialog implementation. */
 export const EDITOR_ASSISTANCE_MODEL_PREFLIGHT_CHUNK_TEST = new RegExp(
-	`${editorPath}(?:assistance[\\\\/](?:workflow-recipes|workflow-settings-v1)|controller[\\\\/]assistance[\\\\/](?:local-assistance-task-models|internal[\\\\/]guided[\\\\/]local-assistance-guided-(?:model-selection|stage-selection))|ui[\\\\/](?:local-model-manager-(?:bridge|store)|local-model-bytes|local-assistance-task-controls))\\.ts$`,
+	`${editorPath}(?:assistance[\\\\/](?:speech-enhancement-models|workflow-recipes|workflow-settings-v1)|controller[\\\\/]assistance[\\\\/](?:local-assistance-task-models|internal[\\\\/]guided[\\\\/]local-assistance-guided-(?:model-selection|stage-selection))|ui[\\\\/](?:local-model-manager-(?:bridge|store)|local-model-bytes|local-assistance-task-controls))\\.ts$`,
 );
 export const EDITOR_COPY_CHUNK_TEST =
 	/(?!.*[\\/]audiocom-copy\.ts$)(?:src[\\/]common[\\/]i18n[\\/](?:(?:catalogs|runtime|canonical-extras(?:-standard-effects)?|(?!(?:freesound-attribution|site|site-sidebar)-copy\.js$)[^\\/]+-copy)\.js|(?:editor-copy-(?:inventory|scope|origin)|[^\\/]+-copy)\.ts)|src[\\/]soundscaper[\\/]framescaper-capture-copy\.js)$/;

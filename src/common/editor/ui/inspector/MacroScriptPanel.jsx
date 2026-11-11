@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 
 import { macroScriptIsRunnable } from '../../macro-script-library.ts';
 import MacroScriptEditor from './MacroScriptEditor.jsx';
@@ -13,10 +13,8 @@ import { createMacroAudioInputResolver } from '../../controller/effects/macro-au
  * list and a detail pane, and so a program's log is discarded with the program
  * rather than outliving it.
  */
-export default function MacroScriptPanel({ controller, copy, script, blocked, onChange, fileService }) {
-	// A program the user wrote here is theirs. One that arrived from a file has
-	// no Run button until somebody has read it and said so, and the permission
-	// they give names the exact text they read.
+export default function MacroScriptPanel({ controller, copy, script, blocked, onChange, fileService, runControlRef = undefined, onRunningChange = undefined }) {
+	// Authored and imported programs use the same sandbox and explicit Run action.
 	const runnable = macroScriptIsRunnable(script);
 	const [log, setLog] = useState([]);
 	const [failure, setFailure] = useState(null);
@@ -75,6 +73,14 @@ export default function MacroScriptPanel({ controller, copy, script, blocked, on
 		}
 	}, [controller, copy.programApplied, copy.runCancelled, script.name, script.source, fileService]);
 
+	useLayoutEffect(() => {
+		onRunningChange?.(running);
+		return () => onRunningChange?.(false);
+	}, [running, onRunningChange]);
+	useImperativeHandle(runControlRef, () => ({ run: () => {
+		if (!blocked && runnable && String(script.source || '').trim()) void run();
+	} }), [blocked, runnable, run, script.source]);
+
 	return (
 		<MacroScriptEditor
 			key={script.id}
@@ -85,12 +91,7 @@ export default function MacroScriptPanel({ controller, copy, script, blocked, on
 			running={running}
 			completed={completed}
 			cancelled={cancelled}
-			blocked={blocked}
-			runnable={runnable}
 			onChange={onChange}
-			onRun={() => { void run(); }}
-			onTrust={() => controller.actions.macros.scripts.trust(script.id)}
-			onCancel={() => controller.actions.macros.cancel()}
 		/>
 	);
 }

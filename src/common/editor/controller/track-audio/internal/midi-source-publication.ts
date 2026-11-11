@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { createMidiRenderer } from '../../../engine/midi-synthesis.ts';
+import { openMidiAudioRenderer } from '../../../engine/midi-audio-renderer.ts';
 import type { MidiClipData, MidiInstrument } from '../../../midi-model.ts';
 import { createAudioSource } from '../../../project-media-factory.ts';
 import { SOURCE_CHUNK_FRAMES } from '../../../source-pcm-contract.ts';
@@ -19,16 +19,20 @@ export async function publishMidiSource(
 		throw new RangeError('MIDI audio must have a positive duration of at most 24 hours.');
 	}
 	const id = dependencies.createId('midi-source');
-	const metadata = { name: dependencies.clipName(), mimeType: 'audio/wav', sampleRate, channelCount: 1, chunkFrames: SOURCE_CHUNK_FRAMES };
-	const writer = await dependencies.store.beginSourceWrite(id, metadata);
+	const render = await openMidiAudioRenderer(data, instrument, sampleRate);
+	const metadata = { name: dependencies.clipName(), mimeType: 'audio/wav', sampleRate, channelCount: render.channelCount, chunkFrames: SOURCE_CHUNK_FRAMES };
+	let rendererClosed = false;
+	const closeRenderer = async () => { if (!rendererClosed) { rendererClosed = true; await render.close(); } };
+	let writer;
+	try { writer = await dependencies.store.beginSourceWrite(id, metadata); } catch (error) { await closeRenderer(); throw error; }
 	try {
 		assertCurrent();
-		const render = createMidiRenderer(data.notes, instrument, sampleRate, interchange?.events);
 		for (let start = 0; start < frameCount; start += SOURCE_CHUNK_FRAMES) {
-			const samples = render(start, Math.min(SOURCE_CHUNK_FRAMES, frameCount - start));
-			await writer.write([samples]);
+			const samples = await render.render(start, Math.min(SOURCE_CHUNK_FRAMES, frameCount - start));
+			await writer.write(samples);
 			assertCurrent();
 		}
+		await closeRenderer();
 		await writer.commit(metadata);
 		assertCurrent();
 		return createAudioSource({ ...metadata, id, storageKey: id, frameCount, originalSampleRate: sampleRate,
@@ -41,5 +45,5 @@ export async function publishMidiSource(
 		const failures = cleanup.filter((result): result is PromiseRejectedResult => result.status === 'rejected').map(result => result.reason as unknown);
 		if (failures.length) throw new AggregateError([error, ...failures], 'MIDI source publication failed during cleanup.', { cause: error });
 		throw error;
-	}
+	} finally { await closeRenderer(); }
 }

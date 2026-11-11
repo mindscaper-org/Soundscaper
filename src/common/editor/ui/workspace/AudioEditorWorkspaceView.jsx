@@ -310,7 +310,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 					onDismiss={clearError}
 				/>}
 				{productId === 'soundscaper' && fileService?.isDesktop && <Suspense fallback={null}>
-					<SoundscaperPluginScanToast copy={copy} openSurface={openSurface} />
+					<SoundscaperPluginScanToast copy={copy} controller={controller} openSurface={openSurface} />
 				</Suspense>}
 				{statusError && <EditorErrorToast key={statusError} id="workspace-status-error"
 					title={copy.unknownError} description={statusError} dismissLabel={copy.close} />}

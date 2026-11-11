@@ -113,12 +113,16 @@ test('Plugin Manager filters installed rows and allows only the selected install
 	await chooseCommandAction(page, editor, 'Effect', 'Plugin Manager');
 	const dialog = page.getByRole('dialog', { name: 'Plugin Manager', exact: true });
 	const search = dialog.getByRole('textbox', { name: 'Search plugins' });
-	await expect(dialog.locator('[data-native-plugin-entry]')).toHaveCount(2);
-	await dialog.getByRole('button', { name: 'Status', exact: true }).click();
-	await page.getByRole('option', { name: 'Needs attention', exact: true }).click();
+	await expect(dialog.locator('[data-native-plugin-entry]')).toHaveCount(3);
+	await dialog.getByRole('button', { name: /^Status(?::|$)/u }).click();
+	await page.getByRole('option', { name: 'Incompatible', exact: true }).click();
+	await expect(dialog.locator('[data-native-plugin-entry]')).toHaveCount(1);
+	await expect(dialog.getByRole('row', { name: 'Broken Fixture VST2 Incompatible', exact: true })).toBeVisible();
+	await dialog.getByRole('button', { name: /^Status(?::|$)/u }).click();
+	await page.getByRole('option', { name: 'Disabled', exact: true }).click();
 	await expect(dialog.locator('[data-native-plugin-entry]')).toHaveCount(1);
 	await dialog.getByRole('button', { name: 'Echo', exact: true }).click();
-	await expect(dialog.getByRole('region', { name: 'Plugin details' })).toContainText('Allow this installation before use.');
+	await expect(dialog.getByRole('region', { name: 'Plugin details' })).toContainText('Allow this version');
 	await search.fill('absent');
 	await expect(dialog.getByRole('region', { name: 'Plugin details' })).toHaveCount(0);
 	await expect(dialog.getByText('No plugins match these filters.', { exact: true })).toBeVisible();
@@ -252,7 +256,9 @@ test('startup scan continues after closing preferences and reports completion', 
 	await expect.poll(() => page.evaluate(() => globalThis.__soundscaperNativeRuntimeCalls))
 		.toEqual(['scan:vst3:system-vst3', 'scan:vst3:custom-vst3']);
 	await page.evaluate(() => globalThis.__completeSoundscaperPluginScan());
-	await expect(editor.getByRole('region', { name: 'Plugin scan complete', exact: true })).toBeVisible();
+	const complete = editor.getByRole('region', { name: 'Plugin scan complete', exact: true });
+	await complete.getByRole('link', { name: 'Open Plugin Manager', exact: true }).click();
+	await expect(page.getByRole('dialog', { name: 'Plugin Manager', exact: true })).toBeVisible();
 });
 
 test('a saved disabled desktop startup setting starts no scan or toast', async ({ page }) => {
@@ -273,17 +279,21 @@ test('failed scans remain visible in preferences and the manager, with a retry a
 	await page.evaluate(() => globalThis.__failSoundscaperPluginScan());
 	await expect.poll(() => page.evaluate(() => globalThis.__soundscaperNativeRuntimeCalls.length)).toBe(2);
 	await page.evaluate(() => globalThis.__completeSoundscaperPluginScan());
-	const toast = editor.getByRole('region', { name: 'Plugin scan needs attention', exact: true });
+	const toast = editor.getByRole('region', { name: 'Plugin scan completed with errors', exact: true });
 	await expect(toast).toContainText('System VST3 folder: The scanner crashed.');
-	await toast.getByRole('link', { name: 'Scanning preferences', exact: true }).click();
+	await toast.getByRole('link', { name: 'Open Plugin Manager', exact: true }).click();
+	const manager = page.getByRole('dialog', { name: 'Plugin Manager', exact: true });
+	await expect(manager.getByRole('alert')).toContainText('System VST3 folder: The scanner crashed.');
+	await manager.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: /^Close$/u }).click();
+	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+	await preferences.getByRole('tab', { name: /Effects$/u }).click();
 	await expect(preferences.getByRole('alert')).toContainText('System VST3 folder: The scanner crashed.');
 	await expect(preferences.getByRole('button', { name: 'Scan for plugins', exact: true })).toBeEnabled();
 	await preferences.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: /^Close$/u }).click();
 	const effects = await openNestedCommandMenu(page, editor, 'Effect', []);
 	await expect(getMenuItem(effects, 'Audio Plugins')).toHaveCount(0);
 	await getMenuItem(effects, 'Plugin Manager').click();
-	const manager = page.getByRole('dialog', { name: 'Plugin Manager', exact: true });
 	await expect(manager.getByRole('alert')).toContainText('System VST3 folder: The scanner crashed.');
 	await expect(manager.getByRole('button', { name: 'Scan for plugins', exact: true })).toBeEnabled();
 	await manager.getByRole('button', { name: /^Clear and rescan:/u }).click();
@@ -357,11 +367,14 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 		globalThis.__completeSoundscaperPluginScan = () => { finishScan?.({ status: 'described', scan: { format: 'vst3', status: 'scanned', detail: '', entries: [] } }); };
 		let registry = { entries: includePlugins ? [
 			{ entryId: 'echo', format: 'VST3', name: 'Echo', vendor: 'Fixture', eligible: false,
-				ineligibleReason: 'Allow this installation before use.', installations: [{ installationId: 'echo-install',
+				ineligibleReason: 'allowance-required', installations: [{ installationId: 'echo-install',
 					version: '1.0', allowed: false, selected: true, quarantined: false }] },
 			{ entryId: 'gain', format: 'LV2', name: 'Gain', vendor: 'Fixture', eligible: true,
 				ineligibleReason: null, installations: [{ installationId: 'gain-install',
 					version: '2.0', allowed: true, selected: true, quarantined: false }] },
+			{ entryId: 'broken', format: 'VST2', name: 'Broken', vendor: 'Fixture', eligible: false,
+				ineligibleReason: 'incompatible', installations: [{ installationId: 'broken-install',
+					version: '0', allowed: false, selected: true, quarantined: false }] },
 		] : [] };
 		const refused = async (name) => {
 			runtimeCalls.push(name);

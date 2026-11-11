@@ -5,8 +5,8 @@ import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js'
 
 test('a track-creation macro can run without an audio selection', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	const [chooser] = await Promise.all([
 		page.waitForEvent('filechooser'),
 		manager.getByRole('button', { name: 'Import macro', exact: true }).click(),

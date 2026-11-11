@@ -69,7 +69,7 @@ test('unsupported releases and missing executables return sanitized preference s
 	});
 });
 
-test('discovery uses managed and package-manager locations only after manual selection', async () => {
+test('an incompatible manual choice stays selected instead of using a managed installation', async () => {
 	const executable = new Set(['/manual/ffmpeg', '/manual/ffprobe', '/managed/ffmpeg', '/managed/ffprobe']);
 	const versions = new Map([['/manual/ffmpeg', '4.3.9'], ['/manual/ffprobe', '4.3.9']]);
 	const probe = createExternalFfmpegPreferenceNodeProbe({
@@ -79,8 +79,42 @@ test('discovery uses managed and package-manager locations only after manual sel
 		digestFile: () => Promise.resolve('5'.repeat(64)),
 	});
 	const result = await probe('/manual/ffmpeg');
+	assert.equal(result.status, 'unavailable');
+	if (result.status !== 'unavailable') return;
+	assert.equal(result.state, 'unsupported');
+	assert.equal(result.location, '/manual/ffmpeg');
+});
+
+test('a missing manual choice never falls back to another detected installation', async () => {
+	const calls: ExternalFfmpegProcessRequest[] = [];
+	const probe = createExternalFfmpegPreferenceNodeProbe({
+		platform: 'linux', architecture: 'x64', workingDirectory: '/scratch',
+		environment: { PATH: '/automatic' },
+		isExecutable: (path) => Promise.resolve(path.startsWith('/automatic/')),
+		runner: runner(calls), digestFile: () => Promise.resolve('5'.repeat(64)),
+	});
+	const result = await probe('/missing/ffmpeg');
+	assert.equal(result.status, 'unavailable');
+	if (result.status !== 'unavailable') return;
+	assert.equal(result.location, '/missing/ffmpeg');
+	assert.equal(calls.length, 0);
+});
+
+test('automatic discovery prefers a newer PATH installation over a managed installation', async () => {
+	const probe = createExternalFfmpegPreferenceNodeProbe({
+		platform: 'linux', architecture: 'x64', workingDirectory: '/scratch',
+		environment: { PATH: '/automatic' }, managedPath: '/managed/ffmpeg',
+		isExecutable: (path) => Promise.resolve(['/managed/', '/automatic/'].some((root) => path.startsWith(root))),
+		runner: runner([], '8.1.2', new Map([
+			['/automatic/ffmpeg', '9.0.1'], ['/automatic/ffprobe', '9.0.1'],
+		])),
+		digestFile: () => Promise.resolve('5'.repeat(64)),
+	});
+	const result = await probe(null);
 	assert.equal(result.status, 'available');
-	if (result.status === 'available') assert.equal(result.evidence.executablePath, '/managed/ffmpeg');
+	if (result.status !== 'available') return;
+	assert.equal(result.evidence.executablePath, '/automatic/ffmpeg');
+	assert.equal(result.evidence.identity.version, '9.0.1');
 });
 
 test('macOS x64 is rejected before discovery or process execution', () => {

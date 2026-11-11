@@ -52,7 +52,7 @@ export function filterProductMenus(menus, capabilities, productId) {
 				};
 			}
 			if (menu.id === 'tools' && !capabilities.audioMacros) {
-				return { ...menu, items: menu.items.filter((item) => !['manage-macros', 'macro-library', 'nyquist-prompt'].includes(item.id)) };
+				return { ...menu, items: menu.items.filter((item) => !['manage-macros', 'macros-palette', 'macro-library', 'nyquist-prompt'].includes(item.id)) };
 			}
 			if (menu.id === 'window') {
 				return {

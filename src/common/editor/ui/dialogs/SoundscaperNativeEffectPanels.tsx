@@ -37,7 +37,7 @@ export function SoundscaperNativeEffectManagePanel({
 	const useBlocked = disabled || processingBlocked || state.plugins?.enabled !== true
 		|| state.plugins.quarantined || state.plugins.payload.status !== 'available';
 	const visible = entries.filter((entry) => (format === 'all' || entry.format === format)
-		&& (status === 'all' || (status === 'ready' ? entry.eligible : !entry.eligible))
+		&& (status === 'all' || nativePluginStatus(entry) === status)
 		&& `${entry.name} ${entry.vendor}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
 	const selected = visible.find((entry) => entry.entryId === selectedId);
 	const records = state.plugins?.quarantine.records ?? [];
@@ -51,7 +51,7 @@ export function SoundscaperNativeEffectManagePanel({
 					...[...new Set(entries.map((entry) => entry.format))].map((value) => ({ value, label: value }))]} />
 			<PreferenceDropdownField label={copy.pluginStatus} value={status} onChange={setStatus}
 				options={[{ value: 'all', label: copy.allPluginStates }, { value: 'ready', label: copy.pluginReady },
-					{ value: 'attention', label: copy.pluginNeedsAttention }]} />
+					{ value: 'disabled', label: copy.pluginDisabled }, { value: 'incompatible', label: copy.pluginIncompatible }]} />
 		</div>
 		<Table className="kw-processing-table"><table aria-label={copy.installedPlugins}>
 			<thead><tr><th>{copy.pluginName}</th><th>{copy.pluginVendor}</th><th>{copy.pluginFormat}</th><th>{copy.pluginStatus}</th></tr></thead>
@@ -59,13 +59,15 @@ export function SoundscaperNativeEffectManagePanel({
 				aria-selected={selectedId === entry.entryId}>
 				<td><Button variant="secondary" onClick={() => setSelectedId(entry.entryId)}>{entry.name}</Button></td>
 				<td>{entry.vendor}</td><td>{entry.format}</td>
-				<td>{entry.eligible ? copy.pluginReady : copy.pluginNeedsAttention}</td>
+				<td>{nativePluginStatus(entry) === 'ready' ? copy.pluginReady
+					: nativePluginStatus(entry) === 'disabled' ? copy.pluginDisabled : copy.pluginIncompatible}</td>
 			</tr>)}</tbody>
 		</table></Table>
 		{visible.length === 0 && <p role="status">{entries.length ? copy.noMatchingPlugins : copy.noInstalledPlugins}</p>}
 		{selected ? <section className="kw-processing-details" aria-label={copy.pluginDetails}>
 			<h3>{selected.name}</h3>
-			{!selected.eligible && <p role="status">{selected.ineligibleReason || copy.pluginNeedsAttention}</p>}
+			{!selected.eligible && <p role="status">{nativePluginStatus(selected) === 'disabled'
+				? copy.allowPluginInstallation : copy.pluginIncompatible}</p>}
 			<ul className="kw-processing-list">{selected.installations.map((installation) => <li
 				key={installation.installationId} data-native-plugin-installation={installation.installationId}>
 				<strong>{installation.version}</strong>
@@ -83,7 +85,7 @@ export function SoundscaperNativeEffectManagePanel({
 						|| (selected.installations.length > 1 && !installation.selected)}
 					data-native-plugin-instantiate={installation.installationId}
 					onClick={() => perform({ type: 'instantiate-plugin', installationId: installation.installationId })}>
-					{copy.instantiatePlugin}</Button>}
+					{selected.classification === 'instrument' ? copy.assignInstrument : copy.instantiatePlugin}</Button>}
 				</div>
 			</li>)}</ul>
 		</section> : visible.length > 0 && <p>{copy.choosePlugin}</p>}
@@ -95,6 +97,10 @@ export function SoundscaperNativeEffectManagePanel({
 			</ul>}
 		</details>
 	</div>;
+}
+
+function nativePluginStatus(entry: NativePluginEntryView): 'ready' | 'disabled' | 'incompatible' {
+	return entry.eligible ? 'ready' : entry.ineligibleReason === 'allowance-required' ? 'disabled' : 'incompatible';
 }
 
 function PluginInstanceControls({ copy, state, disabled, perform }: SoundscaperNativeEffectPanelProps) {
@@ -113,22 +119,22 @@ function PluginInstanceControls({ copy, state, disabled, perform }: SoundscaperN
 			loading: copy.pluginParametersLoading,
 			unavailable: copy.pluginParametersUnavailable,
 		}} />
-		<details className="kw-processing-details"><summary>{copy.pluginOfflineDetails}</summary>
+		{instance.classification !== 'instrument' && <details className="kw-processing-details"><summary>{copy.pluginOfflineDetails}</summary>
 		<p>{formatLocalizedTemplate(copy.latencyFrames, { count: number.format(instance.latencySamples) })}</p>
 		<Button variant="secondary" disabled={disabled} data-native-plugin-run-offline="true"
 			onClick={() => perform({ type: 'run-plugin-offline', instanceId: instance.instanceId })}
-		>{copy.runPluginOffline}</Button></details>
-		<Button variant="secondary" disabled={disabled} data-native-plugin-bypass={String(!instance.bypassed)}
+		>{copy.runPluginOffline}</Button></details>}
+		{instance.classification !== 'instrument' && <Button variant="secondary" disabled={disabled} data-native-plugin-bypass={String(!instance.bypassed)}
 			onClick={() => perform({
 				type: 'set-plugin-bypassed', instanceId: instance.instanceId, bypassed: !instance.bypassed,
 			})}
-		>{instance.bypassed ? copy.enablePlugin : copy.bypassPlugin}</Button>
+		>{instance.bypassed ? copy.enablePlugin : copy.bypassPlugin}</Button>}
 		<Button variant="secondary" disabled={disabled} data-native-plugin-persist-state="true"
 			onClick={() => perform({
 				type: 'persist-plugin-state', instanceId: instance.instanceId,
 				generation: nextGeneration,
 			})}
-		>{copy.storePluginState}</Button>
+		>{instance.classification === 'instrument' ? copy.storeInstrumentState : copy.storePluginState}</Button>
 		<Button variant="secondary" disabled={disabled || state.pluginStateBody === null}
 			data-native-plugin-restore-state="true"
 			onClick={() => { if (state.pluginStateBody !== null) perform({

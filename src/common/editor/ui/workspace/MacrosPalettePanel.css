@@ -1,0 +1,63 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+
+.kw-audio-editor__workspace-panel-content[data-workspace-tab-panel='macros-palette'] {
+	padding: 0;
+}
+
+.audio-editor-macro-launcher {
+	min-width: 0;
+	height: 100%;
+	background: var(--bg);
+}
+
+.audio-editor-macro-launcher__header,
+.audio-editor-macro-launcher__list > li {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 6px 8px 12px;
+	border-bottom: 1px solid var(--line);
+	background: var(--panel);
+}
+
+.audio-editor-macro-launcher__header > strong,
+.audio-editor-macro-launcher__name {
+	flex: 1;
+	min-width: 0;
+	font-size: 12px;
+}
+
+.audio-editor-macro-launcher__list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.audio-editor-macro-launcher__name,
+.audio-editor-macro-launcher__options {
+	border: 0;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+}
+
+.audio-editor-macro-launcher__name {
+	padding: 6px 0;
+	text-align: start;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.audio-editor-macro-launcher__options {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 28px;
+}
+
+.audio-editor-macro-launcher button:focus-visible {
+	outline: 2px solid var(--stroke-focus, #4c95e8);
+	outline-offset: -2px;
+}

@@ -10,7 +10,7 @@ test('workspace deletion returns keyboard authoring to its preset picker', async
 	await dialog.getByRole('tab', { name: /Workspace$/u }).click();
 	await dialog.getByRole('textbox', { name: 'Workspace name', exact: true }).fill('Keyboard review');
 	await dialog.getByRole('button', { name: 'Create from current layout', exact: true }).click();
-	const preset = dialog.getByRole('button', { name: 'Workspace preset', exact: true });
+	const preset = dialog.getByRole('button', { name: /^Workspace preset(?::|$)/u });
 	await expect(preset).toHaveText(/Keyboard review/u);
 	const remove = dialog.getByRole('button', { name: 'Delete', exact: true });
 	await remove.focus(); await remove.press('Enter');

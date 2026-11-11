@@ -139,7 +139,7 @@ test.describe('AI effect model prerequisites', () => {
 		await expect(prerequisite).toBeHidden();
 		const assistance = page.getByRole('dialog', { name: 'Transcribe & Captions', exact: true });
 		await expect(assistance.getByRole('button', { name: 'Analyze', exact: true })).toBeEnabled();
-		await expect(assistance.getByRole('button', { name: 'Model', exact: true })).toHaveCount(0);
+		await expect(assistance.getByRole('button', { name: /^Model(?::|$)/u })).toHaveCount(0);
 		expect(await fixtureSnapshot(page)).toMatchObject({ installCalls: ['parakeet-tdt-0.6b-v3'] });
 		expect(errors).toEqual([]);
 	});
@@ -152,7 +152,7 @@ test.describe('AI effect model prerequisites', () => {
 		const prerequisite = page.locator('[data-assistance-model-prerequisites]');
 		await expect(prerequisite).toHaveCount(0);
 		const assistance = page.getByRole('dialog', { name: 'Transcribe & Captions', exact: true });
-		await expect(assistance.getByRole('button', { name: 'Model', exact: true })).toHaveCount(0);
+		await expect(assistance.getByRole('button', { name: /^Model(?::|$)/u })).toHaveCount(0);
 		await expect(assistance.getByRole('button', { name: 'Analyze', exact: true })).toBeEnabled();
 		expect(await fixtureSnapshot(page)).toMatchObject({ installCalls: [], createJobCalls: 0 });
 		expect(errors).toEqual([]);
@@ -164,7 +164,7 @@ test.describe('AI effect model prerequisites', () => {
 		});
 		await openAssistanceTask(page, editor, 'Transcribe & Captions');
 		const assistance = page.getByRole('dialog', { name: 'Transcribe & Captions', exact: true });
-		const models = assistance.getByRole('button', { name: 'Model', exact: true });
+		const models = assistance.getByRole('button', { name: /^Model(?::|$)/u });
 		await expect(models).toContainText('Parakeet');
 		await models.click();
 		await expect(page.getByRole('option', { name: 'Parakeet', exact: true })).toBeVisible();

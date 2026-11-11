@@ -121,15 +121,17 @@ export function createExternalFfmpegCandidateLocator(
 				readonly ffmpegPath: string;
 			}>[] = [];
 			if (options.selectedPath) pending.push({ source: 'user-selected', ffmpegPath: options.selectedPath });
-			if (options.managedPath) pending.push({ source: 'managed-package', ffmpegPath: options.managedPath });
-			for (const directory of await packageManagerDirectories(
-				options.platform, environment, options.listSubdirectories ?? defaultSubdirectories,
-			)) pending.push({
-				source: 'package-manager', ffmpegPath: executableIn(directory, options.platform, 'ffmpeg'),
-			});
-			for (const directory of pathDirectories(options.platform, environmentValue(environment, 'PATH', options.platform))) pending.push({
-				source: 'system-path', ffmpegPath: executableIn(directory, options.platform, 'ffmpeg'),
-			});
+			else {
+				if (options.managedPath) pending.push({ source: 'managed-package', ffmpegPath: options.managedPath });
+				for (const directory of await packageManagerDirectories(
+					options.platform, environment, options.listSubdirectories ?? defaultSubdirectories,
+				)) pending.push({
+					source: 'package-manager', ffmpegPath: executableIn(directory, options.platform, 'ffmpeg'),
+				});
+				for (const directory of pathDirectories(options.platform, environmentValue(environment, 'PATH', options.platform))) pending.push({
+					source: 'system-path', ffmpegPath: executableIn(directory, options.platform, 'ffmpeg'),
+				});
+			}
 			const result: ExternalFfmpegCandidateInput[] = [];
 			const seen = new Set<string>();
 			const ordinals = new Map<ExternalFfmpegCandidateInput['source'], number>();

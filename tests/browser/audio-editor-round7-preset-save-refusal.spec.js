@@ -20,7 +20,7 @@ test('a refused ordinary effect preset save retains its name for a successful re
 	const healthy = await openName('Healthy saved room');
 	await healthy.getByRole('textbox').press('Enter');
 	await expect(healthy).toBeHidden();
-	await expect(effect.getByRole('button', { name: 'Preset', exact: true })).toContainText('Healthy saved room');
+	await expect(effect.getByRole('button', { name: /^Preset(?::|$)/u })).toContainText('Healthy saved room');
 	const names = () => page.evaluate((databaseName) => new Promise((resolve, reject) => {
 		const request = indexedDB.open(databaseName);
 		request.onerror = () => reject(request.error);
@@ -55,6 +55,6 @@ test('a refused ordinary effect preset save retains its name for a successful re
 	await expect(refused.getByRole('textbox')).toHaveValue('Keep my refused room');
 	await refused.getByRole('textbox').press('Enter');
 	await expect(refused).toBeHidden();
-	await expect(effect.getByRole('button', { name: 'Preset', exact: true })).toContainText('Keep my refused room');
+	await expect(effect.getByRole('button', { name: /^Preset(?::|$)/u })).toContainText('Keep my refused room');
 	await expect.poll(names).toContain('Keep my refused room');
 });

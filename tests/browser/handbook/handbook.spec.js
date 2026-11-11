@@ -94,17 +94,67 @@ test('states a local model purpose and keeps packaged-test mechanics collapsed',
 	await expect(disclosure.getByText(/silero-voice-activity/u)).toBeVisible();
 });
 
-test('compares Web and Desktop with accessible symbols and explains the capability differences', async ({ page }) => {
+test('gives the comparison page full width while standard pages keep their reading layout', async ({ page }) => {
+	await page.setViewportSize({ width: 1600, height: 1000 });
+	await page.goto(`${BASE}start/how-soundscaper-compares/`);
+	const comparisonTitle = page.getByRole('heading', { level: 1, name: 'How Soundscaper compares' });
+	await expect(comparisonTitle).toBeVisible();
+	const comparisonWidth = (await comparisonTitle.boundingBox()).width;
+	expect(comparisonWidth).toBeGreaterThan(900);
+	const sidebarLink = page.getByRole('navigation', { name: 'Main', exact: true })
+		.getByRole('link', { name: 'How Soundscaper compares', exact: true });
+	const contents = page.getByRole('navigation', { name: 'On this page', exact: true });
+	await expect(sidebarLink).toBeVisible();
+	await expect(contents).toBeVisible();
+	for (const width of [1600, 2400]) {
+		await page.setViewportSize({ width, height: 1000 });
+		const titleBox = await comparisonTitle.boundingBox();
+		const sidebarBox = await sidebarLink.boundingBox();
+		const contentsBox = await contents.boundingBox();
+		expect(titleBox.x - (sidebarBox.x + sidebarBox.width)).toBeLessThanOrEqual(64);
+		expect(contentsBox.x - (titleBox.x + titleBox.width)).toBeLessThanOrEqual(64);
+		expect(contentsBox.width).toBeLessThanOrEqual(300);
+		let referenceColumns;
+		for (const table of await page.getByRole('table').all()) {
+			const columns = await table.getByRole('columnheader').evaluateAll((headers) => headers.map((header) => {
+				const { x, width: columnWidth } = header.getBoundingClientRect();
+				return { x, width: columnWidth };
+			}));
+			referenceColumns ??= columns;
+			for (const [index, column] of columns.entries()) {
+				expect(column.x).toBeCloseTo(referenceColumns[index].x, 0);
+				expect(column.width).toBeCloseTo(referenceColumns[index].width, 0);
+			}
+			expect(columns.at(-1).x + columns.at(-1).width).toBeCloseTo(titleBox.x + titleBox.width, 0);
+		}
+	}
+
+	await page.setViewportSize({ width: 1600, height: 1000 });
+	await page.goto(`${BASE}soundscaper/recording/`);
+	const standardTitle = page.getByRole('heading', { level: 1 });
+	await expect(standardTitle).toBeVisible();
+	expect((await standardTitle.boundingBox()).width).toBeLessThan(comparisonWidth - 180);
+	await expect(page.getByRole('navigation', { name: 'On this page', exact: true })).toBeVisible();
+
+	for (const width of [1280, 390]) {
+		await page.setViewportSize({ width, height: 844 });
+		await page.goto(`${BASE}start/how-soundscaper-compares/`);
+		await expect(comparisonTitle).toBeVisible();
+		await expect(page.getByRole('navigation', { name: /^On this page/u })).toBeVisible();
+		const pageWidth = await page.evaluate(() => ({ content: document.documentElement.scrollWidth, viewport: window.innerWidth }));
+		expect(pageWidth.content).toBeLessThanOrEqual(pageWidth.viewport);
+		const comparisonScroll = page.getByRole('region', { name: 'Platform and terms', exact: true });
+		await comparisonScroll.focus();
+		await page.keyboard.press('ArrowRight');
+		await expect.poll(() => comparisonScroll.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+	}
+});
+
+test('renders comparison verdicts as accessible symbols with distinct colours', async ({ page }) => {
 	await page.goto(`${BASE}start/how-soundscaper-compares/`);
 	await expect(page.getByRole('heading', { level: 1, name: 'How Soundscaper compares' })).toBeVisible();
 	const tables = page.getByRole('table');
 	expect(await tables.count()).toBeGreaterThan(0);
-	for (const table of await tables.all()) {
-		await expect(table.getByRole('columnheader')).toHaveText([
-			'Capability', 'Soundscaper Web', 'Soundscaper Desktop', 'Audacity 4.0.2', 'Audition',
-		]);
-	}
-
 	const colours = [];
 	for (const [symbol, label] of [['+', 'Supported'], ['~', 'Limited'], ['/', 'Unavailable']]) {
 		const verdict = tables.getByRole('img', { name: label, exact: true }).first();
@@ -114,37 +164,41 @@ test('compares Web and Desktop with accessible symbols and explains the capabili
 	}
 	expect(new Set(colours).size).toBe(3);
 	await expect(tables.getByText(/^(?:Yes|No|Partial)(?:\s|$)/u)).toHaveCount(0);
-	const row = (capability) => page.getByRole('row').filter({
-		has: page.getByRole('cell', { name: capability, exact: true }),
-	});
-	for (const [capability, web, desktop] of [
-		['Dedicated single-file editor', 'Supported', 'Supported'],
-		['Microphone and desktop audio together', 'Limited', 'Supported'],
-		...['VST2 plug-ins', 'VST3 plug-ins', 'CLAP plug-ins', 'Audio Units (AU)', 'LV2 plug-ins', 'LADSPA plug-ins', 'Vamp analysers']
-			.map((format) => [format, 'Unavailable', 'Supported']),
-		['Speech enhancement', 'Unavailable', 'Supported'],
-		['Transcription and diarisation', 'Unavailable', 'Supported'],
-		['Source separation into stems', 'Unavailable', 'Supported'],
-		['Lossy output', 'Limited', 'Supported'],
-	]) {
-		await expect(row(capability).getByRole('cell').nth(1).getByRole('img', { name: web, exact: true })).toBeVisible();
-		await expect(row(capability).getByRole('cell').nth(2).getByRole('img', { name: desktop, exact: true })).toBeVisible();
-	}
-	for (const column of [1, 2]) {
-		await expect(row('Dedicated single-file editor').getByRole('cell').nth(column))
-			.toContainText(/source waveform editor in source monitor/iu);
-	}
-	await expect(row('Sample-level drawing').getByRole('cell').nth(3).getByRole('img', { name: 'Supported', exact: true })).toBeVisible();
-	const audacityAutomation = row('Automation lanes').getByRole('cell').nth(3);
-	await expect(audacityAutomation.getByRole('img', { name: 'Limited', exact: true })).toBeVisible();
-	await expect(audacityAutomation).toContainText(/clip[ -]gain/iu);
-	const audacityProjects = row('Opens Audacity projects').getByRole('cell').nth(3);
-	await expect(audacityProjects).toContainText(/\baup\b.*\baup3\b.*\baup4\b.*import/iu);
-	await expect(audacityProjects).toContainText(/aup4\s+export/iu);
-	await expect(audacityProjects).toContainText(/no\s+aup3\s+export/iu);
-	await expect(row('Lossy output').getByRole('cell').nth(2)).toContainText(/ffmpeg/iu);
-	await expect(row('Lossy output').getByRole('cell').nth(3)).toContainText(/ffmpeg/iu);
-	await expect(row('Lossy output').getByRole('cell').nth(4)).toContainText(/formats|mp3|aac/iu);
+});
+
+test('keeps comparison sources collapsed and reveals cell details on hover, focus, and tap', async ({ page, isMobile }) => {
+	await page.goto(`${BASE}start/how-soundscaper-compares/`);
+	const sources = page.getByText('Where these claims come from', { exact: true });
+	const releaseNotes = page.getByRole('link', { name: 'release notes', exact: true });
+	await expect(releaseNotes).toBeHidden();
+	await sources.click();
+	await expect(releaseNotes).toBeVisible();
+	await sources.click();
+	await expect(releaseNotes).toBeHidden();
+
+	const note = page.getByRole('table').getByRole('button').first();
+	const detail = page.getByRole('tooltip', { includeHidden: true }).first();
+	const explanation = await detail.textContent();
+	await expect(detail).toBeHidden();
+	await note.hover();
+	await expect(detail).toBeVisible();
+	await detail.hover();
+	await expect(detail).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(detail).toBeHidden();
+	await note.focus();
+	await expect(detail).toBeVisible();
+	await expect(note).toHaveAccessibleDescription(explanation);
+	await page.keyboard.press('Escape');
+	await expect(detail).toBeHidden();
+	if (isMobile) await note.tap();
+	else await note.click();
+	await expect(detail).toBeVisible();
+	await page.getByRole('heading', { level: 1 }).click();
+	await expect(detail).toBeHidden();
+
+	const accessibility = await new AxeBuilder({ page }).include('main').analyze();
+	expect(accessibility.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical')).toEqual([]);
 });
 
 // The generated reference pages carry the widest and longest tables in the

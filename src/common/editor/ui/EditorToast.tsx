@@ -19,6 +19,7 @@ export interface EditorToastProps {
 	readonly description?: string;
 	readonly timer?: string;
 	readonly type?: 'info' | 'warning' | 'error' | 'success';
+	readonly icon?: ReactNode;
 	readonly actions?: readonly EditorToastAction[];
 	readonly dismissLabel?: string;
 	readonly onDismiss?: () => void;
@@ -29,7 +30,7 @@ export interface EditorToastProps {
 
 /** Controlled notifications stay within the editor that owns their state. */
 export default function EditorToast({
-	id, title, description, timer, type = 'info', actions = [], dismissLabel, onDismiss, persistent = false, progress, progressContent,
+	id, title, description, timer, type = 'info', icon, actions = [], dismissLabel, onDismiss, persistent = false, progress, progressContent,
 }: EditorToastProps) {
 	const session = useEditorNotifications();
 	const instance = useId();
@@ -46,7 +47,7 @@ export default function EditorToast({
 
 	return <section className="kw-audio-editor__toast" aria-label={title} data-editor-toast={id}
 		data-timed={timed || undefined} data-actionable={actions.length > 0 || hasProgress || undefined} {...readingTime}>
-		<Toast id={id} type={type} title={title} description={description} showCloseButton={false}
+		<Toast id={id} type={type} icon={icon} title={title} description={description} showCloseButton={false}
 			progress={progress} showProgress={progress !== undefined} timeRemaining={progress !== undefined ? description : undefined} />
 		{progressContent && <div className="kw-audio-editor__toast-detail">{progressContent}</div>}
 		{timer && <div className="kw-audio-editor__toast-detail" role="timer" aria-live="off">{timer}</div>}

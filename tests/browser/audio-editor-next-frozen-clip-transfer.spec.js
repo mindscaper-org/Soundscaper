@@ -52,7 +52,7 @@ test('NP019: clip properties track destination retires only the emptied freeze a
 	await chooseNestedCommandAction(page, editor, 'Tracks', ['Freeze', 'Freeze track']);
 	await expect(editor.locator('[data-task-progress]')).toHaveCount(0);
 	const properties = await openClipProperties(page, editor, clip, { additional: false });
-	await properties.getByRole('button', { name: 'Track', exact: true }).click();
+	await properties.getByRole('button', { name: /^Track(?::|$)/u }).click();
 	await page.getByRole('option', { name: destinationName, exact: true }).click();
 	await expect(clip.locator('xpath=ancestor::*[@data-track-row][1]')).toHaveAttribute('data-track-id', destinationId);
 	await expect(editor.getByRole('alert')).toHaveCount(0);

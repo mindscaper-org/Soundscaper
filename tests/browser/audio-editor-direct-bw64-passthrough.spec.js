@@ -1,3 +1,4 @@
+import { taskProgressCancel } from './helpers/task-progress.js';
 import { createAdmChna, encodeChnaPayload, generateAdmAxml } from '../../src/common/editor/adm-metadata.ts';
 import { createRiffBextChunk, normalizeBextMetadata } from '../../src/common/editor/broadcast-wave.ts';
 import { expect, test } from './audio-editor-test-fixtures.js';
@@ -165,7 +166,7 @@ test.describe('direct pristine BW64 passthrough publication', () => {
 		await expect.poll(() => page.evaluate(() => globalThis.__directPcmSave.sessions[1]?.hasNonzeroPcm || false), {
 			timeout: 30_000,
 		}).toBe(true);
-		await exportDialog.getByRole('button', { name: 'Cancel export' }).click();
+		await taskProgressCancel(page).click();
 		await expect(exportDialog.getByRole('button', { name: 'Export', exact: true })).toBeVisible({ timeout: 30_000 });
 		const cancelled = await inspectDirectSession(page, 1);
 		expect(cancelled.opens).toBe(1);

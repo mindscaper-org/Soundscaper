@@ -12,7 +12,7 @@ async function saveAs(page, dialog, name) {
 	await prompt.getByRole('textbox').fill(name);
 	await prompt.getByRole('button', { name: 'Save preset', exact: true }).click();
 	await expect(prompt).toBeHidden();
-	await expect(dialog.getByRole('button', { name: 'Preset', exact: true })).toContainText(name);
+	await expect(dialog.getByRole('button', { name: /^Preset(?::|$)/u })).toContainText(name);
 	await expect(dialog.getByRole('button', { name: 'Save preset', exact: true })).toBeEnabled();
 }
 
@@ -29,7 +29,7 @@ test('each same-name delivery preset selects its own saved format', async ({ pag
 	await chooseDropdown(page, format, 'FLAC');
 	await saveAs(page, dialog, 'Favorite');
 	await chooseDropdown(page, format, 'MP3');
-	await dialog.getByRole('button', { name: 'Preset', exact: true }).click();
+	await dialog.getByRole('button', { name: /^Preset(?::|$)/u }).click();
 	await page.getByRole('option', { name: /^Favorite \(custom\)/u }).nth(1).click();
 	await expect(format.getByRole('button')).toHaveText(/FLAC/u);
 });

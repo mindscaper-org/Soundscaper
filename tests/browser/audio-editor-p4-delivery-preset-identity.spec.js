@@ -12,9 +12,9 @@ test('an imported delivery preset keeps its exact ID through Apply, Save, file e
 	await (await choosing).setFiles({ name: 'radio.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ schemaVersion: 1,
 		presets: [preset('radio', 'Archive stereo', 'stereo'), preset(' radio ', 'Radio mono', 'mono')] })) });
 	const choose = async label => {
-		await dialog.getByRole('button', { name: 'Preset', exact: true }).click();
+		await dialog.getByRole('button', { name: /^Preset(?::|$)/u }).click();
 		await page.getByRole('option', { name: new RegExp(`^${label} \\(custom\\)`, 'u') }).click();
-		await expect(dialog.getByRole('button', { name: 'Preset', exact: true })).toContainText(label);
+		await expect(dialog.getByRole('button', { name: /^Preset(?::|$)/u })).toContainText(label);
 	};
 	await choose('Radio mono'); await expect(dialog.locator('[data-export-channel-option="mono"] input')).toBeChecked();
 	await dialog.getByRole('button', { name: 'Save preset', exact: true }).click(); await page.getByRole('menuitem', { name: 'Save preset', exact: true }).click();

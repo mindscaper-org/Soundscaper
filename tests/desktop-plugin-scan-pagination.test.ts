@@ -67,3 +67,14 @@ test('withdrawn scan consent between pages publishes no partial inventory', asyn
 	assert.deepEqual(fixture.quarantined, []);
 });
 
+test('candidate incompatibility warnings survive a successful final scan page', async () => {
+	const { service } = createService({ run: async request => request.grant.cursor
+		? { ...SCAN, entries: [{ ...ENTRY, stableId: 'last' }] }
+		: { ...SCAN, status: 'root-oversized', detail: 'Some plugins are incompatible. Review them in Plugin Manager.',
+			next: { candidateIndex: 1, descriptorIndex: 0 } } });
+	const outcome = await service.scanRoot({ owner: {}, rootId: 'root-1', format: 'vst3' });
+	assert.equal(outcome.status, 'described');
+	if (outcome.status !== 'described') return;
+	assert.equal(outcome.scan.detail, 'Some plugins are incompatible. Review them in Plugin Manager.');
+});
+

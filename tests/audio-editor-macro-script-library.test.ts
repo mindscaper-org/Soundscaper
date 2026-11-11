@@ -47,19 +47,19 @@ test('a program is admitted with bounded fields', () => {
 	);
 });
 
-test('trust is bound to the exact bytes it was granted for', () => {
-	// A program the user wrote here is theirs. One that arrived from a file was
-	// looked at once, and the permission is for the bytes they looked at.
+test('legacy review metadata round-trips while all nonempty programs remain runnable', () => {
+	// Imported and authored programs share the same explicit sandboxed Run action.
 	assert.equal(macroScriptIsRunnable({ trust: 'authored', source: 'anything' }), true);
-	assert.equal(macroScriptIsRunnable({ trust: 'imported-untrusted', source: 'x', trustedSource: 'x' }), false);
+	assert.equal(macroScriptIsRunnable({ trust: 'imported-untrusted', source: 'x', trustedSource: 'x' }), true);
 	assert.equal(macroScriptIsRunnable({ trust: 'imported-trusted', source: 'x', trustedSource: 'x' }), true);
 	assert.equal(
 		macroScriptIsRunnable({ trust: 'imported-trusted', source: 'x ', trustedSource: 'x' }),
-		false,
-		'one character elsewhere is a different program',
+		true,
+		'editing imported text does not require another approval',
 	);
-	// A record round-trips its trust, and an unknown trust falls back to authored
-	// rather than to something more permissive by accident.
+	assert.equal(macroScriptIsRunnable({ source: '  ' }), false);
+	assert.equal(macroScriptIsRunnable({}), false);
+	// Preserve v1 provenance metadata for older library readers.
 	const { script } = saveMacroScript(undefined, {
 		script: { name: 'Shared', source: 'x', trust: 'imported-trusted', trustedSource: 'x', origin: 'shared.soundscapemacro' },
 		idFactory: () => 'script-a',
@@ -73,7 +73,7 @@ test('trust is bound to the exact bytes it was granted for', () => {
 	}).script.trust, 'authored');
 });
 
-test('an imported program has no permission until somebody gives it one', async () => {
+test('imported programs stay runnable after edits without changing their legacy provenance', async () => {
 	const { createMacroScriptLibraryService, MACRO_SCRIPT_LIBRARY_SETTING_KEY } = await import(
 		'../src/common/editor/controller/effects/macro-script-library-service.ts'
 	);
@@ -93,24 +93,22 @@ test('an imported program has no permission until somebody gives it one', async 
 	assert.equal(imported.trust, 'imported-untrusted');
 	assert.equal(imported.origin, 'sweep.soundscapemacro');
 	assert.equal(imported.trustedSource, null);
-	assert.equal(macroScriptIsRunnable(imported), false);
-	assert.equal(service.blocked('await sound.select.all();'), true,
-		'the gate is on the bytes, so passing the text straight to the runner is not a way around it');
+	assert.equal(macroScriptIsRunnable(imported), true);
+	assert.equal(service.blocked('await sound.select.all();'), false);
 
-	// Editing an imported program does not launder it: the permission would still
-	// name text nobody reviewed.
+	// Editing preserves the imported origin and remains available to Run macro.
 	service.save({ ...imported, source: 'await sound.select.none();' });
-	assert.equal(macroScriptIsRunnable(service.list()[0]!), false);
-	assert.equal(service.blocked('await sound.select.none();'), true);
+	assert.equal(macroScriptIsRunnable(service.list()[0]!), true);
+	assert.equal(service.blocked('await sound.select.none();'), false);
 
 	const trusted = service.trust(imported.id);
 	assert.equal(trusted.trust, 'imported-trusted');
 	assert.equal(trusted.trustedSource, 'await sound.select.none();');
 	assert.equal(service.blocked('await sound.select.none();'), false);
 
-	// A permission is for the exact bytes it was given for. Anything else re-arms it.
+	// The legacy marker remains readable, but does not gate changed source.
 	service.save({ ...trusted, source: 'await sound.effect.apply("audacity-amplify", {});' });
-	assert.equal(service.blocked('await sound.effect.apply("audacity-amplify", {});'), true);
+	assert.equal(service.blocked('await sound.effect.apply("audacity-amplify", {});'), false);
 
 	await service.flush();
 	assert.deepEqual(written.map(([key]) => key),

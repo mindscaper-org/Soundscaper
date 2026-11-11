@@ -273,9 +273,7 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	['framescaper-proxy-attach', 'Attach', 'Tools > Proxies', FRAMESCAPER],
 	['framescaper-proxy-detach', 'Detach', 'Tools > Proxies', FRAMESCAPER],
 	['framescaper-proxy-relink', 'Relink', 'Tools > Proxies', FRAMESCAPER],
-	['framescaper-native-media-preferences', 'Native media and scratch', 'Edit > Preferences > Media', FRAMESCAPER, 'setting'],
-	['desktop-use-native-probe-helper', 'Use Native Probe Helper', 'Edit > Preferences > Media', BOTH, 'setting'],
-	['desktop-clear-probe-helper-quarantine', 'Clear Probe Helper Quarantine', 'Edit > Preferences > Media', BOTH],
+	['framescaper-native-media-preferences', 'Native media and scratch', 'Edit > Preferences > Advanced', FRAMESCAPER, 'setting'],
 	['desktop-clear-audio-helper-quarantine', 'Clear Audio Helper Quarantine', 'Edit > Preferences > Audio settings', BOTH],
 	['desktop-discover-native-effects', 'Discover Native Effects', 'Edit > Preferences > Effects', BOTH, 'setting'],
 

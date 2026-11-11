@@ -41,7 +41,7 @@ test.describe('selection effect dialog coverage', () => {
 		const roomSize = dialog.locator('[data-effect-param="roomSize"] input');
 		await commitInput(roomSize, '73');
 		await saveAsPreset(page, dialog, 'Coverage room');
-		const preset = dialog.getByRole('button', { name: 'Preset', exact: true });
+		const preset = dialog.getByRole('button', { name: /^Preset(?::|$)/u });
 		await expect(preset).toContainText('Coverage room');
 
 		await commitInput(roomSize, '61');

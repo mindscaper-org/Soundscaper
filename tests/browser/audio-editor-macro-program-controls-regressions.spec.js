@@ -5,8 +5,8 @@ import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js'
 
 async function newProgram(page) {
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New program', exact: true }).click();
 	return manager;
 }
@@ -29,20 +29,18 @@ async function reimportProgram(page) {
 	return manager;
 }
 
-test('an imported program remains reviewable and runnable in a normal window', async ({ page }) => {
+test('an imported program has an accessible Run macro button without a review panel', async ({ page }) => {
 	await page.setViewportSize({ width: 1280, height: 720 });
 	const manager = await reimportProgram(page);
-	const checkbox = manager.locator('[data-macro-script-review]').getByRole('checkbox');
-	await checkbox.scrollIntoViewIfNeeded();
-	const reachable = await checkbox.evaluate((element) => {
+	await expect(manager.getByRole('checkbox')).toHaveCount(0);
+	const run = manager.getByRole('button', { name: 'Run macro', exact: true });
+	await run.scrollIntoViewIfNeeded();
+	const reachable = await run.evaluate((element) => {
 		const bounds = element.getBoundingClientRect();
 		return element.contains(element.ownerDocument.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));
 	});
 	expect(reachable).toBe(true);
-	await checkbox.click();
-	await expect(checkbox).toBeChecked();
-	await manager.locator('.audio-editor-macro-script__actions').getByRole('button').click();
-	await expect(manager.getByRole('button', { name: 'Run program', exact: true })).toBeEnabled();
+	await expect(run).toBeEnabled();
 });
 
 test('Escape then Tab leaves the program textarea without closing the palette', async ({ page }) => {

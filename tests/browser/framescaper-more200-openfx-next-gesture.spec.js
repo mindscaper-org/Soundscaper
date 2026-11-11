@@ -37,7 +37,7 @@ test('a completed OpenFX reply does not erase a gesture started while it was pen
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
 	await chooseNestedCommandAction(page, editor, 'Generate', ['Video Generators', 'Add Solid']);
 	await expect(editor.getByRole('group', { name: 'Video clip: Solid', exact: true })).toHaveCount(1);
-	await openNativePreferences(page, editor, 'Media', 'Native media and scratch');
+	await openNativePreferences(page, editor, 'Advanced', 'Native media and scratch');
 	let dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
 	await dialog.locator('[data-native-service-preference="native-media"]').check();
 	await dialog.locator('button').filter({ hasText: /^Close$/u }).click();

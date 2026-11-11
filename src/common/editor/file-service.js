@@ -5,6 +5,7 @@ import {
 } from './file-save-stream.ts';
 import {
 	materializeDesktopReadBlob,
+	withDesktopReadCleanup as withReadCleanup,
 } from './desktop-read-materialization.ts';
 import {
 	assertDesktopMaterializedReadProfile,
@@ -105,7 +106,8 @@ export function createAudioEditorFileService(options = {}) {
 		chooseSesxMediaFolder: (request) => bridge?.chooseSesxMediaFolder?.(request) ?? Promise.resolve({ status: 'cancelled' }),
 		releaseSesxSession: (sessionReadId) => bridge?.releaseSesxSession?.(sessionReadId) ?? Promise.resolve(false),
 		chooseSaveTarget,
-		chooseBatchSaveDirectory: (suggestedNames) => bridge?.chooseBatchSaveDirectory?.({ suggestedNames }) ?? null,
+		chooseBatchSaveDirectory: (suggestedNames = []) => bridge?.chooseBatchSaveDirectory?.({ suggestedNames }) ?? null,
+		planBatchSaveOutputs: (batchId, suggestedNames) => bridge?.planBatchSaveOutputs?.({ batchId, suggestedNames }) ?? null,
 		prepareBatchSaveTarget: (batchId, index) => bridge?.prepareBatchSaveTarget?.({ batchId, index }) ?? null,
 		releaseBatchSaveDirectory: (batchId) => bridge?.releaseBatchSaveDirectory?.(batchId),
 		prepareSave,
@@ -169,7 +171,7 @@ export function createAudioEditorFileService(options = {}) {
 	async function withReadDescriptors(descriptors, request = {}, consume) {
 		if (!Array.isArray(descriptors)) throw new TypeError('Desktop read descriptors must be an array.');
 		if (typeof consume !== 'function') throw new TypeError('A desktop read consumer is required.');
-		const readIds = uniqueReadIds(descriptors);
+		const readIds = request.retainReads === true ? [] : uniqueReadIds(descriptors);
 		return withDesktopOriginalReadCleanup(descriptors, bridge?.releaseOriginalFile?.bind(bridge), () => withReadCleanup(readIds, releaseRead, async () => {
 			let aggregateBytes = 0;
 			for (const descriptor of descriptors) {
@@ -476,36 +478,6 @@ function uniqueReadIds(descriptors) {
 		.map((descriptor) => descriptor?.id)
 		.filter((id) => id != null)
 		.map(String))];
-}
-
-async function withReadCleanup(readIds, release, operation) {
-	let value;
-	let primaryError;
-	let operationFailed = false;
-	try {
-		value = await operation();
-	} catch (error) {
-		operationFailed = true;
-		primaryError = error;
-	}
-	const cleanupResults = await Promise.allSettled(readIds.map((id) => release(id)));
-	const cleanupErrors = cleanupResults
-		.filter((result) => result.status === 'rejected')
-		.map((result) => result.reason);
-	if (operationFailed) {
-		if (cleanupErrors.length) {
-			throw new AggregateError(
-				[primaryError, ...cleanupErrors],
-				'The desktop read failed and its capability cleanup was incomplete.',
-				{ cause: primaryError },
-			);
-		}
-		throw primaryError;
-	}
-	if (cleanupErrors.length) {
-		throw new AggregateError(cleanupErrors, 'Desktop read capability cleanup was incomplete.');
-	}
-	return value;
 }
 
 function createNamedFile(blob, descriptor, scope) {

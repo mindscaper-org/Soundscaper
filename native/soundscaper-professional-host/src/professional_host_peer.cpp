@@ -39,7 +39,7 @@ constexpr uint8_t protocolVersion = 2u;
 constexpr std::array<uint8_t, 4> magic{ 'M', '5', 'F', '2' };
 
 enum class Operation : uint8_t {
-	scan = 1u, open = 2u, process = 3u, latency = 4u,
+	midi = 20u, scan = 1u, open = 2u, process = 3u, latency = 4u,
 	save = 5u, load = 6u, close = 7u, vendor = 8u,
 	capabilities = 9u, parameters = 10u, parameterGet = 11u, parameterSet = 12u,
 	araConfigure = 13u, araWrite = 14u, araBind = 15u, araRender = 16u, araSave = 17u, araLoad = 18u, araCapabilities = 19u,
@@ -162,7 +162,7 @@ public:
 		uint8_t version = 0u, rawOperation = 0u;
 		if (!reader.byte(version) || !reader.byte(rawOperation) || version != protocolVersion
 			|| rawOperation < static_cast<uint8_t>(Operation::scan)
-			|| rawOperation > static_cast<uint8_t>(Operation::araCapabilities)) return false;
+			|| rawOperation > static_cast<uint8_t>(Operation::midi)) return false;
 		const auto operation = static_cast<Operation>(rawOperation);
 		Writer payload;
 		const auto status = execute(operation, reader, payload);
@@ -179,9 +179,21 @@ public:
 private:
 	soundscaper_pro_status execute(Operation operation, Reader &reader, Writer &writer)
 	{
-		if (operation >= Operation::araConfigure) return soundscaper::professional::dispatchAraPeer(
+		if (operation >= Operation::araConfigure && operation <= Operation::araCapabilities) return soundscaper::professional::dispatchAraPeer(
 			static_cast<uint8_t>(operation), plugin_, reader, writer);
 		switch (operation) {
+		case Operation::midi: {
+			uint32_t frames = 0u, count = 0u;
+			if (!reader.unsigned32(frames) || !reader.unsigned32(count) || !frames || frames > 65536u || count > 65536u) return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
+			std::vector<soundscaper_pro_midi_event> events(count);
+			for (auto &event : events) {
+				uint32_t bytes = 0u;
+				if (!reader.unsigned32(event.frame) || !reader.unsigned32(bytes) || bytes > 0xffffffu) return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
+				event.size = ((bytes & 0xf0u) == 0xc0u || (bytes & 0xf0u) == 0xd0u) ? 2u : 3u;
+				for (uint32_t index = 0u; index < 3u; ++index) event.data[index] = static_cast<uint8_t>(bytes >> (8u * index));
+			}
+			return soundscaper_pro_plugin_midi(plugin_, events.data(), count, frames);
+		}
 		case Operation::scan: return inspect(reader, writer);
 		case Operation::open: return open(reader, writer);
 		case Operation::process: return process(reader, writer);

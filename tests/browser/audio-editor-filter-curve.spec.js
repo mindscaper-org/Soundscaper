@@ -49,7 +49,7 @@ test.describe('Audacity Filter Curve EQ', () => {
 		const contentWidth = await graph.evaluate((element) => element.parentElement.getBoundingClientRect().width);
 		const graphWidth = (await graph.boundingBox()).width;
 		expect(graphWidth / contentWidth).toBeGreaterThan(0.9);
-		await dialog.getByRole('button', { name: 'Preset', exact: true }).click();
+		await dialog.getByRole('button', { name: /^Preset(?::|$)/u }).click();
 		await page.getByRole('option', { name: 'Bass Cut', exact: true }).click();
 		await expect(graph.getByRole('img', { name: 'Actual filter response', exact: true })).toBeVisible();
 		const coordinates = (await curve.getAttribute('points')).split(' ');

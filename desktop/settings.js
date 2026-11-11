@@ -99,13 +99,15 @@ export class DesktopSettingsStore {
 		return settings.modelsDirectory;
 	}
 
-	async setExternalFfmpegSelection(executablePath) {
+	/** @param {'manual' | 'automatic'} [source] */
+	async setExternalFfmpegSelection(executablePath, source = 'manual') {
 		const validated = validateExternalFfmpegExecutable(executablePath);
+		if (source !== 'manual' && source !== 'automatic') throw new TypeError('The FFmpeg selection source is invalid.');
 		const settings = await this.#update((current) => ({
 			...current,
 			externalFfmpegSelection: current.externalFfmpegSelection?.executablePath === validated
-				? current.externalFfmpegSelection
-				: externalFfmpegSelection(validated),
+				? Object.freeze({ ...current.externalFfmpegSelection, source })
+				: externalFfmpegSelection(validated, null, null, source),
 		}));
 		return settings.externalFfmpegSelection;
 	}
@@ -119,6 +121,7 @@ export class DesktopSettingsStore {
 				...current,
 				externalFfmpegSelection: externalFfmpegSelection(
 					validated.executablePath, validated.identity, validated.capabilities,
+					current.externalFfmpegSelection.source,
 				),
 			};
 		});
@@ -129,7 +132,9 @@ export class DesktopSettingsStore {
 		const validated = validateExternalFfmpegExecutable(executablePath);
 		const settings = await this.#update((current) => {
 			assertSelectedExternalFfmpeg(current.externalFfmpegSelection, validated);
-			return { ...current, externalFfmpegSelection: externalFfmpegSelection(validated) };
+			return { ...current, externalFfmpegSelection: externalFfmpegSelection(
+				validated, null, null, current.externalFfmpegSelection.source,
+			) };
 		});
 		return settings.externalFfmpegSelection;
 	}
@@ -326,7 +331,7 @@ function persistedExternalFfmpegSelection(value) {
 			? externalFfmpegCapabilities(value.capabilities)
 			: null;
 	} catch { /* capability evidence is independently fail-closed */ }
-	return externalFfmpegSelection(executablePath, identity, capabilities);
+	return externalFfmpegSelection(executablePath, identity, capabilities, value.source === 'automatic' ? 'automatic' : 'manual');
 }
 
 function externalFfmpegProbeMetadata(value) {
@@ -342,8 +347,9 @@ function externalFfmpegProbeMetadata(value) {
 	return Object.freeze({ executablePath, identity, capabilities });
 }
 
-function externalFfmpegSelection(executablePath, identity = null, capabilities = null) {
-	return Object.freeze({ executablePath, identity, capabilities });
+/** @param {'manual' | 'automatic'} [source] */
+function externalFfmpegSelection(executablePath, identity = null, capabilities = null, source = 'manual') {
+	return Object.freeze({ executablePath, identity, capabilities, source });
 }
 
 function externalFfmpegIdentity(value) {

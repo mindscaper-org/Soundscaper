@@ -256,6 +256,12 @@ interface OwnedHost {
 }
 
 const HOSTS = new WeakMap<object, OwnedHost>();
+
+/** Scan completion shares the same manager and native instances as the Effect menu. */
+export function openSoundscaperPluginManager(owner: object): void {
+	HOSTS.get(owner)?.host.open('native-effect-manage');
+}
+
 const EMPTY_SUBSCRIBE = (): (() => void) => () => {};
 const EMPTY_SNAPSHOT = (): null => null;
 

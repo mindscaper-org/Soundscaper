@@ -1,3 +1,4 @@
+import { acceptNativeMidiPort, nativeMidiControl } from './native-midi-port.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import {
@@ -252,6 +253,7 @@ export function createNativePluginEffectNode(context, effect, channelCount = 2, 
 }
 
 export function acceptNativePluginPortOffer(offer, ports = []) {
+	if (acceptNativeMidiPort(offer, ports)) return true;
 	const port = ports.length === 1 ? ports[0] : null;
 	const instanceId = offer?.instanceId;
 	if (!port || typeof port.postMessage !== 'function' || typeof instanceId !== 'string'
@@ -404,6 +406,8 @@ function vendorUiRequest(instanceId, type, windowHandleId) {
 
 
 async function stateRequest(instanceId, type, bytes, fields = {}) {
+	const midi = nativeMidiControl(instanceId, type, bytes, fields);
+	if (midi) return midi;
 	await waitForNativePluginRuntime(instanceId);
 	const node = activeNodes.get(instanceId);
 	if (!node?.port?.postMessage) return Promise.reject(new Error('The native plug-in processor is unavailable.'));

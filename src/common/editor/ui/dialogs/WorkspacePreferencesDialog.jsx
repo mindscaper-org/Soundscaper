@@ -81,8 +81,6 @@ export default function WorkspacePreferencesDialog({
 	const conflictFor = useMemo(() => selectedPage === 'shortcuts' ? createShortcutDraftConflictIndex(preferences.shortcuts) : undefined, [preferences.shortcuts, selectedPage]);
 	const activeCustom = preferences.workspace.custom.find((workspace) => workspace.id === preferences.workspace.activeId);
 	const captureWorkspaceDeletion = useWorkspaceDeletionFocus(workspacePresetRef, preferences.workspace.custom, controller);
-	const mediaPreferencesAvailable = fileService?.isDesktop
-		|| menus.some((menu) => menu.nativePreferences?.some((entry) => entry.section === 'media'));
 	// Audacity's own page order, with the one page it has no counterpart for —
 	// Workspace, holding both the presets and the panel inventory — kept after
 	// Shortcuts.
@@ -93,7 +91,6 @@ export default function WorkspacePreferencesDialog({
 		{ id: 'playback-recording', label: copy.preferencesPlaybackRecording, icon: iconNameToChar('MICROPHONE') },
 		{ id: 'track-display', label: copy.preferencesTrackDisplay, icon: iconNameToChar('WAVEFORM') },
 		{ id: 'editing', label: copy.preferencesEditing, icon: iconNameToChar('EDIT') },
-		...(mediaPreferencesAvailable ? [{ id: 'media', label: copy.assistanceMediaPreferences || 'Media', icon: iconNameToChar('SETTINGS_COG') }] : []),
 		{ id: 'effects', label: copy.preferencesEffects, icon: iconNameToChar('WAVEFORM') },
 		{ id: 'shortcuts', label: copy.shortcuts, icon: iconNameToChar('SHORTCUTS') },
 		{ id: 'workspace', label: copy.workspace, icon: iconNameToChar('WORKSPACE') },

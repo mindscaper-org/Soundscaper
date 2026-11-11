@@ -14,8 +14,8 @@ test('generating with only a label track selected preserves unselected recording
 	await expect(original).toHaveCount(1);
 	const originalName = await original.getAttribute('aria-label');
 	await editor.getByRole('group', { name: 'Edit labels: Intro', exact: true }).focus();
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New program', exact: true }).click();
 	await manager.getByRole('textbox', { name: 'Program', exact: true }).fill([
 		'const tracks = await sound.project.tracks();',
@@ -23,7 +23,7 @@ test('generating with only a label track selected preserves unselected recording
 		'await sound.select.tracks({ track: labels.index });',
 		'await sound.select.time(0, 0.4);',
 	].join('\n'));
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 	await expect(manager.locator('[data-macro-script-log]')).toHaveAttribute('data-outcome', 'completed');
 	await closeDialog(manager);
 	await chooseCommandAction(page, editor, 'Generate', 'Tone');

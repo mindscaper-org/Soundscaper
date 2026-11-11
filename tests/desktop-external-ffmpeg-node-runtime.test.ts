@@ -47,22 +47,25 @@ test('manual selection derives only a sibling ffprobe executable', () => {
 	}
 });
 
-test('candidate discovery preserves manual, managed, package-manager, PATH priority', async () => {
+test('candidate discovery isolates manual choices and otherwise retains automatic tie order', async () => {
 	const executable = new Set([
 		'/manual/ffmpeg', '/manual/ffprobe',
 		'/managed/ffmpeg', '/managed/ffprobe',
 		'/home/linuxbrew/.linuxbrew/bin/ffmpeg', '/home/linuxbrew/.linuxbrew/bin/ffprobe',
 		'/usr/bin/ffmpeg', '/usr/bin/ffprobe',
 	]);
-	const locator = createExternalFfmpegCandidateLocator({
+	const options = {
 		platform: 'linux', arch: 'arm64',
-		selectedPath: '/manual/ffmpeg', managedPath: '/managed/ffmpeg',
+		managedPath: '/managed/ffmpeg',
 		environment: { PATH: '/relative:/usr/bin:/home/linuxbrew/.linuxbrew/bin' },
-		isExecutable: (path) => Promise.resolve(executable.has(path)),
-	});
-	const candidates = await locator.discover();
-	assert.deepEqual(candidates.map(({ id, source, ffmpegPath }) => ({ id, source, ffmpegPath })), [
+		isExecutable: (path: string) => Promise.resolve(executable.has(path)),
+	} as const;
+	const manual = await createExternalFfmpegCandidateLocator({ ...options, selectedPath: '/manual/ffmpeg' }).discover();
+	assert.deepEqual(manual.map(({ id, source, ffmpegPath }) => ({ id, source, ffmpegPath })), [
 		{ id: 'user-selected', source: 'user-selected', ffmpegPath: '/manual/ffmpeg' },
+	]);
+	const candidates = await createExternalFfmpegCandidateLocator(options).discover();
+	assert.deepEqual(candidates.map(({ id, source, ffmpegPath }) => ({ id, source, ffmpegPath })), [
 		{ id: 'managed-package', source: 'managed-package', ffmpegPath: '/managed/ffmpeg' },
 		{ id: 'package-manager-1', source: 'package-manager', ffmpegPath: '/home/linuxbrew/.linuxbrew/bin/ffmpeg' },
 		{ id: 'system-path-1', source: 'system-path', ffmpegPath: '/usr/bin/ffmpeg' },

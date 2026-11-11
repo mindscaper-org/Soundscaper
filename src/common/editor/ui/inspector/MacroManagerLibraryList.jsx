@@ -68,11 +68,6 @@ export default function MacroManagerLibraryList({
 								onClick={() => scripts.onSelect(script.id)}
 							>
 								{script.name}
-								{/* A program waiting to be read says so in the list, so the
-								    state is visible before it is opened. */}
-								{script.trust === 'imported-untrusted' && (
-									<span className="audio-editor-macros-palette__program-untrusted">{scripts.notTrusted}</span>
-								)}
 							</button>
 						</li>
 					))}

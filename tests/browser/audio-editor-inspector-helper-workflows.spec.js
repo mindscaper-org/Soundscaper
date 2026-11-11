@@ -136,7 +136,7 @@ async function importDeliveryPreset(page, dialog, { id, label, channelMapping })
 }
 
 async function chooseDeliveryPreset(page, dialog, name) {
-	const trigger = dialog.getByRole('button', { name: 'Preset', exact: true });
+	const trigger = dialog.getByRole('button', { name: /^Preset(?::|$)/u });
 	await trigger.click();
 	await page.getByRole('option', { name, exact: true }).click();
 	await expect(trigger).toContainText(name);

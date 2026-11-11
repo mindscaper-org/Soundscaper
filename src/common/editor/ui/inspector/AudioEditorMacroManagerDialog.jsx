@@ -21,6 +21,7 @@ import { takeSelectedFile } from '../file-input-selection.ts';
 import EffectParameterEditor from './EffectParameterEditor.jsx';
 import MacroCommandParameterEditor from './MacroCommandParameterEditor.tsx';
 import { macroStartsWithCommand } from './macro-run-target.ts';
+import { macroScriptIsRunnable } from '../../macro-script-library.ts';
 import MacroManagerLibraryList from './MacroManagerLibraryList.jsx';
 import MacroManagerStepList from './MacroManagerStepList.jsx';
 import MacroScriptPanel from './MacroScriptPanel.jsx';
@@ -47,6 +48,7 @@ export function AudioEditorMacroManagerDialog({
 	onDraftChange,
 	onClose,
 	onApplyToFiles = undefined,
+	initialScriptId = null,
 }) {
 	const project = snapshot.project;
 	const projectIdentity = editorProjectEditSessionKey(controller, project?.id);
@@ -65,9 +67,12 @@ export function AudioEditorMacroManagerDialog({
 	const templateCopy = resolveEffectMacroTemplateCopy(locale, copy);
 	const managerCopy = resolveMacroManagerCopy(locale, copy);
 	const scripts = snapshot.macros?.scripts || [];
-	const [selectedScriptId, setSelectedScriptId] = useState(null);
+	const [selectedScriptId, setSelectedScriptId] = useState(initialScriptId);
 	const selectedScript = scripts.find((script) => script.id === selectedScriptId) || null;
 	const scriptLibrary = controller.actions.macros.scripts;
+	const scriptRunControl = useRef(null);
+	const [isProgramRunning, setIsProgramRunning] = useState(false);
+	const scriptCanRun = selectedScript && macroScriptIsRunnable(selectedScript) && String(selectedScript.source).trim();
 	const createScript = () => {
 		const created = scriptLibrary.save({
 			name: resolveMacroManagerCopy(locale, publishedCopyFor(copy)).newProgram,
@@ -82,8 +87,7 @@ export function AudioEditorMacroManagerDialog({
 		try { scriptLibrary.save(next); }
 		catch (cause) { showMessage(feedbackFailure(cause), 'error'); }
 	};
-	// Importing a program stores text and marks it unreviewed; it never runs
-	// anything and never grants anything, so the message says what is owed next.
+	// Importing stores the program without executing it.
 	const importScript = async (file) => {
 		if (!file) return;
 		const operation = startOperation(activeImportRef);
@@ -96,7 +100,7 @@ export function AudioEditorMacroManagerDialog({
 			const created = scriptLibrary.import(text, file.name);
 			setSelectedScriptId(created.id);
 			openMacro(null);
-			showMessage({ key: 'ui.macroManager.programImported', fallback: managerCopy.programImported }, 'warning');
+			showMessage({ key: 'ui.macroManager.programImported', fallback: managerCopy.programImported }, 'success');
 		} catch (cause) {
 			if (!ownsOperation(activeImportRef, operation)) return;
 			showMessage({ key: 'ui.macroManager.programImportFailed', fallback: managerCopy.programImportFailed, parameters: { message: feedbackErrorParameter(cause) } }, 'error');
@@ -137,6 +141,7 @@ export function AudioEditorMacroManagerDialog({
 	const [message, setMessage] = usePresentationFeedback(copy);
 	const [messageState, setMessageState] = useState('info');
 	const [isRunning, setIsRunning] = useState(false);
+	const running = isRunning || isProgramRunning;
 	const [isCapturingProfile, setIsCapturingProfile] = useState(false);
 	const fileInputRef = useRef(null);
 	const scriptInputRef = useRef(null);
@@ -401,23 +406,23 @@ export function AudioEditorMacroManagerDialog({
 		<>
 			<AudioEditorDialogShell
 				isOpen={isOpen && !selectedEffect}
-				title={copy.macrosPalette}
+				title={copy.macroManager}
 				onClose={onClose}
 				width={880}
 				className="audio-editor-macros-palette"
-				dataAttributes={{ 'data-macros-palette': '' }}
+				dataAttributes={{ 'data-macro-manager': '' }}
 				footer={(
 					<DialogFooter
 						className="audio-editor-dialog-footer audio-editor-macros-palette__footer"
 						rightContent={(
 							<>
-								{fileService?.isDesktop && onApplyToFiles && <Button variant="secondary" disabled={isRunning || (selectedScript ? scriptLibrary.blocked(selectedScript.source) : !effects.length || missingEmbeddedNoiseProfile)} onClick={() => onApplyToFiles(selectedScript
+								{fileService?.isDesktop && onApplyToFiles && <Button variant="secondary" disabled={running || (selectedScript ? scriptLibrary.blocked(selectedScript.source) : !effects.length || missingEmbeddedNoiseProfile)} onClick={() => onApplyToFiles(selectedScript
 									? { kind: 'script', name: selectedScript.name, source: selectedScript.source }
 									: { kind: 'steps', name: draft?.name || copy.untitledMacro, effects })}>{copy.macroApplyToFiles}</Button>}
-								{isRunning && (
+								{running && (
 									<Button variant="secondary" onClick={() => controller.actions.macros.cancel()}>{managerCopy.cancelRun}</Button>
 								)}
-								<Button variant="primary" icon={<Icon name="play" size={14} />} disabled={blocked || isRunning || !canStartRun || !effects.length || missingEmbeddedNoiseProfile} onClick={runMacro}>{copy.runMacro}</Button>
+								<Button variant="primary" icon={<Icon name="play" size={14} />} disabled={blocked || running || (selectedScript ? !scriptCanRun : !canStartRun || !effects.length || missingEmbeddedNoiseProfile)} onClick={selectedScript ? () => scriptRunControl.current?.run() : runMacro}>{copy.runMacro}</Button>
 							</>
 						)}
 					/>
@@ -437,7 +442,6 @@ export function AudioEditorMacroManagerDialog({
 							importProgram: managerCopy.importProgram,
 							exportProgram: managerCopy.exportProgram,
 							deleteProgram: managerCopy.deleteProgram,
-							notTrusted: managerCopy.notTrusted,
 							onSelect: (scriptId) => { setSelectedScriptId(scriptId); openMacro(null); },
 							onCreate: createScript,
 							onImport: () => scriptInputRef.current?.click(),
@@ -458,6 +462,7 @@ export function AudioEditorMacroManagerDialog({
 							<MacroScriptPanel
 								key={`${projectIdentity || "none"}:${selectedScript.id}`}
 								controller={controller}
+								runControlRef={scriptRunControl} onRunningChange={setIsProgramRunning}
 								fileService={fileService}
 								copy={{ ...managerCopy }}
 								script={selectedScript}

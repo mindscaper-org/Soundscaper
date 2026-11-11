@@ -3,8 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { act } from 'react';
-import MacroScriptPanel from '../src/common/editor/ui/inspector/MacroScriptPanel.jsx';
-import { resolveMacroManagerCopy } from '../src/common/editor/ui/inspector/macro-manager-copy.ts';
+import AudioEditorMacroManagerDialog from '../src/common/editor/ui/inspector/AudioEditorMacroManagerDialog.jsx';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { controllerSession } from './helpers/soundscaper-controller-session.ts';
@@ -27,18 +26,24 @@ test('a real mounted program retains its preceding log when the shipping sandbox
 	const savedScripts = structuredClone(scripts.list());
 	const fixture = mountControllerDataDom();
 	try {
-		const copy = resolveMacroManagerCopy('en', ENGLISH_COPY);
-		await fixture.render(<MacroScriptPanel controller={controller} copy={copy} script={script} blocked={false}
-			fileService={{}} onChange={(next: unknown) => { scripts.save(next); }} />);
-		const run = fixture.dom.container.querySelectorAll('button').find(button => button.textContent === copy.runProgram); assert.ok(run);
-		await act(async () => { await reactProps(run).onClick(); });
+		await fixture.render(<AudioEditorMacroManagerDialog isOpen productId="soundscaper" controller={controller}
+			snapshot={controller.getSnapshot()} copy={ENGLISH_COPY} locale="en" fileService={{}} draft={null}
+			onDraftChange={() => undefined} onClose={() => undefined} />);
+		const program = fixture.dom.container.querySelectorAll('button').find(button => button.textContent === script.name); assert.ok(program);
+		await act(async () => { reactProps(program).onClick(); });
+		const run = fixture.dom.container.querySelectorAll('button').find(button => button.textContent.endsWith(ENGLISH_COPY.runMacro)); assert.ok(run);
+		await act(async () => { reactProps(run).onClick(); });
+		await context.waitFor(async () => {
+			await act(async () => { await Promise.resolve(); });
+			assert.equal(fixture.dom.find('[data-macro-script-log]')?.getAttribute('data-outcome'), 'failed');
+		});
 		const log = fixture.dom.one('[data-macro-script-log]');
 		assert.equal(log.getAttribute('data-outcome'), 'failed');
 		assert.equal(fixture.dom.one('[data-macro-script-log-level="info"]').textContent, 'before error');
 		assert.equal(log.querySelectorAll('p').length, 1, 'failure must retain exactly the program-authored diagnostic');
 		assert.match(fixture.dom.one('[data-macro-script-failure]').textContent, /example error/u);
 		assert.equal(fixture.dom.container.querySelectorAll('[role="alert"]').length, 1);
-		const retry = fixture.dom.container.querySelectorAll('button').find(button => button.textContent === copy.runProgram); assert.ok(retry);
+		const retry = fixture.dom.container.querySelectorAll('button').find(button => button.textContent.endsWith(ENGLISH_COPY.runMacro)); assert.ok(retry);
 		assert.equal(retry.getAttribute('disabled'), null);
 		assert.deepEqual(controller.project, before); assert.deepEqual(controller.getSnapshot().history, history);
 		assert.deepEqual(scripts.list(), savedScripts);

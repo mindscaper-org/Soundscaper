@@ -189,6 +189,7 @@ async function openMediabunnySession(
 		throwIfAborted(signal);
 		const codec = await track?.getCodec();
 		if (track && codec === 'opus') await (await import('./browser-container-opus-decoder.ts')).preferContainerOpusPreSkipDecoder(track, signal, {
+			source: blob,
 			opusTimestampsIncludePreSkip: [MP4, QTFF].includes(await input.getFormat()),
 		});
 		if (!track || !await track.canDecode()) {
