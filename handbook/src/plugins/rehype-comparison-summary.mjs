@@ -1,4 +1,4 @@
-import { createVerdictLedger, VERDICTS, VERDICT_STATES } from '../comparison/verdict-counts.ts';
+import { createVerdictLedger, rankVerdictColumns, VERDICTS, VERDICT_STATES } from '../comparison/verdict-counts.ts';
 
 const element = (tagName, properties = {}, children = []) => ({ type: 'element', tagName, properties, children });
 const text = value => ({ type: 'text', value });
@@ -20,9 +20,9 @@ function chart(product, counts) {
 	const end = value => `${total ? value / total * 100 : 0}%`;
 	const label = `${product.name}: ${counts.yes} supported, ${counts.partial} limited, ${counts.no} unavailable${counts.unknown ? `, ${counts.unknown} not verified` : ''}`;
 	return element('figure', { className: ['comparison-chart'], ariaLabel: product.name }, [
-		element('figcaption', {}, structuredClone(product.title)),
+		element('figcaption', {}, [text(product.name)]),
 		element('div', {
-			className: ['comparison-pie'], role: 'img', ariaLabel: label,
+			className: ['comparison-bar'], role: 'img', ariaLabel: label,
 			style: `--yes-end: ${end(counts.yes)}; --partial-end: ${end(counts.yes + counts.partial)}; --no-end: ${end(counts.yes + counts.partial + counts.no)}`,
 		}),
 		element('dl', { className: ['comparison-chart-counts'] }, VERDICT_STATES.filter(state => state !== 'unknown' || counts.unknown).map(state => element('div', {}, [
@@ -50,7 +50,7 @@ export default function rehypeComparisonSummary() {
 		for (const table of tables) {
 			const header = elements(elements(table, 'thead')[0], 'tr').at(-1);
 			const columns = elements(header, 'th');
-			if (!products.length) products.push(...columns.map(column => ({ name: textOf(column).trim(), title: structuredClone(column.children) })));
+			if (!products.length) products.push(...columns.map(column => ({ name: textOf(column).trim() })));
 			if (columns.length !== products.length || columns.some((column, index) => textOf(column).trim() !== products[index].name)) throw new Error('Comparison product columns differ between tables.');
 			for (const row of elements(table, 'tbody').flatMap(body => elements(body, 'tr'))) {
 				const cells = row.children.filter(child => child.tagName === 'td' || child.tagName === 'th').slice(1);
@@ -63,9 +63,9 @@ export default function rehypeComparisonSummary() {
 				row.properties.dataComparisonVerdicts = states.map(state => VERDICTS[state].marker).join('');
 				rows.push(states);
 			}
-			columns.forEach((column, index) => column.children.push(counter(index)));
+			if (table === tables[0]) columns.forEach((column, index) => column.children.push(counter(index)));
 		}
 		const totals = createVerdictLedger(rows, products.length).at(-1);
-		placeholder.parent.children[placeholder.index] = element('div', { className: ['comparison-summary'], dataComparisonSummary: '', dataComparisonColumns: products.length }, products.map((product, index) => chart(product, totals[index])));
+		placeholder.parent.children[placeholder.index] = element('div', { className: ['comparison-summary'], dataComparisonSummary: '', dataComparisonColumns: products.length }, rankVerdictColumns(totals).map(index => chart(products[index], totals[index])));
 	};
 }

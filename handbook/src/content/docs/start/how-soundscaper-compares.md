@@ -27,8 +27,8 @@ Live and Bitwig also record and edit audio. Shared header shading keeps related
 editors together. Scroll horizontally to compare all products; capability names
 stay visible.
 
-Product headers count rows as they pass above the table. The charts at the end
-total all comparison rows.
+The shared product header counts rows as they pass above the table. The bars at
+the end total all comparison rows.
 
 <details>
 <summary>Where these claims come from</summary>
@@ -129,15 +129,14 @@ workflows; FL Studio, Live, and Bitwig also record, edit, and mix audio.
 - **Live 12 Suite**: [note editing](https://www.ableton.com/en/live-manual/12/editing-midi/), [transformations and generators](https://www.ableton.com/en/live-manual/12/midi-tools/), [MPE](https://www.ableton.com/en/live-manual/12/editing-mpe/), [step recording and Capture MIDI](https://www.ableton.com/en/live-manual/12/recording-new-clips/), [tuning systems](https://www.ableton.com/en/live-manual/12/using-tuning-systems/), [audio conversion](https://www.ableton.com/en/live-manual/12/converting-audio-to-midi/), and [bundled Max for Live devices](https://www.ableton.com/en/live-manual/12/max-for-live-devices/).
 - **Bitwig**: [note expressions and layered editing](https://www.bitwig.com/userguide/latest/working_with_note_events/), [note operations](https://www.bitwig.com/userguide/latest/event_menu_functions_0/), [Note FX](https://www.bitwig.com/userguide/latest/note_fx/), [probability and recurrence Operators](https://www.bitwig.com/userguide/latest/operators/), [Note Grid](https://www.bitwig.com/learnings/video-tutorial-introducing-note-grid-192/), [Micro-pitch](https://www.bitwig.com/learnings/micro-pitch-device-tutorial-15/), [MSEG curve editors](https://www.bitwig.com/stories/bitwig-studio-5-is-out-now-256/), and [version 6 editing, Step Input, and automation](https://downloads.bitwig.com/6.0/Release-Notes-6.0.pdf). The documented features are adjustable curve segments, reusable BWCURVE shapes, and note expression; these sources do not identify the curves as B-splines.
 
-**Processing locality** — reviewed on **11 November 2026**.
+**Processing locality** — reviewed on **12 November 2026**.
 
-The exclusivity row also counts optional cloud AI services offered by the vendor
-or through native integrations:
+The exclusivity row counts cloud AI integrated into or directly launched from
+the editor. Separate vendor services do not change its rating:
 
-- Audacity's [audio.com plans](https://audio.com/subscriptions) include online AI tools such as [Voice Extractor](https://audio.com/tools/voice-extractor).
-- Adobe's [Podcast Enhance Speech](https://podcast.adobe.com/en/guides/what-is-enhance-speech) processes uploaded recordings.
+- Audacity 4.0.2's [cloud actions](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/src/au3cloud/internal/au3cloudactionscontroller.cpp) open account, project, and shared-audio pages. No entry point to audio.com's online AI tools was found. Audacity's [processing guidance](https://support.audacityteam.org/special-uses/info-for-system-administrators) also distinguishes local processing from optional cloud sharing.
+- Audition's [Essential Sound workflow](https://helpx.adobe.com/audition/desktop/editing-audio-files/essential-sound-panel.html) uses local restoration controls; [Adobe Podcast](https://podcast.adobe.com/en/guides/what-is-enhance-speech) is a separate web service. SoundCraft's [pinned feature tour](https://github.com/storytold/soundcraft/blob/v0.19.0/README.md) describes its local audio engine; ArtCraft Studio is a separate image/video app. Neither reviewed editor workflow exposes an entry point to those cloud AI tools.
 - Pro Tools' [Splice integration](https://www.avid.com/pro-tools/splice-integration) and [Live's Splice integration](https://splice.com/plans/ableton-live/about) upload audio for AI sample matching.
-- ArtCraft offers [Studio](https://getartcraft.com/studio) with [paid image/video generation](https://getartcraft.com/pricing) using [models including GPT Image and Veo](https://getartcraft.com/faq/models-supported). SoundCraft's own audio engine runs locally.
 - [FL Cloud](https://www.image-line.com/fl-cloud/faq) adds integrated AI mastering to FL Studio.
 
 
@@ -164,6 +163,14 @@ or through native integrations:
 - [Essential Sound repair and clarity](https://helpx.adobe.com/audition/desktop/editing-audio-files/essential-sound-panel.html)
 - [Generate Speech](https://helpx.adobe.com/audition/desktop/effects-reference/generate-tones-effect.html)
 - [Adobe Podcast Enhance Speech](https://podcast.adobe.com/en/guides/what-is-enhance-speech)
+
+**Project formats** — reviewed on **12 November 2026**.
+
+- Soundscaper's [project files](/projects-and-data/project-files/) document Scape, Audacity, SESX, and legacy SES support; its [interchange profiles](https://github.com/LeoWattenberg/Soundscaper/blob/main/docs/architecture/delivery-and-interchange.md#interchange-profiles) cover DAWproject.
+- Audacity's pinned [project configuration](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/src/project/internal/projectconfiguration.cpp) and [legacy AUP importer](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/au3/modules/import-export/mod-aup/ImportAUP.cpp) distinguish current AUP4 saving from older project imports. Adobe's [session import guide](https://helpx.adobe.com/audition/desktop/importing-recording-and-playing/creating-opening-files.html) lists SESX and excludes binary SES.
+- Ardour documents its [session contents](https://manual.ardour.org/working-with-sessions/whats-in-a-session/) and [partial PTF/PTX importer](https://manual.ardour.org/working-with-sessions/interchange-with-other-daws/). Hindenburg documents [NHSX and SESX opening](https://hindenburg.com/academy/shortcuts/shortcuts-hindenburg-2-pro/) and [PTX import](https://hindenburg.com/release-notes-hindenburg-pro_version-2/pro-v2_05-build-2700/).
+- Avid's [session compatibility guide](https://kb.avid.com/pkb/articles/en_US/Knowledge/Pro-Tools-Session-Compatibility-and-Interchange-Legacy) covers PTX and saving older PTF copies. SoundCraft's pinned [format assessment](https://github.com/storytold/soundcraft/blob/v0.19.0/docs/file-format-parity.md) and [bundle reader/writer](https://github.com/storytold/soundcraft/blob/v0.19.0/crates/engine/src/io/bundle.rs) cover SCRAFT/SCRAFTZ and the absence of PTX support.
+- Image-Line documents [FLP and zipped projects](https://www.image-line.com/fl-studio-learning/fl-studio-online-manual/html/fformats_project.htm); Ableton documents [Live Sets](https://www.ableton.com/en/manual/managing-files-and-sets/). Bitwig documents [BWPROJECT](https://www.bitwig.com/userguide/latest/working_with_projects_and_exporting/), [DAWproject exchange](https://www.bitwig.com/userguide/latest/exporting_projects/), and partial imports of [FLP](https://www.bitwig.com/support/technical_support/importing-fl-studio-projects-flp-41/) and [ALS](https://www.bitwig.com/support/technical_support/importing-ableton-live-sets-als-40/).
 
 **Additional production workflows** — reviewed on **11 November 2026**.
 
@@ -192,8 +199,6 @@ or through native integrations:
 
 | Capability | Soundscaper<br>Web | Soundscaper<br>Desktop | Audacity<br>4.0.2 | Audition | Ardour<br>9.10 | Hindenburg<br>Pro 2 | Pro Tools<br>Studio | SoundCraft<br>0.19.0 | FL Studio<br>2026 | Ableton Live<br>12 Suite | Bitwig Studio<br>6.1 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Native project format | + — `.sscape` :: Media is bundled with the project. | + — `.sscape` :: `.sscape`; original imported media is referenced by default, with consolidation for portability | + — `.aup4` | + — `.sesx` | + — `.ardour` :: An XML session file and a folder of referenced audio/MIDI media; archives can consolidate media. | + — `.nhsx` | + — `.ptx` | + — `.scraft` / `.scraftz` | + — `.flp` / ZIP | + — `.als` | + — `.bwproject` |
-| Opens Audacity projects | + — AUP–AUP4 :: Imports AUP, AUP3, and AUP4; exports AUP3 and AUP4. | + — AUP–AUP4 :: Imports AUP, AUP3, and AUP4; exports AUP3 and AUP4. | ~ — No AUP3 export :: AUP, AUP3, and AUP4 import; AUP4 export. | / | / | / | / | / | / | / | / |
 | Non-destructive clip timeline | + | + | + | + | + | + | + | + | + | + | + |
 | Dedicated single-file editor | + — Source monitor | + — Source monitor | / | + — Waveform editor | / | / | / | / | + — Edison | / — :: Live can launch an external sample editor; it has no separate built-in waveform-file editor. | / — :: The Detail Editor edits clip events; it is not a separate destructive waveform-file editor. |
 | Mono and stereo content on one track | + | + | / | / | + — :: Multichannel tracks accept regions with fewer channels; missing channels can be replicated or left silent. | + | / | ~ — Channel conversion :: Source widths can share a track; mono repeats on stereo tracks, while stereo on mono loses a channel | + | + | + |
@@ -205,6 +210,30 @@ or through native integrations:
 | Tempo and time-signature maps | + | + | ~ — One tempo | ~ — One tempo | + | / | + | + | + | + | + |
 
 Desktop projects reference original media by default. Consolidate media before moving them; see [project files](/projects-and-data/project-files/). [Recording notes](/soundscaper/recording/) travel with the project.
+
+## Project format support
+
+`+` means read and write; `~` marks one-way or incomplete support. Hover for
+conversion limits. External converters do not count. Media must accompany
+formats that reference separate files.
+
+| Format | Soundscaper<br>Web | Soundscaper<br>Desktop | Audacity<br>4.0.2 | Audition | Ardour<br>9.10 | Hindenburg<br>Pro 2 | Pro Tools<br>Studio | SoundCraft<br>0.19.0 | FL Studio<br>2026 | Ableton Live<br>12 Suite | Bitwig Studio<br>6.1 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Soundscaper (`.sscape`) | + — :: Browser saves bundle media. Consolidate desktop projects before opening them in a browser. | + — :: Original media is referenced by default; consolidation bundles it for portability. | / | / | / | / | / | / | / | / | / |
+| Audacity (`.aup`) | ~ — Import :: Imports the legacy project and its companion media; no AUP export. | ~ — Import :: Imports the legacy project and its companion media; no AUP export. | ~ — Import :: Opens legacy AUP projects; saves as AUP4. | / | / | / | / | / | / | / | / |
+| Audacity (`.aup3`) | + — :: Audio-only import/export, with a compatibility report; Soundscaper-only state can be omitted. | + — :: Audio-only import/export, with a compatibility report; Soundscaper-only state can be omitted. | ~ — Import :: Opens AUP3 projects; saves as AUP4, with no AUP3 export. | / | / | / | / | / | / | / | / |
+| Audacity (`.aup4`) | + — :: Audio-only import/export, with a compatibility report; Soundscaper-only state can be omitted. | + — :: Audio-only import/export, with a compatibility report; Soundscaper-only state can be omitted. | + | / | / | / | / | / | / | / | / |
+| Cool Edit / Audition (`.ses`) | / | ~ — Import :: Recognized legacy binary layouts only; unsupported state and missing media are reported. No export. | / | / — :: Current Audition does not open binary SES; conversion requires an older Audition version or an external converter. | / | / | / | / | / | / | / |
+| Audition (`.sesx`) | / | ~ — Import :: Imports audio tracks, clip placement, trims, simple fades, and static mixer settings. Effects, automation, routing, and other unsupported state are reported; no SESX export. | / | + | / | ~ — Import | / | / | / | / | / |
+| Ardour (`.ardour`) | / | / | / | / | + — :: Session XML with referenced audio/MIDI in the session folder. | / | / | / | / | / | / |
+| Hindenburg (`.nhsx`) | / | / | / | / | / | + | / | / | / | / | / |
+| Pro Tools (`.ptf`) | / | / | / | / | ~ — Import :: Basic session import; unsupported versions or state may be omitted. No PTF export. | / — :: The reviewed Hindenburg documentation establishes PTX import, not PTF. | + — :: Opens legacy PTF sessions; Save Copy In writes Pro Tools 7–9 copies, omitting newer features. | / | / | / | / |
+| Pro Tools (`.ptx`) | / | / | / | / | ~ — Import :: Basic audio-region placement and MIDI notes; unsupported versions or state may be omitted. No PTX export. | ~ — Import :: Opens PTX sessions, including polyphonic WAV media; no PTX export. | + | / | / | / | / |
+| SoundCraft (`.scraft`, `.scraftz`) | / | / | / | / | / | / | / | + — :: JSON session with separate media, or a portable SCRAFTZ bundle. | / | / | / |
+| FL Studio (`.flp`, ZIP) | / | / | / | / | / | / | / | / | + — :: FLP stores project state; a zipped project also collects supported samples and presets. | / | ~ — Import :: Imports FLP from version 9 onward, with channels, the first Playlist, and patterns. Automation, native FL devices, and some routing are omitted; no FLP export. |
+| Ableton Live (`.als`) | / | / | / | / | / | / | / | / | / | + | ~ — Import :: Imports sets from Live 8.1 onward, with arrangement, scenes, tracks, and supported devices/automation. Native devices may be approximated; input routing and AU plug-ins are omitted. No ALS export. |
+| Bitwig (`.bwproject`) | / | / | / | / | / | / | / | / | / | / | + |
+| DAWproject | + — :: Imports and exports media and supported project structure, with an exchange report. | + — :: Imports and exports media and supported project structure, with an exchange report. | / | / | / | / | / | / | / | / | + |
 
 ## Recording
 
@@ -411,18 +440,13 @@ See [export formats](/reference/generated/formats/), [clip delivery](/soundscape
 ## Interchange with other tools
 
 Both Soundscaper editions import and export EDL, OpenTimelineIO, FCPXML, OMF,
-and DAWproject.
+and AAF.
 
 | Capability | Soundscaper<br>Web | Soundscaper<br>Desktop | Audacity<br>4.0.2 | Audition | Ardour<br>9.10 | Hindenburg<br>Pro 2 | Pro Tools<br>Studio | SoundCraft<br>0.19.0 | FL Studio<br>2026 | Ableton Live<br>12 Suite | Bitwig Studio<br>6.1 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Audacity projects | + — AUP–AUP4 :: AUP, AUP3, and AUP4 in; AUP3 and AUP4 out with a compatibility report | + — AUP–AUP4 :: AUP, AUP3, and AUP4 in; AUP3 and AUP4 out with a compatibility report | ~ — No AUP3 export :: AUP, AUP3, and AUP4 import; AUP4 export. | / | / | / | / | / | / | / | / |
-| Audition sessions | / | ~ — Import only | / | + | / | ~ — Import only | / | / | / | / | / |
-| Pro Tools sessions | / | / | / | / | ~ — Import only :: Basic PTF/PTX import brings in audio-region placement and MIDI notes; unsupported versions/state may be omitted. | ~ — PTX import :: Opens Pro Tools PTX sessions; no PTX export. | + | / | / | / | / |
-| Legacy Cool Edit / Audition sessions | / | ~ — Import only :: Recognized binary `.ses` layouts, with missing-media and omission reports; no export | / | / | / | / | / | / | / | / | / |
 | EDL | + — :: Import and export CMX3600 cuts; export uses one selected sequence track. | + — :: Import and export CMX3600 cuts; export uses one selected sequence track. | / | / | / | / — :: AES31 export is a different interchange format from CMX3600 EDL. | ~ — Session text | ~ — Session text | / | / | / |
 | OpenTimelineIO | + — :: Import and export audio/video tracks, gaps, and supported nested stacks. | + — :: Import and export audio/video tracks, gaps, and supported nested stacks. | / | / | / | / | / | / | / | / | / |
 | FCPXML | + — :: Import and export timeline spines, asset clips, and connected lanes. | + — :: Import and export timeline spines, asset clips, and connected lanes. | / | + | / | ~ — Import only | / | / | / | / | / |
-| DAWproject | + — :: Import and export media and supported project structure, with an exchange report. | + — :: Import and export media and supported project structure, with an exchange report. | / | / | / | / | / | / | / | / | + — Import / export |
 | OMF | + — :: Import and export OMF2 audio. Export embeds mono/stereo 24-bit WAV, with a 256 MiB decoded-PCM limit. | + — :: Import and export OMF2 audio. Export embeds mono/stereo 24-bit WAV, with a 256 MiB decoded-PCM limit. | / | ~ | / — :: Requires an external session converter such as AATranslator. | / | + | / | / | / | / |
 | AAF | + — :: Import and export audio cuts and embedded media; unsupported processing and picture are reported. | + — :: Import and export audio cuts and embedded media; unsupported processing and picture are reported. | / | / | ~ — Import only :: Native AAF session import includes fades, volume automation, pan and multichannel regions; no native AAF export. | ~ — Export only | + — Import / export | / | / | / | / |
 | Round-trip with a video editor | ~ — Framescaper copy :: File-menu handoff creates a separate editable Framescaper copy, with a conversion report | ~ — Framescaper copy :: File-menu handoff creates a separate editable Framescaper copy, with a conversion report | / | + — Premiere Pro | ~ — AAF in / stems out :: Native AAF import and audio/video or stem delivery; no editable video-editor round-trip integration. | ~ — Session exchange :: Imports FCPXML and exports AAF/AES31; no live video-editor round-trip. | ~ — AAF / OMF | / | / | / | / |
@@ -446,9 +470,9 @@ Transfers can omit unsupported state; review the exchange report. See [project f
 
 ## Machine assistance
 
-For “Exclusively local media processing”, even optional cloud AI services from
-the vendor or native integrations rule out a `+`. Storage/sharing, model
-downloads, and licence checks alone do not affect this rating.
+For “Exclusively local media processing”, even optional cloud AI integrated into
+or directly launched from the editor rules out a `+`. Separate vendor services,
+storage/sharing, model downloads, and licence checks do not affect this rating.
 
 | Capability | Soundscaper<br>Web | Soundscaper<br>Desktop | Audacity<br>4.0.2 | Audition | Ardour<br>9.10 | Hindenburg<br>Pro 2 | Pro Tools<br>Studio | SoundCraft<br>0.19.0 | FL Studio<br>2026 | Ableton Live<br>12 Suite | Bitwig Studio<br>6.1 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -460,30 +484,14 @@ downloads, and licence checks alone do not affect this rating.
 | Music remix to target duration | / | / | / | + — Remix :: Analyses and rearranges musical passages to fit a target duration. | / | / | / | / | / | / | / |
 | Automatic dialogue alignment | / | / | / | + — :: Warps a replacement dialogue performance to match the timing of a reference recording. | / | / | / — :: Requires an external alignment plug-in, such as VocAlign. | / | / | / | / |
 | Beat and shot detection | / | ~ — Beats only :: Beat detection with an optional model; shot detection is in Framescaper | / | ~ — Remix | ~ — Beats / onsets :: Built-in Vamp beat/onset analysis and Rhythm Ferret; no shot detection. | / | ~ — Beat Detective | ~ — Beat Analysis | ~ — Beats only | ~ — Beats only | ~ — Beats only |
-| Exclusively local media processing | + — :: Browser processing; optional sharing sends only what you choose. | + — :: Local editing and offline inference after model installation; optional sharing. | / — :: Editing is local, but the associated audio.com service offers online AI separation and transcription. | / — :: Editing and restoration are local, but Adobe offers cloud AI speech enhancement through Podcast Enhance Speech. | + | + — :: Editing and installed transcription models run locally; licence and transcription-hour checks periodically require internet. | / — :: Speech-to-text runs locally, but integrated Splice Search with Sound uploads audio for AI matching. | / — :: SoundCraft's audio engine is local, but its vendor offers cloud AI image/video generation through ArtCraft Studio. | / — :: Local editing and AI separation are available, but FL Cloud offers cloud AI mastering. | / — :: Stem separation runs locally, but integrated Splice Search with Sound uploads audio for AI matching. | + |
+| Exclusively local media processing | + — :: Browser processing; optional sharing sends only what you choose. | + — :: Local editing and offline inference after model installation; optional sharing. | + — :: Local editing. The audited audio.com integration covers storage and sharing; no entry point to its cloud AI tools was found. | + — :: Local editing and restoration; no entry point to Adobe Podcast's separate cloud AI tools was found in the reviewed Audition workflows. | + | + — :: Editing and installed transcription models run locally; licence and transcription-hour checks periodically require internet. | / — :: Speech-to-text runs locally, but integrated Splice Search with Sound uploads audio for AI matching. | + — :: Local audio engine; ArtCraft Studio's separate image/video services are outside the reviewed SoundCraft workflow. | / — :: Local editing and AI separation are available, but FL Cloud offers cloud AI mastering. | / — :: Stem separation runs locally, but integrated Splice Search with Sound uploads audio for AI matching. | + |
 | Models are optional and removable | / | + | / | / | / | ~ — Language packs :: Transcription language packs download on demand; a model-removal interface is not documented. | ~ — Speech engine | / | ~ — Download on use :: AI processing models download when first required; no model-manager removal workflow documented. | / — :: The reviewed documentation does not expose an independent model install/remove manager for bundled stem separation. | / |
 
 Install optional models and engines with **Tools → Model Manager**. See [local assistance](/reference/generated/local-assistance/) and [processing requirements](/help/local-processing/).
 
-## Choosing an editor
-
-Soundscaper combines browser access, Linux desktop builds, production routing,
-and local assistance. Audacity provides a free audio-editing workflow;
-Audition adds adaptive restoration, music Remix, dialogue alignment, and Premiere
-Pro integration. Pro Tools Studio adds MIDI hardware, notation, outboard inserts,
-control surfaces, AAF exchange, and Dolby Atmos. SoundCraft
-offers open-source MIDI and instruments, with pre-alpha recording and
-interchange limitations.
-
-Ardour offers a full studio workflow with open source code; Hindenburg centres
-on spoken-word editing and publishing. FL Studio, Live, and Bitwig emphasise
-composition, instruments, and performance, with different audio editing and
-delivery capabilities.
-
-Keep an editable backup when moving between applications.
-
 ## Verdict totals {#verdict-totals}
 
-Each comparison row counts once, including individual export formats.
+Each comparison row counts once, including individual export formats. Products
+are sorted by `+` count, then `~` count to break ties.
 
 <!-- comparison-summary -->

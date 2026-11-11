@@ -18,15 +18,18 @@ test('comparison totals are available without JavaScript and match the rendered 
 				for (const table of tables) for (const body of table.tBodies) for (const row of body.rows) {
 					for (const state of Object.keys(counts)) if (row.cells[index + 1].classList.contains(`verdict-cell--${state}`)) counts[state]++;
 				}
-				return counts;
+				return { ...counts, name: header.innerText.replace(/\s+/gu, ' ').trim() };
 			});
 		});
+		expected.sort((left, right) => right.yes - left.yes || right.partial - left.partial);
 		const charts = page.locator('.comparison-summary figure');
 		await expect(charts).toHaveCount(expected.length);
 		for (const [index, counts] of expected.entries()) {
+			await expect(charts.nth(index)).toHaveAccessibleName(counts.name);
 			await expect(charts.nth(index).getByRole('img')).toHaveAccessibleName(new RegExp(`${counts.yes} supported, ${counts.partial} limited, ${counts.no} unavailable`, 'u'));
 			await expect(charts.nth(index).locator('dd')).toHaveText([counts.yes, counts.partial, counts.no].map(String));
 		}
+		await expect(page.locator('.comparison-summary .comparison-bar')).toHaveCount(expected.length);
 	} finally {
 		await context.close();
 	}
@@ -38,6 +41,7 @@ test('comparison headers stay aligned while row counts advance, rewind, and cros
 	await expect(first.locator('.comparison-counter').first()).toBeVisible();
 	const pinned = page.locator('.comparison-sticky-header');
 	await expect(pinned).toBeHidden();
+	const globalTable = await pinned.locator('table').elementHandle();
 
 	for (const name of ['Platform and terms', 'MIDI & Notes', 'Machine assistance']) {
 		const region = page.getByRole('region', { name, exact: true });
@@ -45,11 +49,11 @@ test('comparison headers stay aligned while row counts advance, rewind, and cros
 			const header = document.querySelector('.page > header').getBoundingClientRect();
 			const toc = document.querySelector('mobile-starlight-toc summary')?.getBoundingClientRect();
 			const top = Math.max(header.bottom, toc?.height ? toc.bottom : 0);
-			const height = row.closest('table').tHead.getBoundingClientRect().height;
+			const height = document.querySelector('main table.verdict-table').tHead.getBoundingClientRect().height;
 			window.scrollTo({ top: window.scrollY + row.getBoundingClientRect().bottom - top - height + 2, behavior: 'instant' });
 		});
 		await expect(pinned).toBeVisible();
-		await expect(pinned).toHaveAttribute('data-section', name);
+		expect(await globalTable.evaluate(table => table === document.querySelector('.comparison-sticky-header table'))).toBe(true);
 		await expect.poll(async () => {
 			const expected = await page.locator('main tr[data-comparison-verdicts]').evaluateAll(rows => {
 				const line = document.querySelector('.comparison-sticky-header').getBoundingClientRect().bottom;
@@ -65,11 +69,42 @@ test('comparison headers stay aligned while row counts advance, rewind, and cros
 
 		await region.evaluate(element => { element.scrollLeft = element.scrollWidth; });
 		await expect.poll(() => pinned.locator('.comparison-table-scroll').evaluate(element => element.scrollLeft)).toBeGreaterThan(0);
-		const originalX = await region.locator('thead tr').last().locator('th').last().evaluate(element => element.getBoundingClientRect().x);
+		const originalX = await region.locator('tbody tr').first().locator('td').last().evaluate(element => element.getBoundingClientRect().x);
 		const pinnedX = await pinned.locator('thead tr').last().locator('th').last().evaluate(element => element.getBoundingClientRect().x);
 		expect(pinnedX).toBeCloseTo(originalX, 0);
 		const pageWidth = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
 		expect(pageWidth[0]).toBeLessThanOrEqual(pageWidth[1]);
+	}
+	const laterHeads = page.locator('main table.verdict-table').locator('thead').filter({ hasNot: page.locator('[data-comparison-counter]') });
+	for (const head of await laterHeads.all()) {
+		const box = await head.boundingBox();
+		expect(box.height).toBeLessThanOrEqual(1);
+	}
+	await page.getByRole('heading', { name: 'Timeline editing', exact: true }).evaluate(heading => {
+		const header = document.querySelector('.page > header').getBoundingClientRect();
+		const toc = document.querySelector('mobile-starlight-toc summary')?.getBoundingClientRect();
+		window.scrollTo({ top: window.scrollY + heading.getBoundingClientRect().top - Math.max(header.bottom, toc?.height ? toc.bottom : 0), behavior: 'instant' });
+	});
+	await expect(pinned).toBeVisible();
+	const tocToggle = page.locator('mobile-starlight-toc summary');
+	if (await tocToggle.isVisible()) await tocToggle.click();
+	await page.getByRole('link', { name: 'MIDI & Notes', exact: true }).click();
+	await expect.poll(async () => {
+		const heading = await page.getByRole('heading', { name: 'MIDI & Notes', exact: true }).boundingBox();
+		const header = await pinned.boundingBox();
+		return heading.y - header.y - header.height;
+	}).toBeGreaterThanOrEqual(0);
+	await page.getByRole('heading', { name: 'Verdict totals', exact: true }).scrollIntoViewIfNeeded();
+	await expect(pinned).toBeVisible();
+	const bars = page.locator('.comparison-summary figure');
+	const boxes = await bars.evaluateAll(figures => figures.map(figure => {
+		const { x, y, width, height } = figure.getBoundingClientRect();
+		return { x, y, width, height };
+	}));
+	for (const [index, box] of boxes.entries()) {
+		expect(box.width).toBeLessThanOrEqual(720);
+		expect(box.width).toBeCloseTo(boxes[0].width, 0);
+		if (index) expect(box.y).toBeGreaterThanOrEqual(boxes[index - 1].y + boxes[index - 1].height);
 	}
 
 	await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));

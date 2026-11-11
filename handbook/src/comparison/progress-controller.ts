@@ -1,11 +1,10 @@
 import { createVerdictLedger, parseVerdictRow, passedRowCount, VERDICT_STATES, type VerdictCounts } from './verdict-counts.ts';
 
-interface Section {
+interface SharedHeader {
 	readonly table: HTMLTableElement;
 	readonly scroll: HTMLElement;
 	readonly head: HTMLTableSectionElement;
 	top: number;
-	bottom: number;
 	height: number;
 	left: number;
 	width: number;
@@ -49,67 +48,59 @@ export function installComparisonProgress(root: ParentNode = document): () => vo
 	const ledger = createVerdictLedger(rows.map(row => parseVerdictRow(row.dataset.comparisonVerdicts!, columns)), columns);
 	const counters = countersIn(root);
 	updateCounters(counters, ledger[0]!);
-	const sections: Section[] = [...root.querySelectorAll<HTMLTableElement>('table.comparison-table--grouped')].map(table => ({
-		table, scroll: table.parentElement!, head: table.tHead!, top: 0, bottom: 0, height: 0, left: 0, width: 0, tableWidth: 0,
-	}));
-	if (!sections.length) return () => {};
+	const tables = [...root.querySelectorAll<HTMLTableElement>('table.comparison-table--grouped')];
+	const first = tables[0];
+	if (!first) return () => {};
+	const header: SharedHeader = { table: first, scroll: first.parentElement!, head: first.tHead!, top: 0, height: 0, left: 0, width: 0, tableWidth: 0 };
+	// Keep later column headers available to assistive technology without repeating them visually.
+	for (const table of tables.slice(1)) table.classList.add('comparison-shared-head');
 	const pinned = document.createElement('div');
 	pinned.className = 'sl-markdown-content comparison-sticky-header';
 	pinned.setAttribute('aria-hidden', 'true');
 	pinned.hidden = true;
 	const scroll = document.createElement('div');
 	scroll.className = 'comparison-table-scroll';
+	const clone = first.cloneNode(false) as HTMLTableElement;
+	for (const child of first.children) if (child.tagName === 'COLGROUP' || child.tagName === 'THEAD') clone.append(child.cloneNode(true));
+	for (const element of clone.querySelectorAll('[id]')) element.removeAttribute('id');
+	scroll.append(clone);
 	pinned.append(scroll);
 	document.body.append(pinned);
+	const pinnedCounters = countersIn(clone);
+	const article = root.querySelector<HTMLElement>('.sl-markdown-content');
+	article?.classList.add('comparison-global-headings');
 
 	const events = new AbortController();
 	const options = { signal: events.signal, passive: true };
-	let bottoms: number[] = [], top = 0, frame = 0, dirty = true, active: Section | undefined;
-	let clone: HTMLTableElement | undefined, pinnedCounters: Counter[] = [], passed = -1, horizontal = 0;
+	let bottoms: number[] = [], top = 0, frame = 0, dirty = true, passed = -1, horizontal = 0;
 	const measure = () => {
 		const navbar = document.querySelector<HTMLElement>('.page > header')?.getBoundingClientRect();
 		const toc = document.querySelector<HTMLElement>('mobile-starlight-toc summary')?.getBoundingClientRect();
 		top = Math.max(navbar?.bottom ?? 0, toc?.height ? toc.bottom : 0);
-		for (const section of sections) {
-			const table = section.table.getBoundingClientRect(), container = section.scroll.getBoundingClientRect();
-			section.top = section.head.getBoundingClientRect().top + window.scrollY;
-			section.bottom = table.bottom + window.scrollY;
-			section.height = section.head.getBoundingClientRect().height;
-			section.left = container.left;
-			section.width = container.width;
-			section.tableWidth = table.width;
-		}
+		const table = header.table.getBoundingClientRect(), container = header.scroll.getBoundingClientRect();
+		header.top = header.head.getBoundingClientRect().top + window.scrollY;
+		header.height = header.head.getBoundingClientRect().height;
+		header.left = container.left;
+		header.width = container.width;
+		header.tableWidth = table.width;
+		article?.style.setProperty('--comparison-scroll-offset', `${top + header.height + 16}px`);
 		bottoms = rows.map(row => row.getBoundingClientRect().bottom + window.scrollY);
 	};
 	const update = () => {
 		frame = 0;
 		if (dirty) { measure(); dirty = false; }
 		const y = window.scrollY;
-		const section = sections.find(section => section.top < y + top && section.bottom > y + top);
-		const changed = section !== active;
-		if (changed) {
-			active = section;
-			pinnedCounters = [];
-			if (section) {
-				clone = section.table.cloneNode(false) as HTMLTableElement;
-				for (const child of section.table.children) if (child.tagName === 'COLGROUP' || child.tagName === 'THEAD') clone.append(child.cloneNode(true));
-				for (const element of clone.querySelectorAll('[id]')) element.removeAttribute('id');
-				scroll.replaceChildren(clone);
-				pinned.dataset.section = section.scroll.getAttribute('aria-label') ?? '';
-				pinnedCounters = countersIn(clone);
-			}
-		}
-		pinned.hidden = !section;
-		if (section && clone) {
+		pinned.hidden = header.top >= y + top;
+		if (!pinned.hidden) {
 			pinned.style.top = `${top}px`;
-			pinned.style.left = `${section.left}px`;
-			pinned.style.width = `${section.width}px`;
-			pinned.style.height = `${Math.min(section.height, section.bottom - y - top)}px`;
-			clone.style.inlineSize = `${section.tableWidth}px`;
+			pinned.style.left = `${header.left}px`;
+			pinned.style.width = `${header.width}px`;
+			pinned.style.height = `${header.height}px`;
+			clone.style.inlineSize = `${header.tableWidth}px`;
 			if (Math.abs(scroll.scrollLeft - horizontal) > 1) scroll.scrollLeft = horizontal;
 		}
-		const next = passedRowCount(bottoms, y + top + (section?.height ?? sections[0]!.height));
-		if (next !== passed || changed) {
+		const next = passedRowCount(bottoms, y + top + header.height);
+		if (next !== passed) {
 			passed = next;
 			updateCounters([...counters, ...pinnedCounters], ledger[passed]!);
 		}
@@ -121,17 +112,16 @@ export function installComparisonProgress(root: ParentNode = document): () => vo
 	const synchronize = (value: number) => {
 		if (Math.abs(horizontal - value) < 1) return;
 		horizontal = value;
-		for (const section of sections) if (Math.abs(section.scroll.scrollLeft - value) > 1) section.scroll.scrollLeft = value;
+		for (const table of tables) if (Math.abs(table.parentElement!.scrollLeft - value) > 1) table.parentElement!.scrollLeft = value;
 		schedule();
 	};
-	for (const section of sections) section.scroll.addEventListener('scroll', () => synchronize(section.scroll.scrollLeft), options);
+	for (const table of tables) table.parentElement!.addEventListener('scroll', () => synchronize(table.parentElement!.scrollLeft), options);
 	scroll.addEventListener('scroll', () => synchronize(scroll.scrollLeft), options);
 	window.addEventListener('scroll', () => schedule(), options);
 	window.addEventListener('resize', () => schedule(true), options);
 	window.addEventListener('pageshow', () => schedule(true), options);
 	const observer = new ResizeObserver(() => schedule(true));
-	for (const section of sections) observer.observe(section.table);
-	const article = root.querySelector('.sl-markdown-content');
+	for (const table of tables) observer.observe(table);
 	if (article) observer.observe(article);
 	schedule(true);
 	return () => {
@@ -139,5 +129,8 @@ export function installComparisonProgress(root: ParentNode = document): () => vo
 		observer.disconnect();
 		cancelAnimationFrame(frame);
 		pinned.remove();
+		article?.classList.remove('comparison-global-headings');
+		article?.style.removeProperty('--comparison-scroll-offset');
+		for (const table of tables.slice(1)) table.classList.remove('comparison-shared-head');
 	};
 }

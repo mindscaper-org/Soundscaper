@@ -116,8 +116,8 @@ test('gives the comparison page full width while standard pages keep their readi
 		expect(contentsBox.width).toBeLessThanOrEqual(300);
 		let referenceColumns;
 		for (const table of await page.getByRole('table').all()) {
-			const columns = await table.getByRole('columnheader').evaluateAll((headers) => headers.filter((header) => header.scope === 'col').map((header) => {
-				const { x, width: columnWidth } = header.getBoundingClientRect();
+			const columns = await table.locator('tbody tr').first().locator('th, td').evaluateAll((cells) => cells.map((cell) => {
+				const { x, width: columnWidth } = cell.getBoundingClientRect();
 				return { x, width: columnWidth };
 			}));
 			referenceColumns ??= columns;

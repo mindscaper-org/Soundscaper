@@ -9,6 +9,11 @@ export type Verdict = keyof typeof VERDICTS;
 export type VerdictCounts = Readonly<Record<Verdict, number>>;
 export const VERDICT_STATES = Object.keys(VERDICTS) as Verdict[];
 
+export function rankVerdictColumns(counts: readonly VerdictCounts[]): readonly number[] {
+	return counts.map((_, index) => index).sort((left, right) => counts[right]!.yes - counts[left]!.yes
+		|| counts[right]!.partial - counts[left]!.partial);
+}
+
 export function parseVerdictRow(markers: string, columns: number): readonly Verdict[] {
 	if (markers.length !== columns) throw new Error('Comparison column count does not match its verdicts.');
 	return [...markers].map(marker => {

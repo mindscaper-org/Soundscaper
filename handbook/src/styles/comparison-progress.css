@@ -43,9 +43,28 @@
 .comparison-sticky-header .comparison-table-scroll::-webkit-scrollbar { display: none; }
 .sl-markdown-content.comparison-sticky-header table { margin: 0; }
 
+.comparison-global-headings :is(h2, h3, h4) {
+	scroll-margin-top: var(--comparison-scroll-offset);
+}
+
+.sl-markdown-content table.comparison-shared-head { position: relative; }
+
+.sl-markdown-content .comparison-shared-head thead {
+	position: absolute;
+	inline-size: 1px;
+	block-size: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+.sl-markdown-content :is(.comparison-summary, .sl-heading-wrapper:has(#verdict-totals), .sl-heading-wrapper:has(#verdict-totals) + p) {
+	max-inline-size: 45rem;
+	margin-inline: auto;
+}
+
 .sl-markdown-content .comparison-summary {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
 	gap: 1rem;
 	margin-block: 1.5rem;
 }
@@ -54,27 +73,23 @@
 
 .sl-markdown-content .comparison-chart {
 	display: grid;
-	justify-items: center;
-	align-content: start;
-	gap: 1rem;
-	border: 1px solid var(--sl-color-hairline);
-	border-radius: 0.5rem;
-	padding: 1rem;
+	gap: 0.4rem;
+	border-block-end: 1px solid var(--sl-color-hairline);
+	padding-block-end: 1rem;
 }
 
 .comparison-chart figcaption {
-	min-block-size: 3em;
 	font-size: var(--sl-text-sm);
 	font-weight: 600;
 	line-height: 1.5;
-	text-align: center;
+	text-align: start;
 }
 
-.comparison-pie {
-	inline-size: 7rem;
-	block-size: 7rem;
-	border-radius: 50%;
-	background: conic-gradient(
+.comparison-bar {
+	inline-size: 100%;
+	block-size: 1.5rem;
+	border-radius: 0.2rem;
+	background: linear-gradient(to right,
 		var(--verdict-yes-text) 0 var(--yes-end),
 		var(--verdict-partial-text) var(--yes-end) var(--partial-end),
 		var(--verdict-no-text) var(--partial-end) var(--no-end),
@@ -82,6 +97,9 @@
 }
 
 .comparison-chart-counts {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem 1.25rem;
 	inline-size: 100%;
 	font-size: 0.75rem;
 	font-variant-numeric: tabular-nums;
@@ -89,7 +107,6 @@
 
 .comparison-chart-counts div {
 	display: flex;
-	justify-content: space-between;
 	gap: 0.5rem;
 }
 
@@ -98,9 +115,16 @@
 @media print {
 	.comparison-sticky-header, .comparison-counter { display: none; }
 	.comparison-chart { break-inside: avoid; }
-	.comparison-pie { print-color-adjust: exact; }
+	.comparison-bar { print-color-adjust: exact; }
+	.sl-markdown-content .comparison-shared-head thead {
+		position: static;
+		inline-size: auto;
+		block-size: auto;
+		clip-path: none;
+		white-space: normal;
+	}
 }
 
 @media (forced-colors: active) {
-	.comparison-pie { border: 1px solid CanvasText; }
+	.comparison-bar { border: 1px solid CanvasText; }
 }

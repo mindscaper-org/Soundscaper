@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createVerdictLedger, parseVerdictRow, passedRowCount } from '../handbook/src/comparison/verdict-counts.ts';
+import { createVerdictLedger, parseVerdictRow, passedRowCount, rankVerdictColumns } from '../handbook/src/comparison/verdict-counts.ts';
 import rehypeComparisonSummary from '../handbook/src/plugins/rehype-comparison-summary.mjs';
 
 test('running verdict counts accumulate across sections and support scrolling backwards', () => {
@@ -34,6 +34,16 @@ test('a row counts exactly when its bottom passes the header, including jumps an
 	assert.equal(passedRowCount([], 600), 0);
 });
 
+test('capability order prioritises support, breaks ties with limited support, and preserves equal ranks', () => {
+	const counts = [
+		{ yes: 2, partial: 1, no: 3, unknown: 0 },
+		{ yes: 3, partial: 0, no: 3, unknown: 0 },
+		{ yes: 2, partial: 2, no: 2, unknown: 0 },
+		{ yes: 2, partial: 2, no: 0, unknown: 2 },
+	];
+	assert.deepEqual(rankVerdictColumns(counts), [1, 2, 3, 0]);
+});
+
 type Node = { type: string; tagName?: string; value?: string; properties?: Record<string, unknown>; children?: Node[] };
 const element = (tagName: string, properties: Record<string, unknown> = {}, children: Node[] = []): Node => ({ type: 'element', tagName, properties, children });
 const text = (value: string): Node => ({ type: 'text', value });
@@ -59,6 +69,7 @@ test('summary charts and header counters derive from verdicts across tables, nev
 	assert.equal(charts.length, 2);
 	assert.ok(charts.every(chart => findAll(chart, node => node.properties?.role === 'img').some(node => /1 supported, 1 limited, 1 unavailable/u.test(String(node.properties?.ariaLabel)))));
 	assert.equal(findAll(first, node => Boolean(node.properties?.dataComparisonCounter)).length, 2);
+	assert.equal(findAll(second, node => Boolean(node.properties?.dataComparisonCounter)).length, 0);
 	const snapshot = JSON.stringify(tree);
 	rehypeComparisonSummary()(tree);
 	assert.equal(JSON.stringify(tree), snapshot);
