@@ -143,7 +143,7 @@ the editor. Separate vendor services do not change its rating:
 **Workflow references**
 
 - Audacity's [bundled Nyquist effects](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/share/nyquist-plug-ins/CMakeLists.txt), [spectral delete implementation](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/share/nyquist-plug-ins/spectral-delete.ny), [spectral effect registrations](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/src/effects/nyquist/internal/nyquisteffectsrepository.cpp), and [spectrogram context menu](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/src/spectrogram/view/trackspectrogramcontextmenumodel.cpp) establish spectral delete and amplification support. Spectral rows were rechecked on **11 November 2026**.
-- [Soundscaper interchange profiles](https://github.com/LeoWattenberg/Soundscaper/blob/main/docs/architecture/delivery-and-interchange.md#interchange-profiles) document import and export scope.
+- [Soundscaper interchange profiles](https://github.com/LeoWattenberg/Soundscaper/blob/main/docs/architecture/delivery-and-interchange.md#interchange-profiles) document import and export scope, including DAWproject. Bitwig documents [DAWproject exchange](https://www.bitwig.com/userguide/latest/exporting_projects/).
 - [Soundscaper effect inventory](/reference/generated/audio-effects/) and [Audition restoration effects](https://helpx.adobe.com/audition/desktop/effects-reference/noise-reduction-restoration-effects.html).
 - [Audacity export formats](https://www.audacityteam.org/manual/getting-started/export-your-audio/), [PCM writer](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/au3/modules/import-export/mod-pcm/ExportPCM.cpp), and [WavPack options](https://manual.audacityteam.org/man/wavpack_export_options.html).
 - [Pro Tools audio-file support](https://kb.avid.com/pkb/articles/en_US/Knowledge/Pro-Tools-Audio-File-Type-and-Session-Support) and [QuickTime export](https://www.avid.com/resource-center/quicktime-and-file-support-improvements-in-pro-tools-2021-6).
@@ -166,11 +166,11 @@ the editor. Separate vendor services do not change its rating:
 
 **Project formats** — reviewed on **12 November 2026**.
 
-- Soundscaper's [project files](/projects-and-data/project-files/) document Scape, Audacity, SESX, and legacy SES support; its [interchange profiles](https://github.com/LeoWattenberg/Soundscaper/blob/main/docs/architecture/delivery-and-interchange.md#interchange-profiles) cover DAWproject.
+- Soundscaper's [project files](/projects-and-data/project-files/) document Scape, Audacity, SESX, and legacy SES support.
 - Audacity's pinned [project configuration](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/src/project/internal/projectconfiguration.cpp) and [legacy AUP importer](https://github.com/audacity/audacity/blob/7472497768314bcd4c641ef6dc91e366d92b2fcc/au3/modules/import-export/mod-aup/ImportAUP.cpp) distinguish current AUP4 saving from older project imports. Adobe's [session import guide](https://helpx.adobe.com/audition/desktop/importing-recording-and-playing/creating-opening-files.html) lists SESX and excludes binary SES.
 - Ardour documents its [session contents](https://manual.ardour.org/working-with-sessions/whats-in-a-session/) and [partial PTF/PTX importer](https://manual.ardour.org/working-with-sessions/interchange-with-other-daws/). Hindenburg documents [NHSX and SESX opening](https://hindenburg.com/academy/shortcuts/shortcuts-hindenburg-2-pro/) and [PTX import](https://hindenburg.com/release-notes-hindenburg-pro_version-2/pro-v2_05-build-2700/).
 - Avid's [session compatibility guide](https://kb.avid.com/pkb/articles/en_US/Knowledge/Pro-Tools-Session-Compatibility-and-Interchange-Legacy) covers PTX and saving older PTF copies. SoundCraft's pinned [format assessment](https://github.com/storytold/soundcraft/blob/v0.19.0/docs/file-format-parity.md) and [bundle reader/writer](https://github.com/storytold/soundcraft/blob/v0.19.0/crates/engine/src/io/bundle.rs) cover SCRAFT/SCRAFTZ and the absence of PTX support.
-- Image-Line documents [FLP and zipped projects](https://www.image-line.com/fl-studio-learning/fl-studio-online-manual/html/fformats_project.htm); Ableton documents [Live Sets](https://www.ableton.com/en/manual/managing-files-and-sets/). Bitwig documents [BWPROJECT](https://www.bitwig.com/userguide/latest/working_with_projects_and_exporting/), [DAWproject exchange](https://www.bitwig.com/userguide/latest/exporting_projects/), and partial imports of [FLP](https://www.bitwig.com/support/technical_support/importing-fl-studio-projects-flp-41/) and [ALS](https://www.bitwig.com/support/technical_support/importing-ableton-live-sets-als-40/).
+- Image-Line documents [FLP and zipped projects](https://www.image-line.com/fl-studio-learning/fl-studio-online-manual/html/fformats_project.htm); Ableton documents [Live Sets](https://www.ableton.com/en/manual/managing-files-and-sets/). Bitwig documents [BWPROJECT](https://www.bitwig.com/userguide/latest/working_with_projects_and_exporting/) and partial imports of [FLP](https://www.bitwig.com/support/technical_support/importing-fl-studio-projects-flp-41/) and [ALS](https://www.bitwig.com/support/technical_support/importing-ableton-live-sets-als-40/).
 
 **Additional production workflows** — reviewed on **11 November 2026**.
 
@@ -233,7 +233,6 @@ formats that reference separate files.
 | FL Studio (`.flp`, ZIP) | / | / | / | / | / | / | / | / | + — :: FLP stores project state; a zipped project also collects supported samples and presets. | / | ~ — Import :: Imports FLP from version 9 onward, with channels, the first Playlist, and patterns. Automation, native FL devices, and some routing are omitted; no FLP export. |
 | Ableton Live (`.als`) | / | / | / | / | / | / | / | / | / | + | ~ — Import :: Imports sets from Live 8.1 onward, with arrangement, scenes, tracks, and supported devices/automation. Native devices may be approximated; input routing and AU plug-ins are omitted. No ALS export. |
 | Bitwig (`.bwproject`) | / | / | / | / | / | / | / | / | / | / | + |
-| DAWproject | + — :: Imports and exports media and supported project structure, with an exchange report. | + — :: Imports and exports media and supported project structure, with an exchange report. | / | / | / | / | / | / | / | / | + |
 
 ## Recording
 
@@ -440,13 +439,14 @@ See [export formats](/reference/generated/formats/), [clip delivery](/soundscape
 ## Interchange with other tools
 
 Both Soundscaper editions import and export EDL, OpenTimelineIO, FCPXML, OMF,
-and AAF.
+AAF, and DAWproject.
 
 | Capability | Soundscaper<br>Web | Soundscaper<br>Desktop | Audacity<br>4.0.2 | Audition | Ardour<br>9.10 | Hindenburg<br>Pro 2 | Pro Tools<br>Studio | SoundCraft<br>0.19.0 | FL Studio<br>2026 | Ableton Live<br>12 Suite | Bitwig Studio<br>6.1 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | EDL | + — :: Import and export CMX3600 cuts; export uses one selected sequence track. | + — :: Import and export CMX3600 cuts; export uses one selected sequence track. | / | / | / | / — :: AES31 export is a different interchange format from CMX3600 EDL. | ~ — Session text | ~ — Session text | / | / | / |
 | OpenTimelineIO | + — :: Import and export audio/video tracks, gaps, and supported nested stacks. | + — :: Import and export audio/video tracks, gaps, and supported nested stacks. | / | / | / | / | / | / | / | / | / |
 | FCPXML | + — :: Import and export timeline spines, asset clips, and connected lanes. | + — :: Import and export timeline spines, asset clips, and connected lanes. | / | + | / | ~ — Import only | / | / | / | / | / |
+| DAWproject | + — :: Imports and exports media and supported project structure, with an exchange report. | + — :: Imports and exports media and supported project structure, with an exchange report. | / | / | / | / | / | / | / | / | + |
 | OMF | + — :: Import and export OMF2 audio. Export embeds mono/stereo 24-bit WAV, with a 256 MiB decoded-PCM limit. | + — :: Import and export OMF2 audio. Export embeds mono/stereo 24-bit WAV, with a 256 MiB decoded-PCM limit. | / | ~ | / — :: Requires an external session converter such as AATranslator. | / | + | / | / | / | / |
 | AAF | + — :: Import and export audio cuts and embedded media; unsupported processing and picture are reported. | + — :: Import and export audio cuts and embedded media; unsupported processing and picture are reported. | / | / | ~ — Import only :: Native AAF session import includes fades, volume automation, pan and multichannel regions; no native AAF export. | ~ — Export only | + — Import / export | / | / | / | / |
 | Round-trip with a video editor | ~ — Framescaper copy :: File-menu handoff creates a separate editable Framescaper copy, with a conversion report | ~ — Framescaper copy :: File-menu handoff creates a separate editable Framescaper copy, with a conversion report | / | + — Premiere Pro | ~ — AAF in / stems out :: Native AAF import and audio/video or stem delivery; no editable video-editor round-trip integration. | ~ — Session exchange :: Imports FCPXML and exports AAF/AES31; no live video-editor round-trip. | ~ — AAF / OMF | / | / | / | / |
