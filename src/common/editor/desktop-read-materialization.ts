@@ -30,6 +30,28 @@ export interface DesktopReadMaterializationOptions {
 	readonly idleTimeoutMs?: number;
 }
 
+/** Settle every read capability without losing the consumer's original failure. */
+export async function withDesktopReadCleanup<Result>(
+	readIds: readonly string[], release: (id: string) => PromiseLike<unknown> | unknown,
+	operation: () => PromiseLike<Result> | Result,
+): Promise<Result> {
+	let result: { ok: true; value: Result } | { ok: false; error: unknown };
+	try { result = { ok: true, value: await operation() }; }
+	catch (error) { result = { ok: false, error }; }
+	const cleanupResults = await Promise.allSettled(readIds.map(async id => release(id)));
+	const cleanupErrors = cleanupResults.filter(entry => entry.status === 'rejected')
+		.map((entry): unknown => entry.reason);
+	if (!result.ok) {
+		if (cleanupErrors.length) {
+			throw new AggregateError([result.error, ...cleanupErrors],
+				'The desktop read failed and its capability cleanup was incomplete.', { cause: result.error });
+		}
+		throw result.error;
+	}
+	if (cleanupErrors.length) throw new AggregateError(cleanupErrors, 'Desktop read capability cleanup was incomplete.');
+	return result.value;
+}
+
 export async function materializeDesktopReadBlob(
 	descriptor: DesktopReadMaterializationDescriptor,
 	options: DesktopReadMaterializationOptions,

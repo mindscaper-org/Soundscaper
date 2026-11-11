@@ -5,6 +5,7 @@ import {
 } from './file-save-stream.ts';
 import {
 	materializeDesktopReadBlob,
+	withDesktopReadCleanup as withReadCleanup,
 } from './desktop-read-materialization.ts';
 import {
 	assertDesktopMaterializedReadProfile,
@@ -477,36 +478,6 @@ function uniqueReadIds(descriptors) {
 		.map((descriptor) => descriptor?.id)
 		.filter((id) => id != null)
 		.map(String))];
-}
-
-async function withReadCleanup(readIds, release, operation) {
-	let value;
-	let primaryError;
-	let operationFailed = false;
-	try {
-		value = await operation();
-	} catch (error) {
-		operationFailed = true;
-		primaryError = error;
-	}
-	const cleanupResults = await Promise.allSettled(readIds.map((id) => release(id)));
-	const cleanupErrors = cleanupResults
-		.filter((result) => result.status === 'rejected')
-		.map((result) => result.reason);
-	if (operationFailed) {
-		if (cleanupErrors.length) {
-			throw new AggregateError(
-				[primaryError, ...cleanupErrors],
-				'The desktop read failed and its capability cleanup was incomplete.',
-				{ cause: primaryError },
-			);
-		}
-		throw primaryError;
-	}
-	if (cleanupErrors.length) {
-		throw new AggregateError(cleanupErrors, 'Desktop read capability cleanup was incomplete.');
-	}
-	return value;
 }
 
 function createNamedFile(blob, descriptor, scope) {
