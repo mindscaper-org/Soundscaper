@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
+import { assertNotesControllerCustody } from './helpers/notes-controller-custody.tsx';
 import { formatRecordingNotes, parseRecordingNotesMarkdown } from '../src/common/editor/recording-notes-markdown.ts';
 import RecordingNotesPanel from '../src/common/editor/ui/workspace/RecordingNotesPanel.tsx';
 import { WORKSPACE_LAYOUT_COPY_BY_LOCALE } from '../src/common/i18n/workspace-layout-copy.js';
@@ -68,7 +69,15 @@ test('multiline Code still toggles existing complete spans rather than treating 
 });
 
 for (const [action, element] of [['bold', 'strong'], ['code', 'code']] as const) {
-	test(`mounted notes ${action} previews two paragraphs and toggles back with retained selection`, async () => {
+	test(`mounted notes ${action} previews two paragraphs and toggles back with retained selection`, async context => {
+		if (action === 'bold') {
+			await assertNotesControllerCustody(context, 'First take\n\nPickup notes', [
+				{ action: 'bold', formatted: '**First take**\n\n**Pickup notes**', element: 'strong', children: ['First take', 'Pickup notes'] },
+				{ action: 'italic', formatted: '*First take*\n\n*Pickup notes*', element: 'em', children: ['First take', 'Pickup notes'] },
+				{ action: 'code', formatted: '`First take`\n\n`Pickup notes`', element: 'code', children: ['First take', 'Pickup notes'] },
+			]);
+			return;
+		}
 		const dom = installReactTestDom();
 		const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 		const priorAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
