@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import React, { act } from 'react';
+import React, { act, useSyncExternalStore } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import TimedRecordingDialogFields from '../src/common/editor/ui/dialogs/TimedRecordingDialogFields.tsx';
 import type { TimedRecordingDialogValue } from '../src/common/editor/ui/dialogs/timed-recording-dialog-model.ts';
@@ -11,6 +11,7 @@ import { RECORDING_COPY_BY_LOCALE } from '../src/common/i18n/recording-copy.js';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectHistory, executeSoundscaperProjectCommand } from '../src/soundscaper/editor-project-history.ts';
 import { COPY } from './helpers/audio-editor-controller-harness.js';
+import { createClipboardCustody, clipboardDocument, clipboardProject } from './helpers/clipboard-source-custody.ts';
 import { installReactTestDom, reactProps, type ReactTestDom, type ReactTestElement } from './helpers/react-test-dom.ts';
 
 for (const format of ['frames', 'samples'] as const) test(`timed recording uses its project ${format} clock`, async () => {
@@ -48,7 +49,57 @@ test('Manage labels keeps optional frame entry on its foldered owning sequence',
 	});
 });
 
+test('actual Manager imports the original 60/120fps clock, commits 96400 samples and restores it through history and Scape', async context => {
+	const session = await createClipboardCustody(context), { controller, store } = session;
+	const original = createSoundscaperProject({ id: 'remaining-label', sampleRate: 48_000,
+		tracks: [{ id: 'labels', type: 'label', name: 'Cues', labels: [{ id: 'cue', title: 'Speech', startFrame: 0, endFrame: 144_000 }] }],
+		sequences: [{ id: 'main', rate: { num: 60, den: 1 }, trackIds: [] },
+			{ id: 'cut', rate: { num: 120, den: 1 }, trackIds: ['labels'] }], primarySequenceId: 'main' });
+	await session.open(original, new Map());
+	assert.deepEqual(clipboardDocument(clipboardProject(controller.project)), clipboardDocument(original));
+	const history = controller.getSnapshot().history.undoEntries.length;
+	function Manager() {
+		const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+		return <WorkspacePanelContent panelId="labels" controller={controller} snapshot={snapshot} runtimeProject={null}
+			copy={COPY} locale="en" run={(operation: () => unknown) => operation()} fileService={null} playbackMeterSettings={null}
+			showArmControls={false} displayAudioSupported={false} onOpenEffects={() => assert.fail('No audio effects exist.')}
+			effectsPanelTarget={null} onEffectWindowChange={() => assert.fail('No audio effects exist.')} blocked={false} />;
+	}
+	await withDom(async (dom, root) => {
+		await act(async () => { root.render(<Manager />); });
+		const field = dom.container.querySelectorAll('.timecode')[1]; assert.ok(field);
+		await enter(dom, field, 'frames', '00:00:02:01');
+		await enterFormat(dom, field, 'samples');
+		assert.equal(field.querySelector('.timecode__display')?.textContent, '000,000,096,400samples');
+		const originalTrack = original.tracks[0]; assert.ok(originalTrack && Array.isArray(originalTrack.labels));
+		const originalLabel: unknown = originalTrack.labels[0]; assert.ok(originalLabel && typeof originalLabel === 'object');
+		const expected = { ...clipboardDocument(original), tracks: [{ ...originalTrack, labels: [{ ...originalLabel, endFrame: 96_400 }] }] };
+		assert.deepEqual(clipboardDocument(clipboardProject(controller.project)), expected);
+		assert.equal(controller.getSnapshot().history.undoEntries.length, history + 1);
+		await act(async () => { controller.actions.edit.undo(); });
+		assert.equal(field.querySelector('.timecode__display')?.textContent, '000,000,144,000samples');
+		assert.deepEqual(clipboardDocument(clipboardProject(controller.project)), clipboardDocument(original));
+		await act(async () => { controller.actions.edit.redo(); });
+		assert.deepEqual(clipboardDocument(clipboardProject(controller.project)), expected);
+		await act(async () => { await controller.actions.project.flush(); });
+		assert.deepEqual(await store.loadProject(original.id), controller.project);
+		await act(async () => {
+			const reopened = await session.archive(() => assert.fail('The exact label-only input has no media source.'));
+			assert.deepEqual(clipboardDocument(reopened), expected);
+		});
+	});
+});
+
 async function enter(dom: ReactTestDom, field: ReactTestElement, format: 'frames' | 'samples', value: string): Promise<void> {
+	await enterFormat(dom, field, format);
+	const display = field.querySelector('.timecode__display'); assert.ok(display);
+	await act(async () => { reactProps(display).onDoubleClick?.({}); });
+	const input = field.querySelector('.timecode__free-text'); assert.ok(input);
+	await act(async () => { reactProps(input).onChange?.({ currentTarget: { value } }); });
+	await act(async () => { reactProps(input).onKeyDown?.({ key: 'Enter', preventDefault() {}, stopPropagation() {} }); });
+}
+
+async function enterFormat(dom: ReactTestDom, field: ReactTestElement, format: 'frames' | 'samples'): Promise<void> {
 	const button = field.querySelector('.timecode__format-button'); assert.ok(button);
 	await act(async () => { reactProps(button).onClick?.(); });
 	if (format === 'frames') {
@@ -58,11 +109,6 @@ async function enter(dom: ReactTestDom, field: ReactTestElement, format: 'frames
 	const item = dom.container.querySelectorAll('[role="menuitem"]').find(item => format === 'frames'
 		? item.textContent.startsWith('hh:mm:ss + frames') : item.textContent === 'samples'); assert.ok(item);
 	await act(async () => { reactProps(item).onClick?.({ stopPropagation() {} }); });
-	const display = field.querySelector('.timecode__display'); assert.ok(display);
-	await act(async () => { reactProps(display).onDoubleClick?.({}); });
-	const input = field.querySelector('.timecode__free-text'); assert.ok(input);
-	await act(async () => { reactProps(input).onChange?.({ currentTarget: { value } }); });
-	await act(async () => { reactProps(input).onKeyDown?.({ key: 'Enter', preventDefault() {}, stopPropagation() {} }); });
 }
 
 async function withDom(operation: (dom: ReactTestDom, root: Root) => Promise<void>): Promise<void> {
