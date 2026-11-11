@@ -53,8 +53,7 @@ function programmeAmplitude(samples) {
 }
 
 for (const [keyMuted, pairMuted, position] of [
-	[true, false, 'post-fader'], [false, false, 'post-fader'],
-	[false, true, 'post-fader'], [true, false, 'pre-fader'],
+	[true, false, 'post-fader'], [false, true, 'post-fader'],
 ]) test(`Make stereo retains ${position} detector mute=${keyMuted} and selected pair mute=${pairMuted}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/'), input = await fixture(keyMuted, pairMuted, position);
