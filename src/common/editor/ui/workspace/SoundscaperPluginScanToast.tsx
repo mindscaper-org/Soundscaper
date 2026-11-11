@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import { iconNameToChar } from '../../audacity-iconcodes.js';
 import EditorToast from '../EditorToast.tsx';
 import { resolveSoundscaperNativeServicesBridge, type SoundscaperNativeServicesBridge } from '../soundscaper-native-services-bridge.ts';
 import { resolveSoundscaperNativeServicesCopy } from '../soundscaper-native-services-copy.ts';
@@ -31,6 +32,7 @@ function PluginScanToast({ bridge, copy: hostCopy, controller, openSurface }: Pr
 			: scan.status === 'failed' ? copy.pluginScanToastFailed : copy.pluginScanToastComplete;
 	const progress = copy.pluginScanToastProgress.replace('{completed}', String(scan.completed)).replace('{total}', String(scan.total));
 	return <EditorToast id={`native-plugin-scan-${scan.generation}`} key={scan.generation} title={title}
+		icon={iconNameToChar('PLUGIN')}
 		type={scan.status === 'failed' ? 'warning' : running || scan.status === 'cancelled' ? 'info' : 'success'}
 		description={running ? `${scan.currentFolder} · ${progress}` : scan.detail || `${copy.scanEntries}: ${scan.found}`}
 		progress={running ? Math.round(scan.progress * 100) : undefined} persistent={running}

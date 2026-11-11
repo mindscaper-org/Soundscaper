@@ -21,6 +21,8 @@ export interface ToastProps {
   id: string;
   /** Type of toast message */
   type?: 'success' | 'error' | 'warning' | 'info' | 'syncing';
+  /** Optional icon overriding the type and progress defaults */
+  icon?: React.ReactNode;
   /** Toast title */
   title: string;
   /** Toast description/message */
@@ -53,6 +55,7 @@ const ICONS = {
 export function Toast({
   id,
   type = 'info',
+  icon,
   title,
   description,
   actions,
@@ -101,7 +104,7 @@ export function Toast({
       <div className="toast__body">
         {/* Icon */}
         <div className="toast__icon">
-          {type === 'syncing' ? ICONS.syncing : showProgress ? ICONS.upload : ICONS[type]}
+          {icon ?? (type === 'syncing' ? ICONS.syncing : showProgress ? ICONS.upload : ICONS[type])}
         </div>
 
         {/* Content */}
