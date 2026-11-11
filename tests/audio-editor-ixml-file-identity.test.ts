@@ -4,6 +4,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
+import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
+import { createSoundscaperProjectStore } from '../src/soundscaper/editor-project-store.ts';
+import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
+import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { createExportPlan } from '../src/common/editor/export.js';
 import { inspectWavBlobPcm } from '../src/common/editor/wav-import.js';
 import { parseIxmlPayload } from '../src/common/editor/ixml.ts';
@@ -12,7 +16,15 @@ import { createOriginalOverwriteActions, isOriginalOverwriteSettings } from '../
 import { createEditorExportService } from '../src/common/editor/controller/export/internal/export-service.ts';
 import { createDesktopOriginalImportRecorder, resetDesktopOriginal } from '../src/common/editor/desktop-overwrite-original.ts';
 import { registerDesktopOriginalFile } from '../src/common/editor/desktop-original-file-port.ts';
+import { normalizeSourceProvenance } from '../src/common/editor/source-provenance.ts';
 import { createFixture } from './helpers/export-service-fixture.ts';
+import { COPY, createAudioEditorController, createMemoryEngine } from './helpers/audio-editor-controller-harness.js';
+import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
+import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
+import { readRiffChunks } from './helpers/read-riff-chunks.ts';
+import { readWavePcm } from './helpers/read-wave-pcm.ts';
+import { readPcm } from './helpers/project-store-pcm-fixture.ts';
+import { assertPcmChannelsEqual } from './helpers/assert-pcm-samples.ts';
 
 const warning = 'delivery.ixml-file-uid-omitted';
 async function recorderProject() {
@@ -25,6 +37,60 @@ async function recorderProject() {
 		clips: [{ id: 'clip', sourceId: 'source', sourceStartFrame: 0, timelineStartFrame: 0, durationFrames: 4800 }],
 		tracks: [{ id: 'track', type: 'audio', name: 'Recorder', clipIds: ['clip'] }], metadata: { ixml: info.ixml } });
 }
+
+test('actual recorder import retains physical FILE_UID and stereo PCM through product stores and fresh Scape', async context => {
+	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
+	const bytes = Buffer.from((await readFile(new URL('./fixtures/bwfmetaedit-file-uid.wav.base64', import.meta.url), 'utf8')).trim(), 'base64');
+	const xml = readRiffChunks(bytes).get('iXML'); assert.ok(xml);
+	const expectedXml = new TextDecoder().decode(xml);
+	assert.ok(expectedXml.includes('<FILE_UID>RECORDER-FILE-UNIQUE-0001</FILE_UID>'));
+	assert.ok(expectedXml.includes('<FAMILY_UID>TAKE-FAMILY-0001</FAMILY_UID>'));
+	const expected = readWavePcm(bytes);
+	assert.equal(expected.sampleRate, 48_000); assert.equal(expected.channels.length, 2);
+	for (const channel of expected.channels) assert.equal(channel.length, 4800);
+	const file = new File([Uint8Array.from(bytes)], 'Recorder.wav', { type: 'audio/wav' });
+	// IndexedDB API fixtures isolate the actual production repositories; native
+	// storage, chooser and rendered-file identity remain covered in the browser.
+	const store = createSoundscaperProjectStore({ indexedDB: createInstrumentedIndexedDB(), preferOpfs: false });
+	const recipient = createSoundscaperProjectStore({ indexedDB: createInstrumentedIndexedDB(), preferOpfs: false });
+	const archive = createSoundscaperScapeNativeRuntime();
+	const runtime = createSoundscaperProjectRuntimeSelection();
+	const controller = await constructController();
+	context.after(async () => { try { await controller.dispose(); } finally { await recipient.close(); } });
+	async function constructController() {
+		try {
+			return createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, store,
+				projectRuntime: runtime, sessionController: runtime.createSessionController(), scapeProjectRuntime: archive,
+				engine: { ...createMemoryEngine(), decodeAudioData: async () => assert.fail('Recorder PCM must use the production WAV reader') } as unknown as Options['engine'],
+				ffmpeg: { ...createMemoryFfmpeg(), decode: async () => assert.fail('Recorder PCM must not use a substitute codec') } as unknown as Options['ffmpeg'],
+				engineFactory: () => { throw new Error('Source metadata custody does not render PCM'); } });
+		} catch (error) {
+			await store.close(); await recipient.close(); throw error;
+		}
+	}
+	await controller.ready;
+	await controller.actions.project.importFiles([file]);
+	await controller.actions.project.flush();
+	const project = controller.project; assert.ok(validateSoundscaperProject(project));
+	assert.equal(project.metadata.ixml?.rawXml, expectedXml);
+	assert.equal(project.metadata.ixml?.fileSetId, 'TAKE-FAMILY-0001');
+	assert.equal(project.sources.length, 1); assert.equal(project.clips.length, 1);
+	const source = project.sources[0]; assert.ok(source?.kind === 'audio');
+	assert.deepEqual([source.sampleRate, source.frameCount, source.channelCount], [48_000, 4800, 2]);
+	assert.equal(project.clips[0]?.durationFrames, 4800);
+	const origin = normalizeSourceProvenance(source.provenance).contributions[0]?.origin;
+	assert.ok(origin?.kind === 'local-file'); assert.equal(origin.originalFileName, file.name); assert.equal(origin.byteLength, file.size);
+	assertPcmChannelsEqual((await readPcm(store, source.storageKey)).map(channel => Float32Array.from(channel)), expected.channels, 'imported recorder PCM');
+	assert.deepEqual(await store.loadProject(project.id), project);
+	const exported = await archive.exportScapeProject(project, store); assert.ok(exported.blob);
+	const reopened = await archive.importScapeProject(exported.blob, recipient);
+	assert.equal(reopened.readOnly, false); assert.ok(validateSoundscaperProject(reopened.project));
+	assert.equal(reopened.project.metadata.ixml?.rawXml, expectedXml);
+	assert.deepEqual(reopened.project, project);
+	assert.deepEqual(await recipient.loadProject(project.id), project);
+	const restored = reopened.project.sources[0]; assert.ok(restored?.kind === 'audio');
+	assertPcmChannelsEqual((await readPcm(recipient, restored.storageKey)).map(channel => Float32Array.from(channel)), expected.channels, 'portable recorder PCM');
+});
 
 test('new rendered BWF ranges omit physical source identity and report the conversion', async () => {
 	const project = await recorderProject();
