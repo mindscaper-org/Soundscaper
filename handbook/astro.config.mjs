@@ -119,6 +119,7 @@ export default defineConfig({
 				: soundscaperSidebar,
 			customCss: ['./src/styles/custom.css'],
 			components: {
+				Banner: './src/components/DocumentationNotice.astro',
 				TwoColumnContent: './src/components/PageContent.astro',
 			},
 		}),

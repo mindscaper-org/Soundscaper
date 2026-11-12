@@ -1,0 +1,23 @@
+---
+import DefaultBanner from '@astrojs/starlight/components/Banner.astro';
+import ContentPanel from '@astrojs/starlight/components/ContentPanel.astro';
+import { chromeRecord } from '../../../scripts/lib/handbook-chrome.mjs';
+
+const messages: Record<string, string> = chromeRecord('notice.aiGenerated');
+const { lang } = Astro.locals.starlightRoute;
+const noticeLanguage = messages[lang] ? lang : 'en';
+---
+
+<DefaultBanner />
+<ContentPanel>
+	<p role="note" lang={noticeLanguage} data-pagefind-ignore class="documentation-notice">
+		{messages[noticeLanguage]}
+	</p>
+</ContentPanel>
+
+<style>
+	.documentation-notice {
+		color: var(--sl-color-gray-2);
+		font-size: var(--sl-text-sm);
+	}
+</style>
