@@ -85,7 +85,7 @@ export function validateSoundscaperDesktopLibraryMetadata(
 		projects,
 		media,
 	});
-	if (Buffer.byteLength(JSON.stringify(metadata), 'utf8') > MAXIMUM_METADATA_BYTES) {
+	if (new TextEncoder().encode(JSON.stringify(metadata)).byteLength > MAXIMUM_METADATA_BYTES) {
 		throw new RangeError('Soundscaper desktop baseline metadata exceeds its byte limit');
 	}
 	return metadata;
@@ -94,7 +94,7 @@ export function validateSoundscaperDesktopLibraryMetadata(
 export function parseSoundscaperDesktopLibraryMetadataJson(
 	value: unknown,
 ): Readonly<SoundscaperDesktopLibraryMetadata> {
-	if (typeof value !== 'string' || Buffer.byteLength(value, 'utf8') > MAXIMUM_METADATA_BYTES) {
+	if (typeof value !== 'string' || new TextEncoder().encode(value).byteLength > MAXIMUM_METADATA_BYTES) {
 		throw new RangeError('Persisted Soundscaper desktop baseline metadata exceeds its byte limit');
 	}
 	let parsed: unknown;
@@ -215,7 +215,7 @@ function opaqueId(value: unknown, name: string): string {
 
 function boundedText(value: unknown, name: string, maximumBytes: number): string {
 	if (typeof value !== 'string' || value.length === 0 || !value.trim()
-		|| Buffer.byteLength(value, 'utf8') > maximumBytes) {
+		|| new TextEncoder().encode(value).byteLength > maximumBytes) {
 		throw new TypeError(`Soundscaper desktop baseline ${name} is invalid`);
 	}
 	return value;
