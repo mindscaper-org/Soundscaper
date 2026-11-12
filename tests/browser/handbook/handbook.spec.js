@@ -232,11 +232,18 @@ test('keeps comparison sources collapsed and reveals cell details on hover, focu
 	if (isMobile) await note.tap();
 	else await note.click();
 	await expect(detail).toBeVisible();
+
+	// Audit the open tooltip and its trigger here; the route audit below covers
+	// the complete comparison page without repeating its costly table scan.
+	const detailId = await detail.getAttribute('id');
+	expect(detailId).toBeTruthy();
+	const accessibility = await new AxeBuilder({ page })
+		.include(`[aria-describedby="${detailId}"]`)
+		.include(`[role="tooltip"][id="${detailId}"]`)
+		.analyze();
+	expect(accessibility.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical')).toEqual([]);
 	await page.getByRole('heading', { level: 1 }).click();
 	await expect(detail).toBeHidden();
-
-	const accessibility = await new AxeBuilder({ page }).include('main').analyze();
-	expect(accessibility.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical')).toEqual([]);
 });
 
 // The generated reference pages carry the widest and longest tables in the
