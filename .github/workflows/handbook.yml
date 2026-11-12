@@ -1,0 +1,82 @@
+name: Handbook
+
+on:
+  schedule:
+    # Refresh both handbooks once a week, on Monday at 04:43 UTC.
+    - cron: '43 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: handbook
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Check and publish / ${{ matrix.product }}
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        product: [soundscaper, framescaper]
+    env:
+      SCAPE_PRODUCT: ${{ matrix.product }}
+      NODE_OPTIONS: --max-old-space-size=8192
+    steps:
+      - name: Check out source and handbook history
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Pin npm
+        run: npm install --global npm@12.0.1
+
+      - name: Restore or install verified dependencies
+        uses: ./.github/actions/verified-node-dependencies
+        with:
+          scope: ubuntu-24.04
+
+      - name: Check and build the handbook
+        run: npm run docs:check
+
+      - name: Install Chromium
+        if: matrix.product == 'soundscaper'
+        run: npx playwright install --with-deps chromium
+
+      - name: Run desktop and mobile handbook browser workflows
+        if: matrix.product == 'soundscaper'
+        run: npx playwright test --config playwright.docs.config.mjs --workers=2
+
+      - name: Prepare the independent handbook deployment
+        run: node scripts/prepare-handbook-deploy.mjs
+
+      - name: Publish the handbook on its product's docs routes
+        run: npx wrangler deploy --config wrangler.handbook.jsonc --env ${{ matrix.product }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Verify the published handbook matches the checked build
+        run: node scripts/verify-handbook-deploy.mjs
+
+      - name: Upload handbook diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: handbook-diagnostics-${{ matrix.product }}
+          path: |
+            playwright-report/docs/
+            test-results/docs/
+          if-no-files-found: ignore
+          retention-days: 7

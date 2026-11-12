@@ -289,14 +289,8 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.match(browserJob, /--suite-shard=\$\{\{ matrix\.shard \}\}\/4 --workers=2\s*$/mu,
 		`${label} must give Chromium and WebKit two workers per shard`);
 
-	// The handbook suite has its own Playwright config, so `--suite-shard` cannot
-	// divide it alongside the site suite. It has to be pinned to one leg of the
-	// matrix or the shards would each run the whole of it.
-	const handbookLegs = [...browserJob.matchAll(
-		/^\s+if: (?<condition>matrix\.project == 'chromium'.*)\n\s+run: \|\n\s+node scripts\/ci-handbook-build\.mjs verify\n\s+npx playwright test --config playwright\.docs\.config\.mjs$/gmu,
-	)];
-	assert.equal(handbookLegs.length, 1, `${label} must run the handbook suite from exactly one job`);
-	assert.match(handbookLegs[0].groups.condition, /matrix\.shard == 1/u, `${label} must not run the handbook suite once per shard`);
+	assert.doesNotMatch(browserJob, /playwright\.docs\.config|ci-handbook-build/u,
+		`${label} leaves handbook browser workflows to their independent schedule`);
 
 	assert.match(firefoxJob, /name: Browser \/ firefox/u);
 	assert.ok(firefoxJob.includes(gate), `${label} firefox must wait for the verified build`);

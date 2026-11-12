@@ -2,8 +2,14 @@ name: Quality
 
 on:
   pull_request:
+    paths-ignore:
+      - 'handbook/**'
+      - 'docs/**'
   push:
     branches: [main]
+    paths-ignore:
+      - 'handbook/**'
+      - 'docs/**'
   workflow_dispatch:
     inputs:
       deploy_translations:
@@ -39,7 +45,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-          # Preserve handbook last-updated history when reusing its checked output.
+          # Affected module plans compare against earlier source revisions.
           fetch-depth: 0
 
       - name: Set up Node.js
@@ -70,9 +76,6 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
-
-      - name: Check and build the Soundscaper handbook
-        run: npm run docs:check
 
       - name: Build the site
         run: npm run build
@@ -107,20 +110,6 @@ jobs:
         run: npm run prepare:browser:products
         env:
           SCAPE_BROWSER_COVERAGE: '1'
-
-      - name: Record the checked Soundscaper handbook
-        run: node scripts/ci-handbook-build.mjs record
-
-      - name: Upload the checked Soundscaper handbook
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: checked-soundscaper-handbook-${{ github.sha }}
-          path: |
-            handbook/dist/
-            handbook/.ci-build.json
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 1
 
       - name: Upload the prepared Soundscaper browser site
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -238,7 +227,7 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=8192
 
   audits:
-    name: Architecture, audits and handbook
+    name: Architecture and audits
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -284,11 +273,6 @@ jobs:
 
       - name: Audit the pinned third-party payloads
         run: npm run audit:ci
-
-      - name: Build the Framescaper handbook
-        run: npm run docs:build
-        env:
-          SCAPE_PRODUCT: framescaper
 
   native-platform-compile:
     name: Native compile / ${{ matrix.target.platform }} / ${{ matrix.target.arch }}
@@ -697,20 +681,6 @@ jobs:
       - name: Run the reciprocal-origin editable-copy workflow
         if: matrix.project == 'chromium' && matrix.shard == 1
         run: npm run test:browser:dual-origin
-
-      - name: Download the checked Soundscaper handbook
-        if: matrix.project == 'chromium' && matrix.shard == 1
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: checked-soundscaper-handbook-${{ github.sha }}
-          path: handbook
-
-      - name: Run handbook browser workflows
-        # Both desktop and mobile projects use the already checked handbook.
-        if: matrix.project == 'chromium' && matrix.shard == 1
-        run: |
-          node scripts/ci-handbook-build.mjs verify
-          npx playwright test --config playwright.docs.config.mjs
 
       - name: Compact the shard's browser coverage
         # One profile per test, each carrying the chunk maps that test was the

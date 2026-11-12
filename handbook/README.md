@@ -5,8 +5,8 @@ This workspace builds the public product documentation at
 `SCAPE_PRODUCT`. Product and engineering evidence in the repository's existing
 `docs/` directory is intentionally not published here.
 
-Each handbook is a path on its product origin, not a documentation subdomain,
-so it needs no additional DNS record or Pages project.
+Each handbook is a path on its product origin, served by a separate static-assets
+Worker, so it needs no additional DNS record or Pages project.
 `scripts/lib/product-web-routing.mjs` owns the build and deployment base path.
 The editor mirrors the two public origins and that base in its eager
 documentation-link module, where importing the build-side routing code would
@@ -130,21 +130,51 @@ refuses an anchor that names a heading without a written-out id.
 
 ## Deployment
 
-The selected handbook ships inside the selected product deployment.
-`npm run build:pages` runs the reference, content and static-build checks, then
-`scripts/stage-handbook-build.mjs` copies `handbook/dist` into the product
-build under the base path. The root `npm run deploy` command publishes the
-Soundscaper Pages project; Framescaper is built and deployed by its explicitly
-product-scoped CI job. There is no separate handbook project to attach or
-publish.
+The **Handbook** GitHub Actions workflow checks, builds and publishes both
+handbooks every Monday at 04:43 UTC. Use **Actions > Handbook > Run workflow**
+on `main` for an earlier update. Pushes and pull requests do not generate or
+publish handbooks. Handbook-only changes under `handbook/` or `docs/` do not
+start the product Quality or desktop test-artifact workflows.
+
+Publication has no dependency on product CI. `wrangler.handbook.jsonc` owns two
+static-assets Workers, `soundscaper-handbook` and `framescaper-handbook`, routed
+only to each product's `/docs` and `/docs/*`. The existing editor Pages projects
+continue to own the other paths. Product builds, quality checks and deployments
+do not rebuild or stage a handbook.
+
+The workflow uses the existing `CLOUDFLARE_ACCOUNT_ID` and
+`CLOUDFLARE_API_TOKEN` secrets. The token needs account **Workers Scripts: Edit**
+and zone **Workers Routes: Edit** for `soundscaper.org` and `framescaper.org`
+(see [Workers deployment permissions](https://developers.cloudflare.com/workers/authorization/workers/)),
+in addition to its existing Pages permissions. The first manual or scheduled
+run creates the Workers and installs their routes; until that run, the existing
+Pages deployment continues serving its previous handbook.
+Product publication checks that the independent route is active before
+deploying an editor build without a bundled handbook, so run **Handbook** once
+after this workflow is first pushed. Later product deployments preserve the
+Worker's existing handbook without rebuilding it.
+
+To prepare and review one deployment locally, select the same product for the
+build, staging and Wrangler environment:
+
+```sh
+SCAPE_PRODUCT=soundscaper npm run docs:check
+SCAPE_PRODUCT=soundscaper node scripts/prepare-handbook-deploy.mjs
+npx wrangler deploy --config wrangler.handbook.jsonc --env soundscaper --dry-run
+```
+
+Staging writes only documentation assets under `.wrangler/handbook-site/docs`,
+with the existing isolation, permission and cache headers and retired handbook
+redirects. Each deployment is verified against the exact checked index bytes.
 
 Staging fails closed rather than deploying something broken: a `handbook/dist`
 built for a different base path or product origin is refused, because Astro
 bakes both into the output and a stale build can look complete while its links
 and stylesheets point somewhere the deployment does not serve.
 
-The repository's canonical quality and Chromium browser jobs run the handbook's
-deterministic checks and its browser suite on pull requests.
+The Handbook workflow runs the reference/content checks and both product builds.
+Its Soundscaper job also runs the existing desktop and mobile handbook browser
+workflows before publication. Local AI authoring and translation remain manual.
 
 Keep Cloudflare Web Analytics disabled so the deployed site continues to match
 the handbook's static, first-party-only privacy statement.

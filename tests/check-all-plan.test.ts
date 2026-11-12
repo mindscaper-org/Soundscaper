@@ -12,9 +12,10 @@ const { scripts } = JSON.parse(readFileSync(new URL('../package.json', import.me
 
 test('check-all includes every static gate, all Node shards, fresh coverage and all browser projects', () => {
 	const plan = createCheckAllPlan(root, '/npm-cli.js', scripts);
-	for (const script of ['check:architecture', 'audit:ci', 'docs:check', 'typecheck:sources', 'typecheck:tests']) {
+	for (const script of ['check:architecture', 'audit:ci', 'typecheck:sources', 'typecheck:tests']) {
 		assert.ok(plan.some(job => job.args.includes(script)), script);
 	}
+	assert.ok(plan.every(job => !job.args.includes('docs:check')), 'handbook builds have their own weekly workflow');
 	assert.equal(plan.filter(job => job.id.startsWith('lint/')).length, 8);
 	const node = plan.filter(job => job.id.startsWith('node/'));
 	assert.equal(node.length, 4);

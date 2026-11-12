@@ -3,14 +3,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 /**
- * Places the built handbook inside the product build that serves it.
+ * Places the built handbook under its product's documentation base path.
  *
  * The handbook is a path on a product origin rather than a subdomain of its
- * own, so it ships in the same Cloudflare Pages deployment as the editor it
- * documents instead of a second project with a custom domain of its own. That
- * makes staging a build step: `handbook/dist` is copied under the base path
+ * own. Its independent static-assets Worker uses this staging step:
+ * `handbook/dist` is copied under the base path
  * `scripts/lib/product-web-routing.mjs` assigns it. Each product build selects
- * and stages its own branded, content-filtered handbook.
+ * and stages its own branded, content-filtered handbook. Production callers
+ * pass the standalone asset directory rather than the editor's `dist`.
  *
  * The copy is a copy on purpose. The handbook keeps its own `outDir` so
  * `npm run docs:dev`, `npm run docs:preview` and the handbook browser suite

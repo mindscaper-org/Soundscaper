@@ -37,11 +37,9 @@ const RETIRED_HANDBOOK_PAGES = Object.freeze({
  * The handbook is a path on a product origin, not an origin of its own.
  *
  * Serving it from `docs.soundscaper.org` would require a DNS record and a
- * second Pages project whose custom domain has to be attached by hand before
- * any documentation link resolves. A path on an origin that already exists
- * needs none of that: the handbook is built into `dist/docs` and ships in the
- * same deployment as the editor it documents, so a link into it is live the
- * moment that deployment is.
+ * second custom domain before any documentation link resolves. A path on an
+ * existing origin needs none of that: independent static-assets Workers own
+ * /docs and /docs/* while Pages continues serving the editor.
  *
  * Each product publishes its own filtered handbook at the same path on its
  * own origin. The product build selects the content, branding, and sitemap;

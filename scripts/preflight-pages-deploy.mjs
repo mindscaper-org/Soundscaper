@@ -6,6 +6,7 @@ import {
 	verifyLivePagesCachePolicy,
 } from './lib/pages-deploy-preflight.mjs';
 import { webBuildRouting } from './lib/product-web-routing.mjs';
+import { verifyIndependentHandbook } from './lib/handbook-deploy.ts';
 
 try {
 	// One deployment serves one product, so the gate audits the origin this
@@ -21,6 +22,7 @@ try {
 	// fail on a stranger's content. Name the audit host explicitly in that
 	// window; the canonical host stays whatever the product's routing says.
 	const routing = webBuildRouting();
+	await verifyIndependentHandbook({ origin: routing.site.origin });
 	const origin = process.env.SCAPE_DEPLOY_AUDIT_ORIGIN?.trim() || routing.site.origin;
 	// Declared, never inferred: an origin that answers is audited in full even
 	// when this is set, so the declaration can only excuse an origin that has

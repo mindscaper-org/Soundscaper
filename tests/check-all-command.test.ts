@@ -25,7 +25,7 @@ test('check-all command schedules fixture jobs, reports failures, waits for fres
 		await cp(join(root, 'scripts', file), join(fixture, 'scripts', file));
 	}
 	await writeFile(join(fixture, 'package.json'), JSON.stringify({ type: 'module', scripts: {
-		'check:static': 'npm run lint && npm run typecheck && npm run check:architecture && npm run audit:ci && npm run docs:check && npm run build',
+		'check:static': 'npm run lint && npm run typecheck && npm run check:architecture && npm run audit:ci && npm run build',
 		typecheck: 'npm run typecheck:sources && npm run typecheck:tests',
 	} }));
 	const stub = `
@@ -88,7 +88,7 @@ test('check-all command schedules fixture jobs, reports failures, waits for fres
 	assert.equal(code, 1, output);
 	assert.match(output, /fixture assertion failed/u);
 	assert.match(output, /coverage \(blocked\)/u);
-	assert.match(output, /28\/28/u);
+	assert.match(output, /27\/27/u);
 	assert.doesNotMatch(output, /passing-result-noise|All checks passed/u);
 	assert.match(output, /^node\/common-1: Error: expected stdout diagnostic$/mu);
 	assert.match(output, /^node\/common-1: Error: expected stderr diagnostic$/mu);

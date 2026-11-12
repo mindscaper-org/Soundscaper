@@ -429,6 +429,11 @@ document instead of redirecting as JavaScript. The pre-deploy gate audits stable
 routes on the predecessor, and `npm run verify:pages` verifies the complete
 intended route set immediately after each deployment.
 
+The handbooks at `/docs` have independent static-assets Workers and a weekly
+or manual **Handbook** workflow. Product builds and deployments do not generate
+or publish them; see [handbook deployment](handbook/README.md#deployment) for
+routes, credentials and manual updates.
+
 ### 1. Retained legacy FFmpeg publication tooling
 
 The production browser and Pages deployment do not publish, import, fetch, or

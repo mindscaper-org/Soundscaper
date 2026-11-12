@@ -1,0 +1,28 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "scape-handbook",
+	"compatibility_date": "2026-11-12",
+	"workers_dev": false,
+	"preview_urls": false,
+	"assets": {
+		"directory": "./.wrangler/handbook-site",
+		"html_handling": "force-trailing-slash",
+		"not_found_handling": "404-page"
+	},
+	"env": {
+		"soundscaper": {
+			"name": "soundscaper-handbook",
+			"routes": [
+				{ "pattern": "soundscaper.org/docs", "zone_name": "soundscaper.org" },
+				{ "pattern": "soundscaper.org/docs/*", "zone_name": "soundscaper.org" }
+			]
+		},
+		"framescaper": {
+			"name": "framescaper-handbook",
+			"routes": [
+				{ "pattern": "framescaper.org/docs", "zone_name": "framescaper.org" },
+				{ "pattern": "framescaper.org/docs/*", "zone_name": "framescaper.org" }
+			]
+		}
+	}
+}

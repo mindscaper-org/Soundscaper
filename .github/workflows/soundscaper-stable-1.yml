@@ -50,7 +50,6 @@ jobs:
         env: { NODE_OPTIONS: --max-old-space-size=8192 }
       - name: Stage and preflight the checked Soundscaper Pages site
         run: |
-          node scripts/stage-handbook-build.mjs
           node scripts/check-cloudflare-assets.mjs
           node scripts/preflight-pages-deploy.mjs
         env: { SCAPE_PRODUCT: soundscaper }

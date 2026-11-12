@@ -184,16 +184,23 @@ saves the verified archive before analysis. Review the bundle pin when updating
 the CodeQL action.
 
 `npm run check` is the canonical non-browser gate. It runs lint, strict type
-checks, architecture and file-size guards, audits, documentation checks, the
+checks, architecture and file-size guards, audits, the
 production build, and Node coverage. `npm run check:static` runs everything in
 that gate except the Node suite.
 
 Desktop preview and nightly split that static gate into four independent jobs:
-lint, type checks, architecture/audits, and handbook/site builds. The `quality`
+lint, type checks, architecture/audits, and product site builds. The `quality`
 aggregate requires every job to succeed before Node tests and distribution
 consumers proceed, and forwards the build's product release scope. The build
 job also checks its emitted transfer documents and prepares the single shared
 desktop test runtime. Browser testing and combined coverage remain in Quality.
+
+Handbook checks, builds, browser workflows and publication run separately in
+the **Handbook** workflow, weekly on Monday at 04:43 UTC or manually on `main`.
+Product gates and deployments never generate a handbook. Changes confined to
+`handbook/` and `docs/` do not start Quality or desktop test-artifact workflows.
+See [handbook deployment](../../handbook/README.md#deployment) for local checks
+and the independent `/docs` Workers.
 
 Maintainers can run that gate and the complete ordinary Playwright suite
 (Chromium, Firefox and WebKit) together:

@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - 'handbook/**'
+      - 'docs/**'
   workflow_dispatch:
     inputs:
       nightly_tests_targets:

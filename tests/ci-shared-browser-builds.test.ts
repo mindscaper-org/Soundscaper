@@ -26,22 +26,3 @@ test('nightly targets consume the four revision-bound browser configurations fro
 	assert.match(consumer, /node scripts\/ci-build-os-audio-codec-host\.mjs/u);
 	assert.match(consumer, /node scripts\/desktop-nightly-tests-prepare\.mjs/u);
 });
-
-for (const [workflowName, producerName] of [['quality.yml', 'build']] as const) {
-	test(`${workflowName} reuses the checked Soundscaper handbook only on the handbook browser shard`, async () => {
-		const workflow = await readWorkflow(workflowName);
-		const producer = extractJob(workflow, producerName);
-		const consumer = extractJob(workflow, 'browser');
-		assert.match(producer, /node scripts\/ci-handbook-build\.mjs record/u);
-		assert.match(producer, /name: checked-soundscaper-handbook-\$\{\{ github\.sha \}\}/u);
-		assert.match(producer, /handbook\/dist\/[\s\S]*?handbook\/\.ci-build\.json/u);
-		assert.match(producer, /include-hidden-files: true/u);
-		assert.match(consumer, /Download the checked Soundscaper handbook[\s\S]*?if: matrix\.project == 'chromium' && matrix\.shard == 1/u);
-		assert.match(consumer, /name: checked-soundscaper-handbook-\$\{\{ github\.sha \}\}/u);
-		assert.match(consumer, /node scripts\/ci-handbook-build\.mjs verify\s+npx playwright test --config playwright\.docs\.config\.mjs/u);
-		assert.doesNotMatch(consumer, /npm run test:docs:browser|npm run docs:check/u);
-		assert.match(producer, /npm run docs:check/u);
-		assert.doesNotMatch(extractJob(workflow, 'audits'), /npm run docs:check/u);
-		assert.match(extractJob(workflow, 'audits'), /Build the Framescaper handbook[\s\S]*?npm run docs:build/u);
-	});
-}
