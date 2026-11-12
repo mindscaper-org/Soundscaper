@@ -253,6 +253,10 @@ for (const route of [
 	`${BASE}start/how-soundscaper-compares/`,
 ]) {
 	test(`has no serious accessibility violations at ${route}`, async ({ page }) => {
+		test.slow(
+			route === `${BASE}start/how-soundscaper-compares/`,
+			'The expanded comparison matrix needs a longer complete accessibility scan on shared CI runners.',
+		);
 		await page.goto(route);
 		const results = await new AxeBuilder({ page }).analyze();
 		const serious = results.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical');
