@@ -1,0 +1,15 @@
+diff --git a/node_modules/@astrojs/starlight/dist/components/Search.astro b/node_modules/@astrojs/starlight/dist/components/Search.astro
+--- a/node_modules/@astrojs/starlight/dist/components/Search.astro
++++ b/node_modules/@astrojs/starlight/dist/components/Search.astro
+@@ -19,10 +19,10 @@
+ 	<button
+ 		data-open-modal
+ 		disabled
+-		aria-label={Astro.locals.t('search.label')}
+ 		aria-keyshortcuts="Control+K"
+ 	>
+ 		<Icon name="magnifier" />
++		<span class="sr-only">{Astro.locals.t('search.label')}</span>
+ 		<span class="sl-hidden md:sl-block" aria-hidden="true">{Astro.locals.t('search.label')}</span>
+ 		<kbd class="sl-hidden md:sl-flex" style="display: none">
+ 			<kbd>{Astro.locals.t('search.ctrlKey')}</kbd><kbd>K</kbd>
