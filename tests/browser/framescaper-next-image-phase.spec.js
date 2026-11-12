@@ -24,7 +24,9 @@ test('Split preserves an ordinary APNG picture at its later presentation boundar
 	await chooseNestedCommandAction(page, editor, 'Generate', ['Add Images']);
 	await (await chooser).setFiles({ name: 'animation.png', mimeType: 'image/png', buffer: ordinaryFramescaperImage('animated.png') });
 	const clips = editor.getByRole('group', { name: 'Image clip: animation', exact: true });
-	await expect(clips).toHaveCount(1); await clips.press('Enter');
+	await expect(clips).toHaveCount(1);
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', /.+/u);
+	await clips.focus(); await expect(clips).toBeFocused(); await clips.press('Enter');
 	await expect(clips.locator('.clip-display')).toHaveClass(/clip-display--selected/u);
 	const preview = editor.locator('[data-video-preview]');
 	if (!await preview.count()) await chooseCommandAction(page, editor, 'Window', 'Video preview');
