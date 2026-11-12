@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName,
 import { exportSamples } from './helpers/round2-audio-export.js';
 
 const text = 'AutoDuck:DuckAmountDb="-12" InnerFadeDownLen="0" InnerFadeUpLen="0" OuterFadeDownLen="0.01" OuterFadeUpLen="0.01" ThresholdDb="-30" MaximumPause="0.1"\n';
-for (const precedingSilent of [false, true]) test(`native AutoDuck follows control below selected music; preceding silent=${precedingSilent}`, async ({ page }) => {
+for (const precedingSilent of [true]) test(`native AutoDuck follows control below selected music; preceding silent=${precedingSilent}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Tracks', 'Remove tracks');

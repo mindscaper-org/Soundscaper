@@ -11,10 +11,9 @@ import {
 	bootEditor,
 	chooseCommandAction,
 	chooseDropdown,
-	waitForEditor,
 } from './audio-editor-test-helpers.js';
 import { resolveSoundscaperBrowserAssetsDirectory } from './helpers/production-build-paths.js';
-import { chooseTrackMenuAction } from './helpers/track-menu.js';
+import { exerciseNativeEffectMenuOrganization, exerciseNativePreferenceCustody, openNativeTrackDisplayPreferences } from './helpers/preferences-state-workflow.js';
 
 const cssColor = (hex) => `rgb(${[1, 3, 5].map((offset) =>
 	Number.parseInt(hex.slice(offset, offset + 2), 16)).join(', ')})`;
@@ -140,56 +139,18 @@ test('desktop defaults to Speed, preserves Memory, and leaves AI code on demand'
 		.getByRole('group', { name: 'Optimize for', exact: true }).getByRole('button')).toContainText('Speed');
 });
 
-test('browser Preferences opens General without the desktop-only FFmpeg location', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
-	await expect(page.locator('[data-desktop-speed-warmup]')).toHaveCount(0);
-	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
-
-	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
-	await expect(preferences.getByRole('tab').first()).toHaveText(/General$/u);
-	await expect(preferences.getByRole('tab', { name: /General$/u })).toHaveAttribute('aria-selected', 'true');
-	await expect(preferences.getByRole('group', { name: 'Language', exact: true })).toBeVisible();
-	await expect(preferences.getByRole('group', { name: 'Optimize for', exact: true })).toHaveCount(0);
-	await preferences.getByRole('tab', { name: /Advanced$/u }).click();
-	const optimization = preferences.getByRole('group', { name: 'Optimize for', exact: true });
-	await expect(optimization.getByRole('button')).toContainText('Memory');
-	await expect(preferences.locator('[data-external-ffmpeg-preference="true"]')).toHaveCount(0);
-	await chooseDropdown(page, optimization, 'Speed');
-	await expect.poll(() => savedOptimizationMode(page)).toBe('speed');
-	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
-	await page.reload();
-	const reopenedEditor = await waitForEditor(page);
-	await expect(page.locator('[data-desktop-speed-warmup]')).toHaveCount(0);
-	await chooseCommandAction(page, reopenedEditor, 'Edit', 'Preferences');
-	await preferences.getByRole('tab', { name: /Advanced$/u }).click();
-	await expect(preferences.getByRole('group', { name: 'Optimize for', exact: true })
-		.getByRole('button')).toContainText('Speed');
-});
-
-test('Track visualization opens the combined waveform and spectrogram settings', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
-	const track = editor.locator('[data-track-row]').first();
-	await chooseTrackMenuAction(page, editor, track, ['Track visualization', 'Track display']);
-
-	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
-	const waveform = preferences.getByRole('tab', { name: /Track display$/u });
-	await expect(waveform).toHaveAttribute('aria-selected', 'true');
-	await expect(preferences.getByRole('tab', { name: /^(Waveform|Spectrogram)$/u })).toHaveCount(0);
-	await expect(preferences.locator('[data-spectrogram-settings]')).toBeVisible();
-	await expect(preferences.getByRole('group', { name: 'Default view', exact: true })).toBeVisible();
-	const settings = preferences.locator('[data-waveform-visualization-settings]');
-	await expect(settings.getByRole('spinbutton', { name: 'Low/mid crossover (Hz)', exact: true }))
-		.toHaveValue('250');
-	await expect(settings.getByRole('spinbutton', { name: 'Mid/high crossover (Hz)', exact: true }))
-		.toHaveValue('4000');
-});
-
 for (const mode of ['Light', 'Dark']) {
 	test(`${mode} Appearance uses flat sections, separators and design-system checkboxes`, async ({ page }, testInfo) => {
 		await page.setViewportSize({ width: 1440, height: 1000 });
-		const editor = await bootEditor(page, '/embed/en/');
+		let editor = await bootEditor(page, '/embed/en/');
 		await page.emulateMedia({ colorScheme: mode.toLowerCase() });
-		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+		if (mode === 'Light') {
+			editor = await exerciseNativePreferenceCustody(page, editor);
+			await openNativeTrackDisplayPreferences(page, editor);
+		} else {
+			await exerciseNativeEffectMenuOrganization(page, editor);
+			await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+		}
 		const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 		await preferences.getByRole('tab', { name: /Appearance$/u }).click();
 		await preferences.getByRole('radio', { name: mode, exact: true }).check();
@@ -234,51 +195,6 @@ for (const mode of ['Light', 'Dark']) {
 		await expect(checkbox).not.toBeChecked();
 	});
 }
-
-test('Program start chooses what the next session opens with', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
-	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
-
-	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
-	const programStart = preferences.getByRole('radiogroup', { name: 'Program start', exact: true });
-	await expect(programStart).toHaveAttribute('data-program-start', 'continue-last-session');
-	await expect(programStart.getByRole('radio', { name: 'Continue last session', exact: true })).toBeChecked();
-
-	await programStart.getByRole('radio', { name: 'Start with new project', exact: true }).check();
-	await expect(programStart).toHaveAttribute('data-program-start', 'new-project');
-
-	// The attribute mirrors the stored preference, so reopening the dialog is
-	// what proves the choice reached the controller rather than the checkbox.
-	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
-	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
-	await expect(preferences.getByRole('radiogroup', { name: 'Program start', exact: true }))
-		.toHaveAttribute('data-program-start', 'new-project');
-});
-
-test("the Effects page rearranges the Effect menu the way Audacity's does", async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
-	const menubar = editor.getByRole('menubar', { name: 'Application menu', exact: true });
-	await menubar.getByRole('menuitem', { name: 'Effect', exact: true }).click();
-	let menu = page.getByRole('menu', { name: 'Effect', exact: true });
-	await expect(menu.getByRole('menuitem', { name: /^Volume and compression/u })).toBeVisible();
-	await page.keyboard.press('Escape');
-
-	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
-	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
-	await preferences.getByRole('tab', { name: /Effects$/u }).click();
-	const organization = preferences.getByRole('group', { name: 'Effect menu organization', exact: true });
-	await chooseDropdown(page, organization, 'Sort by effect name');
-	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
-	await expect(preferences).toBeHidden();
-
-	await menubar.getByRole('menuitem', { name: 'Effect', exact: true }).click();
-	menu = page.getByRole('menu', { name: 'Effect', exact: true });
-	await expect(menu.getByRole('menuitem', { name: /^Volume and compression/u })).toHaveCount(0);
-	const amplify = menu.getByRole('menuitem', { name: /^Amplify(?: —|$)/u });
-	await expect(amplify).toBeVisible();
-	await expect(amplify).toBeDisabled();
-	await page.keyboard.press('Escape');
-});
 
 async function savedOptimizationMode(page) {
 	return page.evaluate(() => new Promise((resolve, reject) => {

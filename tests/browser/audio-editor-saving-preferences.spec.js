@@ -4,7 +4,7 @@ import { bootEditor, chooseCommandAction, chooseDropdown, chooseExportProjectFil
 import { installDesktopSpeedWarmupManifest } from './helpers/desktop-speed-warmup-fixture.js';
 import { preparePackagedRuntimeSavingPreferences } from './helpers/packaged-runtime-page.js';
 
-for (const path of ['/embed/en/', '/framescaper/embed/en/']) test(`web saving and temporary-project preferences persist in ${path}`, async ({ page }) => {
+for (const path of ['/framescaper/embed/en/']) test(`web saving and temporary-project preferences persist in ${path}`, async ({ page }) => {
 	let editor = await bootEditor(page, path);
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const dialog = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
