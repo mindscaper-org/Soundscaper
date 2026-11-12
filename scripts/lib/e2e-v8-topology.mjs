@@ -46,17 +46,24 @@ export function validateE2ERawV8Topology({ artifactRoot, profiles, scripts, qual
 		if (ownerships.some(({ failures: mapFailures }) => mapFailures.length > 0)) continue;
 		const topology = deriveTopology(source, script.artifactPath, ownerships[0]);
 		failures.push(...topology.failures.map((failure) => `${script.id} ${failure}`));
-		const nativeOwnership = sourceOwnership({ source, caches: sourceMapsByUrl.get(script.coverageUrl),
-			script: { ...script, sources: script.sources?.filter(path => !qualifiedNodeSources.has(path)) } });
-		const requiredOwners = topology.owners.flatMap(owner => {
-			const exclusions = topology.functionTopology.functions.filter(shape => (
-				owner.start <= shape.start && shape.end <= owner.end
-				&& (owner.start !== shape.start || owner.end !== shape.end)
-			)).map(({ start, end }) => ({ start, end })).sort((left, right) => left.start - right.start);
-			const native = nativeOwnership.ownsAny(owner.start, owner.end, exclusions);
-			// Every native root remains mandatory. A mixed owner retains its entire strict topology.
-			return native ? [owner] : owner.kind === 'root' ? [{ ...owner, branches: [] }] : [];
-		});
+		let requiredOwners = topology.owners;
+		if (script.sources?.some(path => qualifiedNodeSources.has(path))) {
+			const nativeOwnership = sourceOwnership({ source, caches: sourceMapsByUrl.get(script.coverageUrl),
+				script: { ...script, sources: script.sources.filter(path => !qualifiedNodeSources.has(path)) } });
+			// Reuse the original explicit/implicit ownership rules. Excluding every
+			// nested V8 shape would erase wrappers containing native class initializers.
+			// This subset only classifies owners; the full-map diagnostics above remain authoritative.
+			const nativeTopology = deriveTopology(source, script.artifactPath, nativeOwnership);
+			const nativeSpans = new Set(nativeTopology.owners.map(owner => `${owner.kind}:${owner.start}:${owner.end}`));
+			const explicitFunctions = topology.functionTopology.functions.filter(shape => shape.kind === 'explicit')
+				.map(({ start, end }) => ({ start, end })).sort((left, right) => left.start - right.start);
+			const nativeRoot = nativeOwnership.ownsAny(0, source.length, explicitFunctions);
+			requiredOwners = topology.owners.flatMap(owner => {
+				if (owner.kind === 'root') return [nativeRoot ? owner : { ...owner, branches: [] }];
+				// A mixed owner retains its full strict branch topology, including Node spans.
+				return nativeSpans.has(`${owner.kind}:${owner.start}:${owner.end}`) ? [owner] : [];
+			});
+		}
 		const observations = entries.flatMap(({ functions }) => Array.isArray(functions) ? functions : []);
 		for (const { functions } of entries) {
 			if (!Array.isArray(functions)) continue;
