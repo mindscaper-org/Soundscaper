@@ -95,6 +95,12 @@ those floors once over the required union of Node and Chromium shards. Main and
 release gates retain that complete union. Never weaken a floor to make an
 individual execution shard pass.
 
+Function accounting recognizes CommonJS export getters that the TypeScript
+loader maps onto a leading source comment. It removes a getter only when the
+same report contains the matching exported declaration's actual source body.
+Reading an export getter never contributes execution to that body, so a real
+uncalled function remains uncovered.
+
 Source extracted into the neutral foundation, imaging, media and Scape modules
 continues to count toward its inherited `editor` cohort in a complete report.
 Moving a source file does not remove it from the denominator or create a lower
