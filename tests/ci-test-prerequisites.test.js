@@ -44,6 +44,11 @@ test('desktop payload manifest checks require interchange assets only when selec
 	assert.equal(interchangeRequiredForTests(root, [ordinary, manifest]), true);
 });
 
+test('AAF reference consumers require interchange provisioning through their helper closure', () => {
+	const root = fileURLToPath(new URL('../', import.meta.url));
+	assert.equal(interchangeRequiredForTests(root, [join(root, 'tests/audio-editor-aaf-import-service.test.ts')]), true);
+});
+
 test('Playwright prerequisite discovery uses only selected specs, including nested suites', context => {
 	const root = fixture(context);
 	const report = { config: { rootDir: join(root, 'tests/browser') }, errors: [], suites: [

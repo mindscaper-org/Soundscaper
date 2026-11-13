@@ -10,6 +10,7 @@ import { classifyNodeTestFiles, NODE_TEST_SHARD_IDS, parseNodeTestSelection, sel
 import { needsDesktopRuntimeTestFixture } from './lib/node-test-desktop-runtime-fixture.ts';
 
 const INTERCHANGE_READERS = [
+	'tests/helpers/aaf-reference.ts',
 	'tests/helpers/interchange-reference.ts',
 	'tests/helpers/interchange-top-clip.ts',
 	'tests/audio-editor-dawproject-reference-conformance.test.ts',
