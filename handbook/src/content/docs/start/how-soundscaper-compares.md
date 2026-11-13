@@ -548,7 +548,7 @@ Format ratings describe export support, not import.
 | Delivery report | + | + | / | / | + — Export analysis | ~ — Music usage | / | ~ — Peak / LUFS | / | / | / |
 | Render queue survives a restart | / | + | / | / | / | / | / — :: Bounce Factory Lite provides an external queue; restart recovery is undocumented. | / | / | / | / |
 | Wrap effect tails into loop exports | / | / | / | / | / | / | / | / | + — Wrap Remainder | + — Render as Loop | / |
-| Music-usage / copyright cue reports | / | / | / | / | / | + — Music Report :: Exports CSV music-usage information for copyright reporting; distinct from a general session or delivery report. | / | / | / | / | / |
+| Music-usage / copyright cue reports | + - Attribution :: Metadata of imported files is automatically added to Metadata editor → Attribution | + - Attribution :: Metadata of imported files is automatically added to Metadata editor → Attribution | / | / | / | + — Music Report :: Exports CSV music-usage information for copyright reporting; distinct from a general session or delivery report. | / | / | / | / | / |
 
 See [export formats](/reference/generated/formats/), [clip delivery](/soundscaper/edit-mix-and-export/#export-clips), [metadata](/soundscaper/edit-mix-and-export/#project-metadata), and [podcast chapters](/soundscaper/edit-mix-and-export/#embedded-chapters).
 
