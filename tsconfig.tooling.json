@@ -25,7 +25,9 @@
 		"scripts/lib/ci-artifact-fetch.ts",
 		"scripts/lib/handbook-deploy.ts",
 		"scripts/lib/vite-download-page.ts",
-		"scripts/run-module-browser-tests.ts"
+		"scripts/run-module-browser-tests.ts",
+		"scripts/qualified-node-preload.ts",
+		"scripts/lib/qualified-node-*.ts"
 	],
 	"exclude": [
 		"dist",

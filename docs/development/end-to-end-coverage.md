@@ -1,10 +1,13 @@
 # End-to-end coverage
 
 Soundscaper has a strict end-to-end coverage gate for the production JavaScript
-that ships in its two browser sites and two Electron applications. The gate
-unions evidence from the Chromium browser suite and the packaged
-`nightly-with-tests` runner. It requires exactly 100% coverage for lines, statements, functions, and branches; it does not round a partial result up.
-Node and unit-test coverage is separate and does not contribute to this gate.
+that ships in its two browser sites and two Electron applications. The native
+gate unions evidence from the Chromium browser suite and the packaged
+`nightly-with-tests` runner. Every source defaults to native coverage. Exact,
+reviewed deterministic sources can instead require separate Node coverage under
+`config/coverage-test-layers.json`. Both layers require exactly 100% coverage for
+lines, statements, functions, and branches; neither rounds a partial result up.
+The existing Node and Chromium cohort floors remain separate and unchanged.
 
 ## What the gate measures
 
@@ -87,6 +90,55 @@ profile, stale archive or Resources tree, unmanifested file, or foreign script
 invalidates that session. These sessions augment, but never replace, the
 ordinary packaged coverage capture required for both products.
 
+## Deterministic source ownership
+
+`config/coverage-test-layers.json` is an exact-file register, with native as its
+fixed default. Each Node entry pins the reviewed production source SHA-256,
+explicit Node test entrypoints, a deterministic-source reason, and the spec,
+title and owning surfaces of a retained native workflow. Prefixes, globs,
+generated artifacts, test sources, duplicate entries, unknown fields and paths
+outside the repository fail admission. Source and test files must exist inside
+the checkout; a symlink cannot move the proof outside it. A source change
+requires renewed ownership review and capture.
+
+Eligibility does not establish coverage. The Node layer scores the complete
+prepared JavaScript for every selected source at literal 100% in all four
+metrics, including unexecuted functions and branches. It binds the configuration
+digest, source revision, source bytes, prepared executable bytes and the actual
+declared Node test entrypoints. Missing, stale, malformed or incomplete Node
+proof fails; native evidence cannot fill its gaps or silently restore a native
+fallback. A passing ordinary unit run or a source-map fragment covering only
+executed lines is insufficient.
+
+Node qualification currently fails closed for loops (`for`, `for-in`,
+`for-of`, `while` and `do`), `switch`, parameter and destructuring defaults, and
+logical assignments (`&&=`, `||=` and `??=`). The admission check examines both
+the original source and prepared JavaScript. These constructs need independent
+checks that execution profiles retain their complete control-flow topology;
+a reported 100% alone does not establish that proof. Sources containing them
+remain native until those checks are implemented. The admitted forms include
+ordinary `if`, conditional expressions, logical and optional expressions, and
+the existing catch topology; this is a bounded contract, not a claim that every
+JavaScript syntax form has an independently verified denominator.
+
+The full production source and script inventory remains intact. All eight native
+runtime surfaces must still contribute authenticated evidence. A Node-owned
+source also requires positive native execution of a source-mapped function body
+in each declared witness surface, excluding a bundle root and declaration-only
+mappings. Only a source with no source-derived explicit or
+implicit functions may use a genuine mapped executable statement instead. The
+registered native spec and title are reviewed driver selectors, not runtime
+attestation; merely naming a test or loading its bundle cannot establish that
+witness.
+
+Use Node ownership for deterministic value transformations and explicit port
+contracts that can be qualified over their full input contract. Retain native
+coverage for layout, focus, keyboard and pointer interaction, browser storage,
+workers and CSP, devices, codecs and native adapters. A pure helper under a UI
+directory can be reviewed individually; its directory and React owner do not
+inherit that decision. Extract mixed pure logic before proposing ownership for
+it. Node DOM or storage emulation does not establish native platform parity.
+
 ## Node and Chromium coverage floors
 
 The separate Node coverage floors live in `config/coverage-gates.json`;
@@ -158,6 +210,29 @@ Agents use a focused spec selection and the
 [test handoff rules](testing.md#agent-execution-and-handoff); they never run the
 full suite themselves.
 
+The coverage-enabled npm Node runner also creates a sibling
+`<coverage-directory>-qualified/` directory when its selection contains a Node
+test bound by the ownership register. For example, the foundation owner can
+capture its focused suite with:
+
+```sh
+npm run test:shard -- --suite=unit/foundation
+```
+
+This preserves the ordinary raw profiles in `coverage/v8-shard/` and writes
+qualified evidence in `coverage/v8-shard-qualified/`. `npm run test:coverage`
+uses `coverage/v8-all/` and `coverage/v8-all-qualified/` instead. A qualified
+capture includes the full prepared modules, pinned source maps, actual raw V8
+checkpoints and Inspector observations of the exact runtime implementation.
+Ordinary Node profiles alone cannot substitute for this evidence. Quality
+uploads `qualified-node-<shard>-<sha>` artifacts alongside its existing shard
+coverage artifacts; it adds no execution shards or jobs.
+
+Keep the complete qualified evidence directory and collect the native browser
+and packaged evidence at the same full Git revision. Matching source bytes from
+a different revision do not make a mixed-revision capture admissible. All eight
+native surfaces remain required.
+
 A distributed `nightly-with-tests` application runs focused GPU waveform and
 visual-preview tests in Chromium. Ordinary cross-browser and dual-origin
 workflow coverage is collected separately in CI or a checkout. The nightly
@@ -204,9 +279,16 @@ profiles into a portable capture:
 ```sh
 npm run coverage:e2e:assemble -- \
   --output coverage/e2e-capture \
+  --node-evidence coverage/v8-shard-qualified \
   /path/to/nightly-run-linux \
   /path/to/nightly-run-windows
 ```
+
+Repeat `--node-evidence <qualified-root>` for additional qualified directories,
+including downloaded Quality artifacts, when bound tests ran in different
+existing execution slots. Assembly copies and authenticates every supplied
+capture; unqualified raw Node directories are rejected. Missing required Node
+proof fails the final gate rather than falling back to native coverage.
 
 Prepare the hash-bound executable inventory and run the strict gate:
 
@@ -215,6 +297,9 @@ npm run coverage:e2e:prepare -- \
   coverage/e2e-capture/capture-index.json coverage/e2e
 npm run coverage:e2e:check -- coverage/e2e coverage/e2e-report
 ```
+
+Use a fresh prepared artifact directory. Preparation rejects an output directory
+that contains qualified Node evidence from an earlier capture.
 
 Assembly fails for missing runtime surfaces, unknown executable URLs, mismatched
 source maps, changed repository sources, or unequal executable build evidence.

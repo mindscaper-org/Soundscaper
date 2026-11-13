@@ -56,12 +56,11 @@ async function extraMouseClick(session, target, button = 'back', modifiers = 0, 
 test.describe('keyboard shortcut preferences', () => {
 	registerAudioEditorHooks();
 
-	test('sorts shortcuts by where the commands appear, and drops the rows that take none', async ({ page }) => {
+	test('focuses a new shortcut field after Add shortcut is activated by keyboard', async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/');
 		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 		const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 		await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click();
-
 		// The categorized view is what the page opens on: File heads the list
 		// because File heads the menubar, and its first row is the File menu's.
 		const groups = preferences.locator('[data-shortcut-group]');
@@ -84,13 +83,7 @@ test.describe('keyboard shortcut preferences', () => {
 		expect(labels.length).toBeGreaterThan(0);
 		expect(labels).toEqual([...labels].sort((left, right) => left.localeCompare(right, 'en')));
 		await expect(preferences.locator('[data-shortcut-action="about-audacity"]')).toHaveCount(0);
-	});
 
-	test('focuses a new shortcut field after Add shortcut is activated by keyboard', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
-		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
-		const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
-		await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click();
 		await preferences.getByRole('searchbox', { name: 'Search commands', exact: true }).fill('Insert');
 		const row = preferences.locator('[data-shortcut-action="insert"]');
 		await expect(row).toBeVisible();

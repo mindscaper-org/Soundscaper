@@ -11,3 +11,16 @@ test('a leading command supplies its own target, while effects still need audio'
 	assert.equal(macroStartsWithCommand([{ kind: 'command', enabled: false }, { type: 'fade-out' }]), false);
 	assert.equal(macroStartsWithCommand([]), false);
 });
+
+test('target admission skips inert legacy values and disabled steps, but stops at the first enabled object', () => {
+	const inert: readonly unknown[] = Object.freeze([undefined, null, false, 0, '', true, 3, 'legacy-step']);
+	const command = Object.freeze({ kind: 'command', command: 'Select' });
+	const disabled = Object.freeze({ kind: 'command', command: 'NewMonoTrack', enabled: false });
+	const effect = Object.freeze({ type: 'fade-out' });
+
+	assert.equal(macroStartsWithCommand(inert), false);
+	assert.equal(macroStartsWithCommand([...inert, disabled, command]), true);
+	assert.equal(macroStartsWithCommand([...inert, disabled, effect, command]), false);
+	assert.equal(macroStartsWithCommand([...inert, {}, command]), false);
+	assert.deepEqual(inert, [undefined, null, false, 0, '', true, 3, 'legacy-step']);
+});

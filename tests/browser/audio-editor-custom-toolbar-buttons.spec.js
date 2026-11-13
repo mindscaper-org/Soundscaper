@@ -18,7 +18,6 @@ import { TRACK_MENU_TRIGGER } from './helpers/track-menu.js';
 const firstTone = createWavFixture({ name: 'custom-button-first.wav', frequency: 330, duration: 8 });
 const secondTone = createWavFixture({ name: 'custom-button-second.wav', frequency: 660, duration: 8 });
 const UNDO_ACTION = 'action://trackedit/undo';
-const REDO_ACTION = 'action://trackedit/redo';
 
 async function openCustomization(page, editor) {
 	await editor.getByRole('button', { name: 'Customize toolbar', exact: true }).click();
@@ -100,30 +99,6 @@ test.describe('custom toolbar buttons', () => {
 		await expect(dialog.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
 	});
 
-	test('finds and persists the monitor and graduation cap from the bundled font', async ({ page }) => {
-		const errors = collectClientErrors(page);
-		let editor = await bootEditor(page, '/embed/en/');
-		let dialog = await openCustomButtonDialog(page, editor);
-		await expect(dialog.getByRole('button', { name: 'VIDEO', exact: true })).toHaveText('\uF4C2');
-		await expect(dialog.getByRole('button', { name: 'PAGE_LOCK', exact: true })).toHaveText('\uF4C3');
-		await expect(dialog.getByRole('button', { name: 'NONE', exact: true })).toHaveCount(0);
-		await configureButton(dialog, { name: 'Monitor undo', action: UNDO_ACTION, icon: 'DESKTOP_MONITOR' });
-		await expect(dialog.getByRole('button', { name: 'DESKTOP_MONITOR', exact: true })).toHaveText('\uF35E');
-		await saveButton(dialog);
-		await expect(editor.getByRole('button', { name: 'Monitor undo', exact: true })).toHaveText('\uF35E');
-		await page.reload();
-		editor = await waitForEditor(page);
-		await expect(editor.getByRole('button', { name: 'Monitor undo', exact: true })).toHaveText('\uF35E');
-		dialog = await openCustomButtonDialog(page, editor, 'Monitor undo');
-		await expect(dialog.getByRole('button', { name: 'DESKTOP_MONITOR', exact: true })).toHaveAttribute('aria-pressed', 'true');
-		await dialog.getByLabel('Search symbols', { exact: true }).fill('graduation cap');
-		await dialog.getByRole('button', { name: 'GRADUATION_CAP', exact: true }).click();
-		await expect(dialog.getByRole('button', { name: 'GRADUATION_CAP', exact: true })).toHaveText('\uEF74');
-		await saveButton(dialog);
-		await expect(editor.getByRole('button', { name: 'Monitor undo', exact: true })).toHaveText('\uEF74');
-		expect(errors).toEqual([]);
-	});
-
 	for (const theme of ['light', 'dark']) test(`saves, cancels, and resets font symbol colors in ${theme} mode`, async ({ page }) => {
 		const errors = collectClientErrors(page);
 		let editor = await bootEditor(page, '/embed/en/');
@@ -161,6 +136,26 @@ test.describe('custom toolbar buttons', () => {
 		await expect(button.getByText('\uF39A', { exact: true })).not.toHaveAttribute('style');
 		const themeColor = await button.evaluate((element) => getComputedStyle(element).color);
 		await expect(button.getByText('\uF39A', { exact: true })).toHaveCSS('color', themeColor);
+		if (theme === 'light') {
+			const retained = await openCustomButtonDialog(page, editor);
+			await configureButton(retained, { name: 'Retained undo', action: UNDO_ACTION });
+			await saveButton(retained);
+			const customization = await openCustomization(page, editor);
+			const visibility = customization.getByRole('checkbox', { name: 'Retained undo', exact: true });
+			await expect(visibility).toHaveAttribute('aria-checked', 'true');
+			await visibility.click();
+			await expect(visibility).toHaveAttribute('aria-checked', 'false');
+			await expect(editor.getByRole('button', { name: 'Retained undo', exact: true })).toHaveCount(0);
+			await visibility.click();
+			await expect(visibility).toHaveAttribute('aria-checked', 'true');
+			await page.keyboard.press('Escape');
+			await expect(customization).toBeHidden();
+			const removal = await openCustomButtonDialog(page, editor, 'Colored undo');
+			await removal.getByRole('button', { name: 'Remove button', exact: true }).click();
+			await expect(removal).toBeHidden();
+			await expect(editor.getByRole('button', { name: 'Colored undo', exact: true })).toHaveCount(0);
+			await expect(editor.getByRole('button', { name: 'Retained undo', exact: true })).toHaveCount(1);
+		}
 		expect(errors).toEqual([]);
 	});
 
@@ -236,29 +231,6 @@ test.describe('custom toolbar buttons', () => {
 		expect(errors).toEqual([]);
 	});
 
-	test('chooses symbols from the full font and cancels without adding a button', async ({ page }) => {
-		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
-		const dialog = await openCustomButtonDialog(page, editor);
-		await expect(dialog.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
-		await configureButton(dialog, { name: 'Cancelled custom action', action: 'delete-leave-gap', icon: 'ACCIACCATURA' });
-		await expect(dialog.getByRole('button', { name: 'ACCIACCATURA', exact: true })).toContainText('\uF427');
-		await expect(dialog.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
-		await dialog.getByLabel('Name', { exact: true }).fill('   ');
-		await expect(dialog.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
-		await dialog.getByLabel('Name', { exact: true }).fill('Cancelled custom action');
-		await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
-		await expect(dialog).toBeHidden();
-		await expect(editor.getByRole('button', { name: 'Cancelled custom action', exact: true })).toHaveCount(0);
-
-		const reopened = await openCustomButtonDialog(page, editor);
-		await expect(reopened.getByLabel('Name', { exact: true })).toHaveValue('');
-		await page.keyboard.press('Escape');
-		await expect(reopened).toBeHidden();
-		await expect(editor.getByRole('button', { name: 'Cancelled custom action', exact: true })).toHaveCount(0);
-		expect(errors).toEqual([]);
-	});
-
 	test('persists a button and applies its action to each current selection', async ({ page }) => {
 		test.setTimeout(60_000);
 		const errors = collectClientErrors(page);
@@ -329,65 +301,4 @@ test.describe('custom toolbar buttons', () => {
 		expect(errors).toEqual([]);
 	});
 
-	test('edits, hides, restores, and removes a saved custom button', async ({ page }) => {
-		test.setTimeout(60_000);
-		const errors = collectClientErrors(page);
-		let editor = await bootEditor(page, '/embed/en/');
-		let dialog = await openCustomButtonDialog(page, editor);
-		await configureButton(dialog, { name: 'My undo', action: UNDO_ACTION });
-		await saveButton(dialog);
-		dialog = await openCustomButtonDialog(page, editor, 'My undo');
-		await expect(dialog.getByLabel('Name', { exact: true })).toHaveValue('My undo');
-		await expect(dialog.getByRole('combobox', { name: 'Search actions', exact: true })).toHaveValue(/Undo/u);
-		await configureButton(dialog, { name: 'My redo', action: REDO_ACTION, icon: 'ACCIACCATURA' });
-		await saveButton(dialog);
-		await expect(editor.getByRole('button', { name: 'My undo', exact: true })).toHaveCount(0);
-		await expect(editor.getByRole('button', { name: 'My redo', exact: true })).toContainText('\uF427');
-
-		let customization = await openCustomization(page, editor);
-		const visibility = customization.getByRole('checkbox', { name: 'My redo', exact: true });
-		await expect(visibility).toHaveAttribute('aria-checked', 'true');
-		await visibility.click();
-		await expect(visibility).toHaveAttribute('aria-checked', 'false');
-		await expect(editor.getByRole('button', { name: 'My redo', exact: true })).toHaveCount(0);
-		await page.keyboard.press('Escape');
-		await expect(customization).toBeHidden();
-		await page.reload();
-		editor = await waitForEditor(page);
-		await expect(editor.getByRole('button', { name: 'My redo', exact: true })).toHaveCount(0);
-		customization = await openCustomization(page, editor);
-		await expect(visibility).toHaveAttribute('aria-checked', 'false');
-		await visibility.click();
-		await page.keyboard.press('Escape');
-		await expect(customization).toBeHidden();
-		await expect(editor.getByRole('button', { name: 'My redo', exact: true })).toContainText('\uF427');
-
-		dialog = await openCustomButtonDialog(page, editor, 'My redo');
-		await expect(dialog.getByRole('combobox', { name: 'Search actions', exact: true })).toHaveValue(/Redo/u);
-		await dialog.getByRole('button', { name: 'Remove button', exact: true }).click();
-		await expect(dialog).toBeHidden();
-		await expect(editor.getByRole('button', { name: 'My redo', exact: true })).toHaveCount(0);
-		await page.reload();
-		editor = await waitForEditor(page);
-		customization = await openCustomization(page, editor);
-		await expect(customization.getByRole('checkbox', { name: 'My redo', exact: true })).toHaveCount(0);
-		await expect(customization.getByRole('menuitem', { name: 'Edit My redo', exact: true })).toHaveCount(0);
-		expect(errors).toEqual([]);
-	});
-
-	test('keeps multiple buttons for the same action independent', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
-		for (const name of ['First custom undo', 'Second custom undo']) {
-			const dialog = await openCustomButtonDialog(page, editor);
-			await configureButton(dialog, { name, action: UNDO_ACTION });
-			await saveButton(dialog);
-		}
-		await expect(editor.getByRole('button', { name: 'First custom undo', exact: true })).toHaveCount(1);
-		await expect(editor.getByRole('button', { name: 'Second custom undo', exact: true })).toHaveCount(1);
-		const dialog = await openCustomButtonDialog(page, editor, 'First custom undo');
-		await dialog.getByRole('button', { name: 'Remove button', exact: true }).click();
-		await expect(dialog).toBeHidden();
-		await expect(editor.getByRole('button', { name: 'First custom undo', exact: true })).toHaveCount(0);
-		await expect(editor.getByRole('button', { name: 'Second custom undo', exact: true })).toHaveCount(1);
-	});
 });

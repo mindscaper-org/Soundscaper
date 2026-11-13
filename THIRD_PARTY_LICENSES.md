@@ -697,6 +697,33 @@ Its native backend includes the MIT-licensed `web-audio-api` 1.7.0 Rust core
 (<https://github.com/orottier/web-audio-api-rs/tree/v1.7.0>) and MPL-2.0-licensed
 Symphonia 0.6.0 (<https://github.com/pdeljanov/Symphonia/tree/v0.6.0>).
 
+## Node DOM test runtime
+
+`jsdom` 31.0.0 supplies the DOM host for Node editor integration tests. It is an
+unmodified development dependency, excluded from the browser and packaged
+desktop runtime dependencies. Exact npm archive:
+<https://registry.npmjs.org/jsdom/-/jsdom-31.0.0.tgz>
+(`sha512-xAkhD9z1eyFC5+QUi9K24CaZJgdCQ2GOGLW1GdVDoQvkp/AxEH9TQ0pAplPOlIiV92hfcgnFOADZypbjgbBT6Q==`);
+upstream source and complete license:
+<https://github.com/jsdom/jsdom/tree/825fa8efc1e29ec19e4c17a59d28abfb4aa3dc8e> and
+<https://github.com/jsdom/jsdom/blob/825fa8efc1e29ec19e4c17a59d28abfb4aa3dc8e/LICENSE.txt>.
+Its MIT notice credits Elijah Insua and retains the notices for CSS and
+generated grammar data from Guillaume Lebas, Roman Dvornov, W3C, and Mathias
+Bynens. The same license file preserves the W3C Software and Document License
+(2023) for CSS Color 4 algorithms and Unicode License V3 for Unicode character
+data. The locked dependency closure additionally retains MIT, BSD-3-Clause
+(`tough-cookie` 6.1.0), Apache-2.0 (`xml-name-validator` 5.0.0), and
+BlueOak-1.0.0 (`lru-cache` 11.5.3) terms in its installed license files.
+The optional native canvas peer is not installed for these tests.
+
+`@types/jsdom` 30.0.0 supplies development-only TypeScript declarations under
+MIT; Copyright (c) Microsoft Corporation. Exact npm archive:
+<https://registry.npmjs.org/@types/jsdom/-/jsdom-30.0.0.tgz>
+(`sha512-uAHGxujGE0cDaKGdK28zgDotFtNA7MKq5DXl8LrfdxdCI8VHcg15oJz+amHTChPNI5JpgEPQWc2xFdrw3em/nQ==`);
+source: <https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/jsdom>.
+Neither the DOM test host nor its declarations are included in normal product
+bundles or in the browser-only `nightly-with-tests` tooling closure.
+
 ## Nightly-with-tests diagnostic tooling
 
 The opt-in `nightly-with-tests` CI artifact is a diagnostic test runner, not a

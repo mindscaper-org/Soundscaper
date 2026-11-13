@@ -27,6 +27,13 @@ import { OPENFX_TEST_FIXTURE_ENV, openFxTestFixtureArtifacts } from './lib/node-
 import { NATIVE_TEST_FIXTURE_ENV } from './lib/node-native-test-fixtures.ts';
 import { selectedNativeTestFixtures } from './lib/node-native-test-fixture-recipes.ts';
 import { DesktopRuntimeFixtureCompatibilityError, validateDesktopRuntimeTestArtifact } from './lib/node-test-desktop-runtime-artifact.ts';
+import { COVERAGE_TEST_LAYERS } from './lib/e2e-coverage-layer-policy.mjs';
+import {
+	prepareQualifiedNodeArtifacts,
+	QUALIFIED_NODE_MANIFEST_ENV,
+	QUALIFIED_NODE_OUTPUT_ENV,
+	QUALIFIED_NODE_TESTS_ENV,
+} from './lib/qualified-node-artifacts.ts';
 
 const root = resolve(import.meta.dirname, '..');
 const argv = process.argv.slice(2);
@@ -73,6 +80,7 @@ if (testFiles.length === 0) {
 		if (coverageArgument !== undefined) {
 			const coverageDirectory = resolve(root, coverageArgument.slice('--coverage-directory='.length));
 			rmSync(coverageDirectory, { recursive: true, force: true });
+			rmSync(`${coverageDirectory}-qualified`, { recursive: true, force: true });
 			mkdirSync(coverageDirectory, { recursive: true });
 			writeFileSync(join(coverageDirectory, 'empty-module-selection.json'), JSON.stringify({ result: [] }));
 		}
@@ -85,6 +93,9 @@ if (testFiles.length === 0) {
 const env = { ...process.env };
 // A test may start a runner in a fixture checkout with a different inventory.
 delete env.SCAPE_MODULE_PLAN;
+delete env[QUALIFIED_NODE_MANIFEST_ENV];
+delete env[QUALIFIED_NODE_OUTPUT_ENV];
+delete env[QUALIFIED_NODE_TESTS_ENV];
 const checkAllProgress = env.SCAPE_CHECK_ALL_PROGRESS === '1';
 // A fixture may invoke its own runner in a temporary checkout.
 delete env.SCAPE_CHECK_ALL_PROGRESS;
@@ -95,6 +106,7 @@ if (requireLinuxNative) {
 	requiredNativeReportPath = join(requiredNativeReportDirectory, 'skips.txt');
 	env[REQUIRED_LINUX_NATIVE_SKIP_REPORT_ENV] = requiredNativeReportPath;
 }
+const qualifiedTestFiles = new Set();
 if (coverageArgument !== undefined) {
 	// Raw V8 profiles are collected directly rather than through c8: a shard only
 	// has to hand its range data to the job that checks the thresholds over the
@@ -103,6 +115,21 @@ if (coverageArgument !== undefined) {
 	rmSync(coverageDirectory, { recursive: true, force: true });
 	mkdirSync(coverageDirectory, { recursive: true });
 	env.NODE_V8_COVERAGE = coverageDirectory;
+	const qualifiedOutput = `${coverageDirectory}-qualified`;
+	rmSync(qualifiedOutput, { recursive: true, force: true });
+	const qualified = prepareQualifiedNodeArtifacts({
+		repositoryRoot: root,
+		policy: COVERAGE_TEST_LAYERS,
+		selectedTestFiles: testFiles,
+		outputRoot: qualifiedOutput,
+		expectedRevision: spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).stdout?.trim(),
+	});
+	if (qualified !== null) {
+		env[QUALIFIED_NODE_MANIFEST_ENV] = qualified.manifestPath;
+		env[QUALIFIED_NODE_OUTPUT_ENV] = qualified.captureDirectory;
+		for (const test of qualified.manifest.selectedTests) qualifiedTestFiles.add(resolve(root, test.path));
+		env[QUALIFIED_NODE_TESTS_ENV] = JSON.stringify([...qualifiedTestFiles]);
+	}
 }
 
 const styleAssetLoader = resolve(root, 'scripts/node-style-asset-loader.mjs');
@@ -172,6 +199,7 @@ try {
 		if (nativeFixtureDirectory !== null) env[NATIVE_TEST_FIXTURE_ENV] = nativeFixtureDirectory;
 		const result = spawnSync(process.execPath, [
 			...(useLoaders ? ['--import', 'tsx', '--import', styleAssetLoader] : []),
+			...(batch.some(file => qualifiedTestFiles.has(file)) ? ['--import', resolve(root, 'scripts/qualified-node-dispatch.mjs')] : []),
 			...(env.SCAPE_NODE_TEST_CONCURRENCY ? [`--test-concurrency=${env.SCAPE_NODE_TEST_CONCURRENCY}`] : []),
 			...(checkAllProgress ? ['--test-concurrency=2', '--test-reporter', checkAllReporter]
 				: requireLinuxNative ? ['--test-reporter', requiredNativeReporter] : []),

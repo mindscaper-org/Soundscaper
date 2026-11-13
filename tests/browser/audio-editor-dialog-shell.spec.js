@@ -63,17 +63,28 @@ test.describe('shared audio editor dialog behavior', () => {
 
 		await page.keyboard.press('Escape');
 		await expect(dialog).toBeHidden();
+
+		await test.step("offers Tone waveforms and amplitude endpoints in the Chirp generator", async () => {
+			await chooseCommand(page, editor, 'Generate', 'Chirp');
+			const dialog = page.getByRole('dialog', { name: 'Chirp', exact: true });
+			const waveform = dialog.getByRole('button', { name: /^Waveform(?::|$)/u });
+			const startAmplitude = dialog.locator('[data-generator-field="startAmplitude"] input');
+			const endAmplitude = dialog.locator('[data-generator-field="endAmplitude"] input');
+
+			await expect(waveform).toBeEnabled();
+			await expect(startAmplitude).toHaveAttribute('aria-label', 'Start amplitude (0–1)');
+			await expect(endAmplitude).toHaveAttribute('aria-label', 'End amplitude (0–1)');
+			await expect(startAmplitude).toHaveValue('0.8');
+			await expect(endAmplitude).toHaveValue('0.8');
+			await waveform.click();
+			const options = page.getByRole('listbox').getByRole('option');
+			await expect(options).toHaveText(['Sine', 'Square', 'Sawtooth']);
+			await page.getByRole('option', { name: 'Square', exact: true }).click();
+			await expect(waveform.locator('.dropdown__text')).toHaveText('Square');
+
+		});
 	});
 
-	test('keeps frequency units out of temporal format menus', async ({ page }) => {
-		const editor = await bootEditor(page);
-		await editor.locator('[data-time-display] .timecode__format-button').click();
-		const menu = page.locator('.context-menu').filter({
-			has: page.getByRole('menuitem', { name: 'seconds', exact: true }),
-		});
-		await expect(menu).toBeVisible();
-		await expect(menu.getByRole('menuitem', { name: 'Hz', exact: true })).toHaveCount(0);
-	});
 
 	test('uses numeric clip seconds and lowercase selectable selection timecodes', async ({ page }) => {
 		const editor = await bootEditor(page);
@@ -147,25 +158,6 @@ test.describe('shared audio editor dialog behavior', () => {
 		await expect(playback.locator('.timecode-digit')).toHaveText([...('2'.padStart(12, '0'))]);
 	});
 
-	test('offers Tone waveforms and amplitude endpoints in the Chirp generator', async ({ page }) => {
-		const editor = await bootEditor(page);
-		await chooseCommand(page, editor, 'Generate', 'Chirp');
-		const dialog = page.getByRole('dialog', { name: 'Chirp', exact: true });
-		const waveform = dialog.getByRole('button', { name: /^Waveform(?::|$)/u });
-		const startAmplitude = dialog.locator('[data-generator-field="startAmplitude"] input');
-		const endAmplitude = dialog.locator('[data-generator-field="endAmplitude"] input');
-
-		await expect(waveform).toBeEnabled();
-		await expect(startAmplitude).toHaveAttribute('aria-label', 'Start amplitude (0–1)');
-		await expect(endAmplitude).toHaveAttribute('aria-label', 'End amplitude (0–1)');
-		await expect(startAmplitude).toHaveValue('0.8');
-		await expect(endAmplitude).toHaveValue('0.8');
-		await waveform.click();
-		const options = page.getByRole('listbox').getByRole('option');
-		await expect(options).toHaveText(['Sine', 'Square', 'Sawtooth']);
-		await page.getByRole('option', { name: 'Square', exact: true }).click();
-		await expect(waveform.locator('.dropdown__text')).toHaveText('Square');
-	});
 
 	test('keeps dialog number steppers centered, single-surfaced, and theme-owned', async ({ page }) => {
 		const editor = await bootEditor(page);
@@ -392,6 +384,8 @@ async function holdDialogFrames(page) {
 
 async function chooseTimeCodeFormat(page, timer, group, label, keyboard = false) {
 	await timer.getByRole('button').click();
+	await expect(page.getByRole('menuitem', { name: 'seconds', exact: true })).toBeVisible();
+	await expect(page.getByRole('menuitem', { name: 'Hz', exact: true })).toHaveCount(0);
 	const submenu = getMenuItem(page, group);
 	if (keyboard) {
 		await submenu.focus();

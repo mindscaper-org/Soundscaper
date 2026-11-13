@@ -116,6 +116,13 @@ async function fixture(context: test.TestContext, mode: 'success' | 'failure' | 
 		writeFile(join(root, 'node_modules/tsx/package.json'), '{"type":"module","exports":"./index.mjs"}'),
 		writeFile(join(root, 'node_modules/tsx/index.mjs'), 'export {};'),
 		writeFile(join(root, 'scripts/lib/fixture-control.mjs'), CONTROL_SOURCE),
+		writeFile(join(root, 'scripts/lib/e2e-coverage-layer-policy.mjs'), 'export const COVERAGE_TEST_LAYERS = { sources: [] };'),
+		writeFile(join(root, 'scripts/lib/qualified-node-artifacts.ts'), [
+			'export const QUALIFIED_NODE_MANIFEST_ENV = "SCAPE_QUALIFIED_NODE_MANIFEST";',
+			'export const QUALIFIED_NODE_OUTPUT_ENV = "SCAPE_QUALIFIED_NODE_OUTPUT";',
+			'export const QUALIFIED_NODE_TESTS_ENV = "SCAPE_QUALIFIED_NODE_TESTS";',
+			'export const prepareQualifiedNodeArtifacts = () => { throw new Error("A non-coverage run must not prepare qualified artifacts."); };',
+		].join('\n')),
 		writeFile(join(root, 'scripts/lib/node-test-bootstrap.mjs'),
 			`export const partitionNodeTestBootstrapBatches = (_root, files) => [{ files, useLoaders: ${String(useLoaders)} }];`),
 		writeFile(join(root, 'scripts/lib/node-test-shards.mjs'), [

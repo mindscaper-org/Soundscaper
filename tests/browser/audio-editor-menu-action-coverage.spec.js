@@ -13,31 +13,6 @@ import {
 } from './audio-editor-test-helpers.js';
 
 test.describe('application menu action journeys', () => {
-	test('View visibility items use open and closed eyes while recording and snapping retain checks', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
-		const viewMenu = await openNestedCommandMenu(page, editor, 'View', []);
-		const eye = (item) => item.locator(':scope > .context-menu-item-content .context-menu-item-icon .musescore-icon');
-
-		const rulers = getMenuItem(viewMenu, 'Vertical rulers');
-		await expect(rulers).toHaveAttribute('aria-checked', 'true');
-		await expect(eye(rulers)).toHaveText('\uEF53');
-		const rms = getMenuItem(viewMenu, 'RMS in waveform');
-		await expect(rms).toHaveAttribute('aria-checked', 'false');
-		await expect(eye(rms)).toHaveText('\uEF54');
-		for (const label of ['Fade shape handles', 'Clipping in waveform', 'Master track', 'Markers', 'Status bar']) {
-			await expect(eye(getMenuItem(viewMenu, label))).toHaveCount(1);
-		}
-		await expect(eye(getMenuItem(viewMenu, 'Enable multi-track recording'))).toHaveCount(0);
-
-		const panels = await openNestedCommandMenu(page, editor, 'Window', []);
-		for (const label of ['Project bin', 'Video preview', 'Effects']) {
-			await expect(eye(getMenuItem(panels, label))).toHaveCount(1);
-		}
-		await expect(getMenuItem(panels, 'Tracks panel')).toHaveCount(0);
-
-		const snapping = await openNestedCommandMenu(page, editor, 'View', ['Snapping']);
-		await expect(eye(getMenuItem(snapping, 'Snap to grid'))).toHaveCount(0);
-	});
 
 	test('routes view, track, and ripple edits through their visible menus', async ({ page }) => {
 		const errors = collectClientErrors(page);
@@ -112,6 +87,32 @@ test.describe('application menu action journeys', () => {
 		await expect(getMenuItem(viewMenu, 'Status bar')).toHaveAttribute('aria-checked', 'true');
 		await page.keyboard.press('Escape');
 		expect(errors).toEqual([]);
+
+		await test.step("View visibility items use open and closed eyes while recording and snapping retain checks", async () => {
+			const viewMenu = await openNestedCommandMenu(page, editor, 'View', []);
+			const eye = (item) => item.locator(':scope > .context-menu-item-content .context-menu-item-icon .musescore-icon');
+
+			const rulers = getMenuItem(viewMenu, 'Vertical rulers');
+			await expect(rulers).toHaveAttribute('aria-checked', 'true');
+			await expect(eye(rulers)).toHaveText('\uEF53');
+			const rms = getMenuItem(viewMenu, 'RMS in waveform');
+			await expect(rms).toHaveAttribute('aria-checked', 'false');
+			await expect(eye(rms)).toHaveText('\uEF54');
+			for (const label of ['Fade shape handles', 'Clipping in waveform', 'Master track', 'Markers', 'Status bar']) {
+				await expect(eye(getMenuItem(viewMenu, label))).toHaveCount(1);
+			}
+			await expect(eye(getMenuItem(viewMenu, 'Enable multi-track recording'))).toHaveCount(0);
+
+			const panels = await openNestedCommandMenu(page, editor, 'Window', []);
+			for (const label of ['Project bin', 'Video preview', 'Effects']) {
+				await expect(eye(getMenuItem(panels, label))).toHaveCount(1);
+			}
+			await expect(getMenuItem(panels, 'Tracks panel')).toHaveCount(0);
+
+			const snapping = await openNestedCommandMenu(page, editor, 'View', ['Snapping']);
+			await expect(eye(getMenuItem(snapping, 'Snap to grid'))).toHaveCount(0);
+
+		});
 	});
 });
 
