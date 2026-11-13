@@ -78,6 +78,30 @@ for (const product of ['soundscaper', 'framescaper']) {
 	test.describe(`${product} skin contrast`, () => {
 		registerAudioEditorHooks();
 		const path = product === 'soundscaper' ? '/embed/en/' : '/framescaper/embed/en/';
+		for (const mode of ['Light', 'Dark']) {
+			test(`high-contrast/${mode} keeps track headings, labels, rulers and meters readable`, async ({ page }, testInfo) => {
+				const editor = await bootEditor(page, path);
+				await importFiles(editor, [monoTone]);
+				await chooseCommandAction(page, editor, 'Edit', 'Add label');
+				await page.keyboard.press('Escape');
+				const dialog = await appearance(page, editor);
+				await dialog.getByRole('radio', { name: mode, exact: true }).click();
+				await dialog.getByRole('button', { name: 'High-contrast theme', exact: true }).click();
+				await expect(editor).toHaveAttribute('data-editor-skin', 'high-contrast');
+				await expect(page.locator('html')).toHaveAttribute('data-theme', mode.toLowerCase());
+				await dialog.getByRole('button', { name: 'Close', exact: true }).last().click();
+				await contrast(editor.locator('.audio-editor-ruler-corner'));
+				await contrast(editor.locator('.audio-editor-label-track-title [data-track-name]'));
+				// Framescaper exposes playback metering; Soundscaper also has recording metering.
+				const meters = product === 'soundscaper' ? ['playback-meter', 'recording-meter'] : ['playback-meter'];
+				for (const panel of meters) {
+					await contrast(editor.locator(`[data-workspace-panel="${panel}"] .kw-audio-editor__playback-meter-ruler span`));
+				}
+				await contrast(editor.locator('.audio-editor-vertical-ruler .vertical-ruler__label'));
+				await contrast(editor.locator('.vertical-ruler__tick-mark'), 'backgroundColor', 3, true);
+				await capturePassingScreenshot(page, { path: testInfo.outputPath(`High-contrast-${mode}.png`) });
+			});
+		}
 		for (const skin of ['sakura', 'lilac', 'techno']) {
 			for (const mode of ['Light', 'Dark']) {
 				test(`${skin}/${mode} scale, dialogs, buttons, checkboxes and portals`, async ({ page }) => {
@@ -124,6 +148,11 @@ for (const product of ['soundscaper', 'framescaper']) {
 					await expect(labels.first()).toBeVisible();
 					await expect(page.locator('html')).toHaveAttribute('data-theme', mode.toLowerCase());
 					await contrast(labels);
+					const rulerBackground = await editor.locator('.audio-editor-vertical-ruler').first()
+						.evaluate((node) => getComputedStyle(node).backgroundColor);
+					// The rightmost gradient continues the ruler through empty timeline space.
+					await expect(editor.locator('.audio-editor-timeline-scroll'))
+						.toHaveCSS('background-image', new RegExp(`${rulerBackground.replace(/[()]/gu, '\\$&')} 1px\\)`));
 					await contrast(editor.locator('.vertical-ruler__tick-mark'), 'backgroundColor', 3, true);
 					if (product === 'soundscaper') {
 						await chooseNestedCommandAction(page, editor, 'View', ['Workspace', 'Audacity']);

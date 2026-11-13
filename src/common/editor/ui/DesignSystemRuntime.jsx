@@ -140,7 +140,7 @@ export function useAudioEditorThemeVariables() {
 			'--text': mode === 'dark' ? '#ffffff' : '#000000',
 			'--muted': mode === 'dark' ? '#eeeeee' : '#222222',
 			'--stage': '#000000',
-			'--stage-raised': mode === 'dark' ? '#000000' : '#111111',
+			'--stage-raised': mode === 'dark' ? '#000000' : '#ffffff',
 		} : {}),
 		colorScheme: mode,
 	}), [theme, mode, skin]);
