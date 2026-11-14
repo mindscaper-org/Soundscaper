@@ -126,6 +126,8 @@
 		,
 		{ "path": "scripts/lib/e2e-v8-function-topology.mjs", "kind": "upstream-contract", "justification": "e2e-v8-function-topology.mjs validates the upstream V8 function coverage topology and does not identify project schema." }
 		,
+		{ "path": "scripts/lib/e2e-v8-source-topology.mjs", "kind": "upstream-contract", "justification": "e2e-v8-source-topology.mjs derives source topology for the upstream V8 coverage format and does not identify project schema." }
+		,
 		{ "path": "scripts/lib/e2e-v8-topology.mjs", "kind": "upstream-contract", "justification": "e2e-v8-topology.mjs validates the upstream V8 coverage topology and does not identify project schema." }
 		,
 		{ "path": "scripts/lib/m5b-quality-observations-v2.mjs", "kind": "external-contract", "justification": "m5b-quality-observations-v2.mjs names the retained quality-evidence pipeline revision consumed by repository automation." }
