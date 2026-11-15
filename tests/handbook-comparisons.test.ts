@@ -107,10 +107,11 @@ test('generated pairwise tables keep accessible verdicts, details, row headings,
 	assert.ok(document.querySelector('[aria-label="Supported"]'));
 });
 
-test('the committed derivative pages match the main table, including Web and all nine other editors', async () => {
+test('the committed derivative pages match the main table, including Web and all ten other editors', async () => {
 	const source = await readFile(COMPARISON_SOURCE, 'utf8');
 	const pages = renderComparisonDocuments(source);
-	assert.equal(pages.size, 11);
+	assert.equal(pages.size, 12);
+	assert.ok(pages.has('soundscaper-vs-reaper.md'));
 	for (const [name, content] of pages) assert.equal(await readFile(join(GENERATED_COMPARISON_DIRECTORY, name), 'utf8'), content, name);
 	assert.deepEqual((await generateComparisonDocuments(process.cwd(), { write: false })).stale, []);
 });

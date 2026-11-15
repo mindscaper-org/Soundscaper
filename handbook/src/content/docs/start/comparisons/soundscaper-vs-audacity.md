@@ -45,6 +45,7 @@ Compare Soundscaper Desktop with Audacity 4.0.2. For all editors, reviewed sourc
 | Track templates with routing | / | / |
 | Named session snapshots | / | / |
 | Selection and view memories | / | / |
+| Nested subprojects with automatic proxy updates | / | / |
 
 Desktop projects reference original media by default. Consolidate media before moving them; see [project files](/projects-and-data/project-files/). [Recording notes](/soundscaper/recording/) travel with the project.
 
@@ -57,6 +58,7 @@ formats that reference separate files.
 | Format | Soundscaper<br>Desktop | Audacity<br>4.0.2 |
 | --- | --- | --- |
 | Soundscaper (`.sscape`) | + — :: Original media is referenced by default; consolidation bundles it for portability. | / |
+| REAPER (`.rpp`) | / | / |
 | Audacity (`.aup`) | ~ — Import :: Imports the legacy project and its companion media; no AUP export. | ~ — Import :: Opens legacy AUP projects; saves as AUP4. |
 | Audacity (`.aup3`) | + — :: Audio-only import/export, with a compatibility report; Soundscaper-only state can be omitted. | ~ — Import :: Opens AUP3 projects; saves as AUP4, with no AUP3 export. |
 | Audacity (`.aup4`) | + — :: Audio-only import/export, with a compatibility report; Soundscaper-only state can be omitted. | + |
@@ -76,6 +78,7 @@ formats that reference separate files.
 | Capability | Soundscaper<br>Desktop | Audacity<br>4.0.2 |
 | --- | --- | --- |
 | Multitrack recording | + | ~ — One device |
+| Simultaneous recording to primary and backup paths | / | / |
 | Microphone and desktop audio together | + — OS-dependent :: Microphone plus Windows desktop loopback; other systems use a loopback input | / |
 | Timed recording | + | / — :: Disabled in Audacity 4.0.2. |
 | Sound-activated recording | + | / — :: Disabled in Audacity 4.0.2. |
@@ -273,6 +276,7 @@ A repeating timeline clip alone does not provide a clip launcher.
 | MIDI timecode send / chase | / | / |
 | CV/gate hardware integration | / | / |
 | OSC remote control | / | / |
+| Interval-synchronised network jamming | / | / |
 
 ## Mixing, routing, and automation
 

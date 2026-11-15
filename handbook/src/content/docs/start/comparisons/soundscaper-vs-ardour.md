@@ -45,6 +45,7 @@ Compare Soundscaper Desktop with Ardour 9.10. For all editors, reviewed sources,
 | Track templates with routing | / | + — Track templates |
 | Named session snapshots | / | + — :: Stores alternate named session states sharing the same media, accessible from the snapshot list; ordinary Save As copies are not counted here. |
 | Selection and view memories | / | / |
+| Nested subprojects with automatic proxy updates | / | / |
 
 Desktop projects reference original media by default. Consolidate media before moving them; see [project files](/projects-and-data/project-files/). [Recording notes](/soundscaper/recording/) travel with the project.
 
@@ -57,6 +58,7 @@ formats that reference separate files.
 | Format | Soundscaper<br>Desktop | Ardour<br>9.10 |
 | --- | --- | --- |
 | Soundscaper (`.sscape`) | + — :: Original media is referenced by default; consolidation bundles it for portability. | / |
+| REAPER (`.rpp`) | / | / |
 | Audacity (`.aup`) | ~ — Import :: Imports the legacy project and its companion media; no AUP export. | / |
 | Audacity (`.aup3`) | + — :: Audio-only import/export, with a compatibility report; Soundscaper-only state can be omitted. | / |
 | Audacity (`.aup4`) | + — :: Audio-only import/export, with a compatibility report; Soundscaper-only state can be omitted. | / |
@@ -76,6 +78,7 @@ formats that reference separate files.
 | Capability | Soundscaper<br>Desktop | Ardour<br>9.10 |
 | --- | --- | --- |
 | Multitrack recording | + | + |
+| Simultaneous recording to primary and backup paths | / | / |
 | Microphone and desktop audio together | + — OS-dependent :: Microphone plus Windows desktop loopback; other systems use a loopback input | ~ — OS routing :: Requires suitable system loopback, JACK or PipeWire routing, rather than a built-in desktop-audio capture picker. |
 | Timed recording | + | / |
 | Sound-activated recording | + | + — Lua processor :: The bundled Voice/Level Activate processor starts transport above a level threshold; armed tracks then record. |
@@ -273,6 +276,7 @@ A repeating timeline clip alone does not provide a clip launcher.
 | MIDI timecode send / chase | / | + |
 | CV/gate hardware integration | / | / |
 | OSC remote control | / | + — OSC surface |
+| Interval-synchronised network jamming | / | / |
 
 ## Mixing, routing, and automation
 

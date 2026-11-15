@@ -45,6 +45,7 @@ Compare Soundscaper Desktop with Hindenburg Pro 2. For all editors, reviewed sou
 | Track templates with routing | / | / |
 | Named session snapshots | / | / |
 | Selection and view memories | / | / |
+| Nested subprojects with automatic proxy updates | / | / |
 
 Desktop projects reference original media by default. Consolidate media before moving them; see [project files](/projects-and-data/project-files/). [Recording notes](/soundscaper/recording/) travel with the project.
 
@@ -57,6 +58,7 @@ formats that reference separate files.
 | Format | Soundscaper<br>Desktop | Hindenburg<br>Pro 2 |
 | --- | --- | --- |
 | Soundscaper (`.sscape`) | + — :: Original media is referenced by default; consolidation bundles it for portability. | / |
+| REAPER (`.rpp`) | / | / |
 | Audacity (`.aup`) | ~ — Import :: Imports the legacy project and its companion media; no AUP export. | / |
 | Audacity (`.aup3`) | + — :: Audio-only import/export, with a compatibility report; Soundscaper-only state can be omitted. | / |
 | Audacity (`.aup4`) | + — :: Audio-only import/export, with a compatibility report; Soundscaper-only state can be omitted. | / |
@@ -76,6 +78,7 @@ formats that reference separate files.
 | Capability | Soundscaper<br>Desktop | Hindenburg<br>Pro 2 |
 | --- | --- | --- |
 | Multitrack recording | + | + |
+| Simultaneous recording to primary and backup paths | / | / |
 | Microphone and desktop audio together | + — OS-dependent :: Microphone plus Windows desktop loopback; other systems use a loopback input | + — Audio Device :: Hindenburg Audio Device routes application and system audio alongside microphone inputs. |
 | Timed recording | + | / |
 | Sound-activated recording | + | / |
@@ -273,6 +276,7 @@ A repeating timeline clip alone does not provide a clip launcher.
 | MIDI timecode send / chase | / | / |
 | CV/gate hardware integration | / | / |
 | OSC remote control | / | / |
+| Interval-synchronised network jamming | / | / |
 
 ## Mixing, routing, and automation
 

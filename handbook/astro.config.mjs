@@ -77,7 +77,7 @@ export default defineConfig({
 				[rehypeComparisonLayout, { groups: [
 					{ label: 'Audio focus', families: [
 						['Soundscaper Web', 'Soundscaper Desktop', 'Audacity'],
-						['Audition'], ['Ardour'], ['Hindenburg Pro'], ['Pro Tools Studio', 'SoundCraft'],
+						['Audition'], ['Ardour'], ['REAPER'], ['Hindenburg Pro'], ['Pro Tools Studio', 'SoundCraft'],
 					] },
 					{ label: 'MIDI focus', families: [['FL Studio'], ['Ableton Live', 'Bitwig Studio']] },
 				] }],

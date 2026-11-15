@@ -45,6 +45,7 @@ Compare Soundscaper Desktop with Ableton Live 13 Suite (beta). For all editors, 
 | Track templates with routing | / | + — Saved tracks :: Reuses complete tracks or groups from Live Sets, including their devices and saved routing. |
 | Named session snapshots | / | / |
 | Selection and view memories | / | / |
+| Nested subprojects with automatic proxy updates | / | / |
 
 Desktop projects reference original media by default. Consolidate media before moving them; see [project files](/projects-and-data/project-files/). [Recording notes](/soundscaper/recording/) travel with the project.
 
@@ -57,6 +58,7 @@ formats that reference separate files.
 | Format | Soundscaper<br>Desktop | Ableton Live<br>13 Suite (beta) |
 | --- | --- | --- |
 | Soundscaper (`.sscape`) | + — :: Original media is referenced by default; consolidation bundles it for portability. | / |
+| REAPER (`.rpp`) | / | / |
 | Audacity (`.aup`) | ~ — Import :: Imports the legacy project and its companion media; no AUP export. | / |
 | Audacity (`.aup3`) | + — :: Audio-only import/export, with a compatibility report; Soundscaper-only state can be omitted. | / |
 | Audacity (`.aup4`) | + — :: Audio-only import/export, with a compatibility report; Soundscaper-only state can be omitted. | / |
@@ -76,6 +78,7 @@ formats that reference separate files.
 | Capability | Soundscaper<br>Desktop | Ableton Live<br>13 Suite (beta) |
 | --- | --- | --- |
 | Multitrack recording | + | + |
+| Simultaneous recording to primary and backup paths | / | / |
 | Microphone and desktop audio together | + — OS-dependent :: Microphone plus Windows desktop loopback; other systems use a loopback input | ~ — Loopback routing |
 | Timed recording | + | / |
 | Sound-activated recording | + | / |
@@ -273,6 +276,7 @@ A repeating timeline clip alone does not provide a clip launcher.
 | MIDI timecode send / chase | / | / |
 | CV/gate hardware integration | / | + — CV Tools :: Included first-party pack; pitch, clock, triggers, and control signals need a compatible DC-coupled interface. |
 | OSC remote control | / | / — :: Custom Max patches or external bridges can add OSC; no supplied OSC control surface is documented. |
+| Interval-synchronised network jamming | / | / |
 
 ## Mixing, routing, and automation
 

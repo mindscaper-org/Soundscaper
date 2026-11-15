@@ -13,6 +13,7 @@ Compare Soundscaper Desktop with one other editor. Each page includes every capa
 - [Soundscaper vs Audacity 4.0.2](/start/comparisons/soundscaper-vs-audacity/)
 - [Soundscaper vs Audition](/start/comparisons/soundscaper-vs-audition/)
 - [Soundscaper vs Ardour 9.10](/start/comparisons/soundscaper-vs-ardour/)
+- [Soundscaper vs REAPER 7.86](/start/comparisons/soundscaper-vs-reaper/)
 - [Soundscaper vs Hindenburg Pro 2](/start/comparisons/soundscaper-vs-hindenburg/)
 - [Soundscaper vs Pro Tools Studio](/start/comparisons/soundscaper-vs-pro-tools/)
 - [Soundscaper vs SoundCraft 0.19.0](/start/comparisons/soundscaper-vs-soundcraft/)
