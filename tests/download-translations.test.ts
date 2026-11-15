@@ -13,7 +13,7 @@ import { assessTranslationCatalog, readTranslationCatalog, listTranslationCatalo
 import { runCli } from '../scripts/i18n-ai/cli.mjs';
 import { currentTranslations } from '../src/common/i18n/translation-catalog-validation.ts';
 import { DOWNLOAD_ENGLISH_COPY, formatDownloadCopy } from '../src/common/site/download-copy.ts';
-import { DOWNLOAD_LOCALES } from '../src/common/site/download-localization.ts';
+import { downloadCopyForLocale, DOWNLOAD_LOCALES } from '../src/common/site/download-localization.ts';
 
 const directory = fileURLToPath(new URL('../src/common/site/download-translations/', import.meta.url));
 
@@ -36,6 +36,18 @@ test('download translations retire changed English and preserve literal placehol
 	assert.equal(copy.title, undefined);
 	assert.equal(copy.other, 'Andere Downloads');
 	assert.equal(formatDownloadCopy('{name} {name}', { name: '$& <script>' }), '$& <script> $& <script>');
+});
+
+test('download copy falls back to English for locales without a scoped catalog', async () => {
+	for (const locale of ['en', 'en-GB', 'xx-ZZ']) {
+		assert.equal(await downloadCopyForLocale(locale), DOWNLOAD_ENGLISH_COPY, locale);
+	}
+});
+
+test('download copy preserves missing placeholders and accepts empty parameter values', () => {
+	assert.equal(formatDownloadCopy('Download {name} for {architecture}', { name: 'Soundscaper' }), 'Download Soundscaper for {architecture}');
+	assert.equal(formatDownloadCopy('Download {name}'), 'Download {name}');
+	assert.equal(formatDownloadCopy('Download{name}', { name: '' }), 'Download');
 });
 
 test('translation CLI packets and replay use the supplied source inventory and catalog directory', async () => {
