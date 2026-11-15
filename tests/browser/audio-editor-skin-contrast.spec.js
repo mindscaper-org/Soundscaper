@@ -152,7 +152,7 @@ for (const product of ['soundscaper', 'framescaper']) {
 						.evaluate((node) => getComputedStyle(node).backgroundColor);
 					// The rightmost gradient continues the ruler through empty timeline space.
 					await expect(editor.locator('.audio-editor-timeline-scroll'))
-						.toHaveCSS('background-image', new RegExp(`${rulerBackground.replace(/[()]/gu, '\\$&')} 1px\\)`));
+						.toHaveCSS('background-image', new RegExp(`${RegExp.escape(rulerBackground)} 1px\\)`));
 					await contrast(editor.locator('.vertical-ruler__tick-mark'), 'backgroundColor', 3, true);
 					if (product === 'soundscaper') {
 						await chooseNestedCommandAction(page, editor, 'View', ['Workspace', 'Audacity']);

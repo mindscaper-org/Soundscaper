@@ -24,7 +24,7 @@ function fixture(context: TestContext, source: string) {
 	};
 	for (const [index, path] of sourcePaths.entries()) {
 		write(path, source);
-		write(testPaths[index]!, `import assert from 'node:assert/strict';import test from 'node:test';import{choose}from'../${path}';test('actual source outcomes',()=>{assert.equal(choose(true),1);if(process.env.SCAPE_PARTIAL_SOURCE!==${JSON.stringify(String(index))})assert.equal(choose(false),2);});\n`);
+		write(testPaths[index]!, `import assert from 'node:assert/strict';import test from 'node:test';import{choose}from'../${path}';test('actual source outcomes',()=>{assert.equal(choose(true),1);if(process.env.SCAPE_PARTIAL_SOURCE!==String(${index}))assert.equal(choose(false),2);});\n`);
 	}
 	write('tests/browser/example.spec.js', '// Unit policy fixture; native runtime custody is checked separately.\n');
 	write('package.json', '{"type":"module"}\n'); write('package-lock.json', readFileSync(join(repositoryRoot, 'package-lock.json')));
