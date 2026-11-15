@@ -46,7 +46,7 @@ const cases: readonly [string, HeadersInit, readonly string[]][] = [
 for (const [name, headers, visible] of cases) {
 	test(`${name} keeps every nonmatching package inside closed Other downloads`, async () => {
 		const html = await (await page(headers)).text();
-		const details = /<details\b[\s\S]*?<\/details>/u.exec(html)?.[0];
+		const details = /<details class="other-downloads"[^>]*>[\s\S]*?<\/details>/u.exec(html)?.[0];
 		assert.ok(details);
 		assert.match(details, /<summary>Other downloads<\/summary>/u);
 		assert.doesNotMatch(details, /^<details[^>]*\sopen(?:\s|>|=)/u);
