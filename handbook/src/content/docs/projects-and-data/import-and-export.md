@@ -62,6 +62,14 @@ Choose **Cancel** beside the bar to stop an import or audio export.
   conversion to audio-time regions before import; overlapping Ardour layers
   become additive cuts and are reported. Save the imported project
   as Scape; these formats are import-only.
+- Pro Tools sessions (`.ptx`, `.ptf`, `.pts`) open through **File → Open** or
+  **File → Import** for supported audio-edit layouts. In a browser, import the
+  session and its referenced audio together; desktop can locate the session's
+  **Audio Files** folder. Imports retain track names, clip positions, source
+  trims and stereo channel lanes. Missing audio stays offline. Mix settings,
+  plug-ins, automation, fades, MIDI and other unsupported authoring are listed
+  in **File → Delivery Report**. Review the imported cuts against the original
+  session, then save as Scape. Pro Tools export is not available.
 
 See [Project files](/projects-and-data/project-files/) for the consequences of
 each choice.

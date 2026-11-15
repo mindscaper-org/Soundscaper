@@ -45,6 +45,18 @@ project mapping; it does not bundle or execute the Python converter.
 Independent format evidence and validation limits are recorded in
 [the interoperability notes](docs/features/legacy-ses-import.md).
 
+## Pro Tools session format reference
+
+The native `.pts`, `.ptf` and `.ptx` audio reader uses wire-layout research from
+[`zamaudio/ptformat`](https://github.com/zamaudio/ptformat), revision
+`af15ee90825f59b84b9977591862cce96bb1d781`. Copyright (C) 2015–2019 Damien
+Zammit and Robin Gareus; LGPL-2.1-or-later. The [complete upstream license](LICENSES/libptformat-LGPL-2.1.txt)
+is retained. Soundscaper's bounded TypeScript reader is an original implementation
+of the format facts; upstream C++ and regression session files are not bundled.
+The optional [format audit](docs/features/pro-tools-import.md) downloads
+digest-pinned reference sources and sessions, compiles a temporary reader,
+compares audio cuts, and removes the temporary files.
+
 ## Audacity appearance previews
 
 The Preferences theme illustration and clip-style SVGs are derived from Audacity

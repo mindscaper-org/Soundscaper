@@ -13,6 +13,7 @@ import { decodeBomMarkedUtf16 } from '../../../../bom-marked-text.ts';
 import { stageTimelineInterchangeMedia } from './timeline-interchange-media.ts';
 import type { TimelineInterchangeFinalizer } from './timeline-interchange-video.ts';
 import type { SoundcraftBundle } from '../../../../soundcraft-bundle.ts';
+import { PROTOOLS_MAXIMUM_BYTES } from '../../../../protools-binary.ts';
 
 const MAXIMUM_TEXT_BYTES = 32 * 1024 * 1024;
 const MAXIMUM_BINARY_BYTES = 512 * 1024 * 1024;
@@ -26,7 +27,7 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 	return Object.freeze({ openInterchange });
 
 	async function openInterchange(file: NativeProjectFile, options: TimelineInterchangeOpenOptions = {}) {
-		if (!file || !isTimelineInterchangeFile(file.name)) throw new TypeError('Choose an EDL, OTIO, FCPXML, OMF, AAF, Ardour, or SoundCraft file.');
+		if (!file || !isTimelineInterchangeFile(file.name)) throw new TypeError('Choose an EDL, OTIO, FCPXML, OMF, AAF, Ardour, SoundCraft, or Pro Tools file.');
 		if (runtime.editingBlocked()) return undefined;
 		const operation = helpers.beginProjectTask('timeline-interchange-open');
 		const signal = operation.task.signal;
@@ -40,11 +41,13 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 		helpers.beginImport(operation.task);
 		try {
 			setLocalizedStatus(runtime.setStatus, runtime.copy, 'importing');
-			const binary = /\.(?:omfi?|aaf|scraftz)$/iu.test(file.name);
-			if (file.size > (binary ? MAXIMUM_BINARY_BYTES : MAXIMUM_TEXT_BYTES)) throw new RangeError('The interchange document exceeds its import size limit.');
+			const protools = /\.pt[fxs]$/iu.test(file.name);
+			const binary = protools || /\.(?:omfi?|aaf|scraftz)$/iu.test(file.name);
+			if (file.size > (protools ? PROTOOLS_MAXIMUM_BYTES : binary ? MAXIMUM_BINARY_BYTES : MAXIMUM_TEXT_BYTES)) throw new RangeError('The interchange document exceeds its import size limit.');
 			if (/\.scraftz$/iu.test(file.name)) bundle = await (await import('../../../../soundcraft-bundle.ts')).openSoundcraftBundle(file, signal);
 			const document = bundle ? bundle.document : /\.aaf$/iu.test(file.name)
 				? (await import('../../../../aaf-import.ts')).parseAafDocument(new Uint8Array(await file.arrayBuffer()))
+				: protools ? (await import('../../../../protools-import.ts')).parseProToolsDocument(new Uint8Array(await file.arrayBuffer()), { fileName: file.name })
 				: binary ? (await import('../../../../omf-import.ts')).parseOmfDocument(new Uint8Array(await file.arrayBuffer()))
 				: parseTimelineInterchange(file.name, await readTimelineText(file), { edlRate: options.edlRate });
 			assertCurrent();

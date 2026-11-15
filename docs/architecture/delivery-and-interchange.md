@@ -275,6 +275,14 @@ Run `node --import tsx scripts/audit-native-daw-import.mjs` for the pinned
 upstream Ardour snapshot and an independently written Python ZIP/WAV bundle.
 This optional format audit requires network access and Python 3.
 
+Native Pro Tools `.pts`, `.ptf` and `.ptx` audio sessions use the same staging,
+offline-source and activation boundary. The bounded TypeScript reader accepts
+the supported format-5 through format-12 block layouts, retains sample-exact
+cuts and source trims, and maps channel lanes to separate tracks. Mix settings,
+processing, MIDI and other unsupported authoring are reported. See the
+[Pro Tools import contract and compiled-reference audit](../features/pro-tools-import.md)
+for qualified fixtures and compatibility limits.
+
 Conformance tests parse output with independently provisioned tools recorded in
 `config/interchange-conformance-tools.json`. They are test inputs, not bundled
 dependencies. Reader limitations do not redefine a correct file merely to
