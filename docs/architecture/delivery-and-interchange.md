@@ -249,6 +249,32 @@ persists sources before switching documents, and removes newly persisted bodies
 if the switch fails. Unsupported plug-ins, effects, looping, automation,
 routing, video, or warp detail is reported rather than approximated.
 
+Ardour `.ardour` snapshots and SoundCraft `.scraft` JSON sessions use the shared
+timeline import staging and activation boundary. Readers select active audio
+playlists and retain exact cut placement and source offsets, static controls,
+and fade lengths. Ardour sample and superclock values are converted to rational
+seconds; beat-domain values are refused before staging. Separate stereo source
+files become parallel hard-panned tracks with a conversion report. Overlapping
+Ardour layers remain additive cuts with a reported layering omission. SoundCraft
+v0/v1 sessions retain sample-domain timing and their sequence frame rate.
+`.scraftz` ZIP bundles admit bounded, unique relative members and one root
+session before inflating anything, verify requested members, and read audio one
+source at a time. Desktop lookup uses existing owner-scoped session and folder
+grants; project paths never authorize arbitrary filesystem reads. Missing media
+retains offline cuts. Unsupported processing, MIDI, automation, routing, tempo,
+markers and alternate playlists are reported. These readers and their helpers
+belong to the deferred archive closure, outside the product startup graph.
+
+The native readers follow Ardour's
+[`Session` snapshots and time serialization](https://github.com/Ardour/ardour/tree/522303bf7cbfd7d74510eb96e7da0762ffa73237/libs)
+and SoundCraft's pinned
+[`craft-scraft-format` wire model](https://github.com/storytold/craft-libs/tree/45a8e16669e70dadb780dfbc759c882dd5b7ea1c/crates/scraft-format).
+Tests use independently authored fixtures with those source structures; no
+upstream implementation or plug-in state is bundled.
+Run `node --import tsx scripts/audit-native-daw-import.mjs` for the pinned
+upstream Ardour snapshot and an independently written Python ZIP/WAV bundle.
+This optional format audit requires network access and Python 3.
+
 Conformance tests parse output with independently provisioned tools recorded in
 `config/interchange-conformance-tools.json`. They are test inputs, not bundled
 dependencies. Reader limitations do not redefine a correct file merely to

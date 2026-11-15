@@ -4,6 +4,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { chunkGroupForModulePath, EDITOR_OPTIONAL_ARCHIVE_CHUNK_TEST } from '../scripts/lib/build-chunk-groups.mjs';
 
+test('native DAW readers and controls stay behind optional project import entries', () => {
+	for (const name of ['ardour-import', 'soundcraft-import', 'soundcraft-bundle', 'native-daw-import-values', 'timeline-interchange-audio-controls']) {
+		const path = `src/common/editor/${name}.ts`;
+		assert.ok(EDITOR_OPTIONAL_ARCHIVE_CHUNK_TEST.test(path), path);
+		assert.equal(chunkGroupForModulePath(path), null, path);
+	}
+});
+
 test('DAWproject curve and clock adapters stay in their lazy archive closure', () => {
 	for (const name of ['arrangement-media', 'export-automation', 'import-points', 'import-volume-curve']) {
 		const path = `src/common/editor/dawproject-${name}.ts`;

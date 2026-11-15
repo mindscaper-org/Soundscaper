@@ -12,6 +12,7 @@ import { timelineInterchangeMediaName, type TimelineInterchangeMedia } from '../
 import { decodeBomMarkedUtf16 } from '../../../../bom-marked-text.ts';
 import { stageTimelineInterchangeMedia } from './timeline-interchange-media.ts';
 import type { TimelineInterchangeFinalizer } from './timeline-interchange-video.ts';
+import type { SoundcraftBundle } from '../../../../soundcraft-bundle.ts';
 
 const MAXIMUM_TEXT_BYTES = 32 * 1024 * 1024;
 const MAXIMUM_BINARY_BYTES = 512 * 1024 * 1024;
@@ -25,7 +26,7 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 	return Object.freeze({ openInterchange });
 
 	async function openInterchange(file: NativeProjectFile, options: TimelineInterchangeOpenOptions = {}) {
-		if (!file || !isTimelineInterchangeFile(file.name)) throw new TypeError('Choose an EDL, OTIO, FCPXML, OMF, or AAF file.');
+		if (!file || !isTimelineInterchangeFile(file.name)) throw new TypeError('Choose an EDL, OTIO, FCPXML, OMF, AAF, Ardour, or SoundCraft file.');
 		if (runtime.editingBlocked()) return undefined;
 		const operation = helpers.beginProjectTask('timeline-interchange-open');
 		const signal = operation.task.signal;
@@ -35,12 +36,14 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 		const finalizers: TimelineInterchangeFinalizer[] = [];
 		let imported: NativeProjectDocument | null = null;
 		let activated = false;
+		let bundle: SoundcraftBundle | null = null;
 		helpers.beginImport(operation.task);
 		try {
 			setLocalizedStatus(runtime.setStatus, runtime.copy, 'importing');
-			const binary = /\.(?:omfi?|aaf)$/iu.test(file.name);
+			const binary = /\.(?:omfi?|aaf|scraftz)$/iu.test(file.name);
 			if (file.size > (binary ? MAXIMUM_BINARY_BYTES : MAXIMUM_TEXT_BYTES)) throw new RangeError('The interchange document exceeds its import size limit.');
-			const document = /\.aaf$/iu.test(file.name)
+			if (/\.scraftz$/iu.test(file.name)) bundle = await (await import('../../../../soundcraft-bundle.ts')).openSoundcraftBundle(file, signal);
+			const document = bundle ? bundle.document : /\.aaf$/iu.test(file.name)
 				? (await import('../../../../aaf-import.ts')).parseAafDocument(new Uint8Array(await file.arrayBuffer()))
 				: binary ? (await import('../../../../omf-import.ts')).parseOmfDocument(new Uint8Array(await file.arrayBuffer()))
 				: parseTimelineInterchange(file.name, await readTimelineText(file), { edlRate: options.edlRate });
@@ -56,7 +59,9 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 					if (decoded) { media.set(reference.id, decoded); stagedSourceIds.set(reference.id, String(decoded.id)); }
 				};
 				const selected = companionFor(reference, options.mediaFiles ?? []);
+				const embedded = bundle ? await bundle.readMedia(reference.path) : null;
 				if (reference.blob) await consume(reference.blob);
+				else if (embedded) await consume(embedded);
 				else if (selected) await consume(selected, selected.name);
 				else if (sessionReadId && runtime.fileService.resolveSesxMedia && runtime.fileService.withReadDescriptors) {
 					const path = lookupPath(reference);
@@ -123,7 +128,8 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 			} finally {
 				helpers.finishImport(operation.task);
 				operation.task.finish();
-				if (sessionReadId) await runtime.fileService.releaseSesxSession?.(sessionReadId);
+				try { await bundle?.close(); }
+				finally { if (sessionReadId) await runtime.fileService.releaseSesxSession?.(sessionReadId); }
 			}
 		}
 	}

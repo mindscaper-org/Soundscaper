@@ -49,6 +49,19 @@ Choose **Cancel** beside the bar to stop an import or audio export.
 - Legacy Cool Edit / Audition SES (`.ses`) can also be opened in the desktop
   edition for supported audio arrangements. Review **File → Delivery Report**
   for unsupported settings and missing media. SES export is not available.
+- Ardour sessions (`.ardour`) and SoundCraft sessions (`.scraft`, or `.scraftz`
+  bundles with audio) open through **File → Open** or **File → Import**. Import
+  the session and its referenced audio together in the browser. Desktop can
+  locate media beside the session or ask for its media folder. Imports keep
+  active audio playlists, clip timing and source trims, names, mute and solo,
+  static gain, supported pan, and explicit fade lengths. Split stereo Ardour sources
+  become left and right tracks. Missing audio stays as an offline reference.
+  Plug-ins, MIDI, automation, routing, alternate playlists, tempo maps, and
+  markers are outside this audio import profile; review **File → Delivery
+  Report** for conversions and omissions. Ardour beat-domain timing requires
+  conversion to audio-time regions before import; overlapping Ardour layers
+  become additive cuts and are reported. Save the imported project
+  as Scape; these formats are import-only.
 
 See [Project files](/projects-and-data/project-files/) for the consequences of
 each choice.

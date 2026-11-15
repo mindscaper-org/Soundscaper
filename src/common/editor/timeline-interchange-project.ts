@@ -8,6 +8,7 @@ import { videoSourceTimingView, sourceTimeToVideoBoundary, videoBoundaryTime, co
 import { rationalFromDouble } from './dawproject-format.ts';
 import { normalizeProjectSampleRate } from './project-sample-rate.ts';
 import type { TimelineInterchangeDocument, TimelineInterchangeClip } from './timeline-interchange-types.ts';
+import { interchangeClipControls, interchangeTrackControls } from './timeline-interchange-audio-controls.ts';
 
 export interface TimelineInterchangeImportOptions {
 	readonly fileName?: string;
@@ -86,12 +87,13 @@ export function buildTimelineInterchangeProject(document: TimelineInterchangeDoc
 			}
 			const shortened = clip.shortened === true;
 			delete clip.shortened;
+			if (track.kind === 'audio') Object.assign(clip, interchangeClipControls(authored, sampleRate, Number(clip.durationFrames), document.format, draft));
 			clips.push(clip); clipIds.push(clipId);
 			if (shortened) {
 				addDeliveryReportItem(draft, { code: `${document.format}.clip-source-extent-converted`, disposition: 'converted', severity: 'warning', scope: { kind: 'clip', id: clipId }, message: 'The clip was shortened to fit the decoded media extent.' });
 			}
 		}
-		tracks.push({ id, type: track.kind, name: track.name, mute: Boolean(track.mute), clipIds });
+		tracks.push({ id, type: track.kind, name: track.name, ...interchangeTrackControls(track, document.format, draft), clipIds });
 	}
 	const project: Record<string, unknown> = {
 		id: options.createStableId('project'), title, sampleRate, metadata: { title }, sources, clips, tracks,

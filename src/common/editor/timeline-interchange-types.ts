@@ -3,7 +3,7 @@
 import type { Rational } from './timeline-time.ts';
 import type { DeliveryReportItem } from './delivery-report.ts';
 
-export type TimelineInterchangeFormat = 'edl' | 'otio' | 'fcpxml' | 'omf' | 'aaf';
+export type TimelineInterchangeFormat = 'edl' | 'otio' | 'fcpxml' | 'omf' | 'aaf' | 'ardour' | 'soundcraft';
 export interface TimelineInterchangeClip {
 	readonly id: string;
 	readonly name: string;
@@ -12,6 +12,10 @@ export interface TimelineInterchangeClip {
 	readonly start: Rational;
 	readonly duration: Rational;
 	readonly sourceStart: Rational;
+	readonly gain?: number;
+	readonly muted?: boolean;
+	readonly fadeIn?: Rational;
+	readonly fadeOut?: Rational;
 }
 export interface TimelineInterchangeTrack {
 	readonly id: string;
@@ -19,6 +23,9 @@ export interface TimelineInterchangeTrack {
 	readonly kind: 'audio' | 'video';
 	readonly clips: readonly TimelineInterchangeClip[];
 	readonly mute?: boolean;
+	readonly solo?: boolean;
+	readonly gain?: number;
+	readonly pan?: number;
 }
 export interface TimelineInterchangeMedia {
 	readonly id: string;

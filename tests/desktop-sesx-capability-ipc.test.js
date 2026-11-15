@@ -45,7 +45,7 @@ test('File Open titles the desktop chooser for projects and imported files', asy
 	assert.ok(dialogOptions.filters[0].extensions.includes('ses'));
 });
 
-for (const extension of ['sesx', 'ses']) test(`selected ${extension.toUpperCase()} file creates a separate owner-scoped session grant`, async () => {
+for (const extension of ['sesx', 'ses', 'ardour', 'scraft', 'scraftz']) test(`selected ${extension.toUpperCase()} file creates a separate owner-scoped session grant`, async () => {
 	const calls = [];
 	const handlers = new Map();
 	const owner = {};
