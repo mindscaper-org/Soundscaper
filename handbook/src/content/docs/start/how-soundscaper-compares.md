@@ -212,7 +212,10 @@ the editor. Separate vendor services do not change its rating:
 | Licence | + — AGPL-3.0-only | + — AGPL-3.0-only | + — GPL | / — Proprietary | + — GPL-2.0-or-later | / — Proprietary | / — Proprietary | + — MIT / Apache-2.0 | / — Proprietary | / — Proprietary | / — Proprietary |
 | Cost | + — Free | + — Free | + — Free | / — Subscription | ~ — Source / paid builds :: Source code is free; official full ready-to-run builds require payment. Distribution packages have their own terms. | / — Paid :: Subscription or perpetual licence; service packages differ. | / — Paid | + — Free | / — Paid, perpetual | / — Paid | / — Paid |
 | Runs in a browser | + | / | / | / | / | / | / | + — Self-hosted | / | / | / |
-| Desktop builds | / | + — Win, Mac, Linux | + — Win, Mac, Linux | ~ — Win, Mac | + — Win, Mac, Linux | ~ — Win, Mac | ~ — Win, Mac | + — Win, Mac, Linux, FreeBSD | ~ — Win, Mac | ~ — Win, Mac | + — Win, Mac, Linux |
+| Runs on Windows | + | + | + | + | + | + | + | + | + | + | + |
+| Runs on Linux | + | + | + | / | + | / | / | + | / | / | + |
+| Runs on macOS | + | + | + | + | + | + | + | + | + | + | + |
+| Runs on BSD | + | / | / | / | / | / | / | + — FreeBSD | / | / | / |
 | Works with no account | + — :: Local editing needs no account; optional sharing has its own sign-in | + — :: Local editing needs no account; optional sharing has its own sign-in | + | / | + — :: No account is needed to run the editor; obtaining official binaries is a separate download/payment workflow. | / | / | + | / | / — :: An Ableton account is needed for authorization, including the offline authorization-file route. | / — :: License activation uses a Bitwig account; offline activation is available after obtaining an activation file. |
 | Cloud project storage | ~ — Manual archives :: Manual AUP3/AUP4 archive storage on a configured Audiocity server; no automatic sync | ~ — Manual archives :: Manual AUP3/AUP4 archive storage on a configured Audiocity server; no automatic sync | + — audio.com | / | / | / | + | / | + — FL Cloud :: Project ZIP backups on save; not continuous background sync. | / — :: Ableton Cloud transfers Note and Move ideas into Live; it is not cloud backup or synchronization for Live Sets. | / |
 
