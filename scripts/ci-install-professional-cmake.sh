@@ -17,10 +17,15 @@ archive_sha256='3cb3dd247b6a1de2d0f4b20c6fd4326c9024e894cebc9dc8699758887e566ca7
 workspace="$(mktemp -d "$RUNNER_TEMP/soundscaper-professional-cmake.XXXXXX")"
 trap 'rm -rf -- "$workspace"' EXIT
 archive="$workspace/cmake.tar.gz"
-curl --fail --location --silent --show-error --proto '=https' --tlsv1.2 \
-	--connect-timeout 20 --max-time 180 --retry 3 \
-	--output "$archive" \
-	"https://cmake.org/files/v3.31/cmake-${cmake_version}-linux-x86_64.tar.gz"
+download_archive() {
+	curl --fail --location --silent --show-error --proto '=https' --tlsv1.2 \
+		--connect-timeout 20 --max-time 180 --retry 3 \
+		--output "$archive" "$1"
+}
+if ! download_archive "https://cmake.org/files/v3.31/cmake-${cmake_version}-linux-x86_64.tar.gz"; then
+	echo 'The primary CMake download failed; trying the official Kitware GitHub release.' >&2
+	download_archive "https://github.com/Kitware/CMake/releases/download/v${cmake_version}/cmake-${cmake_version}-linux-x86_64.tar.gz"
+fi
 if [[ "$(stat --format='%s' "$archive")" != "$archive_bytes" ]]; then
 	echo 'The professional CMake archive has an unexpected byte length.' >&2
 	exit 1
