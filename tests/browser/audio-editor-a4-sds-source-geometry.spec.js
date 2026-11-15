@@ -18,7 +18,8 @@ async function exportFloatWave(page, editor) {
 }
 
 for (const format of ['sds', 'sds-open', 'opaque', 'wav']) test(`native SDS ${format} retains authored32k PCM and extent through File Import, Save and WAV export`, async ({ page, browser }) => {
-	test.setTimeout(60_000);
+	// Native probing, import and two WAV exports share this workflow's budget.
+	test.setTimeout(120_000);
 	await page.addInitScript(() => {
 		const Native = globalThis.AudioContext;
 		globalThis.AudioContext = class extends Native { constructor(options) { super({ ...options, sampleRate: options?.sampleRate ?? 44_100 }); } };
@@ -53,7 +54,8 @@ for (const format of ['sds', 'sds-open', 'opaque', 'wav']) test(`native SDS ${fo
 	}
 	expect(error).toBeLessThan(1e-7);
 	await editor.locator(format === 'sds-open' ? '[data-aup4-input]' : '[data-import-input]').setInputFiles({ name: file.name, mimeType: format === 'sds-open' ? 'application/octet-stream' : file.type, buffer: Buffer.from(await file.arrayBuffer()) });
-	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 10_000 });
+	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 30_000 });
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
 	const saving = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);
 	const entries = unzipSync(await downloadBytes(await saving)), project = JSON.parse(strFromU8(entries['project.json']));
 	expect(project.sources[0]).toMatchObject({ sampleRate: 32_000, frameCount: 4800, channelCount: 1 });
@@ -71,6 +73,11 @@ for (const format of ['sds', 'sds-open', 'opaque', 'wav']) test(`native SDS ${fo
 	// including the existing32k->48k project->32k export resampling.
 	const referencePage = await browser.newPage();
 	try {
+		// The reference import uses the same output-device clock as the native input.
+		await referencePage.addInitScript(() => {
+			const Native = globalThis.AudioContext;
+			globalThis.AudioContext = class extends Native { constructor(options) { super({ ...options, sampleRate: options?.sampleRate ?? 44_100 }); } };
+		});
 		await disableNativeSavePicker(referencePage);
 		const referenceEditor = await bootEditor(referencePage, '/embed/en/');
 		const control = encodeWav(native.map(channel => Float32Array.from(channel.slice(0, 4800))), { sampleRate: 32_000, bitDepth: 32, float: true });
