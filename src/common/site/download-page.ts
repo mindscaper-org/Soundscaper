@@ -7,6 +7,7 @@ import { DOWNLOAD_LOCALES } from './download-localization.ts';
 import { DOWNLOAD_ENGLISH_COPY, formatDownloadCopy, type DownloadCopy, type DownloadCopyKey } from './download-copy.ts';
 import type { DesktopReleaseCandidate } from './desktop-releases.ts';
 import { privacyPolicyPath } from './privacy-policy-path.ts';
+import { AUDACITY_DOWNLOAD_LANGUAGES } from './audacity-download/localization.ts';
 
 const PACKAGE_KEYS: Readonly<Record<DesktopDownloadTarget, DownloadCopyKey>> = {
 	'win-x64.exe': 'windowsInstaller', 'win-arm64.exe': 'windowsInstaller',
@@ -37,6 +38,7 @@ export function renderDownloadPage(
 	const canonical = `https://${productId}.org/download/${locale}/`;
 	const t: Translate = (key, parameters) => escapeHtml(formatDownloadCopy(copy[key], parameters));
 	const editor = `/${locale}/`;
+	const comparisonLink = productId === 'soundscaper' ? `<a href="/download/audacity/${AUDACITY_DOWNLOAD_LANGUAGES.includes(locale) ? locale : 'en'}/">${t('title', { name: 'Audacity' })}</a>` : '';
 	return `<!doctype html>
 <html lang="${escapeHtml(locale)}" dir="${escapeHtml(direction)}">
 <head>
@@ -67,7 +69,8 @@ export function renderDownloadPage(
 			<p>${t(unavailable ? 'unavailableBody' : 'emptyBody')}</p>
 			<a href="${escapeHtml(desktopReleaseSearchUrl(productId))}">${t('browse', { name })}</a>
 			${unavailable ? `<a href="${canonical}">${t('retry')}</a>` : ''}
-		</section>` : renderRelease(release, environment, t)}
+			${comparisonLink ? `<details class="other-downloads"><summary>${t('other')}</summary>${comparisonLink}</details>` : ''}
+		</section>` : renderRelease(release, environment, t, comparisonLink)}
 		<section class="browser-option" aria-labelledby="browser-title">
 			<div><h2 id="browser-title">${t('browserTitle')}</h2><p>${t('browserBody', { name })}</p></div>
 			<a class="button secondary" href="${editor}">${t('open', { name })}</a>
@@ -86,7 +89,7 @@ function releaseEyebrow(release: DesktopReleaseCandidate, locale: string): strin
 
 type Installer = DesktopReleaseCandidate['installers'][number];
 
-function renderRelease(release: DesktopReleaseCandidate, environment: DesktopDownloadEnvironment, t: Translate): string {
+function renderRelease(release: DesktopReleaseCandidate, environment: DesktopDownloadEnvironment, t: Translate, comparisonLink: string): string {
 	const matches = (installer: Installer): boolean => environment.platform !== null
 		&& installer.target.startsWith(`${environment.platform}-`)
 		&& (environment.architecture === null || installer.target.startsWith(`${environment.platform}-${environment.architecture}.`));
@@ -99,8 +102,8 @@ function renderRelease(release: DesktopReleaseCandidate, environment: DesktopDow
 	return `<p class="candidate-note">${t('preview')}</p>
 	${detectionNote}
 	${matching.length ? `<div class="platforms matching-downloads">${renderPlatforms(matching, 'matching', t)}</div>` : ''}
-	${others.length ? `<details class="other-downloads"><summary>${t('other')}</summary>
-		<div class="platforms">${renderPlatforms(others, 'other', t)}</div></details>` : ''}
+	${others.length || comparisonLink ? `<details class="other-downloads"><summary>${t('other')}</summary>
+		<div class="platforms">${renderPlatforms(others, 'other', t)}</div>${comparisonLink}</details>` : ''}
 	<nav class="release-resources" aria-label="${t('resources')}"><a href="${escapeHtml(release.url)}">${t('notes')}</a>${release.resources.map(resource =>
 		`<a href="${escapeHtml(resource.url)}">${RESOURCE_KEYS[resource.name] ? t(RESOURCE_KEYS[resource.name]) : escapeHtml(resource.name)}</a>`).join('')}</nav>`;
 }

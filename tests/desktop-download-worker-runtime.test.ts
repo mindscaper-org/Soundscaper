@@ -22,7 +22,9 @@ for (const redirected of [false, true]) {
 			stdin: {
 				contents: `import { handleDownloadPageRequest } from './functions/download/index.ts';
 import { handleDesktopDownloadRequest } from './functions/download/desktop/index.ts';
+import { handleAudacityDownloadRequest } from './functions/download/audacity/index.ts';
 export default { fetch(request) {
+	if (new URL(request.url).pathname.startsWith('/download/audacity')) return handleAudacityDownloadRequest(request);
 	return new URL(request.url).pathname.startsWith('/download/desktop')
 		? handleDesktopDownloadRequest(request) : handleDownloadPageRequest(request);
 } };`,
@@ -43,10 +45,19 @@ export default { fetch(request) {
 	if (${String(redirected)} && new URL(request.url).hostname === 'api.github.com') {
 		return new Response(null, { status: 302, headers: { Location: 'https://untrusted.example/releases' } });
 	}
+	if (new URL(request.url).hostname === 'raw.githubusercontent.com') return new Response("export const audacityReleases = { version: '4.9.1', win: [{ name: 'MSI', browser_download_url: 'https://github.com/audacity/audacity/releases/download/Audacity-4.9.1/audacity-win-4.9.1-arm64.msi' }] };\\n");
 	return Response.json(${JSON.stringify(releases)});
 } };` } } } } },
 		] });
 		try {
+			const comparison = await runtime.dispatchFetch('https://soundscaper.org/download/audacity/fr/');
+			assert.equal(comparison.status, 200);
+			assert.equal(comparison.headers.get('content-language'), 'fr');
+			const comparisonHtml = await comparison.text();
+			assert.ok(comparisonHtml.includes('Téléchargez Audacity et Soundscaper'));
+			assert.ok(comparisonHtml.includes('Pistes temporelles'));
+			assert.ok(comparisonHtml.includes('audacity-win-4.9.1-arm64.msi'));
+			assert.ok(!comparisonHtml.includes('kw.media'));
 			for (const product of ['soundscaper', 'framescaper']) {
 				const page = await runtime.dispatchFetch(`https://${product}.org/download/`);
 				assert.equal(page.status, redirected ? 503 : 200);

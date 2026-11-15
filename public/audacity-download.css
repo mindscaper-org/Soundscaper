@@ -1,0 +1,48 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+
+.download-columns { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 20px; align-items: start; }
+.download-card { min-width: 0; padding: 24px; border: 1px solid var(--line); border-radius: 12px; }
+.download-card.recommended { background: var(--soft); border-color: var(--accent); }
+.download-card h2 { margin-bottom: 18px; font-size: 1.5rem; }
+.download-card h2 span { color: var(--accent); font-size: 1rem; white-space: nowrap; }
+.download-description { color: var(--muted); margin-bottom: 24px; }
+.download-actions { display: grid; gap: 12px; }
+.download-main, .online-button { display: block; padding: 12px 16px; border: 1px solid var(--accent); border-radius: 6px; font-weight: 600; text-decoration: none; overflow-wrap: anywhere; }
+.download-main { background: var(--accent); color: var(--surface); }
+.online-button:hover { background: var(--surface); }
+.download-note { color: var(--muted); margin-block: 16px; font-size: .85rem; }
+.download-options { scroll-margin-top: 24px; }
+.download-options summary { cursor: pointer; color: var(--accent); }
+.download-options nav { display: block; }
+.download-options ul { list-style: none; margin: 12px 0 0; padding: 0; width: 100%; }
+.download-options a { display: block; padding-block: 8px; overflow-wrap: anywhere; }
+.download-comparison { margin-top: 64px; min-width: 0; }
+.download-comparison h2 { font-size: clamp(1.5rem, 3vw, 2.3rem); margin-bottom: 20px; }
+.download-comparison p { color: var(--muted); margin-bottom: 20px; max-width: 85ch; }
+.comparison-scroll { overflow-x: auto; margin-block: 28px; }
+.comparison-scroll:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+.download-comparison table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+.download-comparison th, .download-comparison td { min-width: 145px; padding: 12px 16px; border-bottom: 1px solid var(--line); text-align: start; vertical-align: top; }
+.download-comparison th { background: var(--soft); font-weight: 600; }
+.download-comparison td { position: relative; }
+.comparison-cell--yes { color: #245522; background: #edf6ea; }
+.comparison-cell--no { color: #842b29; background: #fff0ed; }
+.comparison-cell--partial { color: #715200; background: #fff6d5; }
+.comparison-cell--extra { color: #205470; background: #eaf5ff; }
+.status-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+@media (prefers-color-scheme: dark) {
+	.comparison-cell--yes { color: #c0e9b2; background: #21371c; }
+	.comparison-cell--no { color: #ffc1bc; background: #3a201e; }
+	.comparison-cell--partial { color: #f2d87b; background: #3b3015; }
+	.comparison-cell--extra { color: #aadfff; background: #102b40; }
+}
+
+@media (max-width: 1100px) {
+	.download-columns { grid-template-columns: 1fr 1fr; }
+	.recommended { grid-column: 1 / -1; }
+}
+
+@media (max-width: 600px) {
+	.download-columns { grid-template-columns: 1fr; }
+}

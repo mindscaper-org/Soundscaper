@@ -51,6 +51,11 @@ for (const mode of ['dev', 'preview'] as const) {
 					assert.equal(german.status, 200);
 					assert.equal(german.headers.get('content-language'), 'de');
 					assert.match(await german.text(), new RegExp(`<h1>${name} herunterladen</h1>`, 'u'));
+					const comparison = await fetch(`${origin}/download/audacity/de/`);
+					assert.equal(comparison.status, product === 'soundscaper' ? 200 : 404);
+					if (product === 'soundscaper') {
+						assert.match(await comparison.text(), /<h1>Audacity und Soundscaper herunterladen<\/h1>/u);
+					}
 					assert.equal((await fetch(`${origin}/download/xx/`)).status, 404);
 					const head = await fetch(`${origin}/download/ar/`, { method: 'HEAD' });
 					assert.equal(head.status, 200);

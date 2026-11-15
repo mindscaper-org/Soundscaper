@@ -81,3 +81,19 @@ node --import tsx scripts/download-translations.ts check --strict
 The focused `tests/download-translations.test.ts` check requires a complete,
 current catalog for every non-English route. Add its catalog whenever an editor
 language is published.
+
+### Audacity comparison downloads
+
+Soundscaper also serves the imported Audacity download family at
+`/download/audacity/<locale>/`. Its 27 languages, three download cards, and
+versioned comparison tables live under `src/common/site/audacity-download/`.
+The existing download page's **Other downloads** menu links to this family.
+The language and package menus work without JavaScript; live release lookups
+retain the committed fallback packages when an upstream is unavailable.
+
+These content catalogs retain the upstream page's format and wording, separate
+from the editor and product-download translation catalogs. Refresh them from a
+reviewed checkout with `node scripts/import-audacity-download-pages.mjs /absolute/path/to/kw.media`.
+The importer regenerates their loader index and records the source revision in
+`provenance.json`. Review imported copy and comparison notes together; their
+reviewed Audacity versions deliberately remain independent of live downloads.

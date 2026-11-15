@@ -4,6 +4,7 @@ import type { ServerResponse } from 'node:http';
 import type { Connect, Plugin } from 'vite';
 
 import { handleDownloadPageRequest } from '../../functions/download/index.ts';
+import { handleAudacityDownloadRequest } from '../../functions/download/audacity/index.ts';
 import type { DesktopDownloadProductId } from '../../src/common/editor/desktop-download-links.ts';
 
 /** Vite does not execute Pages Functions; run the same page handler before its SPA fallback. */
@@ -30,7 +31,9 @@ export function localDownloadPagePlugin(productId: DesktopDownloadProductId, fet
 }
 
 async function respond(request: Request, response: ServerResponse, fetchImpl: typeof fetch): Promise<void> {
-	const result = await handleDownloadPageRequest(request, fetchImpl);
+	const handler = /^\/download\/audacity(?:\/|$)/u.test(new URL(request.url).pathname)
+		? handleAudacityDownloadRequest : handleDownloadPageRequest;
+	const result = await handler(request, fetchImpl);
 	const body = await result.text();
 	response.writeHead(result.status, Object.fromEntries(result.headers));
 	response.end(body);
