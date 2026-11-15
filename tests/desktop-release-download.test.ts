@@ -116,7 +116,7 @@ test('Pages Functions route the download paths and both audio provider APIs', ()
 	const routes = JSON.parse(readFileSync(new URL('../public/_routes.json', import.meta.url), 'utf8')) as unknown;
 	assert.deepEqual(routes, {
 		version: 1,
-		include: ['/api/freesound/*', '/api/audiocom/*', '/download', '/download/', '/download/desktop', '/download/desktop/*'],
+		include: ['/api/freesound/*', '/api/audiocom/*', '/download', '/download/*'],
 		exclude: [],
 	});
 });

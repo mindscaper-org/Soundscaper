@@ -3,9 +3,10 @@
 import { desktopDownloadProductForHostname } from '../../src/common/editor/desktop-download-links.ts';
 import { desktopDownloadEnvironmentForHeaders } from '../../src/common/editor/desktop-download-target.ts';
 import { fetchDesktopReleases, selectLatestDesktopRc } from '../../src/common/site/desktop-releases.ts';
+import { downloadCopyForLocale, downloadLocaleForPath } from '../../src/common/site/download-localization.ts';
 import { renderDownloadPage } from '../../src/common/site/download-page.ts';
 
-/** Cloudflare Pages serves both /download and /download/. */
+/** Shared by the default page and /download/[locale] Pages route. */
 export function onRequest(context: Readonly<{ request: Request }>): Promise<Response> {
 	return handleDownloadPageRequest(context.request);
 }
@@ -16,7 +17,8 @@ export async function handleDownloadPageRequest(request: Request, fetchImpl: typ
 	}
 	const url = new URL(request.url);
 	const productId = desktopDownloadProductForHostname(url.hostname);
-	if (productId === null || !/^\/download\/?$/u.test(url.pathname)) return new Response(null, { status: 404 });
+	const descriptor = downloadLocaleForPath(url.pathname);
+	if (productId === null || descriptor === null) return new Response(null, { status: 404 });
 	let release = null;
 	let unavailable = false;
 	try {
@@ -27,10 +29,13 @@ export async function handleDownloadPageRequest(request: Request, fetchImpl: typ
 			reason: error instanceof Error ? error.message : String(error) }));
 	}
 	const environment = desktopDownloadEnvironmentForHeaders(request.headers);
-	return new Response(request.method === 'HEAD' ? null : renderDownloadPage(productId, release, unavailable, environment), {
+	return new Response(request.method === 'HEAD' ? null : renderDownloadPage(productId, release, unavailable, environment, {
+		...descriptor, copy: await downloadCopyForLocale(descriptor.locale),
+	}), {
 		status: unavailable ? 503 : 200,
 		headers: {
 			'Content-Type': 'text/html; charset=utf-8',
+			'Content-Language': descriptor.locale,
 			'Cache-Control': 'no-store',
 			'Accept-CH': 'Sec-CH-UA-Platform, Sec-CH-UA-Arch, Sec-CH-UA-Bitness, Sec-CH-UA-Mobile',
 			'Critical-CH': 'Sec-CH-UA-Arch, Sec-CH-UA-Bitness',

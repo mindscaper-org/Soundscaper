@@ -10,7 +10,7 @@ import type { DesktopDownloadProductId } from '../../src/common/editor/desktop-d
 export function localDownloadPagePlugin(productId: DesktopDownloadProductId, fetchImpl: typeof fetch = fetch): Plugin {
 	const middleware: Connect.NextHandleFunction = (request, response, next) => {
 		const url = new URL(request.url ?? '/', 'http://localhost');
-		if (!/^\/download\/?$/u.test(url.pathname)) {
+		if (!/^\/download(?:\/|$)/u.test(url.pathname) || /^\/download\/desktop(?:\/|$)/u.test(url.pathname)) {
 			next();
 			return;
 		}

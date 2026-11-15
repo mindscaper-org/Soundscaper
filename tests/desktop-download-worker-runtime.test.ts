@@ -28,8 +28,10 @@ export default { fetch(request) {
 } };`,
 				resolveDir: root, sourcefile: 'download-worker-runtime.ts',
 			},
-			bundle: true, format: 'esm', platform: 'browser', target: 'es2022', write: false,
+			bundle: true, metafile: true, format: 'esm', platform: 'browser', target: 'es2022', write: false,
 		});
+		assert.ok(!Object.keys(bundled.metafile.inputs).some(path => path.startsWith('src/common/i18n/translations/')),
+			'The download Worker must not include the editor translation catalogs');
 		const script = bundled.outputFiles[0]?.text;
 		assert.ok(script);
 		const runtime = new Miniflare({ workers: [
@@ -50,6 +52,11 @@ export default { fetch(request) {
 				assert.equal(page.status, redirected ? 503 : 200);
 				const html = await page.text();
 				assert.ok(html.includes(redirected ? 'Downloads are temporarily unavailable' : '1.0.0-rc.1'));
+				const localized = await runtime.dispatchFetch(`https://${product}.org/download/de/`);
+				assert.equal(localized.status, redirected ? 503 : 200);
+				assert.equal(localized.headers.get('content-language'), 'de');
+				const localizedHtml = await localized.text();
+				assert.ok(localizedHtml.includes(redirected ? 'Downloads sind vorübergehend nicht verfügbar' : 'Windows x64-Installationsprogramm'));
 				const direct = await runtime.dispatchFetch(`https://${product}.org/download/desktop/`, {
 					headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }, redirect: 'manual',
 				});

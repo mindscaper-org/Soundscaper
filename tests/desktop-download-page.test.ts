@@ -52,7 +52,7 @@ for (const product of ['soundscaper', 'framescaper'] as const) {
 		assert.match(response.headers.get('content-type') ?? '', /^text\/html/u);
 		assert.equal(response.headers.get('cache-control'), 'no-store');
 		assert.match(html, new RegExp(`<h1>Download ${product === 'soundscaper' ? 'Soundscaper' : 'Framescaper'}</h1>`, 'u'));
-		assert.ok(html.includes(`href="https://${product}.org/download/"`));
+		assert.ok(html.includes(`href="https://${product}.org/download/en/"`));
 		assert.ok(html.includes('<a href="/privacy/en/">Privacy &amp; Code signing policy</a>'));
 		assert.ok(html.includes(`href="${RELEASES}/download/${current.tag_name}/${current.assets[0]?.name}"`));
 		assert.ok(html.includes(`href="${RELEASES}/tag/${current.tag_name}"`));

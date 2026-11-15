@@ -92,7 +92,7 @@ export async function translateLocale(options) {
 		if (existing && Object.keys(existing.entries).some((key) => !Object.hasOwn(entries, key))) {
 			await writeTranslationCatalog({ locale, provenance: existing.provenance, community: existing.community, entries }, directory);
 		}
-		await writeTranslationCatalogIndex(directory);
+		await writeTranslationCatalogIndex(directory, options.indexOptions);
 		return summary;
 	}
 	const modelIdentity = await options.client.identity();
@@ -126,7 +126,7 @@ export async function translateLocale(options) {
 		handled += keys.length;
 		await writeTranslationCatalog({ locale, provenance: handled === pending.length ? provenance : interimProvenance,
 			community: existing?.community, entries }, directory);
-		await writeTranslationCatalogIndex(directory);
+		await writeTranslationCatalogIndex(directory, options.indexOptions);
 		log(`${locale}: ${handled}/${pending.length} pending keys handled (${summary.translated} translated, ${summary.skipped.length} skipped)`);
 	}
 	return summary;

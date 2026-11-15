@@ -50,3 +50,34 @@ handbook.
 
 See the [handbook translation tooling](../../scripts/docs-ai/README.md) for
 models, validation, navigation translation, and source provenance.
+
+## Download pages
+
+Both products serve every `COMMITTED_LOCALE_TAGS` language at
+`/download/<locale>/`, including `/download/en/`. The unqualified `/download/`
+remains an English entry point. Regional tags use the editor's canonical case
+(such as `pt-BR`); lowercase spellings are also accepted. The navigation's
+language submenu works without JavaScript. Browser-editor, handbook and peer
+product links retain the selected language; the privacy policy uses its existing
+English or German edition.
+
+English source copy lives in `src/common/site/download-copy.ts`. Small catalogs
+under `src/common/site/download-translations/` use the editor catalog schema,
+ownership tags, validation and generated loader writer. They are separate from
+the editor catalogs so the download Worker only bundles its own copy. English
+and British English share source strings, with dates formatted for each locale.
+Never hand-edit automatic entries or the generated index; mark handwritten
+corrections `human`. Changed English falls back until translations are refreshed.
+
+Use the scoped entry point with the same packet, answer and model options as
+the editor translator:
+
+```sh
+node --import tsx scripts/download-translations.ts packets --all --output /tmp/download-packets
+node --import tsx scripts/download-translations.ts translate --all --answers /tmp/download-answers --model TRANSLATOR
+node --import tsx scripts/download-translations.ts check --strict
+```
+
+The focused `tests/download-translations.test.ts` check requires a complete,
+current catalog for every non-English route. Add its catalog whenever an editor
+language is published.

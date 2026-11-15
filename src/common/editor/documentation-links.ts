@@ -1,4 +1,4 @@
-import { normalizeProductId } from '../products.js';
+import { normalizeProductId } from '../product-identities.js';
 
 /**
  * The handbook's public base URL.

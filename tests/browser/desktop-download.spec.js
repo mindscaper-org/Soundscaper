@@ -20,6 +20,47 @@ for (const [name, path] of [['Soundscaper', '/download/'], ['Framescaper', '/fra
 	});
 }
 
+test.describe('localized download navigation', () => {
+	test.use({ javaScriptEnabled: false, browserCoverage: false });
+	for (const product of ['Soundscaper', 'Framescaper']) {
+		test(`${product} switches download languages through the menu in local preview`, async ({ page }) => {
+			const prefix = product === 'Framescaper' ? '/framescaper' : '';
+			const response = await page.goto(resolveBrowserProductTestUrl(`${prefix}/download/de/`));
+			expect([200, 503]).toContain(response.status());
+			await expect(page.getByRole('heading', { name: `${product} herunterladen`, exact: true })).toBeVisible();
+			await expect(page.getByRole('link', { name: 'Français', exact: true })).toBeHidden();
+			await page.getByText('Sprache', { exact: true }).focus();
+			await page.keyboard.press('Enter');
+			await page.getByRole('link', { name: 'Français', exact: true }).click();
+			await expect(page).toHaveURL(/\/download\/fr\/$/);
+			await expect(page.getByRole('heading', { name: `Télécharger ${product}`, exact: true })).toBeVisible();
+			await expect(page.getByRole('link', { name: 'Manuel', exact: true })).toHaveAttribute('href', '/docs/fr/');
+			await expect(page.getByRole('link', { name: `Ouvrir ${product}`, exact: true })).toHaveAttribute('href', '/fr/');
+		});
+
+		test(`${product} supports Arabic downloads and language selection on narrow screens`, async ({ page, context }) => {
+			await context.setExtraHTTPHeaders({
+				'Sec-CH-UA-Platform': '"Windows"', 'Sec-CH-UA-Arch': '"x86"', 'Sec-CH-UA-Bitness': '"64"',
+			});
+			await mockDownloadPage(context, product);
+			await page.setViewportSize({ width: 375, height: 812 });
+			await page.goto(`https://${product.toLowerCase()}.org/download/ar/`);
+			await expect(page.getByRole('heading', { name: `تنزيل ${product}`, exact: true })).toBeVisible();
+			expect(await page.evaluate(() => document.documentElement.dir)).toBe('rtl');
+			await expect(page.getByRole('link', { name: 'برنامج تثبيت Windows x64', exact: true })).toBeVisible();
+			await page.getByText('تنزيلات أخرى', { exact: true }).click();
+			await expect(page.getByRole('link', { name: 'ملف DMG لنظام macOS على شرائح Apple', exact: true })).toBeVisible();
+			await page.getByText('اللغة', { exact: true }).click();
+			await expect(page.getByRole('link', { name: 'العربية', exact: true })).toHaveAttribute('aria-current', 'page');
+			expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+			await page.getByRole('link', { name: 'English (UK)', exact: true }).click();
+			await expect(page.getByRole('heading', { name: `Download ${product}`, exact: true })).toBeVisible();
+			await expect(page.getByText('30 October 2026', { exact: true })).toBeVisible();
+			expect(await page.evaluate(() => document.documentElement.dir)).toBe('ltr');
+		});
+	}
+});
+
 test('the sidebar opens the download page in a separate tab', async ({ page, context }) => {
 	let requests = 0;
 	// Node route tests prove installer selection and release redirects. Preview
@@ -136,7 +177,7 @@ async function mockDownloadPage(context, product, targets = ['win-x64.exe', 'mac
 	assets.push({ name: 'SHA256SUMS', state: 'uploaded' });
 	// Use fixed release data for layout checks. The tests above exercise local
 	// preview routing without intercepting the download page.
-	await context.route(`${origin}/download/`, async route => {
+	await context.route(`${origin}/download/**`, async route => {
 		const request = new Request(route.request().url(), { headers: route.request().headers() });
 		const response = await handleDownloadPageRequest(request, async () => Response.json([{
 			tag_name: version, published_at: '2026-10-30T12:00:00Z', draft: false, assets,

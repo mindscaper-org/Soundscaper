@@ -47,14 +47,19 @@ for (const mode of ['dev', 'preview'] as const) {
 						assert.equal(response.headers.get('cache-control'), 'no-store');
 						assert.match(await response.text(), new RegExp(`<h1>Download ${name}</h1>`, 'u'));
 					}
-					const head = await fetch(`${origin}/download/`, { method: 'HEAD' });
+					const german = await fetch(`${origin}/download/de/?preview=true`);
+					assert.equal(german.status, 200);
+					assert.equal(german.headers.get('content-language'), 'de');
+					assert.match(await german.text(), new RegExp(`<h1>${name} herunterladen</h1>`, 'u'));
+					assert.equal((await fetch(`${origin}/download/xx/`)).status, 404);
+					const head = await fetch(`${origin}/download/ar/`, { method: 'HEAD' });
 					assert.equal(head.status, 200);
 					assert.equal(await head.text(), '');
 					const detected = await fetch(`${origin}/download/`, { headers: { 'User-Agent': 'Mozilla/5.0 (X11; Linux aarch64)' } });
 					const detectedHtml = await detected.text();
 					assert.ok(detectedHtml.includes('-linux-arm64.AppImage'));
-					assert.ok(detectedHtml.indexOf('-linux-arm64.AppImage') < detectedHtml.indexOf('<details'));
-					assert.ok(detectedHtml.indexOf('-win-x64.exe') > detectedHtml.indexOf('<details'));
+					assert.ok(detectedHtml.indexOf('-linux-arm64.AppImage') < detectedHtml.indexOf('<details class="other-downloads"'));
+					assert.ok(detectedHtml.indexOf('-win-x64.exe') > detectedHtml.indexOf('<details class="other-downloads"'));
 					const before = lookups;
 					const post = await fetch(`${origin}/download/`, { method: 'POST' });
 					assert.equal(post.status, 405);
