@@ -105,6 +105,9 @@ module.exports = {
 				'desktop/soak-debug-*.mjs',
 				'evidence/nyquist-plugin-publication/catalog-metadata-ed168a19631ec48d0029dfb5c17d16c339a174c1.json',
 				'functions/download/index.ts',
+				'functions/download/audacity/index.ts',
+				'public/download.css',
+				'public/audacity-download.css',
 				// The guide specs replay handbook step data, which lives outside `tests/`.
 				'handbook/**/*',
 				'sites/**/*',

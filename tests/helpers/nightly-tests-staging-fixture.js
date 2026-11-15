@@ -55,6 +55,9 @@ export async function createFixture(context) {
 		['LICENSES/Playwright-winldd-MIT.txt', 'WinLDD MIT fixture\n'],
 		['public/logo/soundscaper.svg', '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" viewBox="0 0 8 4"><path d="M0 0h8v4H0z"/></svg>\n'],
 		['functions/download/index.ts', 'export const fixtureHandler = true;\n'],
+		...await Promise.all(['functions/download/audacity/index.ts', 'public/download.css', 'public/audacity-download.css'].map(async source => [
+			source, await readFile(new URL(`../../${source}`, import.meta.url), 'utf8'),
+		])),
 		['playwright.nightly-tests.config.mjs', 'export default {};\n'],
 		['playwright.nightly-metrics.config.mjs', 'export default {};\n'],
 		['playwright.nightly-dual-origin.config.mjs', 'export default {};\n'],
