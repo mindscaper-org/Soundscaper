@@ -108,6 +108,21 @@ closes the explanation.
 Comparison tables fill the article with shared column widths. On narrow
 screens, each table scrolls horizontally in a named, keyboard-focusable region.
 
+### Pairwise comparisons
+
+`scripts/docs-comparisons.ts` generates the pages under
+`src/content/docs/start/comparisons/` from `start/how-soundscaper-compares.md`.
+Each page projects every table onto Soundscaper Desktop and one other product,
+preserving section prose, verdicts, inline formatting, and cell qualifications.
+The generated index links every counterpart, including Soundscaper Web, and is
+reachable from the main comparison and the existing Start sidebar submenu.
+Product versions remain in titles and table headers; URLs use the product name.
+
+Edit the main comparison, then run `npm run docs:generate`. To regenerate only
+these pages, run `node scripts/docs-comparisons.ts`. `npm run docs:check` rejects
+missing, outdated, or obsolete derivatives. Do not edit generated pages directly.
+English is the source; untranslated routes use the handbook's normal fallback.
+
 ## Authoring links
 
 Write internal links root-absolute and base-free: `[Project files](/projects-and-data/project-files/)`.

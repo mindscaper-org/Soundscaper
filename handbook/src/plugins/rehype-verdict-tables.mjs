@@ -1,3 +1,5 @@
+import { isComparisonPath } from '../comparison/pages.ts';
+
 /**
  * Renders comparison markers as colour-coded, accessible symbols.
  *
@@ -9,7 +11,7 @@
  * becomes a symbol in `<span class="verdict verdict--<state>">`, with the
  * em-dash separator dropped because the styled symbol now does that work.
  *
- * A table is coloured when its page asked for it - `VERDICT_TABLE_PAGES` below
+ * A table is coloured when its page asked for it - `isComparisonPath` below
  * - and its own shape agrees: every body cell outside the first column has to
  * be a verdict. The shape rule alone used to be the whole test, which claimed
  * tables that never meant a verdict; it is kept as the second half because it
@@ -33,8 +35,8 @@
  * times, so shape alone tints it green and badges every cell with a pass/fail
  * verdict that reference page never claimed - and would paint a row red the
  * day `scripts/docs-reference.mjs` regenerates it with a `No` for an engine
- * that is not tested yet. A page has to ask for the colouring, and a generated
- * page never asks.
+ * that is not tested yet. Generated pairwise comparisons opt in; generated
+ * reference inventories do not.
  *
  * The request lives here rather than in the page because neither annotation a
  * page could carry reaches this transform: Astro renders Markdown with the
@@ -43,21 +45,14 @@
  * Markdown is still an unparsed `raw` node at this point because
  * `@astrojs/markdown-remark` applies `rehype-raw` after the configured plugins.
  * Authoring therefore stays plain Markdown, and a new comparison page is one
- * line here.
+ * opt-in in `comparison/pages.ts`.
  */
-const VERDICT_TABLE_PAGES = ['start/how-soundscaper-compares.md'];
-
-const CONTENT_ROOT = 'src/content/docs';
-
 /**
  * Whether the page being rendered asked for the colouring. Astro supplies the
  * source path of the Markdown file; a render that has no path - the content
  * loader's `renderMarkdown()` API - is left plain rather than guessed at.
  */
-function optedIn(file) {
-	const path = typeof file?.path === 'string' ? file.path.replaceAll('\\', '/') : '';
-	return VERDICT_TABLE_PAGES.some((page) => path.endsWith(`/${CONTENT_ROOT}/${page}`));
-}
+const optedIn = (file) => isComparisonPath(file?.path);
 
 const VERDICT_STATES = new Map([
 	['+', 'yes'],

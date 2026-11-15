@@ -11,6 +11,8 @@ Ardour 9.10, Hindenburg Pro 2, Pro Tools Studio, ArtCraft SoundCraft 0.19.0
 (pre-alpha), FL Studio 2026 All Plugins Edition, Ableton Live 13 Suite (public beta),
 and Bitwig Studio 6.
 
+For a focused view, [compare Soundscaper Desktop with one editor](/start/comparisons/), including Soundscaper Web.
+
 ## Reading the tables
 
 - <span class="verdict verdict--yes" role="img" aria-label="Supported">+</span> Supported.
