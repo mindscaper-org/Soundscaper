@@ -200,18 +200,31 @@ test('Effects preferences manages supported plugin folders without format switch
 });
 
 
-test('Windows x64 bridge is explicitly enabled and disabled through Effects preferences', async ({ page }) => {
+test('Windows x64 bridge defaults on, can be disabled, and is restored by factory reset', async ({ page }) => {
 	await installNativeServicesFixture(page, false, false, true, { bridge: true });
 	const editor = await bootEditor(page, '/embed/en/');
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Effects$/u }).click();
 	const bridge = preferences.getByRole('checkbox', { name: 'Enable 32-bit VST2 plugins', exact: true });
+	await expect(bridge).toBeChecked();
+	await bridge.click(); await expect(bridge).not.toBeChecked();
+	await preferences.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: /^Close$/u }).click();
+	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+	await preferences.getByRole('tab', { name: /Effects$/u }).click();
 	await expect(bridge).not.toBeChecked();
 	await bridge.click(); await expect(bridge).toBeChecked();
 	await bridge.click(); await expect(bridge).not.toBeChecked();
 	await expect.poll(() => page.evaluate(() => globalThis.__soundscaperNativeRuntimeCalls))
-		.toEqual(['consent:vst2:enable-x86-vst2:', 'consent:vst2:disable-x86-vst2:']);
+		.toEqual(['consent:vst2:disable-x86-vst2:', 'consent:vst2:enable-x86-vst2:', 'consent:vst2:disable-x86-vst2:']);
+	await preferences.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: /^Close$/u }).click();
+	await chooseCommandAction(page, editor, 'Help', 'Revert to factory settings');
+	const confirm = page.getByRole('dialog', { name: 'Revert to factory settings', exact: true });
+	await confirm.getByRole('button', { name: 'Revert settings', exact: true }).click();
+	await expect(confirm).toHaveCount(0);
+	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+	await preferences.getByRole('tab', { name: /Effects$/u }).click();
+	await expect(bridge).toBeChecked();
 });
 
 test('Linux Windows VST3 hosting is opt-in and Wine can be rescanned or selected in Effects preferences', async ({ page }) => {
@@ -389,7 +402,7 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 			payload: Object.freeze(includePluginFolders ? { status: 'available', reason: null } : { status: 'unavailable', reason: 'not-built' }),
 			formats: Object.freeze([]),
 			consent: Object.freeze({ ...(wineSupported ? { linuxWineVst3: { supported: true, enabled: false,
-				bridgeAvailable: true, state: 'unavailable', location: null, version: null } } : {}), ...(bridgeSupported ? { windowsX86Vst2: { supported: true, enabled: false } } : {}), scanningEnabled: false, formats: Object.freeze(includePluginFolders ? [
+				bridgeAvailable: true, state: 'unavailable', location: null, version: null } } : {}), ...(bridgeSupported ? { windowsX86Vst2: { supported: true, enabled: true } } : {}), scanningEnabled: false, formats: Object.freeze(includePluginFolders ? [
 				{ format: 'vst3', supported: true, granted: startup, roots: [
 					{ rootId: 'system-vst3', origin: 'standard', name: 'System VST3 folder', admitted: startup },
 					...(startup ? [{ rootId: 'custom-vst3', origin: 'custom', name: 'Custom VST3 folder', admitted: true }] : []),
@@ -498,7 +511,7 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 					return { ...entry, roots: entry.roots.flatMap((root) => root.rootId !== rootId ? [root]
 						: action === 'remove-root' && root.origin === 'custom' ? [] : [{ ...root, admitted: action === 'add-standard-root' }]) };
 				});
-				plugins = { ...plugins, consent: { formats, scanningEnabled: formats.some((entry) => entry.granted && entry.roots.some((root) => root.admitted)) } };
+				plugins = { ...plugins, consent: { ...plugins.consent, formats, scanningEnabled: formats.some((entry) => entry.granted && entry.roots.some((root) => root.admitted)) } };
 			},
 			scanNativePlugins: async ({ format, rootId }) => {
 				if (!includePluginFolders) return refused('scanNativePlugins');

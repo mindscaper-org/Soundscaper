@@ -10,7 +10,7 @@ interface PluginDiscoveryDefaultsPort {
 		roots: readonly Readonly<{ rootId: string; origin: string; admitted: boolean }>[];
 	}>[] }> }>>;
 	setNativePluginConsent(request: Readonly<{
-		action: 'grant' | 'add-standard-root' | 'remove-root' | 'disable-x86-vst2' | 'disable-wine-vst3'; format: string; rootId?: string;
+		action: 'grant' | 'add-standard-root' | 'remove-root' | 'enable-x86-vst2' | 'disable-wine-vst3'; format: string; rootId?: string;
 	}>): Promise<unknown>;
 }
 
@@ -18,8 +18,8 @@ interface PluginDiscoveryDefaultsPort {
 export async function restorePluginDiscoveryDefaults(port: PluginDiscoveryDefaultsPort): Promise<void> {
 	await port.setEnabled(false);
 	const availability = await port.nativePluginAvailability();
-	if (availability.consent.windowsX86Vst2?.enabled) {
-		await port.setNativePluginConsent({ action: 'disable-x86-vst2', format: 'vst2' });
+	if (availability.consent.windowsX86Vst2?.supported && !availability.consent.windowsX86Vst2.enabled) {
+		await port.setNativePluginConsent({ action: 'enable-x86-vst2', format: 'vst2' });
 	}
 	if (availability.consent.linuxWineVst3?.enabled) {
 		await port.setNativePluginConsent({ action: 'disable-wine-vst3', format: 'vst3' });

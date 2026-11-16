@@ -56,7 +56,7 @@ test('clearing a scanner quarantine also releases its supervisor hold so scannin
 });
 
 
-test('bridge preference IPC persists Windows x64 opt-in and restores it without enabling other targets', async (t) => {
+test('bridge preference IPC defaults on for Windows x64 and persists opt-outs across restarts', async (t) => {
 	const userDataPath = await mkdtemp(join(tmpdir(), 'bridge-preference-'));
 	t.after(() => rm(userDataPath, { recursive: true, force: true }));
 	const handlers = new Map<string, (event?: unknown, value?: unknown) => Promise<unknown>>();
@@ -71,18 +71,26 @@ test('bridge preference IPC persists Windows x64 opt-in and restores it without 
 		describePayload: async () => ({ status: 'available' }), isPluginHostFormatActivated: () => true,
 	});
 	const registration = register('win-x64'); await registration.ready();
+	const availability = handlers.get('nativePluginAvailability'); assert.ok(availability);
+	const initial = await availability() as { consent: { windowsX86Vst2: unknown } };
+	assert.deepEqual(initial.consent.windowsX86Vst2, { supported: true, enabled: true });
 	const consent = handlers.get('nativePluginConsent'); assert.ok(consent);
 	assert.deepEqual(await consent({}, { format: 'vst2', action: 'enable-x86-vst2' }), { supported: true, enabled: true });
 	assert.deepEqual(JSON.parse(await readFile(join(userDataPath, 'windows-vst2-x86-consent-v1.json'), 'utf8')), { enabled: true });
 	await registration.dispose();
 	const restored = register('win-x64'); await restored.ready();
-	const availability = handlers.get('nativePluginAvailability'); assert.ok(availability);
-	const result = await availability() as { consent: { windowsX86Vst2: unknown } };
+	const restoredAvailability = handlers.get('nativePluginAvailability'); assert.ok(restoredAvailability);
+	const result = await restoredAvailability() as typeof initial;
 	assert.deepEqual(result.consent.windowsX86Vst2, { supported: true, enabled: true });
 	const disable = handlers.get('nativePluginConsent'); assert.ok(disable);
 	await disable({}, { format: 'vst2', action: 'disable-x86-vst2' });
 	assert.deepEqual(JSON.parse(await readFile(join(userDataPath, 'windows-vst2-x86-consent-v1.json'), 'utf8')), { enabled: false });
 	await restored.dispose();
+	const optedOut = register('win-x64'); await optedOut.ready();
+	const optedOutAvailability = handlers.get('nativePluginAvailability'); assert.ok(optedOutAvailability);
+	const disabled = await optedOutAvailability() as typeof initial;
+	assert.deepEqual(disabled.consent.windowsX86Vst2, { supported: true, enabled: false });
+	await optedOut.dispose();
 	const arm = register('win-arm64'); await arm.ready();
 	const refused = handlers.get('nativePluginConsent'); assert.ok(refused);
 	await assert.rejects(refused({}, { format: 'vst2', action: 'enable-x86-vst2' }), /Windows x64/u);

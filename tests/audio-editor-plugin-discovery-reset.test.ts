@@ -35,16 +35,28 @@ test('failed folder restoration does not enable scanning with incomplete default
 	assert.deepEqual(enabled, [false]);
 });
 
-test('factory reset restores the Windows x86 VST2 bridge to its disabled default', async () => {
+test('factory reset restores the Windows x86 VST2 bridge to its enabled default', async () => {
 	const calls: unknown[] = [];
 	await restorePluginDiscoveryDefaults({
 		setEnabled: async (enabled) => { calls.push(['enabled', enabled]); },
-		nativePluginAvailability: async () => ({ consent: { formats: [], windowsX86Vst2: { supported: true, enabled: true } } }),
+		nativePluginAvailability: async () => ({ consent: { formats: [], windowsX86Vst2: { supported: true, enabled: false } } }),
 		setNativePluginConsent: async (request) => { calls.push(request); },
 	});
 	assert.deepEqual(calls, [
-		['enabled', false], { action: 'disable-x86-vst2', format: 'vst2' }, ['enabled', true],
+		['enabled', false], { action: 'enable-x86-vst2', format: 'vst2' }, ['enabled', true],
 	]);
+});
+
+test('factory reset leaves enabled or unsupported Windows bridges unchanged', async () => {
+	for (const windowsX86Vst2 of [{ supported: true, enabled: true }, { supported: false, enabled: false }]) {
+		const calls: unknown[] = [];
+		await restorePluginDiscoveryDefaults({
+			setEnabled: async (enabled) => { calls.push(['enabled', enabled]); },
+			nativePluginAvailability: async () => ({ consent: { formats: [], windowsX86Vst2 } }),
+			setNativePluginConsent: async (request) => { calls.push(request); },
+		});
+		assert.deepEqual(calls, [['enabled', false], ['enabled', true]]);
+	}
 });
 
 test('factory reset disables Linux Wine hosting without changing Wine installation selection', async () => {

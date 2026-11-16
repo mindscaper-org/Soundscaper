@@ -263,9 +263,11 @@ VST2 uses the same automatic standard-folder discovery and plug-in preferences
 as the other formats, including saved discovery settings and folder choices.
 Candidates are `.vst` bundles on macOS, `.dll` files on Windows, and `.so`
 files on Linux. Windows x64 additionally supports 32-bit x86 VST2 plug-ins
-through an optional peer. Enable **32-bit VST2 plugins** in the existing
-**Edit > Preferences > Effects** page, add the installed plug-in folder, and
-scan it. Bridging defaults off, including after restoring factory settings. Windows ARM64, macOS and Linux retain their
+through the bundled x86 peer. Bridging defaults on, including after restoring
+factory settings, so admitted VST2 folders scan both x86 and x64 plug-ins.
+The existing **Edit > Preferences > Effects > Enable 32-bit VST2 plugins**
+setting can disable bridging; saved opt-outs survive restarts and upgrades.
+Windows ARM64, macOS and Linux retain their
 matching-architecture requirements. CLAP remains native-architecture on every
 target; VST3 additionally has the opt-in Linux x64 Wine route below. VST2 instances use
 the same isolation, digest allowance, parameters, vendor windows, latency,
@@ -286,7 +288,7 @@ scan/open, PCM, parameters, latency, state restoration into a fresh instance and
 vendor-window open/close. The native launcher serializes CRT startup handles at
 the child's pointer width and applies the existing Job supervision and limits.
 
-Main grants bridge execution only after explicit consent. The peer router
+Main grants bridge execution while the Windows x64 bridge setting is enabled. The peer router
 checks the candidate's exact file identity, length, digest and PE architecture
 before selecting the x86 peer. Scan metadata retains the candidate architecture,
 including separate x86/x64 installations sharing one VST2 ID. Existing allowance

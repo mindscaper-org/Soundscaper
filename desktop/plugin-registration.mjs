@@ -192,7 +192,7 @@ export function registerDesktopPluginDiscovery({
 	const consentPath = join(userDataPath, CONSENT_FILE);
 	const bridgePath = join(userDataPath, 'windows-vst2-x86-consent-v1.json');
 	let bridgeState;
-	try { bridgeState = JSON.parse(readFileSync(bridgePath, 'utf8')).enabled; } catch { /* opt-in defaults off */ }
+	try { bridgeState = JSON.parse(readFileSync(bridgePath, 'utf8')).enabled; } catch { /* use the target's bridge default */ }
 	const bridgeConsent = new WindowsVst2BridgeConsent({ target: nativePluginBridgeTarget,
 		state: bridgeState, persist: (enabled) => durable.writeFile(bridgePath, JSON.stringify({ enabled })) });
 	const quarantine = new DesktopPluginQuarantine({
