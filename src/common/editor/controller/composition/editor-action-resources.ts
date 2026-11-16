@@ -65,6 +65,7 @@ export interface EditorActionResources {
 	readonly assertActive?: () => void;
 	readonly AUDIO_EDITOR_DEFAULT_SHORTCUTS: typeof AUDIO_EDITOR_DEFAULT_SHORTCUTS;
 	readonly analysisService: AnalysisActions;
+	readonly dialogueAlignmentService: ReturnType<typeof createTrackAudioComposition>['dialogueAlignment'];
 	readonly audioWarpService: ReturnType<typeof createTrackAudioComposition>['audioWarp'];
 	readonly clipSourcePreviewService: ReturnType<typeof createClipVideoComposition>['clipSourcePreview'];
 	readonly capabilities: Readonly<Record<string, boolean>>;

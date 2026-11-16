@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { DIALOGUE_ALIGNMENT_COPY } from './dialogue-alignment-copy.ts';
+
 /** Copy for the Analyze menu: the spectrum plot, clipping and contrast reports, and beat finding. */
 export const ANALYSIS_COPY_BY_LOCALE = Object.freeze({
 	en: Object.freeze({
+		...DIALOGUE_ALIGNMENT_COPY,
 			microphoneBleedTitle: 'Automatic microphone-bleed reduction',
 			microphoneBleedProcessing: 'Reducing microphone bleed',
 			microphoneBleedInstructions: 'Select a time range across two to eight microphone tracks, one per person. Reduce likely copies of another microphone while preserving independent speech. Use aligned mono or stereo recordings.',

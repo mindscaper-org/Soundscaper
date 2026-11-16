@@ -427,7 +427,7 @@ storage/sharing, model downloads, and licence checks do not affect this rating.
 | Text to speech | + — Kokoro :: Kokoro voices with optional model, engine, and offline pronunciation helper | / — :: Requires the VoiceWunder ARA plug-in. |
 | Automatic ducking | + | ~ — Sidechain |
 | Music remix to target duration | / | / |
-| Automatic dialogue alignment | / | / — :: Requires an external alignment plug-in, such as VocAlign. |
+| Automatic dialogue alignment | + — :: Same local workflow as Web; no model download. | / — :: Requires an external alignment plug-in, such as VocAlign. |
 | Beat and shot detection | ~ — Beats only :: Beat detection with an optional model; shot detection is in Framescaper | ~ — Beat Detective |
 | Exclusively local media processing | + — :: Local editing and offline inference after model installation; optional sharing. | / — :: Speech-to-text runs locally, but integrated Splice Search with Sound uploads audio for AI matching. |
 | Models are optional and removable | + | ~ — Speech engine |

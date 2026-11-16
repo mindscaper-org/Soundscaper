@@ -427,7 +427,7 @@ storage/sharing, model downloads, and licence checks do not affect this rating.
 | Text to speech | + — Kokoro :: Kokoro voices with optional model, engine, and offline pronunciation helper | + — OS voices |
 | Automatic ducking | + | + |
 | Music remix to target duration | / | + — Remix :: Analyses and rearranges musical passages to fit a target duration. |
-| Automatic dialogue alignment | / | + — :: Warps a replacement dialogue performance to match the timing of a reference recording. |
+| Automatic dialogue alignment | + — :: Same local workflow as Web; no model download. | + — :: Warps a replacement dialogue performance to match the timing of a reference recording. |
 | Beat and shot detection | ~ — Beats only :: Beat detection with an optional model; shot detection is in Framescaper | ~ — Remix |
 | Exclusively local media processing | + — :: Local editing and offline inference after model installation; optional sharing. | + — :: Local editing and restoration; no entry point to Adobe Podcast's separate cloud AI tools was found in the reviewed Audition workflows. |
 | Models are optional and removable | + | / |

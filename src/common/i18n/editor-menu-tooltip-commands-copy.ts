@@ -2,6 +2,7 @@
 
 // Stable command identity, English label, and purpose. Descriptions are localized separately.
 export const MENU_TOOLTIP_COMMANDS: Readonly<Record<string, readonly [string, string]>> = Object.freeze({
+	'align-dialogue': ['Align dialogue', 'Match a replacement dialogue performance to the timing of a reference recording and create an aligned copy.'],
 	'juce-effects': ['JUCE', 'Choose a bundled desktop audio processor for the selected track.'],
 	'juce-effect-gain': ['Gain', 'Adjust the signal level with a constant amplification.'],
 	'juce-effect-reverb': ['Reverb', 'Add a simulated acoustic decay with adjustable size, damping and stereo width.'],

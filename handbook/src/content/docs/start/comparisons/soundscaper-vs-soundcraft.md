@@ -427,7 +427,7 @@ storage/sharing, model downloads, and licence checks do not affect this rating.
 | Text to speech | + — Kokoro :: Kokoro voices with optional model, engine, and offline pronunciation helper | / |
 | Automatic ducking | + | / |
 | Music remix to target duration | / | / |
-| Automatic dialogue alignment | / | / |
+| Automatic dialogue alignment | + — :: Same local workflow as Web; no model download. | / |
 | Beat and shot detection | ~ — Beats only :: Beat detection with an optional model; shot detection is in Framescaper | ~ — Beat Analysis |
 | Exclusively local media processing | + — :: Local editing and offline inference after model installation; optional sharing. | + — :: Local audio engine; ArtCraft Studio's separate image/video services are outside the reviewed SoundCraft workflow. |
 | Models are optional and removable | + | / |

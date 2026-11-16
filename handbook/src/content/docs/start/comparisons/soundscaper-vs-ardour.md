@@ -427,7 +427,7 @@ storage/sharing, model downloads, and licence checks do not affect this rating.
 | Text to speech | + — Kokoro :: Kokoro voices with optional model, engine, and offline pronunciation helper | / |
 | Automatic ducking | + | ~ — Sidechain :: Configure a sidechain compressor/send; no dedicated automatic envelope-generation workflow. |
 | Music remix to target duration | / | / |
-| Automatic dialogue alignment | / | / |
+| Automatic dialogue alignment | + — :: Same local workflow as Web; no model download. | / |
 | Beat and shot detection | ~ — Beats only :: Beat detection with an optional model; shot detection is in Framescaper | ~ — Beats / onsets :: Built-in Vamp beat/onset analysis and Rhythm Ferret; no shot detection. |
 | Exclusively local media processing | + — :: Local editing and offline inference after model installation; optional sharing. | + |
 | Models are optional and removable | + | / |

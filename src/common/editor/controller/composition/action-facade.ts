@@ -77,7 +77,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	toggleRulerPlayback, toggleSelectionFollowsLoop, toggleStretchToTempo, toggleScrollViewToPlayhead,
 	toggleVerticalRulers, trimClips, updateRackEffect, updateZoom, sequenceTimingService,
 	timelineAnnotationService, regularIntervalAnnotationController, trackFolderService, trackStructuralOperations,
-	audioWarpService, takeCompService, videoNavigationService,
+	audioWarpService, dialogueAlignmentService, takeCompService, videoNavigationService,
 	} = scope;
 	const restricted = <Args extends unknown[], Result>(capability: string, action: (...args: Args) => Result) => (...args: Args): Result => {
 		if (!capabilities[capability]) {
@@ -357,7 +357,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			select: restricted('trackFolders', (...args: Parameters<typeof trackFolderService.selectFolder>) => trackFolderService.selectFolder(...args)),
 			selectedFolderId: (...args: Parameters<typeof trackFolderService.selectedFolderId>) => trackFolderService.selectedFolderId(...args),
 		}),
-		...createProjectOwnedFeatureActionFacades({ capabilities, product, audioWarpService, takeCompService }),
+		...createProjectOwnedFeatureActionFacades({ capabilities, product, audioWarpService, dialogueAlignmentService, takeCompService }),
 		sampleEdit: Object.freeze({
 			setMode: restricted('audioSampleEditing', setSampleEditMode),
 			pencil: restricted('audioSampleEditing', applySamplePencil),
