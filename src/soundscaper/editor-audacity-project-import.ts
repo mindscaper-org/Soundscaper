@@ -11,6 +11,7 @@ import {
 import type { SoundscaperProject } from './editor-project-validation.ts';
 import { AUTOMATION_LANE_MAXIMUM_POINTS_V21, normalizeAutomationLaneV21, type AutomationLaneV21 } from '../common/editor/automation-lane-v21.ts';
 import { thinAutomationLaneCaptureV21 } from '../common/editor/automation-lane-thinning-v21.ts';
+import { canonicalParameterAddressKey } from '../common/editor/parameter-address.ts';
 import type { StripRef } from '../common/editor/parameter-address.ts';
 import { importSoundscaperAudacityMixer } from './editor-audacity-import-mixer.ts';
 import type { DawprojectImportRoutingContext } from '../common/editor/dawproject-import-structure.ts';
@@ -25,7 +26,7 @@ export function importSoundscaperAudacityProject(value: unknown, context?: Dawpr
 	delete foundation.schemaVersion;
 	const options = {
 		...foundation,
-		automationLanes: importedStripGainLanes(decoded),
+		automationLanes: [...importedStripGainLanes(decoded).filter(lane => !context?.automationLanes?.some(imported => canonicalParameterAddressKey(imported.address) === canonicalParameterAddressKey(lane.address))), ...context?.automationLanes ?? []],
 		now: decoded.createdAt,
 	} as SoundscaperProjectOptions;
 	// Establish imported bus identities before validating their gain lanes.

@@ -217,7 +217,7 @@ test('channels become tracks with gain, pan, mute and solo, including editable M
 	assert.equal(omitted, undefined);
 	assert.ok(codes(plan).includes('dawproject.midi-notes-preserved'));
 	assert.equal(codes(plan).includes('dawproject.notes-omitted'), false);
-	assert.ok(codes(plan).includes('dawproject.devices-omitted'));
+	assert.ok(codes(plan).includes('dawproject.device-state-preserved'));
 	assert.ok(codes(plan).includes('dawproject.scenes-omitted') === false, 'an empty Scenes element is nothing to report');
 });
 
@@ -225,7 +225,8 @@ test('volume automation becomes the track envelope and markers become timeline m
 	const plan = importBitwig();
 	const [track] = plan.project.tracks as { envelope: { frame: number; value: number }[] }[];
 	assert.deepEqual(track?.envelope, [{ frame: 0, value: 0.5 }, { frame: 192_000, value: 1 }]);
-	assert.ok(codes(plan).includes('dawproject.automation-hold-converted'));
+	assert.equal(codes(plan).includes('dawproject.automation-hold-converted'), false);
+	assert.equal(plan.routingContext.automationLanes?.[0]?.segments[0]?.kind, 'linear');
 	const annotations = plan.project.timelineAnnotations as Record<string, unknown>[];
 	assert.deepEqual(annotations.map((marker) => [marker.name, marker.positionFrame, marker.kind]), [['Drop', 96_000, 'marker']]);
 	assert.equal(plan.report.direction, 'import');

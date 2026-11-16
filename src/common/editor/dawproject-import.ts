@@ -56,6 +56,7 @@ export interface DawprojectChannel {
 	readonly mute: DawprojectBoolParameter | null;
 	readonly sends: readonly DawprojectSend[];
 	readonly devices: number;
+	readonly deviceTrees?: readonly XmlElement[];
 }
 
 export interface DawprojectTrack {
@@ -236,6 +237,7 @@ function parseChannel(element: XmlElement): DawprojectChannel {
 		mute: mute ? Object.freeze({ id: attribute(mute, 'id'), value: booleanAttribute(mute, 'value') }) : null,
 		sends: Object.freeze(sends ? childElements(sends, 'Send').map(parseSend) : []),
 		devices: devices ? devices.children.length : 0,
+		deviceTrees: devices?.children ?? [],
 	});
 }
 

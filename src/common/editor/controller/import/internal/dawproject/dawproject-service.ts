@@ -8,6 +8,7 @@ import {
 	entryBaseName,
 	isDawprojectFileName,
 } from '../../../../dawproject-format.ts';
+import { readDawprojectDeviceStates } from '../../../../dawproject-import-device-states.ts';
 import { parseDawprojectDocument } from '../../../../dawproject-import.ts';
 import { dawprojectArrangementAudioReferences } from '../../../../dawproject-arrangement-media.ts';
 import { buildDawprojectProject, dawprojectImportedAudioMimeType, type DawprojectDecodedMediaInfo } from '../../../../dawproject-import-project.ts';
@@ -189,7 +190,9 @@ export function createDawprojectService(runtime: NativeProjectServiceRuntime, he
 					);
 				} finally { try { prepared?.dispose(); } finally { await archive.releaseEntry(reference.path); } }
 			}
+			const deviceStates = await readDawprojectDeviceStates(document, archive, assertReady);
 			const plan = buildDawprojectProject(document, {
+				deviceStates,
 				fileName: String(file.name), media, stagedSourceIds, sourceProvenance, createStableId: runtime.createStableId,
 			});
 			const layouts = await persistInterchangeMidiSources(runtime, helpers, operation, plan.midiSources, persistedSourceIds);
@@ -199,7 +202,7 @@ export function createDawprojectService(runtime: NativeProjectServiceRuntime, he
 			// Soundscaper's adapter also preserves its richer routing authority.
 			importedProject = runtime.adaptAudacityProject
 				? await runtime.adaptAudacityProject(created, plan.routingContext)
-				: runtime.createImportedProject ? await runtime.createImportedProject(projectOptions) : runtime.loadProject(created).project;
+				: runtime.createImportedProject ? await runtime.createImportedProject({ ...projectOptions, mixer: plan.routingContext.mixerGraph }) : runtime.loadProject(created).project;
 			assertReady();
 			const retainedIds = new Set([...plan.media.map((binding) => binding.sourceId), ...plan.midiSources.map(source => source.sourceId)]);
 			for (const sourceId of persistedSourceIds) {
