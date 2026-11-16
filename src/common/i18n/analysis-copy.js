@@ -27,6 +27,7 @@ export const ANALYSIS_COPY_BY_LOCALE = Object.freeze({
 			analyzeSelection: 'Analyze selection',
 			repeatLastAnalyzer: 'Repeat last analyzer',
 			plotSpectrum: 'Plot spectrum',
+			spectrumLiveInstructions: 'Live playback spectra. Select audio to analyze that range instead.',
 			spectrumSelectionTooShort: 'Plot spectrum requires at least {samples} samples. Select a longer audio range.',
 			findClipping: 'Find clipping',
 			findRepeatedSound: 'Find repeated sound',

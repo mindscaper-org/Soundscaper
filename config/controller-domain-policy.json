@@ -3,6 +3,7 @@
 	"publicModules": [
 		"analysis/analysis-composition.ts",
 		"analysis/analysis-service.ts",
+		"analysis/live-spectrum-session.ts",
 		"analysis/transient-analysis-pcm-access.ts",
 		"analysis/transient-analysis-service.ts",
 		"analysis/vamp-analysis-action-facade.ts",
