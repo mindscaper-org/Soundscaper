@@ -72,6 +72,7 @@ import {
 	type RenderedAudio,
 } from '../source/source-audio.ts';
 import { generateWaveformPeaks, peakCacheKey } from '../source/waveform-analysis.ts';
+import { createMicrophoneBleedAction } from './internal/microphone-bleed-composition.ts';
 
 export type {
 	EffectsCompositionCopy,
@@ -422,6 +423,7 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 	/** The long-running effect operations, reported through task progress. */
 	const processing = (label: string | undefined) => label || copy.audacityProcessing;
 	return Object.freeze({
+		reduceMicrophoneBleed: createMicrophoneBleedAction(dependencies, audio),
 		araClipEditing: createDeferredAraClipEditingRuntime({
 			lifetime: dependencies.lifetime, projectGeneration: dependencies.projectGeneration,
 			getProject: dependencies.getProject, getCommandProject: dependencies.getCommandProject,

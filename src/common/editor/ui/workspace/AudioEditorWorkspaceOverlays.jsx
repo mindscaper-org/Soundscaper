@@ -11,6 +11,7 @@ import { resolveSoundscaperMasteringSequenceCopy } from '../soundscaper-workflow
 import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
 import EditorSurfaceBoundary from '../EditorSurfaceBoundary.jsx';
 import WorkspaceEffectWindows from './WorkspaceEffectWindows.tsx';
+import MicrophoneBleedSurface from './MicrophoneBleedSurface.tsx';
 import { recoverySurfaceAfterClose } from '../recovery-surface-close.ts';
 const AudioEditorMacroManagerDialog = lazyEditorModule(() => import('../inspector/AudioEditorMacroManagerDialog.jsx'));
 const SOUNDSCAPER_BUILD = typeof __SCAPE_PRODUCT__ === 'undefined'
@@ -513,6 +514,7 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 				selectedMediaPreparation={selectedMediaPreparation}
 				textToSpeechProjectPort={controller?.textToSpeechProjectPort ?? null}
 				setActiveSurface={setActiveSurface} />
+			<MicrophoneBleedSurface activeSurface={activeSurface} controller={controller} snapshot={snapshot} copy={copy} onClose={() => setActiveSurface(null)} />
 			{dialog === 'about' && <AboutDialog title={aboutLabel} productId={productId}
 				copy={copy} onClose={() => setDialog(null)} />}
 			{dialog && dialog !== 'about' && dialog !== 'project-compatibility' && (

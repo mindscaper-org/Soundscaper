@@ -62,6 +62,7 @@ Product availability follows each product profile’s command filters and each l
 | Audio warp and transients | `audio-warp-editor` | — | Effect > Pitch and tempo | Soundscaper | Soundscaper local |
 | Auto Duck | `audacity-auto-duck` | — | Effect > Volume and compression | Soundscaper | Soundscaper local |
 | Auto-Tune | `auto-tune` | — | Effect > Distortion and modulation | Soundscaper | Soundscaper local |
+| Automatic microphone-bleed reduction | `automatic-microphone-bleed-reduction` | — | Effect > Noise removal and repair | Soundscaper | Soundscaper local |
 | Automatic phase correction | `automatic-phase-correction` | — | Effect > Noise removal and repair | Soundscaper | Soundscaper local |
 | Automatically follow playback | `pan` | — | Transport | Soundscaper, Framescaper | Audacity |
 | Automation Lanes | `framescaper-audio-automation` | — | Tracks | Framescaper | Soundscaper local |

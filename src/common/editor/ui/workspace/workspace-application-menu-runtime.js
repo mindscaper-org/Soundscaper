@@ -377,6 +377,7 @@ export function createWorkspaceApplicationMenus({
 				runMacro: (macro) => run(() => controller.actions.macros.run(macro)),
 				selectionEffectMutationLocked,
 				openSelectionEffect: (type) => {
+					if (type === 'automatic-microphone-bleed-reduction') return openSurface('microphone-bleed');
 					if (selectionEffectMutationLocked(type)) return;
 					return immediateSelectionEffect(type)
 						? run(() => controller.actions.effects.applySelection({ type })) : openSelectionEffect(type);

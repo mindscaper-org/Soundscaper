@@ -235,6 +235,11 @@ function richApplicationMenuMatrix(product: ProductId): readonly (readonly MenuI
 	if (product === 'soundscaper') {
 		const editable = richSoundscaperProject();
 		return [
+			applicationMenusForState(product, { selectedTrackId: 'voice-track', selectedClipId: 'voice-clip',
+				project: { ...editable, clips: [...editable.clips, { ...editable.clips[0], id: 'second-voice-clip' }],
+					tracks: [...editable.tracks, createAudioTrack({ id: 'second-voice', name: 'Second voice', clipIds: ['second-voice-clip'] })],
+					selection: { startFrame: 0, endFrame: 48000, trackIds: ['voice-track', 'second-voice'], clipIds: [] } },
+			}),
 			applicationMenusForState(product, {
 				project: { ...editable, selection: { startFrame: 0, endFrame: 128, trackIds: ['voice-track'], clipIds: [] } },
 				selectedTrackId: 'voice-track', selectedClipId: 'voice-clip',

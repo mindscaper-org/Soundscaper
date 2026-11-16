@@ -196,6 +196,7 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	['audacity-graphic-eq', 'Graphic EQ', 'Effect > EQ and filters', SOUNDSCAPER],
 	['deesser', 'De-esser', 'Effect > Noise removal and repair', SOUNDSCAPER],
 	['automatic-phase-correction', 'Automatic phase correction', 'Effect > Noise removal and repair', SOUNDSCAPER],
+	['automatic-microphone-bleed-reduction', 'Automatic microphone-bleed reduction', 'Effect > Noise removal and repair', SOUNDSCAPER],
 	['noise-gate', 'Noise gate', 'Effect > Noise removal and repair', SOUNDSCAPER],
 	['hum-removal', 'Hum removal', 'Effect > Noise removal and repair', SOUNDSCAPER],
 	['audacity-click-removal', 'Click Removal', 'Effect > Noise removal and repair', SOUNDSCAPER],

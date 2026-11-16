@@ -456,6 +456,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			materializeFreesoundUpload: materializeFreesoundUploadClip,
 		}),
 		effects: Object.freeze({
+			reduceMicrophoneBleed: restricted('audioEffects', scope.reduceMicrophoneBleed),
 			setSourceSelection: scope.setSourceSelection, readSourceSelection: scope.readSourceSelection, readSourceSelectionDuration: scope.readSourceSelectionDuration, readSourceSelectionSampleRate: scope.readSourceSelectionSampleRate, loadSourceAudio: scope.loadSourceAudio, loadSourceAudioWindow: scope.loadSourceAudioWindow, readSelectionTargetLocked: scope.readSelectionTargetLocked,
 			add: restricted('audioEffects', addEffect),
 			update: restricted('audioEffects', updateRackEffect),

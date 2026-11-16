@@ -177,6 +177,7 @@ export default function createApplicationMenus({
 	const importAnalysisMenuContext = { productId, copy, snapshot, editBlocked, blocked,
 		analyzerBlocked: selectionAnalyzerBlocked, actionRuntime, openRepeatAnalyzer: actions.openRepeatAnalyzer };
 	const effectLabels = new Map((snapshot.effects?.selectionTypes || []).map(({ type, label }) => [type, label]));
+	if (productId === 'soundscaper') effectLabels.set('automatic-microphone-bleed-reduction', copy.microphoneBleedTitle);
 	const effectGroups = createEffectMenuEntries({
 		organization: preferences?.effects?.menuOrganization,
 		copy, effectLabels, productId, locale,
@@ -185,6 +186,10 @@ export default function createApplicationMenus({
 		selectionActive: effectTargeting.explicitEffectSelectionActive,
 		allAudioTarget: effectTargeting.effectPreferenceTargetsAll,
 		repairAvailable: repairSelectionAvailable(project, snapshot.selectedClipId ?? selectedClip?.id ?? null, snapshot.effects?.sourceSelectionFrames),
+		microphoneBleedAvailable: Boolean(project?.selection && !project.selection.frequencyRange
+			&& project.selection.endFrame > project.selection.startFrame
+			&& project.tracks.filter(track => track.type === 'audio' && project.selection.trackIds?.includes(track.id)).length >= 2
+			&& project.tracks.filter(track => track.type === 'audio' && project.selection.trackIds?.includes(track.id)).length <= 8),
 	}, actions.openSelectionEffect);
 	const nyquistItems = createNyquistPluginMenuItems({
 		editBlocked, blocked, selectedAudioTrack: effectTargeting.effectAudioTrack, frequencySelectionActive,

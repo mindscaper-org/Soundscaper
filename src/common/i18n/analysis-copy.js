@@ -3,6 +3,21 @@
 /** Copy for the Analyze menu: the spectrum plot, clipping and contrast reports, and beat finding. */
 export const ANALYSIS_COPY_BY_LOCALE = Object.freeze({
 	en: Object.freeze({
+			microphoneBleedTitle: 'Automatic microphone-bleed reduction',
+			microphoneBleedProcessing: 'Reducing microphone bleed',
+			microphoneBleedInstructions: 'Select a time range across two to eight microphone tracks, one per person. Reduce likely copies of another microphone while preserving independent speech. Use aligned mono or stereo recordings.',
+			microphoneBleedEditable: 'Creates editable clip gain envelopes without changing source audio or track automation. Existing clip envelopes are multiplied by the reduction. Apply once, then listen and adjust with the Clip gain tool; undo before trying different settings.',
+			microphoneBleedReduction: 'Maximum reduction (dB)',
+			microphoneBleedSimilarity: 'Minimum similarity (%)',
+			microphoneBleedFade: 'Fade-down duration (ms)',
+			microphoneBleedSimilarityHint: 'Higher similarity preserves more uncertain audio. Bleed during simultaneous speech may remain.',
+			microphoneBleedApply: 'Create gain envelopes',
+			microphoneBleedBlocked: 'Finish the current operation before reducing microphone bleed.',
+			microphoneBleedSelectionRequired: 'Select a time range with aligned mono or stereo audio on two to eight microphone tracks. Frequency selections are not supported.',
+			microphoneBleedLocked: 'Unlock and unfreeze the selected microphone tracks before reducing bleed.',
+			microphoneBleedRangeTooLong: 'The selection is too long to analyze together. Select a shorter range.',
+			microphoneBleedApplied: 'Microphone-bleed reduction applied as editable clip gain envelopes.',
+			microphoneBleedUnchanged: 'No confident bleed regions were found. The gain envelopes are unchanged.',
 			analysis: 'Analysis',
 			analysisCommand: 'Analysis',
 			analysisDialog: 'Analysis',

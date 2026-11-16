@@ -32,6 +32,7 @@ import type { RenderedAudio } from '../source/source-audio.ts';
 import type { generateWaveformPeaks } from '../source/waveform-analysis.ts';
 import type { MacroTransaction } from '../document/project-mutation-service.ts';
 import type { AraClipEditingDependencies } from './internal/ara-clip-editing.ts';
+import type { MicrophoneBleedCopy } from './internal/microphone-bleed-service.ts';
 
 /** The document shape every effect service reads; the controller supplies its current project. */
 export type EffectsCompositionProject =
@@ -61,6 +62,7 @@ export type EffectsCompositionState =
 	};
 
 export type EffectsCompositionCopy =
+	& MicrophoneBleedCopy & Readonly<{ microphoneBleedTitle: string; microphoneBleedProcessing: string }>
 	& EffectSelectionServiceRuntime['copy']
 	& EffectControlsServiceRuntime['copy']
 	& EffectAudioServiceRuntime['copy']

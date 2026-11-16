@@ -29,6 +29,7 @@ function defineEditorActionFunctionNames<const Names extends readonly (keyof Edi
 }
 
 export const EDITOR_ACTION_FUNCTION_NAMES = defineEditorActionFunctionNames([
+	'reduceMicrophoneBleed',
 	'setSourceSelection', 'readSourceSelection', 'readSourceSelectionDuration', 'readSourceSelectionSampleRate', 'loadSourceAudio', 'loadSourceAudioWindow', 'readSelectionTargetLocked',
 	'addEffect',
 	'addLabelTrack',
