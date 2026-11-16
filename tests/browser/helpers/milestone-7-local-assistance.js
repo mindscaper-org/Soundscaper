@@ -19,9 +19,9 @@ const MODELS = Object.freeze([
 	['qwen3-4b-q4-k-m', '1.0.0', 'editorial-generation'],
 ]);
 
-export async function installMilestone7LocalAssistanceFixture(page, additionalModels = []) {
+export async function installMilestone7LocalAssistanceFixture(page, additionalModels = [], { transcriptWordTiming = false } = {}) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(({ models }) => {
+	await page.addInitScript(({ models, transcriptWordTiming }) => {
 		const artifactSha256 = '11'.repeat(32);
 		const runtimeModels = Object.freeze(models.map(([modelId, version, task]) => Object.freeze({
 			modelId, version, task, artifactSha256s: Object.freeze([artifactSha256]),
@@ -251,7 +251,10 @@ export async function installMilestone7LocalAssistanceFixture(page, additionalMo
 				captions: { schemaVersion: 1, kind: 'captions', sourceId: audio?.sourceId,
 					sampleRate: audio?.sourceSampleRate ?? 48_000, alignmentApplied: false,
 					cues: [{ cueId: 'caption:0', startFrame: sourceStart, endFrame: captionEnd,
-						text: 'Launch plan from the interview.', words: [] }] },
+						text: 'Launch plan from the interview.', words: transcriptWordTiming ? ['Launch', 'plan', 'from', 'the', 'interview.'].map((text, index) => ({
+							text, startFrame: sourceStart + Math.floor((captionEnd - sourceStart) * index / 5),
+							endFrame: sourceStart + Math.floor((captionEnd - sourceStart) * (index + 1) / 5), confidence: 0.95,
+						})) : [] }] },
 				'beat-labels': { schemaVersion: 1, kind: 'beat-labels',
 					publicationRequested: request.settings.publishBeatLabels,
 					points: [{ id: 'beat-grid:downbeat:0', kind: 'downbeat', label: 'Downbeat',
@@ -401,7 +404,7 @@ export async function installMilestone7LocalAssistanceFixture(page, additionalMo
 		function jsonBlob(value, slotId) {
 			return new Blob([JSON.stringify(value)], { type: outputMediaType(slotId) });
 		}
-	}, { models: [...MODELS, ...additionalModels] });
+	}, { models: [...MODELS, ...additionalModels], transcriptWordTiming });
 }
 
 export async function completeMilestone7Run(page) {

@@ -60,6 +60,7 @@ const SOUNDSCAPER_BUILD = typeof __SCAPE_PRODUCT__ === 'undefined'
 const DEFERRED_WORKSPACE_PANELS = Object.freeze({
 	'clip-properties': lazyEditorModule(() => import('../inspector/ClipPropertiesPanel.tsx')),
 	metadata: lazyEditorModule(() => import('./ProjectMetadataPanel.tsx')),
+	'transcript-editing': lazyEditorModule(() => import('./TranscriptEditingPanel.tsx')),
 	...(FRAMESCAPER_BUILD ? {
 		'recording-setup': lazyEditorModule(() => import('./RecordingSetupPanel.tsx')),
 		'web-vcr': lazyEditorModule(() => import('./WebVcrPanel.tsx')),

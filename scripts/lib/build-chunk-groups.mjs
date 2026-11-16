@@ -93,6 +93,12 @@ export {
 
 /** @type {import('rolldown').CodeSplittingGroup[]} */
 export const chunkGroups = [
+	{
+		// Transcript projection and inference are requested only by the optional panel.
+		name: 'editor-transcript-editing',
+		test: /src[\\/]common[\\/]editor[\\/](?:transcript-editing\.ts|controller[\\/](?:composition[\\/]internal[\\/]transcript-editing-actions|assistance[\\/]transcript-generation-session)\.ts|ui[\\/]workspace[\\/](?:Transcript(?:EditingPanel|Generation)\.tsx|TranscriptEditingPanel\.css|transcript-(?:dom-selection|editing-panel-types)\.ts))$/,
+		priority: 102, minSize: 0, maxSize: 400_000, includeDependenciesRecursively: false,
+	},
 	{ name: 'editor-assistance-model-preflight', test: EDITOR_ASSISTANCE_MODEL_PREFLIGHT_CHUNK_TEST,
 		priority: 100, minSize: 0, maxSize: 400_000,
 		includeDependenciesRecursively: false },

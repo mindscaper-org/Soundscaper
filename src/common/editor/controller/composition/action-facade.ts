@@ -11,6 +11,7 @@ import {
 	createRecordingPreferenceActionFacade,
 } from '../recording/recording-action-facade.ts';
 import { createClipSpreadsheetAction } from './internal/clip-spreadsheet-action.ts';
+import { createDeferredTranscriptEditingActions } from './transcript-editing-actions.ts';
 import { createAuditionOutputActions } from './internal/audition-output-actions.ts';
 import { createMidiActionGroup } from './midi-action-group.ts';
 import { createInterchangeFileImport } from './internal/interchange-file-import.ts';
@@ -194,6 +195,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			setTimeDisplay: (format: AudioEditorCommandPayloads['time-display/set']['format']) => commit({ type: 'time-display/set', format }),
 		}),
 		projectBin,
+		transcript: createDeferredTranscriptEditingActions(scope),
 		video: createVideoActionGroup(scope, restricted),
 		edit: Object.freeze({
 			execute: handleEdit,
