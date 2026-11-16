@@ -10,8 +10,8 @@ export class NodeMidiWorker implements MidiRenderWorkerPort {
 		this.worker = new NodeWorker(`const { parentPort } = require('node:worker_threads');
 import(${JSON.stringify(runtime)}).then(({ createMidiRenderWorker }) => {
 	const render = createMidiRenderWorker();
-	parentPort.on('message', request => { try { const result = render(request); parentPort.postMessage(result, result.channels?.map(plane => plane.buffer) ?? []); }
-	catch (error) { parentPort.postMessage({ id: request.id, error: error.message }); } });
+	parentPort.on('message', request => { void render(request).then(result => { parentPort.postMessage(result, result.timeline ? [result.timeline.frames.buffer, result.timeline.messages.buffer] : result.channels?.map(plane => plane.buffer) ?? []); })
+	.catch(error => { parentPort.postMessage({ id: request.id, error: error.message }); }); });
 });`, { eval: true });
 	}
 	postMessage(message: unknown): void { this.worker.postMessage(message); }

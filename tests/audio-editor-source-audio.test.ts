@@ -262,6 +262,19 @@ test('stored chunk providers preserve fallback reads when sessions are unavailab
 	await provider.dispose();
 });
 
+test('stored read sessions retain a live stream origin without making it canonical source state', async () => {
+	const calls: unknown[] = [];
+	const provider = createStoredChunkProvider({ readSourceChunk: () => { throw new Error('Unexpected fallback'); },
+		openSourceReadSession: async () => ({ chunk: async (_index, options) => { calls.push(options); return 'pcm'; }, release: async () => undefined }),
+	}, { id: 'midi', frameCount: 4096, channelCount: 1, sampleRate: 48000, chunkFrames: 1024 },
+	{ id: 'midi', frameCount: 4096, channelCount: 1, sampleRate: 48000, chunkFrames: 1024, chunkCount: 4 });
+	try {
+		await provider.readStorageChunk(2, { renderStartFrame: 2048, streamId: 'live' });
+		await provider.readStorageChunk(2);
+		assert.deepEqual(calls, [{ renderStartFrame: 2048 }, {}]);
+	} finally { await provider.dispose(); }
+});
+
 test('stored chunk provider disposal fences and cleans up a late opening session', async () => {
 	const source = { id: 'source', frameCount: 4, channelCount: 1, sampleRate: 48_000, chunkFrames: 4 };
 	const metadata = { id: 'source', frameLength: 4, channelCount: 1, sampleRate: 48_000, chunkFrames: 4, chunkCount: 1 };

@@ -43,6 +43,8 @@ const trackedVersions = [
 	'hono',
 	'jsdom',
 	'mediabunny',
+	'js-synthesizer',
+	'libadlmidi-js',
 	'node-web-audio-api',
 	'playwright',
 	'playwright-core',

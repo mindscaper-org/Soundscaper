@@ -1,5 +1,43 @@
 # Third-party browser runtime notices
 
+## MIDI synthesis runtimes
+
+`libadlmidi-js` 2.2.0 provides the JavaScript interface to libADLMIDI 1.6.2
+(revision `ad001c83551779934bacd642fce801c51a5b7b4c`). The wrapper is LGPL-3.0;
+libADLMIDI contains GPL-3.0-or-later core code and LGPL-2.1-or-later Nuked OPL3
+code. Authors include Joel Yliluoma, Vitaly Novichkov, Jean Pierre Cimalando,
+Nuke.YKT (2013–2020), and Tony Gies (2026 Nuked-OPL3-fast modifications).
+Soundscaper selects the Nuked slim build with no embedded game-derived banks.
+The distributed FM reference patches are original Soundscaper data.
+
+`js-synthesizer` 1.13.0 is Copyright (C) 2018 jet, under BSD-3-Clause.
+Its separately licensed FluidSynth 2.4.6 Emscripten runtime is LGPL-2.1-or-later,
+from `jet2jet/fluidsynth-emscripten` revision
+`99bf7094cf517095b7a944ccf5f74072436bfa3f` (`v2.4.6-em-2`). The build without
+libsndfile is selected. The Vite adapter separates its unchanged embedded WASM
+payload and exports the upstream Module; it adds no evaluator or remote loader.
+FluidSynth's authors and acknowledgements are retained in the pinned source.
+The small harmonic SoundFont reference bank is generated from original
+Soundscaper code and contains no third-party samples. It is a reference bank,
+not a sampled acoustic General MIDI library.
+
+Complete license texts are in [LICENSES/midi-synths](LICENSES/midi-synths).
+The Emscripten, compiler-rt and musl notices already retained under
+`src/common/editor/staffpad/licenses/` also cover the corresponding runtime parts.
+Exact runtime and source archive hashes, build identities, and source locations
+are in [config/midi-synth-runtime.json](config/midi-synth-runtime.json).
+Run `node scripts/provision-midi-synths.mjs --sources` to acquire and verify the
+preferred source archives, including the JavaScript wrapper source and upstream
+build scripts. Rebuild libADLMIDI with the wrapper's pinned Emscripten toolchain
+and `./build.sh nuked slim`; rebuild FluidSynth with its Emscripten CMake recipe
+and libsndfile disabled. These upstream prebuilt bytes are authenticated by
+hash; a byte-identical local rebuild is not claimed.
+
+Surge XT and Dexed use the existing user-installed desktop VST3 host. Their
+plug-in binaries, factory banks and native dependencies are not bundled into
+Soundscaper's distributable installers by this integration. The optional Linux
+experiment provisioner records their exact upstream archive identities.
+
 ## Soundscaper professional-native desktop payload
 
 Stable Soundscaper desktop packages carry a closed, target-specific notice

@@ -6,10 +6,9 @@ const scope = globalThis as unknown as {
 	postMessage(value: unknown, transfer?: Transferable[]): void;
 };
 scope.onmessage = ({ data }) => {
-	try {
-		const result = render(data);
-		scope.postMessage(result, result.channels?.map(plane => plane.buffer) ?? []);
-	} catch (error) {
+	void render(data).then(result => {
+		scope.postMessage(result, result.timeline ? [result.timeline.frames.buffer, result.timeline.messages.buffer] : result.channels?.map(plane => plane.buffer) ?? []);
+	}).catch((error: unknown) => {
 		scope.postMessage({ id: data.id, error: error instanceof Error ? error.message : String(error) });
-	}
+	});
 };

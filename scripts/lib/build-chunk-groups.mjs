@@ -174,6 +174,13 @@ export const chunkGroups = [
 		includeDependenciesRecursively: false,
 	},
 	{
+		name: 'vendor-midi-synth',
+		test: /node_modules[\\/](?:libadlmidi-js|js-synthesizer)[\\/]/,
+		priority: 101,
+		maxSize: 400_000,
+		includeDependenciesRecursively: false,
+	},
+	{
 		name: 'vendor-mediabunny',
 		test: /node_modules[\\/]mediabunny[\\/]/,
 		priority: 101,

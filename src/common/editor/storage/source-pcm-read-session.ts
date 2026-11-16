@@ -28,7 +28,7 @@ export function isSourcePcmReadSessionReleasedError(error: unknown): boolean {
 export interface SourcePcmReadSessionFactoryOptions {
 	/** Two is reserved for independently bounded positional backend requests. */
 	readonly maximumConcurrentReads?: number;
-	readChunk(chunkIndex: number, signal?: AbortSignal): Promise<SourcePcmChunk>;
+	readChunk(chunkIndex: number, signal?: AbortSignal, context?: SourceReadOptions): Promise<SourcePcmChunk>;
 	release(): Promise<void>;
 	onRelease(): void;
 }
@@ -57,8 +57,9 @@ export function createSourcePcmReadSession(
 	};
 	const chunk = (
 		chunkIndex: number,
-		{ signal }: SourceReadOptions = {},
+		context: SourceReadOptions = {},
 	): Promise<SourcePcmChunk> => {
+		const { signal } = context;
 		if (!Number.isSafeInteger(chunkIndex) || chunkIndex < 0) {
 			return Promise.reject(new RangeError('Source chunk index must be a non-negative integer.'));
 		}
@@ -70,7 +71,7 @@ export function createSourcePcmReadSession(
 			if (closed) throw closedError;
 			const readSignals = combineSourceReadAbortSignals(lifetime.signal, signal);
 			try {
-				const value = await options.readChunk(chunkIndex, readSignals.signal);
+				const value = await options.readChunk(chunkIndex, readSignals.signal, context);
 				throwIfAborted(readSignals.signal);
 				if (closed) throw closedError;
 				return value;

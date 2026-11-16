@@ -99,6 +99,7 @@ export interface EngineEffectRackLocation {
 
 export interface EngineChunkReadContext {
 	readonly signal?: AbortSignal | null;
+	readonly renderStartFrame?: number;
 }
 
 export type EngineChunkReadValue =

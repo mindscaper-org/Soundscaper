@@ -14,9 +14,11 @@ interface ChunkStreamSource {
 	readonly boundedReads?: boolean;
 	readStorageChunk(index: number, context: Readonly<{
 		signal: AbortSignal; streamId: string; frameStart: number; frames: number;
+		renderStartFrame?: number;
 	}>): unknown;
 }
 interface ReadingChunkStream {
+	readonly sourceStartFrame?: number;
 	readonly id: string;
 	readonly source: ChunkStreamSource;
 	readonly abortController: AbortController;
@@ -38,7 +40,7 @@ export async function provideChunkStreamStorageChunk(
 	try {
 		// Linked range providers already retry. This outer watchdog must not multiply retries.
 		const read = (signal: AbortSignal) => stream.source.readStorageChunk(request.chunkIndex, {
-			signal, streamId: stream.id, frameStart: request.frameStart, frames: request.frames,
+			signal, streamId: stream.id, frameStart: request.frameStart, frames: request.frames, renderStartFrame: stream.sourceStartFrame,
 		});
 		// Linked originals verify a whole-file digest before their first PCM chunk;
 		// each admitted range has its own deadline, so healthy large files may take longer.

@@ -77,7 +77,7 @@ export interface StoredSourceReader {
 }
 
 interface StoredSourceReadSession {
-	chunk(chunkIndex: number, options?: Readonly<{ signal?: AbortSignal }>): Promise<unknown> | unknown;
+	chunk(chunkIndex: number, options?: Readonly<{ signal?: AbortSignal; renderStartFrame?: number }>): Promise<unknown> | unknown;
 	release(): Promise<void> | void;
 }
 
@@ -247,7 +247,8 @@ export function createStoredChunkProvider(
 				const session = await waitForStoredSourceSession(pending, signal);
 				if (disposed) throw disposedError;
 				if (!session) return store.readSourceChunk(sourceId, chunkIndex, context);
-				return await session.chunk(chunkIndex, signal ? { signal } : {});
+				return await session.chunk(chunkIndex, { ...(signal ? { signal } : {}),
+					...(typeof context.renderStartFrame === 'number' ? { renderStartFrame: context.renderStartFrame } : {}) });
 			} catch (error) {
 				if (attempt > 0 || disposed || signal?.aborted
 					|| !isSourcePcmReadSessionReleasedError(error)) throw error;

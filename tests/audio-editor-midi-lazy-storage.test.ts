@@ -6,6 +6,7 @@ import { renderMidiFrames } from '../src/common/editor/engine/midi-synthesis.ts'
 import { NodeMidiWorker } from './helpers/node-midi-worker.ts';
 import { midiServiceFixture } from './helpers/midi-service-fixture.ts';
 import { createMidiService } from '../src/common/editor/controller/track-audio/midi-service.ts';
+import { openMidiAudioRenderer } from '../src/common/editor/engine/midi-audio-renderer.ts';
 
 const data = { version: 1 as const, notes: [{ id: 'note', pitch: 69, velocity: 100, channel: 0, startFrame: 0, durationFrames: 3000 }] };
 
@@ -51,4 +52,24 @@ test('MIDI edits publish immediately into the real store without allocating a sy
 		assert.equal(fixture.project().clips[0]!.sourceDurationFrames, 8000 * 3600);
 		assert.ok([...store.memory.sources.values()].every(value => (value as { storage: string }).storage === 'midi-generated-v1'));
 	} finally { await store.close(); }
+});
+
+test('live seek cache origins cannot contaminate canonical export samples', async () => {
+	const original = globalThis.Worker; globalThis.Worker = NodeMidiWorker as unknown as typeof Worker;
+	const store = createProjectStore({ indexedDB: null, databaseName: `midi-origins-${crypto.randomUUID()}` });
+	const score = { ...data, notes: [{ ...data.notes[0]!, durationFrames: 48000 * 3600 }] };
+	try {
+		await store.writeMidiSource('fluid', { data: score, instrument: 'fluidsynth', sampleRate: 48000 }, { frameCount: 48000 * 3600 });
+		const session = await store.openSourceReadSession('fluid'); assert.ok(session);
+		const live = await session.chunk(1, { renderStartFrame: 1024 });
+		await session.chunk(0);
+		const canonical = await session.chunk(1);
+		const independent = await openMidiAudioRenderer(score, 'fluidsynth', 48000);
+		try {
+			const expected = await independent.render(0, 2048);
+			assert.deepEqual(canonical.channels[0], expected[0]!.subarray(1024));
+			assert.notDeepEqual(live.channels[0], canonical.channels[0], 'a chased attack is distinct from a continuously rendered voice');
+		} finally { await independent.close(); }
+		await session.release();
+	} finally { await store.close(); globalThis.Worker = original; }
 });

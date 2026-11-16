@@ -80,7 +80,7 @@ export class OwnedSourcePcmReadSessionRepository {
 			}
 			const session = createSourcePcmReadSession({
 				maximumConcurrentReads: generation.length === 1 ? view?.maximumConcurrentReads : 1,
-				readChunk: (chunkIndex, signal) => this.#readChunk(generation, chunkIndex, signal, view),
+				readChunk: (chunkIndex, signal, context) => this.#readChunk(generation, chunkIndex, signal, view, context?.renderStartFrame),
 				release: () => view?.release() ?? noOpRelease(),
 				onRelease: () => { this.#sessions.delete(session); },
 			});
@@ -163,8 +163,11 @@ export class OwnedSourcePcmReadSessionRepository {
 		chunkIndex: number,
 		signal?: AbortSignal,
 		view: OpfsPcmReadView | MidiPcmReadView | null = null,
+		renderStartFrame?: number,
 	): Promise<SourcePcmChunk> {
 		const root = generation[0];
+		// Derived audio edits require their canonical base PCM, even during live playback.
+		if (generation.length > 1) renderStartFrame = undefined;
 		if (!root || chunkIndex >= nonNegativeInteger(root.chunkCount, 0)) {
 			throw new RangeError(`Source storage chunk ${chunkIndex} does not exist.`);
 		}
@@ -179,7 +182,7 @@ export class OwnedSourcePcmReadSessionRepository {
 				: base.storage === SAMPLE_BLOCK_SOURCE_STORAGE
 				? await readSampleBlockSourceChunk(base, generation.at(-1)!, chunkIndex,
 					(index) => this.#readPhysicalChunk(generation.at(-1)!, index, signal, view))
-				: await this.#readPhysicalChunk(generation.at(-1)!, chunkIndex, signal, view);
+				: await this.#readPhysicalChunk(generation.at(-1)!, chunkIndex, signal, view, renderStartFrame);
 		} else {
 			for (const source of generation) {
 				throwIfAborted(signal);
@@ -196,7 +199,7 @@ export class OwnedSourcePcmReadSessionRepository {
 					chunk = await this.#options.pcm.decodeRecord(replacement, source, signal);
 					break;
 				}
-				chunk = await this.#readPhysicalChunk(source, chunkIndex, signal, view);
+				chunk = await this.#readPhysicalChunk(source, chunkIndex, signal, view, renderStartFrame);
 				break;
 			}
 		}
@@ -211,8 +214,9 @@ export class OwnedSourcePcmReadSessionRepository {
 		chunkIndex: number,
 		signal?: AbortSignal,
 		view: OpfsPcmReadView | MidiPcmReadView | null = null,
+		renderStartFrame?: number,
 	): Promise<SourcePcmChunk> {
-		if (isGeneratedMidiSource(source) && view) return view.chunk(chunkIndex, signal);
+		if (isGeneratedMidiSource(source) && view) return (view as MidiPcmReadView).chunk(chunkIndex, signal, renderStartFrame);
 		if (source.storage === PCM_CONTAINER_STORAGE_TYPE) {
 			if (view) return view.chunk(chunkIndex, signal);
 			return this.#options.opfs.readPcmContainerChunk(

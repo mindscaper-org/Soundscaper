@@ -42,10 +42,15 @@ the ordinary source reader to materialize PCM when required.
 renderer lifetime. Returned PCM is copied so transfers and callers cannot detach
 or mutate cached samples. Store-local caches are bounded to 32 MiB in aggregate;
 idle rendering workers are retired after read sessions release. Source generation
-tokens isolate edits, undo and overlapping playback snapshots. Built-in synthesis
+tokens isolate edits, undo and overlapping playback snapshots. Built-in oscillator synthesis
 uses absolute source-frame phase, so arbitrary seek windows preserve the samples
-of continuous rendering. A cold native seek currently replays controller and
-voice history; previously rendered windows reuse the PCM cache.
+of continuous rendering. Cold live library/native seeks chase controller, patch,
+pedal and sounding-key state without synthesizing prior audio. Chased voices
+restart their envelopes and oscillator phase, as with ordinary MIDI chase; old
+reverb/delay tails are not reconstructed. Cache keys include the seek origin.
+Exports and derived audio edits use a distinct canonical origin-zero render,
+so chased attacks cannot contaminate delivered PCM. Previously rendered windows
+at the same origin reuse the PCM cache.
 Retained channel events provide sustain, volume/expression, sound-off and
 controller reset, plus pitch bend with the default two-semitone range. Bend
 changes integrate oscillator phase against absolute source frames; sustain

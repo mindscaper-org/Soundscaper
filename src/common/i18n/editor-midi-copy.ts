@@ -12,6 +12,7 @@ export const MIDI_COPY_BY_LOCALE = Object.freeze({
 		clip: 'MIDI clip',
 		instrument: 'Instrument',
 		sine: 'Sine', triangle: 'Triangle', square: 'Square', sawtooth: 'Sawtooth',
+		libadlmidi: 'libADLMIDI (FM reference bank)', fluidsynth: 'FluidSynth (reference bank)',
 		snap: 'Note grid',
 		triplets: 'Triplets',
 		velocity: 'Velocity',

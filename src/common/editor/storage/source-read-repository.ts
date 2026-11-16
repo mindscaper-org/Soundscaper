@@ -43,6 +43,7 @@ export interface SourceReadRepositoryOptions {
 
 export interface SourceReadOptions {
 	readonly signal?: AbortSignal;
+	readonly renderStartFrame?: number;
 	readonly expectedSource?: StorageRecord;
 }
 
