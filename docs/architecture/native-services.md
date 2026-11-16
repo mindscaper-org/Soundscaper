@@ -179,6 +179,44 @@ binary additionally binds platform, architecture, version, and digest. A new or
 changed digest requires an explicit allow decision; path ordering never resolves
 a stable-ID collision silently.
 
+### Bundled JUCE effects
+
+The professional host build also produces `soundscaper_juce_effects.clap`,
+containing the processors in the shared
+[`catalog.json`](../../src/common/editor/juce-effects/catalog.json): gain,
+convolution and algorithmic reverbs, chorus, phaser, dynamics, delay, waveshaping,
+panning, bias, and the JUCE filter families. The first-party library
+is included in the authenticated runtime closure at `runtime/effects/`, with
+the same architecture, dependency, digest, macOS execution-seal, and package
+checks as the other native binaries. It uses the existing JUCE and CLAP source
+pins and AGPL distribution path.
+Linux continues to resolve shared system libraries from its authenticated
+root-owned ELF closure. The bundled effect is admitted separately at its exact
+peer-relative path and does not enter the loader's library search path or raise
+the runtime-file ceiling.
+
+**Effect → JUCE** lists all bundled effects and selects the requested effect in
+Plugin Manager. Each menu insertion has fresh controls while existing authored
+rack instances remain active. **Effect → Plugin Manager** also exposes them through CLAP discovery's
+**Soundscaper JUCE effects** folder. Existing consent, installation allowance,
+quarantine, process isolation, rack binding, state storage, playback, and native
+rendering apply. Existing installations receive no new folder grants.
+
+The common processor prepares all buffers and convolution kernels outside the
+audio callback. IR changes crossfade over 2048 samples, with retired engines
+destroyed outside processing. Gain, wet mix, and pre-delay are smoothed; CLAP
+parameter events retain their sample offsets. Impulse responses are mono or
+stereo WAV/AIFF, limited to 8 MiB of decoded float PCM at 8–192 kHz, and are
+embedded in versioned state. Restore prepares the complete IR before the first
+rendered sample. IR amplitudes are preserved without automatic normalization.
+The FIR low-pass uses 65 symmetric Hamming-windowed taps and reports 32 samples
+of latency through the existing native rack compensation path. Other filters
+update prepared coefficient storage without creating processors on the audio
+thread. Four-channel true-stereo IRs and automatic native tail discovery beyond
+the requested project/render interval are not supported by this adapter.
+
+### Installed plug-in identities
+
 JUCE identifiers must not hash a binary's location: scans and hosts receive
 separate immutable snapshot paths. VST2 uses the native 32-bit unique ID
 (including shell member IDs); VST3 uses JUCE's normalized class-ID hash and

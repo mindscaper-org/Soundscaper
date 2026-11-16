@@ -8,6 +8,7 @@ import { displayText, plainRecord, enumValue, booleanValue, boundedText, bounded
  */
 
 import { createHash } from 'node:crypto';
+import { publicStablePluginId } from './plugin-registry-display.ts';
 
 import {
 	type HelperEffectPluginFormat, type HelperPluginHostJobGrant,
@@ -119,6 +120,7 @@ export interface PluginInstallationView {
 
 export interface PluginEntryView {
 	readonly entryId: string; readonly format: PluginFormat;
+	readonly stablePluginId?: string;
 	readonly name: string; readonly vendor: string;
 	readonly classification: PluginClassification;
 	readonly eligible: boolean; readonly ineligibleReason: PluginIneligibleReason | null;
@@ -393,6 +395,7 @@ export class DesktopPluginRegistry {
 		return Object.freeze({
 			entryId: entry.entryId,
 			format: entry.format,
+			...publicStablePluginId(entry.stableId),
 			name: displayText(label.name),
 			vendor: displayText(label.vendor),
 			classification: classifications.size === 1 ? (soleClassification ?? 'unknown') : 'unknown',

@@ -43,13 +43,14 @@ export function createApplicationMenuProductItems({
 		runtimeAvailable: nativeRuntime !== null,
 		snapshot: nativeRuntime?.snapshot ?? null,
 		analyzerRuntimeAvailable: nativeRuntime?.vampAnalyzerAvailable,
+		effectTargetAvailable: Boolean(project?.tracks?.some(track => track.type === 'audio' && track.id === snapshot.selectedTrackId)),
 		analyzerSelectionAvailable: Boolean(resolveSelectionRange(project, {
 			selectedClipId: snapshot.selectedClipId ?? null,
 		})),
 		editingBlocked: editBlocked,
 		readOnly: snapshot.readOnly === true,
 		copy,
-	}, { open: (surface) => nativeRuntime?.open(surface) });
+	}, { open: (surface, stablePluginId) => nativeRuntime?.open(surface, stablePluginId) });
 	const araItems = createAraApplicationMenuItems({ productId, project, available: Boolean(actions.araClipEditing),
 		selectedClipId: snapshot.selectedClipId, editingBlocked: editBlocked, readOnly: snapshot.readOnly === true, copy },
 		() => actions.araClipEditing?.open());

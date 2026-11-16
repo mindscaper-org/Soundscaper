@@ -8,6 +8,8 @@ import { ProcessingSearchField } from './ProcessingSearchField.tsx';
 import { Table } from '@soundscaper/design-system/Table/Table';
 import PreferenceDropdownField from './PreferenceDropdownField.jsx';
 import NativePluginParameterControls from './NativePluginParameterControls.tsx';
+import { juceEffectById } from '../../juce-effects/catalog.ts';
+import { findJuceEffectEntry } from '../../juce-effects/registry-selection.ts';
 
 import type {
 	NativePluginEntryView,
@@ -27,9 +29,9 @@ export interface SoundscaperNativeEffectPanelProps {
 }
 
 export function SoundscaperNativeEffectManagePanel({
-	copy, state, disabled, perform, processingBlocked = false,
-}: SoundscaperNativeEffectPanelProps & { readonly processingBlocked?: boolean }) {
-	const [query, setQuery] = useState('');
+	copy, state, disabled, perform, processingBlocked = false, requestedJuceEffectId,
+}: SoundscaperNativeEffectPanelProps & { readonly processingBlocked?: boolean; readonly requestedJuceEffectId?: string }) {
+	const [query, setQuery] = useState(() => juceEffectById(requestedJuceEffectId)?.pluginName ?? '');
 	const [format, setFormat] = useState('all');
 	const [status, setStatus] = useState('all');
 	const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -39,7 +41,8 @@ export function SoundscaperNativeEffectManagePanel({
 	const visible = entries.filter((entry) => (format === 'all' || entry.format === format)
 		&& (status === 'all' || nativePluginStatus(entry) === status)
 		&& `${entry.name} ${entry.vendor}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
-	const selected = visible.find((entry) => entry.entryId === selectedId);
+	const selected = selectedId === null ? findJuceEffectEntry(visible, requestedJuceEffectId)
+		: visible.find((entry) => entry.entryId === selectedId);
 	const records = state.plugins?.quarantine.records ?? [];
 	return <div className="audio-editor-soundscaper-native-manage">
 		{state.pluginInstance !== null && <PluginInstanceControls
@@ -56,7 +59,7 @@ export function SoundscaperNativeEffectManagePanel({
 		<Table className="kw-processing-table"><table aria-label={copy.installedPlugins}>
 			<thead><tr><th>{copy.pluginName}</th><th>{copy.pluginVendor}</th><th>{copy.pluginFormat}</th><th>{copy.pluginStatus}</th></tr></thead>
 			<tbody>{visible.map((entry) => <tr key={entry.entryId} data-native-plugin-entry={entry.entryId}
-				aria-selected={selectedId === entry.entryId}>
+				aria-selected={selected?.entryId === entry.entryId}>
 				<td><Button variant="secondary" onClick={() => setSelectedId(entry.entryId)}>{entry.name}</Button></td>
 				<td>{entry.vendor}</td><td>{entry.format}</td>
 				<td>{nativePluginStatus(entry) === 'ready' ? copy.pluginReady

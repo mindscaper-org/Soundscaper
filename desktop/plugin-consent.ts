@@ -134,6 +134,8 @@ export interface DesktopPluginConsentOptions {
 	readonly platform?: string;
 	readonly homeDirectory?: string | null;
 	readonly state?: PluginConsentState;
+	/** Main-owned installed runtime location; offered only for CLAP discovery. */
+	readonly bundledEffectsDirectory?: string;
 }
 
 interface FormatState {
@@ -149,6 +151,7 @@ export class DesktopPluginConsent {
 	readonly #pickDirectory: (format: PluginFormat) => Promise<string | null>;
 	readonly #platform: string;
 	readonly #home: string | null;
+	readonly #bundledEffectsDirectory: string | null;
 	readonly #formats = new Map<PluginFormat, FormatState>();
 
 	constructor(options: DesktopPluginConsentOptions) {
@@ -156,6 +159,11 @@ export class DesktopPluginConsent {
 		this.#platform = options.platform ?? process.platform;
 		const home = options.homeDirectory ?? null;
 		this.#home = isAdmissiblePluginPath(home) ? home : null;
+		const bundled = options.bundledEffectsDirectory;
+		if (bundled !== undefined && !isAdmissiblePluginPath(bundled)) {
+			throw new PluginConsentError('unsafe-root', 'The bundled effects directory must be an absolute path.');
+		}
+		this.#bundledEffectsDirectory = bundled ?? null;
 		if (options.state) this.#restore(options.state);
 	}
 
@@ -316,6 +324,11 @@ export class DesktopPluginConsent {
 		const separator = this.#platform === 'win32' ? '\\' : '/';
 		const home = this.#home;
 		const roots: PluginRoot[] = [];
+		if (format === 'clap' && this.#bundledEffectsDirectory !== null) {
+			const path = this.#bundledEffectsDirectory;
+			roots.push(Object.freeze({ rootId: rootIdFor(format, path), format,
+				origin: 'standard' as const, name: 'Soundscaper JUCE effects', path }));
+		}
 		for (const template of templates) {
 			if (template.base === 'home' && home === null) continue;
 			const path = template.base === 'home' && home !== null

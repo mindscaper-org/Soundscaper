@@ -18,6 +18,7 @@
 
 import { soundscaperPluginScanRuntimeFor } from '../soundscaper-plugin-scan-runtime.ts';
 import { captureNativeProcessingReturnFocus } from './native-processing-return-focus.ts';
+import { juceEffectById } from '../../juce-effects/catalog.ts';
 import { useParallelStackMenuRefresh } from './parallel-stack-menu-runtime.ts';
 import React, { useEffect, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -69,7 +70,7 @@ export const PENDING_SOUNDSCAPER_NATIVE_SERVICES_SNAPSHOT: SoundscaperNativeServ
 export interface SoundscaperNativeServicesWorkspaceRuntime {
 	readonly snapshot: SoundscaperNativeServicesSnapshot;
 	readonly vampAnalyzerAvailable: boolean;
-	open(surface: SoundscaperNativeServiceSurface): void;
+	open(surface: SoundscaperNativeServiceSurface, stablePluginId?: string): void;
 }
 
 export interface SoundscaperNativeServicesSurfaceHost {
@@ -78,7 +79,7 @@ export interface SoundscaperNativeServicesSurfaceHost {
 	setProcessingBlocked(blocked: boolean): void;
 	setCopy(copy: Readonly<Record<string, string | undefined>> | undefined, locale?: string): void;
 	setVampAnalyzerInput(input: Readonly<SoundscaperVampAnalyzerSurfaceInput> | null): void;
-	open(surface: SoundscaperNativeServiceSurface): void;
+	open(surface: SoundscaperNativeServiceSurface, stablePluginId?: string): void;
 	close(): void;
 	dispose(): Promise<void>;
 }
@@ -135,6 +136,9 @@ export function createSoundscaperNativeServicesSurfaceHost(
 		? createSoundscaperAudioHostRuntime({ controller: options.controller, bridge, engine: options.engine }) : null;
 	void audioHost?.refresh();
 	const dialogRuntime = createSoundscaperNativeServicesDialogRuntime(bridge);
+	let activeDialogRuntime = dialogRuntime;
+	let requestedJuceEffectId: string | undefined;
+	let openGeneration = 0;
 	let restoredProject: unknown = Symbol('unrestored');
 	let restoredStateKey = '';
 	let restoration: Promise<readonly unknown[]> | null = null;
@@ -150,9 +154,11 @@ export function createSoundscaperNativeServicesSurfaceHost(
 	const renderDialog = (surface: SoundscaperNativeServiceSurface): void => {
 		root?.render(<React.Suspense fallback={null}>
 			<SoundscaperNativeServicesDialog
+				key={openGeneration}
 				bridge={bridge}
 				scanner={soundscaperPluginScanRuntimeFor(options.bridge)}
-				runtime={dialogRuntime}
+				runtime={activeDialogRuntime}
+				requestedJuceEffectId={requestedJuceEffectId}
 				initialSurface={surface}
 				processingBlocked={processingBlocked}
 				copy={copy} locale={locale}
@@ -162,7 +168,7 @@ export function createSoundscaperNativeServicesSurfaceHost(
 		</React.Suspense>);
 	};
 	return Object.freeze({
-		dialogRuntime,
+		get dialogRuntime() { return activeDialogRuntime; },
 		restoreProjectNativePlugins: () => {
 			if (!renderer) return Promise.resolve([]);
 			const project = options.controller?.project;
@@ -197,8 +203,12 @@ export function createSoundscaperNativeServicesSurfaceHost(
 			vampAnalyzerInput = next;
 			if (openSurface === 'native-analyzer-use') renderDialog(openSurface);
 		},
-		open: (surface: SoundscaperNativeServiceSurface) => {
+		open: (surface: SoundscaperNativeServiceSurface, stablePluginId?: string) => {
 			if (!documentValue) return;
+			requestedJuceEffectId = surface === 'native-effect-manage' ? juceEffectById(stablePluginId)?.stablePluginId : undefined;
+			// Each menu insertion gets fresh controls; authored instances stay owned by the renderer.
+			if (requestedJuceEffectId) activeDialogRuntime = createSoundscaperNativeServicesDialogRuntime(bridge);
+			++openGeneration;
 			openSurface = surface;
 			returnFocus = captureNativeProcessingReturnFocus(documentValue);
 			if (!container) {
@@ -346,8 +356,8 @@ export function resolveSoundscaperNativeServicesWorkspaceRuntime(input: Readonly
 	return Object.freeze({
 		snapshot: store.getSnapshot() ?? PENDING_SOUNDSCAPER_NATIVE_SERVICES_SNAPSHOT,
 		vampAnalyzerAvailable: vampAnalyzerInput !== null,
-		open: (surface: SoundscaperNativeServiceSurface) => {
-			host.open(surface);
+		open: (surface: SoundscaperNativeServiceSurface, stablePluginId?: string) => {
+			host.open(surface, stablePluginId);
 		},
 	});
 }

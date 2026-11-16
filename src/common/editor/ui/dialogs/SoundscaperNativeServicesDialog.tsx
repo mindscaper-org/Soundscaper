@@ -52,6 +52,7 @@ export interface SoundscaperNativeServicesDialogProps {
 	readonly scanner?: NativePluginScanController;
 	readonly bridge: SoundscaperNativeServicesBridge;
 	readonly initialSurface: SoundscaperNativeServiceSurface;
+	readonly requestedJuceEffectId?: string;
 	readonly initialState?: SoundscaperNativeServicesDialogState;
 	readonly runtime?: SoundscaperNativeServicesDialogRuntime;
 	readonly copy?: Readonly<Record<string, string | undefined>>;
@@ -73,6 +74,7 @@ function NativeServicesDialog({
 	bridge,
 	scanner: workspaceScanner,
 	processingBlocked = false,
+	requestedJuceEffectId,
 	initialState = EMPTY_SOUNDSCAPER_NATIVE_SERVICES_DIALOG_STATE,
 	runtime: workspaceRuntime,
 	copy: hostCopy,
@@ -147,6 +149,7 @@ function NativeServicesDialog({
 					state={state}
 					disabled={busy}
 					processingBlocked={processingBlocked}
+					requestedJuceEffectId={requestedJuceEffectId}
 					perform={perform}
 				/>
 			</section>

@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { basename, isAbsolute, relative, resolve, sep } from 'node:path';
+import { BUNDLED_JUCE_EFFECTS_RUNTIME_PATH } from '../../desktop/bundled-juce-effects.ts';
 
 const MAXIMUM_ARTIFACT_BYTES = 512 * 1024 * 1024;
 const MAXIMUM_OUTPUT_BYTES = 1024 * 1024;
@@ -36,6 +37,11 @@ export function createSoundscaperProfessionalNativeMacCodeSealPlan(options) {
 		absolutePath: resolve(runtimeRoot, ...path.split('/')),
 		candidatePath: `payload/runtime/${path}`,
 	}));
+	runtimeArtifacts.push({
+		absolutePath: resolve(professionalRoot, 'runtime', BUNDLED_JUCE_EFFECTS_RUNTIME_PATH),
+		candidatePath: `payload/runtime/${BUNDLED_JUCE_EFFECTS_RUNTIME_PATH}`,
+	});
+	runtimeArtifacts.sort((a, b) => a.candidatePath.localeCompare(b.candidatePath));
 	const artifacts = [
 		...runtimeArtifacts,
 		{
