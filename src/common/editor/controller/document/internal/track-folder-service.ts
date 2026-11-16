@@ -168,7 +168,9 @@ export function createTrackFolderService(
 		selectFolder(folderId: string | null): void {
 			dependencies.lifetime.assertActive();
 			project();
+			if (selectedFolderId === folderId) return;
 			selectedFolderId = folderId;
+			dependencies.publishProjectState();
 		},
 		selectedFolderId(): string | null {
 			project();

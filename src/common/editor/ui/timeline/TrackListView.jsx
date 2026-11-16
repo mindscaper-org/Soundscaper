@@ -10,6 +10,7 @@ import { normalizeWaveformRulerState } from './geometry.ts';
 import { LabelTrackRow } from './LabelTrackRow.jsx';
 import { audioEditorAsymmetricStereoHeightsAvailable } from './stereo-channel-height-runtime.ts';
 import { TrackFolderRow } from './TrackFolderRow.jsx';
+import { FolderContentOverview } from './FolderContentOverview.tsx';
 import { TrackViewportRow } from './TrackViewportRow.tsx';
 import {
 	planTrackListRows,
@@ -110,6 +111,7 @@ function TrackListViewSession({
 		return byTrackId;
 	}, [recordingPreviews]);
 	const trackFolderActions = controller.actions.trackFolders;
+	const contentFolderId = trackFolderActions.selectedFolderId();
 	const selectFolder = (folderId) => {
 		setActiveFolderId(folderId);
 		run(() => trackFolderActions.select(folderId));
@@ -334,7 +336,11 @@ function TrackListViewSession({
 								target.id,
 								Number.MAX_SAFE_INTEGER,
 							)}
-						/>
+						>
+							{contentFolderId === entry.row.id && <FolderContentOverview project={project} folderId={entry.row.id}
+								name={entry.row.name} copy={copy} selection={documentSelection} controller={controller}
+								pixelsPerSecond={pixelsPerSecond} sampleRate={sampleRate} renderOriginX={renderOriginX} run={run} />}
+						</TrackFolderRow>
 					);
 				}
 				if (entry.rowHidden) return null;

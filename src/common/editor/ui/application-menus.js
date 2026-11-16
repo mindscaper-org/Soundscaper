@@ -47,6 +47,7 @@ import { isMidiClip } from '../midi-model.ts';
 import { resolveInterchangeCopy } from '../../i18n/editor-interchange-copy.ts';
 import { dialogueAlignmentMenuItem } from './dialogue-alignment-menu.ts';
 import { transcriptEditingMenuItem } from './transcript-editing-menu.ts';
+import { createFolderEditMenu } from './folder-edit-menu.ts';
 
 /**
  * The video tracks an edit list would describe.
@@ -369,6 +370,7 @@ export default function createApplicationMenus({
 					],
 				},
 				...labeledAudioItems,
+				...(capabilities.trackFolders && project ? [createFolderEditMenu({ project, folderId: actionRuntime?.trackFolders?.selectedFolderId?.() ?? null, copy, blocked: editBlocked, hasClipboard: Boolean(snapshot.history?.hasClipboard) }, (_id, method) => actions.executeEdit(method))] : []),
 				transcriptEditingMenuItem(copy, viewMenu.togglePanel),
 				{ id: 'label-add', label: copy.addLabel, shortcut: 'Ctrl+B', disabled: selectAudioEditorLabelEditBlock(snapshot).blocked, onClick: actions.addLabel },
 				divider(),

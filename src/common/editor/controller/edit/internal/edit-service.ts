@@ -26,7 +26,7 @@ export interface EditServiceRuntime {
 }
 
 type RuntimeValue = EditServiceRuntime[string];
-export type HandleEditorEdit = (action: string, options?: Readonly<{ propagateErrors?: boolean }>) => RuntimeValue;
+export type HandleEditorEdit = (action: string, options?: Readonly<{ propagateErrors?: boolean; folderId?: string }>) => RuntimeValue;
 
 // foundation-edit-matrix: duplicate
 
