@@ -28,6 +28,7 @@ test('mac ad-hoc sealing covers runtime dependencies before every consumer and v
 	assert.equal(plan.schemaVersion, 1);
 	assert.equal(plan.method, 'codesign-ad-hoc');
 	assert.deepEqual(plan.artifacts.map(({ candidatePath }) => candidatePath), [
+		'payload/runtime/effects/soundscaper_juce_effects.clap',
 		'payload/runtime/libalpha.dylib',
 		'payload/runtime/nested/libbeta.dylib',
 		'payload/soundscaper_professional.node',
@@ -165,6 +166,7 @@ async function codeSealFixture(context) {
 		join(osAudioCodecInstallRoot, 'soundscaper_os_audio_codec.node'),
 		join(professionalInstallRoot, 'soundscaper_professional_peer'),
 		join(professionalInstallRoot, 'soundscaper_delivery_fs'),
+		join(professionalInstallRoot, 'runtime/effects/soundscaper_juce_effects.clap'),
 		join(isolationInstallRoot, 'bin/milestone5-native-isolation-launcher'),
 	]) {
 		await mkdir(dirname(path), { recursive: true });

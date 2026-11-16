@@ -103,6 +103,7 @@ async function createCandidate(root: string, resultRoot: string, sourceRevision:
 		[join(professionalInstallRoot, 'soundscaper_professional.node'), 'addon'],
 		[join(professionalInstallRoot, 'soundscaper_professional_peer'), 'peer'],
 		[join(professionalInstallRoot, 'soundscaper_delivery_fs'), 'delivery'],
+		[join(professionalInstallRoot, 'runtime/effects/soundscaper_juce_effects.clap'), 'effects'],
 		[join(isolationInstallRoot, 'bin/milestone5-native-isolation-launcher'), 'launcher'],
 		[join(isolationInstallRoot, 'profiles/linux-v1.json'), '{}'],
 		[join(isolationInstallRoot, 'profiles/linux-broker-v1.json'), '{}'],
