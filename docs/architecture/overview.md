@@ -100,6 +100,12 @@ and cross-domain imports of internal files. Consumers import the narrow owner
 directly. After removing a direction, run
 `npm run check:controller-domains:tighten` to claim it.
 
+Container and standalone MIDI imports share stateless SMF channel routing,
+destination handling and track preparation in the flat `midi-file-import-*.ts`
+modules. The import and track-audio controllers consume these narrow owners;
+their file-menu entry points defer loading so archive/MIDI parsing stays outside
+the product startup graph.
+
 Domain compositions accept declared dependencies and return typed ports; the
 composition root wires them without granting one domain mutable access to
 another's state. The active document has one typed history owner in

@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { parseMidiFile, writeMidiFile } from '../src/common/editor/midi-file.ts';
-import { routeMidiImportControls } from '../src/common/editor/controller/track-audio/internal/midi-import-channel-routing.ts';
+import { routeMidiImportControls } from '../src/common/editor/midi-file-import-channel-routing.ts';
 import { midiServiceFixture } from './helpers/midi-service-fixture.ts';
 import type { MidiFileTrack } from '../src/common/editor/midi-file-types.ts';
 

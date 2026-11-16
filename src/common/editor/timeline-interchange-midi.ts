@@ -4,8 +4,9 @@ import { parseMidiFile } from './midi-file.ts';
 import { MIDI_FILE_MAX_EVENTS } from './midi-file-types.ts';
 import { normalizeMidiClipData, type MidiClipData, type MidiInstrument } from './midi-model.ts';
 import { createInterchangeMidiClock } from './interchange-midi-clock.ts';
-import { addRationals, multiplyRationals, roundRational } from './timeline-time.ts';
+import { addRationals, compareRationals, multiplyRationals, roundRational } from './timeline-time.ts';
 import type { TimelineInterchangeDocument, TimelineInterchangeMedia } from './timeline-interchange-types.ts';
+import { expandTimelineInterchangeMidiFiles } from './timeline-interchange-midi-files.ts';
 
 interface MidiImportOptions {
 	readonly createStableId: (prefix: string) => string;
@@ -23,10 +24,12 @@ export interface TimelineInterchangeMidiSource {
 
 /** Give each MIDI region its own immutable source: its placement owns the tempo projection. */
 export function prepareTimelineInterchangeMidi(document: TimelineInterchangeDocument, options: MidiImportOptions, sampleRate: number) {
+	document = expandTimelineInterchangeMidiFiles(document, options.midiFiles);
 	const media = new Map(options.media);
 	const references: TimelineInterchangeMedia[] = [];
 	const resolved = new Set<string>();
 	const midiSources: TimelineInterchangeMidiSource[] = [];
+	const declared = new Map(document.media.map(reference => [reference.id, reference.duration]));
 	let eventCount = 0;
 	const tracks = document.tracks.map(track => ({ ...track, clips: track.clips.map(clip => {
 		let data = clip.midi;
@@ -38,17 +41,15 @@ export function prepareTimelineInterchangeMidi(document: TimelineInterchangeDocu
 			data = normalizeMidiClipData({ version: 1, notes: parsed.tracks[0]!.notes,
 				interchange: { events: parsed.tracks[0]!.events ?? [], tempos: [], signatures: [] } });
 		} else if (data && sampleRate !== document.sampleRate) {
-			const frame = (value: number) => roundRational(BigInt(value) * BigInt(sampleRate), BigInt(document.sampleRate), 'point');
-			data = normalizeMidiClipData({ ...data, notes: data.notes.map(note => ({ ...note, startFrame: frame(note.startFrame),
-				durationFrames: Math.max(1, frame(note.startFrame + note.durationFrames) - frame(note.startFrame)) })),
-				...(data.interchange ? { interchange: { ...data.interchange, events: data.interchange.events.map(event => ({ ...event, frame: frame(event.frame) })) } } : {}) });
+			data = resampleMidiData(data, document.sampleRate, sampleRate);
 		}
 		if (!data) return clip;
 		eventCount += data.notes.length + (data.interchange?.events.length ?? 0);
 		if (eventCount > MIDI_FILE_MAX_EVENTS) throw new RangeError('Session MIDI exceeds the editable event limit.');
 		resolved.add(clip.mediaId);
 		const id = options.createStableId('source');
-		const extent = multiplyRationals(addRationals(clip.sourceStart, clip.duration), sampleRate);
+		const clipEnd = addRationals(clip.sourceStart, clip.duration), fileEnd = declared.get(clip.mediaId);
+		const extent = multiplyRationals(fileEnd && compareRationals(fileEnd, clipEnd) > 0 ? fileEnd : clipEnd, sampleRate);
 		let frameCount = Math.max(1, roundRational(extent.num, extent.den, 'enclosingEnd'));
 		for (const note of data.notes) frameCount = Math.max(frameCount, note.startFrame + note.durationFrames);
 		for (const event of data.interchange?.events ?? []) frameCount = Math.max(frameCount, event.frame + 1);
@@ -58,4 +59,17 @@ export function prepareTimelineInterchangeMidi(document: TimelineInterchangeDocu
 		return { ...clip, mediaId: id, midi: data };
 	}) }));
 	return { document: { ...document, tracks, media: [...document.media.filter(item => !resolved.has(item.id)), ...references] }, media, midiSources };
+}
+
+function resampleMidiData(data: MidiClipData, sourceRate: number, sampleRate: number): MidiClipData {
+	const frame = (value: number) => roundRational(BigInt(value) * BigInt(sampleRate), BigInt(sourceRate), 'point');
+	return normalizeMidiClipData({ ...data, notes: data.notes.map(note => ({ ...note, startFrame: frame(note.startFrame),
+		durationFrames: Math.max(1, frame(note.startFrame + note.durationFrames) - frame(note.startFrame)),
+		...(note.onsetStop ? { onsetStop: { ...note.onsetStop, frame: frame(note.onsetStop.frame),
+			...(note.onsetStop.kind === 'all-notes-off' ? { soundEndFrame: note.onsetStop.soundEndFrame === null ? null : frame(note.onsetStop.soundEndFrame) } : {}) } } : {}),
+	})), ...(data.interchange ? { interchange: {
+		events: data.interchange.events.map(event => ({ ...event, frame: frame(event.frame) })),
+		tempos: data.interchange.tempos.map(event => ({ ...event, frame: frame(event.frame) })),
+		signatures: data.interchange.signatures.map(event => ({ ...event, frame: frame(event.frame) })),
+	} } : {}) });
 }

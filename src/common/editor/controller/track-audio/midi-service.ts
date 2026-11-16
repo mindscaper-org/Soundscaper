@@ -20,7 +20,6 @@ import { clipLoopUpdateFields, readClipLoop } from '../../audio-clip-loop.ts';
 import { publishMidiSource } from './internal/midi-source-publication.ts';
 import { retainedMidiSourceFrames } from './internal/midi-source-retention.ts';
 import { midiTransferExtensions } from '../../commands/midi-transfer-context.ts';
-import { routeMidiImportControls } from './internal/midi-import-channel-routing.ts';
 import { prepareMidiTransferPublication } from './internal/midi-transfer-publication.ts';
 import { midiWarpNoteGrowth } from './internal/midi-warp-note-growth.ts';
 import { deliverMidiFile } from './internal/midi-file-delivery.ts';
@@ -137,16 +136,12 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 				if (detached.sampleRate !== project.sampleRate) throw new RangeError('MIDI import sample rate differs from the project.');
 				const offset = options.timelineStartFrame ?? 0;
 				if (!Number.isSafeInteger(offset) || offset < 0) throw new RangeError('Invalid MIDI import position.');
-				const routed = routeMidiImportControls(detached.tracks);
-				const authored = routed.filter((track, index) => track.notes.length || track.events?.length
-					|| !track.conductorOnly && !detached.tracks[index]?.events?.length);
-				const tracks = authored.length ? authored : routed.slice(0, 1);
-				const emptyTrackEnd = routed.filter(track => !tracks.includes(track))
-					.reduce((end, track) => Math.max(end, track.durationFrames ?? 0), 0);
+				const { midiFileImportTracks } = await import('../../midi-file-import-tracks.ts');
+				const tracks = midiFileImportTracks(detached);
 				const prepared = tracks.map(track => ({ name: track.name || dependencies.trackName(), program: track.program,
 					durationFrames: track.durationFrames,
 					data: { version: 1 as const, notes: track.notes, interchange: { events: track.events ?? [], tempos: detached.tempos, signatures: detached.signatures } } }));
-				const minimumFrames = Math.max(1, emptyTrackEnd);
+				const minimumFrames = 1;
 				return options.destination === 'project-bin' ? importBinTracks(project, prepared, minimumFrames, options.signal)
 					: importTracks(project, prepared, offset, minimumFrames, options.signal);
 			});

@@ -71,6 +71,14 @@ and unavailable source chains. These checks fail when the reference package is
 absent. Python remains a conformance/build tool; browser and ordinary desktop
 imports and exports use TypeScript.
 
+`tests/audio-editor-exchange-midi-reference-conformance.test.ts` independently
+writes and validates AS-01 auxiliary MIDI attachments with pyaaf2. It exercises
+static, timeline and event slots, embedded and linked SMFs, and a composition
+containing both audio and MIDI. Literal SMF fixtures specify independent note,
+channel-event and tempo expectations; ordinary integration tests additionally
+exercise import publication, rollback, real synthesis and portable Scape
+reopening. The standard dictionary seed is unchanged by this reader extension.
+
 `src/common/editor/aaf/standard-dictionary.json` carries the standard object/type
 dictionary seed and its uncompressed payload SHA-256. Its MIT notice is retained
 in `THIRD_PARTY_LICENSES.md`. Reproduce it with the pinned provisioned wheel:

@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { routeMidiImportControls } from '../src/common/editor/controller/track-audio/internal/midi-import-channel-routing.ts';
+import { routeMidiImportControls } from '../src/common/editor/midi-file-import-channel-routing.ts';
 import type { MidiFileTrack } from '../src/common/editor/midi-file-types.ts';
 
 const note = { id: 'note', pitch: 60, startFrame: 0, durationFrames: 8000, velocity: 100, channel: 0 };

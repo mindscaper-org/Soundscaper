@@ -19,7 +19,7 @@ export function parseOtioTimeline(text: string): TimelineInterchangeDocument {
 	const start = record(root.global_start_time);
 	let visited = 0;
 	let firstVideoRate: Rational | undefined;
-	const walk = (node: RecordValue, kind: 'audio' | 'video', name: string, depth: number): Segment => {
+	const walk = (node: RecordValue, kind: 'audio' | 'video', name: string, depth: number, midi = false): Segment => {
 		if (depth > TIMELINE_INTERCHANGE_MAXIMUM_DEPTH) throw new RangeError('OTIO nesting depth limit exceeded.');
 		const index = ++visited;
 		if (index > TIMELINE_INTERCHANGE_MAXIMUM_ITEMS) throw new RangeError('OTIO item limit exceeded.');
@@ -55,6 +55,7 @@ export function parseOtioTimeline(text: string): TimelineInterchangeDocument {
 				const id = [...media.values()].some(item => item.id === path) ? `${kind}:${path}` : path || `missing-${visited}`;
 				const sourceRate = record(available.duration).rate ?? record(range.duration).rate;
 				entry = { id, path, name: timelineInterchangeMediaName(path, String(reference.name ?? node.name ?? '')), kind,
+					...(kind === 'audio' && (midi || /\.midi?(?:$|[?#])/iu.test(path)) ? { midi: true as const } : {}),
 					aliases: [String(record(record(reference.metadata)[NAMESPACE]).sourceName ?? reference.name ?? '')].filter(Boolean),
 					...(sourceRate ? { rate: rateFromDouble(Number(sourceRate)) } : {}),
 					...(available.duration ? { duration: time(record(available.duration)) } : {}) };
@@ -71,13 +72,14 @@ export function parseOtioTimeline(text: string): TimelineInterchangeDocument {
 		const children = node.children;
 		if (!Array.isArray(children)) throw new TypeError('OTIO containers need a children array.');
 		const childKind = type === 'Track' ? node.kind === 'Video' ? 'video' : 'audio' : kind;
+		const childMidi = type === 'Track' ? /^midi$/iu.test(String(node.kind)) : midi;
 		const trackName = String(node.name ?? name);
 		let cursor = ZERO;
 		const tracks: TimelineInterchangeTrack[] = [];
 		const directClips: TimelineInterchangeClip[] = [];
 		for (const childValue of children) {
 			const child = record(childValue);
-			const segment = walk(child, childKind, trackName, depth + 1);
+			const segment = walk(child, childKind, trackName, depth + 1, childMidi);
 			for (const track of segment.tracks) {
 				const clips = track.clips.map(clip => ({ ...clip, start: addRationals(clip.start, type === 'Track' ? cursor : ZERO) }));
 				if (type === 'Track' && schema(child) === 'Clip') directClips.push(...clips);

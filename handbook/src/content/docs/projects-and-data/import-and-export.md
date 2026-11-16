@@ -76,6 +76,16 @@ Choose **Cancel** beside the bar to stop an import or audio export.
   plug-ins, automation, fades, MIDI and other unsupported authoring are listed
   in **File → Delivery Report**. Review the imported cuts against the original
   session, then save as Scape. Pro Tools export is not available.
+- DAWproject imports editable MIDI notes as well as audio. AAF imports MIDI
+  when the exporter includes a standard MIDI attachment, either embedded or
+  linked. OTIO can import referenced `.mid` and `.midi` files with their cut
+  placement and source trims. In a browser, select linked MIDI files together
+  with the interchange document. The original synthesizer is replaced by a
+  triangle instrument; edit notes and choose an instrument through
+  **Window → Piano roll (beta)**. Review **File → Delivery Report** for missing
+  files, timing conversions and unsupported attachments. OMF and ADL remain
+  audio-only. If an exporter supplies MIDI as a separate, unreferenced file,
+  open the audio edit first, then import that MIDI file separately.
 
 See [Project files](/projects-and-data/project-files/) for the consequences of
 each choice.

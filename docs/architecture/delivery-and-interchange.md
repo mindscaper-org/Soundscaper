@@ -225,6 +225,17 @@ authoring appear in the import report. Selected companion media and desktop
 session-folder lookup bind referenced sources. Missing media retains an offline
 source and its edit for relinking rather than silently dropping clips.
 
+Referenced Standard MIDI Files in audio edit-list slots also use this boundary:
+OTIO recognizes `.mid`/`.midi` URLs and MIDI track declarations; selected or
+embedded audio-slot media can additionally be identified by its `MThd` header.
+Each SMF track becomes an editable MIDI lane, retaining the containing cut's
+placement and source trim. SMF tempo maps and SMPTE divisions resolve the note
+clock; original tempo/meter events stay in clip metadata, without replacing the
+project musical clock. These are referenced MIDI files, not a new inline-note
+schema for EDL, OTIO or FCPXML. Files without MIDI references cannot recover
+notes from rendered audio. Unreferenced companion MIDI must be imported
+separately after opening the edit.
+
 OMF uses a bounded OMF2 Bento container with composition, master and source
 mobs, mono/stereo WAV essence, gaps and source offsets. Export Other embeds
 24-bit PCM audio, with a 256 MiB decoded-PCM limit; the domain writer can also
@@ -240,6 +251,18 @@ Single-input effect groups retain their cuts and report omitted processing;
 transitions become reported overlapping cuts. Other unsupported components keep
 their duration as a reported gap. Source offsets use the referenced slot's edit
 rate, independently of the composition rate.
+
+AAF import also reads the standard
+[AS-01 edit-protocol MIDI attachment](https://static.amwa.tv/as-01-aaf-edit-protocol-spec.pdf)
+(§9): an Auxiliary data-definition slot references an auxiliary SourceMob with
+an `AuxiliaryDescriptor` whose MIME type is `audio/midi`. Static, timeline and
+event slots are supported; essence may be embedded or linked through existing
+companion/folder grants. One whole SMF file is co-timed with composition origin,
+and its individual tracks become editable MIDI. Repeated references are read
+once; multiple distinct MIDI attachments are refused. Nonzero source offsets
+are reported as omitted rather than guessed. A missing file retains an empty
+MIDI track and offline source without inventing clip timing. Unknown auxiliary
+MIME types remain omitted. Normal AAF export remains the audio profile below.
 
 File > Export other > Export AAF writes mono/stereo audio cuts, source offsets,
 gaps, names and exact sequence timecode, and embeds whole sources as 24-bit WAV.
@@ -321,6 +344,8 @@ source chunk geometry comes from the persisted layout so Scape export/reopen
 retains playable sources. Browser companion selection and desktop folder grants
 also admit `.mid`/`.midi`. MIDI companions are bounded to 16 MiB each and 64 MiB
 in total; expanded session MIDI is limited to 250,000 notes and channel events.
+These same limits and persistence rules apply to referenced interchange MIDI
+and AAF MIDI attachments.
 
 The native readers follow Ardour's
 [`Session` snapshots and time serialization](https://github.com/Ardour/ardour/tree/522303bf7cbfd7d74510eb96e7da0762ffa73237/libs)

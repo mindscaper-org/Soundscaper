@@ -59,12 +59,16 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 			const stagedSourceIds = new Map<string, string>();
 			const midiFiles = new Map<string, Uint8Array>();
 			let midiBytes = 0;
+			const inlineMidi = new Set(document.tracks.flatMap(track => track.clips.filter(clip => clip.midi).map(clip => clip.mediaId)));
 			let mediaRootId: string | undefined;
 			let folderRequested = false;
 			for (const reference of document.media) {
 				assertCurrent();
 				const consume = async (blob: Blob, name = reference.name): Promise<void> => {
-					if (reference.midi) {
+					const midi = reference.midi || reference.kind === 'audio'
+						&& String.fromCharCode(...new Uint8Array(await blob.slice(0, 4).arrayBuffer())) === 'MThd';
+					assertCurrent();
+					if (midi) {
 						if (blob.size > MIDI_FILE_MAX_BYTES) throw new RangeError('MIDI files cannot exceed 16 MiB.');
 						midiBytes += blob.size;
 						if (midiBytes > 64 * 1024 * 1024) throw new RangeError('Session MIDI companions exceed the 64 MiB working limit.');
@@ -74,7 +78,7 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 					const decoded = await stageTimelineInterchangeMedia(runtime, helpers, operation, { ...reference, name }, blob, persisted, finalizers);
 					if (decoded) { media.set(reference.id, decoded); stagedSourceIds.set(reference.id, String(decoded.id)); }
 				};
-				if (reference.midi && !reference.path) continue;
+				if (inlineMidi.has(reference.id)) continue;
 				const selected = companionFor(reference, options.mediaFiles ?? []);
 				const embedded = bundle ? await bundle.readMedia(reference.path) : null;
 				if (reference.blob) await consume(reference.blob);

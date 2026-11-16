@@ -6,8 +6,9 @@ import { aafWaveSummary } from './aaf-wave.ts';
 import { addRationals, compareRationals, divideRationals, subtractRationals, type Rational } from './timeline-time.ts';
 import { timelineImportIssue, type TimelineInterchangeDocument, type TimelineInterchangeMedia, type TimelineInterchangeTrack, type TimelineInterchangeClip } from './timeline-interchange-types.ts';
 import type { DeliveryReportItem } from './delivery-report.ts';
+import { isAafAuxiliarySegment, readAafMidiAttachment } from './aaf-import-midi.ts';
 
-/** Read standard AAF audio compositions. Unsupported components keep their duration as gaps. */
+/** Read AAF audio compositions and standard MIDI attachments; unsupported edits retain gaps. */
 export function parseAafDocument(bytes: Uint8Array): TimelineInterchangeDocument {
 	const file = new AafObjectTable(readAafCompound(bytes)), root = file.object('/'), header = file.ref(root, 2), content = header && file.ref(header, 0x3b03);
 	if (!header || header.classCode !== 0x2f || !content || content.classCode !== 0x18) throw new TypeError('AAF header or content storage is missing.');
@@ -117,9 +118,16 @@ export function parseAafDocument(bytes: Uint8Array): TimelineInterchangeDocument
 		return !compression || compression.every(byte => byte === 0) || aafHex(compression) === '007f000400000000060e2b3404010101';
 	}
 	const tracks: TimelineInterchangeTrack[] = [];
+	const midiAttachments: NonNullable<TimelineInterchangeDocument['midiAttachments']>[number][] = [];
 	let sampleRate = 48_000, sequenceRate: Rational = { num: 25, den: 1 }, startFrameCount = 0, dropFrame = false;
 	for (const slot of file.refs(composition, 0x4403)) {
 		const segment = file.ref(slot, 0x4803); if (!segment) continue;
+		if (isAafAuxiliarySegment(segment)) {
+			const track = readAafMidiAttachment(file, slot, mobByUid, embedded, media, midiAttachments, issues);
+			if (track) tracks.push(track);
+			else issue('auxiliary-omitted', 'An unsupported or duplicate AAF auxiliary file is omitted.');
+			continue;
+		}
 		if (![0x3b, 0x39].includes(slot.classCode)) { issue('slot-kind-omitted', 'A non-timeline AAF slot is omitted.'); continue; }
 		const rate = slotRate(slot);
 		const timecode = segment.classCode === 0x14 ? segment : segment.classCode === 0x0f ? file.refs(segment, 0x1001).find(item => item.classCode === 0x14) : undefined;
@@ -162,8 +170,8 @@ export function parseAafDocument(bytes: Uint8Array): TimelineInterchangeDocument
 		}
 		return '';
 	}
-	if (!tracks.length) throw new TypeError('AAF composition contains no supported audio tracks.');
-	return { format: 'aaf', title: file.text(composition, 0x4402) || 'AAF timeline', sampleRate, rate: sequenceRate, startFrameCount, dropFrame, tracks, media: [...media.values()], issues };
+	if (!tracks.length) throw new TypeError('AAF composition contains no supported audio or MIDI tracks.');
+	return { format: 'aaf', title: file.text(composition, 0x4402) || 'AAF timeline', sampleRate, rate: sequenceRate, startFrameCount, dropFrame, tracks, media: [...media.values()], issues, midiAttachments };
 }
 
 function nonNegative(value: number, name: string): number { if (value < 0) throw new RangeError(`AAF ${name} is negative.`); return value; }

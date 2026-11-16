@@ -20,6 +20,7 @@ export interface TimelineInterchangeClip {
 	readonly fadeOut?: Rational;
 	/** Inline notes use the document sample rate and source-local coordinates. */
 	readonly midi?: MidiClipData;
+	/** A containing session owns this beat clock; ordinary SMF references use their file clock. */
 	readonly midiFileTiming?: Readonly<{ sourceBeat: number; tempos: readonly InterchangeMidiTempo[] }>;
 }
 export interface TimelineInterchangeTrack {
@@ -60,6 +61,8 @@ export interface TimelineInterchangeDocument {
 	readonly tracks: readonly TimelineInterchangeTrack[];
 	readonly media: readonly TimelineInterchangeMedia[];
 	readonly issues: readonly DeliveryReportItem[];
+	/** Whole standard MIDI files, co-timed with sequence origin (AAF AS-01 §9.2). */
+	readonly midiAttachments?: readonly Readonly<{ trackId: string; mediaId: string; name: string }>[];
 }
 
 export function timelineImportIssue(format: TimelineInterchangeFormat, code: string, message: string,
