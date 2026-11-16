@@ -11,12 +11,35 @@ import {
 	bootEditor,
 	chooseCommandAction,
 	chooseDropdown,
+	waitForEditor,
 } from './audio-editor-test-helpers.js';
 import { resolveSoundscaperBrowserAssetsDirectory } from './helpers/production-build-paths.js';
 import { exerciseNativeEffectMenuOrganization, exerciseNativePreferenceCustody, openNativeTrackDisplayPreferences } from './helpers/preferences-state-workflow.js';
 
 const cssColor = (hex) => `rgb(${[1, 3, 5].map((offset) =>
 	Number.parseInt(hex.slice(offset, offset + 2), 16)).join(', ')})`;
+
+test('Advanced suspends idle effects by default and persists the keyboard opt-out', async ({ page }) => {
+	let editor = await bootEditor(page, '/embed/en/');
+	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+	let preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+	await preferences.getByRole('tab', { name: /Advanced$/u }).click();
+	let setting = preferences.getByRole('checkbox', { name: 'Suspend idle effect processing', exact: true });
+	await expect(setting).toBeChecked();
+	await setting.focus();
+	await page.keyboard.press('Space');
+	await expect(setting).not.toBeChecked();
+	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
+	await page.reload();
+	editor = await waitForEditor(page);
+	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+	preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+	await preferences.getByRole('tab', { name: /Advanced$/u }).click();
+	setting = preferences.getByRole('checkbox', { name: 'Suspend idle effect processing', exact: true });
+	await expect(setting).not.toBeChecked();
+	await setting.check();
+	await expect(setting).toBeChecked();
+});
 
 test('desktop Preferences opens General and manages the display-only FFmpeg location', async ({ page }) => {
 	await installDesktopFfmpegFixture(page);

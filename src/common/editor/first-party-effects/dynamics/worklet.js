@@ -2,6 +2,8 @@
 
 import { createDeesserProcessor } from '../deesser/dsp.ts';
 import { createMultibandCompressorProcessor } from '../multiband-compressor/dsp.ts';
+import { IdleEffectGate } from '../../idle-effect-processing.ts';
+import { idleEffectHoldFrames } from '../../idle-effect-policy.ts';
 
 export class BandDynamicsProcessor extends (globalThis.AudioWorkletProcessor || class {}) {
 	constructor(options = {}) {
@@ -10,6 +12,9 @@ export class BandDynamicsProcessor extends (globalThis.AudioWorkletProcessor || 
 		if (!['deesser', 'multiband-compressor'].includes(settings.type)) throw new RangeError('Unknown dynamics effect.');
 		this.effectType = settings.type;
 		this.sampleRate = Number(globalThis.sampleRate);
+		this.params = settings.params || {};
+		this.idle = new IdleEffectGate(this.sampleRate,
+			idleEffectHoldFrames(settings.type, this.params, this.sampleRate), () => this.processor.reset());
 		this.analysisWindow = null;
 		this.analysisSequence = 0;
 		this.analysisFramesPerReport = Math.max(1, Math.round(this.sampleRate / 60));
@@ -17,10 +22,16 @@ export class BandDynamicsProcessor extends (globalThis.AudioWorkletProcessor || 
 		this.processor = create({ sampleRate: this.sampleRate,
 			channelCount: settings.channelCount || 2, params: settings.params || {} });
 		if (this.port) this.port.onmessage = ({ data }) => {
+			if (this.idle.handleMessage(data || {})) return;
 			try {
-				if (data?.type === 'configure') this.processor.updateParams(data.params || {});
+				if (data?.type === 'configure') {
+					this.processor.updateParams(data.params || {});
+					this.params = { ...this.params, ...data.params };
+					this.idle.wake(idleEffectHoldFrames(this.effectType, this.params, this.sampleRate));
+				}
 				else if (data?.type === 'reset') {
 					this.processor.reset();
+					this.idle.wake();
 					this.analysisWindow = null;
 				}
 			} catch (error) {
@@ -30,7 +41,10 @@ export class BandDynamicsProcessor extends (globalThis.AudioWorkletProcessor || 
 	}
 	process(inputs, outputs) {
 		const output = outputs[0] || [];
-		this.processor.processBlock(inputs[0] || [], output, output[0]?.length || 0);
+		const frames = output[0]?.length || 0;
+		if (!this.idle.before(inputs, output, frames)) return true;
+		this.processor.processBlock(inputs[0] || [], output, frames);
+		this.idle.after(output, frames);
 		this.#reportAnalysis();
 		return true;
 	}

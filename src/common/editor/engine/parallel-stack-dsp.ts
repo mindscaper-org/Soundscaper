@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { effectGraphKey } from './effect-rack-node-registry.ts';
 import { createParallelStackEffect } from './parallel-stack-effects.ts';
+import { withIdleParallelEffect } from './idle-parallel-effect.ts';
 import { readParallelStackEffectUpdate, validateParallelStackEffectMailbox,
 	type SharedParallelStackEffectMailbox } from './parallel-stack-effect-mailbox.ts';
 import { ParallelStackDelay, parallelStripControls } from './parallel-stack-routing.ts';
@@ -51,7 +52,8 @@ function prepareTask(task: ParallelStackTask, plan: ParallelStackPlan, modules: 
 		delay: new ParallelStackDelay(edge.delayFrames, task.channels),
 		target: edge.sidechainEffectId ? sidechains.get(edge.sidechainEffectId)! : input }));
 	const effects = task.effects.map((effect, index) => ({
-		processor: createParallelStackEffect(effect, plan.sampleRate, task.channels, modules),
+		processor: withIdleParallelEffect(createParallelStackEffect(effect, plan.sampleRate, task.channels, modules),
+			effect, plan.sampleRate, modules.idleEffectControl),
 		sidechain: sidechains.get(effect.id),
 		mailboxIndex: effectOffset + index,
 		lastVersion: 0,

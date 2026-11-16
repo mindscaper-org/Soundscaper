@@ -4,6 +4,7 @@ export const AUDIO_COM_DEFAULT_SERVER_URL = 'https://api.audio.com';
 
 export interface AudioEditorAdvancedPreferences {
 	readonly audioComServerUrl: string;
+	readonly suspendIdleEffectProcessing: boolean;
 }
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
@@ -22,17 +23,24 @@ export function normalizeAudioComServerUrl(value: unknown): string {
 }
 
 export function normalizeAudioEditorAdvancedPreferences(value: unknown): AudioEditorAdvancedPreferences {
-	if (value === undefined) return Object.freeze({ audioComServerUrl: AUDIO_COM_DEFAULT_SERVER_URL });
+	if (value === undefined) value = {};
 	if (!value || typeof value !== 'object' || Array.isArray(value)
 		|| ![Object.prototype, null].includes(Object.getPrototypeOf(value) as object | null)) {
 		throw new TypeError('advanced preferences must be a plain data object.');
 	}
-	if (Reflect.ownKeys(value).some((key) => key !== 'audioComServerUrl')) {
+	if (Reflect.ownKeys(value).some((key) => key !== 'audioComServerUrl' && key !== 'suspendIdleEffectProcessing')) {
 		throw new TypeError('advanced preferences contain an unsupported field.');
 	}
 	const descriptor = Object.getOwnPropertyDescriptor(value, 'audioComServerUrl');
 	if (descriptor && (!descriptor.enumerable || !Object.hasOwn(descriptor, 'value'))) {
 		throw new TypeError('advanced.audioComServerUrl must be an enumerable data property.');
 	}
-	return Object.freeze({ audioComServerUrl: normalizeAudioComServerUrl(descriptor ? descriptor.value : AUDIO_COM_DEFAULT_SERVER_URL) });
+	const idle = Object.getOwnPropertyDescriptor(value, 'suspendIdleEffectProcessing');
+	if (idle && (!idle.enumerable || !Object.hasOwn(idle, 'value') || typeof idle.value !== 'boolean')) {
+		throw new TypeError('advanced.suspendIdleEffectProcessing must be an enumerable boolean data property.');
+	}
+	return Object.freeze({
+		audioComServerUrl: normalizeAudioComServerUrl(descriptor ? descriptor.value : AUDIO_COM_DEFAULT_SERVER_URL),
+		suspendIdleEffectProcessing: idle ? idle.value as boolean : true,
+	});
 }

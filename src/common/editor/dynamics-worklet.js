@@ -1,4 +1,6 @@
 import { LimiterLookaheadPeakWindow } from './limiter-lookahead-peak-window.ts';
+import { IdleEffectGate } from './idle-effect-processing.ts';
+import { idleEffectHoldFrames } from './idle-effect-policy.ts';
 
 const PROCESSOR_NAME = 'kw-audio-dynamics';
 
@@ -17,6 +19,14 @@ export class DynamicsProcessor extends (globalThis.AudioWorkletProcessor || clas
 		this.peakWindow = this.type === 'limiter' ? new LimiterLookaheadPeakWindow(this.lookaheadFrames) : null;
 		this.rings = [];
 		this.writeIndex = 0;
+		this.idle = new IdleEffectGate(globalThis.sampleRate,
+			idleEffectHoldFrames(this.type, this.params, globalThis.sampleRate), () => {
+				for (const ring of this.rings) ring.fill(0);
+				this.peakWindow?.reset();
+				this.envelope = this.type === 'gate' ? dbToGain(this.params.rangeDb ?? -80) : 1;
+				this.holdFrames = 0;
+			});
+		if (this.port) this.port.onmessage = ({ data }) => { this.idle.handleMessage(data || {}); };
 	}
 
 	process(inputs, outputs) {
@@ -25,8 +35,11 @@ export class DynamicsProcessor extends (globalThis.AudioWorkletProcessor || clas
 		// empty input still owns detection; only a missing port uses programme.
 		const detector = inputs[1] ?? input;
 		const output = outputs[0] || [];
+		const frames = output[0]?.length || 0;
+		if (!this.idle.before(inputs, output, frames)) return true;
 		if (this.type === 'limiter') this.processLimiter(input, detector, output);
 		else this.processGate(input, detector, output);
+		this.idle.after(output, frames);
 		return true;
 	}
 

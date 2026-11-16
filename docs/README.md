@@ -42,6 +42,9 @@ qualification plans belong in Git history, not in the maintained documentation s
 - [Control-surface implementation plan](development/control-surfaces.md) defines
   the MCU/HUI work packets, device and automation boundaries, and EUCON
   feasibility gates for post-1.0 Soundscaper.
+- [CV/gate implementation guide](development/cv-gate.md) defines MIDI-to-CV
+  sequencing, dedicated voltage outputs, calibration, return recording, and
+  hardware qualification for post-1.0 Soundscaper.
 - [Ambisonics implementation guide](development/ambisonics.md) defines first-,
   second-, and third-order formats, DSP, monitoring, persistence, delivery, and
   acceptance gates for post-1.0 Soundscaper.

@@ -6,6 +6,24 @@ limitations.
 
 ## Implemented backend
 
+**Edit → Preferences → Advanced → Suspend idle effect processing** defaults on
+for realtime playback in both products. Each eligible worklet or worker effect
+checks every input channel, including sidechains, on the audio thread. Only exact
+digital silence counts as idle input; output must stay below -120 dBFS for at
+least 250 ms and the effect's conservative latency/release reserve. The reserve
+also follows useful output, preserving gaps between feedback repeats. A sleeping
+processor clears its output and skips DSP, keeps its Web Audio lifetime, and
+wakes in the first block containing input. Live controls wake it as well.
+
+This application preference stays outside project state and undo history. Live
+worklets receive preference messages; the parallel workers poll a shared control
+word, including changes made after their blocking schedulers start. Persistence
+rollback restores the running setting. Offline and separate export contexts do
+not inherit playback suspension. Browser-owned stock nodes retain their native
+silence handling. Unknown native plug-in tails, free-running oscillators/RNGs,
+adaptive processors, pitched streaming processors, and spectral window clocks
+continue processing until their silent advancement can be preserved safely.
+
 Enable **Edit → Preferences → Advanced → Processing → Parallel effect
 stacks** while stopped. Both editions require cross-origin isolation,
 SharedArrayBuffer, dedicated Workers, and AudioWorklet support. The setting

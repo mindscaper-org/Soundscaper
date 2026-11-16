@@ -1,4 +1,5 @@
 export const DELAY_PROCESSOR_NAME = 'kw-audio-delay';
+import { IdleEffectGate } from './idle-effect-processing.ts';
 
 const DEFAULT_SAMPLE_RATE = 48_000;
 const DEFAULT_MAXIMUM_SECONDS = 5;
@@ -24,11 +25,13 @@ export class DelayProcessor extends (globalThis.AudioWorkletProcessor || class {
 		this.ringLength = this.maximumDelayFrames + 1;
 		this.rings = [];
 		this.writeIndex = 0;
+		this.idle = new IdleEffectGate(this.sampleRate, this.maximumDelayFrames, () => this.reset());
 		this.configure(settings.params);
 		if (this.port) {
 			this.port.onmessage = ({ data } = {}) => {
+				if (this.idle.handleMessage(data || {})) return;
 				if (data?.type === 'configure') this.configure(data.params);
-				else if (data?.type === 'reset') this.reset();
+				else if (data?.type === 'reset') { this.reset(); this.idle.wake(); }
 			};
 		}
 	}
@@ -48,6 +51,7 @@ export class DelayProcessor extends (globalThis.AudioWorkletProcessor || class {
 		);
 		this.feedback = clamp(finite(this.params.feedback, 0.25), 0, 0.95);
 		this.mix = clamp(finite(this.params.mix, 0.25), 0, 1);
+		this.idle.wake();
 	}
 
 	reset() {
@@ -59,6 +63,7 @@ export class DelayProcessor extends (globalThis.AudioWorkletProcessor || class {
 		const input = inputs[0] || [];
 		const output = outputs[0] || [];
 		const frames = output[0]?.length || 0;
+		if (!this.idle.before(inputs, output, frames)) return true;
 		while (this.rings.length < output.length) this.rings.push(new Float32Array(this.ringLength));
 		for (let frame = 0; frame < frames; frame += 1) {
 			const readIndex = (this.writeIndex - this.delayFrames + this.ringLength) % this.ringLength;
@@ -71,6 +76,7 @@ export class DelayProcessor extends (globalThis.AudioWorkletProcessor || class {
 			}
 			this.writeIndex = (this.writeIndex + 1) % this.ringLength;
 		}
+		this.idle.after(output, frames);
 		return true;
 	}
 }

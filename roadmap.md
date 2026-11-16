@@ -178,7 +178,7 @@ Known architectural constraints that drive later work:
 | 8+. Framescaper Web VCR | **Implemented and enabled for testing** | Expose the default-hidden Record-menu surface with `framescaperWebVcr: true`; keep 4K unavailable. |
 | 8+C. Framescaper product origin | **Implemented for family-v1 — immediate no-legacy cutover; permanent transfer routes** | Keep the first-class editable-copy action and permanent cross-origin transfer ceremony verified without reopening the frozen family. |
 | 9. Stable release and owner QA | **Soundscaper workflow automated** | Rebuild, test, package, deploy, and publish the tagged Soundscaper revision; use private owner QA as helpful. |
-| 9+. Post-1.0 extensions | **Planned — full MIDI integration, control surfaces, ambisonics, and installable distribution** | Extend MIDI after stable 1.0; add MCU then HUI control surfaces with separately gated EUCON feasibility; add Soundscaper ambisonics through third order; install both products from Chrome for Android as independent apps, with an optional Google Play Trusted Web Activity track. |
+| 9+. Post-1.0 extensions | **Planned — full MIDI integration, control surfaces, CV/gate hardware, ambisonics, and installable distribution** | Extend MIDI after stable 1.0; add MCU then HUI control surfaces with separately gated EUCON feasibility; deliver MIDI-to-CV external instruments before direct CV/gate; add Soundscaper ambisonics through third order; install both products from Chrome for Android as independent apps, with an optional Google Play Trusted Web Activity track. |
 
 Soundscaper has an independent release line and may ship without closing
 Framescaper milestones, payloads, or packaging. Framescaper stays in ordinary
@@ -987,9 +987,9 @@ while giving the owner useful optional QA and debugging tools.
 
 ## 9+. Post-1.0 extensions
 
-Full MIDI integration, hardware control surfaces, first- through third-order
-ambisonics, and installable distribution are explicitly post-release scope.
-None blocks the Soundscaper Stable 1.0 release.
+Full MIDI integration, hardware control surfaces, CV/gate hardware integration,
+first- through third-order ambisonics, and installable distribution are explicitly
+post-release scope. None blocks the Soundscaper Stable 1.0 release.
 
 ### 8B. MIDI
 
@@ -1037,6 +1037,8 @@ Planned implementation:
 - **Electron Only — Planned:** native MIDI devices, MPE where supported,
   MIDI clock, and MTC through isolated services. Hardware control surfaces use
   the separate MCU/HUI sequence below and share the native MIDI service.
+  The CV/gate sequence below reuses instrument output for MIDI-to-CV hardware
+  before adding a separate direct-voltage output path.
 - **Shared — Planned:** visible missing-instrument/device placeholders with
   frozen audio and preserved editable state.
 
@@ -1088,6 +1090,41 @@ simultaneous automation gestures, undo/save/reopen, authority loss, reconnect,
 real-device profiles, and exact packaged-target evidence satisfy the plan.
 EUCON remains unclaimed until its separate feasibility and implementation gates
 pass.
+
+### 9+. Soundscaper CV/gate hardware
+
+**Status:** **Planned; post-1.0, after the owning MIDI device/output contracts.**
+Deliver external-instrument sequencing through a hardware MIDI-to-CV converter
+first, including scheduled notes/controllers, audio return recording, and
+measured alignment. Direct CV/gate is a separate desktop extension: qualify one
+monophonic 1 V/octave pitch/gate pair before parameter-voltage automation and
+clock/reset outputs. Soundscaper leads the clock in this baseline. Follow the
+[implementation guide](docs/development/cv-gate.md) for contracts, ownership,
+work packets, calibration, failure handling, and hardware evidence.
+
+- **Shared — Planned:** portable logical routing and authored note/control
+  intent, canonical timing/automation, return-take publication, undo/save/reopen,
+  missing-device behavior, and export admission. Any schema extension retains
+  the 8B MIDI compatibility review and owning-family-v1 migration requirements.
+- **Electron Only — Planned:** MIDI-to-CV through the shared native MIDI service;
+  then dedicated, calibrated CV channels through qualified native audio
+  sessions. Opt in through **Edit > Preferences > Audio settings > External
+  hardware** and **Tracks > External hardware**; keep bindings/calibration local
+  and require explicit arming. Physical output isolation, bounded scheduling,
+  callback-level idle behavior, and exact device/backend/target evidence precede
+  direct-output support claims. MCU/HUI delivery is not a prerequisite.
+- **Deferred:** CV input, external clock following, polyphonic allocation, Hz/V,
+  S-trigger, vendor-specific encoded outputs, automatic oscillator tuning, and
+  automatic hardware freeze. Browser MIDI-to-CV may follow Web MIDI; direct
+  browser CV and Framescaper support need separate feasibility work.
+
+**Exit gate:** each shipping slice completes opt-in setup, sequencing, stop/seek/
+loop/disconnect recovery, return recording, portable save/reopen, and export with
+recorded audio or a truthful refusal/report. CV never reaches speaker/mix export
+paths or implicit device fallbacks; reconnect requires re-arming. Independent
+signal/lifecycle fixtures and measured voltage, pitch, timing, and fault behavior
+qualify each advertised hardware/packaged-target tuple. Offline rendering never
+drives external hardware. MIDI-to-CV remains independently deliverable.
 
 ### 9+. Soundscaper ambisonics (orders 1–3)
 
@@ -1228,6 +1265,7 @@ documentation when that work lands.
 | Framescaper Web VCR | Record-dropdown-only availability, isolated persistent HTTPS browsing, target/manual crop, local-mute independence, background capture, quit recovery, capability-gated resolution, cropped-only retention, and normal recorded-media handoff. |
 | MIDI (post-1.0 9+) | Tests derived from pinned Audacity design: migration, timing, fallback, instruments, accessibility, Scape, and AUP4. |
 | Control surfaces (post-1.0 9+) | Independent MCU/HUI traces, opt-in setup, bidirectional controls, concurrent automation/history, stale-project and reconnect fences, tested device profiles, and exact native-target packages; EUCON additionally requires SDK/distribution and platform feasibility. |
+| CV/gate hardware (post-1.0 9+) | MIDI-to-CV external-instrument workflow first; direct CV additionally requires isolated physical channels, calibrated voltage/pitch and clock vectors, idle/watchdog failure behavior, measured timing, and exact device/backend/target evidence. Every slice covers opt-in setup, return recording, migration/Scape preservation, and export without hardware side effects. |
 | Ambisonics (post-1.0 9+) | Independent first-/second-/third-order encoding, rotation, decoder, and WAV/RF64 fixtures; opt-in complete workflows; coherent component editing/effects; monitoring/export isolation; migration and Scape preservation; and qualified web/desktop resource and asset evidence. |
 | Framescaper origin transfer | Multi-project cutover across origins: resumable after a killed receiver, exactly one copy per project, reported omissions matching the round-trip fixture matrix, no side-effect deletion, and no redirect loop for an installed pre-cutover app. |
 | Installable distribution | Distinct installable apps with disjoint scopes, touch operation at the recorded tablet viewports, cross-origin isolation on installed and shell-served navigations, screen-off export or its enforced refusal, offline localized open/effect/export, and survival of a product-version bump. |
