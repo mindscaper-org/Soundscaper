@@ -17,7 +17,9 @@ async function exportFloatWave(page, editor) {
 	return readDownloadBytes(page, link);
 }
 
-for (const format of ['mp1', 'opaque', 'wav']) test(`native LayerI ${format} retains authored32k PCM and extent through File Import, Save and WAV export`, async ({ page, browser }) => {
+// Shared PCM controls run in audio-editor-pcm-source-clock-render.test.ts and
+// audio-editor-pcm-source-clock.spec.js; retain each codec and native fallback.
+for (const format of ['mp1', 'opaque']) test(`native LayerI ${format} retains authored32k PCM and extent through File Import, Save and WAV export`, async ({ page, browser }) => {
 	test.setTimeout(60_000);
 	await page.addInitScript(() => {
 		const Native = globalThis.AudioContext;
@@ -30,13 +32,12 @@ for (const format of ['mp1', 'opaque', 'wav']) test(`native LayerI ${format} ret
 		} });
 	});
 	const { file: original, channels } = nativeMpegLayerOneFixture();
-	const file = format === 'opaque' ? new File([original], 'Reference.bin', { type: 'application/octet-stream' }) : format !== 'wav' ? original : new File([Uint8Array.from(encodeWav(channels, { sampleRate: 32_000, bitDepth: 32, float: true }))], 'Control.wav', { type: 'audio/wav' });
+	const file = format === 'opaque' ? new File([original], 'Reference.bin', { type: 'application/octet-stream' }) : original;
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	const native = await page.evaluate(async bytes => {
 		try { const buffer = await new OfflineAudioContext(1, 1, 32_000).decodeAudioData(Uint8Array.from(bytes).buffer);
 			return [0, 1].map(channel => [...buffer.getChannelData(channel)]); } catch { return null; }
 	}, [...new Uint8Array(await file.arrayBuffer())]);
-	if (format === 'wav') expect(native).not.toBeNull();
 	if (native === null) {
 		// Only existing native codec support is selected; unsupported hosts still refuse.
 		await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) });
@@ -54,7 +55,7 @@ for (const format of ['mp1', 'opaque', 'wav']) test(`native LayerI ${format} ret
 	// The independent FFmpeg fixed decoder and native WebKit decoder both return
 	// S16 PCM; their codec rounding differs by at most one exact quantization step.
 	expect(native.every(channel => channel.every(sample => Number.isInteger(sample * 32768)))).toBe(true);
-	expect(error).toBeLessThanOrEqual(format === 'wav' ? 1e-7 : 1 / 32768);
+	expect(error).toBeLessThanOrEqual(1 / 32768);
 	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 10_000 });
 	const saving = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);

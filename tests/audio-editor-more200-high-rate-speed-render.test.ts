@@ -4,6 +4,9 @@ import test from 'node:test';
 import { scheduleProjectClips } from '../src/common/editor/engine/clip-scheduler.ts';
 import type { EngineChunkSource, EngineProject } from '../src/common/editor/engine/types.ts';
 import { MockAudioContext } from './helpers/mock-audio-context.js';
+import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
+import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
+import { assertNativeRenderRoundtrip } from './helpers/native-render-custody.ts';
 
 for (const sourceRate of [24_000, 48_000, 96_000, 768_000]) for (const reversed of [false, true]) {
 	test(`one input sample per output frame preserves cropped ${reversed ? 'reversed' : 'forward'} ${sourceRate}Hz PCM on a bounded native context`, async () => {
@@ -45,3 +48,18 @@ for (const sourceRate of [24_000, 48_000, 96_000, 768_000]) for (const reversed 
 		assert.deepEqual(Float32Array.from(actual), selected);
 	});
 }
+
+for (const sampleRate of [24_000, 48_000, 96_000, 768_000]) test(`native ${sampleRate}Hz linked-speed delivery preserves exact PCM across independent Scape reopen`, async context => {
+	const source = createAudioSource({ id: 'source', sampleRate, channelCount: 1, frameCount: 76_800 });
+	const samples = Float32Array.from({ length: source.frameCount }, (_, frame) => .2 * Math.sin(2 * Math.PI * 220 * frame / 48_000));
+	const project = createSoundscaperProject({ id: context.name, sampleRate: 48_000, sources: [source],
+		tracks: [createAudioTrack({ id: 'voice', clipIds: ['clip'] })], clips: [createAudioClip({ id: 'clip', sourceId: source.id,
+			durationFrames: 76_800, sourceDurationFrames: 76_800, speedRatio: 48_000 / sampleRate, linkPitchAndTempo: true })] });
+	await assertNativeRenderRoundtrip(context, project, new Map([[source.id, [samples]]]), 76_800, output => {
+		assert.equal(output.numberOfChannels, 2);
+		for (let channel = 0; channel < 2; channel++) for (let frame = 256; frame < samples.length - 256; frame++) {
+			const expected = samples[frame]! * Math.SQRT1_2;
+			assert.ok(Math.abs(output.getChannelData(channel)[frame]! - expected) < 2e-6, `channel ${channel}, frame ${frame}`);
+		}
+	});
+});

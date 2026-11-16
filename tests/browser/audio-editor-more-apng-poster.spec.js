@@ -2,32 +2,9 @@
 
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { singleFramePosterApng, twoFramePosterApng } from '../helpers/single-frame-poster-apng.ts';
-import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
-import { bootEditor, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
-
-test('one-frame APNG retains its encoded animation pixels and half-second clock', async ({ page }, testInfo) => {
-	await bootEditor(page, '/framescaper/en/');
-	const pixels = await page.evaluate(async bytes => {
-		const encoded = new Uint8Array(bytes);
-		const draw = image => {
-			const canvas = new OffscreenCanvas(1, 1), context = canvas.getContext('2d');
-			context.drawImage(image, 0, 0); return [...context.getImageData(0, 0, 1, 1).data];
-		};
-		const bitmap = await createImageBitmap(new Blob([encoded], { type: 'image/png' }));
-		const bitmapPixels = draw(bitmap); bitmap.close();
-		if (typeof ImageDecoder !== 'function') return { bitmapPixels, animation: null, duration: null };
-		const decoder = new ImageDecoder({ data: encoded, type: 'image/png', preferAnimation: true });
-		await decoder.tracks.ready;
-		const { image } = await decoder.decode({ frameIndex: 0 });
-		const animation = draw(image), duration = image.duration, frameCount = decoder.tracks.selectedTrack.frameCount; image.close(); decoder.close(); return { bitmapPixels, animation, duration, frameCount };
-	}, [...singleFramePosterApng()]);
-	await testInfo.attach('apng-reference-pixels.json', { body: JSON.stringify(pixels), contentType: 'application/json' });
-	expect([[255, 0, 0, 255], [0, 0, 255, 255]]).toContainEqual(pixels.bitmapPixels);
-	if (pixels.animation) {
-		expect(pixels.animation).toEqual([0, 0, 255, 255]);
-		if (pixels.duration !== null) expect(pixels.duration).toBe(500_000);
-	}
-});
+import { strFromU8, unzipSync } from 'fflate';
+import { openFramescaperImageFramePackV1 } from '../../src/common/editor/timeline-image-frame-pack-v1.ts';
+import { bootEditor, chooseNestedCommandAction, disableNativeSavePicker, chooseExportProjectFileAction, downloadBytes } from './audio-editor-test-helpers.js';
 
 test('static-only image import refuses a one-frame APNG instead of publishing its different poster', async ({ page }) => {
 	const editor = await bootEditor(page, '/framescaper/en/');
@@ -41,24 +18,32 @@ test('static-only image import refuses a one-frame APNG instead of publishing it
 });
 
 
-for (const frameCount of [1, 2]) test(`native APNG import preserves ${frameCount} authored frames in the saved source`, async ({ page }) => {
+test('native APNG import saves authored animation frames and timing rather than the separate poster', async ({ page }) => {
+	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/framescaper/en/');
 	test.skip(!await page.evaluate(() => typeof globalThis.ImageDecoder === 'function'), 'This workflow uses the native animation decoder.');
-	const id = await editor.getAttribute('data-project-id');
+	const files = [1, 2].map(count => ({ name: `half-second-${count}.png`, mimeType: 'image/png',
+		buffer: count === 1 ? singleFramePosterApng() : twoFramePosterApng() }));
 	const chooser = page.waitForEvent('filechooser');
 	await chooseNestedCommandAction(page, editor, 'Generate', ['Add Images']);
-	await (await chooser).setFiles({ name: 'half-second.png', mimeType: 'image/png', buffer: frameCount === 1 ? singleFramePosterApng() : twoFramePosterApng() });
-	await expect(editor.getByRole('group', { name: 'Image clip: half-second', exact: true })).toBeVisible();
-	await expect.poll(() => page.evaluate(({ databaseName, id }) => new Promise((resolve, reject) => {
-		const open = indexedDB.open(databaseName);
-		open.onerror = () => reject(open.error);
-		open.onsuccess = () => {
-			const database = open.result, request = database.transaction('projects').objectStore('projects').get(id);
-			request.onerror = () => { database.close(); reject(request.error); };
-			request.onsuccess = () => {
-				const source = request.result?.sources.find(source => source.kind === 'image');
-				database.close(); resolve({ duration: source?.canonical.durationTicks, timing: source?.canonical.timingMode, frames: source?.canonical.frameCount });
-			};
-		};
-	}), { databaseName: FRAMESCAPER_DATABASE_NAME, id })).toEqual({ duration: String(frameCount * 500_000), timing: 'embedded', frames: frameCount });
+	await (await chooser).setFiles(files);
+	await expect(editor).toHaveAttribute('data-clip-count', '2');
+	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+	const saving = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);
+	const download = await saving; let entries;
+	try { entries = unzipSync(await downloadBytes(download)); } finally { await download.delete(); }
+	const project = JSON.parse(strFromU8(entries['project.json'])), manifest = JSON.parse(strFromU8(entries['manifest.json']));
+	expect(project.sources).toHaveLength(2);
+	for (const [index, file] of files.entries()) {
+		const source = project.sources.find(source => source.original?.fileName === file.name); expect(source).toBeDefined();
+		expect(source.canonical).toMatchObject({ width: 1, height: 1, frameCount: index + 1,
+			durationTicks: String((index + 1) * 500_000), timingMode: 'embedded' });
+		const body = entries[manifest.assets.find(asset => asset.sourceId === `framescaper:image:${source.id}`).entry];
+		const reader = await openFramescaperImageFramePackV1({ source, read: (offset, length) => body.slice(offset, offset + length) });
+		expect(Buffer.from(await reader.readOriginal())).toEqual(file.buffer);
+		for (let frame = 0; frame <= index; frame++) {
+			expect([...await reader.readFrame(frame)]).toEqual(frame ? [0, 255, 0, 255] : [0, 0, 255, 255]);
+			expect(reader.timings[frame]).toEqual({ presentationTicks: BigInt(frame) * 500_000n, durationTicks: 500_000n });
+		}
+	}
 });
