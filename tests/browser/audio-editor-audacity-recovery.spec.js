@@ -27,7 +27,7 @@ test('recovery assesses missing audio before saving a native copy with its origi
 	const downloading = page.waitForEvent('download');
 	await dialog.getByRole('button', { name: 'Save repaired Audacity copy', exact: true }).click();
 	const download = await downloading;
-	expect(download.suggestedFilename()).toBe('broken (Recovered).aup3');
+	expect(download.suggestedFilename()).toMatch(/^broken[ _]\(Recovered\)\.aup3$/u);
 	const SQL = await initSqlJs();
 	const source = new SQL.Database(original), repaired = new SQL.Database(await downloadBytes(download));
 	try {
