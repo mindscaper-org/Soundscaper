@@ -167,7 +167,7 @@ Import [Audacity shortcuts](/reference/generated/commands/) in Preferences; revi
 | Automatic pitch correction | + — :: Automatic pitch correction | / — :: Pitch shifting is included; automatic note correction requires a partner plug-in. |
 | Drum-hit sample replacement | / | + — Sound Replacer :: Detects hits and replaces or layers them with samples, with level-dependent triggers. |
 | Native plug-in process isolation | + — :: Separate host processes per renderer owner and plug-in binary digest; instances of the same binary can share a host. | / |
-| 32-bit plug-ins in a 64-bit host | ~ — Windows x64 / VST2 :: Opt-in x86 bridge for 32-bit VST2 effects, with the matching packaged peer. Other platforms and plug-in formats retain native-architecture requirements. | / |
+| 32-bit plug-ins in a 64-bit host | ~ — Windows x64 / VST2 :: Built-in x86 bridge for 32-bit VST2 effects, enabled by default. Other platforms and plug-in formats retain native-architecture requirements. | / |
 | Suspend idle plug-in processing | ~ — Built-ins + native :: Supported built-ins preserve tail reserves; native effects use five seconds of silence detection. Per-plug-in Auto-idle choices override the global preference; excluded built-ins keep running. | + — Dynamic processing |
 | Real-time true-peak limiting | + — Limiter :: Optional True Peak mode in the built-in Limiter, available for real-time racks and selection processing. | + — Pro Limiter |
 
