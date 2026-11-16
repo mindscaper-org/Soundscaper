@@ -117,6 +117,12 @@ const nyquistDefinitions = NYQUIST_BUNDLED_PLUGINS.map((plugin) => {
 });
 
 export const AUDACITY_ACTION_DEFINITIONS = [
+	implemented('folder-select', 'Select folder contents', ['Edit > Edit folder contents', 'Folder context'], 'edit.folderSelect', { enableWhen: 'project-opened', source: null, origin: 'local' }),
+	implemented('folder-split', 'Split folder contents', ['Edit > Edit folder contents', 'Folder context'], 'edit.folderSplit', { enableWhen: 'editable-project', source: null, origin: 'local' }),
+	implemented('folder-delete', 'Delete from folder and leave gap', ['Edit > Edit folder contents', 'Folder context'], 'edit.folderDelete', { enableWhen: 'editable-project', source: null, origin: 'local' }),
+	implemented('folder-ripple-cut', 'Cut from folder and close gap', ['Edit > Edit folder contents', 'Folder context'], 'edit.folderRippleCut', { enableWhen: 'editable-project', source: null, origin: 'local' }),
+	implemented('folder-ripple-delete', 'Delete from folder and close gap', ['Edit > Edit folder contents', 'Folder context'], 'edit.folderRippleDelete', { enableWhen: 'editable-project', source: null, origin: 'local' }),
+	implemented('folder-ripple-insert', 'Insert clipboard into folder', ['Edit > Edit folder contents', 'Folder context'], 'edit.folderRippleInsert', { enableWhen: 'clipboard-and-project-writable', source: null, origin: 'local' }),
 	// File and project lifecycle.
 	implemented('file-new', 'New', ['File'], 'project.create', { shortcut: 'Ctrl+N' }),
 	implemented('file-open', 'Open', ['File'], 'project.open', { shortcut: 'Ctrl+O' }),

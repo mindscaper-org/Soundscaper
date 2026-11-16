@@ -34,6 +34,8 @@ import type { AudioEditorClipboard, AudioEditorCommand } from '../../commands/pr
 import { preserveProductionTrackRouting } from '../../derived-track-routing.ts';
 import { prepareFrozenTrackEditCommand } from '../shared/frozen-track-edit-command.ts';
 import { createSelectedLabelClipboardService } from './internal/selected-label-clipboard.ts';
+import { createFolderEditService, FOLDER_EDIT_ACTIONS, type FolderEditAction } from './internal/folder-edit-service.ts';
+import type { HandleEditorEdit } from './internal/edit-service.ts';
 
 export type {
 	EditCommandProject,
@@ -224,7 +226,7 @@ export function createEditComposition<History extends ControllerRuntimeHistory>(
 			throw error;
 		}
 	};
-	const handleEdit = createEditorEditService({
+	const handleImmediateEdit = createEditorEditService({
 		handleSelectedLabelClipboard: labelClipboard.handle,
 		supportsTrackFolders: dependencies.supportsTrackFolders,
 		activeSelection: dependencies.activeSelection,
@@ -290,6 +292,22 @@ export function createEditComposition<History extends ControllerRuntimeHistory>(
 		state,
 		undoEditorCommand: projectRuntime.undo,
 	});
+	const editFolder = createFolderEditService({
+		lifetime, state, copy, getProject: dependencies.getCommandProject, editingBlocked: dependencies.editingBlocked,
+		getPositionFrames: () => engine.getPositionFrames(), updateSelection: dependencies.updateSelection,
+		commit: command => dependencies.commit(prepareFrozenTrackEditCommand(requireProject(), command)),
+		createClipboard: options => projectRuntime.prepareEditClipboardDescriptor(requireProject(),
+			createClipboardDescriptor(clipboardProject(dependencies.getCommandProject()), options)),
+		clipboard, commitPaste: commitPreparedPaste, publish: dependencies.publishDocumentSnapshot,
+	});
+	const handleEdit: HandleEditorEdit = (action, options) => {
+		if (!action.startsWith('folder-')) return handleImmediateEdit(action, options);
+		if (!dependencies.supportsTrackFolders || !options?.folderId) return;
+		const operation = action.slice('folder-'.length) as FolderEditAction;
+		if (!FOLDER_EDIT_ACTIONS.includes(operation)) return;
+		try { return editFolder(operation, options.folderId); }
+		catch (error) { if (options.propagateErrors) throw error; dependencies.handleError(error); }
+	};
 
 	return Object.freeze({
 		labels,

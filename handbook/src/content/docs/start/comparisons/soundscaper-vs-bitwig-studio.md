@@ -36,7 +36,7 @@ sidebar:
 | Non-destructive clip timeline | + | + |
 | Dedicated single-file editor | + — Source monitor | / — :: The Detail Editor edits clip events; it is not a separate destructive waveform-file editor. |
 | Mono and stereo content on one track | + | + |
-| Nested track folders | + | + — Group tracks |
+| Nested track folders | + — Collapsed editing :: Folder overview selection, split, gap-preserving delete, and folder-scoped ripple cut/delete/clipboard insert include nested children. | + — Group tracks |
 | Project bin | + | ~ — Used Files |
 | Project recording notes | + — Markdown | ~ — :: Project / section notes |
 | Autosave and crash recovery | + — :: Local recovery and Audacity damage preview/repair to a new copy; available Audacity WAL data is recovered through private snapshots. | + |
@@ -108,7 +108,7 @@ Hover for limits. Include any referenced media when sharing projects.
 | Sample-level drawing | + | / |
 | Keyboard-only editing | + | ~ — :: Keyboard editing workflows are documented; some graphical editing still requires pointer input. |
 | Spreadsheet-based editing | + — Clip spreadsheet :: Window → Clip spreadsheet edits clip names, tracks, sources, timing, pitch, speed, gain, fades, and polarity; supports multi-cell tabular copy/paste and row insertion. | / |
-| Linked-track edit groups | / | / |
+| Linked-track edit groups | ~ — Folder edits :: Explicit edits can target all folder descendants; ordinary edits on one child do not propagate to siblings. No persistent linked-track groups. | / |
 | Beat slicing and gap smoothing | / | / |
 | Offline effect render handles | / | / |
 | Non-destructive clip effects | / | / |

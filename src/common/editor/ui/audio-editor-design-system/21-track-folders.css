@@ -103,6 +103,33 @@
 	overflow: hidden;
 }
 
+.audio-editor-folder-content-overview {
+	position: relative;
+	block-size: 100%;
+	min-block-size: 28px;
+	touch-action: none;
+}
+
+.audio-editor-folder-content-overview[role='group'] {
+	cursor: text;
+}
+
+.audio-editor-folder-content-span,
+.audio-editor-folder-content-selection {
+	position: absolute;
+	inset-block: 4px;
+	border-radius: 2px;
+	pointer-events: none;
+	background: var(--color-surface-selected, rgba(90, 130, 200, 0.35));
+	border: 1px solid var(--color-border-subtle, currentColor);
+}
+
+.audio-editor-folder-content-selection {
+	inset-block: 0;
+	border-radius: 0;
+	background: var(--color-surface-selected, rgba(90, 130, 200, 0.35));
+}
+
 @media (forced-colors: active) {
 	.audio-editor-track-folder-row {
 		border-bottom-color: CanvasText;

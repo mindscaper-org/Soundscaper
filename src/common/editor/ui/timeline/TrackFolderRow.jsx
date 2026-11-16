@@ -28,6 +28,7 @@ export function TrackFolderRow({
 	isFlatNavigation = false,
 	panelWidth,
 	trackHeaderWidth = panelWidth,
+	children = null,
 	editing,
 	onSelect,
 	onKeyDown,
@@ -150,7 +151,7 @@ export function TrackFolderRow({
 					>H</button>
 				</span>
 			</div>
-			<div className="audio-editor-track-folder-row__lane" aria-hidden="true" />
+			<div className="audio-editor-track-folder-row__lane" style={{ marginLeft: Math.max(0, panelWidth - trackHeaderWidth) }}>{children}</div>
 		</div>
 	);
 }

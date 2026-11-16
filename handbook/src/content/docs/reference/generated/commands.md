@@ -141,6 +141,7 @@ Product availability follows each product profile’s command filters and each l
 | Cut and close gap per clip | `cut-per-clip-ripple` | — | Edit > Cut | Soundscaper, Framescaper | Audacity |
 | Cut and close gap per track | `cut-per-track-ripple` | Ctrl+Shift+X | Edit > Cut | Soundscaper, Framescaper | Audacity |
 | Cut and leave gap | `cut-leave-gap` | — | Edit > Cut | Soundscaper, Framescaper | Audacity |
+| Cut from folder and close gap | `folder-ripple-cut` | — | Edit > Edit folder contents; Folder context | Soundscaper | Soundscaper local |
 | Cut labeled audio | `cut-labels` | Alt+X | Edit > Labeled audio | Soundscaper | Audacity |
 | Cut labeled audio and leave gap | `split-cut-labels` | Alt+Shift+X | Edit > Labeled audio | Soundscaper | Audacity |
 | Cut preview | `play-cut-preview` | — | Transport | Soundscaper, Framescaper | Soundscaper local |
@@ -158,6 +159,8 @@ Product availability follows each product profile’s command filters and each l
 | Delete and close gap per clip | `delete-per-clip-ripple` | — | Edit > Delete | Soundscaper, Framescaper | Audacity |
 | Delete and close gap per track | `delete-per-track-ripple` | Shift+Del; Shift+Backspace | Edit > Delete | Soundscaper, Framescaper | Audacity |
 | Delete and leave gap | `delete-leave-gap` | — | Edit > Delete | Soundscaper, Framescaper | Audacity |
+| Delete from folder and close gap | `folder-ripple-delete` | — | Edit > Edit folder contents; Folder context | Soundscaper | Soundscaper local |
+| Delete from folder and leave gap | `folder-delete` | — | Edit > Edit folder contents; Folder context | Soundscaper | Soundscaper local |
 | Delete labeled audio | `delete-labels` | Alt+K | Edit > Labeled audio | Soundscaper | Audacity |
 | Delete labeled audio and leave gap | `split-delete-labels` | Alt+Shift+K | Edit > Labeled audio | Soundscaper | Audacity |
 | Delete preset | `action://effects/presets/delete` | — | Effect dialog > Presets | Soundscaper | Audacity |
@@ -256,6 +259,7 @@ Product availability follows each product profile’s command filters and each l
 | Insert | `action://trackedit/paste-insert` | — | Edit > Paste | Soundscaper, Framescaper | Audacity |
 | Insert | `insert` | Shift+V | Edit > Paste; Command inventory | Soundscaper, Framescaper | Audacity |
 | Insert and preserve synchronisation | `action://trackedit/paste-insert-all-tracks-ripple` | Ctrl+Alt+Shift+V | Edit > Paste | Soundscaper, Framescaper | Audacity |
+| Insert clipboard into folder | `folder-ripple-insert` | — | Edit > Edit folder contents; Folder context | Soundscaper | Soundscaper local |
 | Install Framescaper | `install-framescaper` | — | Help | Framescaper | Soundscaper local |
 | Install Soundscaper | `install-soundscaper` | — | Help | Soundscaper | Soundscaper local |
 | Invert | `audacity-invert` | — | Effect > Special | Soundscaper | Soundscaper local |
@@ -465,6 +469,7 @@ Product availability follows each product profile’s command filters and each l
 | Seconds | `snap-seconds` | — | View > Snapping > Seconds and samples | Soundscaper, Framescaper | Soundscaper local |
 | Select all | `select-all` | Ctrl+A | Select | Soundscaper, Framescaper | Audacity |
 | Select all tracks | `select-all-tracks` | Ctrl+Shift+K | Select | Soundscaper, Framescaper | Audacity |
+| Select folder contents | `folder-select` | — | Edit > Edit folder contents; Folder context | Soundscaper | Soundscaper local |
 | Select no tracks | `local://select-no-tracks` | — | Select > Tracks | Soundscaper, Framescaper | Soundscaper local |
 | Select none | `clear-selection` | Ctrl+Shift+A | Select | Soundscaper, Framescaper | Audacity |
 | Selected Visual Inspector | `framescaper-visual-inspector` | — | Effect > Video Finishing | Framescaper | Soundscaper local |
@@ -519,6 +524,7 @@ Product availability follows each product profile’s command filters and each l
 | Spectrogram settings | `track-spectrogram-settings` | — | Track context > Spectrogram | Soundscaper, Framescaper | Audacity |
 | Split | `split` | Ctrl+I | Edit > Clip; Clip context | Soundscaper, Framescaper | Audacity |
 | Split clips at silences | `disjoin` | Ctrl+Alt+J | Edit > Clip | Soundscaper, Framescaper | Audacity |
+| Split folder contents | `folder-split` | — | Edit > Edit folder contents; Folder context | Soundscaper | Soundscaper local |
 | Split into new track | `split-into-new-track` | Ctrl+Alt+I | Edit > Clip | Soundscaper, Framescaper | Audacity |
 | Split labeled audio | `split-labels` | Alt+I | Edit > Labeled audio | Soundscaper | Audacity |
 | Split stereo to L/R mono | `track-split-stereo-to-lr` | — | Track context | Soundscaper, Framescaper | Audacity |

@@ -206,18 +206,7 @@ export function TimelineMenus({
 				onClose={() => setTrackMenu(null)}
 				className="audio-editor-track-folder-menu"
 			>
-				{folderMenuItems.map((item, index) => item.divider ? (
-					<ContextMenuItem key={`divider-${index}`} isDivider />
-				) : (
-					<ContextMenuItem
-						key={item.label}
-						tooltipKey={item.id} label={item.label}
-						checked={item.checked}
-						disabled={item.disabled}
-						onClick={item.onClick}
-						onClose={() => setTrackMenu(null)}
-					/>
-				))}
+				{folderMenuItems.map((item, index) => renderTrackMenuItem(item, index, setTrackMenu))}
 			</ContextMenu>
 
 			<ContextMenu
@@ -417,7 +406,7 @@ function renderTrackMenuItem(item, index, setTrackMenu) {
 	if (item.divider) return <ContextMenuItem key={`divider-${index}`} isDivider />;
 	return <ContextMenuItem
 		key={item.id || `${item.label}-${index}`}
-		tooltipKey={item.id} label={item.label}
+		tooltipKey={item.tooltipKey || item.id} label={item.label}
 		icon={item.icon}
 		shortcut={item.shortcut}
 		checked={item.checked}

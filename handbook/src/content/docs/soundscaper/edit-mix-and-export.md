@@ -14,6 +14,28 @@ whether later material stays in place or moves to close the removed region.
 Use track folders, clip groups, and the Project Bin to keep larger projects
 organized.
 
+### Edit a collapsed folder {#folder-editing}
+
+Open a folder's context menu and choose **Edit folder contents → Select folder
+contents**. This selects its full media range, including nested and collapsed
+children, and activates time selection on the folder overview. Drag across that
+overview to choose a smaller interval without expanding the folder.
+
+The same submenu offers **Split folder contents**, **Delete from folder and
+leave gap**, **Cut from folder and close gap**, **Delete from folder and close
+gap**, and **Insert clipboard into folder**. Split uses the selected range's
+boundaries, or the playhead when there is no range. Insert pastes at the range's
+start or the playhead, maps clipboard lanes to matching descendant tracks, and
+makes room across every descendant media track. It refuses when the folder
+does not contain enough matching tracks. Outside tracks stay in place.
+
+These commands also appear under **Edit → Edit folder contents** and operate
+on the selected folder. All six start without keyboard bindings; assign them
+in **Preferences → Shortcuts**. Folder edits are undoable. A locked descendant
+or an audio/video link crossing the folder boundary prevents a content edit.
+Folder editing explicitly targets a subtree; it does not link ordinary edits
+made directly on individual child tracks.
+
 ### Select and adjust audio {#audio-selection}
 
 Drag across a waveform to select a time range. Drag across adjacent tracks to

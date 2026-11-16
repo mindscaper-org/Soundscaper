@@ -2,7 +2,13 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import {
 	bootEditor,
 	registerAudioEditorHooks,
+	getMenuItem,
+	chooseNestedCommandAction,
 } from './audio-editor-test-helpers.js';
+import { persistedProject } from './helpers/complex-editing-workflows.js';
+import { folderEditProject } from '../helpers/folder-edit-project.ts';
+import { exportScapeProject } from '../../src/common/editor/scape-project.js';
+import { createProjectStore } from '../../src/common/editor/storage.js';
 
 test.describe('audio editor track folder tree', () => {
 	registerAudioEditorHooks();
@@ -69,5 +75,58 @@ test.describe('audio editor track folder tree', () => {
 		await editor.getByRole('menuitem', { name: 'Delete folder, keep tracks' }).click();
 		await expect(editor.locator('[data-track-folder-row]')).toHaveCount(0);
 		await expect(editor.locator('[data-track-row]')).toHaveCount(1);
+	});
+
+	test('collapsed overview selects nested contents and scopes ripple cut and insert', async ({ page }) => {
+		const { project, source } = folderEditProject();
+		const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `folder-browser-${crypto.randomUUID()}` });
+		let archive;
+		try {
+			const writer = await store.beginSourceWrite(source.storageKey, source);
+			await writer.write([new Float32Array(source.frameCount).fill(.25)]);
+			await writer.commit();
+			archive = (await exportScapeProject(project, store)).blob;
+		} finally { await store.close(); }
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+		await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Folder.sscape', mimeType: 'application/zip', buffer: Buffer.from(await archive.arrayBuffer()) });
+		await expect(editor).toHaveAttribute('data-project-id', project.id);
+		await expect(editor).not.toHaveAttribute('data-project-activation-pending', 'true');
+		const folder = editor.getByRole('treeitem', { name: 'Folder Dialogue, level 1', exact: true });
+		await expect(folder).toHaveAttribute('aria-expanded', 'false');
+		await expect(editor.locator('[data-track-row]')).toHaveCount(1);
+		const command = async label => {
+			await folder.click({ button: 'right', position: { x: 40, y: 12 } });
+			const menu = page.locator('.audio-editor-track-folder-menu');
+			const contents = getMenuItem(menu, 'Edit folder contents');
+			await contents.focus();
+			await contents.press('ArrowRight');
+			await menu.getByRole('menuitem', { name: label, exact: true }).click();
+		};
+		await command('Select folder contents');
+		await chooseNestedCommandAction(page, editor, 'Edit', ['Edit folder contents', 'Select folder contents']);
+		const overview = folder.getByRole('group', { name: 'Contents of Dialogue', exact: true });
+		await expect(overview).toBeVisible();
+		const bounds = await overview.boundingBox();
+		expect(bounds).not.toBeNull();
+		await page.mouse.move(bounds.x + 20, bounds.y + bounds.height / 2);
+		await page.mouse.down();
+		await page.mouse.move(bounds.x + 55, bounds.y + bounds.height / 2, { steps: 5 });
+		await page.mouse.up();
+		const start = editor.getByRole('group', { name: 'Selection start', exact: true });
+		await start.locator('.timecode__format-button').click();
+		await page.getByRole('menuitem', { name: 'samples', exact: true }).click();
+		const samples = async name => Number((await editor.getByRole('group', { name, exact: true }).locator('.timecode-digit').allTextContents()).join(''));
+		const duration = await samples('Selection end') - await samples('Selection start');
+		expect(duration).toBeGreaterThan(0);
+		await command('Cut from folder and close gap');
+		await expect.poll(async () => (await persistedProject(page, project.id))?.selection?.trackIds).toEqual(['voice', 'ambience']);
+		const later = async id => (await persistedProject(page, project.id)).clips.find(clip => clip.id === id)?.timelineStartFrame;
+		await expect.poll(() => later('voice-later')).toBe(144_000 - duration);
+		await expect.poll(() => later('ambience-later')).toBe(144_000 - duration);
+		await expect.poll(() => later('music-later')).toBe(144_000);
+		await command('Insert clipboard into folder');
+		await expect.poll(() => later('voice-later')).toBe(144_000);
+		await expect.poll(() => later('ambience-later')).toBe(144_000);
+		await expect(folder).toHaveAttribute('aria-expanded', 'false');
 	});
 });
