@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { pluginBridgeGrant } from './plugin-bridge-grant.ts';
+import { pluginBridgeGrant, winePluginBridgeGrant } from './plugin-bridge-grant.ts';
 /**
  * Closed job-kind and main-to-helper authority families. Renderers never see
  * these grants: main resolves opaque renderer capabilities into the minimum
@@ -170,6 +170,7 @@ export interface HelperAudioDeviceJobGrant {
 }
 
 export interface HelperPluginScanJobGrant {
+	readonly linuxWineVst3?: true;
 	readonly windowsX86Vst2?: true;
 	readonly rootPath: string;
 	readonly format: HelperPluginFormat;
@@ -193,6 +194,7 @@ export function validatePluginScanCursor(value: unknown): Readonly<PluginScanCur
 }
 
 export interface HelperPluginHostJobGrant {
+	readonly linuxWineVst3?: true;
 	readonly windowsX86Vst2?: true;
 	readonly binaryPath: string;
 	readonly binaryBytes: number;
@@ -389,10 +391,11 @@ function validateAudioDeviceGrant(value: unknown): HelperAudioDeviceJobGrant {
 
 function validatePluginScanGrant(value: unknown): HelperPluginScanJobGrant {
 	const record = grantRecord(value);
-	exactOptionalKeys(record, PLUGIN_SCAN_KEYS, ['cursor', 'windowsX86Vst2']);
+	exactOptionalKeys(record, PLUGIN_SCAN_KEYS, ['cursor', 'windowsX86Vst2', 'linuxWineVst3']);
 	return Object.freeze({
 		rootPath: absolutePath(record.rootPath, 'plug-in scan root'),
 		...pluginBridgeGrant(record.windowsX86Vst2, record.format),
+		...winePluginBridgeGrant(record.linuxWineVst3, record.format),
 		format: pluginFormat(record.format),
 		identity: portableNativeChildFileIdentity(record.identity),
 		...(record.cursor === undefined ? {} : { cursor: validatePluginScanCursor(record.cursor) }),
@@ -401,13 +404,14 @@ function validatePluginScanGrant(value: unknown): HelperPluginScanJobGrant {
 
 function validatePluginHostGrant(value: unknown): HelperPluginHostJobGrant {
 	const record = grantRecord(value);
-	exactOptionalKeys(record, PLUGIN_HOST_KEYS, ['persistentPort', 'windowsX86Vst2']);
+	exactOptionalKeys(record, PLUGIN_HOST_KEYS, ['persistentPort', 'windowsX86Vst2', 'linuxWineVst3']);
 	if (typeof record.binarySha256 !== 'string' || !SHA256.test(record.binarySha256)) {
 		unsafe('A helper plug-in binary grant must carry a lowercase SHA-256 digest.');
 	}
 	return Object.freeze({
 		binaryPath: absolutePath(record.binaryPath, 'plug-in binary'),
 		...pluginBridgeGrant(record.windowsX86Vst2, record.format),
+		...winePluginBridgeGrant(record.linuxWineVst3, record.format),
 		binaryBytes: byteCount(record.binaryBytes, 'plug-in binary'),
 		binarySha256: record.binarySha256,
 		format: effectPluginFormat(record.format),

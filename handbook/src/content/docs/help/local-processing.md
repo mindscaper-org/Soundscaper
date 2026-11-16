@@ -78,3 +78,26 @@ afterward. **Advanced** contains parallel effect processing, worker
 limits, buffering, and the storage optimization setting. **Media** holds native media settings; **Effects** links to Plugin
 Manager and contains the plugin-discovery switch. Plugin permissions and
 quarantine recovery still require explicit actions.
+
+## Audio effect presets and auto-idle {#audio-effect-presets-and-auto-idle}
+
+Audio effects, Nyquist plug-ins, Vamp analyzers, and audio generators share the
+preset header. Choose a preset from its dropdown. **Save preset** offers Save
+and Save as new preset; **Reset preset** restores its settings, and **Delete
+preset** removes a saved user preset. Realtime effects also have a power button
+for bypass. Native presets include the plug-in's complete opaque state and
+require the matching plug-in binary version when restored.
+
+Open the header's **More options → Auto-idle** to choose whether a realtime
+processor may suspend during silence. Until you change it, the checkbox follows
+**Edit → Preferences → Advanced → Suspend idle effect processing**. Changing it
+remembers a choice for that effect or plug-in across instances and projects.
+Those choices appear below the global preference. Choose **Use global
+preference** beside an entry to restore inheritance.
+
+Native effects wait for silent input and five seconds of quiet output, with
+extra time for reported latency. New input and parameter edits wake processing;
+an open vendor editor keeps it active. Disable Auto-idle for effects that need
+continuous timing or have echoes separated by longer silent gaps. Built-ins keep
+their existing tail and continuous-processing safeguards. Offline effects,
+analyzers, generators, and offline renders continue processing normally.

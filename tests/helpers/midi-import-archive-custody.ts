@@ -17,6 +17,7 @@ import { createMemoryFfmpeg } from './audio-editor-controller-fixtures.js';
 import { createInstrumentedIndexedDB } from './instrumented-indexeddb.js';
 import { assertPcmChannelsEqual } from './assert-pcm-samples.ts';
 import { readPcm } from './project-store-pcm-fixture.ts';
+import { installNodeEditorWorkers } from './node-editor-workers.ts';
 
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 type FileRequest = Readonly<{ suggestedName?: string; bytes?: Uint8Array | ArrayBuffer; text?: string; blob?: Blob }>;
@@ -31,6 +32,7 @@ interface CustodyOptions {
 
 /** Real MIDI parsing, synthesis, controller publication and portable storage. */
 export async function midiImportArchiveCustody(context: TestContext, options: CustodyOptions = {}) {
+	installNodeEditorWorkers(context);
 	const saved: FileRequest[] = [];
 	const sender = await open();
 	return { ...sender, saved, async reopen() {

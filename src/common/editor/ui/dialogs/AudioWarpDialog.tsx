@@ -18,6 +18,7 @@ import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { useOwnedDialogOperation } from '../useOwnedDialogOperation.ts';
 import { useOperationFocusRecovery } from '../useOperationFocusRecovery.ts';
 import EditorMusicalTimeCodeProvider from '../EditorMusicalTimeCodeProvider.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface AudioWarpDialogActions {
 	view(): Readonly<{
@@ -220,10 +221,10 @@ export default function AudioWarpDialog({
 				<legend>{copy.audioWarpEnableGroove}</legend>
 				<label className="audio-editor-audio-warp__check">
 					<input type="checkbox" checked={grooveEnabled} onChange={(event) => setGrooveEnabled(event.currentTarget.checked)} />
-					<span>{copy.audioWarpEnableGroove}</span>
+					<EditorControlLabel>{copy.audioWarpEnableGroove}</EditorControlLabel>
 				</label>
 				<label>
-					<span>{copy.audioWarpGrooveOffsets}</span>
+					<EditorControlLabel>{copy.audioWarpGrooveOffsets}</EditorControlLabel>
 					<input type="text" value={grooveOffsets} disabled={!grooveEnabled} onChange={(event) => setGrooveOffsets(event.currentTarget.value)} />
 				</label>
 				<StrengthField
@@ -288,8 +289,8 @@ function WarpMapEditor({
 		<legend>{copy.audioWarpMarkers}</legend>
 		<WarpMarkerTable points={model.warpPoints} copy={copy} {...actions} />
 		<div className="audio-editor-audio-warp__marker-add">
-			<label><span>{copy.audioWarpOuter}</span><input type="text" value={markerOuter} onChange={(event) => onMarkerOuter(event.currentTarget.value)} /></label>
-			<label><span>{copy.audioWarpSource}</span><input type="text" value={markerSource} onChange={(event) => onMarkerSource(event.currentTarget.value)} /></label>
+			<label><EditorControlLabel>{copy.audioWarpOuter}</EditorControlLabel><input type="text" value={markerOuter} onChange={(event) => onMarkerOuter(event.currentTarget.value)} /></label>
+			<label><EditorControlLabel>{copy.audioWarpSource}</EditorControlLabel><input type="text" value={markerSource} onChange={(event) => onMarkerSource(event.currentTarget.value)} /></label>
 			<button type="button" data-audio-warp-add-marker onClick={onAdd}>{copy.audioWarpAddMarker}</button>
 		</div>
 	</fieldset>;
@@ -362,7 +363,7 @@ function NumberField({
 	minimum?: number;
 	onChange(value: number): void;
 }>) {
-	return <label><span>{label}</span><AudioEditorTimeCodeInput label={label} value={value}
+	return <label><EditorControlLabel>{label}</EditorControlLabel><AudioEditorTimeCodeInput label={label} value={value}
 		unit="samples" rate={sampleRate} format="samples" minimum={minimum}
 		onChange={onChange} /></label>;
 }
@@ -382,7 +383,7 @@ function StrengthField({
 }>) {
 	const output = copy.audioWarpStrengthValue.replace('{percent}', String(value));
 	return <label className="audio-editor-audio-warp__strength">
-		<span>{label}: <output>{output}</output></span>
+		<EditorControlLabel>{label}: <output>{output}</output></EditorControlLabel>
 		<input
 			type="range"
 			min="0"

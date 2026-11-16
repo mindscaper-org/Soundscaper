@@ -78,6 +78,7 @@ for (const { name, cases } of PRINT_CASE_GROUPS) test(`individual and combined p
 
 async function exportSamples(page, editor) {
 	const dialog = await openExportDialog(page, editor);
+	await dialog.getByRole('checkbox', { name: /^Include effect tails/u }).check();
 	const link = dialog.locator('[data-export-download]');
 	const previous = await link.count() ? await link.getAttribute('href') : null;
 	await dialog.getByRole('button', { name: 'Export', exact: true }).click();

@@ -9,6 +9,7 @@ interface RackChannelOwner {
 	readonly effects?: readonly Readonly<{ id?: unknown; type?: unknown; enabled?: boolean; bypassed?: boolean }>[];
 }
 export interface RackChannelProject extends TerminalWidthProject {
+	readonly clips?: readonly (NonNullable<TerminalWidthProject['clips']>[number] & RackChannelOwner)[];
 	readonly tracks?: readonly (NonNullable<TerminalWidthProject['tracks']>[number] & RackChannelOwner)[];
 	readonly master?: RackChannelOwner;
 	readonly mixer?: Omit<NonNullable<TerminalWidthProject['mixer']>, 'groups' | 'sends'> & Readonly<{
@@ -33,6 +34,10 @@ function createRackWidthReader(project: RackChannelProject): (scope: string, tar
 	const widths = resolveTerminalChannelWidths(project, production ? masterWidth : 2);
 	const legacyWidth = production ? 0 : Math.min(32, Math.max(2, masterWidth, ...widths.tracks.values()));
 	return (scope, targetId) => {
+		if (scope === 'clip') {
+			const clip = project.clips?.find(clip => clip.id === targetId);
+			return supportedWidth(Number(project.sources?.find(source => source.id === clip?.sourceId)?.channelCount ?? 2));
+		}
 		if (scope === 'track') return widths.tracks.get(String(targetId)) ?? (production ? masterWidth : 2);
 		if (!production) return legacyWidth;
 		if (scope === 'master') return masterWidth;
@@ -43,6 +48,7 @@ function createRackWidthReader(project: RackChannelProject): (scope: string, tar
 /** Compare realized active racks once per transaction, sharing manual admission's width authority. */
 export function activeRackWidthViolations(project: RackChannelProject): ReadonlySet<string> {
 	const owners: { scope: string; id: string | null; owner: RackChannelOwner }[] = [];
+	for (const clip of project.clips ?? []) owners.push({ scope: 'clip', id: String(clip.id), owner: clip });
 	for (const track of project.tracks ?? []) {
 		// Empty track racks have no clip graph; their master-width fallback is not processed.
 		if (track.type !== 'video' && track.type !== 'label' && track.clipIds?.length) owners.push({ scope: 'track', id: String(track.id), owner: track });
@@ -71,6 +77,7 @@ export function unavailableRackEffectTypes(project: RackChannelProject | null | 
 
 function rackOwner(project: RackChannelProject | null | undefined, scope: string, targetId: string | null): RackChannelOwner | undefined {
 	if (scope === 'master') return project?.master;
+	if (scope === 'clip') return project?.clips?.find(owner => owner.id === targetId);
 	if (scope === 'track') return project?.tracks?.find(owner => owner.id === targetId);
 	return (scope === 'group' ? project?.mixer?.groups : project?.mixer?.sends)?.find(owner => owner.id === targetId);
 }

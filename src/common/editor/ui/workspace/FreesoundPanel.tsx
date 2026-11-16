@@ -16,6 +16,7 @@ import type {
 	FreesoundPublishDraft,
 	FreesoundUploadQueueSnapshot,
 } from './freesound-upload-queue.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export type FreesoundLicenseFilter = 'all' | 'commercial' | 'cc0';
 export type FreesoundSort = 'relevance' | 'newest' | 'rating' | 'downloads';
@@ -165,7 +166,7 @@ export function FreesoundPanel({
 				search({ query: query.trim(), page: 1 });
 			}}>
 				<label className="kw-audio-editor__freesound-query">
-					<span className="kw-audio-editor-sr-only">{copy.searchLabel}</span>
+					<EditorControlLabel className="kw-audio-editor-sr-only">{copy.searchLabel}</EditorControlLabel>
 					<input
 						type="search"
 						value={query}
@@ -179,7 +180,7 @@ export function FreesoundPanel({
 				</Button>
 				<div className="kw-audio-editor__freesound-filters">
 					<label>
-						<span>{copy.filterLicense}</span>
+						<EditorControlLabel>{copy.filterLicense}</EditorControlLabel>
 						<select
 							aria-label={copy.filterLicense}
 							value={state.license}
@@ -195,7 +196,7 @@ export function FreesoundPanel({
 						</select>
 					</label>
 					<label>
-						<span>{copy.sort}</span>
+						<EditorControlLabel>{copy.sort}</EditorControlLabel>
 						<select
 							aria-label={copy.sort}
 							value={state.sort}

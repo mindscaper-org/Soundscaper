@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { isDeepStrictEqual } from 'node:util';
 
 import {
 	AUDACITY_ACTION_MANIFEST,
@@ -24,7 +25,7 @@ import {
 	APPLICATION_MENU_REFERENCE_ENTRIES,
 } from '../src/common/editor/ui/application-menu-reference.ts';
 import createApplicationMenus from '../src/common/editor/ui/application-menus.js';
-import { createDesktopHostMenuItems } from '../src/common/editor/ui/desktop-host-menu.ts';
+import { richDesktopHost } from './helpers/application-menu-reference-desktop-host.ts';
 import { FRAMESCAPER_CANDIDATE_AUTHORING_SURFACES } from '../src/common/editor/ui/framescaper-candidate-authoring-actions.ts';
 import { FRAMESCAPER_NATIVE_PROJECT_ACTION_SURFACES } from '../src/common/editor/ui/framescaper-native-project-actions.ts';
 import { FRAMESCAPER_NATIVE_SERVICES_LIFECYCLE_METHODS } from '../src/common/editor/ui/framescaper-native-services-lifecycle-bridge.ts';
@@ -158,12 +159,12 @@ test('every runnable application-menu leaf has one truthful handbook reference',
 
 		const observedProducts = uniqueSorted(observed.map(({ product }) => product));
 		const documentedProducts = uniqueSorted(entry.products);
-		if (!sameStrings(observedProducts, documentedProducts)) {
+		if (!isDeepStrictEqual(observedProducts, documentedProducts)) {
 			metadataErrors.push(`${entry.id} products: ${documentedProducts.join('; ')} != ${observedProducts.join('; ')}`);
 		}
 		const observedLocations = uniqueSorted(observed.map(({ location }) => location));
 		const documentedLocations = uniqueSorted(entry.locations);
-		if (!sameStrings(observedLocations, documentedLocations)) {
+		if (!isDeepStrictEqual(observedLocations, documentedLocations)) {
 			metadataErrors.push(`${entry.id} locations: ${documentedLocations.join('; ')} != ${observedLocations.join('; ')}`);
 		}
 
@@ -513,28 +514,6 @@ function richActions(freezeStatus: 'none' | 'fresh'): Record<string, unknown> {
 	});
 }
 
-function richDesktopHost(productId: ProductId, productName: string) {
-	const noop = () => undefined;
-	return createDesktopHostMenuItems({
-		copy: ENGLISH_COPY,
-		development: true,
-		platform: 'linux',
-		productId,
-		productName,
-		snapshot: {
-			probeHelperEnabled: true,
-			probeHelperQuarantined: true,
-			audioHelperEnabled: true,
-			audioHelperQuarantined: true,
-			nativeEffectDiscoveryEnabled: true,
-		},
-		applyNativeTierControl: noop,
-		runWindowAction: noop,
-		checkForUpdates: noop,
-		openExternal: noop,
-		openMcpConnection: productId === 'soundscaper' ? noop : undefined,
-	});
-}
 
 function menuLabel(item: MenuItem): string {
 	assert.ok(item.label, `Menu ${String(item.id)} has no label.`);
@@ -543,8 +522,4 @@ function menuLabel(item: MenuItem): string {
 
 function uniqueSorted(values: readonly string[]): string[] {
 	return [...new Set(values)].sort((left, right) => left.localeCompare(right, 'en'));
-}
-
-function sameStrings(left: readonly string[], right: readonly string[]): boolean {
-	return left.length === right.length && left.every((value, index) => value === right[index]);
 }

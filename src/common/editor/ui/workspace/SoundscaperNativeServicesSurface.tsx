@@ -1,3 +1,4 @@
+import { bindNativePluginPresetBridge } from '../../controller/effects/native-plugin-preset-runtime.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 /**
@@ -107,7 +108,11 @@ export interface SoundscaperNativeServicesSurfaceHostOptions {
 	readonly locale?: string;
 	readonly documentValue?: Document | null;
 	readonly createHostRoot?: (container: HTMLElement) => SoundscaperNativeServicesHostRoot;
-	readonly createRendererBridge?: typeof createSoundscaperNativeRendererBridge;
+	readonly createRendererBridge?: (input: Parameters<typeof createSoundscaperNativeRendererBridge>[0]) => Readonly<{
+		bridge: SoundscaperNativeServicesBridge;
+		restoreProjectNativePlugins: ReturnType<typeof createSoundscaperNativeRendererBridge>['restoreProjectNativePlugins'];
+		dispose: ReturnType<typeof createSoundscaperNativeRendererBridge>['dispose'];
+	}>;
 }
 
 export function createSoundscaperNativeServicesSurfaceHost(
@@ -132,6 +137,7 @@ export function createSoundscaperNativeServicesSurfaceHost(
 		})
 		: null;
 	const bridge = renderer?.bridge ?? options.bridge;
+	const releasePresetBridge = options.controller ? bindNativePluginPresetBridge(options.controller, bridge) : () => undefined;
 	audioHost = options.engine && isSoundscaperAudioHostController(options.controller)
 		? createSoundscaperAudioHostRuntime({ controller: options.controller, bridge, engine: options.engine }) : null;
 	void audioHost?.refresh();
@@ -155,7 +161,7 @@ export function createSoundscaperNativeServicesSurfaceHost(
 		root?.render(<React.Suspense fallback={null}>
 			<SoundscaperNativeServicesDialog
 				key={openGeneration}
-				bridge={bridge}
+				bridge={bridge} controller={options.controller}
 				scanner={soundscaperPluginScanRuntimeFor(options.bridge)}
 				runtime={activeDialogRuntime}
 				requestedJuceEffectId={requestedJuceEffectId}
@@ -235,6 +241,7 @@ export function createSoundscaperNativeServicesSurfaceHost(
 				restorationResult = null;
 				await audioHost?.dispose();
 				await renderer?.dispose();
+				releasePresetBridge();
 			})();
 			disposal = operation;
 			void operation.catch(() => {

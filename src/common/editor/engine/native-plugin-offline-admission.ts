@@ -34,10 +34,15 @@ export function nativePluginOfflineInstanceIds(
 	const value = record(project)
 	const selectedTrackId = options.trackId == null ? null : String(options.trackId)
 	const instances: string[] = []
+	const clips = new Map(array(value.clips).map(clip => [record(clip).id, record(clip)]))
 	for (const trackValue of array(value.tracks)) {
 		const track = record(trackValue)
 		if (track.type !== 'audio' || (selectedTrackId !== null && track.id !== selectedTrackId)) continue
 		collect(track.effects, instances)
+		for (const id of array(track.clipIds)) {
+			const clip = clips.get(id)
+			if (clip?.effectsActive !== false) collect(clip?.effects, instances)
+		}
 	}
 	if (selectedTrackId === null) {
 		const mixer = record(value.mixer)

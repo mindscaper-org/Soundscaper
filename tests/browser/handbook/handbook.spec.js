@@ -76,12 +76,53 @@ test('local search indexes generated runtime references without cross-origin req
 	expect(crossOriginRequests).toEqual([]);
 });
 
-test('mobile readers can navigate the handbook sidebar', async ({ page }) => {
-	await page.setViewportSize({ width: 390, height: 844 });
-	await page.goto(`${BASE}soundscaper/recording/`);
-	await page.getByRole('button', { name: /menu/iu }).click();
-	await page.getByRole('link', { name: 'Storage, backups, and privacy' }).click();
-	await expect(page).toHaveURL(new RegExp(`${BASE}projects-and-data/storage-backups-and-privacy/$`, 'u'));
+test('readers open the collapsed handbook sidebar from the menu at desktop and mobile widths', async ({ page }) => {
+	for (const width of [1600, 390]) {
+		await page.setViewportSize({ width, height: 844 });
+		await page.goto(`${BASE}soundscaper/recording/`);
+		const menu = page.getByRole('button', { name: /menu/iu });
+		const storage = page.getByRole('link', { name: 'Storage, backups, and privacy', exact: true });
+		const title = page.getByRole('heading', { level: 1, includeHidden: true });
+		const titleBox = await title.boundingBox();
+		await expect(menu).toBeVisible();
+		await expect(storage).toBeHidden();
+		await menu.focus();
+		await page.keyboard.press('Enter');
+		await expect(storage).toBeVisible();
+		expect((await title.boundingBox()).x).toBeCloseTo(titleBox.x, 0);
+		expect((await title.boundingBox()).width).toBeCloseTo(titleBox.width, 0);
+		await page.keyboard.press('Escape');
+		await expect(storage).toBeHidden();
+		await expect(menu).toBeFocused();
+		await menu.click();
+		await expect(storage).toBeVisible();
+		await menu.click();
+		await expect(storage).toBeHidden();
+		await menu.click();
+		await storage.click();
+		await expect(page).toHaveURL(new RegExp(`${BASE}projects-and-data/storage-backups-and-privacy/$`, 'u'));
+		await expect(storage).toBeHidden();
+	}
+});
+
+test('the collapsed handbook menu remains usable without JavaScript', async ({ browser }) => {
+	const context = await browser.newContext({ javaScriptEnabled: false });
+	try {
+		const page = await context.newPage();
+		for (const width of [1600, 390]) {
+			await page.setViewportSize({ width, height: 844 });
+			await page.goto(`${BASE}soundscaper/recording/`);
+			const storage = page.getByRole('link', { name: 'Storage, backups, and privacy', exact: true });
+			await expect(storage).toBeHidden();
+			await page.getByRole('button', { name: /menu/iu }).click();
+			await expect(storage).toBeVisible();
+			await storage.click();
+			await expect(page).toHaveURL(new RegExp(`${BASE}projects-and-data/storage-backups-and-privacy/$`, 'u'));
+			await expect(storage).toBeHidden();
+		}
+	} finally {
+		await context.close();
+	}
 });
 
 test('states a local model purpose and keeps packaged-test mechanics collapsed', async ({ page }) => {
@@ -104,14 +145,13 @@ test('gives the comparison page full width while standard pages keep their readi
 	const sidebarLink = page.getByRole('navigation', { name: 'Main', exact: true })
 		.getByRole('link', { name: 'How Soundscaper compares', exact: true });
 	const contents = page.getByRole('navigation', { name: 'On this page', exact: true });
-	await expect(sidebarLink).toBeVisible();
+	await expect(sidebarLink).toBeHidden();
 	await expect(contents).toBeVisible();
 	for (const width of [1600, 2400]) {
 		await page.setViewportSize({ width, height: 1000 });
 		const titleBox = await comparisonTitle.boundingBox();
-		const sidebarBox = await sidebarLink.boundingBox();
 		const contentsBox = await contents.boundingBox();
-		expect(titleBox.x - (sidebarBox.x + sidebarBox.width)).toBeLessThanOrEqual(64);
+		expect(titleBox.x).toBeLessThanOrEqual(48);
 		expect(contentsBox.x - (titleBox.x + titleBox.width)).toBeLessThanOrEqual(64);
 		expect(contentsBox.width).toBeLessThanOrEqual(300);
 		let referenceColumns;
@@ -244,6 +284,11 @@ test('keeps comparison sources collapsed and reveals cell details on hover, focu
 	expect(accessibility.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical')).toEqual([]);
 	await page.getByRole('heading', { level: 1 }).click();
 	await expect(detail).toBeHidden();
+	const macros = page.getByRole('region', { name: 'Effects and plug-ins', exact: true })
+		.getByRole('row', { name: /^Macros and batch chains /u }).getByRole('cell').nth(5);
+	await expect(macros.getByRole('button')).toHaveText('+');
+	await macros.getByRole('button').focus();
+	await expect(macros.getByRole('button')).toHaveAccessibleDescription('Custom actions / ReaScript / batch converter');
 });
 
 // The generated reference pages carry the widest and longest tables in the

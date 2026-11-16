@@ -133,7 +133,7 @@ test('sandbox preload exposes only the versioned narrow bridge', async () => {
 		'reconcileAssistanceModels', 'reconcileLinkedOriginals', 'reconcileLinkedVideoOriginals', 'releaseLinkedOriginal', 'releaseLinkedVideoOriginal', 'releaseRead', 'releaseSaveTarget', 'releaseSesxSession', 'relocateAssistanceModels', 'removeAssistanceModel', 'reportNativeAudioSessionLoss', 'reportNativeAudioSessionTransfer', 'rescanExternalFfmpeg', 'resolveSesxMedia', 'respondToClose', 'restoreNativePluginState', 'runNativePluginOffline', 'scanNativePlugins', 'selectNativePluginInstallation',
 		'collectAssistanceModelGarbage', 'runDesktopAudioCodecOperation', 'runDesktopAudioCodecStreamCommand', 'runWindowAction', 'setLocale', 'setNativeAudioHelperEnabled', 'setNativePluginBypassed', 'setNativePluginConsent', 'setNativePluginInstallationAllowed', 'signalReady', 'startNativeVampAnalyzer', 'statDesktopVideoCodecOutput', 'writeChunk', 'writeDesktopVideoCodecInput',
 		].sort();
-	const mcpFields = ['readMcpStatus', 'startMcp', 'stopMcp', 'onMcpRequest', 'respondMcpRequest'];
+	baseFields.push('cpuProfiler'); const mcpFields = ['readMcpStatus', 'startMcp', 'stopMcp', 'onMcpRequest', 'respondMcpRequest'];
 	const freesoundFields = ['openFreesoundAuthorization', 'openAudiocomAuthorization', 'openAudiocomLink'];
 	assert.deepEqual(Object.keys(bridge.v1).sort(), [...baseFields, 'blender', 'persistentDelivery', ...mcpFields, ...freesoundFields].sort());
 	const framescaperBridge = exposed.get('framescaperDesktop');

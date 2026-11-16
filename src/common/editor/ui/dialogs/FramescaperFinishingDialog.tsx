@@ -46,6 +46,7 @@ import { framescaperCubeLutActionsFor } from '../../../../framescaper/editor-cub
 import { useCaptionTrackFields } from './useCaptionTrackFields.ts';
 import { withFramescaperSidecarFile } from '../framescaper-sidecar-file.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface FramescaperFinishingControllerPort {
 	readonly actions: Readonly<{
@@ -339,7 +340,7 @@ export default function FramescaperFinishingDialog({
 			}</p>}
 			{model.documentEditable && <>
 				<label>
-					<span>{text(copy, 'finishingDocument', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.finishingDocument)}</span>
+					<EditorControlLabel>{text(copy, 'finishingDocument', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.finishingDocument)}</EditorControlLabel>
 					<textarea data-framescaper-finishing-document rows={18} maxLength={4 * 1024 * 1024}
 						spellCheck={false} value={documentText} disabled={blocked}
 						onChange={(event) => setDocumentText(event.currentTarget.value)} />
@@ -401,11 +402,11 @@ export default function FramescaperFinishingDialog({
 				<legend>{text(copy, 'dialogueChain', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.dialogueChain)}</legend>
 				<p>{text(copy, 'dialogueChainOrder', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.dialogueChainOrder)}</p>
 				<label><input type="checkbox" checked={profiledNoiseReduction}
-					onChange={(event) => setProfiledNoiseReduction(event.currentTarget.checked)} /> {
+					onChange={(event) => setProfiledNoiseReduction(event.currentTarget.checked)} /> <EditorControlLabel>{
 					text(copy, 'profiledNoiseReduction', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.profiledNoiseReduction)
-				}</label>
-				{profiledNoiseReduction && <label><span>{text(copy, 'noiseProfileDocument',
-					FRAMESCAPER_FINISHING_ADDITIONAL_COPY.noiseProfileDocument)}</span><textarea rows={8}
+				}</EditorControlLabel></label>
+				{profiledNoiseReduction && <label><EditorControlLabel>{text(copy, 'noiseProfileDocument',
+					FRAMESCAPER_FINISHING_ADDITIONAL_COPY.noiseProfileDocument)}</EditorControlLabel><textarea rows={8}
 						spellCheck={false} value={noiseProfileText}
 						onChange={(event) => setNoiseProfileText(event.currentTarget.value)} /></label>}
 				{!selectedAudioTrack && <p role="status">{text(copy, 'selectAudioTrack', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.selectAudioTrack)}</p>}

@@ -11,6 +11,7 @@ export const ASSISTANCE_OPERATIONS = Object.freeze([
 	'source-separation',
 	'audio-tagging',
 	'beat-tracking',
+	'music-transcription',
 	'text-embedding',
 	'image-text-embedding',
 	'optical-character-recognition',

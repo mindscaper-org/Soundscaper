@@ -16,6 +16,7 @@ import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
 import type { LocalAssistanceModel } from '../../assistance/local-assistance-bridge.ts';
 import { SPEECH_ENHANCEMENT_MODELS, type SpeechEnhancementModelId } from '../../assistance/speech-enhancement-models.ts';
 import { assistanceTaskRecognizerChoices } from '../local-assistance-task-controls.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 type Copy = Readonly<Record<string, string | undefined>>;
 type EditorialField = 'title' | 'hook' | 'chapters' | 'explanation';
@@ -187,7 +188,7 @@ function NumberSetting({ label, value, min, max, step, disabled, onChange }: Rea
 	label: string; value: number; min: number; max: number; step: number; disabled: boolean;
 	onChange: (value: number) => unknown;
 }>) {
-	return <label>{label}<PreferenceNumberInput label={label} value={value} minimum={min} maximum={max}
+	return <label><EditorControlLabel>{label}</EditorControlLabel><PreferenceNumberInput label={label} value={value} minimum={min} maximum={max}
 		step={step} integer={Number.isInteger(step)} disabled={disabled} onCommit={onChange} /></label>;
 }
 
@@ -195,7 +196,7 @@ function TimeSetting({ label, value, min, max, disabled, onChange }: Readonly<{
 	label: string; value: number; min: number; max: number; disabled: boolean;
 	onChange: (value: number) => unknown;
 }>) {
-	return <label>{label}<AudioEditorTimeCodeInput label={label} value={value}
+	return <label><EditorControlLabel>{label}</EditorControlLabel><AudioEditorTimeCodeInput label={label} value={value}
 		minimum={min} maximum={max} disabled={disabled}
 		onChange={(next) => { void onChange(next); }} /></label>;
 }
@@ -208,10 +209,10 @@ function ModeSettings({ copy, name, legend, value, disabled, onChange }: Readonl
 		<legend>{legend}</legend>
 		<label><input type="radio" name={name} value="fast" checked={value === 'fast'}
 			onChange={() => { void onChange('fast'); }} />
-			{text(copy, 'localAssistanceShotDetectionFast', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceShotDetectionFast)}</label>
+			<EditorControlLabel>{text(copy, 'localAssistanceShotDetectionFast', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceShotDetectionFast)}</EditorControlLabel></label>
 		<label><input type="radio" name={name} value="accurate" checked={value === 'accurate'}
 			onChange={() => { void onChange('accurate'); }} />
-			{text(copy, 'localAssistanceShotDetectionAccurate', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceShotDetectionAccurate)}</label>
+			<EditorControlLabel>{text(copy, 'localAssistanceShotDetectionAccurate', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceShotDetectionAccurate)}</EditorControlLabel></label>
 	</fieldset>;
 }
 

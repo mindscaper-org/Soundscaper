@@ -40,6 +40,7 @@ export interface RackEffectTrack extends RackEffectOwner {
 	readonly clipIds?: readonly unknown[];
 }
 export interface RackEffectProject extends TerminalWidthProject {
+	readonly clips?: readonly (RackEffectOwner & { readonly kind?: string; readonly sourceId?: unknown })[];
 	readonly id: string;
 	readonly sampleRate?: number;
 	readonly masterChannels?: number;

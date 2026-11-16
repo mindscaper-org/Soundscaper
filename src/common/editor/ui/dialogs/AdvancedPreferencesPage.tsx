@@ -1,3 +1,4 @@
+import EffectAutoIdleOverrides from './EffectAutoIdleOverrides.tsx';
 import TemporaryDataPreferencesPanel, { type TemporaryDataFileService } from './TemporaryDataPreferencesPanel.tsx';
 import type { TemporaryDataPreferences } from '../../saving-preferences.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
@@ -14,6 +15,7 @@ import {
 	AUDIO_COM_DEFAULT_SERVER_URL, normalizeAudioComServerUrl,
 	type AudioEditorAdvancedPreferences,
 } from '../../advanced-preferences.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface AdvancedPreferencesCopy {
 	readonly advancedAudioServer: string;
@@ -29,6 +31,8 @@ interface AdvancedPreferencesCopy {
 	readonly waveformRenderer: string;
 	readonly waveformRendererCanvas: string;
 	readonly waveformRendererGpu: string;
+	readonly effectAutoIdleOverrides: string;
+	readonly effectAutoIdleInherit: string;
 	readonly suspendIdleEffectProcessing: string;
 	readonly suspendIdleEffectProcessingDescription: string;
 }
@@ -91,6 +95,8 @@ export default function AdvancedPreferencesPage({ controller, preferences, copy,
 				ariaDescribedBy={idleDescriptionId}
 				onChange={(enabled) => run(() => controller.actions.preferences.update({ advanced: { suspendIdleEffectProcessing: enabled } }))} />
 			<p className="kw-audio-editor-preferences__note" id={idleDescriptionId}>{copy.suspendIdleEffectProcessingDescription}</p>
+			<EffectAutoIdleOverrides preferences={preferences.advanced} copy={copy}
+				onChange={effectAutoIdleOverrides => { run(() => controller.actions.preferences.update({ advanced: { effectAutoIdleOverrides } })); }} />
 		</PreferencePanel>
 		<Separator />
 		<PreferencePanel title={copy.waveformRenderer}>
@@ -106,7 +112,7 @@ export default function AdvancedPreferencesPage({ controller, preferences, copy,
 			<Separator />
 			<PreferencePanel title={copy.advancedAudioServer}>
 				<label className="kw-audio-editor-preferences__field" htmlFor={fieldId}>
-					<span>{copy.advancedAudioServerUrl}</span>
+					<EditorControlLabel>{copy.advancedAudioServerUrl}</EditorControlLabel>
 					<input id={fieldId} type="url" value={draft} autoComplete="off" spellCheck={false}
 						aria-invalid={invalid || undefined} aria-describedby={`${fieldId}-note${invalid ? ` ${fieldId}-error` : ''}`}
 						onChange={(event) => { setDraft(event.currentTarget.value); setInvalid(false); }}

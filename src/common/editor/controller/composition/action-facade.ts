@@ -77,7 +77,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	toggleRulerPlayback, toggleSelectionFollowsLoop, toggleStretchToTempo, toggleScrollViewToPlayhead,
 	toggleVerticalRulers, trimClips, updateRackEffect, updateZoom, sequenceTimingService,
 	timelineAnnotationService, regularIntervalAnnotationController, trackFolderService, trackStructuralOperations,
-	audioWarpService, takeCompService, videoNavigationService,
+	audioWarpService, dialogueAlignmentService, takeCompService, videoNavigationService,
 	} = scope;
 	const restricted = <Args extends unknown[], Result>(capability: string, action: (...args: Args) => Result) => (...args: Args): Result => {
 		if (!capabilities[capability]) {
@@ -111,7 +111,8 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 		captureTarget: () => JSON.stringify([clipboardSelection(), scope.readSourceSelection()]),
 		active: () => state.phase !== 'disposing' && state.phase !== 'disposed' });
 	const handleEdit: typeof handleImmediateEdit = (action, options) => {
-		if (!midi.hasPendingEdits() || !['copy', 'duplicate', 'labeled-copy', 'labeled-cut', 'labeled-split-cut'].includes(action)
+		if (action.startsWith('folder-')) options = { ...options, folderId: options?.folderId ?? trackFolderService.selectedFolderId() ?? undefined };
+		if (!midi.hasPendingEdits() || !['copy', 'duplicate', 'labeled-copy', 'labeled-cut', 'labeled-split-cut', 'folder-ripple-cut'].includes(action)
 			&& action !== 'cut' && !action.startsWith('cut-')) return handleImmediateEdit(action, options);
 		const selection = clipboardSelection();
 		return midi.settled().then(() => {
@@ -198,6 +199,12 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 		transcript: createDeferredTranscriptEditingActions(scope),
 		video: createVideoActionGroup(scope, restricted),
 		edit: Object.freeze({
+			folderSelect: () => handleEdit('folder-select'),
+			folderSplit: () => handleEdit('folder-split'),
+			folderDelete: () => handleEdit('folder-delete'),
+			folderRippleCut: () => handleEdit('folder-ripple-cut'),
+			folderRippleDelete: () => handleEdit('folder-ripple-delete'),
+			folderRippleInsert: () => handleEdit('folder-ripple-insert'),
 			execute: handleEdit,
 			commit: (...args: Parameters<typeof commit>) => {
 				if (!args[0]) return commit(...args);
@@ -357,7 +364,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			select: restricted('trackFolders', (...args: Parameters<typeof trackFolderService.selectFolder>) => trackFolderService.selectFolder(...args)),
 			selectedFolderId: (...args: Parameters<typeof trackFolderService.selectedFolderId>) => trackFolderService.selectedFolderId(...args),
 		}),
-		...createProjectOwnedFeatureActionFacades({ capabilities, product, audioWarpService, takeCompService }),
+		...createProjectOwnedFeatureActionFacades({ capabilities, product, audioWarpService, dialogueAlignmentService, takeCompService }),
 		sampleEdit: Object.freeze({
 			setMode: restricted('audioSampleEditing', setSampleEditMode),
 			pencil: restricted('audioSampleEditing', applySamplePencil),

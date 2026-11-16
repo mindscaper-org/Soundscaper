@@ -47,6 +47,7 @@ import type { EngineEffect, EngineProject, EngineTrack } from './types.ts';
 import { prepareProjectEdgeGeometryV21 } from './project-edge-geometry-v21.ts';
 import { createProjectSoloGainResolverV21, createProjectVcaGainResolverV21 } from './project-strip-control-index-v21.ts';
 import { createSuspendedEffectParameterRegistrarV21 } from './project-suspended-effect-parameters-v21.ts';
+import { buildClipEffectInputs, projectClipEffectLatencyFrames } from './clip-effect-inputs.ts';
 
 interface AudioTrackV21 extends EngineTrack {
 	readonly id: string;
@@ -108,6 +109,7 @@ export function buildProjectGraphV21(
 		onParametricEqError,
 	} = options;
 	const sampleRate = context.sampleRate || DEFAULT_SAMPLE_RATE;
+	const clipLatency = projectClipEffectLatencyFrames(project, sampleRate);
 	const prepared = prepareProjectV21(project, includeMaster, sampleRate);
 	const { graph, tracks, plan } = prepared;
 	const nodes: AudioNodeArray = [];
@@ -141,7 +143,7 @@ export function buildProjectGraphV21(
 			context,
 			nodes,
 			input,
-			plan.nodeInputLatencyFrames.get(`track:${track.id}`) ?? 0,
+			(plan.nodeInputLatencyFrames.get(`track:${track.id}`) ?? 0) - clipLatency,
 			(param) => pathPdcDelayParamsV21.set(`input:track:${track.id}`, param),
 		));
 	}
@@ -315,6 +317,7 @@ export function buildProjectGraphV21(
 	if (monitoring) {
 		connectSurroundMonitoring(context, mainConnection, destination, mainOutput.channelCount, nodes);
 	} else connect(mainConnection, destination);
+	buildClipEffectInputs(context, project, trackInputs, nodes, { effectNodes, effectAnalysers, effectAnalysis, parametricEqWasmModule, onParametricEqError, parameterRegistry }, onlyTrackId);
 	return {
 		nodes,
 		sources,

@@ -6,7 +6,9 @@ export interface EditorWorkflowCase {
 	readonly modelIds: readonly string[];
 	readonly video?: boolean;
 	readonly transcript?: boolean;
-	readonly fixture?: 'rhythm' | 'mixed-speech' | 'short-mono' | 'short-stereo';
+	readonly fixture?: 'rhythm' | 'mixed-speech' | 'short-mono' | 'short-stereo' | 'melody-chords';
+	readonly pendingPublication?: boolean;
+	readonly productId?: 'soundscaper';
 	readonly externalFfmpeg?: boolean;
 	readonly visualIndex?: boolean;
 }
@@ -42,6 +44,7 @@ export const EDITOR_WORKFLOW_CASES = {
 	'advanced:source-separation': { modelIds: ['tiger-dnr'], fixture: 'mixed-speech' },
 	'advanced:audio-tagging': { modelIds: ['panns-cnn10'] },
 	'advanced:beat-tracking': { modelIds: ['beat-this-small0'], fixture: 'rhythm' },
+	'advanced:music-transcription': { modelIds: ['basic-pitch'], fixture: 'melody-chords', pendingPublication: true, productId: 'soundscaper' },
 	'advanced:text-embedding': { modelIds: ['nomic-embed-text-v1.5'], transcript: true },
 	'advanced:image-text-embedding': { modelIds: ['siglip2-base-patch16-224'], video: true },
 	'advanced:optical-character-recognition': { modelIds: ['ppocr-v4-mobile'], video: true },

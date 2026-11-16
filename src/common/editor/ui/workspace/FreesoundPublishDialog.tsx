@@ -10,6 +10,7 @@ import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { FREESOUND_BROAD_SOUND_TAXONOMY } from '../../freesound-upload-metadata.ts';
 import type { FreesoundPublishLicense } from './freesound-auth-upload-client.ts';
 import type { FreesoundPublishDraft, FreesoundUploadItem } from './freesound-upload-queue.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export interface FreesoundPublishDialogProps {
 	readonly copy: Readonly<Record<string, string>>;
@@ -119,24 +120,24 @@ export default function FreesoundPublishDialog({
 			</p> : null}
 			{error ? <p className="kw-audio-editor__freesound-inline-error" role="alert">{uploadErrorLabel(error, copy, copy.publishError)}</p> : null}
 			<label>
-				<span>{copy.uploadTitle}</span>
+				<EditorControlLabel>{copy.uploadTitle}</EditorControlLabel>
 				<input name="title" required maxLength={512} value={title}
 					onChange={(event) => setTitle(event.currentTarget.value)} />
 			</label>
 			<label>
-				<span>{copy.uploadDescription}</span>
+				<EditorControlLabel>{copy.uploadDescription}</EditorControlLabel>
 				<textarea name="description" required maxLength={65_536} rows={8} value={description}
 					onChange={(event) => setDescription(event.currentTarget.value)} />
 			</label>
 			<label>
-				<span>{copy.uploadTags}</span>
+				<EditorControlLabel>{copy.uploadTags}</EditorControlLabel>
 				<input name="tags" required value={tags} placeholder={copy.uploadTagsPlaceholder}
 					aria-label={copy.uploadTags} aria-describedby={tagsHelpId}
 					onChange={(event) => setTags(event.currentTarget.value)} />
 				<small id={tagsHelpId}>{copy.uploadTagsHelp}</small>
 			</label>
 			<label>
-				<span>{copy.uploadCategory}</span>
+				<EditorControlLabel>{copy.uploadCategory}</EditorControlLabel>
 				<select name="categoryId" required value={categoryId}
 					onChange={(event) => setCategoryId(event.currentTarget.value)}>
 					{FREESOUND_BROAD_SOUND_TAXONOMY.map((option) => <option key={option.id} value={option.id}>
@@ -145,7 +146,7 @@ export default function FreesoundPublishDialog({
 				</select>
 			</label>
 			<label>
-				<span>{copy.uploadLicense}</span>
+				<EditorControlLabel>{copy.uploadLicense}</EditorControlLabel>
 				<select name="license" required value={license}
 					onChange={(event) => setLicense(event.currentTarget.value as FreesoundPublishLicense)}>
 					{LICENSES.filter((value) => !item.allowedLicenses || item.allowedLicenses.includes(value))
@@ -159,7 +160,7 @@ export default function FreesoundPublishDialog({
 			{item.requiresRightsConfirmation ? <label className="kw-audio-editor__freesound-rights-confirmation">
 				<input type="checkbox" name="rightsConfirmed" checked={rightsConfirmed}
 					onChange={(event) => setRightsConfirmed(event.currentTarget.checked)} />
-				<span>{copy.confirmUploadRights}</span>
+				<EditorControlLabel>{copy.confirmUploadRights}</EditorControlLabel>
 			</label> : null}
 			<p className="kw-audio-editor__freesound-publish-note">{copy.publishModerationNote}</p>
 		</form>

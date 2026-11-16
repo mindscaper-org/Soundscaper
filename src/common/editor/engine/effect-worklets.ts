@@ -17,7 +17,7 @@ import { ensureAutoTuneWorklet } from './auto-tune-node.ts';
 import { prepareAiDenoise } from './ai-denoise-node.ts';
 
 const dynamicsWorklet = workletModuleLoadOnce(dynamicsWorkletModuleUrl);
-const delayWorklet = workletModuleLoadOnce(() => new URL('../delay-worklet.js', import.meta.url));
+const delayWorklet = workletModuleLoadOnce(delayWorkletModuleUrl);
 const bitcrusherWorklet = workletModuleLoadOnce(bitcrusherWorkletModuleUrl);
 const audacityWorklet = workletModuleLoadOnce(audacityWorkletModuleUrl);
 const audacityReadyContexts = new WeakSet<BaseAudioContext>();
@@ -233,6 +233,14 @@ async function dynamicsWorkletModuleUrl(): Promise<URL | string> {
 		return module.default;
 	}
 	return new URL('../dynamics-worklet.js', import.meta.url);
+}
+
+async function delayWorkletModuleUrl(): Promise<URL | string> {
+	if (import.meta.env?.DEV || import.meta.env?.PROD) {
+		const module = await import('../delay-worklet.js?worker&url');
+		return module.default;
+	}
+	return new URL('../delay-worklet.js', import.meta.url);
 }
 
 async function bitcrusherWorkletModuleUrl(): Promise<URL | string> {

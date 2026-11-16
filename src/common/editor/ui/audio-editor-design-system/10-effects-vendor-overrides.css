@@ -61,7 +61,6 @@
 	min-width: 0;
 	color: var(--muted);
 	font-size: var(--editor-font-size, 12px);
-	font-weight: 650;
 }
 
 .audio-editor-parametric-eq :is(input[type='number'], select) {

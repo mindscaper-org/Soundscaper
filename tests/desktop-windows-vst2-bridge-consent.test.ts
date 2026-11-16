@@ -4,19 +4,30 @@ import test from 'node:test';
 import { WindowsVst2BridgeConsent } from '../desktop/windows-vst2-bridge-consent.ts';
 import { validateHelperJobGrant } from '../desktop/helper-job-grant.ts';
 
-test('bridge consent defaults off, persists explicit changes, and remains Windows x64 only', async () => {
+test('bridge defaults on, persists explicit changes, and remains Windows x64 only', async () => {
 	const saved: boolean[] = [];
 	const consent = new WindowsVst2BridgeConsent({ target: 'win-x64', state: undefined,
 		persist: async (enabled) => { saved.push(enabled); } });
-	assert.deepEqual(consent.describe(), { supported: true, enabled: false });
-	await consent.setEnabled(true); assert.equal(consent.enabled, true);
+	assert.deepEqual(consent.describe(), { supported: true, enabled: true });
 	await consent.setEnabled(false); assert.equal(consent.enabled, false);
-	assert.deepEqual(saved, [true, false]);
+	await consent.setEnabled(true); assert.equal(consent.enabled, true);
+	assert.deepEqual(saved, [false, true]);
 	for (const target of ['win-arm64', 'linux-x64', 'mac-arm64']) {
-		const unavailable = new WindowsVst2BridgeConsent({ target, state: true, persist: async () => {} });
-		assert.equal(unavailable.enabled, false);
-		await assert.rejects(unavailable.setEnabled(true), /Windows x64/u);
+		for (const state of [undefined, true]) {
+			const unavailable = new WindowsVst2BridgeConsent({ target, state, persist: async () => {} });
+			assert.deepEqual(unavailable.describe(), { supported: false, enabled: false });
+			await assert.rejects(unavailable.setEnabled(true), /Windows x64/u);
+		}
 	}
+});
+
+test('saved opt-outs remain disabled and malformed bridge preferences never enable bridging', () => {
+	for (const state of [false, null, {}, 'true', 1]) {
+		const consent = new WindowsVst2BridgeConsent({ target: 'win-x64', state, persist: async () => {} });
+		assert.equal(consent.enabled, false);
+	}
+	const enabled = new WindowsVst2BridgeConsent({ target: 'win-x64', state: true, persist: async () => {} });
+	assert.equal(enabled.enabled, true);
 });
 
 test('failed persistence does not grant bridge consent', async () => {
@@ -24,6 +35,13 @@ test('failed persistence does not grant bridge consent', async () => {
 		persist: async () => { throw new Error('disk full'); } });
 	await assert.rejects(consent.setEnabled(true), /disk full/u);
 	assert.equal(consent.enabled, false);
+});
+
+test('failed persistence retains the enabled default when disabling the bridge', async () => {
+	const consent = new WindowsVst2BridgeConsent({ target: 'win-x64', state: undefined,
+		persist: async () => { throw new Error('disk full'); } });
+	await assert.rejects(consent.setEnabled(false), /disk full/u);
+	assert.equal(consent.enabled, true);
 });
 
 test('bridge grants accept only an explicit true for VST2 and retain it across validation', () => {

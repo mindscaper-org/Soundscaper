@@ -28,19 +28,19 @@ test('Make stereo retains the audible authored rack tail when replacing the two 
 	}
 	await closeDialog(delay);
 	await closeEffectsPanel(effects);
-	const before = await exportSamples(page, editor);
+	const before = await exportSamples(page, editor, { includeTail: true });
 	expect(before.length).toBe(62_400);
 	expect(tailRms(before)).toBeGreaterThan(0.1);
 	const track = programme.locator('xpath=ancestor::div[@data-track-row][1]');
 	await chooseTrackMenuAction(page, editor, track, ['Track channels', 'Make stereo track']);
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
-	const after = await exportSamples(page, editor);
+	const after = await exportSamples(page, editor, { includeTail: true });
 	expect(after.length).toBe(before.length);
 	expect(tailRms(after)).toBeGreaterThan(0.1);
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');
 	await expect(editor).toHaveAttribute('data-clip-count', '2');
-	expect(tailRms(await exportSamples(page, editor))).toBeGreaterThan(0.1);
+	expect(tailRms(await exportSamples(page, editor, { includeTail: true }))).toBeGreaterThan(0.1);
 	await chooseCommandAction(page, editor, 'Edit', 'Redo');
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
-	expect(tailRms(await exportSamples(page, editor))).toBeGreaterThan(0.1);
+	expect(tailRms(await exportSamples(page, editor, { includeTail: true }))).toBeGreaterThan(0.1);
 });

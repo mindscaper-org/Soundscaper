@@ -4,8 +4,7 @@ import { createDurableFileSystem } from './plugin-durable-file-system.mjs';
 import { WindowsVst2BridgeConsent } from './project-library-runtime/desktop/windows-vst2-bridge-consent.js';
 /** Assembles the plug-in discovery subsystem and registers it on main. */
 
-import { readFileSync, statSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 
@@ -25,7 +24,9 @@ import {
 } from './project-library-runtime/desktop/plugin-registry.js';
 import { DesktopPluginScanService } from './project-library-runtime/desktop/plugin-scan-service.js';
 import { createPluginScanProgressSupervisor } from './project-library-runtime/desktop/plugin-scan-progress.js';
-import { nativeChildFileIdentityFromStat, portableNativeChildFileIdentity } from './project-library-runtime/desktop/native-child-file-identity.js';
+import { scanRootLocation, pluginCandidateIdentity } from './project-library-runtime/desktop/plugin-registration-paths.js';
+import { WineVst3Preferences, WINE_VST3_ACTIONS } from './project-library-runtime/desktop/wine-vst3-preferences.js';
+import { changeWineVst3Configuration } from './project-library-runtime/desktop/wine-vst3-revocation.js';
 import { createDefaultPluginDiscoveryConsent } from './project-library-runtime/desktop/plugin-discovery-defaults.js';
 import { bundledJuceEffectsDirectory } from './project-library-runtime/desktop/bundled-juce-effects.js';
 import { createDesktopNativeAddonHelperSupervisor } from './native-helper-registration.mjs';
@@ -132,15 +133,18 @@ export function recordScannedPlugins(registry, result, {
  */
 export function observeScannedPlugins(supervisor, registry, {
 	isFormatActivated = () => true, onRecorded = () => undefined,
-	onIdentityChanged = () => undefined, windowsX86Vst2Enabled = () => false,
+	onIdentityChanged = () => undefined, windowsX86Vst2Enabled = () => false, linuxWineVst3Enabled = () => false,
 } = {}) {
 	return Object.freeze({
 		runJob: async (request) => {
 			if (request.kind === 'plugin-scan' && !isFormatActivated(request.grant?.format)) {
 				throw new Error('That plug-in format remains behind its production activation gate.');
 			}
-			const job = request.kind === 'plugin-scan' && request.grant.format === 'vst2' && windowsX86Vst2Enabled()
+			let job = request.kind === 'plugin-scan' && request.grant.format === 'vst2' && windowsX86Vst2Enabled()
 				? { ...request, grant: { ...request.grant, windowsX86Vst2: true } } : request;
+			if (request.kind === 'plugin-scan' && request.grant.format === 'vst3' && linuxWineVst3Enabled()) {
+				job = { ...job, grant: { ...job.grant, linuxWineVst3: true } };
+			}
 			const result = await supervisor.runJob(job);
 			if (request.kind === 'plugin-scan') {
 				if (request.signal?.aborted) return result;
@@ -165,24 +169,30 @@ export function registerDesktopPluginDiscovery({
 	createPluginHostHelper = null,
 	openPersistentPluginSession = openNativePersistentPluginSession,
 	vampAnalyzerRuntime = null, vampAnalyzerBackend = null,
-	nativePluginBridgeTarget = process.platform === 'win32' ? `win-${process.arch}` : '',
+	nativePluginBridgeTarget = process.platform === 'win32' ? `win-${process.arch}` : `${process.platform}-${process.arch}`,
 }) {
+	const durable = createDurableFileSystem();
+	const wine = new WineVst3Preferences({ target: nativePluginBridgeTarget, userDataPath,
+		applicationRoot: dirname(desktopRoot), packaged, resourcesPath, persist: durable.writeFile,
+		chooseExecutable: async () => {
+			const result = await dialog.showOpenDialog({ title: 'Choose Wine executable', properties: ['openFile'] });
+			return result.canceled || result.filePaths.length !== 1 ? null : result.filePaths[0];
+		} });
 	const helper = injectedSupervisor ? null : createDesktopNativeAddonHelperSupervisor({
 		desktopRoot,
 		packaged,
 		resourcesPath,
 		role: 'plugin-scanner',
-		serviceName: 'soundscaper-native-plugin-scanner',
+		serviceName: 'soundscaper-native-plugin-scanner', runtimeContext: () => wine.helperConfiguration(),
 		payloadKind: 'professional',
 	});
 	const progress = createPluginScanProgressSupervisor(injectedSupervisor ?? helper.supervisor);
 	const supervisor = progress.supervisor;
 	const describePayload = injectedDescribePayload ?? helper.describePayload;
-	const durable = createDurableFileSystem();
 	const consentPath = join(userDataPath, CONSENT_FILE);
 	const bridgePath = join(userDataPath, 'windows-vst2-x86-consent-v1.json');
 	let bridgeState;
-	try { bridgeState = JSON.parse(readFileSync(bridgePath, 'utf8')).enabled; } catch { /* opt-in defaults off */ }
+	try { bridgeState = JSON.parse(readFileSync(bridgePath, 'utf8')).enabled; } catch { /* use the target's bridge default */ }
 	const bridgeConsent = new WindowsVst2BridgeConsent({ target: nativePluginBridgeTarget,
 		state: bridgeState, persist: (enabled) => durable.writeFile(bridgePath, JSON.stringify({ enabled })) });
 	const quarantine = new DesktopPluginQuarantine({
@@ -210,7 +220,7 @@ export function registerDesktopPluginDiscovery({
 		);
 		return consentWrites;
 	};
-	const registry = new DesktopPluginRegistry({ isQuarantined: (digest) => quarantine.isQuarantined(digest),
+	const registry = new DesktopPluginRegistry({ linuxWineVst3Enabled: () => wine.enabled, isQuarantined: (digest) => quarantine.isQuarantined(digest),
 		isInstallationEnabled: (entry) => entry.architecture !== 'ia32'
 			|| entry.platform === 'win32' && entry.format === 'vst2' && bridgeConsent.enabled });
 	const allowances = createPluginRegistryAllowanceStore({
@@ -232,7 +242,7 @@ export function registerDesktopPluginDiscovery({
 	});
 	const service = new DesktopPluginScanService({
 		supervisor: observeScannedPlugins(supervisor, registry, {
-			isFormatActivated: formatIsActive, onRecorded: allowances.observe, windowsX86Vst2Enabled: () => bridgeConsent.enabled,
+			isFormatActivated: formatIsActive, onRecorded: allowances.observe, linuxWineVst3Enabled: () => wine.enabled, windowsX86Vst2Enabled: () => bridgeConsent.enabled,
 			onIdentityChanged: (digest) => scannerQuarantine.quarantine(digest, 'identity-change'),
 		}),
 		consent: discoveryConsent,
@@ -253,6 +263,7 @@ export function registerDesktopPluginDiscovery({
 			resourcesPath,
 			role: 'plugin-host',
 			serviceName: `soundscaper-native-plugin-${launch.format}-${launch.binarySha256.slice(0, 12)}`,
+			runtimeContext: () => wine.helperConfiguration(),
 			payloadKind: 'professional',
 		})),
 		openPersistentPluginSession,
@@ -276,7 +287,7 @@ export function registerDesktopPluginDiscovery({
 	handle(channels.nativePluginAvailability, async () => Object.freeze({
 		...(await service.availability()),
 		consent: Object.freeze({ ...activatedConsentProjection(consent.describe(), formatIsActive),
-			windowsX86Vst2: bridgeConsent.describe() }),
+			windowsX86Vst2: bridgeConsent.describe(), linuxWineVst3: await wine.describe() }),
 		quarantine: quarantine.snapshot(),
 	}));
 	handle(channels.nativePluginScanProgress, () => Object.freeze({
@@ -286,6 +297,11 @@ export function registerDesktopPluginDiscovery({
 		void ownerFor(event);
 		const format = String(value?.format || '');
 		const action = String(value?.action || '');
+		if (format === 'vst3' && WINE_VST3_ACTIONS.includes(action)) {
+			service.cancelFormat('vst3');
+			await changeWineVst3Configuration(wine, action, registry, hosting?.isolation);
+			return wine.describe();
+		}
 		if (!formatIsActive(format) && !(format === 'vst2' && action === 'disable-x86-vst2')) {
 			throw new Error('That plug-in format remains blocked by production policy and source activation.');
 		}
@@ -381,7 +397,7 @@ export function registerDesktopPluginDiscovery({
 			hosting?.settleQuarantineWrites(), vamp.settleQuarantineWrites(), ara.settleQuarantineWrites(),
 		]),
 		ready: async () => {
-			await quarantine.load();
+			await Promise.all([quarantine.load(), wine.ready()]);
 			await persistConsent();
 			return Object.freeze([]);
 		},
@@ -486,37 +502,6 @@ function readConsentState(filePath) {
 		}
 		return null;
 	}
-}
-
-/**
- * The main-private location one scan runs against. The digest names the
- * root-and-format pair the durable quarantine is keyed by, and the identity is
- * captured here so the grant names the directory main resolved rather than
- * whatever the path happens to point at by the time the helper opens it.
- */
-function scanRootLocation(root) {
-	const identity = fileIdentity(root.path, (entry) => entry.isDirectory());
-	if (!identity) return null;
-	return Object.freeze({
-		path: root.path,
-		identity,
-		scanDigest: createHash('sha256').update(`${root.format}\u0000${root.path}`).digest('hex'),
-	});
-}
-
-function fileIdentity(path, admits = (entry) => entry.isFile()) {
-	let entry;
-	try {
-		entry = statSync(path, { bigint: true });
-	} catch {
-		return null;
-	}
-	if (!admits(entry)) return null;
-	return portableNativeChildFileIdentity(nativeChildFileIdentityFromStat(entry));
-}
-
-function pluginCandidateIdentity(path) {
-	return fileIdentity(path, (entry) => entry.isFile() || entry.isDirectory());
 }
 
 function describeError(error) {

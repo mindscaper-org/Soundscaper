@@ -2,10 +2,12 @@
 
 import type { ComponentProps } from 'react';
 import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
+import type { DialogueAlignmentDialogProps } from '../dialogs/DialogueAlignmentDialog.tsx';
 import MicrophoneBleedSurface from './MicrophoneBleedSurface.tsx';
 
+const DialogueAlignmentDialog = lazyEditorModule(() => import('../dialogs/DialogueAlignmentDialog.tsx'));
 const AnalysisDialog = lazyEditorModule(() => import('../dialogs/AnalysisDialog.jsx'));
-type Props = ComponentProps<typeof MicrophoneBleedSurface> & {
+type Props = ComponentProps<typeof MicrophoneBleedSurface> & Pick<DialogueAlignmentDialogProps, 'controller' | 'snapshot'> & {
 	readonly surfaceRequestId?: string | number;
 	readonly fileService: unknown;
 };
@@ -17,6 +19,7 @@ export default function WorkspaceAudioAnalysisOverlays({ activeSurface, surfaceR
 			<AnalysisDialog mode={activeSurface.slice('offline-analysis-'.length)} requestId={surfaceRequestId}
 				controller={controller} snapshot={snapshot} copy={copy} fileService={fileService} onClose={onClose} />
 		</div>}
+		{activeSurface === 'align-dialogue' && <DialogueAlignmentDialog controller={controller} snapshot={snapshot} copy={copy} onClose={onClose} />}
 		<MicrophoneBleedSurface activeSurface={activeSurface} controller={controller} snapshot={snapshot} copy={copy} onClose={onClose} />
 	</>;
 }

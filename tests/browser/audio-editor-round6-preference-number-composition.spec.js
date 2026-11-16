@@ -3,36 +3,39 @@
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js';
 
-for (const [tab, label, saved, draft] of [
-	['Editing', 'Mouse zoom precision', '12', '13'],
-	['Audio settings', 'Recording offset (ms)', '120', '130'],
-	['Track display', 'Low/mid crossover (Hz)', '300', '310'],
-]) {
-	test(`numeric Preferences preserve the native ${label} composition`, async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
-		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
-		const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+// Node owns each input's Enter/Escape matrix. One native workflow still visits
+// all three owners so their enclosing dialog and persistence remain covered.
+test('numeric Preferences retain composition and saved values across input owners', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+	const fields = [
+		['Editing', 'Mouse zoom precision', '12', '13'],
+		['Audio settings', 'Recording offset (ms)', '120', '130'],
+		['Track display', 'Low/mid crossover (Hz)', '300', '310'],
+	];
+	for (const [tab, label, saved, draft] of fields) {
 		await preferences.getByRole('tab', { name: new RegExp(`${tab}$`, 'u') }).click();
 		const field = preferences.getByRole('spinbutton', { name: label, exact: true });
 		await field.fill(saved);
 		await field.press('Enter');
 		await expect(field).toHaveValue(saved);
 		await field.fill(draft);
-		for (const key of ['Escape', 'Enter']) {
-			const prevented = await field.evaluate((input, key) => {
-				const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, isComposing: true });
-				input.dispatchEvent(event);
-				return event.defaultPrevented;
-			}, key);
-			expect(prevented).toBe(false);
-			await expect(field).toHaveValue(draft);
-			await expect(field).toBeFocused();
-			await expect(preferences).toBeVisible();
-		}
-		await field.press('Enter');
-		await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
-		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
-		await preferences.getByRole('tab', { name: new RegExp(`${tab}$`, 'u') }).click();
+		const prevented = await field.evaluate(input => {
+			const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, isComposing: true });
+			input.dispatchEvent(event);
+			return event.defaultPrevented;
+		});
+		expect(prevented).toBe(false);
 		await expect(field).toHaveValue(draft);
-	});
-}
+		await expect(field).toBeFocused();
+		await expect(preferences).toBeVisible();
+		await field.press('Enter');
+	}
+	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
+	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+	for (const [tab, label, , draft] of fields) {
+		await preferences.getByRole('tab', { name: new RegExp(`${tab}$`, 'u') }).click();
+		await expect(preferences.getByRole('spinbutton', { name: label, exact: true })).toHaveValue(draft);
+	}
+});

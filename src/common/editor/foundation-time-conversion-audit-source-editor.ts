@@ -6,6 +6,30 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
 /** Source editor display and authoring share the owning project tempo and sample grid. */
 export const FOUNDATION_TIME_CONVERSION_SOURCE_EDITOR_SITES: readonly FoundationTimeConversionSite[] = deepFreezeAuditSites([
 	{
+		id: 'aes31-export-timecode-origin',
+		file: 'src/common/editor/aes31-export.ts',
+		behavior: 'AES31 export resolves the project timecode origin to the nearest project sample before writing edit positions.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
+		id: 'soundcraft-import-timecode-origin',
+		file: 'src/common/editor/soundcraft-import.ts',
+		behavior: 'Soundcraft import rounds the exact rational session origin onto the project timecode frame grid.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
+		id: 'interchange-audio-fade-duration',
+		file: 'src/common/editor/timeline-interchange-audio-controls.ts',
+		behavior: 'Interchange fade durations resolve to nearest sample points before clamping to the clip duration.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
+		id: 'realtime-encoded-loop-length',
+		file: 'src/common/editor/controller/export/internal/audio/audio-realtime-encoded-export.ts',
+		behavior: 'Realtime loop export converts the authored duration to the captured sample clock using the nearest sample point.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
 		id: 'timeline-interchange-video-source-extent',
 		file: 'src/common/editor/controller/import/internal/interchange/timeline-interchange-video.ts',
 		behavior: 'Decoded interchange video retains its exact native picture count and rounds the media duration to the nearest project sample for the source metadata sample clock.',

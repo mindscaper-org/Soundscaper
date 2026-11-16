@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-/** Main owns bridge consent; absence, malformed state and other targets fail closed. */
+/** Main enables the Windows x64 bridge by default; saved opt-outs and malformed state stay disabled. */
 export class WindowsVst2BridgeConsent {
 	readonly supported: boolean;
 	readonly #persist: (enabled: boolean) => Promise<void>;
@@ -8,7 +8,7 @@ export class WindowsVst2BridgeConsent {
 	#tail: Promise<void> = Promise.resolve();
 	constructor(options: Readonly<{ target: string; state: unknown; persist: (enabled: boolean) => Promise<void> }>) {
 		this.supported = options.target === 'win-x64';
-		this.#enabled = this.supported && options.state === true;
+		this.#enabled = this.supported && (options.state === undefined || options.state === true);
 		this.#persist = options.persist;
 	}
 	get enabled(): boolean { return this.#enabled; }

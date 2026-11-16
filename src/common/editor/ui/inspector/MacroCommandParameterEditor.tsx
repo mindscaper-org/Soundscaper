@@ -5,6 +5,7 @@ import {
 	createMacroCommandStep, macroCommandStepProfile, type MacroCommandStep,
 } from '../../macro-command-steps.ts';
 import type { MacroCommandParameterDescriptor } from '../../audacity-macro-select-commands.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface Props {
 	readonly step: MacroCommandStep;
@@ -25,7 +26,7 @@ export default function MacroCommandParameterEditor({ step, onChange }: Props) {
 			? <CommandNumber key={descriptor.model} descriptor={descriptor}
 				value={step.params[descriptor.model]} onChange={(value) => update(descriptor.model, value)} />
 			: <label key={descriptor.model} className="audio-editor-field">
-				<span>{descriptor.native}</span>
+				<EditorControlLabel>{descriptor.native}</EditorControlLabel>
 				<select value={String(step.params[descriptor.model] ?? '')}
 					onChange={(event) => update(descriptor.model, event.currentTarget.value || undefined)}>
 					<option value="">—</option>
@@ -45,7 +46,7 @@ function CommandNumber({ descriptor, value, onChange }: Readonly<{
 	const cancelled = useRef(false);
 	useEffect(() => setDraft(current), [current]);
 	return <label className="audio-editor-field">
-		<span>{descriptor.native}</span>
+		<EditorControlLabel>{descriptor.native}</EditorControlLabel>
 		<input type="number" step="any" min={descriptor.minimum} max={descriptor.maximum} value={draft}
 			onChange={(event) => setDraft(event.currentTarget.value)}
 			onBlur={() => {

@@ -10,7 +10,7 @@ test('Include tails retains the actual Parametric EQ low-pass release', async ({
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'sub bass recording.wav', frequency: 10,
 		duration: 1, channelCount: 2, channelAmplitudes: [.5, .5] })]);
-	const dry = await exportSamples(page, editor);
+	const dry = await exportSamples(page, editor, { includeTail: true });
 	expect(dry.length).toBe(48_000);
 	expect(Math.max(...dry.slice(43_200, 47_000).map(Math.abs))).toBeGreaterThan(.3);
 	const panel = await openEffectsForTrack(editor, 1);
@@ -21,7 +21,7 @@ test('Include tails retains the actual Parametric EQ low-pass release', async ({
 	await commitInput(band.getByRole('spinbutton', { name: 'Frequency (Hz)', exact: true }), '10');
 	await band.getByRole('combobox', { name: 'Slope', exact: true }).selectOption('12');
 	await closeDialog(dialog);
-	const wet = await exportSamples(page, editor);
+	const wet = await exportSamples(page, editor, { includeTail: true });
 	expect(wet.length).toBeGreaterThan(48_128);
 	expect(Math.max(...wet.slice(48_000, 48_128).map(Math.abs))).toBeGreaterThan(.1);
 	expect(Math.max(...wet.slice(-128).map(Math.abs))).toBeLessThan(.0001);

@@ -3,10 +3,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
-import type { MicrophoneBleedOptions } from '../../microphone-bleed.ts';
+import PluginEffectPresetHeader from '../inspector/PluginEffectPresetHeader.tsx';
+import { pluginEffectType } from '../../effect-plugin-identity.ts';
+import { normalizeMicrophoneBleedOptions, type MicrophoneBleedOptions } from '../../microphone-bleed.ts';
 import { selectAudioEditorEditBlock, type AudioEditorEditBlockingSnapshot } from '../../edit-blocking.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface Props {
 	readonly controller: { readonly actions: { readonly effects: {
@@ -37,6 +40,13 @@ export default function MicrophoneBleedDialog({ controller, snapshot, copy, onCl
 			.finally(() => { if (pending.current === cancellation) { pending.current = null; setBusy(false); } });
 	};
 	return <AudioEditorDialogShell title={copy.microphoneBleedTitle!} onClose={close} width={600}
+		headerSlot={<PluginEffectPresetHeader controller={controller} copy={copy} effectType={pluginEffectType('selection', 'microphone-bleed')}
+			name={copy.microphoneBleedTitle!} resetKey={session} disabled={blocked || busy} realtime={false}
+			currentParams={{ maximumReductionDb: Number(reduction), minimumSimilarity: Number(similarity) / 100, fadeMs: Number(fade) }}
+			defaultParams={normalizeMicrophoneBleedOptions()}
+			read={() => normalizeMicrophoneBleedOptions({ maximumReductionDb: Number(reduction), minimumSimilarity: Number(similarity) / 100, fadeMs: Number(fade) })}
+			apply={params => { const value = normalizeMicrophoneBleedOptions(params as MicrophoneBleedOptions);
+				setReduction(String(value.maximumReductionDb)); setSimilarity(String(value.minimumSimilarity * 100)); setFade(String(value.fadeMs)); }} />}
 		footer={<DialogFooter className="audio-editor-dialog-footer" rightContent={<>
 			<Button variant="secondary" onClick={close}>{copy.cancel}</Button>
 			<Button variant="primary" type="submit" form="microphone-bleed-form" disabled={blocked || busy}>{copy.microphoneBleedApply}</Button>
@@ -45,14 +55,14 @@ export default function MicrophoneBleedDialog({ controller, snapshot, copy, onCl
 			onSubmit={event => { event.preventDefault(); apply(); }}>
 			<p className="audio-editor-panel-hint">{copy.microphoneBleedInstructions}</p>
 			<p className="audio-editor-panel-hint">{copy.microphoneBleedEditable}</p>
-			<label className="kw-audio-editor-dialog__field"><span>{copy.microphoneBleedReduction}</span>
+			<label className="kw-audio-editor-dialog__field"><EditorControlLabel>{copy.microphoneBleedReduction}</EditorControlLabel>
 				<input required type="number" min={0} max={36} step={1} value={reduction} disabled={busy} onChange={event => setReduction(event.currentTarget.value)} />
 			</label>
-			<label className="kw-audio-editor-dialog__field"><span>{copy.microphoneBleedSimilarity}</span>
+			<label className="kw-audio-editor-dialog__field"><EditorControlLabel>{copy.microphoneBleedSimilarity}</EditorControlLabel>
 				<input required type="number" min={50} max={100} step={1} value={similarity} disabled={busy} onChange={event => setSimilarity(event.currentTarget.value)} />
 			</label>
 			<p className="audio-editor-panel-hint">{copy.microphoneBleedSimilarityHint}</p>
-			<label className="kw-audio-editor-dialog__field"><span>{copy.microphoneBleedFade}</span>
+			<label className="kw-audio-editor-dialog__field"><EditorControlLabel>{copy.microphoneBleedFade}</EditorControlLabel>
 				<input required type="number" min={20} max={500} step={10} value={fade} disabled={busy} onChange={event => setFade(event.currentTarget.value)} />
 			</label>
 			{busy && <p role="status">{copy.audacityProcessing}</p>}

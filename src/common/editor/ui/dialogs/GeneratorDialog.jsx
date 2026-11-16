@@ -1,3 +1,5 @@
+import PluginEffectPresetHeader from '../inspector/PluginEffectPresetHeader.tsx';
+import { pluginEffectType } from '../../effect-plugin-identity.ts';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
@@ -20,6 +22,7 @@ import EditorMusicalTimeCodeProvider from '../EditorMusicalTimeCodeProvider.tsx'
 import EditorHelpTooltip from '../EditorHelpTooltip.tsx';
 import { runAwaitedAudioEditorOperation } from '../workspace/audio-editor-workspace-runner.ts';
 import { generatorReplacementTargetLocked } from './generator-replacement-admission.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 // Real hand-sent Morse runs from a beginner's five words per minute to about
 // sixty; the generator itself accepts more for scripted use.
@@ -102,7 +105,7 @@ export default function GeneratorDialog({ type, controller, snapshot = {}, copy,
 		className="kw-audio-editor-dialog__field"
 		data-generator-field={name}
 	>
-		<span>{label}</span>
+		<EditorControlLabel>{label}</EditorControlLabel>
 		<AudioEditorTimeCodeInput
 			label={label}
 			value={params[name]}
@@ -151,6 +154,11 @@ export default function GeneratorDialog({ type, controller, snapshot = {}, copy,
 		<EditorMusicalTimeCodeProvider controller={controller} originFrame={durationOrigin}>
 		<AudioEditorDialogShell
 			title={title}
+			headerSlot={<PluginEffectPresetHeader controller={controller} copy={copy}
+				effectType={pluginEffectType('generator', type)} name={title} resetKey={type}
+				disabled={pending || editBlocked} realtime={false}
+				currentParams={params} defaultParams={generatorDefaults(type, project)} read={() => params}
+				apply={settings => setParams({ ...generatorDefaults(type, project), ...settings })} />}
 			headerOs={null}
 			onClose={cancelAndClose}
 			width={680}
@@ -241,7 +249,7 @@ export default function GeneratorDialog({ type, controller, snapshot = {}, copy,
 							<div className="kw-audio-editor-generator__stack" data-generator-layout="morse">
 								<div className="audio-editor-helped-field">
 									<label className="kw-audio-editor-dialog__field" data-generator-field="text">
-										<span>{copy.generatorMorseMessage}</span>
+										<EditorControlLabel>{copy.generatorMorseMessage}</EditorControlLabel>
 										<TextInput value={params.text} onChange={(value) => update('text', value)} />
 									</label>
 									<EditorHelpTooltip
@@ -290,7 +298,7 @@ export default function GeneratorDialog({ type, controller, snapshot = {}, copy,
 									{numberField('amplitude', copy.generatorAmplitude, { min: 0, max: 1, step: 0.01 })}
 								</div>
 								<label className="kw-audio-editor-dialog__field" data-generator-field="durationSeconds">
-									<span>{copy.generatorDuration}</span>
+									<EditorControlLabel>{copy.generatorDuration}</EditorControlLabel>
 									<AudioEditorTimeCodeInput
 										label={copy.generatorDuration}
 										value={morse.durationSeconds}
@@ -307,7 +315,7 @@ export default function GeneratorDialog({ type, controller, snapshot = {}, copy,
 									<PreferencePanel className="kw-audio-editor-generator__card kw-audio-editor-generator__dtmf-fields">
 										<div className="audio-editor-helped-field">
 											<label className="kw-audio-editor-dialog__field" data-generator-field="sequence">
-												<span>{copy.generatorSequence}</span>
+												<EditorControlLabel>{copy.generatorSequence}</EditorControlLabel>
 												<TextInput value={params.sequence} onChange={updateDtmfSequence} />
 											</label>
 											<EditorHelpTooltip
@@ -319,7 +327,7 @@ export default function GeneratorDialog({ type, controller, snapshot = {}, copy,
 										</div>
 										{numberField('amplitude', copy.generatorAmplitude, { min: 0, max: 1, step: 0.01 })}
 										<label className="kw-audio-editor-dialog__field" data-generator-field="durationSeconds">
-											<span>{copy.generatorDuration}</span>
+											<EditorControlLabel>{copy.generatorDuration}</EditorControlLabel>
 											<AudioEditorTimeCodeInput
 												label={copy.generatorDuration}
 												value={dtmfTiming.totalSeconds}

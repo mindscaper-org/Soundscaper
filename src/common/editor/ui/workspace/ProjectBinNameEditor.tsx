@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { cancelDraftEditOnEscape, createDraftBlurCommitGuard, draftBlurShouldCommit } from '../draft-blur-commit.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface Props {
 	readonly clip: Readonly<{ id: string }>;
@@ -28,7 +29,7 @@ export default function ProjectBinNameEditor({ clip, name, copy, disabled, onCom
 	};
 	return (
 		<label className="kw-audio-editor__project-bin-name">
-			<span className="kw-audio-editor-sr-only">{copy.projectBinRename}</span>
+			<EditorControlLabel className="kw-audio-editor-sr-only">{copy.projectBinRename}</EditorControlLabel>
 			<NameInput
 				data-project-bin-name
 				aria-label={`${copy.projectBinRename}: ${name}`}

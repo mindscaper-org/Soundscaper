@@ -49,6 +49,7 @@ test('a short MIDI note retains a body that can be dragged', async ({ page }) =>
 	await page.mouse.move(x, y);
 	await page.mouse.down();
 	await page.mouse.move(x + 25, y, { steps: 3 });
+	await expect(note).toHaveCSS('left', '25px');
 	await page.mouse.up();
 	await expect(noteEditor.getByRole('spinbutton', { name: 'Note start (seconds)', exact: true })).toHaveValue('0.25');
 	await expect(duration).toHaveValue('0.02');

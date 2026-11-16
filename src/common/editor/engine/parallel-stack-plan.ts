@@ -38,6 +38,7 @@ export function compileParallelStackPlan(project: EngineProject, options: Parall
 	if ((project.automationLanes?.length ?? 0) > 0) throw new Error('Parallel timeline automation is not admitted yet.');
 	// Same authority as projectHasAuthoredAudioWarp; avoid importing its render graph into this compiler.
 	if (project.clips?.some((clip) => clip.warpMap != null)) throw new Error('Parallel authored audio warp is not admitted.');
+	if (project.clips?.some(clip => activeRackEffects(clip).some(effect => effect.enabled !== false && effect.bypassed !== true))) throw new Error('Parallel clip effect racks require the conventional graph.');
 	const graph = normalizeMixerGraphV21(project.mixer);
 	const tracks = (project.tracks ?? []).filter((track) => track.type === 'audio');
 	assertStableTrackInputWidths(project);

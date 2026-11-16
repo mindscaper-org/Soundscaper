@@ -26,8 +26,10 @@ test('comparison totals are available without JavaScript and match the rendered 
 		await expect(charts).toHaveCount(expected.length);
 		for (const [index, counts] of expected.entries()) {
 			await expect(charts.nth(index)).toHaveAccessibleName(counts.name);
-			await expect(charts.nth(index).getByRole('img')).toHaveAccessibleName(new RegExp(`${counts.yes} supported, ${counts.partial} limited, ${counts.no} unavailable`, 'u'));
-			await expect(charts.nth(index).locator('dd')).toHaveText([counts.yes, counts.partial, counts.no].map(String));
+			await expect(charts.nth(index).getByRole('img')).toHaveAccessibleName(`${counts.name}: ${counts.yes} supported, ${counts.partial} limited, ${counts.no} unavailable${counts.unknown ? `, ${counts.unknown} not verified` : ''}`);
+			await expect(charts.nth(index).locator('dd')).toHaveText([
+				counts.yes, counts.partial, counts.no, ...(counts.unknown ? [counts.unknown] : []),
+			].map(String));
 		}
 		await expect(page.locator('.comparison-summary .comparison-bar')).toHaveCount(expected.length);
 	} finally {

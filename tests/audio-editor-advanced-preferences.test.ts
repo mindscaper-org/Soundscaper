@@ -15,7 +15,7 @@ import {
 
 test('audio.com is the default server for new and older editor preferences', () => {
 	assert.equal(AUDIO_COM_DEFAULT_SERVER_URL, 'https://api.audio.com');
-	assert.deepEqual(normalizeAudioEditorAdvancedPreferences(undefined), { audioComServerUrl: AUDIO_COM_DEFAULT_SERVER_URL, suspendIdleEffectProcessing: true });
+	assert.deepEqual(normalizeAudioEditorAdvancedPreferences(undefined), { audioComServerUrl: AUDIO_COM_DEFAULT_SERVER_URL, suspendIdleEffectProcessing: true, effectAutoIdleOverrides: [] });
 	const preferences = createAudioEditorPreferencesV1();
 	assert.equal(preferences.advanced.audioComServerUrl, AUDIO_COM_DEFAULT_SERVER_URL);
 	const { advanced: _advanced, ...older } = preferences;

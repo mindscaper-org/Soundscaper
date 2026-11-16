@@ -6,6 +6,7 @@ import { DialogFooter } from '@soundscaper/design-system/Footer';
 
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import type { MonoConversionConfirmation } from './mono-conversion-confirmation.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface MonoConversionConfirmationCopy {
 	readonly cancel: string;
@@ -50,7 +51,7 @@ export default function MonoConversionConfirmationDialog({
 				type="checkbox"
 				checked={dontShowAgain}
 				onChange={(event) => { setDontShowAgain(event.currentTarget.checked); }}
-			/>{' '}{copy.monoConversionDontShowAgain}
+			/><EditorControlLabel>{' '}{copy.monoConversionDontShowAgain}</EditorControlLabel>
 		</label>
 	</AudioEditorDialogShell>;
 }

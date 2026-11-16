@@ -1,3 +1,4 @@
+import { IdleEffectGate } from './idle-effect-processing.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import {
@@ -30,6 +31,10 @@ export class NativePluginRealtimeProcessor extends ProcessorBase {
 		this.peer = null;
 		this.bypassed = value.bypassed === true;
 		this.strictRender = value.strictRender === true;
+		this.idleSampleRate = Number(value.sampleRate) || Number(globalThis.sampleRate) || 48000;
+		this.idle = new IdleEffectGate(this.idleSampleRate, 5 * this.idleSampleRate, () => undefined);
+		this.idle.setEnabled(false);
+		this.vendorUiOpen = false;
 		this.renderFailed = false;
 		this.renderFailureReason = null;
 		this.pendingBypass = null;
@@ -41,6 +46,7 @@ export class NativePluginRealtimeProcessor extends ProcessorBase {
 		this.frameCount = 0;
 		this.reportedLatencyFrames = null;
 		this.silentInput = [];
+		this.idleInputs = [this.silentInput];
 		for (let id = 0; id < this.queueCapacity; id += 1) this.free.push({ id, input: null, output: null });
 		this.port.onmessage = (event) => this.#control(event?.data || {}, event?.ports || []);
 		this.port.start?.();
@@ -71,6 +77,7 @@ export class NativePluginRealtimeProcessor extends ProcessorBase {
 		if (this.pendingBypass && (!Number.isSafeInteger(contextFrame)
 			|| contextFrame >= this.pendingBypass.atContextFrame)) {
 			this.bypassed = this.pendingBypass.bypassed;
+			this.idle.wake();
 			this.pendingBypass = null;
 			if (this.bypassed) this.#discardTimeline();
 		}
@@ -85,6 +92,7 @@ export class NativePluginRealtimeProcessor extends ProcessorBase {
 		}
 		if (this.frameCount !== frames || this.dry.length !== this.queueCapacity + 1) {
 			this.frameCount = frames;
+			this.idle.wake();
 			this.dry = Array.from({ length: this.queueCapacity + 1 }, () => planes(this.outputChannelCount, frames));
 			this.timeline.clear();
 		}
@@ -101,6 +109,12 @@ export class NativePluginRealtimeProcessor extends ProcessorBase {
 		} else if (due) copy(due.dry, output, frames);
 		else for (const channel of output) channel.fill(0);
 		if (due) this.timeline.delete(sequence - this.queueCapacity);
+		if (!this.strictRender) {
+			if (this.vendorUiOpen || this.controlRequests.size || due && !due.processed) this.idle.wake();
+			this.idle.after(output, frames);
+			this.idleInputs[0] = input;
+			if (!this.idle.before(this.idleInputs, output, frames)) return true;
+		}
 		const dry = this.dry[sequence % this.dry.length];
 		copy(input, dry, frames);
 		this.timeline.set(sequence, { dry, processed: null });
@@ -125,6 +139,7 @@ export class NativePluginRealtimeProcessor extends ProcessorBase {
 	}
 
 	#control(message, ports) {
+		if (this.idle.handleMessage(message)) return;
 		if (message.type === NATIVE_PLUGIN_CONTROL.renderStatus) {
 			const requestId = requestIdValue(message.requestId);
 			if (requestId) this.#post({
@@ -134,6 +149,7 @@ export class NativePluginRealtimeProcessor extends ProcessorBase {
 			return;
 		}
 		if (message.type === NATIVE_PLUGIN_CONTROL.bypass) {
+			this.idle.wake();
 			if (Number.isSafeInteger(message.atContextFrame) && message.atContextFrame >= 0) {
 				this.pendingBypass = {
 					bypassed: message.bypassed === true, atContextFrame: message.atContextFrame,
@@ -203,11 +219,13 @@ export class NativePluginRealtimeProcessor extends ProcessorBase {
 			+ this.queueCapacity * this.frameCount;
 		if (latencyFrames !== this.reportedLatencyFrames) {
 			this.reportedLatencyFrames = latencyFrames;
+			this.idle.wake(Math.max(5 * this.idleSampleRate, latencyFrames));
 			this.#post({ type: NATIVE_PLUGIN_CONTROL.latency, latencyFrames });
 		}
 	}
 
 	#requestControl(message, kind) {
+		this.idle.wake();
 		const requestId = requestIdValue(message.requestId);
 		if (!requestId || !this.peer || this.controlRequests.has(requestId)) {
 			return this.#post({ type: NATIVE_PLUGIN_CONTROL.fault, reason: 'control-rpc-unavailable', requestId });
@@ -272,6 +290,8 @@ export class NativePluginRealtimeProcessor extends ProcessorBase {
 			return this.#close('vendor-ui-rpc-mismatch');
 		}
 		this.controlRequests.delete(requestId);
+		if (message.status !== 'refused') this.vendorUiOpen = kind === 'open-vendor-ui';
+		this.idle.wake();
 		this.#post({ type: NATIVE_PLUGIN_CONTROL.vendorUi, requestId, status: message.status });
 	}
 
@@ -332,6 +352,8 @@ export class NativePluginRealtimeProcessor extends ProcessorBase {
 			this.renderFailureReason ||= reason;
 		}
 		this.peer = null;
+		this.vendorUiOpen = false;
+		this.idle.wake();
 		this.reportedLatencyFrames = null;
 		this.#discardTimeline();
 		this.busy.clear();

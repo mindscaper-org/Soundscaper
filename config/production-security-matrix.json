@@ -12777,6 +12777,57 @@
 						}
 					],
 					"policyAuthority": "family-v1-active"
+				},
+				{
+					"id": "opt-in-linux-wine-vst3-processes",
+					"summary": "Soundscaper Linux x64 bundles the pinned yabridge VST3 runtime and automatically probes externally installed Wine without installing it or initializing a prefix. Windows VST3 scanning and hosting require a separate default-off, main-owned opt-in and VST3 helper grant. Original Windows installation digests retain allowance, state and quarantine identity; temporary merged bundles are not plugin identities. Runtime and Wine executable identities are rechecked before launch. A separate subreaper launcher samples aggregate plugin-tree RSS under the existing one-GiB ceiling, caps duration and process count, and kills detached plugin descendants on termination. The prefix retains its normal shared Wine server and builtin services; authenticated executable and mapped service-image identities exempt shared services and their children from per-plugin cleanup and accounting, without relying on process names. Windows vendor code retains user filesystem and network access; this is supervision, not a filesystem or network sandbox. Ordinary native plugin launch policies remain unchanged. The helper rereads current main-owned configuration for each Windows request; reconfiguration withdraws Windows hosts without withdrawing native Linux hosts. Vendor GUI, DRM and realtime compatibility remain dependent on the actual Wine/plugin combination.",
+					"evidence": [
+						{
+							"kind": "implementation",
+							"path": "desktop/wine-vst3-preferences.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "desktop/wine-vst3-runtime.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "desktop/wine-plugin-launcher.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "desktop/wine-server.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "native/soundscaper-wine-launcher/launcher.c"
+						},
+						{
+							"kind": "implementation",
+							"path": "scripts/build-yabridge.mjs"
+						},
+						{
+							"kind": "test",
+							"path": "tests/desktop-external-wine.test.ts"
+						},
+						{
+							"kind": "test",
+							"path": "tests/desktop-wine-launcher.test.ts"
+						},
+						{
+							"kind": "test",
+							"path": "tests/desktop-wine-vst3.test.ts"
+						},
+						{
+							"kind": "test",
+							"path": "tests/desktop-wine-vst3-preferences.test.ts"
+						},
+						{
+							"kind": "test",
+							"path": "tests/desktop-yabridge-payload.test.ts"
+						}
+					],
+					"policyAuthority": "family-v1-active"
 				}
 			],
 			"residualRisks": [

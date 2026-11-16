@@ -35,6 +35,7 @@ import {
 	createDraftBlurCommitGuard,
 	draftBlurShouldCommit,
 } from './draft-blur-commit.ts';
+import EditorControlLabel from './EditorControlLabel.tsx';
 
 interface AdmMetadataFieldsProps {
 	readonly value: AdmProjectMetadata | null;
@@ -67,7 +68,7 @@ function DraftField({ name, label, value, disabled, maxLength = 512, pattern, on
 	};
 	return (
 		<label>
-			<span>{label}</span>
+			<EditorControlLabel>{label}</EditorControlLabel>
 			<input
 				name={name}
 				value={draft}
@@ -194,7 +195,7 @@ export function AdmMetadataFields({
 		<DraftField name="adm-content-language" label={copy.admContentLanguage} value={authored.content.language} disabled={disabled} maxLength={3} pattern="[A-Za-z]{2,3}" onCommit={(next) => commitNamed('content', 'language', next)} />
 		<DraftField name="adm-bed-name" label={copy.admBedName} value={authored.bed.name} disabled={disabled} onCommit={commitBedName} />
 		<label>
-			<span>{copy.admBedLayout}</span>
+			<EditorControlLabel>{copy.admBedLayout}</EditorControlLabel>
 			<select
 				name="adm-bed-layout"
 				value={authored.bed.layout}
@@ -322,7 +323,7 @@ function AdmObjectFields({ authored, projectId, copy, disabled, sourceChannels, 
 						['distance', copy.admDistance, 0, 1],
 					] as const).map(([coordinate, label, minimum, maximum]) => (
 						<label key={coordinate}>
-							<span>{label}</span>
+							<EditorControlLabel>{label}</EditorControlLabel>
 							<DraftNumberInput
 								min={minimum}
 								max={maximum}
@@ -338,7 +339,7 @@ function AdmObjectFields({ authored, projectId, copy, disabled, sourceChannels, 
 						</label>
 					))}
 					<label>
-						<span>{copy.gain}</span>
+						<EditorControlLabel>{copy.gain}</EditorControlLabel>
 						<DraftNumberInput
 							min={0} max={4} step={0.01}
 							value={object.gain}
@@ -366,7 +367,7 @@ function AdmObjectFields({ authored, projectId, copy, disabled, sourceChannels, 
 				: (
 					<div className="audio-editor-adm-object-add">
 						<label>
-							<span>{copy.admObjectSource}</span>
+							<EditorControlLabel>{copy.admObjectSource}</EditorControlLabel>
 							<select
 								name="adm-object-source"
 								value={chosen ? sourceKey(chosen) : ''}

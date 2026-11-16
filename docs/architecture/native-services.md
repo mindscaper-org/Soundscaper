@@ -263,11 +263,13 @@ VST2 uses the same automatic standard-folder discovery and plug-in preferences
 as the other formats, including saved discovery settings and folder choices.
 Candidates are `.vst` bundles on macOS, `.dll` files on Windows, and `.so`
 files on Linux. Windows x64 additionally supports 32-bit x86 VST2 plug-ins
-through an optional peer. Enable **32-bit VST2 plugins** in the existing
-**Edit > Preferences > Effects** page, add the installed plug-in folder, and
-scan it. Bridging defaults off, including after restoring factory settings. Windows ARM64, macOS and Linux retain their
-matching-architecture requirements; VST3 and CLAP remain native-architecture
-formats on every target. VST2 instances use
+through the bundled x86 peer. Bridging defaults on, including after restoring
+factory settings, so admitted VST2 folders scan both x86 and x64 plug-ins.
+The existing **Edit > Preferences > Effects > Enable 32-bit VST2 plugins**
+setting can disable bridging; saved opt-outs survive restarts and upgrades.
+Windows ARM64, macOS and Linux retain their
+matching-architecture requirements. CLAP remains native-architecture on every
+target; VST3 additionally has the opt-in Linux x64 Wine route below. VST2 instances use
 the same isolation, digest allowance, parameters, vendor windows, latency,
 opaque state, real-time and offline routes as the other native effects. ARA
 remains VST3-only. Native CTest fixtures exercise VST2 and VST3 discovery,
@@ -286,7 +288,7 @@ scan/open, PCM, parameters, latency, state restoration into a fresh instance and
 vendor-window open/close. The native launcher serializes CRT startup handles at
 the child's pointer width and applies the existing Job supervision and limits.
 
-Main grants bridge execution only after explicit consent. The peer router
+Main grants bridge execution while the Windows x64 bridge setting is enabled. The peer router
 checks the candidate's exact file identity, length, digest and PE architecture
 before selecting the x86 peer. Scan metadata retains the candidate architecture,
 including separate x86/x64 installations sharing one VST2 ID. Existing allowance
@@ -297,6 +299,44 @@ Unresolved incompatible scan observations cannot claim a native stable ID;
 a successful rescan replaces their digest-keyed placeholder.
 
 Runtime hosting isolates one renderer owner and one plug-in digest per process.
+Linux x64 can additionally host x64 Windows VST3 effects and instruments through
+the bundled yabridge runtime. **Edit > Preferences > Effects > Windows plugins**
+offers the separate opt-in and Wine detection, Browse, Rescan, and automatic
+selection controls. Wine is external and is never installed or downloaded by
+this feature. Automatic detection checks executable candidates from absolute
+PATH entries and standard Wine locations, deduplicates canonical paths and
+selects the newest supported numeric release. A manual selection remains pinned
+until cleared. Probes use only `--version`, with bounded time and output; they
+do not initialize a Wine prefix. Resetting preferences disables the bridge.
+Users add their installed Windows VST3 directory through the existing folder
+picker and review the scan in Plugin Manager.
+
+Wine uses a separate prefix and registry. A plugin path on a mounted Windows
+drive does not import that installation's shared kernels, runtime dependencies,
+ProgramData or licence registration into Wine. Install the complete vendor
+package into the intended Wine prefix. `WINEPREFIX` selects an explicit prefix;
+otherwise yabridge detects an enclosing prefix or uses `~/.wine`.
+
+Wine scan and host requests require an explicit main-owned VST3 grant. Native
+Linux bundles keep the native route. Windows file and bundle digests, installation
+selection, state and quarantine retain the original installation identity;
+the generated merged bundle is temporary and never becomes the plug-in identity.
+The helper rereads the current main-owned Wine configuration before each Windows
+request and reauthenticates the runtime and Wine executable before spawning.
+Changing Wine configuration revokes Windows hosts while native Linux hosts remain.
+
+The separate Wine launcher supervises the plugin process tree with a subreaper,
+samples aggregate RSS against the existing one-GiB ceiling, caps process count
+and elapsed time, and kills detached plugin descendants on termination. The
+prefix keeps its normal shared Wine server and builtin services. Exact executable
+and mapped service-image identities exempt those shared services and their
+children from per-plugin cleanup and accounting; process names grant no exemption.
+The Wine runtime and vendor code retain the user's filesystem and network access;
+this is process supervision, not a filesystem or network sandbox. The ordinary
+Linux, macOS and Windows launchers retain their existing policies. Wine
+compatibility, graphical editors, authorization and device timing require
+observations for the actual vendor and Wine combination.
+
 On Windows, effect discovery and hosting use trusted plug-in processes with
 normal user filesystem, registry, environment and network access. This lets
 installed plug-ins resolve sibling libraries, shared vendor runtimes, presets,

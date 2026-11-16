@@ -296,6 +296,7 @@ test('parametric EQ selection previews expose transient controls, spectra, and p
 
 		const processor = context.workletNodes[0];
 		assert.equal(processor.name, 'kw-parametric-eq');
+		assert.deepEqual(processor.messages.shift(), { type: 'suspend-idle-effect-processing', enabled: false });
 		assert.equal(processor.options.processorOptions.channelCount, 2);
 		assert.deepEqual(processor.options.processorOptions.params, params);
 		assert.ok(processor.options.processorOptions.wasmModule instanceof WebAssembly.Module);

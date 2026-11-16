@@ -16,6 +16,12 @@
 		"types": ["node"]
 	},
 	"include": [
+		"desktop/external-wine.ts",
+		"desktop/plugin-registration-paths.ts",
+		"desktop/yabridge-payload.ts",
+		"desktop/wine-vst3-preferences.ts",
+		"desktop/wine-vst3-revocation.ts",
+		"desktop/wine-vst3-runtime.ts",
 		"desktop/ai-denoise-preload.ts",
 		"desktop/ai-denoise-sessions.ts",
 		"desktop/ai-denoise-helper-process.ts",

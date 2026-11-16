@@ -4,7 +4,9 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseFileAction, disableNativeSavePicker, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
 
-for (const gain of [8, 10 ** (36 / 20), 4]) test(`legacy AUP gain ${gain} exports its authored level`, async ({ page }) => {
+// The scalar/render/Scape matrix runs in audio-editor-imported-fader-render.test.ts.
+// Retain the converted high gain through File Import, native export and reload.
+for (const gain of [10 ** (36 / 20)]) test(`legacy AUP gain ${gain} exports its authored level`, async ({ page }) => {
 	test.setTimeout(90_000);
 	const frames = 4800, bytes = new Uint8Array(24 + frames * 4), view = new DataView(bytes.buffer);
 	for (const [index, value] of [0x2e736e64, 24, frames * 4, 6, 48_000, 1].entries()) view.setUint32(index * 4, value);

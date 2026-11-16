@@ -12,9 +12,7 @@
 	overflow: hidden;
 	color: var(--muted);
 	font-size: var(--editor-font-size, 12px);
-	font-weight: 750;
 	text-overflow: ellipsis;
-	text-transform: uppercase;
 	white-space: nowrap;
 }
 
@@ -321,7 +319,6 @@
 	gap: 6px;
 	color: var(--muted);
 	font-size: var(--editor-font-size, 12px);
-	font-weight: 700;
 }
 
 [data-framescaper-native-services-dialog] .kw-audio-editor-dialog__field > span {

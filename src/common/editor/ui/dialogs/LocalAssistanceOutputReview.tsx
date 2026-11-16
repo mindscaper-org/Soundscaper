@@ -42,6 +42,8 @@ function SemanticReview({ copy, review }: Readonly<{
 	copy: Copy;
 	review: LocalAssistanceOutputReview;
 }>) {
+	if (review.kind === 'midi-notes') return <p>{template(text(copy, 'localAssistanceMusicNotes',
+		LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceMusicNotes), { count: String(review.notes.length) })}</p>;
 	if (review.kind === 'transcript') {
 		return <ol className="kw-local-assistance__transcript">
 			{review.segments.map((segment, index) => <li

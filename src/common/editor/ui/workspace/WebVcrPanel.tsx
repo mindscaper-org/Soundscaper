@@ -14,6 +14,7 @@ import {
 	webVcrPhaseLocksControls,
 } from '../web-vcr-ui-model.ts';
 import WebVcrPreview from './WebVcrPreview.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface CaptureRecoveryActions {
 	importAsIs?(): unknown;
@@ -109,7 +110,7 @@ export default function WebVcrPanel({ controller, snapshot, copy, blocked, run }
 				disabled={controlsLocked || !actions?.reload}
 				onClick={() => invoke(actions?.reload)}>↻</button>
 			<label className="kw-web-vcr__address">
-				<span className="kw-audio-editor-sr-only">{copy.webVcrAddress}</span>
+				<EditorControlLabel className="kw-audio-editor-sr-only">{copy.webVcrAddress}</EditorControlLabel>
 					<input ref={addressRef} type="url" inputMode="url" required pattern="[hH][tT][tT][pP][sS]://.*"
 					aria-label={copy.webVcrAddress} value={address} disabled={controlsLocked}
 					onChange={(event) => setAddress(event.currentTarget.value)} />
@@ -129,7 +130,7 @@ export default function WebVcrPanel({ controller, snapshot, copy, blocked, run }
 
 		<div className="kw-web-vcr__settings">
 			<label>
-				<span>{copy.webVcrResolution}</span>
+				<EditorControlLabel>{copy.webVcrResolution}</EditorControlLabel>
 				<select aria-label={copy.webVcrResolution} value={webVcr.resolution}
 					disabled={controlsLocked || !actions?.setResolution}
 					onChange={(event) => invoke(() => actions?.setResolution?.(
@@ -144,10 +145,10 @@ export default function WebVcrPanel({ controller, snapshot, copy, blocked, run }
 				<input type="checkbox" checked={webVcr.autoCrop}
 					disabled={controlsLocked || !actions?.setAutoCrop}
 					onChange={(event) => invoke(() => actions?.setAutoCrop?.(event.currentTarget.checked))} />
-				<span>{copy.webVcrAutoCrop}</span>
+				<EditorControlLabel>{copy.webVcrAutoCrop}</EditorControlLabel>
 			</label>
 			<label>
-				<span>{copy.webVcrAspect}</span>
+				<EditorControlLabel>{copy.webVcrAspect}</EditorControlLabel>
 				<select aria-label={copy.webVcrAspect} value={webVcr.aspect}
 					disabled={controlsLocked || webVcr.autoCrop || !actions?.setAspect}
 					onChange={(event) => invoke(() => actions?.setAspect?.(
@@ -161,13 +162,13 @@ export default function WebVcrPanel({ controller, snapshot, copy, blocked, run }
 			<label className="kw-web-vcr__check">
 				<input type="checkbox" checked={webVcr.monitorMuted} disabled={!actions?.setMonitorMuted}
 					onChange={(event) => invoke(() => actions?.setMonitorMuted?.(event.currentTarget.checked))} />
-				<span>{copy.webVcrMuteMonitor}</span>
+				<EditorControlLabel>{copy.webVcrMuteMonitor}</EditorControlLabel>
 			</label>
 			<label className="kw-web-vcr__check">
 				<input type="checkbox" checked={webVcr.autoStop}
 					disabled={controlsLocked || !actions?.setAutoStop}
 					onChange={(event) => invoke(() => actions?.setAutoStop?.(event.currentTarget.checked))} />
-				<span>{copy.webVcrAutoStop}</span>
+				<EditorControlLabel>{copy.webVcrAutoStop}</EditorControlLabel>
 			</label>
 		</div>
 

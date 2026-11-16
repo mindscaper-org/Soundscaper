@@ -7,6 +7,7 @@ import { resolveTimecodeSyncCopy } from '../../../i18n/editor-timecode-sync-copy
 import { createTimecodeSyncSession, DEFAULT_TIMECODE_SYNC_SETTINGS, type TimecodeDevices, type TimecodeSyncSettings } from '../../controller/transport/timecode-sync-session.ts';
 import { createBrowserTimecodeSyncIo } from '../../controller/transport/timecode-sync-browser.ts';
 import { workspaceTimecodeRuntime, type TimecodeWorkspaceController } from '../workspace/timecode-sync-workspace.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 const EMPTY_DEVICES: TimecodeDevices = { midiInputs: [], midiOutputs: [], audioInputs: [], audioOutputs: [] };
 export default function TimecodeSyncDialog({ controller, copy: copyInput, onClose }: {
@@ -47,7 +48,7 @@ export default function TimecodeSyncDialog({ controller, copy: copyInput, onClos
 	};
 	const update = <Key extends keyof TimecodeSyncSettings>(key: Key, value: TimecodeSyncSettings[Key]): void => { setDraft(current => ({ ...current, [key]: value })); };
 	const port = (key: 'midiInput' | 'midiOutput' | 'audioInput' | 'audioOutput', label: string, choices: readonly { id: string; name: string }[]) => <label>
-		{label}<select aria-label={label} value={draft[key]} onChange={event => update(key, event.currentTarget.value)}>
+		<EditorControlLabel>{label}</EditorControlLabel><select aria-label={label} value={draft[key]} onChange={event => update(key, event.currentTarget.value)}>
 			<option value="">{key.startsWith('midi') ? copy.selectPort : copy.defaultDevice}</option>
 			{choices.filter(device => device.id !== '').map(device => <option key={device.id} value={device.id}>{device.name}</option>)}
 		</select>
@@ -59,15 +60,15 @@ export default function TimecodeSyncDialog({ controller, copy: copyInput, onClos
 	/>}>
 		<p>{copy.hint}</p>
 		<fieldset disabled={busy} style={{ display: 'grid', gap: 12 }}>
-			<label>{copy.receive}<select aria-label={copy.receive} value={draft.receive} onChange={event => update('receive', event.currentTarget.value as TimecodeSyncSettings['receive'])}>
+			<label><EditorControlLabel>{copy.receive}</EditorControlLabel><select aria-label={copy.receive} value={draft.receive} onChange={event => update('receive', event.currentTarget.value as TimecodeSyncSettings['receive'])}>
 				<option value="off">{copy.off}</option><option value="mtc">{copy.mtc}</option><option value="ltc">{copy.ltc}</option>
 			</select></label>
-			<label><input type="checkbox" checked={draft.sendMtc} onChange={event => update('sendMtc', event.currentTarget.checked)} />{copy.sendMtc}</label>
-			<label><input type="checkbox" checked={draft.sendLtc} onChange={event => update('sendLtc', event.currentTarget.checked)} />{copy.sendLtc}</label>
-			<label>{copy.rate}<select aria-label={copy.rate} value={draft.rate} onChange={event => update('rate', event.currentTarget.value as TimecodeSyncSettings['rate'])}>
+			<label><input type="checkbox" checked={draft.sendMtc} onChange={event => update('sendMtc', event.currentTarget.checked)} /><EditorControlLabel>{copy.sendMtc}</EditorControlLabel></label>
+			<label><input type="checkbox" checked={draft.sendLtc} onChange={event => update('sendLtc', event.currentTarget.checked)} /><EditorControlLabel>{copy.sendLtc}</EditorControlLabel></label>
+			<label><EditorControlLabel>{copy.rate}</EditorControlLabel><select aria-label={copy.rate} value={draft.rate} onChange={event => update('rate', event.currentTarget.value as TimecodeSyncSettings['rate'])}>
 				<option value="24">{copy.fps24}</option><option value="25">{copy.fps25}</option><option value="29.97df">{copy.fps2997}</option><option value="30">{copy.fps30}</option>
 			</select></label>
-			<label>{copy.offset}<input aria-label={copy.offset} type="number" min={-86400} max={86400} step="any" value={Number.isFinite(draft.offsetSeconds) ? draft.offsetSeconds : ''} onChange={event => update('offsetSeconds', event.currentTarget.valueAsNumber)} /></label>
+			<label><EditorControlLabel>{copy.offset}</EditorControlLabel><input aria-label={copy.offset} type="number" min={-86400} max={86400} step="any" value={Number.isFinite(draft.offsetSeconds) ? draft.offsetSeconds : ''} onChange={event => update('offsetSeconds', event.currentTarget.valueAsNumber)} /></label>
 			{(draft.sendMtc || draft.receive === 'mtc') && <>
 				<Button onClick={() => run(async () => { setDevices(await runtime.io.devices(true)); })}>{copy.midiAccess}</Button>
 				{draft.receive === 'mtc' && port('midiInput', copy.midiInput, devices.midiInputs)}
@@ -79,7 +80,7 @@ export default function TimecodeSyncDialog({ controller, copy: copyInput, onClos
 				{draft.receive === 'ltc' && port('audioInput', copy.audioInput, devices.audioInputs)}
 				{draft.sendLtc && port('audioOutput', copy.audioOutput, devices.audioOutputs)}
 				{(['inputChannel', 'outputChannel'] as const).filter(key => key === 'inputChannel' ? draft.receive === 'ltc' : draft.sendLtc).map(key => <label key={key}>
-					{copy[key]}<input aria-label={copy[key]} type="number" min={1} max={32} value={Number.isFinite(draft[key]) ? draft[key] + 1 : ''} onChange={event => update(key, event.currentTarget.valueAsNumber - 1)} />
+					<EditorControlLabel>{copy[key]}</EditorControlLabel><input aria-label={copy[key]} type="number" min={1} max={32} value={Number.isFinite(draft[key]) ? draft[key] + 1 : ''} onChange={event => update(key, event.currentTarget.valueAsNumber - 1)} />
 				</label>)}
 			</>}
 		</fieldset>

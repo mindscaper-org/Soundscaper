@@ -11,6 +11,7 @@ export const FRAMESCAPER_COMPOSITION_PROJECT_FEATURE_CAPABILITY_PROFILE =
 		registrations: [
 			{ key: 'audioAnalysis', featureId: 'org.soundscaper.capability.audio-analysis', available: false },
 			{ key: 'audioAutomation', featureId: 'org.soundscaper.capability.audio-automation', available: false },
+			{ key: 'audioClipEffects', featureId: 'org.soundscaper.capability.audio-clip-effects', available: false },
 			{ key: 'audioEffects', featureId: 'org.soundscaper.capability.audio-effects', available: false },
 			{ key: 'audioGenerators', featureId: 'org.soundscaper.capability.audio-generators', available: false },
 			{ key: 'audioImport', featureId: 'org.soundscaper.capability.audio-import', available: true },

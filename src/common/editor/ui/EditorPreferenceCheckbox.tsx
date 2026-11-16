@@ -2,6 +2,7 @@
 
 import { useRef } from 'react';
 import { LabeledCheckbox } from '@soundscaper/design-system/LabeledCheckbox';
+import './EditorControlLabel.css';
 
 interface PreferenceCheckboxProps {
 	readonly label: string;
@@ -40,6 +41,7 @@ export default function PreferenceCheckbox({
 	changeRef.current ??= createCheckboxChangeCoalescer((next) => publishRef.current(next));
 	return (
 		<LabeledCheckbox
+			className="audio-editor-control-label"
 			label={label}
 			aria-describedby={ariaDescribedBy}
 			checked={checked}

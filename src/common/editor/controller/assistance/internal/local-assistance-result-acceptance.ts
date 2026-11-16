@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 /** Controller-owned dispatch for semantically reviewed assistance results. */
+import { acceptMusicTranscription } from './local-assistance-music-acceptance.ts';
+import type { MusicMidiImporter } from '../../../assistance/music-transcription-v1.ts';
 
 import {
 	createLocalAssistanceTranscriptCleanupWorkflow,
@@ -48,6 +50,7 @@ export type LocalAssistanceResultAcceptanceStore = LocalAssistanceTranscriptAcce
 	& LocalAssistanceAudioPublicationStore;
 
 export interface LocalAssistanceResultAcceptanceDependencies {
+	readonly importMidiDocument?: MusicMidiImporter;
 	readonly currentAuthority: () => LocalAssistanceRangeLabelAuthority;
 	readonly currentVideoAuthority?: () => LocalAssistanceSelectedVideoAuthority;
 	readonly captureProject: () => unknown;
@@ -147,6 +150,7 @@ export function createLocalAssistanceResultAcceptance(
 		},
 		acceptValidatedResult(request: unknown): Promise<void> {
 			const operation = resultOperation(request);
+			if (operation === 'music-transcription') return acceptMusicTranscription(dependencies, request);
 			if (operation === 'speech-recognition') {
 				if (!transcript) {
 					throw new Error('Transcript acceptance requires assistance-asset storage.');

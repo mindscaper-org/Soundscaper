@@ -84,9 +84,14 @@ layoutPreset: full-width
 ```
 
 The preset removes the article width limit and the expanding margins around
-the article. The navigation and table of contents retain their normal widths,
-and the mobile layout stays responsive. The comparison page at
+the article. The table of contents retains its normal width, and the mobile
+layout stays responsive. The comparison page at
 `start/how-soundscaper-compares.md` uses this preset.
+
+The navigation starts closed at every viewport width. The header's menu button
+opens it as a drawer without moving the article. It works without JavaScript;
+the client script keeps keyboard focus out of the article while the menu is open.
+Escape, the menu button, or selecting a link closes the drawer.
 
 ## Comparison cells
 
@@ -99,6 +104,7 @@ on hover, keyboard focus, or tap:
 
 ```markdown
 | Native project | + — `.sscape` :: Media is bundled with the project. |
+| Qualified support | ~ — :: The qualification appears only in the tooltip. |
 ```
 
 The table transform retains inline formatting and links each explanation to

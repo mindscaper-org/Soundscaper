@@ -11,8 +11,10 @@ import { renderMidiFrames } from '../src/common/editor/engine/midi-synthesis.ts'
 import { planSplitStereoSources, splitStereoClipCommands } from '../src/common/editor/controller/track-audio/internal/split-stereo-clip-commands.ts';
 import { createMemoryFfmpeg, storedChannelSample } from './helpers/audio-editor-controller-fixtures.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
+import { installNodeEditorWorkers } from './helpers/node-editor-workers.ts';
 
 for (const centered of [false, true]) for (const gain of [0, .5, 1]) test(`MIDI ${centered ? 'centered' : 'L/R'} split retains later authoring at gain ${gain}`, async context => {
+	installNodeEditorWorkers(context);
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const runtime = createSoundscaperProjectRuntimeSelection();
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });

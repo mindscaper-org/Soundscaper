@@ -3,7 +3,9 @@
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
 
-for (const [key, decorated] of [['b', '**Take one**'], ['i', '*Take one*']]) {
+// Bold/italic and composing/completed keys run in the matching Node suite.
+// Retain native selection, shortcut routing and ordinary typing through Window.
+for (const [key, decorated] of [['b', '**Take one**']]) {
 	test(`Recording notes leaves composed Ctrl+${key.toUpperCase()} to the input method`, async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/');
 		await chooseNestedCommandAction(page, editor, 'Window', ['Recording notes']);
@@ -26,6 +28,6 @@ for (const [key, decorated] of [['b', '**Take one**'], ['i', '*Take one*']]) {
 		await notes.fill('東京の録音');
 		await notes.press('ControlOrMeta+A');
 		await notes.press(`ControlOrMeta+${key}`);
-		await expect(notes).toHaveValue(key === 'b' ? '**東京の録音**' : '*東京の録音*');
+		await expect(notes).toHaveValue('**東京の録音**');
 	});
 }

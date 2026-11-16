@@ -7,6 +7,7 @@ import { selectAudioEditorEditBlock, type AudioEditorEditBlockingSnapshot } from
 import type { RepeatedSoundOptions } from '../../repeated-sound.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface Props {
 	readonly controller: {
@@ -57,7 +58,7 @@ export default function RepeatedSoundDialog({ controller, snapshot, copy, repeat
 		<form id="find-repeated-sound-form" className="kw-audio-editor-dialog__form" aria-busy={busy}
 			onSubmit={event => { event.preventDefault(); create(); }}>
 			<p className="audio-editor-panel-hint">{copy.repeatedSoundInstructions}</p>
-			<label className="kw-audio-editor-dialog__field"><span>{copy.repeatedSoundThreshold}</span>
+			<label className="kw-audio-editor-dialog__field"><EditorControlLabel>{copy.repeatedSoundThreshold}</EditorControlLabel>
 				<input required type="number" min={50} max={100} step={.1} value={threshold} disabled={busy}
 					onChange={event => setThreshold(event.currentTarget.value)} />
 			</label>

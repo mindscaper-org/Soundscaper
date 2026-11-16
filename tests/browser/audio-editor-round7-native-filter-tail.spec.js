@@ -15,7 +15,7 @@ test('Export includes the audible release of a native Resonant filter rack inser
 	const dialog = page.getByRole('dialog', { name: 'Resonant low-pass filter', exact: true });
 	await commitInput(dialog.locator('[data-effect-param="frequency"] input'), '10');
 	await closeDialog(dialog);
-	const samples = await exportSamples(page, editor);
+	const samples = await exportSamples(page, editor, { includeTail: true });
 	expect(samples.length).toBeGreaterThan(48_128);
 	expect(Math.max(...samples.slice(48_000, 48_128).map(Math.abs))).toBeGreaterThan(.1);
 	expect(Math.max(...samples.slice(-128).map(Math.abs))).toBeLessThan(.0001);

@@ -23,10 +23,20 @@ export function activeRackEffects(owner: Readonly<{
 	return owner.effects;
 }
 
+export function effectRackMatchesTrack(project: EngineProject | null | undefined, rack: EngineEffectRackLocation, trackId: unknown): boolean {
+	if (trackId == null || rack.scope === 'master') return true;
+	if (rack.scope === 'track') return rack.targetId === String(trackId);
+	return rack.scope === 'clip' && Boolean(project?.tracks?.find(track => track.id === trackId)?.clipIds?.includes(rack.targetId));
+}
+
 /** Iterate every rack location that the project graph can process. */
 export function* projectEffectRacks(
 	project: EngineProject | null | undefined,
 ): Generator<EngineEffectRackLocation> {
+	for (const clip of project?.clips ?? []) {
+		if (clip.kind !== 'audio' || !clip.effects?.length) continue;
+		yield { scope: 'clip', targetId: String(clip.id), effectsActive: clip.effectsActive !== false, effects: activeRackEffects(clip) };
+	}
 	const audioTracks = (project?.tracks || [])
 		.filter(track => track?.type !== 'label' && track?.type !== 'video');
 	if (Object.getPrototypeOf(audioTracks) === Array.prototype && !Object.hasOwn(audioTracks, 'entries')) {
@@ -107,6 +117,11 @@ export function projectWithEffectParams(
 		const tracks = project.tracks.slice();
 		tracks[index] = { ...tracks[index], effects };
 		return derive({ ...project, tracks });
+	}
+	if (normalizedScope === 'clip') {
+		const clip = project.clips?.find(clip => clip.id === targetId);
+		const effects = replaceEffects(clip?.effects);
+		return effects ? derive({ ...project, clips: project.clips?.map(clip => clip.id === targetId ? { ...clip, effects } : clip) }) : null;
 	}
 	if (normalizedScope === 'group' || normalizedScope === 'send') {
 		const key = normalizedScope === 'group' ? 'groups' : 'sends';

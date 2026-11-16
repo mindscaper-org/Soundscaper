@@ -94,6 +94,27 @@ export function withSoundscaperNativeMidiBridge<T extends Core>(options: Options
 			await updateAssignment(request.instanceId, encodeState(restored.bytes));
 			return { projectState: restored.projectState };
 		},
+		async captureNativePluginPreset(request) {
+			if (!assignments.has(request.instanceId)) {
+				if (!core.bridge.captureNativePluginPreset) throw new Error('Native preset capture is unavailable.');
+				return await core.bridge.captureNativePluginPreset(request);
+			}
+			const project = controller?.project;
+			const state = await sessions.get(request.instanceId)!.rpc.request('save-state');
+			if (controller?.project !== project) throw new Error('The native instrument assignment changed.');
+			return { bytes: decodeState(encodeState(state.bytes)) };
+		},
+		async restoreNativePluginPreset(request) {
+			if (!assignments.has(request.instanceId)) {
+				if (!core.bridge.restoreNativePluginPreset) throw new Error('Native preset restore is unavailable.');
+				return await core.bridge.restoreNativePluginPreset(request);
+			}
+			const project = controller?.project;
+			encodeState(request.bytes);
+			await sessions.get(request.instanceId)!.rpc.request('load-state', { bytes: request.bytes });
+			if (controller?.project !== project) throw new Error('The native instrument assignment changed.');
+			return await bridge.persistNativePluginState({ instanceId: request.instanceId, generation: 1 });
+		},
 		async closeNativePluginInstance(request) {
 			const session = sessions.get(request.instanceId);
 			if (!session) return core.bridge.closeNativePluginInstance(request);

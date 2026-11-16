@@ -16,6 +16,7 @@ import { createMidiPanelMusicalClock } from './midi-panel-musical-clock.ts';
 import { pianoRollGridMath } from '@soundscaper/design-system/PianoRoll/musical-clock';
 import { secondsToSampleFrame } from '../../timeline-time.ts';
 import './PianoRollWorkspacePanel.css';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface MidiActions {
 	addNote(clipId: string, note: MidiNote): unknown;
@@ -244,34 +245,34 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 
 	return <div ref={panelRef} className="kw-audio-editor__piano-roll" aria-label={copy.pianoRoll} onKeyDown={keyDown}>
 		<div ref={controlsRef} className="kw-audio-editor__piano-roll-controls">
-			<label>{copy.instrument}<select value={typeof instrument === 'string' ? instrument : 'native'} disabled={disabled}
+			<label><EditorControlLabel>{copy.instrument}</EditorControlLabel><select value={typeof instrument === 'string' ? instrument : 'native'} disabled={disabled}
 				onChange={event => { const value = event.currentTarget.value as MidiInstrument; edit(() => controller.actions.midi.setInstrument(track.id, value)); }}>
 				{typeof instrument !== 'string' && <option value="native">{instrument.name}</option>}
 				{INSTRUMENTS.map(value => <option key={value} value={value}>{copy[value]}</option>)}
 			</select></label>
-			<label>{copy.snap}<select value={subdivision} onChange={event => setSubdivision(Number(event.currentTarget.value) as Subdivision)}>
+			<label><EditorControlLabel>{copy.snap}</EditorControlLabel><select value={subdivision} onChange={event => setSubdivision(Number(event.currentTarget.value) as Subdivision)}>
 				{SUBDIVISIONS.map(value => <option key={value} value={value}>1/{value * 4}</option>)}
 			</select></label>
-			<label><input type="checkbox" checked={triplet} onChange={event => setTriplet(event.currentTarget.checked)} />{copy.triplets}</label>
-			<label><input type="checkbox" checked={keyboardEnabled} onChange={event => setKeyboardEnabled(event.currentTarget.checked)} />{copy.keyboard}</label>
-			{keyboardEnabled && <label>{copy.octave}<MidiNoteNumberField min={-1} max={8} step={1} value={octave}
+			<label><input type="checkbox" checked={triplet} onChange={event => setTriplet(event.currentTarget.checked)} /><EditorControlLabel>{copy.triplets}</EditorControlLabel></label>
+			<label><input type="checkbox" checked={keyboardEnabled} onChange={event => setKeyboardEnabled(event.currentTarget.checked)} /><EditorControlLabel>{copy.keyboard}</EditorControlLabel></label>
+			{keyboardEnabled && <label><EditorControlLabel>{copy.octave}</EditorControlLabel><MidiNoteNumberField min={-1} max={8} step={1} value={octave}
 				onCommit={setOctave} disabled={false} title={copy.keyboardHint} /></label>}
 			<button type="button" disabled={disabled} onClick={addNote}>{copy.addNote}</button>
 			<button type="button" disabled={disabled || !selectedNotes.length} onClick={deleteSelected}>{copy.deleteNotes}</button>
 			<div className="kw-audio-editor__piano-roll-note-editor" role="group" aria-label={copy.noteEditor}>
-				<label>{copy.selectedNote}<select value={activeNote?.id ?? ''} onChange={event => setSelectedIds(new Set(event.currentTarget.value ? [event.currentTarget.value] : []))}>
+				<label><EditorControlLabel>{copy.selectedNote}</EditorControlLabel><select value={activeNote?.id ?? ''} onChange={event => setSelectedIds(new Set(event.currentTarget.value ? [event.currentTarget.value] : []))}>
 					<option value="">{copy.noSelection}</option>
 					{noteOptions}
 				</select></label>
-				<label>{copy.pitch}<MidiNoteNumberField key={`pitch:${activeNote?.id}`} min={0} max={127} step={1} disabled={disabled || !activeNote} value={activeNote?.pitch ?? ''}
+				<label><EditorControlLabel>{copy.pitch}</EditorControlLabel><MidiNoteNumberField key={`pitch:${activeNote?.id}`} min={0} max={127} step={1} disabled={disabled || !activeNote} value={activeNote?.pitch ?? ''}
 					onCommit={value => editSelected({ pitch: value })} /></label>
-				<label>{copy.start}<MidiNoteNumberField key={`start:${activeNote?.id}`} min={0} step={0.001} disabled={disabled || !activeNote} value={activeNote ? activeNote.startFrame / sampleRate : ''}
+				<label><EditorControlLabel>{copy.start}</EditorControlLabel><MidiNoteNumberField key={`start:${activeNote?.id}`} min={0} step={0.001} disabled={disabled || !activeNote} value={activeNote ? activeNote.startFrame / sampleRate : ''}
 					onCommit={value => editSelected({ startFrame: Math.round(value * sampleRate) })} /></label>
-				<label>{copy.duration}<MidiNoteNumberField key={`duration:${activeNote?.id}`} min={0} step={0.001} disabled={disabled || !activeNote} value={activeNote ? activeNote.durationFrames / sampleRate : ''}
+				<label><EditorControlLabel>{copy.duration}</EditorControlLabel><MidiNoteNumberField key={`duration:${activeNote?.id}`} min={0} step={0.001} disabled={disabled || !activeNote} value={activeNote ? activeNote.durationFrames / sampleRate : ''}
 					onCommit={value => editSelected({ durationFrames: Math.max(1, Math.round(value * sampleRate)) })} /></label>
-				<label>{copy.velocity}<MidiNoteNumberField key={`velocity:${activeNote?.id}`} min={1} max={127} step={1} disabled={disabled || !activeNote} value={activeNote?.velocity ?? ''}
+				<label><EditorControlLabel>{copy.velocity}</EditorControlLabel><MidiNoteNumberField key={`velocity:${activeNote?.id}`} min={1} max={127} step={1} disabled={disabled || !activeNote} value={activeNote?.velocity ?? ''}
 					onCommit={value => editSelected({ velocity: value })} /></label>
-				<label>{copy.channel}<MidiNoteNumberField key={`channel:${activeNote?.id}`} min={1} max={16} step={1} disabled={disabled || !activeNote} value={activeNote ? activeNote.channel + 1 : ''}
+				<label><EditorControlLabel>{copy.channel}</EditorControlLabel><MidiNoteNumberField key={`channel:${activeNote?.id}`} min={1} max={16} step={1} disabled={disabled || !activeNote} value={activeNote ? activeNote.channel + 1 : ''}
 					onCommit={value => editSelected({ channel: value - 1 })} /></label>
 				<button type="button" disabled={!activeNote} onClick={() => { if (activeNote) preview(activeNote.pitch); }}>{copy.preview}</button>
 			</div>

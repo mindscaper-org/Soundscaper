@@ -12,9 +12,11 @@ import { DESKTOP_PROJECT_RUNTIME_FILES } from './desktop-project-runtime-files.m
 import { DESKTOP_PROJECT_LIBRARY_BASELINE_RUNTIME_FILES } from './desktop-project-library-baseline-runtime-files.mjs';
 import { DESKTOP_SOUNDSCAPER_RUNTIME_FILES } from './desktop-soundscaper-runtime-files.mjs';
 import { DESKTOP_EFFECT_RUNTIME_FILES } from './desktop-effect-runtime-files.mjs';
+import { DESKTOP_YABRIDGE_RUNTIME_FILES } from './desktop-yabridge-runtime-files.mjs';
 
 /** Closed compiler output inventory shared by staging and fixture authentication. */
 export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
+	...DESKTOP_YABRIDGE_RUNTIME_FILES,
 	'src/common/media/indexeddb.js',
 	'src/common/media/bytes.js',
 	'src/common/scape/archive-limits.js',

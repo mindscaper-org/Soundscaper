@@ -7,6 +7,7 @@ import {
 	type LocalAssistanceTranscriptCleanupPreset,
 	type LocalAssistanceTranscriptCleanupState,
 } from '../../assistance/local-assistance-cleanup.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 type Copy = Readonly<Record<string, string | undefined>>;
 
@@ -59,7 +60,7 @@ export default function LocalAssistanceCleanupReview({
 		cleanup.usesVoiceActivity
 			? 'Nothing is applied until you select proposals and explicitly apply them. Silence choices use the reviewed VAD result from this selection.'
 			: 'Nothing is applied until you select proposals and explicitly apply them.')}</p>
-		<label>{text(copy, 'localAssistanceCleanupPreset', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceCleanupPreset)}
+		<label><EditorControlLabel>{text(copy, 'localAssistanceCleanupPreset', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceCleanupPreset)}</EditorControlLabel>
 			<select value={cleanup.preset} disabled={accepting}
 				onChange={(event) => { void onPresetChange(
 					event.currentTarget.value as LocalAssistanceTranscriptCleanupPreset,
@@ -75,7 +76,7 @@ export default function LocalAssistanceCleanupReview({
 						onChange={(event) => {
 							void onSelectionChange(proposal.id, event.currentTarget.checked);
 						}} />
-					<span>{proposalLabel(copy, proposal.kind, proposal.text)}</span>
+					<EditorControlLabel>{proposalLabel(copy, proposal.kind, proposal.text)}</EditorControlLabel>
 					<small>{template(text(copy, 'localAssistanceCleanupFrames',
 						'frames {start}–{end}'), { start: String(proposal.startFrame),
 						end: String(proposal.endFrame) })}</small>

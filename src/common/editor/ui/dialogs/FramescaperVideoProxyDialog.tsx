@@ -20,6 +20,7 @@ import { WebFileLoadLimitError, withWebFileLoadLimitContext } from '../../web-fi
 import type { FramescaperVideoProxyModeRetime } from '../../../../framescaper/editor-video-proxy-use-policy-retime.ts';
 import type { FramescaperSidecarFileReader } from '../framescaper-sidecar-file.ts';
 import { withFramescaperVideoProxyFile } from '../framescaper-video-proxy-file.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface ProxyFileService extends FramescaperSidecarFileReader {
 	readonly isDesktop?: boolean;
@@ -248,7 +249,7 @@ export default function FramescaperVideoProxyDialog({
 				label(copy, 'videoProxyNoSources', VIDEO_PROXY_ADDITIONAL_COPY.videoProxyNoSources)
 			}</p>}
 			{model.sources.length > 0 && <>
-				<label><span>{label(copy, 'videoProxySource', VIDEO_PROXY_ADDITIONAL_COPY.videoProxySource)}</span>
+				<label><EditorControlLabel>{label(copy, 'videoProxySource', VIDEO_PROXY_ADDITIONAL_COPY.videoProxySource)}</EditorControlLabel>
 					<select data-video-proxy-source value={selectedSourceId ?? ''}
 						disabled={pending !== null}
 						onChange={(event) => {
@@ -258,7 +259,7 @@ export default function FramescaperVideoProxyDialog({
 						{model.sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}
 					</select>
 				</label>
-				<label><span>{label(copy, 'videoProxyPreviewMode', VIDEO_PROXY_ADDITIONAL_COPY.videoProxyPreviewMode)}</span>
+				<label><EditorControlLabel>{label(copy, 'videoProxyPreviewMode', VIDEO_PROXY_ADDITIONAL_COPY.videoProxyPreviewMode)}</EditorControlLabel>
 					<select value={mode} data-video-proxy-preview-mode={mode}
 						disabled={!runtime || pending !== null}
 						onChange={(event) => changeMode(event.currentTarget.value)}>

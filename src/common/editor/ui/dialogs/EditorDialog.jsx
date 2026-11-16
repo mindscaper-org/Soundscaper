@@ -32,6 +32,7 @@ import { timedRecordingDialogRange } from './timed-recording-dialog-model.ts';
 import { submitCompletedNumberField } from './completed-number-field-submit.ts';
 import { selectAudioEditorEditBlock } from '../../edit-blocking.ts';
 import { resetSoundscaperPluginPreferences } from '../soundscaper-plugin-preferences-reset.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export default function EditorDialog({ type, value, onValueChange, trackId, controller, snapshot, copy, locale, run, fileService = null, showArmControls = false, onClose }) {
 	const cancelTimedRecordingOnClose = useRef(false);
@@ -227,17 +228,17 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 					{type === 'rename' && (
 						<form onSubmit={(event) => { event.preventDefault(); submitRename(); }}>
 							<label className="kw-audio-editor-dialog__field">
-								<span>{copy.projectName}</span>
-								<span data-project-name-input>
+								<EditorControlLabel>{copy.projectName}</EditorControlLabel>
+								<EditorControlLabel data-project-name-input>
 									<EditorDialogNameField value={value} onChange={onValueChange} onSubmit={submitRename} />
-								</span>
+								</EditorControlLabel>
 							</label>
 						</form>
 					)}
 					{type === 'track-rename' && (
 						<form onSubmit={(event) => { event.preventDefault(); submitTrackRename(); }}>
 							<label className="kw-audio-editor-dialog__field">
-								<span>{copy.trackName}</span>
+								<EditorControlLabel>{copy.trackName}</EditorControlLabel>
 								<EditorDialogNameField value={value} onChange={onValueChange} onSubmit={submitTrackRename} />
 							</label>
 						</form>
@@ -252,7 +253,7 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 					{type === 'resample' && (
 						<form onKeyDownCapture={event => submitCompletedNumberField(event, submitResample)} onSubmit={(event) => { event.preventDefault(); submitResample(); }}>
 							<label className="kw-audio-editor-dialog__field">
-								<span>{copy.sampleRate} (Hz)</span>
+								<EditorControlLabel>{copy.sampleRate} (Hz)</EditorControlLabel>
 								<NumberStepper value={String(value)} min={8_000} max={384_000} step={1_000} width="100%" onChange={onValueChange} />
 							</label>
 						</form>
@@ -260,7 +261,7 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 					{type === 'track-rate' && (
 						<form onKeyDownCapture={event => submitCompletedNumberField(event, submitTrackRate)} onSubmit={(event) => { event.preventDefault(); submitTrackRate(); }}>
 							<label className="kw-audio-editor-dialog__field">
-								<span>{copy.sampleRate} (Hz)</span>
+								<EditorControlLabel>{copy.sampleRate} (Hz)</EditorControlLabel>
 								<NumberStepper value={String(value)} min={8_000} max={384_000} step={1_000} width="100%" onChange={onValueChange} />
 							</label>
 						</form>

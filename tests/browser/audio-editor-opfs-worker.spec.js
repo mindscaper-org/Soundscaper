@@ -8,9 +8,10 @@ import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 import { hasWebGl2Capability } from './helpers/webgl2-capability.js';
 import { playAndWaitForAdvance } from './helpers/playback-progress.js';
 import { closeWorkspacePanel } from './helpers/workspace-panel-chrome.js';
+import { EDITOR_STORAGE_DATABASE_VERSION } from '../../src/common/editor/storage/indexeddb-backend.ts';
 
 const DATABASE_NAME = FRAMESCAPER_DATABASE_NAME;
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = EDITOR_STORAGE_DATABASE_VERSION;
 const WEBKIT_AV_IMPORT_DEFERRED = 'Playwright WebKit rejects the IndexedDB Blob write that persists an imported A/V source.';
 
 test.describe('dedicated OPFS storage worker', () => {

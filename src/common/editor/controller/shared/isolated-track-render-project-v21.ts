@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { clipEffectControlTrackIds } from '../../clip-effect-control-tracks.ts';
+import type { EngineClip } from '../../engine/types.ts';
 
 import { createDefaultMixerGraphV21, type MixerGraphV21 } from '../../mixer-graph-v21.ts';
 import {
@@ -20,6 +22,7 @@ interface IsolatedTrackRenderTrackV21 extends Readonly<Record<string, unknown>> 
 }
 
 export interface IsolatedTrackRenderProjectV21 extends Readonly<Record<string, unknown>> {
+	readonly clips?: readonly EngineClip[];
 	readonly schemaVersion: number;
 	readonly featureRequirements: ProjectFeatureRequirementsManifest;
 	readonly masterChannels: number;
@@ -56,8 +59,8 @@ export function createIsolatedTrackRenderProjectV21(
 	const selected = project.tracks.find((track) => track.id === request.trackId && track.type === 'audio');
 	if (!selected) throw new ReferenceError(`The V21 render track ${request.trackId} does not exist.`);
 	const widths = resolveTerminalChannelWidths(project, project.masterChannels).tracks;
-	if (request.preserveTrackProcessing && project.mixer.edges.some(edge => edge.destination.kind === 'effect-sidechain'
-		&& edge.destination.strip.kind === 'track' && edge.destination.strip.id === request.trackId)) {
+	if (request.preserveTrackProcessing && (clipEffectControlTrackIds(project, new Set([request.trackId])).length || project.mixer.edges.some(edge => edge.destination.kind === 'effect-sidechain'
+		&& edge.destination.strip.kind === 'track' && edge.destination.strip.id === request.trackId))) {
 		const capture = { ...createAuthoredTrackSidechainRender(project, request, widths),
 			metadata: preMasterMetadata(project) };
 		projectTransientRenderFeatures(capture);

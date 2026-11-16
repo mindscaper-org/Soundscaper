@@ -7,6 +7,7 @@ import { useEffect, useId, useMemo, useState } from 'react';
 import { resolveEditorCopyScope } from '../../../i18n/editor-copy-scope.ts';
 import { DESKTOP_FFMPEG_COPY } from '../../../i18n/editor-desktop-ffmpeg-copy.ts';
 import './DesktopFfmpegPreferencePanel.css';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 type DesktopFfmpegPreferenceCopy = Readonly<{ [Key in keyof typeof DESKTOP_FFMPEG_COPY]: string }>;
 
@@ -113,7 +114,7 @@ export default function DesktopFfmpegPreferencePanel({
 			>
 				<p>{copy.externalFfmpegDescription}</p>
 				<div className="kw-audio-editor-external-ffmpeg__location">
-					<label htmlFor={locationId}>{copy.externalFfmpegLocation}</label>
+					<label htmlFor={locationId}><EditorControlLabel>{copy.externalFfmpegLocation}</EditorControlLabel></label>
 					<div className="kw-audio-editor-external-ffmpeg__path">
 						<input id={locationId} value={location} readOnly />
 						<Button variant="secondary" disabled={busy || !status.canBrowse || typeof fileService.chooseExternalFfmpeg !== 'function'} onClick={() => { void perform('chooseExternalFfmpeg', 'probing'); }}>{copy.externalFfmpegBrowse}</Button>

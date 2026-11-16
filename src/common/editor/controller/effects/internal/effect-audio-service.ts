@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { clipEffectControlTrackIds } from '../../../clip-effect-control-tracks.ts';
 
 import { projectForRuntimeConsumers } from '../../../project-current-runtime.ts'; import { publishedCopyFor } from '../../shared/presentation-localization.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
 import { hasCoreEditingProjectAuthority, hasProductionMixerProjectAuthority } from '../../../project-schema-version.ts';
@@ -110,7 +111,9 @@ export function createEffectAudioService<Buffer = EffectAudioBuffer>(runtime: Ef
 			snapshot.mixer = { groups: [], sends: [], routes: {} };
 		}
 		const authoredControlContext = processing === 'authored' && hasProductionMixerProjectAuthority(snapshot)
-			&& (snapshot.mixer as unknown as MixerGraphV21).edges.some(edge => edge.kind === 'sidechain');
+			&& (clipEffectControlTrackIds(snapshot, new Set([trackId])).length > 0
+				|| (snapshot.mixer as unknown as MixerGraphV21).edges.some(edge => edge.kind === 'sidechain'));
+		if (processing === 'dry') snapshot.clips = snapshot.clips.map(clip => ({ ...clip, effectsActive: false }));
 		const rendered = await runtime.renderSnapshot(snapshot, {
 			startFrame,
 			endFrame,
@@ -377,6 +380,7 @@ export function createEffectAudioService<Buffer = EffectAudioBuffer>(runtime: Ef
 	}
 
 	const selectedMediaPreparation = createDeferredLocalAssistancePreparation({
+		importMidiDocument: runtime.importMidiDocument,
 		getProject: runtime.getProject,
 		getSelectedClipId: () => runtime.state.selectedClipId,
 		captureProject: runtime.captureProject,

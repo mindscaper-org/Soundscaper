@@ -4,6 +4,7 @@ import { useId } from 'react';
 import { materializeApplicationMenu } from '../application-menu-materialization.ts';
 import type { AssistanceMenuEntry } from '../assistance-task-catalog.ts';
 import PreferenceCheckbox from '../EditorPreferenceCheckbox.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export default function AudioProcessingPreferences({ entry }: {
 	readonly entry: AssistanceMenuEntry;
@@ -18,7 +19,7 @@ export default function AudioProcessingPreferences({ entry }: {
 			if (item.items?.length) {
 				const options = item.items;
 				return <label key={item.id} className="kw-audio-editor-preferences__field">
-					<span>{item.label}</span>
+					<EditorControlLabel>{item.label}</EditorControlLabel>
 					<select value={options.find((option) => option.checked === true)?.id ?? ''}
 						disabled={options.every((option) => option.disabled === true)} aria-describedby={description}
 						onChange={(event) => {

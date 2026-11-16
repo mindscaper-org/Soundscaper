@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useRef } from 'react';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface RoutingEdgeLevelInputProps {
 	readonly label: string;
@@ -30,7 +31,7 @@ export default function RoutingEdgeLevelInput(props: RoutingEdgeLevelInputProps)
 	const savedDb = routingLevelDisplayDb(savedLevel);
 	const edited = useRef(false);
 	const readValue = (draft: string) => routingLevelDraftValue(draft, edited.current ? undefined : savedLevel);
-	return <label>{props.label} <input
+	return <label><EditorControlLabel>{props.label} </EditorControlLabel><input
 		name="levelDb" type="number" min={-60} max={12.04} step="0.01" required
 		defaultValue={savedDb} disabled={props.disabled}
 		onFocus={(event) => {

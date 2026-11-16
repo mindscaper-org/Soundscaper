@@ -71,8 +71,17 @@ export function readParametricEqSpectrumEntry(
 	if (target.length !== entry.metadata.frequencyBinCount) {
 		throw new RangeError(`Parametric EQ spectrum buffers must contain ${entry.metadata.frequencyBinCount} bins.`);
 	}
-	const channels = (which === 'input' ? entry.inputChannels : entry.outputChannels) ?? [analyser];
-	if (channels.length <= 1) analyser.getFloatFrequencyData(target);
+	const declaredChannels = which === 'input' ? entry.inputChannels : entry.outputChannels;
+	const channels = declaredChannels?.length ? declaredChannels : [analyser];
+	readSpectrumChannels(channels, target);
+	return entry.metadata;
+}
+
+/** Average channel powers so opposite polarities cannot cancel in a mono downmix. */
+export function readSpectrumChannels(channels: readonly SpectrumAnalyserNode[], target: Float32Array): void {
+	const analyser = channels[0];
+	if (!analyser) { target.fill(Number.NEGATIVE_INFINITY); return; }
+	if (channels.length === 1) analyser.getFloatFrequencyData(target);
 	else {
 		target.fill(0);
 		let values = channelReadBuffers.get(analyser);
@@ -86,5 +95,4 @@ export function readParametricEqSpectrumEntry(
 		}
 		for (let bin = 0; bin < target.length; bin++) target[bin] = 10 * Math.log10(target[bin]! / channels.length);
 	}
-	return entry.metadata;
 }

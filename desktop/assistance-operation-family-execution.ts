@@ -2,6 +2,7 @@
 
 /** Additional-model resolution and private staging for runtime-family operations. */
 
+import { BASIC_PITCH_MODEL_ID, BASIC_PITCH_MODEL_VERSION, BASIC_PITCH_MODEL_SHA256 } from '../src/common/editor/assistance/basic-pitch-model.ts';
 import type {
 	AssistanceOperationModelBinding,
 	AssistanceOperationRequest,
@@ -50,7 +51,7 @@ interface AssistanceOperationModelSelection {
 
 const DIRECT_ADDITIONAL_OPERATIONS = new Set<AssistanceOperationRequest['operation']>([
 	'word-alignment', 'speech-enhancement', 'dereverberation', 'source-separation',
-	'audio-tagging', 'beat-tracking', 'text-embedding', 'image-text-embedding',
+	'audio-tagging', 'beat-tracking', 'music-transcription', 'text-embedding', 'image-text-embedding',
 	'optical-character-recognition', 'subject-detection', 'saliency-detection',
 	'editorial-generation',
 	'text-to-speech',
@@ -169,6 +170,11 @@ async function resolveExactModel(
 		throw new TypeError(`${request.operation} requires one exact additional-runtime model binding.`);
 	}
 	if (request.operation === 'video-keying') assertCorridorKeyModelBindingV1(request.models[0]!);
+	if (request.operation === 'music-transcription' && (request.models[0]!.modelId !== BASIC_PITCH_MODEL_ID
+		|| request.models[0]!.version !== BASIC_PITCH_MODEL_VERSION
+		|| JSON.stringify(request.models[0]!.artifactSha256s) !== JSON.stringify([BASIC_PITCH_MODEL_SHA256]))) {
+		throw new TypeError('Music transcription requires the pinned Basic Pitch model.');
+	}
 	if (subjectBindings === null && (request.operation === 'audio-tagging'
 		|| request.operation === 'beat-tracking')) {
 		assertAssistanceOnnxAudioModelBindingV1(request.operation, request.models[0]!);
@@ -482,7 +488,7 @@ function resourceLimits(task: AssistanceRuntimeFamilyTask): Readonly<{
 	maximumDurationMs: number;
 }> {
 	return Object.freeze({
-		maximumRssBytes: task === 'editorial-generation' ? 12 * GIB : 8 * GIB,
+		maximumRssBytes: task === 'music-transcription' ? GIB : task === 'editorial-generation' ? 12 * GIB : 8 * GIB,
 		maximumDurationMs: 4 * 60 * 60_000,
 	});
 }

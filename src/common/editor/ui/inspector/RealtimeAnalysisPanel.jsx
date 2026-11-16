@@ -9,14 +9,13 @@ import { ChannelCorrelationJellyfish } from './ChannelCorrelationJellyfish.tsx';
 import AcxCompliancePanel from './AcxCompliancePanel.tsx';
 import { ACX_COMPLIANCE_COPY } from '../../../i18n/editor-acx-compliance-copy.ts';
 import { useTranslationScope } from '../use-translation-scope.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
+import AnalysisSpectrumPanel from './AnalysisSpectrumPanel.tsx';
 
-const SPECTRUM_WIDTH = 320;
-const SPECTRUM_HEIGHT = 112;
 const SPECTROGRAM_WIDTH = 320;
 const SPECTROGRAM_HEIGHT = 96;
-const MAXIMUM_SPECTRUM_BINS = 128;
 
-export default function RealtimeAnalysisPanel({ controller, copy, settings, active = true, projectId = '', snapshot = undefined, fileService = undefined }) {
+export default function RealtimeAnalysisPanel({ controller, copy, settings, active = true, projectId = '', snapshot = /** @type {import('./AnalysisSpectrumPanel.tsx').AnalysisSpectrumSnapshot} */ (undefined), fileService = undefined }) {
 	const { locale } = useComponentCopy();
 	const acxCopy = useTranslationScope('acxCompliance', ACX_COMPLIANCE_COPY, locale, copy);
 	return <div className="audio-editor-realtime-analysis" data-realtime-analysis>
@@ -27,9 +26,7 @@ export default function RealtimeAnalysisPanel({ controller, copy, settings, acti
 			<EbuR128WorkspacePanel controller={controller} copy={copy} settings={settings} />
 		</AnalysisSection>
 		<AnalysisSection id="spectrum" title={copy.spectrum} active={active}>
-			<VisualAnalysisLease controller={controller}>
-				<LiveSpectrum controller={controller} copy={copy} />
-			</VisualAnalysisLease>
+			<AnalysisSpectrumPanel controller={controller} snapshot={snapshot} copy={copy} />
 		</AnalysisSection>
 		<AnalysisSection id="spectrogram" title={copy.spectrogram} active={active}>
 			<VisualAnalysisLease controller={controller}>
@@ -73,21 +70,13 @@ function LiveLevels({ controller, copy }) {
 }
 
 function LiveLevel({ label, value, dataKey }) {
-	return <div><span>{label}</span><strong data-live-analysis-value={dataKey}>{value}</strong></div>;
+	return <div><EditorControlLabel>{label}</EditorControlLabel><strong data-live-analysis-value={dataKey}>{value}</strong></div>;
 }
 
 function levelDb(amplitude) {
 	return Number.isFinite(amplitude) && amplitude > 0
 		? `${(20 * Math.log10(amplitude)).toFixed(1)} dBFS`
 		: '−∞ dBFS';
-}
-
-function LiveSpectrum({ controller, copy }) {
-	const bins = useAudioEditorTelemetrySelector(controller, (telemetry) => telemetry.meters?.master?.spectrumDb);
-	const canvasRef = useRef(null);
-	useEffect(() => schedulePaint(canvasRef.current, (context) => paintSpectrum(context, bins)), [bins]);
-	return <canvas ref={canvasRef} width={SPECTRUM_WIDTH} height={SPECTRUM_HEIGHT}
-		data-live-analysis-spectrum role="img" aria-label={copy.spectrum} />;
 }
 
 function LiveSpectrogram({ controller, copy }) {
@@ -107,28 +96,11 @@ function schedulePaint(canvas, paint) {
 	return () => cancelAnimationFrame(handle);
 }
 
-function paintSpectrum(context, bins) {
-	context.fillStyle = '#11141a';
-	context.fillRect(0, 0, SPECTRUM_WIDTH, SPECTRUM_HEIGHT);
-	const count = Math.min(MAXIMUM_SPECTRUM_BINS, bins?.length ?? 0);
-	if (!count) return;
-	context.strokeStyle = '#66d3c5';
-	context.lineWidth = 1.5;
-	context.beginPath();
-	for (let index = 0; index < count; index += 1) {
-		const x = index / Math.max(1, count - 1) * SPECTRUM_WIDTH;
-		const y = SPECTRUM_HEIGHT * (1 - intensity(bins[index]));
-		if (index) context.lineTo(x, y);
-		else context.moveTo(x, y);
-	}
-	context.stroke();
-}
-
 function paintSpectrogramColumn(context, bins) {
 	context.drawImage(context.canvas, -1, 0);
 	context.fillStyle = '#090b10';
 	context.fillRect(SPECTROGRAM_WIDTH - 1, 0, 1, SPECTROGRAM_HEIGHT);
-	const count = Math.min(MAXIMUM_SPECTRUM_BINS, bins?.length ?? 0);
+	const count = Math.min(128, bins?.length ?? 0);
 	if (!count) return;
 	for (let row = 0; row < SPECTROGRAM_HEIGHT; row += 1) {
 		const band = SPECTROGRAM_HEIGHT - 1 - row;

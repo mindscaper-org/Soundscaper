@@ -15,6 +15,12 @@ The Kokoro G2P helper and its dependency closure are not included in the model
 files and remain unprovisioned.
 
 Desktop packaging copies this directory into its offline licenses inventory.
+The unmodified `basic-pitch-LICENSE.txt`, `basic-pitch-NOTICE.txt` and
+`basic-pitch-README.md` retain Spotify's Apache-2.0 grant, attributions and model usage guidance at revision
+`fa5997af0a8210982619003269994a1be25eddf3`. Their byte identities are pinned in
+`config/basic-pitch-model-source.json`; catalog inclusion additionally requires
+verified product-asset publication.
+
 Model-specific attribution, weight/code distinctions, artifact modifications,
 and distribution limitations are in
 [THIRD_PARTY_LICENSES.md](../../THIRD_PARTY_LICENSES.md#mirrored-assistance-models).

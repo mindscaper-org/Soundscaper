@@ -5,6 +5,7 @@ import { BoundedTextInput } from './BoundedTextInput.tsx';
 
 import PreferenceCheckbox from '../EditorPreferenceCheckbox.tsx';
 import { cancelDraftEditOnEscape, createDraftBlurCommitGuard, draftBlurShouldCommit } from '../draft-blur-commit.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export function CommitField({ label, name, value, type = 'text', min = undefined, max = undefined, step = undefined, disabled, readOnly, multiline, multilineCommitOnEnter = false, hookName = 'clip-field', visuallyHiddenLabel = false, preserveEditedDraft = false, onCommit }) {
 	const [draft, setDraft] = useState(String(value ?? ''));
@@ -56,7 +57,7 @@ export function CommitField({ label, name, value, type = 'text', min = undefined
 				});
 			}
 		}}>
-			<span className={visuallyHiddenLabel ? 'kw-audio-editor-sr-only' : undefined}>{label}</span>
+			<EditorControlLabel className={visuallyHiddenLabel ? 'kw-audio-editor-sr-only' : undefined}>{label}</EditorControlLabel>
 			<Input
 				min={min}
 				max={max}
@@ -88,7 +89,7 @@ export function LabeledDropdown({ label, options, value, onChange, disabled, hoo
 	}, [label, value, options]);
 	return (
 		<div ref={wrapperRef} className="audio-editor-field" role="group" aria-label={label} {...dataHook}>
-			<span>{label}</span>
+			<EditorControlLabel>{label}</EditorControlLabel>
 			<Dropdown options={availableOptions} value={value} onChange={handleChange} disabled={disabled} width="100%" />
 		</div>
 	);

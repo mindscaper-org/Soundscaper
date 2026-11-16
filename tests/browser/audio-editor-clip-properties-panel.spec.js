@@ -4,11 +4,13 @@ import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
 import { SOUNDSCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 import {
 	bootEditor,
+	addRackEffect,
 	chooseCommandAction,
 	chooseNestedCommandAction,
 	clipByName,
 	clipField,
 	closeClipProperties,
+	closeDialog,
 	collectClientErrors,
 	commitInput,
 	dockWorkspacePanel,
@@ -118,6 +120,52 @@ test.describe('live dockable Clip properties', () => {
 		await pitch.press('ArrowDown');
 		await pitch.press('Tab');
 		await expect(pitch).toHaveValue('11');
+		expect(errors).toEqual([]);
+	});
+
+	test('per-clip Effects starts collapsed, follows selection and retains edits through undo and reload', async ({ page }) => {
+		const errors = collectClientErrors(page);
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [toneA, toneB]);
+		const first = clipByName(editor, toneA.name), second = clipByName(editor, toneB.name);
+		const panel = await openClipProperties(page, editor, first);
+		const disclosure = panel.getByText('Effects', { exact: true });
+		await expect(disclosure).toBeVisible();
+		await expect(panel.getByRole('button', { name: 'Add effect', exact: true })).toHaveCount(0);
+		await disclosure.click();
+		await expect(panel.getByRole('button', { name: 'Add effect', exact: true })).toHaveCount(1);
+		await addRackEffect(page, panel, 'track', 'Invert');
+		await expect(panel.getByRole('group', { name: 'Invert', exact: true })).toBeVisible();
+		await addRackEffect(page, panel, 'track', 'Delay');
+		const dialog = page.getByRole('dialog', { name: 'Delay', exact: true });
+		await expect(dialog).toBeVisible();
+		await closeDialog(dialog);
+		await selectClip(second);
+		await expect(panel.getByRole('button', { name: 'Add effect', exact: true })).toHaveCount(0);
+		await panel.getByText('Effects', { exact: true }).click();
+		await expect(panel.getByRole('group', { name: 'Invert', exact: true })).toHaveCount(0);
+		await selectClip(first);
+		await panel.getByText('Effects', { exact: true }).click();
+		await expect(panel.getByRole('group', { name: 'Delay', exact: true })).toBeVisible();
+		await editor.getByRole('button', { name: 'Undo', exact: true }).click();
+		await expect(panel.getByRole('group', { name: 'Delay', exact: true })).toHaveCount(0);
+		await editor.getByRole('button', { name: 'Redo', exact: true }).click();
+		await expect(panel.getByRole('group', { name: 'Delay', exact: true })).toBeVisible();
+		await panel.getByRole('group', { name: 'Delay', exact: true }).getByRole('button', { name: 'Select effect', exact: true }).click();
+		await commitInput(dialog.getByRole('spinbutton', { name: /Delay time/u }), '0.125');
+		await closeDialog(dialog);
+		await panel.getByRole('group', { name: 'Invert', exact: true }).getByRole('button', { name: 'Disable effect', exact: true }).click();
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		await page.reload();
+		const restored = await waitForEditor(page);
+		const restoredPanel = await openClipProperties(page, restored, clipByName(restored, toneA.name));
+		await expect(restoredPanel.getByRole('button', { name: 'Add effect', exact: true })).toHaveCount(0);
+		await restoredPanel.getByText('Effects', { exact: true }).click();
+		await expect(restoredPanel.getByRole('group', { name: 'Invert', exact: true })).toBeVisible();
+		await expect(restoredPanel.getByRole('group', { name: 'Invert', exact: true }).getByRole('button', { name: 'Enable effect', exact: true })).toBeVisible();
+		await expect(restoredPanel.getByRole('group', { name: 'Delay', exact: true })).toBeVisible();
+		await restoredPanel.getByRole('group', { name: 'Delay', exact: true }).getByRole('button', { name: 'Select effect', exact: true }).click();
+		await expect(page.getByRole('dialog', { name: 'Delay', exact: true }).getByRole('spinbutton', { name: /Delay time/u })).toHaveValue('0.125');
 		expect(errors).toEqual([]);
 	});
 

@@ -50,6 +50,9 @@ qualification plans belong in Git history, not in the maintained documentation s
 - [Ambisonics implementation guide](development/ambisonics.md) defines first-,
   second-, and third-order formats, DSP, monitoring, persistence, delivery, and
   acceptance gates for post-1.0 Soundscaper.
+- [Beat slicing and gap smoothing implementation guide](development/beat-slicing.md)
+  defines rigid slice timing, source-handle repair, coordinated microphone
+  edits, preview/history, and acceptance gates for post-1.0 Soundscaper.
 - [Editor and handbook localization](development/localization.md) explains
   translation ownership, regeneration, and language publication.
 - [Source graphs](development/source-graphs.md) generates focused dependency
@@ -107,12 +110,16 @@ qualification plans belong in Git history, not in the maintained documentation s
   export, layouts, admission, worker isolation and source reproducibility.
 - [Automatic phase correction](features/automatic-phase-correction.md) covers
   fixed stereo alignment, analysis admission, and preview/publication behavior.
+- [Automatic dialogue alignment](features/automatic-dialogue-alignment.md) covers
+  acoustic matching, pitch-preserving rendering, private review and aligned copies.
 - [Automatic microphone-bleed reduction](features/automatic-microphone-bleed-reduction.md)
   covers joint dialogue analysis and editable, non-destructive clip gain envelopes.
 - [Legacy Cool Edit / Audition SES import](features/legacy-ses-import.md) covers
   binary layouts, media access, and compatibility limits.
 - [Native Pro Tools import](features/pro-tools-import.md) covers PTS/PTF/PTX
   audio edits, bounded binary parsing, media access, and the reference audit.
+- [Hindenburg session import](features/hindenburg-import.md) covers NHSX audio
+  edits, media access, conversion reports and pinned format evidence.
 - [Desktop Blender integration](development/desktop-blender.md) covers track-list
   export, add-on installation, and live audio updates in Blender.
 - [Framescaper capture](features/framescaper-capture.md) covers permission,

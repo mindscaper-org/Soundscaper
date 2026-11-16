@@ -151,7 +151,7 @@ test.describe('ported Audacity effect layouts', () => {
 		const dialog = page.getByRole('dialog', { name: 'Limiter', exact: true });
 		const historyBox = await box(await expectHistoryControls(dialog));
 		const labels = ['Threshold', 'Make-up target', 'Lookahead', 'Knee width', 'Release'];
-		const bounds = await Promise.all(labels.map(label => box(parameter(dialog, label))));
+		const bounds = await Promise.all(labels.map(label => box(parameter(dialog, label).getByRole('slider'))));
 		for (let index = 0; index < bounds.length; index += 1) {
 			expect(bounds[index].y).toBeGreaterThanOrEqual(historyBox.y + historyBox.height);
 			if (index) expect(bounds[index].x).toBeGreaterThan(bounds[index - 1].x + bounds[index - 1].width);

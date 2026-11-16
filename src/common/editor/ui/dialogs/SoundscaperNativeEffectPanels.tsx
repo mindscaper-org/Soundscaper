@@ -1,3 +1,5 @@
+import NativePluginEffectHeader from '../inspector/NativePluginEffectHeader.tsx';
+import type { SoundscaperNativePluginHostBridgeV1 } from '../../native-plugin-host-contract.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { useComponentCopy } from '@soundscaper/design-system/contexts/ComponentCopyContext';
 import { formatLocalizedTemplate } from '../localization-template.ts';
@@ -22,6 +24,9 @@ import {
 } from '../soundscaper-native-services-dialog-model.ts';
 
 export interface SoundscaperNativeEffectPanelProps {
+	readonly controller?: unknown;
+	readonly bridge?: SoundscaperNativePluginHostBridgeV1;
+	readonly headerCopy?: Readonly<Record<string, unknown>>;
 	readonly copy: SoundscaperNativeServicesCopy;
 	readonly state: SoundscaperNativeServicesDialogState;
 	readonly disabled: boolean;
@@ -29,7 +34,7 @@ export interface SoundscaperNativeEffectPanelProps {
 }
 
 export function SoundscaperNativeEffectManagePanel({
-	copy, state, disabled, perform, processingBlocked = false, requestedJuceEffectId,
+	copy, state, disabled, perform, controller, bridge, headerCopy, processingBlocked = false, requestedJuceEffectId,
 }: SoundscaperNativeEffectPanelProps & { readonly processingBlocked?: boolean; readonly requestedJuceEffectId?: string }) {
 	const [query, setQuery] = useState(() => juceEffectById(requestedJuceEffectId)?.pluginName ?? '');
 	const [format, setFormat] = useState('all');
@@ -46,7 +51,7 @@ export function SoundscaperNativeEffectManagePanel({
 	const records = state.plugins?.quarantine.records ?? [];
 	return <div className="audio-editor-soundscaper-native-manage">
 		{state.pluginInstance !== null && <PluginInstanceControls
-			copy={copy} state={state} disabled={disabled || processingBlocked} perform={perform} />}
+			copy={copy} state={state} disabled={disabled || processingBlocked} perform={perform} controller={controller} bridge={bridge} headerCopy={headerCopy} />}
 		<div className="kw-processing-filters">
 			<ProcessingSearchField value={query} onChange={setQuery} label={copy.searchPlugins} />
 			<PreferenceDropdownField label={copy.pluginFormat} value={format} onChange={setFormat}
@@ -106,7 +111,7 @@ function nativePluginStatus(entry: NativePluginEntryView): 'ready' | 'disabled' 
 	return entry.eligible ? 'ready' : entry.ineligibleReason === 'allowance-required' ? 'disabled' : 'incompatible';
 }
 
-function PluginInstanceControls({ copy, state, disabled, perform }: SoundscaperNativeEffectPanelProps) {
+function PluginInstanceControls({ copy, state, disabled, perform, controller, bridge, headerCopy }: SoundscaperNativeEffectPanelProps) {
 	const { locale } = useComponentCopy();
 	const number = useMemo(() => new Intl.NumberFormat(locale), [locale]);
 	const instance = state.pluginInstance;
@@ -115,6 +120,10 @@ function PluginInstanceControls({ copy, state, disabled, perform }: SoundscaperN
 	const vendorWindow = state.pluginVendorWindow;
 	return <section data-native-plugin-instance={instance.instanceId}>
 		<h3>{`${instance.format} — ${instance.state}`}</h3>
+		<NativePluginEffectHeader controller={controller} bridge={bridge} copy={headerCopy} identity={instance}
+			name={state.registry?.entries.find(entry => entry.entryId === instance.entryId)?.name ?? instance.stablePluginId}
+			enabled={!instance.bypassed} disabled={disabled}
+			onEnabledChange={enabled => { if (!disabled) perform({ type: 'set-plugin-bypassed', instanceId: instance.instanceId, bypassed: !enabled }); }} />
 		<NativePluginParameterControls key={vendorWindow?.windowHandleId ?? ''}
 			instanceId={instance.instanceId} stateGeneration={state.pluginStateGeneration}
 			disabled={disabled} copy={{
@@ -127,11 +136,7 @@ function PluginInstanceControls({ copy, state, disabled, perform }: SoundscaperN
 		<Button variant="secondary" disabled={disabled} data-native-plugin-run-offline="true"
 			onClick={() => perform({ type: 'run-plugin-offline', instanceId: instance.instanceId })}
 		>{copy.runPluginOffline}</Button></details>}
-		{instance.classification !== 'instrument' && <Button variant="secondary" disabled={disabled} data-native-plugin-bypass={String(!instance.bypassed)}
-			onClick={() => perform({
-				type: 'set-plugin-bypassed', instanceId: instance.instanceId, bypassed: !instance.bypassed,
-			})}
-		>{instance.bypassed ? copy.enablePlugin : copy.bypassPlugin}</Button>}
+
 		<Button variant="secondary" disabled={disabled} data-native-plugin-persist-state="true"
 			onClick={() => perform({
 				type: 'persist-plugin-state', instanceId: instance.instanceId,

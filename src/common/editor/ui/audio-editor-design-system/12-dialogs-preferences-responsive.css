@@ -529,3 +529,12 @@
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 }
+
+.kw-audio-editor-preferences__auto-idle-overrides {
+	border: 0;
+	margin: 8px 0 0;
+	padding: 0;
+	min-width: 0;
+}
+.kw-audio-editor-preferences__auto-idle-overrides ul { list-style: none; padding: 0; display: grid; gap: 8px; }
+.kw-audio-editor-preferences__auto-idle-overrides li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }

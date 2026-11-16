@@ -12,6 +12,16 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
  */
 const ASSISTANCE_SITES: readonly FoundationTimeConversionSite[] = [
 	{
+		id: 'transcript-word-timeline-projection',
+		file: 'src/common/editor/transcript-editing.ts',
+		behavior: 'Transcript word ranges enclose their source intervals on the current clip timeline, including warped, musical and looped placements.',
+		conversions: [
+			{ helper: 'beatToSampleFrame', policies: ['enclosingStart', 'enclosingEnd'] },
+			{ helper: 'roundRational', policies: ['enclosingStart', 'enclosingEnd'] },
+			{ helper: 'scaleSampleFrame', policies: ['enclosingStart', 'enclosingEnd'] },
+		],
+	},
+	{
 		id: 'assistance-owned-audio-workflow-transforms',
 		file: 'src/common/editor/assistance/owned-audio-workflow-transforms-v1.ts',
 		behavior: 'Owned diarization turns and word alignments cross from their model rate to the source rate by outward-enclosing each start and end, so an accepted span never trims the audio it was recognised from.',

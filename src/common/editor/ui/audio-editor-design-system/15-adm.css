@@ -10,7 +10,10 @@
 	gap: 10px;
 }
 
-.audio-editor-adm-fields > label > span,
+.audio-editor-adm-fields > label > span {
+	color: var(--muted);
+}
+
 .audio-editor-adm-routing legend {
 	color: var(--muted);
 	font-weight: 700;

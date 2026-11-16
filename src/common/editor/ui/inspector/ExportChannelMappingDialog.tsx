@@ -18,6 +18,7 @@ import {
 	toggleExportChannelMatrix,
 	type ExportChannelMatrix,
 } from '../export-channel-matrix.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 type DialogCopy = Readonly<Record<string, string>>;
 
@@ -91,7 +92,7 @@ export default function ExportChannelMappingDialog({
 					onBlurCapture={(event) => {
 						if (!event.currentTarget.contains(event.relatedTarget)) setOutputCountText(String(outputCount));
 					}}>
-					<span>{text('channelMappingOutputCount', 'Output channels')}</span>
+					<EditorControlLabel>{text('channelMappingOutputCount', 'Output channels')}</EditorControlLabel>
 					<NumberStepper
 						value={outputCountText}
 						min={1}

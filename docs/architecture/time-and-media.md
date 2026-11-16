@@ -152,6 +152,23 @@ An A/V link represents a shared presentation anchor, not equality between two
 stored coordinate records. Validation compares the resolved presentation
 ranges.
 
+## Folder content editing
+
+Folder content commands resolve descendants from sequence `trackNodes`, never
+from mounted or visible rows. Collapse is presentation state. The folder menu
+and shortcut inventory expose explicit selection, split, gap-preserving delete,
+and ripple cut/delete/clipboard insert commands without default bindings.
+Selecting folder contents opts into pointer time selection on its overview.
+
+The edit controller reuses the existing split, range, clipboard, frozen-track,
+and product command paths. Scoped insertion maps clipboard lanes only within
+the folder and prepares collision/split identities across every descendant
+media track, including lanes receiving no pasted clips. A mismatch refuses
+instead of creating tracks outside the subtree. Locked descendants and A/V
+links crossing its boundary refuse before mutation. Each edit remains one
+history transaction, with the normal product metadata preservation rules.
+This is explicit folder targeting, not a persistent linked-track group.
+
 ## Tempo, warp, and retime
 
 Tempo events and musical anchors use exact beats. Ordinary maps derive samples

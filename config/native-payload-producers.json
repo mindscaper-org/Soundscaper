@@ -182,6 +182,22 @@
 				"scripts/lib/desktop-assistance-vulkan-toolchain.mjs",
 				"config/desktop-assistance-vulkan-sources.json"
 			]
+		},
+		{
+			"id": "yabridge-vst3",
+			"manifestPath": "config/yabridge-native-payload.json",
+			"manifestTargetPath": "targets",
+			"targets": ["linux-x64"],
+			"workflowPath": ".github/workflows/desktop-nightly-tests.yml",
+			"packageCommand": "scripts/desktop-nightly-tests-products.mjs",
+			"pipelinePaths": [
+				"scripts/desktop-nightly-tests-products.mjs",
+				"scripts/desktop-prepare.mjs",
+				"scripts/build-yabridge.mjs",
+				"scripts/lib/yabridge-staging.mjs",
+				"config/yabridge-native-payload.json",
+				"native/soundscaper-wine-launcher/launcher.c"
+			]
 		}
 	]
 }

@@ -23,6 +23,7 @@ export const PROJECT_OWNED_FEATURE_REQUIREMENT_IDS = Object.freeze({
 	assistanceAssets: 'soundscaper.assistance-assets',
 	literalJsonKeys: SCAPE_LITERAL_KEYS_REQUIREMENT_ID,
 	audioEffects: 'soundscaper.audio-effects',
+	audioClipEffects: 'soundscaper.audio-clip-effects',
 	videoEffects: 'soundscaper.video-effects',
 	musicalTimeline: 'soundscaper.musical-timeline',
 	timelineAnnotations: 'soundscaper.timeline-annotations',
@@ -69,6 +70,7 @@ const OWNED_VIDEO_EFFECT_REQUIREMENT: ProjectFeatureRequirement = Object.freeze(
 	fallback: null,
 });
 const FOUNDATION_REQUIREMENTS = Object.freeze({
+	audioClipEffects: requirement('audioClipEffects', 'Clip audio effects'),
 	assistanceAssets: requirement('assistanceAssets', 'Assistance assets'),
 	musicalTimeline: requirement('musicalTimeline', 'Musical timeline'),
 	timelineAnnotations: requirement('timelineAnnotations', 'Timeline markers and regions'),
@@ -90,6 +92,7 @@ const OWNED_ASSISTANCE_FEATURE_REQUIREMENT = foundationOwned(
 	() => true,
 );
 const OWNED_FEATURE_REQUIREMENTS: readonly OwnedFeatureRequirement[] = Object.freeze([
+	foundationOwned(FOUNDATION_REQUIREMENTS.audioClipEffects, project => audioClips(project).some(clip => isRecord(clip) && dataArray(clip, 'effects').length > 0)),
 	foundationOwned(Object.freeze({ id: PROJECT_OWNED_FEATURE_REQUIREMENT_IDS.literalJsonKeys,
 		featureId: PROJECT_FEATURE_CAPABILITY_IDS.literalJsonKeys, displayName: 'Literal JSON metadata keys',
 		disposition: 'bypass', fallback: null }), projectHasScapeLiteralKeys, () => true),
@@ -149,7 +152,7 @@ const OWNED_FEATURE_REQUIREMENTS: readonly OwnedFeatureRequirement[] = Object.fr
 ]);
 
 function requirement(
-	key: 'assistanceAssets' | 'musicalTimeline' | 'timelineAnnotations' | 'trackFolders' | 'takeComp' | 'audioWarp'
+	key: 'audioClipEffects' | 'assistanceAssets' | 'musicalTimeline' | 'timelineAnnotations' | 'trackFolders' | 'takeComp' | 'audioWarp'
 		| 'audioAutomation' | 'audioMixerGraph' | 'masteringSequences' | 'immersiveAdm' | 'sequenceTiming'
 		| 'videoRetime' | 'videoTimingAssets' | 'sourceCharacteristics',
 	displayName: string,
@@ -254,6 +257,7 @@ function ownedRequirementMatches(
 }
 
 function projectHasMaintainedAudioEffects(project: Readonly<Record<string, unknown>>): boolean {
+	if (audioClips(project).some(clip => isRecord(clip) && rackHasMaintainedAudioEffect(clip))) return true;
 	const tracks = dataArray(project, 'tracks');
 	for (const track of tracks) {
 		if (!isRecord(track)) continue;
@@ -280,6 +284,12 @@ function rackHasMaintainedAudioEffect(owner: RecordValue): boolean {
 		if (typeof type === 'string' && AUDIO_EFFECT_TYPE_SET.has(type)) return true;
 	}
 	return false;
+}
+
+function audioClips(project: RecordValue): readonly unknown[] {
+	const bin = dataProperty(project, 'projectBin');
+	return [...dataArray(project, 'clips'), ...(isRecord(bin) ? dataArray(bin, 'clips') : [])]
+		.filter(clip => isRecord(clip) && dataProperty(clip, 'kind') === 'audio');
 }
 
 function projectHasMaintainedVideoEffects(project: Readonly<Record<string, unknown>>): boolean {

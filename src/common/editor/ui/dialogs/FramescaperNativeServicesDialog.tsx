@@ -53,6 +53,7 @@ import {
 	type FramescaperNativeProjectActionRuntime,
 } from '../framescaper-native-project-actions.ts';
 import type { FramescaperNativeServiceSurface } from '../framescaper-native-services-menu.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export interface FramescaperNativeServicesDialogProps {
 	readonly bridge: FramescaperNativeServicesBridge;
@@ -301,7 +302,7 @@ function WatchPanel({ copy, snapshot, busy, perform, context, lifecycleMethods }
 	return <>
 		<form onSubmit={(event) => { event.preventDefault(); create(); }}>
 			<label className="kw-audio-editor-dialog__field">
-				<span>{copy.nativeRoots}</span>
+				<EditorControlLabel>{copy.nativeRoots}</EditorControlLabel>
 				<select value={grantId} disabled={busy || roots.length === 0}
 					onChange={(event) => setSelectedRootId(event.currentTarget.value)}>
 					{roots.map((root) => <option key={root.grantId} value={root.grantId}>
@@ -310,12 +311,12 @@ function WatchPanel({ copy, snapshot, busy, perform, context, lifecycleMethods }
 				</select>
 			</label>
 			<label className="kw-audio-editor-dialog__field">
-				<span>{copy.watchExtensions}</span>
+				<EditorControlLabel>{copy.watchExtensions}</EditorControlLabel>
 				<input value={extensions} disabled={busy}
 					onChange={(event) => setExtensions(event.currentTarget.value)} />
 			</label>
 			<label className="kw-audio-editor-dialog__field">
-				<span>{copy.watchImportMode}</span>
+				<EditorControlLabel>{copy.watchImportMode}</EditorControlLabel>
 				<select value={importMode} disabled={busy}
 					onChange={(event) => setImportMode(event.currentTarget.value === 'copy' ? 'copy' : 'link')}>
 					<option value="link">{copy.watchLinked}</option>
@@ -323,7 +324,7 @@ function WatchPanel({ copy, snapshot, busy, perform, context, lifecycleMethods }
 				</select>
 			</label>
 			{context.allowProxyGeneration && <label className="kw-audio-editor-dialog__field">
-				<span>{copy.watchGenerateProxies}</span>
+				<EditorControlLabel>{copy.watchGenerateProxies}</EditorControlLabel>
 				<input type="checkbox" checked={generateProxies} disabled={busy}
 					onChange={(event) => setGenerateProxies(event.currentTarget.checked)} />
 			</label>}
@@ -372,7 +373,7 @@ function PreferencesPanel({ copy, snapshot, busy, perform, lifecycleMethods }: R
 			{preferenceRows(copy, snapshot).map((row) => {
 				const controllable = snapshot.controllablePreferences.includes(row.preference);
 				return <label key={row.preference} className="kw-audio-editor-dialog__field">
-					<span>{row.label}</span>
+					<EditorControlLabel>{row.label}</EditorControlLabel>
 					<input
 						type="checkbox"
 						checked={row.enabled}

@@ -14,6 +14,7 @@ import CustomToolbarButtonSymbol from '../toolbar/CustomToolbarButtonSymbol.tsx'
 import CustomToolbarActionPicker from './CustomToolbarActionPicker.tsx';
 import { prepareCustomToolbarSymbolSearch } from './custom-toolbar-button-search.ts';
 import './CustomToolbarButtonDialog.css';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface Props {
 	readonly button?: CustomToolbarButton | null;
@@ -77,13 +78,13 @@ export default function CustomToolbarButtonDialog({ button, copy, actions, onSav
 		}}>
 			<p id={descriptionId}>{copy.customToolbarButtonHelp}</p>
 			<label className="kw-audio-editor-custom-button-dialog__field">
-				<span>{copy.customToolbarButtonName}</span>
+				<EditorControlLabel>{copy.customToolbarButtonName}</EditorControlLabel>
 				<input name="custom-button-name" aria-label={copy.customToolbarButtonName} value={name} onChange={(event) => setName(event.currentTarget.value)} required disabled={saving} />
 			</label>
 			<CustomToolbarActionPicker actions={actions} actionId={actionId} copy={copy} disabled={saving} onSelect={setActionId} />
 			{actionId && (!selectedAction || selectedAction.disabled) && <p>{selectedAction?.disabledReason || copy.customToolbarButtonUnavailable}</p>}
 			<label className="kw-audio-editor-custom-button-dialog__field">
-				<span>{copy.customToolbarButtonSymbolSearch}</span>
+				<EditorControlLabel>{copy.customToolbarButtonSymbolSearch}</EditorControlLabel>
 				<input type="search" aria-label={copy.customToolbarButtonSymbolSearch} value={symbolSearch} onChange={(event) => setSymbolSearch(event.currentTarget.value)} disabled={saving} />
 			</label>
 			<div className="kw-audio-editor-custom-button-dialog__symbol-heading">
@@ -92,14 +93,14 @@ export default function CustomToolbarButtonDialog({ button, copy, actions, onSav
 			</div>
 			<div className="kw-audio-editor-custom-button-dialog__symbol-color">
 				<label className="kw-audio-editor-custom-button-dialog__field">
-					<span>{copy.customToolbarButtonSymbolColor}</span>
+					<EditorControlLabel>{copy.customToolbarButtonSymbolColor}</EditorControlLabel>
 					<input type="color" aria-label={copy.customToolbarButtonSymbolColor} value={iconColor ?? theme.foreground.text.primary}
 						disabled={saving || loadingIcon || icon === uploadedIcon} onChange={(event) => setIconColor(event.currentTarget.value)} />
 				</label>
 				<Button type="button" variant="secondary" disabled={saving || loadingIcon || icon === uploadedIcon || !iconColor} onClick={() => setIconColor(undefined)}>{copy.customToolbarButtonThemeColor}</Button>
 			</div>
 			<label className="kw-audio-editor-custom-button-dialog__field">
-				<span>{copy.customToolbarButtonUploadSymbol}</span>
+				<EditorControlLabel>{copy.customToolbarButtonUploadSymbol}</EditorControlLabel>
 				<input type="file" accept=".png,.svg,image/png,image/svg+xml" aria-label={copy.customToolbarButtonUploadSymbol}
 					disabled={saving || loadingIcon} onChange={(event) => {
 						const file = event.currentTarget.files?.[0];

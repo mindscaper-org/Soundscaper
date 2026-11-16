@@ -3,6 +3,7 @@
 import type { NormalizedLoop, NormalizedPlayRange, PlanarPcm } from './buffer-math.ts';
 import type { DynamicsAnalysisWindow } from './dynamics-analysis-telemetry.ts';
 import type { EffectSpectrumMetadata } from './effect-rack.ts';
+import type { PlaybackSpectrumSession } from './playback-spectrum.ts';
 import type { ProjectGraphSelection } from './project-graph-selection.ts';
 import type { AudioWarpRenderPathStatus } from '../audio-warp-runtime.ts';
 import type { SessionLoudnessHistorySnapshot } from '../production-audio/loudness-history-session.ts';
@@ -150,7 +151,7 @@ export interface EngineScrubOptions {
 	readonly durationMs?: number;
 }
 
-export type EngineEffectScope = 'track' | 'group' | 'send' | 'master';
+export type EngineEffectScope = 'clip' | 'track' | 'group' | 'send' | 'master';
 
 export interface EngineEffectMessageOptions {
 	readonly revision?: number;
@@ -286,6 +287,8 @@ export interface EnginePublicApi {
 	subscribeMeters(listener: (meter: EngineMeterSnapshot) => void): () => boolean | void;
 	/** Hold the bounded live spectrum and stereo side taps while an Analysis panel is visible. */
 	acquireLiveAnalysis(): () => void;
+	/** Sample independent live track spectra until the visible plot releases them. */
+	acquirePlaybackSpectrum(): PlaybackSpectrumSession;
 	subscribeState(listener: (state: string) => void): () => boolean | void;
 	subscribePlaybackErrors(listener: (error: unknown) => void): () => boolean | void;
 	subscribeParametricEqErrors(listener: (error: unknown) => void): () => boolean | void;

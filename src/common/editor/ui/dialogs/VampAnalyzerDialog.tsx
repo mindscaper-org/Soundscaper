@@ -1,3 +1,5 @@
+import PluginEffectPresetHeader from '../inspector/PluginEffectPresetHeader.tsx';
+import { pluginEffectType } from '../../effect-plugin-identity.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { VAMP_DIALOG_COPY } from '../../../i18n/editor-vamp-copy.ts';
 
@@ -18,7 +20,9 @@ import {
 } from '../../vamp-analysis.ts';
 import { useAnalyzerLookup } from './useAnalyzerLookup.ts';
 import { MAXIMUM_VAMP_LABELS } from '../../vamp-analysis-labels.ts';
+import { vampMidiOutputKind } from '../../vamp-analysis-midi.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export interface VampAnalyzerDialogCopy {
 	readonly title: string;
@@ -41,11 +45,17 @@ export interface VampAnalyzerDialogCopy {
 	readonly publishLabels: string;
 	readonly publishing: string;
 	readonly tooManyLabels: string;
+	readonly publishMidi: string;
+	readonly midiTrackName: string;
+	readonly midiExplanation: string;
+	readonly chordMidiExplanation: string;
 }
 
 export const VAMP_ANALYZER_DIALOG_COPY: Readonly<VampAnalyzerDialogCopy> = VAMP_DIALOG_COPY;
 
 export interface VampAnalyzerDialogProps {
+	readonly controller?: unknown;
+	readonly headerCopy?: Readonly<Record<string, unknown>>;
 	readonly catalog: unknown;
 	/** Fences asynchronous completion; it is deliberately absent from the native request. */
 	readonly projectId: string;
@@ -62,6 +72,7 @@ export interface VampAnalyzerDialogProps {
 		trackName: string,
 	) => PromiseLike<void> | void;
 	readonly onClose: () => void;
+	readonly publishMidi?: (result: Readonly<VampAnalysisResult>, trackName: string, signal: AbortSignal) => Promise<void>;
 	readonly copy?: Partial<VampAnalyzerDialogCopy>;
 }
 
@@ -95,6 +106,7 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 	const [error, setError] = useState('');
 	const activeAnalysisRef = useRef<ActiveAnalysis | null>(null);
 	const activePublicationRef = useRef<symbol | null>(null);
+	const publicationAbortRef = useRef<AbortController | null>(null);
 	const currentProjectIdRef = useRef(props.projectId);
 	currentProjectIdRef.current = props.projectId;
 
@@ -107,6 +119,7 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 		activeAnalysisRef.current?.controller.abort();
 		activeAnalysisRef.current = null;
 		activePublicationRef.current = null;
+		publicationAbortRef.current?.abort();
 		const analyzer = catalogState.analyzers[0] ?? null;
 		const output = analyzer?.outputs[0] ?? null;
 		setAnalyzerId(analyzer?.analyzerId ?? '');
@@ -121,12 +134,14 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 		setError('');
 	}, [catalogState.analyzers, props.endFrame, props.projectId, props.sampleRate, props.scope, props.startFrame]);
 	useEffect(() => () => {
+		publicationAbortRef.current?.abort();
 		activeAnalysisRef.current?.controller.abort();
 		activeAnalysisRef.current = null;
 		activePublicationRef.current = null;
 	}, []);
 
 	const close = (): void => {
+		publicationAbortRef.current?.abort();
 		activeAnalysisRef.current?.controller.abort();
 		activeAnalysisRef.current = null;
 		activePublicationRef.current = null;
@@ -197,16 +212,20 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 			setPending(false);
 		});
 	};
-	const publish = (): void => {
+	const publish = (destination: 'labels' | 'midi'): void => {
 		const authoredName = trackName.trim();
-		if (!result || result.features.length === 0 || result.features.length > MAXIMUM_VAMP_LABELS
+		if (!result || result.features.length === 0 || destination === 'labels' && result.features.length > MAXIMUM_VAMP_LABELS
 			|| !authoredName || publishing || activePublicationRef.current !== null) return;
+		if (destination === 'midi' && (!props.publishMidi || !selectedOutput || !vampMidiOutputKind(selectedOutput))) return;
 		const id = Symbol('vamp-label-publication');
+		const controller = new AbortController();
+		publicationAbortRef.current = controller;
 		const projectId = props.projectId;
 		activePublicationRef.current = id;
 		setPublishing(true);
 		setError('');
-		void Promise.resolve(props.publishLabels(result, authoredName)).then(() => {
+		void Promise.resolve().then(() => destination === 'midi'
+			? props.publishMidi!(result, authoredName, controller.signal) : props.publishLabels(result, authoredName)).then(() => {
 			if (currentPublication(id, projectId)) props.onClose();
 		}).catch((failure: unknown) => {
 			if (currentPublication(id, projectId)) setError(message(failure));
@@ -229,6 +248,19 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 	const disabled = pending || publishing || selectedAnalyzer === null || selectedOutput === null;
 	return <AudioEditorDialogShell
 		title={labels.title}
+		headerSlot={selectedAnalyzer ? <PluginEffectPresetHeader controller={props.controller} copy={props.headerCopy}
+			effectType={pluginEffectType('vamp', selectedAnalyzer.analyzerId)} name={selectedAnalyzer.name}
+			resetKey={selectedAnalyzer.analyzerId} disabled={disabled} realtime={false}
+			currentParams={{ program, parameters, outputId }} read={() => ({ program, parameters, outputId })}
+			defaultParams={{ program: null, parameters: defaults(selectedAnalyzer), outputId: selectedAnalyzer.outputs[0]?.id ?? '' }}
+			apply={params => {
+				if (typeof params.outputId === 'string') selectOutput(params.outputId);
+				setProgram(typeof params.program === 'string' && selectedAnalyzer.programs.includes(params.program) ? params.program : null);
+				const values = params.parameters && typeof params.parameters === 'object' ? params.parameters as Record<string, unknown> : {};
+				setParameters(Object.fromEntries(selectedAnalyzer.parameters.map(parameter => [parameter.id,
+					typeof values[parameter.id] === 'string' || typeof values[parameter.id] === 'number' ? String(values[parameter.id]) : String(parameter.defaultValue)])));
+				setResult(null);
+			}} /> : null}
 		onClose={close}
 		width={560}
 		initialFocus="select"
@@ -244,21 +276,21 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 	>
 		{unavailable ? <p role="alert">{unavailable}</p> : <form aria-busy={pending || publishing}
 			onSubmit={(event) => { event.preventDefault(); submit(); }}>
-			<label>{labels.analyzer}
+			<label><EditorControlLabel>{labels.analyzer}</EditorControlLabel>
 				<select value={selectedAnalyzer?.analyzerId ?? ''} disabled={pending || publishing}
 					onChange={(event) => selectAnalyzer(event.currentTarget.value)}>
 					{catalogState.analyzers.map((analyzer) => <option key={analyzer.analyzerId}
 						value={analyzer.analyzerId}>{analyzer.name} — {analyzer.maker}</option>)}
 				</select>
 			</label>
-			<label>{labels.output}
+			<label><EditorControlLabel>{labels.output}</EditorControlLabel>
 				<select value={selectedOutput?.id ?? ''} disabled={pending || publishing}
 					onChange={(event) => selectOutput(event.currentTarget.value)}>
 					{selectedAnalyzer?.outputs.map((output) => <option key={output.id}
 						value={output.id}>{output.name}</option>)}
 				</select>
 			</label>
-			<label>{labels.scope}
+			<label><EditorControlLabel>{labels.scope}</EditorControlLabel>
 				<select value={selectedScope} disabled={pending || publishing}
 					onChange={(event) => {
 						const value = event.currentTarget.value;
@@ -268,7 +300,7 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 					<option value="master">{labels.master}</option>
 				</select>
 			</label>
-			{Boolean(selectedAnalyzer?.programs.length) && <label>{labels.program}
+			{Boolean(selectedAnalyzer?.programs.length) && <label><EditorControlLabel>{labels.program}</EditorControlLabel>
 				<select value={program ?? ''} disabled={pending || publishing}
 					onChange={(event) => {
 						const next = event.currentTarget.value || null;
@@ -282,7 +314,7 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 			</label>}
 			{Boolean(selectedAnalyzer?.parameters.length) && <fieldset disabled={pending || publishing}>
 				<legend>{labels.parameters}</legend>
-				{selectedAnalyzer?.parameters.map((parameter) => <label key={parameter.id}>{parameter.name}
+				{selectedAnalyzer?.parameters.map((parameter) => <label key={parameter.id}><EditorControlLabel>{parameter.name}</EditorControlLabel>
 					<input type="number" value={parameters[parameter.id] ?? ''}
 						placeholder={program === null ? undefined : labels.programValue}
 						required={program === null}
@@ -305,12 +337,20 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 			{result && <section data-vamp-analysis-result="true">
 				<p>{String(result.features.length)} {result.features.length === 1 ? labels.feature : labels.features}</p>
 				{result.features.length > MAXIMUM_VAMP_LABELS ? <p role="alert">{labels.tooManyLabels}</p> : <>
-					<label>{labels.labelTrackName}
+					<label><EditorControlLabel>{labels.labelTrackName}</EditorControlLabel>
 						<input type="text" value={trackName} disabled={publishing}
 							onChange={(event) => setTrackName(event.currentTarget.value)} />
 					</label>
 					<button type="button" disabled={publishing || result.features.length === 0 || !trackName.trim()}
-						onClick={publish}>{labels.publishLabels}</button>
+						onClick={() => publish('labels')}>{labels.publishLabels}</button>
+				</>}
+				{props.publishMidi && selectedOutput && vampMidiOutputKind(selectedOutput) && <>
+					<p>{selectedOutput.id === 'chordnotes' ? labels.chordMidiExplanation : labels.midiExplanation}</p>
+					{result.features.length > MAXIMUM_VAMP_LABELS && <label>{labels.midiTrackName}
+						<input type="text" value={trackName} disabled={publishing} onChange={event => setTrackName(event.currentTarget.value)} />
+					</label>}
+					<button type="button" disabled={publishing || !result.features.length || !trackName.trim()}
+						onClick={() => publish('midi')}>{labels.publishMidi}</button>
 				</>}
 			</section>}
 		</form>}

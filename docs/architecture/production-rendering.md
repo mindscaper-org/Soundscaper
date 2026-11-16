@@ -91,6 +91,22 @@ latency maxima are not equivalent and must not be introduced as alternate
 rules. Inactive racks and sidechains still follow the planner's explicit
 audibility semantics rather than ad hoc caller logic.
 
+## Clip effects
+
+Audio clips may own an optional `effects` rack and `effectsActive` bypass flag.
+Clip properties exposes it in a disclosure that starts collapsed. Clip gain,
+fades and envelopes feed the clip rack, then its output feeds the track insert
+rack. Playback and offline rendering use the same clip inputs, including loop
+repeats, warp segments and streamed sources. All source paths compensate to the
+longest mounted clip-rack latency before entering mixer compensation; effect
+tails include the clip and downstream insert path. Dry processing and mixes
+with effects disabled bypass clip racks. Parallel stack execution falls back to
+the conventional graph while an active clip rack is present.
+
+Scape retains clip rack state and declares the separate audio-clip-effects
+capability so earlier readers can report the unsupported processing. AUP4
+export reports the omitted clip racks.
+
 ## Track freeze
 
 Audio freeze is a reversible relationship between an editable track and managed

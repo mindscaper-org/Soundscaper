@@ -9,6 +9,7 @@ import {
 	createDraftBlurCommitGuard,
 	draftBlurShouldCommit,
 } from '../draft-blur-commit.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export function LabelManagerRow({ label, sampleRate, frameRate = 24, controller, copy, disabled, run,
 	onRemoving = /** @type {null | ((control: HTMLElement) => void)} */ (null) }) {
@@ -62,13 +63,13 @@ export function LabelManagerRow({ label, sampleRate, frameRate = 24, controller,
 			</div>
 			<small>{label.trackName}</small>
 			<div className="kw-audio-editor__label-manager-range">
-				<label><span>{copy.selectionStart || copy.clipStart}</span><AudioEditorTimeCodeInput
+				<label><EditorControlLabel>{copy.selectionStart || copy.clipStart}</EditorControlLabel><AudioEditorTimeCodeInput
 					label={copy.selectionStart || copy.clipStart} value={label.startFrame}
 					unit="samples" rate={sampleRate} frameRate={frameRate} format="hh:mm:ss+milliseconds"
 					directEntryUnit="seconds" directEntryPrecision={3}
 					maximum={label.endFrame} disabled={mutationDisabled}
 					onCommit={(value) => updateRange('start', value)} /></label>
-				<label><span>{copy.selectionEnd || copy.clipDuration}</span><AudioEditorTimeCodeInput
+				<label><EditorControlLabel>{copy.selectionEnd || copy.clipDuration}</EditorControlLabel><AudioEditorTimeCodeInput
 					label={copy.selectionEnd || copy.clipDuration} value={label.endFrame}
 					unit="samples" rate={sampleRate} frameRate={frameRate} format="hh:mm:ss+milliseconds"
 					directEntryUnit="seconds" directEntryPrecision={3}
@@ -92,7 +93,7 @@ export function MetadataEditorField({ name, label, value, disabled, onCommit, mu
 	const Field = multilineField ? 'textarea' : 'input';
 	return (
 		<label>
-			<span>{label}</span>
+			<EditorControlLabel>{label}</EditorControlLabel>
 			<Field
 				name={name}
 				value={draft}

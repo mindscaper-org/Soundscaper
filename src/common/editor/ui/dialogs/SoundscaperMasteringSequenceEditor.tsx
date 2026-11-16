@@ -13,6 +13,7 @@ import type { SoundscaperMasteringSequenceCopy } from '../soundscaper-mastering-
 import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
 import EditorHelpTooltip from '../EditorHelpTooltip.tsx';
 import type { MasteringSequenceDialogOperation } from './soundscaper-mastering-sequence-operation.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 /**
  * Authoring the order a delivery realizes.
@@ -106,7 +107,7 @@ export default function SoundscaperMasteringSequenceEditor({
 		<legend>{copy.masteringSequenceEditor}</legend>
 		<div className="kw-audio-editor-dialog__actions">
 			<label className="kw-audio-editor-dialog__field">
-				<span>{copy.masteringSequence}</span>
+				<EditorControlLabel>{copy.masteringSequence}</EditorControlLabel>
 				<select
 					data-mastering-sequence-picker
 					value={sequence?.id ?? ''}
@@ -139,7 +140,7 @@ export default function SoundscaperMasteringSequenceEditor({
 				}}
 			>
 				<label className="kw-audio-editor-dialog__field">
-					<span>{copy.masteringSequenceName}</span>
+					<EditorControlLabel>{copy.masteringSequenceName}</EditorControlLabel>
 					<input name="name" type="text" value={nameDraft} onChange={(event) => setNameDraft(event.currentTarget.value)} />
 				</label>
 				<button type="submit">{copy.masteringSequenceName}</button>
@@ -173,7 +174,7 @@ export default function SoundscaperMasteringSequenceEditor({
 			{availableRegions.length === 0 && <p>{copy.noMasteringRegions}</p>}
 			{addableRegion && <div className="kw-audio-editor-dialog__actions">
 				<label className="kw-audio-editor-dialog__field">
-					<span>{copy.masteringAddEntry}</span>
+					<EditorControlLabel>{copy.masteringAddEntry}</EditorControlLabel>
 					<select value={addableRegion.id} onChange={(event) => setRegionId(event.currentTarget.value)}>
 						{availableRegions.map((region) => <option key={region.id} value={region.id}>{region.name}</option>)}
 					</select>
@@ -240,7 +241,7 @@ const EntryEditor = memo(function EntryEditor({ copy, entry, index, lastIndex, s
 		{entry.durationFrames === null && <p role="alert">{copy.masteringMissingRegion}</p>}
 		<div className="audio-editor-helped-field">
 			<label className="kw-audio-editor-dialog__field">
-				<span>{copy.masteringEntryTitle}</span>
+				<EditorControlLabel>{copy.masteringEntryTitle}</EditorControlLabel>
 				<input name="title" type="text" defaultValue={entry.titleOverride ?? ''} placeholder={entry.title} />
 			</label>
 			<EditorHelpTooltip subject={copy.masteringEntryTitle}
@@ -254,7 +255,7 @@ const EntryEditor = memo(function EntryEditor({ copy, entry, index, lastIndex, s
 		<NumberField name="fadeOutFrames" label={copy.masteringFadeOut} value={fadeOutFrames}
 			sampleRate={sampleRate} onChange={setFadeOutFrames} />
 		<label className="kw-audio-editor-dialog__field">
-			<span>{copy.masteringEntryMetadata}</span>
+			<EditorControlLabel>{copy.masteringEntryMetadata}</EditorControlLabel>
 			<textarea name="metadata" rows={3} spellCheck={false} defaultValue={JSON.stringify(entry.metadata)} />
 		</label>
 		{metadataError && <p role="alert">{metadataError}</p>}
@@ -277,7 +278,7 @@ function NumberField({ name, label, value, sampleRate, onChange }: Readonly<{
 	name: string; label: string; value: number; sampleRate: number; onChange(value: number): void;
 }>) {
 	return <label className="kw-audio-editor-dialog__field">
-		<span>{label}</span>
+		<EditorControlLabel>{label}</EditorControlLabel>
 		<AudioEditorTimeCodeInput name={name} label={label} value={value} unit="samples"
 			rate={sampleRate} format="hh:mm:ss+milliseconds" minimum={0} required
 			onChange={onChange} />

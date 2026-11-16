@@ -112,7 +112,7 @@ for (const profile of PROFILES) {
 					const buffer = await store.loadSourceAudioBuffer(source.storageKey, await engine.getAudioContext({ resume: false }));
 					assert.ok(buffer instanceof AudioBuffer); buffers.set(source.id, buffer);
 				}
-				const runtime = projectForRuntimeConsumers(project), plan = createExportPlan(runtime, { format: 'wav' });
+				const runtime = projectForRuntimeConsumers(project), plan = createExportPlan(runtime, { format: 'wav', includeTail: true });
 				const renderer = native.createEngine();
 				try {
 					renderer.loadProject(runtime, buffers);

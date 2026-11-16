@@ -18,6 +18,7 @@ import { ARA_COPY_BY_LOCALE } from '../../../i18n/editor-ara-copy.ts'
 import { resolveEditorCopyScope } from '../../../i18n/editor-copy-scope.ts'
 import { captureNativeProcessingReturnFocus } from './native-processing-return-focus.ts'
 import type { NativePluginAvailability, NativePluginRegistryView, NativePluginConsentAction } from '../soundscaper-native-services-bridge.ts'
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface AraDesktopBridge {
 	readonly ara: AraBridge
@@ -143,7 +144,7 @@ export function AraClipEditorDialog({ bridge, clipEditing, controller, copy: hos
 		</>} />}>
 		<p>{copy.description}</p>
 		<div className="audio-editor-soundscaper-native-services">
-			<label>{copy.plugin} <select aria-label={copy.plugin} value={installationId} disabled={busy || editing}
+			<label><EditorControlLabel>{copy.plugin} </EditorControlLabel><select aria-label={copy.plugin} value={installationId} disabled={busy || editing}
 				onChange={(event) => setInstallationId(event.target.value)}>
 				<option value="">{copy.choosePlugin}</option>
 				{plugins.map((plugin) => <option key={plugin.installationId} value={plugin.installationId}>{plugin.label}</option>)}

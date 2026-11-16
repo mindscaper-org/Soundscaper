@@ -55,6 +55,7 @@ export function createNativePluginHostJobRunner({ loadAddon, addonPath, addonSha
 			instance = await addon.openPluginInstance(
 				grant.binaryPath, 48_000, HOST_PROBE_BLOCK_FRAMES, grant.format, grant.stableId,
 				{ identity: grant.identity, byteLength: grant.binaryBytes, sha256: grant.binarySha256, resourcePolicy,
+						...(grant.linuxWineVst3 ? { linuxWineVst3: true } : {}),
 						...(grant.windowsX86Vst2 ? { windowsX86Vst2: true } : {}) },
 			);
 			try {

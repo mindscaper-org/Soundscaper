@@ -79,7 +79,7 @@ export default defineConfig({
 						['Soundscaper Web', 'Soundscaper Desktop', 'Audacity'],
 						['Audition'], ['Ardour'], ['REAPER'], ['Hindenburg Pro'], ['Pro Tools Studio', 'SoundCraft'],
 					] },
-					{ label: 'MIDI focus', families: [['FL Studio'], ['Ableton Live', 'Bitwig Studio']] },
+					{ label: 'MIDI focus', families: [['FL Studio'], ['Ableton Live', 'Bitwig Studio'], ['Apple Logic Pro'], ['Cubase Pro']] },
 				] }],
 				rehypeComparisonSummary,
 				[rehypeHandbookBase, { productId }],
@@ -119,6 +119,7 @@ export default defineConfig({
 				: soundscaperSidebar,
 			customCss: ['./src/styles/custom.css'],
 			components: {
+				PageFrame: './src/components/PageFrame.astro',
 				Banner: './src/components/DocumentationNotice.astro',
 				TwoColumnContent: './src/components/PageContent.astro',
 			},

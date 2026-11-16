@@ -4,9 +4,10 @@ import { expect } from '../audio-editor-test-fixtures.js';
 import { commitInput, openExportDialog, readDownloadBytes } from '../audio-editor-test-helpers.js';
 import { readWavePcm } from '../../helpers/read-wave-pcm.ts';
 
-export async function exportSamples(page, editor, { sampleRate } = {}) {
+export async function exportSamples(page, editor, { sampleRate, includeTail } = {}) {
 	const dialog = await openExportDialog(page, editor);
 	if (sampleRate !== undefined) await commitInput(dialog.locator('[data-export-field="sampleRate"] input'), String(sampleRate));
+	if (includeTail !== undefined) await dialog.getByRole('checkbox', { name: /^Include effect tails/u }).setChecked(includeTail);
 	const link = dialog.locator('[data-export-download]');
 	const previousDownload = await link.count() ? await link.getAttribute('href') : null;
 	await dialog.getByRole('button', { name: 'Export', exact: true }).click();

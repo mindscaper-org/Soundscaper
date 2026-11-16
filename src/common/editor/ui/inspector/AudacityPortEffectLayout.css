@@ -37,13 +37,6 @@
 	min-width: 0;
 }
 
-.audio-editor-audacity-port .audio-editor-effect-number > span:first-child {
-	font-size: var(--editor-font-size, 12px);
-	font-weight: 400;
-	text-transform: none;
-	letter-spacing: 0;
-}
-
 .audio-editor-audacity-port .audio-editor-effect-number--slider {
 	grid-template-columns: minmax(0, 1.85fr) minmax(72px, 1fr);
 	gap: 8px 16px;

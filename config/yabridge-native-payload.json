@@ -1,0 +1,15 @@
+{
+	"schemaVersion": 1,
+	"target": "linux-x64",
+	"targets": [{ "id": "linux-x64", "status": "package-generated" }],
+	"runtimePrefix": "native/yabridge/linux-x64",
+	"source": {
+		"repository": "https://github.com/robbert-vdh/yabridge.git",
+		"commit": "7529c2d67330f7507649e903ce90782b58153a95",
+		"version": "5.1.1+7529c2d",
+		"vst3SdkCommit": "3ff02a8fb91f8e14f61c4e26130841b51d601575",
+		"license": "GPL-3.0-or-later"
+	},
+	"status": "ci-generated",
+	"files": []
+}
