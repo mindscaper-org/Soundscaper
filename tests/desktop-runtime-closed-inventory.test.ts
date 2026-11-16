@@ -30,11 +30,13 @@ async function runtimeInventory(context: TestContext, files: readonly string[]) 
 	return { desktopSourceRoot, applicationDesktopRoot, runtimeRoot };
 }
 
-test('desktop staging refuses a missing transitive parser helper before copying application sources', async context => {
-	const helper = 'src/common/editor/format-file-failure.js';
+for (const helper of [
+	'src/common/editor/format-file-failure.js',
+	'desktop/desktop-database-contention.js',
+]) test(`desktop staging refuses missing ${helper} before copying application sources`, async context => {
 	const options = await runtimeInventory(context, DESKTOP_EXPECTED_RUNTIME_FILES.filter(file => file !== helper));
 	await assert.rejects(stageDesktopApplicationSources(options),
-		/missing: src\/common\/editor\/format-file-failure\.js; unexpected: \(none\)/u);
+		{ message: `Desktop runtime output is incomplete or stale; missing: ${helper}; unexpected: (none)` });
 	await assert.rejects(access(options.applicationDesktopRoot), { code: 'ENOENT' });
 });
 
