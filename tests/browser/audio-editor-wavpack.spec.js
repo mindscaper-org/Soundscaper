@@ -6,9 +6,10 @@ import {
 } from './helpers/editor-databases.js';
 import { closeWorkspacePanel } from './helpers/workspace-panel-chrome.js';
 import { playAndWaitForAdvance } from './helpers/playback-progress.js';
+import { EDITOR_STORAGE_DATABASE_VERSION } from '../../src/common/editor/storage/indexeddb-backend.ts';
 
 const DATABASE_NAME = SOUNDSCAPER_DATABASE_NAME;
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = EDITOR_STORAGE_DATABASE_VERSION;
 const fixture = createWavFixture({
 	name: 'browser-wavpack-persistence.wav',
 	frequency: 293.66,
