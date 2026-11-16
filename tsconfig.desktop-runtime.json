@@ -200,6 +200,7 @@
 		"desktop/plugin-instance-state.ts",
 		"desktop/plugin-quarantine.ts",
 		"desktop/plugin-consent.ts",
+		"desktop/bundled-juce-effects.ts",
 		"desktop/helper-wire-admission.ts",
 		"desktop/assistance-main-ipc.ts",
 		"desktop/assistance-cleanup-barrier.ts",

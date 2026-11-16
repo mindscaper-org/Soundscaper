@@ -24,6 +24,10 @@ public:
 	virtual bool hasVendorUi() const = 0;
 	virtual soundscaper_pro_status openVendorWindow(const std::string &opaqueId) = 0;
 	virtual void closeVendorWindow() = 0;
+	virtual soundscaper_pro_status capabilities(soundscaper_pro_plugin_capability_report &) const = 0;
+	virtual soundscaper_pro_status describeParameters(std::vector<soundscaper_pro_plugin_parameter> &) const = 0;
+	virtual soundscaper_pro_status readParameter(uint32_t, double &) const = 0;
+	virtual soundscaper_pro_status writeParameter(uint32_t, double) = 0;
 };
 
 soundscaper_pro_status scanDirectClap(

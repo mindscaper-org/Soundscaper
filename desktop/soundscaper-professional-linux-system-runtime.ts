@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
 import { lstat, open, realpath } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, parse, resolve } from 'node:path';
+import { BUNDLED_JUCE_EFFECTS_RUNTIME_PATH } from './bundled-juce-effects.ts';
 
 import {
 	canonicalNativeChildFileIdentity,
@@ -73,14 +74,18 @@ export async function resolveSoundscaperProfessionalLinuxSystemRuntime(
 	const target = linuxTarget(options?.target);
 	const peer = artifact(options?.peer, 'professional peer');
 	const packagedRuntimeClosure = artifactArray(options?.runtimeClosure);
-	if (packagedRuntimeClosure.length !== 0) {
-		throw new Error('The packaged ELF runtime closure must be empty.');
+	const effectPath = resolve(dirname(peer.path), 'runtime', BUNDLED_JUCE_EFFECTS_RUNTIME_PATH);
+	if (packagedRuntimeClosure.length > 1 || packagedRuntimeClosure.some(({ path }) => path !== effectPath)) {
+		throw new Error('The packaged ELF runtime closure must be empty except for the verified bundled JUCE effect.');
 	}
 	const readArtifact = dependencies.readArtifact ?? authenticatedSystemArtifact;
 	const run = dependencies.run ?? ((command, args, commandOptions) =>
 		spawnSync(command, args, commandOptions) as CommandResult);
 	if (typeof readArtifact !== 'function' || typeof run !== 'function') {
 		throw new TypeError('Linux system-runtime resolution requires file and command ports.');
+	}
+	for (const bundled of packagedRuntimeClosure) {
+		await authenticatedPeerBytes(bundled, 'bundled JUCE effect');
 	}
 	const peerBytes = await authenticatedPeerBytes(peer);
 	const requestedLoader = elfInterpreter(peerBytes, target);
@@ -128,7 +133,7 @@ export async function resolveSoundscaperProfessionalLinuxSystemRuntime(
 	if (JSON.stringify(defaultBindings) !== JSON.stringify(exactBindings)) {
 		throw new Error('The exact ELF library path resolves a different runtime closure.');
 	}
-	const unique = uniqueArtifacts(first);
+	const unique = uniqueArtifacts([...first, ...packagedRuntimeClosure]);
 	if (unique.length > MAXIMUM_RUNTIME_FILES) {
 		throw new RangeError(`The combined Linux runtime exceeds ${MAXIMUM_RUNTIME_FILES} files.`);
 	}
@@ -194,9 +199,9 @@ export function parseSoundscaperProfessionalLinuxLoaderList(
 	return Object.freeze(rows.sort((left, right) => left.name.localeCompare(right.name, 'en')));
 }
 
-async function authenticatedPeerBytes(value: ArtifactDescriptor): Promise<Buffer> {
+async function authenticatedPeerBytes(value: ArtifactDescriptor, label = 'professional peer'): Promise<Buffer> {
 	if (value.byteLength > MAXIMUM_ARTIFACT_BYTES) {
-		throw new Error('The professional peer exceeds the ELF authentication bound.');
+		throw new Error(`The ${label} exceeds the ELF authentication bound.`);
 	}
 	const handle = await open(value.path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
 	try {
@@ -204,13 +209,13 @@ async function authenticatedPeerBytes(value: ArtifactDescriptor): Promise<Buffer
 		const identity = nativeChildFileIdentityFromStat(metadata);
 		if (!metadata.isFile() || metadata.size !== BigInt(value.byteLength)
 			|| metadata.size > BigInt(MAXIMUM_ARTIFACT_BYTES)) {
-			throw new Error('The professional peer changed before ELF runtime resolution.');
+			throw new Error(`The ${label} changed before ELF runtime resolution.`);
 		}
 		const bytes = await handle.readFile();
 		if (!metadata.isFile() || identity.dev !== value.identity.dev
 			|| identity.ino !== value.identity.ino || bytes.byteLength !== value.byteLength
 			|| sha256(bytes) !== value.sha256) {
-			throw new Error('The professional peer changed before ELF runtime resolution.');
+			throw new Error(`The ${label} changed before ELF runtime resolution.`);
 		}
 		return bytes;
 	} finally { await handle.close(); }

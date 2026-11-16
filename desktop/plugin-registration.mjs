@@ -26,6 +26,7 @@ import { DesktopPluginScanService } from './project-library-runtime/desktop/plug
 import { createPluginScanProgressSupervisor } from './project-library-runtime/desktop/plugin-scan-progress.js';
 import { nativeChildFileIdentityFromStat, portableNativeChildFileIdentity } from './project-library-runtime/desktop/native-child-file-identity.js';
 import { createDefaultPluginDiscoveryConsent } from './project-library-runtime/desktop/plugin-discovery-defaults.js';
+import { bundledJuceEffectsDirectory } from './project-library-runtime/desktop/bundled-juce-effects.js';
 import { createDesktopNativeAddonHelperSupervisor } from './native-helper-registration.mjs';
 import { productionSoundscaperPluginFormatActivated } from './soundscaper-native-activation-policy.mjs';
 import { createPluginRegistryAllowanceStore } from './plugin-registry-allowance-store.mjs';
@@ -206,7 +207,9 @@ export function registerDesktopPluginDiscovery({
 			: dialog.showOpenDialog({ title: pickerTitle(format), properties: ['openDirectory'] }));
 		return result.canceled || result.filePaths.length !== 1 ? null : result.filePaths[0];
 	}, { enabled: settings.snapshot().nativePluginDiscoveryEnabled === true,
-		isFormatActivated: isPluginHostFormatActivated });
+		isFormatActivated: isPluginHostFormatActivated }, bundledJuceEffectsDirectory({
+		applicationRoot: dirname(desktopRoot), packaged, resourcesPath,
+	}));
 	let consentWrites = Promise.resolve();
 	const persistConsent = () => {
 		const contents = JSON.stringify(consent.exportState());
@@ -454,16 +457,16 @@ async function applyConsentAction(consent, { action, format, rootId }) {
  * cannot be trusted starts the format table empty rather than refusing to
  * start, exactly as the durable quarantine does.
  */
-function createConsent(filePath, pickDirectory, defaults) {
+function createConsent(filePath, pickDirectory, defaults, bundledEffectsDirectory) {
 	const state = readConsentState(filePath);
-	const options = { pickDirectory, homeDirectory: homedir() };
+	const options = { pickDirectory, homeDirectory: homedir(), bundledEffectsDirectory };
 	if (state === undefined) return createDefaultPluginDiscoveryConsent(options, defaults);
-	if (state === null) return new DesktopPluginConsent({ pickDirectory });
+	if (state === null) return new DesktopPluginConsent(options);
 	try {
 		return new DesktopPluginConsent({ ...options, state });
 	} catch (error) {
 		console.error('The persisted plug-in consent was not admitted; starting with none:', error);
-		return new DesktopPluginConsent({ pickDirectory });
+		return new DesktopPluginConsent(options);
 	}
 }
 

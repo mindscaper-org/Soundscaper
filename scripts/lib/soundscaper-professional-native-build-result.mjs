@@ -7,6 +7,7 @@ import {
 	chmod, copyFile, mkdir, mkdtemp, open, rename, rm, writeFile,
 } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
+import { BUNDLED_JUCE_EFFECTS_RUNTIME_PATH } from '../../desktop/bundled-juce-effects.ts';
 
 import {
 	absentPath,
@@ -160,11 +161,18 @@ export async function createSoundscaperProfessionalNativeBuildResult(options) {
 		};
 		const runtimeClosure = runtimeRoot === null
 			? [] : await copyRuntimeClosure(runtimeRoot, join(payloadRoot, 'runtime'), temporary);
+		const effectRelativePath = BUNDLED_JUCE_EFFECTS_RUNTIME_PATH;
+		const effectOutput = join(payloadRoot, 'runtime', effectRelativePath);
+		await mkdir(dirname(effectOutput), { recursive: true });
+		const bundledEffect = await copyBuildResultFile(join(professionalInstallRoot, 'runtime', effectRelativePath),
+			effectOutput, temporary, 0o444);
+		if (runtimeClosure.length >= MAXIMUM_RUNTIME_FILES) throw new RangeError('The professional runtime closure exceeds 128 files.');
+		const completeRuntimeClosure = [...runtimeClosure, bundledEffect].sort((a, b) => a.path.localeCompare(b.path));
 		const dependencyInspections = await validateSoundscaperProfessionalNativeDependencyClosure({
 			target,
 			artifacts: [copied.payload, ...(copied.osAudioCodec === null ? [] : [copied.osAudioCodec]),
-				copied.pluginPeer, copied.deliveryFilesystem, copied.launcher, ...runtimeClosure],
-			runtimeArtifacts: runtimeClosure,
+				copied.pluginPeer, copied.deliveryFilesystem, copied.launcher, ...completeRuntimeClosure],
+			runtimeArtifacts: completeRuntimeClosure,
 			root: temporary,
 			inspectDependencies,
 		});
@@ -180,7 +188,7 @@ export async function createSoundscaperProfessionalNativeBuildResult(options) {
 				descriptorOnly(copied.pluginPeer),
 				descriptorOnly(copied.deliveryFilesystem),
 			descriptorOnly(copied.launcher), descriptorOnly(copied.sandboxProfile),
-			descriptorOnly(copied.brokerPolicy), ...runtimeClosure.map(descriptorOnly),
+			descriptorOnly(copied.brokerPolicy), ...completeRuntimeClosure.map(descriptorOnly),
 		];
 		const verificationChecks = [
 			bindVerificationCheck('build', target, {
@@ -224,7 +232,7 @@ export async function createSoundscaperProfessionalNativeBuildResult(options) {
 				sandboxProfile: descriptorOnly(copied.sandboxProfile),
 				brokerPolicy: descriptorOnly(copied.brokerPolicy),
 				entrypointPath: copied.pluginPeer.path,
-				runtimeClosure: runtimeClosure.map(descriptorOnly),
+				runtimeClosure: completeRuntimeClosure.map(descriptorOnly),
 			},
 		});
 		await writeFile(join(temporary, RECEIPT_NAME), canonicalJson(receipt), { flag: 'wx', mode: 0o444 });

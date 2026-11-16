@@ -203,7 +203,7 @@
 		"tests/project-transfer-bundle.test.ts": 598,
 		"tests/project-transfer-conversion-report-custody.test.ts": 598,
 		"tests/project-transfer-handshake.test.ts": 600,
-		"tests/soundscaper-professional-native-build-result.test.js": 564,
+		"tests/soundscaper-professional-native-build-result.test.js": 553,
 		"tests/soundscaper-soak-debug.test.js": 579,
 		"tests/staffpad-time-pitch.test.js": 583
 	},

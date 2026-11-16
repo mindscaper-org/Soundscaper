@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 #include "direct_clap_adapter.h"
+#include "direct_clap_parameters.h"
 #include "juce_message_dispatcher.h"
 
 #include <clap/clap.h>
@@ -243,7 +244,7 @@ public:
 		std::unique_ptr<clap_host_t> hostValue, std::shared_ptr<HostState> hostStateValue,
 		uint32_t maximumFrames, AudioTopology topologyValue)
 		: loaded(std::move(module)), plugin(opened), host(std::move(hostValue)), ceiling(maximumFrames),
-		topology(topologyValue), hostState(std::move(hostStateValue))
+		topology(topologyValue), hostState(std::move(hostStateValue)), parameters(opened)
 	{
 		latencyExtension = static_cast<const clap_plugin_latency_t *>(plugin->get_extension(plugin, CLAP_EXT_LATENCY));
 		stateExtension = static_cast<const clap_plugin_state_t *>(plugin->get_extension(plugin, CLAP_EXT_STATE));
@@ -322,6 +323,15 @@ public:
 	}
 
 	bool hasVendorUi() const override { return guiExtension != nullptr; }
+	soundscaper_pro_status capabilities(soundscaper_pro_plugin_capability_report &report) const override
+	{
+		report = {parameters.count(), hasVendorUi() ? 1u : 0u};
+		return parameters.valid() ? SOUNDSCAPER_PRO_OK : SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
+	}
+	soundscaper_pro_status describeParameters(std::vector<soundscaper_pro_plugin_parameter> &out) const override
+	{ return parameters.describe(out); }
+	soundscaper_pro_status readParameter(uint32_t index, double &out) const override { return parameters.read(index, out); }
+	soundscaper_pro_status writeParameter(uint32_t index, double value) override { return parameters.write(index, value); }
 
 	soundscaper_pro_status openVendorWindow(const std::string &opaqueId) override
 	{
@@ -356,6 +366,7 @@ private:
 	const uint32_t ceiling;
 	const AudioTopology topology;
 	std::shared_ptr<HostState> hostState;
+	DirectClapParameters parameters;
 	const clap_plugin_latency_t *latencyExtension = nullptr;
 	const clap_plugin_state_t *stateExtension = nullptr;
 	const clap_plugin_gui_t *guiExtension = nullptr;
