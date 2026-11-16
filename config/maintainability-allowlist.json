@@ -37,7 +37,6 @@
 		"native/framescaper-openfx-host/src/host_runtime.cpp": 584,
 		"native/soundscaper-helper-addon/src/addon.c": 551,
 		"scripts/lib/desktop-bundled-codec-corresponding-source.mjs": 587,
-		"scripts/lib/desktop-package-content-manifest.mjs": 553,
 		"scripts/lib/m7-local-assistance-privacy-metrics.mjs": 552,
 		"scripts/lib/milestone-5-native-source-acquisitions.mjs": 562,
 		"src/common/editor/adm-project-metadata.ts": 574,

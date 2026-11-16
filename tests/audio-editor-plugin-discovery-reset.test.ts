@@ -46,3 +46,15 @@ test('factory reset restores the Windows x86 VST2 bridge to its disabled default
 		['enabled', false], { action: 'disable-x86-vst2', format: 'vst2' }, ['enabled', true],
 	]);
 });
+
+test('factory reset disables Linux Wine hosting without changing Wine installation selection', async () => {
+	const calls: unknown[] = [];
+	await restorePluginDiscoveryDefaults({
+		setEnabled: async (enabled) => { calls.push(['enabled', enabled]); },
+		nativePluginAvailability: async () => ({ consent: { formats: [], linuxWineVst3: { supported: true, enabled: true } } }),
+		setNativePluginConsent: async (request) => { calls.push(request); },
+	});
+	assert.deepEqual(calls, [
+		['enabled', false], { action: 'disable-wine-vst3', format: 'vst3' }, ['enabled', true],
+	]);
+});

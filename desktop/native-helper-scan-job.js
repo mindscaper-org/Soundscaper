@@ -94,6 +94,7 @@ export function createNativePluginScanJobRunner({
 				try {
 					inspected = await addon.inspectPluginCandidate(path, format, {
 						identity: digest.identity, byteLength: digest.byteLength, sha256: digest.sha256, resourcePolicy,
+						...(grant.linuxWineVst3 ? { linuxWineVst3: true } : {}),
 						...(grant.windowsX86Vst2 ? { windowsX86Vst2: true } : {}),
 					});
 				} catch {

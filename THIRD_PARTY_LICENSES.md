@@ -1,5 +1,22 @@
 # Third-party browser runtime notices
 
+## Optional desktop Windows VST3 bridge
+
+Soundscaper Linux x64 desktop packages include yabridge by Robbert van der Helm
+and contributors, under GPL-3.0-or-later. The exact source revision and patched
+VST3 SDK revision are recorded in `config/yabridge-native-payload.json`.
+Yabridge's older VST3 SDK uses its GPL Version 3 alternative; Soundscaper's
+separate native host retains its existing SDK license selection.
+
+The desktop runtime directory `runtime/native/yabridge/linux-x64/` contains
+the GPL license, `SOURCE.json`, and `corresponding-source.tar.gz`. The source
+archive includes the bridge, its pinned Asio, bitsery, function2, ghc_filesystem,
+tomlplusplus and VST3 dependencies, their original notices, the SDK compatibility
+patch and the Soundscaper Wine process launcher. `scripts/build-yabridge.mjs`
+records the build recipe; the staged manifest records each distributed file's
+length and SHA-256. Wine and third-party Windows plugin binaries are externally
+installed and are not included in Soundscaper packages.
+
 ## MIDI synthesis runtimes
 
 `libadlmidi-js` 2.2.0 provides the JavaScript interface to libADLMIDI 1.6.2

@@ -153,11 +153,13 @@ export interface DesktopPluginRegistryOptions {
 	 * machine, and it would record and host the binaries the store exists to refuse.
 	 */
 	readonly isQuarantined: (digest: string) => boolean;
+	readonly linuxWineVst3Enabled?: () => boolean;
 	readonly isInstallationEnabled?: (observation: PluginScanObservation) => boolean;
 }
 
 export class DesktopPluginRegistry {
 	readonly #isQuarantined: (digest: string) => boolean;
+	readonly #wineEnabled: () => boolean;
 	readonly #isInstallationEnabled: (observation: PluginScanObservation) => boolean;
 	readonly #entries = new Map<string, Entry>();
 	readonly #installations = new Map<string, [Entry, Installation]>();
@@ -170,6 +172,7 @@ export class DesktopPluginRegistry {
 				'A plug-in registry must be given the durable quarantine it consults.');
 		}
 		this.#isQuarantined = options.isQuarantined;
+		this.#wineEnabled = options.linuxWineVst3Enabled ?? (() => false);
 		this.#isInstallationEnabled = options.isInstallationEnabled ?? (() => true);
 	}
 
@@ -323,6 +326,7 @@ export class DesktopPluginRegistry {
 		const { observation } = installation;
 		return validateHelperJobGrant('plugin-host', {
 			binaryPath: observation.binaryPath,
+			...(observation.platform === 'linux' && observation.format === 'vst3' && this.#wineEnabled() ? { linuxWineVst3: true as const } : {}),
 			binaryBytes: observation.binaryBytes,
 			binarySha256: observation.binarySha256,
 			format: observation.format,

@@ -9,3 +9,11 @@ export function pluginBridgeGrant(value: unknown, format: unknown): Readonly<{ w
 	}
 	return Object.freeze({ windowsX86Vst2: true });
 }
+
+export function winePluginBridgeGrant(value: unknown, format: unknown): Readonly<{ linuxWineVst3?: true }> {
+	if (value === undefined) return Object.freeze({});
+	if (value !== true || format !== 'vst3') {
+		throw new HelperContractViolationError('unsafe-grant', 'Only VST3 grants may explicitly enable the Linux Wine bridge.');
+	}
+	return Object.freeze({ linuxWineVst3: true });
+}
