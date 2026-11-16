@@ -58,13 +58,13 @@ formats that reference separate files.
 | Format | Soundscaper<br>Desktop | Soundscaper<br>Web |
 | --- | --- | --- |
 | Soundscaper (`.sscape`) | + — :: Original media is referenced by default; consolidation bundles it for portability. | + — :: Browser saves bundle media. Consolidate desktop projects before opening them in a browser. |
-| REAPER (`.rpp`) | / | / |
 | Audacity (`.aup`) | ~ — Import :: Imports the legacy project and its companion media; no AUP export. | ~ — Import :: Imports the legacy project and its companion media; no AUP export. |
 | Audacity (`.aup3`) | + — :: Audio-only import/export, with a compatibility report; Soundscaper-only state can be omitted. | + — :: Audio-only import/export, with a compatibility report; Soundscaper-only state can be omitted. |
 | Audacity (`.aup4`) | + — :: Audio-only import/export, with a compatibility report; Soundscaper-only state can be omitted. | + — :: Audio-only import/export, with a compatibility report; Soundscaper-only state can be omitted. |
 | Cool Edit / Audition (`.ses`) | ~ — Import :: Recognized legacy binary layouts only; unsupported state and missing media are reported. No export. | / |
 | Audition (`.sesx`) | ~ — Import :: Imports audio tracks, clip placement, trims, simple fades, and static mixer settings. Effects, automation, routing, and other unsupported state are reported; no SESX export. | / |
 | Ardour (`.ardour`) | ~ — Import :: Audio playlists, cuts, trims, static mix settings, and explicit fades; locates nearby media or requests a folder. MIDI, plug-ins, automation, routing, and tempo maps are omitted; no export. | ~ — Import :: Audio playlists, cuts, trims, static mix settings, and explicit fades; import referenced media together. MIDI, plug-ins, automation, routing, and tempo maps are omitted; no export. |
+| REAPER (`.rpp`) | / | / |
 | Hindenburg (`.nhsx`) | / | / |
 | Pro Tools (`.ptf`) | ~ — Import :: Supported native PTF audio edits, track names, trims, and stereo lanes; locates the Audio Files folder. Legacy PTS is also supported. Mix settings, fades, MIDI, and plug-ins are omitted; no export. | ~ — Import :: Supported native PTF audio edits, track names, trims, and stereo lanes; import referenced audio together. Legacy PTS is also supported. Mix settings, fades, MIDI, and plug-ins are omitted; no export. |
 | Pro Tools (`.ptx`) | ~ — Import :: Supported native PTX audio-edit layouts; locates the Audio Files folder. Missing media and unsupported mix settings, fades, MIDI, and plug-ins are reported; no export. | ~ — Import :: Supported native PTX audio-edit layouts; import referenced audio together. Missing media and unsupported mix settings, fades, MIDI, and plug-ins are reported; no export. |
