@@ -92,6 +92,7 @@ test('the real rack engine adopts Echo Decay with the existing worklet message a
 		await engine.play();
 		const node = context.workletNodes.find(candidate => !candidate.readinessProbe);
 		assert.ok(node);
+		assert.deepEqual(node.messages.shift(), { type: 'suspend-idle-effect-processing', enabled: false });
 		const previousGraph = runtime.graph;
 		assert.equal(engine.configureRackEffect('track', 'track-1', 'echo-1', { decay: .7 }, { revision: 4 }), 4);
 		assert.equal(runtime.graph, previousGraph);

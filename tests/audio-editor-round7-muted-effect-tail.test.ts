@@ -45,7 +45,7 @@ for (const control of ['mute', 'gain', 'solo', 'vca'] as const) {
 test('ungated stem and neutral track render retain a muted recording release', () => {
 	const project = fixture();
 	const muted = { ...project, tracks: project.tracks.map(track => ({ ...track, mute: true })) };
-	assert.equal(createExportPlan(muted, { mode: 'stems' }).tailFrames, RATE);
+	assert.equal(createExportPlan(muted, { mode: 'stems', includeTail: true }).tailFrames, RATE);
 	assert.equal(resolveRenderTailSeconds(muted as unknown as EngineProject, true,
 		{ respectMuteSolo: false, trackId: 'delayed', includeMaster: false }), 1);
 });

@@ -38,6 +38,7 @@ for (const type of ['audacity-reverb']) {
 			await engine.play();
 			const node = context.workletNodes.find(candidate => !candidate.readinessProbe);
 			assert.ok(node);
+			assert.deepEqual(node.messages.shift(), { type: 'suspend-idle-effect-processing', enabled: false });
 			const previousGraph = runtime.graph;
 			const next = { preDelay: 10.01 };
 			assert.equal(engine.configureRackEffect('track', 'track-1', 'reverb-1', next, { revision: 4 }), 4);

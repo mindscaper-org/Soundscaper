@@ -442,6 +442,7 @@ test('playback and offline racks install standard effects and live changes deliv
 		for (const [index, type] of EFFECTS.entries()) {
 			const node = context.workletNodes[index];
 			assert.equal(node.options.processorOptions.type, type);
+			assert.deepEqual(node.messages.shift(), { type: 'suspend-idle-effect-processing', enabled: false });
 			assert.ok(incomingConnections(runtime.graph.nodes, node, 0).length > 0, type);
 			assert.ok(node.connectionDetails.length > 0, type);
 			assert.equal(engine.configureRackEffect('track', 'track-1', type, CUSTOM_PARAMS[type]), 1);

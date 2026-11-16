@@ -38,6 +38,7 @@ for (const type of ['audacity-click-removal']) {
 			await engine.play();
 			const node = context.workletNodes.find(candidate => !candidate.readinessProbe);
 			assert.ok(node);
+			assert.deepEqual(node.messages.shift(), { type: 'suspend-idle-effect-processing', enabled: false });
 			const previousGraph = runtime.graph;
 			const next = { threshold: 201 };
 			assert.equal(engine.configureRackEffect('track', 'track-1', 'click-1', next, { revision: 4 }), 4);
