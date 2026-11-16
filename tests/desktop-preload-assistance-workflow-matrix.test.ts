@@ -40,6 +40,7 @@ test('every guided and Advanced recipe crosses the production preload with the d
 	let bridge: Bridge | undefined;
 	const forwarded: AssistanceWorkflowV1[] = [];
 	vm.runInNewContext(await readDesktopPreloadSource(), { ArrayBuffer, Uint8Array, URL,
+		window: { addEventListener() {} },
 		require: () => ({ contextBridge: { exposeInMainWorld(name: string, value: { v1: Bridge }) {
 			if (name === 'scapeDesktop') bridge = value.v1;
 		} }, ipcRenderer: { invoke(_channel: string, request: AssistanceWorkflowV1) {
