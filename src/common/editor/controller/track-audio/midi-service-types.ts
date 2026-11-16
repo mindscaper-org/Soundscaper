@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import type { MidiInstrument, MidiNote } from '../../midi-model.ts';
+import type { MidiClipData, MidiInstrument, MidiNote } from '../../midi-model.ts';
 import type { MidiFileDocument } from '../../midi-file-types.ts';
 import type { ProjectChangedOptions } from '../document/project-mutation-service.ts';
 import type { AudioEditorCommand } from '../../commands/protocol.ts';
@@ -28,6 +28,7 @@ export interface MidiServiceDependencies {
 	readonly trackName: () => string;
 	readonly clipName: () => string;
 	readonly store: Readonly<{
+		writeMidiSource?(id: string, recipe: Readonly<{ data: MidiClipData; instrument: MidiInstrument; sampleRate: number }>, metadata: Readonly<Record<string, unknown>>): Promise<Readonly<Record<string, unknown>>>;
 		beginSourceWrite(id: string, metadata: Readonly<Record<string, unknown>>): Promise<MidiSourceWriter>;
 		deleteSource(id: string): Promise<unknown>;
 	}>;

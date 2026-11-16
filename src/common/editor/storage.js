@@ -203,6 +203,8 @@ export class AudioEditorProjectStore {
 	async beginSourceWrite(sourceId, metadata = {}) {
 		return this.sourceRepository.beginWrite(sourceId, metadata);
 	}
+	/** @param {string} sourceId @param {import('./storage/midi-source.ts').MidiSourceRecipe} recipe @param {Readonly<Record<string, unknown>>} metadata */
+	async writeMidiSource(sourceId, recipe, metadata) { return this.sourceRepository.writeMidi(sourceId, recipe, metadata); }
 
 	async writeDerivedSource(sourceId, baseSourceId, replacementChunks, metadata = {}) { return this.sourceRepository.writeDerived(sourceId, baseSourceId, replacementChunks, metadata); }
 
@@ -210,13 +212,8 @@ export class AudioEditorProjectStore {
 
 	async writeAudioBuffer(sourceId, audioBuffer, metadata = {}, { chunkFrames = 65_536 } = {}) { return this.sourceRepository.writeAudioBuffer(sourceId, audioBuffer, metadata, { chunkFrames }); }
 
-	async getSourceMetadata(sourceId) {
-		return this.sourceRepository.getMetadata(sourceId);
-	}
-
-	async listSources() {
-		return this.sourceRepository.list();
-	}
+	async getSourceMetadata(sourceId) { return this.sourceRepository.getMetadata(sourceId); }
+	async listSources() { return this.sourceRepository.list(); }
 
 	/**
 	 * Persist the immutable original container for a media source. OPFS keeps

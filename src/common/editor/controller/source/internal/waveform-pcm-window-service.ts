@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
+import { isMidiClip } from '../../../midi-model.ts';
 import {
 	audioWarpMinimumSourceSpanPerColumn,
 	audioWarpSourceWindowRange,
@@ -76,6 +77,9 @@ export function createWaveformPcmWindowRequester<
 		const clip = findClip(projectAtStart, clipId);
 		const source = clip ? findSource(projectAtStart, clip.sourceId) : null;
 		if (!clip || !source || source.kind === 'video' || source.kind === 'image') return null;
+		// A zoomed-out waveform would synthesize the entire score just to paint it.
+		// Editable MIDI uses its note carrier; explicit audio processing/export still reads PCM.
+		if (isMidiClip(clip)) return null;
 		const cacheKey = String(clip.id);
 		const requestedRange = resolveWaveformPcmWindowRequest(options, clip.durationFrames);
 		if (!requestedRange) return null;

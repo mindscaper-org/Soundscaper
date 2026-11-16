@@ -22,6 +22,7 @@ import { normalizePcmChunkFrames } from './pcm-chunk-geometry.ts';
 import { SOURCE_ANALYSIS_CACHE_PREFIXES } from '../source-analysis-cache.ts';
 import type { AudioEditorOptimizationMode } from '../performance-preferences.ts';
 import { publishSampleBlockSource, type SampleBlockReference } from './sample-block-source.ts';
+import { publishMidiRecipe, type MidiSourceRecipe } from './midi-source.ts';
 
 const IMMUTABLE_SOURCE_METADATA_FIELDS = Object.freeze([
 	'channelCount', 'sampleRate', 'frameCount', 'frameLength', 'chunkFrames', 'chunkCount',
@@ -53,6 +54,9 @@ export class SourceRepository {
 
 	beginWrite(sourceId: string, metadata: Record<string, unknown> = {}): Promise<OwnedAudioSourceWriter> {
 		return this.#writeLifecycle.begin(() => this.#options.writer.begin(sourceId, metadata));
+	}
+	writeMidi(sourceId: string, recipe: MidiSourceRecipe, metadata: Readonly<Record<string, unknown>>): Promise<StorageRecord> {
+		return this.#writeLifecycle.runPublication(() => publishMidiRecipe(this.#options.records, sourceId, recipe, metadata));
 	}
 
 	createStageReceipt(sourceId: string): AudioSourceStageReceipt {
@@ -129,6 +133,7 @@ export class SourceRepository {
 			|| JSON.stringify(expected.sampleBlockChannels) !== JSON.stringify(replacement.sampleBlockChannels)) {
 			return Promise.resolve(false);
 		}
+		if (JSON.stringify(expected.midiRecipe) !== JSON.stringify(replacement.midiRecipe)) return Promise.resolve(false);
 		return this.#options.records.compareAndSwapMetadata(expected, replacement);
 	}
 

@@ -130,6 +130,8 @@ export interface NativeSourceWriter {
 }
 
 export interface NativeProjectStore {
+	writeMidiSource?(sourceId: string, recipe: import('../../storage/midi-source.ts').MidiSourceRecipe,
+		metadata: Readonly<Record<string, unknown>>): Promise<Readonly<Record<string, unknown>>>;
 	getMediaAssetMetadata?(storageKey: string): PromiseLike<Readonly<Record<string, unknown>> | null>;
 	beginMediaAssetWrite?(storageKey: string, metadata: Readonly<Record<string, unknown>>,
 		options: Readonly<{ expectedBytes: number; expectedSha256: string; signal?: AbortSignal }>): PromiseLike<OwnedMediaAssetWriter>;

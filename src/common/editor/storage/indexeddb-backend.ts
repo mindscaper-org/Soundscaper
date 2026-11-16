@@ -29,7 +29,7 @@ import {
 } from './linked-original-provisional-root-schema.ts';
 import { EditorStoreBlockedError } from './status.ts';
 
-export const EDITOR_STORAGE_DATABASE_VERSION = 1;
+export const EDITOR_STORAGE_DATABASE_VERSION = 2;
 const DATABASE_VERSION = EDITOR_STORAGE_DATABASE_VERSION;
 
 interface EditorStorageMigration {
@@ -39,6 +39,9 @@ interface EditorStorageMigration {
 
 const EDITOR_STORAGE_MIGRATIONS: readonly EditorStorageMigration[] = Object.freeze([
 	Object.freeze({ version: 1, apply: createBaselineStorageSchema }),
+	// The layout is unchanged; v2 admits immutable MIDI recipes alongside physical PCM.
+	// Older clients must take the existing version-change fence before these records are written.
+	Object.freeze({ version: 2, apply: () => undefined }),
 ]);
 
 export function openDatabase(

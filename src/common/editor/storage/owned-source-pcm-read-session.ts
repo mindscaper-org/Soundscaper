@@ -20,6 +20,8 @@ import type {
 } from './source-read-repository.ts';
 import type { SourceRecordRepository } from './source-record-repository.ts';
 import { readSampleBlockSourceChunk, SAMPLE_BLOCK_SOURCE_STORAGE } from './sample-block-source.ts';
+import { isGeneratedMidiSource } from './midi-source.ts';
+import { MidiSourceRuntime, type MidiPcmReadView } from './midi-source-runtime.ts';
 
 export const OWNED_SOURCE_PCM_MAXIMUM_DEPENDENCY_COUNT = 4_094;
 
@@ -36,6 +38,7 @@ export interface OwnedSourcePcmReadSessionRepositoryOptions {
 
 /** Exact-generation sessions over owned PCM and their linear copy-on-write ancestry. */
 export class OwnedSourcePcmReadSessionRepository {
+	readonly #midi = new MidiSourceRuntime();
 	readonly #options: OwnedSourcePcmReadSessionRepositoryOptions;
 	readonly #maximumDependencyCount: number;
 	readonly #openings = new Set<Readonly<{
@@ -65,7 +68,7 @@ export class OwnedSourcePcmReadSessionRepository {
 			if (!generation) return null;
 			throwIfAborted(signals.signal);
 			const physical = generation.at(-1)!;
-			const view = physical.storage === PCM_CONTAINER_STORAGE_TYPE && typeof this.#options.opfs.openPcmContainerReadView === 'function'
+			const view = isGeneratedMidiSource(physical) ? this.#midi.open(physical) : physical.storage === PCM_CONTAINER_STORAGE_TYPE && typeof this.#options.opfs.openPcmContainerReadView === 'function'
 				? await this.#options.opfs.openPcmContainerReadView(physical, this.#options.pcm.decodeRecord.bind(this.#options.pcm), signals.signal) : null;
 			try {
 				throwIfAborted(signals.signal);
@@ -102,6 +105,7 @@ export class OwnedSourcePcmReadSessionRepository {
 		const results = await Promise.allSettled([
 			...openings.map(({ promise }) => promise),
 			...sessions.map(([session]) => Promise.resolve(session.release())),
+			this.#midi.release(sourceIds),
 		]);
 		const failures = results
 			.filter((result): result is PromiseRejectedResult => result.status === 'rejected')
@@ -158,7 +162,7 @@ export class OwnedSourcePcmReadSessionRepository {
 		generation: readonly StorageRecord[],
 		chunkIndex: number,
 		signal?: AbortSignal,
-		view: OpfsPcmReadView | null = null,
+		view: OpfsPcmReadView | MidiPcmReadView | null = null,
 	): Promise<SourcePcmChunk> {
 		const root = generation[0];
 		if (!root || chunkIndex >= nonNegativeInteger(root.chunkCount, 0)) {
@@ -206,8 +210,9 @@ export class OwnedSourcePcmReadSessionRepository {
 		source: StorageRecord,
 		chunkIndex: number,
 		signal?: AbortSignal,
-		view: OpfsPcmReadView | null = null,
+		view: OpfsPcmReadView | MidiPcmReadView | null = null,
 	): Promise<SourcePcmChunk> {
+		if (isGeneratedMidiSource(source) && view) return view.chunk(chunkIndex, signal);
 		if (source.storage === PCM_CONTAINER_STORAGE_TYPE) {
 			if (view) return view.chunk(chunkIndex, signal);
 			return this.#options.opfs.readPcmContainerChunk(

@@ -193,6 +193,11 @@ export function createDawprojectService(runtime: NativeProjectServiceRuntime, he
 				fileName: String(file.name), media, stagedSourceIds, sourceProvenance, createStableId: runtime.createStableId,
 			});
 			for (const source of plan.midiSources) {
+				if (runtime.store.writeMidiSource) {
+					await runtime.store.writeMidiSource(source.sourceId, { data: source.data, instrument: source.instrument, sampleRate: source.sampleRate },
+						{ name: 'MIDI.wav', mimeType: 'audio/wav', frameCount: source.frameCount });
+					persistedSourceIds.push(source.sourceId); assertReady(); continue;
+				}
 				const render = await openMidiAudioRenderer(source.data, source.instrument, source.sampleRate);
 				try {
 					const staged = stagedProjectSource(source.sourceId, 'MIDI.wav', { ...source, channelCount: render.channelCount });
