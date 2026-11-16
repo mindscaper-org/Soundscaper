@@ -32,6 +32,10 @@ interface Aup4FeatureDecision {
 }
 
 export const AUP4_OWNED_FEATURE_CARRIAGE: Readonly<Record<OwnedFeatureKey, Aup4FeatureDecision>> = Object.freeze({
+	subprojects: Object.freeze({
+		carriage: 'omitted', code: 'SUBPROJECT_LINKS_OMITTED',
+		message: 'Subproject proxy audio was exported as ordinary audio. Editable project links and automatic updates were omitted.',
+	}),
 	assistanceAssets: Object.freeze({
 		carriage: 'omitted',
 		code: 'ASSISTANCE_TRANSCRIPTS_OMITTED',

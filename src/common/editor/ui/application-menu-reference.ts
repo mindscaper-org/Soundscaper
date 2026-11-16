@@ -36,6 +36,7 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	['cancel-switch-product-to-framescaper', 'Cancel: Edit in Framescaper', 'File', SOUNDSCAPER],
 	['cancel-switch-product-to-soundscaper', 'Cancel: Edit in Soundscaper', 'File', FRAMESCAPER],
 	['delivery-queue', 'Delivery queue', 'File', BOTH],
+	['subprojects', 'Subprojects', 'File', SOUNDSCAPER],
 	['delivery-report', 'Delivery Report', 'File', BOTH],
 	['overwrite-original-file', 'Overwrite original file', 'File', BOTH],
 	['save-aup3', 'Export AUP3', 'File > Export other', SOUNDSCAPER],

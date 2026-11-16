@@ -34,6 +34,7 @@ export const PROJECT_FEATURE_CAPABILITY_IDS = Object.freeze({
 	multicamera: 'org.soundscaper.capability.multicamera',
 	musicalTimeline: 'org.soundscaper.capability.musical-timeline',
 	nestedSequences: 'org.soundscaper.capability.nested-sequences',
+	subprojects: 'org.soundscaper.capability.subprojects',
 	ofxEffects: 'org.soundscaper.capability.openfx-effects',
 	timelineAnnotations: 'org.soundscaper.capability.timeline-annotations',
 	trackFolders: 'org.soundscaper.capability.track-folders',

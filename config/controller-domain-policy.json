@@ -131,6 +131,7 @@
 		"document/scape-project-file-service.ts",
 		"document/session-history-admission.ts",
 		"document/stored-project-open-actions.ts",
+		"document/subproject-actions.ts",
 		"document/timeline-annotation-action-facade.ts",
 		"document/trim-media-service.ts",
 		"edit/edit-composition-types.ts",

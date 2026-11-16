@@ -17,9 +17,11 @@ import {
 import { createDefaultMixerGraphV21, normalizeMixerGraphV21 } from './mixer-graph-v21.ts';
 import { resolveTerminalChannelWidths } from './terminal-channel-widths.ts';
 import { VIDEO_EFFECT_TYPES } from './video-effects.js';
+import { projectHasSubprojectLinks } from './subprojects.ts';
 import { projectHasScapeLiteralKeys, SCAPE_LITERAL_KEYS_REQUIREMENT_ID } from './scape-literal-json-keys.ts';
 
 export const PROJECT_OWNED_FEATURE_REQUIREMENT_IDS = Object.freeze({
+	subprojects: 'soundscaper.subprojects',
 	assistanceAssets: 'soundscaper.assistance-assets',
 	literalJsonKeys: SCAPE_LITERAL_KEYS_REQUIREMENT_ID,
 	audioEffects: 'soundscaper.audio-effects',
@@ -69,6 +71,7 @@ const OWNED_VIDEO_EFFECT_REQUIREMENT: ProjectFeatureRequirement = Object.freeze(
 	fallback: null,
 });
 const FOUNDATION_REQUIREMENTS = Object.freeze({
+	subprojects: requirement('subprojects', 'Subprojects'),
 	assistanceAssets: requirement('assistanceAssets', 'Assistance assets'),
 	musicalTimeline: requirement('musicalTimeline', 'Musical timeline'),
 	timelineAnnotations: requirement('timelineAnnotations', 'Timeline markers and regions'),
@@ -104,6 +107,7 @@ const OWNED_FEATURE_REQUIREMENTS: readonly OwnedFeatureRequirement[] = Object.fr
 		projectNeedsRequirement: projectHasMaintainedVideoEffects,
 	}),
 	OWNED_ASSISTANCE_FEATURE_REQUIREMENT,
+	foundationOwned(FOUNDATION_REQUIREMENTS.subprojects, projectHasSubprojectLinks, () => true),
 	foundationOwned(FOUNDATION_REQUIREMENTS.musicalTimeline, projectHasMusicalTimeline),
 	foundationOwned(
 		FOUNDATION_REQUIREMENTS.timelineAnnotations,
@@ -149,7 +153,7 @@ const OWNED_FEATURE_REQUIREMENTS: readonly OwnedFeatureRequirement[] = Object.fr
 ]);
 
 function requirement(
-	key: 'assistanceAssets' | 'musicalTimeline' | 'timelineAnnotations' | 'trackFolders' | 'takeComp' | 'audioWarp'
+	key: 'subprojects' | 'assistanceAssets' | 'musicalTimeline' | 'timelineAnnotations' | 'trackFolders' | 'takeComp' | 'audioWarp'
 		| 'audioAutomation' | 'audioMixerGraph' | 'masteringSequences' | 'immersiveAdm' | 'sequenceTiming'
 		| 'videoRetime' | 'videoTimingAssets' | 'sourceCharacteristics',
 	displayName: string,

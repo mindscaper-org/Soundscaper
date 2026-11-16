@@ -48,6 +48,7 @@ import { resolveInterchangeCopy } from '../../i18n/editor-interchange-copy.ts';
 import { dialogueAlignmentMenuItem } from './dialogue-alignment-menu.ts';
 import { transcriptEditingMenuItem } from './transcript-editing-menu.ts';
 import { createFolderEditMenu } from './folder-edit-menu.ts';
+import { createSubprojectMenuItems } from './subproject-menu.ts';
 
 /**
  * The video tracks an edit list would describe.
@@ -215,6 +216,7 @@ export default function createApplicationMenus({
 				{ id: 'file-close', label: copy.closeProject, shortcut: 'Ctrl+W', disabled: blocked, onClick: actions.closeProject },
 				divider(),
 				{ id: 'save-project', label: copy.saveProject, shortcut: 'Ctrl+S', disabled: editBlocked, onClick: actions.saveProject },
+				...createSubprojectMenuItems(productId, copy, editBlocked, actions.openSubprojects),
 				{
 					id: 'file-save-as', label: projectFileCopy.saveScape, preserveLabel: true,
 					resolve: () => ({ disabled: blocked && !snapshot.readOnly }),

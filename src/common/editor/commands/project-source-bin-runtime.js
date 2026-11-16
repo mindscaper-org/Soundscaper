@@ -4,6 +4,7 @@ import { dispatchTimelineAnnotationAppendRuns } from './timeline-annotation-add-
 import { adoptMidiTransferContext, midiBinTransferContexts } from './midi-transfer-context.ts';
 import { createEnvelopeValueEvaluator } from '../automation.js';
 import { setProjectRecordingNotes } from '../recording-notes.ts';
+import { createSubprojectCommandHandlers } from './subproject-runtime.ts';
 import { trackPlaylistUsesSource } from '../track-playlist-media.ts';
 import { processSourceAudio } from './source-process-audio-runtime.ts';
 import {
@@ -511,6 +512,7 @@ function setTimeDisplay(project, command) {
 }
 export function createProjectSourceBinRuntimeHandlers(dispatchChild) {
 	return {
+		...createSubprojectCommandHandlers(),
 		'batch'(project, command) {
 			if (!Array.isArray(command.commands) || !command.commands.length) {
 				throw new TypeError('A command batch cannot be empty.');

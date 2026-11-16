@@ -536,6 +536,7 @@ Product availability follows each product profile’s command filters and each l
 | Stop recording | `action://record/stop` | — | Record; Transport | Soundscaper | Audacity |
 | Stretch with tempo changes | `stretch-clip-to-match-tempo` | — | Clip context | Soundscaper, Framescaper | Audacity |
 | Studio Fade Out | `nyquist:studiofadeout` | — | Nyquist | Soundscaper | Audacity |
+| Subprojects | `subprojects` | — | File | Soundscaper | Soundscaper local |
 | Support | `local://support` | — | Help | Soundscaper, Framescaper | Soundscaper local |
 | Swap stereo channels | `track-swap-channels` | — | Track context | Soundscaper, Framescaper | Audacity |
 | Switch camera | `multicamera-switch` | — | Tracks > Multicamera | Framescaper | Soundscaper local |

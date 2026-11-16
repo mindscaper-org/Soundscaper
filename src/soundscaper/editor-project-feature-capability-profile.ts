@@ -9,7 +9,7 @@ import {
 } from '../common/editor/project-feature-capabilities.ts';
 
 const AVAILABLE = new Set<ProjectFeatureCapabilityKey>([
-	'project', 'literalJsonKeys', 'projectBin', 'audioImport', 'audioPlayback', 'audioTimelineEditing',
+	'subprojects', 'project', 'literalJsonKeys', 'projectBin', 'audioImport', 'audioPlayback', 'audioTimelineEditing',
 	'audioMixing', 'videoImport', 'videoPlayback', 'videoTimelineEditing', 'videoExport',
 	'audioRecording', 'audioGenerators', 'audioEffects', 'audioSpectralEditing',
 	'audioAnalysis', 'audioMacros', 'audioSampleEditing', 'musicalTimeline',

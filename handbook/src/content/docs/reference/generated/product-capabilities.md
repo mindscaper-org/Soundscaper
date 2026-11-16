@@ -44,6 +44,7 @@ Families describe product entry points, not every file extension a decoder might
 | Mastering sequences | Enabled | Not enabled |
 | Multicamera editing | Not enabled | Enabled |
 | Musical timeline | Enabled | Not enabled |
+| Nested audio subprojects | Enabled | Not enabled |
 | Nested sequences | Not enabled | Enabled |
 | OpenFX effects | Not enabled | Enabled |
 | Project bin | Enabled | Enabled |

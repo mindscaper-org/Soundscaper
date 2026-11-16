@@ -3,12 +3,14 @@
 import type { ComponentProps } from 'react';
 import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
 import type { DialogueAlignmentDialogProps } from '../dialogs/DialogueAlignmentDialog.tsx';
+import SubprojectSurface from './SubprojectSurface.tsx';
+import type { SubprojectsDialogProps } from '../dialogs/SubprojectsDialog.tsx';
 import MicrophoneBleedSurface from './MicrophoneBleedSurface.tsx';
 
 const DialogueAlignmentDialog = lazyEditorModule(() => import('../dialogs/DialogueAlignmentDialog.tsx'));
 const AnalysisDialog = lazyEditorModule(() => import('../dialogs/AnalysisDialog.jsx'));
 const TrackPlaylistsDialog = lazyEditorModule(() => import('../dialogs/TrackPlaylistsDialog.tsx'));
-type Props = ComponentProps<typeof MicrophoneBleedSurface> & Pick<ComponentProps<typeof TrackPlaylistsDialog>, 'controller' | 'snapshot'> & Pick<DialogueAlignmentDialogProps, 'controller' | 'snapshot'> & {
+type Props = Pick<SubprojectsDialogProps, 'controller'> & ComponentProps<typeof MicrophoneBleedSurface> & Pick<ComponentProps<typeof TrackPlaylistsDialog>, 'controller' | 'snapshot'> & Pick<DialogueAlignmentDialogProps, 'controller' | 'snapshot'> & {
 	readonly surfaceRequestId?: string | number;
 	readonly fileService: unknown;
 };
@@ -16,6 +18,7 @@ type Props = ComponentProps<typeof MicrophoneBleedSurface> & Pick<ComponentProps
 /** Group opt-in audio analysis dialogs without growing the workspace's general overlay owner. */
 export default function WorkspaceAudioAnalysisOverlays({ activeSurface, surfaceRequestId, controller, snapshot, copy, fileService, onClose }: Props) {
 	return <>
+		<SubprojectSurface activeSurface={activeSurface} controller={controller} snapshot={snapshot} copy={copy} onClose={onClose} />
 		{activeSurface === 'track-playlists' && <TrackPlaylistsDialog controller={controller} snapshot={snapshot} copy={copy} onClose={onClose} />}
 		{activeSurface?.startsWith('offline-analysis-') && <div data-editor-surface={activeSurface}>
 			<AnalysisDialog mode={activeSurface.slice('offline-analysis-'.length)} requestId={surfaceRequestId}

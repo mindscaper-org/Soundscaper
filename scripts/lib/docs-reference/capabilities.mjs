@@ -36,6 +36,7 @@ const CAPABILITY_LABELS = Object.freeze({
 	multicamera: 'Multicamera editing',
 	musicalTimeline: 'Musical timeline',
 	nestedSequences: 'Nested sequences',
+	subprojects: 'Nested audio subprojects',
 	ofxEffects: 'OpenFX effects',
 	timelineAnnotations: 'Timeline annotations',
 	trackFolders: 'Track folders',

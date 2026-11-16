@@ -14,6 +14,7 @@ import { collectTrackPlaylistSourceIds } from './track-playlist-media.ts';
 import { collectVisualPresetGeneratorSourceIds } from './video-visual-preset-v24.ts';
 import { videoSourceCharacteristicsAreReported } from './video-source-characteristics.ts';
 import { retireUnusedScapeLiteralKeys } from './scape-literal-json-keys.ts';
+import { readSubprojectLinks } from './subprojects.ts';
 
 const MAXIMUM_FRAMESCAPER_PROJECT_ASSET_ROOTS = 16_384;
 const SHA256 = /^[a-f0-9]{64}$/u;
@@ -46,6 +47,7 @@ export function collectProjectSourceIds(project, target = new Set()) {
 	}
 	collectTakeGroupSourceIds(project, target);
 	collectTrackPlaylistSourceIds(project, target);
+	for (const link of readSubprojectLinks(project)) target.add(link.sourceId);
 	collectFeatureFallbackSourceIds(project, target);
 	collectReportedSourceCharacteristicsIds(project, target);
 	collectAssistanceAssetSourceIds(project, target);
