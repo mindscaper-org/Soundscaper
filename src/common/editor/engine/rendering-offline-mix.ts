@@ -130,7 +130,7 @@ export async function renderMix(this: EngineRuntimeHost, {
 		let parametricEqFailure = null;
 		let graph = null;
 		try {
-			await ensureProjectWorklets(context, this.project);
+			await ensureProjectWorklets(context, this.project, { trackId, includeMaster });
 			setOfflineAutoTuneControlWindows(context, this.project, timeline.ranges.map((range, index) =>
 				index ? range : { ...range, startFrame: renderFromFrame }), this.sampleRate);
 			graph = buildProjectGraph(context, context.destination, this.project, {

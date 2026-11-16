@@ -20,7 +20,7 @@ listed in [local-model provenance](../reference/local-model-provenance.md).
 
 All native inference is main-owned and pathless from the renderer. Main
 authenticates the exact runtime, model, platform, and file grants before it
-starts work. A dedicated inference worker is the only context that imports
+starts work. Dedicated inference workers and real-time denoising helpers import
 native code; the renderer receives opaque job, claim, stream, and progress
 identities rather than filesystem or module paths.
 
@@ -113,8 +113,11 @@ it terminates the helper and reports a resource violation.
 Enhancement jobs retain the one-GiB RSS ceiling and process channels sequentially
 with bounded WAV windows. Their intermediate files live inside main-owned job
 staging so forced cancellation removes them with the job. All three Sherpa
-enhancers preserve 48 kHz output, channel count, and selection duration; GTCRN
-and VoxLock process at 16 kHz internally. VoxLock shares one enrollment sample
+enhancers preserve 48 kHz output, channel count, and selection duration. The
+worker explicitly resamples GTCRN and VoxLock input to 16 kHz before calling
+the denoiser, then resamples its output back to 48 kHz. VoxLock's enrollment
+WAV is also conformed to 16 kHz. Each resampler retains history across bounded
+chunks and flushes to the exact selected duration. VoxLock shares one enrollment sample
 across channels, selected from the loudest three-second window in the first
 15 seconds, and refuses shorter or silent selections.
  Speech helper jobs
@@ -140,6 +143,66 @@ stages propagate cancellation to the owned process or next safe chunk boundary.
 Termination must satisfy the registered cancellation p95 of at most two
 seconds. A hung or malformed runtime is terminated and quarantined rather than
 retried through another model.
+
+## Real-time AI denoising rack
+
+The desktop **Effect > Realtime effects** rack picker also offers **AI denoising
+(DPDFNet2)**. This is a separate, opt-in rack processor; Enhance Dialogue keeps
+its selection-replacing workflow. Install `dpdfnet2-48khz` through Model Manager
+first. The rack never downloads a model or runtime implicitly. Saved effects
+retain their ordinary enabled/bypass state; web playback requires bypassing this
+desktop-only processor.
+
+The processor admits mono and stereo racks at every supported project sample
+rate. Source playback first conforms each clip to the graph clock. A stateful
+windowed-sinc resampler in the AudioWorklet then converts graph PCM to the
+model's 48 kHz clock before inference; a second resampler returns processed PCM
+to the graph rate. Both retain their history across quanta, preserve channel
+order, and filter frequencies above the destination Nyquist limit. Native PCM
+grants remain strictly 48 kHz. Before audio is scheduled,
+main authenticates the installed model and runtime and grants a bounded PCM
+port to a dedicated utility process. Each channel owns one persistent streaming
+denoiser. Authenticated GPU providers are tried in fresh processes before CPU
+fallback, including fallback when a provider cannot meet the startup speed
+probe. Warmup processes 16 hops followed by 64 measured hops for the complete
+rack; admission requires mean work of at most 7.5 ms and p99 below 10 ms per
+10 ms hop. Warmup histories are reset before real audio.
+
+The AudioWorklet collects 480-frame hops across 128-frame rendering quanta. A
+16-slot bounded pool and a fixed 4096-frame delay (85.33 ms at 48 kHz) keep
+inference off the rendering thread. At other rates, the delay scales to graph
+frames and includes both resamplers' lookahead, rounded up to one graph frame.
+Existing mixer PDC accounts for that delay;
+hardware I/O adds its own latency. Electron utility ports clone bounded PCM
+bodies rather than transferring ArrayBuffers. The renderer UI and main process
+do not relay individual audio blocks. A missed deadline or malformed reply
+faults the processor and reports the rack error; it never substitutes dry audio
+or shifts later results into earlier output slots.
+
+Main admits at most four simultaneous sessions, watches heartbeats and the
+one-GiB per-process RSS ceiling, and revokes sessions when the renderer is
+destroyed or the app shuts down. Graph disposal closes the PCM port; an idle
+helper retires after five seconds. Export/freeze uses the existing clocked PCM
+render path with fresh sessions and strict effect-error handling, so a fast
+OfflineAudioContext cannot outrun asynchronous inference. Parallel effect-stack
+workers do not admit this effect and use the conventional graph instead.
+
+The rack PCM grant is independent of selection-based assistance file grants.
+It grants no file picker, capture, microphone, model-installation, or network
+authority. It can process only the audio supplied by its authored rack.
+
+Run `node --import tsx scripts/benchmark-ai-denoising.mjs --runtime-root PATH
+--manifest PATH --model PATH` against an installed target runtime to measure
+the production kernel's portable CPU baseline. It authenticates the runtime
+and exact DPDFNet artifact and reports mono/stereo
+throughput and hop percentiles; kernel timings do not include IPC or hardware
+I/O. The opt-in `tests/desktop-ai-denoise-electron.test.ts` uses the four
+`SCAPE_AI_DENOISE_TEST_RUNTIME_ROOT`, `SCAPE_AI_DENOISE_TEST_MANIFEST`,
+`SCAPE_AI_DENOISE_TEST_MODEL`, and `SCAPE_AI_DENOISE_TEST_AUDIO` paths to
+exercise real utility ports with a speech WAV and the production worklet through
+a 500 ms UI stall on Linux. It requires Electron and
+`xvfb-run`; its diagnostic launch disables the OS sandbox and makes no sandbox
+containment claim. Other maintained targets still require device qualification.
 
 ## Catalog and availability
 

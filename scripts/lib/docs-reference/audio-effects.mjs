@@ -33,6 +33,7 @@ const CATEGORY_LABELS = Object.freeze({
 const LOCAL_EFFECT_CATEGORIES = Object.freeze({
 	'match-eq': 'eq',
 	'automatic-phase-correction': 'repair',
+	'ai-denoise': 'repair',
 	'auto-tune': 'pitch-tempo',
 	deesser: 'repair',
 	'hum-removal': 'repair',
@@ -72,6 +73,7 @@ const LOCAL_EFFECT_NOTES = Object.freeze({
 	'match-eq': ['Selection-only tonal matching with a saved reference or personal voice profile', 'Each target is analyzed independently; smoothing and bounded boost/cut protect quiet and unsupported frequency bands', 'Original/Matched preview is level compensated; Edit as Filter Curve EQ opens an editable fixed correction'],
 	'automatic-phase-correction': ['Selection-only fixed stereo timing alignment, from 8 kHz to 384 kHz', 'Reference channel, duration and levels are preserved; ambiguous or inconsistent offsets remain unchanged', 'Analyze reports the offset and confidence; Original/Corrected and mono are preview-only controls'],
 	'hum-removal': ['Harmonic notch bank with custom fundamental, harmonic count, notch width and reduction', 'Live controls, zero latency, no timeline automation; selections keep their duration'],
+	'ai-denoise': ['Desktop only; install DPDFNet2 through Model Manager', 'Mono or stereo; automatically resampled to 48 kHz and back', '85.33 ms compensated latency at 48 kHz; other rates include resampler lookahead; requires a passing device speed probe'],
 	'auto-tune': ['Solo voice or melody (65–1500 Hz); chromatic, major or natural minor pitch correction', 'StaffPad formant preservation; fixed rack latency (about 72 ms at 48 kHz), live controls, no timeline automation'],
 	'multi-tap-delay': ['Finite echoes with StaffPad pitch shift; selections also offer changed-speed echoes and optional complete tails'],
 	'noise-gate': ['Lookahead opens the gate before transients; rack and selection timing are compensated', 'Linked or independent channels; optional frequency-selective gating'],

@@ -2,6 +2,16 @@
 
 /** Exact compiled closure owned by desktop local assistance and its model store. */
 export const DESKTOP_ASSISTANCE_RUNTIME_FILES = Object.freeze([
+	'config/assistance-sherpa-gpu-build.json',
+	'config/assistance-sherpa-retained-builds.json',
+	'desktop/ai-denoise-helper-process.js',
+	'desktop/ai-denoise-kernel.js',
+	'desktop/ai-denoise-model.js',
+	'desktop/ai-denoise-preload.js',
+	'desktop/ai-denoise-sessions.js',
+	'desktop/assistance-native-runtime-payload.mjs',
+	'src/common/editor/first-party-effects/ai-denoise/contract.js',
+	'src/common/editor/resample-geometry.js',
 	'desktop/assistance-sherpa-enhancement-contract.js',
 	'desktop/assistance-sherpa-enhancement-capture.js',
 	'desktop/assistance-sherpa-enhancement-worker.js',

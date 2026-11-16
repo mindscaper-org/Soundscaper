@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { lstat, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,25 +12,28 @@ import { validateSherpaEnhancementGrant, validateSherpaEnhancementResult,
 import { nativeChildFileIdentityFromStat } from '../desktop/native-child-file-identity.ts';
 import { helperJobGrantResourceUsage } from '../desktop/helper-job-grant.ts';
 import { createWavHeader } from '../src/common/editor/wav.js';
+import type { SherpaEnhancementModelId } from '../src/common/editor/assistance/speech-enhancement-models.ts';
 
 const digest = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
-async function fixture(context: TestContext) {
+async function fixture(context: TestContext, modelId: SherpaEnhancementModelId = 'dpdfnet2-48khz', frames = 15_361) {
 	const root = await mkdtemp(join(tmpdir(), 'sherpa-effect-test-'));
 	context.after(() => rm(root, { recursive: true, force: true }));
-	const frames = 15_361;
 	const pcm = Float32Array.from({ length: frames * 2 }, (_, index) => index % 2 === 0 ? 0.125 : -0.25);
 	const header = createWavHeader({ sampleRate: 48_000, channelCount: 2, totalFrames: frames, bitDepth: 32, float: true });
 	const input = Buffer.concat([Buffer.from(header), Buffer.from(pcm.buffer)]);
 	await writeFile(join(root, 'input.wav'), input); await writeFile(join(root, 'output.wav'), '');
-	await writeFile(join(root, 'model.onnx'), 'fixture');
 	const identity = async (path: string) => nativeChildFileIdentityFromStat(await lstat(path, { bigint: true }));
-	const pin = SHERPA_ENHANCEMENT_ARTIFACTS['dpdfnet2-48khz'][0];
+	const models = await Promise.all(SHERPA_ENHANCEMENT_ARTIFACTS[modelId].map(async pin => {
+		const path = join(root, `${pin.role}.onnx`);
+		await writeFile(path, 'fixture');
+		return { modelId, version: modelId === 'voxlock' ? '1.1.1' : '1.0.0', artifactRole: pin.role,
+			path, byteLength: 7, sha256: pin.sha256, identity: await identity(path) };
+	}));
 	const grant = validateSherpaEnhancementGrant({ operation: 'enhance-speech', moduleId: 'sherpa-onnx-node',
-		jobId: 'a'.repeat(40), modelId: 'dpdfnet2-48khz',
+		jobId: 'a'.repeat(40), modelId,
 		input: { claimId: 'b'.repeat(40), role: 'audio', mediaType: 'audio/wav', path: join(root, 'input.wav'),
 			byteLength: input.length, sha256: digest(input), identity: await identity(join(root, 'input.wav')) },
-		models: [{ modelId: 'dpdfnet2-48khz', version: '1.0.0', artifactRole: pin.role,
-			path: join(root, 'model.onnx'), byteLength: 7, sha256: pin.sha256, identity: await identity(join(root, 'model.onnx')) }],
+		models,
 		output: { claimId: 'c'.repeat(40), role: 'enhanced-audio', mediaType: 'audio/wav', path: join(root, 'output.wav'),
 			maximumByteLength: input.length, initialByteLength: 0, initialSha256: digest(Buffer.alloc(0)),
 			identity: await identity(join(root, 'output.wav')) } });
@@ -38,6 +42,33 @@ async function fixture(context: TestContext) {
 
 interface Config { model: { provider: string; dpdfnet: { model: string } }; }
 const authenticatedFixture = async (): Promise<void> => {};
+
+for (const modelId of ['gtcrn', 'voxlock'] as const) test(`${modelId} receives explicitly resampled 16 kHz PCM and returns exact 48 kHz stereo`, async context => {
+	const { grant, frames, pcm } = await fixture(context, modelId, 144_237);
+	const received: number[] = [];
+	class Denoiser {
+		readonly sampleRate = 16000;
+		private previous = new Float32Array();
+		private count = 0;
+		constructor(config: { model: { voxlock?: { voiceSample: string } } }) {
+			if (modelId === 'voxlock') assert.equal(readFileSync(config.model.voxlock!.voiceSample).readUInt32LE(24), 16000);
+		}
+		run({ samples, sampleRate }: { samples: Float32Array; sampleRate: number }) {
+			assert.equal(sampleRate, 16000);
+			this.count += samples.length;
+			const output = this.previous; this.previous = samples.map(sample => sample / 2);
+			return { samples: output, sampleRate: output.length ? 16000 : 0 };
+		}
+		flush() { received.push(this.count); return { samples: this.previous, sampleRate: 16000 }; }
+	}
+	await executeSherpaEnhancement(grant, { OnlineSpeechDenoiser: Denoiser }, {
+		authenticateGrant: authenticatedFixture, executionProviders: ['cpu'] });
+	assert.deepEqual(received, [Math.round(frames / 3), Math.round(frames / 3)]);
+	const bytes = await readFile(grant.output.path);
+	assert.equal(bytes.length, 44 + frames * 8);
+	const output = new Float32Array(bytes.buffer.slice(bytes.byteOffset + 44, bytes.byteOffset + bytes.length));
+	assert.ok(output.every((sample, index) => Math.abs(sample - pcm[index]! / 2) < 1e-6));
+});
 
 test('streaming enhancement preserves stereo planes, partial final chunks and exact 48 kHz duration', async (context) => {
 	const { grant, pcm } = await fixture(context); let released = 0;

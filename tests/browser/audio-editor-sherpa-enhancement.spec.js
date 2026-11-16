@@ -18,7 +18,7 @@ test.describe('Sherpa enhancement model choices', () => {
 		const errors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/en/');
 		const audio = createWavFixture({ name: 'sherpa-stereo.wav', frequency: 330,
-			duration: 4, sampleRate: 48_000, channelCount: 2 });
+			duration: 4, sampleRate: 44_100, channelCount: 2 });
 		await importFiles(editor, [audio]);
 		const consents = [];
 		page.on('dialog', async (dialog) => { consents.push(dialog.message()); await dialog.accept(); });

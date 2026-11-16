@@ -31,6 +31,7 @@ export function findStereoLimitedMultichannelRenderEffects(
 }
 
 export const STEREO_LIMITED_RENDER_EFFECT_TYPES: readonly string[] = Object.freeze([
+	'ai-denoise',
 	'compressor',
 	'convolver',
 	'reverb',

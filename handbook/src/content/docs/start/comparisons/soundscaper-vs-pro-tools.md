@@ -125,7 +125,7 @@ Soundscaper can [import Audacity keyboard shortcuts](/reference/generated/comman
 | Delete or amplify a spectral region | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. |
 | Repair short damage | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. |
 | Broadband noise reduction | + | / — :: Available through the external RX Spectral Editor plug-in with an active plan. |
-| Real-time adaptive denoising | / — :: Noise Reduction uses a captured noise profile; optional speech enhancement is offline. | / — :: Requires an external noise-reduction plug-in. |
+| Real-time adaptive denoising | ~ — DPDFNet2 speech denoising :: Opt-in desktop rack for mono or stereo speech; requires an installed model and runtime and a passing device speed probe. Noise-profile reduction and offline Enhance Dialogue remain separate workflows. | / — :: Requires an external noise-reduction plug-in. |
 | Learned sound removal | + | / — :: Requires an external restoration plug-in. |
 | Automatic phase correction | + — :: Fixed stereo timing alignment from Analyze, with confidence and preview controls. | / — :: Requires an external alignment plug-in, such as Auto-Align. |
 | De-reverb | + — Local model | / — :: Requires the separate Acoustica Ultimate / DeVerberate plug-in. |

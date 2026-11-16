@@ -13,6 +13,7 @@ import { constants as osConstants, freemem, setPriority, totalmem } from 'node:o
 import { isAbsolute, join, resolve } from 'node:path';
 
 import { powerMonitor, utilityProcess } from 'electron/main';
+import { AiDenoiseSessions } from './project-library-runtime/desktop/ai-denoise-sessions.js';
 
 import assistanceCatalog from '../config/local-model-catalog.json' with { type: 'json' };
 import assistanceNativeRuntimeManifest from '../config/assistance-native-runtime-manifest.json' with { type: 'json' };
@@ -253,6 +254,26 @@ export function registerAssistance({
 		});
 		return service;
 	};
+	const denoising = new AiDenoiseSessions({
+		prepare: async () => {
+			if (!await runtimeInstaller.isInstalled('sherpa-onnx-node')) throw new Error('Install the speech runtime through Model Manager.');
+			const paths = await createService().resolveModelPaths('dpdfnet2-48khz');
+			return { manifest: assistanceNativeRuntimeManifest, targetId, runtimeRoot, modelPath: paths.dpdfnet2_48khz_hr,
+				executionProviders: assistanceNativeRuntimeManifest.targets[targetId].executionProviders ?? ['cpu'] };
+		},
+		spawn: () => utilityProcess.fork(join(import.meta.dirname, 'project-library-runtime', 'desktop', 'ai-denoise-helper-process.js'), [], {
+			serviceName: 'soundscaper-realtime-ai-denoising',
+		}),
+		sampleRss: (pid) => {
+			const metric = app.getAppMetrics().find((entry) => entry.pid === pid);
+			return metric ? metric.memory.workingSetSize * 1024 : null;
+		},
+		onError: (error) => onOperationError?.(error),
+	});
+	on('soundscaper:v1:ai-denoise:connect', (event, request) => {
+		if (event.ports?.length !== 1) { for (const port of event.ports ?? []) port.close(); return; }
+		void denoising.open(request, event.ports[0], event.sender);
+	});
 	registerAssistanceIpc({
 		channels,
 		handle,
@@ -358,6 +379,7 @@ export function registerAssistance({
 		confirmWorkflow: (request, stages) => confirmWorkflow(dialog, windowFor(), request, stages),
 	});
 	return Object.freeze({ semanticQuery, dispose: async () => {
+		denoising.dispose();
 		await awaitAssistanceCleanupPhases([
 			[() => workflowIpc.dispose()],
 			[() => operationIpc.dispose()],
