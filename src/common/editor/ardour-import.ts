@@ -158,9 +158,9 @@ function mediaPath(path: string, title: string): string {
 	return /[\\/]/u.test(path) ? path : `interchange/${title}/audiofiles/${path}`;
 }
 function fadeLength(region: XmlElement, name: string, time: (value: string) => Rational): Rational {
-	if (region.attributes[name === 'FadeIn' ? 'fade-in-active' : 'fade-out-active'] === '0') return { num: 0, den: 1 };
+	if (['0', 'no', 'false'].includes(region.attributes[name === 'FadeIn' ? 'fade-in-active' : 'fade-out-active'] ?? '')) return { num: 0, den: 1 };
 	const fade = childElement(region, name), events = fade && childElement(childElement(fade, 'AutomationList') ?? fade, 'events');
-	if (fade?.attributes.active === 'no' || fade?.attributes.active === '0') return { num: 0, den: 1 };
+	if (['0', 'no', 'false'].includes(fade?.attributes.active ?? '')) return { num: 0, den: 1 };
 	if (!events?.text.trim()) return { num: 0, den: 1 };
 	const lines = events.text.trim().split(/\r?\n/u);
 	return time(lines.at(-1)!.trim().split(/\s+/u)[0]!);
