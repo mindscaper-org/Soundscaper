@@ -4,7 +4,9 @@ import { bootEditor, chooseFileAction, disableNativeSavePicker } from './audio-e
 import { exportSamples } from './helpers/round2-audio-export.js';
 import { nestedDawprojectFadeFile } from '../helpers/dawproject-nested-fade-fixture.ts';
 
-for (const fadeOut of [false, true]) test(`DAWproject nested fade PCM retains the ${fadeOut ? 'cubic' : 'quadratic'} gain product`, async ({ page }) => {
+// Node samples all four fade-layer products independently across the full span.
+// Keep the cubic File Open/native rendering witness for import and export wiring.
+for (const fadeOut of [true]) test(`DAWproject nested fade PCM retains the ${fadeOut ? 'cubic' : 'quadratic'} gain product`, async ({ page }) => {
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	const file = await nestedDawprojectFadeFile(fadeOut ? ['in', 'in', 'out'] : ['in', 'in']);
 	const choosing = page.waitForEvent('filechooser'); await chooseFileAction(page, editor, 'Open');

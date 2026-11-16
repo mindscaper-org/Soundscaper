@@ -23,8 +23,11 @@ async function archive(position, mode) {
 	} finally { await store.close(); }
 }
 
+// audio-editor-zero-crossing-render-custody.test.ts runs all detector topologies
+// through the shipping Gate/Delay worklets and independent PCM/history oracles.
+// Retain menu/sample entry, muted selection and actual browser output here.
 for (const [position, mode] of [
-	['pre-fader', 'leaf'], ['post-fader', 'folder'], ['post-fader', 'vca'],
+	['pre-fader', 'leaf'],
 ]) test(`At zero crossings retains the ${position} ${mode} detector signal`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');

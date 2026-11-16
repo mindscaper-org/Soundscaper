@@ -5,7 +5,9 @@ import { bootEditor, chooseExportProjectFileAction, disableNativeSavePicker, dow
 import { deliverySelectionArchive } from '../helpers/more200-delivery-selection-fixture.ts';
 import { strFromU8, unzipSync } from 'fflate';
 
-for (const length of ['0.125', '0.0005']) test(`Fades accepts ordinary sequential typing of ${length} seconds and saves exact samples`, async ({ page }) => {
+// The matching Node suite owns decimal/incomplete/invalid draft permutations.
+// Keep sub-millisecond sequential typing, exact Save and real Undo/Redo here.
+for (const length of ['0.0005']) test(`Fades accepts ordinary sequential typing of ${length} seconds and saves exact samples`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');
 	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Selected take.sscape', mimeType: 'application/zip',

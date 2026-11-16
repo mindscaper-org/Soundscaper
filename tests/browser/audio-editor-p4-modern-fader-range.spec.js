@@ -8,7 +8,9 @@ import { audacityXmlChildren, decodeAudacityBinaryXml, encodeAudacityBinaryXml }
 import { createAup4EffectsNode } from '../../src/common/editor/aup4-effects.js';
 import { createEffect } from '../../src/common/editor/effects.js';
 
-for (const gain of [8, 10 ** (36 / 20), 4]) test(`native AUP3 fader gain ${gain} retains its authored WAV level`, async ({ page }) => {
+// The scalar/render/Scape matrix runs in audio-editor-imported-fader-render.test.ts.
+// Retain native database Open, converted high gain, WAV download and reload.
+for (const gain of [10 ** (36 / 20)]) test(`native AUP3 fader gain ${gain} retains its authored WAV level`, async ({ page }) => {
 	test.setTimeout(90_000);
 	const frames = 4800;
 	const bytes = await createAup3Fixture({ sampleRate: 48_000, tracks: [{ name: 'Voice', gain,
