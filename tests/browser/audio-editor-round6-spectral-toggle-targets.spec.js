@@ -31,9 +31,14 @@ for (const toggle of [false, true]) test(`a selected recording spectral band lea
 	await spectral.getByRole('textbox', { name: /^Minimum frequency \(Hz\)/u }).fill('100');
 	await spectral.getByRole('textbox', { name: /^Maximum frequency \(Hz\)/u }).fill('1000');
 	await spectral.getByRole('button', { name: 'Select range', exact: true }).click();
+	await expect(spectral).toBeHidden();
+	const band = editor.getByRole('slider', { name: 'Spectral selection center-frequency handle', exact: true });
+	await expect(band).toBeVisible();
 	if (toggle) {
 		await chooseNestedCommandAction(page, editor, 'Select', ['Spectral', 'Spectral selection']);
+		await expect(band).toHaveCount(0);
 		await chooseNestedCommandAction(page, editor, 'Select', ['Spectral', 'Spectral selection']);
+		await expect(band).toBeVisible();
 	}
 	const amplify = await openSpectralDialog(page, editor);
 	await expect(amplify.getByRole('textbox', { name: /^Minimum frequency \(Hz\)/u })).toHaveValue('100');
@@ -48,7 +53,9 @@ for (const toggle of [false, true]) test(`a selected recording spectral band lea
 async function openSpectralDialog(page, editor) {
 	await editor.getByRole('button', { name: 'Spectrogram options', exact: true }).click();
 	await page.getByRole('menuitem', { name: 'Select spectral frequency range', exact: true }).click();
-	return page.getByRole('dialog', { name: 'Spectral selection', exact: true });
+	const dialog = page.getByRole('dialog', { name: 'Spectral selection', exact: true });
+	await expect(dialog).toBeVisible();
+	return dialog;
 }
 
 function toneAmplitude(samples, frequency) {
