@@ -126,7 +126,7 @@ Import [Audacity shortcuts](/reference/generated/commands/) in Preferences; revi
 | Delete or amplify a spectral region | + | / |
 | Repair short damage | + | ~ — Pencil tool :: Manual waveform repair, rather than a spectral healing process. |
 | Broadband noise reduction | + | ~ — Legacy Denoiser :: FFT threshold reduction; no learned noise-print restoration workflow. |
-| Real-time adaptive denoising | ~ — :: DPDFNet2 speech denoising. Opt-in desktop rack for mono or stereo speech; requires an installed model and runtime and a passing device speed probe. Noise-profile reduction and offline Enhance Dialogue remain separate workflows. | / |
+| Real-time adaptive denoising | + — Local model | / |
 | Learned sound removal | + | / |
 | Automatic phase correction | + — :: Fixed stereo timing alignment from Analyze, with confidence and preview controls. | / |
 | De-reverb | + — Local model | / |

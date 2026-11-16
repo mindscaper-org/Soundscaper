@@ -126,7 +126,7 @@ Import [Audacity shortcuts](/reference/generated/commands/) in Preferences; revi
 | Delete or amplify a spectral region | + | ~ — SpectraLayers Go :: Frequency selections and deletion; advanced painting and repair need a higher edition. |
 | Repair short damage | + | ~ — Draw tool :: Manual sample editing; specialist healing requires another tool or edition. |
 | Broadband noise reduction | + | / |
-| Real-time adaptive denoising | ~ — :: DPDFNet2 speech denoising. Opt-in desktop rack for mono or stereo speech; requires an installed model and runtime and a passing device speed probe. Noise-profile reduction and offline Enhance Dialogue remain separate workflows. | / |
+| Real-time adaptive denoising | + — Local model | / |
 | Learned sound removal | + | / |
 | Automatic phase correction | + — :: Fixed stereo timing alignment from Analyze, with confidence and preview controls. | + — Audio Alignment :: Prefer Time Shifting aligns shared recordings; this is timing alignment rather than frequency-dependent phase rotation. |
 | De-reverb | + — Local model | / |

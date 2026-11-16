@@ -126,7 +126,7 @@ Import [Audacity shortcuts](/reference/generated/commands/) in Preferences; revi
 | Delete or amplify a spectral region | + | / |
 | Repair short damage | + | + — Edison :: Denoise, declick, and declip tools. |
 | Broadband noise reduction | + | + — Edison |
-| Real-time adaptive denoising | ~ — :: DPDFNet2 speech denoising. Opt-in desktop rack for mono or stereo speech; requires an installed model and runtime and a passing device speed probe. Noise-profile reduction and offline Enhance Dialogue remain separate workflows. | / — :: Edison's denoisers are offline processors. |
+| Real-time adaptive denoising | + — Local model | / — :: Edison's denoisers are offline processors. |
 | Learned sound removal | + | / |
 | Automatic phase correction | + — :: Fixed stereo timing alignment from Analyze, with confidence and preview controls. | / |
 | De-reverb | + — Local model | + — Edison AI :: General or vocal models; optimized for samples shorter than 30 seconds. |

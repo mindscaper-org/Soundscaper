@@ -126,7 +126,7 @@ Import [Audacity shortcuts](/reference/generated/commands/) in Preferences; revi
 | Delete or amplify a spectral region | + | + — Spectral edit gain |
 | Repair short damage | + | / — :: Spectral attenuation can mask damage; no sample-interpolation repair command is documented. |
 | Broadband noise reduction | + | + — ReaFIR subtract |
-| Real-time adaptive denoising | ~ — :: DPDFNet2 speech denoising. Opt-in desktop rack for mono or stereo speech; requires an installed model and runtime and a passing device speed probe. Noise-profile reduction and offline Enhance Dialogue remain separate workflows. | / — :: ReaFIR uses a captured noise profile; automatic profile capture is not continuous speech-aware noise estimation. |
+| Real-time adaptive denoising | + — Local model | / — :: ReaFIR uses a captured noise profile; automatic profile capture is not continuous speech-aware noise estimation. |
 | Learned sound removal | + | / — :: ReaFIR noise-profile subtraction does not provide a general learned-sound-removal workflow. |
 | Automatic phase correction | + — :: Fixed stereo timing alignment from Analyze, with confidence and preview controls. | + — Phase aligner :: Built-in correlation analysis can align items or tracks automatically. |
 | De-reverb | + — Local model | / |

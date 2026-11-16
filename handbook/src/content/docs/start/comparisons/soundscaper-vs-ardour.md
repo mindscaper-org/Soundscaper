@@ -126,7 +126,7 @@ Import [Audacity shortcuts](/reference/generated/commands/) in Preferences; revi
 | Delete or amplify a spectral region | + | / |
 | Repair short damage | + | / — :: Requires an external restoration plug-in or editor. |
 | Broadband noise reduction | + | / — :: Requires an external noise-reduction plug-in. |
-| Real-time adaptive denoising | ~ — :: DPDFNet2 speech denoising. Opt-in desktop rack for mono or stereo speech; requires an installed model and runtime and a passing device speed probe. Noise-profile reduction and offline Enhance Dialogue remain separate workflows. | / — :: Requires an external noise-reduction plug-in. |
+| Real-time adaptive denoising | + — Local model | / — :: Requires an external noise-reduction plug-in. |
 | Learned sound removal | + | / |
 | Automatic phase correction | + — :: Fixed stereo timing alignment from Analyze, with confidence and preview controls. | / |
 | De-reverb | + — Local model | / — :: Requires an external de-reverb plug-in. |

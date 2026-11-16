@@ -126,7 +126,7 @@ Import [Audacity shortcuts](/reference/generated/commands/) in Preferences; revi
 | Delete or amplify a spectral region | + | + — :: Bundled Nyquist Delete selection and Amplify selection effects are available in the spectrogram context menu. |
 | Repair short damage | + | + |
 | Broadband noise reduction | + | + |
-| Real-time adaptive denoising | ~ — :: DPDFNet2 speech denoising. Opt-in desktop rack for mono or stereo speech; requires an installed model and runtime and a passing device speed probe. Noise-profile reduction and offline Enhance Dialogue remain separate workflows. | / — :: Noise Reduction uses a captured noise profile. |
+| Real-time adaptive denoising | + — Local model | / — :: Noise Reduction uses a captured noise profile. |
 | Learned sound removal | + | + |
 | Automatic phase correction | + — :: Fixed stereo timing alignment from Analyze, with confidence and preview controls. | / |
 | De-reverb | + — Local model | / |
