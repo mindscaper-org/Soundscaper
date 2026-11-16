@@ -8,7 +8,8 @@ import { bootEditor, chooseDropdown, chooseExportProjectFileAction, disableNativ
 	openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
 
 for (const format of ['w64', 'wav']) test(`native ${format} retains authored48k PCM and extent through File Import, Save and WAV export`, async ({ page }) => {
-	test.setTimeout(60_000);
+	// Native probing, decoding, project publication and WAV export share this budget.
+	test.setTimeout(120_000);
 	await page.addInitScript(() => {
 		const Native = globalThis.AudioContext;
 		globalThis.AudioContext = class extends Native { constructor(options) { super({ ...options, sampleRate: options?.sampleRate ?? 44_100 }); } };
@@ -36,7 +37,9 @@ for (const format of ['w64', 'wav']) test(`native ${format} retains authored48k 
 	}
 	expect(error).toBeLessThan(1e-7);
 	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) });
-	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 10_000 });
+	// Native WebKit decoding can outlast the ordinary UI assertion window in CI.
+	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 60_000 });
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
 	const saving = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);
 	const entries = unzipSync(await downloadBytes(await saving)), project = JSON.parse(strFromU8(entries['project.json']));
 	expect(project.sources[0]).toMatchObject({ sampleRate: 48_000, frameCount: 4800, channelCount: 2 });

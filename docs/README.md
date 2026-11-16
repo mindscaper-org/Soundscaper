@@ -98,6 +98,8 @@ qualification plans belong in Git history, not in the maintained documentation s
 
 - [Automatic phase correction](features/automatic-phase-correction.md) covers
   fixed stereo alignment, analysis admission, and preview/publication behavior.
+- [Automatic microphone-bleed reduction](features/automatic-microphone-bleed-reduction.md)
+  covers joint dialogue analysis and editable, non-destructive clip gain envelopes.
 - [Legacy Cool Edit / Audition SES import](features/legacy-ses-import.md) covers
   binary layouts, media access, and compatibility limits.
 - [Native Pro Tools import](features/pro-tools-import.md) covers PTS/PTF/PTX

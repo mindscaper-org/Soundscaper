@@ -11,6 +11,7 @@ import { resolveSoundscaperMasteringSequenceCopy } from '../soundscaper-workflow
 import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
 import EditorSurfaceBoundary from '../EditorSurfaceBoundary.jsx';
 import WorkspaceEffectWindows from './WorkspaceEffectWindows.tsx';
+import WorkspaceAudioAnalysisOverlays from './WorkspaceAudioAnalysisOverlays.tsx';
 import { recoverySurfaceAfterClose } from '../recovery-surface-close.ts';
 const AudioEditorMacroManagerDialog = lazyEditorModule(() => import('../inspector/AudioEditorMacroManagerDialog.jsx'));
 const SOUNDSCAPER_BUILD = typeof __SCAPE_PRODUCT__ === 'undefined'
@@ -40,7 +41,6 @@ const DeliveryQueueDialog = lazyEditorModule(() => import('../inspector/Delivery
 const LabelExportDialog = lazyEditorModule(() => import('../inspector/LabelExportDialog.jsx'));
 const SelectionEffectsDialog = lazyEditorModule(() => import('../inspector/SelectionEffectsDialog.jsx'));
 const MixRenderDialog = lazyEditorModule(() => import('../dialogs/MixRenderDialog.tsx'));
-const AnalysisDialog = lazyEditorModule(() => import('../dialogs/AnalysisDialog.jsx'));
 const MacroFileBatchDialog = lazyEditorModule(() => import('../dialogs/MacroFileBatchDialog.tsx'));
 const EditorDialog = lazyEditorModule(() => import('../dialogs/EditorDialog.jsx'));
 const GeneratorDialog = lazyEditorModule(() => import('../dialogs/GeneratorDialog.jsx'));
@@ -510,9 +510,7 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 					/>
 				</div>
 			)}
-			{activeSurface?.startsWith('offline-analysis-') && <div data-editor-surface={activeSurface}>
-				<AnalysisDialog mode={activeSurface.slice('offline-analysis-'.length)} requestId={surfaceRequestId} controller={controller} snapshot={snapshot} copy={copy} fileService={fileService} onClose={() => setActiveSurface(null)} />
-			</div>}
+			<WorkspaceAudioAnalysisOverlays activeSurface={activeSurface} surfaceRequestId={surfaceRequestId} controller={controller} snapshot={snapshot} copy={copy} fileService={fileService} onClose={() => setActiveSurface(null)} />
 			<LocalProcessingOverlays activeSurface={activeSurface} fileService={fileService} controller={controller}
 				capabilities={capabilities} snapshot={snapshot} copy={copy} locale={locale}
 				selectedMediaPreparation={selectedMediaPreparation}

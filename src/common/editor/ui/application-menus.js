@@ -5,7 +5,8 @@ import { audacitySpectrogramTrackSelected } from '../audacity-action-enablement.
 import { AUDIO_EDITOR_APPLICATION_MENU_ACTION_IDS } from './application-menu-registry.ts';
 import { createApplicationViewMenu } from './application-view-menu.js';
 import { createApplicationWindowMenu } from './application-window-menu.js';
-import { createEffectMenuEntries, resolveEffectMenuTargeting } from './effect-menu-organization.js';
+import { resolveEffectMenuTargeting } from './effect-menu-organization.js';
+import { createSelectionEffectMenuGroups } from './selection-effect-menu.ts';
 import { prepareLocalProcessingMenus } from './local-processing-menus.ts';
 import { filterProductMenus } from './application-menu-product-filter.js';
 import {
@@ -39,7 +40,6 @@ import { createEffectMacroApplicationMenu } from './macro-application-menu.ts';
 import { resolveEditingActionAvailability } from '../commands/editing-selection-authority.ts';
 import { resolveSelectionRange } from '../selection-range.ts';
 import { createOriginalFileOverwriteMenuItems } from './original-file-overwrite-menu.ts';
-import { repairSelectionAvailable } from './repair-menu-admission.ts';
 import { selectedTrackRemovalAvailable } from '../selected-track-removal.ts';
 import { createMidiExportMenuItems, createMidiTrackMenuItems } from './midi-application-menu.ts';
 import { resolveTimecodeSyncCopy } from '../../i18n/editor-timecode-sync-copy.ts';
@@ -177,16 +177,11 @@ export default function createApplicationMenus({
 	});
 	const importAnalysisMenuContext = { productId, copy, snapshot, editBlocked, blocked,
 		analyzerBlocked: selectionAnalyzerBlocked, actionRuntime, openRepeatAnalyzer: actions.openRepeatAnalyzer };
-	const effectLabels = new Map((snapshot.effects?.selectionTypes || []).map(({ type, label }) => [type, label]));
-	const effectGroups = createEffectMenuEntries({
-		organization: preferences?.effects?.menuOrganization,
-		copy, effectLabels, productId, locale,
-		typeBlocked: actions.selectionEffectMutationLocked,
-		disabled: editBlocked || !effectTargeting.effectAudioTrack,
-		selectionActive: effectTargeting.explicitEffectSelectionActive,
-		allAudioTarget: effectTargeting.effectPreferenceTargetsAll,
-		repairAvailable: repairSelectionAvailable(project, snapshot.selectedClipId ?? selectedClip?.id ?? null, snapshot.effects?.sourceSelectionFrames),
-	}, actions.openSelectionEffect);
+	const { effectLabels, effectGroups } = createSelectionEffectMenuGroups({
+		project, snapshot, preferences, effectTargeting, productId, locale, copy, editBlocked,
+		selectedClipId: snapshot.selectedClipId ?? selectedClip?.id ?? null,
+		typeBlocked: actions.selectionEffectMutationLocked, openSelectionEffect: actions.openSelectionEffect,
+	});
 	const nyquistItems = createNyquistPluginMenuItems({
 		editBlocked, blocked, selectedAudioTrack: effectTargeting.effectAudioTrack, frequencySelectionActive,
 		selectionActive: effectTargeting.effectSelectionActive,

@@ -279,6 +279,7 @@ export const MENU_TOOLTIP_COMMANDS: Readonly<Record<string, readonly [string, st
 	"audacity-graphic-eq": ["Graphic EQ", "Adjust tonal balance using a bank of fixed frequency-band sliders."],
 	"noiseRepair": ["Noise removal and repair", "Reduce unwanted sounds and restore damaged waveform passages."],
 	"automatic-phase-correction": ["Automatic phase correction", "Adjust stereo timing and polarity to improve alignment between channels."],
+	"automatic-microphone-bleed-reduction": ["Automatic microphone-bleed reduction", "Reduce likely spill between dialogue microphones using editable clip gain envelopes."],
 	"deesser": ["De-esser", "Attenuate harsh sibilant consonants in speech and singing."],
 	"noise-gate": ["Noise gate", "Attenuate passages below a threshold to quiet the spaces between wanted sounds."],
 	"hum-removal": ["Hum removal", "Suppress mains-frequency interference and its harmonics."],

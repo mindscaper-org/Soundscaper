@@ -8,7 +8,8 @@ export function initializeFramescaperDesktopProjectLibraryLifecycleDatabase(
 	database: DatabaseSync,
 ): void {
 	configureDesktopDatabaseJournal(database);
-	database.exec(`
+	try {
+		database.exec(`
 		BEGIN IMMEDIATE;
 		CREATE TABLE IF NOT EXISTS library_lease (
 			singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
@@ -44,5 +45,9 @@ export function initializeFramescaperDesktopProjectLibraryLifecycleDatabase(
 			PRIMARY KEY (publication_id, body_file)
 		) STRICT;
 		COMMIT;
-	`);
+		`);
+	} catch (error) {
+		if (database.isTransaction) database.exec('ROLLBACK');
+		throw error;
+	}
 }

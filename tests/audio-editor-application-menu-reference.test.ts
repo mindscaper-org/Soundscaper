@@ -35,6 +35,7 @@ import { createFramescaperProject } from '../src/framescaper/editor-project.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { framescaperV20Options } from './helpers/framescaper-model-fixture.ts';
+import { withSecondMicrophoneForMenuReference } from './helpers/microphone-bleed-menu-fixture.ts';
 
 type ProductId = 'soundscaper' | 'framescaper';
 
@@ -238,6 +239,7 @@ function richApplicationMenuMatrix(product: ProductId): readonly (readonly MenuI
 	if (product === 'soundscaper') {
 		const editable = richSoundscaperProject();
 		return [
+			applicationMenusForState(product, { project: withSecondMicrophoneForMenuReference(editable), selectedTrackId: 'voice-track', selectedClipId: 'voice-clip' }),
 			applicationMenusForState(product, {
 				project: { ...editable, selection: { startFrame: 0, endFrame: 128, trackIds: ['voice-track'], clipIds: [] } },
 				selectedTrackId: 'voice-track', selectedClipId: 'voice-clip',
