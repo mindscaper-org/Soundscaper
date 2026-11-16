@@ -21,3 +21,5 @@ project interchange.
 Open the browser editor at [soundscaper.org/en](https://soundscaper.org/en/).
 
 For desktop assistance, see [local processing, models, and plugins](/help/local-processing/).
+
+To follow or drive another transport, see [timecode synchronization](/soundscaper/timecode-synchronization/).

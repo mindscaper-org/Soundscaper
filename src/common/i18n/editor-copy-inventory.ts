@@ -56,6 +56,7 @@ import { KEYBOARD_MAP_COPY_BY_LOCALE } from './editor-keyboard-map-copy.ts';
 import { ID3_METADATA_COPY_BY_LOCALE } from './editor-id3-metadata-copy.ts';
 import { TRACK_HEIGHT_COPY_BY_LOCALE } from './editor-track-height-copy.ts';
 import { MIDI_COPY_BY_LOCALE } from './editor-midi-copy.ts';
+import { TIMECODE_SYNC_COPY_BY_LOCALE } from './editor-timecode-sync-copy.ts';
 import { INTERCHANGE_COPY_BY_LOCALE } from './editor-interchange-copy.ts';
 
 export interface EditorCopyOwner {
@@ -172,6 +173,7 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'clipInteractions', ...CLIP_INTERACTIONS_COPY_BY_LOCALE },
 	{ owner: 'trackHeight', ...TRACK_HEIGHT_COPY_BY_LOCALE },
 	{ owner: 'midi', ...MIDI_COPY_BY_LOCALE },
+	{ owner: 'timecodeSync', ...TIMECODE_SYNC_COPY_BY_LOCALE },
 	{ owner: 'interchange', ...INTERCHANGE_COPY_BY_LOCALE },
 	{ owner: 'keyboardMap', ...KEYBOARD_MAP_COPY_BY_LOCALE },
 	{ owner: 'id3Metadata', ...ID3_METADATA_COPY_BY_LOCALE },

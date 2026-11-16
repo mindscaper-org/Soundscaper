@@ -632,8 +632,12 @@ described by the [native-services architecture](docs/architecture/native-service
 
 - **Electron Enhanced — Product route enabled for testing:** S30 inherits its exact S29 native-audio implementation: a persistent helper and direct `MessagePort` to an `AudioWorklet`; input feeds canonical recording publication, output feeds playback/monitoring, and loss preserves Web Core fallback. CoreAudio/WASAPI/PipeWire/ALSA are implemented; JACK stays discovery-only. Exact target payload and backend probes remain machine gates.
 - **Electron Only — Platform formats enabled for testing:** S30 delegates through exact S29 and inserts user-consented `native-plugin` effects with persistent RPC, real-time/offline render, exact V21 PDC, bounded state, bypass/frozen continuity, and helper-owned vendor windows. A scan or host operation still requires the exact authenticated payload, OS launcher, plug-in digest, consent, and quarantine state. Licensing and optional owner device checks remain separate from those execution gates.
-- **Planned for post-1.0 milestone 9+ (legacy packet 8B):** native MIDI device
-  input, MPE, sampler instruments, control surfaces, clock, and MTC do not
+- **Web Enhanced — Menu-opt-in:** Soundscaper sends and receives MTC through
+  permissioned Web MIDI and LTC through discrete-channel audio worklets; see
+  [timecode synchronization](docs/features/timecode-synchronization.md). Hardware
+  synchronization accuracy remains unqualified.
+- **Planned for post-1.0 milestone 9+ (legacy packet 8B):** native MIDI note
+  input, MPE, sampler instruments, control surfaces, and MIDI clock do not
   block stable 1.0.
 
 ### Framescaper native tier

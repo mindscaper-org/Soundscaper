@@ -513,6 +513,7 @@ Product availability follows each product profile’s command filters and each l
 | Switch camera | `multicamera-switch` | — | Tracks > Multicamera | Framescaper | Soundscaper local |
 | Text to Speech | `text-to-speech` | — | Generate | Soundscaper, Framescaper | Soundscaper local |
 | Time signature | `playback-time-signature` | — | Transport toolbar | Soundscaper, Framescaper | Audacity |
+| Timecode synchronization | `timecode-sync` | — | Tools | Soundscaper | Soundscaper local |
 | Toggle Developer Tools | `desktop-toggle-dev-tools` | — | View | Soundscaper, Framescaper | Soundscaper local |
 | Toggle spectral view | `action://trackedit/global-view-spectrogram` | — | View; Tools toolbar | Soundscaper, Framescaper | Audacity |
 | Toggle track selection | `track-view-toggle-selection` | Ctrl+Enter; Ctrl+Return; Return; NUMPAD_ENTER | Keyboard navigation | Soundscaper, Framescaper | Audacity |

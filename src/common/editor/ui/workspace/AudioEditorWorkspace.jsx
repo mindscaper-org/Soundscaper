@@ -29,6 +29,7 @@ import { useWorkspaceParityRequests } from './useWorkspaceParityRequests.js';
 import { useWorkspaceSearchRuntime } from './useWorkspaceSearchRuntime.js'; import { useWorkspaceAssistanceSearchRuntime } from './useWorkspaceAssistanceSearchRuntime.js';
 import { useSoundscaperWorkflowWorkspace } from '../soundscaper-workflow-product-runtime.tsx';
 import { useTrackRateDialog } from './useTrackRateDialog.js';
+import { useTimecodeSyncLifetime } from './timecode-sync-workspace.ts';
 import { useWorkspaceThemePreference } from './useWorkspaceThemePreference.js';
 import {
 	createWorkspaceApplicationMenus,
@@ -65,6 +66,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	const product = useMemo(() => productProfile(productId), [productId]);
 	useFramescaperNativeServicesMenuRefresh({ productId });
 	useSoundscaperNativeServicesMenuRefresh({ productId, copy, engine: controller?.engine, controller });
+	useTimecodeSyncLifetime(controller);
 	const capabilities = product.capabilities;
 	const aboutLabel = productId === 'framescaper' ? copy.aboutFramescaper : copy.aboutEditor;
 	const editorThemeVariables = useAudioEditorThemeVariables();

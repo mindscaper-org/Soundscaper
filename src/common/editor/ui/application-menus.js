@@ -42,6 +42,7 @@ import { createOriginalFileOverwriteMenuItems } from './original-file-overwrite-
 import { repairSelectionAvailable } from './repair-menu-admission.ts';
 import { selectedTrackRemovalAvailable } from '../selected-track-removal.ts';
 import { createMidiExportMenuItems, createMidiTrackMenuItems } from './midi-application-menu.ts';
+import { resolveTimecodeSyncCopy } from '../../i18n/editor-timecode-sync-copy.ts';
 import { isMidiClip } from '../midi-model.ts';
 import { resolveInterchangeCopy } from '../../i18n/editor-interchange-copy.ts';
 
@@ -486,6 +487,7 @@ export default function createApplicationMenus({
 			id: 'tools',
 			label: copy.toolsMenu,
 			items: [
+				...(productId === 'soundscaper' ? [{ id: 'timecode-sync', label: resolveTimecodeSyncCopy(copy).title, preserveLabel: true, disabled: !project, onClick: actions.openTimecodeSync }] : []),
 				...blenderItems.tools,
 				...createImportAnalysisToolMenuItems(importAnalysisMenuContext),
 				...createLocalAssistanceMenuItems({ desktopAvailable: typeof actions.openLocalAssistance === 'function', capabilityActive: capabilities.assistanceAssets === true, copy }, { open: actions.openLocalAssistance, openIndexedSearch: actions.openLocalAssistanceIndexedSearch }),

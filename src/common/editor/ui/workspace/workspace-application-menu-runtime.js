@@ -148,6 +148,7 @@ export function createWorkspaceApplicationMenus({
 			compactLayout,
 			actionRuntime: parityRuntime.actions,
 			actions: {
+				openTimecodeSync: () => openSurface('timecode-sync'),
 				openDiagnostics: () => openSurface('local-diagnostics'),
 				installAvailable: () => installPrompt.available(),
 				installApplication: () => run(() => installPrompt.prompt()),

@@ -55,6 +55,7 @@ const WorkspacePreferencesDialog = lazyEditorModule(() => import('../dialogs/Wor
 const RawPcmImportDialog = lazyEditorModule(() => import('../dialogs/ImportAnalysisDialogs.tsx').then((module) => ({ default: module.RawPcmImportDialog })));
 const RegularIntervalAnnotationDialog = lazyEditorModule(() => import('../dialogs/ImportAnalysisDialogs.tsx').then((module) => ({ default: module.RegularIntervalAnnotationDialog })));
 const LocalDiagnosticsDialog = lazyEditorModule(() => import('../dialogs/LocalDiagnosticsDialog.tsx'));
+const TimecodeSyncDialog = SOUNDSCAPER_BUILD ? lazyEditorModule(() => import('../dialogs/TimecodeSyncDialog.tsx')) : null;
 const PrivacyPolicyDialog = lazyEditorModule(() => import('../dialogs/PrivacyPolicyDialog.tsx'));
 const AboutDialog = lazyEditorModule(() => import('../dialogs/AboutDialog.tsx'));
 const WebDesktopFeatureDialog = lazyEditorModule(() => import('./WebDesktopFeatureDialog.tsx'));
@@ -112,6 +113,7 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 	// layer; the workspace behind it stays.
 	return <React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>
 		<EditorSurfaceBoundary copy={copy} surface="dialogs" resetKey={snapshot.project}>
+			{productId === 'soundscaper' && activeSurface === 'timecode-sync' && TimecodeSyncDialog && <TimecodeSyncDialog controller={controller} copy={copy} onClose={() => setActiveSurface(null)} />}
 			{productId === 'soundscaper' && activeSurface === 'project-recovery' && ProjectRecoveryDialog && controller.actions.project.recovery && (
 				<ProjectRecoveryDialog actions={controller.actions.project.recovery} copy={copy} run={run}
 					initialProjectId={snapshot.projectRecovery?.projectId} onClose={() => setActiveSurface((current) => recoverySurfaceAfterClose(current, 'project-recovery'))} />

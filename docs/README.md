@@ -93,6 +93,9 @@ qualification plans belong in Git history, not in the maintained documentation s
 
 ## Work on product features
 
+- [Timecode synchronization](features/timecode-synchronization.md) covers MTC/LTC
+  send and receive, transport chasing, routing, and device-session lifetime.
+
 - [Automatic phase correction](features/automatic-phase-correction.md) covers
   fixed stereo alignment, analysis admission, and preview/publication behavior.
 - [Legacy Cool Edit / Audition SES import](features/legacy-ses-import.md) covers
