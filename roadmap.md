@@ -178,7 +178,7 @@ Known architectural constraints that drive later work:
 | 8+. Framescaper Web VCR | **Implemented and enabled for testing** | Expose the default-hidden Record-menu surface with `framescaperWebVcr: true`; keep 4K unavailable. |
 | 8+C. Framescaper product origin | **Implemented for family-v1 — immediate no-legacy cutover; permanent transfer routes** | Keep the first-class editable-copy action and permanent cross-origin transfer ceremony verified without reopening the frozen family. |
 | 9. Stable release and owner QA | **Soundscaper workflow automated** | Rebuild, test, package, deploy, and publish the tagged Soundscaper revision; use private owner QA as helpful. |
-| 9+. Post-1.0 extensions | **Planned — full MIDI integration, control surfaces, CV/gate hardware, ambisonics, and installable distribution** | Extend MIDI after stable 1.0; add MCU then HUI control surfaces with separately gated EUCON feasibility; deliver MIDI-to-CV external instruments before direct CV/gate; add Soundscaper ambisonics through third order; install both products from Chrome for Android as independent apps, with an optional Google Play Trusted Web Activity track. |
+| 9+. Post-1.0 extensions | **Planned — full MIDI integration, control surfaces, CV/gate hardware, ambisonics, beat slicing, and installable distribution** | Extend MIDI after stable 1.0; add MCU then HUI control surfaces with separately gated EUCON feasibility; deliver MIDI-to-CV external instruments before direct CV/gate; add Soundscaper ambisonics through third order and coordinated beat slicing with gap smoothing; install both products from Chrome for Android as independent apps, with an optional Google Play Trusted Web Activity track. |
 
 Soundscaper has an independent release line and may ship without closing
 Framescaper milestones, payloads, or packaging. Framescaper stays in ordinary
@@ -988,8 +988,9 @@ while giving the owner useful optional QA and debugging tools.
 ## 9+. Post-1.0 extensions
 
 Full MIDI integration, hardware control surfaces, CV/gate hardware integration,
-first- through third-order ambisonics, and installable distribution are explicitly
-post-release scope. None blocks the Soundscaper Stable 1.0 release.
+first- through third-order ambisonics, beat slicing and gap smoothing, and
+installable distribution are explicitly post-release scope. None blocks the
+Soundscaper Stable 1.0 release.
 
 ### 8B. MIDI
 
@@ -1160,6 +1161,36 @@ conventions, work packets, compatibility, and independent acceptance evidence.
 - Existing migration, read-only custody, ADM passthrough, bounded resources,
   accessibility, localization, licensing, and platform gates remain intact.
 
+### 9+. Soundscaper beat slicing and gap smoothing
+
+**Status:** **Planned; post-1.0.** Tighten recorded percussion by detecting
+attacks, splitting and moving audio slices toward a grid or groove, then
+repairing gaps and overlaps with retained source audio and short crossfades.
+Preserve each slice's speed and pitch and coordinate edits across selected
+microphone tracks. Follow the
+[implementation guide](docs/development/beat-slicing.md) for source ownership,
+timing and repair contracts, bounded work packets, and acceptance evidence.
+
+- **Shared / Web Core — Planned:** rigid slice planning, exact grid/groove
+  placement, protected attacks, source-bounded gap repair, shared multitrack
+  cuts/deltas/fades, atomic history, and lossless Scape save/reopen.
+- **Soundscaper Web and Electron — Planned:** opt-in review and audition through
+  the existing Effect > Pitch and tempo menu, with accessible localized
+  controls and explicit refusal of unsupported material or unrepairable joins.
+- **Deferred:** arbitrary layered/comped arrangements, warped/looped/reversed
+  inputs, continuous time stretching, generated gap audio, sample-to-MIDI
+  conversion, and persistent linked-track groups. Existing transient detection,
+  warp quantisation, and overlap crossfades remain separate capabilities.
+
+#### Beat slicing exit gate
+
+- A complete menu-driven workflow detects, slices, conforms, smooths, auditions,
+  applies, undoes/redoes, and saves/reopens a multitrack percussion edit.
+- Independent timing/source/gain fixtures prove preserved attacks and microphone
+  delays, safe handle use, playback/export parity, and unchanged outside material.
+- Impossible repairs, stale analysis, cancellation, locks, and resource limits
+  leave all participants unchanged; existing architecture and quality budgets hold.
+
 ### 9+. Installable distribution (PWA and Trusted Web Activity)
 
 **Status:** **Planned.** Phase 0 measures real devices and changes no product
@@ -1267,6 +1298,7 @@ documentation when that work lands.
 | Control surfaces (post-1.0 9+) | Independent MCU/HUI traces, opt-in setup, bidirectional controls, concurrent automation/history, stale-project and reconnect fences, tested device profiles, and exact native-target packages; EUCON additionally requires SDK/distribution and platform feasibility. |
 | CV/gate hardware (post-1.0 9+) | MIDI-to-CV external-instrument workflow first; direct CV additionally requires isolated physical channels, calibrated voltage/pitch and clock vectors, idle/watchdog failure behavior, measured timing, and exact device/backend/target evidence. Every slice covers opt-in setup, return recording, migration/Scape preservation, and export without hardware side effects. |
 | Ambisonics (post-1.0 9+) | Independent first-/second-/third-order encoding, rotation, decoder, and WAV/RF64 fixtures; opt-in complete workflows; coherent component editing/effects; monitoring/export isolation; migration and Scape preservation; and qualified web/desktop resource and asset evidence. |
+| Beat slicing and gap smoothing (post-1.0 9+) | Opt-in detect/slice/conform/smooth workflow with independent timing, source-handle and fade fixtures; shared microphone cuts/deltas preserving recorded delays; protected attacks; atomic refusal/history; Scape/recovery and playback/export parity; and bounded accessible web/desktop completion. |
 | Framescaper origin transfer | Multi-project cutover across origins: resumable after a killed receiver, exactly one copy per project, reported omissions matching the round-trip fixture matrix, no side-effect deletion, and no redirect loop for an installed pre-cutover app. |
 | Installable distribution | Distinct installable apps with disjoint scopes, touch operation at the recorded tablet viewports, cross-origin isolation on installed and shell-served navigations, screen-off export or its enforced refusal, offline localized open/effect/export, and survival of a product-version bump. |
 | Accessibility | Keyboard and assistive-technology completion at supported zoom, contrast, locale, and direction. |
