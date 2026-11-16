@@ -5,6 +5,7 @@ import { addRationals, compareRationals, divideRationals, type Rational } from '
 import { ardourMetadata } from './native-daw-import-metadata.ts';
 import { ardourMixStrip, ardourRegionEnvelope } from './ardour-import-mix.ts';
 import { readArdourMidiTrack } from './ardour-import-midi.ts';
+import { ardourRouteHasFlag } from './ardour-route-flags.ts';
 import { timelineImportIssue, timelineInterchangeMediaName, TIMELINE_INTERCHANGE_MAXIMUM_BYTES,
 	TIMELINE_INTERCHANGE_MAXIMUM_ITEMS, type TimelineInterchangeDocument, type TimelineInterchangeTrack,
 	type TimelineInterchangeClip, type TimelineInterchangeMedia, type TimelineInterchangeStrip } from './timeline-interchange-types.ts';
@@ -47,9 +48,9 @@ export function parseArdourDocument(text: string): TimelineInterchangeDocument {
 		const id = route.attributes.id ?? required(io ?? route, 'id');
 		if (routeIds.has(id)) throw new SyntaxError('Duplicate Ardour route ID.');
 		routeIds.add(id);
-		if (/MonitorOut/u.test(route.attributes.flags ?? '')) { omit('monitor-processing-omitted', 'Monitor processing is not imported.'); continue; }
+		if (ardourRouteHasFlag(route, 'MonitorOut')) { omit('monitor-processing-omitted', 'Monitor processing is not imported.'); continue; }
 		const mix = ardourMixStrip(route, root, sampleRate, issues);
-		if (/MasterOut/u.test(route.attributes.flags ?? '')) { master = mix; continue; }
+		if (ardourRouteHasFlag(route, 'MasterOut')) { master = mix; continue; }
 		if (route.attributes['default-type'] === 'midi') {
 			tracks.push({ ...readArdourMidiTrack(root, route, playlists, sourceNodes, media, selectedPlaylists, issues), ...mix }); continue;
 		}

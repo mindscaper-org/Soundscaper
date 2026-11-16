@@ -6,6 +6,7 @@ import { timelineImportIssue, type TimelineInterchangeStrip, type TimelineInterc
 import { ardourMidiTempos } from './ardour-import-midi.ts';
 import { createInterchangeMidiClock } from './interchange-midi-clock.ts';
 import type { InterchangeAutomationPoint } from './interchange-automation.ts';
+import { ardourRouteHasFlag } from './ardour-route-flags.ts';
 
 export function ardourAutomationPoints(list: XmlElement, root: XmlElement, sampleRate: number): readonly InterchangeAutomationPoint[] {
 	const interpolation = list.attributes['interpolation-style'] ?? 'Linear';
@@ -88,7 +89,7 @@ export function ardourMixStrip(route: XmlElement, root: XmlElement, sampleRate: 
 	let output: string | null | undefined;
 	if (destinations.size === 1) {
 		const name = [...destinations][0]!, target = names.get(name);
-		if (target && !/MasterOut/u.test(target.attributes.flags ?? '')) output = target.attributes.id;
+		if (target && !ardourRouteHasFlag(target, 'MasterOut')) output = target.attributes.id;
 		else if (!target && !name.startsWith('system:')) issues.push(timelineImportIssue('ardour', 'output-routing-converted', 'An external output is routed to the main output.', 'converted'));
 	} else if (destinations.size > 1) issues.push(timelineImportIssue('ardour', 'output-fanout-converted', 'Several output destinations are replaced by main output.', 'converted'));
 	return { gain: gainProcessors.reduce((gain, node) => gain * control(node, 'gaincontrol', 1), 1),
