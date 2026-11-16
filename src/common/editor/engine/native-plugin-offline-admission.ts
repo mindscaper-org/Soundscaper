@@ -38,7 +38,7 @@ export function nativePluginOfflineInstanceIds(
 	for (const trackValue of array(value.tracks)) {
 		const track = record(trackValue)
 		if (track.type !== 'audio' || (selectedTrackId !== null && track.id !== selectedTrackId)) continue
-		collect(track.effects, instances)
+		collectOwner(track, instances)
 		for (const id of array(track.clipIds)) {
 			const clip = clips.get(id)
 			if (clip?.effectsActive !== false) collect(clip?.effects, instances)
@@ -47,11 +47,15 @@ export function nativePluginOfflineInstanceIds(
 	if (selectedTrackId === null) {
 		const mixer = record(value.mixer)
 		for (const key of ['groups', 'sends'] as const) {
-			for (const owner of array(mixer[key])) collect(record(owner).effects, instances)
+			for (const owner of array(mixer[key])) collectOwner(record(owner), instances)
 		}
 	}
-	if (options.includeMaster !== false) collect(record(value.master).effects, instances)
+	if (options.includeMaster !== false) collectOwner(record(value.master), instances)
 	return Object.freeze([...new Set(instances)])
+}
+
+function collectOwner(owner: Record<string, unknown>, instances: string[]): void {
+	if (owner.effectsActive !== false) collect(owner.effects, instances)
 }
 
 function collect(value: unknown, instances: string[]): void {
