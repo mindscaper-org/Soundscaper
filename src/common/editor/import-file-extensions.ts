@@ -7,7 +7,7 @@ export const IMPORT_FILE_EXTENSIONS = Object.freeze([
 	'.sbc', '.sds', '.sf', '.snd', '.sph', '.spx', '.tta', '.voc', '.w64', '.wav', '.wave', '.wavpack', '.webm', '.wma', '.wv',
 	'.cue', '.txt', '.srt', '.vtt', '.mid', '.midi', '.gro', '.edl', '.otio', '.fcpxml', '.omf', '.omfi', '.aaf', '.adl', '.adl.zip',
 	'.ardour', '.scraft', '.scraftz',
-	'.ptx', '.ptf', '.pts',
+	'.ptx', '.ptf', '.pts', '.nhsx',
 ] as const);
 
 export const IMPORT_FILE_EXTENSION_LIST = IMPORT_FILE_EXTENSIONS.join(',');

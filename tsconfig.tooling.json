@@ -16,6 +16,7 @@
 		"electron-builder.config.cjs",
 		"electron-builder.appx.config.cjs",
 		"scripts/performance/*.ts",
+		"scripts/audit-hindenburg-import.ts",
 		"scripts/diagnose-windows-make-arguments.ts",
 		"scripts/download-translations.ts",
 		"scripts/build-assistance-engine-part.ts",

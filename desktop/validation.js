@@ -19,10 +19,10 @@ const MEDIA_IMPORT_EXTENSIONS = Object.freeze([
 	'aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'cue', 'edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf', 'adl', 'zip', 'flac', 'gro', 'm4a', 'm4v', 'mid', 'midi', 'mka', 'mov', 'mp2', 'mp3', 'mp4',
 	'oga', 'ogg', 'opus', 'rf64', 'srt', 'txt', 'vtt', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv',
 	'ardour', 'scraft', 'scraftz',
-	'ptx', 'ptf', 'pts',
+	'ptx', 'ptf', 'pts', 'nhsx',
 ]);
 const AUDIO_VIDEO_IMPORT_EXTENSIONS = Object.freeze(MEDIA_IMPORT_EXTENSIONS.filter(
-	(extension) => !['cue', 'gro', 'mid', 'midi', 'srt', 'txt', 'vtt', 'edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf', 'adl', 'zip', 'ardour', 'scraft', 'scraftz', 'ptx', 'ptf', 'pts'].includes(extension),
+	(extension) => !['cue', 'gro', 'mid', 'midi', 'srt', 'txt', 'vtt', 'edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf', 'adl', 'zip', 'ardour', 'scraft', 'scraftz', 'ptx', 'ptf', 'pts', 'nhsx'].includes(extension),
 ));
 const PROJECT_OPEN_EXTENSIONS = Object.freeze([
 	...new Set([...PROJECT_EXTENSIONS, 'aup', 'aup3', 'aup4', 'aup4unsaved', 'dawproject', 'ses', 'sesx', ...MEDIA_IMPORT_EXTENSIONS]),
@@ -176,7 +176,7 @@ const MIME_TYPES = Object.freeze({
 	'.rf64': 'audio/rf64',
 	'.ses': 'application/octet-stream',
 	'.sesx': 'application/xml',
-	'.ardour': 'application/xml',
+	'.ardour': 'application/xml', '.nhsx': 'application/xml',
 	'.scraft': 'application/json',
 	'.scraftz': 'application/zip',
 	'.srt': 'application/x-subrip',

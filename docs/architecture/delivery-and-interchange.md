@@ -313,6 +313,13 @@ Run `node --import tsx scripts/audit-native-daw-import.mjs` for the pinned
 upstream Ardour snapshot and an independently written Python ZIP/WAV bundle.
 This optional format audit requires network access and Python 3.
 
+Hindenburg `.nhsx` XML sessions use the same staging, offline-source and
+activation boundary. The reader imports audio tracks, cuts, source trims,
+static levels and mute, and reports fade-curve and pan-law conversions.
+Ducking ramps, processing, transcripts, markers and Narrator authoring are
+reported as omitted. See the [Hindenburg import profile](../features/hindenburg-import.md)
+for the bounded reader contract and pinned public-session audit.
+
 Native Pro Tools `.pts`, `.ptf` and `.ptx` audio sessions use the same staging,
 offline-source and activation boundary. The bounded TypeScript reader accepts
 the supported format-5 through format-12 block layouts, retains sample-exact
