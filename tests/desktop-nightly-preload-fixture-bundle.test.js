@@ -22,6 +22,8 @@ test('the declared nightly preload fixture builds from packaged sources without 
 		...runtimeSources,
 		'desktop/desktop-audio-decode-formats.ts',
 		'src/common/editor/ara-contract.ts', 'src/common/editor/blender-contract.ts',
+		'src/common/editor/cpu-profile-contract.ts', 'src/common/editor/first-party-effects/ai-denoise/contract.ts',
+		'src/common/editor/project-sample-rate.ts', 'src/common/editor/resample-geometry.ts',
 	];
 	const payload = nightlyConfig.extraResources.find(({ to }) => to === 'nightly-tests');
 	assert.ok(payload?.filter, 'The preload fixture must be retained as an unpacked resource');
