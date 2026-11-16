@@ -43,7 +43,7 @@ sidebar:
 | Markers and named regions | + | ~ — Cue markers |
 | Tempo and time-signature maps | + | + |
 | Track templates with routing | / | ~ — Device chains :: Track/device presets reuse instruments and processing; a complete session-routing template is a separate workflow. |
-| Named session snapshots | / | / |
+| Named session snapshots | + — :: Named editing states share the same audio. File > Session snapshots creates, restores, renames, and deletes snapshots; native project files preserve them. | / |
 | Selection and view memories | / | / |
 | Nested subprojects with automatic proxy updates | / | / |
 

@@ -235,6 +235,7 @@ test('assistance domain modules default to the lazy owner, with a named eager ex
 		'src/common/editor/assistance/assistance-asset-reference-v1.ts',
 		'src/common/editor/assistance/local-assistance-semantic-search-bridge.ts',
 		'src/common/editor/assistance/operation.ts',
+		'src/common/editor/assistance/session-snapshot-asset-inventory.ts',
 		'src/common/editor/assistance/shots.ts',
 		'src/common/editor/assistance/transcript-scape-asset-extension-v1.ts',
 		'src/common/editor/assistance/transcript.ts',

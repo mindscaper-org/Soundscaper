@@ -43,7 +43,7 @@ sidebar:
 | Markers and named regions | + | ~ — Locators |
 | Tempo and time-signature maps | + | + |
 | Track templates with routing | / | + — Saved tracks :: Reuses complete tracks or groups from Live Sets, including their devices and saved routing. |
-| Named session snapshots | / | / |
+| Named session snapshots | + — :: Named editing states share the same audio. File > Session snapshots creates, restores, renames, and deletes snapshots; native project files preserve them. | / |
 | Selection and view memories | / | / |
 | Nested subprojects with automatic proxy updates | / | / |
 

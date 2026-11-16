@@ -21,6 +21,23 @@ import {
 	type SoundscaperNativePluginStateBodyDescriptor,
 } from '../desktop/soundscaper-native-plugin-state-store.ts'
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts'
+import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts'
+
+test('native state referenced only by a named snapshot survives reclamation', (context) => {
+	const database = new DatabaseSync(':memory:')
+	context.after(() => { database.close() })
+	initializeSoundscaperDesktopProjectLibraryDatabase(database)
+	const store = new SoundscaperNativePluginStateStore(database)
+	const retained = store.put(Uint8Array.of(7)), orphan = store.put(Uint8Array.of(8))
+	let document = applySoundscaperProjectCommand(project('snapshots', 0, retained), {
+		type: 'project/snapshot-create', id: 'snapshot', name: 'Before removing plug-in', createdAt: '2026-11-16T12:00:00.000Z',
+	})
+	document = applySoundscaperProjectCommand(document, { type: 'native-plugin-state/remove', instanceId: 'native-instance-1' })
+	insertRevision(database, document)
+	assert.equal(store.reclaimUnreferencedProjectStateBodies(), 1)
+	assert.equal(store.has(retained.bodyId), true)
+	assert.equal(store.has(orphan.bodyId), false)
+})
 
 test('native plug-in state reclamation preserves every retained project revision', (context) => {
 	const database = new DatabaseSync(':memory:')

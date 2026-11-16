@@ -130,6 +130,7 @@
 		"document/scape-open-request-service.ts",
 		"document/scape-project-file-service.ts",
 		"document/session-history-admission.ts",
+		"document/session-snapshot-action-facade.ts",
 		"document/stored-project-open-actions.ts",
 		"document/timeline-annotation-action-facade.ts",
 		"document/trim-media-service.ts",

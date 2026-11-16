@@ -12,7 +12,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { remapScapeProjectSourceReferences } from '../src/common/editor/scape-project-source-remap.ts';
+import { remapProjectSourceReferences } from '../src/common/editor/project-source-reference-remap.ts';
 import { rebindFramescaperSourceIdentities } from '../src/framescaper/editor-project-source-rebind.ts';
 import { openFxProject } from './helpers/framescaper-unified-render-project-fixture.ts';
 
@@ -53,7 +53,7 @@ function importedProject() {
 	for (const source of copy.sources as Record<string, unknown>[]) {
 		source.id = REMAP.get(String(source.id)) ?? source.id;
 	}
-	remapScapeProjectSourceReferences(copy, REMAP);
+	remapProjectSourceReferences(copy, REMAP);
 	rebindFramescaperSourceIdentities(copy, REMAP);
 	return copy;
 }

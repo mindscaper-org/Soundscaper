@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { aggregateScapeErrors, awaitScapeOperation, throwIfScapeAborted } from '../../scape/abort.ts';
+import { sessionSnapshotAssistanceInventory, replaceSessionSnapshotAssistanceInventory, sessionSnapshotAssistanceSourceMaps } from './session-snapshot-asset-inventory.ts';
 import type { ScapeAssetDescriptor } from '../../scape/archive-envelope.ts';
 import type { ScapeManifest } from '../scape-archive-envelope.ts';
 import { digestBytes as digestScapeBytes } from '../../media/bytes.ts';
@@ -22,7 +23,6 @@ import {
 	createAssistanceAssetReferenceV1,
 	createAssistanceTranscriptBodyReferenceV1,
 	normalizeAssistanceAssetReferencesV1,
-	validateAssistanceAssetSourceBindingsV1,
 	type AssistanceAssetReferenceV1,
 	type AssistanceTranscriptAssetReferenceV1,
 	type AssistanceTranscriptBodyReferenceV1,
@@ -152,6 +152,7 @@ async function stageImportAssets(
 	}
 	const currentById = new Map(current.assets.map((asset) => [asset.id, asset]));
 	const nextById = new Map(currentById);
+	const sourceMaps = sessionSnapshotAssistanceSourceMaps(request.archiveProject, request.sourceIdMap);
 	if (currentById.size !== archive.assets.length) {
 		throw new Error('The rebound project changed the assistance transcript inventory.');
 	}
@@ -165,7 +166,7 @@ async function stageImportAssets(
 		const currentAssets = group.references.map((original) => reboundAsset(
 			original,
 			currentById.get(original.id),
-			request.sourceIdMap,
+			sourceMaps.get(original.id)!,
 		));
 		const targetSourceIds = new Set(currentAssets.map(({ sourceId }) => sourceId));
 		if (targetSourceIds.size !== 1) {
@@ -179,7 +180,7 @@ async function stageImportAssets(
 			body: material.reference,
 		}));
 	}
-	request.project.assistanceAssets = normalizeAssistanceAssetReferencesV1(
+	replaceSessionSnapshotAssistanceInventory(request.project,
 		current.allAssets.map((asset) => nextById.get(asset.id) ?? asset),
 	);
 }
@@ -414,8 +415,7 @@ function projectAssets(project: unknown): Readonly<{
 	readonly sampleRate: number;
 }> {
 	const record = dataRecord(project, 'assistance transcript project');
-	const allAssets = normalizeAssistanceAssetReferencesV1(record.assistanceAssets);
-	validateAssistanceAssetSourceBindingsV1(allAssets, record.sources);
+	const allAssets = sessionSnapshotAssistanceInventory(record);
 	const assets = Object.freeze(allAssets.filter((asset): asset is AssistanceTranscriptAssetReferenceV1 =>
 		asset.kind === 'transcript-v1'));
 	const sampleRate = positiveInteger(record.sampleRate, 'project sample rate');

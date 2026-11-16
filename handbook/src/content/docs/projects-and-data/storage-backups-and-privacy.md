@@ -83,6 +83,23 @@ These workflows recover data that remains readable in local storage. They do
 not recover cleared storage or a failed device, and do not guarantee that a
 save acknowledged immediately before a power failure reached the disk.
 
+## Named session snapshots
+
+In Soundscaper, choose **File → Session snapshots**, enter a name, and choose
+**Create snapshot**. A snapshot keeps the arrangement, mix, effects, notes, and
+other editing state at that moment. Select it from **Saved snapshots** and choose
+**Restore snapshot** to return to that state. Restoring can be undone and keeps
+your other snapshots. The same dialog lets you rename or delete snapshots.
+
+Snapshots share the project's audio rather than copying it. Audio used only by
+a snapshot stays available after you remove it from the current edit. Trimming
+or consolidating media retains the source generation needed by older snapshots.
+Snapshots survive local saves and travel inside exported `.sscape` project files.
+You can keep up to 64 snapshots per project.
+
+Snapshots belong to the same project and storage as the current edit. Keep a
+separate project-file backup for device failure or cleared storage.
+
 ## Backup routine
 
 At useful milestones and before clearing or migrating storage:

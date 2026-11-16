@@ -43,7 +43,7 @@ sidebar:
 | Markers and named regions | + | + |
 | Tempo and time-signature maps | + | + |
 | Track templates with routing | / | ~ — Mixer states :: Saves mixer strip and effect-chain state; does not package a complete instrument/Playlist track setup. |
-| Named session snapshots | / | / |
+| Named session snapshots | + — :: Named editing states share the same audio. File > Session snapshots creates, restores, renames, and deletes snapshots; native project files preserve them. | / |
 | Selection and view memories | / | / |
 | Nested subprojects with automatic proxy updates | / | / |
 

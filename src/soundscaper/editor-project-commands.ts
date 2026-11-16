@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createMasteringSequenceRuntimeHandlers } from '../common/editor/commands/mastering-sequence-runtime.ts';
+import { applySessionSnapshotCommand } from '../common/editor/commands/session-snapshot-runtime.ts';
+import { SESSION_SNAPSHOT_COMMAND_TYPES, type SessionSnapshotCommand } from '../common/editor/commands/session-snapshot.ts';
 import {
 	applyAssistanceAssetUpsertCommandV1,
 	hasAssistanceAssetUpsertCommandTypeV1,
@@ -87,6 +89,16 @@ export function applySoundscaperProjectCommand(
 	validateSoundscaperProject(projectValue);
 	const project = projectValue as SoundscaperProject;
 	const command = snapshotSoundscaperProjectCommand(commandValue);
+	if (command.type === 'batch' && command.commands.some(containsSnapshotCommand)) {
+		let result = project;
+		for (const child of command.commands) result = applySoundscaperProjectCommand(result, child, options);
+		return finalize(structuredClone(result) as Record<string, unknown>, project, options);
+	}
+	if (SESSION_SNAPSHOT_COMMAND_TYPES.some(type => type === command.type)) {
+		const draft = structuredClone(project) as Record<string, unknown>;
+		applySessionSnapshotCommand(draft, command as SessionSnapshotCommand);
+		return finalize(draft, project, options);
+	}
 	if (hasAssistanceAssetUpsertCommandTypeV1(command)) {
 		return applyAssistanceCommand(project, command, options);
 	}
@@ -98,6 +110,11 @@ export function applySoundscaperProjectCommand(
 		return applyMasteringSequenceCommand(project, command, options);
 	}
 	return applyInheritedCommand(project, command, options);
+}
+
+function containsSnapshotCommand(command: AudioEditorCommand): boolean {
+	return SESSION_SNAPSHOT_COMMAND_TYPES.some(type => type === command.type)
+		|| command.type === 'batch' && command.commands.some(containsSnapshotCommand);
 }
 
 function commandTouchesNativePluginStates(

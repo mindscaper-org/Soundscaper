@@ -43,7 +43,7 @@ sidebar:
 | Markers and named regions | + | + — :: Position / cycle markers |
 | Tempo and time-signature maps | + | + |
 | Track templates with routing | / | + — :: Track presets / archives |
-| Named session snapshots | / | ~ — Versions :: Save New Version makes separate project files; MixConsole snapshots cover mixer states. |
+| Named session snapshots | + — :: Named editing states share the same audio. File > Session snapshots creates, restores, renames, and deletes snapshots; native project files preserve them. | ~ — Versions :: Save New Version makes separate project files; MixConsole snapshots cover mixer states. |
 | Selection and view memories | / | + — :: Workspaces / zoom presets |
 | Nested subprojects with automatic proxy updates | / | / |
 

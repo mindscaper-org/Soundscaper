@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { aggregateScapeErrors, awaitScapeOperation, throwIfScapeAborted } from '../../scape/abort.ts';
+import { sessionSnapshotAssistanceInventory, replaceSessionSnapshotAssistanceInventory, sessionSnapshotAssistanceSourceMaps } from './session-snapshot-asset-inventory.ts';
 import type { ScapeAssetDescriptor } from '../../scape/archive-envelope.ts';
 import type { ScapeManifest } from '../scape-archive-envelope.ts';
 import { digestBytes as digestScapeBytes } from '../../media/bytes.ts';
@@ -19,7 +20,6 @@ import {
 	createAssistanceAssetReferenceV1,
 	createAssistanceTtsScriptBodyReferenceV1,
 	normalizeAssistanceAssetReferencesV1,
-	validateAssistanceAssetSourceBindingsV1,
 	type AssistanceAssetReferenceV1,
 	type AssistanceTtsScriptAssetReferenceV1,
 	type AssistanceTtsScriptBodyReferenceV1,
@@ -120,6 +120,7 @@ async function stageImportAssets(request: Readonly<ScapeProjectAssetExtensionImp
 		throw new Error('The rebound project changed the TTS script inventory.');
 	}
 	const nextById = new Map(currentById);
+	const sourceMaps = sessionSnapshotAssistanceSourceMaps(request.archiveProject, request.sourceIdMap);
 	for (const group of validation.groups) {
 		throwIfScapeAborted(request.signal);
 		const descriptor = validation.descriptorByStorageKey.get(group.body.storageKey)!;
@@ -128,7 +129,7 @@ async function stageImportAssets(request: Readonly<ScapeProjectAssetExtensionImp
 		const archiveBytes = await readArchiveBytes(entry, descriptor, group.body, request);
 		const script = authenticateBody(archiveBytes, group.references);
 		const currentAssets = group.references.map((original) => reboundAsset(original,
-			currentById.get(original.id), request.sourceIdMap));
+			currentById.get(original.id), sourceMaps.get(original.id)!));
 		const targetIds = new Set(currentAssets.map(({ sourceId }) => sourceId));
 		if (targetIds.size !== 1) throw new Error('Shared TTS script bytes acquired conflicting sources.');
 		const material = reboundMaterial(script, archiveBytes, currentAssets, currentAssets[0]!.sourceId);
@@ -137,7 +138,7 @@ async function stageImportAssets(request: Readonly<ScapeProjectAssetExtensionImp
 			...asset, body: material.reference,
 		}));
 	}
-	request.project.assistanceAssets = normalizeAssistanceAssetReferencesV1(
+	replaceSessionSnapshotAssistanceInventory(request.project,
 		current.allAssets.map((asset) => nextById.get(asset.id) ?? asset));
 }
 
@@ -146,8 +147,7 @@ function projectAssets(project: unknown): Readonly<{
 	readonly allAssets: readonly Readonly<AssistanceAssetReferenceV1>[];
 }> {
 	const row = record(project, 'TTS script project');
-	const allAssets = normalizeAssistanceAssetReferencesV1(row.assistanceAssets);
-	validateAssistanceAssetSourceBindingsV1(allAssets, row.sources);
+	const allAssets = sessionSnapshotAssistanceInventory(row);
 	return Object.freeze({ allAssets, assets: Object.freeze(allAssets.filter(
 		(asset): asset is AssistanceTtsScriptAssetReferenceV1 => asset.kind === 'tts-script-v1')) });
 }

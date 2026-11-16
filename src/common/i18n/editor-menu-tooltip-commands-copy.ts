@@ -43,6 +43,7 @@ export const MENU_TOOLTIP_COMMANDS: Readonly<Record<string, readonly [string, st
 	"export-audio": ["Export video", "Create a playable media file from the timeline for sharing or delivery."],
 	"overwrite-original-file": ["Overwrite Voice.wav", "Replace the originally opened media with the current rendered result."],
 	"delivery-queue": ["Delivery queue", "Prepare and run several output jobs without setting each one up again."],
+	"session-snapshots": ["Session snapshots", "Keep named arrangements and mixes that share the project’s audio, and restore them later."],
 	"delivery-report": ["Delivery Report", "Review the results and any issues from the most recent output job."],
 	"export-other": ["Export other", "Create files for other editing applications or specialized delivery workflows."],
 	"midi-export-file": ["Export MIDI (beta)", "Write note events and timing to a standard musical performance file."],
