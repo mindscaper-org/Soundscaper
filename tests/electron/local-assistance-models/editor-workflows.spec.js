@@ -21,10 +21,12 @@ const test = base.extend({
 for (const [workflowId, modelCase] of Object.entries(EDITOR_WORKFLOW_CASES)) {
 	test(`packaged editor: ${workflowId} runs through its real menu, preload and workflow service`, async ({ launchModelHost }, testInfo) => {
 		test.skip(modelCase.video && testInfo.project.metadata.productId !== 'framescaper', 'Video menus belong to Framescaper.');
+		test.skip(modelCase.productId && testInfo.project.metadata.productId !== modelCase.productId, 'This workflow belongs to the other product.');
 		const ids = [...new Set([...modelCase.modelIds,
 			...(modelCase.transcript ? EDITOR_TRANSCRIPT_MODEL_IDS : []),
 			...(modelCase.visualIndex ? EDITOR_WORKFLOW_CASES['index-video'].modelIds : [])])];
 		const models = ids.map(id => catalog.entries.find(model => model.modelId === id));
+		test.skip(modelCase.pendingPublication && models.some(model => !model), 'The candidate model awaits verified asset publication.');
 		for (const [index, model] of models.entries()) expect(model, ids[index]).toBeDefined();
 		const target = `${process.env.SOUNDSCAPER_PACKAGED_RUNTIME_PLATFORM ?? process.platform}-${process.env.SOUNDSCAPER_PACKAGED_RUNTIME_ARCH ?? process.arch}`;
 		test.skip(models.some(model => !model.platforms.includes(target)), `Required models are not published on ${target}.`);

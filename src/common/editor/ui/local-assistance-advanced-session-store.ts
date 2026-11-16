@@ -63,6 +63,7 @@ interface Options {
 const ADVANCED_PROJECT_ACCEPTANCE_OPERATIONS: ReadonlySet<AssistanceOperation> = new Set([
 	'voice-activity-detection', 'speech-recognition', 'speaker-diarization',
 	'speech-enhancement', 'source-separation', 'shot-detection',
+	'music-transcription',
 ]);
 
 export function createLocalAssistanceAdvancedWorkflowSessionStore(

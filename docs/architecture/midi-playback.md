@@ -15,6 +15,29 @@ selection's timeline start. It creates an ordinary MIDI source and one history
 entry; cancellation or stale project authority publishes nothing. Pitch contours
 and chromagrams cannot be interpreted as note sequences.
 
+## Audio transcription choices
+
+The supported paths reuse the existing Vamp host and local ONNX runtime. They
+publish ordinary editable MIDI while retaining the selected audio. The distinction
+between a chord estimate and performed notes matters: Chordino supplies a dictionary
+voicing of the estimated harmony, which need not reproduce the original performance.
+
+| Open-source tool or model | Method and useful output | Integration decision |
+| --- | --- | --- |
+| [pYIN](https://github.com/c4dm/pyin) | YIN pitch candidates and HMM note segmentation for monophonic sources; GPL-2.0-or-later. | Convert the installed Vamp plugin's duration-bearing `notes` output. |
+| [Chordino](https://github.com/c4dm/nnls-chroma) | NNLS chroma, chord templates and HMM smoothing; estimated chord notes; GPL-2.0-or-later. | Convert its explicit `chordnotes` output, preserving simultaneous notes. |
+| [aubio](https://github.com/aubio/aubio) | DSP pitch/onset analysis; `aubionotes` emits pitch, onset and duration; GPL-3.0-or-later. | A possible monophonic alternative, requiring another native adapter. |
+| [Basic Pitch](https://github.com/spotify/basic-pitch) | Neural polyphonic note/onset/contour estimation, best with one instrument; Apache-2.0 repository and checkpoint. | Use the pinned ONNX graph with an owned discrete-note decoder through Advanced Local Processing, after verified model publication. |
+| [CREPE](https://github.com/marl/crepe) | Neural monophonic frequency and voicing confidence tracks. | Requires note segmentation in addition to a new model adapter; does not cover chords. |
+| [Onsets and Frames](https://github.com/magenta/magenta/tree/main/magenta/models/onsets_frames_transcription) | Neural piano/drum transcription with velocity; upstream implementation is inactive. | A specialist option requiring a separately reviewed model and runtime. |
+| [MT3](https://github.com/magenta/mt3) | Multi-instrument transcription through T5X. | Requires a new inference/export path and checkpoint review beyond the current ONNX adapter. |
+
+These integration decisions concern runtime fit and output semantics, not a
+comparative accuracy benchmark. Basic Pitch's upstream supports pitch bends;
+Soundscaper's first decoder retains discrete notes and estimated velocities only.
+Its publication, selection fences and GPU requirements are described in
+[local assistance](local-assistance.md#catalog-and-availability).
+
 ## Scheduling and ownership
 
 The existing chunk-stream scheduler requests 1,024-frame source windows, keeps

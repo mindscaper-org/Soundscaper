@@ -11,7 +11,7 @@ const SHERPA_TASKS = new Set([
 const ONNX_TASKS = new Set([
 	'speech-enhancement', 'face-detection', 'object-detection', 'saliency-detection',
 	'optical-character-recognition', 'text-embedding', 'image-text-embedding',
-	'word-alignment', 'source-separation', 'audio-tagging', 'beat-tracking',
+	'word-alignment', 'source-separation', 'audio-tagging', 'beat-tracking', 'music-transcription',
 	'shot-detection', 'dereverberation',
 	'video-keying',
 ]);

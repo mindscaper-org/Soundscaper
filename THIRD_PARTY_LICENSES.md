@@ -1,5 +1,29 @@
 # Third-party browser runtime notices
 
+## Basic Pitch model candidate
+
+Spotify Basic Pitch supplies the optional instrument-agnostic polyphonic
+transcription model. Copyright Spotify AB; code and the repository-distributed
+checkpoint use Apache-2.0. The complete unmodified upstream
+[license](LICENSES/local-models/basic-pitch-LICENSE.txt),
+[NOTICE](LICENSES/local-models/basic-pitch-NOTICE.txt), and
+[README](LICENSES/local-models/basic-pitch-README.md) are retained at revision
+`fa5997af0a8210982619003269994a1be25eddf3`.
+
+The exact `basic_pitch/saved_models/icassp_2022/nmp.onnx` artifact is 230444
+bytes, SHA-256 `2c3c1d144bfa61ad236e92e169c13535c880469a12a047d4e73451f2c059a0ec`.
+It is an identity mirror, with no modification or conversion. Its graph
+signatures are retained in `evidence/basic-pitch-model-inspection.json`.
+Source and notice hashes are in `config/basic-pitch-model-source.json`.
+Soundscaper's TypeScript note decoder and MIDI publication code are original
+AGPL-3.0-only implementation code.
+
+The upstream paper identifies MAESTRO, GuitarSet, MedleyDB-Pitch, iKala and Slakh
+as training sources. Their recordings are not redistributed. The model is a
+candidate until the **Update AI assets** workflow verifies immutable product
+publication and prepares its catalog/evidence update for review. Upstream URLs
+are provenance and staging inputs, never an installation fallback.
+
 ## MIDI synthesis runtimes
 
 `libadlmidi-js` 2.2.0 provides the JavaScript interface to libADLMIDI 1.6.2

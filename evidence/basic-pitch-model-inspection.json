@@ -1,0 +1,85 @@
+{
+	"schemaVersion": 1,
+	"modelId": "basic-pitch",
+	"sourceRevision": "fa5997af0a8210982619003269994a1be25eddf3",
+	"artifactSha256": "2c3c1d144bfa61ad236e92e169c13535c880469a12a047d4e73451f2c059a0ec",
+	"inspection": {
+		"tool": "onnx",
+		"version": "1.20.1",
+		"opsets": {
+			"": 15,
+			"ai.onnx.ml": 2
+		},
+		"externalData": false,
+		"customOperators": false,
+		"inputs": [
+			{
+				"name": "serving_default_input_2:0",
+				"elementType": "float32",
+				"shape": [
+					"batch",
+					43844,
+					1
+				]
+			}
+		],
+		"outputs": [
+			{
+				"name": "StatefulPartitionedCall:2",
+				"elementType": "float32",
+				"shape": [
+					"batch",
+					172,
+					88
+				]
+			},
+			{
+				"name": "StatefulPartitionedCall:1",
+				"elementType": "float32",
+				"shape": [
+					"batch",
+					172,
+					88
+				]
+			},
+			{
+				"name": "StatefulPartitionedCall:0",
+				"elementType": "float32",
+				"shape": [
+					"batch",
+					172,
+					264
+				]
+			}
+		],
+		"operatorCounts": {
+			"Add": 2,
+			"Cast": 3,
+			"Concat": 20,
+			"Conv": 32,
+			"Div": 1,
+			"Equal": 1,
+			"Log": 1,
+			"Mul": 6,
+			"Neg": 9,
+			"Pad": 24,
+			"ReduceMax": 1,
+			"ReduceMin": 1,
+			"ReduceSum": 1,
+			"Relu": 3,
+			"Reshape": 67,
+			"Shape": 1,
+			"Sigmoid": 3,
+			"Slice": 11,
+			"Sqrt": 1,
+			"Sub": 1,
+			"Transpose": 21,
+			"Unsqueeze": 37,
+			"Where": 1
+		}
+	},
+	"verificationLimits": [
+		"Graph loaded using onnxruntime 1.23.2 on Linux x64 CPU.",
+		"GPU execution and packaged-target qualification require the existing runtime and real-model release checks; this inspection does not claim GPU qualification."
+	]
+}

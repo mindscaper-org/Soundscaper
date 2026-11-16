@@ -205,6 +205,7 @@ const ADVANCED_DECLARATIONS = Object.freeze({
 	'source-separation': advanced(['audio'], ['dialogue', 'music', 'effects']),
 	'audio-tagging': advanced(['audio'], ['audio-tags']),
 	'beat-tracking': advanced(['audio'], ['beat-grid']),
+	'music-transcription': advanced(['audio'], ['midi-notes']),
 	'text-embedding': advanced([], ['embeddings'], {
 		optionalInputs: ['transcript', 'text'],
 	}),

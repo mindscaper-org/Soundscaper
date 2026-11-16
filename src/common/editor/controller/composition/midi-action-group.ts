@@ -111,7 +111,7 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 		owner?.followSelection(before, after);
 		importer.followSelection(before, after);
 	}
-	return Object.freeze({ commitTransfer, hasPendingEdits, followSelection, settled: async (expectedProject?: MidiProject, readiness?: PromiseLike<unknown>) => {
+	return Object.freeze({ commitTransfer, hasPendingEdits, followSelection, importDocument: actions.importDocument, settled: async (expectedProject?: MidiProject, readiness?: PromiseLike<unknown>) => {
 		if (!expectedProject) {
 			await Promise.allSettled([...pendingCalls]);
 			if (loaded) await (await loaded).settled();

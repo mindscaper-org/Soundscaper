@@ -97,6 +97,7 @@ const OUTPUT_SPECS = Object.freeze({
 	embeddings: spec('embeddings', LOCAL_ASSISTANCE_OUTPUT_MEDIA_TYPES.embeddings),
 	'transcript-index': spec('transcript-index', localAssistanceJsonMediaTypes('transcript-index')),
 	'beat-grid': spec('beat-grid', LOCAL_ASSISTANCE_OUTPUT_MEDIA_TYPES['beat-grid']),
+	'midi-notes': spec('midi-notes', LOCAL_ASSISTANCE_OUTPUT_MEDIA_TYPES['midi-notes']),
 	'beat-labels': spec('beat-labels', localAssistanceJsonMediaTypes('beat-labels')),
 	'tempo-map-diff': spec('tempo-map-diff', localAssistanceJsonMediaTypes('tempo-map-diff')),
 	'shot-boundaries': spec('shot-boundaries', LOCAL_ASSISTANCE_OUTPUT_MEDIA_TYPES['shot-boundaries']),

@@ -93,6 +93,7 @@ export type EffectsCompositionEngine = Pick<EnginePublicApi,
 >;
 
 export interface EffectsCompositionDependencies {
+	readonly importMidiDocument?: import('../../assistance/music-transcription-v1.ts').MusicMidiImporter;
 	readonly beginResultTransaction: () => Pick<MacroTransaction<unknown>, 'commit' | 'rollback'>;
 	readonly pauseSourcePreview?: () => void;
 	readonly state: EffectsCompositionState;

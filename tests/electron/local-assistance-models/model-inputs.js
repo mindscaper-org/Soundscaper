@@ -9,6 +9,7 @@ import { reviewAssistanceFloat32MonoWaveV1 } from '../../../src/common/editor/as
 import { createAssistanceFramePackV1 } from '../../../src/common/editor/assistance/binary-formats-v1.ts';
 import { MODEL_OCR_FIXTURE, MODEL_OCR_TEXT_LINES, MODEL_SUBJECT_FIXTURE } from './model-fixture-semantics.ts';
 import { MODEL_BEAT_FIXTURE, MODEL_JFK_TEXT, MODEL_SHOT_FIXTURE, MODEL_TRANSCRIPT_FIXTURE } from './model-deterministic-fixture-semantics.ts';
+import { musicTranscriptionFixtureSamples } from '../../helpers/music-transcription-samples.ts';
 
 const HASHES = Object.freeze({
 	'jfk.wav': '59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e',
@@ -75,6 +76,10 @@ export async function loadSpeechFixture(noisy) {
 }
 
 export async function prepareModelInput(fixtureId, page) {
+	if (fixtureId === 'melody-chords-22050hz') {
+		const samples = musicTranscriptionFixtureSamples();
+		return { bytes: encodeFloatWave(samples, 22_050), role: 'audio', mediaType: 'audio/wav', sampleRate: 22_050, frameCount: samples.length };
+	}
 	if (fixtureId === 'tts-script') return {
 		bytes: Buffer.from('Hello from Soundscaper. This is a local speech test.', 'utf8'),
 		role: 'text', mediaType: 'text/plain', frameCount: 1,

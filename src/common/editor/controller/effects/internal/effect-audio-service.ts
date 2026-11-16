@@ -377,6 +377,7 @@ export function createEffectAudioService<Buffer = EffectAudioBuffer>(runtime: Ef
 	}
 
 	const selectedMediaPreparation = createDeferredLocalAssistancePreparation({
+		importMidiDocument: runtime.importMidiDocument,
 		getProject: runtime.getProject,
 		getSelectedClipId: () => runtime.state.selectedClipId,
 		captureProject: runtime.captureProject,
