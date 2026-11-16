@@ -18,11 +18,13 @@ import { standardDelaySelectionOutputFrames } from './first-party-effects/standa
 import { selectionEffectSpectralScratchBytes } from './selection-effect-spectral-context-contract.ts';
 import { autoTuneOutputFrames, autoTunePeakBytes } from './first-party-effects/auto-tune/contract.ts';
 import { phaseCorrectionOutputFrames, phaseCorrectionPeakBytes } from './first-party-effects/phase-correction/contract.ts';
+import { matchEqOutputFrames, matchEqPeakBytes } from './first-party-effects/match-eq/contract.ts';
 
 const FLOAT32_BYTES = Float32Array.BYTES_PER_ELEMENT;
 const MEMORY_ESTIMATE_OVERHEAD_BYTES = 2 * 1024 ** 2;
 
 export function estimateAudioSelectionEffectOutputFrames(type, inputFrames, params = {}, options = {}) {
+	if (type === 'match-eq') { normalizeAudioSelectionEffectParams(type, params); return matchEqOutputFrames(inputFrames); }
 	if (type === 'automatic-phase-correction') {
 		normalizeAudioSelectionEffectParams(type, params);
 		return phaseCorrectionOutputFrames(inputFrames);
@@ -48,6 +50,7 @@ export function estimateAudioSelectionEffectOutputFrames(type, inputFrames, para
 }
 
 export function estimateAudioSelectionEffectPeakBytes(type, inputFrames, params = {}, options = {}) {
+	if (type === 'match-eq') { normalizeAudioSelectionEffectParams(type, params); return matchEqPeakBytes(inputFrames, options); }
 	if (type === 'automatic-phase-correction') {
 		normalizeAudioSelectionEffectParams(type, params);
 		return phaseCorrectionPeakBytes(inputFrames, options);

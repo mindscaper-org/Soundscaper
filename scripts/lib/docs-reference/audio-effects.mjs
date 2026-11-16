@@ -31,6 +31,7 @@ const CATEGORY_LABELS = Object.freeze({
  * rather than guessed from the identifier.
  */
 const LOCAL_EFFECT_CATEGORIES = Object.freeze({
+	'match-eq': 'eq',
 	'automatic-phase-correction': 'repair',
 	'auto-tune': 'pitch-tempo',
 	deesser: 'repair',
@@ -58,6 +59,7 @@ const LOCAL_EFFECT_CATEGORIES = Object.freeze({
 
 /** Parameters whose value is a structure rather than a scalar or a choice. */
 const STRUCTURED_LOCAL_PARAMETERS = Object.freeze({
+	'match-eq.reference': 'Learned reference spectrum; save as a preset to reuse a personal voice profile',
 	'eq.bands': 'Each band has a type, frequency, gain, Q, and slope',
 	'auto-tune.controlTrackId': 'Optional MIDI control track ID; empty uses the selected key and scale',
 });
@@ -67,6 +69,7 @@ const BROWSER_ADAPTATION_NOTES = Object.freeze({
 });
 
 const LOCAL_EFFECT_NOTES = Object.freeze({
+	'match-eq': ['Selection-only tonal matching with a saved reference or personal voice profile', 'Each target is analyzed independently; smoothing and bounded boost/cut protect quiet and unsupported frequency bands', 'Original/Matched preview is level compensated; Edit as Filter Curve EQ opens an editable fixed correction'],
 	'automatic-phase-correction': ['Selection-only fixed stereo timing alignment, from 8 kHz to 384 kHz', 'Reference channel, duration and levels are preserved; ambiguous or inconsistent offsets remain unchanged', 'Analyze reports the offset and confidence; Original/Corrected and mono are preview-only controls'],
 	'hum-removal': ['Harmonic notch bank with custom fundamental, harmonic count, notch width and reduction', 'Live controls, zero latency, no timeline automation; selections keep their duration'],
 	'auto-tune': ['Solo voice or melody (65–1500 Hz); chromatic, major or natural minor pitch correction', 'StaffPad formant preservation; fixed rack latency (about 72 ms at 48 kHz), live controls, no timeline automation'],
