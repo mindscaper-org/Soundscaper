@@ -31,7 +31,8 @@ import EditorControlLabel from '../EditorControlLabel.tsx';
 export default function EffectPresetBar({
 	copy,
 	disabled = false,
-	automation = null,
+	automation = /** @type {null | {enabled: boolean, onToggle?: (enabled: boolean) => void}} */ (null),
+	autoIdle = /** @type {null | {enabled: boolean, disabled?: boolean, onChange: (enabled: boolean) => void}} */ (null),
 	presets,
 	selectedId = '',
 	unsaved = false,
@@ -180,19 +181,23 @@ export default function EffectPresetBar({
 				</ContextMenu>
 
 				<ContextMenu isOpen={Boolean(optionsMenu)} onClose={close} x={optionsMenu?.x || 0} y={optionsMenu?.y || 0}>
+
 					{onAdvancedSettings && <ContextMenuItem
 						label={canonicalCopyValue('effectAdvancedSettings', copy)}
 						disabled={disabled}
 						onClick={() => { close(); onAdvancedSettings(); }}
 					/>}
+					{autoIdle && <ContextMenuItem label={copy.effectAutoIdle} tooltipKey="plugin-auto-idle"
+						role="menuitemcheckbox" checked={autoIdle.enabled} disabled={disabled || autoIdle.disabled}
+						onClick={() => { close(); autoIdle.onChange(!autoIdle.enabled); }} />}
 					<ContextMenuItem
 						label={copy.importEffectPreset}
-						disabled={disabled}
+						disabled={disabled || !onImport}
 						onClick={() => { close(); optionsTriggerRef.current?.focus({ preventScroll: true }); fileRef.current?.click(); }}
 					/>
 					<ContextMenuItem
 						label={copy.exportEffectPreset}
-						disabled={disabled || !selectedId}
+						disabled={disabled || !selectedId || !onExport}
 						onClick={() => { close(); if (selectedId) onExport(); }}
 					/>
 					{hasAbout && <>

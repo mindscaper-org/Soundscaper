@@ -4,6 +4,7 @@ import type { StripRef } from '../parameter-address.ts';
 export interface ParallelStackRuntimeModules {
 	readonly parametricEqWasmModule?: WebAssembly.Module;
 	readonly idleEffectControl?: SharedArrayBuffer;
+	readonly idleEffectControls?: Readonly<Record<string, SharedArrayBuffer>>;
 }
 
 /** Plain structured-clone data. A plane has exactly blockFrames samples. */

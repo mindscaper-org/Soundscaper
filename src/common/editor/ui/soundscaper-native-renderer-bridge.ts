@@ -1,3 +1,4 @@
+import { createNativePluginPresetStatePort } from '../controller/effects/native-plugin-preset-runtime.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createSoundscaperNativeAudioRenderer } from '../soundscaper-native-audio-renderer.ts';
@@ -40,6 +41,8 @@ import {
 	assertRestoredNativePluginIdentity as assertRestoredIdentity,
 	captureSoundscaperNativeProjectOperation, nativePluginProjectStateKey as stateKey,
 	nextNativePluginGeneration, projectPluginStates, withProjectLatency,
+	persistNativePluginStateThroughMain, withNativePluginTransportLatency as withTransportLatency,
+	type SoundscaperNativeProjectOperation,
 } from './soundscaper-native-renderer-project-operation.ts';
 import { closeSoundscaperNativePluginVendorUi } from './soundscaper-native-vendor-ui-close.ts';
 import { createSerialProjectOperationQueue } from '../controller/shared/serial-project-operation-queue.ts';
@@ -179,6 +182,23 @@ function createNativeEffectRendererBridge(options: Readonly<{
 			throw error;
 		}
 	}));
+	const persistState = async (projectOperation: SoundscaperNativeProjectOperation, request: Readonly<{ instanceId: string; generation: number }>) => {
+		const state = await saveNativePluginRuntimeState(request.instanceId);
+		projectOperation.assertCurrent();
+		const generation = nextNativePluginGeneration(generations, request.instanceId, request.generation);
+		const persisted = await persistNativePluginStateThroughMain(options.bridge, request.instanceId, generation, state);
+		projectOperation.assertCurrent();
+		generations.set(request.instanceId, generation);
+		if (persisted.projectState) {
+			const projectState = withProjectLatency(
+				persisted.projectState, nativePluginReportedLatencyFrames(request.instanceId),
+			);
+			project?.persist(projectState, projectOperation);
+			activeStateKeys.set(request.instanceId, stateKey(projectState, projectOperation.projectId));
+		}
+		return persisted;
+	};
+
 	const bridge = Object.freeze({
 		...options.bridge,
 		...createSoundscaperNativeRendererAudioInventory({
@@ -259,7 +279,7 @@ function createNativeEffectRendererBridge(options: Readonly<{
 				const projected = withTransportLatency(instance);
 				const state = await saveNativePluginRuntimeState(instance.instanceId);
 				projectOperation.assertCurrent();
-				const persisted = await persistThroughMain(instance.instanceId, 1, state);
+				const persisted = await persistNativePluginStateThroughMain(options.bridge, instance.instanceId, 1, state);
 				projectOperation.assertCurrent();
 				if (!persisted.projectState) throw new Error('The initial native plug-in state was not persisted.');
 				const projectState = withProjectLatency(persisted.projectState, projected.latencySamples);
@@ -282,22 +302,9 @@ function createNativeEffectRendererBridge(options: Readonly<{
 			setNativePluginBypassed(request.instanceId, update?.bypassed ?? bypassed, update?.transition?.contextTime);
 			return instance;
 		},
-		persistNativePluginState: stateOperations.wrap(async (projectOperation, request: Readonly<{ instanceId: string; generation: number }>) => {
-			const state = await saveNativePluginRuntimeState(request.instanceId);
-			projectOperation.assertCurrent();
-			const generation = nextNativePluginGeneration(generations, request.instanceId, request.generation);
-			const persisted = await persistThroughMain(request.instanceId, generation, state);
-			projectOperation.assertCurrent();
-			generations.set(request.instanceId, generation);
-			if (persisted.projectState) {
-				const projectState = withProjectLatency(
-					persisted.projectState, nativePluginReportedLatencyFrames(request.instanceId),
-				);
-				project?.persist(projectState, projectOperation);
-				activeStateKeys.set(request.instanceId, stateKey(projectState, projectOperation.projectId));
-			}
-			return persisted;
-		}),
+		...createNativePluginPresetStatePort({ queue: stateOperations, read: saveNativePluginRuntimeState,
+			load: loadNativePluginRuntimeState, persist: persistState }),
+		persistNativePluginState: stateOperations.wrap(persistState),
 		restoreNativePluginState: stateOperations.wrap(async (projectOperation, request: Readonly<{
 			instanceId: string; generation: number;
 			stateBody: Readonly<{ kind: 'native-plugin-state'; bodyId: string; byteLength: number; sha256: string }>;
@@ -547,24 +554,10 @@ function createNativeEffectRendererBridge(options: Readonly<{
 
 	function prepareStateNode(context: BaseAudioContext, instance: NativePluginInstanceProjectionV1): void {
 		createNativePluginEffectNode(context, {
-			type: 'native-plugin', bypassed: instance.bypassed,
+			type: 'native-plugin', bypassed: instance.bypassed, context: { format: instance.format, stablePluginId: instance.stablePluginId },
 			params: { instanceId: instance.instanceId },
 		}, instance.inputChannels, instance.outputChannels);
 		processorIds.add(instance.instanceId);
 	}
 
-	function persistThroughMain(instanceId: string, generation: number, state: Readonly<Record<string, unknown>>) {
-		return (options.bridge.persistNativePluginState as unknown as (
-			value: Readonly<Record<string, unknown>>,
-		) => ReturnType<SoundscaperNativeServicesBridge['persistNativePluginState']>)({
-			instanceId, generation, ...state,
-		});
-	}
-
-	function withTransportLatency(
-		instance: NativePluginInstanceProjectionV1,
-	): NativePluginInstanceProjectionV1 {
-		const latencySamples = nativePluginReportedLatencyFrames(instance.instanceId, instance.latencySamples);
-		return Object.freeze({ ...instance, latencySamples });
-	}
 }

@@ -16,6 +16,7 @@ interface PrepareMessage {
 	readonly workerIndex: number;
 	readonly parametricEqWasmModule?: WebAssembly.Module;
 	readonly idleEffectControl?: SharedArrayBuffer;
+	readonly idleEffectControls?: Readonly<Record<string, SharedArrayBuffer>>;
 	readonly effectMailbox?: SharedParallelStackEffectMailbox;
 }
 
@@ -38,6 +39,7 @@ globalThis.addEventListener('message', (event: MessageEvent<unknown>) => {
 			const execute = createParallelStackExecutor(request.plan, workerIndex, {
 				parametricEqWasmModule: request.parametricEqWasmModule,
 				idleEffectControl: request.idleEffectControl,
+				idleEffectControls: request.idleEffectControls,
 			}, request.effectMailbox);
 			scheduler = createParallelStackScheduler(request.shared, request.plan.tasks, workerIndex, execute);
 			globalThis.postMessage({ type: 'ready', generation: views.geometry.generation, workerIndex });

@@ -53,7 +53,7 @@ function prepareTask(task: ParallelStackTask, plan: ParallelStackPlan, modules: 
 		target: edge.sidechainEffectId ? sidechains.get(edge.sidechainEffectId)! : input }));
 	const effects = task.effects.map((effect, index) => ({
 		processor: withIdleParallelEffect(createParallelStackEffect(effect, plan.sampleRate, task.channels, modules),
-			effect, plan.sampleRate, modules.idleEffectControl),
+			effect, plan.sampleRate, modules.idleEffectControls?.[effect.type] ?? modules.idleEffectControl),
 		sidechain: sidechains.get(effect.id),
 		mailboxIndex: effectOffset + index,
 		lastVersion: 0,

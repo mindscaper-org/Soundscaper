@@ -79,6 +79,7 @@ export default function SoundscaperVampAnalyzerSurface({
 	return <React.Suspense fallback={null}>
 		<VampAnalyzerDialog
 			key={`${owner}:${String(session.projectRevision)}`}
+			controller={input.controller} headerCopy={hostCopy}
 			catalog={catalog}
 			projectId={session.projectId}
 			scope={session.scope}

@@ -1,3 +1,5 @@
+import PluginEffectPresetHeader from '../inspector/PluginEffectPresetHeader.tsx';
+import { pluginEffectType } from '../../effect-plugin-identity.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { VAMP_DIALOG_COPY } from '../../../i18n/editor-vamp-copy.ts';
 
@@ -47,6 +49,8 @@ export interface VampAnalyzerDialogCopy {
 export const VAMP_ANALYZER_DIALOG_COPY: Readonly<VampAnalyzerDialogCopy> = VAMP_DIALOG_COPY;
 
 export interface VampAnalyzerDialogProps {
+	readonly controller?: unknown;
+	readonly headerCopy?: Readonly<Record<string, unknown>>;
 	readonly catalog: unknown;
 	/** Fences asynchronous completion; it is deliberately absent from the native request. */
 	readonly projectId: string;
@@ -230,6 +234,19 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 	const disabled = pending || publishing || selectedAnalyzer === null || selectedOutput === null;
 	return <AudioEditorDialogShell
 		title={labels.title}
+		headerSlot={selectedAnalyzer ? <PluginEffectPresetHeader controller={props.controller} copy={props.headerCopy}
+			effectType={pluginEffectType('vamp', selectedAnalyzer.analyzerId)} name={selectedAnalyzer.name}
+			resetKey={selectedAnalyzer.analyzerId} disabled={disabled} realtime={false}
+			currentParams={{ program, parameters, outputId }} read={() => ({ program, parameters, outputId })}
+			defaultParams={{ program: null, parameters: defaults(selectedAnalyzer), outputId: selectedAnalyzer.outputs[0]?.id ?? '' }}
+			apply={params => {
+				if (typeof params.outputId === 'string') selectOutput(params.outputId);
+				setProgram(typeof params.program === 'string' && selectedAnalyzer.programs.includes(params.program) ? params.program : null);
+				const values = params.parameters && typeof params.parameters === 'object' ? params.parameters as Record<string, unknown> : {};
+				setParameters(Object.fromEntries(selectedAnalyzer.parameters.map(parameter => [parameter.id,
+					typeof values[parameter.id] === 'string' || typeof values[parameter.id] === 'number' ? String(values[parameter.id]) : String(parameter.defaultValue)])));
+				setResult(null);
+			}} /> : null}
 		onClose={close}
 		width={560}
 		initialFocus="select"

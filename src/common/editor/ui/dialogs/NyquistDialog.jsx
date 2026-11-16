@@ -1,3 +1,5 @@
+import PluginEffectPresetHeader from '../inspector/PluginEffectPresetHeader.tsx';
+import { pluginEffectType } from '../../effect-plugin-identity.ts';
 import { useComponentCopy } from '@soundscaper/design-system/contexts/ComponentCopyContext';
 import { useTranslationScope } from '../use-translation-scope.ts';
 import { NYQUIST_BUNDLED_CONTROL_COPY, localizeBundledNyquistControl } from './nyquist-bundled-control-copy.ts';
@@ -147,6 +149,17 @@ function NyquistRunnerDialog({ controller, snapshot, copy, target, run, onClose 
 	return (
 		<AudioEditorDialogShell
 			title={title}
+			headerSlot={<PluginEffectPresetHeader controller={controller} copy={copy}
+				effectType={pluginEffectType('nyquist', targetIdentity)} name={title} resetKey={targetIdentity}
+				disabled={processing} realtime={false}
+				currentParams={prompt ? { source, language, debug } : { controls, debug }}
+				defaultParams={prompt ? undefined : { controls: nyquistControlDefaults(plugin), debug: Boolean(plugin?.debugEnabled) }}
+				read={() => prompt ? { source, language, debug } : { controls, debug }}
+				apply={(params) => {
+					if (prompt) { if (typeof params.source === 'string') setSource(params.source); if (params.language === 'sal' || params.language === 'lisp') setLanguage(params.language); }
+					else if (params.controls && typeof params.controls === 'object') setControls({ ...nyquistControlDefaults(plugin), ...params.controls });
+					setDebug(params.debug === true);
+				}} />}
 			onClose={cancelAndClose}
 			width={720}
 			className="kw-audio-editor-dialog--nyquist"

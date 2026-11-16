@@ -1,3 +1,5 @@
+import { isPluginEffectType } from './effect-plugin-identity.ts';
+import { normalizePluginEffectPresetParams } from './plugin-effect-preset-params.ts';
 import { effectPresetImportFailure } from './label-and-preset-parser-failure.ts';
 import {
 	AUDIO_SELECTION_EFFECT_DEFINITIONS,
@@ -160,7 +162,7 @@ function normalizePreset(value) {
 		id: nonEmptyString(value.id, 'preset.id'),
 		effectType,
 		name: nonEmptyString(value.name, 'preset.name'),
-		params: Object.freeze(normalizeAudioSelectionEffectParams(effectType, value.params || {})),
+		params: Object.freeze(isPluginEffectType(effectType) ? normalizePluginEffectPresetParams(value.params || {}, /^plugin:\["(?:vst3|vst2|clap|au|lv2|ladspa)",/u.test(effectType) ? 24 * 1024 * 1024 : 1048576) : normalizeAudioSelectionEffectParams(effectType, value.params || {})),
 		createdAt: timestamp(value.createdAt),
 		updatedAt: timestamp(value.updatedAt),
 	});
@@ -168,7 +170,7 @@ function normalizePreset(value) {
 
 function effectTypeValue(value) {
 	const effectType = nonEmptyString(value, 'effectType');
-	if (!Object.hasOwn(AUDIO_SELECTION_EFFECT_DEFINITIONS, effectType)) {
+	if (!Object.hasOwn(AUDIO_SELECTION_EFFECT_DEFINITIONS, effectType) && !isPluginEffectType(effectType)) {
 		throw new RangeError(`Unsupported effect preset type: ${effectType}.`);
 	}
 	return effectType;

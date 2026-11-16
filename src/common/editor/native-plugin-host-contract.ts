@@ -76,6 +76,9 @@ export interface NativePluginProjectStateV1 {
 }
 
 export interface SoundscaperNativePluginHostBridgeV1 {
+	/** Renderer-owned, project-fenced preset operations; absent from the preload API. */
+	captureNativePluginPreset?(request: Readonly<{ instanceId: string }>): Promise<Readonly<{ bytes: Uint8Array }>>;
+	restoreNativePluginPreset?(request: Readonly<{ instanceId: string; bytes: Uint8Array }>): Promise<unknown>;
 	setNativePluginInstallationAllowed(request: Readonly<{
 		installationId: string; allowed: boolean;
 	}>): Promise<NativePluginRegistryView>;

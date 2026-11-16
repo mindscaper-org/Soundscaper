@@ -65,6 +65,7 @@ import type { ScheduledParameterRegistry } from './scheduled-parameter-registry.
 import type { EngineEffect, UnknownRecord } from './types.ts';
 import { effectSupportsExplicitSidechain } from '../effect-explicit-sidechain-capability.ts';
 import { secondsToSampleFrame } from '../timeline-time.ts';
+import { effectPluginKey } from '../effect-plugin-identity.ts';
 import { registerIdleEffectNode, releaseIdleEffectNode } from './idle-effect-host.ts';
 import { noiseReductionClockGeometry, noiseReductionProfileRate } from '../audacity-effects/noise-reduction-clock.ts';
 import {
@@ -168,7 +169,7 @@ export function applyEffect(
 ): AudioNode {
 	const output = buildEffect(context, input, effect, nodes, options);
 	if (output !== input && effect.type !== 'native-plugin' && effect.type !== 'auto-tune' && effect.type !== 'bitcrusher') {
-		registerIdleEffectNode(context, output);
+		registerIdleEffectNode(context, output, effectPluginKey(effect));
 	}
 	return output;
 }

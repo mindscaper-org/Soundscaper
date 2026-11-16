@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { nativePluginReportedLatencyFrames } from '../native-plugin-realtime-node.js';
+import type { SoundscaperNativePluginHostBridgeV1 } from '../native-plugin-host-contract.ts';
 import type {
 	NativePluginInstanceProjectionV1,
 	NativePluginProjectStateV1,
@@ -99,4 +101,13 @@ function projectIdentity(project: unknown): string | null {
 
 function projectChangedError(): DOMException {
 	return new DOMException('The active project changed during the native plug-in operation.', 'AbortError');
+}
+
+export function persistNativePluginStateThroughMain(bridge: SoundscaperNativePluginHostBridgeV1, instanceId: string, generation: number, state: Readonly<Record<string, unknown>>) {
+	return (bridge.persistNativePluginState as unknown as (value: Readonly<Record<string, unknown>>) => ReturnType<SoundscaperNativePluginHostBridgeV1['persistNativePluginState']>)({ instanceId, generation, ...state });
+}
+
+export function withNativePluginTransportLatency(instance: NativePluginInstanceProjectionV1): NativePluginInstanceProjectionV1 {
+	const latencySamples = nativePluginReportedLatencyFrames(instance.instanceId, instance.latencySamples);
+	return Object.freeze({ ...instance, latencySamples });
 }
