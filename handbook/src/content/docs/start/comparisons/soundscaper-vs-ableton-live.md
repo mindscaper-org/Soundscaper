@@ -62,12 +62,12 @@ Hover for limits. Include any referenced media when sharing projects.
 | Audacity (`.aup4`) | + — :: Audio-only import/export, with a compatibility report; Soundscaper-only state can be omitted. | / |
 | Cool Edit / Audition (`.ses`) | ~ — Import :: Recognized legacy binary layouts only; unsupported state and missing media are reported. No export. | / |
 | Audition (`.sesx`) | ~ — Import :: Imports audio tracks, clip placement, trims, simple fades, and static mixer settings. Effects, automation, routing, and other unsupported state are reported; no SESX export. | / |
-| Ardour (`.ardour`) | ~ — Import :: Audio playlists, cuts, trims, static mix settings, and explicit fades; locates nearby media or requests a folder. MIDI, plug-ins, automation, routing, and tempo maps are omitted; no export. | / |
+| Ardour (`.ardour`) | ~ — Import :: Audio edits and editable MIDI from supported modern sessions, clip envelopes, gain/pan/mute/send automation, bus routing, markers, and supported stepped tempo/meter maps. Locates nearby media or requests a folder. Foreign plug-ins retain available state as bypassed placeholders; MIDI uses a replacement instrument. No export. | / |
 | REAPER (`.rpp`) | / | / |
 | Hindenburg (`.nhsx`) | ~ — Import :: Audio cuts, trims, static levels, mute and fade lengths; locates companion media or requests a folder. Pan and fade curves are converted; ducking, plug-ins, transcripts, markers and Narrator authoring are omitted. No export. | / |
 | Pro Tools (`.ptf`) | ~ — Import :: Supported native PTF audio edits, track names, trims, and stereo lanes; locates the Audio Files folder. Legacy PTS is also supported. Mix settings, fades, MIDI, and plug-ins are omitted; no export. | / |
 | Pro Tools (`.ptx`) | ~ — Import :: Supported native PTX audio-edit layouts; locates the Audio Files folder. Missing media and unsupported mix settings, fades, MIDI, and plug-ins are reported; no export. | / |
-| SoundCraft (`.scraft`, `.scraftz`) | ~ — Import :: Audio cuts, trims, static mix settings, and explicit fades from sessions or bundled media. MIDI, plug-ins, automation, and routing are omitted; no export. | / |
+| SoundCraft (`.scraft`, `.scraftz`) | ~ — Import :: Audio edits and editable MIDI from sessions or bundled media, clip envelopes, gain/pan/mute/send automation, buses/sends, folder structure, markers, and tempo metadata. Foreign plug-ins retain available state as bypassed placeholders; MIDI uses a replacement instrument. No export. | / |
 | FL Studio (`.flp`, ZIP) | / | / |
 | Ableton Live (`.als`) | / | + |
 | Bitwig (`.bwproject`) | / | / |
@@ -366,11 +366,11 @@ See [export formats](/reference/generated/formats/), [clip delivery](/soundscape
 | Capability | Soundscaper<br>Desktop | Ableton Live<br>13 Suite (beta) |
 | --- | --- | --- |
 | EDL | + — :: Import and export CMX3600 cuts; export uses one selected sequence track. | / |
-| OpenTimelineIO | + — :: Import and export audio/video tracks, gaps, and supported nested stacks. | / |
+| OpenTimelineIO | + — :: Import and export audio/video tracks, gaps, and supported nested stacks. Import also reads referenced MIDI files as editable notes, using a replacement instrument; MIDI export is not supported. | / |
 | FCPXML | + — :: Import and export timeline spines, asset clips, and connected lanes. | / |
-| DAWproject | + — :: Imports and exports media and supported project structure, with an exchange report. | / |
+| DAWproject | + — :: Imports and exports media, MIDI, and supported project structure. Import also converts supported channel/send automation, generic EQ and dynamics, and eligible effect-parameter curves. Foreign plug-in state is preserved in bypassed placeholders; unsupported or converted processing is reported. | / |
 | OMF | + — :: Import and export OMF2 audio. Export embeds mono/stereo 24-bit WAV, with a 256 MiB decoded-PCM limit. | / |
-| AAF | + — :: Import and export audio cuts and embedded media; unsupported processing and picture are reported. | / |
+| AAF | + — :: Import and export audio cuts and embedded media. Import also recovers editable notes from standard AS-01 auxiliary MIDI attachments, plus gain automation and supported track-pan and dissolve curves. Unsupported operation records are preserved as bypassed placeholders where possible; other processing and picture are reported. | / |
 | Round-trip with a video editor | ~ — Framescaper copy :: File-menu handoff creates a separate editable Framescaper copy, with a conversion report | / |
 | Blender track export and live sync | + — :: WAV track bundle and one-way edit updates through the bundled Blender 4.2+ add-on | / |
 | Labels and markers exchange | + | ~ — QuickTime markers :: Embedded QuickTime markers are displayed; no general label/marker exchange workflow is documented. |
