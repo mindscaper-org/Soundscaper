@@ -501,7 +501,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			active: () => state.phase !== 'disposing' && state.phase !== 'disposed',
 		}, action => restricted('audioAnalysis', action)),
 		export: Object.freeze({ ...exportActions, exportEdl: afterMidiEdits(exportActions.exportEdl),
-			exportOtio: afterMidiEdits(exportActions.exportOtio), exportFcpxml: afterMidiEdits(exportActions.exportFcpxml), exportOmf: afterMidiEdits(exportActions.exportOmf), exportAaf: afterMidiEdits(exportActions.exportAaf) }),
+			exportOtio: afterMidiEdits(exportActions.exportOtio), exportFcpxml: afterMidiEdits(exportActions.exportFcpxml), exportOmf: afterMidiEdits(exportActions.exportOmf), exportAdl: afterMidiEdits(exportActions.exportAdl), exportAaf: afterMidiEdits(exportActions.exportAaf) }),
 		media: createProjectMediaActionGroup({
 			state, getProject, store, publishDocumentSnapshot, setStatus, copy, fileService, ffmpeg, commit, saveScape: () => Promise.resolve(saveCurrentScape()),
 		}),

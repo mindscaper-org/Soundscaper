@@ -60,11 +60,11 @@ export function buildTimelineInterchangeProject(document: TimelineInterchangeDoc
 				? { mimeType: 'video/mp4', width: item.width ?? 1, height: item.height ?? 1, frameRate,
 					sampleFrameCount: Math.max(1, ticks(observedDuration ?? extent, { num: sourceRate, den: 1 }, 'enclosingEnd')),
 					sourceFrameCount: Math.max(1, ticks(observedDuration ?? extent, frameRate, 'enclosingEnd')) }
-				: { mimeType: 'audio/wav', frameCount: Math.max(1, ticks(extent, { num: sourceRate, den: 1 }, 'enclosingEnd')), channelCount: 2, sampleFormat: 'float32' }),
+				: { mimeType: 'audio/wav', frameCount: Math.max(1, ticks(extent, { num: sourceRate, den: 1 }, 'enclosingEnd')), channelCount: item.channelIndices?.length ?? 2, sampleFormat: 'float32' }),
 			...info, id: sourceId, ...(item.kind === 'video' ? { frameRate } : {}),
 		};
 		if (!info) {
-			source.opaqueExtensions = { 'soundscaper.interchange': { format: document.format, mediaId: item.id, path: item.path, offline: true } };
+			source.opaqueExtensions = { 'soundscaper.interchange': { format: document.format, mediaId: item.id, path: item.path, ...(item.channelIndices ? { channelIndices: item.channelIndices } : {}), offline: true } };
 			addDeliveryReportItem(draft, { code: `${document.format}.media-missing`, disposition: 'missing', severity: 'error',
 				scope: { kind: 'source', id: sourceId }, data: { mediaId: item.id, path: item.path, placeholderGeometry: item.kind === 'video' },
 				message: 'Referenced media is unavailable. The edit and an offline source reference are retained; source extent and placeholder geometry describe the imported edit rather than a media probe.' });
@@ -143,7 +143,9 @@ function buildClip(authored: TimelineInterchangeClip, source: Readonly<Record<st
 	const retainedDuration = sourceDurationFrames < statedSourceCount ? Math.floor(durationFrames * sourceDurationFrames / statedSourceCount) : durationFrames;
 	if (retainedDuration <= 0 || sourceDurationFrames <= 0) return null;
 	return { id, kind: 'audio', title: authored.name, sourceId: source.id, timelineStartFrame, durationFrames: retainedDuration,
-		sourceStartFrame, sourceDurationFrames, shortened: sourceDurationFrames < statedSourceCount };
+		sourceStartFrame, sourceDurationFrames, ...(authored.gain !== undefined ? { gain: authored.gain } : {}),
+		...(authored.fadeIn ? { fadeInFrames: Math.min(retainedDuration, ticks(authored.fadeIn, { num: sampleRate, den: 1 })) } : {}),
+		...(authored.fadeOut ? { fadeOutFrames: Math.min(retainedDuration, ticks(authored.fadeOut, { num: sampleRate, den: 1 })) } : {}), shortened: sourceDurationFrames < statedSourceCount };
 }
 
 function ticks(time: Rational, rate: Rational, policy: 'point' | 'enclosingEnd' = 'point'): number {

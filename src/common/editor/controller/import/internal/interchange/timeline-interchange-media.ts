@@ -38,23 +38,27 @@ export async function stageTimelineInterchangeMedia(runtime: NativeProjectServic
 		}
 		assertCurrent();
 		const info = wav ?? prepared!.descriptor;
-		const bytes = info.frameCount * info.channelCount * Float32Array.BYTES_PER_ELEMENT;
+		const selected = reference.channelIndices;
+		if (selected?.some(channel => !Number.isInteger(channel) || channel < 0 || channel >= info.channelCount)) throw new RangeError('ADL source channel selection exceeds its media.');
+		const select = (channels: readonly Float32Array[]) => selected ? selected.map(channel => channels[channel]!) : channels;
+		const channelCount = selected?.length ?? info.channelCount;
+		const bytes = info.frameCount * channelCount * Float32Array.BYTES_PER_ELEMENT;
 		if (!Number.isSafeInteger(bytes) || bytes <= 0) throw new RangeError('Interchange audio has an invalid decoded size.');
 		await runtime.preflightStorage(bytes, 'import');
 		assertCurrent();
 		const source: NativeProjectAudioSource = { kind: 'audio', id, storageKey: id, name: reference.name,
 			mimeType: dawprojectImportedAudioMimeType(reference.name), sampleRate: info.sampleRate,
-			frameCount: info.frameCount, channelCount: info.channelCount };
+			frameCount: info.frameCount, channelCount };
 		const chunkFrames = Math.min(runtime.sourceChunkFrames, 262_144);
 		if (wav) {
 			const reader = createWavBlobPcmChunkReader(blob, { descriptor: wav, chunkFrames });
 			const staging: NativeProjectDocument = { id: `staging-${id}`, title: 'Interchange staging', schemaVersion: 17, sources: [source], clips: [] };
 			await helpers.persistSourceChunks(staging, id, (async function* () {
 				for (let index = 0; index < reader.chunkCount; index++) {
-					assertCurrent(); yield (await reader.readChunk(index, { signal })).channels;
+					assertCurrent(); yield select((await reader.readChunk(index, { signal })).channels);
 				}
 			})(), stagedIds, operation);
-		} else if (!await stageDawprojectCompressedSource(runtime.store, prepared!, source, chunkFrames, signal, assertCurrent, stagedIds, 'timeline interchange')) return null;
+		} else if (!await stageDawprojectCompressedSource(runtime.store, { ...prepared!, stream: options => prepared!.stream({ ...options, onChunk: channels => options.onChunk([...select(channels)]) }) }, source, chunkFrames, signal, assertCurrent, stagedIds, 'timeline interchange')) return null;
 		assertCurrent();
 		return source as unknown as Readonly<Record<string, unknown>>;
 	} finally { prepared?.dispose(); }

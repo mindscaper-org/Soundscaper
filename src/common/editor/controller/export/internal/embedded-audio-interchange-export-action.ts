@@ -7,7 +7,7 @@ import { createInterchangeVisibility } from '../../../interchange-track-visibili
 import { encodeWav } from '../../../wav.js';
 
 export interface EmbeddedAudioInterchangeStore {
-	readSourceChunks?(sourceId: string): AsyncIterable<readonly Float32Array[] | Readonly<{ channels: readonly Float32Array[] }>>;
+	readSourceChunks?(sourceId: string, options?: Readonly<{ signal?: AbortSignal }>): AsyncIterable<readonly Float32Array[] | Readonly<{ channels: readonly Float32Array[] }>>;
 }
 
 const MAXIMUM_PCM_BYTES = 256 * 1024 * 1024;

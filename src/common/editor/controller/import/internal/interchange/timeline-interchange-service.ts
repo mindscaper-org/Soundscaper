@@ -25,7 +25,7 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 	return Object.freeze({ openInterchange });
 
 	async function openInterchange(file: NativeProjectFile, options: TimelineInterchangeOpenOptions = {}) {
-		if (!file || !isTimelineInterchangeFile(file.name)) throw new TypeError('Choose an EDL, OTIO, FCPXML, OMF, or AAF file.');
+		if (!file || !isTimelineInterchangeFile(file.name)) throw new TypeError('Choose an EDL, OTIO, FCPXML, OMF, AAF, or ADL file.');
 		if (runtime.editingBlocked()) return undefined;
 		const operation = helpers.beginProjectTask('timeline-interchange-open');
 		const signal = operation.task.signal;
@@ -38,9 +38,11 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 		helpers.beginImport(operation.task);
 		try {
 			setLocalizedStatus(runtime.setStatus, runtime.copy, 'importing');
-			const binary = /\.(?:omfi?|aaf)$/iu.test(file.name);
+			const binary = /\.(?:omfi?|aaf|adl\.zip)$/iu.test(file.name);
 			if (file.size > (binary ? MAXIMUM_BINARY_BYTES : MAXIMUM_TEXT_BYTES)) throw new RangeError('The interchange document exceeds its import size limit.');
-			const document = /\.aaf$/iu.test(file.name)
+			const document = /\.adl\.zip$/iu.test(file.name)
+				? await (await import('../../../../aes31-package.ts')).readAdlPackage(file, signal)
+				: /\.aaf$/iu.test(file.name)
 				? (await import('../../../../aaf-import.ts')).parseAafDocument(new Uint8Array(await file.arrayBuffer()))
 				: binary ? (await import('../../../../omf-import.ts')).parseOmfDocument(new Uint8Array(await file.arrayBuffer()))
 				: parseTimelineInterchange(file.name, await readTimelineText(file), { edlRate: options.edlRate });
