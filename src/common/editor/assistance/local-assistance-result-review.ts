@@ -30,6 +30,7 @@ import {
 	type LocalAssistanceShotBoundariesReview,
 } from './local-assistance-shot-review.ts';
 import { inspectWavBlobPcm } from '../wav-import.js';
+import { reviewMusicTranscriptionV1, type MusicTranscriptionV1 } from './music-transcription-v1.ts';
 import {
 	reviewAssistanceOcrResultV1,
 	reviewAssistanceSaliencyResultV1,
@@ -138,6 +139,7 @@ export interface LocalAssistanceReviewAuthority {
 }
 
 export type LocalAssistanceOutputReview =
+	| (Readonly<{ kind: 'midi-notes' }> & MusicTranscriptionV1)
 	| LocalAssistanceTranscriptReview
 	| LocalAssistanceVoiceActivityReview
 	| LocalAssistanceSpeakerTurnsReview
@@ -190,6 +192,7 @@ export async function reviewLocalAssistanceOutput(
 	if (claim.role === 'beat-grid') {
 		return withReviewKind('beat-grid', reviewAssistanceBeatGridV1(value));
 	}
+	if (claim.role === 'midi-notes') return withReviewKind('midi-notes', reviewMusicTranscriptionV1(value));
 	if (claim.role === 'editorial-proposal') {
 		if (!authority.editorialCandidateIds) {
 			throw new TypeError('Editorial semantic review requires exact candidate authority.');

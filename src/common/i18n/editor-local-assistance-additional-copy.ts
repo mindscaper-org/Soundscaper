@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 export const LOCAL_ASSISTANCE_ADDITIONAL_COPY = Object.freeze({
+	localAssistanceMusicTranscription: 'Audio to MIDI (Basic Pitch)',
+	localAssistanceMusicNotes: '{count} detected notes. Accept to create an editable MIDI track alongside the original audio. Review and audition it in the piano roll.',
 	localAssistanceChoiceCaptionOne: "{count} caption cue",
 	localAssistanceChoiceCaptionOther: "{count} caption cues",
 	localAssistanceChoiceCleanup: "Cleanup edit {index}",

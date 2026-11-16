@@ -136,6 +136,7 @@ interface NoiseProfileWorkerResult {
 }
 
 export interface EffectAudioServiceRuntime<Buffer = EffectAudioBuffer> {
+	readonly importMidiDocument?: import('../../../assistance/music-transcription-v1.ts').MusicMidiImporter;
 	readonly renderSourceRange?: (trackId: string, startFrame: number, endFrame: number) => Promise<Float32Array[] | null>;
 	readonly lifetime: Readonly<{ startTask(name: string): EditorTaskScope }>;
 	readonly captureProject: () => EditorProjectToken;

@@ -23,8 +23,8 @@ export async function installMilestone7LocalAssistanceFixture(page, additionalMo
 	await installDesktopSpeedWarmupManifest(page);
 	await page.addInitScript(({ models, transcriptWordTiming }) => {
 		const artifactSha256 = '11'.repeat(32);
-		const runtimeModels = Object.freeze(models.map(([modelId, version, task]) => Object.freeze({
-			modelId, version, task, artifactSha256s: Object.freeze([artifactSha256]),
+		const runtimeModels = Object.freeze(models.map(([modelId, version, task, modelSha256 = artifactSha256]) => Object.freeze({
+			modelId, version, task, artifactSha256s: Object.freeze([modelSha256]),
 		})));
 		const managerModels = Object.freeze(runtimeModels.map(({ modelId, version, task }) => Object.freeze({
 			modelId, version, task, availability: 'installed', downloadBytes: 4_096,
@@ -248,6 +248,9 @@ export async function installMilestone7LocalAssistanceFixture(page, additionalMo
 			const timelineFrame = 12_000;
 			const captionEnd = Math.min(sourceEnd, sourceStart + 24_000);
 			const values = {
+				'midi-notes': { schemaVersion: 1, sampleRate: 22_050,
+					sampleCount: Math.round((sourceEnd - sourceStart) * 22_050 / (audio?.sourceSampleRate ?? 48_000)),
+					notes: [60, 64, 67].map(pitch => ({ pitch, startSample: 2205, durationSamples: 11025, velocity: 100 })) },
 				captions: { schemaVersion: 1, kind: 'captions', sourceId: audio?.sourceId,
 					sampleRate: audio?.sourceSampleRate ?? 48_000, alignmentApplied: false,
 					cues: [{ cueId: 'caption:0', startFrame: sourceStart, endFrame: captionEnd,

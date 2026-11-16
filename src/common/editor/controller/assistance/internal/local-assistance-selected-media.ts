@@ -40,6 +40,7 @@ const AUDIO_OPERATIONS = Object.freeze([
 	'source-separation',
 	'audio-tagging',
 	'beat-tracking',
+	'music-transcription',
 ] as const satisfies readonly AssistanceOperation[]);
 const AUDIO_OPERATION_SET = new Set<AssistanceOperation>(AUDIO_OPERATIONS);
 
@@ -147,7 +148,8 @@ export function createLocalAssistanceSelectedMediaPreparation(
 				const sourceId = text(selected.source.id, 'source id');
 				sources.set(sourceId, Object.freeze({ sourceId,
 					label: text(selected.clip.title ?? selected.source.name, 'selected-media label'),
-					mediaKind: 'audio' as const, operations: AUDIO_OPERATIONS }));
+					mediaKind: 'audio' as const, operations: AUDIO_OPERATIONS.filter(operation =>
+						operation !== 'music-transcription' || project.schemaFamily === 'soundscaper') }));
 			}
 		}
 		catch { return Object.freeze({ sources: Object.freeze([]) }); }
@@ -166,6 +168,7 @@ export function createLocalAssistanceSelectedMediaPreparation(
 		}
 		const token = dependencies.captureProject();
 		const selected = resolveLocalAssistanceSelectedMediaAuthority(dependencies);
+		if (request.operation === 'music-transcription' && selected.project.schemaFamily !== 'soundscaper') throw new Error('MIDI transcription requires Soundscaper.');
 		if (text(selected.source.id, 'source id') !== request.sourceId) {
 			throw new Error('The requested assistance source is no longer the selected occurrence.');
 		}
@@ -331,6 +334,7 @@ function outputsFor(operation: AudioOperation, audioWaveByteLength: number): rea
 		'source-separation': ['separated-audio', 'audio/wav'],
 		'audio-tagging': ['audio-tags', 'application/vnd.soundscaper.audio-tags+json'],
 		'beat-tracking': ['beat-grid', 'application/vnd.soundscaper.beat-grid+json'],
+		'music-transcription': ['midi-notes', 'application/vnd.soundscaper.midi-notes+json'],
 	} satisfies Readonly<Record<AudioOperation, readonly [string, string]>>;
 	const [role, mediaType] = values[operation];
 	const slots = operation === 'speech-enhancement'

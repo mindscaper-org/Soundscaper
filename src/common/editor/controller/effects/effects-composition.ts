@@ -166,6 +166,7 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 		captureRackNoiseProfile: (...args) => audio.captureRackNoiseProfile(...args),
 	});
 	const audio: EffectAudio = createEffectAudioService<RenderedAudio>({
+		importMidiDocument: dependencies.importMidiDocument,
 		renderSourceRange: sourceEditor.renderRange,
 		lifetime: dependencies.lifetime,
 		...(dependencies.projectRuntime.assistanceAssetCommands ? {

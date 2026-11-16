@@ -208,6 +208,22 @@ timings. Physical audio-device qualification remains separate.
 
 ## Catalog and availability
 
+Music transcription uses the pinned Basic Pitch ONNX graph with 22.05 kHz mono
+input. Its adapter reads bounded overlapping windows and retains note/onset
+activations for at most 30 minutes under a one-GiB helper ceiling. The owning
+ONNX loader selects authenticated GPU providers and the portable fallback.
+The owned decoder produces discrete pitches, estimated velocities and original
+timing; it does not assign instruments, decode pitch bends or quantize rhythm.
+Reviewed `midi-notes` output is re-admitted against the selected occurrence and
+published through the shared MIDI queue. Original audio is retained; the MIDI
+track's standard text metadata retains the model, result and source digests.
+Framescaper does not offer this operation.
+
+Basic Pitch's source candidate is not installation authority. The asset release
+workflow must verify public readback before generating an offered catalog entry;
+the generated licensing row, receipt, execution case and model instructions are
+reviewed and committed together. See [model publication](../operations/local-models/publish.md).
+
 The versioned, digest-pinned catalog is the authority for what Model Manager
 may offer. It binds each model id and version to its upstream revision,
 distributable artifacts, byte lengths, SHA-256 values, supported platforms,

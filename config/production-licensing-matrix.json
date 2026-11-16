@@ -1711,6 +1711,48 @@
 	],
 	"localModelEvidence": [
 		{
+			"id": "basic-pitch",
+			"purpose": "Optional polyphonic audio-to-MIDI note transcription.",
+			"runtimeFormat": "onnx",
+			"codeLicense": "Apache-2.0",
+			"weightsLicense": "Apache-2.0",
+			"attributionRequired": false,
+			"distributionStatus": "blocked",
+			"blockedBy": [
+				"versioned-download-notices-and-hashes"
+			],
+			"requirements": {
+				"weights-and-code-license-review": {
+					"status": "recorded",
+					"summary": "Spotify distributes the exact ONNX checkpoint with its Basic Pitch repository under Apache-2.0. No separate restrictive checkpoint grant is stated; the complete pinned README, NOTICE and license are retained without edits."
+				},
+				"training-data-provenance-record": {
+					"status": "recorded",
+					"summary": "The upstream paper and constants identify MAESTRO, GuitarSet, MedleyDB-Pitch, iKala and Slakh as training sources. Dataset licensing is separate from the released checkpoint grant; the available upstream provenance is retained without asserting rights to redistribute those recordings."
+				},
+				"model-card-and-use-restrictions": {
+					"status": "recorded",
+					"summary": "The upstream README describes polyphonic, instrument-agnostic transcription and recommends one instrument at a time. The owned note decoder outputs discrete pitches and estimated velocities; pitch bends and multi-instrument assignment are not enabled. No additional non-commercial restriction is stated."
+				},
+				"versioned-download-notices-and-hashes": {
+					"status": "pending",
+					"summary": "The exact 230444-byte upstream ONNX artifact, source revision and SHA-256 are pinned in config/basic-pitch-model-source.json. The Update AI assets workflow must publish and verify public HEAD, Range, CORS and full SHA-256 readback before catalog activation."
+				}
+			},
+			"provenanceSources": [
+				"https://github.com/spotify/basic-pitch/tree/fa5997af0a8210982619003269994a1be25eddf3",
+				"https://arxiv.org/abs/2203.09893"
+			],
+			"evidence": [
+				"config/basic-pitch-model-source.json",
+				"evidence/basic-pitch-model-inspection.json",
+				"LICENSES/local-models/basic-pitch-LICENSE.txt",
+				"LICENSES/local-models/basic-pitch-NOTICE.txt",
+				"LICENSES/local-models/basic-pitch-README.md",
+				"THIRD_PARTY_LICENSES.md"
+			]
+		},
+		{
 			"id": "gtcrn",
 			"purpose": "Lightweight speech noise reduction through the Sherpa streaming denoiser.",
 			"runtimeFormat": "onnx",

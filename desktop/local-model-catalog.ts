@@ -28,6 +28,7 @@ export const LOCAL_MODEL_TASKS = Object.freeze([
 	'source-separation',
 	'audio-tagging',
 	'beat-tracking',
+	'music-transcription',
 	'face-detection',
 	'object-detection',
 	'saliency-detection',

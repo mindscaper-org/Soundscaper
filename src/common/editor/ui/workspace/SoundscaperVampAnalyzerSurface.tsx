@@ -59,6 +59,16 @@ export default function SoundscaperVampAnalyzerSurface({
 			throw error;
 		}
 	};
+	const publishMidi = async (result: VampAnalysisResult, name: string, signal: AbortSignal): Promise<void> => {
+		if (session === null) return;
+		const pending = { owner, session };
+		setPublication(pending);
+		try { await session.publishMidi(result, name, signal); }
+		catch (error) {
+			setPublication(current => current === pending ? null : current);
+			throw error;
+		}
+	};
 	const [catalog, setCatalog] = useState<unknown>(Object.freeze([]));
 	const [catalogMessage, setCatalogMessage] = useState<'loading' | 'empty' | 'error'>('loading');
 	useEffect(() => {
@@ -88,6 +98,7 @@ export default function SoundscaperVampAnalyzerSurface({
 			sampleRate={session.sampleRate}
 			analyze={session.analyze}
 			publishLabels={publishLabels}
+			publishMidi={session.midiAvailable ? publishMidi : undefined}
 			onClose={onClose}
 			copy={{ ...copy, noAnalyzers: catalogMessage === 'loading' ? copy.loadingCatalog : catalogMessage === 'error' ? copy.catalogFailed : copy.noAnalyzers }}
 		/>

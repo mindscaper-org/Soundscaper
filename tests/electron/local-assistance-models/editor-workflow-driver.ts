@@ -67,6 +67,7 @@ export async function importWorkflowMedia(page: Page, modelCase: EditorWorkflowC
 
 async function audioFixture(page: Page, fixture: EditorWorkflowCase['fixture']) {
 	const input = fixture === 'rhythm' ? await prepareModelInput('rhythmic-music-22050hz', page)
+		: fixture === 'melody-chords' ? await prepareModelInput('melody-chords-22050hz', page)
 		: fixture === 'mixed-speech' ? await prepareModelInput('mixed-speech-44100hz', page) : await loadSpeechFixture(false);
 	return { name: 'Nightly speech.wav', mimeType: 'audio/wav', buffer: input.bytes };
 }

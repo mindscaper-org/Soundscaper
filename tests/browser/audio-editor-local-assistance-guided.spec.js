@@ -214,7 +214,8 @@ test.describe('menu-only Local Assistance workflows', () => {
 
 		await expect(advanced.getByRole('combobox', { name: 'Selected media', exact: true })).toHaveCount(0);
 		const operation = advanced.getByRole('combobox', { name: 'Operation', exact: true });
-		expect((await operation.locator('option').allTextContents()).slice(1)).toEqual(ADVANCED_OPERATIONS);
+		expect(await operation.locator('option').evaluateAll(options => options.slice(1).map(option => option.value)))
+			.toEqual(ADVANCED_OPERATIONS);
 		await expect(advanced.locator('input[type="checkbox"]')).toHaveCount(0);
 		await expect(advanced).toContainText(
 			'Processing opens one consent dialog for this exact operation, model, input, and output selection.',

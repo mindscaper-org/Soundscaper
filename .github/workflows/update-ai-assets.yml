@@ -12,6 +12,11 @@ on:
           - all
           - windows
           - win-x64
+      publish_basic_pitch:
+        description: Publish Basic Pitch and prepare its verified model catalog update
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -21,6 +26,42 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  publish-basic-pitch:
+    name: Publish Basic Pitch model candidate
+    if: github.ref == 'refs/heads/main' && inputs.publish_basic_pitch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Set up Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Publish, verify and prepare model catalog activation
+        run: |
+          node scripts/models/basic-pitch-model-assets.mjs --publish --write-catalog
+          node scripts/docs-local-models.mjs
+        env:
+          R2_MODELS_ACCESS_KEY_ID: ${{ secrets.R2_MODELS_ACCESS_KEY_ID }}
+          R2_MODELS_SECRET_ACCESS_KEY: ${{ secrets.R2_MODELS_SECRET_ACCESS_KEY }}
+          R2_MODELS_ENDPOINT: ${{ vars.R2_MODELS_ENDPOINT || secrets.R2_MODELS_ENDPOINT }}
+      - name: Upload the model catalog update for repository review
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: basic-pitch-model-catalog-update
+          path: |
+            config/local-model-catalog.json
+            config/local-model-real-test-cases.json
+            config/production-licensing-matrix.json
+            evidence/local-model-publication/basic-pitch.json
+            handbook/src/content/docs/reference/local-models/
+          if-no-files-found: error
+          retention-days: 30
+
   asset-targets:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
