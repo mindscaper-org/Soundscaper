@@ -92,6 +92,8 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	['panel-markers', 'Markers', 'Window', BOTH, 'setting'],
 	['panel-metadata', 'Metadata', 'Window', BOTH, 'setting'],
 	['panel-recording-notes', 'Recording notes', 'Window', BOTH, 'setting'],
+	['transcript-based-editing', 'Transcript-based editing', 'Edit', BOTH, 'setting'],
+	['panel-transcript-editing', 'Transcript-based editing', 'Window', BOTH, 'setting'],
 	['panel-freesound', 'Freesound', 'Window', SOUNDSCAPER, 'setting'],
 	['panel-audiocom', 'audio.com', 'Window', SOUNDSCAPER, 'setting'],
 	['panel-mixer', 'Mixer', 'Window', BOTH, 'setting'],

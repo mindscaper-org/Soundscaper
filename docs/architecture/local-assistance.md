@@ -306,6 +306,24 @@ History, reopen, duplicate, managed handoff, and Scape archives retain them. A
 missing or corrupt body disables that result without blocking the project;
 AUP4 reports its omission explicitly.
 
+`Edit > Transcript-based editing` opens an optional bottom-docked panel. It
+authenticates bodies referenced by transcript label tracks and projects source
+word ranges through the current audio occurrences. Trims, splits, moves, loops,
+reverse playback, sample-rate differences, and forward audio warp retain their
+existing timing authority. Untimed or zero-duration word inventories fall back
+to whole-segment selection. Text and timeline selections share exact frame
+ranges; word navigation scrolls without changing zoom.
+
+Transcript deletion prepares per-track ripple ranges, simulates their command
+admission, and commits one ordinary history batch. The immutable source body is
+retained; surviving occurrences determine the displayed text after edit, undo,
+redo, or reopen. The panel's Generate transcript action runs the existing guided
+transcription and authenticated acceptance sequentially across available audio
+clips. Missing sources and locked tracks are excluded. Each completed clip is
+retained if a later job fails or is cancelled; cancellation releases active
+native custody. Model installation remains explicit and inference remains
+desktop-only.
+
 Embeddings, OCR and tag indexes, shot tables, saliency and tracker state, and
 ranking checkpoints are disposable derivatives. Accepted reframe evidence may
 be retained for authenticated deterministic reuse without widening the Scape

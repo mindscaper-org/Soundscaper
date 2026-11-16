@@ -45,6 +45,7 @@ import { createMidiExportMenuItems, createMidiTrackMenuItems } from './midi-appl
 import { resolveTimecodeSyncCopy } from '../../i18n/editor-timecode-sync-copy.ts';
 import { isMidiClip } from '../midi-model.ts';
 import { resolveInterchangeCopy } from '../../i18n/editor-interchange-copy.ts';
+import { transcriptEditingMenuItem } from './transcript-editing-menu.ts';
 
 /**
  * The video tracks an edit list would describe.
@@ -366,6 +367,7 @@ export default function createApplicationMenus({
 					],
 				},
 				...labeledAudioItems,
+				transcriptEditingMenuItem(copy, viewMenu.togglePanel),
 				{ id: 'label-add', label: copy.addLabel, shortcut: 'Ctrl+B', disabled: selectAudioEditorLabelEditBlock(snapshot).blocked, onClick: actions.addLabel },
 				divider(),
 				{ id: AUDIO_EDITOR_APPLICATION_MENU_ACTION_IDS.openLabelEditor, label: copy.editLabels, onClick: actions.openLabels },
