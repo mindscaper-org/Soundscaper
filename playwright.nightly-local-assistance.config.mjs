@@ -12,7 +12,7 @@ export function createNightlyLocalAssistanceConfig(environment = process.env) {
 	const artifactRoot = resolve(runRoot, 'local-assistance');
 	return defineConfig({
 		testDir: resolve(payloadRoot, 'tests/electron/local-assistance-models'),
-		testMatch: '**/*.spec.js',
+		testMatch: '**/*.spec.{js,ts}',
 		timeout: 1_800_000,
 		expect: { timeout: 30_000 },
 		fullyParallel: false,

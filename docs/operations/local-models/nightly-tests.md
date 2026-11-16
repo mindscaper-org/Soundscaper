@@ -18,6 +18,15 @@ phases and the real-model phase use one worker. Existing serial groups stay
 serial. The graphics phase requires hardware WebGL2 and records the renderer;
 a software renderer fails its hardware probe. Only Chromium is bundled.
 
+The real-model phase also runs twelve streaming-denoising regressions: mono and
+stereo at 44.1, 48 and 96 kHz in both packaged editors. They install DPDFNet2 with
+the production model manager, load the shipped AudioWorklet, and require real
+WebGPU utility-process inference to sustain output during a 500 ms renderer UI
+stall. These replace the former Linux-only four-path opt-in harness. No separate
+runtime/model environment variables are needed. The per-test
+`denoising-ports.json` attachment records the package, provider, hop timings and
+output checks.
+
 In the attended nightly runner, open **Test suite** and choose **Pause** to stop
 starting tests and cancel active workers in any of its five phases. The window
 shows **Pausing tests…** while workers shut down, then **Tests paused**. Choose

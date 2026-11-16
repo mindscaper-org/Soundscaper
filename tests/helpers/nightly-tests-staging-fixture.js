@@ -227,6 +227,8 @@ export async function createFixture(context) {
 		['playwright', { dependencies: { 'playwright-core': '1.61.1' }, licenses: ['LICENSE', 'NOTICE', 'ThirdPartyNotices.txt'] }],
 		['playwright-core', { licenses: ['LICENSE', 'NOTICE', 'ThirdPartyNotices.txt'] }],
 		['@zip.js/zip.js', { licenses: ['LICENSE'] }],
+		['js-synthesizer', { licenses: ['LICENSE'] }],
+		['libadlmidi-js', { licenses: ['LICENSE'] }],
 		// esbuild resolves its compiled binary from an optional per-platform
 		// dependency, which the closure walk ignores; staging admits the one the
 		// build host installed instead.

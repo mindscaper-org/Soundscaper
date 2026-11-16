@@ -196,13 +196,15 @@ Run `node --import tsx scripts/benchmark-ai-denoising.mjs --runtime-root PATH
 the production kernel's portable CPU baseline. It authenticates the runtime
 and exact DPDFNet artifact and reports mono/stereo
 throughput and hop percentiles; kernel timings do not include IPC or hardware
-I/O. The opt-in `tests/desktop-ai-denoise-electron.test.ts` uses the four
-`SCAPE_AI_DENOISE_TEST_RUNTIME_ROOT`, `SCAPE_AI_DENOISE_TEST_MANIFEST`,
-`SCAPE_AI_DENOISE_TEST_MODEL`, and `SCAPE_AI_DENOISE_TEST_AUDIO` paths to
-exercise real utility ports with a speech WAV and the production worklet through
-a 500 ms UI stall on Linux. It requires Electron and
-`xvfb-run`; its diagnostic launch disables the OS sandbox and makes no sandbox
-containment claim. Other maintained targets still require device qualification.
+I/O. The distributed nightly's
+`tests/electron/local-assistance-models/denoise-ports.spec.ts` installs DPDFNet2
+through the production model manager and exercises the shipped processor,
+preload and utility process through a 500 ms UI stall. Mono and stereo cases
+run at 44.1, 48 and 96 kHz in both products on every maintained desktop target.
+The existing GPU-validation host requires authenticated WebGPU inference;
+missing models, processors or GPU support fail rather than skipping the case.
+The test records finite, non-silent output and the helper's provider and hop
+timings. Physical audio-device qualification remains separate.
 
 ## Catalog and availability
 

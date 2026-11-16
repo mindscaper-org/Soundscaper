@@ -344,3 +344,18 @@ package on a native target machine with a working GPU driver. Its graphics
 probe fails on software rendering. Performance phases use one worker to avoid
 competing measurements. See the [runner instructions](../../Technical_README.md#nightly-test-runner-artifacts)
 and [real-model guide](../operations/local-models/nightly-tests.md).
+
+The nightly includes the Electron workflows omitted by ordinary CI: packaged
+Web VCR dormant-profile and real 720p/1080p audio/video capture, persistent
+delivery queue reopen, publication recovery after a process crash, and streaming
+AI denoising through real utility ports. Denoising covers mono/stereo at 44.1,
+48 and 96 kHz in both products using the installed DPDFNet2 model and shipped
+AudioWorklet. Its GPU provider is required. Packaging builds and stages the
+same-revision authenticated professional-native result before either product,
+so delivery tests use the bundled filesystem helper without manual path setup.
+Missing required payloads fail the run.
+
+The native-helper utility-process, CPU-panel, parallel-stack protocol and archived
+nightly progress regressions already run in CI's Linux Node shards under Xvfb.
+They remain there. `tests/nightly-electron-gaps.test.ts` checks collection of the
+additional nightly workflows without starting Electron or downloading models.

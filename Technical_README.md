@@ -354,9 +354,14 @@ uses that same profile so its raw observations remain comparable with the
 packaged phase.
 
 A separate instrumented desktop phase exercises packaged startup, audio I/O,
-display capture, and persistent delivery recovery. It retains reports under
+display capture, Web VCR dormant-profile and real 720p/1080p capture, persistent
+delivery queue reopen, and publication recovery after a real process crash.
+Packaging stages same-revision authenticated native helpers for these tests;
+no separate delivery executable setting is needed. It retains reports under
 `e2e-coverage/packaged-runtime/` and V8 profiles under `coverage/v8-packaged/`.
-The final phase downloads and runs the real local models; see the
+The final phase downloads and runs the real local models, including mono/stereo
+streaming denoising at 44.1/48/96 kHz through each editor's shipped worklet,
+preload and utility process during a 500 ms UI stall; see the
 [real-model guide](docs/operations/local-models/nightly-tests.md).
 
 Those two launcher files are attempted even for infrastructure failures. Once
@@ -374,8 +379,10 @@ Playwright workers and ships test JavaScript outside ASAR, so it is a diagnostic
 artifact and not a public release or a substitute for the hardened desktop
 package.
 
-To build the current platform's equivalent artifact locally after installing
-the hermetic engines, use:
+To build the current platform's equivalent artifact locally, first stage its
+authenticated professional-native build result from the same source revision
+with `node scripts/stage-soundscaper-professional-native-build-result.mjs --result=/absolute/path/to/build-result`.
+Then install the hermetic browser engine and build:
 
 ```sh
 PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --no-shell chromium

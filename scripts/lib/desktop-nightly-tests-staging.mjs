@@ -37,6 +37,8 @@ export const NIGHTLY_TEST_RUNTIME_PACKAGE_ROOTS = Object.freeze([
 	'@zip.js/zip.js',
 	'esbuild',
 	'fflate',
+	'js-synthesizer',
+	'libadlmidi-js',
 	'mediabunny',
 	'saxes',
 	'sql.js',
