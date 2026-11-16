@@ -36,7 +36,7 @@ sidebar:
 | Non-destructive clip timeline | + | + |
 | Dedicated single-file editor | + — Source monitor | / |
 | Mono and stereo content on one track | + | / |
-| Nested track folders | + | + |
+| Nested track folders | + — Collapsed editing :: Folder overview selection, split, gap-preserving delete, and folder-scoped ripple cut/delete/clipboard insert include nested children. | + |
 | Project bin | + | + — Clips list |
 | Project recording notes | + — Markdown | ~ — Track comments |
 | Autosave and crash recovery | + — :: Local recovery and Audacity damage preview/repair to a new copy; available Audacity WAL data is recovered through private snapshots. | + |
@@ -108,7 +108,7 @@ Hover for limits. Include any referenced media when sharing projects.
 | Sample-level drawing | + | + |
 | Keyboard-only editing | + | ~ — :: Extensive keyboard shortcuts. |
 | Spreadsheet-based editing | + — Clip spreadsheet :: Window → Clip spreadsheet edits clip names, tracks, sources, timing, pitch, speed, gain, fades, and polarity; supports multi-cell tabular copy/paste and row insertion. | / |
-| Linked-track edit groups | / | + — Edit groups |
+| Linked-track edit groups | ~ — Folder edits :: Explicit edits can target all folder descendants; ordinary edits on one child do not propagate to siblings. No persistent linked-track groups. | + — Edit groups |
 | Beat slicing and gap smoothing | / | + — Beat Detective :: Separates and conforms rhythmic clips, then fills gaps and adds crossfades. |
 | Offline effect render handles | / | + — AudioSuite :: Renders extra source audio outside the selected clip edges so the processed clip can be trimmed out later. |
 | Non-destructive clip effects | / | ~ — EQ / dynamics :: Studio includes editable per-clip input, EQ, filters, and dynamics; this is not a general per-clip insert rack. |

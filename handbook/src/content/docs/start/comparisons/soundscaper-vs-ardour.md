@@ -36,7 +36,7 @@ sidebar:
 | Non-destructive clip timeline | + | + |
 | Dedicated single-file editor | + — Source monitor | / |
 | Mono and stereo content on one track | + | + — :: Multichannel tracks accept regions with fewer channels; missing channels can be replicated or left silent. |
-| Nested track folders | + | / |
+| Nested track folders | + — Collapsed editing :: Folder overview selection, split, gap-preserving delete, and folder-scoped ripple cut/delete/clipboard insert include nested children. | / |
 | Project bin | + | + — Sources / regions |
 | Project recording notes | + — Markdown | ~ — Track comments :: Mixer strips have comments and the session has descriptive metadata; no Markdown project notebook. |
 | Autosave and crash recovery | + — :: Local recovery and Audacity damage preview/repair to a new copy; available Audacity WAL data is recovered through private snapshots. | + |
@@ -108,7 +108,7 @@ Hover for limits. Include any referenced media when sharing projects.
 | Sample-level drawing | + | / |
 | Keyboard-only editing | + | ~ — Shortcuts :: Extensive configurable shortcuts; some editing operations remain pointer-based. |
 | Spreadsheet-based editing | + — Clip spreadsheet :: Window → Clip spreadsheet edits clip names, tracks, sources, timing, pitch, speed, gain, fades, and polarity; supports multi-cell tabular copy/paste and row insertion. | / |
-| Linked-track edit groups | / | + — Track groups |
+| Linked-track edit groups | ~ — Folder edits :: Explicit edits can target all folder descendants; ordinary edits on one child do not propagate to siblings. No persistent linked-track groups. | + — Track groups |
 | Beat slicing and gap smoothing | / | ~ — Rhythm Ferret :: Detects onsets and splits regions; not the full Beat Detective conform-and-smooth workflow. |
 | Offline effect render handles | / | / |
 | Non-destructive clip effects | / | + — Region FX :: Effects and their automation stay with each region; the result is cached for playback. |

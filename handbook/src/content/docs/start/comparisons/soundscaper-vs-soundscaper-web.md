@@ -36,7 +36,7 @@ sidebar:
 | Non-destructive clip timeline | + | + |
 | Dedicated single-file editor | + — Source monitor | + — Source monitor |
 | Mono and stereo content on one track | + | + |
-| Nested track folders | + | + |
+| Nested track folders | + — Collapsed editing :: Folder overview selection, split, gap-preserving delete, and folder-scoped ripple cut/delete/clipboard insert include nested children. | + — Collapsed editing :: Folder overview selection, split, gap-preserving delete, and folder-scoped ripple cut/delete/clipboard insert include nested children. |
 | Project bin | + | + |
 | Project recording notes | + — Markdown | + — Markdown |
 | Autosave and crash recovery | + — :: Local recovery and Audacity damage preview/repair to a new copy; available Audacity WAL data is recovered through private snapshots. | + — :: Local recovery saves, interrupted-take recovery, and damaged-project repair; preview and save repaired AUP3/AUP4 copies. |
@@ -108,7 +108,7 @@ Hover for limits. Include any referenced media when sharing projects.
 | Sample-level drawing | + | + |
 | Keyboard-only editing | + | + |
 | Spreadsheet-based editing | + — Clip spreadsheet :: Window → Clip spreadsheet edits clip names, tracks, sources, timing, pitch, speed, gain, fades, and polarity; supports multi-cell tabular copy/paste and row insertion. | + — Clip spreadsheet :: Window → Clip spreadsheet edits clip names, tracks, sources, timing, pitch, speed, gain, fades, and polarity; supports multi-cell tabular copy/paste and row insertion. |
-| Linked-track edit groups | / | / |
+| Linked-track edit groups | ~ — Folder edits :: Explicit edits can target all folder descendants; ordinary edits on one child do not propagate to siblings. No persistent linked-track groups. | ~ — Folder edits :: Explicit edits can target all folder descendants; ordinary edits on one child do not propagate to siblings. No persistent linked-track groups. |
 | Beat slicing and gap smoothing | / | / |
 | Offline effect render handles | / | / |
 | Non-destructive clip effects | / | / |

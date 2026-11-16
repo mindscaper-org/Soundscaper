@@ -36,7 +36,7 @@ sidebar:
 | Non-destructive clip timeline | + | + |
 | Dedicated single-file editor | + — Source monitor | ~ — Sample Editor :: Integrated clip/sample editing; included WaveLab Go adds ARA file-editing tools, rather than the full WaveLab application. |
 | Mono and stereo content on one track | + | ~ — Track format :: Audio tracks have a channel configuration; switching mono/stereo does not make every channel layout interchangeable. |
-| Nested track folders | + | + — Folder tracks |
+| Nested track folders | + — Collapsed editing :: Folder overview selection, split, gap-preserving delete, and folder-scoped ripple cut/delete/clipboard insert include nested children. | + — Folder tracks |
 | Project bin | + | + — Pool / MediaBay |
 | Project recording notes | + — Markdown | + — Notepad |
 | Autosave and crash recovery | + — :: Local recovery and Audacity damage preview/repair to a new copy; available Audacity WAL data is recovered through private snapshots. | + |
@@ -108,7 +108,7 @@ Hover for limits. Include any referenced media when sharing projects.
 | Sample-level drawing | + | + — Draw tool |
 | Keyboard-only editing | + | + |
 | Spreadsheet-based editing | + — Clip spreadsheet :: Window → Clip spreadsheet edits clip names, tracks, sources, timing, pitch, speed, gain, fades, and polarity; supports multi-cell tabular copy/paste and row insertion. | / |
-| Linked-track edit groups | / | + — :: Folder group editing |
+| Linked-track edit groups | ~ — Folder edits :: Explicit edits can target all folder descendants; ordinary edits on one child do not propagate to siblings. No persistent linked-track groups. | + — :: Folder group editing |
 | Beat slicing and gap smoothing | / | + — :: Hitpoints / AudioWarp |
 | Offline effect render handles | / | + — :: Process Range Extension |
 | Non-destructive clip effects | / | + — :: Direct Offline Processing. Editable event-processing history, rather than a realtime rack per event. |
