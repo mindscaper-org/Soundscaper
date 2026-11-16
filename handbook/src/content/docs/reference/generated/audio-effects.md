@@ -45,6 +45,7 @@ Audio effects are registered by Soundscaper. Effects whose ID begins with `audac
 | Limiter | `audacity-limiter` | Volume and dynamics | Yes | Yes | — |
 | Loudness Normalization | `audacity-loudness-normalization` | Volume and dynamics | No | Yes | — |
 | Low-pass filter | `lowpass-filter` | EQ and filters | Yes | Yes | — |
+| Match EQ | `match-eq` | EQ and filters | No | Yes | Selection-only tonal matching with a saved reference or personal voice profile; Each target is analyzed independently; smoothing and bounded boost/cut protect quiet and unsupported frequency bands; Original/Matched preview is level compensated; Edit as Filter Curve EQ opens an editable fixed correction |
 | Multiband compressor | `multiband-compressor` | Volume and dynamics | Yes | Yes | — |
 | Noise Reduction | `audacity-noise-reduction` | Noise and repair | Yes | Yes | Needs a captured noise profile |
 | Noise gate | `noise-gate` | Noise and repair | Yes | Yes | Lookahead opens the gate before transients; rack and selection timing are compensated; Linked or independent channels; optional frequency-selective gating |
@@ -223,6 +224,12 @@ Defaults and limits come from the same definitions the editor validates against,
 | Loudness Normalization | `audacity-loudness-normalization` | Treat mono as dual-mono | On | On or off | — |
 | Low-pass filter | `lowpass-filter` | Cutoff frequency | 1000 | 0.1 to 192000 | Hz |
 | Low-pass filter | `lowpass-filter` | Rolloff | 6 dB/octave | 6 dB/octave; 12 dB/octave; 24 dB/octave; 36 dB/octave; 48 dB/octave | — |
+| Match EQ | `match-eq` | Match amount | 100 | 0 to 100 | % |
+| Match EQ | `match-eq` | Smoothing (octaves) | 0.5 | 0.25 to 2 | oct |
+| Match EQ | `match-eq` | Maximum boost/cut (dB) | 6 | 0 to 18 | dB |
+| Match EQ | `match-eq` | Lowest matching frequency (Hz) | 80 | 20 to 2000 | Hz |
+| Match EQ | `match-eq` | Highest matching frequency (Hz) | 16000 | 1000 to 20000 | Hz |
+| Match EQ | `match-eq` | Reference | — | Learned reference spectrum; save as a preset to reuse a personal voice profile | — |
 | Multiband compressor | `multiband-compressor` | Low crossover | 250 | 40 to 2000 | Hz |
 | Multiband compressor | `multiband-compressor` | High crossover | 4000 | 2500 to 16000 | Hz |
 | Multiband compressor | `multiband-compressor` | Low threshold | -24 | -60 to 0 | dB |

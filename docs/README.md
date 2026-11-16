@@ -96,6 +96,8 @@ qualification plans belong in Git history, not in the maintained documentation s
 - [Timecode synchronization](features/timecode-synchronization.md) covers MTC/LTC
   send and receive, transport chasing, routing, and device-session lifetime.
 
+- [Match EQ and voice profiles](features/match-eq.md) covers reference learning,
+  portable profiles, target analysis, audition, and editable corrections.
 - [Automatic phase correction](features/automatic-phase-correction.md) covers
   fixed stereo alignment, analysis admission, and preview/publication behavior.
 - [Automatic microphone-bleed reduction](features/automatic-microphone-bleed-reduction.md)

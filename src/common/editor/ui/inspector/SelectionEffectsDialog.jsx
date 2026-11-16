@@ -22,6 +22,8 @@ import { LabeledDropdown } from './inspector-controls.jsx';
 import { effectPresetChoices, safeEffectLabel, samePresetParams } from './effect-helpers.ts';
 import PhaseCorrectionAudition from './PhaseCorrectionAudition.tsx';
 import { phaseCorrectionPreviewReports } from '../../first-party-effects/phase-correction/preview-contract.ts';
+import MatchEqPanel from './MatchEqPanel.tsx';
+import { useMatchEqSelection } from './useMatchEqSelection.ts';
 
 export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fileService, onClose }) {
 	const project = snapshot.project;
@@ -124,6 +126,8 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 		setSelectionParams((current) => ({ ...current, ...changes }));
 		controller.actions.effects.setSelectionParams(changes);
 	};
+	const matchEq = useMatchEqSelection({ effects: controller.actions.effects, project, reportKey: phaseAnalysisKey,
+		params: selectionParams, run, updateParams: updateSelectionParams });
 	const selectionDefinition = audioSelectionEffectDefinition(selectionType);
 	const implicitAllAudioTarget = snapshot.preferences?.editing?.applyEffectsToAllAudio === true
 		&& audioSelectionEffectAppliesToAllAudio(selectionType)
@@ -265,7 +269,7 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 						<span data-preview-audacity-effect>
 							<Button
 								variant="secondary"
-								disabled={blocked || !effectTargetAvailable}
+								disabled={blocked || !effectTargetAvailable || (selectionType === 'match-eq' && !matchEq.reference && matchEq.source !== 'original')}
 								onClick={() => run(() => snapshot.effects?.previewing
 									? controller.actions.effects.cancelPreview()
 									: controller.actions.effects.previewSelection({
@@ -273,7 +277,8 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 										params: selectionParams,
 										controlTrackId: eligibleControlTrackId || null,
 										...(selectionType === 'automatic-phase-correction' ? { phaseCorrection: phaseAudition } : {}),
-									}), rememberPhaseAnalysis)}
+										...(selectionType === 'match-eq' ? { matchEq: { source: matchEq.source } } : {}),
+									}), (result) => { rememberPhaseAnalysis(result); matchEq.remember(result); })}
 							>{snapshot.effects?.previewing ? copy.stopPreview : copy.previewEffect}</Button>
 						</span>
 					)}
@@ -283,7 +288,7 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 							<span data-apply-audacity-effect>
 								<Button
 									variant="primary"
-									disabled={blocked || !effectTargetAvailable || targetLocked}
+									disabled={blocked || !effectTargetAvailable || targetLocked || (selectionType === 'match-eq' && !matchEq.reference)}
 									onClick={() => {
 										if (controller.actions.effects.readSelectionTargetLocked?.()) return;
 										return run(() => controller.actions.effects.applySelection({
@@ -300,6 +305,7 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 			)}
 		>
 			<section className="audio-editor-selection-effects" data-audacity-effect-panel>
+				{selectionType === 'match-eq' && <MatchEqPanel copy={copy} disabled={blocked || !effectTargetAvailable} {...matchEq} />}
 				{selectionDefinition?.requiresControlTrack && (
 					<LabeledDropdown
 						label={copy.controlTrack}

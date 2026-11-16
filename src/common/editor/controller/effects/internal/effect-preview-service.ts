@@ -7,6 +7,7 @@ import { paulstretchPreviewInputFrames } from './paulstretch-preview-prefix.ts';
 import { speedDelayPreviewInputFrames } from './speed-delay-preview-prefix.ts';
 import { autoTuneSelectionContext } from '../../../first-party-effects/auto-tune/project-control.ts';
 import type { PhaseCorrectionPreviewReport } from '../../../first-party-effects/phase-correction/preview-contract.ts';
+import { levelMatchEqPreview, type MatchEqPreviewReport } from '../../../first-party-effects/match-eq/preview-contract.ts';
 
 export interface SelectionEffectPreviewRuntime {
 	readonly effectPreviewProject?: () => PreviewGeometryProject;
@@ -60,11 +61,13 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 		if ('controlTrackId' in request) setAudacityControlTrack(request.controlTrackId);
 		const type = state.audacityEffectType;
 		const phaseCorrection = type === 'automatic-phase-correction';
+		const matchEq = type === 'match-eq';
 		let params = normalizeAudioSelectionEffectParams(type, currentAudacityEffectParams());
 		const definition = { ...AUDIO_SELECTION_EFFECT_DEFINITIONS[type], lengthChanging: selectionEffectChangesLength(
 			type, params, AUDIO_SELECTION_EFFECT_DEFINITIONS[type]) };
 		const fullTargets = audacityEffectTargets({ includeSilentTracks: definition.lengthChanging });
 		if (!fullTargets.length) throw createLocalizedError(Error, copy, 'audacitySelectionHint');
+		if (matchEq && request.matchEq?.captureReference && fullTargets.length !== 1) throw createLocalizedError(Error, copy, 'effectMatchEqSingleReference');
 		const sampleRate = fullTargets[0]?.sourceSampleRate ?? projectSampleRate();
 		const maximumFrames = Math.max(1, Math.round(sampleRate * 6));
 		const previewStartFrame = Math.min(...fullTargets.map((target: RuntimeValue) => target.startFrame));
@@ -76,7 +79,7 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 		const placeExactClips = Boolean(definition.lengthChanging) && fullTargets.length > 1
 			&& fullTargets.every((target: RuntimeValue) => target.clipId && !target.sourceId);
 		// Whole-range transforms must run before trimming the six-second audition.
-		const processCompleteSelection = phaseCorrection || placeExactClips || ['audacity-normalize', 'audacity-loudness-normalization',
+		const processCompleteSelection = matchEq || phaseCorrection || placeExactClips || ['audacity-normalize', 'audacity-loudness-normalization',
 			'audacity-fade-in', 'audacity-fade-out', 'audacity-reverse', 'audacity-legacy-compressor', 'audacity-auto-duck', 'audacity-truncate-silence'].includes(type)
 			|| (type === 'audacity-sliding-stretch' && (params.startTempoPercent !== params.endTempoPercent
 				|| params.startPitchSemitones !== params.endPitchSemitones));
@@ -87,6 +90,9 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 		}));
 		const targets: PreviewTarget[] = fullPreviewTargets.map(({ full, fullIndex, spectralSelection }) => {
 			if (placeExactClips) return { full, fullIndex, spectralSelection, preview: full, offsetFrames: full.startFrame - previewStartFrame };
+			if (matchEq && (request.matchEq?.analyzeOnly || request.matchEq?.captureReference)) return {
+				full, fullIndex, spectralSelection, preview: full, offsetFrames: full.startFrame - previewStartFrame,
+			};
 			const startFrame = Math.max(previewStartFrame, full.startFrame);
 			const auditionFrames = Math.max(0, Math.min(previewEndFrame, full.endFrame) - startFrame);
 			if (auditionFrames === 0) return null;
@@ -162,7 +168,8 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 					const end = preview.endFrame - full.startFrame;
 					previewChannelSets.push(reusable.map((channel: Float32Array) => channel.subarray(start, end)));
 				} else {
-					previewChannelSets.push(await renderOneTarget(preview, renderDryTrackRange, requireCurrentPreview));
+					previewChannelSets.push(await renderOneTarget(preview, renderDryTrackRange, requireCurrentPreview,
+						matchEq && request.matchEq?.captureReference ? 'authored' : 'dry'));
 				}
 			}
 			params = resolveInteractiveAudacityParams(
@@ -183,6 +190,7 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 			}
 			const resultChannelSets: Float32Array[][] = [];
 			const phaseReports: PhaseCorrectionPreviewReport[] = [];
+			const matchReports: MatchEqPreviewReport[] = [];
 			const linkedTruncate = type === 'audacity-truncate-silence' && params.independent === false
 				&& targets.length > 1 && targets.every(({ preview }) => (
 					preview.startFrame === targets[0]!.preview.startFrame
@@ -203,11 +211,16 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 			for (let index = 0; !linkedTruncate && index < targets.length; index += 1) {
 				const { preview, spectralSelection } = targets[index]!;
 				const channels = previewChannelSets[index];
+				if (matchEq && request.matchEq?.source === 'original' && !request.matchEq?.analyzeOnly && !request.matchEq?.captureReference) {
+					resultChannelSets.push(channels); continue;
+				}
 				if (phaseCorrection && request.phaseCorrection?.source === 'original' && !request.phaseCorrection?.analyzeOnly) {
 					resultChannelSets.push(channels);
 					continue;
 				}
 				const effectContext: RuntimeValue = {};
+				if (matchEq) Object.assign(effectContext, { matchEqAnalyzeOnly: request.matchEq?.analyzeOnly === true,
+					matchEqCaptureReference: request.matchEq?.captureReference === true });
 				if (phaseCorrection && request.phaseCorrection?.analyzeOnly) effectContext.phaseCorrectionAnalyzeOnly = true;
 				if (type === 'auto-tune') Object.assign(effectContext, autoTuneSelectionContext(getProject(), params, preview.startFrame, channels[0].length, sampleRate));
 				if (spectralSelection) effectContext.spectralSelection = spectralSelection;
@@ -238,7 +251,9 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 				});
 				requireCurrentPreview();
 				assertAudacityEffectOutput(result.channels);
-				resultChannelSets.push(result.channels);
+				resultChannelSets.push(matchEq && !request.matchEq?.analyzeOnly && !request.matchEq?.captureReference
+					? levelMatchEqPreview(result.channels, channels, maximumFrames) : result.channels);
+				if (matchEq && result.matchEqAnalysis) matchReports.push({ trackName: preview.track.name, sampleRate, analysis: result.matchEqAnalysis });
 				if (phaseCorrection && result.phaseCorrectionAnalysis) phaseReports.push({
 					trackName: preview.track.name, sampleRate, analysis: result.phaseCorrectionAnalysis,
 				});
@@ -246,6 +261,10 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 			if (phaseCorrection && request.phaseCorrection?.analyzeOnly) {
 				setLocalizedStatus(setStatus, copy, 'effectPhaseCorrectionAnalyzed', undefined, 'success');
 				return { phaseCorrectionAnalysis: phaseReports };
+			}
+			if (matchEq && (request.matchEq?.analyzeOnly || request.matchEq?.captureReference)) {
+				setLocalizedStatus(setStatus, copy, 'effectMatchEqAnalyzed', undefined, 'success');
+				return { matchEqAnalysis: matchReports };
 			}
 			const starts = placeExactClips ? previewRenderedClipStarts(runtime.effectPreviewProject?.() ?? previewGeometryFromTargets(fullTargets),
 				targets.map((target, index) => ({ clipId: target.full.clipId, frameCount: resultChannelSets[index]![0]!.length }))) : null;
@@ -279,7 +298,7 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 			state.audacityPreviewSource = source;
 			source.start();
 			setLocalizedStatus(setStatus, copy, (copy.audacityPreviewPlaying ? "audacityPreviewPlaying" : "playing"), undefined, 'success');
-			return phaseCorrection ? { phaseCorrectionAnalysis: phaseReports } : true;
+			return matchEq ? { matchEqAnalysis: matchReports } : phaseCorrection ? { phaseCorrectionAnalysis: phaseReports } : true;
 		} catch (error) {
 			if ((error as Readonly<{ name?: string }>)?.name === 'AbortError') return false;
 			throw error;
@@ -325,9 +344,10 @@ async function renderTargetChannels(
 	return result;
 }
 
-async function renderOneTarget(target: RuntimeValue, render: RuntimeValue, requireCurrent: () => void) {
+async function renderOneTarget(target: RuntimeValue, render: RuntimeValue, requireCurrent: () => void, processing: 'dry' | 'authored' = 'dry') {
 	const channels = await render(
 		target.track.id, target.startFrame, target.endFrame, target.channelCount, target.clipIds,
+		...(processing === 'authored' ? [null, processing] : []),
 	);
 	requireCurrent();
 	return channels;

@@ -25,10 +25,15 @@ import { applyStandardDelaySelection } from './first-party-effects/standard/dela
 import { applySelectionEffectSpectralContext } from './selection-effect-spectral-context.ts';
 import { applyAutoTune } from './first-party-effects/auto-tune/selection.ts';
 import { applyPhaseCorrection } from './first-party-effects/phase-correction/selection.ts';
+import { applyMatchEq } from './first-party-effects/match-eq/selection.ts';
 
 export async function applyAudioSelectionEffectAsync(type, channels, sampleRate, params = {}, context = {}) {
 	if (!AUDIO_SELECTION_EFFECT_DEFINITIONS[type]) {
 		throw new RangeError(`Unsupported selection effect: ${type}.`);
+	}
+	if (type === 'match-eq') {
+		if (context.spectralSelection) throw new RangeError('Match EQ requires a full-spectrum audio selection.');
+		return applyMatchEq(channels, sampleRate, params, context);
 	}
 	if (type === 'automatic-phase-correction') {
 		if (context.spectralSelection) throw new RangeError('Automatic phase correction requires a full-spectrum stereo selection.');

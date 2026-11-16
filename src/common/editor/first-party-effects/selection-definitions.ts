@@ -7,9 +7,11 @@ import { STANDARD_MODULATION_EFFECT_DEFINITIONS } from './standard/modulation-de
 import { NOISE_GATE_EFFECT_DEFINITION } from './standard/noise-gate-definition.ts';
 import { STANDARD_DELAY_EFFECT_DEFINITION } from './standard/delay-definition.ts';
 import { PHASE_CORRECTION_EFFECT_DEFINITION } from './phase-correction/definition.ts';
+import { MATCH_EQ_EFFECT_DEFINITION } from './match-eq/definition.ts';
 
 /** First-party selection registrations are separate from realtime rack admission. */
 export const FIRST_PARTY_SELECTION_EFFECT_DEFINITIONS = Object.freeze({
+	'match-eq': MATCH_EQ_EFFECT_DEFINITION,
 	'auto-tune': AUTO_TUNE_EFFECT_DEFINITION,
 	...STANDARD_FILTER_EFFECT_DEFINITIONS,
 	...STANDARD_MODULATION_EFFECT_DEFINITIONS,

@@ -27,6 +27,7 @@ import { NOISE_GATE_EFFECT_DEFINITION, normalizeNoiseGateParams } from './first-
 import { STANDARD_DELAY_EFFECT_DEFINITION } from './first-party-effects/standard/delay-definition.ts';
 import { AUTO_TUNE_EFFECT_DEFINITION, normalizeAutoTuneParams } from './first-party-effects/auto-tune/definition.ts';
 import { FIRST_PARTY_SELECTION_EFFECT_DEFINITIONS } from './first-party-effects/selection-definitions.ts';
+import { normalizeMatchEqParams } from './first-party-effects/match-eq/definition.ts';
 import { HUM_REMOVAL_EFFECT_DEFINITION } from './first-party-effects/hum-removal/definition.ts';
 import { REVERB_EFFECT_DEFINITION } from './first-party-effects/reverb/definition.ts';
 import { standardEffectTailSeconds } from './first-party-effects/standard/effect-tail.ts';
@@ -417,6 +418,7 @@ export function projectEffectTailFrames(project, {
 }
 
 function normalizeEffectParams(type, params, effectId = null) {
+	if (type === 'match-eq') return normalizeMatchEqParams(params);
 	if (type === 'eq') return normalizeParametricEqEffectParams(params, effectId);
 	if (type === 'auto-tune') return normalizeAutoTuneParams(params);
 	const definition = ownMapValue(AUDIO_EFFECT_DEFINITIONS, type) ?? ownMapValue(AUDIO_SELECTION_EFFECT_DEFINITIONS, type);
