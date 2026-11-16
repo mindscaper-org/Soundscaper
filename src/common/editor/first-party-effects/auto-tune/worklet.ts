@@ -29,7 +29,7 @@ export class AutoTuneWorkletProcessor extends AudioWorkletProcessor {
 	constructor(options: AudioWorkletNodeOptions = {}) {
 		super(options);
 		const settings = options.processorOptions as Settings | undefined;
-		if (!(settings?.staffPadWasmModule instanceof WebAssembly.Module)) throw new Error('Auto-Tune requires the compiled StaffPad module.');
+		if (!(settings?.staffPadWasmModule instanceof WebAssembly.Module)) throw new Error('Automatic pitch correction requires the compiled StaffPad module.');
 		this.processor = createAutoTuneProcessor({ sampleRate, channelCount: settings.channelCount ?? 2,
 			params: settings.params, staffPadRuntime: instantiateStaffPadWasm(settings.staffPadWasmModule) });
 		for (const schedule of settings.controlSchedules ?? []) {

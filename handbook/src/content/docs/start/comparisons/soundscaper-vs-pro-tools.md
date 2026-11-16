@@ -163,7 +163,7 @@ Soundscaper can [import Audacity keyboard shortcuts](/reference/generated/comman
 | Convolution reverb | + — JUCE :: Bundled native convolution with mono/stereo WAV or AIFF impulse responses embedded in effect state; requires the matching staged desktop runtime. | + — Space :: Avid Space is listed in the Studio bundle; no third-party reverb is required. |
 | Multiband compression | + | + — Pro Multiband Dynamics |
 | Guitar amp and cabinet models | / | + — Eleven MK II |
-| Automatic pitch correction | + — Auto-Tune | / — :: Pitch shifting is included; automatic note correction requires a partner plug-in. |
+| Automatic pitch correction | + — Automatic pitch correction | / — :: Pitch shifting is included; automatic note correction requires a partner plug-in. |
 | Drum-hit sample replacement | / | + — Sound Replacer :: Detects hits and replaces or layers them with samples, with level-dependent triggers. |
 | Native plug-in process isolation | + — :: Separate host processes per renderer owner and plug-in binary digest; instances of the same binary can share a host. | / |
 | 32-bit plug-ins in a 64-bit host | ~ — Windows x64 / VST2 :: Opt-in x86 bridge for 32-bit VST2 effects, with the matching packaged peer. Other platforms and plug-in formats retain native-architecture requirements. | / |

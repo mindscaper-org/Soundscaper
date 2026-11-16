@@ -19,7 +19,7 @@ interface Context {
 const getRuntime = createStaffPadRuntimeLoader(loadStaffPadWasm);
 const yieldToWorker = () => new Promise<void>(resolve => { setTimeout(resolve, 0); });
 function checkCancelled(context: Context): void {
-	if (context.isCancelled?.()) throw new DOMException('Auto-Tune rendering was cancelled.', 'AbortError');
+	if (context.isCancelled?.()) throw new DOMException('Automatic pitch correction rendering was cancelled.', 'AbortError');
 }
 
 /** Selection-only, formant-preserving pitch correction. Analyze one shared
@@ -31,9 +31,9 @@ export async function applyAutoTune(input: readonly Float32Array[], sampleRate: 
 	const channels = assertAudacityEffectOutput(input);
 	const frames = channels[0].length;
 	const settings = normalizeAutoTuneParams(params);
-	if (settings.controlTrackId && !context.controlNotes) throw new RangeError('Auto-Tune requires MIDI control notes for its selected control track.');
+	if (settings.controlTrackId && !context.controlNotes) throw new RangeError('Automatic pitch correction requires MIDI control notes for its selected control track.');
 	if (autoTunePeakBytes(frames, { sampleRate, channelCount: channels.length }) > STAFFPAD_MAXIMUM_RENDER_BYTES) {
-		throw new RangeError('The Auto-Tune selection exceeds its render memory limit. Reduce the selection or channel count.');
+		throw new RangeError('The Automatic pitch correction selection exceeds its render memory limit. Reduce the selection or channel count.');
 	}
 	checkCancelled(context);
 	if (settings.amount === 0 || settings.mix === 0) return channels.map(channel => channel.slice());
@@ -75,7 +75,7 @@ export async function applyAutoTune(input: readonly Float32Array[], sampleRate: 
 					written += retained;
 				} else {
 					const required = Math.min(session.requiredInput(), runtime.maximumBlockSize);
-					if (required < 1 || fed > frames * 4 + sampleRate * 2) throw new Error('Auto-Tune exceeded its bounded pitch-render flush.');
+					if (required < 1 || fed > frames * 4 + sampleRate * 2) throw new Error('Automatic pitch correction exceeded its bounded pitch-render flush.');
 					session.setParameters(1, ratioAt(fed));
 					session.feed(source, fed, required);
 					fed += required;

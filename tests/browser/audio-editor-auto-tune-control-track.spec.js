@@ -12,7 +12,7 @@ const melody = { name: 'control-melody.mid', mimeType: 'audio/midi',
 	buffer: Buffer.from('4d546864000000060000000101e04d54726b0000001400ff510307a12000904764964080470000ff2f00', 'hex') };
 const voice = () => createWavFixture({ name: 'voice.wav', frequency: 450, duration: 3, sampleRate: 48000 });
 
-test.describe('Auto-Tune MIDI control track', () => {
+test.describe('Automatic pitch correction MIDI control track', () => {
 	registerAudioEditorHooks();
 	test('rack offers only MIDI tracks, restores its control track, and exports the controlled pitch with a muted MIDI instrument', async ({ page }) => {
 		await disableNativeSavePicker(page);
@@ -22,8 +22,8 @@ test.describe('Auto-Tune MIDI control track', () => {
 		await clipByName(editor, 'MIDI 1').locator('xpath=ancestor::div[@data-track-row][1]')
 			.getByRole('button', { name: 'Mute', exact: true }).click();
 		let panel = await openEffectsForTrack(editor, 1);
-		await addRackEffect(page, panel, 'track', 'Auto-Tune');
-		let settings = page.getByRole('dialog', { name: 'Auto-Tune', exact: true });
+		await addRackEffect(page, panel, 'track', 'Automatic pitch correction');
+		let settings = page.getByRole('dialog', { name: 'Automatic pitch correction', exact: true });
 		const control = settings.getByRole('group', { name: 'Control track', exact: true });
 		await control.getByRole('button').click();
 		await expect(page.getByRole('option')).toHaveText(['None (use key and scale)', 'MIDI 1']);
@@ -39,9 +39,9 @@ test.describe('Auto-Tune MIDI control track', () => {
 		await page.reload();
 		editor = await waitForEditor(page);
 		panel = await openEffectsForTrack(editor, 1);
-		await panel.locator('[data-effect-rack]').getByRole('group', { name: 'Auto-Tune', exact: true })
+		await panel.locator('[data-effect-rack]').getByRole('group', { name: 'Automatic pitch correction', exact: true })
 			.getByRole('button', { name: 'Select effect', exact: true }).click();
-		settings = page.getByRole('dialog', { name: 'Auto-Tune', exact: true });
+		settings = page.getByRole('dialog', { name: 'Automatic pitch correction', exact: true });
 		await expect(settings.getByRole('group', { name: 'Control track', exact: true }).getByRole('button')).toContainText('MIDI 1');
 		await closeDialog(settings);
 		await closeEffectsPanel(panel);
@@ -70,7 +70,7 @@ test.describe('Auto-Tune MIDI control track', () => {
 		await editor.getByRole('button', { name: 'Rename track: voice', exact: true }).click();
 		await clickClipInterior(page, clipByName(editor, 'voice.wav'));
 		await expect(clipByName(editor, 'voice.wav').locator('xpath=ancestor::div[@data-track-row][1]').locator('[data-track-header]')).toHaveAttribute('data-selected', 'true');
-		await chooseNestedCommandAction(page, editor, 'Effect', ['Distortion and modulation', 'Auto-Tune']);
+		await chooseNestedCommandAction(page, editor, 'Effect', ['Distortion and modulation', 'Automatic pitch correction']);
 		const dialog = page.getByRole('dialog', { name: 'Apply effect', exact: true });
 		await chooseDropdown(page, dialog.getByRole('group', { name: 'Control track', exact: true }), 'MIDI 1');
 		await dialog.getByRole('button', { name: 'Preview', exact: true }).click();

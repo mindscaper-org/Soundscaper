@@ -6,7 +6,7 @@ import {
 	collectClientErrors, commitInput, effectSourceMetadata, importFiles, registerAudioEditorHooks,
 } from './audio-editor-test-helpers.js';
 
-test.describe('Auto-Tune selection effect', () => {
+test.describe('Automatic pitch correction selection effect', () => {
 	registerAudioEditorHooks();
 	test('opens from Effect, configures musical controls, previews, applies and undoes', async ({ page }) => {
 		const errors = collectClientErrors(page);
@@ -14,7 +14,7 @@ test.describe('Auto-Tune selection effect', () => {
 		const voice = createWavFixture({ name: 'detuned-voice.wav', frequency: 450, duration: 3, sampleRate: 48000 });
 		await importFiles(editor, [voice]);
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
-		await chooseNestedCommandAction(page, editor, 'Effect', ['Distortion and modulation', 'Auto-Tune']);
+		await chooseNestedCommandAction(page, editor, 'Effect', ['Distortion and modulation', 'Automatic pitch correction']);
 		const dialog = page.getByRole('dialog', { name: 'Apply effect', exact: true });
 		await chooseDropdown(page, dialog.getByRole('group', { name: 'Key', exact: true }), 'A');
 		await chooseDropdown(page, dialog.getByRole('group', { name: 'Scale', exact: true }), 'Natural minor');
@@ -29,7 +29,7 @@ test.describe('Auto-Tune selection effect', () => {
 		await expect(dialog).toBeHidden({ timeout: 20000 });
 		await expect(editor.locator('[data-status]')).toHaveAttribute('data-state', 'success');
 		await expect.poll(async () => (await effectSourceMetadata(page))
-			.find(source => source.name.includes('Auto-Tune'))?.frameCount).toBe(144000);
+			.find(source => source.name.includes('Automatic pitch correction'))?.frameCount).toBe(144000);
 		await editor.getByRole('button', { name: 'Undo', exact: true }).click();
 		await expect(clipByName(editor, voice.name)).toHaveCount(1);
 		await editor.getByRole('button', { name: 'Redo', exact: true }).click();

@@ -17,11 +17,11 @@ export function autoTuneCorrection(midi: number, note: number, amount: number): 
 /** Merge each key's overlapping intervals before processing. A callback checks
  * at most 128 keys with binary searches, including after arbitrary seeks. */
 export function createAutoTuneControlLookup(values: readonly AutoTuneControlNote[]): (frame: number, midi: number) => number | null {
-	if (!Array.isArray(values) || values.length > AUTO_TUNE_MAX_CONTROL_NOTES) throw new RangeError('Too many Auto-Tune MIDI control notes.');
+	if (!Array.isArray(values) || values.length > AUTO_TUNE_MAX_CONTROL_NOTES) throw new RangeError('Too many Automatic pitch correction MIDI control notes.');
 	const notes = values.map(note => {
 		if (!note || !Number.isSafeInteger(note.startFrame) || note.startFrame < 0
 			|| !Number.isSafeInteger(note.endFrame) || note.endFrame <= note.startFrame
-			|| !Number.isInteger(note.pitch) || note.pitch < 0 || note.pitch > 127) throw new RangeError('Invalid Auto-Tune MIDI control note.');
+			|| !Number.isInteger(note.pitch) || note.pitch < 0 || note.pitch > 127) throw new RangeError('Invalid Automatic pitch correction MIDI control note.');
 		return { ...note };
 	}).sort((a, b) => a.startFrame - b.startFrame || a.pitch - b.pitch);
 	const keys: Array<Array<{ startFrame: number; endFrame: number }>> = Array.from({ length: 128 }, () => []);

@@ -17,7 +17,7 @@ const worklet = createAudioWorkletLoadOnce(async context => {
 });
 
 export async function ensureAutoTuneWorklet(context: BaseAudioContext): Promise<void> {
-	if (!context.audioWorklet?.addModule || typeof globalThis.AudioWorkletNode !== 'function') throw new Error('This browser cannot run Auto-Tune in realtime.');
+	if (!context.audioWorklet?.addModule || typeof globalThis.AudioWorkletNode !== 'function') throw new Error('This browser cannot run Automatic pitch correction in realtime.');
 	await worklet.ensure(context);
 }
 
@@ -28,7 +28,7 @@ interface WorkletNodeConstructor {
 export function createAutoTuneNode(context: BaseAudioContext, WorkletNode: WorkletNodeConstructor | null,
 	params: Record<string, unknown>, channelCount: number, latencyFrames = 0): AudioWorkletNode {
 	const module = modules.get(context);
-	if (!worklet.isLoaded(context) || !module || !WorkletNode) throw new Error('The Auto-Tune processor was not loaded.');
+	if (!worklet.isLoaded(context) || !module || !WorkletNode) throw new Error('The Automatic pitch correction processor was not loaded.');
 	autoTuneRealtimeGeometry(context.sampleRate, channelCount);
 	const node = new WorkletNode(context, 'kw-auto-tune', {
 		numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [channelCount],

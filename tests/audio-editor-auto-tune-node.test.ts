@@ -84,10 +84,10 @@ test('Auto-Tune uses discrete channels, live revisions and idempotent cleanup th
 	} finally { await engine.dispose(); restoreNode(); restoreFetch(); }
 });
 
-test('Auto-Tune refuses unavailable AudioWorklets without silently bypassing processing', async () => {
+test('Automatic pitch correction refuses unavailable AudioWorklets without silently bypassing processing', async () => {
 	const restore = installGlobal('AudioWorkletNode', undefined);
 	try {
 		await assert.rejects(ensureProjectWorklets({} as BaseAudioContext,
-			{ tracks: [{ effects: [{ type: 'auto-tune' }] }] }), /cannot run Auto-Tune/);
+			{ tracks: [{ effects: [{ type: 'auto-tune' }] }] }), /cannot run Automatic pitch correction/);
 	} finally { restore(); }
 });

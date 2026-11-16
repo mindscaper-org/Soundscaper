@@ -12,7 +12,7 @@ export function autoTuneControlNotes(project: EngineProject, trackId: string, fr
 	frames: number, outputSampleRate: number): AutoTuneControlNote[] {
 	if (!trackId) return [];
 	const track = project.tracks?.find(track => track.id === trackId);
-	if (!track || !isMidiTrack(track)) throw new RangeError('The Auto-Tune MIDI control track is no longer available.');
+	if (!track || !isMidiTrack(track)) throw new RangeError('The Automatic pitch correction MIDI control track is no longer available.');
 	const sampleRate = project.sampleRate ?? 48000;
 	const timing = midiProjectTiming({ ...project, sampleRate });
 	const projection = { sampleRate, tempoMap: timing.tempoMap };
@@ -34,7 +34,7 @@ export function autoTuneControlNotes(project: EngineProject, trackId: string, fr
 				const startFrame = Math.max(0, Math.round((Math.min(a, b) - fromFrame) * ratio));
 				const endFrame = Math.min(frames, Math.round((Math.max(a, b) - fromFrame) * ratio));
 				if (endFrame <= startFrame) continue;
-				if (notes.length === AUTO_TUNE_MAX_CONTROL_NOTES) throw new RangeError('Too many Auto-Tune MIDI control notes.');
+				if (notes.length === AUTO_TUNE_MAX_CONTROL_NOTES) throw new RangeError('Too many Automatic pitch correction MIDI control notes.');
 				notes.push({ startFrame, endFrame, pitch: note.pitch });
 			}
 		}

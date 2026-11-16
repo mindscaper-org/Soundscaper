@@ -29,7 +29,7 @@ export const STANDARD_EFFECT_COPY_ENTRIES = Object.freeze([
 	['effectParamHumRemovalReduction', 'Reduction'],
 	['effectHumRemovalHint', 'Use 50 or 60 Hz for mains hum, or enter a custom frequency. Harmonics includes the fundamental. Notches that reach half the sample rate are omitted. Use narrow notches and only as many harmonics as needed to preserve wanted audio. Zero reduction leaves audio unchanged.'],
 	['effectNameAiDenoise', 'AI denoising (DPDFNet2)'],
-	['effectNameAutoTune', 'Auto-Tune'],
+	['effectNameAutoTune', 'Automatic pitch correction'],
 	['effectParamAutoTuneAmount', 'Correction amount'],
 	['effectParamAutoTuneRetune', 'Retune speed'],
 	['effectParamAutoTuneMix', 'Mix'],

@@ -119,7 +119,7 @@ keeps referenced derived bodies alive for as long as an undo entry needs them.
 
 ## MIDI pitch control
 
-Auto-Tune's optional `params.controlTrackId` names an editable MIDI track by
+Automatic pitch correction's optional `params.controlTrackId` names an editable MIDI track by
 stable ID. The default empty ID retains key/scale correction. Control pitches
 come from keyed notes projected through MIDI clip timing, including trim,
 stretch, reversal, musical anchors and loops; instrument audio, mute and solo

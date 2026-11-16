@@ -27,13 +27,13 @@ export function createAutoTuneProcessor(options: {
 	let controlNotes: readonly AutoTuneControlNote[] = [];
 	let control = createAutoTuneControlLookup(controlNotes);
 	let clock = 0;
-	function assertActive(): void { if (disposed) throw new Error('Auto-Tune processor was disposed.'); }
+	function assertActive(): void { if (disposed) throw new Error('Automatic pitch correction processor was disposed.'); }
 	return {
 		latencyFrames: geometry.latencyFrames,
 		scheduleControlNotes(notes: readonly AutoTuneControlNote[], fromFrame: number, toFrame: number): void {
 			assertActive();
-			if (!Number.isSafeInteger(fromFrame) || fromFrame < 0 || !Number.isSafeInteger(toFrame) || toFrame <= fromFrame) throw new RangeError('Invalid Auto-Tune control window.');
-			if (notes.some(note => note.startFrame < fromFrame || note.endFrame > toFrame)) throw new RangeError('Auto-Tune control notes exceed their schedule window.');
+			if (!Number.isSafeInteger(fromFrame) || fromFrame < 0 || !Number.isSafeInteger(toFrame) || toFrame <= fromFrame) throw new RangeError('Invalid Automatic pitch correction control window.');
+			if (notes.some(note => note.startFrame < fromFrame || note.endFrame > toFrame)) throw new RangeError('Automatic pitch correction control notes exceed their schedule window.');
 			const next = [...controlNotes.filter(note => note.endFrame > clock - geometry.analysisDelayFrames && note.startFrame < fromFrame)
 				.map(note => ({ ...note, endFrame: Math.min(note.endFrame, fromFrame) })), ...notes];
 			control = createAutoTuneControlLookup(next);

@@ -163,7 +163,7 @@ Soundscaper can [import Audacity keyboard shortcuts](/reference/generated/comman
 | Convolution reverb | + — JUCE :: Bundled native convolution with mono/stereo WAV or AIFF impulse responses embedded in effect state; requires the matching staged desktop runtime. | + — Convolution |
 | Multiband compression | + | ~ — Multiband FX :: Build a split-band chain with the included dynamics devices; no single dedicated multiband compressor is documented. |
 | Guitar amp and cabinet models | / | + — Amp |
-| Automatic pitch correction | + — Auto-Tune | / |
+| Automatic pitch correction | + — Automatic pitch correction | / |
 | Drum-hit sample replacement | / | / |
 | Native plug-in process isolation | + — :: Separate host processes per renderer owner and plug-in binary digest; instances of the same binary can share a host. | + — Configurable :: Hosting modes range from one shared sandbox to a separate process per plug-in instance. |
 | 32-bit plug-ins in a 64-bit host | ~ — Windows x64 / VST2 :: Opt-in x86 bridge for 32-bit VST2 effects, with the matching packaged peer. Other platforms and plug-in formats retain native-architecture requirements. | ~ — Win / Linux :: Built-in 32-/64-bit bridging on Windows and Linux; not on macOS. |

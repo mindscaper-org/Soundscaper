@@ -23,7 +23,7 @@ export function createAutoTuneNativeStream(runtime: StaffPadWasmRuntime, sampleR
 	return {
 		reset(): void {
 			for (const session of sessions) {
-				if (runtime.exports.sp_reset(session.handle) !== 0) throw new Error('Auto-Tune failed to reset its native session.');
+				if (runtime.exports.sp_reset(session.handle) !== 0) throw new Error('Automatic pitch correction failed to reset its native session.');
 				session.setParameters(1, 1);
 			}
 			for (const channel of queued) channel.fill(0);
@@ -31,21 +31,21 @@ export function createAutoTuneNativeStream(runtime: StaffPadWasmRuntime, sampleR
 		},
 		dispose(): void { for (const session of sessions) session.destroy(); },
 		processFrame(samples: Float64Array, ratio: number): void {
-			if (runtime.memory.buffer !== heap) throw new Error('Auto-Tune native memory grew during audio processing.');
+			if (runtime.memory.buffer !== heap) throw new Error('Automatic pitch correction native memory grew during audio processing.');
 			for (let channel = 0; channel < channelCount; channel++) inputs[channel][received] = samples[channel];
 			if (++received === geometry.nativeBlockFrames) {
 				for (const session of sessions) {
 					session.setParameters(1, ratio);
-					if (runtime.exports.sp_feed(session.handle, received) !== received) throw new Error('Auto-Tune rejected native input.');
+					if (runtime.exports.sp_feed(session.handle, received) !== received) throw new Error('Automatic pitch correction rejected native input.');
 				}
 				received = 0;
 				const produced = sessions[0].availableOutput();
-				if (available + produced > geometry.queueFrames) throw new Error('Auto-Tune exceeded its fixed output queue.');
+				if (available + produced > geometry.queueFrames) throw new Error('Automatic pitch correction exceeded its fixed output queue.');
 				let copied = 0;
 				while (copied < produced) {
 					const frames = Math.min(produced - copied, runtime.maximumBlockSize);
 					for (const session of sessions) {
-						if (session.availableOutput() < frames || runtime.exports.sp_read(session.handle, frames) !== frames) throw new Error('Auto-Tune channel pairs lost synchronization.');
+						if (session.availableOutput() < frames || runtime.exports.sp_read(session.handle, frames) !== frames) throw new Error('Automatic pitch correction channel pairs lost synchronization.');
 					}
 					for (let channel = 0; channel < channelCount; channel++) for (let frame = 0; frame < frames; frame++) {
 						queued[channel][(write + copied + frame) % geometry.queueFrames] = outputs[channel][frame];
@@ -55,7 +55,7 @@ export function createAutoTuneNativeStream(runtime: StaffPadWasmRuntime, sampleR
 				write = (write + produced) % geometry.queueFrames;
 				available += produced;
 			}
-			if (available < 1) throw new Error('Auto-Tune exhausted its fixed delivery reserve.');
+			if (available < 1) throw new Error('Automatic pitch correction exhausted its fixed delivery reserve.');
 			for (let channel = 0; channel < channelCount; channel++) samples[channel] = queued[channel][read];
 			read = (read + 1) % geometry.queueFrames;
 			available--;

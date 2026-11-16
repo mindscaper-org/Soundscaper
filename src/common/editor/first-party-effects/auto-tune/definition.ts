@@ -12,7 +12,7 @@ export interface AutoTuneParams {
 	readonly controlTrackId: string;
 }
 
-const liveOnly = { automatable: false, automationBlockReason: 'Auto-Tune supports live controls but not timeline automation.' } as const;
+const liveOnly = { automatable: false, automationBlockReason: 'Automatic pitch correction supports live controls but not timeline automation.' } as const;
 export const AUTO_TUNE_EFFECT_DEFINITION = Object.freeze({
 	defaults: Object.freeze({ amount: 100, retune: 20, mix: 100, key: 'c', scale: 'chromatic', controlTrackId: '' }),
 	ranges: Object.freeze({

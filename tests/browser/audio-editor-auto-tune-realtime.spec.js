@@ -52,7 +52,7 @@ async function outputPitch(page) {
 	});
 }
 
-test.describe('Auto-Tune realtime rack', () => {
+test.describe('Automatic pitch correction realtime rack', () => {
 	registerAudioEditorHooks();
 
 	test('offline WAV export retains corrected pitch and trims the rack delay', async ({ page }) => {
@@ -61,8 +61,8 @@ test.describe('Auto-Tune realtime rack', () => {
 		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [createWavFixture({ name: 'export-voice.wav', frequency: 450, duration: 1, sampleRate: 48000 })]);
 		const panel = await openEffectsForTrack(editor, 1);
-		await addRackEffect(page, panel, 'track', 'Auto-Tune');
-		const settings = page.getByRole('dialog', { name: 'Auto-Tune', exact: true });
+		await addRackEffect(page, panel, 'track', 'Automatic pitch correction');
+		const settings = page.getByRole('dialog', { name: 'Automatic pitch correction', exact: true });
 		await commitInput(settings.getByRole('spinbutton', { name: 'Retune speed', exact: true }), '0');
 		await closeDialog(settings);
 		await closeEffectsPanel(panel);
@@ -93,17 +93,17 @@ test.describe('Auto-Tune realtime rack', () => {
 		let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [createWavFixture({ name: 'live-voice.wav', frequency: 450, duration: 25, sampleRate: 48000 })]);
 		let panel = await openEffectsForTrack(editor, 1);
-		await addRackEffect(page, panel, 'track', 'Auto-Tune');
-		let dialog = page.getByRole('dialog', { name: 'Auto-Tune', exact: true });
+		await addRackEffect(page, panel, 'track', 'Automatic pitch correction');
+		let dialog = page.getByRole('dialog', { name: 'Automatic pitch correction', exact: true });
 		await commitInput(dialog.getByRole('spinbutton', { name: 'Retune speed', exact: true }), '0');
 		await closeDialog(dialog);
 		await editor.getByRole('button', { name: 'Play', exact: true }).click();
 		await expect(editor.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 		await expect.poll(async () => Math.abs(await outputPitch(page) - 440)).toBeLessThan(1);
 		const created = await page.evaluate(() => globalThis.__autoTune.created);
-		await panel.locator('[data-effect-rack]').getByRole('group', { name: 'Auto-Tune', exact: true })
+		await panel.locator('[data-effect-rack]').getByRole('group', { name: 'Automatic pitch correction', exact: true })
 			.getByRole('button', { name: 'Select effect', exact: true }).click();
-		dialog = page.getByRole('dialog', { name: 'Auto-Tune', exact: true });
+		dialog = page.getByRole('dialog', { name: 'Automatic pitch correction', exact: true });
 		await chooseDropdown(page, dialog.getByRole('group', { name: 'Key', exact: true }), 'A');
 		await chooseDropdown(page, dialog.getByRole('group', { name: 'Scale', exact: true }), 'Natural minor');
 		await commitInput(dialog.getByRole('spinbutton', { name: 'Correction amount', exact: true }), '50');
@@ -120,9 +120,9 @@ test.describe('Auto-Tune realtime rack', () => {
 		await page.reload();
 		editor = await waitForEditor(page);
 		panel = await openEffectsForTrack(editor, 1);
-		await panel.locator('[data-effect-rack]').getByRole('group', { name: 'Auto-Tune', exact: true })
+		await panel.locator('[data-effect-rack]').getByRole('group', { name: 'Automatic pitch correction', exact: true })
 			.getByRole('button', { name: 'Select effect', exact: true }).click();
-		dialog = page.getByRole('dialog', { name: 'Auto-Tune', exact: true });
+		dialog = page.getByRole('dialog', { name: 'Automatic pitch correction', exact: true });
 		await expect(dialog.getByRole('spinbutton', { name: 'Correction amount', exact: true })).toHaveValue('50');
 		await expect(dialog.getByRole('spinbutton', { name: 'Mix', exact: true })).toHaveValue('0');
 		await expect(dialog.getByRole('group', { name: 'Scale', exact: true }).getByRole('button')).toContainText('Natural minor');

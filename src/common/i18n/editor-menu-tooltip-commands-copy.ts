@@ -293,7 +293,7 @@ export const MENU_TOOLTIP_COMMANDS: Readonly<Record<string, readonly [string, st
 	"audacity-echo": ["Echo", "Add regularly spaced, decaying repetitions of the original sound."],
 	"audacity-reverb": ["Reverb (Audacity)", "Simulate reflected sound to suggest a room or larger acoustic space."],
 	"distortionModulation": ["Distortion and modulation", "Reshape waveforms and vary their sound over time for creative processing."],
-	"auto-tune": ["Auto-Tune", "Adjust musical intonation toward chosen notes or a scale."],
+	"auto-tune": ["Automatic pitch correction", "Adjust musical intonation toward chosen notes or a scale."],
 	"audacity-distortion": ["Distortion", "Reshape the waveform nonlinearly to add harmonics and a rougher character."],
 	"bitcrusher": ["Bitcrusher", "Reduce digital amplitude and time resolution for a grainy, retro character."],
 	"tremolo": ["Tremolo", "Vary amplitude repeatedly to create a rhythmic pulsing sound."],

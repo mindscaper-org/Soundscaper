@@ -80,7 +80,7 @@ export async function ensureProjectWorklets(
 	if (!needsDynamics && !needsDelay && !needsBitcrusher && !needsBandDynamics && !needsAudacity && !needsParametricEq
 		&& !needsParametricEqWasm && !usesNativePlugin && !needsStandard && !usesStandardDelay && !usesAutoTune) return;
 	if (!context.audioWorklet?.addModule || typeof globalThis.AudioWorkletNode !== 'function') {
-		if (usesAutoTune) throw new Error('This browser cannot run Auto-Tune in realtime.');
+		if (usesAutoTune) throw new Error('This browser cannot run Automatic pitch correction in realtime.');
 		if (needsStandard) throw new Error('This browser cannot run the selected real-time effect without bypassing it.');
 		if (needsBandDynamics) throw new Error('This browser cannot run the de-esser or multiband compressor without bypassing it.');
 		if (needsAudacity) throw new Error('This browser cannot run Audacity real-time effects without bypassing them.');
