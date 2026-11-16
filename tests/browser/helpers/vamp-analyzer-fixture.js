@@ -4,15 +4,16 @@ import { expect, toneA } from '../audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clipByName, importFiles } from '../audio-editor-test-helpers.js';
 import { installDesktopSpeedWarmupManifest } from './desktop-speed-warmup-fixture.js';
 
-export async function openVampAnalyzer(page, { features = [] } = {}) {
+export async function openVampAnalyzer(page, { features = [], noteOutput = null } = {}) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(({ features }) => {
+	await page.addInitScript(({ features, noteOutput }) => {
 		const analyzerId = 'onsets';
 		const stableId = 'example-onsets';
 		const binarySha256 = 'ab'.repeat(32);
 		const output = { identifier: 'onsets', name: 'Onsets', description: '', unit: '', binCount: null,
 			binNames: [], extents: null, quantizeStep: null, sampleType: 'variable-sample-rate',
 			sampleRate: null, hasDuration: false };
+		if (noteOutput) Object.assign(output, { identifier: noteOutput.id, name: 'Notes', unit: noteOutput.unit, hasDuration: true, binCount: 1 });
 		globalThis.__moreVampConfigurations = [];
 		const bridge = Object.fromEntries([
 			'setNativeAudioHelperEnabled', 'describeNativeAudioBackend', 'setNativePluginConsent', 'scanNativePlugins',
@@ -39,8 +40,8 @@ export async function openVampAnalyzer(page, { features = [] } = {}) {
 			listNativeVampAnalyzers: async () => [{ analyzerId, stableId, binarySha256,
 				name: 'Onsets', maker: 'Fixture', programs: ['Sensitive'], parameters: [{ id: 'threshold',
 					name: 'Threshold', description: '', unit: '', minValue: 0, maxValue: 1,
-					defaultValue: 0.5, quantizeStep: null }], outputs: [{ id: 'onsets', name: 'Onsets',
-					description: '', unit: '', sampleType: 'variable-sample-rate', sampleRate: null, hasDuration: false }],
+					defaultValue: 0.5, quantizeStep: null }], outputs: [{ id: output.identifier, name: output.name,
+						description: '', unit: output.unit, sampleType: 'variable-sample-rate', sampleRate: null, hasDuration: output.hasDuration }],
 				configuration: { inputDomain: 'time', minimumChannels: 1, maximumChannels: 2,
 					preferredStepSize: 512, preferredBlockSize: 1024 } }],
 			startNativeVampAnalyzer: async () => ({ sessionId: 'fixture-session' }),
@@ -55,7 +56,7 @@ export async function openVampAnalyzer(page, { features = [] } = {}) {
 			cancelNativeVampAnalyzer: async () => true,
 		});
 		Object.defineProperty(globalThis, 'soundscaperDesktop', { configurable: true, value: { v1: bridge } });
-	}, { features });
+	}, { features, noteOutput });
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [toneA]);
 	await clipByName(editor, toneA.name).click();

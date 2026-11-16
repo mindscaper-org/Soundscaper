@@ -282,6 +282,23 @@ adds the returned timestamps as a new label track only after the complete
 analysis succeeds, so cancelling or changing the project cannot leave partial
 labels behind.
 
+To convert an isolated melody into MIDI, install and enable the **pYIN** Vamp
+plug-in, then choose its **Notes** output. For a chord progression, use
+**Chordino → Note Representation of Chord Estimate**. After analysis, choose
+**Create MIDI track**. The result is a new editable MIDI beta track alongside
+the original audio, placed at the analyzed selection with its original timing.
+Open **Window → Piano roll (beta)** to audition and correct the notes, or use
+**File → Export other → Export MIDI (beta)**. Creation is one undoable edit;
+the original recording is retained.
+
+pYIN expects one melodic voice or instrument; accompaniment and reverb can
+reduce accuracy. Chordino creates voicings for the estimated harmony rather
+than recovering every note and articulation of the performance. Detected notes
+are rounded to MIDI pitches without rhythmic quantization; their velocity
+defaults to 100. Continuous pitch tracks, chromagrams and unrelated analyzer
+outputs do not offer MIDI creation. Plug-ins are installed separately and must
+match your desktop platform.
+
 ## Project metadata {#project-metadata}
 
 Choose **Edit → Metadata editor → ID3** to enter descriptive tags before

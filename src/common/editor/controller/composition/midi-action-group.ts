@@ -49,6 +49,7 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 		return operation;
 	}
 	const actions = Object.freeze({
+		importDocument: (...args: Parameters<MidiService['importDocument']>) => edit(service => service.importDocument(...args)),
 		addTrack: () => edit(service => service.addTrack()),
 		addNote: (clipId: string, note: MidiNote) => edit(service => service.addNote(clipId, note)),
 		updateNote: (clipId: string, id: string, changes: Partial<MidiNote>) => edit(service => service.updateNote(clipId, id, changes)),

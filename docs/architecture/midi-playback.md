@@ -6,6 +6,15 @@ Storage schema v2 admits this record type without changing the v1 stores or
 discarding existing projects, history, or PCM. Archives materialize ordinary PCM
 alongside the editable carrier so the archive retains its audio fallback.
 
+The menu-opened Vamp analyzer can publish explicit duration-bearing note outputs
+through the same MIDI import action. pYIN `notes` carries Hz; Chordino
+`chordnotes` carries MIDI units. `vamp-analysis-midi.ts` validates these semantics
+and preserves selection-relative sample timing and polyphony. Publication rechecks
+the project revision, selected range and analyzer identity, then imports at the
+selection's timeline start. It creates an ordinary MIDI source and one history
+entry; cancellation or stale project authority publishes nothing. Pitch contours
+and chromagrams cannot be interpreted as note sequences.
+
 ## Scheduling and ownership
 
 The existing chunk-stream scheduler requests 1,024-frame source windows, keeps

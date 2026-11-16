@@ -8,6 +8,7 @@ import React, { act } from 'react';
 import type {
 	VampAnalysisRequest,
 	VampAnalysisResult,
+	VampAnalyzerDescriptor,
 } from '../src/common/editor/vamp-analysis.ts';
 import { installReactTestDom, reactProps, type ReactTestElement } from './helpers/react-test-dom.ts';
 
@@ -91,9 +92,37 @@ test('Vamp dialog aborts on close and ignores completion from a replaced project
 });
 
 
+test('Vamp note results offer MIDI creation and cancel its pending publication when closed', async () => {
+	const noteAnalyzer = { ...analyzer(), outputs: [{ id: 'notes', name: 'Notes', description: '',
+		unit: 'Hz', sampleType: 'variable-sample-rate' as const, sampleRate: null, hasDuration: true }] };
+	const completion = deferred<void>();
+	const signals: AbortSignal[] = [];
+	const mounted = await mountDialog({ catalog: [noteAnalyzer],
+		analyze: async request => ({ ...resultFor(request), features: [{
+			timestamp: { seconds: 0, nanoseconds: 0 }, duration: { seconds: 0, nanoseconds: 500_000_000 }, values: [440], label: '',
+		}] }),
+		publishMidi: (_result, _name, signal) => { signals.push(signal); return completion.promise; },
+		publishLabels: () => { throw new Error('MIDI publication must not create labels.'); },
+	});
+	try {
+		assert.equal(button(mounted.dom.container, 'Create MIDI track'), null);
+		await submit(mounted.dom.container);
+		await click(mounted.dom.container, 'Create MIDI track');
+		await click(mounted.dom.container, 'Create MIDI track');
+		assert.equal(signals.length, 1);
+		await click(mounted.dom.container, 'Cancel');
+		assert.equal(signals[0]!.aborted, true);
+		completion.resolve();
+		await act(async () => { await completion.promise; });
+		assert.equal(mounted.closes(), 1);
+	} finally { await mounted.unmount(); }
+});
+
 async function mountDialog(overrides: Readonly<{
+	catalog?: readonly VampAnalyzerDescriptor[];
 	analyze?: (request: VampAnalysisRequest, signal: AbortSignal) => Promise<unknown>;
 	publishLabels?: (result: VampAnalysisResult, trackName: string) => PromiseLike<void> | void;
+	publishMidi?: (result: Readonly<VampAnalysisResult>, trackName: string, signal: AbortSignal) => Promise<void>;
 }> = {}) {
 	const dom = installReactTestDom();
 	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
@@ -108,7 +137,7 @@ async function mountDialog(overrides: Readonly<{
 	const root = createRoot(dom.container as unknown as Element);
 	let closeCount = 0;
 	const render = async (projectId: string) => act(async () => root.render(<VampAnalyzerDialog
-		catalog={[analyzer()]}
+		catalog={overrides.catalog ?? [analyzer()]}
 		projectId={projectId}
 		scope="track"
 		startFrame={1_000}
@@ -116,6 +145,7 @@ async function mountDialog(overrides: Readonly<{
 		sampleRate={48_000}
 		analyze={overrides.analyze ?? (async (request) => resultFor(request))}
 		publishLabels={overrides.publishLabels ?? (() => undefined)}
+		publishMidi={overrides.publishMidi}
 		onClose={() => { closeCount += 1; }}
 	/>));
 	await render('project-a');
