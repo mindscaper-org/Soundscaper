@@ -5,6 +5,7 @@ import { engineCutPreviewMethods } from './cut-preview.ts';
 import { engineEffectControlMethods } from './effect-control.ts';
 import { engineLifecycleMethods } from './lifecycle.ts';
 import { engineLiveAnalysisLeaseMethods } from './live-analysis-lease.ts';
+import { enginePlaybackSpectrumMethods } from './playback-spectrum.ts';
 import { installEngineMethodMaps } from './method-installer.ts';
 import { engineRenderingMethods } from './rendering.ts';
 import { engineNativeEffectPdcControlMethods } from './native-effect-pdc-control.ts';
@@ -60,6 +61,7 @@ export const ENGINE_PUBLIC_METHOD_NAMES = [
 	'subscribePosition',
 	'subscribeMeters',
 	'acquireLiveAnalysis',
+	'acquirePlaybackSpectrum',
 	'subscribeState',
 	'subscribePlaybackErrors',
 	'subscribeParametricEqErrors',
@@ -94,6 +96,7 @@ export function installEngineRuntimeMethods(target: object): void {
 		engineTransportControlMethods,
 		enginePlaybackSessionMethods,
 		engineLiveAnalysisLeaseMethods,
+		enginePlaybackSpectrumMethods,
 		engineCutPreviewMethods,
 		engineTransportAccessors,
 		engineAutomationControlMethods,
