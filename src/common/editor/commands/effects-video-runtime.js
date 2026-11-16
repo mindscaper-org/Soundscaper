@@ -51,6 +51,11 @@ function reorderEffect(project, command) {
 }
 
 function getRack(project, command) {
+	if (command.scope === 'clip') {
+		const clip = requireClip(project, command.trackId);
+		if (clip.kind !== 'audio') throw new RangeError('Clip effects require an audio clip.');
+		return clip.effects ??= [];
+	}
 	if (command.scope === 'master') return project.master.effects;
 	if (command.scope === 'track') {
 		const track = requireTrack(project, command.trackId);
@@ -66,6 +71,7 @@ function getRack(project, command) {
 export function allEffects(project) {
 	return [
 		...project.master.effects,
+		...project.clips.flatMap((clip) => clip.effects || []),
 		...project.tracks.flatMap((track) => track.effects || []),
 		...(project.mixer?.groups || []).flatMap((bus) => bus.effects || []),
 		...(project.mixer?.sends || []).flatMap((bus) => bus.effects || []),

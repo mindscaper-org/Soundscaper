@@ -28,7 +28,7 @@ export function registerEffectNode(
 
 export function effectGraphKey(scope: unknown, targetId: unknown, effectId: unknown): string {
 	const normalizedScope = String(scope || '');
-	if (!['track', 'master', 'group', 'send'].includes(normalizedScope)) {
+	if (!['clip', 'track', 'master', 'group', 'send'].includes(normalizedScope)) {
 		throw new RangeError(`Unsupported effect scope: ${normalizedScope || '(empty)'}.`);
 	}
 	if (typeof effectId !== 'string' || !effectId) throw new TypeError('A stable effect ID is required.');

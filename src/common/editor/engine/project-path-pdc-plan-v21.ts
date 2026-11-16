@@ -15,7 +15,8 @@ import {
 } from '../parameter-address.ts'
 import { effectLatencyFrames } from './effect-rack.ts'
 import { indexPdcDependencies, indexPdcOutputs, orderPdcVertices } from './project-pdc-work-index-v21.ts'
-import type { EngineEffect } from './types.ts'
+import type { EngineEffect, EngineProject } from './types.ts'
+import { projectClipEffectLatencyFrames } from './clip-effect-inputs.ts'
 
 export interface ProjectPathPdcPlanV21 {
 	readonly nodeInputLatencyFrames: ReadonlyMap<string, number>
@@ -87,9 +88,10 @@ export function compileProjectPathPdcPlanV21(
 	const orderedVertices = orderPdcVertices(states.keys(), dependencies)
 	const incomingDependencies = indexPdcDependencies(dependencies)
 	const inputFrames = new Map<string, number>()
+	const sourceLatency = projectClipEffectLatencyFrames(projectValue as EngineProject, sampleRate)
 	const outputFrames = new Map<string, number>()
 	for (const vertex of orderedVertices) {
-		let input = 0
+		let input = vertex.startsWith('track:') ? sourceLatency : 0
 		for (const dependency of incomingDependencies.get(vertex) ?? []) {
 			const sourceOutput = outputFrames.get(dependency.source)
 			if (sourceOutput === undefined) throw new TypeError(`PDC source ${dependency.source} was not compiled`)

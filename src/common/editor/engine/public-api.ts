@@ -150,7 +150,7 @@ export interface EngineScrubOptions {
 	readonly durationMs?: number;
 }
 
-export type EngineEffectScope = 'track' | 'group' | 'send' | 'master';
+export type EngineEffectScope = 'clip' | 'track' | 'group' | 'send' | 'master';
 
 export interface EngineEffectMessageOptions {
 	readonly revision?: number;

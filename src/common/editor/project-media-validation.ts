@@ -164,6 +164,8 @@ function validateClip(clip: ProjectDataRecord, inProjectBin: boolean, foundation
 		throw new RangeError(`Timeline ${prefix} cannot have a bin item ID.`);
 	}
 	if (clip.kind === 'audio') {
+		if (clip.effects !== undefined) validatePersistedAudioEffects(clip.effects, `${prefix}.effects`);
+		if (clip.effectsActive !== undefined) projectBoolean(clip.effectsActive, `${prefix}.effectsActive`);
 		const fadeIn = projectSafeInteger(clip.fadeInFrames, 0, `${prefix}.fadeInFrames`);
 		const fadeOut = projectSafeInteger(clip.fadeOutFrames, 0, `${prefix}.fadeOutFrames`);
 		if (clip.fadeInShape !== undefined) projectFiniteInRange(clip.fadeInShape, 0.15, 6, `${prefix}.fadeInShape`);

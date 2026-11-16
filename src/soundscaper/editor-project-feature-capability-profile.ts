@@ -11,7 +11,7 @@ import {
 const AVAILABLE = new Set<ProjectFeatureCapabilityKey>([
 	'project', 'literalJsonKeys', 'projectBin', 'audioImport', 'audioPlayback', 'audioTimelineEditing',
 	'audioMixing', 'videoImport', 'videoPlayback', 'videoTimelineEditing', 'videoExport',
-	'audioRecording', 'audioGenerators', 'audioEffects', 'audioSpectralEditing',
+	'audioRecording', 'audioGenerators', 'audioEffects', 'audioClipEffects', 'audioSpectralEditing',
 	'audioAnalysis', 'audioMacros', 'audioSampleEditing', 'musicalTimeline',
 	'timelineAnnotations', 'trackFolders', 'takeComp', 'audioWarp', 'sequenceTiming',
 	'videoTimingAssets', 'sourceCharacteristics', 'audioAutomation', 'audioMixerGraph',

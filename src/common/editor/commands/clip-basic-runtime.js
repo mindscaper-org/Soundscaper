@@ -117,7 +117,7 @@ export function updateClip(project, clipId, changes = {}) {
 			'gain', 'fadeInFrames', 'fadeOutFrames', 'fadeInShape', 'fadeOutShape',
 			'reversed', 'inverted', 'title', 'envelope',
 			'groupId', 'color', 'pitchCents', 'speedRatio', 'preserveFormants', 'linkPitchAndTempo',
-			'stretchToTempo', 'renderCacheRevision', 'loop',
+			'stretchToTempo', 'renderCacheRevision', 'loop', 'effectsActive',
 		]);
 	for (const key of Object.keys(changes)) if (!allowed.has(key)) throw new RangeError(`Clip field cannot be updated: ${key}.`);
 	const { loop, ...fields } = changes;

@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { clipEffectControlTrackIds } from '../../clip-effect-control-tracks.ts';
 
 import { defaultMixerChannelMapV21, mixerEndpointKeyV21, type MixerEdgeV21 } from '../../mixer-graph-v21.ts';
 import { normalizeAutomationLaneV21 } from '../../automation-lane-v21.ts';
@@ -13,7 +14,8 @@ export function createAuthoredTrackSidechainRender(
 	widths: ReadonlyMap<string, number>,
 ): IsolatedTrackRenderProjectV21 {
 	const selectedKey = mixerEndpointKeyV21({ kind: 'track', id: request.trackId });
-	const { strips, edgeIds } = mixerDetectorInputClosure(project.mixer, { kind: 'track', id: request.trackId });
+	const { strips: detectorStrips, edgeIds } = mixerDetectorInputClosure(project.mixer, { kind: 'track', id: request.trackId });
+	const strips = new Set([...detectorStrips, ...clipEffectControlTrackIds(project, new Set([request.trackId])).map(id => `track:${id}`)]);
 	const requested = request.clipIds?.length ? new Set(request.clipIds) : null;
 	const tracks = project.tracks.filter(track => strips.has(mixerEndpointKeyV21({ kind: 'track', id: track.id })))
 		.map(track => track.id === request.trackId ? { ...track, pan: 0,

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { projectEffectRacks } from './project-effects.ts';
+import { effectRackMatchesTrack, projectEffectRacks } from './project-effects.ts';
 import type { EngineProject } from './types.ts';
 
 let runtime: typeof import('./ai-denoise-runtime.ts') | undefined;
@@ -9,7 +9,7 @@ export function projectUsesAiDenoise(project: EngineProject | null | undefined,
 ): boolean {
 	return [...projectEffectRacks(project)].some(rack =>
 		!(rack.scope === 'master' && options.includeMaster === false)
-		&& !(options.trackId != null && rack.scope !== 'master' && (rack.scope !== 'track' || rack.targetId !== String(options.trackId)))
+		&& effectRackMatchesTrack(project, rack, options.trackId)
 		&& rack.effects.some(effect => effect.type === 'ai-denoise' && effect.enabled !== false && effect.bypassed !== true));
 }
 

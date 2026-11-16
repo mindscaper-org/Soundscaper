@@ -407,13 +407,14 @@ export function projectEffectTailFrames(project, {
 	const groups = new Map((project?.mixer?.groups || []).map((bus) => [String(bus.id), bus]));
 	const sends = new Map((project?.mixer?.sends || []).map((bus) => [String(bus.id), bus]));
 	const longestTrackPath = tracks.reduce((longest, track) => {
+		const clipTail = Math.max(0, ...(project.clips || []).filter(clip => track.clipIds?.includes(clip.id)).map(rackTail));
 		const route = project?.mixer?.routes?.[String(track.id)] || {};
 		const busTails = [0];
 		if (route.groupId != null) busTails.push(rackTail(groups.get(String(route.groupId))));
 		for (const [sendId, gain] of Object.entries(route.sends || {})) {
 			if (Number(gain) > 0) busTails.push(rackTail(sends.get(String(sendId))));
 		}
-		return Math.max(longest, rackTail(track) + Math.max(...busTails));
+		return Math.max(longest, clipTail + rackTail(track) + Math.max(...busTails));
 	}, 0);
 	const masterTail = includeMaster ? rackTail(project?.master) : 0;
 	return Math.min(maximum, longestTrackPath + masterTail);

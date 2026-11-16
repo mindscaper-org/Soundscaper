@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { clipEffectControlTrackIds } from '../../clip-effect-control-tracks.ts';
 import { autoTuneControlTrackIds } from '../../first-party-effects/auto-tune/project-control.ts';
 
 import {
@@ -138,6 +139,7 @@ export function createMixRenderSnapshot(
 		.map((effect) => String(effect.context?.controlTrackId || ''))
 		.filter((trackId) => findControllerTrack(snapshot, trackId)?.type === 'audio'));
 	if (renderEffects) for (const id of autoTuneControlTrackIds([...targetTracks, ...relevantBuses])) controlTrackIds.add(id);
+	if (renderEffects) for (const id of clipEffectControlTrackIds(snapshot, targetIds)) controlTrackIds.add(id);
 	const renderTrackIds = new Set([...targetIds, ...controlTrackIds]);
 	snapshot.tracks = snapshot.tracks
 		.filter((track) => track.type === 'audio' && renderTrackIds.has(track.id))
@@ -146,6 +148,7 @@ export function createMixRenderSnapshot(
 			: { ...track, gain: 0, pan: 0, mute: false, solo: false, effects: [], envelope: [] });
 	const clipIds = new Set(snapshot.tracks.flatMap((track) => (track.clipIds ?? [])));
 	snapshot.clips = snapshot.clips.filter((clip) => clipIds.has(clip.id));
+	if (!renderEffects) snapshot.clips = snapshot.clips.map(clip => ({ ...clip, effectsActive: false }));
 	const sourceIds = new Set(snapshot.clips.map((clip) => clip.sourceId));
 	snapshot.sources = snapshot.sources.filter((source) => sourceIds.has(source.id));
 	snapshot.selection = {
