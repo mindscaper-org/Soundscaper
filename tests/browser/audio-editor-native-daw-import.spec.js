@@ -34,6 +34,26 @@ test('File Import opens nested SoundCraft folders and retains the parent fader r
 	expect(edge.destination).toEqual({ kind: 'mixer-node', id: parent.id });
 });
 
+test('File Import retains a shared Ardour stereo strip instead of automating both channel pans', async ({ page }) => {
+	let editor = await bootEditor(page, '/embed/en/', { defaultWorkspace: true });
+	const xml = ardourSession().replace('</Sources>', '<Source id="11" name="voice-R.wav" type="audio" channel="0"/></Sources>')
+		.replace('source-0="10" channels="1"', 'source-0="10" source-1="11" channels="2"')
+		.replace('</Pannable>', '<Automation><AutomationList automation-id="pan-azimuth" state="Play"><events>0 .25\n48000 .75</events></AutomationList></Automation></Pannable>');
+	const wav = Buffer.from(encodeWav([new Float32Array(48000).fill(.25)], { sampleRate: 48000, float: true }));
+	await importFiles(editor, [{ name: 'Stereo.ardour', mimeType: 'application/xml', buffer: Buffer.from(xml) },
+		...['voice.wav', 'voice-R.wav'].map(name => ({ name, mimeType: 'audio/wav', buffer: wav }))]);
+	await expect(editor).toHaveAttribute('data-clip-count', '2');
+	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+	const id = await editor.getAttribute('data-project-id');
+	await page.reload(); editor = await waitForEditor(page);
+	await expect(editor).toHaveAttribute('data-project-id', id);
+	const project = await persistedProject(page, id), bus = project.mixer.groups.find(bus => bus.name === 'Dialogue');
+	expect(bus.gain).toBe(.5); expect(bus.pan).toBe(-.5);
+	expect(project.tracks.map(track => track.pan)).toEqual([-1, 1]);
+	expect(project.automationLanes).toHaveLength(1);
+	expect(project.automationLanes[0].address.strip).toEqual({ kind: 'mixer-node', id: bus.id });
+});
+
 test('File Import opens Ardour and SoundCraft audio sessions and File Open restores a SoundCraft bundle', async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/', { defaultWorkspace: true });

@@ -118,9 +118,11 @@ export function parseArdourDocument(text: string): TimelineInterchangeDocument {
 			|| flag(childElement(route, 'MuteMaster')?.attributes.muted) || route.attributes.active === 'no',
 			solo: flag(route.attributes['self-solo'] ?? route.attributes.soloed) || control(route, 'solo', 0) !== 0 };
 		const name = route.attributes.name ?? io?.attributes.name ?? playlist.attributes.name ?? '';
-		if (clips.length || !splitTracks.size) tracks.push({ id, name, kind: 'audio', clips, ...mix, ...controls });
+		if (splitTracks.size) buses.push({ id, name, channelCount: 2, ...mix, ...controls });
+		const leafMix = splitTracks.size ? { gain: 1, pan: 0, mute: false, solo: false, output: id } : { ...mix, ...controls };
+		if (clips.length || !splitTracks.size) tracks.push({ id: splitTracks.size ? `${id}:mono` : id, name, kind: 'audio', clips, ...leafMix });
 		for (const [index, clips] of splitTracks) tracks.push({ id: `${id}:${index}`, name: `${name} (${index === 0 ? 'L' : 'R'})`,
-			kind: 'audio', clips, ...mix, ...controls, pan: index === 0 ? -1 : 1 });
+			kind: 'audio', clips, ...leafMix, pan: index === 0 ? -1 : 1 });
 
 	}
 	if (playlists.length > selectedPlaylists.size) omit('alternate-playlists-omitted', 'Only active audio and MIDI playlists are imported.');
