@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { ensureCpuProfileWorklet } from './cpu-profile-instrumentation.ts';
 import { isAudacityLiveEffect } from '../audacity-effects/live-capabilities.js';
 import { BITCRUSHER_EFFECT_TYPE } from '../first-party-effects/bitcrusher/definition.js';
 import { isBandDynamicsEffect } from '../first-party-effects/dynamics/definition.ts';
@@ -58,6 +59,7 @@ export async function ensureProjectWorklets(
 	context: BaseAudioContext,
 	project: EngineProject,
 ): Promise<void> {
+	await ensureCpuProfileWorklet(context);
 	const needsDynamics = projectUsesDynamicsWorklet(project) && !dynamicsWorklet.isLoaded(context);
 	const needsDelay = projectUsesDelayWorklet(project) && !delayWorklet.isLoaded(context);
 	const needsBitcrusher = projectUsesBitcrusherWorklet(project) && !bitcrusherWorklet.isLoaded(context);

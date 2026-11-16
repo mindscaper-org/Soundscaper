@@ -529,6 +529,7 @@ export default function createApplicationMenus({
 				}] : []),
 				{ id: AUDIO_EDITOR_APPLICATION_MENU_ACTION_IDS.revertFactory, label: copy.revertFactorySettings, onClick: actions.revertFactorySettings },
 				divider(),
+				...(typeof actions.openCpuProfiling === 'function' ? [{ id: 'cpu-profiling', label: copy.cpuProfiling, onClick: actions.openCpuProfiling }] : []),
 				{ id: 'debug-storage', label: copy.debugStorage, checked: uiFlags.storagePanel, onClick: actions.toggleStoragePanel },
 				divider(),
 				...desktopHost.help,

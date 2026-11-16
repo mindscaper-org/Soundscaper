@@ -54,6 +54,7 @@ const AudacityRecoveryDialog = SOUNDSCAPER_BUILD ? lazyEditorModule(() => import
 const WorkspacePreferencesDialog = lazyEditorModule(() => import('../dialogs/WorkspacePreferencesDialog.jsx'));
 const RawPcmImportDialog = lazyEditorModule(() => import('../dialogs/ImportAnalysisDialogs.tsx').then((module) => ({ default: module.RawPcmImportDialog })));
 const RegularIntervalAnnotationDialog = lazyEditorModule(() => import('../dialogs/ImportAnalysisDialogs.tsx').then((module) => ({ default: module.RegularIntervalAnnotationDialog })));
+const CpuProfilingPanel = lazyEditorModule(() => import('../dialogs/CpuProfilingPanel.tsx'));
 const LocalDiagnosticsDialog = lazyEditorModule(() => import('../dialogs/LocalDiagnosticsDialog.tsx'));
 const PrivacyPolicyDialog = lazyEditorModule(() => import('../dialogs/PrivacyPolicyDialog.tsx'));
 const AboutDialog = lazyEditorModule(() => import('../dialogs/AboutDialog.tsx'));
@@ -175,6 +176,8 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 					</React.Suspense>
 				</div>
 			)}
+			{activeSurface === 'cpu-profiling' && fileService.isDesktop && fileService.cpuProfiler && <CpuProfilingPanel
+				bridge={fileService.cpuProfiler} project={snapshot.project} copy={copy} locale={locale} onClose={() => setActiveSurface(null)} />}
 			{activeSurface === 'local-diagnostics' && (
 				<div data-editor-surface="local-diagnostics">
 					<React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>

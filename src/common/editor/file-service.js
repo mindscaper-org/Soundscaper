@@ -84,6 +84,7 @@ export function createAudioEditorFileService(options = {}) {
 		linkedOriginalPort: linkedOriginals.port,
 		chooseLinkedAudioOriginal: linkedOriginals.chooseAudio,
 		releaseLinkedAudioOriginal: linkedOriginals.releaseAudio,
+		cpuProfiler: bridge?.cpuProfiler,
 		getEnvironment: () => bridge?.getEnvironment?.() ?? null,
 		rememberProjectFile: (value) => bridge?.rememberProjectFile?.(value) ?? null,
 		restoreProjectFile: (value) => bridge?.restoreProjectFile?.(value) ?? null,

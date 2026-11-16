@@ -7,6 +7,33 @@ optimization. The [quality diagnostics](quality-diagnostics.md) guide owns
 performance observations and correctness thresholds; build and coverage
 budgets remain in their machine-readable registers.
 
+## Desktop CPU profiling
+
+**Help → CPU profiling**, beside **Debug storage**, opens an opt-in, modeless
+panel. Start or restart playback after opening it so the next graph includes
+per-effect instrumentation. It samples for one second at a time. Closing the
+panel immediately disables markers and cancels the capture; the next playback
+graph omits the instrumentation. The ordinary browser Help menu omits this
+command because the required Chromium tracing transport is desktop-only.
+
+Conventional graphs use transparent AudioWorklet boundaries around each active
+rack slot, including native Web Audio nodes. Parallel stacks mark their actual
+worker DSP calls. Chromium's thread timestamps measure CPU time; elapsed time
+is shown separately because scheduling delays are not CPU usage. Nested
+sidechain intervals are attributed exclusively. Each rack location and effect
+instance has a separate row. Bypassed slots remain visible, and unavailable or
+unsampled values are shown as a dash rather than zero.
+
+One hundred percent is one CPU core. Basic editor is the cumulative CPU delta
+of the application and editor processes less measured effect CPU. It includes
+mixing, UI rendering, and tracing overhead. GPU and external helper processes
+are excluded. Native plug-in rows measure the renderer bridge only and say so;
+the isolated native host's DSP cost is not available through this trace.
+Developer Tools and another debugger cannot share the profiler's session.
+Captures stay in memory, have bounded attribution state, and are discarded on
+close. These diagnostic measurements include instrumentation overhead and are
+not a throughput qualification.
+
 ## Scaling contracts
 
 | Area | Contract | Focused regressions |

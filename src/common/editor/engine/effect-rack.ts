@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { profileEffectBoundary } from './cpu-profile-instrumentation.ts';
 import {
 	audacityLiveEffectCapability,
 	isAudacityLiveEffect,
@@ -145,11 +146,13 @@ export function applyEffectRack(
 	let upstreamLatencyFrames = 0;
 	for (const effect of Array.isArray(effects) ? effects : []) {
 		if (!effect || effect.enabled === false || effect.bypassed === true) continue;
+		output = profileEffectBoundary(context, output, effect, nodes, options, 'begin');
 		output = applyEffect(context, output, effect, nodes, {
 			...options,
 			sidechainDelayFrames: nonNegativeInteger(options.baseSidechainDelayFrames, 0) + upstreamLatencyFrames,
 			parameterLatencyFrames: nonNegativeInteger(options.baseParameterLatencyFrames, 0) + upstreamLatencyFrames,
 		});
+		output = profileEffectBoundary(context, output, effect, nodes, options, 'end');
 		upstreamLatencyFrames += effectLatencyFrames(effect, context.sampleRate || DEFAULT_SAMPLE_RATE);
 	}
 	return output;

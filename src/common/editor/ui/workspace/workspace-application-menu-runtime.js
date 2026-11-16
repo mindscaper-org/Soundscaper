@@ -405,6 +405,7 @@ export function createWorkspaceApplicationMenus({
 					privacyPolicy: () => openSurface('privacy-policy'),
 					support: () => openExternal(`mailto:team@mindscaper.org?subject=${encodeURIComponent(`${productProfile(productId).name} support`)}`),
 					revertFactorySettings: () => parityRuntime.actions.help.revertFactorySettings(),
+					openCpuProfiling: fileService.isDesktop && fileService.cpuProfiler ? () => openSurface('cpu-profiling') : undefined,
 					toggleStoragePanel: () => parityRuntime.actions.help.toggleStoragePanel(),
 					about: () => setDialog('about'),
 				},
