@@ -39,7 +39,7 @@ Compare Soundscaper Desktop with Audacity 4.0.2. For all editors, reviewed sourc
 | Nested track folders | + | / |
 | Project bin | + | / |
 | Project recording notes | + — Markdown | ~ — Labels |
-| Autosave and crash recovery | + | + |
+| Autosave and crash recovery | + — :: Local recovery and Audacity damage preview/repair to a new copy; available Audacity WAL data is recovered through private snapshots. | + |
 | Markers and named regions | + | ~ — Labels |
 | Tempo and time-signature maps | + | ~ — One tempo |
 | Track templates with routing | / | / |
@@ -64,11 +64,11 @@ formats that reference separate files.
 | Audacity (`.aup4`) | + — :: Audio-only import/export, with a compatibility report; Soundscaper-only state can be omitted. | + |
 | Cool Edit / Audition (`.ses`) | ~ — Import :: Recognized legacy binary layouts only; unsupported state and missing media are reported. No export. | / |
 | Audition (`.sesx`) | ~ — Import :: Imports audio tracks, clip placement, trims, simple fades, and static mixer settings. Effects, automation, routing, and other unsupported state are reported; no SESX export. | / |
-| Ardour (`.ardour`) | / | / |
+| Ardour (`.ardour`) | ~ — Import :: Audio playlists, cuts, trims, static mix settings, and explicit fades; locates nearby media or requests a folder. MIDI, plug-ins, automation, routing, and tempo maps are omitted; no export. | / |
 | Hindenburg (`.nhsx`) | / | / |
-| Pro Tools (`.ptf`) | / | / |
-| Pro Tools (`.ptx`) | / | / |
-| SoundCraft (`.scraft`, `.scraftz`) | / | / |
+| Pro Tools (`.ptf`) | ~ — Import :: Supported native PTF audio edits, track names, trims, and stereo lanes; locates the Audio Files folder. Legacy PTS is also supported. Mix settings, fades, MIDI, and plug-ins are omitted; no export. | / |
+| Pro Tools (`.ptx`) | ~ — Import :: Supported native PTX audio-edit layouts; locates the Audio Files folder. Missing media and unsupported mix settings, fades, MIDI, and plug-ins are reported; no export. | / |
+| SoundCraft (`.scraft`, `.scraftz`) | ~ — Import :: Audio cuts, trims, static mix settings, and explicit fades from sessions or bundled media. MIDI, plug-ins, automation, and routing are omitted; no export. | / |
 | FL Studio (`.flp`, ZIP) | / | / |
 | Ableton Live (`.als`) | / | / |
 | Bitwig (`.bwproject`) | / | / |
@@ -106,6 +106,7 @@ Recording depends on your browser, operating system, and audio hardware. See [re
 | Snap to zero crossings | + | + |
 | Sample-level drawing | + | + |
 | Keyboard-only editing | + | + — :: Keyboard navigation, with more editing and zoom shortcuts restored in 4.0.2 |
+| Spreadsheet-based editing | + — Clip spreadsheet :: Window → Clip spreadsheet edits clip names, tracks, sources, timing, pitch, speed, gain, fades, and polarity; supports multi-cell tabular copy/paste and row insertion. | / |
 | Linked-track edit groups | / | / |
 | Beat slicing and gap smoothing | / | / |
 | Offline effect render handles | / | / |
@@ -143,7 +144,7 @@ Soundscaper can [import Audacity keyboard shortcuts](/reference/generated/comman
 
 | Capability | Soundscaper<br>Desktop | Audacity<br>4.0.2 |
 | --- | --- | --- |
-| Built-in effect suite | + — :: Audacity-derived effects, bundled Nyquist plug-ins, and first-party effects such as Bitcrusher and De-esser | + — :: Built-in processors, generators, and bundled Nyquist plug-ins |
+| Built-in effect suite | + — :: Audacity-derived effects, bundled Nyquist and first-party effects, plus the desktop JUCE catalogue including convolution, reverbs, dynamics, modulation, and filters; native effects require the matching staged runtime. | + — :: Built-in processors, generators, and bundled Nyquist plug-ins |
 | Real-time effect rack per track | + — :: A wider real-time set than upstream; optional parallel processing for eligible built-in stacks | + |
 | Parametric EQ | + | ~ — Curve / graphic |
 | Effect presets | + | + |
@@ -159,15 +160,15 @@ Soundscaper can [import Audacity keyboard shortcuts](/reference/generated/comman
 | ARA clip editing | + — :: One mono or stereo clip through an allowed ARA-capable VST3 plug-in and matching native runtime | / |
 | Nyquist scripting | + | + |
 | Sandboxed effect packages | ~ — WebAssembly :: Reviewed WebAssembly packages, one ships and external ones are fenced | / |
-| Convolution reverb | / | / |
+| Convolution reverb | + — JUCE :: Bundled native convolution with mono/stereo WAV or AIFF impulse responses embedded in effect state; requires the matching staged desktop runtime. | / |
 | Multiband compression | + | / |
 | Guitar amp and cabinet models | / | / |
 | Automatic pitch correction | + — Auto-Tune | / |
 | Drum-hit sample replacement | / | / |
 | Native plug-in process isolation | + — :: Separate host processes per renderer owner and plug-in binary digest; instances of the same binary can share a host. | / |
-| 32-bit plug-ins in a 64-bit host | / | / |
-| Suspend idle plug-in processing | / | / |
-| Real-time true-peak limiting | / — :: The built-in limiter detects sample peaks. True-peak metering and export loudness correction do not supply a real-time true-peak limiter. | / |
+| 32-bit plug-ins in a 64-bit host | ~ — Windows x64 / VST2 :: Opt-in x86 bridge for 32-bit VST2 effects, with the matching packaged peer. Other platforms and plug-in formats retain native-architecture requirements. | / |
+| Suspend idle plug-in processing | ~ — Eligible built-ins :: Suspends supported worklet/worker effects after silence and tail reserves; unknown native plug-in tails and excluded processors keep running. | / |
+| Real-time true-peak limiting | + — Limiter :: Optional True Peak mode in the built-in Limiter, available for real-time racks and selection processing. | / |
 
 See [plug-in management](/help/local-processing/#manage-plugins-and-devices), [macro programs](/reference/macro-programs/), and [commands](/reference/generated/commands/). Desktop ARA edits one mono or stereo clip at a time, up to 128 MiB of decoded audio.
 
@@ -203,7 +204,7 @@ devices count; capabilities requiring external plug-ins retain the `/` rating.
 | Tabular note / event list | / | / |
 | MIDI keyboard recording | / | / |
 | Retrospective MIDI capture | / | / |
-| Built-in instruments | + — Four waveforms | / |
+| Built-in instruments | + — Oscillators / FM / SoundFont :: Four basic waveforms plus libADLMIDI FM and FluidSynth SoundFont reference banks, synthesized on demand in a worker. Additional native instruments are user-installed. | / |
 | Instrument plug-in hosting | + — :: VST2/VST3 instruments and Linux LV2 instruments on MIDI beta tracks, through Plugin Manager. | / |
 | Melody audio to MIDI | / | / |
 | Polyphonic audio to MIDI | / | / |
@@ -237,11 +238,11 @@ plug-ins do not turn an unavailable built-in feature into a supported one.
 
 | Capability | Soundscaper<br>Desktop | Audacity<br>4.0.2 |
 | --- | --- | --- |
-| User-sample playback instrument | / | / |
+| User-sample playback instrument | / — :: FluidSynth uses a bundled reference SoundFont; user-sample instruments require an external plug-in. | / |
 | Multisample key and velocity zones | / | / |
-| Editable subtractive synthesis | / — :: Four basic oscillator sounds; external instruments can add synthesis features. | / |
+| Editable subtractive synthesis | / — :: Basic oscillators and reference-bank engines have no instrument filter/envelope editor; external instruments can add synthesis features. | / |
 | Wavetable synthesis | / | / |
-| FM synthesis | / | / |
+| FM synthesis | + — libADLMIDI :: Built-in FM synthesis with an original reference bank; no operator/patch editor. Dexed remains an external instrument. | / |
 | Physical-modelling instruments | / | / |
 | Granular sampling | / | / |
 | Dedicated drum instrument | / | / |
@@ -273,7 +274,7 @@ A repeating timeline clip alone does not provide a clip launcher.
 | Ableton Link tempo sync | / | / |
 | Link arrangement-position sync | / | / |
 | MIDI clock send / receive | / | / |
-| MIDI timecode send / chase | / | / |
+| MIDI timecode send / chase | + — MTC / LTC :: Opt-in send and receive through Tools → Timecode synchronization, with MIDI/SysEx permission and suitable audio devices. Software transport chase, not sample-clock sync. | / |
 | CV/gate hardware integration | / | / |
 | OSC remote control | / | / |
 | Interval-synchronised network jamming | / | / |
@@ -314,7 +315,7 @@ A repeating timeline clip alone does not provide a clip launcher.
 | Clipping and RMS in the waveform | + | + |
 | Speech-intelligibility contrast | + | / — :: Disabled in Audacity 4.0.2. |
 | Live spectrum overlays from multiple tracks | / | / |
-| Per-plug-in CPU profiling | / | / |
+| Per-plug-in CPU profiling | ~ — Rack instances :: Help → CPU profiling measures CPU and elapsed time per effect. Native plug-in rows measure the renderer bridge only; isolated native DSP and helper processes are excluded. | / |
 
 Soundscaper waveform display options are in **Track visualization** and **Preferences → Track display**.
 
@@ -323,7 +324,7 @@ Soundscaper waveform display options are in **Track visualization** and **Prefer
 | Capability | Soundscaper<br>Desktop | Audacity<br>4.0.2 |
 | --- | --- | --- |
 | Channels per file | + — 32 | + — 32 |
-| Surround mixing | + — 7.1.4 | / |
+| Surround mixing | + — 7.1.4 / EAR export :: Surround mixing plus optional offline EBU EAR speaker export of authored ADM beds and static point objects, from stereo through 7.1.4. Moving/diffuse objects and arbitrary imported ADM timelines are outside the EAR adapter. | / |
 | Object-based audio | + | / |
 | ADM authoring and passthrough | + | / |
 | Binaural render | + | / |
@@ -362,7 +363,7 @@ Format ratings describe export support, not import.
 | Dither and channel mapping | + | ~ — Dither only |
 | Delivery report | + | / |
 | Render queue survives a restart | + | / |
-| Wrap effect tails into loop exports | / | / |
+| Wrap effect tails into loop exports | + — Render as loop :: Opt-in In/Out mix export wraps rendered effect remainders into the exact loop duration; native effects remain subject to their tail-discovery limits. | / |
 | Music-usage / copyright cue reports | + — Attribution :: Metadata of imported files is automatically added to Metadata editor → Attribution | / |
 
 See [export formats](/reference/generated/formats/), [clip delivery](/soundscaper/edit-mix-and-export/#export-clips), [metadata](/soundscaper/edit-mix-and-export/#project-metadata), and [podcast chapters](/soundscaper/edit-mix-and-export/#embedded-chapters).
@@ -383,7 +384,7 @@ AAF, and DAWproject.
 | Round-trip with a video editor | ~ — Framescaper copy :: File-menu handoff creates a separate editable Framescaper copy, with a conversion report | / |
 | Blender track export and live sync | + — :: WAV track bundle and one-way edit updates through the bundled Blender 4.2+ add-on | / |
 | Labels and markers exchange | + | + |
-| AES31 ADL | / | / |
+| AES31 ADL | + — Import / export :: AES31-3 audio cuts, source trims, linear fades, and static clip gain with BWF media; unsupported processing, automation, and authoring are reported. | / |
 
 Transfers can omit unsupported state; review the exchange report. See [project formats](/projects-and-data/project-files/), [Blender sync](https://github.com/LeoWattenberg/Soundscaper/blob/main/docs/development/desktop-blender.md), and [Framescaper handoff](https://github.com/LeoWattenberg/Soundscaper/blob/main/docs/decisions/product-origins.md).
 
@@ -407,9 +408,9 @@ Spoken-word assembly and publishing, beyond transcription or audio restoration.
 | Capability | Soundscaper<br>Desktop | Audacity<br>4.0.2 |
 | --- | --- | --- |
 | Automatic speech/music import levels | / | / |
-| Learned reference/voice EQ matching | / | / |
-| Automatic microphone-bleed reduction | / | / |
-| Edit audio through transcript selections | / — :: Local transcripts and reviewed cleanup proposals are available; no general transcript cut/copy/paste editor. | / |
+| Learned reference/voice EQ matching | + — Match EQ :: Learns a reference spectrum, saves portable voice/reference presets, and analyzes each target for preview or application; the correction can be edited as Filter Curve EQ. Local DSP, no model download. | / |
+| Automatic microphone-bleed reduction | + — Editable envelopes :: Offline joint analysis of two to eight aligned dialogue tracks writes non-destructive clip-gain envelopes. Local DSP, no model download. | / |
+| Edit audio through transcript selections | + — Local transcripts :: Generate transcripts with optional desktop models, then select words or timed segments to navigate, select audio, and ripple-delete speech with Undo/Redo. No general text cut/copy/paste editor. | / |
 | Direct podcast-host publishing | / | / |
 
 ## Machine assistance
