@@ -371,7 +371,7 @@ export function AudioEditorEffectsOverlay({
 							copy={copy}
 							disabled={blocked}
 							tracks={project?.tracks || []}
-								targetTrackId={effectScope === 'track' ? targetId : null}
+								targetTrackId={effectScope === 'clip' ? findClipTrack(project, targetId)?.id : effectScope === 'track' ? targetId : null}
 								automationRuntime={automationRuntime}
 								automationProject={project}
 								automationStrip={effectScope === 'track' && targetId
