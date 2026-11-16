@@ -25,6 +25,8 @@ export const EXPORT_FORMAT_COPY_BY_LOCALE = Object.freeze({
 			customArguments: 'FFmpeg output arguments (one per line)',
 			customMetadata: 'Additional metadata (JSON)',
 			includeTails: 'Include effect tails up to 10 seconds',
+			renderAsLoop: 'Render as loop',
+			renderAsLoopHint: 'Adds effect tails (like reverb) to the beginning of the loop to blend between the ends seamlessly',
 			startExport: 'Export',
 			cancelExport: 'Cancel export',
 	}),

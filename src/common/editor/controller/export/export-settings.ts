@@ -57,6 +57,7 @@ export interface EditorExportSettings {
 	readonly mimeType: unknown;
 	readonly customArguments: unknown;
 	readonly includeTail: boolean;
+	readonly renderAsLoop: boolean;
 	/** Browser MP3/M4A only: include label titles and times in the mixed file. */
 	readonly embedLabelChapters?: boolean;
 	readonly measureLoudness: boolean;
@@ -93,7 +94,7 @@ export function normalizeEditorExportSettings(
 		format,
 		bitDepth,
 		sampleFormat: value.sampleFormat || (bitDepth === 32 ? 'float32' : `int${bitDepth}`),
-		dither: value.dither ?? (bitDepth < 32 ? 'triangular' : 'none'),
+		dither: value.dither ?? 'none',
 		bitRate: isBitRateFormat(format) ? Number(value.bitRate) || defaultBitRate : undefined,
 		...(format === 'mp3' ? {
 			bitRateMode: typeof value.bitRateMode === 'string' && value.bitRateMode
@@ -120,7 +121,8 @@ export function normalizeEditorExportSettings(
 		extension: value.extension,
 		mimeType: value.mimeType,
 		customArguments: value.customArguments,
-		includeTail: value.includeTail !== false,
+		includeTail: value.includeTail === true,
+		renderAsLoop: value.renderAsLoop === true,
 		embedLabelChapters: value.embedLabelChapters === true,
 		measureLoudness: value.measureLoudness === true,
 		binaural: value.binaural === true,

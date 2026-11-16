@@ -38,6 +38,14 @@ Options are validated before expensive work or destination publication.
 Unknown versions, unsupported combinations, unavailable capabilities, and
 losses that cannot be represented truthfully are typed refusals.
 
+Audio export defaults to no dither and no appended effect tail. The optional
+In/Out **Render as loop** delivery renders the isolated loop and its effect
+remainder (up to ten seconds), then sums the remainder modulo the loop length
+before channel mapping, resampling, normalization, or encoding. The output
+retains exactly the loop's duration. Offline renders fold planar PCM in place;
+streamed renders fold a temporary PCM spool with bounded memory. Audio before
+In does not supply effect history, and loop wrapping is recorded in the report.
+
 Every conversion, omission, fallback, and conformance result appears in a
 delivery report. The shared dispositions are `preserved`, `converted`,
 `missing`, and `omitted`. Successful output with an unreported conversion is a

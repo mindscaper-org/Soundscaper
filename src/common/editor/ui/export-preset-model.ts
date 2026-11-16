@@ -36,7 +36,7 @@ import {
 export const PRESET_SETTING_KEYS: Readonly<Record<DeliveryPresetKind, readonly string[]>> = Object.freeze({
 	audio: Object.freeze([
 		'sampleRate', 'channelMapping', 'sampleFormat', 'dither',
-		'bitRate', 'quality', 'compressionLevel', 'mode', 'chapterSource', 'includeTail', 'binaural',
+		'bitRate', 'quality', 'compressionLevel', 'mode', 'chapterSource', 'includeTail', 'renderAsLoop', 'binaural',
 		'loudnessNormalization', 'embedLabelChapters',
 		'bitRateMode', 'bitRatePreset', 'vbrQuality', 'averageBitRate', 'vbrMode',
 	]),
@@ -74,8 +74,8 @@ const VIDEO_CANVAS_LIMIT_KEYS: Readonly<Record<string, string>> = Object.freeze(
 const AUDIO_PRESET_DIALOG_DEFAULTS = Object.freeze({
 	loudnessNormalization: '', bitRatePreset: '2', vbrQuality: '2', averageBitRate: '192',
 	vbrMode: 'on', chapterSource: 'labels', embedLabelChapters: false,
-	mode: 'mix', channelMapping: 'preserve', channelMatrix: '', dither: 'triangular', binaural: false,
-	includeTail: true, bitRate: '192', quality: '5', compressionLevel: '5',
+	mode: 'mix', channelMapping: 'preserve', channelMatrix: '', dither: 'none', binaural: false,
+	includeTail: false, renderAsLoop: false, bitRate: '192', quality: '5', compressionLevel: '5',
 });
 const VIDEO_PRESET_DIALOG_DEFAULTS = Object.freeze({
 	canvasWidth: '', canvasHeight: '', canvasFit: CANVAS_FIT_DEFAULT, canvasFrameRate: '',

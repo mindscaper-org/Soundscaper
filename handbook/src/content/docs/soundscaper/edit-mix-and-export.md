@@ -316,6 +316,13 @@ Choose **File → Export audio** for a mixed delivery or **Export selected audio
 when only a selection should be rendered. Soundscaper can also export stems and
 labels.
 
+Dither and **Include effect tails up to 10 seconds** start disabled. To export
+a repeating loop, choose **In/Out (looping region)** under **Output**, then enable
+**Render as loop** in **Rendering**. This wraps effect tails, such as reverb or
+delay, into the beginning while keeping the file exactly as long as the loop.
+Tails up to ten seconds are wrapped, including multiple turns for short loops.
+The option starts disabled and replaces appended effect tails while enabled.
+
 ### Export clips as separate files {#export-clips}
 
 Choose **File → Export audio** and set **Output** to **Individual clips (split

@@ -115,7 +115,8 @@ export function createExportDialogRequest(settings, options = {}) {
 		extension: settings.customExtension,
 		mimeType: settings.customMimeType,
 		customArguments: settings.customArguments.split(/\r?\n/).map((argument) => argument.trim()).filter(Boolean),
-		includeTail: settings.mode === 'clips' ? false : settings.includeTail,
+		includeTail: settings.mode === 'clips' || (settings.range === 'loop' && settings.renderAsLoop) ? false : settings.includeTail,
+		...(settings.range === 'loop' && settings.mode === 'mix' && settings.renderAsLoop === true ? { renderAsLoop: true } : {}),
 		...(settings.embedLabelChapters === true && exportDialogSupportsEmbeddedChapters(settings)
 			&& (options.project === undefined || exportDialogHasDeliveredChapterLabels(options.project, settings))
 			? { embedLabelChapters: true } : {}),

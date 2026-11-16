@@ -1,3 +1,4 @@
+import { exportRendersAsLoop } from './export-loop.ts';
 import { projectEffectTailFrames } from './effects.js';
 import { fitExportFileName } from './export-name-byte-budget.ts';
 import { createBwfExportMetadata, projectBextMetadata } from './broadcast-wave-project.ts';
@@ -97,6 +98,7 @@ export const FAST_RENDER_THRESHOLDS = Object.freeze({
  * @property {import('./binaural-delivery.ts').BinauralDeliveryPlan} [binaural]
  * @property {import('./mastering-sequence-delivery.ts').MasteringSequenceDeliveryPlan} [masteringSequence]
  * @property {{startFrame: number, endFrame: number, durationFrames: number}} range
+ * @property {boolean} [renderAsLoop]
  * @property {number} tailFrames
  */
 
@@ -186,6 +188,7 @@ export function createExportFileName(project, options = {}) {
 export function createExportPlan(project, options = {}) {
 	const runtimeProject = inheritTrackFolderMediaStateProjectionV12(project, projectForRuntimeConsumers(project));
 	const mode = options.mode || 'mix';
+	const renderAsLoop = exportRendersAsLoop(options);
 	if (mode !== 'mix' && mode !== 'stems' && mode !== 'chapters' && mode !== 'clips') {
 		throw new RangeError('Export mode must be mix, stems, chapters, or clips.');
 	}
@@ -193,6 +196,7 @@ export function createExportPlan(project, options = {}) {
 	assertEmbeddedChapterRequest(format, options);
 	if (format === 'bw64' && mode !== 'mix') throw new RangeError('BW64 / ADM export is mix-only.');
 	const bw64Adm = format === 'bw64' ? resolveBw64Adm(runtimeProject, options) : null;
+	if (renderAsLoop && bw64Adm?.metadata.mode === 'passthrough') throw new RangeError('ADM passthrough cannot render as loop.');
 	const binaural = resolveBinauralBw64Delivery(runtimeProject, options, format, mode);
 	let encoding = normalizeMediaExportSettings(format, {
 		...options,
@@ -282,7 +286,7 @@ export function createExportPlan(project, options = {}) {
 	// Sequences, chapters and clips deliver their authored extents without tails.
 	const tailFrames = masteringSequence || spans
 		? 0
-		: determineTailFrames(runtimeProject, mode, options.includeTail !== false);
+		: determineTailFrames(runtimeProject, mode, renderAsLoop || options.includeTail === true);
 	const outputFrameCount = (durationFrames) => scaleSampleFrame(
 		durationFrames, runtimeProject.sampleRate, sampleRate, 'enclosingEnd',
 	);
@@ -296,7 +300,7 @@ export function createExportPlan(project, options = {}) {
 		? masteringSequence.outputFrames
 		: spanOutputFrames
 			? Math.max(...spanOutputFrames)
-			: rangeOutputFrames + tailOutputFrames;
+			: rangeOutputFrames + (renderAsLoop ? 0 : tailOutputFrames);
 	encoding = createEmbeddedChapterEncoding(encoding, runtimeProject, options, range, { rangeOutputFrames, deliveryOutputFrames: outputFrames });
 	const adm = bw64Adm ? createBw64AdmExport(runtimeProject, bw64Adm, {
 		range,
@@ -485,6 +489,7 @@ export function createExportPlan(project, options = {}) {
 		...(masteringSequence ? { masteringSequence: masteringSequence.plan } : {}),
 		range: masteringSequence ? masteringSequence.sourceRange : range,
 		tailFrames,
+		...(renderAsLoop ? { renderAsLoop } : {}),
 		outputFrames,
 		outputBytesPerRender: outputBytes,
 		// Spans differ in length; each output and archive entry states its own size.

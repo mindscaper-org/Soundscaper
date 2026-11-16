@@ -23,8 +23,17 @@ export default function ExportRenderingSection({ copy, settings, exporting, admP
 				{/* Chapters and clips deliver exactly their own spans. */}
 				{settings.mode !== 'chapters' && settings.mode !== 'clips' && <div className="audio-editor-export-check" data-export-field="tails">
 					<span aria-hidden="true" />
-					<DesignCheckbox label={copy.includeTails} checked={settings.includeTail} disabled={exporting || admPassthrough} onChange={(checked) => onChange('includeTail', checked)} />
+					<DesignCheckbox label={copy.includeTails} checked={settings.includeTail && !(settings.range === 'loop' && settings.renderAsLoop)} disabled={exporting || admPassthrough || (settings.range === 'loop' && settings.renderAsLoop)} onChange={(checked) => onChange('includeTail', checked)} />
 				</div>}
+				{settings.range === 'loop' && settings.mode === 'mix' && !settings.masteringSequenceId && (
+					<div className="audio-editor-export-check" data-export-field="renderAsLoop">
+						<span aria-hidden="true" />
+						<span className="audio-editor-help-label">
+							<DesignCheckbox label={copy.renderAsLoop} checked={settings.renderAsLoop} disabled={exporting || admPassthrough} onChange={(checked) => onChange('renderAsLoop', checked)} />
+							<EditorHelpTooltip subject={copy.renderAsLoop} description={copy.renderAsLoopHint} helpLabel={copy.helpMenu} hook="renderAsLoop" />
+						</span>
+					</div>
+				)}
 				{binauralAvailable && (
 					<div className="audio-editor-export-check" data-export-field="binaural">
 						<span aria-hidden="true" />

@@ -185,7 +185,8 @@ export interface EngineRenderMixOptions {
 	readonly includeTrackPan?: boolean;
 	readonly respectMuteSolo?: boolean;
 	readonly outputFrames?: number | null;
-	readonly preRollFrames?: number;
+	/** false isolates the range from earlier audio; numbers retain automatic effect history. */
+	readonly preRollFrames?: number | false;
 	readonly signal?: AbortSignal | null;
 	readonly onProgress?: ((progress: EngineProgress) => void) | null;
 }

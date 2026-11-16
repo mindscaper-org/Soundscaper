@@ -63,6 +63,8 @@ interface AudioDeliveryPlan {
 	readonly ixmlFileUidOmitted?: unknown;
 	readonly masteringSequence?: unknown;
 	readonly binaural?: unknown;
+	readonly renderAsLoop?: boolean;
+	readonly tailFrames?: number;
 }
 
 /** Every conversion and preservation the plan implies, in a stable order. */
@@ -140,6 +142,10 @@ export function inventoryDeliveryConversions(
 		});
 	}
 
+	if (plan.renderAsLoop) conversions.push({
+		code: 'delivery.loop-wrap', disposition: 'converted', severity: 'info',
+		data: { tailFrames: plan.tailFrames },
+	});
 	const ditherMode = typeof plan.ditherMode === 'string' ? plan.ditherMode : null;
 	if (ditherMode && ditherMode !== 'none') {
 		conversions.push({
