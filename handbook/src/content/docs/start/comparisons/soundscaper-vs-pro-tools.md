@@ -44,7 +44,7 @@ sidebar:
 | Tempo and time-signature maps | + | + |
 | Track templates with routing | / | + — Track Presets |
 | Named session snapshots | / | / |
-| Selection and view memories | / | + — Memory Locations :: Recalls edit selections, track visibility, heights, zoom, and pre/post-roll as well as markers. |
+| Selection and view memories | ~ — Macro programs :: Saved programs can remember selections and timeline views in their own source; no dedicated memory-location manager. | + — Memory Locations :: Recalls edit selections, track visibility, heights, zoom, and pre/post-roll as well as markers. |
 | Nested subprojects with automatic proxy updates | / | / |
 
 Before moving a desktop project, [consolidate its media](/projects-and-data/project-files/).

@@ -11124,7 +11124,7 @@
 			"currentControls": [
 				{
 					"id": "macro-program-sandbox-and-dispatch-table",
-					"summary": "A macro program is the body of a module worker built from a blob URL, and neither shipped policy grants 'unsafe-eval', so in production the program cannot compile further code. The worker prelude reduces the realm by allowlist along the whole prototype chain rather than by deleting named properties, because the worker APIs that matter are accessor properties for which delete is a silent no-op: fetch, XMLHttpRequest, WebSocket, indexedDB, caches, Blob, URL, Worker, BroadcastChannel, WebAssembly, Atomics, crypto, navigator, location and the timers are all made undefined and non-configurable, postMessage and addEventListener are captured into a closure before removal so protocol traffic cannot be forged, and Date, performance.now and Math.random read a virtual clock and a seeded PRNG so a run is reproducible. The security boundary is the host dispatch table, not the prelude: a fixed set of reader and mutator method names is served and anything else is refused, so recording, audio and video devices, other projects, file reads and writes, exports, preferences, persistent storage and the Nyquist evaluator have no name to call. Cancellation, the deadline and any failure all terminate the worker, which is discarded after every run. A run's mutations are collapsed into one undo entry and rolled back on failure.",
+					"summary": "A macro program is the body of a module worker built from a blob URL, and neither shipped policy grants 'unsafe-eval', so in production the program cannot compile further code. The worker prelude reduces the realm by allowlist along the whole prototype chain: fetch, XMLHttpRequest, WebSocket, indexedDB, caches, Blob, URL, Worker, BroadcastChannel, WebAssembly, Atomics, crypto, navigator, location and the timers are made undefined and non-configurable. postMessage and addEventListener are captured into a closure before removal, and the clock and random numbers use the existing deterministic run environment. The security boundary is the host's closed dispatch table and bounded plain-data admission. A program may control the open project's timeline zoom, scroll coordinates, track heights, audio display modes, and supported video visibility; no DOM or window capability crosses the boundary. Scroll writes wait for layout and recheck the active project and viewport binding before applying. Project edits form one Undo entry; zoom and scrolling remain transient. Failure or cancellation compensates transient view changes only while the original project remains current. A saved program may read its running or staged source and queue a bounded replacement for its own explicit saved identity. The manager and palette bind that identity; ad hoc and temporary batch runs cannot replace saved programs. Source is published only at successful settlement, with an exact record comparison that refuses concurrent editing, renaming, deletion, or a read-only library. A refused history commit compensates its own source publication without overwriting a newer library edit. Source changes use the ordinary asynchronous settings-saving path, preserve provenance, and remain outside project Undo. Replacement text runs only after another explicit Run action. General persistent storage, other library entries, other projects, arbitrary preferences, raw command dispatch, devices, project file operations and the Nyquist evaluator remain unavailable. Failure, cancellation and deadline terminate the worker; workers are discarded after every run. Persisted effect sources and analyses retain their existing collection lifecycle.",
 					"evidence": [
 						{
 							"kind": "implementation",
@@ -11153,6 +11153,34 @@
 						{
 							"kind": "test",
 							"path": "tests/browser/audio-editor-macro-script.spec.js"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/editor/controller/effects/internal/macro/macro-view-service.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/editor/controller/effects/internal/macro/macro-self-edit.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "src/common/editor/ui/timeline/useMacroTimelineViewport.ts"
+						},
+						{
+							"kind": "test",
+							"path": "tests/audio-editor-macro-view-self-edit.test.ts"
+						},
+						{
+							"kind": "test",
+							"path": "tests/audio-editor-macro-self-edit.test.ts"
+						},
+						{
+							"kind": "test",
+							"path": "tests/audio-editor-macro-view-service.test.ts"
+						},
+						{
+							"kind": "test",
+							"path": "tests/browser/audio-editor-macro-view-self-edit.spec.js"
 						}
 					],
 					"policyAuthority": "family-v1-active"

@@ -22,7 +22,7 @@ export function readHandbookMacroPrograms(): readonly HandbookMacroProgram[] {
 			continue;
 		}
 		const headed = /^#{2,3}\s+(.+)$/u.exec(line);
-		if (headed?.[1]) heading = headed[1].replace(/`/gu, '');
+		if (headed?.[1]) heading = headed[1].replace(/`/gu, '').replace(/\s+\{#[^}]+\}$/u, '');
 		else if (line.trim() === '```js') fence = [];
 	}
 	return programs;

@@ -240,6 +240,15 @@ function createApi() {
 			clips: (trackId) => call('project.clips', trackId ?? null),
 			selection: () => call('project.selection'),
 		},
+		view: {
+			snapshot: () => call('view.snapshot'),
+			set: mutating('view.set'),
+			zoom: mutating('view.zoom'),
+		},
+		self: {
+			source: () => call('self.source'),
+			replaceSource: mutating('self.replaceSource'),
+		},
 		select: {
 			time: (start, end, options) => mutating('select.time')(start, end, options ?? null),
 			frames: (startFrame, endFrame, options) => mutating('select.frames')(startFrame, endFrame, options ?? null),

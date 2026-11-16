@@ -7,8 +7,9 @@ sidebar:
 
 A macro program is a macro written as JavaScript instead of as a list of steps.
 It runs inside the editor against a small API called `sound`, which lets it read
-the open project, move the selection, find repeated sounds, and apply effects
-and editing commands. On desktop it can ask for reference audio files you
+the open project, move the selection, control the timeline view, find repeated
+sounds, and apply effects and editing commands. A saved program can replace its
+own source for its next run. On desktop it can ask for reference audio files you
 explicitly choose. General file access, the network and your other projects
 remain outside its API.
 
@@ -75,10 +76,12 @@ whatever a program manages to send it.
 
 ## Running a program
 
-Press **Run macro**. The whole run is one entry in the project's history, so
-one **Undo** reverses everything the program did, however many changes it made.
-If the program throws, or is cancelled, or runs past its deadline, the project is
-put back exactly as it was before the run began.
+Press **Run macro**. The run's project edits form one entry in the project's
+history. Zoom and scrolling are transient view state; source replacements are
+editor settings, outside project Undo. If the program throws, is cancelled, or
+runs past its deadline, its project edits and view changes are rolled back and
+its queued source replacement is discarded. A project switch never restores a
+view into the newly opened project.
 
 **Cancel run** stops a program at once. A program that has been running for two
 minutes is stopped the same way, with the message *The macro ran for longer than
@@ -178,6 +181,102 @@ when `trackId` is omitted:
 
 ```json
 { "startFrame": 0, "endFrame": 96000, "trackIds": ["track-…"] }
+```
+
+### `sound.view` {#sound-view}
+
+`sound.view.snapshot()` returns the current timeline view: `projectId`,
+`pixelsPerSecond`, `autoFitTrackHeight`, `view`, and `tracks`. Each track has
+`id` and `height`; audio tracks also have `displayMode`, and video
+tracks have `hidden`. When a timeline is mounted, the snapshot includes
+`scrollX` and `scrollY` in content pixels. Horizontal coordinates continue to
+work at sample-level zoom, where browser scrolling uses a scaled surface.
+
+`sound.view.set(options)` restores a snapshot or changes only the supplied
+fields, and returns the resulting snapshot. A supplied `projectId` must match
+the open project. `tracks` is an array of existing, unique track IDs and the
+presentation fields to change; it cannot change audio, routing, names, or other
+track settings. Heights are safe integers of at least 40 pixels. Setting a height
+turns off automatic height fitting unless `autoFitTrackHeight` is supplied.
+Audio display modes are `waveform`, `spectrogram`, `multiview`, `half-wave`,
+`waveform-three-band`, and `waveform-rainbow`; `view` accepts the same values.
+`hidden` is available only on video tracks. Audio and label tracks retain their
+existing visibility behavior.
+
+`pixelsPerSecond` must be positive and is clamped to the editor's zoom limits.
+Scroll positions must be nonnegative; the browser clamps them to the available
+content. Setting scroll coordinates requires a mounted timeline and waits for
+layout after zoom or height changes. A headless **Apply to files** run has no
+scroll viewport. Omitted fields stay unchanged. Unknown fields and invalid
+values are refused before changes are applied.
+
+`sound.view.zoom(direction)` runs the existing timeline zoom operation with
+`'in'`, `'out'`, or `'fit'`, and returns the resulting snapshot. Each `set` or
+`zoom` call counts as one change. Track presentation edits join the run's Undo
+entry; zoom, automatic height fitting, and scrolling do not create Undo entries.
+These methods control the timeline, not workspace panels or application windows.
+
+```js
+const previous = await sound.view.snapshot();
+await sound.view.zoom('in');
+await sound.view.set(previous);
+```
+
+### `sound.self` {#sound-self}
+
+`sound.self.source()` returns this run's program text, or its latest queued
+replacement. `sound.self.replaceSource(text)` queues replacement text for the
+same saved program, returning `null`. It never executes that text during the
+current run. The last replacement wins. Text has the same 256 KiB limit as a
+program in the manager; even empty or syntactically invalid text can be saved,
+so inspect the result before running it again.
+
+Replacement requires the explicit saved identity supplied by the Macro manager
+or Macros palette. A program cannot choose another program's ID, rename itself,
+or read or write other library entries. Ad hoc and temporary **Apply to files**
+runs can read their own source but cannot replace a saved program.
+
+The replacement is published only when the run succeeds, through the same
+settings-saving path used by the manager. Deleting, editing, or renaming the
+saved program during a run causes replacement to fail and the run to roll back;
+the user's newer library edit is preserved. A read-only library also refuses
+replacement. Project Undo does not undo a successful source replacement.
+Replacing source does not grant general storage, file, or network access.
+
+For example, this program keeps its run count in its own first line:
+
+```js
+const runs = 0;
+sound.log.info(`Run ${runs + 1}`);
+const source = await sound.self.source();
+await sound.self.replaceSource(source.replace(/^const runs = \d+;/u, `const runs = ${runs + 1};`));
+```
+
+### A selection and view memory {#selection-view-memory}
+
+Create a saved program with the following text. The first run remembers the
+current selection and timeline view by replacing itself. Later runs recall
+them. The memory belongs to that project; another project is refused. Reset
+the memory by restoring this original text in the manager.
+
+```js
+async function memory(saved) {
+  if (saved) {
+    await sound.view.set(saved.view);
+    await sound.select.frames(saved.selection.startFrame, saved.selection.endFrame, {
+      trackIds: saved.selection.trackIds,
+    });
+    sound.log.info('Recalled selection and view.');
+    return;
+  }
+  const captured = {
+    view: await sound.view.snapshot(),
+    selection: await sound.project.selection(),
+  };
+  await sound.self.replaceSource(`const memory = ${memory.toString()};\nawait memory(${JSON.stringify(captured)});`);
+  sound.log.info('Remembered selection and view.');
+}
+await memory(null);
 ```
 
 ### `sound.select`
@@ -484,7 +583,8 @@ Transport and recording commands are absent because a program has nothing to
 wait for and cannot be rolled back out of a recording. Opening, saving, closing,
 importing, exporting and preferences are absent because a program's reach is the
 one project that was open when it started. Commands that only open a dialog or
-change the view are absent because they change nothing in the project.
+change the view are absent from `sound.command`. Use `sound.view` for timeline
+view controls.
 
 ## Sharing programs {#sharing-programs}
 

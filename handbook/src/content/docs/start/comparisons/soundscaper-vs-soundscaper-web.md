@@ -44,7 +44,7 @@ sidebar:
 | Tempo and time-signature maps | + | + |
 | Track templates with routing | / | / |
 | Named session snapshots | / | / |
-| Selection and view memories | / | / |
+| Selection and view memories | ~ — Macro programs :: Saved programs can remember selections and timeline views in their own source; no dedicated memory-location manager. | ~ — Macro programs :: Saved programs can remember selections and timeline views in their own source; no dedicated memory-location manager. |
 | Nested subprojects with automatic proxy updates | / | / |
 
 Before moving a desktop project, [consolidate its media](/projects-and-data/project-files/).
