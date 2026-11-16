@@ -5,7 +5,7 @@ export const IMPORT_FILE_EXTENSIONS = Object.freeze([
 	'.aac', '.ac3', '.aif', '.aifc', '.aiff', '.amr', '.ape', '.au', '.bw64', '.bwf', '.dts', '.eac3', '.flac', '.iff',
 	'.m4a', '.m4v', '.mka', '.mov', '.mp1', '.mp2', '.mp3', '.mp4', '.oga', '.ogg', '.opus', '.paf', '.rf64',
 	'.sbc', '.sds', '.sf', '.snd', '.sph', '.spx', '.tta', '.voc', '.w64', '.wav', '.wave', '.wavpack', '.webm', '.wma', '.wv',
-	'.cue', '.txt', '.srt', '.vtt', '.mid', '.midi', '.gro', '.edl', '.otio', '.fcpxml', '.omf', '.omfi', '.aaf',
+	'.cue', '.txt', '.srt', '.vtt', '.mid', '.midi', '.gro', '.edl', '.otio', '.fcpxml', '.omf', '.omfi', '.aaf', '.adl', '.adl.zip',
 	'.ardour', '.scraft', '.scraftz',
 	'.ptx', '.ptf', '.pts',
 ] as const);
@@ -17,5 +17,5 @@ const IMPORT_SUFFIXES: ReadonlySet<string> = new Set(IMPORT_FILE_EXTENSIONS);
 export function isImportFileName(value: unknown): boolean {
 	if (typeof value !== 'string') return false;
 	const basename = value.slice(Math.max(value.lastIndexOf('/'), value.lastIndexOf('\\')) + 1).toLowerCase();
-	return IMPORT_SUFFIXES.has(basename.slice(basename.lastIndexOf('.')));
+	return basename.endsWith('.adl.zip') || IMPORT_SUFFIXES.has(basename.slice(basename.lastIndexOf('.')));
 }

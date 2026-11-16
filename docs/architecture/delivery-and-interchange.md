@@ -243,6 +243,29 @@ references. The AAF reader, writer and standard dictionary load on demand;
 normal products require no Python runtime. The dictionary seed and independent
 reader checks are described in the conformance reference.
 
+AES31 ADL imports standalone `.adl` EDML documents and `.adl.zip` transport
+packages through Open, Import and drop. The audio profile supports 44.1/48 kHz,
+24/25/30 fps non-drop timecode and 30000/1001 drop-frame timecode. Sample
+remainders, source origins, cut placement, source trims, static clip gain and
+linear fades are retained. Mono/stereo channel selections are materialized into
+derived PCM sources, including selections from larger source files. Missing
+media remains an offline edit; ambiguous filenames are never chosen arbitrarily.
+
+File > Export other > Export AES31 ADL writes an `.adl.zip` containing a plain
+EDML list and whole 24-bit BWF sources with matching originator references and
+zero source origins. Extract the package before opening its ADL in another DAW.
+Overlaps use separate destination channels. The profile reports omitted native
+track names, nonlinear fades, effects, routing, automation, markers and video;
+retimed, reversed and repeated clips require rendering before exchange and are
+reported as omitted. ASCII conversion and PCM quantization are reported.
+Unsupported clocks are refused, never approximated. XML AES31-4 is outside this
+profile, and independent DAW conformance remains explicitly unverified.
+
+Exports stream to prepared destinations, with a 256 MiB limit on download-only
+packages. Package imports admit at most 10,000 entries and 512 MiB of expanded
+bytes, validate paths and CRCs, and require exactly one ADL. Standalone linked
+media uses the existing desktop folder authority or selected browser companions.
+
 DAWproject is project exchange, not a rendered edit list. Muted tracks are
 exported as muted rather than omitted. Exact sample positions, beat-positioned
 tempo and signature maps, and float32 WAV media preserve the maintained scope.

@@ -16,13 +16,13 @@ const PROJECT_EXTENSIONS = Object.freeze(
 );
 const NATIVE_PROJECT_EXTENSION = PROJECT_FILE_EXTENSION.slice(1);
 const MEDIA_IMPORT_EXTENSIONS = Object.freeze([
-	'aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'cue', 'edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf', 'flac', 'gro', 'm4a', 'm4v', 'mid', 'midi', 'mka', 'mov', 'mp2', 'mp3', 'mp4',
+	'aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'cue', 'edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf', 'adl', 'zip', 'flac', 'gro', 'm4a', 'm4v', 'mid', 'midi', 'mka', 'mov', 'mp2', 'mp3', 'mp4',
 	'oga', 'ogg', 'opus', 'rf64', 'srt', 'txt', 'vtt', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv',
 	'ardour', 'scraft', 'scraftz',
 	'ptx', 'ptf', 'pts',
 ]);
 const AUDIO_VIDEO_IMPORT_EXTENSIONS = Object.freeze(MEDIA_IMPORT_EXTENSIONS.filter(
-	(extension) => !['cue', 'gro', 'mid', 'midi', 'srt', 'txt', 'vtt', 'edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf', 'ardour', 'scraft', 'scraftz', 'ptx', 'ptf', 'pts'].includes(extension),
+	(extension) => !['cue', 'gro', 'mid', 'midi', 'srt', 'txt', 'vtt', 'edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf', 'adl', 'zip', 'ardour', 'scraft', 'scraftz', 'ptx', 'ptf', 'pts'].includes(extension),
 ));
 const PROJECT_OPEN_EXTENSIONS = Object.freeze([
 	...new Set([...PROJECT_EXTENSIONS, 'aup', 'aup3', 'aup4', 'dawproject', 'ses', 'sesx', ...MEDIA_IMPORT_EXTENSIONS]),
@@ -122,7 +122,7 @@ const SAVE_PURPOSES = Object.freeze({
 	// here rather than each adding a purpose of its own.
 	interchange: Object.freeze({
 		defaultExtension: 'edl',
-		filters: [{ name: 'Edit interchange', extensions: ['edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf', 'xml', 'dawproject', 'mid', 'midi', 'gro'] }],
+		filters: [{ name: 'Edit interchange', extensions: ['edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf', 'adl', 'zip', 'xml', 'dawproject', 'mid', 'midi', 'gro'] }],
 	}),
 	translation: Object.freeze({
 		defaultExtension: 'json',
@@ -249,6 +249,7 @@ export function acceptsFile(purpose, filePath) {
 	if (!Object.hasOwn(FILE_PURPOSES, purpose)) return false;
 	const definition = FILE_PURPOSES[purpose];
 	const extension = extname(String(filePath || '')).slice(1).toLowerCase();
+	if (extension === 'zip' && ['project', 'media'].includes(purpose)) return /\.adl\.zip$/iu.test(String(filePath));
 	return definition.extensions.includes(extension);
 }
 

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { parseAdlDocument } from './aes31-import.ts';
 import { parseEdlTimeline } from './timeline-interchange-edl-import.ts';
 import { parseOtioTimeline } from './timeline-interchange-otio-import.ts';
 import { parseFcpxmlTimeline } from './timeline-interchange-fcpxml-import.ts';
@@ -13,6 +14,7 @@ export function parseTimelineInterchange(fileName: string, text: string,
 	if (typeof text !== 'string' || new TextEncoder().encode(text).byteLength > TIMELINE_INTERCHANGE_MAXIMUM_BYTES) {
 		throw new RangeError('The timeline interchange document exceeds the text byte limit.');
 	}
+	if (/\.adl$/iu.test(fileName)) return parseAdlDocument(text);
 	if (/\.edl$/iu.test(fileName)) return parseEdlTimeline(text, options.edlRate);
 	if (/\.otio$/iu.test(fileName)) return parseOtioTimeline(text);
 	if (/\.ardour$/iu.test(fileName)) return parseArdourDocument(text);

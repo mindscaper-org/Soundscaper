@@ -43,6 +43,7 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	['new-midi-track', 'MIDI track (beta)', 'Tracks > Add new track', SOUNDSCAPER],
 	['export-otio', 'Export OpenTimelineIO', 'File > Export other', BOTH],
 	['export-fcpxml', 'Export FCPXML', 'File > Export other', BOTH],
+	['export-adl', 'Export AES31 ADL', 'File > Export other', BOTH],
 	['export-aaf', 'Export AAF', 'File > Export other', BOTH],
 	['export-omf', 'Export OMF', 'File > Export other', BOTH],
 	['export-dawproject', 'Export DAWproject', 'File > Export other', BOTH],

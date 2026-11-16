@@ -29,3 +29,12 @@ test('AAF parsing, writing and embedded export stay behind optional interchange 
 	}
 	assert.equal(chunkGroupForModulePath('src/common/editor/controller/export/internal/embedded-audio-interchange-export-action.ts'), 'editor-optional-export');
 });
+
+test('AES31 codecs, packages and media staging stay behind optional interchange entries', () => {
+	for (const name of ['edml', 'time', 'import', 'export', 'package']) {
+		const path = `src/common/editor/aes31-${name}.ts`;
+		assert.ok(EDITOR_OPTIONAL_ARCHIVE_CHUNK_TEST.test(path), path);
+		assert.equal(chunkGroupForModulePath(path), null, path);
+	}
+	assert.equal(chunkGroupForModulePath('src/common/editor/controller/export/internal/aes31-export-action.ts'), 'editor-optional-export');
+});

@@ -3,7 +3,7 @@
 import type { Rational } from './timeline-time.ts';
 import type { DeliveryReportItem } from './delivery-report.ts';
 
-export type TimelineInterchangeFormat = 'edl' | 'otio' | 'fcpxml' | 'omf' | 'aaf' | 'ardour' | 'soundcraft' | 'protools';
+export type TimelineInterchangeFormat = 'edl' | 'otio' | 'fcpxml' | 'omf' | 'aaf' | 'adl' | 'ardour' | 'soundcraft' | 'protools';
 export interface TimelineInterchangeClip {
 	readonly id: string;
 	readonly name: string;
@@ -39,6 +39,8 @@ export interface TimelineInterchangeMedia {
 	readonly blob?: Blob;
 	/** Original filenames retained when the interchange URL is a managed key. */
 	readonly aliases?: readonly string[];
+	/** Zero-based source channels materialized into a derived PCM source. */
+	readonly channelIndices?: readonly number[];
 }
 export interface TimelineInterchangeDocument {
 	readonly format: TimelineInterchangeFormat;

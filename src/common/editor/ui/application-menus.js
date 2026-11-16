@@ -277,6 +277,7 @@ export default function createApplicationMenus({
 							onClick: actions.exportFcpxml,
 						},
 						{ id: 'export-dawproject', label: copy.saveDawproject, disabled: blocked, onClick: actions.saveDawproject },
+						{ id: 'export-adl', label: resolveInterchangeCopy(copy).exportAdl, disabled: blocked, onClick: actions.exportAdl },
 						{ id: 'export-aaf', label: resolveInterchangeCopy(copy).exportAaf, disabled: blocked, onClick: actions.exportAaf },
 						{ id: 'export-omf', label: resolveInterchangeCopy(copy).exportOmf, disabled: blocked, onClick: actions.exportOmf },
 						...productItems.fileExport,

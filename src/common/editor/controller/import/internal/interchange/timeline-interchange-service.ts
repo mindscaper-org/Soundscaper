@@ -27,7 +27,7 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 	return Object.freeze({ openInterchange });
 
 	async function openInterchange(file: NativeProjectFile, options: TimelineInterchangeOpenOptions = {}) {
-		if (!file || !isTimelineInterchangeFile(file.name)) throw new TypeError('Choose an EDL, OTIO, FCPXML, OMF, AAF, Ardour, SoundCraft, or Pro Tools file.');
+		if (!file || !isTimelineInterchangeFile(file.name)) throw new TypeError('Choose an EDL, OTIO, FCPXML, OMF, AAF, ADL, Ardour, SoundCraft, or Pro Tools file.');
 		if (runtime.editingBlocked()) return undefined;
 		const operation = helpers.beginProjectTask('timeline-interchange-open');
 		const signal = operation.task.signal;
@@ -42,10 +42,12 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 		try {
 			setLocalizedStatus(runtime.setStatus, runtime.copy, 'importing');
 			const protools = /\.pt[fxs]$/iu.test(file.name);
-			const binary = protools || /\.(?:omfi?|aaf|scraftz)$/iu.test(file.name);
+			const binary = protools || /\.(?:omfi?|aaf|scraftz|adl\.zip)$/iu.test(file.name);
 			if (file.size > (protools ? PROTOOLS_MAXIMUM_BYTES : binary ? MAXIMUM_BINARY_BYTES : MAXIMUM_TEXT_BYTES)) throw new RangeError('The interchange document exceeds its import size limit.');
 			if (/\.scraftz$/iu.test(file.name)) bundle = await (await import('../../../../soundcraft-bundle.ts')).openSoundcraftBundle(file, signal);
-			const document = bundle ? bundle.document : /\.aaf$/iu.test(file.name)
+			const document = bundle ? bundle.document : /\.adl\.zip$/iu.test(file.name)
+				? await (await import('../../../../aes31-package.ts')).readAdlPackage(file, signal)
+				: /\.aaf$/iu.test(file.name)
 				? (await import('../../../../aaf-import.ts')).parseAafDocument(new Uint8Array(await file.arrayBuffer()))
 				: protools ? (await import('../../../../protools-import.ts')).parseProToolsDocument(new Uint8Array(await file.arrayBuffer()), { fileName: file.name })
 				: binary ? (await import('../../../../omf-import.ts')).parseOmfDocument(new Uint8Array(await file.arrayBuffer()))

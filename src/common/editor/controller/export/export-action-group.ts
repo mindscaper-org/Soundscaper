@@ -10,6 +10,7 @@ import { createOriginalOverwriteActions, type OriginalOverwriteState, type Origi
 import type { BlenderPublishRequest } from './blender-publication.ts';
 import type { InterchangeProductProjection } from '../../interchange-multicamera-delivery.ts';
 import type { InterchangeTimingRuntime } from './interchange-export-timing.ts';
+import type { AdlExportFileService } from './internal/aes31-export-action.ts';
 import type { EmbeddedAudioInterchangeStore } from './internal/embedded-audio-interchange-export-action.ts';
 
 /** Delivery owns these optional workspace slots; reports remain inert domain data. */
@@ -36,7 +37,7 @@ export interface ExportActionGroupRuntime {
 	readonly state: ExportActionState;
 	readonly productName?: string | null;
 	readonly getProjectTitle?: () => string | null;
-	readonly fileService?: (OriginalOverwriteFileService & { saveFile?: (request: Readonly<Record<string, unknown>>) => unknown }) | null;
+	readonly fileService?: (OriginalOverwriteFileService & AdlExportFileService & { saveFile?: (request: Readonly<Record<string, unknown>>) => unknown }) | null;
 	readonly persistSetting: (
 		key: string, value: unknown, options?: Readonly<Record<string, unknown>>,
 	) => Promise<unknown> | unknown;
@@ -85,6 +86,10 @@ export function createExportActionGroup(runtime: ExportActionGroupRuntime) {
 		}) => exportProjectEdl({ ...interchange(), ...options }),
 		exportOtio: (options?: { sequenceId?: string }) => exportProjectOtio({ ...interchange(), ...options }),
 		exportFcpxml: (options?: { sequenceId?: string }) => exportProjectFcpxml({ ...interchange(), ...options }),
+		exportAdl: async (options?: { sequenceId?: string; signal?: AbortSignal }) => {
+			const { exportProjectAdl } = await import('./internal/aes31-export-action.ts');
+			return exportProjectAdl(runtime, options);
+		},
 		exportAaf: async (options?: { sequenceId?: string }) => {
 			const { exportEmbeddedAudioInterchange } = await import('./internal/embedded-audio-interchange-export-action.ts');
 			return exportEmbeddedAudioInterchange({ ...runtime, state: interchangeState }, 'aaf', options?.sequenceId);
