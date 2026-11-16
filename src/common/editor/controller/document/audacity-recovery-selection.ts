@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createAup4Client } from '../../aup4-client.js';
 import type { AudacityRecoveryInspection } from '../../audacity-recovery-inspection.ts';
 
 interface Descriptor { readonly id: string; readonly name: string }
@@ -20,7 +19,7 @@ interface Client {
 }
 
 /** Own the selected capability across preview and the user's chosen recovery action. */
-export function createAudacityRecoverySelection(files: AudacityRecoveryFiles, clientFactory: () => Client = createAup4Client) {
+export function createAudacityRecoverySelection(files: AudacityRecoveryFiles, clientFactory: () => Client | Promise<Client> = async () => (await import('../../aup4-client.js')).createAup4Client()) {
 	let selection: File | Descriptor | null = null, disposed = false;
 	const cancellation = new AbortController();
 	const projectId = `recovery-${crypto.randomUUID()}`;
@@ -41,9 +40,10 @@ export function createAudacityRecoverySelection(files: AudacityRecoveryFiles, cl
 	}
 	async function withClient<T>(consume: (client: Client) => Promise<T>): Promise<T> {
 		return withFile(async file => {
-			const client = clientFactory();
+			const client = await clientFactory();
 			let opened = false;
 			try {
+				assertActive();
 				await client.openFile(projectId, file, { recover: true, signal: cancellation.signal });
 				opened = true;
 				assertActive();

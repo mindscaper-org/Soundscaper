@@ -27,7 +27,7 @@ function fixture(cancelSave = false, failOpen = false) {
 		call: async type => { events.push(type); return type === 'repair-native-copy' ? { bytes: Uint8Array.of(42), mimeType: 'application/x-audacity-project' } : {}; },
 		dispose: () => { events.push('dispose-worker'); },
 	}));
-	return { selection, events };
+	return { selection, events, files };
 }
 
 test('desktop recovery retains its read capability across preview and native-copy save, then releases it once', async () => {
@@ -58,4 +58,24 @@ test('failed inspection preserves the source failure and disposes its worker wit
 	assert.equal(events.includes('delete'), false);
 	assert.equal(events.includes('dispose-worker'), true);
 	await selection.dispose();
+});
+
+test('cancelling while the recovery client loads disposes it without opening the project', async () => {
+	const { files } = fixture();
+	const events: string[] = [];
+	const client = {
+		openFile: async () => { events.push('open'); },
+		call: async () => null,
+		dispose: () => { events.push('dispose'); },
+	};
+	const requested = Promise.withResolvers<void>();
+	const supplied = Promise.withResolvers<typeof client>();
+	const selection = createAudacityRecoverySelection(files, () => { requested.resolve(); return supplied.promise; });
+	await selection.setFile(new File(['project'], 'cancelled.aup4'));
+	const inspected = assert.rejects(selection.inspect(), { name: 'AbortError' });
+	await requested.promise;
+	await selection.dispose();
+	supplied.resolve(client);
+	await inspected;
+	assert.deepEqual(events, ['dispose']);
 });
