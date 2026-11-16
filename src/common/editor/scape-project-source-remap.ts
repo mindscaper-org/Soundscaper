@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { remapTakeGroupSourceIds } from './take-group-source-references.ts';
+import { remapTrackPlaylistSourceIds } from './track-playlist-media.ts';
 import { CLIP_SOURCE_STRETCH_EXTENSION } from './clip-source-stretch-memory.ts';
 
 /** Remap every source identity owned by a copied Scape project. */
@@ -28,6 +29,7 @@ export function remapScapeProjectSourceReferences(
 		if (source) sourceReference.storageKey = source.storageKey;
 	}
 	remapTakeGroupSourceIds(project, sourceIdMap);
+	remapTrackPlaylistSourceIds(project, sourceIdMap);
 }
 
 function remapSourceId(

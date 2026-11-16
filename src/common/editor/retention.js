@@ -10,6 +10,7 @@ import {
 	isSoundscaperProductionProject,
 } from './project-schema-version.ts';
 import { collectTakeGroupSourceIds } from './take-group-source-references.ts';
+import { collectTrackPlaylistSourceIds } from './track-playlist-media.ts';
 import { collectVisualPresetGeneratorSourceIds } from './video-visual-preset-v24.ts';
 import { videoSourceCharacteristicsAreReported } from './video-source-characteristics.ts';
 import { retireUnusedScapeLiteralKeys } from './scape-literal-json-keys.ts';
@@ -44,6 +45,7 @@ export function collectProjectSourceIds(project, target = new Set()) {
 		if (typeof clip?.sourceId === 'string' && clip.sourceId) target.add(clip.sourceId);
 	}
 	collectTakeGroupSourceIds(project, target);
+	collectTrackPlaylistSourceIds(project, target);
 	collectFeatureFallbackSourceIds(project, target);
 	collectReportedSourceCharacteristicsIds(project, target);
 	collectAssistanceAssetSourceIds(project, target);

@@ -2,6 +2,7 @@
 
 // Stable command identity, English label, and purpose. Descriptions are localized separately.
 export const MENU_TOOLTIP_COMMANDS: Readonly<Record<string, readonly [string, string]>> = Object.freeze({
+	"track-playlists": ["Track playlists", "Switch between alternate clip arrangements on the selected track while keeping the current mix and other tracks."],
 	'match-eq': ['Match EQ', 'Match the selected audio’s tonal balance to a learned reference or saved voice profile.'],
 	'transcript-based-editing': ['Transcript-based editing', 'Select spoken words to locate and edit their audio on the timeline.'],
 	'panel-transcript-editing': ['Transcript-based editing', 'Select spoken words to locate and edit their audio on the timeline.'],

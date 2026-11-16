@@ -4,6 +4,7 @@ import { dispatchTimelineAnnotationAppendRuns } from './timeline-annotation-add-
 import { adoptMidiTransferContext, midiBinTransferContexts } from './midi-transfer-context.ts';
 import { createEnvelopeValueEvaluator } from '../automation.js';
 import { setProjectRecordingNotes } from '../recording-notes.ts';
+import { trackPlaylistUsesSource } from '../track-playlist-media.ts';
 import { processSourceAudio } from './source-process-audio-runtime.ts';
 import {
 	assertFrame,
@@ -306,7 +307,7 @@ function removeProjectBinSourceFromProject(project, clipId) {
 	const takeSourceIds = collectTakeGroupSourceIds(project);
 	for (const sourceId of sourceIds) {
 		const inUse = takeSourceIds.has(sourceId) || [...project.clips, ...projectBin.clips].some((candidate) => candidate.sourceId === sourceId);
-		if (!inUse) project.sources = project.sources.filter((source) => source.id !== sourceId);
+		if (!inUse && !trackPlaylistUsesSource(project, sourceId)) project.sources = project.sources.filter((source) => source.id !== sourceId);
 	}
 }
 
@@ -429,7 +430,7 @@ function replaceProjectBinMedia(project, command) {
 	const takeSourceIds = collectTakeGroupSourceIds(project);
 	for (const { oldSource } of replacementBySourceId.values()) {
 		const inUse = takeSourceIds.has(oldSource.id) || [...project.clips, ...projectBin.clips].some((clip) => clip.sourceId === oldSource.id);
-		if (!inUse) project.sources = project.sources.filter((source) => source.id !== oldSource.id);
+		if (!inUse && !trackPlaylistUsesSource(project, oldSource.id)) project.sources = project.sources.filter((source) => source.id !== oldSource.id);
 	}
 }
 

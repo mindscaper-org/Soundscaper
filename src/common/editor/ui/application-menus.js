@@ -40,8 +40,8 @@ import { createEffectMacroApplicationMenu } from './macro-application-menu.ts';
 import { resolveEditingActionAvailability } from '../commands/editing-selection-authority.ts';
 import { resolveSelectionRange } from '../selection-range.ts';
 import { createOriginalFileOverwriteMenuItems } from './original-file-overwrite-menu.ts';
-import { selectedTrackRemovalAvailable } from '../selected-track-removal.ts';
-import { createMidiExportMenuItems, createMidiTrackMenuItems } from './midi-application-menu.ts';
+import { createTrackArrangementMenuItems, createTrackCreationMenu } from './track-playlist-menu.ts';
+import { createMidiExportMenuItems } from './midi-application-menu.ts';
 import { resolveTimecodeSyncCopy } from '../../i18n/editor-timecode-sync-copy.ts';
 import { isMidiClip } from '../midi-model.ts';
 import { resolveInterchangeCopy } from '../../i18n/editor-interchange-copy.ts';
@@ -392,21 +392,13 @@ export default function createApplicationMenus({
 			id: 'tracks',
 			label: copy.tracksMenu,
 			items: [
-				{
-					id: 'add-new-track',
-					label: copy.addNewTrack,
-					items: [
-						{ id: 'new-audio-track', label: copy.audioTrack, disabled: editBlocked, onClick: actions.addAudioTrack },
-						...createMidiTrackMenuItems({ copy, productId, blocked: editBlocked }, actions.addMidiTrack),
-						{ id: 'new-label-track', label: copy.labelTrack, disabled: editBlocked, onClick: actions.addLabelTrack },
-					],
-				},
+				createTrackCreationMenu({ copy, productId, blocked: editBlocked }, actions),
 				// Nested sequences, multicamera, and the production track commands stay in
 				// this menu: the per-track overflow menu never carried them, so dropping
 				// them from here left them unreachable from any menu at all.
 				...productItems.tracks,
-				{ id: 'duplicate-track', label: copy.duplicateTrack, disabled: editBlocked || !selectedAudioTrack, onClick: actions.duplicateTrack },
-				{ id: 'remove-track', label: copy.removeTracks, disabled: editBlocked || !selectedTrackRemovalAvailable(project, snapshot.selectedTrackId), onClick: actions.removeTrack },
+				...createTrackArrangementMenuItems({ productId, copy, project, trackId: snapshot.selectedTrackId,
+					selectedAudioTrack, blocked: editBlocked, actions }),
 				...structuralMenus.muteItems,
 				divider(),
 				{ id: 'mix-render', label: copy.mixRenderTitle, preserveLabel: true,

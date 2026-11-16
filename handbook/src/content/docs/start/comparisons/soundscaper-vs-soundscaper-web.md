@@ -88,7 +88,7 @@ Hover for limits. Include any referenced media when sharing projects.
 | Loop recording into takes | + | + |
 | Take comping | + — :: Audition, promote, edit comp regions, flatten as one undoable edit | + — :: Audition, promote, edit comp regions, flatten as one undoable edit |
 | Input monitoring and metering | + | + |
-| Alternate track playlists | / | / |
+| Alternate track playlists | + — :: Tracks → Track playlists creates empty or duplicate arrangements, recalls each track independently, and preserves the current mix. | + — :: Tracks → Track playlists creates empty or duplicate arrangements, recalls each track independently, and preserves the current mix. |
 | Punch-and-roll narration | / | / |
 
 [Recording, monitoring, and recovery](/soundscaper/recording/)

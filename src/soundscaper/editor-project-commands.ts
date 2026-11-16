@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createMasteringSequenceRuntimeHandlers } from '../common/editor/commands/mastering-sequence-runtime.ts';
+import { hasTrackPlaylistCommand, applyTrackPlaylistCommandTree } from './editor-track-playlist-commands.ts';
 import {
 	applyAssistanceAssetUpsertCommandV1,
 	hasAssistanceAssetUpsertCommandTypeV1,
@@ -87,6 +88,10 @@ export function applySoundscaperProjectCommand(
 	validateSoundscaperProject(projectValue);
 	const project = projectValue as SoundscaperProject;
 	const command = snapshotSoundscaperProjectCommand(commandValue);
+	if (hasTrackPlaylistCommand(command)) {
+		return finalize(applyTrackPlaylistCommandTree(project, command,
+			(current, child) => applySoundscaperProjectCommand(current, child, options)), project, options);
+	}
 	if (hasAssistanceAssetUpsertCommandTypeV1(command)) {
 		return applyAssistanceCommand(project, command, options);
 	}
