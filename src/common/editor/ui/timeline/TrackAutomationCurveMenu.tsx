@@ -157,6 +157,7 @@ export function TrackAutomationCurveMenu({
 		>
 			{menu.segmentIndex !== null && trackAutomationSegmentKinds(descriptor).map((kind) => <button
 				key={kind}
+				data-menu-tooltip-id={`automation-${kind}`}
 				type="button"
 				role="menuitemradio"
 				tabIndex={-1}

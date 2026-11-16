@@ -18,6 +18,7 @@ import {
 import { createAudioClip, createAudioSource, createAudioTrack, createLabel, createLabelTrack } from '../src/common/editor/project-media-factory.ts';
 import { createAudioEditorPreferencesV1 } from '../src/common/editor/preferences.js';
 import { materializeApplicationMenu } from '../src/common/editor/ui/application-menu-materialization.ts';
+import { createMenuTooltipResolver } from '../src/common/editor/ui/menu-tooltip-copy.ts';
 import {
 	APPLICATION_MENU_REFERENCE_BY_ID,
 	APPLICATION_MENU_REFERENCE_ENTRIES,
@@ -98,9 +99,11 @@ test('the supplemental application-menu reference is a unique lookup', () => {
 	assert.deepEqual(Object.keys(APPLICATION_MENU_REFERENCE_BY_ID).sort(), [...ids].sort());
 });
 
-test('application menu labels omit ellipses in both products', () => {
+test('application menu labels omit ellipses and have purpose explanations in both products', () => {
+	const tooltip = createMenuTooltipResolver(APPLICATION_MENU_COPY);
 	const visit = (item: MenuItem): void => {
 		if (item.label) assert.doesNotMatch(item.label, /…|\.{3}/u, item.id ?? 'menu item');
+		if (item.label) assert.ok(tooltip(item.label, item.id), `Missing help: ${item.id} (${item.label})`);
 		for (const child of item.items ?? []) visit(child);
 	};
 	for (const product of ['soundscaper', 'framescaper'] as const) {

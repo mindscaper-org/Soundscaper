@@ -72,6 +72,7 @@ export function CustomToolbarButtonSettings({ buttons, toolbarButtons, copy, onC
 				type="button"
 				role="menuitem"
 				className="kw-audio-editor__toolbar-settings-custom-edit"
+				data-menu-tooltip-id="custom-toolbar-edit"
 				aria-label={formatLocalizedTemplate(copy.customToolbarButtonEdit, { name: button.name })}
 				title={formatLocalizedTemplate(copy.customToolbarButtonEdit, { name: button.name })}
 				onClick={() => onCustomize(button)}

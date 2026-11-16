@@ -211,7 +211,7 @@ export function TimelineMenus({
 				) : (
 					<ContextMenuItem
 						key={item.label}
-						label={item.label}
+						tooltipKey={item.id} label={item.label}
 						checked={item.checked}
 						disabled={item.disabled}
 						onClick={item.onClick}
@@ -233,7 +233,7 @@ export function TimelineMenus({
 				) : (
 					<ContextMenuItem
 						key={item.label}
-						label={item.label}
+						tooltipKey={item.id} label={item.label}
 						disabled={item.disabled}
 						onClick={item.onClick}
 						onClose={() => setOutputMenu(null)}
@@ -275,6 +275,7 @@ export function TimelineMenus({
 							key={color}
 							actionId={AUDACITY_CLIP_CONTEXT_ACTION_IDS.changeColor.replace('%1', colorIndex)}
 							label={colorName(copy, color)}
+							tooltipKey="context-color"
 							checked={menuClip?.color === color}
 							disabled={mutationsBlocked || !menuClip}
 							disabledReason={unavailableReason}
@@ -416,7 +417,7 @@ function renderTrackMenuItem(item, index, setTrackMenu) {
 	if (item.divider) return <ContextMenuItem key={`divider-${index}`} isDivider />;
 	return <ContextMenuItem
 		key={item.id || `${item.label}-${index}`}
-		label={item.label}
+		tooltipKey={item.id} label={item.label}
 		icon={item.icon}
 		shortcut={item.shortcut}
 		checked={item.checked}

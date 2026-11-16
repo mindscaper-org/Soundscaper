@@ -57,6 +57,7 @@ import { ID3_METADATA_COPY_BY_LOCALE } from './editor-id3-metadata-copy.ts';
 import { TRACK_HEIGHT_COPY_BY_LOCALE } from './editor-track-height-copy.ts';
 import { MIDI_COPY_BY_LOCALE } from './editor-midi-copy.ts';
 import { INTERCHANGE_COPY_BY_LOCALE } from './editor-interchange-copy.ts';
+import { MENU_TOOLTIP_COPY } from './editor-menu-tooltip-copy.ts';
 
 export interface EditorCopyOwner {
 	readonly owner: string;
@@ -174,6 +175,7 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'midi', ...MIDI_COPY_BY_LOCALE },
 	{ owner: 'interchange', ...INTERCHANGE_COPY_BY_LOCALE },
 	{ owner: 'keyboardMap', ...KEYBOARD_MAP_COPY_BY_LOCALE },
+	{ owner: 'menuTooltips', en: MENU_TOOLTIP_COPY },
 	{ owner: 'id3Metadata', ...ID3_METADATA_COPY_BY_LOCALE },
 	{ owner: 'designSystem', ...DESIGN_SYSTEM_COPY },
 	{ owner: 'indexedSearch', en: INDEXED_SEARCH_COPY },

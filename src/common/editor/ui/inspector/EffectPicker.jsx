@@ -103,6 +103,7 @@ export default function EffectPicker({
 								key={value}
 								type="button"
 								role="menuitem"
+								data-menu-tooltip-id={value}
 								disabled={disabled || unavailableEffectTypes.includes(value)}
 								title={unavailableEffectTypes.includes(value) ? copy.effectUnsupported : undefined}
 								onClick={() => { if (!disabled && !unavailableEffectTypes.includes(value)) runAndRestoreFocus(() => onChoose(value)); }}

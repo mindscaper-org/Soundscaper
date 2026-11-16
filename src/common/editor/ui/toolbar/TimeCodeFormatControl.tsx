@@ -43,7 +43,7 @@ export default function TimeCodeFormatControl({
 		setMenu({ x: bounds.left, y: bounds.bottom + 4, keyboard });
 	};
 	const menuItem = (option: typeof options[number]) => <ContextMenuItem
-		key={option.format} label={option.label} checked={format === option.format}
+		key={option.format} tooltipKey={`time-format-${option.format}`} label={option.label} checked={format === option.format}
 		onClick={() => { close(); onFormatChange(option.format); }}
 	/>;
 	const menuHost = buttonRef.current?.closest('[data-audio-editor]') ?? buttonRef.current?.ownerDocument.body;
@@ -70,10 +70,10 @@ export default function TimeCodeFormatControl({
 			isOpen onClose={close} x={menu.x} y={menu.y} autoFocus={menu.keyboard}
 			className="kw-audio-editor__timecode-format-menu"
 		>
-			<ContextMenuItem label={enterValueLabel} onClick={() => { close(); timeCodeHost?.dispatchEvent(new Event('timecode-enter-value')); }} />
+			<ContextMenuItem tooltipKey="time-enter-value" label={enterValueLabel} onClick={() => { close(); timeCodeHost?.dispatchEvent(new Event('timecode-enter-value')); }} />
 			{options.filter((option) => !option.group).map(menuItem)}
 			{(['Video frames', 'CD frames'] as const).map((group) => <ContextMenuItem
-				key={group} label={group === 'Video frames' ? componentCopy.videoFrames : componentCopy.cdFrames} hasSubmenu
+				key={group} tooltipKey={group === 'Video frames' ? 'time-format-video' : 'time-format-cd'} label={group === 'Video frames' ? componentCopy.videoFrames : componentCopy.cdFrames} hasSubmenu
 				checked={options.some((option) => option.group === group && option.format === format)}
 			>
 				{options.filter((option) => option.group === group).map(menuItem)}

@@ -49,6 +49,18 @@ not certify it for partial coverage: the manifest's `independent` flag requires
 complete owned-source coverage at its inherited floors. Source moves retain
 their original coverage cohort and chunk/startup budgets.
 
+## Menu presentation
+
+Menu explanations are rendered by `ui/MenuTooltipProvider.tsx` in a body portal
+so scrolling menus cannot clip rich text or images. Menus pass a stable
+`tooltipKey` through `ContextMenuItem`; custom menu controls use
+`data-menu-tooltip-id`. The editor resolves those identities before localized
+label aliases, preserving the different meanings of similarly named commands.
+English purposes live in `i18n/editor-menu-tooltip-*-copy.ts` and the
+`ui.menuTooltips` translation scope. Describe the operation’s useful result
+instead of repeating its label. New dynamic entries need a stable purpose key;
+rich content is supplied as React nodes, without HTML string injection.
+
 ## Controller ownership
 
 Stateful editor coordination belongs in strict TypeScript under
