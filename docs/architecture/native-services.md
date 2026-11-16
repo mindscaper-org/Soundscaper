@@ -309,6 +309,12 @@ do not initialize a Wine prefix. Resetting preferences disables the bridge.
 Users add their installed Windows VST3 directory through the existing folder
 picker and review the scan in Plugin Manager.
 
+Wine uses a separate prefix and registry. A plugin path on a mounted Windows
+drive does not import that installation's shared kernels, runtime dependencies,
+ProgramData or licence registration into Wine. Install the complete vendor
+package into the intended Wine prefix. `WINEPREFIX` selects an explicit prefix;
+otherwise yabridge detects an enclosing prefix or uses `~/.wine`.
+
 Wine scan and host requests require an explicit main-owned VST3 grant. Native
 Linux bundles keep the native route. Windows file and bundle digests, installation
 selection, state and quarantine retain the original installation identity;
