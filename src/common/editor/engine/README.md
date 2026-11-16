@@ -26,23 +26,40 @@ There is intentionally no engine barrel. Direct imports keep pure planning code
 independent of browser context creation and make dependency direction visible
 to both human and AI-assisted changes.
 
-Beta MIDI is compiled by `midi-synthesis.ts` into deterministic source PCM.
-The controller stores that PCM alongside the editable note carrier and publishes
-their replacement together. The ordinary source scheduler then plays MIDI and
-recorded audio through the same clock, seek/loop range, track mixer, effects and
-offline renderer. Synthesis uses absolute source-frame phase, so splitting a
-render into storage chunks preserves its samples and seeking starts at the same
-waveform position as continuous playback.
+MIDI edits publish an immutable, versioned score/instrument source recipe without
+waiting for PCM synthesis. Source activation always streams these sources and
+does not decode a whole clip or compute its waveform before accepting an edit.
+MIDI carriers do not request waveform PCM windows while painting the timeline,
+which would otherwise turn a zoomed-out view into a full-score render.
+The ordinary chunk-stream scheduler requests 1,024-frame windows on demand and
+feeds the AudioWorklet through the same clock, seek/loop range, track mixer,
+effects and offline renderer as recorded audio. Built-in DSP runs in a dedicated
+Worker; native instrument DSP runs in the existing isolated desktop plug-in host.
+No whole-source synthesis runs on the UI thread. Exports and archive writers use
+the ordinary source reader to materialize PCM when required.
+
+`midi-demand-source.ts` owns a bounded immutable-source cache and serialized
+renderer lifetime. Returned PCM is copied so transfers and callers cannot detach
+or mutate cached samples. Store-local caches are bounded to 32 MiB in aggregate;
+idle rendering workers are retired after read sessions release. Source generation
+tokens isolate edits, undo and overlapping playback snapshots. Built-in oscillator synthesis
+uses absolute source-frame phase, so arbitrary seek windows preserve the samples
+of continuous rendering. Cold live library/native seeks chase controller, patch,
+pedal and sounding-key state without synthesizing prior audio. Chased voices
+restart their envelopes and oscillator phase, as with ordinary MIDI chase; old
+reverb/delay tails are not reconstructed. Cache keys include the seek origin.
+Exports and derived audio edits use a distinct canonical origin-zero render,
+so chased attacks cannot contaminate delivered PCM. Previously rendered windows
+at the same origin reuse the PCM cache.
 Retained channel events provide sustain, volume/expression, sound-off and
 controller reset, plus pitch bend with the default two-semitone range. Bend
 changes integrate oscillator phase against absolute source frames; sustain
 changes sounding duration without changing the authored key-release event.
-Source publication prepares one private renderer for all PCM chunks. It snapshots
-note geometry and expression timelines, indexes sounding note intervals, and
-retains authored note accumulation order for exact PCM. Render windows remain
-independent and may be requested out of order. The interval tree uses fewer
-than four doubles per prepared note; its records and channel states live only
-for that source-publication invocation. No rendered PCM is retained by the plan.
+The synthesis worker snapshots note geometry and expression timelines, indexes
+sounding note intervals, and retains authored note accumulation order for exact
+PCM. Built-in render windows remain independent and may be requested out of order.
+The interval tree uses fewer than four doubles per prepared note. Existing stored
+PCM sources remain readable and serve as already-rendered caches until edited.
 
 `runtime-types.ts` documents the shared mutable host explicitly, while symbol
 keys keep internal scheduling and lifecycle operations off the public string

@@ -29,6 +29,7 @@ export function createMidiRenderer(
 	events: readonly MidiFileEvent[] = [],
 ): (startFrame: number, frameCount: number) => Float32Array<ArrayBuffer> {
 	if (typeof instrument !== 'string') throw new Error('Native instrument synthesis requires the desktop MIDI renderer.');
+	if (instrument === 'libadlmidi' || instrument === 'fluidsynth') throw new Error('Library instruments require the MIDI worker renderer.');
 	if (!Number.isSafeInteger(sampleRate) || sampleRate < 1) throw new RangeError('Invalid MIDI synthesis sample rate.');
 	const expression = createMidiExpressionIndex(events);
 	const prepared = notes.map((note, index): PreparedNote => {

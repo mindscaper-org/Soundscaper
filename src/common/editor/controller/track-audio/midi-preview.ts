@@ -1,14 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { openMidiAudioRenderer } from '../../engine/midi-audio-renderer.ts';
+import { openThreadedMidiRenderer } from '../../engine/midi-threaded-renderer.ts';
 import type { EnginePublicApi } from '../../engine/public-api.ts';
 import type { MidiInstrument } from '../../midi-model.ts';
 import { raceAbortableRead } from '../../../foundation/abort-race.ts';
 
-export async function previewMidiNote(engine: Pick<EnginePublicApi, 'getAudioContext' | 'getPlaybackDestination'>, pitch: number, instrument: MidiInstrument, signal?: AbortSignal): Promise<void> {
+export async function previewMidiNote(engine: Pick<EnginePublicApi, 'getAudioContext' | 'getPlaybackDestination'>, pitch: number, instrument: MidiInstrument, signal?: AbortSignal, openRenderer = openThreadedMidiRenderer): Promise<void> {
 	const context = await raceAbortableRead(() => engine.getAudioContext(), signal, 'immediate');
 	signal?.throwIfAborted();
 	const frames = Math.round(context.sampleRate * 0.35);
-	const render = await openMidiAudioRenderer({ version: 1, notes: [{ id: 'preview', pitch, startFrame: 0, durationFrames: frames, velocity: 100, channel: 0 }] }, instrument, context.sampleRate);
+	const render = await openRenderer({ version: 1, notes: [{ id: 'preview', pitch, startFrame: 0, durationFrames: frames, velocity: 100, channel: 0 }] }, instrument, context.sampleRate);
 	const buffer = context.createBuffer(render.channelCount, frames, context.sampleRate);
 	try {
 		const planes = await render.render(0, frames);

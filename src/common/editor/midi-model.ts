@@ -4,7 +4,7 @@ import type { MidiFileEvent, MidiFileSignature, MidiFileTempo } from './midi-fil
 import { normalizeMidiNativeInstrument, type MidiNativeInstrument } from './midi-native-instrument.ts';
 
 export const MIDI_EXTENSION_KEY = 'soundscaper.midi';
-export const MIDI_INSTRUMENTS = ['sine', 'triangle', 'square', 'sawtooth'] as const;
+export const MIDI_INSTRUMENTS = ['sine', 'triangle', 'square', 'sawtooth', 'libadlmidi', 'fluidsynth'] as const;
 export const MIDI_MAXIMUM_NOTES = 200_000;
 export type MidiInstrument = typeof MIDI_INSTRUMENTS[number] | MidiNativeInstrument;
 

@@ -135,6 +135,7 @@ test('source runtime invalidation clears only that source and suppresses its lat
 });
 
 interface RequiredSourceFixtureOptions {
+	readonly generatedMidi?: boolean;
 	readonly long?: boolean;
 	readonly streamable?: boolean;
 	readonly buffer?: Readonly<Record<string, unknown>> | null;
@@ -170,6 +171,7 @@ function createRequiredSourceFixture(options: RequiredSourceFixtureOptions = {})
 	});
 	const loadedBuffer = options.buffer === undefined ? defaultBuffer : options.buffer;
 	const metadata = options.metadata === undefined ? Object.freeze({
+		...(options.generatedMidi ? { storage: 'midi-generated-v1' } : {}),
 		id: source.id,
 		frameCount: source.frameCount,
 		channelCount: source.channelCount,
@@ -298,6 +300,15 @@ function createRequiredSourceFixture(options: RequiredSourceFixtureOptions = {})
 		statuses,
 	};
 }
+
+test('generated MIDI stays streamed through activation and graph preparation even for short clips', async () => {
+	for (const operation of ['loadProjectSources', 'ensureProjectSourcesAvailable', 'prepareRequiredProjectSources'] as const) {
+		const fixture = createRequiredSourceFixture({ generatedMidi: true, streamable: true });
+		const result = await fixture.service[operation](fixture.project, { requiredAudioSourceIds: [fixture.source.id] });
+		assert.equal(fixture.bufferReads(), 0, operation);
+		if ('discard' in result) await result.discard();
+	}
+});
 
 test('fallback-only required long sources replace stale providers before playback', async () => {
 	const fixture = createRequiredSourceFixture({ long: true });

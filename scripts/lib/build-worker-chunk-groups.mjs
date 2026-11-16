@@ -9,6 +9,13 @@ export const WORKER_EFFECT_CONTRACT_CHUNK_TEST = /(?:src[\\/]common[\\/]i18n[\\/
 /** @type {import('rolldown').CodeSplittingGroup[]} */
 export const workerChunkGroups = [
 	{
+		name: 'vendor-midi-synth-worker',
+		test: /node_modules[\\/](?:libadlmidi-js|js-synthesizer)[\\/]/,
+		priority: 101,
+		maxSize: 400_000,
+		includeDependenciesRecursively: false,
+	},
+	{
 		// Recovery and streaming chunks share the database vocabulary. If that
 		// vocabulary stays in the entry, importing it can execute the entry again
 		// in WebKit and install a second dispatcher with its own empty project map.

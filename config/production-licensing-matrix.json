@@ -240,6 +240,42 @@
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "desktop/mcp-service.ts"]
 		},
 		{
+			"lockPath": "node_modules/js-synthesizer",
+			"name": "js-synthesizer",
+			"version": "1.13.0",
+			"license": "BSD-3-Clause",
+			"direct": true,
+			"role": "application-runtime",
+			"artifactSurfaces": [
+				"web-pages-bundle",
+				"electron-renderer"
+			],
+			"noticeMarker": "`js-synthesizer` 1.13.0",
+			"evidence": [
+				"package-lock.json",
+				"config/midi-synth-runtime.json",
+				"THIRD_PARTY_LICENSES.md"
+			]
+		},
+		{
+			"lockPath": "node_modules/libadlmidi-js",
+			"name": "libadlmidi-js",
+			"version": "2.2.0",
+			"license": "LGPL-3.0",
+			"direct": true,
+			"role": "application-runtime",
+			"artifactSurfaces": [
+				"web-pages-bundle",
+				"electron-renderer"
+			],
+			"noticeMarker": "`libadlmidi-js` 2.2.0",
+			"evidence": [
+				"package-lock.json",
+				"config/midi-synth-runtime.json",
+				"THIRD_PARTY_LICENSES.md"
+			]
+		},
+		{
 			"lockPath": "node_modules/mediabunny",
 			"name": "mediabunny",
 			"version": "1.65.2",

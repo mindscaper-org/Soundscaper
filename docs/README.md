@@ -34,6 +34,8 @@ qualification plans belong in Git history, not in the maintained documentation s
   bundled, operating-system, and external FFmpeg provider selection.
 - [Realtime effect workers](architecture/realtime-effect-workers.md) records
   the implemented parallel effect-stack execution contract.
+- [MIDI playback](architecture/midi-playback.md) covers demand synthesis,
+  seek-origin caches, instrument engines, and performance/audit commands.
 
 ## Develop and test
 

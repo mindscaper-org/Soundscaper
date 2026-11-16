@@ -240,12 +240,14 @@ LADSPA and LV2 effects are Linux-only, and Vamp is an analyzer rather than an
 effect. VST2/VST3 instruments and Linux LV2 instruments can be assigned to a
 selected MIDI beta track from Plugin Manager. Instruments retain the same
 consent, installation allowance, binary identity, containment and quarantine
-checks as effects. They compile source notes and MIDI channel messages through
+checks as effects. Immutable MIDI source recipes are synthesized on demand through
 separate bounded native sessions, preserving stereo/multichannel PCM and
-compensating reported latency before source publication. Playback, seeking,
-loops and audio export consume that saved PCM without reopening the instrument.
-Unavailable instruments leave the saved audio playable; new MIDI edits and
-auditions fail explicitly until the exact installation is available again.
+compensating reported latency. Playback reuses a bounded PCM cache; a cold live
+seek chases controller and sounding-key state, prepared on a worker, then starts
+the isolated host at the requested origin. Export materializes a continuous
+origin-zero render through the PCM reader; live seek caches stay separate.
+Older projects' stored audio remains playable
+without the instrument; uncached recipe windows require the exact installation.
 Vendor controls and interfaces use the existing manager; **Apply instrument
 settings** captures state and regenerates the track atomically. Identity and
 base64 vendor state (at most 12 MiB before encoding) travel in the existing

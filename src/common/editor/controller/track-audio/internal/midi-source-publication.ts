@@ -19,6 +19,13 @@ export async function publishMidiSource(
 		throw new RangeError('MIDI audio must have a positive duration of at most 24 hours.');
 	}
 	const id = dependencies.createId('midi-source');
+	if (dependencies.store.writeMidiSource) {
+		const stored = await dependencies.store.writeMidiSource(id, { data, instrument, sampleRate }, { name: dependencies.clipName(), mimeType: 'audio/wav', frameCount });
+		try { assertCurrent(); } catch (error) { await dependencies.store.deleteSource(id); throw error; }
+		return createAudioSource({ name: dependencies.clipName(), mimeType: 'audio/wav', id, storageKey: id, frameCount, sampleRate,
+			channelCount: Number(stored.channelCount), chunkFrames: Number(stored.chunkFrames), originalSampleRate: sampleRate,
+			sampleFormat: 'float32', provenance: createNonImportedSourceProvenance('generated') });
+	}
 	const render = await openMidiAudioRenderer(data, instrument, sampleRate);
 	const metadata = { name: dependencies.clipName(), mimeType: 'audio/wav', sampleRate, channelCount: render.channelCount, chunkFrames: SOURCE_CHUNK_FRAMES };
 	let rendererClosed = false;

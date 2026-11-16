@@ -4,13 +4,17 @@ import test from 'node:test';
 import { previewMidiNote } from '../src/common/editor/controller/track-audio/midi-preview.ts';
 import { MidiPreviewContext, midiPreviewEngine } from './helpers/midi-preview-context.ts';
 import { deferred, waitFor } from './helpers/async-test-control.ts';
+import { openThreadedMidiRenderer } from '../src/common/editor/engine/midi-threaded-renderer.ts';
+import { NodeMidiWorker } from './helpers/node-midi-worker.ts';
+
+const openRenderer: typeof openThreadedMidiRenderer = (data, instrument, rate) => openThreadedMidiRenderer(data, instrument, rate, () => new NodeMidiWorker());
 
 test('piano-key auditions respect the listening volume shared with ordinary playback', async () => {
 	const context = new MidiPreviewContext();
 	const engine = midiPreviewEngine(context);
 	try {
 		engine.setPlaybackGain(0);
-		const preview = previewMidiNote(engine, 69, 'sine');
+		const preview = previewMidiNote(engine, 69, 'sine', undefined, openRenderer);
 		await waitFor(() => context.bufferSources.length === 1, 'audition source');
 		assert.strictEqual(context.bufferSources[0]!.connections[0], engine.getPlaybackDestination());
 		assert.equal((engine.getPlaybackDestination() as GainNode).gain.value, 0);
@@ -23,7 +27,7 @@ test('canceling pending audition readiness prevents late allocation and start', 
 	const entered = deferred<void>(), ready = deferred<void>(), abort = new AbortController();
 	context.resume = async () => { entered.resolve(); await ready.promise; context.state = 'running'; };
 	try {
-		const preview = previewMidiNote(engine, 60, 'triangle', abort.signal);
+		const preview = previewMidiNote(engine, 60, 'triangle', abort.signal, openRenderer);
 		const outcome = Promise.allSettled([preview]); await entered.promise;
 		abort.abort(); ready.resolve();
 		assert.equal((await outcome)[0]?.status, 'rejected');
@@ -35,7 +39,7 @@ test('canceling pending audition readiness prevents late allocation and start', 
 test('canceling an active audition retires only its voice and listening connection', async () => {
 	const context = new MidiPreviewContext(), engine = midiPreviewEngine(context), abort = new AbortController();
 	try {
-		const preview = previewMidiNote(engine, 60, 'triangle', abort.signal);
+		const preview = previewMidiNote(engine, 60, 'triangle', abort.signal, openRenderer);
 		const outcome = Promise.allSettled([preview]);
 		await waitFor(() => context.bufferSources.length === 1, 'active audition');
 		const voice = context.bufferSources[0]!;
@@ -49,7 +53,7 @@ test('canceling an active audition retires only its voice and listening connecti
 test('an audition that ends normally releases its abort listener and voice', async () => {
 	const context = new MidiPreviewContext(), engine = midiPreviewEngine(context), abort = new AbortController();
 	try {
-		const preview = previewMidiNote(engine, 60, 'sine', abort.signal);
+		const preview = previewMidiNote(engine, 60, 'sine', abort.signal, openRenderer);
 		await waitFor(() => context.bufferSources.length === 1, 'audition source');
 		const voice = context.bufferSources[0]!;
 		context.endVoices(); await preview; abort.abort();
