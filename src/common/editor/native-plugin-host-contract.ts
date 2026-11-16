@@ -10,6 +10,7 @@ export interface NativePluginInstallationView {
 
 export interface NativePluginEntryView {
 	readonly entryId: string;
+	readonly stablePluginId?: string;
 	readonly kind?: 'effect' | 'analyzer';
 	readonly classification?: string;
 	readonly format: string;

@@ -8,6 +8,7 @@ import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve, win32 } from 'node:path';
 import test from 'node:test';
+import { architectureReceipt } from './helpers/native-test-architecture-receipt.ts';
 
 import {
 	createSoundscaperProfessionalNativeBuildResult,
@@ -171,6 +172,7 @@ test('a build result binds installed payloads, closed dependencies, and passing 
 	assert.equal(candidate.receipt.kind, 'soundscaper-professional-native-build-result');
 	assert.equal(candidate.receipt.target, 'linux-x64');
 	assert.deepEqual(candidate.receipt.isolation.runtimeClosure.map(({ path }) => path), [
+		'payload/runtime/effects/soundscaper_juce_effects.clap',
 		'payload/runtime/libowned.so',
 	]);
 	assert(inspected.some((path) => path.endsWith('payload/runtime/libowned.so')),
@@ -408,6 +410,7 @@ async function candidateFixture(context, target = 'linux-x64', sourceRevision = 
 			? ['macos-v1.sb', 'macos-broker-v1.json']
 			: ['windows-v1.json', 'windows-broker-v1.json'];
 	for (const [path, contents] of [
+		[join(professionalInstallRoot, 'runtime/effects/soundscaper_juce_effects.clap'), 'juce-effects'],
 		[join(professionalInstallRoot, 'soundscaper_professional.node'), 'addon'],
 		...(target === 'win-x64' ? [[join(professionalInstallRoot, 'runtime/soundscaper_vst2_x86_peer.exe'), 'x86-peer']] : []),
 		[join(professionalInstallRoot, `soundscaper_professional_peer${windows ? '.exe' : ''}`), 'peer'],
@@ -483,20 +486,6 @@ function dependencyInspection(path, imports, target = 'linux-x64') {
 		imports,
 		rpaths: !target.startsWith('win-') && path.includes('soundscaper_professional_peer')
 			? [target === 'mac-arm64' ? '@loader_path/runtime' : '$ORIGIN/runtime'] : [],
-	};
-}
-
-function architectureReceipt(target) {
-	const [platform, architecture] = target.split('-');
-	return {
-		schemaVersion: 1, target, architecture,
-		format: platform === 'linux' ? 'elf64-le'
-			: platform === 'win' ? 'pe32-plus' : 'mach-o-64-le',
-		machine: platform === 'linux'
-			? architecture === 'x64' ? 'EM_X86_64' : 'EM_AARCH64'
-			: platform === 'win'
-				? architecture === 'x64' ? 'IMAGE_FILE_MACHINE_AMD64' : 'IMAGE_FILE_MACHINE_ARM64'
-				: 'CPU_TYPE_ARM64',
 	};
 }
 

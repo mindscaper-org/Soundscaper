@@ -375,8 +375,7 @@ soundscaper_pro_status soundscaper_pro_plugin_get_capabilities(
 	if (instance == nullptr || report == nullptr) return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
 	*report = {};
 	if (instance->clap != nullptr) {
-		report->has_vendor_ui = instance->clap->hasVendorUi() ? 1u : 0u;
-		return SOUNDSCAPER_PRO_OK;
+		return instance->clap->capabilities(*report);
 	}
 	return instance->juce == nullptr ? SOUNDSCAPER_PRO_PLUGIN_MALFORMED
 		: soundscaper::dispatchJuceMessageTask([&]() {
@@ -392,10 +391,10 @@ soundscaper_pro_status soundscaper_pro_plugin_describe_parameters(
 		return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
 	}
 	*written = 0u;
-	if (instance->clap != nullptr) return SOUNDSCAPER_PRO_OK;
-	if (instance->juce == nullptr) return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
+	if (instance->juce == nullptr && instance->clap == nullptr) return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
 	std::vector<soundscaper_pro_plugin_parameter> found;
-	const auto status = soundscaper::describeJucePluginParameters(*instance->juce, found);
+	const auto status = instance->clap != nullptr ? instance->clap->describeParameters(found)
+		: soundscaper::describeJucePluginParameters(*instance->juce, found);
 	if (status != SOUNDSCAPER_PRO_OK) return status;
 	*written = found.size();
 	if (parameters == nullptr) return SOUNDSCAPER_PRO_OK;
@@ -408,7 +407,10 @@ soundscaper_pro_status soundscaper_pro_plugin_read_parameter(
 	soundscaper_pro_plugin_instance *instance, uint32_t index, double *value)
 {
 	if (instance == nullptr || value == nullptr) return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
-	if (instance->clap != nullptr || instance->juce == nullptr) return SOUNDSCAPER_PRO_UNSUPPORTED;
+	if (instance->clap != nullptr) return soundscaper::dispatchJuceMessageTask([&]() {
+		return instance->clap->readParameter(index, *value);
+	});
+	if (instance->juce == nullptr) return SOUNDSCAPER_PRO_UNSUPPORTED;
 	return soundscaper::readJucePluginParameter(*instance->juce, index, *value);
 }
 
@@ -416,7 +418,8 @@ soundscaper_pro_status soundscaper_pro_plugin_write_parameter(
 	soundscaper_pro_plugin_instance *instance, uint32_t index, double value)
 {
 	if (instance == nullptr) return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
-	if (instance->clap != nullptr || instance->juce == nullptr) return SOUNDSCAPER_PRO_UNSUPPORTED;
+	if (instance->clap != nullptr) return instance->clap->writeParameter(index, value);
+	if (instance->juce == nullptr) return SOUNDSCAPER_PRO_UNSUPPORTED;
 	return soundscaper::dispatchJuceMessageTask([&]() {
 		return soundscaper::writeJucePluginParameter(*instance->juce, index, value);
 	});

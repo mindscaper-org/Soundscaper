@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { JUCE_EFFECTS } from '../juce-effects/catalog.ts';
 
 export type ApplicationMenuReferenceProduct = 'soundscaper' | 'framescaper';
 export type ApplicationMenuReferenceKind = 'command' | 'setting' | 'link';
@@ -177,6 +178,7 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 
 	// Soundscaper native effects and destructive selection effects.
 	['native-effect-manage', 'Plugin Manager', 'Effect', SOUNDSCAPER],
+	...JUCE_EFFECTS.map((effect): ReferenceSeed => [effect.menuId, effect.label, 'Effect > JUCE', SOUNDSCAPER]),
 	['nyquist-get-effects', 'Get effects', 'Effect > Nyquist', SOUNDSCAPER],
 	['audacity-amplify', 'Amplify', 'Effect > Volume and compression', SOUNDSCAPER],
 	['audacity-auto-duck', 'Auto Duck', 'Effect > Volume and compression', SOUNDSCAPER],

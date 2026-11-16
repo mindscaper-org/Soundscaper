@@ -158,6 +158,30 @@ test('an authenticated host loader resolves only its exact runtime closure and d
 	assert.deepEqual(JSON.parse(completion.stdout), { marker: 42, deniedSibling: true });
 });
 
+test('the verified bundled JUCE library does not alter Linux system-library resolution', {
+	skip: process.platform !== 'linux' || process.arch !== 'x64',
+}, async (context) => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-juce-loader-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const effects = join(root, 'runtime/effects');
+	await mkdir(effects, { recursive: true });
+	const peer = join(root, 'soundscaper_professional_peer');
+	const effect = join(effects, 'soundscaper_juce_effects.clap');
+	await writeFile(join(root, 'peer.c'), 'int main(void) { return 0; }\n');
+	await execute('cc', [join(root, 'peer.c'), '-o', peer]);
+	await writeFile(effect, 'bundled JUCE library fixture');
+	const [peerArtifact, effectArtifact] = await Promise.all([descriptor(peer), descriptor(effect)]);
+	const runtime = await resolveSoundscaperProfessionalLinuxSystemRuntime({
+		target: 'linux-x64', peer: peerArtifact, runtimeClosure: [effectArtifact],
+	});
+	assert.ok(runtime.runtimeClosure.some(({ path, sha256 }) => path === effect && sha256 === effectArtifact.sha256));
+	assert.equal(runtime.loaderArguments.some((argument) => argument.includes(effects)), false);
+	await writeFile(effect, 'changed effect');
+	await assert.rejects(resolveSoundscaperProfessionalLinuxSystemRuntime({
+		target: 'linux-x64', peer: peerArtifact, runtimeClosure: [effectArtifact],
+	}), /bundled.*changed|bundled.*authentic/iu);
+});
+
 async function descriptor(path: string): Promise<NativeChildIsolationArtifactDescriptor> {
 	const [bytes, metadata] = await Promise.all([readFile(path), stat(path, { bigint: true })]);
 	return Object.freeze({
