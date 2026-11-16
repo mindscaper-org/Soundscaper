@@ -6,6 +6,7 @@ import './framescaper-inputs-setup.css';
 import { FRAMESCAPER_INPUTS_COPY } from '../../../i18n/editor-framescaper-inputs-copy.ts';
 import { capturePhaseIsSourceLocked } from '../framescaper-capture-ui-model.ts';
 import RecordingSetupPanel from '../workspace/RecordingSetupPanel.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 type CaptureSetupProps = ComponentProps<typeof RecordingSetupPanel>;
 type InputsSetupProps = Omit<CaptureSetupProps, 'locale' | 'controller' | 'snapshot'> & Readonly<{
@@ -41,7 +42,7 @@ export default function FramescaperInputsSetupFlyout({ controller, snapshot, cop
 			blocked={blocked} locale={typeof document === 'undefined' ? 'en' : document.documentElement.lang || 'en'}
 			idPrefix="framescaper-inputs" showPanelOnOpen={false} />
 		<label>
-			<span>{copy.audioOutputDevice}</span>
+			<EditorControlLabel>{copy.audioOutputDevice}</EditorControlLabel>
 			<select aria-label={copy.audioOutputDevice} value={preferred}
 				disabled={!devices?.outputSupported || !controller.actions.audioDevices?.setOutput}
 				onChange={(event) => { void run(() => controller.actions.audioDevices?.setOutput?.(event.currentTarget.value)); }}>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { TextInput } from '@soundscaper/design-system/TextInput';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface OutputTrackNameEditorProps {
 	readonly name: string;
@@ -44,7 +45,7 @@ export function OutputTrackNameEditor({
 			complete(event.key === 'Enter', true);
 		}}
 	>
-		<span className="kw-audio-editor-sr-only">{label}: {initialName}</span>
+		<EditorControlLabel className="kw-audio-editor-sr-only">{label}: {initialName}</EditorControlLabel>
 		<TextInput value={name} multiline={multiline} disabled={blocked} width="100%" onChange={setName} />
 	</label>;
 }

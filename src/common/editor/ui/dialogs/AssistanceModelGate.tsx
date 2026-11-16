@@ -10,6 +10,7 @@ import type { LocalModelManagerBridge, LocalModelManagerModel } from '../local-m
 import { formatLocalModelBytes } from '../local-model-bytes.ts';
 import { localModelDisplayName } from './local-model-display-name.ts';
 import AssistanceLoadingDialog from './AssistanceLoadingDialog.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 const LocalModelManagerDialog = lazyEditorModule(() => import('./LocalModelManagerDialog.tsx'));
 const subscribeToNothing = (): (() => void) => () => undefined;
@@ -134,7 +135,7 @@ export default function AssistanceModelGate({
 				return <li key={model.modelId}>
 					{name} · {formatLocalModelBytes(model.downloadBytes, locale) || copy.localModelsSizeUnavailable || 'Unavailable'}
 					{progress && <div>
-						<label htmlFor={`assistance-download-${model.modelId}`}>{progress.fileName}</label>
+						<label htmlFor={`assistance-download-${model.modelId}`}><EditorControlLabel>{progress.fileName}</EditorControlLabel></label>
 						<progress id={`assistance-download-${model.modelId}`} aria-label={name}
 							value={progress.completedBytes} max={progress.totalBytes} />
 					</div>}

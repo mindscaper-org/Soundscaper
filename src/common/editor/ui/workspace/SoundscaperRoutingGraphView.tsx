@@ -51,6 +51,7 @@ import {
 	routingLayoutNodeKeyForEndpoint,
 	type RoutingLayoutNode,
 } from './soundscaper-routing-graph-layout.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export interface SoundscaperRoutingGraphCommit {
 	readonly kind: RoutingCommitKind;
@@ -228,7 +229,7 @@ function RoutingGraphProjectSession({
 		}}
 	>
 		<div className="kw-routing-graph__toolbar" aria-label={copy.routingControls}>
-			<label>{copy.addNode} <select aria-label={copy.addRoutingNode} disabled={graphDisabled} value="" onChange={(event) => {
+			<label><EditorControlLabel>{copy.addNode} </EditorControlLabel><select aria-label={copy.addRoutingNode} disabled={graphDisabled} value="" onChange={(event) => {
 				const kind = event.currentTarget.value;
 				event.currentTarget.value = '';
 				if (kind !== 'cue' && kind !== 'vca' && kind !== 'output') return;

@@ -10,6 +10,7 @@ import { addRationals } from '../../timeline-time.ts';
 import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
 import { AudacityToolbarFlyoutButton } from './AudioEditorMeterControls.jsx';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 const SIGNATURE_DENOMINATORS = Object.freeze(Array.from({ length: 53 }, (_, exponent) => 2 ** exponent));
 
@@ -23,7 +24,7 @@ export function MusicalTimelineControls({ project, snapshot, controller, copy, r
 	const disabled = snapshot.readOnly || snapshot.recording;
 	return <Fragment key={editorProjectEditSessionKey(controller, project?.id)}>
 		<label className="kw-audio-editor__tempo-control" data-action-id="playback-bpm">
-			<span>{copy.projectTempo}</span>
+			<EditorControlLabel>{copy.projectTempo}</EditorControlLabel>
 			<AuthoritativeNumberField
 				min="1"
 				max="1000"
@@ -38,8 +39,8 @@ export function MusicalTimelineControls({ project, snapshot, controller, copy, r
 			/>
 		</label>
 		<label className="kw-audio-editor__signature-control" data-action-id="playback-time-signature">
-			<span>{copy.timeSignature}</span>
-			<span className="kw-audio-editor__signature-fields">
+			<EditorControlLabel>{copy.timeSignature}</EditorControlLabel>
+			<EditorControlLabel className="kw-audio-editor__signature-fields">
 				<AuthoritativeNumberField
 					min="1"
 					max="1000"
@@ -67,7 +68,7 @@ export function MusicalTimelineControls({ project, snapshot, controller, copy, r
 						{ denominator },
 					))}
 				/>
-			</span>
+			</EditorControlLabel>
 		</label>
 		<AudacityToolbarFlyoutButton
 			icon={iconNameToChar('TEMPO_CHANGE')}
@@ -79,7 +80,7 @@ export function MusicalTimelineControls({ project, snapshot, controller, copy, r
 				<header>
 					<strong>{copy.musicalTimeline}</strong>
 					<label>
-						<span>{copy.tempoMapMode}</span>
+						<EditorControlLabel>{copy.tempoMapMode}</EditorControlLabel>
 						<select
 							value={tempoMap?.mode || 'musical'}
 							disabled={disabled}
@@ -292,7 +293,7 @@ function NumberField({ label, name, value, disabled = false, minimum, choices = 
 		for (const option of choiceRef.current?.options || []) option.defaultSelected = Number(option.value) === value;
 	}, [value]);
 	return <label>
-		<span>{label}</span>
+		<EditorControlLabel>{label}</EditorControlLabel>
 		{choices ? <select ref={choiceRef} name={name} defaultValue={value} disabled={disabled}>
 			{choices.map(choice => <option key={choice} value={choice}>{choice}</option>)}
 		</select> : <input type="number" name={name} defaultValue={value ?? minimum ?? 0} min={minimum} step="1" disabled={disabled} />}
@@ -300,7 +301,7 @@ function NumberField({ label, name, value, disabled = false, minimum, choices = 
 }
 
 function TimePositionField({ label, name, value, sampleRate, disabled = false, minimum }) {
-	return <label><span>{label}</span><AudioEditorTimeCodeInput label={label} name={name}
+	return <label><EditorControlLabel>{label}</EditorControlLabel><AudioEditorTimeCodeInput label={label} name={name}
 		value={value ?? minimum ?? 0} unit="samples" rate={sampleRate || 48_000}
 		format="hh:mm:ss+milliseconds" minimum={minimum} disabled={disabled} /></label>;
 }

@@ -61,6 +61,15 @@ English purposes live in `i18n/editor-menu-tooltip-*-copy.ts` and the
 instead of repeating its label. New dynamic entries need a stable purpose key;
 rich content is supplied as React nodes, without HTML string injection.
 
+## Control labels
+
+Control captions use `ui/EditorControlLabel.tsx`, including the shared field
+helpers, effect parameters, metadata and analysis readouts. Its stylesheet owns
+the semibold weight and preserves localized sentence case, acronyms and units.
+Keep control geometry and colors in feature styles; do not add weight, casing or
+letter-spacing overrides to individual label layouts. Choice controls use the
+same typography through the shared checkbox adapter and generator radio helper.
+
 ## Controller ownership
 
 Stateful editor coordination belongs in strict TypeScript under

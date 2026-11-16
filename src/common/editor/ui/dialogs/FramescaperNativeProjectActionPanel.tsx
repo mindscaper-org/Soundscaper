@@ -8,6 +8,7 @@ import type {
 	FramescaperNativeProjectActionRuntime,
 	FramescaperNativeProjectActionSurface,
 } from '../framescaper-native-project-actions.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export default function FramescaperNativeProjectActionPanel({
 	copy, surface, projectActions, title,
@@ -96,7 +97,7 @@ function RenderQueueDeliveryPanel({
 	return <section aria-label={title}>
 		{statusLine}
 		<form onSubmit={submit}>
-			<p><label>{copy.renderDeliveryFormat}<br />
+			<p><label><EditorControlLabel>{copy.renderDeliveryFormat}</EditorControlLabel><br />
 				<select value={delivery}
 					data-framescaper-render-delivery="true"
 					onChange={(event) => setDelivery(event.currentTarget.value as typeof delivery)}>
@@ -110,7 +111,7 @@ function RenderQueueDeliveryPanel({
 					<option value="openexr">{copy.renderDeliveryOpenExr}</option>
 				</select>
 			</label></p>
-			{webm && <p><label>{copy.renderQuality}<br />
+			{webm && <p><label><EditorControlLabel>{copy.renderQuality}</EditorControlLabel><br />
 				<select value={quality} onChange={(event) => setQuality(event.currentTarget.value as typeof quality)}>
 					<option value="draft">{copy.renderQualityDraft}</option>
 					<option value="balanced">{copy.renderQualityBalanced}</option>
@@ -122,7 +123,7 @@ function RenderQueueDeliveryPanel({
 				<RationalRateFields {...{ copy, num, den, setNum, setDen }} prefix="render" />
 				<p><label><input type="checkbox" checked={preserveAlpha}
 					onChange={(event) => setPreserveAlpha(event.currentTarget.checked)} />
-					{copy.renderPreserveAlpha}</label></p>
+					<EditorControlLabel>{copy.renderPreserveAlpha}</EditorControlLabel></label></p>
 			</fieldset>
 			<p><button type="submit" disabled={status === 'working'}
 				data-framescaper-native-project-action="render-queue-enqueue"
@@ -142,13 +143,13 @@ function RationalRateFields({
 	readonly setDen: (value: string) => void;
 }>) {
 	return <div className="kw-audio-editor-dialog__grid">
-		<label>{copy.frameRateNumerator}<br />
+		<label><EditorControlLabel>{copy.frameRateNumerator}</EditorControlLabel><br />
 			<input type="number" min="1" max="1000000" step="1" required value={num}
 				data-framescaper-image-sequence-rate-num={prefix === 'image-sequence' ? 'true' : undefined}
 				data-framescaper-render-rate-num={prefix === 'render' ? 'true' : undefined}
 				onChange={(event) => setNum(event.currentTarget.value)} />
 		</label>
-		<label>{copy.frameRateDenominator}<br />
+		<label><EditorControlLabel>{copy.frameRateDenominator}</EditorControlLabel><br />
 			<input type="number" min="1" max="1000000" step="1" required value={den}
 				data-framescaper-image-sequence-rate-den={prefix === 'image-sequence' ? 'true' : undefined}
 				data-framescaper-render-rate-den={prefix === 'render' ? 'true' : undefined}

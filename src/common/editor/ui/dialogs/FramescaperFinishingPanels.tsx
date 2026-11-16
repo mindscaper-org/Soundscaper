@@ -12,6 +12,7 @@ import type {
 	FramescaperMotionAnalysisTarget,
 } from '../../../../framescaper/editor-motion-analysis-actions-finishing.ts';
 import type { FramescaperCubeLutTarget } from '../../../../framescaper/editor-cube-lut-actions-finishing.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 /**
  * The field panels the Framescaper finishing dialog composes, split out of the
@@ -37,7 +38,7 @@ export function CubeLutControls(props: Readonly<{
 }>) {
 	return <fieldset disabled={props.blocked}>
 		<legend>{text(props.copy, 'cubeLutImport', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.cubeLutImport)}</legend>
-		<label><span>{text(props.copy, 'cubeLutTarget', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.cubeLutTarget)}</span><select
+		<label><EditorControlLabel>{text(props.copy, 'cubeLutTarget', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.cubeLutTarget)}</EditorControlLabel><select
 			value={props.target ? targetToken(props.target) : ''}
 			disabled={props.blocked || props.targets.length === 0}
 			onChange={(event) => props.onTarget(event.currentTarget.value)}>
@@ -85,20 +86,20 @@ export function CaptionSidecarEditor(props: Readonly<{
 	}>) {
 	return <fieldset disabled={props.exportBlocked}>
 		<legend>{text(props.copy, 'captionSidecarInterchange', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.captionSidecarInterchange)}</legend>
-		<label><span>{text(props.copy, 'format', 'Format')}</span><select value={props.format} onChange={(event) => props.onFormat(
+		<label><EditorControlLabel>{text(props.copy, 'format', 'Format')}</EditorControlLabel><select value={props.format} onChange={(event) => props.onFormat(
 			event.currentTarget.value as VideoCaptionInterchangeFormatV1,
 		)}>{CAPTION_FORMATS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}</select></label>
-		<label><span>{text(props.copy, 'captionTrackId', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.captionTrackId)}</span><input value={props.trackId}
+		<label><EditorControlLabel>{text(props.copy, 'captionTrackId', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.captionTrackId)}</EditorControlLabel><input value={props.trackId}
 			onChange={(event) => props.onTrackId(event.currentTarget.value)} /></label>
-		<label><span>{text(props.copy, 'sequence', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.sequence)}</span><select value={props.sequenceId} disabled={props.blocked}
+		<label><EditorControlLabel>{text(props.copy, 'sequence', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.sequence)}</EditorControlLabel><select value={props.sequenceId} disabled={props.blocked}
 			onChange={(event) => props.onSequenceId(event.currentTarget.value)}>{
 			sequenceIds(props.project).map((id) => <option key={id} value={id}>{id}</option>)
 		}</select></label>
-		<label><span>{text(props.copy, 'captionTrackName', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.captionTrackName)}</span><input value={props.trackName} disabled={props.blocked}
+		<label><EditorControlLabel>{text(props.copy, 'captionTrackName', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.captionTrackName)}</EditorControlLabel><input value={props.trackName} disabled={props.blocked}
 			onChange={(event) => props.onTrackName(event.currentTarget.value)} /></label>
-		<label><span>{text(props.copy, 'language', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.language)}</span><input value={props.language} disabled={props.blocked}
+		<label><EditorControlLabel>{text(props.copy, 'language', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.language)}</EditorControlLabel><input value={props.language} disabled={props.blocked}
 			onChange={(event) => props.onLanguage(event.currentTarget.value)} /></label>
-		<label><span>{text(props.copy, 'captionSidecarText', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.captionSidecarText)}</span><textarea rows={10} maxLength={16 * 1024 * 1024} disabled={props.blocked}
+		<label><EditorControlLabel>{text(props.copy, 'captionSidecarText', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.captionSidecarText)}</EditorControlLabel><textarea rows={10} maxLength={16 * 1024 * 1024} disabled={props.blocked}
 			value={props.sidecar} onChange={(event) => props.onSidecar(event.currentTarget.value)} /></label>
 		<div><button type="button" disabled={props.blocked} onClick={() => { props.onChooseFile(); }}>{
 			text(props.copy, 'captionChooseSidecarFile', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.captionChooseSidecarFile)
@@ -141,19 +142,19 @@ export function MotionAnalysisControls(props: Readonly<{
 		{props.targets.length === 0 ? <p role="status">{
 			text(props.copy, 'motionAnalysisTargetMissing', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.motionAnalysisTargetMissing)
 		}</p> : <>
-			<label><span>{text(props.copy, 'motionAnalysisTarget', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.motionAnalysisTarget)}</span>
+			<label><EditorControlLabel>{text(props.copy, 'motionAnalysisTarget', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.motionAnalysisTarget)}</EditorControlLabel>
 				<select value={props.stackId} disabled={props.blocked} onChange={(event) => props.onStack(
 					event.currentTarget.value,
 				)}>{props.targets.map((target) => <option key={target.stackId} value={target.stackId}>{
 					`${target.sourceName} — ${target.stackId}`
 				}</option>)}</select></label>
-			<label><span>{text(props.copy, 'motionAnalysisStartFrame', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.motionAnalysisStartFrame)}</span>
+			<label><EditorControlLabel>{text(props.copy, 'motionAnalysisStartFrame', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.motionAnalysisStartFrame)}</EditorControlLabel>
 				<MotionSourceFrameTimeCodeField label={text(props.copy, 'motionAnalysisStartFrame', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.motionAnalysisStartFrame)}
 					value={props.startFrame} source={props.source} sampleRate={props.sampleRate ?? 48_000}
 					minimum={props.target?.startFrame ?? 0} maximum={Math.max(
 						props.target?.startFrame ?? 0, props.endFrame - 1,
 					)} disabled={props.blocked} onChange={props.onStartFrame} /></label>
-			<label><span>{text(props.copy, 'motionAnalysisEndFrame', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.motionAnalysisEndFrame)}</span>
+			<label><EditorControlLabel>{text(props.copy, 'motionAnalysisEndFrame', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.motionAnalysisEndFrame)}</EditorControlLabel>
 				<MotionSourceFrameTimeCodeField label={text(props.copy, 'motionAnalysisEndFrame', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.motionAnalysisEndFrame)}
 					value={props.endFrame} source={props.source} sampleRate={props.sampleRate ?? 48_000}
 					minimum={props.startFrame + 1} maximum={Number(record(props.source).sourceFrameCount)}

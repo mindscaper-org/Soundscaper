@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { MacroNameInput } from './MacroNameInput.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 /**
  * The editor for a macro written as a program.
@@ -93,7 +94,7 @@ export default function MacroScriptEditor({
 				}
 				event.target.blur();
 			}}>
-				<span>{copy.programName}</span>
+				<EditorControlLabel>{copy.programName}</EditorControlLabel>
 				<MacroNameInput
 					value={nameDraft}
 					onCommit={commitName}
@@ -103,7 +104,7 @@ export default function MacroScriptEditor({
 				/>
 			</label>
 			<label className="audio-editor-field audio-editor-macro-script__source">
-				<span>{copy.program}</span>
+				<EditorControlLabel>{copy.program}</EditorControlLabel>
 				<textarea
 					ref={sourceRef}
 					rows={14}

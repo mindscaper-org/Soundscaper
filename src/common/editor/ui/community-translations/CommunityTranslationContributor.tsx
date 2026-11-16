@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import type { TranslationContribution } from '../../../i18n/community-translations.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export interface CommunityTranslationContributorHandle {
 	getDraft(): TranslationContribution;
@@ -45,6 +46,6 @@ export function CommunityTranslationContributor({ draft, label, onSave, onFailur
 	cleanup.current = () => { void flush().catch(current.current.onFailure); };
 	useEffect(() => () => cleanup.current(), []);
 	useImperativeHandle(handleRef, () => ({ getDraft, flush }));
-	return <label>{label}<input value={text} onChange={event => setText(event.target.value)}
+	return <label><EditorControlLabel>{label}</EditorControlLabel><input value={text} onChange={event => setText(event.target.value)}
 		onBlur={() => { void flush().catch(onFailure); }} /></label>;
 }

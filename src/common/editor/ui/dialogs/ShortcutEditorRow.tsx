@@ -15,6 +15,7 @@ import {
 	findAudioEditorShortcutConflicts,
 	normalizeAudioEditorShortcut,
 } from '../../preferences.js';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 type ShortcutMap = Readonly<Record<string, readonly string[]>>;
 
@@ -203,9 +204,9 @@ export function ShortcutEditorRow({ productId = 'soundscaper', command, commands
 				{entries.map((entry, index) => (
 					<div className="kw-audio-editor-preferences__shortcut-binding" key={`binding-${index}`}>
 						<label>
-							<span className="kw-audio-editor-sr-only">
+							<EditorControlLabel className="kw-audio-editor-sr-only">
 								{`${command.label}: ${copy.shortcutColumn} ${index + 1}`}
-							</span>
+							</EditorControlLabel>
 							<input
 								data-shortcut-binding={index}
 								disabled={command.disabled}

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { SteppedSlider } from './inspector-controls.jsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface Props {
 	readonly name: string;
@@ -22,7 +23,7 @@ export default function ClipFadeShapeField({ name, label, value, fadeFrames,
 	const shape = gestureValue ?? savedShape;
 	const legacyDisplay = legacy && gestureValue === null;
 	return <label className="audio-editor-field" data-clip-field={name}>
-		<span>{label}</span>
+		<EditorControlLabel>{label}</EditorControlLabel>
 		<div className="audio-editor-clip-fade-shape__row">
 			<SteppedSlider value={shape} min={0.15} max={6} step={0.01} defaultValue={1}
 				ariaLabel={label} valueText={legacyDisplay ? legacyLabel : undefined}

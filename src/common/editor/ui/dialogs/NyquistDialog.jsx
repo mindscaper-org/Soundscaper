@@ -15,6 +15,7 @@ import { loadNyquistPromptDraft, storeNyquistPromptDraft } from './nyquist-promp
 import NyquistNumberInput from './NyquistNumberInput.tsx';
 import { nyquistDialogAppliedResult } from './nyquist-dialog-result.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export default function NyquistDialog({ controller, snapshot, copy, target, run, onClose }) {
 	if (target?.pluginId === '__get-effects__') return <NyquistGetEffectsDialog copy={copy} onClose={onClose} />;
@@ -165,14 +166,14 @@ function NyquistRunnerDialog({ controller, snapshot, copy, target, run, onClose 
 					<p className="kw-audio-editor__nyquist-sandbox">{copy.nyquistSandboxNotice}</p>
 					{prompt && <>
 						<label className="kw-audio-editor-dialog__field">
-							<span>{copy.nyquistLanguage}</span>
+							<EditorControlLabel>{copy.nyquistLanguage}</EditorControlLabel>
 							<select value={language} disabled={processing} onChange={(event) => setLanguage(event.currentTarget.value)}>
 								<option value="lisp">{copy.nyquistLanguageLisp}</option>
 								<option value="sal">{copy.nyquistLanguageSal}</option>
 							</select>
 						</label>
 						<label className="kw-audio-editor-dialog__field kw-audio-editor-dialog__field--source">
-							<span>{copy.nyquistSource}</span>
+							<EditorControlLabel>{copy.nyquistSource}</EditorControlLabel>
 							<textarea rows={12} spellCheck="false" value={source} disabled={processing} onChange={(event) => setSource(event.currentTarget.value)} />
 						</label>
 					</>}
@@ -189,7 +190,7 @@ function NyquistRunnerDialog({ controller, snapshot, copy, target, run, onClose 
 					</fieldset>}
 					<label className="kw-audio-editor__nyquist-debug">
 						<input type="checkbox" checked={debug} disabled={processing} onChange={(event) => setDebug(event.currentTarget.checked)} />
-						<span>{copy.nyquistDebug}</span>
+						<EditorControlLabel>{copy.nyquistDebug}</EditorControlLabel>
 					</label>
 					{output && <section className="kw-audio-editor__nyquist-output" aria-live="polite">
 						<strong>{copy.nyquistOutput}</strong>
@@ -203,7 +204,7 @@ function NyquistControl({ control, value, sampleRate, disabled, onChange }) {
 	if (control.kind === 'text') return <p className="kw-audio-editor__nyquist-control-note">{control.label}</p>;
 	if (control.kind === 'choice') return (
 		<label className="kw-audio-editor-dialog__field">
-			<span>{control.label}</span>
+			<EditorControlLabel>{control.label}</EditorControlLabel>
 			<select value={String(value ?? control.defaultValue ?? 0)} disabled={disabled} onChange={(event) => onChange(Number(event.currentTarget.value))}>
 				{control.options.map((option) => <option key={`${option.value}-${option.symbol || option.label}`} value={option.value}>{option.label}</option>)}
 			</select>
@@ -211,7 +212,7 @@ function NyquistControl({ control, value, sampleRate, disabled, onChange }) {
 	);
 	if (control.kind === 'string') return (
 		<label className="kw-audio-editor-dialog__field">
-			<span>{control.label}</span>
+			<EditorControlLabel>{control.label}</EditorControlLabel>
 			<input type="text" value={String(value ?? '')} disabled={disabled} onChange={(event) => onChange(event.currentTarget.value)} />
 		</label>
 	);
@@ -219,7 +220,7 @@ function NyquistControl({ control, value, sampleRate, disabled, onChange }) {
 	const timeUnit = nyquistTimeUnit(control.sourceUnit ?? control.unit);
 	return (
 		<label className="kw-audio-editor-dialog__field">
-			<span>{control.label}{control.unit ? ` — ${control.unit}` : ''}</span>
+			<EditorControlLabel>{control.label}{control.unit ? ` — ${control.unit}` : ''}</EditorControlLabel>
 			{timeUnit ? <AudioEditorTimeCodeInput
 				label={control.label}
 				value={Number(value ?? control.defaultValue ?? 0)}

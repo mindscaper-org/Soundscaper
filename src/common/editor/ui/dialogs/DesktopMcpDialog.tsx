@@ -7,6 +7,7 @@ import { DialogFooter } from '@soundscaper/design-system/Footer';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { resolveDesktopMcpCopy } from '../desktop-mcp-copy.ts';
 import './DesktopMcpDialog.css';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export interface DesktopMcpStatus {
 	readonly enabled: boolean;
@@ -95,13 +96,13 @@ export default function DesktopMcpDialog({ copy, fileService, onClose }: {
 				: mcpCopy.disabled}</p>
 		{error && <p role="alert">{error}</p>}
 		{status?.enabled && status.url && status.token && <div className="kw-desktop-mcp__credentials">
-			<label>{mcpCopy.endpoint}
+			<label><EditorControlLabel>{mcpCopy.endpoint}</EditorControlLabel>
 				<input readOnly value={status.url} aria-label={mcpCopy.endpoint} />
 			</label>
 			<Button variant="secondary" onClick={() => { void copyValue(status.url!); }}>
 				{mcpCopy.copyEndpoint}
 			</Button>
-			<label>{mcpCopy.token}
+			<label><EditorControlLabel>{mcpCopy.token}</EditorControlLabel>
 				<input readOnly value={status.token} aria-label={mcpCopy.token} />
 			</label>
 			<Button variant="secondary" onClick={() => { void copyValue(status.token!); }}>

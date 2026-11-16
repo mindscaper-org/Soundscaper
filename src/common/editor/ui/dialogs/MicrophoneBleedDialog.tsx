@@ -7,6 +7,7 @@ import type { MicrophoneBleedOptions } from '../../microphone-bleed.ts';
 import { selectAudioEditorEditBlock, type AudioEditorEditBlockingSnapshot } from '../../edit-blocking.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface Props {
 	readonly controller: { readonly actions: { readonly effects: {
@@ -45,14 +46,14 @@ export default function MicrophoneBleedDialog({ controller, snapshot, copy, onCl
 			onSubmit={event => { event.preventDefault(); apply(); }}>
 			<p className="audio-editor-panel-hint">{copy.microphoneBleedInstructions}</p>
 			<p className="audio-editor-panel-hint">{copy.microphoneBleedEditable}</p>
-			<label className="kw-audio-editor-dialog__field"><span>{copy.microphoneBleedReduction}</span>
+			<label className="kw-audio-editor-dialog__field"><EditorControlLabel>{copy.microphoneBleedReduction}</EditorControlLabel>
 				<input required type="number" min={0} max={36} step={1} value={reduction} disabled={busy} onChange={event => setReduction(event.currentTarget.value)} />
 			</label>
-			<label className="kw-audio-editor-dialog__field"><span>{copy.microphoneBleedSimilarity}</span>
+			<label className="kw-audio-editor-dialog__field"><EditorControlLabel>{copy.microphoneBleedSimilarity}</EditorControlLabel>
 				<input required type="number" min={50} max={100} step={1} value={similarity} disabled={busy} onChange={event => setSimilarity(event.currentTarget.value)} />
 			</label>
 			<p className="audio-editor-panel-hint">{copy.microphoneBleedSimilarityHint}</p>
-			<label className="kw-audio-editor-dialog__field"><span>{copy.microphoneBleedFade}</span>
+			<label className="kw-audio-editor-dialog__field"><EditorControlLabel>{copy.microphoneBleedFade}</EditorControlLabel>
 				<input required type="number" min={20} max={500} step={10} value={fade} disabled={busy} onChange={event => setFade(event.currentTarget.value)} />
 			</label>
 			{busy && <p role="status">{copy.audacityProcessing}</p>}

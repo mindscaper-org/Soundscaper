@@ -30,6 +30,7 @@ import {
 	linearToDb,
 	nonNegativeFrame,
 } from './inspector-helpers.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 /**
  * The title a rename should commit, or null when the field was left alone.
@@ -309,7 +310,7 @@ function ClipPropertiesDrawer({ name, label, initiallyOpen = false, children }) 
  */
 function ClipSourceFactRow({ name, label, value, action = null }) {
 	return <div className="audio-editor-field" data-clip-source-fact={name}>
-		<span>{label}</span>
+		<EditorControlLabel>{label}</EditorControlLabel>
 		<div className="audio-editor-field__value-row">
 			<span className="audio-editor-field__value">{value}</span>
 			{action}
@@ -322,7 +323,7 @@ function ClipTimeCodeField({ name, label, value, sampleRate, frameRate, minimum 
 	const input = <AudioEditorTimeCodeInput label={label} value={value} unit="samples" rate={sampleRate} frameRate={frameRate}
 			format="hh:mm:ss+milliseconds" minimum={minimum} maximum={maximum}
 			disabled={disabled} onCommit={onCommit} />;
-	return <label className="audio-editor-field" data-clip-field={name}><span>{label}</span>
+	return <label className="audio-editor-field" data-clip-field={name}><EditorControlLabel>{label}</EditorControlLabel>
 		{musicalOriginFrame === undefined ? input : <EditorMusicalTimeCodeProvider controller={controller} originFrame={musicalOriginFrame}>
 			{input}
 		</EditorMusicalTimeCodeProvider>}

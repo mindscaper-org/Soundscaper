@@ -21,6 +21,7 @@ import type { WebVcrUiSnapshot } from '../web-vcr-ui-model.ts';
 import { captureFailureLabel, captureUnavailableLabel } from './capture-failure-presentation.ts';
 import { FramescaperCaptureSources } from './FramescaperCaptureSources.tsx';
 import type { FramescaperCaptureSetupOptions } from '../../framescaper-capture-setup-actions.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface CaptureActions {
 	openSetup?(options?: FramescaperCaptureSetupOptions): unknown;
@@ -254,11 +255,11 @@ function CaptureSetupOptions({
 				<input type="radio" name={`${idPrefix}-destination`} value={value}
 					checked={destination === value} disabled={disabled}
 					onChange={() => onDestination(value)} />
-				<span>{destinationLabel(copy, value)}</span>
+				<EditorControlLabel>{destinationLabel(copy, value)}</EditorControlLabel>
 			</label>)}
 		</fieldset>
 		<label className="kw-framescaper-capture__select">
-			<span>{copy.captureCountdown}</span>
+			<EditorControlLabel>{copy.captureCountdown}</EditorControlLabel>
 			<select value={countdownMs} disabled={disabled}
 				onChange={(event) => onCountdown(Number(event.currentTarget.value))}>
 				{COUNTDOWNS_MS.map((value) => <option key={value} value={value}>
@@ -271,10 +272,10 @@ function CaptureSetupOptions({
 		<label className="kw-framescaper-capture__check">
 			<input type="checkbox" checked={monitoring} disabled={disabled}
 				onChange={(event) => onMonitoring(event.currentTarget.checked)} />
-			<span>{copy.captureMonitoring}</span>
+			<EditorControlLabel>{copy.captureMonitoring}</EditorControlLabel>
 		</label>
 		<label className="kw-framescaper-capture__gain">
-			<span>{copy.captureInputGain}</span>
+			<EditorControlLabel>{copy.captureInputGain}</EditorControlLabel>
 			<input type="range" min="0" max="2" step="0.05" value={inputGain} disabled={disabled}
 				onChange={(event) => onInputGain(Number(event.currentTarget.value))}
 				onDoubleClick={(event) => {

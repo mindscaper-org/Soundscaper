@@ -3,6 +3,7 @@ import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { iconNameToChar } from '../../audacity-iconcodes.js';
 import type { CustomToolbarButtonAction } from '../toolbar/custom-toolbar-button-actions.ts';
 import { prepareCustomToolbarActionSearch } from './custom-toolbar-button-search.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface Props {
 	readonly actions: readonly CustomToolbarButtonAction[];
@@ -55,7 +56,7 @@ export default function CustomToolbarActionPicker({ actions, actionId, copy, dis
 		}
 	}}>
 		<label className="kw-audio-editor-custom-button-dialog__field">
-			<span>{copy.customToolbarButtonAction}</span>
+			<EditorControlLabel>{copy.customToolbarButtonAction}</EditorControlLabel>
 			<input ref={inputRef} type="text" role="combobox" aria-label={copy.customToolbarButtonActionSearch}
 				aria-autocomplete="list" aria-expanded={expanded} aria-controls={listId}
 				aria-activedescendant={expanded && active >= 0 && matches[active] ? `${listId}-${active}` : undefined}

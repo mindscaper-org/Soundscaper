@@ -8,6 +8,7 @@ import { effectMacroMissingEmbeddedNoiseProfile } from '../../effect-macro-readi
 import type { MacroFileBatchDefinition, MacroFileBatchFormat, MacroFileBatchRequest, MacroFileBatchRow } from '../../controller/effects/macro-file-batch-service.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import './MacroFileBatchDialog.css';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface Input { readonly id: string; readonly name: string; readonly originalFile?: { readonly id: string } }
 interface Target { readonly batchId: string; readonly index: number; readonly name: string }
@@ -120,10 +121,10 @@ export default function MacroFileBatchDialog({ controller, fileService, snapshot
 		</>} />}>
 		<div className="kw-audio-editor-dialog__form audio-editor-macro-batch" aria-busy={busy}>
 			<p className="audio-editor-panel-hint">{available ? copy.macroBatchHint : copy.macroBatchDesktop}</p>
-			<label className="kw-audio-editor-dialog__field"><span>{copy.macroBatchMacro}</span><select value={selected} disabled={busy} onChange={event => { setSelected(event.currentTarget.value); setRows([]); }}>
+			<label className="kw-audio-editor-dialog__field"><EditorControlLabel>{copy.macroBatchMacro}</EditorControlLabel><select value={selected} disabled={busy} onChange={event => { setSelected(event.currentTarget.value); setRows([]); }}>
 				{choices.map(choice => <option key={choice.id} value={choice.id} disabled={!choice.enabled}>{choice.macro.name}</option>)}
 			</select></label>
-			<label className="kw-audio-editor-dialog__field"><span>{copy.macroBatchFormat}</span><select value={format} disabled={busy} onChange={event => { setFormat(event.currentTarget.value as MacroFileBatchFormat); setRows([]); }}>
+			<label className="kw-audio-editor-dialog__field"><EditorControlLabel>{copy.macroBatchFormat}</EditorControlLabel><select value={format} disabled={busy} onChange={event => { setFormat(event.currentTarget.value as MacroFileBatchFormat); setRows([]); }}>
 				<option value="wav">{copy.macroBatchWav}</option><option value="flac">{copy.macroBatchFlac}</option><option value="mp3">{copy.macroBatchMp3}</option>
 			</select></label>
 			<section>

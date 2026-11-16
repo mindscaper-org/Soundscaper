@@ -12,6 +12,7 @@ import {
 } from './native-plugin-parameter-runtime.ts';
 import { SOUNDSCAPER_NATIVE_SERVICES_COPY } from '../../../i18n/editor-soundscaper-native-services-copy.ts';
 import { trackNativePluginParameterWrites } from '../native-plugin-parameter-write-drain.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 const BOOLEAN_PARAMETER_FLAG = 1;
 
@@ -158,7 +159,7 @@ const NativeParameterRow = memo(function NativeParameterRow({ parameter, value, 
 
 	const isBoolean = (parameter.flags & BOOLEAN_PARAMETER_FLAG) !== 0;
 	return <label key={parameter.id}>
-		<span>{parameter.name}</span>
+		<EditorControlLabel>{parameter.name}</EditorControlLabel>
 		{isBoolean ? <input
 			data-native-plugin-parameter={parameter.id}
 			type="checkbox"

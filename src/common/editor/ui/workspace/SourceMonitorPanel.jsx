@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import '../audio-editor-design-system/23-source-monitor.css';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 /**
  * The source monitor: one video source shown on its own frame grid.
@@ -139,7 +140,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 				onClick={() => step(1)}
 			>›</button>
 			<label className="kw-audio-editor__source-monitor-scrub">
-				<span className="kw-audio-editor__visually-hidden">{copy.sourceMonitorPosition}</span>
+				<EditorControlLabel className="kw-audio-editor__visually-hidden">{copy.sourceMonitorPosition}</EditorControlLabel>
 				<input
 					type="range"
 					min={0}

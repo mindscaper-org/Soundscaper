@@ -11,6 +11,7 @@ import {
 import EditorHelpTooltip from './EditorHelpTooltip.tsx';
 import { statedVideoDeliveryTarget } from './export-preset-model.ts';
 import { DesignCheckbox, LabeledDropdown } from './inspector/inspector-controls.jsx';
+import EditorControlLabel from './EditorControlLabel.tsx';
 
 /**
  * The rates a delivery usually asks for; the field accepts any of them or another.
@@ -117,7 +118,7 @@ export default function VideoDeliveryFields({
 				</p>
 			)}
 			<label className="audio-editor-field" data-export-field="canvasSize">
-				<span className="audio-editor-help-label">
+				<EditorControlLabel className="audio-editor-help-label">
 					<span>{copy.videoCanvasSize}</span>
 					<EditorHelpTooltip
 						subject={copy.videoCanvasSize}
@@ -125,7 +126,7 @@ export default function VideoDeliveryFields({
 						helpLabel={copy.helpMenu}
 						hook="video-canvas-size"
 					/>
-				</span>
+				</EditorControlLabel>
 				<span className="audio-editor-export-canvas-size">
 					<input
 						type="number"
@@ -163,7 +164,7 @@ export default function VideoDeliveryFields({
 				}))}
 			/>
 			<label className="audio-editor-field" data-export-field="canvasFrameRate">
-				<span>{copy.videoCanvasFrameRate}</span>
+				<EditorControlLabel>{copy.videoCanvasFrameRate}</EditorControlLabel>
 				<input
 					type="number"
 					min="0"
@@ -180,7 +181,7 @@ export default function VideoDeliveryFields({
 				</datalist>
 			</label>
 			<label className="audio-editor-field" data-export-field="canvasBackground">
-				<span>{copy.videoCanvasBackground}</span>
+				<EditorControlLabel>{copy.videoCanvasBackground}</EditorControlLabel>
 				<input
 					type="text"
 					spellCheck={false}
@@ -242,7 +243,7 @@ export default function VideoDeliveryFields({
 								options={CAPTION_DELIVERIES.map(({ value, labelKey }) => ({ value, label: copy[labelKey] }))}
 							/>
 							<label className="audio-editor-field" data-export-field="captionBurnIn">
-								<span>{copy.videoCaptionBurnIn}</span>
+								<EditorControlLabel>{copy.videoCaptionBurnIn}</EditorControlLabel>
 								<span>
 									<DesignCheckbox
 										label={copy.videoCaptionBurnInHint}

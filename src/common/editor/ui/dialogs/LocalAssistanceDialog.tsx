@@ -46,6 +46,7 @@ import { useLocalAssistanceTaskExecution } from './useLocalAssistanceTaskExecuti
 import LocalAssistanceTaskProcessingDialog from './LocalAssistanceTaskProcessingDialog.tsx';
 import './LocalAssistanceDialog.css';
 import './ProcessingDialogs.css';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 const LocalModelManagerDialog = lazyEditorModule(() => import('./LocalModelManagerDialog.tsx'));
 
@@ -289,7 +290,7 @@ export function LocalAssistanceDialogView({
 			className="kw-local-assistance__advanced" role="tabpanel"
 			aria-label={text(copy, 'localAssistanceAdvanced', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceAdvanced)}>
 		<div className="kw-local-assistance__selections">
-			<label>{text(copy, 'localAssistanceOperation', 'Operation')}
+			<label><EditorControlLabel>{text(copy, 'localAssistanceOperation', 'Operation')}</EditorControlLabel>
 				<select value={snapshot.selectedOperation ?? ''} disabled={!source || busy(snapshot)}
 					onChange={(event) => { void onSelectOperation(event.currentTarget.value as AssistanceOperation); }}>
 					<option value="" disabled>{text(copy, 'localAssistanceChoose', 'Choose')}</option>
@@ -304,19 +305,19 @@ export function LocalAssistanceDialogView({
 				<label><input type="radio" name="local-assistance-shot-mode" value="fast"
 					checked={snapshot.shotDetectionMode === 'fast'} onChange={() => {
 						void onShotDetectionModeChange('fast');
-					}} />{text(copy, 'localAssistanceShotDetectionFast', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceShotDetectionFast)}</label>
+					}} /><EditorControlLabel>{text(copy, 'localAssistanceShotDetectionFast', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceShotDetectionFast)}</EditorControlLabel></label>
 				<label><input type="radio" name="local-assistance-shot-mode" value="accurate"
 					checked={snapshot.shotDetectionMode === 'accurate'} onChange={() => {
 						void onShotDetectionModeChange('accurate');
-					}} />{text(copy, 'localAssistanceShotDetectionAccurate', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceShotDetectionAccurate)}</label>
+					}} /><EditorControlLabel>{text(copy, 'localAssistanceShotDetectionAccurate', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceShotDetectionAccurate)}</EditorControlLabel></label>
 			</fieldset>}
 			{modelChoices.filter(({ compatibleModels }) => compatibleModels.length > 1).map(({ slot, compatibleModels }) => {
 				const selectedModelId = snapshot.selectedModelIds.find(
 					(modelId) => compatibleModels.some((model) => model.modelId === modelId),
 				) ?? '';
 				return <label key={slot.join('|') || 'unselected-operation'}>
-					{copy.assistanceModelName || 'Model'}
-					{modelChoices.length > 1 && ` · ${slot.join(' / ')}`}
+					<EditorControlLabel>{copy.assistanceModelName || 'Model'}
+					{modelChoices.length > 1 && ` · ${slot.join(' / ')}`}</EditorControlLabel>
 					<select value={selectedModelId}
 						disabled={!snapshot.selectedOperation || busy(snapshot)}
 						onChange={(event) => { void onSelectModel(event.currentTarget.value); }}>
@@ -374,9 +375,9 @@ function Progress({ copy, progress }: Readonly<{
 			progress={progress} />;
 	}
 	return <div className="kw-local-assistance__progress">
-		<label htmlFor="local-assistance-progress">{template(text(copy, 'localAssistanceProgress',
+		<label htmlFor="local-assistance-progress"><EditorControlLabel>{template(text(copy, 'localAssistanceProgress',
 			'{phase}: {completed} of {total}'), { phase: progress.phase,
-			completed: String(progress.completed), total: String(progress.total) })}</label>
+			completed: String(progress.completed), total: String(progress.total) })}</EditorControlLabel></label>
 		<progress id="local-assistance-progress" value={progress.completed} max={progress.total} />
 	</div>;
 }

@@ -9,6 +9,7 @@ import { runAwaitedAudioEditorOperation } from '../workspace/audio-editor-worksp
 import { createAudacityRecoverySelection, type AudacityRecoveryFiles } from '../../controller/document/audacity-recovery-selection.ts';
 import type { AudacityRecoveryInspection } from '../../audacity-recovery-inspection.ts';
 import AudacityRecoveryAssessment from './AudacityRecoveryAssessment.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface Props {
 	readonly fileService: AudacityRecoveryFiles;
@@ -54,7 +55,7 @@ export default function AudacityRecoveryDialog({ fileService, open, copy, run, o
 	>
 		<p id="audacity-recovery-description">{copy.recoverAudacityProjectDescription}</p>
 		{fileService.isDesktop ? <Button variant="secondary" disabled={pending} onClick={choose}>{copy.recoverAudacityProjectFile}</Button>
-			: <label>{copy.recoverAudacityProjectFile}<input type="file" accept=".aup3,.aup4,.aup4unsaved"
+			: <label><EditorControlLabel>{copy.recoverAudacityProjectFile}</EditorControlLabel><input type="file" accept=".aup3,.aup4,.aup4unsaved"
 				disabled={pending} onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file) setFile(file); }} /></label>}
 		{name && <p>{name}</p>}
 		{inspection && <AudacityRecoveryAssessment inspection={inspection} copy={copy} />}

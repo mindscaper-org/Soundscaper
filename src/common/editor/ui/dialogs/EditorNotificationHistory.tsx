@@ -2,7 +2,7 @@
 
 import { Button } from '@soundscaper/design-system/Button/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer/Footer';
-import { LabeledCheckbox } from '@soundscaper/design-system/LabeledCheckbox/LabeledCheckbox';
+import PreferenceCheckbox from '../EditorPreferenceCheckbox.tsx';
 import type { EditorNotificationSession } from '../../controller/composition/editor-notification-session.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 
@@ -18,7 +18,7 @@ export default function EditorNotificationHistory({ session, snapshot, copy }: P
 		footer={<DialogFooter rightContent={<><Button disabled={!snapshot.history.length} onClick={() => session.clear()}>{copy.notificationClear}</Button>
 			<Button onClick={close}>{copy.close}</Button></>} />}>
 		<p>{copy.notificationHistoryNote}</p>
-		<LabeledCheckbox label={copy.notificationMute ?? ''} checked={snapshot.muted} onChange={muted => session.setMuted(muted)} />
+		<PreferenceCheckbox label={copy.notificationMute ?? ''} checked={snapshot.muted} onChange={muted => session.setMuted(muted)} />
 		{snapshot.history.length ? <ol className="kw-editor-notification-history">{snapshot.history.map(entry => <li key={entry.key}>
 			<strong>{entry.title}</strong>{entry.description && <p>{entry.description}</p>}
 		</li>)}</ol> : <p>{copy.notificationEmpty}</p>}

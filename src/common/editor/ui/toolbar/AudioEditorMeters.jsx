@@ -18,6 +18,7 @@ import {
 	formatLra,
 	playbackMeterTicks,
 } from '../meter-settings.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export function AudacityAudioMeter({
 	copy,
@@ -211,7 +212,7 @@ export function MeterSettingsFlyout({
 							checked={settings.position === value}
 							onChange={() => update('position', value)}
 						/>
-						<span>{label}</span>
+						<EditorControlLabel>{label}</EditorControlLabel>
 					</label>
 					{value === 'panel' && <MeterPanelPositionMenu copy={copy} meterKind={meterKind} settings={settings} onChange={onChange} />}
 					</div>
@@ -229,7 +230,7 @@ export function MeterSettingsFlyout({
 								checked={settings.style === value}
 								onChange={() => update('style', value)}
 							/>
-							<span>{label}</span>
+							<EditorControlLabel>{label}</EditorControlLabel>
 						</label>
 					))}
 				</fieldset>}
@@ -244,7 +245,7 @@ export function MeterSettingsFlyout({
 								checked={settings.type === value}
 								onChange={() => update('type', value)}
 							/>
-							<span>{label}</span>
+							<EditorControlLabel>{label}</EditorControlLabel>
 						</label>
 					))}
 				</fieldset>
@@ -264,7 +265,7 @@ export function MeterSettingsFlyout({
 								checked={settings.ebuScale === value}
 								onChange={() => update('ebuScale', value)}
 							/>
-							<span>{label}</span>
+							<EditorControlLabel>{label}</EditorControlLabel>
 						</label>
 					))}
 				</fieldset>
@@ -282,7 +283,7 @@ export function MeterSettingsFlyout({
 								checked={settings.ebuUnit === value}
 								onChange={() => update('ebuUnit', value)}
 							/>
-							<span>{label}</span>
+							<EditorControlLabel>{label}</EditorControlLabel>
 						</label>
 					))}
 				</fieldset>
@@ -300,12 +301,12 @@ export function MeterSettingsFlyout({
 								checked={settings.ebuLiveValue === value}
 								onChange={() => update('ebuLiveValue', value)}
 							/>
-							<span>{label}</span>
+							<EditorControlLabel>{label}</EditorControlLabel>
 						</label>
 					))}
 				</fieldset>
 			</div> : <label className="kw-audio-editor__playback-meter-range">
-				<span>{copy.dbRange}</span>
+				<EditorControlLabel>{copy.dbRange}</EditorControlLabel>
 				<select
 					value={settings.dbRange}
 					disabled={settings.type === 'amplitude'}
@@ -346,7 +347,7 @@ function EbuMeterDashboard({ copy, loudness = {}, unit, meterKind, controller })
 			<div className="kw-audio-editor__ebu-values">
 				{values.map(([key, label, value]) => (
 					<div key={key} data-ebu-value={key}>
-						<span>{label}</span>
+						<EditorControlLabel>{label}</EditorControlLabel>
 						<strong>{value}</strong>
 					</div>
 				))}

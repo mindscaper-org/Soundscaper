@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { SampleRateGlyph } from '@soundscaper/design-system/ClipPropertiesPanel/clip-properties-glyphs';
 import { parseClipResampleRate } from './clip-resample-rate.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export interface ClipAudioFormatRequest {
 	readonly sampleRate: number;
@@ -33,7 +34,7 @@ export default function ClipAudioFormatSection({ source, copy, disabled, onReint
 		<h3 className="clip-properties__section">{copy.format}</h3>
 		<div className="clip-properties__row">
 			<label className="clip-properties__field" data-clip-properties-field="format-rate" data-tooltip={copy.sampleRateHz}>
-				<span className="clip-properties__glyph-cell"><SampleRateGlyph /></span>
+				<EditorControlLabel className="clip-properties__glyph-cell"><SampleRateGlyph /></EditorControlLabel>
 				<input type="number" className="audio-editor-clip-format__rate" aria-label={copy.sampleRateHz}
 					value={rate} min={8000} max={384000} step={1000} disabled={disabled} aria-invalid={sampleRate === null || undefined}
 					onChange={event => setRate(event.currentTarget.value)} />

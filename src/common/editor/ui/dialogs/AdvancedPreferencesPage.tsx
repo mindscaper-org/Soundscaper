@@ -14,6 +14,7 @@ import {
 	AUDIO_COM_DEFAULT_SERVER_URL, normalizeAudioComServerUrl,
 	type AudioEditorAdvancedPreferences,
 } from '../../advanced-preferences.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface AdvancedPreferencesCopy {
 	readonly advancedAudioServer: string;
@@ -106,7 +107,7 @@ export default function AdvancedPreferencesPage({ controller, preferences, copy,
 			<Separator />
 			<PreferencePanel title={copy.advancedAudioServer}>
 				<label className="kw-audio-editor-preferences__field" htmlFor={fieldId}>
-					<span>{copy.advancedAudioServerUrl}</span>
+					<EditorControlLabel>{copy.advancedAudioServerUrl}</EditorControlLabel>
 					<input id={fieldId} type="url" value={draft} autoComplete="off" spellCheck={false}
 						aria-invalid={invalid || undefined} aria-describedby={`${fieldId}-note${invalid ? ` ${fieldId}-error` : ''}`}
 						onChange={(event) => { setDraft(event.currentTarget.value); setInvalid(false); }}

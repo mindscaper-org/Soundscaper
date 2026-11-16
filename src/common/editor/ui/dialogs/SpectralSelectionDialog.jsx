@@ -13,6 +13,7 @@ import {
 } from './spectral-selection-gain.ts';
 import { spectralSelectionFrequencyRangeValid } from './spectral-selection-frequency-range.ts';
 import { spectralSelectionTargetLocked } from './spectral-selection-target-lock.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export default function SpectralSelectionDialog({ controller, snapshot, copy, run, onClose }) {
 	const project = snapshot.project;
@@ -117,19 +118,19 @@ export default function SpectralSelectionDialog({ controller, snapshot, copy, ru
 							setCenterInput(centerText);
 						}}
 					>
-						<span>{copy.centerFrequency}</span>
+						<EditorControlLabel>{copy.centerFrequency}</EditorControlLabel>
 						<NumberStepper value={centerInput} min={0} max={nyquist} step={10} width="100%" onChange={moveCenter} />
 					</label>
 					<label className="kw-audio-editor-dialog__field">
-						<span>{copy.minimumFrequency}</span>
+						<EditorControlLabel>{copy.minimumFrequency}</EditorControlLabel>
 						<NumberStepper value={String(minimumFrequency)} min={0} max={Math.max(0, nyquist - 1)} step={10} width="100%" onChange={setMinimumFrequency} />
 					</label>
 					<label className="kw-audio-editor-dialog__field">
-						<span>{copy.maximumFrequency}</span>
+						<EditorControlLabel>{copy.maximumFrequency}</EditorControlLabel>
 						<NumberStepper value={String(maximumFrequency)} min={1} max={nyquist} step={10} width="100%" onChange={setMaximumFrequency} />
 					</label>
 					<label className="kw-audio-editor-dialog__field">
-						<span>{copy.spectralGain}</span>
+						<EditorControlLabel>{copy.spectralGain}</EditorControlLabel>
 						<NumberStepper value={String(gainDb)} min={SPECTRAL_SELECTION_MINIMUM_GAIN_DB} max={SPECTRAL_SELECTION_MAXIMUM_GAIN_DB} step={1} width="100%" onChange={setGainDb} />
 					</label>
 		</AudioEditorDialogShell>

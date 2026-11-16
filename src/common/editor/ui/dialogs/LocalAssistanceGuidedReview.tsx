@@ -27,6 +27,7 @@ import type { LocalAssistanceSelectedVideoSourceTimeDescriptorV1 } from
 	'../../controller/assistance/local-assistance-selected-video-source-time.ts';
 import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
 import { AudioEditorListeningPreview, useAudioEditorListeningMedia } from '../audio-editor-listening-preview.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 type Copy = Readonly<Record<string, string | undefined>>;
 type ReviewCrop = Readonly<{ left: number; top: number; right: number; bottom: number }>;
@@ -97,7 +98,7 @@ export default function LocalAssistanceGuidedReview({
 				{review.choices.map((choice) => <label key={choice.id}>
 					<Checkbox checked={selected.has(choice.id)} disabled={!choice.enabled} aria-label={localizedGuidedReviewChoice(choice, copy, number)}
 						onChange={(checked) => { void onChoiceChange(choice.id, checked); }} />
-					{localizedGuidedReviewChoice(choice, copy, number)}
+					<EditorControlLabel>{localizedGuidedReviewChoice(choice, copy, number)}</EditorControlLabel>
 				</label>)}
 			</fieldset>}
 	</section>;
@@ -132,7 +133,7 @@ function ReframePath({ copy, draft, onCrop }: Readonly<{
 			<DraggableCropOverlay crop={keyframe.crop}
 				label={text(copy, 'localAssistanceReframeCropOverlay', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceReframeCropOverlay)}
 				onCrop={(crop) => onCrop(keyframe.sourceFrame, crop)} />
-			<label>{text(copy, 'localAssistanceReframeHorizontalPosition', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceReframeHorizontalPosition)}
+			<label><EditorControlLabel>{text(copy, 'localAssistanceReframeHorizontalPosition', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceReframeHorizontalPosition)}</EditorControlLabel>
 				<input type="range" min={0} max={positionMaximum(keyframe.crop, 'horizontal')}
 					step={0.001} value={keyframe.crop.left} onChange={(event) => {
 						const left = Number(event.currentTarget.value);
@@ -140,7 +141,7 @@ function ReframePath({ copy, draft, onCrop }: Readonly<{
 						void onCrop(keyframe.sourceFrame, { ...keyframe.crop,
 							left, right: 1 - width - left });
 					}} /></label>
-			<label>{text(copy, 'localAssistanceReframeVerticalPosition', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceReframeVerticalPosition)}
+			<label><EditorControlLabel>{text(copy, 'localAssistanceReframeVerticalPosition', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceReframeVerticalPosition)}</EditorControlLabel>
 				<input type="range" min={0} max={positionMaximum(keyframe.crop, 'vertical')}
 					step={0.001} value={keyframe.crop.top} onChange={(event) => {
 						const top = Number(event.currentTarget.value);
@@ -167,14 +168,14 @@ function CropPositionControls({ copy, crop, onCrop }: Readonly<{
 	onCrop: (crop: ReviewCrop) => unknown;
 }>) {
 	return <>
-		<label>{text(copy, 'localAssistanceReframeHorizontalPosition', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceReframeHorizontalPosition)}
+		<label><EditorControlLabel>{text(copy, 'localAssistanceReframeHorizontalPosition', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceReframeHorizontalPosition)}</EditorControlLabel>
 			<input type="range" min={0} max={positionMaximum(crop, 'horizontal')}
 				step={0.001} value={crop.left} onChange={(event) => {
 					const left = Number(event.currentTarget.value);
 					const width = 1 - crop.left - crop.right;
 					void onCrop({ ...crop, left, right: 1 - width - left });
 				}} /></label>
-		<label>{text(copy, 'localAssistanceReframeVerticalPosition', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceReframeVerticalPosition)}
+		<label><EditorControlLabel>{text(copy, 'localAssistanceReframeVerticalPosition', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceReframeVerticalPosition)}</EditorControlLabel>
 			<input type="range" min={0} max={positionMaximum(crop, 'vertical')}
 				step={0.001} value={crop.top} onChange={(event) => {
 					const top = Number(event.currentTarget.value);
@@ -275,7 +276,7 @@ function HighlightProposals({ copy, draft, authority, activeId, onPreview, onTit
 				{`${text(copy, 'localAssistanceHighlightPreview', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceHighlightPreview)} ${
 					text(copy, 'localAssistanceHighlightChoice', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceHighlightChoice)} ${String(index + 1)}`}
 			</Button>
-			<label>{text(copy, 'localAssistanceHighlightTitle', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceHighlightTitle)}<input type="text"
+			<label><EditorControlLabel>{text(copy, 'localAssistanceHighlightTitle', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceHighlightTitle)}</EditorControlLabel><input type="text"
 				key={proposal.title} defaultValue={proposal.title} minLength={1} maxLength={160} required
 				onBlur={(event) => {
 					const input = event.currentTarget;
@@ -293,7 +294,7 @@ function HighlightProposals({ copy, draft, authority, activeId, onPreview, onTit
 				{text(copy, 'localAssistanceHighlightExplanation', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceHighlightExplanation)}:</strong>{' '}
 				{proposal.explanation}</p>}
 			<div className="kw-local-assistance__highlight-trim">
-				<label>{text(copy, 'localAssistanceHighlightStartFrame', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceHighlightStartFrame)}
+				<label><EditorControlLabel>{text(copy, 'localAssistanceHighlightStartFrame', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceHighlightStartFrame)}</EditorControlLabel>
 					<AudioEditorTimeCodeInput key={`start:${String(proposal.startFrame)}`}
 						name={`highlight-${proposal.id}-startFrame`}
 						label={text(copy, 'localAssistanceHighlightStartFrame', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceHighlightStartFrame)}
@@ -301,7 +302,7 @@ function HighlightProposals({ copy, draft, authority, activeId, onPreview, onTit
 						format="hh:mm:ss+milliseconds"
 						minimum={proposal.startFrame} maximum={proposal.endFrame - 1}
 						onCommit={(value) => applyTrim(value, proposal, 'start')} /></label>
-				<label>{text(copy, 'localAssistanceHighlightEndFrame', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceHighlightEndFrame)}
+				<label><EditorControlLabel>{text(copy, 'localAssistanceHighlightEndFrame', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceHighlightEndFrame)}</EditorControlLabel>
 					<AudioEditorTimeCodeInput key={`end:${String(proposal.endFrame)}`}
 						name={`highlight-${proposal.id}-endFrame`}
 						label={text(copy, 'localAssistanceHighlightEndFrame', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceHighlightEndFrame)}
@@ -430,7 +431,7 @@ function AudioAudition({ body, label, skipRanges = [] }: Readonly<{
 			if (url !== null) URL.revokeObjectURL(url);
 		};
 	}, [body, serializedSkipRanges]);
-	return <label>{label}<AudioEditorListeningPreview controls preload="metadata" src={source}
+	return <label><EditorControlLabel>{label}</EditorControlLabel><AudioEditorListeningPreview controls preload="metadata" src={source}
 		data-skip-range-count={skipRanges.length} /></label>;
 }
 

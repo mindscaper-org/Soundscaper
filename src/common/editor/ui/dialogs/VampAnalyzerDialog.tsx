@@ -19,6 +19,7 @@ import {
 import { useAnalyzerLookup } from './useAnalyzerLookup.ts';
 import { MAXIMUM_VAMP_LABELS } from '../../vamp-analysis-labels.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export interface VampAnalyzerDialogCopy {
 	readonly title: string;
@@ -244,21 +245,21 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 	>
 		{unavailable ? <p role="alert">{unavailable}</p> : <form aria-busy={pending || publishing}
 			onSubmit={(event) => { event.preventDefault(); submit(); }}>
-			<label>{labels.analyzer}
+			<label><EditorControlLabel>{labels.analyzer}</EditorControlLabel>
 				<select value={selectedAnalyzer?.analyzerId ?? ''} disabled={pending || publishing}
 					onChange={(event) => selectAnalyzer(event.currentTarget.value)}>
 					{catalogState.analyzers.map((analyzer) => <option key={analyzer.analyzerId}
 						value={analyzer.analyzerId}>{analyzer.name} — {analyzer.maker}</option>)}
 				</select>
 			</label>
-			<label>{labels.output}
+			<label><EditorControlLabel>{labels.output}</EditorControlLabel>
 				<select value={selectedOutput?.id ?? ''} disabled={pending || publishing}
 					onChange={(event) => selectOutput(event.currentTarget.value)}>
 					{selectedAnalyzer?.outputs.map((output) => <option key={output.id}
 						value={output.id}>{output.name}</option>)}
 				</select>
 			</label>
-			<label>{labels.scope}
+			<label><EditorControlLabel>{labels.scope}</EditorControlLabel>
 				<select value={selectedScope} disabled={pending || publishing}
 					onChange={(event) => {
 						const value = event.currentTarget.value;
@@ -268,7 +269,7 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 					<option value="master">{labels.master}</option>
 				</select>
 			</label>
-			{Boolean(selectedAnalyzer?.programs.length) && <label>{labels.program}
+			{Boolean(selectedAnalyzer?.programs.length) && <label><EditorControlLabel>{labels.program}</EditorControlLabel>
 				<select value={program ?? ''} disabled={pending || publishing}
 					onChange={(event) => {
 						const next = event.currentTarget.value || null;
@@ -282,7 +283,7 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 			</label>}
 			{Boolean(selectedAnalyzer?.parameters.length) && <fieldset disabled={pending || publishing}>
 				<legend>{labels.parameters}</legend>
-				{selectedAnalyzer?.parameters.map((parameter) => <label key={parameter.id}>{parameter.name}
+				{selectedAnalyzer?.parameters.map((parameter) => <label key={parameter.id}><EditorControlLabel>{parameter.name}</EditorControlLabel>
 					<input type="number" value={parameters[parameter.id] ?? ''}
 						placeholder={program === null ? undefined : labels.programValue}
 						required={program === null}
@@ -305,7 +306,7 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 			{result && <section data-vamp-analysis-result="true">
 				<p>{String(result.features.length)} {result.features.length === 1 ? labels.feature : labels.features}</p>
 				{result.features.length > MAXIMUM_VAMP_LABELS ? <p role="alert">{labels.tooManyLabels}</p> : <>
-					<label>{labels.labelTrackName}
+					<label><EditorControlLabel>{labels.labelTrackName}</EditorControlLabel>
 						<input type="text" value={trackName} disabled={publishing}
 							onChange={(event) => setTrackName(event.currentTarget.value)} />
 					</label>

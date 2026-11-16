@@ -7,6 +7,7 @@ import { Button } from '@soundscaper/design-system/Button';
 import { displayAudioCaptureUnsupportedReason } from '../../recording-display-input.ts';
 import EditorHelpTooltip from '../EditorHelpTooltip.tsx';
 import { soundscaperAudioHostRuntimeFor } from '../soundscaper-audio-host-runtime.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 const EMPTY_SUBSCRIBE = () => () => {};
 const EMPTY_SNAPSHOT = () => null;
@@ -62,7 +63,7 @@ export function AudioDevicesFlyout({
 		<div className="kw-audio-editor__audio-devices-content" data-audio-devices-flyout>
 			{heading && <strong>{copy.audioDevices}</strong>}
 			{desktop && <label>
-				<span>{copy.audioDeviceHost}</span>
+				<EditorControlLabel>{copy.audioDeviceHost}</EditorControlLabel>
 				<select aria-label={copy.audioDeviceHost} value={host} disabled={busy || !audioHostRuntime}
 					onChange={(event) => run(() => audioHostRuntime.setHost(event.currentTarget.value))}>
 					{!hosts.some((entry) => entry.id === host) && <option value={host}>{copy.audioDevicePreferredUnavailable}</option>}
@@ -74,10 +75,10 @@ export function AudioDevicesFlyout({
 			{hostState?.error && <p className="kw-audio-editor__audio-devices-note" role="alert">{audioHostFailureLabel(hostState.failureCode, copy)}</p>}
 			{hostState?.error && <details><summary>{copy.reportItemDiagnostic}</summary>{hostState.error}</details>}
 			<label>
-				<span className="audio-editor-help-label">{copy.audioInputDevice}
+				<EditorControlLabel className="audio-editor-help-label">{copy.audioInputDevice}
 					{firefoxDisplayUnsupported && <EditorHelpTooltip subject={copy.recordingDesktopAudio}
 						description={displayAudioTooltip} helpLabel={copy.helpMenu} />}
-				</span>
+				</EditorControlLabel>
 				<select
 					aria-label={copy.audioInputDevice}
 					title={displayAudioTooltip}
@@ -121,7 +122,7 @@ export function AudioDevicesFlyout({
 						disabled={busy}
 						onChange={() => run(() => controller.actions.audioDevices.setPreferredInputChannelCount(1))}
 					/>
-					<span>{copy.mono}</span>
+					<EditorControlLabel>{copy.mono}</EditorControlLabel>
 				</label>
 				<label>
 					<input
@@ -132,13 +133,13 @@ export function AudioDevicesFlyout({
 						disabled={busy || stereoUnavailable}
 						onChange={() => run(() => controller.actions.audioDevices.setPreferredInputChannelCount(2))}
 					/>
-					<span>{copy.stereo}</span>
+					<EditorControlLabel>{copy.stereo}</EditorControlLabel>
 				</label>
 			</fieldset>
 			<p className="kw-audio-editor__audio-devices-note">{copy.audioDeviceRecordingChannelsNote}</p>
 			{native && <>
 				<label>
-					<span>{copy.audioDeviceRecordingSampleRate}</span>
+					<EditorControlLabel>{copy.audioDeviceRecordingSampleRate}</EditorControlLabel>
 					<select aria-label={copy.audioDeviceRecordingSampleRate} value={sampleRate} disabled={busy}
 						onChange={(event) => run(() => controller.actions.audioDevices.setRecordingSampleRate(Number(event.currentTarget.value)))}>
 						{sampleRates.map((rate) => <option key={rate} value={rate}>{copy.audioDeviceSampleRateValue.replace('{sampleRate}', String(rate))}</option>)}
@@ -147,7 +148,7 @@ export function AudioDevicesFlyout({
 				<p className="kw-audio-editor__audio-devices-note">{copy.audioDeviceRecordingSampleRateNote}</p>
 			</>}
 			<label>
-				<span>{copy.audioOutputDevice}</span>
+				<EditorControlLabel>{copy.audioOutputDevice}</EditorControlLabel>
 				<select
 					aria-label={copy.audioOutputDevice}
 					value={preferredOutput}

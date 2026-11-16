@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 import { resolveSelectionRange } from '../../selection-range.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
@@ -138,7 +139,7 @@ function LevelsResult({ result, copy }) {
 	];
 	return <section data-analysis-report="levels"><h3>{copy.metering}</h3>
 		<div className="audio-editor-analysis-grid" data-analysis-values>{values.map(([key, label, value]) =>
-			<div key={key}><span>{label}</span><strong data-analysis-value={key}>{value}</strong></div>)}</div>
+			<div key={key}><EditorControlLabel>{label}</EditorControlLabel><strong data-analysis-value={key}>{value}</strong></div>)}</div>
 	</section>;
 }
 

@@ -31,6 +31,7 @@ import { resolveMacroManagerCopy } from './macro-manager-copy.ts';
 import { publishedCopyFor } from '../../controller/shared/presentation-localization.ts';
 import { resolveSupportedEffectType, safeEffectLabel } from './effect-helpers.ts';
 import { downloadTextFile, macroFileName } from './inspector-helpers.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 const MAX_MACRO_IMPORT_BYTES = 1024 * 1024;
 const EMPTY_EFFECTS = Object.freeze([]);
@@ -471,7 +472,7 @@ export function AudioEditorMacroManagerDialog({
 							/>
 						) : draft ? <>
 							<label className="audio-editor-field audio-editor-macros-palette__name">
-								<span>{copy.macroName}</span>
+								<EditorControlLabel>{copy.macroName}</EditorControlLabel>
 								<MacroNameInput key={draft.id} value={draft.name || ''} onChange={(name) => writeDraft((current) => ({ ...current, name }))} onCommit={() => undefined} />
 							</label>
 							<MacroManagerStepList

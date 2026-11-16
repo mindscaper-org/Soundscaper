@@ -42,6 +42,7 @@ import {
 	workspaceDockLabel,
 	workspacePanelLabel,
 } from '../workspace/workspace-panel-model.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 const KeyboardMapDialog = lazy(() => import('./KeyboardMapDialog.tsx'));
 
@@ -202,7 +203,7 @@ export default function WorkspacePreferencesDialog({
 										.map(({ id, name }) => ({ value: id, label: name }))}
 								/></div>
 								<label className="kw-audio-editor-preferences__workspace-name">
-									<span>{copy.workspaceName}</span>
+									<EditorControlLabel>{copy.workspaceName}</EditorControlLabel>
 									<input ref={workspaceNameRef} aria-label={copy.workspaceName} placeholder={copy.workspaceName} value={workspaceName} onChange={(event) => {
 										workspaceNameRevision.current += 1;
 										setWorkspaceName(event.currentTarget.value);
@@ -289,7 +290,7 @@ export default function WorkspacePreferencesDialog({
 								{keyboardVisible && <Suspense fallback={null}><KeyboardMapDialog commands={commands} shortcuts={preferences.shortcuts} copy={copy} onClose={() => setKeyboardVisible(false)} /></Suspense>}
 								<div className="kw-audio-editor-preferences__shortcut-controls">
 									<label className="kw-audio-editor-preferences__search">
-										<span className="kw-audio-editor-sr-only">{copy.shortcutSearch}</span>
+										<EditorControlLabel className="kw-audio-editor-sr-only">{copy.shortcutSearch}</EditorControlLabel>
 										<input type="search" value={shortcutSearch} onChange={(event) => setShortcutSearch(event.currentTarget.value)} placeholder={copy.shortcutSearch} aria-label={copy.shortcutSearch} />
 									</label>
 									<PreferenceDropdownField

@@ -19,6 +19,7 @@ import {
 import LocalAssistanceGuidedSettings from './LocalAssistanceGuidedSettings.tsx';
 import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
 import AssistanceProcessingProgress from './AssistanceProcessingProgress.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 const LocalAssistanceGuidedReview = lazyEditorModule(() => import('./LocalAssistanceGuidedReview.tsx'));
 
@@ -56,7 +57,7 @@ export default function LocalAssistanceGuidedPanel({
 	return <section id="local-assistance-guided-panel" className="kw-local-assistance__guided" role={focusedTask ? 'region' : 'tabpanel'}
 		aria-label={text(copy, 'localAssistanceGuided', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceGuided)}>
 		{!focusedTask && <label htmlFor="local-assistance-guided-workflow">
-			{text(copy, 'localAssistanceGuidedWorkflow', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceGuidedWorkflow)}
+			<EditorControlLabel>{text(copy, 'localAssistanceGuidedWorkflow', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceGuidedWorkflow)}</EditorControlLabel>
 			<select id="local-assistance-guided-workflow"
 				value={snapshot.selectedWorkflowId ?? ''} disabled={configurationLocked}
 				onChange={(event) => {

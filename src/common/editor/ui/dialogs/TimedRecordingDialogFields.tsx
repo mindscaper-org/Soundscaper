@@ -12,6 +12,7 @@ import {
 	updateTimedRecordingDialogEndMode,
 	updateTimedRecordingDialogStart,
 } from './timed-recording-dialog-model.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface TimedRecordingDialogCopy extends Readonly<Record<string, string>> {
 	readonly timedRecordingStartTime: string;
@@ -60,7 +61,7 @@ export default function TimedRecordingDialogFields({
 		onSubmit();
 	}}>
 		<label className="kw-audio-editor-dialog__field kw-audio-editor-timed-recording__start">
-			<span>{copy.timedRecordingStartTime}</span>
+			<EditorControlLabel>{copy.timedRecordingStartTime}</EditorControlLabel>
 			<input
 				className="kw-audio-editor-timed-recording__control"
 				type="datetime-local"
@@ -82,7 +83,7 @@ export default function TimedRecordingDialogFields({
 						checked={model.endMode === 'duration'} onChange={() => onValueChange(
 							updateTimedRecordingDialogEndMode(model, 'duration'),
 						)} />
-					<span>{copy.timedRecordingDuration}</span>
+					<EditorControlLabel>{copy.timedRecordingDuration}</EditorControlLabel>
 				</label>
 				<EditorMusicalTimeCodeProvider controller={controller} originFrame={originFrame}>
 					<AudioEditorTimeCodeInput label={copy.timedRecordingDuration}
@@ -100,7 +101,7 @@ export default function TimedRecordingDialogFields({
 						checked={model.endMode === 'end'} onChange={() => onValueChange(
 							updateTimedRecordingDialogEndMode(model, 'end'),
 						)} />
-					<span>{copy.timedRecordingEndDateTime}</span>
+					<EditorControlLabel>{copy.timedRecordingEndDateTime}</EditorControlLabel>
 				</label>
 				<input className="kw-audio-editor-timed-recording__control"
 					type="datetime-local" step="0.001" aria-label={copy.timedRecordingEndDateTime}

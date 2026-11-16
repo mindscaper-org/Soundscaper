@@ -8,6 +8,7 @@ import SoundActivationSettings from '../SoundActivationSettings.tsx';
 import { createTakeCycleRecordingMenuItems } from '../take-cycle-recording-menu.ts';
 
 import '../audio-editor-design-system/20a-record-flyout.css';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 /** The microphone menu groups actions and persistent recording choices. */
 export default function RecordFlyout({
@@ -101,13 +102,13 @@ export default function RecordFlyout({
 				<input type="checkbox" checked={Boolean(snapshot.recordingOptions?.leadIn)}
 					disabled={recordingInputBlocked}
 					onChange={() => run(() => controller.actions.recording.toggleLeadIn())} />
-				<span>{copy.leadInTimeOption}</span>
+				<EditorControlLabel>{copy.leadInTimeOption}</EditorControlLabel>
 			</label>
 			<label className="kw-audio-editor__record-flyout-check">
 				<input type="checkbox" checked={Boolean(snapshot.monitor?.enabled)}
 					disabled={recoveryBlocked || snapshot.recordingStarting}
 					onChange={() => run(() => controller.actions.recording.setMonitoring(!snapshot.monitor?.enabled))} />
-				<span>{copy.monitor}</span>
+				<EditorControlLabel>{copy.monitor}</EditorControlLabel>
 			</label>
 		</div>
 		{takeCycleItems[1] && <RecordAction label={takeCycleItems[1].label}

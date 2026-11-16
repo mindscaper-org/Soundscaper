@@ -23,6 +23,7 @@ import { compSharedBoundaries, useCompBoundaries } from './take-comp-boundaries.
 import { useOwnedDialogOperation } from '../useOwnedDialogOperation.ts';
 import { useTakeCompRemovalFocus } from './useTakeCompRemovalFocus.ts';
 import { takePromotionBounds, reconcileTakePromotionRange, type TakePromotionRange } from './take-comp-promotion-range.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface TakeCompDialogActions {
 	auditionTake(groupId: string, takeId: string): unknown;
@@ -196,7 +197,7 @@ export default function TakeCompDialog({
 				<p data-take-comp-empty>{copy.takeCompEmpty}</p>
 			) : <>
 				<label className="kw-audio-editor-dialog__field audio-editor-take-comp__group-picker">
-					<span>{copy.takeCompGroup}</span>
+					<EditorControlLabel>{copy.takeCompGroup}</EditorControlLabel>
 					<select
 						data-take-comp-group
 						value={group?.id ?? ''}
@@ -359,7 +360,7 @@ const RegionEditor = memo(function RegionEditor(props: Pick<TakeGroupEditorProps
 		<div className="audio-editor-take-comp__shared-boundaries">
 			{adjacentBoundaries.map(({ leftRegionId, rightRegionId, boundarySample }) => {
 				const key = sharedBoundaryKey(leftRegionId, rightRegionId);
-				return <label key={key}><span>{copy.takeCompSharedBoundary}: {leftRegionId} → {rightRegionId}</span>
+				return <label key={key}><EditorControlLabel>{copy.takeCompSharedBoundary}: {leftRegionId} → {rightRegionId}</EditorControlLabel>
 					<IntegerField label={copy.takeCompSharedBoundary} value={props.sharedBoundaries[key] ?? boundarySample} sampleRate={props.sampleRate} disabled={disabled} onChange={(value) => props.onSharedBoundaryChange(key, value)} />
 					<button type="button" disabled={disabled} onClick={() => props.onApplySharedBoundary(leftRegionId, rightRegionId)}>{copy.takeCompApplySharedBoundary}</button>
 				</label>;
@@ -372,13 +373,13 @@ function BoundaryField(props: Readonly<{
 	label: string; value: number; sampleRate: number; disabled: boolean; applyLabel: string;
 	onChange(value: number): void; onApply(): void;
 }>) {
-	return <label><span className="audio-editor-visually-hidden">{props.label}</span><IntegerField label={props.label} value={props.value} sampleRate={props.sampleRate} disabled={props.disabled} onChange={props.onChange} /><button type="button" disabled={props.disabled} onClick={props.onApply}>{props.applyLabel}</button></label>;
+	return <label><EditorControlLabel className="audio-editor-visually-hidden">{props.label}</EditorControlLabel><IntegerField label={props.label} value={props.value} sampleRate={props.sampleRate} disabled={props.disabled} onChange={props.onChange} /><button type="button" disabled={props.disabled} onClick={props.onApply}>{props.applyLabel}</button></label>;
 }
 
 function NumberField(props: Readonly<{
 	label: string; value: number; sampleRate: number; minimum: number; maximum: number; onChange(value: number): void;
 }>) {
-	return <label><span>{props.label}</span><IntegerField label={props.label} required value={props.value} sampleRate={props.sampleRate} minimum={props.minimum} maximum={props.maximum} onChange={props.onChange} /></label>;
+	return <label><EditorControlLabel>{props.label}</EditorControlLabel><IntegerField label={props.label} required value={props.value} sampleRate={props.sampleRate} minimum={props.minimum} maximum={props.maximum} onChange={props.onChange} /></label>;
 }
 
 function IntegerField(props: Readonly<{

@@ -5,6 +5,7 @@ import { normalizeSourceFrameRate } from '../../sequence-timecode.ts';
 import { mediaSecondsToSourceFrame } from '../../source-monitor-model.ts';
 import { videoBoundaryTime, videoSourceTimingView } from '../../video-source-timing-view.ts';
 import { resolveVideoSourceTimingViews } from '../../video-source-timing-views.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface ClipSourceInTimeCodeFieldProps {
 	readonly label: string;
@@ -23,7 +24,7 @@ export default function ClipSourceInTimeCodeField({
 	const video = isNativeVideoSource(source) ? source : null;
 	const rate = video ? normalizeSourceFrameRate(video.frameRate) : null;
 	const seconds = video ? sourceBoundarySeconds(video, value) : value / sampleRate;
-	return <label className="audio-editor-field" data-clip-field="sourceInFrame"><span>{label}</span>
+	return <label className="audio-editor-field" data-clip-field="sourceInFrame"><EditorControlLabel>{label}</EditorControlLabel>
 		<AudioEditorTimeCodeInput label={label} value={video ? seconds : value}
 			unit={video ? 'seconds' : 'samples'} rate={sampleRate} sampleRate={sampleRate}
 			frameRate={rate ? rate.num / rate.den : frameRate} format="hh:mm:ss+milliseconds"

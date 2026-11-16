@@ -14,6 +14,7 @@ import EffectAboutDialog from './EffectAboutDialog.tsx';
 import EffectPresetMenuPortal from './EffectPresetMenuPortal.tsx';
 import { usePresetDeletionFocus } from './usePresetDeletionFocus.ts';
 import { useOperationFocusRecovery } from '../useOperationFocusRecovery.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 /**
  * The preset bar Audacity 4 puts above every effect's controls.
@@ -242,7 +243,7 @@ export default function EffectPresetBar({
 						event.preventDefault(); event.stopPropagation(); saveAs();
 					}}>
 						<label className="audio-editor-field">
-							<span>{copy.effectPresetName}</span>
+							<EditorControlLabel>{copy.effectPresetName}</EditorControlLabel>
 							<TextInput multiline={saveAsMultiline} disabled={nameSaving} value={saveAsName} onChange={setSaveAsName} width="100%" data-preset-name />
 						</label>
 					</form>

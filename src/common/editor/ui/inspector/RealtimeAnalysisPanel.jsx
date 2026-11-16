@@ -9,6 +9,7 @@ import { ChannelCorrelationJellyfish } from './ChannelCorrelationJellyfish.tsx';
 import AcxCompliancePanel from './AcxCompliancePanel.tsx';
 import { ACX_COMPLIANCE_COPY } from '../../../i18n/editor-acx-compliance-copy.ts';
 import { useTranslationScope } from '../use-translation-scope.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 const SPECTRUM_WIDTH = 320;
 const SPECTRUM_HEIGHT = 112;
@@ -73,7 +74,7 @@ function LiveLevels({ controller, copy }) {
 }
 
 function LiveLevel({ label, value, dataKey }) {
-	return <div><span>{label}</span><strong data-live-analysis-value={dataKey}>{value}</strong></div>;
+	return <div><EditorControlLabel>{label}</EditorControlLabel><strong data-live-analysis-value={dataKey}>{value}</strong></div>;
 }
 
 function levelDb(amplitude) {

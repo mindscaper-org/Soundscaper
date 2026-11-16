@@ -20,6 +20,7 @@ import { runAwaitedAudioEditorOperation } from '../workspace/audio-editor-worksp
 import type { VideoGeneratorDocumentV1 } from '../../video-visual-model-v24.ts';
 import { completeVisualInspectorNumberDraft, type VisualInspectorNumberDrafts,
 	type VisualInspectorNumberField } from './visual-inspector-number-draft.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface Props {
 	readonly controller: Readonly<{ readonly actions: Readonly<{
@@ -117,7 +118,7 @@ export default function FramescaperVisualInspectorDialog({
 					<GeneratorFields generator={draft.generator} audioSources={model.audioSources} disabled={sourceBlocked} copy={copy}
 						numberDrafts={numberDrafts} onNumber={updateNumber} onChange={updateGenerator} />
 				{model.presets.length > 0 && <label>
-					<span>{label(copy, 'visualPreset', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.visualPreset)}</span>
+					<EditorControlLabel>{label(copy, 'visualPreset', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.visualPreset)}</EditorControlLabel>
 					<select data-visual-inspector-preset value={draft.presetId ?? ''} disabled={sourceBlocked}
 						onChange={(event) => {
 							const selectedId = event.currentTarget.value;
@@ -133,13 +134,13 @@ export default function FramescaperVisualInspectorDialog({
 					</select>
 				</label>}
 				<label>
-					<span>{label(copy, 'opacity', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.opacity)}</span>
+					<EditorControlLabel>{label(copy, 'opacity', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.opacity)}</EditorControlLabel>
 					<input data-visual-inspector-opacity type="number" min="0" max="1" step="0.01"
 						value={numberDrafts.opacity ?? String(draft.opacity)} disabled={blocked}
 						onChange={(event) => updateNumber('opacity', event.currentTarget.value)} />
 				</label>
 				<label>
-					<span>{label(copy, 'blendMode', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.blendMode)}</span>
+					<EditorControlLabel>{label(copy, 'blendMode', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.blendMode)}</EditorControlLabel>
 					<select data-visual-inspector-blend value={draft.blendMode} disabled={blocked}
 						onChange={(event) => {
 							const blendMode = event.currentTarget.value as
@@ -151,7 +152,7 @@ export default function FramescaperVisualInspectorDialog({
 				</label>
 				{model.masks.length > 0 && <fieldset disabled={blocked}>
 					<legend>{label(copy, 'maskMatte', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.maskMatte)}</legend>
-					<label><span>{label(copy, 'maskMatte', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.maskMatte)}</span>
+					<label><EditorControlLabel>{label(copy, 'maskMatte', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.maskMatte)}</EditorControlLabel>
 						<select data-visual-inspector-mask value={draft.maskId ?? ''}
 							onChange={(event) => {
 								const maskId = event.currentTarget.value || null;
@@ -164,7 +165,7 @@ export default function FramescaperVisualInspectorDialog({
 							{model.masks.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
 						</select>
 					</label>
-					<label><span>{label(copy, 'maskWidth', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.maskWidth)}</span>
+					<label><EditorControlLabel>{label(copy, 'maskWidth', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.maskWidth)}</EditorControlLabel>
 						<input data-visual-inspector-mask-width type="range" min="0.01" max="1" step="0.01"
 							value={draft.maskWidth} disabled={!model.masks.some(mask => mask.id === draft.maskId)}
 							onChange={(event) => {
@@ -192,7 +193,7 @@ function GeneratorFields(props: Readonly<{
 		if (generator === null) return null;
 		if (generator.kind === 'test-image') return <fieldset disabled={props.disabled}>
 			<legend>{label(props.copy, 'testImage', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.testImage)}</legend>
-			<label><span>{label(props.copy, 'testImagePattern', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.testImagePattern)}</span>
+			<label><EditorControlLabel>{label(props.copy, 'testImagePattern', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.testImagePattern)}</EditorControlLabel>
 				<select data-visual-inspector-test-image-pattern value={generator.pattern}
 					onChange={(event) => props.onChange({ pattern: event.currentTarget.value })}>
 					<option value="color-bars">{label(props.copy, 'testImageColorBars', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.testImageColorBars)}</option>
@@ -203,19 +204,19 @@ function GeneratorFields(props: Readonly<{
 		</fieldset>;
 		if (generator.kind === 'noise') return <fieldset disabled={props.disabled}>
 			<legend>{label(props.copy, 'noise', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.noise)}</legend>
-			<label><span>{label(props.copy, 'noiseMode', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.noiseMode)}</span>
+			<label><EditorControlLabel>{label(props.copy, 'noiseMode', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.noiseMode)}</EditorControlLabel>
 				<select data-visual-inspector-noise-mode value={generator.mode}
 					onChange={(event) => props.onChange({ mode: event.currentTarget.value })}>
 					<option value="monochrome">{label(props.copy, 'noiseMonochrome', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.noiseMonochrome)}</option>
 					<option value="color">{label(props.copy, 'noiseColor', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.noiseColor)}</option>
 				</select>
 			</label>
-			<label><span>{label(props.copy, 'noiseGrainSize', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.noiseGrainSize)}</span>
+			<label><EditorControlLabel>{label(props.copy, 'noiseGrainSize', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.noiseGrainSize)}</EditorControlLabel>
 				<input data-visual-inspector-noise-grain-size type="number" min="1" max="64" step="1"
 					value={props.numberDrafts.grainSize ?? String(generator.grainSize)}
 					onChange={(event) => props.onNumber('grainSize', event.currentTarget.value)} />
 			</label>
-			<label><span>{label(props.copy, 'noiseSeed', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.noiseSeed)}</span>
+			<label><EditorControlLabel>{label(props.copy, 'noiseSeed', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.noiseSeed)}</EditorControlLabel>
 				<input data-visual-inspector-noise-seed type="number" min="0" max="4294967295" step="1"
 					value={props.numberDrafts.seed ?? String(generator.seed)}
 					onChange={(event) => props.onNumber('seed', event.currentTarget.value)} />
@@ -226,24 +227,24 @@ function GeneratorFields(props: Readonly<{
 				!props.audioSources.some((source) => source.id === id));
 			return <fieldset disabled={props.disabled}>
 			<legend>{label(props.copy, 'soundVisualizer', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.soundVisualizer)}</legend>
-			<label><span>{label(props.copy, 'visualizerMode', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.visualizerMode)}</span>
+			<label><EditorControlLabel>{label(props.copy, 'visualizerMode', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.visualizerMode)}</EditorControlLabel>
 				<select data-visual-inspector-visualizer-mode value={generator.mode}
 					onChange={(event) => props.onChange({ mode: event.currentTarget.value })}>
 					<option value="waveform">{label(props.copy, 'visualizerWaveform', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.visualizerWaveform)}</option>
 					<option value="spectrum">{label(props.copy, 'visualizerSpectrum', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.visualizerSpectrum)}</option>
 				</select>
 			</label>
-			<label><span>{label(props.copy, 'visualizerWindow', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.visualizerWindow)}</span>
+			<label><EditorControlLabel>{label(props.copy, 'visualizerWindow', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.visualizerWindow)}</EditorControlLabel>
 				<input data-visual-inspector-visualizer-window type="number" min="0.01" max="10" step="0.01"
 					value={props.numberDrafts.windowSeconds ?? String(generator.windowSeconds)}
 					onChange={(event) => props.onNumber('windowSeconds', event.currentTarget.value)} />
 			</label>
-			<label><span>{label(props.copy, 'visualizerForeground', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.visualizerForeground)}</span>
+			<label><EditorControlLabel>{label(props.copy, 'visualizerForeground', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.visualizerForeground)}</EditorControlLabel>
 				<input data-visual-inspector-visualizer-foreground value={generator.foregroundColor}
 					pattern="#[0-9a-f]{8}"
 					onChange={(event) => props.onChange({ foregroundColor: event.currentTarget.value })} />
 			</label>
-			<label><span>{label(props.copy, 'visualizerBackground', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.visualizerBackground)}</span>
+			<label><EditorControlLabel>{label(props.copy, 'visualizerBackground', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.visualizerBackground)}</EditorControlLabel>
 				<input data-visual-inspector-visualizer-background value={generator.backgroundColor}
 					pattern="#[0-9a-f]{8}"
 					onChange={(event) => props.onChange({ backgroundColor: event.currentTarget.value })} />
@@ -264,7 +265,7 @@ function GeneratorFields(props: Readonly<{
 							if (event.currentTarget.checked) selected.add(source.id);
 							else selected.delete(source.id);
 							props.onChange({ sourceIds: [...selected].sort() });
-						}} /> {source.name}
+						}} /> <EditorControlLabel>{source.name}</EditorControlLabel>
 				</label>)}
 			</fieldset>
 		</fieldset>;
@@ -272,19 +273,19 @@ function GeneratorFields(props: Readonly<{
 		if (generator.kind === 'title' || generator.kind === 'text') return <fieldset disabled={props.disabled}>
 			<legend>{generator.kind === 'title'
 				? label(props.copy, 'title', 'Title') : label(props.copy, 'text', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.text)}</legend>
-			<label><span>{label(props.copy, 'text', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.text)}</span><textarea data-visual-inspector-text rows={3} maxLength={16_384}
+			<label><EditorControlLabel>{label(props.copy, 'text', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.text)}</EditorControlLabel><textarea data-visual-inspector-text rows={3} maxLength={16_384}
 				value={generator.text} onChange={(event) => props.onChange({ text: event.currentTarget.value })} /></label>
-			<label><span>{label(props.copy, 'rgbaColor', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.rgbaColor)}</span><input data-visual-inspector-color value={generator.color}
+			<label><EditorControlLabel>{label(props.copy, 'rgbaColor', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.rgbaColor)}</EditorControlLabel><input data-visual-inspector-color value={generator.color}
 				pattern="#[0-9a-f]{8}" onChange={(event) => props.onChange({ color: event.currentTarget.value })} /></label>
-			<label><span>{label(props.copy, 'fontSize', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.fontSize)}</span><input data-visual-inspector-font-size type="number" min="1" max="4096"
+			<label><EditorControlLabel>{label(props.copy, 'fontSize', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.fontSize)}</EditorControlLabel><input data-visual-inspector-font-size type="number" min="1" max="4096"
 				value={props.numberDrafts.fontSize ?? String(generator.fontSize)}
 				onChange={(event) => props.onNumber('fontSize', event.currentTarget.value)} /></label>
 		</fieldset>;
-		if (generator.kind === 'solid') return <label><span>{label(props.copy, 'rgbaColor', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.rgbaColor)}</span>
+		if (generator.kind === 'solid') return <label><EditorControlLabel>{label(props.copy, 'rgbaColor', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.rgbaColor)}</EditorControlLabel>
 			<input data-visual-inspector-color value={generator.color} pattern="#[0-9a-f]{8}"
 				disabled={props.disabled} onChange={(event) => props.onChange({ color: event.currentTarget.value })} />
 		</label>;
-		if (generator.kind === 'shape') return <label><span>{label(props.copy, 'fillRgbaColor', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.fillRgbaColor)}</span>
+		if (generator.kind === 'shape') return <label><EditorControlLabel>{label(props.copy, 'fillRgbaColor', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.fillRgbaColor)}</EditorControlLabel>
 			<input data-visual-inspector-color value={generator.fillColor ?? '#00000000'} pattern="#[0-9a-f]{8}"
 				disabled={props.disabled} onChange={(event) => props.onChange({ fillColor: event.currentTarget.value })} />
 		</label>;

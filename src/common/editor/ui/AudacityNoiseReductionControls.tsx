@@ -3,6 +3,7 @@
 import { useId, type ReactNode } from 'react';
 import { canonicalCopyValue } from '../../i18n/canonical-extras.js';
 import './AudacityNoiseReductionControls.css';
+import EditorControlLabel from './EditorControlLabel.tsx';
 
 interface AudacityNoiseReductionControlsProps {
 	readonly copy?: Parameters<typeof canonicalCopyValue>[1];
@@ -38,7 +39,7 @@ export default function AudacityNoiseReductionControls({
 			{choices.map(choice => <label className="audio-editor-audacity-noise__choice" key={choice.value}>
 				<input type="radio" name={name} value={choice.value} disabled={disabled || !onChangeOutput}
 					checked={output === choice.value} onChange={() => { onChangeOutput?.(choice.value); }} />
-				{label(choice.key)}
+				<EditorControlLabel>{label(choice.key)}</EditorControlLabel>
 			</label>)}
 		</div>
 	</section>;

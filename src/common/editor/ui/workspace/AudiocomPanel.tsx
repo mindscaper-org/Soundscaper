@@ -14,6 +14,7 @@ import AudiocomUploadArea from './AudiocomUploadArea.tsx';
 import AudiocomLink from './AudiocomLink.tsx';
 import AudiocomProjectArchives, { type AudiocomProjectArchivesProps } from './AudiocomProjectArchives.tsx';
 import '../audio-editor-design-system/06a-panels-audiocom.css';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export interface AudiocomPanelProps {
 	readonly copy: Readonly<Record<string, string>>;
@@ -58,7 +59,7 @@ export default function AudiocomPanel({
 			if (query.trim() && !searchDisabled) onSearch({ query: query.trim(), page: 1 });
 		}}>
 			<label>
-				<span className="kw-audio-editor-sr-only">{copy.searchLabel}</span>
+				<EditorControlLabel className="kw-audio-editor-sr-only">{copy.searchLabel}</EditorControlLabel>
 				<input type="search" value={query} maxLength={200} placeholder={copy.searchPlaceholder} disabled={searchDisabled}
 					onChange={(event) => setQuery(event.currentTarget.value)} />
 			</label>

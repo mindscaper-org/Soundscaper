@@ -26,6 +26,7 @@ import { useLocalModelRemovalFocus } from './useLocalModelRemovalFocus.ts';
 export { formatLocalModelBytes } from '../local-model-bytes.ts';
 
 import './ProcessingDialogs.css';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 type Copy = Readonly<Record<string, string | undefined>>;
 
@@ -256,14 +257,14 @@ const ModelRow = memo(function ModelRow({
 		</td>
 		<td>{availabilityLabel(copy, model.availability)}</td><td>
 		{progress && <div className="kw-local-model-manager__progress">
-			<label htmlFor={`local-model-progress-${model.modelId}`}>{template(
+			<label htmlFor={`local-model-progress-${model.modelId}`}><EditorControlLabel>{template(
 				text(copy, 'localModelsProgress', '{fileName}: {completed} of {total}'),
 				{
 					fileName: progress.fileName,
 					completed: formatBytes(progress.completedBytes, locale, '0 B'),
 					total: formatBytes(progress.totalBytes, locale, '0 B'),
 				},
-			)}</label>
+			)}</EditorControlLabel></label>
 			<progress id={`local-model-progress-${model.modelId}`}
 				value={progress.completedBytes} max={progress.totalBytes} />
 		</div>}

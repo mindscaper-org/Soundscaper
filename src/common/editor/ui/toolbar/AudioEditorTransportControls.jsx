@@ -27,6 +27,7 @@ import { createMusicalDurationTimeCodeMap } from '../time-code-musical-map.ts';
 import { useEditorStatusHelpPresentation } from '../useEditorStatusHelpPresentation.ts';
 import { FRAMESCAPER_INPUTS_COPY } from '../../../i18n/editor-framescaper-inputs-copy.ts';
 import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 const FramescaperInputsSetupFlyout = lazyEditorModule(() => import('./FramescaperInputsSetupFlyout.tsx'));
 export { default as TelemetryTimeCode } from './TelemetryTimeCode.tsx';
 
@@ -98,7 +99,7 @@ export function PlaySpeedFlyout({ copy, snapshot, blocked, controller, run, clos
 				}))}
 			/>
 			<label className="kw-audio-editor__play-at-speed-slider">
-				<span>{copy.playbackSpeed}</span>
+				<EditorControlLabel>{copy.playbackSpeed}</EditorControlLabel>
 				<input
 					type="range"
 					min={minimum}
