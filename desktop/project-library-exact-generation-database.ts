@@ -2,6 +2,7 @@
 
 import type { DatabaseSync } from 'node:sqlite';
 import { configureDesktopDatabaseJournal } from './desktop-database.ts';
+import { retryDesktopDatabaseContention } from './desktop-database-contention.ts';
 
 import {
 	framescaperDesktopProjectLibraryNonNegative as nonNegative,
@@ -16,6 +17,17 @@ export interface FramescaperDesktopProjectLibraryDatabaseIdentity {
 	readonly schemaVersion: number;
 	readonly databaseUserVersion: number;
 }
+
+export function initializeFramescaperDesktopProjectLibraryDatabaseWithWait(
+	database: DatabaseSync,
+	identity: FramescaperDesktopProjectLibraryDatabaseIdentity,
+): Promise<void> {
+	return retryDesktopDatabaseContention(
+		() => initializeFramescaperDesktopProjectLibraryExactGenerationDatabase(database, identity),
+		{ waitMs: 31_000 },
+	);
+}
+
 /** Initialize one isolated exact-generation database without admitting adjacent generations. */
 export function initializeFramescaperDesktopProjectLibraryExactGenerationDatabase(
 	database: DatabaseSync,
@@ -37,7 +49,8 @@ export function initializeFramescaperDesktopProjectLibraryExactGenerationDatabas
 		throw new TypeError('Framescaper desktop project schema family is invalid');
 	}
 	configureDesktopDatabaseJournal(database);
-	database.exec(`
+	try {
+		database.exec(`
 		BEGIN IMMEDIATE;
 		CREATE TABLE IF NOT EXISTS library_identity (
 			singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
@@ -63,7 +76,11 @@ export function initializeFramescaperDesktopProjectLibraryExactGenerationDatabas
 		PRAGMA application_id = ${String(FRAMESCAPER_DESKTOP_PROJECT_LIBRARY_APPLICATION_ID)};
 		PRAGMA user_version = ${String(version)};
 		COMMIT;
-	`);
+		`);
+	} catch (error) {
+		if (database.isTransaction) database.exec('ROLLBACK');
+		throw error;
+	}
 	const stored = database.prepare(`
 		SELECT schema_version, project_schema_family, project_schema_version
 		FROM library_identity WHERE singleton = 1

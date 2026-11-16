@@ -5,7 +5,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { openLocalDesktopDatabase } from './desktop-database.ts';
 import {
 	framescaperDesktopProjectLibraryExactGenerationMetadataRevision as metadataRevision,
-	initializeFramescaperDesktopProjectLibraryExactGenerationDatabase as initializeDatabase,
+	initializeFramescaperDesktopProjectLibraryDatabaseWithWait as initializeDatabase,
 	setFramescaperDesktopProjectLibraryExactGenerationMetadataRevision as setMetadataRevision,
 } from './project-library-exact-generation-database.ts';
 import type {
@@ -141,7 +141,7 @@ export class FramescaperDesktopProjectLibraryExactGenerationMain {
 		try {
 			await mkdir(paths.projectsRoot, { recursive: true, mode: 0o700 });
 			await mkdir(paths.managedMediaRoot, { recursive: true, mode: 0o700 });
-			initializeDatabase(database, configuration);
+			await initializeDatabase(database, configuration);
 			await chmod(paths.databasePath, 0o600);
 			const lifecycle = extension ? await extension.start({
 				appDataPath: options.appDataPath,
