@@ -120,6 +120,7 @@ export function createAup3ProjectData(options = {}) {
 				]));
 			}
 			return xmlNode('waveclip', {
+				...(clip.name == null ? {} : { name: clip.name }),
 				offset: clip.offset || 0,
 				trimLeft: clip.trimLeft || 0,
 				trimRight: clip.trimRight || 0,

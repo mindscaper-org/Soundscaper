@@ -23,6 +23,24 @@ export async function throwAfterReadCapabilityRollback(store, descriptors, owner
 	);
 }
 
+export function newReadCapabilityId(randomBytes, entries, retirements) {
+	let id;
+	do id = randomBytes(32).toString('hex'); while (entries.has(id) || retirements.has(id));
+	return id;
+}
+
+export function releaseOwnedReadCapability(id, owner, entries, retirements, release) {
+	try {
+		requireReadCapabilityOwner(owner);
+		const key = String(id || ''), entry = entries.get(key);
+		if (!entry) {
+			const retirement = retirements.get(key);
+			return retirement?.owner === owner ? retirement.promise : Promise.resolve(false);
+		}
+		return entry.owner === owner ? release(entry) : Promise.resolve(false);
+	} catch (error) { return Promise.reject(error); }
+}
+
 export function requireReadCapabilityOwner(owner) {
 	if ((typeof owner !== 'object' || owner === null) && typeof owner !== 'function') {
 		throw new TypeError('Read capabilities require an opaque renderer owner');

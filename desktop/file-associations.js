@@ -7,7 +7,7 @@ import { isRetryableReadCapabilityAdmissionError } from './read-capability-admis
 // Positional arguments and open-with hand-offs admit every project suffix, not
 // only the one this build writes.
 export const OPENABLE_PROJECT_EXTENSIONS = Object.freeze([
-	...ACCEPTED_PROJECT_FILE_EXTENSIONS, '.aup3', '.aup4',
+	...ACCEPTED_PROJECT_FILE_EXTENSIONS, '.aup3', '.aup4', '.aup4unsaved',
 ]);
 
 export class PendingProjectQueue {

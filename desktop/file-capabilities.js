@@ -28,12 +28,15 @@ import {
 	linkedOriginalRangeProfile,
 	normalizeReadCapabilityFileIdentity,
 	readCapabilityDescriptor,
+	newReadCapabilityId,
+	releaseOwnedReadCapability,
 	requireReadCapabilityOwner,
 	safeReadCapabilityTimestamp,
 } from './read-capability-support.js';
 import { createReadCapabilityRequestQueue, acquireReadCapabilityRequestLease } from './read-capability-request-lease.js';
 import { resolveReadCapabilityHelperGrant, resolveReadCapabilityOriginalFileGrant } from './read-capability-helper-grant.ts';
 import { acceptsFile, mimeTypeForPath } from './validation.js';
+import { assertRecoveryOutputPath } from './recovery-output-path.ts';
 
 export { throwAfterReadCapabilityRollback } from './read-capability-support.js';
 
@@ -184,6 +187,7 @@ export class ReadCapabilityStore {
 		const entry = this.#liveEntry(id);
 		return entry ? readCapabilityDescriptor(entry) : null;
 	}
+	assertRecoveryOutputPath(path, { owner }) { return assertRecoveryOutputPath(path, owner, this.#entries.values()); }
 
 	async resolveHelperGrant(id, { owner = /** @type {object | undefined} */ (undefined), fullIdentity = false } = {}) {
 		requireReadCapabilityOwner(owner);
@@ -222,19 +226,7 @@ export class ReadCapabilityStore {
 	}
 
 	release(id, { owner } = {}) {
-		try {
-			requireReadCapabilityOwner(owner);
-			const key = String(id || '');
-			const entry = this.#entries.get(key);
-			if (!entry) {
-				const retirement = this.#retirements.get(key);
-				return retirement?.owner === owner ? retirement.promise : Promise.resolve(false);
-			}
-			if (entry.owner !== owner) return Promise.resolve(false);
-			return this.#releaseEntry(entry);
-		} catch (error) {
-			return Promise.reject(error);
-		}
+		return releaseOwnedReadCapability(id, owner, this.#entries, this.#retirements, (entry) => this.#releaseEntry(entry));
 	}
 
 	revokeOwner(owner) {
@@ -268,8 +260,14 @@ export class ReadCapabilityStore {
 	async #registerPath(filePath, { owner, mimeType, displayName, expectedIdentity,
 		readProfile, rangeAdmission, rangeTicket }, state) {
 		let handle = null;
+		let snapshot = null;
+		const sourcePath = filePath;
 		let accountedBytes = 0;
 		try {
+			if (readProfile === READ_PROFILE_SELECTED_RANGE_V1 && /\.aup(?:3|4|4unsaved)$/iu.test(filePath)) {
+				snapshot = await (await import('./audacity-wal-snapshot.ts')).prepareAudacityWalSnapshot(filePath);
+				if (snapshot) filePath = snapshot.path;
+			}
 			handle = await this.#open(filePath, 'r');
 			this.#assertAdmissionActive(state);
 			const details = await handle.stat();
@@ -303,6 +301,7 @@ export class ReadCapabilityStore {
 			const id = this.#newId();
 			const name = cleanReadCapabilityDisplayName(displayName || basename(filePath));
 			const entry = {
+				snapshot, sourcePath,
 				id,
 				path: filePath,
 				handle,
@@ -328,11 +327,13 @@ export class ReadCapabilityStore {
 			return descriptor;
 		} catch (error) {
 			if (!handle) {
+				await snapshot?.dispose();
 				this.#rollbackAdmission(state, rangeAdmission, rangeTicket, accountedBytes);
 				throw error;
 			}
 			try {
 				await this.#closeHandle(handle, state);
+				await snapshot?.dispose();
 			} catch (cleanupError) {
 				rangeAdmission?.retainAndFence(rangeTicket);
 				throw new AggregateError(
@@ -407,6 +408,7 @@ export class ReadCapabilityStore {
 			let handleClosed = false;
 			try {
 				await this.#closeHandle(entry.handle, entry.state);
+				await entry.snapshot?.dispose();
 				handleClosed = true;
 			} catch (error) {
 				cleanupErrors.push(error);
@@ -541,9 +543,5 @@ export class ReadCapabilityStore {
 		});
 	}
 
-	#newId() {
-		let id;
-		do id = this.#randomBytes(32).toString('hex'); while (this.#entries.has(id) || this.#retirements.has(id));
-		return id;
-	}
+	#newId() { return newReadCapabilityId(this.#randomBytes, this.#entries, this.#retirements); }
 }

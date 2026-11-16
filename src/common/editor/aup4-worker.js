@@ -81,6 +81,19 @@ async function handle(type, args, context) {
 	if (type === 'create') return createProject(args, context);
 	if (type === 'open-file') return openFile(args, context);
 	if (type === 'plan-import') return planImport(args, context);
+	if (type === 'inspect-recovery' || type === 'repair-native-copy') {
+		const { inspectAudacityRecovery } = await import('./audacity-recovery-inspection.ts');
+		const entry = requireProject(args.projectId);
+		context.checkCancelled();
+		if (type === 'inspect-recovery') return inspectAudacityRecovery(entry.database);
+		if (entry.openedSize > portableLimit(args, Boolean(entry.pool))) throw operationError('The native copy exceeds the admitted save limit.', 'PROJECT_TOO_LARGE');
+		const { repairAudacityNativeCopy } = await import('./audacity-native-repair.ts');
+		repairAudacityNativeCopy(entry.database);
+		const sqlite = await initializeSqlite();
+		const bytes = sqlite.capi.sqlite3_js_db_export(entry.database.pointer);
+		context.checkCancelled();
+		return { bytes, extension: `.${entry.sourceGeneration}`, mimeType: 'application/x-audacity-project' };
+	}
 	if (type === 'read-import-chunk') {
 		const session = requireProject(args.projectId).importSession;
 		if (!session) throw operationError('The Audacity import has not been planned.', 'IMPORT_NOT_PLANNED');
@@ -171,7 +184,7 @@ async function openFile(args, context) {
 	const projectId = normalizeProjectId(args.projectId);
 	const file = args.desktopRange ? createAup4DesktopRangeFile(args.desktopRange) : args.file;
 	if (!file || typeof file.size !== 'number' || typeof file.slice !== 'function') throw operationError('A File is required to open an Audacity project.', 'INVALID_FILE');
-	const sourceGeneration = /\.aup3$/i.test(String(file.name || '')) ? 'aup3' : /\.aup4$/i.test(String(file.name || '')) ? 'aup4' : null;
+	const sourceGeneration = /\.aup3$/i.test(String(file.name || '')) ? 'aup3' : /\.aup4(?:unsaved)?$/i.test(String(file.name || '')) ? 'aup4' : null;
 	if (!sourceGeneration) throw operationError('Choose an Audacity project file (.aup3 or .aup4).', 'INVALID_FILE');
 	context.checkCancelled();
 	const header = new Uint8Array(await file.slice(0, Math.min(file.size, 100)).arrayBuffer());

@@ -120,7 +120,7 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 					initialProjectId={snapshot.projectRecovery?.projectId} onClose={() => setActiveSurface((current) => recoverySurfaceAfterClose(current, 'project-recovery'))} />
 			)}
 			{productId === 'soundscaper' && activeSurface === 'audacity-recovery' && AudacityRecoveryDialog && (
-				<AudacityRecoveryDialog open={controller.actions.project.openAudacityProject} copy={copy} run={run} onClose={() => setActiveSurface((current) => recoverySurfaceAfterClose(current, 'audacity-recovery'))} />
+				<AudacityRecoveryDialog fileService={fileService} open={controller.actions.project.openAudacityProject} copy={copy} run={run} onClose={() => setActiveSurface((current) => recoverySurfaceAfterClose(current, 'audacity-recovery'))} />
 			)}
 			{(typeof __SCAPE_DESKTOP_RENDERER__ === 'undefined' || __SCAPE_DESKTOP_RENDERER__)
 				&& productId === 'soundscaper' && fileService.isDesktop && activeSurface === 'desktop-mcp'
