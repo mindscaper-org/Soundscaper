@@ -83,6 +83,7 @@
 		"composition/toast-countdown.ts",
 		"composition/toolbar-docking-session.ts",
 		"composition/workspace-state-types.ts",
+		"document/audacity-recovery-selection.ts",
 		"document/consolidate-media-service.ts",
 		"document/controller-document-scope.ts",
 		"document/cross-product-handoff-action-facade.ts",

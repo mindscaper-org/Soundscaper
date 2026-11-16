@@ -93,7 +93,7 @@ export function formatBytes(value: unknown): string {
 }
 
 export function isAudacityProjectFile(file: NamedFile | null | undefined): boolean {
-	return /\.aup[34]$/i.test(String(file?.name || '').trim());
+	return /\.aup(?:[34]|4unsaved)$/i.test(String(file?.name || '').trim());
 }
 
 export function isLegacyAupFile(file: NamedFile | null | undefined): boolean {

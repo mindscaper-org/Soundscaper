@@ -262,7 +262,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 	}
 
 	async function openAudacityProject(file: NativeProjectFile, options: Readonly<{ recover?: boolean }> = {}): Promise<Readonly<Record<string, unknown>> | undefined> {
-		if (!file || !/\.aup[34]$/i.test(String(file.name || ''))) {
+		if (!file || !/\.aup(?:[34]|4unsaved)$/i.test(String(file.name || ''))) {
 			throw new TypeError('Choose an Audacity project file (.aup3 or .aup4).');
 		}
 		if (runtime.editingBlocked()) return undefined;

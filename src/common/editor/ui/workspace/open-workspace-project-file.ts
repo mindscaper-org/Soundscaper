@@ -54,7 +54,7 @@ async function routeWorkspaceProjectFile(
 		}
 		return controller.actions.project.openSesx(file);
 	}
-	if (/\.aup[34]$/iu.test(file.name)) return controller.actions.project.openAudacityProject(file);
+	if (/\.aup(?:[34]|4unsaved)$/iu.test(file.name)) return controller.actions.project.openAudacityProject(file);
 	if (!isWorkspaceImportFile(file)) throw new TypeError('Choose a supported project or import file.');
 	const routed = partitionWorkspaceFiles([file]);
 	if (!controller.actions.project.create) throw new TypeError('Creating a project for File Open is unavailable.');

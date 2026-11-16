@@ -249,6 +249,24 @@ report. Import pulls recheck recovered block identity and keep one block cached.
 The original selected file is never modified. Browser Files and desktop selected
 range capabilities use the same worker path.
 
+The Audacity recovery menu inspects the original native documents, full SQLite
+integrity, referenced and unreferenced blocks, and named missing audio ranges
+before importing. Its separate native-copy action is restricted to missing
+blocks in an otherwise readable active document and intact database. It patches
+only those block-ID bytes, retains the native dictionary and unrelated rows,
+and verifies the private copy before publication. Editing-copy recovery remains
+available for damage outside that narrower repair. Unsaved `.aup4unsaved`
+projects are admitted and produce `.aup4` native copies in a separate save
+destination.
+
+Desktop selected Audacity files automatically inspect accompanying WAL/SHM
+files. A nonempty WAL is copied with its main file into private scratch, checked
+for frame identity and checksums, then checkpointed there. SHM is rebuilt in the
+copy. Original identities are rechecked before admission, and the selected
+capability owns scratch cleanup through release and renderer revocation. Recovery
+save targets refuse the original input path and hard-link aliases. Browsers
+continue to accept a single project file without companion discovery.
+
 Recovery first retains all imported metadata. If native clip XML exceeds the
 editor document node budget, it retries without native-only clip XML and source
 block-boundary hints, reporting that omission. Editable audio, timing, envelopes,

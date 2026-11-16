@@ -11,6 +11,61 @@ import { createAup4SampleBlock } from '../../src/common/editor/aup4-profile.js';
 import { projectWithBlocks } from '../helpers/aup4-database-harness.js';
 import { createAudacityDamagedOverflowFixture } from '../helpers/audacity-damaged-overflow-fixture.ts';
 
+test('recovery assesses missing audio before saving a native copy with its original document metadata', async ({ page }) => {
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	const original = await createAup3Fixture({ autosave: true, tracks: [{ name: 'Voice', clips: [{ name: 'Take', offset: 2,
+		blocks: [{ id: 1, samples: [0.25] }, { id: 2, samples: [0.5, -0.5], missing: true }] }] }] });
+	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Recover Audacity project']);
+	const dialog = page.getByRole('dialog', { name: 'Recover Audacity project', exact: true });
+	await dialog.locator('input[type="file"]').setInputFiles({ name: 'broken.aup3', mimeType: 'application/x-audacity-project', buffer: Buffer.from(original) });
+	const assessment = dialog.getByRole('region', { name: 'Recovery assessment', exact: true });
+	await expect(assessment).toBeVisible();
+	await assessment.getByText('Missing audio ranges', { exact: true }).last().click();
+	await expect(assessment.getByRole('cell', { name: 'Voice', exact: true })).toBeVisible();
+	await expect(assessment.getByRole('cell', { name: 'Take', exact: true })).toBeVisible();
+	const downloading = page.waitForEvent('download');
+	await dialog.getByRole('button', { name: 'Save repaired Audacity copy', exact: true }).click();
+	const download = await downloading;
+	expect(download.suggestedFilename()).toBe('broken (Recovered).aup3');
+	const SQL = await initSqlJs();
+	const source = new SQL.Database(original), repaired = new SQL.Database(await downloadBytes(download));
+	try {
+		expect(repaired.exec('SELECT dict, doc FROM project')[0].values).toEqual(source.exec('SELECT dict, doc FROM project')[0].values);
+		expect(repaired.exec('SELECT dict FROM autosave')[0].values).toEqual(source.exec('SELECT dict FROM autosave')[0].values);
+		const [[dictionary, document]] = repaired.exec('SELECT dict, doc FROM autosave')[0].values;
+		const blocks = decodeAudacityBinaryXml(dictionary, document).documentTokens.filter(token => token.name === 'blockid');
+		expect(blocks.map(token => token.value)).toEqual([1, -2]);
+	} finally { source.close(); repaired.close(); }
+	await expect(dialog).toBeHidden();
+});
+
+test('an Audacity unsaved project is recoverable through the existing recovery menu', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	await recoverThroughMenu(page, editor, 'recording.aup4unsaved', await createAup3Fixture());
+	await expect(editor.locator('[data-status]')).toContainText('Audacity project opened');
+	await expect(editor).toHaveAttribute('data-clip-count', '1');
+});
+
+test('recovery assessment pages every missing location without importing the project', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	const bytes = await createAup3Fixture({ tracks: [{ name: 'Voice', clips: Array.from({ length: 101 }, (_, index) => ({
+		name: `Lost ${String(index + 1)}`, offset: index, samples: [0.5], missingBlock: true,
+	})) }] });
+	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Recover Audacity project']);
+	const dialog = page.getByRole('dialog', { name: 'Recover Audacity project', exact: true });
+	await dialog.locator('input[type="file"]').setInputFiles({ name: 'many-missing.aup3', mimeType: 'application/x-audacity-project', buffer: Buffer.from(bytes) });
+	const assessment = dialog.getByRole('region', { name: 'Recovery assessment', exact: true });
+	await expect(assessment).toBeVisible();
+	await assessment.getByText('Missing audio ranges', { exact: true }).last().click();
+	await expect(assessment.getByRole('cell', { name: 'Lost 1', exact: true })).toBeVisible();
+	await expect(assessment.getByRole('cell', { name: 'Lost 101', exact: true })).toHaveCount(0);
+	await assessment.getByRole('button', { name: 'Next affected ranges', exact: true }).click();
+	await expect(assessment.getByRole('cell', { name: 'Lost 101', exact: true })).toBeVisible();
+	await assessment.getByRole('button', { name: 'Previous affected ranges', exact: true }).click();
+	await expect(assessment.getByRole('cell', { name: 'Lost 1', exact: true })).toBeVisible();
+});
+
 test('Recover Audacity project salvages damaged SQLite audio prefixes through the normal dialog', async ({ page }) => {
 	test.setTimeout(90_000);
 	await disableNativeSavePicker(page);

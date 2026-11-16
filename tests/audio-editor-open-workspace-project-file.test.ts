@@ -8,6 +8,7 @@ import { deferred } from './helpers/async-test-control.ts';
 
 for (const [name, route] of [
 	['test.AUP3', 'audacity'], ['test.aup4', 'audacity'],
+	['recording.aup4unsaved', 'audacity'],
 	['test.dawproject', 'dawproject'], ['test.sscape', 'scape'],
 ] as const) {
 	test(`opening ${name} waits for the initial project before importing`, async () => {
