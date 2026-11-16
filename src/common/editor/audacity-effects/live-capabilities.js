@@ -16,6 +16,7 @@ import {
 import { audacitySelectionOnlyReason, isAudacityEffectLiveCapable } from './live-capability-policy.js';
 import { secondsToSampleFrame as secondsToFrames } from '../timeline-time.ts';
 import { audacityBrowserReverbTailFrames } from './reverb-parameters.ts';
+import { TRUE_PEAK_FILTER_TAIL, truePeakLimiterLatency } from './true-peak-limiter-parameters.ts';
 import { audacityDynamicsLookaheadFrames } from './audacity-dynamics-lookahead.ts';
 import { classicFilterCoefficients } from './classic-filter-coefficients.js';
 import { iirReleaseBoundFrames } from '../first-party-effects/standard/filters-coefficients.ts';
@@ -76,6 +77,7 @@ function liveLatencyFrames(type, sampleRate, params) {
 		return Math.max(outerDown, pause + innerUp);
 	}
 	if (type === 'audacity-click-removal') return settings.threshold === 0 || settings.maximumWidth === 0 ? 0 : CLICK_WINDOW_SIZE - 1;
+	if (type === 'audacity-limiter' && settings.limitTruePeaks) return truePeakLimiterLatency(settings.lookaheadMs, sampleRate);
 	if (type === 'audacity-compressor' || type === 'audacity-limiter') {
 		return audacityDynamicsLookaheadFrames(settings.lookaheadMs, sampleRate);
 	}
@@ -97,6 +99,7 @@ function liveTailFrames(type, sampleRate, params) {
 	if (!isAudacityEffectLiveCapable(type)) return 0;
 	const settings = normalizeAudacityEffectParams(type, { ...audacityEffectDefaults(type), ...params });
 	validateLiveParamRanges({ type, paramRanges: liveParamRanges(type) }, settings);
+	if (type === 'audacity-limiter' && settings.limitTruePeaks) return TRUE_PEAK_FILTER_TAIL;
 	const filterRelease = audacityResidualFilterTailFrames(type, sampleRate, settings);
 	if (filterRelease !== null) return filterRelease;
 	if (type === 'audacity-echo') {

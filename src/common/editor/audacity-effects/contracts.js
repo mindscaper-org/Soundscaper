@@ -8,6 +8,7 @@ import {
 	audacityEffectDefaults,
 	normalizeAudacityEffectParams,
 } from './manifest.js';
+import { truePeakLimiterScratchBytes } from './true-peak-limiter-parameters.ts';
 export { assertAudacityEffectOutput } from './pcm-channel-validation.ts';
 import {
 	STAFFPAD_MAXIMUM_MEMORY_BYTES,
@@ -125,8 +126,12 @@ export function estimateAudacityEffectPeakBytes(type, inputFrames, params = {}, 
 			break;
 		case 'audacity-compressor':
 		case 'audacity-legacy-compressor':
-		case 'audacity-limiter':
 			scratchBytes += frames * FLOAT64_BYTES;
+			break;
+		case 'audacity-limiter':
+			scratchBytes += normalized.limitTruePeaks
+				? truePeakLimiterScratchBytes(normalized.lookaheadMs, sampleRate, channelCount)
+				: frames * FLOAT64_BYTES;
 			break;
 		case 'audacity-echo':
 			if (normalized.decay !== 0 && Math.floor(sampleRate * normalized.delaySeconds) < frames) {

@@ -45,7 +45,7 @@ const NATIVE_DYNAMICS = [
 			['thresholdDb', '-4'], ['makeupTargetDb', '-1'], ['kneeWidthDb', '2'],
 			['lookaheadMs', '3'], ['releaseMs', '150'],
 		] satisfies readonly NativeParameter[],
-		params: { thresholdDb: -4, makeupTargetDb: -1, kneeWidthDb: 2, lookaheadMs: 3, releaseMs: 150 },
+		params: { thresholdDb: -4, makeupTargetDb: -1, kneeWidthDb: 2, lookaheadMs: 3, releaseMs: 150, limitTruePeaks: false },
 	},
 ];
 

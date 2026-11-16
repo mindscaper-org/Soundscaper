@@ -17,6 +17,7 @@ import {
 } from '../../i18n/canonical-extras.js';
 import { localizedValue } from '../../i18n/locale.js';
 import { parseAudacityCurveEntries } from './curve-text.ts';
+import { audacityCompressorDefinition, audacityLimiterDefinition } from './dynamics-definitions.ts';
 
 export const AUDACITY_EFFECT_SOURCE = Object.freeze({
 	version: '3.7.7',
@@ -197,19 +198,7 @@ const definitions = {
 			preserveFormants: checkbox(true),
 		},
 	},
-	'audacity-compressor': {
-		category: 'volume',
-		collision: true,
-		params: {
-			thresholdDb: number(-12, -60, 0, { unit: 'dB', step: 0.1 }),
-			makeupGainDb: number(9, -30, 30, { unit: 'dB', step: 0.1 }),
-			kneeWidthDb: number(6, 0, 30, { unit: 'dB', step: 0.1 }),
-			ratio: number(4, 1, 100, { step: 0.1 }),
-			lookaheadMs: number(3, 0, 1_000, { unit: 'ms', step: 0.1 }),
-			attackMs: number(3, 0, 200, { unit: 'ms', step: 0.1 }),
-			releaseMs: number(100, 0, 1_000, { unit: 'ms', step: 0.1 }),
-		},
-	},
+	'audacity-compressor': audacityCompressorDefinition,
 	'audacity-legacy-compressor': {
 		category: 'volume',
 		params: {
@@ -282,17 +271,7 @@ const definitions = {
 		},
 	},
 	'audacity-invert': { category: 'special', params: {} },
-	'audacity-limiter': {
-		category: 'volume',
-		collision: true,
-		params: {
-			thresholdDb: number(-6, -30, 0, { unit: 'dB', step: 0.1 }),
-			makeupTargetDb: number(-1, -30, 0, { unit: 'dB', step: 0.1 }),
-			kneeWidthDb: number(2, 0, 10, { unit: 'dB', step: 0.1 }),
-			lookaheadMs: number(1, 0, 50, { unit: 'ms', step: 0.1 }),
-			releaseMs: number(20, 0, 1_000, { unit: 'ms', step: 0.1 }),
-		},
-	},
+	'audacity-limiter': audacityLimiterDefinition,
 	'audacity-loudness-normalization': {
 		category: 'volume',
 		params: {

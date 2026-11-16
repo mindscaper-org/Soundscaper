@@ -117,6 +117,7 @@ test('dynamics presets carry the processing settings and drop the meter flags', 
 		kneeWidthDb: 0.1,
 		lookaheadMs: 0.1,
 		releaseMs: 0.1,
+		limitTruePeaks: false,
 	});
 	assert.equal(byName('audacity-compressor', 'Brick Wall Master').params.ratio, 100);
 });
