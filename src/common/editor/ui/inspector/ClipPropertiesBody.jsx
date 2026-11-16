@@ -21,6 +21,7 @@ import { clipLinkedPitchSpeed } from './clip-properties-linked-pitch.ts';
 import { clipPropertiesFrameRate } from './clip-time-code-clock.ts';
 import ClipResampleDialog from './ClipResampleDialog.jsx';
 import { VideoEffectRack } from './VideoEffectRack.jsx';
+import ClipEffectRack from './ClipEffectRack.tsx';
 import VideoSourcePropertiesSection from './VideoSourcePropertiesSection.jsx';
 import {
 	clipPitchInUnit,
@@ -272,6 +273,7 @@ export default function ClipPropertiesBody({ controller, snapshot, copy, clipId 
 					</div>}
 				</ClipPropertiesDrawer>}
 				{isVideoClip && snapshot.capabilities?.videoEffects && <VideoEffectRack clip={clip} controller={controller} copy={copy} disabled={disabled} onError={message => { if (message) reportError(message); else setError(''); }} />}
+				{clip && !isVideoClip && snapshot.capabilities?.audioEffects && <ClipEffectRack key={clip.id} controller={controller} snapshot={snapshot} clipId={clip.id} copy={copy} disabled={disabled} />}
 			</div>
 			{resampleOpen && clip && source && (
 				<ClipResampleDialog

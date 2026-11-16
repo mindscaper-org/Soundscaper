@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { clipEffectControlTrackIds } from '../../../../clip-effect-control-tracks.ts';
 
 import { downstreamMixerNodes, mixerNodesReachingMain } from '../../../../mixer-node-closure.ts';
 import { createMixRenderMediaIndex } from './mix-render-media-index.ts';
@@ -68,9 +69,11 @@ export function prepareMixRenderSnapshotsV21(authored: ControllerProject): Reado
 		const includeDownstream = options.mixDown ?? targetTracks.length > 1;
 		const renderEffects = options.renderEffects ?? true;
 		const nodeIds = includeDownstream ? reachableMixerNodeIds(graph, targetIds) : new Set<string>();
-		const detectors = renderEffects
+		const baseDetectors = renderEffects
 			? detectorClosure(targetIds, nodeIds)
 			: { controlTrackIds: new Set<string>(), nodeIds: new Set<string>(), edgeIds: new Set<string>() };
+		const detectors = { ...baseDetectors, controlTrackIds: new Set([...baseDetectors.controlTrackIds,
+			...(renderEffects ? clipEffectControlTrackIds(project, targetIds) : [])]) };
 		const retainedNodeIds = new Set([...nodeIds, ...detectors.nodeIds]);
 		const unselectedControlTrackIds = new Set([...detectors.controlTrackIds]
 			.filter((trackId) => !targetIds.has(trackId)));
@@ -137,6 +140,7 @@ function narrowMedia(
 	renderTrackIds: ReadonlySet<string>,
 	renderEffects: boolean,
 ): void {
+	if (!renderEffects) snapshot.clips = snapshot.clips.map(clip => ({ ...clip, effectsActive: false }));
 	snapshot.tracks = snapshot.tracks
 		.filter((track) => track.type === 'audio' && renderTrackIds.has(track.id))
 		.map((track) => {

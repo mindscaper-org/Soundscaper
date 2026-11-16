@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { createAudioWorkletLoadOnce } from '../audio-worklet-load-once.ts';
 import { AI_DENOISE_CONNECT, AI_DENOISE_TYPE, AI_DENOISE_RATE, aiDenoiseRackGeometry } from '../first-party-effects/ai-denoise/contract.ts';
-import { projectEffectRacks } from './project-effects.ts';
+import { effectRackMatchesTrack, projectEffectRacks } from './project-effects.ts';
 import { rackEffectChannelCount, type RackChannelProject } from '../rack-effect-channel-width.ts';
 import type { EngineProject } from './types.ts';
 import { effectGraphKey } from './effect-rack-node-registry.ts';
@@ -33,7 +33,7 @@ async function prepareOwned(context: BaseAudioContext, project: EngineProject,
 	if (!entries) { entries = new Map(); prepared.set(context, entries); }
 	const effects = [...projectEffectRacks(project)].filter(rack =>
 		!(rack.scope === 'master' && options.includeMaster === false)
-		&& !(options.trackId != null && rack.scope !== 'master' && (rack.scope !== 'track' || rack.targetId !== String(options.trackId))))
+		&& effectRackMatchesTrack(project, rack, options.trackId))
 		.flatMap(rack => rack.effects.filter(effect => effect.type === AI_DENOISE_TYPE && effect.enabled !== false && effect.bypassed !== true)
 			.map(effect => ({ rack, effect })));
 	if (!effects.length) { for (const entry of entries.values()) entry.dispose(); entries.clear(); return; }

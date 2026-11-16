@@ -25,7 +25,7 @@ export const PROJECT_FEATURE_AUDIO_EFFECT_BYPASS_LIMITS = Object.freeze({
 	maximumEffectTypeLength: 128,
 });
 
-export type ProjectFeatureAudioEffectScope = 'track' | 'group' | 'send' | 'master';
+export type ProjectFeatureAudioEffectScope = 'clip' | 'track' | 'group' | 'send' | 'master';
 
 export interface ProjectFeatureAudioEffectPlaceholder {
 	readonly scope: ProjectFeatureAudioEffectScope;
@@ -86,6 +86,14 @@ export function projectFeatureAudioEffectPlaybackBypass<
 		'maximumAffectedEffects',
 	);
 	const placeholders: ProjectFeatureAudioEffectPlaceholder[] = [];
+	let clipsChanged = false;
+	const clipValues = dataProperty(projectRecord, 'clips', 'project');
+	const clips = Array.isArray(clipValues) ? clipValues.map(owner => {
+		if (!isRecord(owner)) return owner;
+		const projected = projectRack(owner, 'clip', stableId(dataProperty(owner, 'id', 'clip'), 'clip.id'), placeholders, maximumAffectedEffects);
+		clipsChanged ||= projected.changed;
+		return projected.owner;
+	}) : [];
 
 	let tracksChanged = false;
 	const tracksValue = dataProperty(projectRecord, 'tracks', 'project');
@@ -137,6 +145,7 @@ export function projectFeatureAudioEffectPlaybackBypass<
 	if (placeholders.length === 0) return unchanged(project);
 
 	const replacements: Record<string, unknown> = {};
+	if (clipsChanged) replacements.clips = Object.freeze(clips);
 	if (tracksChanged) replacements.tracks = Object.freeze(tracks);
 	if (mixerChanged) replacements.mixer = projectedMixer;
 	if (master.changed) replacements.master = master.owner;

@@ -6,7 +6,7 @@ import { audioSelectionEffectDefaults } from '../../effects.js';
 import { unavailableRackEffectTypes } from '../../rack-effect-channel-width.ts';
 import { audioEffectControlTracks } from '../../audio-effect-control-tracks.ts';
 import { serializeAudacityEffectMacro } from '../../effect-macros.js';
-import { AUDIO_EDITOR_SAMPLE_RATE, findTrack } from '../../project.js';
+import { AUDIO_EDITOR_SAMPLE_RATE, findClip, findClipTrack, findTrack } from '../../project.js';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { audacityEffectDialogWidth, isAudacityNyquistPort } from '../audacity-port-layouts.ts';
 import { useAudacityEffectOptions } from './audacity-effect-options.ts';
@@ -57,11 +57,13 @@ export function AudioEditorEffectsOverlay({
 		: scope === 'send'
 			? project?.mixer?.sends?.find((bus) => bus.id === trackId) || null
 			: null;
-	const channel = selectedTrack || selectedBus;
+	const selectedClip = scope === 'clip' && project ? findClip(project, trackId) : null;
+	const channel = selectedTrack || selectedBus || (selectedClip ? { ...selectedClip, name: selectedClip.title || copy.clip } : null);
 	const channelEffects = channel?.effects || EMPTY_EFFECTS;
 	const targetId = scope === 'master' ? null : channel?.id || null;
-	const masterEffects = project?.master?.effects || EMPTY_EFFECTS;
-	const blocked = !snapshot.ready || !project || selectAudioEditorEditBlock(snapshot).blocked;
+	const masterEffects = scope === 'clip' ? EMPTY_EFFECTS : project?.master?.effects || EMPTY_EFFECTS;
+	const blocked = !snapshot.ready || !project || selectAudioEditorEditBlock(snapshot).blocked
+		|| (scope === 'clip' && (!selectedClip || findClipTrack(project, selectedClip.id)?.locked === true));
 	const [picker, setPicker] = useState(null);
 	const [internalSelectedEffect, setInternalSelectedEffect] = useState(null);
 	const selectedEffect = controlledSelectedEffect === undefined
@@ -157,7 +159,7 @@ export function AudioEditorEffectsOverlay({
 		}
 		const changes = defaultRackEffectReplacement(type);
 		if (type === 'audacity-auto-duck') {
-			const controlTrack = audioEffectControlTracks(project?.tracks || [], scope === 'track' ? targetId : null)[0];
+			const controlTrack = audioEffectControlTracks(project?.tracks || [], scope === 'clip' ? findClipTrack(project, targetId)?.id : scope === 'track' ? targetId : null)[0];
 			if (!controlTrack) {
 				setMessage({ key: 'autoDuckSecondControlTrack' });
 				return;
@@ -180,6 +182,7 @@ export function AudioEditorEffectsOverlay({
 		onToggleAll: (enabled) => {
 			if (blocked) return;
 			if (scope === 'master') controller.actions.mixer.updateMaster({ effectsActive: enabled });
+			else if (scope === 'clip') controller.actions.clip.update(targetId, { effectsActive: enabled });
 			else if (scope === 'track') controller.actions.track.update(targetId, { effectsActive: enabled });
 			else controller.actions.mixer.updateBus(scope, targetId, { effectsActive: enabled });
 		},
@@ -196,7 +199,7 @@ export function AudioEditorEffectsOverlay({
 			if (!blocked && effect) controller.actions.effects.reorder(scope, scope === 'master' ? null : targetId, effect.id, toIndex);
 		},
 		onAddEffect: (event) => openPicker(scope, null, event),
-		onContextMenu: (scope === 'track' || scope === 'master') ? (event) => {
+		onContextMenu: (scope === 'clip' || scope === 'track' || scope === 'master') ? (event) => {
 			const rect = event?.currentTarget?.getBoundingClientRect?.();
 			if (event?.currentTarget instanceof HTMLElement) {
 				stackMenuTriggerRef.current = event.currentTarget;
@@ -309,7 +312,7 @@ export function AudioEditorEffectsOverlay({
 						trackSection={channel
 							? { trackName: channel.name, ...section(scope, channelEffects, channel) }
 							: undefined}
-						masterSection={section('master', masterEffects, project?.master)}
+						masterSection={scope === 'clip' ? undefined : section('master', masterEffects, project?.master)}
 					/>
 				</div>
 
@@ -320,9 +323,9 @@ export function AudioEditorEffectsOverlay({
 							<p className="audio-editor-panel-hint" data-effect-empty>{copy.effectRackEmpty}</p>
 						)}
 						{message && <p className="audio-editor-field-error" role="alert">{message}</p>}
-						<MasterGainControl actions={controller.actions.mixer} projectId={projectIdentity}
+						{scope !== 'clip' && <MasterGainControl actions={controller.actions.mixer} projectId={projectIdentity}
 							gain={project?.master?.gain ?? 1} label={copy.masterGain} disabled={blocked || !project}
-							onError={(error) => setMessage(error instanceof Error ? error.message : String(error))} />
+							onError={(error) => setMessage(error instanceof Error ? error.message : String(error))} />}
 					</div>
 				)}
 				<EffectStackMenu
@@ -374,7 +377,7 @@ export function AudioEditorEffectsOverlay({
 								automationStrip={effectScope === 'track' && targetId
 									? { kind: 'track', id: targetId }
 									: null}
-							captureNoiseProfile={controller.actions.effects.captureRackNoiseProfile
+							captureNoiseProfile={scope !== 'clip' && controller.actions.effects.captureRackNoiseProfile
 								? () => run(() => controller.actions.effects.captureRackNoiseProfile(
 									effectScope,
 									effectScope === 'master' ? null : targetId,

@@ -58,6 +58,8 @@ export interface VideoSourceLeaf {
 }
 
 export interface AudioClipLeaf {
+	readonly effects?: readonly PersistedAudioEffect[];
+	readonly effectsActive?: boolean;
 	readonly kind: 'audio';
 	readonly id: string;
 	readonly sourceId: string;

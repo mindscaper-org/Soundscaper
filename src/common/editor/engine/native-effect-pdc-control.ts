@@ -2,6 +2,7 @@
 
 import type { ProjectPathPdcPlanV21 } from './project-path-pdc-plan-v21.ts'
 import type { EngineRuntimeMethodMap, EngineRuntimeHost } from './runtime-types.ts'
+import { projectClipEffectLatencyFrames } from './clip-effect-inputs.ts'
 
 export interface EngineNativeEffectPdcRevision {
 	readonly atFrame: number
@@ -43,8 +44,9 @@ export const engineNativeEffectPdcControlMethods = {
 		// cannot carry its share must fault the swap outright rather than leave
 		// the graph half on the old plan and half on the new one.
 		const revisions: { readonly param: AudioParam; readonly seconds: number }[] = []
+		const clipLatency = this.project ? projectClipEffectLatencyFrames(this.project, this.sampleRate) : 0
 		for (const [key, param] of delays) {
-			const frames = compensationFrames(request.plan, key)
+			const frames = compensationFrames(request.plan, key) - (key.startsWith('input:') ? clipLatency : 0)
 			if (!Number.isSafeInteger(frames) || frames < 0) {
 				throw new Error(`PDC plan omitted runtime path ${key}.`)
 			}

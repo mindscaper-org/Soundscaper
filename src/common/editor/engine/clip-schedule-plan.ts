@@ -32,6 +32,7 @@ import { getTrackClips, automaticCrossfadeRanges } from './clip-schedule-geometr
 import { indexedClipScheduleRange } from './clip-schedule-index.ts';
 import { preferOfflineChunkSource } from './offline-buffer-source.ts';
 import { prepareClipScheduleEnvelopes } from './clip-envelope-preparation.ts';
+import { clipEffectInputKey } from './clip-effect-inputs.ts';
 
 export { mergeFrameRanges, getTrackClips, automaticCrossfadeRanges };
 export type { ClipCrossfadeRanges, FrameRange };
@@ -165,13 +166,14 @@ export function buildClipSchedulePlans({
 	const audioTracks = (project.tracks || [])
 		.filter((track) => track.type !== 'label' && track.type !== 'video');
 	for (const [trackIndex, track] of audioTracks.entries()) {
-		const trackInput = trackInputs.get(String(track.id ?? trackIndex));
-		if (!trackInput) continue;
+		const laneInput = trackInputs.get(String(track.id ?? trackIndex));
+		if (!laneInput) continue;
 		const indexed = indexedClipScheduleRange(project, track, fromFrame, toFrame);
 		if (!indexed) clipsById ||= new Map(getProjectClips(project).map((clip) => [String(clip.id), clip]));
 		const trackClips = indexed?.clips ?? getTrackClips(track, clipsById!);
 		const crossfades = indexed?.crossfades ?? automaticCrossfadeRanges(trackClips);
 		for (const clip of trackClips) {
+			const trackInput = trackInputs.get(clipEffectInputKey(clip.id)) ?? laneInput;
 			const start = clipStart(clip);
 			const duration = clipDuration(clip);
 			const end = start + duration;
