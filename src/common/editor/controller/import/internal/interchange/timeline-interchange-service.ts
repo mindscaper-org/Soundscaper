@@ -122,10 +122,10 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 			const layouts = await persistInterchangeMidiSources(runtime, helpers, operation, plan.midiSources, persisted);
 			const projectOptions = withInterchangeMidiSourceLayouts(plan.project, layouts);
 			assertCurrent();
-			if (runtime.createImportedProject) imported = await runtime.createImportedProject(projectOptions);
+			if (runtime.createImportedProject) imported = await runtime.createImportedProject({ ...projectOptions, mixer: plan.production.mixer });
 			else {
 				const created = createCurrentAudioEditorProject(projectOptions as never);
-				imported = runtime.adaptAudacityProject ? await runtime.adaptAudacityProject(created) : runtime.loadProject(created).project;
+				imported = runtime.adaptAudacityProject ? await runtime.adaptAudacityProject(created, { sendTaps: [], automationLanes: plan.production.automationLanes, mixerGraph: plan.production.mixer }) : runtime.loadProject(created).project;
 			}
 			assertCurrent();
 			await runtime.switchProject(imported, { readOnly: false, save: true });

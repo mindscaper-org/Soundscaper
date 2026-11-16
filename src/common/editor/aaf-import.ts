@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { aafOperationCurve, aafDissolveCurves, aafApplyClipGain, aafPanAutomation, aafMissingOperation } from './aaf-import-automation.ts';
 import { readAafCompound } from './aaf-compound-reader.ts';
 import { AafObjectTable, aafHex, aafText, type AafObject } from './aaf-object-table.ts';
 import { aafWaveSummary } from './aaf-wave.ts';
@@ -43,9 +44,16 @@ export function parseAafDocument(bytes: Uint8Array): TimelineInterchangeDocument
 	const slotRate = (slot: AafObject) => file.rate(slot, slot.classCode === 0x39 ? 0x4901 : 0x4b01);
 	const kind = (object: AafObject) => aafHex(object.properties.get(0x0201)?.data.subarray(-16) ?? new Uint8Array());
 	const soundKinds = new Set(['0202030100020000060e2b3404010101', 'e1ebe178ef6cd211807d006008143e6f']);
+	let effectCollector: Readonly<Record<string, unknown>>[] = [];
+	let effectPaths = new Set<string>();
 	function unprocessed(object: AafObject): AafObject | undefined {
 		if (object.classCode === 0x0a) {
 			issue('effect-omitted', 'AAF effect processing is omitted; a single input retains its audio cuts.');
+			if (!effectPaths.has(object.path)) {
+				effectPaths.add(object.path);
+				effectCollector.push(aafMissingOperation(file, object, `aaf-effect-${effectCollector.length}`));
+				issue('effect-state-preserved', 'An unsupported AAF operation retains its identity and parameter records in a bypassed rack entry.', 'converted');
+			}
 			const inputs = file.refs(object, 0x0b02); return inputs.length === 1 ? inputs[0] : undefined;
 		}
 		if (object.classCode === 0x0e) { issue('alternates-omitted', 'Only the selected AAF alternative is imported.'); return file.ref(object, 0x0f01); }
@@ -119,7 +127,9 @@ export function parseAafDocument(bytes: Uint8Array): TimelineInterchangeDocument
 	}
 	const tracks: TimelineInterchangeTrack[] = [];
 	const midiAttachments: NonNullable<TimelineInterchangeDocument['midiAttachments']>[number][] = [];
-	let sampleRate = 48_000, sequenceRate: Rational = { num: 25, den: 1 }, startFrameCount = 0, dropFrame = false;
+	const audioClock = file.refs(composition, 0x4403).filter(slot => [0x3b, 0x39].includes(slot.classCode) && (() => { const segment = file.ref(slot, 0x4803); return segment && soundKinds.has(kind(segment)); })()).map(slotRate).find(rate => rate.den === 1 && rate.num >= 8_000 && rate.num <= 384_000);
+	const sampleRate = audioClock?.num ?? 48_000;
+	let sequenceRate: Rational = { num: 25, den: 1 }, startFrameCount = 0, dropFrame = false;
 	for (const slot of file.refs(composition, 0x4403)) {
 		const segment = file.ref(slot, 0x4803); if (!segment) continue;
 		if (isAafAuxiliarySegment(segment)) {
@@ -135,24 +145,46 @@ export function parseAafDocument(bytes: Uint8Array): TimelineInterchangeDocument
 			sequenceRate = rate; startFrameCount = nonNegative(file.integer(timecode, 0x1501), 'timecode start'); dropFrame = file.integer(timecode, 0x1503) !== 0; continue;
 		}
 		if (!soundKinds.has(kind(segment))) { issue('track-kind-omitted', 'Only AAF audio tracks are imported.', 'omitted', { kind: kind(segment) }); continue; }
-		if (rate.den === 1 && rate.num >= 8_000 && rate.num <= 384_000) sampleRate = rate.num;
 		const clips: TimelineInterchangeClip[] = [];
+		const effects: Readonly<Record<string, unknown>>[] = []; effectCollector = effects; effectPaths = new Set();
+		const automation: NonNullable<TimelineInterchangeTrack['automation']>[number][] = [];
 		function walk(object: AafObject, start: Rational, depth: number): Rational {
 			visit(depth);
 			const duration = divideRationals(length(object), rate);
 			if (object.classCode === 0x0f) {
-				let cursor = start;
+				let cursor = start, previousFirst = clips.length;
+				let pending: { curve: Parameters<typeof aafApplyClipGain>[1]; start: Rational; duration: Rational } | null = null;
 				for (const child of file.refs(object, 0x1001)) {
-					if (child.classCode === 0x17) { cursor = subtractRationals(cursor, divideRationals(length(child), rate)); issue('transition-omitted', 'AAF transitions are imported as overlapping audio cuts.'); }
-					else cursor = walk(child, cursor, depth + 1);
+					if (child.classCode === 0x17) {
+      const span = divideRationals(length(child), rate); cursor = subtractRationals(cursor, span);
+      const fade = aafDissolveCurves(file, child, issues);
+      if (fade) {
+       for (let index = previousFirst; index < clips.length; index++) if (compareRationals(addRationals(clips[index]!.start, clips[index]!.duration), cursor) > 0) clips[index] = aafApplyClipGain(clips[index]!, fade.outgoing, cursor, span, sampleRate, issues);
+       pending = { curve: fade.incoming, start: cursor, duration: span };
+       issue('transition-preserved', 'AAF dissolve levels are retained as clip gain envelopes.', 'preserved');
+      } else issue('transition-omitted', 'An unsupported AAF transition becomes overlapping audio cuts.');
+     } else {
+      const first = clips.length; cursor = walk(child, cursor, depth + 1); previousFirst = first;
+      if (pending) { for (let index = first; index < clips.length; index++) clips[index] = aafApplyClipGain(clips[index]!, pending.curve, pending.start, pending.duration, sampleRate, issues); pending = null; }
+     }
 				}
 			} else if (object.classCode === 0x11 && length(object) > 0) {
 				const resolved = source(object, rate, { num: 0, den: 1 }, duration, 0);
 				if (resolved) clips.push({ id: `aaf-clip-${visits}`, name: clipName(object) || resolved.name || 'Audio', mediaId: resolved.mediaId, start, duration, sourceStart: resolved.start });
 				else issue('source-span-omitted', 'A source segment cannot be represented as a single audio cut.');
 				if (file.integer(object, 0x1202) || file.integer(object, 0x1204)) issue('fades-omitted', 'AAF source-clip fades are omitted.');
-			} else if (object.classCode !== 0x09) {
-				const input = unprocessed(object);
+			} else if (object.classCode === 0x0a && aafOperationCurve(file, object, issues)) {
+    const operation = aafOperationCurve(file, object, issues)!, inputs = file.refs(object, 0x0b02);
+    if (inputs.length !== 1) issue('effect-inputs-omitted', 'An audio gain or pan operation requires exactly one input.');
+    else {
+     const first = clips.length; walk(inputs[0]!, start, depth + 1);
+     if (operation.kind === 'gain') for (let index = first; index < clips.length; index++) clips[index] = aafApplyClipGain(clips[index]!, operation.curve, start, duration, sampleRate, issues);
+     else if (object === segment) automation.push(aafPanAutomation(operation.curve, start, duration, sampleRate));
+					else issue('nested-pan-omitted', 'AAF pan is supported only as a track operation; a local pan cannot own the entire track parameter.');
+     issue('automation-preserved', 'Standard AAF gain or pan control points are retained.', 'preserved');
+    }
+   } else if (object.classCode !== 0x09) {
+    const input = unprocessed(object);
 				if (input) walk(input, start, depth + 1);
 				else issue('component-omitted', 'An unsupported AAF component retains its timeline duration as a gap.', 'omitted', { classCode: object.classCode });
 			}
@@ -160,7 +192,7 @@ export function parseAafDocument(bytes: Uint8Array): TimelineInterchangeDocument
 		}
 		walk(segment, { num: 0, den: 1 }, 0);
 		if (file.integer(slot, 0x4b02)) issue('composition-origin-converted', 'Composition slot origin is normalized to the start of its segment.', 'converted');
-		tracks.push({ id: `aaf-track-${tracks.length}`, kind: 'audio', name: file.text(slot, 0x4802) || 'Audio', clips });
+		tracks.push({ id: `aaf-track-${tracks.length}`, kind: 'audio', name: file.text(slot, 0x4802) || 'Audio', clips, automation, effects });
 	}
 	function clipName(object: AafObject): string {
 		for (const tag of file.refs(object, 0x0204)) {

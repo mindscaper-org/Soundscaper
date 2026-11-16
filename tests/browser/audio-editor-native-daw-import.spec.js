@@ -2,7 +2,8 @@
 
 import { BlobReader, BlobWriter, TextReader, ZipWriter } from '@zip.js/zip.js/index-native.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseFileAction, chooseNestedCommandAction, clickClipInterior, clipByName, disableNativeSavePicker, downloadBytes, importFiles, waitForEditor, waitForProjectActivation } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseFileAction, chooseNestedCommandAction, clickClipInterior, clipByName, disableNativeSavePicker, downloadBytes, importFiles, openEffectsForTrack, waitForEditor, waitForProjectActivation } from './audio-editor-test-helpers.js';
+import { chooseTrackMenuAction } from './helpers/track-menu.js';
 import { ardourSession, soundcraftSession } from '../helpers/native-daw-import-fixtures.ts';
 import { encodeWav } from '../../src/common/editor/wav.js';
 import { ardourMidiBytes, ardourMidiSession, soundcraftMidiSession } from '../helpers/project-midi-import-fixtures.ts';
@@ -73,4 +74,35 @@ test('File Import makes Ardour and SoundCraft MIDI editable through Window Piano
 		await restored.getByRole('combobox', { name: 'Selected note', exact: true }).selectOption({ index: 1 });
 		await expect(restored.getByRole('spinbutton', { name: 'Pitch (MIDI number)', exact: true })).toHaveValue('67');
 	}
+});
+
+test('imported automation remains editable and foreign realtime effect state survives reload', async ({ page }) => {
+	let editor = await bootEditor(page, '/embed/en/', { defaultWorkspace: true, showProjectBin: false });
+	const original = soundcraftSession();
+	const session = { ...original, tracks: original.tracks.map(track => ({ ...track, mixer: { ...track.mixer,
+		inserts: [{ plugin: 'clap:org.example.echo', params: { mix: .3 }, state: 'AQID', active: true, bypass: false }] },
+		automation: [{ param: 'Volume', enabled: true, points: [{ at: 0, value: -12 }, { at: 48000, value: -6 }] },
+			{ param: 'Mute', enabled: true, points: [{ at: 0, value: 0 }, { at: 48000, value: 1 }] }],
+	})) };
+	const previousId = await editor.getAttribute('data-project-id');
+	await importFiles(editor, [{ name: 'Mix.scraft', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(session)) },
+		{ name: 'voice.wav', mimeType: 'audio/wav', buffer: Buffer.from(encodeWav([new Float32Array(48000).fill(.25)], { sampleRate: 48000, float: true })) }]);
+	await expect(editor).not.toHaveAttribute('data-project-id', previousId); await waitForProjectActivation(editor);
+	const projectId = await editor.getAttribute('data-project-id');
+	await expect.poll(async () => (await persistedProject(page, projectId)).automationLanes.length).toBe(2);
+	const panel = await openEffectsForTrack(editor, 0);
+	await expect(panel.getByRole('group', { name: /^Missing:/u })).toBeVisible();
+	const row = clipByName(editor, 'Phrase').locator('xpath=ancestor::div[@data-track-row]');
+	await chooseTrackMenuAction(page, editor, row, 'Add automation');
+	const controls = row.locator('[data-track-automation-controls]'); await expect(controls).toBeVisible();
+	const gainHit = row.locator('[data-automation-insert-point]').first();
+	await gainHit.evaluate(element => { const bounds = element.getBoundingClientRect(); element.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: bounds.left + bounds.width * .25, clientY: bounds.top + bounds.height * .5 })); });
+	await editor.getByRole('menu', { name: 'Automation curve', exact: true }).getByRole('menuitemradio', { name: 'Hold', exact: true }).click();
+	await expect.poll(async () => (await persistedProject(page, projectId)).automationLanes.find(lane => lane.address.parameterId === 'gain').segments.some(segment => segment.kind === 'hold')).toBe(true);
+	await page.reload({ waitUntil: 'domcontentloaded' }); editor = await waitForEditor(page); await waitForProjectActivation(editor);
+	const restored = await persistedProject(page, projectId);
+	expect(restored.automationLanes).toHaveLength(2);
+	expect(restored.automationLanes.find(lane => lane.address.parameterId === 'mute').segments.every(segment => segment.kind === 'hold')).toBe(true);
+	expect(JSON.stringify(restored.tracks[0].effects[0])).toContain('AQID');
+	await expect((await openEffectsForTrack(editor, 0)).getByRole('group', { name: /^Missing:/u })).toBeVisible();
 });

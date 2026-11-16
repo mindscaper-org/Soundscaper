@@ -22,6 +22,7 @@ type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 type FileRequest = Readonly<{ suggestedName?: string; bytes?: Uint8Array | ArrayBuffer; text?: string; blob?: Blob }>;
 type PcmExpectation = 'audible' | 'silent' | Readonly<{ assertSamples(channels: readonly (readonly number[])[]): void }>;
 interface CustodyOptions {
+	readonly audacityProjectAdapter?: boolean;
 	/** A fixture may author an intentionally silent note or retain an older synthesized source after editing. */
 	readonly sourcePcmExpectation?: (source: AudioSourceLeaf, project: SoundscaperProject) => PcmExpectation;
 	/** Decode selected reviewed legacy blocks with the shipping AU owner, never a native decoder stub. */
@@ -87,7 +88,7 @@ export async function midiImportArchiveCustody(context: TestContext, options: Cu
 		const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, store,
 			projectRuntime: runtime, sessionController: runtime.createSessionController(),
 			scapeProjectRuntime: createSoundscaperScapeNativeRuntime(),
-			...(options.legacyAuImport ? { adaptAudacityProject: importSoundscaperAudacityProject } : {}),
+			...(options.legacyAuImport || options.audacityProjectAdapter ? { adaptAudacityProject: importSoundscaperAudacityProject } : {}),
 			engine: (options.legacyAuImport ? { ...engine, decodeAudioData: async () => {
 				throw new DOMException('Native decoders are unavailable in Node', 'NotSupportedError');
 			} } : engine) as unknown as Options['engine'],

@@ -2,6 +2,8 @@
 
 import { divideRationals, multiplyRationals, roundRational, type Rational } from './timeline-time.ts';
 import { dawRecord, dawArray, dawInteger, dawNumber, dawText, dawBoolean, boundDawJson } from './native-daw-import-values.ts';
+import { soundcraftClipEnvelope, soundcraftMixStrip, soundcraftAuxiliaryStrips } from './soundcraft-import-mix.ts';
+import { soundcraftMetadata } from './native-daw-import-metadata.ts';
 import { readSoundcraftMidi } from './soundcraft-import-midi.ts';
 import { timelineImportIssue, timelineInterchangeMediaName, type TimelineInterchangeDocument, type TimelineInterchangeMedia,
 	type TimelineInterchangeTrack, type TimelineInterchangeClip } from './timeline-interchange-types.ts';
@@ -31,6 +33,7 @@ export function parseSoundcraftDocument(text: string): TimelineInterchangeDocume
 		if (trackIds.has(id)) throw new SyntaxError('Duplicate SoundCraft track ID.');
 		trackIds.add(id);
 		const midi = track.kind === 'Midi' || track.kind === 'Instrument';
+		if (['Aux', 'Master', 'Folder'].includes(dawText(track.kind))) continue;
 		if (track.kind !== 'Audio' && !midi) { omit('track-omitted', `The ${dawText(track.kind)} track is outside the audio and MIDI import profile.`); continue; }
 		const playlists = dawArray(track.playlists);
 		const active = dawInteger(track.active_playlist, 'SoundCraft active playlist');
@@ -50,14 +53,14 @@ export function parseSoundcraftDocument(text: string): TimelineInterchangeDocume
 				}
 				return length;
 			};
-			if (clip.gain_env && dawArray(clip.gain_env).length) omit('clip-envelope-omitted', 'Clip gain automation is omitted; static clip gain is retained.');
+
 			if (midi && content.Midi) {
 				const mediaId = `midi:${id}:${clipId}`, start = seconds(clip.start);
 				if (dawNumber(clip.stretch, 1) !== 1) { omit('stretch-clip-omitted', 'A stretched MIDI clip is not imported.'); continue; }
 				sources.set(mediaId, { id: mediaId, path: '', name: dawText(clip.name), kind: 'audio', midi: true });
 				clips.push({ id: clipId, name: dawText(clip.name), mediaId, start, duration: seconds(dawInteger(clip.length, 'SoundCraft clip length', 1)),
 					sourceStart: seconds(0), gain: dbGain(dawNumber(clip.gain_db, 0)), muted: dawBoolean(clip.muted),
-					fadeIn: fade(clip.fade_in), fadeOut: fade(clip.fade_out),
+					envelope: soundcraftClipEnvelope(clip, issues), fadeIn: fade(clip.fade_in), fadeOut: fade(clip.fade_out),
 					midi: readSoundcraftMidi(dawRecord(content.Midi).sequence, root.tempo, start, sampleRate) });
 				used.add(mediaId); continue;
 			}
@@ -69,30 +72,27 @@ export function parseSoundcraftDocument(text: string): TimelineInterchangeDocume
 
 			clips.push({ id: clipId, name: dawText(clip.name), mediaId, start: seconds(clip.start), duration,
 				sourceStart: seconds(audio.offset), gain: dbGain(dawNumber(clip.gain_db, 0)), muted: dawBoolean(clip.muted),
-				fadeIn: fade(clip.fade_in), fadeOut: fade(clip.fade_out) });
+				envelope: soundcraftClipEnvelope(clip, issues), fadeIn: fade(clip.fade_in), fadeOut: fade(clip.fade_out) });
 			used.add(mediaId);
 		}
 		const mixer = dawRecord(track.mixer), pans = dawArray(mixer.pan);
 		let pan = 0;
 		if (pans.length === 1) pan = dawNumber(pans[0], 0);
 		else if (!(pans.length === 2 && pans[0] === -1 && pans[1] === 1)) omit('pan-omitted', 'Independent channel panners are replaced by centered stereo balance.');
-		if (pan < -1 || pan > 1) throw new RangeError('SoundCraft pan is outside -1..1.');
-		if (dawArray(mixer.inserts ?? []).some(Boolean) || track.instrument) omit('plugins-omitted', 'Track plug-ins and instruments are not imported.');
-		if (dawArray(track.automation ?? []).length) omit('automation-omitted', 'Track automation is not imported.');
-		if (dawArray(mixer.sends ?? []).some(Boolean) || mixer.output !== 'Main' || track.folder != null) omit('routing-omitted', 'Sends, folder routing and output routing are replaced by direct master output.');
 		if (dawBoolean(mixer.phase_invert)) omit('polarity-omitted', 'Track polarity inversion is not imported.');
-		tracks.push({ id, name: dawText(track.name), kind: 'audio', clips, ...(midi ? { midi: true as const } : {}),
+		if (pan < -1 || pan > 1) throw new RangeError('SoundCraft pan is outside -1..1.');
+		tracks.push({ id, name: dawText(track.name), kind: 'audio', clips, ...soundcraftMixStrip(track, issues), ...(track.folder == null ? {} : { folderId: `folder:${String(track.folder)}` }), ...(midi ? { midi: true as const } : {}),
 			gain: dbGain(dawNumber(mixer.volume_db, 0) + dawNumber(mixer.trim_db, 0)), pan,
 			mute: dawBoolean(mixer.mute) || dawBoolean(track.inactive), solo: dawBoolean(mixer.solo) });
 	}
-	for (const key of ['tempo', 'markers', 'groups', 'videos', 'busses']) {
+	for (const key of ['groups', 'videos']) {
 		const value = root[key];
 		if (value && (!Array.isArray(value) || value.length)) omit(`${key}-omitted`, `SoundCraft ${key} authoring is not imported.`);
 	}
 	const { rate, dropFrame } = soundcraftRate(root.frame_rate);
 	const origin = multiplyRationals(seconds(root.timecode_start ?? 0), rate);
 	const startFrameCount = roundRational(origin.num, origin.den, 'point');
-	return { format: 'soundcraft', title: dawText(root.name), sampleRate, rate, dropFrame, startFrameCount, tracks,
+	return { format: 'soundcraft', title: dawText(root.name), sampleRate, rate, dropFrame, startFrameCount, tracks, ...soundcraftAuxiliaryStrips(root, issues), ...soundcraftMetadata(root, issues),
 		media: [...sources.values()].filter(source => used.has(source.id)), issues };
 }
 

@@ -1,9 +1,27 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { Rational } from './timeline-time.ts';
+import type { Rational, HoldTempoMap } from './timeline-time.ts';
 import type { DeliveryReportItem } from './delivery-report.ts';
 import type { MidiClipData } from './midi-model.ts';
 import type { InterchangeMidiTempo } from './interchange-midi-clock.ts';
+import type { InterchangeAutomationPoint } from './interchange-automation.ts';
+
+export interface TimelineInterchangeAutomation {
+	readonly parameter: 'gain' | 'pan' | 'mute' | Readonly<{ effectId: string; parameterId: string; elementId?: string }> | Readonly<{ sendId: string }>;
+	readonly unit?: 'linear' | 'decibel' | 'normalized';
+	readonly points: readonly InterchangeAutomationPoint[];
+}
+export interface TimelineInterchangeStrip {
+	readonly opaqueExtensions?: Readonly<Record<string, unknown>>;
+	readonly gain?: number;
+	readonly pan?: number;
+	readonly mute?: boolean;
+	readonly solo?: boolean;
+	readonly effects?: readonly Readonly<Record<string, unknown>>[];
+	readonly automation?: readonly TimelineInterchangeAutomation[];
+	readonly output?: string | null;
+	readonly sends?: readonly Readonly<{ id: string; target: string; level: number; enabled: boolean; position: 'pre-fader' | 'post-fader' }>[];
+}
 
 export type TimelineInterchangeFormat = 'edl' | 'otio' | 'fcpxml' | 'omf' | 'aaf' | 'adl' | 'ardour' | 'soundcraft' | 'protools';
 export interface TimelineInterchangeClip {
@@ -22,8 +40,10 @@ export interface TimelineInterchangeClip {
 	readonly midi?: MidiClipData;
 	/** A containing session owns this beat clock; ordinary SMF references use their file clock. */
 	readonly midiFileTiming?: Readonly<{ sourceBeat: number; tempos: readonly InterchangeMidiTempo[] }>;
+	/** Clip-relative document sample frames, evaluated linearly. */
+	readonly envelope?: readonly Readonly<{ frame: number; value: number }>[];
 }
-export interface TimelineInterchangeTrack {
+export interface TimelineInterchangeTrack extends TimelineInterchangeStrip {
 	readonly id: string;
 	readonly name: string;
 	readonly kind: 'audio' | 'video';
@@ -33,6 +53,8 @@ export interface TimelineInterchangeTrack {
 	readonly gain?: number;
 	readonly pan?: number;
 	readonly midi?: true;
+	readonly color?: string;
+	readonly folderId?: string;
 }
 export interface TimelineInterchangeMedia {
 	readonly id: string;
@@ -61,6 +83,12 @@ export interface TimelineInterchangeDocument {
 	readonly tracks: readonly TimelineInterchangeTrack[];
 	readonly media: readonly TimelineInterchangeMedia[];
 	readonly issues: readonly DeliveryReportItem[];
+	readonly buses?: readonly (TimelineInterchangeStrip & Readonly<{ id: string; name: string; channelCount?: number }>)[];
+	readonly master?: TimelineInterchangeStrip;
+	readonly folders?: readonly Readonly<{ id: string; name: string; parentFolderId: string | null; mute: boolean; solo: boolean }>[];
+	readonly markers?: readonly Readonly<{ frame: number; endFrame?: number; name: string }>[];
+	readonly tempoMap?: HoldTempoMap;
+	readonly signatureMap?: Readonly<{ events: readonly Readonly<{ id: string; bar: number; numerator: number; denominator: number }>[] }>;
 	/** Whole standard MIDI files, co-timed with sequence origin (AAF AS-01 §9.2). */
 	readonly midiAttachments?: readonly Readonly<{ trackId: string; mediaId: string; name: string }>[];
 }

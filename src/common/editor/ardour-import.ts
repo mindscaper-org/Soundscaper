@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { parseXmlDocument, childElement, childElements, walkXml, type XmlElement } from './dawproject-xml.ts';
+import { parseXmlDocument, childElement, childElements, type XmlElement } from './dawproject-xml.ts';
 import { addRationals, compareRationals, divideRationals, type Rational } from './timeline-time.ts';
+import { ardourMetadata } from './native-daw-import-metadata.ts';
+import { ardourMixStrip, ardourRegionEnvelope } from './ardour-import-mix.ts';
 import { readArdourMidiTrack } from './ardour-import-midi.ts';
 import { timelineImportIssue, timelineInterchangeMediaName, TIMELINE_INTERCHANGE_MAXIMUM_BYTES,
 	TIMELINE_INTERCHANGE_MAXIMUM_ITEMS, type TimelineInterchangeDocument, type TimelineInterchangeTrack,
-	type TimelineInterchangeClip, type TimelineInterchangeMedia } from './timeline-interchange-types.ts';
+	type TimelineInterchangeClip, type TimelineInterchangeMedia, type TimelineInterchangeStrip } from './timeline-interchange-types.ts';
 
 /** Ardour's sample-clock and superclock audio Session snapshots. */
 export function parseArdourDocument(text: string): TimelineInterchangeDocument {
@@ -33,6 +35,8 @@ export function parseArdourDocument(text: string): TimelineInterchangeDocument {
 	const media = new Map<string, TimelineInterchangeMedia>();
 	const routes = childElements(childElement(root, 'Routes') ?? root, 'Route');
 	const tracks: TimelineInterchangeTrack[] = [];
+	const buses: NonNullable<TimelineInterchangeDocument['buses']>[number][] = [];
+	let master: TimelineInterchangeStrip | undefined;
 	const routeIds = new Set<string>();
 	const selectedPlaylists = new Set<XmlElement>();
 	const sorted = routes.map((route, index) => ({ route, order: Number(childElement(route, 'PresentationInfo')?.attributes.order
@@ -43,9 +47,11 @@ export function parseArdourDocument(text: string): TimelineInterchangeDocument {
 		const id = route.attributes.id ?? required(io ?? route, 'id');
 		if (routeIds.has(id)) throw new SyntaxError('Duplicate Ardour route ID.');
 		routeIds.add(id);
-		if (/MasterOut|MonitorOut/u.test(route.attributes.flags ?? '')) { omit('master-processing-omitted', 'Master and monitor processing are not imported.'); continue; }
+		if (/MonitorOut/u.test(route.attributes.flags ?? '')) { omit('monitor-processing-omitted', 'Monitor processing is not imported.'); continue; }
+		const mix = ardourMixStrip(route, root, sampleRate, issues);
+		if (/MasterOut/u.test(route.attributes.flags ?? '')) { master = mix; continue; }
 		if (route.attributes['default-type'] === 'midi') {
-			tracks.push(readArdourMidiTrack(root, route, playlists, sourceNodes, media, selectedPlaylists, issues)); continue;
+			tracks.push({ ...readArdourMidiTrack(root, route, playlists, sourceNodes, media, selectedPlaylists, issues), ...mix }); continue;
 		}
 		const disk = childElement(route, 'Diskstream') ?? childElements(childElement(root, 'DiskStreams') ?? root, 'AudioDiskstream')
 			.find(node => node.attributes.id === route.attributes['diskstream-id']);
@@ -56,7 +62,7 @@ export function parseArdourDocument(text: string): TimelineInterchangeDocument {
 		if (candidates.length > 1) throw new SyntaxError('Ardour active playlist is ambiguous.');
 		if (!candidates.length && route.attributes['audio-playlist']) throw new ReferenceError('Ardour active playlist is unavailable.');
 		if (!candidates.length && !disk) {
-			omit('bus-omitted', 'A bus without an audio playlist is not imported.'); continue;
+			buses.push({ id, name: route.attributes.name ?? '', ...mix, gain: childElements(route, 'Processor').filter(node => ['amp', 'trim'].includes(node.attributes.type ?? '')).reduce((gain, node) => gain * control(node, 'gaincontrol', 1), 1) }); continue;
 		}
 		// Ardour 2 does not serialize empty playlists; the diskstream retains their name.
 		const playlist: XmlElement = candidates[0] ?? { name: 'Playlist', attributes: { name: playlistId ?? '' }, children: [], text: '' };
@@ -91,13 +97,13 @@ export function parseArdourDocument(text: string): TimelineInterchangeDocument {
 					mediaId: path, start, duration, sourceStart: time(required(region, 'start')),
 					gain: numeric(region.attributes['scale-amplitude'] ?? region.attributes['scale-gain'], 1),
 					muted: flag(region.attributes.muted) || (region.attributes.flags ?? '').split(',').includes('Muted'),
+					envelope: ardourRegionEnvelope(region, root, Math.round(duration.num / duration.den * sampleRate), sampleRate, issues),
 					fadeIn: fadeLength(region, 'FadeIn', time), fadeOut: fadeLength(region, 'FadeOut', time) };
 				if (distinctPaths.size === 1) clips.push(clip);
 				else { if (!splitTracks.has(index)) splitTracks.set(index, []); splitTracks.get(index)!.push(clip); }
 			}
 			if (distinctPaths.size > 1) issues.push(timelineImportIssue('ardour', 'split-stereo-converted', 'Split stereo sources become parallel left and right audio tracks.', 'converted'));
 			if (childElement(region, 'FadeIn') || childElement(region, 'FadeOut')) issues.push(timelineImportIssue('ardour', 'fade-curve-converted', 'Explicit fade lengths use the editor default curve; implicit Ardour fades are omitted.', 'converted'));
-			if (childElement(region, 'Envelope')) omit('region-envelope-omitted', 'Region gain envelopes are not imported.');
 		}
 		const gainNodes = childElements(route, 'Processor').filter(node => ['amp', 'trim'].includes(node.attributes.type ?? ''));
 		if ([clips, ...splitTracks.values()].some(hasOverlaps)) omit('layering-omitted', 'Region layer priorities and crossfades are omitted; overlapping cuts play additively.');
@@ -111,21 +117,16 @@ export function parseArdourDocument(text: string): TimelineInterchangeDocument {
 			|| flag(childElement(route, 'MuteMaster')?.attributes.muted) || route.attributes.active === 'no',
 			solo: flag(route.attributes['self-solo'] ?? route.attributes.soloed) || control(route, 'solo', 0) !== 0 };
 		const name = route.attributes.name ?? io?.attributes.name ?? playlist.attributes.name ?? '';
-		if (clips.length || !splitTracks.size) tracks.push({ id, name, kind: 'audio', clips, ...controls });
+		if (clips.length || !splitTracks.size) tracks.push({ id, name, kind: 'audio', clips, ...mix, ...controls });
 		for (const [index, clips] of splitTracks) tracks.push({ id: `${id}:${index}`, name: `${name} (${index === 0 ? 'L' : 'R'})`,
-			kind: 'audio', clips, ...controls, pan: index === 0 ? -1 : 1 });
-		for (const node of walkXml(route)) {
-			if (node.name === 'Insert' || node.name === 'Send') omit('processing-omitted', 'Legacy track inserts and sends are not imported.');
-			if (node.name === 'Processor' && !['amp', 'trim', 'meter', 'main-outs', 'diskreader', 'diskwriter', 'intreturn'].includes(node.attributes.type ?? '')) omit('processing-omitted', 'Track plug-ins, sends and other processing are not imported.');
-			if (node.name === 'AutomationList' && childElement(node, 'events')?.text.trim()) omit('automation-omitted', 'Track automation is not imported.');
-		}
+			kind: 'audio', clips, ...mix, ...controls, pan: index === 0 ? -1 : 1 });
+
 	}
 	if (playlists.length > selectedPlaylists.size) omit('alternate-playlists-omitted', 'Only active audio and MIDI playlists are imported.');
-	for (const name of ['TempoMap', 'Locations', 'RouteGroups']) if (childElement(root, name)?.children.length) omit(`${name.toLowerCase()}-omitted`, `Ardour ${name} authoring is not imported.`);
-	if (tracks.length) omit('routing-omitted', 'Ardour output routing is replaced by direct master output.');
+	for (const name of ['RouteGroups']) if (childElement(root, name)?.children.length) omit(`${name.toLowerCase()}-omitted`, `Ardour ${name} authoring is not imported.`);
 	issues.push(timelineImportIssue('ardour', 'sequence-clock-converted', 'Audio sample placement is retained; the sequence clock uses 30 fps with a zero timecode origin.', 'converted'));
 	return { format: 'ardour', title, sampleRate, rate: { num: 30, den: 1 }, dropFrame: false, startFrameCount: 0,
-		tracks, media: [...media.values()], issues };
+		tracks, buses, master, ...ardourMetadata(root, sampleRate, issues), media: [...media.values()], issues };
 }
 
 function ardourTime(value: string | undefined, sampleRate: number): Rational {

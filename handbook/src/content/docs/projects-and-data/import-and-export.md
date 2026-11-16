@@ -61,8 +61,14 @@ Choose **Cancel** beside the bar to stop an import or audio export.
   the session uses a supported stepped tempo map. Select those MIDI files with
   the session in a browser. Imported MIDI uses a triangle synthesizer; select
   a clip and open **Window → Piano roll (beta)** to edit notes or choose an instrument.
-  Plug-ins, automation, routing, alternate playlists, editable tempo maps, and
-  markers are outside this profile; review **File → Delivery Report** for
+  Imports also recover supported gain/pan/mute/send automation, clip gain
+  envelopes, buses, sends, master controls, markers/ranges and stepped tempo
+  and meter maps. SoundCraft folders and aux strips are retained. Open a track
+  menu and choose **Add automation** to inspect and edit its imported curves.
+  Foreign effects remain in their original rack order as bypassed missing
+  entries with their serialized state; they need a compatible state adapter
+  before they can play. Alternate playlists and unsupported controls remain
+  reported omissions. Review **File → Delivery Report** for
   conversions and omissions, including unsupported Ardour MIDI tempo ramps and
   legacy clocks. Ardour beat-domain audio regions require conversion to
   audio-time regions before import; overlapping Ardour layers
@@ -76,7 +82,13 @@ Choose **Cancel** beside the bar to stop an import or audio export.
   plug-ins, automation, fades, MIDI and other unsupported authoring are listed
   in **File → Delivery Report**. Review the imported cuts against the original
   session, then save as Scape. Pro Tools export is not available.
-- DAWproject imports editable MIDI notes as well as audio. AAF imports MIDI
+- DAWproject imports editable MIDI notes as well as audio, channel/send
+  automation and supported generic realtime EQ/dynamics. Eligible effect
+  parameter curves remain editable; other original curves are retained with
+  their effects. Foreign plug-ins and embedded preset bytes remain bypassed
+  until a compatible adapter can restore them. Save as Scape to keep that state.
+  AAF additionally imports standard gain, track pan and audio dissolve curves.
+  AAF imports MIDI
   when the exporter includes a standard MIDI attachment, either embedded or
   linked. OTIO can import referenced `.mid` and `.midi` files with their cut
   placement and source trims. In a browser, select linked MIDI files together

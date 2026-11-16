@@ -66,12 +66,12 @@ export function readArdourMidiTrack(root: XmlElement, route: XmlElement, playlis
 			muted: flag(region.attributes.muted), midiFileTiming: { sourceBeat, tempos } });
 	}
 	if ([...walkXml(route)].some(node => node.name === 'Processor' || node.name === 'AutomationList')) {
-		issues.push(timelineImportIssue('ardour', 'midi-processing-omitted', 'MIDI instruments, channel filtering, automation and processing are replaced by the default synthesizer.'));
+		issues.push(timelineImportIssue('ardour', 'midi-processing-omitted', 'MIDI instrument rendering and channel filtering use the default synthesizer; serialized processors and supported strip automation are retained separately.'));
 	}
 	return track;
 }
 
-function ardourMidiTempos(root: XmlElement): readonly InterchangeMidiTempo[] {
+export function ardourMidiTempos(root: XmlElement): readonly InterchangeMidiTempo[] {
 	const map = childElement(root, 'TempoMap');
 	if (!map || childElement(map, 'MusicTimes')?.children.length || map.attributes['superclocks-per-second'] !== '282240000') throw new RangeError('Unsupported Ardour tempo map.');
 	const nodes = childElements(childElement(map, 'Tempos') ?? map, 'Tempo');

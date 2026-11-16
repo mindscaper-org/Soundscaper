@@ -137,7 +137,7 @@ test('SoundCraft omitted processing and automation are reported while muted clip
 	const result = project('voice.scraft', JSON.stringify(session));
 	assert.equal(result.project.clips[0]!.gain, 0);
 	assert.equal(result.project.tracks[0]!.mute, true);
-	for (const code of ['soundcraft.plugins-omitted', 'soundcraft.automation-omitted', 'soundcraft.markers-omitted']) {
+	for (const code of ['soundcraft.effect-state-preserved', 'soundcraft.markers-omitted']) {
 		assert.ok(result.plan.report.items.some(item => item.code === code));
 	}
 });
