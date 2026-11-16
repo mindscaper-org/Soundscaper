@@ -15,6 +15,18 @@ test('Effect > JUCE lists the catalogue and selects Chorus for native insertion 
 		'State Variable Filter', 'First Order Filter', 'Linkwitz-Riley Filter']) {
 		await expect(menu.getByRole('menuitem', { name: label, exact: true })).toBeEnabled();
 	}
+	const gain = menu.getByRole('menuitem', { name: 'Gain', exact: true });
+	await gain.focus();
+	await expect(page.getByRole('tooltip')).toHaveText('Adjust the signal level with a constant amplification.');
+	await gain.press('ArrowDown');
+	const convolution = menu.getByRole('menuitem', { name: 'Convolution Reverb', exact: true });
+	await expect(convolution).toBeFocused();
+	await expect(page.getByRole('tooltip')).toHaveCount(0);
+	await page.clock.install();
+	await convolution.hover();
+	await page.clock.runFor(500);
+	await expect(page.getByRole('tooltip')).toHaveCount(0);
+	await expect(convolution).not.toHaveAttribute('title');
 	await menu.getByRole('menuitem', { name: 'Chorus', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Plugin Manager', exact: true });
 	await expect(dialog.getByRole('heading', { name: 'JUCE Chorus', exact: true })).toBeVisible();

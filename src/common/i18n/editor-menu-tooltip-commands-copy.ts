@@ -4,7 +4,6 @@
 export const MENU_TOOLTIP_COMMANDS: Readonly<Record<string, readonly [string, string]>> = Object.freeze({
 	'juce-effects': ['JUCE', 'Choose a bundled desktop audio processor for the selected track.'],
 	'juce-effect-gain': ['Gain', 'Adjust the signal level with a constant amplification.'],
-	'juce-effect-convolution': ['Convolution Reverb', 'Apply an impulse response to reproduce the sound of an acoustic space.'],
 	'juce-effect-reverb': ['Reverb', 'Add a simulated acoustic decay with adjustable size, damping and stereo width.'],
 	'juce-effect-chorus': ['Chorus', 'Layer gently modulated copies to thicken the sound.'],
 	'juce-effect-phaser': ['Phaser', 'Move a series of phase cancellations to create a sweeping effect.'],

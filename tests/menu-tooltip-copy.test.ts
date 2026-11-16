@@ -13,6 +13,8 @@ test('purpose copy explains the result without repeating the command name', () =
 	assert.doesNotMatch(String(resolve('Limiter', 'audacity-limiter')), /limit/iu);
 	assert.match(String(resolve('Copy', 'copy')), /clipboard/u);
 	assert.equal(resolve('Unknown extension command'), null);
+	assert.equal(resolve('Convolution Reverb', 'juce-effect-convolution'), null);
+	assert.equal(resolve('Convolution Reverb'), null);
 });
 
 test('translated labels and independently translated explanations resolve through catalog identities', () => {
