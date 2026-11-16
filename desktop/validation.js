@@ -23,7 +23,7 @@ const AUDIO_VIDEO_IMPORT_EXTENSIONS = Object.freeze(MEDIA_IMPORT_EXTENSIONS.filt
 	(extension) => !['cue', 'gro', 'mid', 'midi', 'srt', 'txt', 'vtt', 'edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf'].includes(extension),
 ));
 const PROJECT_OPEN_EXTENSIONS = Object.freeze([
-	...new Set([...PROJECT_EXTENSIONS, 'aup', 'aup3', 'aup4', 'dawproject', 'ses', 'sesx', ...MEDIA_IMPORT_EXTENSIONS]),
+	...new Set([...PROJECT_EXTENSIONS, 'aup', 'aup3', 'aup4', 'aup4unsaved', 'dawproject', 'ses', 'sesx', ...MEDIA_IMPORT_EXTENSIONS]),
 ]);
 
 const FILE_PURPOSES = Object.freeze({
@@ -83,6 +83,7 @@ const SAVE_PURPOSES = Object.freeze({
 	}),
 	aup3: Object.freeze({ defaultExtension: 'aup3', filters: [{ name: 'Audacity 3 project', extensions: ['aup3'] }] }),
 	aup4: Object.freeze({ defaultExtension: 'aup4', filters: [{ name: 'Audacity interchange', extensions: ['aup4'] }] }),
+	'audacity-recovery': Object.freeze({ defaultExtension: 'aup4', filters: [{ name: 'Recovered Audacity project', extensions: ['aup3', 'aup4'] }] }),
 	'audio-pcm-mix': Object.freeze({
 		defaultExtension: 'wav',
 		filters: [{ name: 'WAV and AIFF audio mix', extensions: ['wav', 'aif', 'aiff'] }],
@@ -141,6 +142,7 @@ const MIME_TYPES = Object.freeze({
 	'.apng': 'image/png',
 	'.aup3': 'application/x-audacity-project',
 	'.aup4': 'application/vnd.audacity.aup4',
+	'.aup4unsaved': 'application/vnd.audacity.aup4',
 	'.bw64': 'audio/bw64',
 	'.bwf': 'audio/wav',
 	'.bmp': 'image/bmp',

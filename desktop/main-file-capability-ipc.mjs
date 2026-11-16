@@ -23,6 +23,7 @@ const SAVE_DIALOG_TITLES = new Map([
 	['project-copy', 'Save project copy'],
 	['aup3', 'Export Audacity 3 project'],
 	['aup4', 'Export Audacity interchange'],
+	['audacity-recovery', 'Save repaired Audacity copy'],
 ]);
 
 /**
@@ -72,8 +73,12 @@ export function registerFileCapabilityIpc({
 		const owner = ownerFor(event);
 		if (typeof value?.kind === 'string' && value.kind.startsWith('macro-file-')) return macroBatchSave(owner, value);
 		const choice = validateSaveChoice(value);
-		const register = (path) => originalFiles && choice.purpose === 'project' && /\.(?:sscape|fscape|liscape|scape)$/iu.test(path)
-			? originalFiles.registerProjectSave(path, { owner }) : saveTargets.registerPath(path, { owner, purpose: choice.purpose });
+		const register = async (path) => {
+			if (choice.purpose === 'audacity-recovery') await readCapabilities.assertRecoveryOutputPath(path, { owner });
+			return originalFiles && choice.purpose === 'project' && /\.(?:sscape|fscape|liscape|scape)$/iu.test(path)
+				? originalFiles.registerProjectSave(path, { owner }) : saveTargets.registerPath(path, { owner, purpose: choice.purpose,
+					...(choice.purpose === 'audacity-recovery' ? { beforeCommit: () => readCapabilities.assertRecoveryOutputPath(path, { owner }) } : {}) });
+		};
 		const smokeFilePath = await desktopSmokeProbe.resolveSavePath(choice);
 		if (smokeFilePath !== null) {
 			return register(smokeFilePath);
