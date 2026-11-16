@@ -50,9 +50,11 @@ export function ardourMixStrip(route: XmlElement, root: XmlElement, sampleRate: 
 		}
 	};
 	const gainProcessors = processors.filter(node => ['amp', 'trim'].includes(node.attributes.type ?? ''));
+	const ioGain = childElement(route, 'IO')?.attributes.gain;
+	const legacyGain = ioGain === undefined ? 1 : finite(ioGain);
 	const automated = gainProcessors.filter(node => [...walkXml(node)].some(child => child.name === 'AutomationList' && childElement(child, 'events')?.text.trim() && !['Off', '0'].includes(child.attributes.state ?? '')));
 	if (automated.length === 1) {
-		const multiplier = gainProcessors.filter(node => node !== automated[0]).reduce((gain, node) => gain * control(node, 'gaincontrol', 1), 1);
+		const multiplier = gainProcessors.filter(node => node !== automated[0]).reduce((gain, node) => gain * control(node, 'gaincontrol', 1), legacyGain);
 		add(automated[0]!, 'gain', value => value * multiplier);
 	} else if (automated.length > 1) issues.push(timelineImportIssue('ardour', 'combined-gain-automation-omitted', 'Simultaneously automated trim and fader require curve composition; the static gain is retained.'));
 	const pannable = childElement(route, 'Pannable');
@@ -92,7 +94,7 @@ export function ardourMixStrip(route: XmlElement, root: XmlElement, sampleRate: 
 		if (target && !ardourRouteHasFlag(target, 'MasterOut')) output = target.attributes.id;
 		else if (!target && !name.startsWith('system:')) issues.push(timelineImportIssue('ardour', 'output-routing-converted', 'An external output is routed to the main output.', 'converted'));
 	} else if (destinations.size > 1) issues.push(timelineImportIssue('ardour', 'output-fanout-converted', 'Several output destinations are replaced by main output.', 'converted'));
-	return { gain: gainProcessors.reduce((gain, node) => gain * control(node, 'gaincontrol', 1), 1),
+	return { gain: gainProcessors.reduce((gain, node) => gain * control(node, 'gaincontrol', 1), legacyGain),
 		pan: control(childElement(route, 'Pannable') ?? route, 'pan-azimuth', .5) * 2 - 1,
 		mute: control(route, 'mute', 0) !== 0 || route.attributes.muted === '1' || route.attributes.active === 'no', solo: control(route, 'solo', 0) !== 0,
 		effects, automation, sends, opaqueExtensions: { 'soundscaper.interchange-mix': { format: 'ardour', route } }, ...(output === undefined ? {} : { output }) };

@@ -63,7 +63,7 @@ export function parseArdourDocument(text: string): TimelineInterchangeDocument {
 		if (candidates.length > 1) throw new SyntaxError('Ardour active playlist is ambiguous.');
 		if (!candidates.length && route.attributes['audio-playlist']) throw new ReferenceError('Ardour active playlist is unavailable.');
 		if (!candidates.length && !disk) {
-			buses.push({ id, name: route.attributes.name ?? '', ...mix, gain: childElements(route, 'Processor').filter(node => ['amp', 'trim'].includes(node.attributes.type ?? '')).reduce((gain, node) => gain * control(node, 'gaincontrol', 1), 1) }); continue;
+			buses.push({ id, name: route.attributes.name ?? '', ...mix }); continue;
 		}
 		// Ardour 2 does not serialize empty playlists; the diskstream retains their name.
 		const playlist: XmlElement = candidates[0] ?? { name: 'Playlist', attributes: { name: playlistId ?? '' }, children: [], text: '' };

@@ -24,6 +24,7 @@ assert.equal(document.sampleRate, 44100);
 assert.equal(document.tracks.length, 8);
 assert.equal(document.tracks.reduce((sum, track) => sum + track.clips.length, 0), 93);
 assert.equal(document.media.length, 52);
+assert.equal(document.master?.gain, 0.888838410378, 'the pinned legacy master IO fader must survive import');
 let next = 0;
 const project = createCurrentAudioEditorProject(buildTimelineInterchangeProject(document, { createStableId: prefix => `${prefix}-${++next}` }).project);
 const phrase = project.clips.find(clip => clip.title === 'Vocal1-3.1');
