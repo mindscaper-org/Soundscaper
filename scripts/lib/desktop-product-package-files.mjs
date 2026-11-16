@@ -18,6 +18,7 @@ const COMMON_CONFIG_FILES = Object.freeze([
 const PRODUCT_CONFIG_FILES = Object.freeze({
 	soundscaper: Object.freeze([
 		...COMMON_CONFIG_FILES,
+		'config/yabridge-native-payload.json',
 		'config/soundscaper-professional-native-notices.json',
 		'config/soundscaper-professional-native-payload-manifest.json',
 	]),

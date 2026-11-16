@@ -288,7 +288,7 @@ if (parentPort && typeof parentPort.on === 'function') {
 	nativeHelperRole(role);
 	const { createHash } = await import('node:crypto');
 	const addonSeams = config.payloadKind === 'professional'
-		? await createProfessionalNativeHelperRoleSeams(config.location, role)
+		? await createProfessionalNativeHelperRoleSeams(config.location, role, {}, config.wine)
 		: { addonPath: config.addonPath, addonSha256: config.addonSha256, loadAddon: loadVerifiedNativeAddon };
 	const hashFile = authenticatePluginCandidate;
 	let runJob;
@@ -316,7 +316,7 @@ if (parentPort && typeof parentPort.on === 'function') {
 	parentPort.on('message', (event) => worker.handleMessage(event.data, event.ports ?? []));
 }
 
-export async function createProfessionalNativeHelperRoleSeams(location, role, ports = {}) {
+export async function createProfessionalNativeHelperRoleSeams(location, role, ports = {}, wine = null) {
 	const { createSoundscaperProfessionalNativeVerifier } = await import('./soundscaper-professional-native-payload.mjs');
 	const descriptor = await (ports.verifyPayload ?? createSoundscaperProfessionalNativeVerifier(location))();
 	if (role === 'audio') {
@@ -393,6 +393,11 @@ export async function createProfessionalNativeHelperRoleSeams(location, role, po
 				nativeExecutable: descriptor.pluginPeer, runtimeClosure,
 				artifacts: { launcher: descriptor.isolation.launcher, sandboxProfile: descriptor.isolation.sandboxProfile,
 					brokerPolicy: descriptor.isolation.brokerPolicy } });
+		}
+		if (descriptor.target === 'linux-x64' && wine) {
+			const { attachWineVst3Bridge } = await import('./project-library-runtime/desktop/wine-vst3-runtime.js');
+			effectPeer = await attachWineVst3Bridge({ nativePeer: effectPeer, peerExecutable: descriptor.pluginPeer,
+				entryExecutable, entryArguments, runtimeClosure, configuration: wine });
 		}
 		if (role === 'plugin-scanner') {
 			const createVampPeer = ports.createVampPeer ?? (await import(

@@ -182,7 +182,7 @@ export function productionAudioBackendActivated() {
  * get separate utility processes and separate crash/quarantine generations.
  */
 export function createDesktopNativeAddonHelperSupervisor({
-	desktopRoot, packaged, resourcesPath, role, serviceName, payloadKind = 'fixture',
+	desktopRoot, packaged, resourcesPath, role, serviceName, payloadKind = 'fixture', runtimeContext = null,
 }) {
 	if (!['audio', 'plugin-scanner', 'plugin-host', 'plugin-analyzer'].includes(role)) {
 		throw new RangeError('A native addon helper requires one closed process role.');
@@ -213,7 +213,7 @@ export function createDesktopNativeAddonHelperSupervisor({
 				[
 					`--helper-role=${role}`,
 					`--helper-addon-config=${JSON.stringify(professional ? {
-						payloadKind: 'professional', location,
+						payloadKind: 'professional', location, wine: await runtimeContext?.(),
 					} : {
 						payloadKind: 'fixture', addonPath: descriptor.path, addonSha256: descriptor.sha256,
 					})}`,

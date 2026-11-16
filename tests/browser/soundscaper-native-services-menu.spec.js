@@ -214,6 +214,31 @@ test('Windows x64 bridge is explicitly enabled and disabled through Effects pref
 		.toEqual(['consent:vst2:enable-x86-vst2:', 'consent:vst2:disable-x86-vst2:']);
 });
 
+test('Linux Windows VST3 hosting is opt-in and Wine can be rescanned or selected in Effects preferences', async ({ page }) => {
+	await installNativeServicesFixture(page, false, false, true, { wine: true });
+	const editor = await bootEditor(page, '/embed/en/');
+	await expect(editor.getByRole('checkbox', { name: 'Enable Windows VST3 plugins with Wine', exact: true })).toHaveCount(0);
+	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+	await preferences.getByRole('tab', { name: /Effects$/u }).click();
+	const bridge = preferences.getByRole('checkbox', { name: 'Enable Windows VST3 plugins with Wine', exact: true });
+	const wine = preferences.getByRole('status', { name: 'Wine installation', exact: true });
+	await expect(bridge).not.toBeChecked();
+	await expect(wine).toContainText('Wine was not found.');
+	await preferences.getByRole('button', { name: 'Rescan Wine', exact: true }).click();
+	await expect(wine).toContainText('/usr/bin/wine');
+	await bridge.click(); await expect(bridge).toBeChecked();
+	await preferences.getByRole('button', { name: 'Browse for Wine', exact: true }).click();
+	await expect(wine).toContainText('/opt/custom/wine');
+	await preferences.getByRole('button', { name: 'Use automatic Wine detection', exact: true }).click();
+	await expect(wine).toContainText('/usr/bin/wine');
+	await bridge.click(); await expect(bridge).not.toBeChecked();
+	await expect.poll(() => page.evaluate(() => globalThis.__soundscaperNativeRuntimeCalls)).toEqual([
+		'consent:vst3:rescan-wine:', 'consent:vst3:enable-wine-vst3:', 'consent:vst3:browse-wine:',
+		'consent:vst3:clear-wine:', 'consent:vst3:disable-wine-vst3:',
+	]);
+});
+
 test('desktop startup scans in the background with a progress toast and a preferences cancellation link', async ({ page }) => {
 	await installNativeServicesFixture(page, false, false, true, { startup: true });
 	const editor = await bootEditor(page, '/embed/en/');
@@ -338,7 +363,7 @@ test('factory settings restore plugin scanning and common folders', async ({ pag
 
 async function installNativeServicesFixture(page, withPlugins = false, withNativeAudio = false, withPluginFolders = false, startupOptions = {}) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(({ includePlugins, includeNativeAudio, includePluginFolders, startup, startupDisabled, bridgeSupported }) => {
+	await page.addInitScript(({ includePlugins, includeNativeAudio, includePluginFolders, startup, startupDisabled, bridgeSupported, wineSupported }) => {
 		// The desktop grants microphone access automatically. This host-picker
 		// fixture never records; avoid waiting for a browser permission prompt.
 		if (includeNativeAudio) Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
@@ -363,7 +388,8 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 			enabled: startup && !startupDisabled, quarantined: false,
 			payload: Object.freeze(includePluginFolders ? { status: 'available', reason: null } : { status: 'unavailable', reason: 'not-built' }),
 			formats: Object.freeze([]),
-			consent: Object.freeze({ ...(bridgeSupported ? { windowsX86Vst2: { supported: true, enabled: false } } : {}), scanningEnabled: false, formats: Object.freeze(includePluginFolders ? [
+			consent: Object.freeze({ ...(wineSupported ? { linuxWineVst3: { supported: true, enabled: false,
+				bridgeAvailable: true, state: 'unavailable', location: null, version: null } } : {}), ...(bridgeSupported ? { windowsX86Vst2: { supported: true, enabled: false } } : {}), scanningEnabled: false, formats: Object.freeze(includePluginFolders ? [
 				{ format: 'vst3', supported: true, granted: startup, roots: [
 					{ rootId: 'system-vst3', origin: 'standard', name: 'System VST3 folder', admitted: startup },
 					...(startup ? [{ rootId: 'custom-vst3', origin: 'custom', name: 'Custom VST3 folder', admitted: true }] : []),
@@ -450,6 +476,16 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 			setNativePluginConsent: async ({ format, action, rootId = '' }) => {
 				if (!includePluginFolders) return refused('setNativePluginConsent');
 				runtimeCalls.push(`consent:${format}:${action}:${rootId}`);
+				if (wineSupported && ['enable-wine-vst3', 'disable-wine-vst3', 'rescan-wine', 'browse-wine', 'clear-wine'].includes(action)) {
+					const wine = plugins.consent.linuxWineVst3;
+					plugins = { ...plugins, consent: { ...plugins.consent, linuxWineVst3: {
+						...wine, enabled: action === 'enable-wine-vst3' ? true : action === 'disable-wine-vst3' ? false : wine.enabled,
+						...(['rescan-wine', 'browse-wine', 'clear-wine'].includes(action) ? {
+							state: 'ready', location: action === 'browse-wine' ? '/opt/custom/wine' : '/usr/bin/wine', version: '11.22.0',
+						} : {}),
+					} } };
+					return;
+				}
 				if (action === 'enable-x86-vst2' || action === 'disable-x86-vst2') {
 					plugins = { ...plugins, consent: { ...plugins.consent, windowsX86Vst2: { supported: true, enabled: action === 'enable-x86-vst2' } } };
 					return;
@@ -509,5 +545,5 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 		const surface = Object.freeze({ v1: bridge });
 		Object.defineProperty(globalThis, 'soundscaperDesktop', { configurable: true, value: surface });
 	}, { includePlugins: withPlugins, includeNativeAudio: withNativeAudio, includePluginFolders: withPluginFolders,
-		startup: startupOptions.startup === true, startupDisabled: startupOptions.disabled === true, bridgeSupported: startupOptions.bridge === true });
+		startup: startupOptions.startup === true, startupDisabled: startupOptions.disabled === true, bridgeSupported: startupOptions.bridge === true, wineSupported: startupOptions.wine === true });
 }

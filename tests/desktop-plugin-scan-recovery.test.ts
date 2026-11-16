@@ -88,3 +88,32 @@ test('bridge preference IPC persists Windows x64 opt-in and restores it without 
 	await assert.rejects(refused({}, { format: 'vst2', action: 'enable-x86-vst2' }), /Windows x64/u);
 	await arm.dispose();
 });
+
+test('Linux Wine preferences are detected at startup and enabling Windows VST3 is a persisted main-owned action', async (t) => {
+	const userDataPath = await mkdtemp(join(tmpdir(), 'wine-registration-'));
+	t.after(() => rm(userDataPath, { recursive: true, force: true }));
+	const handlers = new Map<string, (event?: unknown, value?: unknown) => Promise<unknown>>();
+	const registration = registerDesktopPluginDiscovery({
+		channels: new Proxy({}, { get: (_target, key) => key }),
+		handle: (channel: string, handler: (event?: unknown, value?: unknown) => Promise<unknown>) => handlers.set(channel, handler),
+		ownerFor: () => ({}), userDataPath, nativePluginBridgeTarget: 'linux-x64',
+		stateDataPath: undefined, parentWindow: () => null, desktopRoot: userDataPath, packaged: false, resourcesPath: undefined,
+		settings: { snapshot: () => ({ nativePluginDiscoveryEnabled: true }) },
+		supervisor: { runJob: async () => { throw new Error('unused'); }, snapshot: () => ({ quarantined: false }),
+			clearQuarantine: () => undefined, dispose: () => undefined },
+		describePayload: async () => ({ status: 'available' }), isPluginHostFormatActivated: () => true,
+	});
+	t.after(() => registration.dispose());
+	await registration.ready();
+	const availability = handlers.get('nativePluginAvailability'); assert.ok(availability);
+	const initial = await availability() as { consent: { linuxWineVst3: { supported: boolean; enabled: boolean } } };
+	assert.equal(initial.consent.linuxWineVst3.supported, true);
+	assert.equal(initial.consent.linuxWineVst3.enabled, false);
+	const change = handlers.get('nativePluginConsent'); assert.ok(change);
+	await change({}, { format: 'vst3', action: 'enable-wine-vst3' });
+	assert.deepEqual(JSON.parse(await readFile(join(userDataPath, 'wine-vst3-preferences-v1.json'), 'utf8')),
+		{ enabled: true, selectedPath: null });
+	await change({}, { format: 'vst3', action: 'disable-wine-vst3' });
+	const disabled = await availability() as typeof initial;
+	assert.equal(disabled.consent.linuxWineVst3.enabled, false);
+});

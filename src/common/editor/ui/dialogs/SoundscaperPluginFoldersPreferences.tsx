@@ -18,6 +18,7 @@ import {
 import type { SoundscaperNativeEffectPanelProps } from './SoundscaperNativeEffectPanels.tsx';
 import { soundscaperPluginScanRuntimeFor } from '../soundscaper-plugin-scan-runtime.ts';
 import SoundscaperPluginScanStatus from './SoundscaperPluginScanStatus.tsx';
+import SoundscaperWinePreferences from './SoundscaperWinePreferences.tsx';
 
 export default function SoundscaperPluginFoldersPreferences({ productId, copy }: {
 	readonly productId: string;
@@ -70,6 +71,7 @@ export function SoundscaperPluginFoldersPanel({ copy, state, disabled, perform, 
 	const scanning = backgroundScanning || Object.values(state.scans).some((scan) => scan.running);
 	return <div className="kw-plugin-folder-preferences">
 		<p>{copy.pluginFoldersHelp}</p>
+		<SoundscaperWinePreferences wine={plugins?.consent.linuxWineVst3} copy={copy} disabled={disabled} perform={perform} />
 		{plugins?.consent.windowsX86Vst2?.supported && <PreferenceCheckbox
 			label={copy.windowsX86Vst2} checked={plugins.consent.windowsX86Vst2.enabled} disabled={disabled}
 			onChange={(checked) => perform({ type: 'consent', format: 'vst2',

@@ -40,6 +40,7 @@ import {
 	verifyStagedSoundscaperProfessionalNativePayload,
 } from './lib/soundscaper-professional-native-payload.mjs';
 import { writeDesktopPackageContentManifest } from './lib/desktop-package-content-manifest.mjs';
+import { authenticateYabridgePayload } from '../desktop/yabridge-payload.ts';
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const FRAMESCAPER_NATIVE_HOST_PREFIXES = Object.freeze([
@@ -70,6 +71,7 @@ export default async function hardenPackagedElectron(context, dependencies = {})
 		?? verifyPackagedElectronAlternateFfmpeg;
 	const verifyOsAudioCodec = dependencies.verifyPackagedOsAudioCodecNativeResources
 		?? verifyPackagedOsAudioCodecNativeResources;
+	const verifyYabridge = dependencies.verifyPackagedYabridgeResources ?? verifyPackagedYabridgeResources;
 	// The absence audit and native payload verifiers cover disjoint policy
 	// concerns, so they run together before fuse and package finalization.
 	const signed = context.electronPlatformName === 'darwin' && process.env.SCAPE_MAC_SIGNING === 'true'
@@ -85,6 +87,7 @@ export default async function hardenPackagedElectron(context, dependencies = {})
 			verifyNativeHosts(context, dependencies),
 			verifyOsAudioCodec(context, dependencies),
 		] : []),
+		verifyYabridge(context, dependencies),
 	]);
 	const extension = {
 		darwin: '.app',
@@ -127,6 +130,23 @@ export default async function hardenPackagedElectron(context, dependencies = {})
 		productId: packagingProductId(context),
 		targetId: nativeAddonPayloadTargetForPackagingContext(context),
 	});
+}
+
+export async function verifyPackagedYabridgeResources(context, dependencies = {}) {
+	const repositoryRoot = resolve(dependencies.repositoryRoot ?? REPOSITORY_ROOT);
+	const stagePath = dependencies.stageManifestPath ?? resolve(repositoryRoot, '.desktop-build/stage-manifest.json');
+	const stage = await readFile(stagePath, 'utf8').then(JSON.parse).catch((error) => {
+		if (error.code === 'ENOENT') return null;
+		throw error;
+	});
+	if (!stage?.yabridge) return null;
+	if (stage.productId !== 'soundscaper' || nativeAddonPayloadTargetForPackagingContext(context) !== 'linux-x64') {
+		throw new Error('The packaged yabridge runtime has the wrong product or target.');
+	}
+	const resources = context.packager.getResourcesDir(context.appOutDir);
+	const manifest = JSON.parse(extractFile(join(resources, 'app.asar'), 'config/yabridge-native-payload.json').toString('utf8'));
+	if (JSON.stringify(manifest) !== JSON.stringify(stage.yabridge)) throw new Error('The packaged yabridge authority differs from its stage.');
+	return authenticateYabridgePayload(manifest, join(resources, 'runtime'));
 }
 
 export async function verifyPackagedKokoroG2pRuntime(context, dependencies = {}) {
@@ -293,7 +313,7 @@ export async function verifyPackagedNativeAddonResources(context, dependencies =
 		.filter((entry) => entry.isDirectory()
 			&& !FRAMESCAPER_NATIVE_HOST_PREFIXES.includes(entry.name)
 			&& entry.name !== SOUNDSCAPER_PROFESSIONAL_PREFIX
-			&& entry.name !== SOUNDSCAPER_OS_AUDIO_CODEC_PREFIX)
+			&& entry.name !== SOUNDSCAPER_OS_AUDIO_CODEC_PREFIX && entry.name !== 'yabridge')
 		.map(({ name }) => name);
 	const productId = packagingProductId(context);
 	const stageTarget = `${stage?.target?.platform}-${stage?.target?.arch}`;

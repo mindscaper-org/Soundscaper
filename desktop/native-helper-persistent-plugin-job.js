@@ -80,6 +80,7 @@ export function createNativePersistentPluginJobRunner({
 						grant.stableId,
 						{ identity: grant.identity, byteLength: grant.binaryBytes,
 							sha256: grant.binarySha256, resourcePolicy,
+						...(grant.linuxWineVst3 ? { linuxWineVst3: true } : {}),
 						...(grant.windowsX86Vst2 ? { windowsX86Vst2: true } : {}) },
 					);
 					if (!current(observedGeneration)) return;

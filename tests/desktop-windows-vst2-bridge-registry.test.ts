@@ -40,3 +40,16 @@ test('a disabled-bridge scan cannot bind an unreadable placeholder as the real p
 	assert.equal(registry.record(pluginObservationFromScanEntry({ ...legacy, stableId: 'vst2:spoof' }, context)).status, 'rejected',
 		'a known digest still cannot claim another real identity');
 });
+
+test('Linux VST3 host grants carry Wine authority only while its separate opt-in is enabled', () => {
+	let enabled = false;
+	const registry = new DesktopPluginRegistry({ isQuarantined: () => false, linuxWineVst3Enabled: () => enabled });
+	const observation = pluginObservationFromScanEntry({ ...legacy, stableId: 'vst3:fixture', binaryArchitecture: 'x64' },
+		{ ...context, format: 'vst3', platform: 'linux', architecture: 'x64' });
+	assert.equal(registry.record(observation).status, 'recorded');
+	const id = installationIdFor(observation.binarySha256, observation.stableId);
+	registry.allow(id);
+	assert.equal(registry.hostGrantFor(id).linuxWineVst3, undefined);
+	enabled = true; assert.equal(registry.hostGrantFor(id).linuxWineVst3, true);
+	enabled = false; assert.equal(registry.hostGrantFor(id).linuxWineVst3, undefined);
+});

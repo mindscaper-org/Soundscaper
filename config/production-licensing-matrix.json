@@ -1203,9 +1203,9 @@
 		{
 			"id": "plugin-format-vst3",
 			"kind": "plugin-format",
-			"upstreamLicensing": "MIT at the pinned VST3 SDK 3.8.0_build_66 revision",
+			"upstreamLicensing": "The native host uses MIT at the pinned VST3 SDK 3.8.0_build_66 revision. The separately bundled Linux x64 yabridge bridge uses GPL-3.0-or-later and selects the GPL Version 3 alternative of its pinned older VST3 SDK.",
 			"agplCompatibilityDirection": "The permissive MIT SDK code combines into this AGPL-3.0-only work trivially.",
-			"redistribution": "The SDK source may ship with its MIT copyright and permission notice; user-installed third-party plug-in binaries are never redistributed by this project.",
+			"redistribution": "The native SDK source retains its MIT notice. The Linux x64 bridge carries its GPL notice, pinned source identities and complete corresponding-source archive with dependency notices; config/yabridge-native-payload.json and scripts/build-yabridge.mjs own its exact source and build recipe. Wine and user-installed third-party plug-in binaries are never redistributed by this project.",
 			"status": "implemented",
 			"blocker": null,
 			"evidence": ["config/milestone-5-native-source-acquisitions.json", "docs/policies/licensing.md", "roadmap.md#5-electron-native-services-and-extensibility"]
