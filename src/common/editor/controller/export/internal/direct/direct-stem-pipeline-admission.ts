@@ -13,7 +13,7 @@ export function admitDirectStemPipeline(planValue: unknown, sourceValue: unknown
 	const range = record(plan?.range);
 	if (!contract || contract.outputs.length < 2 || contract.entryByteLength > STEM_PIPELINE_ENCODED_ENTRY_LIMIT_BYTES
 		|| !plan || !source || render?.strategy !== 'offline' || render.fast !== true || offline?.admitted !== true
-		|| plan.loudnessNormalization || plan.binaural || plan.masteringSequence || plan.adm
+		|| plan.loudnessNormalization || plan.binaural || plan.ear || plan.masteringSequence || plan.adm
 		// Resampling precedes channel mapping: encoded width cannot bound a wider source-rate renderer's target-rate arrays.
 		|| plan.sampleRate !== source.sampleRate) return null;
 	const numbers = [range?.durationFrames, plan.tailFrames, source.masterChannels, source.sampleRate, plan.outputBytesPerRender,

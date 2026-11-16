@@ -56,7 +56,7 @@ export function createExportDialogInitialSettings(projectValue: unknown) {
 		customArguments: '',
 		includeTail: true,
 		embedLabelChapters: false,
-		binaural: false,
+		binaural: false, earLayout: '',
 		masteringSequenceId: '',
 		canvasWidth: '',
 		canvasHeight: '',

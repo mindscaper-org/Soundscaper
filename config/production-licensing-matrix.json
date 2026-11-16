@@ -437,6 +437,12 @@
 			"evidence": ["src/common/editor/nyquist/source-manifest.json", "src/common/editor/nyquist/plugins/source-manifest.json", "src/common/editor/nyquist/NOTICE.md"]
 		},
 		{
+			"id": "ebu-libear-wasm",
+			"status": "documented",
+			"artifactSurfaces": ["web-pages-bundle", "electron-renderer"],
+			"evidence": ["src/common/editor/ear/source-manifest.json", "src/common/editor/ear/NOTICE.md", "src/common/editor/ear/THIRD_PARTY_NOTICES.txt", "scripts/build-ear-wasm.mjs", "scripts/audit-ear-wasm.mjs", "THIRD_PARTY_LICENSES.md"]
+		},
+		{
 			"id": "parametric-eq-wasm",
 			"status": "documented",
 			"artifactSurfaces": ["web-pages-bundle", "electron-renderer"],

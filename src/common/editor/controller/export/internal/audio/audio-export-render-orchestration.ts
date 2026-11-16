@@ -270,7 +270,7 @@ function allowsRealtimeFallback(
 	// renders the programme and maps it to the plan's two channels by index, so a
 	// fallback would deliver the bed's first two channels — the rest of the bed
 	// and every object silently absent — under a report claiming a binaural render.
-	if (plan.binaural) return false;
+	if (plan.binaural || plan.ear) return false;
 	return settings.measureLoudness !== true || (plan.format !== 'bwf' && plan.format !== 'bw64');
 }
 

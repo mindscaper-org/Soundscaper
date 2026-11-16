@@ -4,7 +4,7 @@ import { audioExportPublicationProgress, setAudioExportCancellation, NO_AUDIO_EX
 import { isVideoExportRequestFormat } from '../../../video-export-request-format.ts';
 import { inheritTrackFolderMediaStateProjectionV12 } from '../../../track-folder-media-runtime.ts';
 import { createExportRenderProject, exportReplacementTrackIds } from '../export-render-project.ts';
-import { createBw64RenderProject } from './bw64-render-project.ts';
+import { createSpatialExportRenderProject } from './spatial-render-project.ts';
 import { publishBufferedExport } from './buffered-export-publication.ts';
 import { isOriginalOverwriteSettings } from './overwrite-original-action.ts';
 import { retirePreviousExportOutput, reportExportOutputFailure } from './retire-export-output.ts';
@@ -229,15 +229,9 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 			const plannedReport = createDeliveryReportForPlan(plan, {
 				sampleRate: exportProject.sampleRate,
 			});
-			if (plan.format === 'bw64' && plan.adm) {
-				exportProject = inheritTrackFolderMediaStateProjectionV12(
-					exportProject,
-					createBw64RenderProject(exportProject, {
-						channelCount: plan.channelCount,
-						metadata: plan.adm.metadata,
-					}),
-				);
-			}
+			exportProject = inheritTrackFolderMediaStateProjectionV12(
+				exportProject, createSpatialExportRenderProject(exportProject, plan),
+			);
 			const directStemTemporaryBytes = directStemArchiveTemporaryBytes(plan);
 			const directCompressedTemporaryBytes = directCompressedStagingTemporaryBytes(plan);
 			const stemPreparation = await prepareDirectStemArchiveDestination(

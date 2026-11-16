@@ -5,15 +5,63 @@ import {
 	chooseDropdown,
 	closeWorkspacePanel,
 	commitInput,
+	disableNativeSavePicker,
 	importFiles,
 	openExportDialog,
 	registerAudioEditorHooks,
+	readDownloadBytes,
 	waitForProjectActivation,
 } from './audio-editor-test-helpers.js';
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 test.describe('BW64 ADM metadata UI', () => {
 	registerAudioEditorHooks();
+
+	test('exports an opted-in EBU EAR speaker render through File Export', async ({ page }) => {
+		await disableNativeSavePicker(page);
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+		await importFiles(editor, [monoTone]);
+		await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
+		const panel = editor.locator('[data-workspace-panel="metadata"]');
+		await panel.getByRole('tab', { name: 'ADM', exact: true }).click();
+		await panel.getByRole('button', { name: 'Enable ADM', exact: true }).click();
+		await panel.locator('select[name="adm-bed-layout"]').selectOption('mono');
+		await closeWorkspacePanel(editor, 'metadata');
+		const dialog = await openExportDialog(page, editor);
+		const renderer = dialog.getByRole('group', { name: 'EBU EAR speaker rendering', exact: true });
+		await expect(renderer).toBeVisible();
+		await expect(renderer.getByRole('button')).toContainText('Off — preserve programme channels');
+		await chooseDropdown(page, renderer, '5.1.4');
+		await expect(dialog.locator('[data-export-channel-option="preserve"] input')).toBeDisabled();
+		await dialog.getByRole('checkbox', { name: 'Render for headphones', exact: true }).check();
+		await expect(renderer.getByRole('button')).toContainText('Off — preserve programme channels');
+		await chooseDropdown(page, renderer, '5.1.4');
+		await expect(dialog.getByRole('checkbox', { name: 'Render for headphones', exact: true })).not.toBeChecked();
+		await chooseDropdown(page, dialog.locator('[data-export-field="bitDepth"]'), '32-bit Float');
+		await dialog.getByRole('button', { name: 'Export', exact: true }).click();
+		const download = dialog.locator('[data-export-download]');
+		await expect(download).toBeVisible({ timeout: 30_000 });
+		const bytes = await readDownloadBytes(page, download);
+		const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+		let channelCount = 0;
+		let dataBytes = 0;
+		let dataOffset = 0;
+		for (let offset = 12; offset + 8 <= bytes.length;) {
+			const name = new TextDecoder().decode(bytes.subarray(offset, offset + 4));
+			const length = view.getUint32(offset + 4, true);
+			if (name === 'fmt ') channelCount = view.getUint16(offset + 10, true);
+			if (name === 'data') { dataBytes = length; dataOffset = offset + 8; }
+			offset += 8 + length + (length % 2);
+		}
+		expect(channelCount).toBe(10);
+		expect(dataBytes).toBeGreaterThan(0);
+		const energy = Array.from({ length: 10 }, () => 0);
+		for (let offset = dataOffset; offset + 40 <= dataOffset + dataBytes; offset += 40) {
+			for (let channel = 0; channel < 10; channel += 1) energy[channel] += view.getFloat32(offset + channel * 4, true) ** 2;
+		}
+		expect(energy[2]).toBeGreaterThan(0.01);
+		expect(energy.filter((_value, index) => index !== 2).every((value) => value < 1e-8)).toBe(true);
+	});
 
 	test('BW64 enablement and authored DirectSpeakers drafts retain both metadata entrypoints', async ({ page }) => {
 		const caseTimeout = test.info().timeout;

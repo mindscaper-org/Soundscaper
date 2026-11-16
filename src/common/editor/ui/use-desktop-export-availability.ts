@@ -36,7 +36,7 @@ export function useDesktopExportAvailability(
 			return { ...batch, operations: batch.operations.filter(tuple => tuple.format === format) };
 		} catch (error) { return error instanceof Error ? error : new Error(String(error)); }
 	}, [desktop, format, projectChannelCount, settings.sampleRate, settings.channelMapping, settings.channelMatrix,
-		settings.binaural, settings.sampleFormat, settings.compressionLevel, settings.quality, settings.bitRate,
+		settings.binaural, settings.earLayout, settings.sampleFormat, settings.compressionLevel, settings.quality, settings.bitRate,
 		settings.bitRateMode, settings.averageBitRate, settings.vbrQuality, settings.bitRatePreset, settings.vbrMode]);
 	const selection = useMemo(() => ({ owner, query, format }), [owner, query, format]);
 	const needsCheck = desktop && (COMPRESSED.has(format) || format.startsWith('video-') || format === 'custom-ffmpeg');

@@ -25,7 +25,7 @@ import { createStemArchivePlan } from './controller/export/stem-archive.ts';
 import { EBU_R128_MAXIMUM_CHANNELS } from './ebu-r128.js';
 import { resolveAdmEbuChannelWeights } from './loudness-channel-layout.ts';
 import { createExportSpanMarkers } from './export-span-markers.ts';
-import { resolveBinauralDelivery } from './binaural-delivery.ts';
+import { resolveSpatialDelivery, spatialLoudnessMetadata, spatialRenderWorkingSetBytes } from './export-spatial-delivery.ts';
 import { resolveExportChapters } from './export-chapters.ts';
 import { assertEmbeddedChapterRequest, createEmbeddedChapterEncoding } from './export-embedded-chapter-encoding.ts';
 import { resolveExportClips } from './export-clip-boundaries.ts';
@@ -94,6 +94,7 @@ export const FAST_RENDER_THRESHOLDS = Object.freeze({
  * @property {import('./timeline-annotation-interchange-report.ts').TimelineAnnotationInterchangeReport} markerInterchangeReport
  * @property {import('./loudness-normalization.ts').LoudnessNormalizationTarget|null} loudnessNormalization
  * @property {readonly number[]} [loudnessChannelWeights]
+ * @property {import('./ear-delivery.ts').EarDeliveryPlan} [ear]
  * @property {import('./binaural-delivery.ts').BinauralDeliveryPlan} [binaural]
  * @property {import('./mastering-sequence-delivery.ts').MasteringSequenceDeliveryPlan} [masteringSequence]
  * @property {{startFrame: number, endFrame: number, durationFrames: number}} range
@@ -142,23 +143,6 @@ export function chooseRenderStrategy(options = {}) {
 	};
 }
 
-/**
- * The binaural delivery this plan carries, or none.
- *
- * The refusals are stated as refusals rather than quietly downgraded: a request
- * this cannot honour is an error at plan time, where the operator can still
- * change it, and never a delivery that silently came out as something else.
- */
-function resolveBinauralBw64Delivery(project, options, format, mode) {
-	const { plan, refusal } = resolveBinauralDelivery(
-		options.adm !== undefined ? options.adm : project.metadata?.adm,
-		{ binaural: options.binaural, mode, format },
-	);
-	if (plan) return plan;
-	if (refusal === null || refusal === 'not-requested') return null;
-	throw new Error(`A binaural delivery is not available: ${refusal}.`);
-}
-
 export function sanitizeExportName(value, fallback = 'audio-project') {
 	const normalized = String(value || '')
 		.normalize('NFKD')
@@ -193,7 +177,7 @@ export function createExportPlan(project, options = {}) {
 	assertEmbeddedChapterRequest(format, options);
 	if (format === 'bw64' && mode !== 'mix') throw new RangeError('BW64 / ADM export is mix-only.');
 	const bw64Adm = format === 'bw64' ? resolveBw64Adm(runtimeProject, options) : null;
-	const binaural = resolveBinauralBw64Delivery(runtimeProject, options, format, mode);
+	const { ear, binaural } = resolveSpatialDelivery(runtimeProject, options, format, mode);
 	let encoding = normalizeMediaExportSettings(format, {
 		...options,
 		sampleRate: options.sampleRate ?? runtimeProject.sampleRate ?? AUDIO_EDITOR_SAMPLE_RATE,
@@ -202,7 +186,7 @@ export function createExportPlan(project, options = {}) {
 		...(bw64Adm ? { channelMapping: 'preserve' } : {}),
 		// A binaural delivery is two channels whatever the programme was, and the
 		// renderer places the sources itself, so no mapping precedes it.
-		...(binaural ? { channelCount: 2, channelMapping: 'preserve', inputChannelCount: 2 } : {}),
+		...(ear || binaural ? { channelCount: ear?.channelCount ?? 2, channelMapping: 'preserve', inputChannelCount: ear?.channelCount ?? 2 } : {}),
 	});
 	const preservedRiffChunks = bw64Adm?.metadata.mode === 'passthrough'
 		? inspectPreservedAdmRiffChunks(bw64Adm.metadata)
@@ -373,13 +357,14 @@ export function createExportPlan(project, options = {}) {
 	const renderStrategyOptions = {
 		mobile: Boolean(options.mobile),
 		outputBytes,
-		livePcmBytes: options.livePcmBytes ?? admission.estimateSourceWorkingSetBytes(
+		livePcmBytes: (options.livePcmBytes ?? admission.estimateSourceWorkingSetBytes(
 			masteringSequence
 				? masteringSequence.plan.segments.map((segment) => ({ startFrame: segment.sourceStartFrame, endFrame: segment.sourceEndFrame }))
 				: spans || [range])
 			// Sequence assembly retains its rendered regions beside the complete
 			// delivery, at the render width before the encoder's channel mapping.
-			+ (masteringSequence ? estimatePcmBytes(outputFrames, runtimeProject.masterChannels) * 2 : 0),
+			+ (masteringSequence ? estimatePcmBytes(outputFrames, runtimeProject.masterChannels) * 2 : 0))
+			+ spatialRenderWorkingSetBytes(ear, outputFrames),
 	};
 	const legacyRender = chooseRenderStrategy(renderStrategyOptions);
 	const render = legacyRender.strategy === 'offline'
@@ -393,7 +378,7 @@ export function createExportPlan(project, options = {}) {
 					durationFrames: segment.sourceEndFrame - segment.sourceStartFrame,
 				})),
 				tailFrames,
-				channelCount: adm?.channelCount,
+				channelCount: ear?.sourceChannelCount ?? adm?.channelCount,
 			}),
 		})
 		: legacyRender;
@@ -404,10 +389,10 @@ export function createExportPlan(project, options = {}) {
 		// under a name that promised the sequence's.
 		throw new Error('Mastering sequence delivery requires the offline render; this delivery is too large for it.');
 	}
-	if (binaural && render.strategy !== 'offline') {
+	if ((ear || binaural) && render.strategy !== 'offline') {
 		// The renderer holds a delay line per source per ear; a stream that hands
 		// out one chunk at a time and re-encodes on fallback would restart it.
-		throw new Error('A binaural delivery requires the offline render.');
+		throw new Error(ear ? 'An EBU EAR delivery requires the offline render.' : 'A binaural delivery requires the offline render.');
 	}
 	const loudnessNormalization = resolveExportLoudnessNormalization(options, {
 		mode,
@@ -429,7 +414,7 @@ export function createExportPlan(project, options = {}) {
 	}
 	const loudnessChannelWeights = measuresLoudness && mode === 'mix'
 		&& encoding.channelMapping.mode === 'preserve'
-		? resolveAdmEbuChannelWeights(runtimeProject.metadata?.adm, encoding.channelCount)
+		? resolveAdmEbuChannelWeights(spatialLoudnessMetadata(ear, runtimeProject.metadata?.adm), encoding.channelCount)
 		: null;
 	const fallbackTemporaryBytes = spans
 		? spans.reduce(
@@ -481,6 +466,7 @@ export function createExportPlan(project, options = {}) {
 		} : {}),
 		loudnessNormalization,
 		...(loudnessChannelWeights ? { loudnessChannelWeights } : {}),
+		...(ear ? { ear } : {}),
 		...(binaural ? { binaural } : {}),
 		...(masteringSequence ? { masteringSequence: masteringSequence.plan } : {}),
 		range: masteringSequence ? masteringSequence.sourceRange : range,

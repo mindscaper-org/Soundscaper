@@ -1,3 +1,4 @@
+import { changeSpatialExportSetting } from '../ear-export-settings.ts';
 import { useEffect, useMemo, useRef, useState } from 'react'; import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
@@ -178,7 +179,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 			setSettings((current) => ({ ...current, dither: 'none' }));
 		}
 	}, [desktop, hasTimelineVideo, settings.dither, settings.format, settings.sampleFormat]);
-	const set = (name, value) => setSettings((current) => ({ ...current, [name]: value }));
+	const set = (name, value) => setSettings((current) => changeSpatialExportSetting(current, name, value));
 	const setCodec = (name, value) => setSettings((current) => normalizeExportDialogAudioSettings(
 		{ ...current, [name]: value }, desktop, projectChannelCount,
 	));
@@ -244,7 +245,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 			adm: admittedSettings.adm,
 			channelMapping: videoFormat
 				? undefined
-				: admittedSettings.binaural ? 'preserve' : admittedSettings.channelMapping === 'custom'
+				: admittedSettings.binaural || admittedSettings.earLayout ? 'preserve' : admittedSettings.channelMapping === 'custom'
 					? parseJsonChannelMapping(admittedSettings.channelMatrix, copy.customChannelMapping, copy)
 					: admittedSettings.channelMapping,
 		});
@@ -372,8 +373,8 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 					{!videoFormat && (
 						<ExportChannelsField
 							copy={copy}
-							value={settings.binaural ? 'preserve' : settings.channelMapping}
-							disabled={settingsDisabled || settings.format === 'bw64' || settings.binaural}
+							value={settings.binaural || settings.earLayout ? 'preserve' : settings.channelMapping}
+							disabled={settingsDisabled || settings.format === 'bw64' || settings.binaural || Boolean(settings.earLayout)}
 							onChange={(value) => setCodec('channelMapping', value)}
 							onEditMapping={() => setMappingOpen(true)}
 						/>
