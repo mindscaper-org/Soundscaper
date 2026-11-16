@@ -45,6 +45,7 @@ import { createMidiExportMenuItems, createMidiTrackMenuItems } from './midi-appl
 import { resolveTimecodeSyncCopy } from '../../i18n/editor-timecode-sync-copy.ts';
 import { isMidiClip } from '../midi-model.ts';
 import { resolveInterchangeCopy } from '../../i18n/editor-interchange-copy.ts';
+import { dialogueAlignmentMenuItem } from './dialogue-alignment-menu.ts';
 import { transcriptEditingMenuItem } from './transcript-editing-menu.ts';
 
 /**
@@ -360,6 +361,7 @@ export default function createApplicationMenus({
 						{ id: 'disjoin', label: copy.disjoinClips, disabled: editBlocked || !editSelectionActive, onClick: () => actions.executeEdit('disjoin') },
 						{ id: 'group-clips', label: copy.groupClips, disabled: editBlocked || !editingActions.group, onClick: () => actions.executeEdit('group') },
 						{ id: 'ungroup-clips', label: copy.ungroupClips, disabled: editBlocked || !editingActions.ungroup, onClick: () => actions.executeEdit('ungroup') },
+						...dialogueAlignmentMenuItem({ productId, project, editBlocked, copy, open: actions.openDialogueAlignment }),
 						...framescaperVideoTrimItems,
 						...(framescaperEditControls.link ? [framescaperEditControls.link] : []),
 						...videoFinishingItems,

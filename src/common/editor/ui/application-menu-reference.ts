@@ -26,6 +26,7 @@ const BOTH = Object.freeze(['soundscaper', 'framescaper'] as const);
 
 const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	['match-eq', 'Match EQ', 'Effect > EQ and filters', SOUNDSCAPER],
+	['align-dialogue', 'Align dialogue', 'Edit > Audio clips', SOUNDSCAPER],
 	['timecode-sync', 'Timecode synchronization', 'Tools', SOUNDSCAPER],
 	// File: local project lifecycle, delivery, interchange, and native media.
 	['claim-project-lock', 'Edit here', 'File', BOTH],

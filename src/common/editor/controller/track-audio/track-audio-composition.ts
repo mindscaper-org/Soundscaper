@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createDialogueAlignmentComposition } from './dialogue-alignment-composition.ts';
 import { takeCompContentRange } from '../../take-comp-content-range.ts';
 import { createAiffStreamEncoder, encodeAiff } from '../../aiff.js';
 import { loadStoredSourceChannels } from '../../clip-time-pitch-cache-channels.js';
@@ -321,6 +322,7 @@ export function createTrackAudioComposition(dependencies: TrackAudioCompositionD
 
 	const transform = (label: string | undefined) => label || copy.audacityProcessing;
 	return Object.freeze({
+		dialogueAlignment: createDialogueAlignmentComposition(dependencies, derivedAudio.derivedSources),
 		derivedAudio,
 		track,
 		trackActions,

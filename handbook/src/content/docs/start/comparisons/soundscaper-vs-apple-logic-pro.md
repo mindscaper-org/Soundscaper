@@ -429,7 +429,7 @@ storage/sharing, model downloads, and licence checks do not affect this rating.
 | Text to speech | + — Kokoro :: Kokoro voices with optional model, engine, and offline pronunciation helper | / |
 | Automatic ducking | + | + — Sidechain / Ducker |
 | Music remix to target duration | / | / |
-| Automatic dialogue alignment | / | / |
+| Automatic dialogue alignment | + — :: Same local workflow as Web; no model download. | / |
 | Beat and shot detection | ~ — Beats only :: Beat detection with an optional model; shot detection is in Framescaper | ~ — Beat / tempo only :: Smart Tempo and transient detection; no video shot-boundary analysis. |
 | Exclusively local media processing | + — :: Local editing and offline inference after model installation; optional sharing. | ~ — Core audio local :: Local editing and Stem Splitter; the optional Creator Studio assistant and connected services are separate and not credited as local media tools. |
 | Models are optional and removable | + | ~ — Sound Library packs :: Downloadable content is managed separately; no general per-model manager like Soundscaper's. |

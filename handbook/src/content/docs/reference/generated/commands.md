@@ -43,6 +43,7 @@ Product availability follows each product profile’s command filters and each l
 | Add track effects | `add-realtime-effects` | E | Effect | Soundscaper | Audacity |
 | Adjustable Fade | `nyquist:adjustable-fade` | — | Nyquist | Soundscaper | Audacity |
 | Advanced Local Processing | `local-assistance` | — | Tools | Soundscaper, Framescaper | Soundscaper local |
+| Align dialogue | `align-dialogue` | — | Edit > Audio clips | Soundscaper | Soundscaper local |
 | Align end to end | `align-end-to-end` | — | Tracks > Align content | Soundscaper, Framescaper | Audacity |
 | Align end to playhead | `align-end-to-playhead` | — | Tracks > Align content | Soundscaper, Framescaper | Audacity |
 | Align end to selection end | `align-end-to-selection-end` | — | Tracks > Align content | Soundscaper, Framescaper | Audacity |

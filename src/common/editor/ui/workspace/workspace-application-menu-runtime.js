@@ -219,6 +219,7 @@ export function createWorkspaceApplicationMenus({
 				openVideoRetime: () => openSurface('video-retime'),
 				openVideoProxy: () => openSurface('video-proxy'),
 				openTakeComp: () => openSurface('take-comp'),
+				openDialogueAlignment: () => openSurface('align-dialogue'),
 				newProject: () => run(() => controller.actions.project.create()),
 				openProjects,
 				openProjectRecovery: () => openSurface('project-recovery'),

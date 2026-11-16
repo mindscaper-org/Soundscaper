@@ -252,6 +252,7 @@
 		"source/waveform-gpu-renderer.ts",
 		"track-audio/audio-warp-action-facade.ts",
 		"track-audio/derived-audio-composition.ts",
+		"track-audio/dialogue-alignment-composition.ts",
 		"track-audio/midi-preview.ts",
 		"track-audio/midi-service-types.ts",
 		"track-audio/midi-service.ts",

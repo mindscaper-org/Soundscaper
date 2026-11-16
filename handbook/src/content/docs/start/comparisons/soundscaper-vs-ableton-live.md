@@ -429,7 +429,7 @@ storage/sharing, model downloads, and licence checks do not affect this rating.
 | Text to speech | + — Kokoro :: Kokoro voices with optional model, engine, and offline pronunciation helper | / |
 | Automatic ducking | + | ~ — Sidechain |
 | Music remix to target duration | / | / |
-| Automatic dialogue alignment | / | / |
+| Automatic dialogue alignment | + — :: Same local workflow as Web; no model download. | / |
 | Beat and shot detection | ~ — Beats only :: Beat detection with an optional model; shot detection is in Framescaper | ~ — Beats only |
 | Exclusively local media processing | + — :: Local editing and offline inference after model installation; optional sharing. | / — :: Stem separation runs locally, but integrated Splice Search with Sound uploads audio for AI matching. |
 | Models are optional and removable | + | / — :: The reviewed documentation does not expose an independent model install/remove manager for bundled stem separation. |

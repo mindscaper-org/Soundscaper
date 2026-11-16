@@ -429,7 +429,7 @@ storage/sharing, model downloads, and licence checks do not affect this rating.
 | Text to speech | + — Kokoro :: Kokoro voices with optional model, engine, and offline pronunciation helper | / — Singing is different :: Included Omnivocal is singing synthesis, not a spoken text-to-speech workflow. |
 | Automatic ducking | + | + — Sidechain compression |
 | Music remix to target duration | / | / |
-| Automatic dialogue alignment | / | + — Audio Alignment :: Match Words aligns takes with identical wording. |
+| Automatic dialogue alignment | + — :: Same local workflow as Web; no model download. | + — Audio Alignment :: Match Words aligns takes with identical wording. |
 | Beat and shot detection | ~ — Beats only :: Beat detection with an optional model; shot detection is in Framescaper | ~ — Beat / tempo only :: Hitpoints and tempo detection; no video shot-boundary analysis. |
 | Exclusively local media processing | + — :: Local editing and offline inference after model installation; optional sharing. | ~ — Core audio local :: Editing and stem separation run locally; optional connected services such as Waves Illugen are outside the local workflow. |
 | Models are optional and removable | + | ~ — Optional content :: Downloadable instruments and content; no equivalent general per-model assistance manager. |
