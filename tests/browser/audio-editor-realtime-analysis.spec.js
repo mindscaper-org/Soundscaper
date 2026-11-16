@@ -19,6 +19,7 @@ test.describe('realtime Analysis panel', () => {
 		await importFiles(editor, [createWavFixture({
 			name: 'live-analysis-stereo.wav', frequency: 440, duration: 5, channelCount: 2,
 		})]);
+		await chooseCommandAction(page, editor, 'Select', 'Select none');
 		await chooseCommandAction(page, editor, 'Analyze', 'Analysis');
 		const panel = editor.locator('[data-workspace-panel="analysis"]');
 		await expect(panel.locator('[data-analysis-section]')).toHaveCount(6);
@@ -85,5 +86,41 @@ test.describe('realtime Analysis panel', () => {
 		await panel.getByText('ACX compliance', { exact: true }).click();
 		await expect(panel.getByText('No audio checked yet.', { exact: true })).toBeVisible();
 		expect(errors).toEqual([]);
+	});
+
+	test('spectrum overlays live tracks without a range and switches to selection analysis in the panel', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		const bass = createWavFixture({ name: 'Bass.wav', frequency: 750, duration: 8 });
+		for (let frame = 0; frame < 8 * 48_000; frame++) {
+			const frequency = frame < 4 * 48_000 ? 750 : 1500;
+			const sample = Math.round(.25 * 32767 * Math.sin(2 * Math.PI * frequency * frame / 48_000));
+			bass.buffer.writeInt16LE(sample, 44 + frame * 4);
+			bass.buffer.writeInt16LE(-sample, 46 + frame * 4);
+		}
+		await importFiles(editor, [bass, createWavFixture({ name: 'Lead.wav', frequency: 6000, duration: 8 })]);
+		await chooseCommandAction(page, editor, 'Select', 'Select none');
+		await chooseCommandAction(page, editor, 'Analyze', 'Analysis');
+		const panel = editor.locator('[data-workspace-panel="analysis"]');
+		await panel.getByText('Frequency spectrum', { exact: true }).click();
+		await expect(panel.getByText('Live playback spectra. Select audio to analyze that range instead.', { exact: true })).toBeVisible();
+		await expect(page.getByRole('dialog', { name: 'Plot spectrum', exact: true })).toHaveCount(0);
+		await editor.getByRole('button', { name: 'Play', exact: true }).click();
+		const bassPeak = panel.getByRole('listitem').filter({ hasText: /^Bass/ });
+		const leadPeak = panel.getByRole('listitem').filter({ hasText: /^Lead/ });
+		await expect(bassPeak).toContainText('750.0 Hz');
+		await expect(leadPeak).toContainText('6000.0 Hz');
+		await expect(bassPeak).toContainText('1500.0 Hz');
+		await editor.getByRole('button', { name: 'Stop', exact: true }).click();
+		await chooseCommandAction(page, editor, 'Select', 'Select all');
+		await expect(panel.locator('[data-spectrum-mode]')).toHaveAttribute('data-spectrum-mode', 'selection');
+		await expect(leadPeak).toContainText('6000.0 Hz');
+		await expect(panel.locator('[data-live-analysis-spectrum]')).toHaveCount(0);
+		await chooseCommandAction(page, editor, 'Select', 'Select none');
+		await expect(panel.getByRole('img', { name: 'Frequency spectrum', exact: true })).toBeVisible();
+		await editor.getByRole('button', { name: 'Play', exact: true }).click();
+		await expect(bassPeak).toContainText('750.0 Hz');
+		await panel.getByText('Frequency spectrum', { exact: true }).click();
+		await expect(panel.getByRole('img', { name: 'Frequency spectrum', exact: true })).toHaveCount(0);
+		await editor.getByRole('button', { name: 'Stop', exact: true }).click();
 	});
 });

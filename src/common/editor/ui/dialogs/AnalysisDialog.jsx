@@ -8,22 +8,16 @@ import { resolveSelectionRange } from '../../selection-range.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { formatDb, formatLoudness, macroFileName } from '../inspector/inspector-helpers.ts';
 import { formatLocalizedTemplate } from '../localization-template.ts';
-import SpectrumResult from './SpectrumResult.tsx';
-import LiveSpectrumDialog from './LiveSpectrumDialog.tsx';
+import { useSpectrumPlotPoints } from './spectrum-plot-points.ts';
+import { resolveAudioEditorColor } from '../timeline/TimelineOverlayComponents.jsx';
 import './analysis-dialog.css';
 import RepeatedSoundDialog from './RepeatedSoundDialog.tsx';
 
 const MODES = Object.freeze({ levels: 'analyzeSelection', spectrum: 'plotSpectrum', clipping: 'findClipping', contrast: 'contrast' });
 
 export default function AnalysisDialog(props) {
-	if (props.mode === 'spectrum') return <SpectrumAnalysisDialog key={`${props.snapshot.project?.id}:${props.requestId}`} {...props} />;
 	return props.mode === 'repeated-sound' || (props.mode === 'repeat' && props.snapshot.lastAnalysisRequest?.type === 'repeated-sound')
 		? <RepeatedSoundDialog {...props} repeat={props.mode === 'repeat'} /> : <ReportAnalysisDialog {...props} />;
-}
-
-function SpectrumAnalysisDialog(props) {
-	const [live] = useState(() => !resolveSelectionRange(props.snapshot.project, { selectedClipId: props.snapshot.selectedClipId ?? null }));
-	return live ? <LiveSpectrumDialog {...props} /> : <ReportAnalysisDialog {...props} />;
 }
 
 function ReportAnalysisDialog({ mode, requestId = 0, controller, snapshot, copy, fileService, onClose }) {
@@ -147,6 +141,38 @@ function LevelsResult({ result, copy }) {
 		<div className="audio-editor-analysis-grid" data-analysis-values>{values.map(([key, label, value]) =>
 			<div key={key}><EditorControlLabel>{label}</EditorControlLabel><strong data-analysis-value={key}>{value}</strong></div>)}</div>
 	</section>;
+}
+
+function SpectrumResult({ report, copy }) {
+	const tracks = report.tracks?.length > 1 ? report.tracks : null;
+	return <section className="audio-editor-analysis-report" data-analysis-report="spectrum">
+		<h4>{copy.plotSpectrum}</h4>
+		<svg className="audio-editor-analysis-dialog__plot" viewBox="0 0 635 150" role="img" aria-label={copy.plotSpectrum} data-analysis-spectrum>
+			{tracks ? tracks.map(track => <SpectrumCurve key={track.trackId} report={track} />) : <SpectrumCurve report={report} />}
+		</svg>
+		{tracks ? <ul className="audio-editor-analysis-dialog__legend">{tracks.map(track =>
+			<li key={track.trackId} style={spectrumTrackStyle(track.color)}><strong>{track.name}</strong> · <SpectrumPeak report={track} copy={copy} /></li>)}</ul>
+			: <p><strong><SpectrumPeak report={report} copy={copy} /></strong></p>}
+		<p>{formatLocalizedTemplate(copy.spectrumConfiguration, { size: report.size, sampleRate: report.sampleRate })}</p>
+	</section>;
+}
+
+function spectrumTrackStyle(color) {
+	return color ? { '--spectrum-color': `var(--clip-${resolveAudioEditorColor(color)}-header)` } : undefined;
+}
+
+function SpectrumCurve({ report }) {
+	const points = useSpectrumPlotPoints(report.bins);
+	return <polyline points={points} style={spectrumTrackStyle(report.color)} data-spectrum-track-id={report.trackId}>
+		{report.name && <title>{report.name}</title>}
+	</polyline>;
+}
+
+function SpectrumPeak({ report, copy }) {
+	return formatLocalizedTemplate(copy.spectrumPeakDetail, {
+		label: copy.spectrumPeak, frequency: Number(report.peak?.frequency || 0).toFixed(1),
+		level: formatDb(report.peak?.db, 'dB'),
+	});
 }
 
 function ClippingResult({ report, copy, sampleRate }) {

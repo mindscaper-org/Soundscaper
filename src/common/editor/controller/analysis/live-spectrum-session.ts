@@ -17,7 +17,13 @@ export interface SpectrumCurveReport {
 	readonly color?: string;
 }
 
-export interface LivePlaybackSpectrumReport extends SpectrumCurveReport {
+export interface SpectrumPlotReport extends SpectrumCurveReport {
+	readonly size: number;
+	readonly sampleRate: number;
+	readonly tracks?: readonly SpectrumCurveReport[];
+}
+
+export interface LivePlaybackSpectrumReport extends SpectrumPlotReport {
 	readonly type: 'spectrum';
 	readonly scope: 'master';
 	readonly live: true;
@@ -25,6 +31,25 @@ export interface LivePlaybackSpectrumReport extends SpectrumCurveReport {
 	readonly sampleRate: number;
 	readonly positionFrame: number;
 	readonly tracks: readonly SpectrumCurveReport[];
+}
+
+/** Debounce range edits and suppress replies after the range or visible owner changes. */
+export function observeSelectedSpectrum(dependencies: {
+	analyze(): Promise<unknown>;
+	publish(report: SpectrumPlotReport): void;
+	schedule(analyze: () => void): () => void;
+	onError(error: unknown): void;
+}): () => void {
+	let disposed = false;
+	const cancel = dependencies.schedule(() => {
+		void Promise.resolve().then(() => disposed ? null : dependencies.analyze()).then(value => {
+			if (disposed) return;
+			if (!value || typeof value !== 'object' || !('bins' in value) || !Array.isArray(value.bins)
+				|| !('size' in value) || !('sampleRate' in value)) throw new TypeError('The spectrum report is unavailable.');
+			dependencies.publish(value as SpectrumPlotReport);
+		}).catch((error: unknown) => { if (!disposed) dependencies.onError(error); });
+	});
+	return () => { if (!disposed) { disposed = true; cancel(); } };
 }
 
 interface LiveSpectrumDependencies {

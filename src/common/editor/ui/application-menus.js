@@ -475,7 +475,7 @@ export default function createApplicationMenus({
 					checked: snapshot.preferences?.workspace?.panels?.analysis?.visible === true,
 					visibilityToggle: true, onClick: () => viewMenu.togglePanel('analysis') },
 				{ id: 'analyze-selection', label: copy.analyzeSelection, disabled: selectionAnalyzerBlocked, onClick: () => actions.openAnalysis('levels') },
-				{ id: 'plot-spectrum', label: copy.plotSpectrum, disabled: analyzerBlocked || Boolean(snapshot.analysisProcessing), onClick: () => actions.openAnalysis('spectrum') },
+				{ id: 'plot-spectrum', label: copy.plotSpectrum, disabled: selectionAnalyzerBlocked, onClick: () => actions.openAnalysis('spectrum') },
 				{ id: 'find-clipping', label: copy.findClipping, disabled: selectionAnalyzerBlocked, onClick: () => actions.openAnalysis('clipping') },
 				{ id: 'find-repeated-sound', label: copy.findRepeatedSound, disabled: selectionAnalyzerBlocked || editBlocked, onClick: () => actions.openAnalysis('repeated-sound') },
 				{ id: 'contrast', label: copy.contrast, disabled: selectionAnalyzerBlocked, onClick: () => actions.openAnalysis('contrast') },

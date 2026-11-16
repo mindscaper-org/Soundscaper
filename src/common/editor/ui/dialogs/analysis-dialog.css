@@ -37,7 +37,7 @@
 	background: var(--spectrum-color);
 }
 
-[data-editor-surface] :is([data-analysis-overlay="contrast"], [data-analysis-overlay="live-spectrum"]) {
+[data-editor-surface] [data-analysis-overlay="contrast"] {
 	background: transparent;
 	backdrop-filter: none;
 	pointer-events: none;
@@ -45,6 +45,6 @@
 	padding-block-start: 64px;
 }
 
-[data-editor-surface] :is([data-analysis-overlay="contrast"], [data-analysis-overlay="live-spectrum"]) .audio-editor-controlled-dialog {
+[data-editor-surface] [data-analysis-overlay="contrast"] .audio-editor-controlled-dialog {
 	pointer-events: auto;
 }

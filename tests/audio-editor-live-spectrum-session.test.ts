@@ -2,7 +2,8 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { observeLivePlaybackSpectrum, type LivePlaybackSpectrumReport } from '../src/common/editor/controller/analysis/live-spectrum-session.ts';
+import { observeLivePlaybackSpectrum, observeSelectedSpectrum, type LivePlaybackSpectrumReport } from '../src/common/editor/controller/analysis/live-spectrum-session.ts';
+import { deferred } from './helpers/async-test-control.ts';
 
 test('live spectrum publishes independent track peaks, updates playback and releases its timer', () => {
 	let tick = () => {};
@@ -53,5 +54,21 @@ test('live spectrum sampling failure releases its resources and reports the erro
 	dispose();
 	assert.deepEqual(errors, [failure]);
 	assert.equal(released, 1);
+	assert.equal(canceled, 1);
+});
+
+test('selection spectrum ignores a pending reply after the panel range changes', async () => {
+	const pending = deferred<unknown>();
+	let analyze = () => {};
+	let canceled = 0;
+	const dispose = observeSelectedSpectrum({
+		analyze: () => pending.promise, publish: () => assert.fail('stale range report'),
+		schedule: callback => { analyze = callback; return () => { canceled++; }; },
+		onError: () => assert.fail('stale range error'),
+	});
+	analyze(); await Promise.resolve();
+	dispose(); dispose();
+	pending.resolve({ bins: [], size: 2048, sampleRate: 48_000 });
+	await pending.promise; await Promise.resolve();
 	assert.equal(canceled, 1);
 });

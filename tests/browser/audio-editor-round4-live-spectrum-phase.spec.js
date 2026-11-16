@@ -11,6 +11,7 @@ for (let offset = 44; offset < recording.buffer.length; offset += 4) {
 test('live Spectrum retains a stereo recording with opposite channel polarity', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [recording]);
+	await chooseCommandAction(page, editor, 'Select', 'Select none');
 	await chooseCommandAction(page, editor, 'Analyze', 'Analysis');
 	const panel = editor.locator('[data-workspace-panel="analysis"]');
 	await panel.locator('[data-analysis-section="spectrum"] summary').click();
