@@ -113,6 +113,8 @@ qualification plans belong in Git history, not in the maintained documentation s
   binary layouts, media access, and compatibility limits.
 - [Native Pro Tools import](features/pro-tools-import.md) covers PTS/PTF/PTX
   audio edits, bounded binary parsing, media access, and the reference audit.
+- [Hindenburg session import](features/hindenburg-import.md) covers NHSX audio
+  edits, media access, conversion reports and pinned format evidence.
 - [Desktop Blender integration](development/desktop-blender.md) covers track-list
   export, add-on installation, and live audio updates in Blender.
 - [Framescaper capture](features/framescaper-capture.md) covers permission,

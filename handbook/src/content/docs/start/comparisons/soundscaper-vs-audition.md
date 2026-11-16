@@ -65,7 +65,7 @@ formats that reference separate files.
 | Audition (`.sesx`) | ~ — Import :: Imports audio tracks, clip placement, trims, simple fades, and static mixer settings. Effects, automation, routing, and other unsupported state are reported; no SESX export. | + |
 | Ardour (`.ardour`) | ~ — Import :: Audio playlists, cuts, trims, static mix settings, and explicit fades; locates nearby media or requests a folder. MIDI, plug-ins, automation, routing, and tempo maps are omitted; no export. | / |
 | REAPER (`.rpp`) | / | / |
-| Hindenburg (`.nhsx`) | / | / |
+| Hindenburg (`.nhsx`) | ~ — Import :: Audio cuts, trims, static levels, mute and fade lengths; locates companion media or requests a folder. Pan and fade curves are converted; ducking, plug-ins, transcripts, markers and Narrator authoring are omitted. No export. | / |
 | Pro Tools (`.ptf`) | ~ — Import :: Supported native PTF audio edits, track names, trims, and stereo lanes; locates the Audio Files folder. Legacy PTS is also supported. Mix settings, fades, MIDI, and plug-ins are omitted; no export. | / |
 | Pro Tools (`.ptx`) | ~ — Import :: Supported native PTX audio-edit layouts; locates the Audio Files folder. Missing media and unsupported mix settings, fades, MIDI, and plug-ins are reported; no export. | / |
 | SoundCraft (`.scraft`, `.scraftz`) | ~ — Import :: Audio cuts, trims, static mix settings, and explicit fades from sessions or bundled media. MIDI, plug-ins, automation, and routing are omitted; no export. | / |

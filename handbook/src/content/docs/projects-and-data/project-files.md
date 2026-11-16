@@ -111,6 +111,23 @@ compatibility has not been verified against original session files and reference
 SES import is one-way. Save the imported project as a Scape project and keep
 the original `.ses` file and media for work in Cool Edit or Audition.
 
+## Hindenburg NHSX
+
+Use **File → Open**, **File → Import**, or drop a Hindenburg `.nhsx` session
+into the editor. On desktop, keep its companion audio folder beside the
+session, or choose a media folder when prompted. In a browser, import or drop
+the session together with its referenced audio files.
+
+The import retains audio tracks, clip positions, source trims, static levels,
+mute and fade lengths. Pan and fade curves can sound different. Ducking ramps,
+plug-ins, voice profiles, transcripts, markers, clipboard audio and Narrator
+book structure do not transfer. Unsupported compound or transformed regions
+are omitted. Open **File → Delivery Report** to review conversions, omissions
+and missing media; offline edits remain available for relinking.
+
+NHSX import is one-way. Save the imported project as a Scape project, and keep
+the original Hindenburg session and audio for future work in Hindenburg.
+
 ## Rendered backup
 
 For important work, keep both:
