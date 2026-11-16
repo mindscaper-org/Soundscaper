@@ -109,6 +109,23 @@ and cross-domain imports of internal files. Consumers import the narrow owner
 directly. After removing a direction, run
 `npm run check:controller-domains:tighten` to claim it.
 
+Container and standalone MIDI imports share stateless SMF channel routing,
+destination handling and track preparation in the flat `midi-file-import-*.ts`
+modules. The import and track-audio controllers consume these narrow owners;
+their file-menu entry points defer loading so archive/MIDI parsing stays outside
+the product startup graph.
+
+Import production state uses the existing automation and mixer authorities.
+`interchange-automation.ts` owns bounded unit conversion, origin clipping and
+curve admission; `interchange-clip-envelope.ts` adapts that vocabulary to legacy
+clip envelopes. `timeline-interchange-mix.ts` and `dawproject-import-finishing.ts`
+materialize native graph identities before admitting send/effect addresses.
+Format readers retain their own clock, parameter and processor semantics.
+`interchange-effect-state.ts` only creates inert missing-effect records; foreign
+state does not create an execution path. Both product constructors receive
+explicit production state rather than trying to carry it through the V17
+interchange foundation's legacy strip envelopes.
+
 Domain compositions accept declared dependencies and return typed ports; the
 composition root wires them without granting one domain mutable access to
 another's state. The active document has one typed history owner in

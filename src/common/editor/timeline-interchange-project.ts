@@ -9,6 +9,9 @@ import { rationalFromDouble } from './dawproject-format.ts';
 import { normalizeProjectSampleRate } from './project-sample-rate.ts';
 import type { TimelineInterchangeDocument, TimelineInterchangeClip } from './timeline-interchange-types.ts';
 import { interchangeClipControls, interchangeTrackControls } from './timeline-interchange-audio-controls.ts';
+import { prepareTimelineInterchangeMidi, type TimelineInterchangeMidiSource } from './timeline-interchange-midi.ts';
+import { timelineInterchangeMix } from './timeline-interchange-mix.ts';
+import { withMidiClipData, withMidiTrackData } from './midi-model.ts';
 
 export interface TimelineInterchangeImportOptions {
 	readonly fileName?: string;
@@ -17,6 +20,7 @@ export interface TimelineInterchangeImportOptions {
 	/** Decoded source options keyed by normalized document media ID. */
 	readonly media?: ReadonlyMap<string, Readonly<Record<string, unknown>> | null>;
 	readonly stagedSourceIds?: ReadonlyMap<string, string>;
+	readonly midiFiles?: ReadonlyMap<string, Uint8Array>;
 }
 export interface TimelineInterchangeImportPlan {
 	readonly title: string;
@@ -24,17 +28,24 @@ export interface TimelineInterchangeImportPlan {
 	readonly project: Record<string, unknown>;
 	readonly media: readonly { readonly mediaId: string; readonly sourceId: string }[];
 	readonly report: Omit<DeliveryReport, 'direction'> & Readonly<{ direction: 'import' }>;
+	readonly midiSources: readonly TimelineInterchangeMidiSource[];
+	readonly production: ReturnType<typeof timelineInterchangeMix>;
 }
 
 export function buildTimelineInterchangeProject(document: TimelineInterchangeDocument,
 	options: TimelineInterchangeImportOptions): TimelineInterchangeImportPlan {
 	if (typeof options.createStableId !== 'function') throw new TypeError('Timeline import requires an ID factory.');
 	const sampleRate = normalizeProjectSampleRate(options.sampleRate ?? document.sampleRate);
+	const midi = prepareTimelineInterchangeMidi(document, options, sampleRate);
+	document = midi.document;
+	options = { ...options, media: midi.media };
 	const title = document.title || options.fileName?.replace(/\.[^.]+$/u, '') || 'Imported timeline';
 	const draft = createDeliveryReport({ format: document.format, container: document.format.toUpperCase(), sampleRate });
 	for (const issue of document.issues) addDeliveryReportItem(draft, issue);
 	const sources: Record<string, unknown>[] = [], clips: Record<string, unknown>[] = [], tracks: Record<string, unknown>[] = [];
 	const bindings: { mediaId: string; sourceId: string }[] = [];
+	const trackIds = new Map<string, string>();
+	const folderIds = new Map(document.folders?.map(folder => [folder.id, options.createStableId('folder')]));
 	const sourceByMediaId = new Map<string, Record<string, unknown>>();
 	const allClips = document.tracks.flatMap(track => track.clips);
 	const sourceExtent = new Map<string, Rational>();
@@ -73,7 +84,7 @@ export function buildTimelineInterchangeProject(document: TimelineInterchangeDoc
 		sources.push(source); sourceByMediaId.set(item.id, source);
 	}
 	for (const track of document.tracks) {
-		const id = options.createStableId('track');
+		const id = options.createStableId('track'); trackIds.set(track.id, id);
 		const clipIds: string[] = [];
 		for (const authored of track.clips) {
 			const source = sourceByMediaId.get(authored.mediaId);
@@ -87,22 +98,37 @@ export function buildTimelineInterchangeProject(document: TimelineInterchangeDoc
 			}
 			const shortened = clip.shortened === true;
 			delete clip.shortened;
-			if (track.kind === 'audio') Object.assign(clip, interchangeClipControls(authored, sampleRate, Number(clip.durationFrames), document.format, draft));
+			if (track.kind === 'audio') Object.assign(clip, interchangeClipControls(authored, sampleRate, Number(clip.durationFrames), document.format, draft, document.sampleRate));
+			if (authored.midi) Object.assign(clip, withMidiClipData(clip, authored.midi));
 			clips.push(clip); clipIds.push(clipId);
 			if (shortened) {
 				addDeliveryReportItem(draft, { code: `${document.format}.clip-source-extent-converted`, disposition: 'converted', severity: 'warning', scope: { kind: 'clip', id: clipId }, message: 'The clip was shortened to fit the decoded media extent.' });
 			}
 		}
-		tracks.push({ id, type: track.kind, name: track.name, ...interchangeTrackControls(track, document.format, draft), clipIds });
+		const importedTrack = { id, type: track.kind, name: track.name, ...(track.opaqueExtensions ? { opaqueExtensions: track.opaqueExtensions } : {}), effects: track.effects ?? [], ...(track.color ? { color: track.color } : {}), ...interchangeTrackControls(track, document.format, draft), clipIds };
+		tracks.push(track.midi ? withMidiTrackData(importedTrack, { version: 1, instrument: 'triangle' }) : importedTrack);
+		if (track.midi) addDeliveryReportItem(draft, { code: `${document.format}.midi-instrument-converted`, disposition: 'converted', severity: 'warning',
+			scope: { kind: 'track', id }, message: 'Editable MIDI uses the triangle synthesizer; assign the desired instrument after import.' });
 	}
+	const trackWidths = new Map(tracks.map(track => [String(track.id), Math.max(1, ...clips.filter(clip => (track.clipIds as string[]).includes(String(clip.id))).map(clip => Number(sources.find(source => source.id === clip.sourceId)?.channelCount ?? 2)))]));
+	const production = timelineInterchangeMix(document, trackIds, tracks, sampleRate, options.createStableId, trackWidths, folderIds);
+	for (const issue of production.issues) addDeliveryReportItem(draft, issue);
 	const project: Record<string, unknown> = {
 		id: options.createStableId('project'), title, sampleRate, metadata: { title }, sources, clips, tracks,
+		master: { ...interchangeTrackControls({ ...document.master, id: 'master', name: 'Master', kind: 'audio', clips: [] }, document.format, draft), effects: document.master?.effects ?? [] },
+		...(document.tempoMap ? { tempoMap: document.tempoMap } : {}),
+		...(document.signatureMap ? { signatureMap: document.signatureMap } : {}),
+		automationLanes: production.automationLanes, finishing: { mixer: production.mixer, automationLanes: production.automationLanes },
+		timelineAnnotations: document.markers?.map(marker => ({ id: options.createStableId('marker'), sequenceId: 'main-sequence', anchor: 'sample', ...(marker.endFrame === undefined ? { kind: 'marker', positionFrame: Math.round(marker.frame * sampleRate / document.sampleRate) } : { kind: 'region', startFrame: Math.round(marker.frame * sampleRate / document.sampleRate), endFrame: Math.round(marker.endFrame * sampleRate / document.sampleRate) }), name: marker.name, color: 'auto', batchId: null, opaqueExtensions: {} })),
+		trackFolders: document.folders?.map(folder => ({ id: folderIds.get(folder.id), name: folder.name, mute: folder.mute, solo: folder.solo })),
 		primarySequenceId: 'main-sequence', sequences: [{ id: 'main-sequence', name: title, rate: document.rate,
 			dropFrame: document.dropFrame, startTimecode: sequenceTimecodeFromFrameCount(document.startFrameCount, document.rate, document.dropFrame),
-			trackIds: tracks.map(track => track.id), trackNodes: tracks.map(track => ({ kind: 'track', id: track.id, parentFolderId: null })) }],
+			trackIds: tracks.map(track => track.id), trackNodes: [...(document.folders ?? []).map(folder => ({ kind: 'folder', id: folderIds.get(folder.id), parentFolderId: folder.parentFolderId ? folderIds.get(folder.parentFolderId) : null })), ...document.tracks.map(track => ({ kind: 'track', id: trackIds.get(track.id), parentFolderId: track.folderId ? folderIds.get(track.folderId) : null }))] }],
 	};
 	addDeliveryReportItem(draft, { code: `${document.format}.timeline-imported`, disposition: 'preserved', severity: 'info', data: { tracks: tracks.length, clips: clips.length, sources: sources.length }, message: 'Timeline tracks, cut placement, source trims and sequence timing were imported.' });
-	return Object.freeze({ title, sampleRate, project, media: Object.freeze(bindings), report: Object.freeze({ ...sealDeliveryReport(draft), direction: 'import' as const }) });
+	if (midi.midiSources.length) addDeliveryReportItem(draft, { code: `${document.format}.midi-preserved`, disposition: 'preserved', severity: 'info',
+		data: { clips: midi.midiSources.length }, message: 'MIDI notes and channel events were imported as editable MIDI with synthesized audio sources.' });
+	return Object.freeze({ title, sampleRate, project, production, media: Object.freeze(bindings), midiSources: Object.freeze(midi.midiSources), report: Object.freeze({ ...sealDeliveryReport(draft), direction: 'import' as const }) });
 }
 
 function buildClip(authored: TimelineInterchangeClip, source: Readonly<Record<string, unknown>>, document: TimelineInterchangeDocument,

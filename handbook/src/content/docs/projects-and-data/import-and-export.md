@@ -53,13 +53,25 @@ Choose **Cancel** beside the bar to stop an import or audio export.
   bundles with audio) open through **File → Open** or **File → Import**. Import
   the session and its referenced audio together in the browser. Desktop can
   locate media beside the session or ask for its media folder. Imports keep
-  active audio playlists, clip timing and source trims, names, mute and solo,
+  active audio and supported MIDI playlists, clip timing and source trims, names, mute and solo,
   static gain, supported pan, and explicit fade lengths. Split stereo Ardour sources
   become left and right tracks. Missing audio stays as an offline reference.
-  Plug-ins, MIDI, automation, routing, alternate playlists, tempo maps, and
-  markers are outside this audio import profile; review **File → Delivery
-  Report** for conversions and omissions. Ardour beat-domain timing requires
-  conversion to audio-time regions before import; overlapping Ardour layers
+  SoundCraft MIDI and instrument tracks retain editable notes and channel events.
+  Modern Ardour MIDI playlists also import their companion `.mid` files when
+  the session uses a supported stepped tempo map. Select those MIDI files with
+  the session in a browser. Imported MIDI uses a triangle synthesizer; select
+  a clip and open **Window → Piano roll (beta)** to edit notes or choose an instrument.
+  Imports also recover supported gain/pan/mute/send automation, clip gain
+  envelopes, buses, sends, master controls, markers/ranges and stepped tempo
+  and meter maps. SoundCraft folders and aux strips are retained. Open a track
+  menu and choose **Add automation** to inspect and edit its imported curves.
+  Foreign effects remain in their original rack order as bypassed missing
+  entries with their serialized state; they need a compatible state adapter
+  before they can play. Alternate playlists and unsupported controls remain
+  reported omissions. Review **File → Delivery Report** for
+  conversions and omissions, including unsupported Ardour MIDI tempo ramps and
+  legacy clocks. Ardour beat-domain audio regions require conversion to
+  audio-time regions before import; overlapping Ardour layers
   become additive cuts and are reported. Save the imported project
   as Scape; these formats are import-only.
 - Pro Tools sessions (`.ptx`, `.ptf`, `.pts`) open through **File → Open** or
@@ -70,6 +82,22 @@ Choose **Cancel** beside the bar to stop an import or audio export.
   plug-ins, automation, fades, MIDI and other unsupported authoring are listed
   in **File → Delivery Report**. Review the imported cuts against the original
   session, then save as Scape. Pro Tools export is not available.
+- DAWproject imports editable MIDI notes as well as audio, channel/send
+  automation and supported generic realtime EQ/dynamics. Eligible effect
+  parameter curves remain editable; other original curves are retained with
+  their effects. Foreign plug-ins and embedded preset bytes remain bypassed
+  until a compatible adapter can restore them. Save as Scape to keep that state.
+  AAF additionally imports standard gain, track pan and audio dissolve curves.
+  AAF imports MIDI
+  when the exporter includes a standard MIDI attachment, either embedded or
+  linked. OTIO can import referenced `.mid` and `.midi` files with their cut
+  placement and source trims. In a browser, select linked MIDI files together
+  with the interchange document. The original synthesizer is replaced by a
+  triangle instrument; edit notes and choose an instrument through
+  **Window → Piano roll (beta)**. Review **File → Delivery Report** for missing
+  files, timing conversions and unsupported attachments. OMF and ADL remain
+  audio-only. If an exporter supplies MIDI as a separate, unreferenced file,
+  open the audio edit first, then import that MIDI file separately.
 
 See [Project files](/projects-and-data/project-files/) for the consequences of
 each choice.

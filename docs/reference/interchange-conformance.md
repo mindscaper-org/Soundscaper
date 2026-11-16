@@ -68,8 +68,19 @@ skips.
 and reads timeline positions, source-rate offsets, timecode and embedded bytes
 with pyaaf2. It also imports independent files containing raw PCM, effect groups
 and unavailable source chains. These checks fail when the reference package is
-absent. Python remains a conformance/build tool; browser and ordinary desktop
+absent. `tests/audio-editor-aaf-automation-import.test.ts` independently writes
+and validates standard operation groups, rational ConstantValue/VaryingValue
+records, interpolation references, and transitions with pyaaf2 before importing
+their gain, track pan and dissolve curves. Python remains a conformance/build tool; browser and ordinary desktop
 imports and exports use TypeScript.
+
+`tests/audio-editor-exchange-midi-reference-conformance.test.ts` independently
+writes and validates AS-01 auxiliary MIDI attachments with pyaaf2. It exercises
+static, timeline and event slots, embedded and linked SMFs, and a composition
+containing both audio and MIDI. Literal SMF fixtures specify independent note,
+channel-event and tempo expectations; ordinary integration tests additionally
+exercise import publication, rollback, real synthesis and portable Scape
+reopening. The standard dictionary seed is unchanged by this reader extension.
 
 `src/common/editor/aaf/standard-dictionary.json` carries the standard object/type
 dictionary seed and its uncompressed payload SHA-256. Its MIT notice is retained

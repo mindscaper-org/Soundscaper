@@ -8,6 +8,7 @@ import type { SoundscaperProject } from './editor-project-validation.ts';
 
 /** Promote validated flat interchange buses and routes through the owning graph adapter. */
 export function importSoundscaperAudacityMixer(decoded: AudioEditorProjectV17, project: SoundscaperProject, context?: DawprojectImportRoutingContext): MixerGraphV21 {
+	if (context?.mixerGraph) return normalizeMixerGraphV21(context.mixerGraph);
 	let mixer = project.mixer;
 	for (const [kind, buses] of [['group', decoded.mixer.groups], ['send', decoded.mixer.sends]] as const) {
 		for (const bus of buses) {
@@ -19,6 +20,8 @@ export function importSoundscaperAudacityMixer(decoded: AudioEditorProjectV17, p
 			mixer = applySoundscaperMixerSurfaceCommand({ ...project, mixer }, existing
 				? { type: 'mixer/bus-update', busType: kind, busId: bus.id, changes }
 				: { type: 'mixer/bus-add', busType: kind, bus: { id: bus.id, ...changes } });
+			const collection = kind === 'group' ? 'groups' : 'sends';
+			mixer = normalizeMixerGraphV21({ ...mixer, [collection]: mixer[collection].map(strip => strip.id === bus.id ? { ...strip, effects: (bus as typeof bus & { readonly effects?: readonly Readonly<Record<string, unknown>>[] }).effects ?? [] } : strip) });
 			const channelCount = context?.stripChannelCounts?.find(strip => strip.id === bus.id)?.channelCount;
 			if (channelCount !== undefined) {
 				const collection = kind === 'group' ? 'groups' : 'sends';

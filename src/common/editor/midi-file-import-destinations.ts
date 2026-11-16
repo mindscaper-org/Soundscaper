@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import type { MidiFileEvent, MidiFileTrack, MidiNoteDestination } from '../../../midi-file-types.ts';
+import type { MidiFileEvent, MidiFileTrack, MidiNoteDestination } from './midi-file-types.ts';
 
 export interface MidiImportDestination { readonly port: number; readonly device?: readonly number[] }
 const DEFAULT_DESTINATION: MidiImportDestination = { port: 0 };

@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { MidiFileEvent, MidiFileTrack } from '../../../midi-file-types.ts';
+import type { MidiFileEvent, MidiFileTrack } from './midi-file-types.ts';
 import { midiImportDestinationAt, midiImportDestinationKey, midiImportNoteDestinations, midiImportSelector,
-	type MidiImportDestination } from './midi-import-destinations.ts';
+	type MidiImportDestination } from './midi-file-import-destinations.ts';
 
 interface RoutedEvent {
 	readonly source: number;

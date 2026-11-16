@@ -103,6 +103,7 @@ export function parseMidiFile(input: Uint8Array | ArrayBuffer, options: MidiFile
 	if (format === 0 && count !== 1) throw new RangeError('MIDI type 0 must contain exactly one track.');
 	const division = reader.uint16();
 	if (!division) throw new RangeError('Invalid MIDI time division.');
+	if (options.tickToFrame && division & 0x8000) throw new RangeError('A session MIDI source must use PPQ timing.');
 	if (division & 0x8000) smpteFrame(0, division, sampleRate);
 	reader.read(headerSize - 6);
 	const tracks: TickTrack[] = [];
@@ -134,6 +135,7 @@ export function parseMidiFile(input: Uint8Array | ArrayBuffer, options: MidiFile
 		else { tickSegments.push(segment); tempos.push(tempo); }
 	}
 	const tickToFrame = (tick: number): number => {
+		if (options.tickToFrame) return midiFileInteger(options.tickToFrame(tick, division), 0, Number.MAX_SAFE_INTEGER, 'session event frame');
 		if (division & 0x8000) return smpteFrame(tick, division, sampleRate);
 		let low = 0;
 		let high = tickSegments.length;

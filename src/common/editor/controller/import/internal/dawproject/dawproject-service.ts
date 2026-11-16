@@ -8,10 +8,11 @@ import {
 	entryBaseName,
 	isDawprojectFileName,
 } from '../../../../dawproject-format.ts';
+import { readDawprojectDeviceStates } from '../../../../dawproject-import-device-states.ts';
 import { parseDawprojectDocument } from '../../../../dawproject-import.ts';
 import { dawprojectArrangementAudioReferences } from '../../../../dawproject-arrangement-media.ts';
 import { buildDawprojectProject, dawprojectImportedAudioMimeType, type DawprojectDecodedMediaInfo } from '../../../../dawproject-import-project.ts';
-import { openMidiAudioRenderer } from '../../../../engine/midi-audio-renderer.ts';
+import { persistInterchangeMidiSources, withInterchangeMidiSourceLayouts } from '../interchange/persist-interchange-midi-sources.ts';
 import { createCurrentAudioEditorProject } from '../../../../project-current.ts';
 import { AUDIO_EDITOR_PCM_CHUNK_FRAMES } from '../../../../pcm-chunks.js';
 import { admitAudioImportChannelCount } from '../audio-import-channel-admission.ts';
@@ -189,36 +190,19 @@ export function createDawprojectService(runtime: NativeProjectServiceRuntime, he
 					);
 				} finally { try { prepared?.dispose(); } finally { await archive.releaseEntry(reference.path); } }
 			}
+			const deviceStates = await readDawprojectDeviceStates(document, archive, assertReady);
 			const plan = buildDawprojectProject(document, {
+				deviceStates,
 				fileName: String(file.name), media, stagedSourceIds, sourceProvenance, createStableId: runtime.createStableId,
 			});
-			for (const source of plan.midiSources) {
-				if (runtime.store.writeMidiSource) {
-					await runtime.store.writeMidiSource(source.sourceId, { data: source.data, instrument: source.instrument, sampleRate: source.sampleRate },
-						{ name: 'MIDI.wav', mimeType: 'audio/wav', frameCount: source.frameCount });
-					persistedSourceIds.push(source.sourceId); assertReady(); continue;
-				}
-				const render = await openMidiAudioRenderer(source.data, source.instrument, source.sampleRate);
-				try {
-					const staged = stagedProjectSource(source.sourceId, 'MIDI.wav', { ...source, channelCount: render.channelCount });
-					await runtime.preflightStorage(source.frameCount * render.channelCount * Float32Array.BYTES_PER_ELEMENT, 'import');
-					assertReady();
-					async function* chunks(): AsyncGenerator<readonly Float32Array[]> {
-						const size = Math.min(runtime.sourceChunkFrames, AUDIO_EDITOR_PCM_CHUNK_FRAMES);
-						for (let start = 0; start < source.frameCount; start += size) {
-							assertReady();
-							yield await render.render(start, Math.min(size, source.frameCount - start));
-						}
-					}
-					await helpers.persistSourceChunks(staged, source.sourceId, chunks(), persistedSourceIds, operation);
-				} finally { await render.close(); }
-			}
-			const created = createCurrentAudioEditorProject(plan.project as never);
+			const layouts = await persistInterchangeMidiSources(runtime, helpers, operation, plan.midiSources, persistedSourceIds);
+			const projectOptions = withInterchangeMidiSourceLayouts(plan.project, layouts);
+			const created = createCurrentAudioEditorProject(projectOptions as never);
 			// Source-derived options enter the active product through its constructor;
 			// Soundscaper's adapter also preserves its richer routing authority.
 			importedProject = runtime.adaptAudacityProject
 				? await runtime.adaptAudacityProject(created, plan.routingContext)
-				: runtime.createImportedProject ? await runtime.createImportedProject(plan.project) : runtime.loadProject(created).project;
+				: runtime.createImportedProject ? await runtime.createImportedProject({ ...projectOptions, mixer: plan.routingContext.mixerGraph }) : runtime.loadProject(created).project;
 			assertReady();
 			const retainedIds = new Set([...plan.media.map((binding) => binding.sourceId), ...plan.midiSources.map(source => source.sourceId)]);
 			for (const sourceId of persistedSourceIds) {

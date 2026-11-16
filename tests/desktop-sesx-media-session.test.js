@@ -76,6 +76,21 @@ test('SESX folder grant finds exact-relative media before unique basename and re
 	assert.deepEqual(duplicate, { status: 'ambiguous' });
 });
 
+test('Ardour MIDI companions use the session directory and an explicitly selected media folder', async (context) => {
+	const { sessionFolder, selectedFolder, store, owner, granted } = await fixture(context, { extension: 'ardour' });
+	await mkdir(join(sessionFolder, 'midifiles'));
+	await writeFile(join(sessionFolder, 'midifiles', 'keys.mid'), 'MThd');
+	const direct = await store.resolve({ sessionReadId: SESSION_ID, relativePath: 'midifiles/keys.mid', owner });
+	assert.equal(direct.status, 'found');
+	assert.equal(granted[0].filePath, join(sessionFolder, 'midifiles', 'keys.mid'));
+	await mkdir(join(selectedFolder, 'relocated'));
+	await writeFile(join(selectedFolder, 'relocated', 'other.MIDI'), 'MThd');
+	const selected = await store.chooseFolder({ sessionReadId: SESSION_ID, owner });
+	const relocated = await store.resolve({ sessionReadId: SESSION_ID, relativePath: 'other.MIDI', mediaRootId: selected.mediaRootId, owner });
+	assert.equal(relocated.status, 'found');
+	assert.equal(granted[1].filePath, join(selectedFolder, 'relocated', 'other.MIDI'));
+});
+
 test('SESX folder picker cancellation and session retirement do not keep authority', async (context) => {
 	const { store, owner, chooseFolder } = await fixture(context);
 	chooseFolder(null);

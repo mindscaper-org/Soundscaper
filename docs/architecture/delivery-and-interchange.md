@@ -225,6 +225,17 @@ authoring appear in the import report. Selected companion media and desktop
 session-folder lookup bind referenced sources. Missing media retains an offline
 source and its edit for relinking rather than silently dropping clips.
 
+Referenced Standard MIDI Files in audio edit-list slots also use this boundary:
+OTIO recognizes `.mid`/`.midi` URLs and MIDI track declarations; selected or
+embedded audio-slot media can additionally be identified by its `MThd` header.
+Each SMF track becomes an editable MIDI lane, retaining the containing cut's
+placement and source trim. SMF tempo maps and SMPTE divisions resolve the note
+clock; original tempo/meter events stay in clip metadata, without replacing the
+project musical clock. These are referenced MIDI files, not a new inline-note
+schema for EDL, OTIO or FCPXML. Files without MIDI references cannot recover
+notes from rendered audio. Unreferenced companion MIDI must be imported
+separately after opening the edit.
+
 OMF uses a bounded OMF2 Bento container with composition, master and source
 mobs, mono/stereo WAV essence, gaps and source offsets. Export Other embeds
 24-bit PCM audio, with a 256 MiB decoded-PCM limit; the domain writer can also
@@ -240,6 +251,27 @@ Single-input effect groups retain their cuts and report omitted processing;
 transitions become reported overlapping cuts. Other unsupported components keep
 their duration as a reported gap. Source offsets use the referenced slot's edit
 rate, independently of the composition rate.
+
+AAF import also reads the standard
+[AS-01 edit-protocol MIDI attachment](https://static.amwa.tv/as-01-aaf-edit-protocol-spec.pdf)
+(§9): an Auxiliary data-definition slot references an auxiliary SourceMob with
+an `AuxiliaryDescriptor` whose MIME type is `audio/midi`. Static, timeline and
+event slots are supported; essence may be embedded or linked through existing
+companion/folder grants. One whole SMF file is co-timed with composition origin,
+and its individual tracks become editable MIDI. Repeated references are read
+once; multiple distinct MIDI attachments are refused. Nonzero source offsets
+are reported as omitted rather than guessed. A missing file retains an empty
+MIDI track and offline source without inventing clip timing. Unknown auxiliary
+MIME types remain omitted. Normal AAF export remains the audio profile below.
+
+AAF import reads standard mono/stereo gain operations, top-level mono pan and
+one-/two-parameter mono audio dissolves. Constant and linear control points
+retain their semantics; gain operations and crossfades multiply clip envelopes
+with bounded product error. Track pan becomes an automation lane. Unsupported
+interpolators are reported as linear conversions, and nested pan remains an
+omission. Vendor operations retain their identity and parameter records in
+bypassed entries when their single input can be retained. This is not a general
+third-party plug-in state interchange contract.
 
 File > Export other > Export AAF writes mono/stereo audio cuts, source offsets,
 gaps, names and exact sequence timecode, and embeds whole sources as 24-bit WAV.
@@ -279,19 +311,41 @@ tempo and signature maps, and float32 WAV media preserve the maintained scope.
 MIDI clips exchange editable standard Notes. Soundscaper comment metadata
 retains auxiliary MIDI messages and instrument/program settings; receiving
 applications must assign their own instrument. Imported notes also receive a
-synthesized PCM fallback before activation. Audio-oriented interchange and
+persisted synthesis recipe or streamed PCM fallback before activation. Audio-oriented interchange and
 Audacity exports report when only the MIDI carrier's PCM is delivered.
 
 DAWproject import validates and decodes before constructing the project,
 persists sources before switching documents, and removes newly persisted bodies
-if the switch fails. Unsupported plug-ins, effects, looping, automation,
-routing, video, or warp detail is reported rather than approximated.
+if the switch fails. Channel gain, pan and mute automation and individual send
+levels become absolute-sample automation lanes; held segments remain held.
+Musical anchors are resolved at import and do not move with later tempo edits;
+this clock conversion is reported.
+Linear dB curves are sampled in linear gain to a bounded error, rather than
+changing their interpolation unit. Generic Equalizer, Compressor, NoiseGate
+and Limiter devices map explicitly to realtime processors when their parameters
+are supported. Different DSP, unsupported ratios/gain stages and unavailable
+parameter scheduling are reported. Original device/automation records remain
+with the imported effect; eligible effect parameter automation targets stable
+effect and element IDs. EQ, gate and limiter parameters currently lack the
+engine's schedule queue and therefore retain their original curves opaquely.
+
+Foreign plug-ins retain rack order, identity, enabled state, parameters and
+embedded state in bypassed missing-effect entries. Only referenced embedded
+state is read, capped at 16 MiB per state and 64 MiB per import before base64;
+Reused state counts separately for each retained instance, with the same
+64 MiB total preservation ceiling; external/missing/oversized state retains a
+reported reference. These bytes are
+foreign presets, not the native host's snapshots. No plug-in is matched by
+name or instantiated by import. A compatible installed plug-in, identity check
+and format-specific restore adapter are required to make foreign state live.
+Scape save/reopen preserves these inert records and exact bytes. Unsupported
+looping, routing, video and warp detail remain reported.
 
 Ardour `.ardour` snapshots and SoundCraft `.scraft` JSON sessions use the shared
 timeline import staging and activation boundary. Readers select active audio
 playlists and retain exact cut placement and source offsets, static controls,
 and fade lengths. Ardour sample and superclock values are converted to rational
-seconds; beat-domain values are refused before staging. Separate stereo source
+seconds; beat-domain audio regions are refused before staging. Separate stereo source
 files become parallel hard-panned tracks with a conversion report. Overlapping
 Ardour layers remain additive cuts with a reported layering omission. SoundCraft
 v0/v1 sessions retain sample-domain timing and their sequence frame rate.
@@ -299,9 +353,35 @@ v0/v1 sessions retain sample-domain timing and their sequence frame rate.
 session before inflating anything, verify requested members, and read audio one
 source at a time. Desktop lookup uses existing owner-scoped session and folder
 grants; project paths never authorize arbitrary filesystem reads. Missing media
-retains offline cuts. Unsupported processing, MIDI, automation, routing, tempo,
-markers and alternate playlists are reported. These readers and their helpers
+retains offline cuts. Track gain, mono pan, mute and send-level automation,
+clip gain envelopes, bus/send routing and master controls are imported.
+SoundCraft aux/master strips and arrangement folders retain their identities;
+folder mute/solo stays a structural gate rather than a duplicate bus gate.
+Markers, ranges, modern stepped tempo maps and bar-aligned meter changes are
+retained. Alternate playlists, unsupported clocks, independent channel panners,
+hardware routing and unsupported automation targets are reported. These readers and their helpers
 belong to the deferred archive closure, outside the product startup graph.
+
+SoundCraft MIDI and instrument tracks retain inline notes, channels, attack and
+release velocities, program changes and supported channel controllers. Their
+960-PPQ events use the session's stepped tempo map at each clip's sample origin.
+Modern Ardour active MIDI playlists read single-track PPQ SMFs from `midifiles`, using
+the session tempo rather than the SMF's default tempo. Beat and superclock
+region positions, durations and source trims are retained across stepped tempo
+changes. Tempo ramps, music-time anchors and legacy MIDI clocks are reported as
+omitted. Missing or ambiguous MIDI companions retain offline edits without
+inventing notes. Supported stepped tempo and meter maps also become editable
+project metadata; imported notes retain their resolved sample timing.
+
+Both readers create editable MIDI carriers with the triangle instrument and
+report the instrument substitution. Generated recipes or streamed synthesis
+are persisted before activation through the same helper as DAWproject; canonical
+source chunk geometry comes from the persisted layout so Scape export/reopen
+retains playable sources. Browser companion selection and desktop folder grants
+also admit `.mid`/`.midi`. MIDI companions are bounded to 16 MiB each and 64 MiB
+in total; expanded session MIDI is limited to 250,000 notes and channel events.
+These same limits and persistence rules apply to referenced interchange MIDI
+and AAF MIDI attachments.
 
 The native readers follow Ardour's
 [`Session` snapshots and time serialization](https://github.com/Ardour/ardour/tree/522303bf7cbfd7d74510eb96e7da0762ffa73237/libs)

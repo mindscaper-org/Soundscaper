@@ -8,7 +8,7 @@ const MAX_SESSIONS = 4;
 const SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 const MAX_SCAN_ENTRIES = 20_000;
 const MAX_SCAN_DEPTH = 12;
-const AUDIO_EXTENSION = /\.(?:aac|aif|aifc|aiff|bw64|bwf|flac|m4a|mka|mov|mp2|mp3|mp4|oga|ogg|opus|rf64|wav|wave|wavpack|webm|wma|wv)$/iu;
+const MEDIA_EXTENSION = /\.(?:aac|aif|aifc|aiff|bw64|bwf|flac|m4a|midi?|mka|mov|mp2|mp3|mp4|oga|ogg|opus|rf64|wav|wave|wavpack|webm|wma|wv)$/iu;
 
 export function normalizeSesxRelativePath(value) {
 	if (typeof value !== 'string' || !value || value.length > 4096 || [...value].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) {
@@ -177,7 +177,7 @@ async function verifiedDirectory(selectedPath, expectedPath, identity) {
 function directoryIdentity(details) { return Object.freeze({ dev: details.dev, ino: details.ino }); }
 
 async function exactCandidate(root, parts) {
-	if (!root || !AUDIO_EXTENSION.test(parts.at(-1))) return null;
+	if (!root || !MEDIA_EXTENSION.test(parts.at(-1))) return null;
 	let current = root;
 	for (let index = 0; index < parts.length; index += 1) {
 		current = join(current, parts[index]);
@@ -195,7 +195,7 @@ async function exactCandidate(root, parts) {
 }
 
 async function uniqueBasenameCandidate(root, fileName, maxEntries) {
-	if (!AUDIO_EXTENSION.test(fileName)) return null;
+	if (!MEDIA_EXTENSION.test(fileName)) return null;
 	const lookupName = fileName.normalize('NFC').toLocaleLowerCase('en');
 	const queue = [{ path: root, depth: 0 }];
 	let count = 0;
