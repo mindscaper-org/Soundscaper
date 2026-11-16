@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { windowsVst2X86BuildSteps } from './windows-vst2-x86-build.mjs';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
@@ -220,8 +221,10 @@ function authenticatedBuildPlan({
 			'--install', buildRoot, '--config', 'Release', '--prefix', installRoot,
 		]) }),
 	});
-	AUTHENTICATED_BUILD_PLANS.add(plan);
-	return plan;
+	const bridge = windowsVst2X86BuildSteps(plan);
+	const complete = bridge === null ? plan : Object.freeze({ ...plan, windowsX86Vst2Bridge: bridge });
+	AUTHENTICATED_BUILD_PLANS.add(complete);
+	return complete;
 }
 
 export function executeSoundscaperProfessionalNativeBuild(plan, options = {}) {
@@ -230,7 +233,8 @@ export function executeSoundscaperProfessionalNativeBuild(plan, options = {}) {
 	try {
 		for (const witness of plan.sourceAuthentication) verifyMilestone5NativeSourceInput(witness);
 		const run = options.run ?? spawnSync;
-		for (const step of [plan.configure, plan.build, plan.test, plan.install]) {
+		for (const step of [plan.configure, plan.build, plan.test, plan.install,
+			...Object.values(plan.windowsX86Vst2Bridge ?? {})]) {
 			const result = run(step.command, step.argv, {
 				encoding: 'utf8', maxBuffer: MAXIMUM_BUILD_STEP_OUTPUT_BYTES,
 				stdio: options.stdio ?? 'pipe',

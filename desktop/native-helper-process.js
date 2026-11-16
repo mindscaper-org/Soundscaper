@@ -378,15 +378,22 @@ export async function createProfessionalNativeHelperRoleSeams(location, role, po
 		)).createSoundscaperProfessionalPluginPeer;
 		const formats = descriptor.target.startsWith('mac-') ? ['vst3', 'vst2', 'clap', 'au']
 			: descriptor.target.startsWith('linux-') ? ['vst3', 'vst2', 'clap', 'lv2', 'ladspa'] : ['vst3', 'vst2', 'clap'];
-		const effectPeer = createPeer({
+		let effectPeer = createPeer({
 			launcher: descriptor.target.startsWith('win-')
 				? (ports.createPluginLauncher ?? (await import('./project-library-runtime/desktop/native-plugin-process-launcher.js'))
 					.createNativePluginProcessLauncher)({ target: descriptor.target, peerExecutable: descriptor.pluginPeer,
 					artifacts: { launcher: descriptor.isolation.launcher, sandboxProfile: descriptor.isolation.sandboxProfile,
 						brokerPolicy: descriptor.isolation.brokerPolicy } }) : launcher,
 			peerExecutable: descriptor.pluginPeer, entryExecutable, entryArguments,
-			runtimeReadExecute: runtimeClosure, pluginFormats: formats,
+			runtimeReadExecute: descriptor.target.startsWith('win-') ? [] : runtimeClosure, pluginFormats: formats,
 		});
+		if (descriptor.target === 'win-x64' && runtimeClosure.some(({ path }) => path.replaceAll('\\', '/').endsWith('/runtime/soundscaper_vst2_x86_peer.exe'))) {
+			const { attachWindowsVst2Bridge } = await import('./project-library-runtime/desktop/windows-vst2-bridge-runtime.js');
+			effectPeer = attachWindowsVst2Bridge({ target: descriptor.target, nativePeer: effectPeer,
+				nativeExecutable: descriptor.pluginPeer, runtimeClosure,
+				artifacts: { launcher: descriptor.isolation.launcher, sandboxProfile: descriptor.isolation.sandboxProfile,
+					brokerPolicy: descriptor.isolation.brokerPolicy } });
+		}
 		if (role === 'plugin-scanner') {
 			const createVampPeer = ports.createVampPeer ?? (await import(
 				'./project-library-runtime/desktop/soundscaper-professional-vamp-peer.js'

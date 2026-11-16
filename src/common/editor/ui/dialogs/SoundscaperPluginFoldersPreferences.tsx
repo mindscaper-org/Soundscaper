@@ -70,6 +70,10 @@ export function SoundscaperPluginFoldersPanel({ copy, state, disabled, perform, 
 	const scanning = backgroundScanning || Object.values(state.scans).some((scan) => scan.running);
 	return <div className="kw-plugin-folder-preferences">
 		<p>{copy.pluginFoldersHelp}</p>
+		{plugins?.consent.windowsX86Vst2?.supported && <PreferenceCheckbox
+			label={copy.windowsX86Vst2} checked={plugins.consent.windowsX86Vst2.enabled} disabled={disabled}
+			onChange={(checked) => perform({ type: 'consent', format: 'vst2',
+				consent: checked ? 'enable-x86-vst2' : 'disable-x86-vst2' })} />}
 		{formats.map((format) => {
 			const custom = format.roots.filter((root) => root.origin === 'custom' && root.admitted);
 			return <fieldset key={format.format} data-native-plugin-format={format.format}>

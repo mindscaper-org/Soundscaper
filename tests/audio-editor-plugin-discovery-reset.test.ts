@@ -34,3 +34,15 @@ test('failed folder restoration does not enable scanning with incomplete default
 	}), /Settings unavailable/u);
 	assert.deepEqual(enabled, [false]);
 });
+
+test('factory reset restores the Windows x86 VST2 bridge to its disabled default', async () => {
+	const calls: unknown[] = [];
+	await restorePluginDiscoveryDefaults({
+		setEnabled: async (enabled) => { calls.push(['enabled', enabled]); },
+		nativePluginAvailability: async () => ({ consent: { formats: [], windowsX86Vst2: { supported: true, enabled: true } } }),
+		setNativePluginConsent: async (request) => { calls.push(request); },
+	});
+	assert.deepEqual(calls, [
+		['enabled', false], { action: 'disable-x86-vst2', format: 'vst2' }, ['enabled', true],
+	]);
+});

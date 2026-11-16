@@ -5,9 +5,13 @@ target_compile_features(soundscaper_plugin_identity_self_test PRIVATE cxx_std_20
 target_include_directories(soundscaper_plugin_identity_self_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 add_test(NAME soundscaper_plugin_identity_self_test COMMAND soundscaper_plugin_identity_self_test)
 
+set(vst2_fixture_formats VST)
+if(NOT SOUNDSCAPER_WINDOWS_X86_VST2_BRIDGE)
+	list(APPEND vst2_fixture_formats VST3)
+endif()
 juce_add_plugin(SoundscaperVST2Fixture
 	COMPANY_NAME Soundscaper PLUGIN_MANUFACTURER_CODE Scpr PLUGIN_CODE V2Fx
-	FORMATS VST VST3 PRODUCT_NAME SoundscaperVST2Fixture VERSION 1.0.0
+	FORMATS ${vst2_fixture_formats} PRODUCT_NAME SoundscaperVST2Fixture VERSION 1.0.0
 	COPY_PLUGIN_AFTER_BUILD FALSE)
 target_sources(SoundscaperVST2Fixture PRIVATE tests/professional_vst2_fixture.cpp)
 target_compile_features(SoundscaperVST2Fixture PRIVATE cxx_std_20)
@@ -22,14 +26,21 @@ add_dependencies(soundscaper_vst2_host_self_test SoundscaperVST2Fixture_VST)
 add_test(NAME soundscaper_vst2_host_self_test
 	COMMAND soundscaper_vst2_host_self_test "${vst2_fixture_bundle}")
 set_tests_properties(soundscaper_vst2_host_self_test PROPERTIES TIMEOUT 30)
-get_target_property(vst3_fixture_bundle SoundscaperVST2Fixture_VST3 JUCE_PLUGIN_ARTEFACT_FILE)
-add_dependencies(soundscaper_vst2_host_self_test SoundscaperVST2Fixture_VST3)
-add_test(NAME soundscaper_vst3_identity_host_self_test
-	COMMAND soundscaper_vst2_host_self_test "${vst3_fixture_bundle}" vst3)
-set_tests_properties(soundscaper_vst3_identity_host_self_test PROPERTIES TIMEOUT 30)
+if(NOT SOUNDSCAPER_WINDOWS_X86_VST2_BRIDGE)
+	get_target_property(vst3_fixture_bundle SoundscaperVST2Fixture_VST3 JUCE_PLUGIN_ARTEFACT_FILE)
+	add_dependencies(soundscaper_vst2_host_self_test SoundscaperVST2Fixture_VST3)
+	add_test(NAME soundscaper_vst3_identity_host_self_test
+		COMMAND soundscaper_vst2_host_self_test "${vst3_fixture_bundle}" vst3)
+	set_tests_properties(soundscaper_vst3_identity_host_self_test PROPERTIES TIMEOUT 30)
+endif()
 install(TARGETS soundscaper_vst2_host_self_test RUNTIME DESTINATION self-test)
 if(APPLE)
 	install(DIRECTORY "${vst2_fixture_bundle}" DESTINATION self-test)
 else()
 	install(FILES "${vst2_fixture_bundle}" DESTINATION self-test)
+endif()
+
+if(SOUNDSCAPER_WINDOWS_X86_VST2_BRIDGE)
+	install(FILES "${vst2_fixture_bundle}" DESTINATION self-test-x86
+		RENAME "SoundscaperVST2Fixture.dll" COMPONENT windows-x86-vst2-bridge)
 endif()

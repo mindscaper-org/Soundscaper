@@ -26,7 +26,6 @@
 		"desktop/openfx-main-service.ts": 592,
 		"desktop/plugin-host-isolation.ts": 577,
 		"desktop/plugin-instance-state.ts": 589,
-		"desktop/plugin-registry.ts": 577,
 		"desktop/project-library-exact-generation-main.ts": 591,
 		"desktop/save-targets.js": 592,
 		"desktop/soundscaper-delivery-service.ts": 594,
@@ -203,7 +202,7 @@
 		"tests/project-transfer-bundle.test.ts": 598,
 		"tests/project-transfer-conversion-report-custody.test.ts": 598,
 		"tests/project-transfer-handshake.test.ts": 600,
-		"tests/soundscaper-professional-native-build-result.test.js": 564,
+		"tests/soundscaper-professional-native-build-result.test.js": 559,
 		"tests/soundscaper-soak-debug.test.js": 579,
 		"tests/staffpad-time-pitch.test.js": 583
 	},

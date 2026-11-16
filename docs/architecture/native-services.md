@@ -217,13 +217,17 @@ VST2 uses JUCE's legacy host with the authenticated FST 0.177.0
 GPL-3.0-or-later compatibility headers, without the proprietary Steinberg SDK.
 The build copy restores the fixed inline-array storage floors and reserved pin
 properties tail that JUCE's legacy record allocation expects, and selects a
-64-bit pointer integer on both Windows architectures. The pinned FST source
-remains unchanged.
+pointer-sized integer for the native Windows peers and the x86 bridge. The
+pinned FST source remains unchanged.
 VST2 uses the same automatic standard-folder discovery and plug-in preferences
 as the other formats, including saved discovery settings and folder choices.
 Candidates are `.vst` bundles on macOS, `.dll` files on Windows, and `.so`
-files on Linux. Plug-ins must match the desktop process architecture; no
-32-bit bridge or cross-architecture emulation is provided. VST2 instances use
+files on Linux. Windows x64 additionally supports 32-bit x86 VST2 plug-ins
+through an optional peer. Enable **32-bit VST2 plugins** in the existing
+**Edit > Preferences > Effects** page, add the installed plug-in folder, and
+scan it. Bridging defaults off, including after restoring factory settings. Windows ARM64, macOS and Linux retain their
+matching-architecture requirements; VST3 and CLAP remain native-architecture
+formats on every target. VST2 instances use
 the same isolation, digest allowance, parameters, vendor windows, latency,
 opaque state, real-time and offline routes as the other native effects. ARA
 remains VST3-only. Native CTest fixtures exercise VST2 and VST3 discovery,
@@ -231,6 +235,26 @@ relocation between snapshots, processing, parameters, latency and state
 restoration into a new instance, alongside native LADSPA ID checks.
 The state fixture requires the host's processor-construction thread; the Linux
 VST2 wrapper's private JUCE GUI thread is independent of that host dispatcher.
+
+The Windows x64 package builds `runtime/soundscaper_vst2_x86_peer.exe` from the
+same authenticated sources with a separate Win32 build and VST2 fixture. It is
+a required, digest-pinned runtime artifact of the Windows x64 package, not an
+additional desktop target. Build-result architecture admission permits PE32
+only for this exact role; the other binaries retain their native architecture
+requirements. The installed cross-architecture canary covers consent refusal,
+scan/open, PCM, parameters, latency, state restoration into a fresh instance and
+vendor-window open/close. The native launcher serializes CRT startup handles at
+the child's pointer width and applies the existing Job supervision and limits.
+
+Main grants bridge execution only after explicit consent. The peer router
+checks the candidate's exact file identity, length, digest and PE architecture
+before selecting the x86 peer. Scan metadata retains the candidate architecture,
+including separate x86/x64 installations sharing one VST2 ID. Existing allowance
+and explicit installation selection still apply; no state is transferred between
+architectures automatically. Disabling the bridge cancels scans, revokes its
+live hosts and blocks retained installations without discarding saved state.
+Unresolved incompatible scan observations cannot claim a native stable ID;
+a successful rescan replaces their digest-keyed placeholder.
 
 Runtime hosting isolates one renderer owner and one plug-in digest per process.
 On Windows, effect discovery and hosting use trusted plug-in processes with
@@ -254,7 +278,7 @@ global shared plug-in process are used.
 
 Scanning receives the same one-GiB memory ceiling as hosting: library discovery
 can initialize the full vendor engine before describing it. The helper hard
-ceiling remains unchanged. Windows x64 VST2 peers additionally keep bottom-up
+ceiling remains unchanged. Native x64 VST2 peers on Windows additionally keep bottom-up
 allocation ASLR enabled but disable high-entropy allocation in that child.
 This supports older statically linked runtimes that truncate heap pointers;
 image ASLR and the full 64-bit address space remain available. VST3, CLAP,

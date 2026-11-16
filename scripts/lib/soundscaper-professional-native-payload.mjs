@@ -321,7 +321,8 @@ function validIsolation(target, manifest) {
 		|| !Array.isArray(target.isolation.runtimeClosure) || target.isolation.runtimeClosure.length > 128) return false;
 	const runtimePrefix = `${root}/${manifest.isolation.runtimeDirectory}/`;
 	const paths = target.isolation.runtimeClosure.map(({ path }) => path);
-	return paths.length === new Set(paths).size
+	return (target.id !== 'win-x64' || paths.includes(`${root}/runtime/soundscaper_vst2_x86_peer.exe`))
+		&& paths.length === new Set(paths).size
 		&& target.isolation.runtimeClosure.every((entry) => validArtifact(entry)
 			&& entry.path.startsWith(runtimePrefix) && !entry.path.slice(runtimePrefix.length).includes('/../'))
 		&& (target.isolation.entrypointPath === target.pluginPeer.path

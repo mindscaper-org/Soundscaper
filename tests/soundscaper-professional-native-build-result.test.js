@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { packagedAppFixture } from './helpers/soundscaper-professional-packaged-app-fixture.ts';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -408,6 +409,7 @@ async function candidateFixture(context, target = 'linux-x64', sourceRevision = 
 			: ['windows-v1.json', 'windows-broker-v1.json'];
 	for (const [path, contents] of [
 		[join(professionalInstallRoot, 'soundscaper_professional.node'), 'addon'],
+		...(target === 'win-x64' ? [[join(professionalInstallRoot, 'runtime/soundscaper_vst2_x86_peer.exe'), 'x86-peer']] : []),
 		[join(professionalInstallRoot, `soundscaper_professional_peer${windows ? '.exe' : ''}`), 'peer'],
 		[join(professionalInstallRoot, `soundscaper_delivery_fs${windows ? '.exe' : ''}`), 'delivery-fs'],
 		[join(isolationInstallRoot,
@@ -475,9 +477,11 @@ function fixtureToolchainReceipt(target) {
 
 function dependencyInspection(path, imports, target = 'linux-x64') {
 	return {
-		architecture: architectureReceipt(target),
+		architecture: target === 'win-x64' && path.endsWith('/runtime/soundscaper_vst2_x86_peer.exe')
+			? { schemaVersion: 1, target, architecture: 'ia32', format: 'pe32', machine: 'IMAGE_FILE_MACHINE_I386' }
+			: architectureReceipt(target),
 		imports,
-		rpaths: path.includes('soundscaper_professional_peer')
+		rpaths: !target.startsWith('win-') && path.includes('soundscaper_professional_peer')
 			? [target === 'mac-arm64' ? '@loader_path/runtime' : '$ORIGIN/runtime'] : [],
 	};
 }
@@ -542,23 +546,14 @@ function packagedAppAuthority(target, sourceRevision = SOURCE_REVISION) {
 	};
 }
 
-async function packagedAppFixture(root, sourceRevision) {
-	const resources = join(root, 'linux-unpacked/resources');
-	await mkdir(resources, { recursive: true });
-	await writeFile(join(root, 'linux-unpacked/soundscaper'), 'executable');
-	const resource = Buffer.from('resource');
-	await writeFile(join(resources, 'app.asar'), resource);
-	const files = [{ path: 'app.asar', byteLength: resource.byteLength, sha256: sha256(resource) }];
-	await writeFile(join(resources, 'milestone-5-package-content.json'), `${JSON.stringify({
-		schemaVersion: 1, status: 'installed-resource-closure-audited',
-		productId: 'soundscaper', targetId: 'linux-x64', applicationVersion: '1.0.0-rc.1',
-		sourceRevision,
-		runtimeManifest: {
-			byteLength: 1, sha256: '1'.repeat(64),
-			value: { schemaVersion: 1, productId: 'soundscaper', sourceRevision,
-				target: { platform: 'linux', arch: 'x64' } },
-		},
-		files, fileCount: 1, totalBytes: resource.byteLength,
-		closureSha256: sha256(Buffer.from(JSON.stringify(files), 'utf8')),
-	}, null, 2)}\n`);
-}
+test('Windows x64 build results carry the authenticated x86 bridge as a distinct runtime artifact', async (context) => {
+	const fixture = await candidateFixture(context, 'win-x64');
+	const built = await createSoundscaperProfessionalNativeBuildResult({ ...fixture.options,
+		inspectDependencies: async ({ path }) => dependencyInspection(path, [], 'win-x64'),
+		runSelfTest: async (request) => ({ status: request.expectedStatus, stdout: 'passed', stderr: '' }),
+	});
+	assert.equal(built.receipt.isolation.runtimeClosure.filter(({ path }) => path === 'payload/runtime/soundscaper_vst2_x86_peer.exe').length, 1);
+	assert.ok(requiredSoundscaperProfessionalNativeSelfTestIds('win-x64').includes('windows-x86-vst2-bridge'));
+	assert.ok(!requiredSoundscaperProfessionalNativeSelfTestIds('win-arm64').includes('windows-x86-vst2-bridge'));
+	await verifySoundscaperProfessionalNativeBuildResult({ buildResultRoot: fixture.candidateRoot });
+});

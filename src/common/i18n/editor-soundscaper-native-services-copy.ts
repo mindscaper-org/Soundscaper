@@ -15,6 +15,7 @@ export const SOUNDSCAPER_NATIVE_SERVICES_COPY = Object.freeze({
 	projectReadOnly: 'The project is read-only',
 	audioPluginEffects: "Audio Plugins",
 	pluginScan: 'Scan for effects',
+	windowsX86Vst2: 'Enable 32-bit VST2 plugins',
 	pluginManage: "Plugin Manager",
 	pluginIncompatible: 'Incompatible',
 	pluginDisabled: 'Disabled',
