@@ -26,8 +26,8 @@ export function createClipControlTopologyAdmission(base: unknown) {
 			if (![...next].some(([owner, controls]) => [...controls].some(id => !previous.get(owner)?.has(id)))) return;
 			try { assertAcyclicRoutingV21(next.keys(), next, 'Clip detector feedback cycle.'); }
 			catch {
-				throw createLocalizedError(RangeError, {}, 'autoDuckOtherControlTrack', undefined,
-					{ fallback: 'Auto Duck requires another audio control track without a feedback cycle.' });
+				throw createLocalizedError(RangeError, {}, 'autoDuckControlFeedbackCycle', undefined,
+					{ fallback: 'Auto Duck control tracks cannot form a feedback cycle. Choose a different control track.' });
 			}
 		},
 	};

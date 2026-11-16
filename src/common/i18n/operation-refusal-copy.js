@@ -29,6 +29,7 @@ export const OPERATION_REFUSAL_COPY_BY_LOCALE = Object.freeze({
 			effectUnsupported: 'This effect is not supported.',
 			effectEngineUnsupported: 'This effect is not supported by the local audio engine.',
 			autoDuckOtherControlTrack: 'Auto Duck requires another control track.',
+			autoDuckControlFeedbackCycle: 'Auto Duck control tracks cannot form a feedback cycle. Choose a different control track.',
 			autoDuckSecondControlTrack: 'Auto Duck requires a second control track.',
 			noiseReductionAddedDisabled: 'Noise Reduction was added disabled. Capture a noise profile in the effect to enable it.',
 			selectionEffectUnsupported: 'This selection effect is not supported.',
