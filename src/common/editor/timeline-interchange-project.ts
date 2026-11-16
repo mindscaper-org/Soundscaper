@@ -11,6 +11,7 @@ import type { TimelineInterchangeDocument, TimelineInterchangeClip } from './tim
 import { interchangeClipControls, interchangeTrackControls } from './timeline-interchange-audio-controls.ts';
 import { prepareTimelineInterchangeMidi, type TimelineInterchangeMidiSource } from './timeline-interchange-midi.ts';
 import { timelineInterchangeMix } from './timeline-interchange-mix.ts';
+import { timelineInterchangeTrackTree } from './timeline-interchange-track-tree.ts';
 import { withMidiClipData, withMidiTrackData } from './midi-model.ts';
 
 export interface TimelineInterchangeImportOptions {
@@ -110,6 +111,10 @@ export function buildTimelineInterchangeProject(document: TimelineInterchangeDoc
 		if (track.midi) addDeliveryReportItem(draft, { code: `${document.format}.midi-instrument-converted`, disposition: 'converted', severity: 'warning',
 			scope: { kind: 'track', id }, message: 'Editable MIDI uses the triangle synthesizer; assign the desired instrument after import.' });
 	}
+	const trackNodes = timelineInterchangeTrackTree(document, trackIds, folderIds);
+	const trackOrder = new Map(trackNodes.filter(node => node.kind === 'track').map((node, index) => [node.id, index]));
+	tracks.sort((left, right) => trackOrder.get(String(left.id))! - trackOrder.get(String(right.id))!);
+	const folders = new Map(document.folders?.map(folder => [folderIds.get(folder.id)!, folder]));
 	const trackWidths = new Map(tracks.map(track => [String(track.id), Math.max(1, ...clips.filter(clip => (track.clipIds as string[]).includes(String(clip.id))).map(clip => Number(sources.find(source => source.id === clip.sourceId)?.channelCount ?? 2)))]));
 	const production = timelineInterchangeMix(document, trackIds, tracks, sampleRate, options.createStableId, trackWidths, folderIds);
 	for (const issue of production.issues) addDeliveryReportItem(draft, issue);
@@ -120,10 +125,10 @@ export function buildTimelineInterchangeProject(document: TimelineInterchangeDoc
 		...(document.signatureMap ? { signatureMap: document.signatureMap } : {}),
 		automationLanes: production.automationLanes, finishing: { mixer: production.mixer, automationLanes: production.automationLanes },
 		timelineAnnotations: document.markers?.map(marker => ({ id: options.createStableId('marker'), sequenceId: 'main-sequence', anchor: 'sample', ...(marker.endFrame === undefined ? { kind: 'marker', positionFrame: Math.round(marker.frame * sampleRate / document.sampleRate) } : { kind: 'region', startFrame: Math.round(marker.frame * sampleRate / document.sampleRate), endFrame: Math.round(marker.endFrame * sampleRate / document.sampleRate) }), name: marker.name, color: 'auto', batchId: null, opaqueExtensions: {} })),
-		trackFolders: document.folders?.map(folder => ({ id: folderIds.get(folder.id), name: folder.name, mute: folder.mute, solo: folder.solo })),
+		trackFolders: trackNodes.filter(node => node.kind === 'folder').map(node => { const folder = folders.get(node.id)!; return { id: node.id, name: folder.name, mute: folder.mute, solo: folder.solo }; }),
 		primarySequenceId: 'main-sequence', sequences: [{ id: 'main-sequence', name: title, rate: document.rate,
 			dropFrame: document.dropFrame, startTimecode: sequenceTimecodeFromFrameCount(document.startFrameCount, document.rate, document.dropFrame),
-			trackIds: tracks.map(track => track.id), trackNodes: [...(document.folders ?? []).map(folder => ({ kind: 'folder', id: folderIds.get(folder.id), parentFolderId: folder.parentFolderId ? folderIds.get(folder.parentFolderId) : null })), ...document.tracks.map(track => ({ kind: 'track', id: trackIds.get(track.id), parentFolderId: track.folderId ? folderIds.get(track.folderId) : null }))] }],
+			trackIds: tracks.map(track => track.id), trackNodes }],
 	};
 	addDeliveryReportItem(draft, { code: `${document.format}.timeline-imported`, disposition: 'preserved', severity: 'info', data: { tracks: tracks.length, clips: clips.length, sources: sources.length }, message: 'Timeline tracks, cut placement, source trims and sequence timing were imported.' });
 	if (midi.midiSources.length) addDeliveryReportItem(draft, { code: `${document.format}.midi-preserved`, disposition: 'preserved', severity: 'info',

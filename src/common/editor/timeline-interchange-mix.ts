@@ -61,7 +61,8 @@ export function timelineInterchangeMix(document: TimelineInterchangeDocument, tr
 		}
 	};
 	for (const track of document.tracks) { const id = trackIds.get(track.id); if (id && track.kind === 'audio') append({ ...track, ...(track.output === undefined && track.folderId ? { output: track.folderId } : {}) }, { kind: 'track', id }); }
-	for (const bus of document.buses ?? []) append(bus, { kind: 'mixer-node', id: busIds.get(bus.id)! });
+	const folderParents = new Map(document.folders?.map(folder => [folder.id, folder.parentFolderId]));
+	for (const bus of document.buses ?? []) append({ ...bus, ...(bus.output === undefined && folderParents.get(bus.id) ? { output: folderParents.get(bus.id)! } : {}) }, { kind: 'mixer-node', id: busIds.get(bus.id)! });
 	append(document.master ?? {}, { kind: 'master' });
 	automationLanes.push(...lanes.values());
 	const mixer = normalizeMixerGraphV21({ ...base, groups, edges });

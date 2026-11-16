@@ -10,6 +10,29 @@ import { encodeWav } from '../../src/common/editor/wav.js';
 import { ardourMidiBytes, ardourMidiSession, soundcraftMidiSession } from '../helpers/project-midi-import-fixtures.ts';
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 import { readMidiClip } from '../../src/common/editor/midi-model.ts';
+import { soundcraftNestedFolderSession } from '../helpers/soundcraft-folder-import-fixture.ts';
+
+test('File Import opens nested SoundCraft folders and retains the parent fader route after reload', async ({ page }) => {
+	let editor = await bootEditor(page, '/embed/en/', { defaultWorkspace: true });
+	const session = soundcraftNestedFolderSession();
+	await importFiles(editor, [
+		{ name: 'Folders.scraft', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(session)) },
+		{ name: 'voice.wav', mimeType: 'audio/wav', buffer: Buffer.from(encodeWav([new Float32Array(48000).fill(.25)], { sampleRate: 48000, float: true })) },
+	]);
+	await expect(editor).toHaveAttribute('data-clip-count', '2');
+	await expect(editor.getByRole('treeitem', { name: 'Folder Parent, level 1', exact: true })).toBeVisible();
+	await expect(editor.getByRole('treeitem', { name: 'Folder Child, level 2', exact: true })).toBeVisible();
+	const id = await editor.getAttribute('data-project-id');
+	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+	await page.reload();
+	editor = await waitForEditor(page);
+	await expect(editor).toHaveAttribute('data-project-id', id);
+	const project = await persistedProject(page, id);
+	const parent = project.mixer.groups.find(bus => bus.name === 'Parent');
+	const child = project.mixer.groups.find(bus => bus.name === 'Child');
+	const edge = project.mixer.edges.find(edge => edge.kind === 'assignment' && edge.source.kind === 'mixer-node' && edge.source.id === child.id);
+	expect(edge.destination).toEqual({ kind: 'mixer-node', id: parent.id });
+});
 
 test('File Import opens Ardour and SoundCraft audio sessions and File Open restores a SoundCraft bundle', async ({ page }) => {
 	await disableNativeSavePicker(page);
