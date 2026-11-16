@@ -35,7 +35,7 @@ export function createSelectionEffectMenuGroups(input: Input) {
 	const effectGroups = createEffectMenuEntries({
 		organization: input.preferences?.effects?.menuOrganization,
 		copy: input.copy, effectLabels, productId: input.productId, locale: input.locale,
-		typeBlocked: input.typeBlocked,
+		typeBlocked: type => type !== 'automatic-microphone-bleed-reduction' && input.typeBlocked?.(type) === true,
 		disabled: input.editBlocked || !effectTargeting.effectAudioTrack,
 		selectionActive: effectTargeting.explicitEffectSelectionActive,
 		allAudioTarget: effectTargeting.effectPreferenceTargetsAll,

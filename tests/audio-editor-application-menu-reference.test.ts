@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { isDeepStrictEqual } from 'node:util';
 
 import {
 	AUDACITY_ACTION_MANIFEST,
@@ -158,12 +159,12 @@ test('every runnable application-menu leaf has one truthful handbook reference',
 
 		const observedProducts = uniqueSorted(observed.map(({ product }) => product));
 		const documentedProducts = uniqueSorted(entry.products);
-		if (!sameStrings(observedProducts, documentedProducts)) {
+		if (!isDeepStrictEqual(observedProducts, documentedProducts)) {
 			metadataErrors.push(`${entry.id} products: ${documentedProducts.join('; ')} != ${observedProducts.join('; ')}`);
 		}
 		const observedLocations = uniqueSorted(observed.map(({ location }) => location));
 		const documentedLocations = uniqueSorted(entry.locations);
-		if (!sameStrings(observedLocations, documentedLocations)) {
+		if (!isDeepStrictEqual(observedLocations, documentedLocations)) {
 			metadataErrors.push(`${entry.id} locations: ${documentedLocations.join('; ')} != ${observedLocations.join('; ')}`);
 		}
 
@@ -545,6 +546,3 @@ function uniqueSorted(values: readonly string[]): string[] {
 	return [...new Set(values)].sort((left, right) => left.localeCompare(right, 'en'));
 }
 
-function sameStrings(left: readonly string[], right: readonly string[]): boolean {
-	return left.length === right.length && left.every((value, index) => value === right[index]);
-}

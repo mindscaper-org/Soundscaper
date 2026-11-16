@@ -33,6 +33,7 @@ test('selection menu composition requires two to eight explicitly selected micro
 			project: { tracks, clips: [], selection: { startFrame: 0, endFrame: 8000, trackIds: tracks.map(track => track.id), frequencyRange: spectral ? {} : null } },
 			snapshot: {}, selectedClipId: null, copy: ENGLISH_COPY, productId: 'soundscaper', editBlocked: false,
 			effectTargeting: { effectAudioTrack: tracks[0], explicitEffectSelectionActive: true, effectPreferenceTargetsAll: false },
+			typeBlocked: () => assert.fail('Joint microphone analysis must use its own target admission.'),
 			openSelectionEffect: () => undefined,
 		});
 		const entry = (effectGroups as readonly MenuEntry[]).find(group => group.id === 'noiseRepair')?.items?.find(item => item.id === 'automatic-microphone-bleed-reduction');

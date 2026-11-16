@@ -2,6 +2,9 @@
 
 // Stable command identity, English label, and purpose. Descriptions are localized separately.
 export const MENU_TOOLTIP_COMMANDS: Readonly<Record<string, readonly [string, string]>> = Object.freeze({
+	'match-eq': ['Match EQ', 'Match the selected audio’s tonal balance to a learned reference or saved voice profile.'],
+	'transcript-based-editing': ['Transcript-based editing', 'Select spoken words to locate and edit their audio on the timeline.'],
+	'panel-transcript-editing': ['Transcript-based editing', 'Select spoken words to locate and edit their audio on the timeline.'],
 	'juce-effects': ['JUCE', 'Choose a bundled desktop audio processor for the selected track.'],
 	'juce-effect-gain': ['Gain', 'Adjust the signal level with a constant amplification.'],
 	'juce-effect-reverb': ['Reverb', 'Add a simulated acoustic decay with adjustable size, damping and stereo width.'],

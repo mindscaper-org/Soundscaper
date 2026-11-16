@@ -78,11 +78,11 @@ export function projectTranscriptWords(value: unknown, bodies: readonly Transcri
 				if (clip.warpMap != null) {
 					const outer = evaluateAudioWarpMapAtSource(clip.warpMap, frame);
 					return clip.anchor === 'musical'
-						? beatToSampleFrame(addRationals(clip.musicalStartBeat as RationalInput, outer), project.tempoMap!, project.sampleRate, policy) - clip.timelineStartFrame
-						: roundRational(outer.num, outer.den, policy);
+						? beatToSampleFrame(addRationals(clip.musicalStartBeat as RationalInput, outer), project.tempoMap!, project.sampleRate, policy === 'enclosingStart' ? 'enclosingStart' : 'enclosingEnd') - clip.timelineStartFrame
+						: roundRational(outer.num, outer.den, policy === 'enclosingStart' ? 'enclosingStart' : 'enclosingEnd');
 				}
 				return scaleSampleFrame(clip.reversed === true ? clip.sourceEndFrame - frame : frame - clip.sourceStartFrame,
-					clip.sourceDurationFrames, loop?.periodFrames ?? clip.durationFrames, policy);
+					clip.sourceDurationFrames, loop?.periodFrames ?? clip.durationFrames, policy === 'enclosingStart' ? 'enclosingStart' : 'enclosingEnd');
 			};
 			const covered: { start: number; end: number }[] = [];
 			for (const body of bodies) {

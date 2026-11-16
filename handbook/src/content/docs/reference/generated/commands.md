@@ -294,6 +294,7 @@ Product availability follows each product profile’s command filters and each l
 | Markers | `panel-markers` | — | Window | Soundscaper, Framescaper | Soundscaper local |
 | Markers | `show-markers` | — | View | Soundscaper, Framescaper | Soundscaper local |
 | Mastering sequences | `soundscaper-mastering-sequences` | — | Tools | Soundscaper | Soundscaper local |
+| Match EQ | `match-eq` | — | Effect > EQ and filters | Soundscaper | Soundscaper local |
 | Measure RMS | `nyquist:rms` | — | Nyquist | Soundscaper | Audacity |
 | Measure loudness | `measure-loudness` | — | Analyze | Soundscaper | Soundscaper local |
 | Metadata | `panel-metadata` | — | Window | Soundscaper, Framescaper | Soundscaper local |
