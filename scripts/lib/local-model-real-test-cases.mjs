@@ -110,7 +110,9 @@ export function validateLocalModelRealTestCases(value, catalogValue, { candidate
 		if (!operation || tasks.toSorted().join('|') !== operation.tasks.toSorted().join('|')) {
 			throw new TypeError(`${id} has an unsupported operation or incomplete model pair.`);
 		}
-		if (entry.fixtureId !== operation.fixtureId) throw new TypeError(`${id} has an incompatible fixture.`);
+		const fixtureId = entry.operation === 'speech-enhancement' && modelIds.length === 1
+			&& modelIds[0] === 'voicefixer' ? 'clipped-speech-48khz' : operation.fixtureId;
+		if (entry.fixtureId !== fixtureId) throw new TypeError(`${id} has an incompatible fixture.`);
 		if (entry.validation !== operation.validation) throw new TypeError(`${id} has an incompatible output validation.`);
 		validateDocumentation(entry.documentation, modelIds, id);
 	}

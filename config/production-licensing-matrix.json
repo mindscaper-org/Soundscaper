@@ -1711,6 +1711,52 @@
 	],
 	"localModelEvidence": [
 		{
+			"id": "voicefixer",
+			"purpose": "Optional speech declipping and restoration through Enhance Dialogue.",
+			"runtimeFormat": "onnx",
+			"codeLicense": "MIT AND Apache-2.0",
+			"weightsLicense": "CC-BY-4.0",
+			"attributionRequired": true,
+			"distributionStatus": "blocked",
+			"blockedBy": [
+				"versioned-download-notices-and-hashes"
+			],
+			"requirements": {
+				"weights-and-code-license-review": {
+					"status": "recorded",
+					"summary": "Haohe Liu releases the original checkpoints on Zenodo record 5600188 under CC-BY-4.0 and VoiceFixer code under MIT. The selected ONNX model card declares MIT for its exports; this product additionally preserves the original CC-BY-4.0 attribution and modification obligations for the underlying weights. The converter code is Apache-2.0. Complete license texts, source links and conversion attribution are retained."
+				},
+				"training-data-provenance-record": {
+					"status": "recorded",
+					"summary": "VoiceFixer publications and the upstream training repository describe synthetic degradation of clean speech, including noise, reverberation, clipping and bandwidth reduction. The selected converter supplies model identities and reported real-speech parity but no independent training-corpus audit; per-recording rights and full training reproducibility remain unverified."
+				},
+				"model-card-and-use-restrictions": {
+					"status": "recorded",
+					"summary": "The retained card targets general speech restoration, explicitly including clipping, and describes generative resynthesis over a fixed five-second window. No non-commercial restriction is present in the original CC-BY-4.0 checkpoint grant. Reconstructed details are estimates; the product makes no music-restoration claim."
+				},
+				"versioned-download-notices-and-hashes": {
+					"status": "pending",
+					"summary": "Upstream bytes and inspected graph/filter geometry are pinned in config/voicefixer-model-source.json and evidence/voicefixer-model-inspection.json. Model Manager activation requires immutable product publication and public HEAD, byte-range, CORS and full SHA-256 readback. No publication receipt is claimed."
+				}
+			},
+			"provenanceSources": [
+				"https://zenodo.org/records/5600188",
+				"https://github.com/haoheliu/voicefixer/tree/aae2253c85f97a87b844b6832384de249c23ab37",
+				"https://github.com/TigreGotico/audiosronnx/tree/e31e2207dbaf452f9696d056d3931b64cfe36a13",
+				"https://huggingface.co/TigreGotico/audiosronnx-voicefixer/tree/aa259fa578b9d5f4c76fda3cd967f73542b0e15b"
+			],
+			"evidence": [
+				"config/voicefixer-model-source.json",
+				"evidence/voicefixer-model-inspection.json",
+				"LICENSES/local-models/voicefixer-LICENSE.txt",
+				"LICENSES/local-models/voicefixer-weights-CC-BY-4.0.txt",
+				"LICENSES/local-models/voicefixer-ONNX-MODEL-CARD.md",
+				"LICENSES/local-models/voicefixer-converter-LICENSE.txt",
+				"docs/features/speech-declipping.md",
+				"THIRD_PARTY_LICENSES.md"
+			]
+		},
+		{
 			"id": "basic-pitch",
 			"purpose": "Optional polyphonic audio-to-MIDI note transcription.",
 			"runtimeFormat": "onnx",

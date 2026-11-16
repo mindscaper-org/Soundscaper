@@ -1698,3 +1698,22 @@ URLs and hashes, local source and license pins, and the artifact hash are in
 texts are retained in `src/common/editor/ear/THIRD_PARTY_NOTICES.txt`, emitted
 as an asset referenced by the delivery report. Rebuild with `npm run build:ear`
 and verify with `npm run audit:ear`. See `src/common/editor/ear/NOTICE.md`.
+
+## VoiceFixer speech restoration candidate
+
+VoiceFixer is by Haohe Liu and collaborators. The original checkpoints are
+published under [CC-BY-4.0](https://zenodo.org/records/5600188); inference code
+is [MIT](https://github.com/haoheliu/voicefixer). The selected ONNX conversion
+is by TigreGóticoLda, from the Apache-2.0
+[audiosronnx converter](https://github.com/TigreGotico/audiosronnx/tree/e31e2207dbaf452f9696d056d3931b64cfe36a13).
+It changes artifact representation and fixes the analysis window to five
+seconds. Its MIT model-card declaration is retained alongside the original
+checkpoint CC-BY-4.0 grant and attribution. This product adds bounded windowing,
+resampling, crossfades and exact center alignment; it does not claim to recover
+the original unclipped waveform exactly.
+
+The immutable source revision, exact artifact identities and full notice texts
+are recorded in `config/voicefixer-model-source.json` and
+`LICENSES/local-models/voicefixer-*`. This candidate is not offered through Model
+Manager until verified product-asset publication completes. No model bytes are
+bundled in this repository or the application installer.
