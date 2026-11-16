@@ -57,6 +57,7 @@ export interface NativePluginFormatConsentView {
 }
 
 export interface NativePluginConsentView {
+	readonly windowsX86Vst2?: Readonly<{ supported: boolean; enabled: boolean }>;
 	readonly scanningEnabled: boolean;
 	readonly formats: readonly NativePluginFormatConsentView[];
 }
@@ -105,7 +106,7 @@ export type NativePluginScanOutcome =
 	}>
 	| Readonly<{ status: 'failed'; code: string; message: string }>;
 
-export type NativePluginConsentAction = 'grant' | 'revoke' | 'add-standard-root' | 'add-custom-root' | 'remove-root';
+export type NativePluginConsentAction = 'enable-x86-vst2' | 'disable-x86-vst2' | 'grant' | 'revoke' | 'add-standard-root' | 'add-custom-root' | 'remove-root';
 
 /** The quarantine's only exit, named by the clearance the store accepts. */
 export type NativePluginQuarantineClearance = 'rescan' | 're-enable';

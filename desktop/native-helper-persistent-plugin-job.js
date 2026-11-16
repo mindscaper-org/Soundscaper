@@ -79,7 +79,8 @@ export function createNativePersistentPluginJobRunner({
 						grant.format,
 						grant.stableId,
 						{ identity: grant.identity, byteLength: grant.binaryBytes,
-							sha256: grant.binarySha256, resourcePolicy },
+							sha256: grant.binarySha256, resourcePolicy,
+						...(grant.windowsX86Vst2 ? { windowsX86Vst2: true } : {}) },
 					);
 					if (!current(observedGeneration)) return;
 					const reportedLatencyFrames = await addon.pluginLatencyFrames(instance);

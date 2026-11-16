@@ -199,6 +199,21 @@ test('Effects preferences manages supported plugin folders without format switch
 	expect(box.x + box.width).toBeLessThanOrEqual(390);
 });
 
+
+test('Windows x64 bridge is explicitly enabled and disabled through Effects preferences', async ({ page }) => {
+	await installNativeServicesFixture(page, false, false, true, { bridge: true });
+	const editor = await bootEditor(page, '/embed/en/');
+	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+	await preferences.getByRole('tab', { name: /Effects$/u }).click();
+	const bridge = preferences.getByRole('checkbox', { name: 'Enable 32-bit VST2 plugins', exact: true });
+	await expect(bridge).not.toBeChecked();
+	await bridge.click(); await expect(bridge).toBeChecked();
+	await bridge.click(); await expect(bridge).not.toBeChecked();
+	await expect.poll(() => page.evaluate(() => globalThis.__soundscaperNativeRuntimeCalls))
+		.toEqual(['consent:vst2:enable-x86-vst2:', 'consent:vst2:disable-x86-vst2:']);
+});
+
 test('desktop startup scans in the background with a progress toast and a preferences cancellation link', async ({ page }) => {
 	await installNativeServicesFixture(page, false, false, true, { startup: true });
 	const editor = await bootEditor(page, '/embed/en/');
@@ -323,7 +338,7 @@ test('factory settings restore plugin scanning and common folders', async ({ pag
 
 async function installNativeServicesFixture(page, withPlugins = false, withNativeAudio = false, withPluginFolders = false, startupOptions = {}) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(({ includePlugins, includeNativeAudio, includePluginFolders, startup, startupDisabled }) => {
+	await page.addInitScript(({ includePlugins, includeNativeAudio, includePluginFolders, startup, startupDisabled, bridgeSupported }) => {
 		// The desktop grants microphone access automatically. This host-picker
 		// fixture never records; avoid waiting for a browser permission prompt.
 		if (includeNativeAudio) Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
@@ -348,7 +363,7 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 			enabled: startup && !startupDisabled, quarantined: false,
 			payload: Object.freeze(includePluginFolders ? { status: 'available', reason: null } : { status: 'unavailable', reason: 'not-built' }),
 			formats: Object.freeze([]),
-			consent: Object.freeze({ scanningEnabled: false, formats: Object.freeze(includePluginFolders ? [
+			consent: Object.freeze({ ...(bridgeSupported ? { windowsX86Vst2: { supported: true, enabled: false } } : {}), scanningEnabled: false, formats: Object.freeze(includePluginFolders ? [
 				{ format: 'vst3', supported: true, granted: startup, roots: [
 					{ rootId: 'system-vst3', origin: 'standard', name: 'System VST3 folder', admitted: startup },
 					...(startup ? [{ rootId: 'custom-vst3', origin: 'custom', name: 'Custom VST3 folder', admitted: true }] : []),
@@ -435,6 +450,10 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 			setNativePluginConsent: async ({ format, action, rootId = '' }) => {
 				if (!includePluginFolders) return refused('setNativePluginConsent');
 				runtimeCalls.push(`consent:${format}:${action}:${rootId}`);
+				if (action === 'enable-x86-vst2' || action === 'disable-x86-vst2') {
+					plugins = { ...plugins, consent: { ...plugins.consent, windowsX86Vst2: { supported: true, enabled: action === 'enable-x86-vst2' } } };
+					return;
+				}
 				const formats = plugins.consent.formats.map((entry) => {
 					if (entry.format !== format) return entry;
 					if (action === 'grant') return { ...entry, granted: true };
@@ -490,5 +509,5 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 		const surface = Object.freeze({ v1: bridge });
 		Object.defineProperty(globalThis, 'soundscaperDesktop', { configurable: true, value: surface });
 	}, { includePlugins: withPlugins, includeNativeAudio: withNativeAudio, includePluginFolders: withPluginFolders,
-		startup: startupOptions.startup === true, startupDisabled: startupOptions.disabled === true });
+		startup: startupOptions.startup === true, startupDisabled: startupOptions.disabled === true, bridgeSupported: startupOptions.bridge === true });
 }

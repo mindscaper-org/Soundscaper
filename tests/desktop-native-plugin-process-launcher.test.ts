@@ -155,14 +155,14 @@ test('legacy VST2 allocation compatibility changes only its explicitly selected 
 });
 
 async function processFixture(context: { after: (action: () => Promise<void>) => void }, options: {
-	trustedProfile?: boolean; handshake?: string;
+	trustedProfile?: boolean; handshake?: string; peerBytes?: Uint8Array; peerArchitecture?: 'ia32';
 } = {}) {
 	const root = await mkdtemp(join(tmpdir(), 'trusted-plugin-process-'));
 	context.after(() => rm(root, { recursive: true, force: true }));
 	const artifacts = [];
 	for (const [name, bytes] of Object.entries({ launcher: 'launcher', profile: JSON.stringify({
 		trustedPluginProcesses: options.trustedProfile === false ? undefined : 'user-access-job-v2',
-	}), broker: 'broker', peer: 'peer' })) {
+	}), broker: 'broker', peer: options.peerBytes ?? 'peer' })) {
 		const path = join(root, name); await writeFile(path, bytes); artifacts.push(await descriptor(path));
 	}
 	const [launcherArtifact, profile, broker, peer] = artifacts;
@@ -180,7 +180,7 @@ async function processFixture(context: { after: (action: () => Promise<void>) =>
 		kill: (signal?: NodeJS.Signals) => { kills.push(signal); queueMicrotask(() => { finish(signal ?? 'SIGTERM'); }); return true; },
 	}) as unknown as ChildProcess;
 	const launcher = createNativePluginProcessLauncher({
-		target: 'win-x64', peerExecutable: peer, runtimeTarget: () => 'win-x64',
+		target: 'win-x64', peerExecutable: peer, peerArchitecture: options.peerArchitecture, runtimeTarget: () => 'win-x64',
 		artifacts: { launcher: launcherArtifact, sandboxProfile: profile, brokerPolicy: broker },
 		spawn: (_command, arguments_, spawnOptions) => {
 			calls.push({ arguments: arguments_, options: spawnOptions });
@@ -200,3 +200,18 @@ async function descriptor(path: string) {
 	return { path, byteLength: bytes.byteLength, sha256: createHash('sha256').update(bytes).digest('hex'),
 		identity: { dev: metadata.dev, ino: metadata.ino } };
 }
+
+
+test('the x86 peer is authenticated as PE32 and reports its actual architecture without the x64 heap policy', async (context) => {
+	const bytes = Buffer.alloc(512); bytes.write('MZ'); bytes.writeUInt32LE(128, 0x3c);
+	bytes.write('PE\0\0', 128, 'binary'); bytes.writeUInt16LE(0x14c, 132); bytes.writeUInt16LE(0x10b, 152);
+	const fixture = await processFixture(context, { peerBytes: bytes, peerArchitecture: 'ia32' });
+	const launch = await fixture.launcher.launch(fixture.request);
+	assert.equal(launch.enforcement.pluginArchitecture, 'ia32');
+	assert.equal(launch.enforcement.allocationRandomization, 'system');
+	assert.equal(fixture.calls[0]?.arguments.includes('--plugin-low-address-heap'), false);
+	fixture.finish(); await launch.completion;
+	const wrong = await processFixture(context, { peerArchitecture: 'ia32' });
+	await assert.rejects(wrong.launcher.launch(wrong.request), /PE header/u);
+	assert.equal(wrong.calls.length, 0);
+});

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { WINDOWS_VST2_X86_ARTIFACT } from './windows-vst2-x86-artifact.mjs';
 /** Target-native build-result assembly, verification, and ephemeral package staging. */
 
 import { spawnSync } from 'node:child_process';
@@ -158,8 +159,12 @@ export async function createSoundscaperProfessionalNativeBuildResult(options) {
 			brokerPolicy: await copyBuildResultFile(installed.brokerPolicy,
 				join(payloadRoot, 'native-isolation-broker-v1.json'), temporary, 0o444),
 		};
-		const runtimeClosure = runtimeRoot === null
-			? [] : await copyRuntimeClosure(runtimeRoot, join(payloadRoot, 'runtime'), temporary);
+		const runtimeClosure = [
+			...(runtimeRoot === null ? [] : await copyRuntimeClosure(runtimeRoot, join(payloadRoot, 'runtime'), temporary)),
+			...(target === 'win-x64' ? [await copyBuildResultFile(
+				join(professionalInstallRoot, 'runtime/soundscaper_vst2_x86_peer.exe'),
+				resolve(temporary, WINDOWS_VST2_X86_ARTIFACT), temporary, 0o755)] : []),
+		];
 		const dependencyInspections = await validateSoundscaperProfessionalNativeDependencyClosure({
 			target,
 			artifacts: [copied.payload, ...(copied.osAudioCodec === null ? [] : [copied.osAudioCodec]),

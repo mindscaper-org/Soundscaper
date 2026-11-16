@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createDurableFileSystem } from './plugin-durable-file-system.mjs';
+import { WindowsVst2BridgeConsent } from './project-library-runtime/desktop/windows-vst2-bridge-consent.js';
 /** Assembles the plug-in discovery subsystem and registers it on main. */
 
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { readFileSync, statSync } from 'node:fs';
-import { createHash, randomBytes } from 'node:crypto';
-import { dirname, join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { join } from 'node:path';
 import { homedir } from 'node:os';
 
 import { dialog } from 'electron/main';
@@ -53,24 +54,6 @@ const SCANNER_FAULT_KINDS = new Map([
 	['oversize-plugin', 'oversized-answer'],
 	['identity-change', 'identity-change'],
 ]);
-
-/**
- * Both durable files have to outlive the process, so they are written
- * atomically. A half-written record would be indistinguishable from a machine
- * on which nothing was ever quarantined or consented to, which is the exact
- * state these stores exist to prevent.
- */
-function createDurableFileSystem() {
-	return Object.freeze({
-		readFile: (path) => readFile(path, 'utf8'),
-		writeFile: async (path, contents) => {
-			await mkdir(dirname(path), { recursive: true });
-			const temporary = `${path}.${randomBytes(8).toString('hex')}.tmp`;
-			await writeFile(temporary, contents, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
-			await rename(temporary, path);
-		},
-	});
-}
 
 /**
  * Adapts the durable quarantine onto the port the scan service holds. The
@@ -148,14 +131,16 @@ export function recordScannedPlugins(registry, result, {
  */
 export function observeScannedPlugins(supervisor, registry, {
 	isFormatActivated = () => true, onRecorded = () => undefined,
-	onIdentityChanged = () => undefined,
+	onIdentityChanged = () => undefined, windowsX86Vst2Enabled = () => false,
 } = {}) {
 	return Object.freeze({
 		runJob: async (request) => {
 			if (request.kind === 'plugin-scan' && !isFormatActivated(request.grant?.format)) {
 				throw new Error('That plug-in format remains behind its production activation gate.');
 			}
-			const result = await supervisor.runJob(request);
+			const job = request.kind === 'plugin-scan' && request.grant.format === 'vst2' && windowsX86Vst2Enabled()
+				? { ...request, grant: { ...request.grant, windowsX86Vst2: true } } : request;
+			const result = await supervisor.runJob(job);
 			if (request.kind === 'plugin-scan') {
 				if (request.signal?.aborted) return result;
 				if (!isFormatActivated(request.grant?.format)) {
@@ -179,6 +164,7 @@ export function registerDesktopPluginDiscovery({
 	createPluginHostHelper = null,
 	openPersistentPluginSession = openNativePersistentPluginSession,
 	vampAnalyzerRuntime = null, vampAnalyzerBackend = null,
+	nativePluginBridgeTarget = process.platform === 'win32' ? `win-${process.arch}` : '',
 }) {
 	const helper = injectedSupervisor ? null : createDesktopNativeAddonHelperSupervisor({
 		desktopRoot,
@@ -193,6 +179,11 @@ export function registerDesktopPluginDiscovery({
 	const describePayload = injectedDescribePayload ?? helper.describePayload;
 	const durable = createDurableFileSystem();
 	const consentPath = join(userDataPath, CONSENT_FILE);
+	const bridgePath = join(userDataPath, 'windows-vst2-x86-consent-v1.json');
+	let bridgeState;
+	try { bridgeState = JSON.parse(readFileSync(bridgePath, 'utf8')).enabled; } catch { /* opt-in defaults off */ }
+	const bridgeConsent = new WindowsVst2BridgeConsent({ target: nativePluginBridgeTarget,
+		state: bridgeState, persist: (enabled) => durable.writeFile(bridgePath, JSON.stringify({ enabled })) });
 	const quarantine = new DesktopPluginQuarantine({
 		filePath: join(stateDataPath ?? userDataPath, QUARANTINE_FILE),
 		fileSystem: durable,
@@ -216,7 +207,9 @@ export function registerDesktopPluginDiscovery({
 		);
 		return consentWrites;
 	};
-	const registry = new DesktopPluginRegistry({ isQuarantined: (digest) => quarantine.isQuarantined(digest) });
+	const registry = new DesktopPluginRegistry({ isQuarantined: (digest) => quarantine.isQuarantined(digest),
+		isInstallationEnabled: (entry) => entry.architecture !== 'ia32'
+			|| entry.platform === 'win32' && entry.format === 'vst2' && bridgeConsent.enabled });
 	const allowances = createPluginRegistryAllowanceStore({
 		filePath: join(userDataPath, ALLOWANCE_FILE),
 		legacyFilePath: join(userDataPath, LEGACY_ALLOWANCE_FILE), fileSystem: durable,
@@ -236,7 +229,7 @@ export function registerDesktopPluginDiscovery({
 	});
 	const service = new DesktopPluginScanService({
 		supervisor: observeScannedPlugins(supervisor, registry, {
-			isFormatActivated: formatIsActive, onRecorded: allowances.observe,
+			isFormatActivated: formatIsActive, onRecorded: allowances.observe, windowsX86Vst2Enabled: () => bridgeConsent.enabled,
 			onIdentityChanged: (digest) => scannerQuarantine.quarantine(digest, 'identity-change'),
 		}),
 		consent: discoveryConsent,
@@ -279,7 +272,8 @@ export function registerDesktopPluginDiscovery({
 
 	handle(channels.nativePluginAvailability, async () => Object.freeze({
 		...(await service.availability()),
-		consent: activatedConsentProjection(consent.describe(), formatIsActive),
+		consent: Object.freeze({ ...activatedConsentProjection(consent.describe(), formatIsActive),
+			windowsX86Vst2: bridgeConsent.describe() }),
 		quarantine: quarantine.snapshot(),
 	}));
 	handle(channels.nativePluginScanProgress, () => Object.freeze({
@@ -289,8 +283,20 @@ export function registerDesktopPluginDiscovery({
 		void ownerFor(event);
 		const format = String(value?.format || '');
 		const action = String(value?.action || '');
-		if (!formatIsActive(format)) {
+		if (!formatIsActive(format) && !(format === 'vst2' && action === 'disable-x86-vst2')) {
 			throw new Error('That plug-in format remains blocked by production policy and source activation.');
+		}
+		if (format === 'vst2' && ['enable-x86-vst2', 'disable-x86-vst2'].includes(action)) {
+			await bridgeConsent.setEnabled(action === 'enable-x86-vst2');
+			service.cancelFormat(format);
+			for (const entry of registry.describe().entries.filter((entry) => entry.format === 'vst2')) {
+				for (const installation of entry.installations.filter((item) => item.architecture === 'ia32')) {
+					const digest = registry.digestFor(installation.installationId);
+					if (bridgeConsent.enabled) hosting?.isolation.restoreDigest(digest);
+					else hosting?.isolation.revokeDigest(digest);
+				}
+			}
+			return bridgeConsent.describe();
 		}
 		const outcome = await applyConsentAction(consent, {
 			action,

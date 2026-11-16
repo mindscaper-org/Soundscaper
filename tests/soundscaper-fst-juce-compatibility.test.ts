@@ -74,7 +74,7 @@ test('the FST build copy preserves the VST2 ABI on all maintained targets', {
 	assert.ok((await readFile(output, 'utf8')).startsWith('/* Upstream notice must survive'));
 	for (const target of [
 		'x86_64-unknown-linux-gnu', 'aarch64-unknown-linux-gnu', 'arm64-apple-macos',
-		'x86_64-pc-windows-msvc', 'aarch64-pc-windows-msvc',
+		'x86_64-pc-windows-msvc', 'aarch64-pc-windows-msvc', 'i686-pc-windows-msvc',
 	]) {
 		await execute(compiler, [`--target=${target}`, '-std=c++20', '-fsyntax-only', probe]);
 	}

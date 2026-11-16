@@ -3,6 +3,11 @@
 cmake_minimum_required(VERSION 3.25)
 project(soundscaper_professional_host VERSION 1.0.0 LANGUAGES C CXX)
 
+option(SOUNDSCAPER_WINDOWS_X86_VST2_BRIDGE "Build the Windows x64 package's x86 VST2 peer" OFF)
+if(SOUNDSCAPER_WINDOWS_X86_VST2_BRIDGE AND (NOT WIN32 OR NOT SOUNDSCAPER_NATIVE_TARGET STREQUAL "win-x64"))
+	message(FATAL_ERROR "The x86 VST2 bridge belongs only to Windows x64 packages")
+endif()
+
 if(MSVC)
 	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
@@ -18,7 +23,11 @@ if(APPLE)
 	endif()
 elseif(WIN32)
 	if(SOUNDSCAPER_NATIVE_TARGET STREQUAL "win-x64")
-		if(NOT CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
+		if(SOUNDSCAPER_WINDOWS_X86_VST2_BRIDGE)
+			if(NOT CMAKE_GENERATOR_PLATFORM STREQUAL "Win32" OR NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
+				message(FATAL_ERROR "The VST2 bridge must configure for Win32")
+			endif()
+		elseif(NOT CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
 			message(FATAL_ERROR "The professional host is not configuring for Windows x64")
 		endif()
 	elseif(SOUNDSCAPER_NATIVE_TARGET STREQUAL "win-arm64")
@@ -449,7 +458,12 @@ endif()
 set_target_properties(soundscaper_professional_peer PROPERTIES
 	OUTPUT_NAME "soundscaper_professional_peer"
 )
-install(TARGETS soundscaper_professional_peer RUNTIME DESTINATION .)
+if(SOUNDSCAPER_WINDOWS_X86_VST2_BRIDGE)
+	set_target_properties(soundscaper_professional_peer PROPERTIES OUTPUT_NAME "soundscaper_vst2_x86_peer")
+	install(TARGETS soundscaper_professional_peer RUNTIME DESTINATION runtime COMPONENT windows-x86-vst2-bridge)
+else()
+	install(TARGETS soundscaper_professional_peer RUNTIME DESTINATION .)
+endif()
 if(APPLE AND BUILD_TESTING)
 	# Both executables close over the Release JUCE archive. Keep their final LTO
 	# links serial on the authenticated Ninja candidate runner instead of making

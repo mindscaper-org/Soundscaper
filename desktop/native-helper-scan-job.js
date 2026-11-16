@@ -94,6 +94,7 @@ export function createNativePluginScanJobRunner({
 				try {
 					inspected = await addon.inspectPluginCandidate(path, format, {
 						identity: digest.identity, byteLength: digest.byteLength, sha256: digest.sha256, resourcePolicy,
+						...(grant.windowsX86Vst2 ? { windowsX86Vst2: true } : {}),
 					});
 				} catch {
 					// Professional inspections own a separate supervised peer and await
@@ -226,6 +227,7 @@ function describeEntry(path, digest, inspection) {
 		binaryPath: path,
 		binaryBytes: digest.byteLength,
 		binarySha256: digest.sha256,
+		...(inspection.binaryArchitecture === undefined ? {} : { binaryArchitecture: inspection.binaryArchitecture }),
 		classification: usable ? inspection.classification : 'unknown',
 		channelSupport: usable
 			? Object.freeze([Object.freeze({ inputs: inspection.inputChannels, outputs: inspection.outputChannels })])

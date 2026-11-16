@@ -58,7 +58,10 @@ const roots = Object.freeze({
 	runtime: await canonicalDirectory(args['runtime-root'], 'runtime root'),
 	packagedApp: await canonicalDirectory(args['packaged-app-root'], 'packaged app root'),
 });
-const evidence = scenario === 'ara-vst3-document-round-trip'
+const evidence = scenario === 'windows-x86-vst2-bridge'
+	? await (await import('./lib/windows-vst2-x86-canary.mjs')).runWindowsVst2X86Canary({
+		professionalInstallRoot: roots.professional, isolationInstallRoot: roots.isolation, target })
+	: scenario === 'ara-vst3-document-round-trip'
 	? await runInstalledAraNativeCanary({ professionalInstallRoot: roots.professional, target })
 	: scenario === 'packaged-electron-utility-process-smoke'
 	? await packagedElectronSmoke(roots, target, args)

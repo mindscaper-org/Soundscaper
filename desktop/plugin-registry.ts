@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+
+import { displayText, plainRecord, enumValue, booleanValue, boundedText, boundedInteger } from './plugin-registry-validation.ts';
 /**
  * Main-owned plug-in identity, installation, allowance, and compatibility registry.
  * Scan order never selects among installations, changed digests revoke allowance,
@@ -54,7 +56,6 @@ export const MAXIMUM_PLUGIN_CHANNELS = 4_096;
 export const MAXIMUM_PLUGIN_OBSERVED_LATENCY_FRAMES = 10_000_000;
 
 const SHA256 = /^[a-f\d]{64}$/u;
-const MAXIMUM_TEXT_LENGTH = 256;
 
 export interface PluginChannelTopology {
 	readonly inputChannels: number;
@@ -150,10 +151,12 @@ export interface DesktopPluginRegistryOptions {
 	 * machine, and it would record and host the binaries the store exists to refuse.
 	 */
 	readonly isQuarantined: (digest: string) => boolean;
+	readonly isInstallationEnabled?: (observation: PluginScanObservation) => boolean;
 }
 
 export class DesktopPluginRegistry {
 	readonly #isQuarantined: (digest: string) => boolean;
+	readonly #isInstallationEnabled: (observation: PluginScanObservation) => boolean;
 	readonly #entries = new Map<string, Entry>();
 	readonly #installations = new Map<string, [Entry, Installation]>();
 	/** Digest → exact format-native descriptor set. */
@@ -165,6 +168,7 @@ export class DesktopPluginRegistry {
 				'A plug-in registry must be given the durable quarantine it consults.');
 		}
 		this.#isQuarantined = options.isQuarantined;
+		this.#isInstallationEnabled = options.isInstallationEnabled ?? (() => true);
 	}
 
 	record(observation: PluginScanObservation): PluginRegistryAdmission {
@@ -175,9 +179,10 @@ export class DesktopPluginRegistry {
 			return rejected('malformed', describeError(error));
 		}
 		const entryId = entryIdFor(admitted.format, admitted.stableId);
+		const unresolved = admitted.compatibility !== 'compatible' && admitted.stableId === `unreadable:${admitted.binarySha256}`;
 		const identityClaim = pluginBundleIdentityClaim(admitted.format, admitted.bundleStableIds);
 		const claimed = this.#identities.get(admitted.binarySha256);
-		if (claimed !== undefined && claimed !== identityClaim) {
+		if (!unresolved && claimed !== undefined && claimed !== identityClaim) {
 			return rejected('identity-change',
 				'That binary previously reported a different plug-in identity and was not recorded.');
 		}
@@ -207,7 +212,13 @@ export class DesktopPluginRegistry {
 		// can leave an identity in the projection with nothing behind it.
 		this.#entries.set(entryId, entry);
 		this.#installations.set(installationId, [entry, entry.installations.get(installationId)!]);
-		this.#identities.set(admitted.binarySha256, identityClaim);
+		if (!unresolved) {
+			this.#identities.set(admitted.binarySha256, identityClaim);
+			const placeholder = this.#entries.get(entryIdFor(admitted.format, `unreadable:${admitted.binarySha256}`));
+			for (const [id, installation] of placeholder?.installations ?? []) {
+				if (id !== installationId && installation.observation.binarySha256 === admitted.binarySha256) this.forget(id);
+			}
+		}
 		return Object.freeze({
 			status: 'recorded' as const,
 			entryId,
@@ -315,6 +326,8 @@ export class DesktopPluginRegistry {
 			format: observation.format,
 			stableId: observation.stableId,
 			identity: observation.identity,
+			...(observation.platform === 'win32' && observation.architecture === 'ia32'
+				&& observation.format === 'vst2' ? { windowsX86Vst2: true as const } : {}),
 		});
 	}
 
@@ -350,7 +363,7 @@ export class DesktopPluginRegistry {
 		if (!active) return 'identity-collision';
 		if (this.#isQuarantined(active.observation.binarySha256)) return 'quarantined';
 		const { observation } = active;
-		if (observation.compatibility !== 'compatible') return 'incompatible';
+		if (observation.compatibility !== 'compatible' || !this.#isInstallationEnabled(observation)) return 'incompatible';
 		if (observation.classification === 'unknown') return 'classification-unknown';
 		if (!observation.realtimeSupported && !observation.offlineSupported) return 'no-supported-mode';
 		if (!selectPluginHostTopology(observation)) return 'incompatible';
@@ -453,7 +466,7 @@ export function pluginObservationFromScanEntry(
 	}
 	try {
 		return admitObservation({
-			format: context.format, platform: context.platform, architecture: context.architecture,
+			format: context.format, platform: context.platform, architecture: entry.binaryArchitecture ?? context.architecture,
 			identity: context.identity, compatibility,
 			stableId: entry.stableId, name: entry.name, vendor: entry.vendor, version: entry.version,
 			bundleStableIds: context.bundleStableIds ?? [entry.stableId],
@@ -520,58 +533,9 @@ function admitTopologies(value: unknown, unavailable: boolean): readonly PluginC
 	}));
 }
 
-/**
- * Scanner-reported text is authored by the plug-in, so it is bounded at admission
- * and stripped of path separators here, at the renderer boundary. A vendor that
- * names itself after a path still cannot put one into renderer-facing state.
- */
-function displayText(value: string): string {
-	return value.split(/[\\/]/u).join(' ').replace(/\s+/gu, ' ').trim() || '(unnamed)';
-}
-
 function absolutePath(value: unknown): string {
 	if (!isAdmissiblePluginPath(value)) {
 		throw new TypeError('A plug-in binary path must be one absolute, traversal-free path.');
 	}
 	return value;
-}
-
-function plainRecord(value: unknown, label: string): Record<string, unknown> {
-	if (!value || typeof value !== 'object' || Array.isArray(value) || ArrayBuffer.isView(value)) {
-		throw new TypeError(`${label} must be a plain record.`);
-	}
-	return value as Record<string, unknown>;
-}
-
-function enumValue<const Values extends readonly string[]>(
-	value: unknown,
-	values: Values,
-	label: string,
-): Values[number] {
-	if (typeof value !== 'string' || !(values as readonly string[]).includes(value)) {
-		throw new TypeError(`A plug-in scan observation must name a supported ${label}.`);
-	}
-	return value as Values[number];
-}
-
-function booleanValue(value: unknown, label: string): boolean {
-	if (typeof value !== 'boolean') throw new TypeError(`A plug-in ${label} flag must be a boolean.`);
-	return value;
-}
-
-function boundedText(value: unknown, label: string): string {
-	if (typeof value !== 'string'
-		|| value.length === 0
-		|| value.length > MAXIMUM_TEXT_LENGTH
-		|| value.includes('\u0000')) {
-		throw new TypeError(`A plug-in ${label} must be bounded, non-empty text.`);
-	}
-	return value;
-}
-
-function boundedInteger(value: unknown, minimum: number, maximum: number, label: string): number {
-	if (!Number.isSafeInteger(value) || (value as number) < minimum || (value as number) > maximum) {
-		throw new TypeError(`A plug-in ${label} is outside its admitted bounds.`);
-	}
-	return value as number;
 }

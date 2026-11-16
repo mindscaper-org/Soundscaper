@@ -12,9 +12,7 @@ import {
 import {
 	validateSoundscaperProfessionalNativeMacCodeSealResult,
 } from './soundscaper-professional-native-macos-code-seal.mjs';
-import {
-	validateSoundscaperNativeBinaryArchitectureReceipt,
-} from './soundscaper-native-binary-architecture.mjs';
+import { WINDOWS_VST2_X86_ARTIFACT, validateProfessionalArtifactArchitecture } from './windows-vst2-x86-artifact.mjs';
 import {
 	soundscaperProfessionalNativeToolchainIdentity,
 	validateSoundscaperProfessionalNativeToolchainReceipt,
@@ -65,6 +63,7 @@ export function requiredSoundscaperProfessionalNativeSelfTestIds(targetValue) {
 	return Object.freeze([
 		...COMMON_SELF_TEST_IDS,
 		...(target === 'mac-arm64' ? ['isolation-rss-ceiling'] : []),
+		...(target === 'win-x64' ? ['windows-x86-vst2-bridge'] : []),
 		...(['mac-arm64', 'win-x64', 'win-arm64'].includes(target)
 			? ['os-audio-codec-ctest'] : []),
 	].sort());
@@ -142,6 +141,9 @@ export function validateBuildResultReceipt(value) {
 	if (runtimePaths.some((path) => !path.startsWith('payload/runtime/'))
 		|| new Set(runtimePaths).size !== runtimePaths.length) {
 		throw new TypeError('The build-result runtime closure paths are invalid.');
+	}
+	if (value.target === 'win-x64' && !runtimePaths.includes(WINDOWS_VST2_X86_ARTIFACT)) {
+		throw new TypeError('The Windows x64 build result omitted its x86 VST2 bridge.');
 	}
 	validateVerificationChecks(value);
 	return value;
@@ -236,7 +238,7 @@ function validateVerificationChecks(candidate) {
 	for (const inspection of closure.inspections) {
 		closedRecord(inspection, ['architecture', 'artifactPath', 'imports', 'rpaths'],
 			'dependency inspection');
-		validateSoundscaperNativeBinaryArchitectureReceipt(inspection.architecture, candidate.target);
+		validateProfessionalArtifactArchitecture(inspection.architecture, candidate.target, inspection.artifactPath);
 		if (!Array.isArray(inspection.imports) || !Array.isArray(inspection.rpaths)
 			|| inspection.imports.some((entry) => typeof entry !== 'string' || entry === '')
 			|| inspection.rpaths.some((entry) => typeof entry !== 'string' || entry === '')) {

@@ -86,6 +86,7 @@ export interface PluginChannelSupport {
 }
 
 export interface PluginScanEntry {
+	readonly binaryArchitecture?: 'ia32' | 'x64' | 'arm64';
 	readonly stableId: string;
 	readonly name: string;
 	readonly vendor: string;
@@ -181,6 +182,7 @@ export function projectPluginScanForRenderer(result: HelperPluginScanResult): Re
 		detail: result.detail,
 		entries: Object.freeze(result.entries.map((entry) => Object.freeze({
 			stableId: entry.stableId,
+			...(entry.binaryArchitecture === undefined ? {} : { binaryArchitecture: entry.binaryArchitecture }),
 			name: entry.name,
 			vendor: entry.vendor,
 			version: entry.version,
@@ -199,12 +201,13 @@ export function projectPluginScanForRenderer(result: HelperPluginScanResult): Re
 
 function validatePluginScanEntry(value: unknown, stableIds: Set<string>): PluginScanEntry {
 	const record = plainRecord(value, 'A plug-in scan entry');
-	exactKeys(record, ENTRY_KEYS, 'A plug-in scan entry');
+	exactKeys(record, record.binaryArchitecture === undefined ? ENTRY_KEYS : [...ENTRY_KEYS, 'binaryArchitecture'], 'A plug-in scan entry');
 	const stableId = boundedText(record.stableId, 'plug-in stable id');
-	if (stableIds.has(stableId)) {
+	const installationKey = `${stableId}\0${String(record.binaryArchitecture ?? '')}`;
+	if (stableIds.has(installationKey)) {
 		malformed('A plug-in scan must not report the same stable id twice.');
 	}
-	stableIds.add(stableId);
+	stableIds.add(installationKey);
 	// Each field is read once and the checked read is the one that is stored.
 	// Reading a second time to build the result would admit whatever the second
 	// read answered, which is not necessarily what the guard approved.
@@ -219,6 +222,7 @@ function validatePluginScanEntry(value: unknown, stableIds: Set<string>): Plugin
 	}
 	return Object.freeze({
 		stableId,
+		...(record.binaryArchitecture === undefined ? {} : { binaryArchitecture: enumValue(record.binaryArchitecture, ['ia32', 'x64', 'arm64'] as const, 'binary architecture') }),
 		name: boundedText(record.name, 'plug-in name'),
 		vendor: boundedText(record.vendor, 'plug-in vendor'),
 		version: boundedText(record.version, 'plug-in version'),
