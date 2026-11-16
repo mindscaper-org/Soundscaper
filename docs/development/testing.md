@@ -237,8 +237,26 @@ test shards and coverage report while independent static checks can finish;
 its diagnostics appear in `test-results/check-all/logs/prepare-interchange.log`.
 Direct focused conformance runs still need the provisioning command first.
 
-The command requires Linux with cgroup v2 memory accounting and a working
-systemd user session (`systemd-run --user`). Every check or shard runs in a
+The command requires Linux booted with systemd and cgroup v2 memory accounting.
+It first verifies a capped scope. If that fails, it reconnects using the current
+UID's `/run/user/<uid>` directory and session bus. When necessary, it starts
+`user@<uid>.service` (which also creates the runtime directory) and adds `memory`
+to that manager's existing delegated controllers, keeping the other controllers.
+An already running manager re-executes after a delegation change to discover the
+controller without restarting its services. These privileged operations use
+`sudo`, which may ask for a password in a terminal; unattended runs need
+passwordless sudo for the required systemctl commands. Delegation changes use
+`systemctl set-property --runtime` and last until reboot. Setup does not enable
+lingering or change boot configuration. See systemd's
+[user-manager units](https://www.freedesktop.org/software/systemd/man/latest/user@.service.html)
+and [controller delegation](https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#Delegate=).
+Setup commands and diagnostics are recorded in
+`test-results/check-all/logs/session-setup.log`, and capped probes remain in
+`probe.log`. The command rechecks the actual memory and swap caps after setup
+before admitting any checks. A missing kernel controller, a system without
+systemd as PID 1, or failed privileged setup produces an actionable setup error.
+
+Every check or shard runs in a
 verified scope with `MemoryMax=8G` and `MemorySwapMax=0`: the 8 GiB cap includes
 its native processes and descendants, including detached children. The shared
 preview pair has a separate 8 GiB scope. These are per-scope ceilings, so four

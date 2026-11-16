@@ -10,6 +10,7 @@ import { createCheckAllLog } from './lib/check-all-logs.ts';
 import { createCheckAllPlan } from './lib/check-all-plan.ts';
 import { CheckAllDisplay, createCheckOutputReader } from './lib/check-all-output.ts';
 import { startLimitedProcess } from './lib/check-all-process.ts';
+import { prepareCheckAllSession } from './lib/check-all-session.ts';
 import { runCheckTasks, type CheckTask } from './lib/check-all-scheduler.ts';
 
 const root = resolve(import.meta.dirname, '..');
@@ -43,6 +44,7 @@ async function checkAll(): Promise<void> {
 	const display = new CheckAllDisplay(output, tasks.length);
 	let servers: Promise<void> | undefined;
 	let timer: ReturnType<typeof setInterval> | undefined;
+	let sessionEnv = process.env;
 	const logs = resolve(root, 'test-results/check-all/logs');
 	let exitCode = 0;
 	const cancel = (code: number): void => {
@@ -61,15 +63,20 @@ async function checkAll(): Promise<void> {
 		runLog = openLog(resolve(logs, '../run.log'));
 		output.write(`check-all: 4 slots, 8 GiB per shard, shared previews capped at 8 GiB. Logs: ${logs}\n`);
 		rmSync(resolve(root, 'coverage/check-all'), { recursive: true, force: true });
-		let diagnostic = '';
-		const probe = startLimitedProcess(root, 'probe', ['-e', ''], {
-			log: openLog(resolve(logs, 'probe.log')),
-			onOutput: chunk => { diagnostic = (diagnostic + chunk).slice(-8_192); },
+		const probeLog = openLog(resolve(logs, 'probe.log'));
+		sessionEnv = await prepareCheckAllSession({
+			env: process.env, signal: controller.signal, log: openLog(resolve(logs, 'session-setup.log')),
+			onMessage: message => output.write(`check-all: ${message}\n`),
+			probe: async env => {
+				let diagnostic = '';
+				const probe = startLimitedProcess(root, 'probe', ['-e', ''], {
+					env, log: probeLog, onOutput: chunk => { diagnostic = (diagnostic + chunk).slice(-8_192); },
+				});
+				processes.add(probe);
+				try { return await probe.completed === 0 ? undefined : diagnostic; }
+				finally { await probe.stop(); processes.delete(probe); }
+			},
 		});
-		processes.add(probe);
-		try {
-			if (await probe.completed !== 0) throw new Error(`Cannot enforce the 8 GiB shard limit. A systemd user session and cgroup v2 memory controller are required.\n${diagnostic}`);
-		} finally { await probe.stop(); processes.delete(probe); }
 		timer = setInterval(() => display.render(), process.stdout.isTTY ? 200 : 5_000);
 		const states = await runCheckTasks(tasks, async task => {
 			if (task.browser) {
@@ -135,7 +142,7 @@ async function checkAll(): Promise<void> {
 		const errReader = createCheckOutputReader(event => display.event(task.id, event), line => {
 			if (line.trim()) display.diagnostic(task.id, line.trimEnd());
 		});
-		const child = startLimitedProcess(root, task.id, task.args, { env: { ...process.env, ...task.env }, log, onOutput: output });
+		const child = startLimitedProcess(root, task.id, task.args, { env: { ...sessionEnv, ...task.env }, log, onOutput: output });
 		processes.add(child);
 		try {
 			const code = await child.completed;
@@ -158,7 +165,7 @@ async function checkAll(): Promise<void> {
 				if (event.type === 'start' && event.id === 'servers-ready') { ready = true; resolveReady(); }
 			}, line => { if (line.trim()) display.diagnostic('previews', line.trimEnd()); });
 			const child = startLimitedProcess(root, 'browser-previews', [resolve(root, 'scripts/check-all-browser-servers.ts')], {
-				log: openLog(resolve(logs, 'browser-previews.log')),
+				env: sessionEnv, log: openLog(resolve(logs, 'browser-previews.log')),
 				onOutput: chunk => reader.write(chunk),
 			});
 			processes.add(child);

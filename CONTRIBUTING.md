@@ -65,11 +65,13 @@ npm run test:browser
 npm run test:browser:built
 ```
 
-On Linux with cgroup v2 and a systemd user session, `npm run check-all` runs
+On Linux with systemd and cgroup v2, `npm run check-all` runs
 the non-browser gate and the full ordinary browser suite in one four-slot queue.
 Each shard's entire process tree has an 8 GiB RAM cap with swap disabled. The
 terminal shows progress and running tests, prints failures immediately, and
-keeps full output in `test-results/check-all/logs/`. See the
+keeps full output in `test-results/check-all/logs/`. It connects to or starts the
+current user's systemd manager and enables memory-controller delegation when
+needed; setup may ask for a sudo password. See the
 [testing guide](docs/development/testing.md#full-gates-and-ci-shards) for
 resource requirements and details. Use `npm run check-all -- --list` to preview
 the plan without running it.
