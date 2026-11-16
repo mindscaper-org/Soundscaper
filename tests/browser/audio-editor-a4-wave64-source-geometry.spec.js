@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { strFromU8, unzipSync } from 'fflate';
 import { nativeWave64Fixture } from '../helpers/native-wave64-fixture.ts';
-import { encodeWav } from '../../src/common/editor/wav.js';
 import { inspectWavBlobPcm } from '../../src/common/editor/wav-import.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseDropdown, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes,
 	openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
 
-for (const format of ['w64', 'wav']) test(`native ${format} retains authored48k PCM and extent through File Import, Save and WAV export`, async ({ page }) => {
+// Shared PCM controls run in audio-editor-pcm-source-clock-render.test.ts and
+// audio-editor-pcm-source-clock.spec.js; retain each codec and native fallback.
+for (const format of ['w64']) test(`native ${format} retains authored48k PCM and extent through File Import, Save and WAV export`, async ({ page }) => {
 	// Native probing, decoding, project publication and WAV export share this budget.
 	test.setTimeout(120_000);
 	await page.addInitScript(() => {
@@ -21,14 +22,13 @@ for (const format of ['w64', 'wav']) test(`native ${format} retains authored48k 
 		} });
 	});
 	const { file: original, channels } = nativeWave64Fixture();
-	const file = format === 'w64' ? original : new File([Uint8Array.from(encodeWav(channels, { sampleRate: 48_000, bitDepth: 32, float: true }))], 'Control.wav', { type: 'audio/wav' });
+	const file = original;
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	const native = await page.evaluate(async bytes => {
 		try { const buffer = await new OfflineAudioContext(2, 1, 48_000).decodeAudioData(Uint8Array.from(bytes).buffer);
 			return [0, 1].map(channel => [...buffer.getChannelData(channel)]); } catch { return null; }
 	}, [...new Uint8Array(await file.arrayBuffer())]);
-	if (format === 'wav') expect(native).not.toBeNull();
-	test.skip(format === 'w64' && native === null, 'This native platform does not decode Wave64; no decoder is added.');
+	test.skip(native === null, 'This native platform does not decode Wave64; no decoder is added.');
 	expect(native[0].length).toBeGreaterThanOrEqual(4800); expect(native[0].length).toBeLessThan(5824);
 	let error = 0;
 	for (let channel = 0; channel < 2; channel++) {

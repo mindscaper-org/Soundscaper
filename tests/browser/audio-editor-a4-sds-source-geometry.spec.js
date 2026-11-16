@@ -17,7 +17,9 @@ async function exportFloatWave(page, editor) {
 	return readDownloadBytes(page, link);
 }
 
-for (const format of ['sds', 'sds-open', 'opaque', 'wav']) test(`native SDS ${format} retains authored32k PCM and extent through File Import, Save and WAV export`, async ({ page, browser }) => {
+// Shared PCM controls run in audio-editor-pcm-source-clock-render.test.ts and
+// audio-editor-pcm-source-clock.spec.js; retain each codec and native fallback.
+for (const format of ['sds', 'sds-open', 'opaque']) test(`native SDS ${format} retains authored32k PCM and extent through File Import, Save and WAV export`, async ({ page, browser }) => {
 	// Native probing, import and two WAV exports share this workflow's budget.
 	test.setTimeout(120_000);
 	await page.addInitScript(() => {
@@ -31,13 +33,12 @@ for (const format of ['sds', 'sds-open', 'opaque', 'wav']) test(`native SDS ${fo
 		} });
 	});
 	const { file: original, channels } = nativeSdsFixture();
-	const file = format === 'opaque' ? new File([original], 'Reference.bin', { type: 'application/octet-stream' }) : format !== 'wav' ? original : new File([Uint8Array.from(encodeWav(channels, { sampleRate: 32_000, bitDepth: 32, float: true }))], 'Control.wav', { type: 'audio/wav' });
+	const file = format === 'opaque' ? new File([original], 'Reference.bin', { type: 'application/octet-stream' }) : original;
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	const native = await page.evaluate(async bytes => {
 		try { const buffer = await new OfflineAudioContext(1, 1, 32_000).decodeAudioData(Uint8Array.from(bytes).buffer);
 			return [0].map(channel => [...buffer.getChannelData(channel)]); } catch { return null; }
 	}, [...new Uint8Array(await file.arrayBuffer())]);
-	if (format === 'wav') expect(native).not.toBeNull();
 	if (native === null) {
 		await editor.locator(format === 'sds-open' ? '[data-aup4-input]' : '[data-import-input]').setInputFiles({ name: file.name, mimeType: format === 'sds-open' ? 'application/octet-stream' : file.type, buffer: Buffer.from(await file.arrayBuffer()) });
 		await expect(editor.locator('[data-editor-toast="workspace-status-error"]')).toContainText('0 file(s) imported, 1 failed', { timeout: 20_000 });
@@ -46,7 +47,7 @@ for (const format of ['sds', 'sds-open', 'opaque', 'wav']) test(`native SDS ${fo
 		await editor.locator('[data-import-input]').setInputFiles({ name: 'Fresh.wav', mimeType: 'audio/wav', buffer: Buffer.from(fresh) });
 		await expect(editor).toHaveAttribute('data-clip-count', '1'); return;
 	}
-	expect(native).toHaveLength(1); expect(native[0]).toHaveLength(format === 'wav' ? 4800 : 5120);
+	expect(native).toHaveLength(1); expect(native[0]).toHaveLength(5120);
 	let error = 0;
 	for (let channel = 0; channel < 1; channel++) {
 		for (let frame = 0; frame < 4800; frame++) error = Math.max(error, Math.abs(native[channel][frame] - channels[channel][frame]));
