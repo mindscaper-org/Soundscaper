@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { effectGraphKey } from './effect-rack-node-registry.ts';
 import { createParallelStackEffect } from './parallel-stack-effects.ts';
 import { readParallelStackEffectUpdate, validateParallelStackEffectMailbox,
 	type SharedParallelStackEffectMailbox } from './parallel-stack-effect-mailbox.ts';
@@ -32,6 +33,10 @@ export function createParallelStackExecutor(plan: ParallelStackPlan, workerIndex
 function prepareTask(task: ParallelStackTask, plan: ParallelStackPlan, modules: ParallelStackRuntimeModules,
 	effectMailbox: SharedParallelStackEffectMailbox | undefined, effectOffset: number): (planes: readonly Float32Array[], sequence: number) => void {
 	const frames = plan.blockFrames;
+	const profileControl = plan.cpuProfileControl ? new Int32Array(plan.cpuProfileControl) : null;
+	const tap = plan.stripTaps.find(tap => tap.key === task.key);
+	const profileKey = (id: string) => tap ? effectGraphKey(tap.scope === 'cue' ? 'group' : tap.scope,
+		'id' in tap.ref ? tap.ref.id : null, id) : '';
 	const input = channels(task.channels, frames);
 	const scratch = channels(task.channels, frames);
 	const inputDelay = new ParallelStackDelay(task.inputDelayFrames, task.channels);
@@ -50,6 +55,8 @@ function prepareTask(task: ParallelStackTask, plan: ParallelStackPlan, modules: 
 		sidechain: sidechains.get(effect.id),
 		mailboxIndex: effectOffset + index,
 		lastVersion: 0,
+		profileBegin: `scape-cpu:begin:${profileKey(effect.id)}`,
+		profileEnd: `scape-cpu:end:${profileKey(effect.id)}`,
 	}));
 	// Warm the actual pinned instances on this worker, before its ready acknowledgement.
 	// Every admitted kernel restores its exact cold state, including random generators.
@@ -102,7 +109,10 @@ function prepareTask(task: ParallelStackTask, plan: ParallelStackPlan, modules: 
 		let current = input;
 		let destination = scratch;
 		for (const effect of effects) {
+			const profiling = profileControl !== null && Atomics.load(profileControl, 0) === 1;
+			if (profiling) console.timeStamp(effect.profileBegin);
 			effect.processor.processBlock(current, destination, frames, effect.sidechain);
+			if (profiling) console.timeStamp(effect.profileEnd);
 			const previous = current; current = destination; destination = previous;
 		}
 		for (let c = 0; c < post.length; c++) post[c] = planes[task.postPlanes[c]!]!;

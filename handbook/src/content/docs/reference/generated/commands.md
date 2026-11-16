@@ -75,6 +75,7 @@ Product availability follows each product profile’s command filters and each l
 | Built-in generators | `effect://builtin/generators` | — | Generate | Soundscaper | Audacity |
 | Built-in processors | `effect://builtin/processors` | — | Effect | Soundscaper | Audacity |
 | CDDA frames (75 fps) | `snap-cdda` | — | View > Snapping > CD frames | Soundscaper, Framescaper | Soundscaper local |
+| CPU profiling | `cpu-profiling` | — | Help | Soundscaper, Framescaper | Soundscaper local |
 | Cancel: Edit in Framescaper | `cancel-switch-product-to-framescaper` | — | File | Soundscaper | Soundscaper local |
 | Cancel: Edit in Soundscaper | `cancel-switch-product-to-soundscaper` | — | File | Framescaper | Soundscaper local |
 | Caption Tracks | `framescaper-caption-tracks` | — | Tracks | Framescaper | Soundscaper local |

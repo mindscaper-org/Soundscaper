@@ -7,6 +7,8 @@ import { encodeWav } from '../../src/common/editor/wav.js';
 import { surroundAvWebmFixture } from '../helpers/ordinary-ogg-opus-fixture.ts';
 
 test('File Import and native Save retain all six channels extracted from an ordinary video', async ({ page }, testInfo) => {
+	// Decode, import publication and native Save each need their own bounded wait.
+	test.setTimeout(90_000);
 	const file = await surroundAvWebmFixture(); const bytes = new Uint8Array(await file.arrayBuffer());
 	await page.addInitScript(() => {
 		// Observe the import's own native decode. A second context can have a
@@ -30,6 +32,7 @@ test('File Import and native Save retain all six channels extracted from an ordi
 	const expected = await page.evaluate(() => globalThis.__surroundNativeDecode);
 	if (expected.supported) { expect(expected).toMatchObject({ sampleRate: 48_000, frames: 3840 }); expect(expected.channels).toHaveLength(6); }
 	await expect(editor).toHaveAttribute('data-clip-count', expected.supported ? '2' : '1', { timeout: 30_000 });
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
 	const downloading = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);
 	const entries = unzipSync(await downloadBytes(await downloading)); const project = JSON.parse(strFromU8(entries['project.json']));
 	const source = project.sources.find(value => value.mimeType === 'audio/x-soundscaper-extracted');

@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import nativeFixtureSources from './desktop-nightly-tests-native-fixture-inputs.cjs';
 import { NIGHTLY_BROWSER_CODEC_INPUTS } from './desktop-nightly-tests-browser-codec-inputs.mjs';
 import { NIGHTLY_BROWSER_MEDIA_INPUTS } from './desktop-nightly-tests-browser-media-inputs.mjs';
+import { NIGHTLY_BROWSER_SOURCE_INPUTS } from './desktop-nightly-tests-browser-source-inputs.mjs';
 import { NIGHTLY_INTERCHANGE_INPUTS, validateNightlyInterchange } from './desktop-nightly-tests-interchange-inputs.mjs';
 import {
 	assertDirectory,
@@ -158,10 +159,7 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 	{ source: '.wrangler/dual-origin-browser/framescaper', destination: 'sites/framescaper', kind: 'directory', label: 'verified reciprocal Framescaper browser site' },
 	{ source: '.wrangler/dual-origin-browser/soundscaper-source-maps', destination: 'sites/soundscaper-source-maps', kind: 'directory', label: 'reciprocal Soundscaper browser source maps' },
 	{ source: '.wrangler/dual-origin-browser/framescaper-source-maps', destination: 'sites/framescaper-source-maps', kind: 'directory', label: 'reciprocal Framescaper browser source maps' },
-	{ source: 'src', destination: 'src', kind: 'directory', label: 'browser-test source tree' },
-	{ source: 'functions/download/index.ts', destination: 'functions/download/index.ts', kind: 'file', label: 'download-page browser fixture handler' },
-	{ source: 'vendor/audacity-design-system/tokens', destination: 'vendor/audacity-design-system/tokens', kind: 'directory', label: 'design-system tokens used by browser assertions' },
-	{ source: 'vendor/audacity-design-system/components/src/utils/roseus-colormap.ts', destination: 'vendor/audacity-design-system/components/src/utils/roseus-colormap.ts', kind: 'file', label: 'spectrogram painter browser harness colormap' },
+	...NIGHTLY_BROWSER_SOURCE_INPUTS,
 	{ source: 'handbook/guides', destination: 'handbook/guides', kind: 'directory', label: 'handbook guide step data the browser suite replays' },
 	{ source: 'handbook/src/content/docs/reference/macro-programs.md', destination: 'handbook/src/content/docs/reference/macro-programs.md', kind: 'file', label: 'macro-program reference the browser suite replays' },
 	{ source: 'tests/browser', destination: 'tests/browser', kind: 'directory', label: 'browser test tree', exclude: new Set(['AGENTS.md', 'handbook']) },

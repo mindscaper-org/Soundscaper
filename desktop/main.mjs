@@ -40,6 +40,7 @@ import { framescaperWebVcrSmokeTrust } from './framescaper-web-vcr-smoke-plan.js
 import { disposeDesktopNativeTier, registerDesktopNativeTier, revokeDesktopNativeTierOwner } from './native-tier-registration.mjs';
 import { registerHostAffordances } from './host-affordances.mjs';
 import { createTrustedDesktopIpc } from './project-library-runtime/desktop/main-trusted-ipc.js';
+import { registerCpuProfiler } from './project-library-runtime/desktop/cpu-profile-service.js';
 import { registerBlenderIpc } from './project-library-runtime/desktop/blender-ipc.js';
 import { registerExternalFfmpegPreferences } from './external-ffmpeg-registration.mjs';
 import { registerDesktopCodecProviders } from './desktop-codec-main-integration.mjs';
@@ -364,6 +365,7 @@ function isRendererSaveOwnerCurrent(owner) { if (!owner || !rendererReady || !ma
 function currentRendererSaveOwner() { if (!rendererReady || !mainWindow || mainWindow.isDestroyed()) return null; try { return rendererSaveOwnership.currentOwnerFor(mainWindow.webContents); } catch { return null; } }
 
 async function registerIpcHandlers(desktopSession) {
+	registerCpuProfiler({ handle, windowFor: () => mainWindow, metrics: () => app.getAppMetrics(), mainPid: process.pid });
 	if (PRODUCT_ID === 'soundscaper') blender = registerBlenderIpc({ handle, ownerFor: rendererSaveOwnerFor, isOwnerCurrent: isRendererSaveOwnerCurrent, removeHandler: (channel) => ipcMain.removeHandler(channel), dialog, windowFor: () => mainWindow, addonPath: resolve(__dirname, 'blender/soundscaper_blender.py') });
 	captureSecurity = registerDesktopCaptureSecurity({
 		appOrigin: APP_ORIGIN, desktopCapturer, desktopRoot: __dirname, desktopSession,

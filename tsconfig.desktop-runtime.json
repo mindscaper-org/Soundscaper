@@ -20,6 +20,8 @@
 		"desktop/audiocom-authorization.ts",
 		"desktop/audiocom-links.ts",
 		"desktop/blender-ipc.ts",
+		"desktop/cpu-profile-service.ts",
+		"desktop/cpu-profile-preload.ts",
 		"desktop/blender-export-store.ts",
 		"desktop/blender-live-server.ts",
 		"desktop/blender-preload.ts",

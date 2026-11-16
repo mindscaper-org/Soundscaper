@@ -62,6 +62,7 @@ export interface ParallelStackOutput {
 	readonly planes: readonly number[];
 }
 export interface ParallelStackPlan {
+	readonly cpuProfileControl?: SharedArrayBuffer;
 	readonly version: 1;
 	readonly sampleRate: number;
 	readonly blockFrames: number;

@@ -261,6 +261,7 @@
 		"track-audio/track-audio-composition-types.ts",
 		"track-audio/track-audio-composition.ts",
 		"track-audio/track-domain-types.ts",
+		"transport/cpu-profiling.ts",
 		"transport/timecode-sync-browser.ts",
 		"transport/timecode-sync-session.ts",
 		"transport/transport-composition.ts",

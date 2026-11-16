@@ -215,6 +215,7 @@ Defaults and limits come from the same definitions the editor validates against,
 | Limiter | `audacity-limiter` | Knee width | 2 | 0 to 10 | dB |
 | Limiter | `audacity-limiter` | Lookahead | 1 | 0 to 50 | ms |
 | Limiter | `audacity-limiter` | Release | 20 | 0 to 1000 | ms |
+| Limiter | `audacity-limiter` | Limit True Peaks | Off | On or off | — |
 | Loudness Normalization | `audacity-loudness-normalization` | Normalize | Perceived loudness | Perceived loudness; RMS | — |
 | Loudness Normalization | `audacity-loudness-normalization` | Target loudness | -23 | -145 to 0 | LUFS |
 | Loudness Normalization | `audacity-loudness-normalization` | Target RMS | -20 | -145 to 0 | dB |
