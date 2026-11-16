@@ -10,8 +10,7 @@ const EFFECT_LAYOUTS = Object.freeze({
 		{ titleKey: 'effectNameAutomaticPhaseCorrection', names: ['reference', 'maximumShiftMs', 'minimumConfidence'], wide: true },
 	],
 	'hum-removal': [
-		{ titleKey: 'effectNameHumRemoval', names: ['frequency', 'harmonics', 'bandwidth', 'reduction'], wide: true,
-			helpKey: 'effectHumRemovalHint', helpSubjectKey: 'effectNameHumRemoval' },
+		{ titleKey: null, names: ['frequency', 'harmonics', 'bandwidth', 'reduction'], wide: true },
 	],
 	'auto-tune': [
 		{ titleKey: 'effectCardPitchShift', names: ['controlTrackId', 'key', 'scale'], wide: true,
@@ -376,7 +375,7 @@ export function AudacityEffectLayout({
 					].filter(Boolean).join(' ');
 					return (
 						<section className={className} key={`${group.titleKey}-${groupIndex}`}>
-							<h3 className="audio-editor-audacity-layout__heading">
+							{group.titleKey && <h3 className="audio-editor-audacity-layout__heading">
 								{localizedCardTitle(group.titleKey, copy)}
 								{group.helpKey && <EditorHelpTooltip
 									subject={canonicalCopyValue(group.helpSubjectKey, copy)}
@@ -384,7 +383,7 @@ export function AudacityEffectLayout({
 									helpLabel={copy?.helpMenu || 'Help'}
 									hook={`${effectType}-lookahead`}
 								/>}
-							</h3>
+							</h3>}
 							{group.names.length > 0 && (
 								<div className="audio-editor-audacity-layout__parameters">
 									{group.names.map((name) => (

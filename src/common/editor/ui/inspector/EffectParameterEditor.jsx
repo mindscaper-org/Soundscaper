@@ -18,6 +18,7 @@ import { AUDIO_EDITOR_SAMPLE_RATE } from '../../project.js';
 import { useControlTrackOptions } from './useEffectPresentation.ts';
 import { canonicalCopyValue } from '../../../i18n/canonical-extras.js';
 import { AudacityEffectLayout } from '../AudacityEffectLayout.jsx';
+import EditorHelpTooltip from '../EditorHelpTooltip.tsx';
 import AudacityDynamicsEffectLayout from '../AudacityDynamicsEffectLayout.jsx';
 import { ParametricEqEditor } from '../ParametricEqEditor.jsx';
 import FilterCurveEqEditor from './FilterCurveEqEditor.tsx';
@@ -253,7 +254,11 @@ export default function EffectParameterEditor({
 				return (
 					<ParameterNumber
 					label={parameterLabel}
-					displayLabel={displayLabel}
+					displayLabel={effect.type === 'hum-removal' && name === 'frequency' ? <span className="audio-editor-help-label">
+						<span>{displayLabel}</span>
+						<EditorHelpTooltip subject={parameterLabel} description={canonicalCopyValue('effectHumRemovalHint', copy)}
+							helpLabel={copy.helpMenu || 'Help'} hook="hum-removal-frequency" />
+					</span> : displayLabel}
 					value={sourceControl ? Number(effect.params?.[name]) * scale : effect.params?.[name]}
 					defaultValue={(AUDIO_EFFECT_DEFINITIONS[effect.type] || AUDIO_SELECTION_EFFECT_DEFINITIONS[effect.type])?.defaults?.[name] * scale}
 					range={sourceControl && range ? range.map(value => value * scale) : range}

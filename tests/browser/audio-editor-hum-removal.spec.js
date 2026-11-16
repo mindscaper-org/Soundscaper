@@ -11,6 +11,12 @@ const controls = [
 ];
 
 async function configure(dialog) {
+	await expect(dialog.getByRole('heading', { name: 'Hum removal', level: 3, exact: true })).toHaveCount(0);
+	const frequency = dialog.getByRole('group', { name: 'Fundamental frequency', exact: true });
+	await frequency.getByRole('button', { name: 'Help: Fundamental frequency', exact: true }).focus();
+	await expect(dialog.getByRole('tooltip')).toContainText('Use 50 or 60 Hz for mains hum');
+	await frequency.getByRole('spinbutton', { name: 'Fundamental frequency', exact: true }).focus();
+	await expect(dialog.getByRole('tooltip')).toBeHidden();
 	for (const [name, value] of controls) {
 		const input = dialog.getByRole('spinbutton', { name, exact: true });
 		await commitInput(input, value);
