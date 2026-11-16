@@ -93,7 +93,7 @@ export function createExportDialogRequest(settings, options = {}) {
 		range,
 		format: settings.format,
 		...(['bwf', 'bw64'].includes(settings.format) ? { bext: options.bext ?? settings.bext } : {}),
-		...(settings.format === 'bw64' ? { adm: options.adm ?? settings.adm } : {}),
+		...(settings.format === 'bw64' || settings.earLayout ? { adm: options.adm ?? settings.adm } : {}),
 		sampleFormat: settings.sampleFormat,
 		bitDepth: Number(settings.sampleFormat.replace(/\D/g, '')) || undefined,
 		floatingPoint: settings.sampleFormat === 'float32',
@@ -124,6 +124,7 @@ export function createExportDialogRequest(settings, options = {}) {
 		// untouched dialog must keep producing the request it always produced.
 		...(exportDialogSupportsLoudnessNormalization(settings) && settings.loudnessNormalization ? { loudnessNormalization: settings.loudnessNormalization } : {}),
 		...(settings.mode === 'mix' && settings.binaural ? { binaural: true } : {}),
+		...(settings.mode === 'mix' && settings.earLayout ? { earLayout: settings.earLayout } : {}),
 		...(settings.masteringSequenceId ? { masteringSequenceId: settings.masteringSequenceId } : {}),
 	};
 }

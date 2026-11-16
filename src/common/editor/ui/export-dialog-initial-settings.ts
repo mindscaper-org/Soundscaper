@@ -57,7 +57,7 @@ export function createExportDialogInitialSettings(projectValue: unknown) {
 		includeTail: false,
 		renderAsLoop: false,
 		embedLabelChapters: false,
-		binaural: false,
+		binaural: false, earLayout: '',
 		masteringSequenceId: '',
 		canvasWidth: '',
 		canvasHeight: '',

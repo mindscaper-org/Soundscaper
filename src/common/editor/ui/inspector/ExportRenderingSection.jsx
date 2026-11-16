@@ -1,6 +1,7 @@
 import { Separator } from '@soundscaper/design-system/Separator';
 
 import EditorHelpTooltip from '../EditorHelpTooltip.tsx';
+import { EAR_LAYOUTS } from '../../ear/layouts.ts';
 import { DesignCheckbox, LabeledDropdown } from './inspector-controls.jsx';
 
 /**
@@ -34,6 +35,7 @@ export default function ExportRenderingSection({ copy, settings, exporting, admP
 						</span>
 					</div>
 				)}
+				{binauralAvailable && <LabeledDropdown label={copy.earRenderer} hook="earLayout" value={settings.earLayout || ''} disabled={exporting} onChange={(value) => onChange('earLayout', value)} options={[{ value: '', label: copy.earRendererOff }, ...EAR_LAYOUTS.map((layout) => ({ value: layout, label: layout }))]} />}
 				{binauralAvailable && (
 					<div className="audio-editor-export-check" data-export-field="binaural">
 						<span aria-hidden="true" />

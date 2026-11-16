@@ -150,6 +150,13 @@ and binaural rendering. Bed and object routes flatten into one explicit channel
 mapping. The binaural report names the renderer and its limitations instead of
 implying a measured HRTF.
 
+Opt-in [EBU EAR speaker rendering](../features/ebu-ear.md) consumes that authored
+programme before channel encoding. The plan states the source and output
+widths separately, and a transient capture project preserves the source routing.
+The export-owned worker uses the pinned libear WebAssembly gain calculators;
+the report identifies the implementation and output layout. This path exports
+speaker PCM and requires offline admission.
+
 ADM passthrough is separate: neutral path, no dither, exact full-source shape,
 and chunk preservation. It reproduces admitted bytes or refuses. Authored
 immersive features never weaken its refusal rules.

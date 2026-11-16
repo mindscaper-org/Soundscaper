@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { earOutputChannelCount } from '../ear/layouts.ts';
 
 /** Pure option projection shared by the browser and desktop export dialog. */
 
@@ -244,6 +245,7 @@ export function exportDialogOutputChannelCount(
 	const requestedInputCount = Number(inputChannelCount);
 	const inputCount = Number.isSafeInteger(requestedInputCount)
 		&& requestedInputCount >= 1 && requestedInputCount <= 32 ? requestedInputCount : 2;
+	if (settings.earLayout) return earOutputChannelCount(settings.earLayout);
 	if (settings.binaural === true) return 2;
 	const mapping = settings.channelMapping;
 	if (mapping == null || mapping === 'preserve') return inputCount;
@@ -270,6 +272,9 @@ export function normalizeExportDialogAudioSettings(
 	desktop: boolean,
 	inputChannelCount: unknown = 2,
 ): Readonly<Record<string, unknown>> {
+	if (settings.earLayout && (settings.mode !== 'mix' || settings.format === 'bw64' || String(settings.format).startsWith('video-'))) {
+		settings = Object.freeze({ ...settings, earLayout: '' });
+	}
 	// Split output preserves its channel layout; an old mix's rendering choices
 	// must not make the capability query describe a different delivery.
 	if (['clips', 'chapters', 'stems'].includes(String(settings.mode)) && (settings.binaural === true || settings.loudnessNormalization)) {

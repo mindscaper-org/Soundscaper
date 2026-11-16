@@ -1603,3 +1603,19 @@ upstream notice and source hash in
 `src/common/editor/audacity-iconcodes.js` re-exports this shared inventory.
 
 Except for identified third-party portions under compatible licenses, the repository is distributed under AGPL-3.0-only. Before deploying the FFmpeg core, the release process must archive the exact corresponding source and build configuration alongside the deployed version and verify the enabled codec libraries and their notices.
+
+## EBU libear speaker rendering
+
+The browser and desktop renderer bundles include EBU libear 0.9.0, commit
+`2db69f8fcea0bc5db8a78e14a9c2ae6ed4283c15` (Apache-2.0; Copyright 2019
+The libear Authors), Eigen `3147391d946bb4b6c68edd901f2add6ac1f31f8c`
+(MPL-2.0 and retained permissive notices), xsimd
+`c1247bffa8fc36de7380a5cd42673a3b32f74c97` (BSD-3-Clause), Boost 1.92.0
+(BSL-1.0), and Emscripten 3.1.64's permissively licensed linked runtimes.
+
+The Soundscaper wrapper and adapters are AGPL-3.0-only. Complete source archive
+URLs and hashes, local source and license pins, and the artifact hash are in
+`src/common/editor/ear/source-manifest.json`. Full notices and upstream license
+texts are retained in `src/common/editor/ear/THIRD_PARTY_NOTICES.txt`, emitted
+as an asset referenced by the delivery report. Rebuild with `npm run build:ear`
+and verify with `npm run audit:ear`. See `src/common/editor/ear/NOTICE.md`.
