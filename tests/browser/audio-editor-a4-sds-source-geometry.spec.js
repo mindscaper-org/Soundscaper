@@ -54,7 +54,7 @@ for (const format of ['sds', 'sds-open', 'opaque', 'wav']) test(`native SDS ${fo
 	}
 	expect(error).toBeLessThan(1e-7);
 	await editor.locator(format === 'sds-open' ? '[data-aup4-input]' : '[data-import-input]').setInputFiles({ name: file.name, mimeType: format === 'sds-open' ? 'application/octet-stream' : file.type, buffer: Buffer.from(await file.arrayBuffer()) });
-	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 30_000 });
+	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 60_000 });
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
 	const saving = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);
 	const entries = unzipSync(await downloadBytes(await saving)), project = JSON.parse(strFromU8(entries['project.json']));

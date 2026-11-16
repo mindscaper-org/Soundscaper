@@ -235,9 +235,10 @@ async function runAndReview(page, editor, task) {
 }
 
 async function runSelectedAndReview(page, assistance) {
+	const { progressEvents } = await milestone7FixtureSnapshot(page);
 	await assistance.getByRole('button', { name: /^(?:Apply|Analyze)$/u }).click();
-	await expect(assistance.getByRole('status', { name: 'Processing status' }))
-		.toHaveText('Processing selected media locally');
+	await expect.poll(() => milestone7FixtureSnapshot(page).then(state => state.progressEvents), { timeout: 30_000 })
+		.toBe(progressEvents + 1);
 	await completeMilestone7Run(page);
 	await expect(assistance.getByRole('status', { name: 'Processing status' }))
 		.toContainText('Processing finished.');
