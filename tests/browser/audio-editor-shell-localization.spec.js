@@ -314,7 +314,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		await play.hover();
 		await expect(tooltip).toBeVisible();
 		await expect(tooltip).toHaveAttribute('role', 'tooltip');
-		await expect(tooltip.locator('[data-audio-editor-button-tooltip]')).toHaveText('Play');
+		await expect(tooltip.locator('[data-audio-editor-button-tooltip]')).toHaveText('Play (P)');
 		const theme = await page.locator('html').getAttribute('data-theme');
 		const palette = theme === 'dark' ? darkTheme : lightTheme;
 		await expect(tooltip).toHaveCSS('background-color', cssColor(palette.background.surface.elevated));
@@ -324,12 +324,12 @@ test.describe('audio editor React/design-system workflows', () => {
 				bubbles: true, clientX: rect.x + rect.width / 2, clientY: rect.y + rect.height / 2,
 			}));
 		});
-		await expect(tooltip.locator('[data-audio-editor-button-tooltip]')).toHaveText('Play');
+		await expect(tooltip.locator('[data-audio-editor-button-tooltip]')).toHaveText('Play (P)');
 
 		await editor.locator('[data-action="mixer"] button').hover();
 		await expect(tooltip.locator('[data-audio-editor-button-tooltip]')).toHaveText('Mixer');
 		await fullscreen.hover();
-		await expect(tooltip.locator('[data-audio-editor-button-tooltip]')).toHaveText('Fullscreen');
+		await expect(tooltip.locator('[data-audio-editor-button-tooltip]')).toHaveText('Fullscreen (F11)');
 		expect(await fullscreen.getAttribute('title')).toBeNull();
 
 		await page.mouse.move(0, 0);

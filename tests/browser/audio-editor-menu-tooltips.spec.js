@@ -13,7 +13,8 @@ for (const [product, route] of [['soundscaper', '/embed/en/'], ['framescaper', '
 		const create = menu.locator('[data-menu-tooltip-id="new-project"]');
 		await create.hover();
 		const tooltip = page.locator('.menu-tooltip');
-		await expect(tooltip).toHaveText('Start an empty timeline for a separate piece of work.');
+		await expect(tooltip).toContainText('Start an empty timeline for a separate piece of work.');
+		await expect(tooltip.locator('kbd')).toHaveText('Ctrl+N');
 		await expect(tooltip).toHaveAttribute('data-side', 'right');
 		const itemBounds = await create.boundingBox();
 		const tooltipBounds = await tooltip.boundingBox();

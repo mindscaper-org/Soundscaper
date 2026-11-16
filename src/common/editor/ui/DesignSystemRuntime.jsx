@@ -28,7 +28,7 @@ export function DesignSystemProviders({ children, copy, locale = 'en', controlle
 	return (
 		<EditorComponentCopyProvider copy={copy} locale={locale}><AccessibilityProfileProvider initialProfileId={accessibilityProfile}>
 			<EditorSkinProvider controller={controller} mode={theme}>
-				<EditorMenuTooltips copy={copy}><EditorStatusHelpProvider><EditorNotificationProvider><EditorMusicalTimeCodeProvider controller={controller}>{children}</EditorMusicalTimeCodeProvider></EditorNotificationProvider></EditorStatusHelpProvider></EditorMenuTooltips>
+				<EditorMenuTooltips copy={copy} controller={controller}><EditorStatusHelpProvider><EditorNotificationProvider><EditorMusicalTimeCodeProvider controller={controller}>{children}</EditorMusicalTimeCodeProvider></EditorNotificationProvider></EditorStatusHelpProvider></EditorMenuTooltips>
 			</EditorSkinProvider>
 		</AccessibilityProfileProvider></EditorComponentCopyProvider>
 	);

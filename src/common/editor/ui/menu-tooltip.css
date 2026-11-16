@@ -30,3 +30,12 @@
 	padding-block-start: 8px;
 	border-block-start: 1px solid currentColor;
 }
+
+.menu-tooltip__shortcut {
+	margin: 8px 0 0;
+}
+
+.menu-tooltip__shortcut kbd,
+.kw-audio-editor__button-tooltip kbd {
+	font: inherit;
+}
