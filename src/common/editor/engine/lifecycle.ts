@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { bindIdleEffectContext } from './idle-effect-host.ts';
 
 import { createEngineRealtimeContext, prepareAutomaticRealtimeSampleRate, prepareRealtimeSampleRate } from './realtime-sample-rate.ts';
 import { configureRealtimeContextLease, isBorrowedRealtimeContext, releaseEngineRealtimeContext, type EngineRealtimeContextLease } from './realtime-context-custody.ts';
@@ -424,6 +425,7 @@ async [ENGINE_GET_CONTEXT]() {
 			throw new AudioEditorEngineDisposedError();
 		}
 		this.context = context;
+		bindIdleEffectContext(this, context);
 		if (this.project && !isBorrowedRealtimeContext(this, context)) {
 			configureNativeSurroundDestination(context.destination, Number(this.project.masterChannels) || 2);
 		}

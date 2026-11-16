@@ -5,6 +5,8 @@
 
 import { createAudacityLiveProcessor } from './live.js';
 import { initializePffft, isPffftReady } from '../pffft.js';
+import { IdleEffectGate } from '../idle-effect-processing.ts';
+import { idleEffectHoldFrames } from '../idle-effect-policy.ts';
 
 export const AUDACITY_LIVE_WORKLET_NAME = 'kw-audacity-live-effect';
 
@@ -29,6 +31,9 @@ export class AudacityLiveEffectProcessor extends ProcessorBase {
 		const sampleRate = Number(settings.sampleRate ?? globalThis.sampleRate ?? 48_000);
 		this.effectType = settings.effectType;
 		this.sampleRate = sampleRate;
+		this.params = settings.params || {};
+		this.idle = new IdleEffectGate(sampleRate,
+			idleEffectHoldFrames(this.effectType, this.params, sampleRate), () => this.processor.reset());
 		this.processor = null;
 		this.analysisWindow = null;
 		this.analysisSequence = 0;
@@ -71,7 +76,9 @@ export class AudacityLiveEffectProcessor extends ProcessorBase {
 			return true;
 		}
 		try {
+			if (!this.idle.before(inputs, output, output[0]?.length || 0)) return true;
 			this.processor.process(inputs[0] || [], output, inputs[1] || []);
+			this.idle.after(output, output[0]?.length || 0);
 			this.lastError = null;
 			this.#reportAnalysis();
 			return true;
@@ -87,15 +94,21 @@ export class AudacityLiveEffectProcessor extends ProcessorBase {
 	}
 
 	#handleMessage(message) {
+		if (this.idle.handleMessage(message)) return;
 		if (!this.processor) {
 			this.pendingMessages.push(message);
 			return;
 		}
 		try {
-			if (message.type === 'params') this.processor.updateParams(message.params || {});
+			if (message.type === 'params') {
+				this.processor.updateParams(message.params || {});
+				this.params = { ...this.params, ...message.params };
+				this.idle.wake(idleEffectHoldFrames(this.effectType, this.params, this.sampleRate));
+			}
 			else if (message.type === 'noise-profile') this.processor.setNoiseProfile(message.profile);
 			else if (message.type === 'reset') { this.processor.reset(); this.analysisWindow = null; }
 			else return;
+			this.idle.wake();
 			this.lastError = null;
 			this.#postStatus(message.type === 'reset' ? 'reset' : 'updated');
 		} catch (error) {

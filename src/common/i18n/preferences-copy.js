@@ -51,6 +51,8 @@ const ENTRIES = Object.freeze([
 	['preferencesEffects', 'Effects'],
 	['preferencesAdvanced', 'Advanced'],
 	['advancedAudioServer', 'audio.com API'],
+	['suspendIdleEffectProcessing', 'Suspend idle effect processing'],
+	['suspendIdleEffectProcessingDescription', 'Save processing power by suspending realtime effects when their inputs are silent and their tails have faded. Processing resumes as soon as input returns. Effects that need continuous processing remain active.'],
 	['advancedAudioServerUrl', 'Server URL'],
 	['advancedAudioServerSave', 'Save server'],
 	['advancedAudioServerUseDefault', 'Use audio.com'],

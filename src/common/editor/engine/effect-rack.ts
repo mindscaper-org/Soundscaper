@@ -62,6 +62,7 @@ import type { ScheduledParameterRegistry } from './scheduled-parameter-registry.
 import type { EngineEffect, UnknownRecord } from './types.ts';
 import { effectSupportsExplicitSidechain } from '../effect-explicit-sidechain-capability.ts';
 import { secondsToSampleFrame } from '../timeline-time.ts';
+import { registerIdleEffectNode, releaseIdleEffectNode } from './idle-effect-host.ts';
 import { noiseReductionClockGeometry, noiseReductionProfileRate } from '../audacity-effects/noise-reduction-clock.ts';
 import {
 	createNativePluginEffectNode,
@@ -156,6 +157,17 @@ export function applyEffectRack(
 }
 
 export function applyEffect(
+	context: BaseAudioContext, input: AudioNode, effect: EngineEffect,
+	nodes: AudioNodeCollection, options: EffectRackOptions = {},
+): AudioNode {
+	const output = buildEffect(context, input, effect, nodes, options);
+	if (output !== input && effect.type !== 'native-plugin' && effect.type !== 'auto-tune' && effect.type !== 'bitcrusher') {
+		registerIdleEffectNode(context, output);
+	}
+	return output;
+}
+
+function buildEffect(
 	context: BaseAudioContext,
 	input: AudioNode,
 	effect: EngineEffect,
@@ -449,6 +461,7 @@ export function safeMessageSequence(value: unknown, name: string): number {
 }
 
 export function disposeEffectNodeBindings(node: AudioNode): void {
+	releaseIdleEffectNode(node);
 	disposeAutoTuneNode(node);
 	disposeStandardEffectNode(node);
 	releaseDynamicsAnalysisTelemetry(node as AudioWorkletNode);

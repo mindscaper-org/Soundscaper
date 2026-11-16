@@ -106,3 +106,12 @@ test('Advanced owns the waveform renderer in both products', () => {
 		assert.doesNotMatch(renderPage('track-display', productId), /Waveform renderer/u);
 	}
 });
+
+test('Advanced exposes the enabled idle-effect preference in both products', () => {
+	for (const product of ['soundscaper', 'framescaper']) {
+		const markup = renderPage('advanced', product);
+		assert.match(markup, /Suspend idle effect processing/u);
+		assert.match(markup, /aria-checked="true"[^>]*aria-label="Suspend idle effect processing"/u);
+		assert.doesNotMatch(renderPage('general', product), /Suspend idle effect processing/u);
+	}
+});

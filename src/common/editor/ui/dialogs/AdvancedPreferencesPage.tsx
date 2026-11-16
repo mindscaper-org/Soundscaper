@@ -9,6 +9,7 @@ import { Separator } from '@soundscaper/design-system/Separator';
 import type { AudioEditorPerformancePreferences } from '../../performance-preferences.ts';
 import type { WaveformDisplayPreferences } from '../../waveform-display-preferences.ts';
 import PreferenceDropdownField from './PreferenceDropdownField.jsx';
+import PreferenceCheckbox from '../EditorPreferenceCheckbox.tsx';
 import {
 	AUDIO_COM_DEFAULT_SERVER_URL, normalizeAudioComServerUrl,
 	type AudioEditorAdvancedPreferences,
@@ -28,12 +29,14 @@ interface AdvancedPreferencesCopy {
 	readonly waveformRenderer: string;
 	readonly waveformRendererCanvas: string;
 	readonly waveformRendererGpu: string;
+	readonly suspendIdleEffectProcessing: string;
+	readonly suspendIdleEffectProcessingDescription: string;
 }
 
 interface AdvancedPreferencesPageProps {
 	readonly controller: { readonly actions: { readonly preferences: {
 		readonly update: (changes: {
-			readonly advanced?: AudioEditorAdvancedPreferences;
+			readonly advanced?: Partial<AudioEditorAdvancedPreferences>;
 			readonly temporaryData?: Partial<TemporaryDataPreferences>;
 			readonly performance?: AudioEditorPerformancePreferences;
 			readonly waveformDisplay?: Partial<WaveformDisplayPreferences>;
@@ -56,6 +59,7 @@ export default function AdvancedPreferencesPage({ controller, preferences, copy,
 	const [draft, setDraft] = useState(serverUrl);
 	const [invalid, setInvalid] = useState(false);
 	const fieldId = useId();
+	const idleDescriptionId = useId();
 	useEffect(() => { setDraft(serverUrl); setInvalid(false); }, [serverUrl]);
 	const save = (value: string) => {
 		let audioComServerUrl: string;
@@ -79,6 +83,14 @@ export default function AdvancedPreferencesPage({ controller, preferences, copy,
 					]} />
 			</div>
 			<p className="kw-audio-editor-preferences__note">{copy.optimizeForDescription}</p>
+		</PreferencePanel>
+		<Separator />
+		<PreferencePanel title={copy.suspendIdleEffectProcessing}>
+			<PreferenceCheckbox label={copy.suspendIdleEffectProcessing}
+				checked={preferences.advanced.suspendIdleEffectProcessing !== false}
+				ariaDescribedBy={idleDescriptionId}
+				onChange={(enabled) => run(() => controller.actions.preferences.update({ advanced: { suspendIdleEffectProcessing: enabled } }))} />
+			<p className="kw-audio-editor-preferences__note" id={idleDescriptionId}>{copy.suspendIdleEffectProcessingDescription}</p>
 		</PreferencePanel>
 		<Separator />
 		<PreferencePanel title={copy.waveformRenderer}>

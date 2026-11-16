@@ -14,6 +14,7 @@ import type { ProjectGraph } from '../../../engine/project-graph.ts';
 import { getParametricEqWasmModule } from '../../../engine/effect-worklets.ts';
 import { createParallelStackEffectMailbox } from '../../../engine/parallel-stack-effect-mailbox.ts';
 import { registerParallelStackLiveControls } from '../../../engine/parallel-stack-live-controls.ts';
+import { sharedIdleEffectControl } from '../../../engine/idle-effect-host.ts';
 
 export interface ParallelStackSessionResources {
 	readonly loadWorklet: (context: AudioContext) => Promise<void>;
@@ -102,6 +103,7 @@ export async function createParallelStackSession(
 			worker.postMessage({ type: 'prepare', shared, plan, workerIndex,
 				effectMailbox,
 				parametricEqWasmModule: getParametricEqWasmModule(request.context),
+				idleEffectControl: sharedIdleEffectControl(request.context),
 			});
 			return ready;
 		}));
