@@ -1,0 +1,32 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+.menu-tooltip {
+	position: fixed;
+	z-index: 10050;
+	box-sizing: border-box;
+	width: 300px;
+	max-width: calc(100vw - 16px);
+	max-height: calc(100dvh - 16px);
+	overflow: auto;
+	padding: 12px 14px;
+	border: 1px solid;
+	border-radius: 6px;
+	box-shadow: 0 4px 16px #0004;
+	font: 13px/1.5 system-ui, sans-serif;
+	text-align: start;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.menu-tooltip img,
+.menu-tooltip svg {
+	display: block;
+	max-width: 100%;
+	height: auto;
+	margin-block-start: 10px;
+}
+
+.menu-tooltip__reason {
+	margin: 10px 0 0;
+	padding-block-start: 8px;
+	border-block-start: 1px solid currentColor;
+}

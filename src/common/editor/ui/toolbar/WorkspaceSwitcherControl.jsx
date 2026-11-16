@@ -95,6 +95,7 @@ export default function WorkspaceSwitcherControl({ copy, snapshot, controller, r
 			{options.map((option) => (
 				<ContextMenuItem
 					key={option.id}
+					tooltipKey={`workspace-${option.id}`}
 					label={option.name}
 					checked={option.id === activeId}
 					onClick={() => choose(option.id)}

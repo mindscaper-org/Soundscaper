@@ -157,6 +157,7 @@ export const EffectDialogContextMenu: React.FC<EffectDialogContextMenuProps> = (
     <ContextMenu isOpen={isOpen} x={x} y={y} onClose={onClose}>
       {/* User Presets (disabled menu item) */}
       <ContextMenuItem
+        tooltipKey="plugin-user-presets"
         label="User Presets"
         disabled
         onClose={onClose}
@@ -164,6 +165,7 @@ export const EffectDialogContextMenu: React.FC<EffectDialogContextMenuProps> = (
 
       {/* Save Presets... */}
       <ContextMenuItem
+        tooltipKey="plugin-save-presets"
         label="Save Presets..."
         onClick={handleSavePreset}
         shortcut="S"
@@ -172,6 +174,7 @@ export const EffectDialogContextMenu: React.FC<EffectDialogContextMenuProps> = (
 
       {/* Delete Presets */}
       <ContextMenuItem
+        tooltipKey="plugin-delete-presets"
         label="Delete Presets"
         onClick={handleDeletePreset}
         disabled={!canDelete}
@@ -183,6 +186,7 @@ export const EffectDialogContextMenu: React.FC<EffectDialogContextMenuProps> = (
 
       {/* Factory Presets (submenu) */}
       <ContextMenuItem
+        tooltipKey="plugin-factory-presets"
         label="Factory Presets"
         hasSubmenu
         onClose={onClose}
@@ -190,7 +194,7 @@ export const EffectDialogContextMenu: React.FC<EffectDialogContextMenuProps> = (
         {factoryPresets.map((preset) => (
           <ContextMenuItem
             key={preset}
-            label={preset}
+            tooltipKey="plugin-preset" label={preset}
             onClick={() => handleFactoryPresetSelect(preset)}
             onClose={onClose}
           />
@@ -199,6 +203,7 @@ export const EffectDialogContextMenu: React.FC<EffectDialogContextMenuProps> = (
 
       {/* Import... */}
       <ContextMenuItem
+        tooltipKey="plugin-import-presets"
         label="Import..."
         onClick={handleImport}
         onClose={onClose}
@@ -206,6 +211,7 @@ export const EffectDialogContextMenu: React.FC<EffectDialogContextMenuProps> = (
 
       {/* Export... */}
       <ContextMenuItem
+        tooltipKey="plugin-export-presets"
         label="Export..."
         onClick={handleExport}
         onClose={onClose}
@@ -216,6 +222,7 @@ export const EffectDialogContextMenu: React.FC<EffectDialogContextMenuProps> = (
 
       {/* Show vendor UI (only enabled for 3rd party effects) */}
       <ContextMenuItem
+        tooltipKey="plugin-vendor-ui"
         label="Show vendor UI"
         onClick={handleShowVendorUI}
         disabled={!isThirdParty}
@@ -225,6 +232,7 @@ export const EffectDialogContextMenu: React.FC<EffectDialogContextMenuProps> = (
 
       {/* Options... (only enabled for 3rd party effects) */}
       <ContextMenuItem
+        tooltipKey="plugin-options"
         label="Options..."
         onClick={handleOptions}
         disabled={!isThirdParty}
@@ -236,7 +244,8 @@ export const EffectDialogContextMenu: React.FC<EffectDialogContextMenuProps> = (
         <>
           <ContextMenuItem isDivider />
           <ContextMenuItem
-            label="About"
+            tooltipKey="plugin-about"
+        label="About"
             hasSubmenu
             onClose={onClose}
           >
