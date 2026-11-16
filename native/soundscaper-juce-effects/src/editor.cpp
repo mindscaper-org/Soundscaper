@@ -3,30 +3,44 @@
 
 namespace soundscaper::effects {
 Editor::Editor(Processor &value)
-	: juce::DocumentWindow(value.kind == Kind::gain ? "JUCE Gain" : "JUCE Convolution Reverb",
+	: juce::DocumentWindow(effectSpec(value.kind).name,
 		juce::Colours::darkgrey, juce::DocumentWindow::closeButton), processor(value)
 {
 	setUsingNativeTitleBar(true);
-	panel.setSize(520, processor.kind == Kind::gain ? 110 : 280);
+	const auto &spec = effectSpec(processor.kind);
+	panel.setSize(600, static_cast<int>(spec.parameterCount) * 50 + 40 + (processor.kind == Kind::convolution ? 110 : 0));
 	for (uint32_t index = 0; index < processor.parameterCount(); ++index) {
-		const bool gain = processor.kind == Kind::gain || index == 2;
+		const auto &parameter = spec.parameters[index];
 		auto &slider = sliders[index];
-		slider.setRange(gain ? -60 : 0, gain ? 12 : index == 0 ? 100 : 1000, 0.01);
-		slider.setValue(gain ? -60 + processor.parameter(index) * 72
-			: processor.parameter(index) * (index == 0 ? 100 : 1000));
-		slider.setTextValueSuffix(gain ? " dB" : index == 0 ? " %" : " ms");
-		slider.setBounds(155, 15 + static_cast<int>(index) * 50, 345, 40);
-		slider.onValueChange = [this, index, gain]() {
-			const double value = sliders[index].getValue();
-			processor.setParameter(index, gain ? (value + 60) / 72 : value / (index == 0 ? 100 : 1000));
-		};
-		labels[index].setText(gain ? "Output gain" : index == 0 ? "Wet mix" : "Pre-delay", juce::dontSendNotification);
+		if (parameter.choiceCount > 1) {
+			auto &choice = choices[index];
+			for (uint32_t item = 0; item < parameter.choiceCount; ++item) choice.addItem(parameter.choices[item], static_cast<int>(item) + 1);
+			choice.setSelectedItemIndex(static_cast<int>(std::round(parameter.physical(static_cast<float>(processor.parameter(index))))));
+			choice.setBounds(180, 20 + static_cast<int>(index) * 50, 400, 30);
+			choice.onChange = [this, index]() {
+				processor.setParameter(index, static_cast<double>(choices[index].getSelectedItemIndex())
+					/ (effectSpec(processor.kind).parameters[index].choiceCount - 1));
+			};
+			panel.addAndMakeVisible(choice);
+		} else {
+			slider.setRange(parameter.minimum, parameter.maximum, 0);
+			if (parameter.logarithmic) slider.setSkewFactorFromMidPoint(std::sqrt(parameter.minimum * parameter.maximum));
+			slider.setValue(parameter.physical(static_cast<float>(processor.parameter(index))));
+			slider.setTextValueSuffix(*parameter.unit == '\0' ? "" : juce::String(" ") + parameter.unit);
+			slider.setBounds(170, 15 + static_cast<int>(index) * 50, 410, 40);
+			slider.onValueChange = [this, index]() {
+				processor.setParameter(index, effectSpec(processor.kind).parameters[index].normalized(static_cast<float>(sliders[index].getValue())));
+			};
+			panel.addAndMakeVisible(slider);
+		}
+		labels[index].setText(parameter.name, juce::dontSendNotification);
 		labels[index].setBounds(15, 15 + static_cast<int>(index) * 50, 135, 40);
-		panel.addAndMakeVisible(slider); panel.addAndMakeVisible(labels[index]);
+		panel.addAndMakeVisible(labels[index]);
 	}
 	if (processor.kind == Kind::convolution) {
-		load.setBounds(15, 170, 250, 35); panel.addAndMakeVisible(load);
-		status.setBounds(15, 210, 490, 55); panel.addAndMakeVisible(status);
+		const int top = static_cast<int>(spec.parameterCount) * 50 + 20;
+		load.setBounds(15, top, 250, 35); panel.addAndMakeVisible(load);
+		status.setBounds(15, top + 40, 570, 55); panel.addAndMakeVisible(status);
 		status.setText(processor.impulseName().isEmpty() ? "Load a mono or stereo WAV/AIFF impulse response."
 			: processor.impulseName(), juce::dontSendNotification);
 		load.onClick = [this]() {
@@ -40,7 +54,7 @@ Editor::Editor(Processor &value)
 				});
 		};
 	}
-	setContentNonOwned(&panel, false); centreWithSize(panel.getWidth(), panel.getHeight());
+	setContentNonOwned(&panel, true); centreWithSize(getWidth(), getHeight());
 	startTimerHz(10);
 }
 void Editor::timerCallback()
@@ -48,9 +62,10 @@ void Editor::timerCallback()
 	processor.collectRetired();
 	for (uint32_t index = 0; index < processor.parameterCount(); ++index) {
 		if (sliders[index].isMouseButtonDown()) continue;
-		const bool gain = processor.kind == Kind::gain || index == 2;
-		sliders[index].setValue(gain ? -60 + processor.parameter(index) * 72
-			: processor.parameter(index) * (index == 0 ? 100 : 1000), juce::dontSendNotification);
+		const auto &parameter = effectSpec(processor.kind).parameters[index];
+		const auto value = parameter.physical(static_cast<float>(processor.parameter(index)));
+		if (parameter.choiceCount > 1) choices[index].setSelectedItemIndex(static_cast<int>(std::round(value)), juce::dontSendNotification);
+		else sliders[index].setValue(value, juce::dontSendNotification);
 	}
 }
 }

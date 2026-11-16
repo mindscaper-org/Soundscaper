@@ -6,6 +6,7 @@
  */
 
 import { createHash } from 'node:crypto';
+import { displayText, publicStablePluginId } from './plugin-registry-display.ts';
 
 import {
 	type HelperEffectPluginFormat, type HelperPluginHostJobGrant,
@@ -118,6 +119,7 @@ export interface PluginInstallationView {
 
 export interface PluginEntryView {
 	readonly entryId: string; readonly format: PluginFormat;
+	readonly stablePluginId?: string;
 	readonly name: string; readonly vendor: string;
 	readonly classification: PluginClassification;
 	readonly eligible: boolean; readonly ineligibleReason: PluginIneligibleReason | null;
@@ -380,6 +382,7 @@ export class DesktopPluginRegistry {
 		return Object.freeze({
 			entryId: entry.entryId,
 			format: entry.format,
+			...publicStablePluginId(entry.stableId),
 			name: displayText(label.name),
 			vendor: displayText(label.vendor),
 			classification: classifications.size === 1 ? (soleClassification ?? 'unknown') : 'unknown',
@@ -518,15 +521,6 @@ function admitTopologies(value: unknown, unavailable: boolean): readonly PluginC
 			outputChannels: boundedInteger(record.outputChannels, 0, MAXIMUM_PLUGIN_CHANNELS, 'output channel count'),
 		});
 	}));
-}
-
-/**
- * Scanner-reported text is authored by the plug-in, so it is bounded at admission
- * and stripped of path separators here, at the renderer boundary. A vendor that
- * names itself after a path still cannot put one into renderer-facing state.
- */
-function displayText(value: string): string {
-	return value.split(/[\\/]/u).join(' ').replace(/\s+/gu, ' ').trim() || '(unnamed)';
 }
 
 function absolutePath(value: unknown): string {

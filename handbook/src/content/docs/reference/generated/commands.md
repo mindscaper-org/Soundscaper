@@ -70,6 +70,7 @@ Product availability follows each product profile’s command filters and each l
 | Bass and Treble | `audacity-bass-treble` | — | Effect > EQ and filters | Soundscaper | Soundscaper local |
 | Beat Finder | `nyquist:beat` | — | Nyquist | Soundscaper | Audacity |
 | Beats and measures ruler | `beats-measures-ruler` | — | Timeline ruler | Soundscaper, Framescaper | Audacity |
+| Bias | `juce-effect-bias` | — | Effect > JUCE | Soundscaper | Soundscaper local |
 | Bitcrusher | `bitcrusher` | — | Effect > Distortion and modulation | Soundscaper | Soundscaper local |
 | Buffering | `parallel-stack-buffering` | — | Edit > Preferences > Advanced > Processing > Buffering | Soundscaper | Soundscaper local |
 | Built-in generators | `effect://builtin/generators` | — | Generate | Soundscaper | Audacity |
@@ -87,6 +88,7 @@ Product availability follows each product profile’s command filters and each l
 | Change track color | `action://trackedit/track/change-color?colorindex=%1` | — | Track context > Color | Soundscaper, Framescaper | Audacity |
 | Check for updates | `desktop-check-updates` | — | Help | Soundscaper, Framescaper | Soundscaper local |
 | Chirp | `generator://chirp` | — | Generate | Soundscaper | Audacity |
+| Chorus | `juce-effect-chorus` | — | Effect > JUCE | Soundscaper | Soundscaper local |
 | Classic | `workspace-classic` | — | View > Workspace; Window | Soundscaper | Soundscaper local |
 | Classic Filters | `audacity-classic-filters` | — | Effect > Legacy effects | Soundscaper | Soundscaper local |
 | Clean Filler & Silence | `assistance-task-clean-filler-silence` | — | Effect > Noise removal and repair | Soundscaper, Framescaper | Soundscaper local |
@@ -105,6 +107,7 @@ Product availability follows each product profile’s command filters and each l
 | Close project | `file-close` | Ctrl+W | File | Soundscaper, Framescaper | Audacity |
 | Commit frozen track | `soundscaper-commit-freeze` | — | Tracks > Freeze | Soundscaper | Soundscaper local |
 | Compressor | `audacity-compressor` | — | Effect > Volume and compression | Soundscaper | Soundscaper local |
+| Compressor | `juce-effect-compressor` | — | Effect > JUCE | Soundscaper | Soundscaper local |
 | Configure workspaces | `configure-workspaces` | — | View > Workspaces | Soundscaper, Framescaper | Audacity |
 | Consolidate media | `consolidate-media` | — | File > Project management | Soundscaper, Framescaper | Soundscaper local |
 | Contract selection from left | `sel-cntr-left` | — | Keyboard navigation | Soundscaper, Framescaper | Audacity |
@@ -113,6 +116,7 @@ Product availability follows each product profile’s command filters and each l
 | Contract selection from right | `track-view-item-reduce-left` | Ctrl+Shift+Left | Select > Region | Soundscaper, Framescaper | Audacity |
 | Contrast | `contrast-analyzer` | Ctrl+Shift+T | Analyze | Soundscaper | Audacity |
 | Contribute translations | `community-translations` | — | Help | Soundscaper, Framescaper | Soundscaper local |
+| Convolution Reverb | `juce-effect-convolution` | — | Effect > JUCE | Soundscaper | Soundscaper local |
 | Copy | `action://copy` | Ctrl+C | Edit | Soundscaper, Framescaper | Audacity |
 | Copy labeled audio | `copy-labels` | Alt+Shift+C | Edit > Labeled audio | Soundscaper | Audacity |
 | CorridorKey 2.0 | `corridorkey-2.0` | — | Effect > Video effects | Framescaper | Soundscaper local |
@@ -143,6 +147,7 @@ Product availability follows each product profile’s command filters and each l
 | Deciseconds | `snap-deciseconds` | — | View > Snapping > Seconds and samples | Soundscaper, Framescaper | Soundscaper local |
 | Decrease Gain on Focused Track | `track-gain-dec` | Alt+Shift+Down | Track context | Soundscaper, Framescaper | Audacity |
 | Decrease all track heights | `decrease-all-track-heights` | Ctrl+Shift+Down | View > Zoom | Soundscaper, Framescaper | Soundscaper local |
+| Delay | `juce-effect-delay` | — | Effect > JUCE | Soundscaper | Soundscaper local |
 | Delay | `multi-tap-delay` | — | Effect > Delay and reverb | Soundscaper | Soundscaper local |
 | Delay | `nyquist:delay` | — | Nyquist | Soundscaper | Audacity |
 | Delete | `action://delete` | Del; Backspace | Edit; Clip context | Soundscaper, Framescaper | Audacity |
@@ -201,12 +206,14 @@ Product availability follows each product profile’s command filters and each l
 | Extend track selection down | `track-view-extend-track-selection-next` | Shift+Down | Keyboard navigation | Soundscaper, Framescaper | Audacity |
 | Extend track selection up | `track-view-extend-track-selection-prev` | Shift+Up | Keyboard navigation | Soundscaper, Framescaper | Audacity |
 | External display | `framescaper-external-display` | — | View > External display | Framescaper | Soundscaper local |
+| FIR Filter | `juce-effect-fir-filter` | — | Effect > JUCE | Soundscaper | Soundscaper local |
 | Fade In | `audacity-fade-in` | — | Effect > Fading | Soundscaper | Soundscaper local |
 | Fade Out | `audacity-fade-out` | — | Effect > Fading | Soundscaper | Soundscaper local |
 | Fade shape handles | `show-fade-shape-handles` | — | View | Soundscaper, Framescaper | Soundscaper local |
 | Filter Curve EQ | `audacity-filter-curve-eq` | — | Effect > EQ and filters | Soundscaper | Soundscaper local |
 | Find clipping | `find-clipping` | — | Analyze | Soundscaper | Audacity |
 | Find repeated sound | `find-repeated-sound` | — | Analyze | Soundscaper | Soundscaper local |
+| First Order Filter | `juce-effect-first-order-filter` | — | Effect > JUCE | Soundscaper | Soundscaper local |
 | First track | `track-view-first-track` | Ctrl+Home | Keyboard navigation | Soundscaper, Framescaper | Audacity |
 | Fit height | `fit-height` | Ctrl+Shift+F | View > Zoom | Soundscaper, Framescaper | Audacity |
 | Fit project to width | `zoom-to-fit-project` | Ctrl+F | View > Zoom | Soundscaper, Framescaper | Audacity |
@@ -217,6 +224,7 @@ Product availability follows each product profile’s command filters and each l
 | Freeze track | `soundscaper-freeze-track` | — | Tracks > Freeze | Soundscaper | Soundscaper local |
 | Full resolution | `video-preview-resolution-full` | — | View > Video preview resolution | Soundscaper, Framescaper | Soundscaper local |
 | Fullscreen | `fullscreen` | F11 | Window | Soundscaper, Framescaper | Audacity |
+| Gain | `juce-effect-gain` | — | Effect > JUCE | Soundscaper | Soundscaper local |
 | Generate | `framescaper-proxy-generate` | — | Tools > Proxies | Framescaper | Soundscaper local |
 | Generate Editorial Text | `assistance-task-generate-editorial-text` | — | Generate | Soundscaper, Framescaper | Soundscaper local |
 | Get effects | `nyquist-get-effects` | — | Effect > Nyquist | Soundscaper | Soundscaper local |
@@ -229,6 +237,7 @@ Product availability follows each product profile’s command filters and each l
 | High-pass filter | `highpass-filter` | — | Effect > EQ and filters | Soundscaper | Soundscaper local |
 | History | `toggle-history` | — | View | Soundscaper, Framescaper | Audacity |
 | Hum removal | `hum-removal` | — | Effect > Noise removal and repair | Soundscaper | Soundscaper local |
+| IIR Filter | `juce-effect-iir-filter` | — | Effect > JUCE | Soundscaper | Soundscaper local |
 | Identify Speakers | `assistance-task-identify-speakers` | — | Analyze > Speech | Soundscaper, Framescaper | Soundscaper local |
 | Image sequence | `framescaper-import-image-sequence` | — | File | Framescaper | Soundscaper local |
 | Import audio | `project-import` | Ctrl+Shift+I | File | Soundscaper, Framescaper | Audacity |
@@ -253,13 +262,16 @@ Product availability follows each product profile’s command filters and each l
 | Keep tracks synchronized | `keep-tracks-synchronised` | — | Tracks | Soundscaper, Framescaper | Audacity |
 | Label Sounds | `nyquist:label-sounds` | — | Nyquist | Soundscaper | Audacity |
 | Labels | `panel-labels` | — | Window | Soundscaper, Framescaper | Soundscaper local |
+| Ladder Filter | `juce-effect-ladder-filter` | — | Effect > JUCE | Soundscaper | Soundscaper local |
 | Last track | `track-view-last-track` | Ctrl+End | Keyboard navigation | Soundscaper, Framescaper | Audacity |
 | Lead-in recording | `action://record/lead-in-recording` | Shift+D | Record | Soundscaper | Audacity |
 | Left at playback position | `select-left-of-playback-position` | [ | Select > Region | Soundscaper, Framescaper | Audacity |
 | Legacy Compressor | `audacity-legacy-compressor` | — | Effect > Legacy effects | Soundscaper | Soundscaper local |
 | Legacy Limiter | `nyquist:legacy-limiter` | — | Nyquist | Soundscaper | Audacity |
 | Limiter | `audacity-limiter` | — | Effect > Volume and compression | Soundscaper | Soundscaper local |
+| Limiter | `juce-effect-limiter` | — | Effect > JUCE | Soundscaper | Soundscaper local |
 | Link audio | `video-link-audio` | — | Edit > Audio clips | Framescaper | Soundscaper local |
+| Linkwitz-Riley Filter | `juce-effect-linkwitz-riley-filter` | — | Effect > JUCE | Soundscaper | Soundscaper local |
 | Local projects | `local-projects` | — | File > Project management | Soundscaper, Framescaper | Soundscaper local |
 | Loop region | `toggle-loop-region` | L | Select > Looping; Transport | Soundscaper, Framescaper | Audacity |
 | Loudness Normalization | `audacity-loudness-normalization` | — | Effect > Volume and compression | Soundscaper | Soundscaper local |
@@ -324,6 +336,7 @@ Product availability follows each product profile’s command filters and each l
 | Next item | `local://track-view-next-item` | — | Keyboard navigation | Soundscaper, Framescaper | Soundscaper local |
 | Next panel | `track-view-next-panel` | F6; `; Tab | Keyboard navigation | Soundscaper, Framescaper | Audacity |
 | Noise | `generator://noise` | — | Generate | Soundscaper | Audacity |
+| Noise Gate | `juce-effect-noise-gate` | — | Effect > JUCE | Soundscaper | Soundscaper local |
 | Noise Gate | `nyquist:noisegate` | — | Nyquist | Soundscaper | Audacity |
 | Noise Reduction | `audacity-noise-reduction` | — | Effect > Noise removal and repair | Soundscaper | Soundscaper local |
 | Noise gate | `noise-gate` | — | Effect > Noise removal and repair | Soundscaper | Soundscaper local |
@@ -342,6 +355,7 @@ Product availability follows each product profile’s command filters and each l
 | PAL frames (25 fps) | `snap-video-pal` | — | View > Snapping > Video frames | Soundscaper, Framescaper | Soundscaper local |
 | Pan Left on Focused Track | `track-pan-left` | Alt+Shift+Left | Track context | Soundscaper, Framescaper | Audacity |
 | Pan Right on Focused Track | `track-pan-right` | Alt+Shift+Right | Track context | Soundscaper, Framescaper | Audacity |
+| Panner | `juce-effect-panner` | — | Effect > JUCE | Soundscaper | Soundscaper local |
 | Parallel effect stacks | `parallel-stack-enabled` | — | Edit > Preferences > Advanced > Processing | Soundscaper | Soundscaper local |
 | Parametric EQ | `eq` | — | Effect > EQ and filters | Soundscaper | Soundscaper local |
 | Paste | `action://paste` | Ctrl+V | Edit | Soundscaper, Framescaper | Audacity |
@@ -351,6 +365,7 @@ Product availability follows each product profile’s command filters and each l
 | Pause | `action://playback/pause` | — | Transport | Soundscaper, Framescaper | Audacity |
 | Pause recording | `action://record/pause` | — | Record; Transport | Soundscaper | Audacity |
 | Phaser | `audacity-phaser` | — | Effect > Distortion and modulation | Soundscaper | Soundscaper local |
+| Phaser | `juce-effect-phaser` | — | Effect > JUCE | Soundscaper | Soundscaper local |
 | Piano roll (beta) | `panel-piano-roll` | — | Window | Soundscaper | Soundscaper local |
 | Pinned playhead | `toggle-pinned-play-head` | — | View | Soundscaper, Framescaper | Audacity |
 | Pitch and speed | `clip-pitch-speed` | Ctrl+Shift+P | Clip context | Soundscaper, Framescaper | Audacity |
@@ -421,6 +436,7 @@ Product availability follows each product profile’s command filters and each l
 | Resample track | `track-resample` | — | Track context | Soundscaper, Framescaper | Audacity |
 | Reset layout | `dock-restore-default-layout` | — | View | Soundscaper, Framescaper | Audacity |
 | Reset pitch and speed | `clip-reset-pitch-speed` | — | Clip context | Soundscaper, Framescaper | Audacity |
+| Reverb | `juce-effect-reverb` | — | Effect > JUCE | Soundscaper | Soundscaper local |
 | Reverb (Audacity) | `audacity-reverb` | — | Effect > Delay and reverb | Soundscaper | Soundscaper local |
 | Reverse | `audacity-reverse` | — | Effect > Special | Soundscaper | Soundscaper local |
 | Revert to factory settings | `revert-factory` | — | Help | Soundscaper, Framescaper | Audacity |
@@ -503,6 +519,7 @@ Product availability follows each product profile’s command filters and each l
 | Split stereo to L/R mono | `track-split-stereo-to-lr` | — | Track context | Soundscaper, Framescaper | Audacity |
 | Split stereo to center mono | `track-split-stereo-to-center` | — | Track context | Soundscaper, Framescaper | Audacity |
 | Split tool | `split-tool` | C | Tools toolbar | Soundscaper, Framescaper | Audacity |
+| State Variable Filter | `juce-effect-state-variable-filter` | — | Effect > JUCE | Soundscaper | Soundscaper local |
 | Status bar | `toggle-statusbar` | — | View | Soundscaper, Framescaper | Audacity |
 | Stop | `action://playback/stop` | — | Transport | Soundscaper, Framescaper | Audacity |
 | Stop recording | `action://record/stop` | — | Record; Transport | Soundscaper | Audacity |
@@ -553,6 +570,7 @@ Product availability follows each product profile’s command filters and each l
 | Wahwah | `audacity-wahwah` | — | Effect > Distortion and modulation | Soundscaper | Soundscaper local |
 | Watch folders | `framescaper-watch-folders` | — | Tools | Framescaper | Soundscaper local |
 | Waveform | `action://trackedit/track-view-waveform` | — | Track context > Track visualization | Soundscaper, Framescaper | Audacity |
+| Waveshaper | `juce-effect-waveshaper` | — | Effect > JUCE | Soundscaper | Soundscaper local |
 | Worker limit | `parallel-stack-workers` | — | Edit > Preferences > Advanced > Processing > Worker limit | Soundscaper | Soundscaper local |
 | Zoom in | `zoom-in` | Ctrl+= | View > Zoom | Soundscaper, Framescaper | Audacity |
 | Zoom normal | `zoom-default` | Ctrl+2 | View > Zoom | Soundscaper, Framescaper | Audacity |

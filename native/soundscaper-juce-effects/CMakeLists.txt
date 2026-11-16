@@ -9,9 +9,10 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 	include(CTest)
 endif()
 
-add_library(soundscaper_juce_effect_core STATIC src/processor.cpp src/processor_state.cpp)
+include(cmake/effect-catalog.cmake)
+add_library(soundscaper_juce_effect_core STATIC src/processor.cpp src/processor_state.cpp src/standard_processors.cpp src/filter_processors.cpp)
 target_compile_features(soundscaper_juce_effect_core PUBLIC cxx_std_20)
-target_include_directories(soundscaper_juce_effect_core PUBLIC src)
+target_include_directories(soundscaper_juce_effect_core PUBLIC src "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_compile_definitions(soundscaper_juce_effect_core PUBLIC
 	JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_USE_FLAC=0 JUCE_USE_OGGVORBIS=0
 	JUCE_USE_MP3AUDIOFORMAT=0 JUCE_USE_WINDOWS_MEDIA_FORMAT=0)
@@ -31,9 +32,18 @@ target_include_directories(soundscaper_juce_effects PRIVATE "${SOUNDSCAPER_CLAP_
 target_link_libraries(soundscaper_juce_effects PRIVATE soundscaper_juce_effect_core juce::juce_gui_extra)
 set_target_properties(soundscaper_juce_effects PROPERTIES PREFIX "" SUFFIX ".clap"
 	CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN YES)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	# GNU unique exports pin a CLAP DSO after deinit, leaving its GUI dispatcher
+	# stopped on the next init. Permit the last reference to unload it completely.
+	target_compile_options(soundscaper_juce_effect_core PRIVATE -fno-gnu-unique)
+	target_compile_options(soundscaper_juce_effects PRIVATE -fno-gnu-unique)
+endif()
 install(TARGETS soundscaper_juce_effects LIBRARY DESTINATION runtime/effects RUNTIME DESTINATION runtime/effects)
 
 if(BUILD_TESTING)
+	add_executable(soundscaper_juce_effect_catalog_test tests/catalog_test.cpp)
+	target_link_libraries(soundscaper_juce_effect_catalog_test PRIVATE soundscaper_juce_effect_core)
+	add_test(NAME soundscaper_juce_effect_catalog_test COMMAND soundscaper_juce_effect_catalog_test)
 	add_executable(soundscaper_juce_effect_clap_test tests/clap_test.cpp)
 	target_include_directories(soundscaper_juce_effect_clap_test PRIVATE "${SOUNDSCAPER_CLAP_ROOT}/include")
 	target_link_libraries(soundscaper_juce_effect_clap_test PRIVATE soundscaper_juce_effect_core)

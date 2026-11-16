@@ -12,8 +12,9 @@ private:
 	void timerCallback() override;
 	Processor &processor;
 	juce::Component panel;
-	std::array<juce::Slider, 3> sliders;
-	std::array<juce::Label, 3> labels;
+	std::array<juce::Slider, maximumParameters> sliders;
+	std::array<juce::ComboBox, maximumParameters> choices;
+	std::array<juce::Label, maximumParameters> labels;
 	juce::TextButton load{"Load impulse response..."};
 	juce::Label status;
 	std::unique_ptr<juce::FileChooser> chooser;

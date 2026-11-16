@@ -77,7 +77,7 @@ bool Processor::loadState(const void *bytes, size_t length)
 	if (bytes == nullptr || length < minimum || length > maximumImpulseBytes + 2048) return false;
 	juce::MemoryInputStream in(bytes, length, false);
 	if (in.readInt() != magic || in.readInt() != static_cast<int>(kind)) return false;
-	std::array<float, 3> values{};
+	ParameterValues values{};
 	for (uint32_t index = 0; index < parameterCount(); ++index) {
 		values[index] = in.readFloat();
 		if (!std::isfinite(values[index]) || values[index] < 0 || values[index] > 1) return false;
@@ -88,7 +88,7 @@ bool Processor::loadState(const void *bytes, size_t length)
 	if (!std::isfinite(next.sampleRate) || next.sampleRate < 8000 || next.sampleRate > 192000
 		|| frames < 0 || channels < 0 || channels > 2 || nameLength < 0 || nameLength > 1024
 		|| (frames == 0 ? channels != 0 : channels == 0)
-		|| (kind == Kind::gain && frames != 0)) return false;
+		|| (kind != Kind::convolution && frames != 0)) return false;
 	const auto sampleBytes = static_cast<uint64_t>(channels) * static_cast<uint64_t>(frames) * sizeof(float);
 	if (sampleBytes > maximumImpulseBytes
 		|| static_cast<uint64_t>(in.getNumBytesRemaining()) != sampleBytes + static_cast<uint64_t>(nameLength)) return false;
@@ -102,7 +102,7 @@ bool Processor::loadState(const void *bytes, size_t length)
 			for (int frame = 0; frame < frames; ++frame) next.samples.setSample(channel, frame, in.readFloat());
 		if (!validImpulse(next.samples, next.sampleRate)) return false;
 	}
-	std::array<float, 3> previous{};
+	ParameterValues previous{};
 	for (uint32_t index = 0; index < parameterCount(); ++index) {
 		previous[index] = static_cast<float>(parameter(index));
 		setParameter(index, values[index]);
@@ -118,6 +118,15 @@ bool Processor::loadState(const void *bytes, size_t length)
 
 double Processor::tailSeconds() const
 {
+	if (kind == Kind::reverb) return parameter(4) >= 0.5 ? std::numeric_limits<double>::infinity() : 20;
+	if (kind == Kind::delay) {
+		const auto &spec = effectSpec(kind);
+		const double seconds = spec.parameters[0].physical(static_cast<float>(parameter(0))) / 1000;
+		const double feedback = spec.parameters[1].physical(static_cast<float>(parameter(1))) / 100;
+		return seconds * (feedback > 0 ? std::ceil(std::log(0.001) / std::log(feedback)) : 1);
+	}
+	if (kind == Kind::firFilter) return rate > 0 ? 64 / rate : 0;
+	if (kind != Kind::convolution) return 0;
 	const double duration = impulseDuration.load();
 	return duration > 0 ? duration + parameter(1) : 0;
 }

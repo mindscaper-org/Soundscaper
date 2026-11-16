@@ -1,0 +1,160 @@
+[
+	{
+		"kind": "gain", "code": 1, "id": "gain", "label": "Gain",
+		"parameters": [
+			{"name": "Output gain", "unit": "dB", "min": -60, "max": 12, "initial": 0}
+		]
+	},
+	{
+		"kind": "convolution", "code": 2, "id": "convolution", "label": "Convolution Reverb",
+		"parameters": [
+			{"name": "Wet mix", "unit": "%", "min": 0, "max": 100, "initial": 25},
+			{"name": "Pre-delay", "unit": "ms", "min": 0, "max": 1000, "initial": 0},
+			{"name": "Output gain", "unit": "dB", "min": -60, "max": 12, "initial": 0}
+		]
+	},
+	{
+		"kind": "reverb", "code": 3, "id": "reverb", "label": "Reverb",
+		"parameters": [
+			{"name": "Room size", "unit": "%", "min": 0, "max": 100, "initial": 50},
+			{"name": "Damping", "unit": "%", "min": 0, "max": 100, "initial": 50},
+			{"name": "Wet mix", "unit": "%", "min": 0, "max": 100, "initial": 33},
+			{"name": "Stereo width", "unit": "%", "min": 0, "max": 100, "initial": 100},
+			{"name": "Freeze", "unit": "", "min": 0, "max": 1, "initial": 0, "choices": ["Off", "On"]},
+			{"name": "Output gain", "unit": "dB", "min": -60, "max": 12, "initial": 0}
+		]
+	},
+	{
+		"kind": "chorus", "code": 4, "id": "chorus", "label": "Chorus",
+		"parameters": [
+			{"name": "Rate", "unit": "Hz", "min": 0.1, "max": 20, "initial": 1, "logarithmic": true},
+			{"name": "Depth", "unit": "%", "min": 0, "max": 100, "initial": 25},
+			{"name": "Centre delay", "unit": "ms", "min": 1, "max": 99.9, "initial": 7},
+			{"name": "Feedback", "unit": "%", "min": -95, "max": 95, "initial": 0},
+			{"name": "Wet mix", "unit": "%", "min": 0, "max": 100, "initial": 50},
+			{"name": "Output gain", "unit": "dB", "min": -60, "max": 12, "initial": 0}
+		]
+	},
+	{
+		"kind": "phaser", "code": 5, "id": "phaser", "label": "Phaser",
+		"parameters": [
+			{"name": "Rate", "unit": "Hz", "min": 0.01, "max": 20, "initial": 0.5, "logarithmic": true},
+			{"name": "Depth", "unit": "%", "min": 0, "max": 100, "initial": 50},
+			{"name": "Centre frequency", "unit": "Hz", "min": 20, "max": 2000, "initial": 1300, "logarithmic": true},
+			{"name": "Feedback", "unit": "%", "min": -95, "max": 95, "initial": 0},
+			{"name": "Wet mix", "unit": "%", "min": 0, "max": 100, "initial": 50},
+			{"name": "Output gain", "unit": "dB", "min": -60, "max": 12, "initial": 0}
+		]
+	},
+	{
+		"kind": "compressor", "code": 6, "id": "compressor", "label": "Compressor",
+		"parameters": [
+			{"name": "Threshold", "unit": "dB", "min": -60, "max": 0, "initial": -18},
+			{"name": "Ratio", "unit": ":1", "min": 1, "max": 20, "initial": 4, "logarithmic": true},
+			{"name": "Attack", "unit": "ms", "min": 0.1, "max": 200, "initial": 10, "logarithmic": true},
+			{"name": "Release", "unit": "ms", "min": 1, "max": 2000, "initial": 100, "logarithmic": true},
+			{"name": "Output gain", "unit": "dB", "min": -60, "max": 12, "initial": 0}
+		]
+	},
+	{
+		"kind": "noiseGate", "code": 7, "id": "noise-gate", "label": "Noise Gate",
+		"parameters": [
+			{"name": "Threshold", "unit": "dB", "min": -90, "max": 0, "initial": -50},
+			{"name": "Ratio", "unit": ":1", "min": 1, "max": 100, "initial": 10, "logarithmic": true},
+			{"name": "Attack", "unit": "ms", "min": 0.1, "max": 200, "initial": 5, "logarithmic": true},
+			{"name": "Release", "unit": "ms", "min": 1, "max": 2000, "initial": 100, "logarithmic": true},
+			{"name": "Output gain", "unit": "dB", "min": -60, "max": 12, "initial": 0}
+		]
+	},
+	{
+		"kind": "limiter", "code": 8, "id": "limiter", "label": "Limiter",
+		"parameters": [
+			{"name": "Threshold", "unit": "dB", "min": -60, "max": 0, "initial": -1},
+			{"name": "Release", "unit": "ms", "min": 1, "max": 2000, "initial": 100, "logarithmic": true},
+			{"name": "Output gain", "unit": "dB", "min": -60, "max": 12, "initial": 0}
+		]
+	},
+	{
+		"kind": "ladderFilter", "code": 9, "id": "ladder-filter", "label": "Ladder Filter",
+		"parameters": [
+			{"name": "Mode", "unit": "", "min": 0, "max": 5, "initial": 0, "choices": ["Low-pass 12 dB", "High-pass 12 dB", "Band-pass 12 dB", "Low-pass 24 dB", "High-pass 24 dB", "Band-pass 24 dB"]},
+			{"name": "Cutoff", "unit": "Hz", "min": 20, "max": 20000, "initial": 2000, "logarithmic": true},
+			{"name": "Resonance", "unit": "%", "min": 0, "max": 100, "initial": 20},
+			{"name": "Drive", "unit": "", "min": 1, "max": 10, "initial": 1, "logarithmic": true},
+			{"name": "Output gain", "unit": "dB", "min": -60, "max": 12, "initial": 0}
+		]
+	},
+	{
+		"kind": "delay", "code": 10, "id": "delay", "label": "Delay",
+		"parameters": [
+			{"name": "Time", "unit": "ms", "min": 1, "max": 2000, "initial": 250},
+			{"name": "Feedback", "unit": "%", "min": 0, "max": 95, "initial": 30},
+			{"name": "Wet mix", "unit": "%", "min": 0, "max": 100, "initial": 30},
+			{"name": "Output gain", "unit": "dB", "min": -60, "max": 12, "initial": 0}
+		]
+	},
+	{
+		"kind": "waveshaper", "code": 11, "id": "waveshaper", "label": "Waveshaper",
+		"parameters": [
+			{"name": "Drive", "unit": "dB", "min": 0, "max": 36, "initial": 12},
+			{"name": "Wet mix", "unit": "%", "min": 0, "max": 100, "initial": 100},
+			{"name": "Output gain", "unit": "dB", "min": -60, "max": 12, "initial": 0}
+		]
+	},
+	{
+		"kind": "panner", "code": 12, "id": "panner", "label": "Panner",
+		"parameters": [
+			{"name": "Pan", "unit": "", "min": -1, "max": 1, "initial": 0},
+			{"name": "Pan law", "unit": "", "min": 0, "max": 6, "initial": 1, "choices": ["Linear", "Balanced", "Sine 3 dB", "Sine 4.5 dB", "Sine 6 dB", "Square root 3 dB", "Square root 4.5 dB"]},
+			{"name": "Output gain", "unit": "dB", "min": -60, "max": 12, "initial": 0}
+		]
+	},
+	{
+		"kind": "bias", "code": 13, "id": "bias", "label": "Bias",
+		"parameters": [
+			{"name": "DC offset", "unit": "", "min": -1, "max": 1, "initial": 0},
+			{"name": "Output gain", "unit": "dB", "min": -60, "max": 12, "initial": 0}
+		]
+	},
+	{
+		"kind": "iirFilter", "code": 14, "id": "iir-filter", "label": "IIR Filter",
+		"parameters": [
+			{"name": "Mode", "unit": "", "min": 0, "max": 2, "initial": 0, "choices": ["Low-pass", "High-pass", "Band-pass"]},
+			{"name": "Cutoff", "unit": "Hz", "min": 20, "max": 20000, "initial": 1000, "logarithmic": true},
+			{"name": "Q", "unit": "", "min": 0.1, "max": 20, "initial": 0.70710678, "logarithmic": true},
+			{"name": "Output gain", "unit": "dB", "min": -60, "max": 12, "initial": 0}
+		]
+	},
+	{
+		"kind": "firFilter", "code": 15, "id": "fir-filter", "label": "FIR Filter",
+		"parameters": [
+			{"name": "Cutoff", "unit": "Hz", "min": 20, "max": 20000, "initial": 6000, "logarithmic": true},
+			{"name": "Output gain", "unit": "dB", "min": -60, "max": 12, "initial": 0}
+		]
+	},
+	{
+		"kind": "stateVariableFilter", "code": 16, "id": "state-variable-filter", "label": "State Variable Filter",
+		"parameters": [
+			{"name": "Mode", "unit": "", "min": 0, "max": 2, "initial": 0, "choices": ["Low-pass", "High-pass", "Band-pass"]},
+			{"name": "Cutoff", "unit": "Hz", "min": 20, "max": 20000, "initial": 1000, "logarithmic": true},
+			{"name": "Q", "unit": "", "min": 0.1, "max": 20, "initial": 0.70710678, "logarithmic": true},
+			{"name": "Output gain", "unit": "dB", "min": -60, "max": 12, "initial": 0}
+		]
+	},
+	{
+		"kind": "firstOrderFilter", "code": 17, "id": "first-order-filter", "label": "First Order Filter",
+		"parameters": [
+			{"name": "Mode", "unit": "", "min": 0, "max": 2, "initial": 0, "choices": ["Low-pass", "High-pass", "All-pass"]},
+			{"name": "Cutoff", "unit": "Hz", "min": 20, "max": 20000, "initial": 1000, "logarithmic": true},
+			{"name": "Output gain", "unit": "dB", "min": -60, "max": 12, "initial": 0}
+		]
+	},
+	{
+		"kind": "linkwitzRileyFilter", "code": 18, "id": "linkwitz-riley-filter", "label": "Linkwitz-Riley Filter",
+		"parameters": [
+			{"name": "Mode", "unit": "", "min": 0, "max": 2, "initial": 0, "choices": ["Low-pass", "High-pass", "All-pass"]},
+			{"name": "Cutoff", "unit": "Hz", "min": 20, "max": 20000, "initial": 1000, "logarithmic": true},
+			{"name": "Output gain", "unit": "dB", "min": -60, "max": 12, "initial": 0}
+		]
+	}
+]

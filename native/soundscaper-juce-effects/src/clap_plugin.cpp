@@ -9,12 +9,13 @@
 namespace {
 using namespace soundscaper::effects;
 constexpr const char *features[] = {CLAP_PLUGIN_FEATURE_AUDIO_EFFECT, nullptr};
-const clap_plugin_descriptor_t descriptors[] = {
-	{CLAP_VERSION, "org.soundscaper.juce.gain", "JUCE Gain", "Soundscaper", "https://soundscaper.org",
-		"", "", "1.0.0", "Smoothed output gain using JUCE DSP.", features},
-	{CLAP_VERSION, "org.soundscaper.juce.convolution", "JUCE Convolution Reverb", "Soundscaper", "https://soundscaper.org",
-		"", "", "1.0.0", "Partitioned convolution with embedded mono/stereo WAV/AIFF impulse responses.", features},
-};
+const auto descriptors = []() {
+	std::array<clap_plugin_descriptor_t, effectCatalog.size()> result{};
+	for (size_t index = 0; index < result.size(); ++index) result[index] = {
+		CLAP_VERSION, effectCatalog[index].id, effectCatalog[index].name, "Soundscaper", "https://soundscaper.org",
+		"", "", "1.0.0", "Realtime JUCE DSP effect with portable embedded state.", features};
+	return result;
+}();
 struct Instance {
 	clap_plugin_t plugin{};
 	Processor processor;
@@ -43,6 +44,12 @@ bool start(const clap_plugin_t *) { return true; }
 void stop(const clap_plugin_t *) {}
 void reset(const clap_plugin_t *p) { get(p).processor.reset(); }
 
+bool writeParameter(Processor &processor, clap_id id, double value)
+{
+	if (id >= processor.parameterCount()) return false;
+	const auto count = effectSpec(processor.kind).parameters[id].choiceCount;
+	return processor.setParameter(id, count > 1 ? value / (count - 1) : value);
+}
 void applyEvents(Processor &processor, const clap_input_events_t *events)
 {
 	if (events == nullptr || events->size == nullptr || events->get == nullptr) return;
@@ -51,7 +58,7 @@ void applyEvents(Processor &processor, const clap_input_events_t *events)
 		if (header == nullptr || header->space_id != CLAP_CORE_EVENT_SPACE_ID || header->type != CLAP_EVENT_PARAM_VALUE
 			|| header->size < sizeof(clap_event_param_value_t)) continue;
 		const auto *event = reinterpret_cast<const clap_event_param_value_t *>(header);
-		processor.setParameter(event->param_id, event->value);
+		writeParameter(processor, event->param_id, event->value);
 	}
 }
 
@@ -86,7 +93,7 @@ clap_process_status process(const clap_plugin_t *p, const clap_process_t *reques
 			if (header->size < sizeof(clap_event_param_value_t) || header->time < offset
 				|| header->time >= request->frames_count || !segment(header->time)) return CLAP_PROCESS_ERROR;
 			const auto *event = reinterpret_cast<const clap_event_param_value_t *>(header);
-			if (!get(p).processor.setParameter(event->param_id, event->value)) return CLAP_PROCESS_ERROR;
+			if (!writeParameter(get(p).processor, event->param_id, event->value)) return CLAP_PROCESS_ERROR;
 		}
 	}
 	return segment(request->frames_count) ? CLAP_PROCESS_CONTINUE : CLAP_PROCESS_ERROR;
@@ -100,29 +107,41 @@ bool port(const clap_plugin_t *, uint32_t index, bool input, clap_audio_port_inf
 	info->flags = CLAP_AUDIO_PORT_IS_MAIN; info->channel_count = 2;
 	info->port_type = CLAP_PORT_STEREO; info->in_place_pair = input ? 2 : 1; return true;
 }
-uint32_t latency(const clap_plugin_t *) { return 0; }
-uint32_t tail(const clap_plugin_t *p) { return static_cast<uint32_t>(std::ceil(get(p).processor.tailSeconds() * get(p).sampleRate)); }
+uint32_t latency(const clap_plugin_t *p) { return get(p).processor.latencyFrames(); }
+uint32_t tail(const clap_plugin_t *p)
+{
+	const auto seconds = get(p).processor.tailSeconds();
+	return std::isfinite(seconds) ? static_cast<uint32_t>(std::min(std::ceil(seconds * get(p).sampleRate), static_cast<double>(INT32_MAX))) : INT32_MAX;
+}
 uint32_t parameterCount(const clap_plugin_t *p) { return get(p).processor.parameterCount(); }
 bool parameterInfo(const clap_plugin_t *p, uint32_t index, clap_param_info_t *info)
 {
 	if (info == nullptr || index >= parameterCount(p)) return false;
-	const bool gain = get(p).processor.kind == Kind::gain || index == 2;
+	const auto &parameter = effectSpec(get(p).processor.kind).parameters[index];
 	*info = {}; info->id = index; info->flags = CLAP_PARAM_IS_AUTOMATABLE;
-	std::strcpy(info->name, gain ? "Output gain" : index == 0 ? "Wet mix" : "Pre-delay");
-	info->min_value = 0; info->max_value = 1; info->default_value = gain ? 60.0 / 72.0 : index == 0 ? 0.25 : 0;
+	std::strncpy(info->name, parameter.name, sizeof(info->name) - 1);
+	info->min_value = 0; info->max_value = 1; info->default_value = parameter.normalized(parameter.initial);
+	if (parameter.choiceCount > 1) {
+		info->flags |= CLAP_PARAM_IS_STEPPED | CLAP_PARAM_IS_ENUM;
+		info->max_value = parameter.maximum; info->default_value = parameter.initial;
+	}
 	return true;
 }
 bool parameterValue(const clap_plugin_t *p, clap_id id, double *value)
 {
 	if (value == nullptr || id >= parameterCount(p)) return false;
-	*value = get(p).processor.parameter(id); return true;
+	const auto &parameter = effectSpec(get(p).processor.kind).parameters[id];
+	const auto normalized = get(p).processor.parameter(id);
+	*value = parameter.choiceCount > 1 ? std::round(parameter.physical(static_cast<float>(normalized))) : normalized;
+	return true;
 }
 bool valueText(const clap_plugin_t *p, clap_id id, double value, char *text, uint32_t size)
 {
 	if (text == nullptr || size < 1 || id >= parameterCount(p) || !std::isfinite(value)) return false;
-	const bool gain = get(p).processor.kind == Kind::gain || id == 2;
-	const auto label = juce::String(gain ? -60 + value * 72 : value * (id == 0 ? 100 : 1000), 2)
-		+ (gain ? " dB" : id == 0 ? " %" : " ms");
+	const auto &parameter = effectSpec(get(p).processor.kind).parameters[id];
+	const auto label = parameter.choiceCount > 1
+		? juce::String(parameter.choices[static_cast<size_t>(std::clamp(std::round(value), 0.0, static_cast<double>(parameter.choiceCount - 1)))])
+		: juce::String(parameter.physical(static_cast<float>(value)), 2) + " " + parameter.unit;
 	label.copyToUTF8(text, size); return true;
 }
 bool textValue(const clap_plugin_t *, clap_id, const char *, double *) { return false; }
@@ -190,7 +209,8 @@ bool scale(const clap_plugin_t *, double) { return false; }
 bool size(const clap_plugin_t *p, uint32_t *width, uint32_t *height)
 {
 	if (!width || !height) return false;
-	*width = 520; *height = get(p).processor.kind == Kind::gain ? 110 : 280; return true;
+	*width = 600; *height = get(p).processor.parameterCount() * 50 + 40
+		+ (get(p).processor.kind == Kind::convolution ? 110 : 0); return true;
 }
 bool resizable(const clap_plugin_t *) { return false; }
 bool hints(const clap_plugin_t *, clap_gui_resize_hints_t *) { return false; }
@@ -217,17 +237,17 @@ const void *extension(const clap_plugin_t *, const char *id)
 	return nullptr;
 }
 void mainThread(const clap_plugin_t *p) { get(p).processor.collectRetired(); }
-uint32_t count(const clap_plugin_factory_t *) { return 2; }
+uint32_t count(const clap_plugin_factory_t *) { return static_cast<uint32_t>(descriptors.size()); }
 const clap_plugin_descriptor_t *describe(const clap_plugin_factory_t *, uint32_t index)
 {
-	return index < 2 ? &descriptors[index] : nullptr;
+	return index < descriptors.size() ? &descriptors[index] : nullptr;
 }
 const clap_plugin_t *create(const clap_plugin_factory_t *, const clap_host_t *host, const char *id)
 {
 	if (id == nullptr || host == nullptr || !clap_version_is_compatible(host->clap_version)) return nullptr;
-	for (uint32_t index = 0; index < 2; ++index) if (std::strcmp(id, descriptors[index].id) == 0) {
+	for (uint32_t index = 0; index < descriptors.size(); ++index) if (std::strcmp(id, descriptors[index].id) == 0) {
 		try {
-			auto value = std::make_unique<Instance>(index == 0 ? Kind::gain : Kind::convolution);
+			auto value = std::make_unique<Instance>(effectCatalog[index].kind);
 			value->plugin = {&descriptors[index], value.get(), init, destroy, activate, deactivate,
 				start, stop, reset, process, extension, mainThread};
 			return &value.release()->plugin;

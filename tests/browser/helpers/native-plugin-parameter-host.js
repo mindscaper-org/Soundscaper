@@ -19,7 +19,7 @@ export async function openInstalledGain(page, options = {}) {
 /** Desktop host fixture over the production preload relay and plug-in RPC port. */
 export async function installNativePluginParameterHost(page, options = {}) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(({ parameterCount, holdParameterReads, parameterLabel, vendorUi, allowBypass, instrument }) => {
+	await page.addInitScript(({ parameterCount, holdParameterReads, parameterLabel, vendorUi, allowBypass, instrument, pluginName, stablePluginId }) => {
 		const format = instrument ? 'vst3' : vendorUi ? 'clap' : 'ladspa';
 		const values = Array.from({ length: parameterCount }, () => .25);
 		const heldParameterReplies = [];
@@ -40,12 +40,12 @@ export async function installNativePluginParameterHost(page, options = {}) {
 			sha256: await digest(bytes), mac: hex(await crypto.subtle.sign('HMAC', await key,
 				encoder.encode(`${requestId}:${await digest(bytes)}`))) });
 		const binaryHash = digest(encoder.encode('Installed test gain plug-in, version 1'));
-		const instance = async (instanceId) => ({ instanceId, entryId: 'gain', stablePluginId: 'org.test.gain',
+		const instance = async (instanceId) => ({ instanceId, entryId: 'gain', stablePluginId,
 			format, binarySha256: await binaryHash, inputChannels: instrument ? 0 : 2, outputChannels: 2,
 			state: 'ready', enabled: true, bypassed, latencySamples: 0 });
 		const refused = async () => { throw new Error('This host fixture does not offer that operation.'); };
 		const quarantine = { loaded: true, degraded: false, records: [], pendingFaults: 0 };
-		const registry = { entries: [{ entryId: 'gain', classification: instrument ? 'instrument' : 'effect', format: format.toUpperCase(), name: 'Test Gain', vendor: 'Test host',
+		const registry = { entries: [{ entryId: 'gain', stablePluginId, classification: instrument ? 'instrument' : 'effect', format: format.toUpperCase(), name: pluginName, vendor: 'Test host',
 			eligible: true, ineligibleReason: null, installations: [{ installationId: 'gain-install',
 				version: '1', allowed: true, selected: true, quarantined: false }] }] };
 		const plugins = { enabled: true, quarantined: false, payload: { status: 'available', reason: null },
@@ -149,7 +149,7 @@ export async function installNativePluginParameterHost(page, options = {}) {
 				persisted += 1;
 				stateBodies.set(expected.sha256, new Uint8Array(bytes));
 				return { outcome: { status: 'persisted' }, projectState: {
-					instanceId, format, stablePluginId: 'org.test.gain', binarySha256: await binaryHash,
+					instanceId, format, stablePluginId, binarySha256: await binaryHash,
 					stateBody: { kind: 'native-plugin-state', bodyId: `native-plugin-state:${expected.sha256}`,
 						byteLength: bytes.byteLength, sha256: expected.sha256 },
 					enabled: true, bypassed, continuity: 'live', latencySamples: 0,
@@ -159,7 +159,7 @@ export async function installNativePluginParameterHost(page, options = {}) {
 				const bytes = stateBodies.get(stateBody.sha256);
 				if (!bytes || bytes.byteLength !== stateBody.byteLength || await digest(bytes) !== stateBody.sha256) throw new Error('The requested saved state is absent.');
 				return { bytes: new Uint8Array(bytes), projectState: { instanceId, format,
-					stablePluginId: 'org.test.gain', binarySha256: await binaryHash, stateBody,
+					stablePluginId, binarySha256: await binaryHash, stateBody,
 					enabled: true, bypassed, continuity: 'live', latencySamples: 0 } };
 			}, openNativePluginVendorUi: vendorUi ? async ({ instanceId }) => ({ status: 'opened', window: {
 				instanceId, windowHandleId: 'test-vendor-window', surface: 'helper-owned-top-level',
@@ -168,5 +168,6 @@ export async function installNativePluginParameterHost(page, options = {}) {
 		};
 		Object.defineProperty(globalThis, 'soundscaperDesktop', { configurable: true, value: Object.freeze({ v1: bridge }) });
 	}, { parameterCount: options.parameterCount ?? 1, holdParameterReads: options.holdParameterReads === true,
-		parameterLabel: options.parameterLabel ?? '', vendorUi: options.vendorUi === true, allowBypass: options.allowBypass === true, instrument: options.instrument === true });
+		parameterLabel: options.parameterLabel ?? '', vendorUi: options.vendorUi === true, allowBypass: options.allowBypass === true, instrument: options.instrument === true,
+		pluginName: options.pluginName ?? 'Test Gain', stablePluginId: options.stablePluginId ?? 'org.test.gain' });
 }

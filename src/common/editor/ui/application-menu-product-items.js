@@ -90,13 +90,14 @@ export function createApplicationMenuProductItems({
 		runtimeAvailable: soundscaperNativeRuntime !== null,
 		snapshot: soundscaperNativeRuntime?.snapshot ?? null,
 		analyzerRuntimeAvailable: soundscaperNativeRuntime?.vampAnalyzerAvailable,
+		effectTargetAvailable: Boolean(project?.tracks?.some(track => track.type === 'audio' && track.id === snapshot.selectedTrackId)),
 		analyzerSelectionAvailable: Boolean(resolveSelectionRange(project, {
 			selectedClipId: snapshot.selectedClipId ?? null,
 		})),
 		editingBlocked: editBlocked,
 		readOnly: snapshot.readOnly === true,
 		copy,
-	}, { open: (surface) => soundscaperNativeRuntime?.open(surface) });
+	}, { open: (surface, stablePluginId) => soundscaperNativeRuntime?.open(surface, stablePluginId) });
 	return Object.freeze({
 		...soundscaperWorkflows,
 		tracks: Object.freeze([nestedSequences, multicamera, ...candidateAuthoring.tracks,

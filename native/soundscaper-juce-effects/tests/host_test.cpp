@@ -28,7 +28,34 @@ std::vector<uint8_t> reverbState()
 int exercise(const char *path, bool gui)
 {
 	size_t count = 0;
-	require(soundscaper_pro_plugin_scan("clap", path, nullptr, 0, &count) == SOUNDSCAPER_PRO_OK && count == 2, "scan bundled effects");
+	require(soundscaper_pro_plugin_scan("clap", path, nullptr, 0, &count) == SOUNDSCAPER_PRO_OK && count == 18, "scan bundled effects");
+	std::vector<soundscaper_pro_plugin_description> descriptions(count);
+	require(soundscaper_pro_plugin_scan("clap", path, descriptions.data(), descriptions.size(), &count) == SOUNDSCAPER_PRO_OK, "scan catalogue descriptors");
+	for (const auto &description : descriptions) {
+		soundscaper_pro_plugin_instance *member = nullptr;
+		require(soundscaper_pro_plugin_open("clap", path, description.stable_id, 48000, 256, &member) == SOUNDSCAPER_PRO_OK, "host catalogue member");
+		struct CloseMember { soundscaper_pro_plugin_instance *value; ~CloseMember() { soundscaper_pro_plugin_close(value); } } close{member};
+		std::array<soundscaper_pro_plugin_parameter, 8> controls{};
+		require(soundscaper_pro_plugin_describe_parameters(member, controls.data(), controls.size(), &count) == SOUNDSCAPER_PRO_OK && count > 0, "host catalogue controls");
+		for (uint32_t index = 0; index < count; ++index) {
+			require(soundscaper_pro_plugin_write_parameter(member, index, 0.37) == SOUNDSCAPER_PRO_OK, "host catalogue write");
+			double value = -1;
+			require(soundscaper_pro_plugin_read_parameter(member, index, &value) == SOUNDSCAPER_PRO_OK && std::isfinite(value) && value >= 0 && value <= 1, "host catalogue read");
+			if (std::strcmp(controls[index].name, "Mode") == 0) {
+				const int maximum = std::strcmp(description.stable_id, "org.soundscaper.juce.ladder-filter") == 0 ? 5 : 2;
+				require(std::abs(value - std::round(0.37 * maximum) / maximum) < 1e-6, "host enum normalization");
+			}
+		}
+		std::array<float, 17> left{}, right{}; left[0] = 1; right[0] = -1;
+		const float *input[]{left.data(), right.data()}; float *output[]{left.data(), right.data()};
+		require(soundscaper_pro_plugin_process(member, input, 2, output, 2, 17) == SOUNDSCAPER_PRO_OK, "host catalogue rendering");
+		for (float sample : left) require(std::isfinite(sample), "host finite PCM");
+		if (gui) {
+			std::cout << "Opening editor: " << description.name << std::endl;
+			require(soundscaper_pro_plugin_open_vendor_window(member, "juce-catalogue-test") == SOUNDSCAPER_PRO_OK, "open catalogue editor");
+			soundscaper_pro_plugin_close_vendor_window(member);
+		}
+	}
 	soundscaper_pro_plugin_instance *raw = nullptr;
 	require(soundscaper_pro_plugin_open("clap", path, "org.soundscaper.juce.gain", 48000, 256, &raw) == SOUNDSCAPER_PRO_OK, "open gain");
 	struct Close { soundscaper_pro_plugin_instance *value; ~Close() { soundscaper_pro_plugin_close(value); } } guard{raw};

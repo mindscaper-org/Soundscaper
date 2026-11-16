@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 #pragma once
+#include "catalog.h"
 #include <juce_dsp/juce_dsp.h>
 #include <array>
 #include <atomic>
@@ -7,7 +8,6 @@
 #include <mutex>
 
 namespace soundscaper::effects {
-enum class Kind : uint32_t { gain = 1, convolution = 2 };
 constexpr size_t maximumImpulseBytes = 8 * 1024 * 1024;
 
 struct Impulse {
@@ -29,7 +29,8 @@ public:
 	bool process(juce::AudioBuffer<float> &audio);
 	bool setParameter(uint32_t index, double normalized);
 	double parameter(uint32_t index) const;
-	uint32_t parameterCount() const { return kind == Kind::gain ? 1 : 3; }
+	uint32_t parameterCount() const { return effectSpec(kind).parameterCount; }
+	uint32_t latencyFrames() const { return kind == Kind::firFilter ? 32 : 0; }
 	bool setImpulse(const juce::AudioBuffer<float> &, double, const juce::String &);
 	bool loadImpulseFile(const juce::File &, juce::String &error);
 	juce::MemoryBlock saveState() const;
@@ -42,7 +43,8 @@ public:
 private:
 	bool publish(const Impulse &);
 	void retire(PreparedEngine *);
-	std::array<std::atomic<float>, 3> parameters;
+	ParameterValues normalizedParameters() const;
+	std::array<std::atomic<float>, maximumParameters> parameters;
 	std::atomic<double> impulseDuration{0};
 	Impulse impulse;
 	double rate = 0;
