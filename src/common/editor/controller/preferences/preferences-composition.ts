@@ -33,7 +33,7 @@ export function createPreferencesComposition(d: {
 	readonly setPcmOptimizationMode?: (mode: AudioEditorOptimizationMode) => void;
 }) {
 	d.setPcmOptimizationMode?.(d.state.preferences.performance.optimizeFor);
-	if (d.engine) setEngineIdleEffectProcessing(d.engine, d.state.preferences.advanced.suspendIdleEffectProcessing !== false);
+	if (d.engine) setEngineIdleEffectProcessing(d.engine, d.state.preferences.advanced.suspendIdleEffectProcessing !== false, d.state.preferences.advanced.effectAutoIdleOverrides);
 	const service = createEditorPreferencesService<Preferences>({
 		productId: d.productId, preferenceSettingKey: `${d.productId}:audio-editor-preferences-v1`, defaultWorkspace: d.defaultWorkspace,
 		get newerSchemaMessage() { return d.copy.preferencesNewerSchema; }, get shortcutActionRequired() { return d.copy.shortcutActionRequired; }, get shortcutConflict() { return d.copy.shortcutConflict; },
@@ -41,7 +41,7 @@ export function createPreferencesComposition(d: {
 		setPreferences: (value) => {
 			d.state.preferences = value;
 			d.setPcmOptimizationMode?.(value.performance.optimizeFor);
-			if (d.engine) setEngineIdleEffectProcessing(d.engine, value.advanced.suspendIdleEffectProcessing !== false);
+			if (d.engine) setEngineIdleEffectProcessing(d.engine, value.advanced.suspendIdleEffectProcessing !== false, value.advanced.effectAutoIdleOverrides);
 		},
 		getReadOnly: () => d.state.preferencesReadOnly,
 		setReadOnly: (value) => { d.state.preferencesReadOnly = value; },

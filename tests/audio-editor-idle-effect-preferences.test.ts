@@ -23,8 +23,8 @@ test('loaded preferences, live edits, failed persistence and factory reset reach
 	});
 	engine.context = context;
 	bindIdleEffectContext(engine, context);
-	registerIdleEffectNode(context, node);
-	const word = new Int32Array(sharedIdleEffectControl(context));
+	registerIdleEffectNode(context, node, 'delay');
+	const word = new Int32Array(sharedIdleEffectControl(context, 'delay'));
 	assert.equal(messages.at(-1)?.enabled, true);
 	assert.equal(Atomics.load(word, 0), 1);
 	await preferences.load();
@@ -39,6 +39,15 @@ test('loaded preferences, live edits, failed persistence and factory reset reach
 	await preferences.service.revertFactorySettings();
 	assert.equal(messages.at(-1)?.enabled, true);
 	assert.equal(Atomics.load(word, 0), 1);
+	await preferences.service.update({ advanced: { effectAutoIdleOverrides: [{ key: 'delay', name: 'Delay', enabled: false }] } });
+	assert.equal(messages.at(-1)?.enabled, false);
+	assert.equal(Atomics.load(word, 0), 0);
+	fail = true;
+	await assert.rejects(preferences.service.update({ advanced: { effectAutoIdleOverrides: [] } }), /disk full/u);
+	assert.deepEqual(state.preferences.advanced.effectAutoIdleOverrides, [{ key: 'delay', name: 'Delay', enabled: false }]);
+	assert.equal(messages.at(-1)?.enabled, false);
+	assert.equal(Atomics.load(word, 0), 0);
+	fail = false;
 	releaseIdleEffectNode(node);
 	const count = messages.length;
 	await preferences.service.update({ advanced: { suspendIdleEffectProcessing: false } });

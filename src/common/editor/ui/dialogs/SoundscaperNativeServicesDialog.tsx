@@ -48,6 +48,7 @@ const SoundscaperVampAnalyzerSurface = React.lazy(() => (
 ));
 
 export interface SoundscaperNativeServicesDialogProps {
+	readonly controller?: unknown;
 	readonly processingBlocked?: boolean;
 	readonly scanner?: NativePluginScanController;
 	readonly bridge: SoundscaperNativeServicesBridge;
@@ -71,7 +72,7 @@ export default function SoundscaperNativeServicesDialog(props: SoundscaperNative
 }
 
 function NativeServicesDialog({
-	bridge,
+	bridge, controller,
 	scanner: workspaceScanner,
 	processingBlocked = false,
 	requestedJuceEffectId,
@@ -145,6 +146,7 @@ function NativeServicesDialog({
 				tabIndex={0}
 			>
 				<SoundscaperNativeEffectManagePanel
+					controller={controller} bridge={bridge} headerCopy={hostCopy}
 					copy={copy}
 					state={state}
 					disabled={busy}

@@ -27,6 +27,7 @@ export const MENU_TOOLTIP_CONTEXT_DEFINITIONS: Readonly<Record<string, readonly 
 	'plugin-import-presets': ['Import processor settings', 'Read reusable parameter values from an external file.'],
 	'plugin-export-presets': ['Export processor settings', 'Write reusable parameter values to an external file.'],
 	'plugin-vendor-ui': ['Show vendor UI', 'Open the extension author’s own parameter controls.'],
+	'plugin-auto-idle': ['Auto-idle', 'Allow this processor to sleep after silence and its effect tail. This choice is remembered for this plug-in.'],
 	'plugin-options': ['Options', 'Configure additional behavior supplied by this sound-processing extension.'],
 	'plugin-about': ['About processor', 'View this extension’s version, author, and technical description.'],
 	"addRealtimeEffects": ["Add realtime effects", "Build a processing chain that remains adjustable during playback."],

@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
-import type { MicrophoneBleedOptions } from '../../microphone-bleed.ts';
+import PluginEffectPresetHeader from '../inspector/PluginEffectPresetHeader.tsx';
+import { pluginEffectType } from '../../effect-plugin-identity.ts';
+import { normalizeMicrophoneBleedOptions, type MicrophoneBleedOptions } from '../../microphone-bleed.ts';
 import { selectAudioEditorEditBlock, type AudioEditorEditBlockingSnapshot } from '../../edit-blocking.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
@@ -37,6 +39,13 @@ export default function MicrophoneBleedDialog({ controller, snapshot, copy, onCl
 			.finally(() => { if (pending.current === cancellation) { pending.current = null; setBusy(false); } });
 	};
 	return <AudioEditorDialogShell title={copy.microphoneBleedTitle!} onClose={close} width={600}
+		headerSlot={<PluginEffectPresetHeader controller={controller} copy={copy} effectType={pluginEffectType('selection', 'microphone-bleed')}
+			name={copy.microphoneBleedTitle!} resetKey={session} disabled={blocked || busy} realtime={false}
+			currentParams={{ maximumReductionDb: Number(reduction), minimumSimilarity: Number(similarity) / 100, fadeMs: Number(fade) }}
+			defaultParams={normalizeMicrophoneBleedOptions()}
+			read={() => normalizeMicrophoneBleedOptions({ maximumReductionDb: Number(reduction), minimumSimilarity: Number(similarity) / 100, fadeMs: Number(fade) })}
+			apply={params => { const value = normalizeMicrophoneBleedOptions(params as MicrophoneBleedOptions);
+				setReduction(String(value.maximumReductionDb)); setSimilarity(String(value.minimumSimilarity * 100)); setFade(String(value.fadeMs)); }} />}
 		footer={<DialogFooter className="audio-editor-dialog-footer" rightContent={<>
 			<Button variant="secondary" onClick={close}>{copy.cancel}</Button>
 			<Button variant="primary" type="submit" form="microphone-bleed-form" disabled={blocked || busy}>{copy.microphoneBleedApply}</Button>

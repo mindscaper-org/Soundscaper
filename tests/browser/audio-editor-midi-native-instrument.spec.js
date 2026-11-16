@@ -20,6 +20,16 @@ test('assigns a native instrument from Plugin Manager, edits its preset and reta
 	await expect(gain).toHaveValue('0.25');
 	await gain.press('End');
 	await expect(gain).toHaveValue('1');
+	await dialog.getByRole('button', { name: 'Save preset', exact: true }).click();
+	await page.getByRole('menuitem', { name: 'Save as new preset', exact: true }).click();
+	const naming = page.getByRole('dialog', { name: 'Save as new preset', exact: true });
+	await naming.getByRole('textbox').fill('Full instrument gain');
+	await naming.getByRole('button', { name: 'Save preset', exact: true }).click();
+	await expect(naming).toBeHidden();
+	await gain.press('Home'); await expect(gain).toHaveValue('0');
+	await dialog.getByRole('button', { name: 'Reset preset', exact: true }).click();
+	await expect(gain).toHaveValue('1');
+	await dialog.getByRole('button', { name: 'Delete preset', exact: true }).click();
 	await dialog.locator('[data-native-plugin-persist-state]').click();
 	await expect.poll(() => page.evaluate(() => globalThis.__nativePluginParameterHost.persisted)).toBeGreaterThan(0);
 	await expect(gain).toBeEnabled();

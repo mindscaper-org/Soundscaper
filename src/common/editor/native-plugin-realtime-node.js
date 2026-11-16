@@ -1,3 +1,5 @@
+import { registerIdleEffectNode, releaseIdleEffectNode } from './engine/idle-effect-host.ts';
+import { effectPluginKey } from './effect-plugin-identity.ts';
 import { acceptNativeMidiPort, nativeMidiControl } from './native-midi-port.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
@@ -231,7 +233,7 @@ export function createNativePluginEffectNode(context, effect, channelCount = 2, 
 			numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [topology.outputChannels],
 			channelCount: topology.inputChannels, channelCountMode: 'explicit', channelInterpretation: 'discrete',
 			processorOptions: {
-				instanceId, inputChannelCount: topology.inputChannels,
+				instanceId, sampleRate: context.sampleRate, inputChannelCount: topology.inputChannels,
 				outputChannelCount: topology.outputChannels,
 				queueCapacity: 4, bypassed: effect.bypassed === true,
 				strictRender: offlineAliases.has(context),
@@ -248,6 +250,7 @@ export function createNativePluginEffectNode(context, effect, channelCount = 2, 
 		const offer = offers.get(instanceId);
 		if (offer) attach(node, offer, instanceId);
 	}
+	registerIdleEffectNode(context, node, effectPluginKey(effect));
 	node.port.postMessage({ type: NATIVE_PLUGIN_CONTROL.bypass, bypassed: effect.bypassed === true });
 	return node;
 }
@@ -343,6 +346,7 @@ export function releaseNativePluginRuntime(instanceId) {
 	rejectPending(instanceId, new Error('The native plug-in runtime closed.'));
 	rejectAttachment(instanceId, new Error('The native plug-in runtime closed.'));
 	forEachNode(instanceId, (node, byInstance) => {
+		releaseIdleEffectNode(node);
 		node.port.postMessage({ type: NATIVE_PLUGIN_CONTROL.revoke });
 		node.port.onmessage = null;
 		node.onprocessorerror = null;

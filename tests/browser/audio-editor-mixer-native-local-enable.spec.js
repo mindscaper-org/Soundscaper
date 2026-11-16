@@ -14,8 +14,8 @@ test('Mixer effect power describes its local enabled state while Plugin Manager 
 	await manager.getByRole('button', { name: 'Test Gain', exact: true }).click();
 	await manager.locator('[data-native-plugin-instantiate="gain-install"]').click();
 	await expect.poll(() => page.evaluate(() => globalThis.__nativePluginParameterHost.persisted)).toBe(1);
-	await manager.locator('[data-native-plugin-bypass="true"]').click();
-	await expect(manager.locator('[data-native-plugin-bypass="false"]')).toBeVisible();
+	await manager.getByRole('button', { name: 'Disable effect', exact: true }).click();
+	await expect(manager.getByRole('button', { name: 'Enable effect', exact: true })).toBeVisible();
 	await page.keyboard.press('Escape');
 	await expect(manager).toBeHidden();
 	await chooseCommandAction(page, editor, 'Window', 'Mixer');

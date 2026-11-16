@@ -4,6 +4,9 @@
 export const AUDACITY_EFFECT_DIALOG_COPY_BY_LOCALE = Object.freeze({
 	en: Object.freeze({
 			bypass: 'Bypass effect',
+			effectAutoIdle: 'Auto-idle',
+			effectAutoIdleOverrides: 'Per-plug-in auto-idle',
+			effectAutoIdleInherit: 'Use global preference',
 			moveEffectUp: 'Move effect up',
 			moveEffectDown: 'Move effect down',
 			copyEffect: 'Copy effect',

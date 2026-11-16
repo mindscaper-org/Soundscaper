@@ -1,3 +1,5 @@
+import PluginEffectPresetHeader from '../inspector/PluginEffectPresetHeader.tsx';
+import { pluginEffectType } from '../../effect-plugin-identity.ts';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
@@ -151,6 +153,11 @@ export default function GeneratorDialog({ type, controller, snapshot = {}, copy,
 		<EditorMusicalTimeCodeProvider controller={controller} originFrame={durationOrigin}>
 		<AudioEditorDialogShell
 			title={title}
+			headerSlot={<PluginEffectPresetHeader controller={controller} copy={copy}
+				effectType={pluginEffectType('generator', type)} name={title} resetKey={type}
+				disabled={pending || editBlocked} realtime={false}
+				currentParams={params} defaultParams={generatorDefaults(type, project)} read={() => params}
+				apply={settings => setParams({ ...generatorDefaults(type, project), ...settings })} />}
 			headerOs={null}
 			onClose={cancelAndClose}
 			width={680}

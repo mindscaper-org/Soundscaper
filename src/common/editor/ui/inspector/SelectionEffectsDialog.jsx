@@ -1,3 +1,5 @@
+import { useEffectAutoIdleOption } from './useEffectAutoIdleOption.ts';
+import { effectPluginKey } from '../../effect-plugin-identity.ts';
 import { usePresentationFeedback, feedbackFailure } from '../presentation-feedback.ts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
@@ -5,6 +7,7 @@ import { DialogFooter } from '@soundscaper/design-system/Footer';
 import { audacityEffectTypes } from '../../audacity-effects/manifest.js';
 import {
 	audioSelectionEffectAppliesToAllAudio,
+	audioEffectTypes,
 	audioSelectionEffectDefinition,
 	audioSelectionEffectDefaults,
 } from '../../effects.js';
@@ -159,6 +162,7 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 	const eligibleControlTrackId = selectionControlTracks.some((track) => track.id === controlTrackId)
 		? controlTrackId
 		: '';
+	const autoIdle = useEffectAutoIdleOption(controller, effectPluginKey({ type: selectionType }), safeEffectLabel(selectionType, copy), run, audioEffectTypes().includes(selectionType));
 	const effectPresets = (snapshot.effects?.presets || []).filter((preset) => preset.effectType === selectionType);
 	const applyPreset = (id = selectedPresetId) => run(() => (
 		id ? controller.actions.effects.presets.apply(id) : null
@@ -227,7 +231,7 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 			dataAttributes={{ 'data-selection-effects-dialog': '' }}
 			headerSlot={(
 				<EffectPresetBar
-					copy={copy} aboutEffect={selectionType}
+					copy={copy} aboutEffect={selectionType} autoIdle={autoIdle}
 					onAdvancedSettings={onAdvancedSettings}
 					disabled={blocked}
 					resetKey={`${projectIdentity}:${selectionType}`}
