@@ -62,3 +62,14 @@ test('unrelated noise and reversed speech units do not produce an accepted acous
 		assert.throws(() => analyzeDialogueAlignment({ reference: [reference], replacement: [replacement], sampleRate: 8000, strength: 1 }), /not sufficiently similar/i);
 	}
 });
+
+test('long silent handles cannot turn unrelated dialogue into an accepted match', () => {
+	const spoken = dialogueFixture([.45, .6, .35, .5]);
+	const reference = new Float32Array(20 * 8000);
+	reference.set(spoken, 8 * 8000);
+	const replacement = new Float32Array(reference.length);
+	replacement.set(spoken.slice().reverse(), 8 * 8000);
+	assert.throws(() => analyzeDialogueAlignment({ reference: [reference], replacement: [replacement], sampleRate: 8000, strength: 1 }), /not sufficiently similar/iu);
+	const result = analyzeDialogueAlignment({ reference: [reference], replacement: [reference.slice()], sampleRate: 8000, strength: 1 });
+	assert.ok(result.mismatch < .01);
+});

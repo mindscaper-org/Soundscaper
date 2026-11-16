@@ -44,16 +44,25 @@ export function analyzeDialogueAlignment(request: DialogueAlignmentRequest): Dia
 		}
 	}
 	if (!Number.isFinite(rows[n % 3]![m])) throw new RangeError('The dialogue cannot be aligned within the stretch limits.');
-	const mismatch = rows[n % 3]![m]! / (n + m);
-	if (mismatch > .4) throw new RangeError('The dialogue recordings are not sufficiently similar.');
+	let mismatchCost = 0, mismatchWeight = 0;
+	const score = (i: number, j: number, weight: number): void => {
+		if (!reference.active[i] && !replacement.active[j]) return;
+		mismatchCost += dialogueFeatureDistance(reference, i, replacement, j) * weight;
+		mismatchWeight += weight;
+	};
 	const points: DialogueAlignmentPoint[] = [];
 	for (let i = n, j = m; i > 0 && j > 0;) {
 		const outputFrame = i * outputFrames / n, uniform = outputFrame * inputFrames / outputFrames;
 		points.push({ outputFrame, sourceFrame: uniform + request.strength * (j * inputFrames / m - uniform) });
 		const step = steps[back[i * width + j]! - 1];
 		if (!step) throw new RangeError('Incomplete dialogue alignment path.');
+		score(i - 1, j - 1, 2);
+		if (step[0] === 2) score(i - 2, j - 1, 1);
+		else if (step[1] === 2) score(i - 1, j - 2, 1);
 		i -= step[0]; j -= step[1];
 	}
+	const mismatch = mismatchWeight ? mismatchCost / mismatchWeight : 1;
+	if (mismatch > .4) throw new RangeError('The dialogue recordings are not sufficiently similar.');
 	points.push({ outputFrame: 0, sourceFrame: 0 }); points.reverse();
 	// Partial final feature windows must not make an otherwise legal DTW step
 	// exceed the real PCM slope bounds. Preserve reachability of the exact end.
