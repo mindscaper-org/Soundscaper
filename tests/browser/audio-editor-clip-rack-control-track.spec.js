@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
-import { addRackEffect, bootEditor, chooseCommandAction, clipByName, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
+import { addRackEffect, bootEditor, chooseCommandAction, clipByName, closeDialog, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
 
 test('a clip Auto Duck can select another track without offering its own input as a detector', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
@@ -17,4 +17,20 @@ test('a clip Auto Duck can select another track without offering its own input a
 	const options = page.getByRole('listbox');
 	await expect(options.getByRole('option', { name: 'browser-tone-b', exact: true })).toBeVisible();
 	await expect(options.getByRole('option', { name: 'browser-tone-a', exact: true })).toHaveCount(0);
+});
+
+test('adding a second clip Auto Duck cannot create a reciprocal detector loop', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	await chooseCommandAction(page, editor, 'Tracks', 'Remove tracks');
+	await importFiles(editor, [toneA, toneB]);
+	let panel = await openClipProperties(page, editor, clipByName(editor, toneA.name));
+	await panel.getByText('Effects', { exact: true }).click();
+	await addRackEffect(page, panel, 'track', 'Auto Duck');
+	await closeDialog(page.getByRole('dialog', { name: 'Auto Duck', exact: true }));
+	panel = await openClipProperties(page, editor, clipByName(editor, toneB.name));
+	await panel.getByText('Effects', { exact: true }).click();
+	await panel.getByRole('button', { name: 'Add effect', exact: true }).click();
+	await page.getByRole('menuitem', { name: 'Auto Duck', exact: true }).click();
+	await expect(editor.getByRole('alert')).toContainText(/Auto Duck/u);
+	await expect(panel.getByRole('group', { name: 'Auto Duck', exact: true })).toHaveCount(0);
 });
