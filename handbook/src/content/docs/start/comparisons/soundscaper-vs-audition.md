@@ -72,6 +72,8 @@ formats that reference separate files.
 | FL Studio (`.flp`, ZIP) | / | / |
 | Ableton Live (`.als`) | / | / |
 | Bitwig (`.bwproject`) | / | / |
+| Logic Pro (`.logicx`) | / | / |
+| Cubase (`.cpr`) | / | / |
 
 ## Recording
 

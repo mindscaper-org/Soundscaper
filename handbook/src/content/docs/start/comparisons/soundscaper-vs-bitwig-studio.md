@@ -72,6 +72,8 @@ formats that reference separate files.
 | FL Studio (`.flp`, ZIP) | / | ~ — Import :: Imports FLP from version 9 onward, with channels, the first Playlist, and patterns. Automation, native FL devices, and some routing are omitted; no FLP export. |
 | Ableton Live (`.als`) | / | ~ — Import :: Imports sets from Live 8.1 onward, with arrangement, scenes, tracks, and supported devices/automation. Native devices may be approximated; input routing and AU plug-ins are omitted. No ALS export. |
 | Bitwig (`.bwproject`) | / | + |
+| Logic Pro (`.logicx`) | / | / |
+| Cubase (`.cpr`) | / | / |
 
 ## Recording
 

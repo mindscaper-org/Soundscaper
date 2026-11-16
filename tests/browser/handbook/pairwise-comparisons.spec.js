@@ -10,7 +10,7 @@ test('readers can choose an editor or Web and compare it with Desktop using the 
 	await page.goto(`${BASE}start/how-soundscaper-compares/`);
 	await page.getByRole('link', { name: 'compare Soundscaper Desktop with one editor', exact: true }).click();
 	await expect(page.getByRole('heading', { level: 1, name: 'Soundscaper comparisons', exact: true })).toBeVisible();
-	await expect(page.getByRole('main').getByRole('link', { name: /^Soundscaper vs /u })).toHaveCount(11);
+	await expect(page.getByRole('main').getByRole('link', { name: /^Soundscaper vs /u })).toHaveCount(13);
 	await page.getByRole('main').getByRole('link', { name: 'Soundscaper vs Audition', exact: true }).click();
 	await expect(page.getByRole('heading', { level: 1, name: 'Soundscaper vs Audition', exact: true })).toBeVisible();
 	const platform = page.getByRole('region', { name: 'Platform and terms', exact: true });
@@ -31,6 +31,17 @@ test('readers can choose an editor or Web and compare it with Desktop using the 
 	await expect(subprojects.getByRole('cell').nth(0).getByRole('img', { name: 'Unavailable', exact: true })).toBeVisible();
 	await expect(subprojects.getByRole('cell').nth(1).getByRole('img', { name: 'Supported', exact: true })).toBeVisible();
 	await expect(page.getByRole('figure', { name: 'REAPER 7.86', exact: true })).toBeAttached();
+
+	for (const [product, project] of [['Apple Logic Pro 13.0 for Mac', 'Logic Pro (.logicx)'], ['Cubase Pro 16.0.0', 'Cubase (.cpr)']]) {
+		await page.getByRole('link', { name: 'Choose another comparison', exact: true }).click();
+		await page.getByRole('main').getByRole('link', { name: `Soundscaper vs ${product}`, exact: true }).click();
+		await expect(page.getByRole('heading', { level: 1, name: `Soundscaper vs ${product}`, exact: true })).toBeVisible();
+		const nativeProject = page.getByRole('region', { name: 'Project format support', exact: true })
+			.getByRole('row').filter({ has: page.getByRole('rowheader', { name: project, exact: true }) });
+		await expect(nativeProject.getByRole('cell').nth(0).getByRole('img', { name: 'Unavailable', exact: true })).toBeVisible();
+		await expect(nativeProject.getByRole('cell').nth(1).getByRole('img', { name: 'Supported', exact: true })).toBeVisible();
+		await expect(page.getByRole('figure', { name: product, exact: true })).toBeAttached();
+	}
 
 	await page.getByRole('link', { name: 'Choose another comparison', exact: true }).click();
 	await page.getByRole('main').getByRole('link', { name: 'Soundscaper vs Soundscaper Web', exact: true }).click();

@@ -20,3 +20,5 @@ Compare Soundscaper Desktop with one other editor. Each page includes every capa
 - [Soundscaper vs FL Studio 2026](/start/comparisons/soundscaper-vs-fl-studio/)
 - [Soundscaper vs Ableton Live 13 Suite (beta)](/start/comparisons/soundscaper-vs-ableton-live/)
 - [Soundscaper vs Bitwig Studio 6.1](/start/comparisons/soundscaper-vs-bitwig-studio/)
+- [Soundscaper vs Apple Logic Pro 13.0 for Mac](/start/comparisons/soundscaper-vs-apple-logic-pro/)
+- [Soundscaper vs Cubase Pro 16.0.0](/start/comparisons/soundscaper-vs-cubase-pro/)
