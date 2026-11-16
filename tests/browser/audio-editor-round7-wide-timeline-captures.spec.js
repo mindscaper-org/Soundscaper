@@ -33,7 +33,7 @@ for (const channelCount of [2, 4]) {
 		await rack.getByRole('button', { name: 'Get noise profile', exact: true }).click();
 		await expect(rack.getByRole('button', { name: 'Replace noise profile', exact: true })).toBeVisible({ timeout: 10_000 });
 		await closeDialog(rack);
-		const profiled = await exportSamples(page, editor);
+		const profiled = await exportSamples(page, editor, { includeTail: true });
 		expect(profiled).toHaveLength(48_000 + 2_047);
 		expect(profiled.every(Number.isFinite)).toBe(true);
 	});
