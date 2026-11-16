@@ -14,6 +14,8 @@ import { stageTimelineInterchangeMedia } from './timeline-interchange-media.ts';
 import type { TimelineInterchangeFinalizer } from './timeline-interchange-video.ts';
 import type { SoundcraftBundle } from '../../../../soundcraft-bundle.ts';
 import { PROTOOLS_MAXIMUM_BYTES } from '../../../../protools-binary.ts';
+import { MIDI_FILE_MAX_BYTES } from '../../../../midi-file-types.ts';
+import { persistInterchangeMidiSources, withInterchangeMidiSourceLayouts } from './persist-interchange-midi-sources.ts';
 
 const MAXIMUM_TEXT_BYTES = 32 * 1024 * 1024;
 const MAXIMUM_BINARY_BYTES = 512 * 1024 * 1024;
@@ -55,14 +57,24 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 			assertCurrent();
 			const media = new Map<string, Readonly<Record<string, unknown>>>();
 			const stagedSourceIds = new Map<string, string>();
+			const midiFiles = new Map<string, Uint8Array>();
+			let midiBytes = 0;
 			let mediaRootId: string | undefined;
 			let folderRequested = false;
 			for (const reference of document.media) {
 				assertCurrent();
 				const consume = async (blob: Blob, name = reference.name): Promise<void> => {
+					if (reference.midi) {
+						if (blob.size > MIDI_FILE_MAX_BYTES) throw new RangeError('MIDI files cannot exceed 16 MiB.');
+						midiBytes += blob.size;
+						if (midiBytes > 64 * 1024 * 1024) throw new RangeError('Session MIDI companions exceed the 64 MiB working limit.');
+						const bytes = new Uint8Array(await blob.arrayBuffer());
+						assertCurrent(); midiFiles.set(reference.id, bytes); return;
+					}
 					const decoded = await stageTimelineInterchangeMedia(runtime, helpers, operation, { ...reference, name }, blob, persisted, finalizers);
 					if (decoded) { media.set(reference.id, decoded); stagedSourceIds.set(reference.id, String(decoded.id)); }
 				};
+				if (reference.midi && !reference.path) continue;
 				const selected = companionFor(reference, options.mediaFiles ?? []);
 				const embedded = bundle ? await bundle.readMedia(reference.path) : null;
 				if (reference.blob) await consume(reference.blob);
@@ -102,10 +114,13 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 				}
 			}
 			assertCurrent();
-			const plan = buildTimelineInterchangeProject(document, { fileName: file.name, createStableId: runtime.createStableId, media, stagedSourceIds });
-			if (runtime.createImportedProject) imported = await runtime.createImportedProject(plan.project);
+			const plan = buildTimelineInterchangeProject(document, { fileName: file.name, createStableId: runtime.createStableId, media, stagedSourceIds, midiFiles });
+			const layouts = await persistInterchangeMidiSources(runtime, helpers, operation, plan.midiSources, persisted);
+			const projectOptions = withInterchangeMidiSourceLayouts(plan.project, layouts);
+			assertCurrent();
+			if (runtime.createImportedProject) imported = await runtime.createImportedProject(projectOptions);
 			else {
-				const created = createCurrentAudioEditorProject(plan.project as never);
+				const created = createCurrentAudioEditorProject(projectOptions as never);
 				imported = runtime.adaptAudacityProject ? await runtime.adaptAudacityProject(created) : runtime.loadProject(created).project;
 			}
 			assertCurrent();

@@ -53,13 +53,19 @@ Choose **Cancel** beside the bar to stop an import or audio export.
   bundles with audio) open through **File → Open** or **File → Import**. Import
   the session and its referenced audio together in the browser. Desktop can
   locate media beside the session or ask for its media folder. Imports keep
-  active audio playlists, clip timing and source trims, names, mute and solo,
+  active audio and supported MIDI playlists, clip timing and source trims, names, mute and solo,
   static gain, supported pan, and explicit fade lengths. Split stereo Ardour sources
   become left and right tracks. Missing audio stays as an offline reference.
-  Plug-ins, MIDI, automation, routing, alternate playlists, tempo maps, and
-  markers are outside this audio import profile; review **File → Delivery
-  Report** for conversions and omissions. Ardour beat-domain timing requires
-  conversion to audio-time regions before import; overlapping Ardour layers
+  SoundCraft MIDI and instrument tracks retain editable notes and channel events.
+  Modern Ardour MIDI playlists also import their companion `.mid` files when
+  the session uses a supported stepped tempo map. Select those MIDI files with
+  the session in a browser. Imported MIDI uses a triangle synthesizer; select
+  a clip and open **Window → Piano roll (beta)** to edit notes or choose an instrument.
+  Plug-ins, automation, routing, alternate playlists, editable tempo maps, and
+  markers are outside this profile; review **File → Delivery Report** for
+  conversions and omissions, including unsupported Ardour MIDI tempo ramps and
+  legacy clocks. Ardour beat-domain audio regions require conversion to
+  audio-time regions before import; overlapping Ardour layers
   become additive cuts and are reported. Save the imported project
   as Scape; these formats are import-only.
 - Pro Tools sessions (`.ptx`, `.ptf`, `.pts`) open through **File → Open** or

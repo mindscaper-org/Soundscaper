@@ -279,7 +279,7 @@ tempo and signature maps, and float32 WAV media preserve the maintained scope.
 MIDI clips exchange editable standard Notes. Soundscaper comment metadata
 retains auxiliary MIDI messages and instrument/program settings; receiving
 applications must assign their own instrument. Imported notes also receive a
-synthesized PCM fallback before activation. Audio-oriented interchange and
+persisted synthesis recipe or streamed PCM fallback before activation. Audio-oriented interchange and
 Audacity exports report when only the MIDI carrier's PCM is delivered.
 
 DAWproject import validates and decodes before constructing the project,
@@ -291,7 +291,7 @@ Ardour `.ardour` snapshots and SoundCraft `.scraft` JSON sessions use the shared
 timeline import staging and activation boundary. Readers select active audio
 playlists and retain exact cut placement and source offsets, static controls,
 and fade lengths. Ardour sample and superclock values are converted to rational
-seconds; beat-domain values are refused before staging. Separate stereo source
+seconds; beat-domain audio regions are refused before staging. Separate stereo source
 files become parallel hard-panned tracks with a conversion report. Overlapping
 Ardour layers remain additive cuts with a reported layering omission. SoundCraft
 v0/v1 sessions retain sample-domain timing and their sequence frame rate.
@@ -299,9 +299,28 @@ v0/v1 sessions retain sample-domain timing and their sequence frame rate.
 session before inflating anything, verify requested members, and read audio one
 source at a time. Desktop lookup uses existing owner-scoped session and folder
 grants; project paths never authorize arbitrary filesystem reads. Missing media
-retains offline cuts. Unsupported processing, MIDI, automation, routing, tempo,
+retains offline cuts. Unsupported processing, automation, routing, tempo,
 markers and alternate playlists are reported. These readers and their helpers
 belong to the deferred archive closure, outside the product startup graph.
+
+SoundCraft MIDI and instrument tracks retain inline notes, channels, attack and
+release velocities, program changes and supported channel controllers. Their
+960-PPQ events use the session's stepped tempo map at each clip's sample origin.
+Modern Ardour active MIDI playlists read single-track PPQ SMFs from `midifiles`, using
+the session tempo rather than the SMF's default tempo. Beat and superclock
+region positions, durations and source trims are retained across stepped tempo
+changes. Tempo ramps, music-time anchors and legacy MIDI clocks are reported as
+omitted. Missing or ambiguous MIDI companions retain offline edits without
+inventing notes. Session tempo and meter authoring remain reported omissions;
+imported notes retain their resolved sample timing.
+
+Both readers create editable MIDI carriers with the triangle instrument and
+report the instrument substitution. Generated recipes or streamed synthesis
+are persisted before activation through the same helper as DAWproject; canonical
+source chunk geometry comes from the persisted layout so Scape export/reopen
+retains playable sources. Browser companion selection and desktop folder grants
+also admit `.mid`/`.midi`. MIDI companions are bounded to 16 MiB each and 64 MiB
+in total; expanded session MIDI is limited to 250,000 notes and channel events.
 
 The native readers follow Ardour's
 [`Session` snapshots and time serialization](https://github.com/Ardour/ardour/tree/522303bf7cbfd7d74510eb96e7da0762ffa73237/libs)

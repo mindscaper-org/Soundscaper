@@ -2,6 +2,7 @@
 
 import { parseXmlDocument, childElement, childElements, walkXml, type XmlElement } from './dawproject-xml.ts';
 import { addRationals, compareRationals, divideRationals, type Rational } from './timeline-time.ts';
+import { readArdourMidiTrack } from './ardour-import-midi.ts';
 import { timelineImportIssue, timelineInterchangeMediaName, TIMELINE_INTERCHANGE_MAXIMUM_BYTES,
 	TIMELINE_INTERCHANGE_MAXIMUM_ITEMS, type TimelineInterchangeDocument, type TimelineInterchangeTrack,
 	type TimelineInterchangeClip, type TimelineInterchangeMedia } from './timeline-interchange-types.ts';
@@ -43,7 +44,9 @@ export function parseArdourDocument(text: string): TimelineInterchangeDocument {
 		if (routeIds.has(id)) throw new SyntaxError('Duplicate Ardour route ID.');
 		routeIds.add(id);
 		if (/MasterOut|MonitorOut/u.test(route.attributes.flags ?? '')) { omit('master-processing-omitted', 'Master and monitor processing are not imported.'); continue; }
-		if (route.attributes['default-type'] === 'midi') { omit('midi-omitted', 'MIDI tracks and instruments are not imported.'); continue; }
+		if (route.attributes['default-type'] === 'midi') {
+			tracks.push(readArdourMidiTrack(root, route, playlists, sourceNodes, media, selectedPlaylists, issues)); continue;
+		}
 		const disk = childElement(route, 'Diskstream') ?? childElements(childElement(root, 'DiskStreams') ?? root, 'AudioDiskstream')
 			.find(node => node.attributes.id === route.attributes['diskstream-id']);
 		if (!disk && route.attributes['diskstream-id']) throw new ReferenceError('Ardour diskstream is unavailable.');
@@ -117,7 +120,7 @@ export function parseArdourDocument(text: string): TimelineInterchangeDocument {
 			if (node.name === 'AutomationList' && childElement(node, 'events')?.text.trim()) omit('automation-omitted', 'Track automation is not imported.');
 		}
 	}
-	if (playlists.length > selectedPlaylists.size) omit('alternate-playlists-omitted', 'Only active audio playlists are imported.');
+	if (playlists.length > selectedPlaylists.size) omit('alternate-playlists-omitted', 'Only active audio and MIDI playlists are imported.');
 	for (const name of ['TempoMap', 'Locations', 'RouteGroups']) if (childElement(root, name)?.children.length) omit(`${name.toLowerCase()}-omitted`, `Ardour ${name} authoring is not imported.`);
 	if (tracks.length) omit('routing-omitted', 'Ardour output routing is replaced by direct master output.');
 	issues.push(timelineImportIssue('ardour', 'sequence-clock-converted', 'Audio sample placement is retained; the sequence clock uses 30 fps with a zero timecode origin.', 'converted'));

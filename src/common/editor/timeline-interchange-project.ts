@@ -9,6 +9,8 @@ import { rationalFromDouble } from './dawproject-format.ts';
 import { normalizeProjectSampleRate } from './project-sample-rate.ts';
 import type { TimelineInterchangeDocument, TimelineInterchangeClip } from './timeline-interchange-types.ts';
 import { interchangeClipControls, interchangeTrackControls } from './timeline-interchange-audio-controls.ts';
+import { prepareTimelineInterchangeMidi, type TimelineInterchangeMidiSource } from './timeline-interchange-midi.ts';
+import { withMidiClipData, withMidiTrackData } from './midi-model.ts';
 
 export interface TimelineInterchangeImportOptions {
 	readonly fileName?: string;
@@ -17,6 +19,7 @@ export interface TimelineInterchangeImportOptions {
 	/** Decoded source options keyed by normalized document media ID. */
 	readonly media?: ReadonlyMap<string, Readonly<Record<string, unknown>> | null>;
 	readonly stagedSourceIds?: ReadonlyMap<string, string>;
+	readonly midiFiles?: ReadonlyMap<string, Uint8Array>;
 }
 export interface TimelineInterchangeImportPlan {
 	readonly title: string;
@@ -24,12 +27,16 @@ export interface TimelineInterchangeImportPlan {
 	readonly project: Record<string, unknown>;
 	readonly media: readonly { readonly mediaId: string; readonly sourceId: string }[];
 	readonly report: Omit<DeliveryReport, 'direction'> & Readonly<{ direction: 'import' }>;
+	readonly midiSources: readonly TimelineInterchangeMidiSource[];
 }
 
 export function buildTimelineInterchangeProject(document: TimelineInterchangeDocument,
 	options: TimelineInterchangeImportOptions): TimelineInterchangeImportPlan {
 	if (typeof options.createStableId !== 'function') throw new TypeError('Timeline import requires an ID factory.');
 	const sampleRate = normalizeProjectSampleRate(options.sampleRate ?? document.sampleRate);
+	const midi = prepareTimelineInterchangeMidi(document, options, sampleRate);
+	document = midi.document;
+	options = { ...options, media: midi.media };
 	const title = document.title || options.fileName?.replace(/\.[^.]+$/u, '') || 'Imported timeline';
 	const draft = createDeliveryReport({ format: document.format, container: document.format.toUpperCase(), sampleRate });
 	for (const issue of document.issues) addDeliveryReportItem(draft, issue);
@@ -88,12 +95,16 @@ export function buildTimelineInterchangeProject(document: TimelineInterchangeDoc
 			const shortened = clip.shortened === true;
 			delete clip.shortened;
 			if (track.kind === 'audio') Object.assign(clip, interchangeClipControls(authored, sampleRate, Number(clip.durationFrames), document.format, draft));
+			if (authored.midi) Object.assign(clip, withMidiClipData(clip, authored.midi));
 			clips.push(clip); clipIds.push(clipId);
 			if (shortened) {
 				addDeliveryReportItem(draft, { code: `${document.format}.clip-source-extent-converted`, disposition: 'converted', severity: 'warning', scope: { kind: 'clip', id: clipId }, message: 'The clip was shortened to fit the decoded media extent.' });
 			}
 		}
-		tracks.push({ id, type: track.kind, name: track.name, ...interchangeTrackControls(track, document.format, draft), clipIds });
+		const importedTrack = { id, type: track.kind, name: track.name, ...interchangeTrackControls(track, document.format, draft), clipIds };
+		tracks.push(track.midi ? withMidiTrackData(importedTrack, { version: 1, instrument: 'triangle' }) : importedTrack);
+		if (track.midi) addDeliveryReportItem(draft, { code: `${document.format}.midi-instrument-converted`, disposition: 'converted', severity: 'warning',
+			scope: { kind: 'track', id }, message: 'Editable MIDI uses the triangle synthesizer; assign the desired instrument after import.' });
 	}
 	const project: Record<string, unknown> = {
 		id: options.createStableId('project'), title, sampleRate, metadata: { title }, sources, clips, tracks,
@@ -102,7 +113,9 @@ export function buildTimelineInterchangeProject(document: TimelineInterchangeDoc
 			trackIds: tracks.map(track => track.id), trackNodes: tracks.map(track => ({ kind: 'track', id: track.id, parentFolderId: null })) }],
 	};
 	addDeliveryReportItem(draft, { code: `${document.format}.timeline-imported`, disposition: 'preserved', severity: 'info', data: { tracks: tracks.length, clips: clips.length, sources: sources.length }, message: 'Timeline tracks, cut placement, source trims and sequence timing were imported.' });
-	return Object.freeze({ title, sampleRate, project, media: Object.freeze(bindings), report: Object.freeze({ ...sealDeliveryReport(draft), direction: 'import' as const }) });
+	if (midi.midiSources.length) addDeliveryReportItem(draft, { code: `${document.format}.midi-preserved`, disposition: 'preserved', severity: 'info',
+		data: { clips: midi.midiSources.length }, message: 'MIDI notes and channel events were imported as editable MIDI with synthesized audio sources.' });
+	return Object.freeze({ title, sampleRate, project, media: Object.freeze(bindings), midiSources: Object.freeze(midi.midiSources), report: Object.freeze({ ...sealDeliveryReport(draft), direction: 'import' as const }) });
 }
 
 function buildClip(authored: TimelineInterchangeClip, source: Readonly<Record<string, unknown>>, document: TimelineInterchangeDocument,

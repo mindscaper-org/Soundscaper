@@ -2,6 +2,8 @@
 
 import type { Rational } from './timeline-time.ts';
 import type { DeliveryReportItem } from './delivery-report.ts';
+import type { MidiClipData } from './midi-model.ts';
+import type { InterchangeMidiTempo } from './interchange-midi-clock.ts';
 
 export type TimelineInterchangeFormat = 'edl' | 'otio' | 'fcpxml' | 'omf' | 'aaf' | 'adl' | 'ardour' | 'soundcraft' | 'protools';
 export interface TimelineInterchangeClip {
@@ -16,6 +18,9 @@ export interface TimelineInterchangeClip {
 	readonly muted?: boolean;
 	readonly fadeIn?: Rational;
 	readonly fadeOut?: Rational;
+	/** Inline notes use the document sample rate and source-local coordinates. */
+	readonly midi?: MidiClipData;
+	readonly midiFileTiming?: Readonly<{ sourceBeat: number; tempos: readonly InterchangeMidiTempo[] }>;
 }
 export interface TimelineInterchangeTrack {
 	readonly id: string;
@@ -26,6 +31,7 @@ export interface TimelineInterchangeTrack {
 	readonly solo?: boolean;
 	readonly gain?: number;
 	readonly pan?: number;
+	readonly midi?: true;
 }
 export interface TimelineInterchangeMedia {
 	readonly id: string;
@@ -41,6 +47,8 @@ export interface TimelineInterchangeMedia {
 	readonly aliases?: readonly string[];
 	/** Zero-based source channels materialized into a derived PCM source. */
 	readonly channelIndices?: readonly number[];
+	/** An SMF companion or an inline MIDI source, represented by an audio carrier. */
+	readonly midi?: true;
 }
 export interface TimelineInterchangeDocument {
 	readonly format: TimelineInterchangeFormat;
