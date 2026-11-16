@@ -4,7 +4,9 @@ import { AUDIO_EDITOR_SAMPLE_RATE } from '../../project.js';
 import { RECORDING_CHANNEL_COUNT_MAXIMUM } from '../../recording.js';
 import { RECORDING_DEFAULT_DEVICE_ID } from '../../recording-routing.js';
 import { soundscaperNativeAudioCaptureChannelCount } from '../../soundscaper-native-audio-capture.ts';
-import { scaleSampleFrame, secondsToSampleFrame } from '../../timeline-time.ts';
+import { countInSampleFrames, scaleSampleFrame, secondsToSampleFrame } from '../../timeline-time.ts';
+import { calculateAudioEditorCountInFrames } from '../transport/transport-model.ts';
+import type { RecordingProject } from './recording-transaction-types.ts';
 
 const LIVE_RECORDING_WAVEFORM_BUCKET_FRAMES = 64;
 const LIVE_RECORDING_WAVEFORM_MAXIMUM_BUCKETS = 2_048;
@@ -246,4 +248,25 @@ export function recordingPreviewSnapshot(
 		durationFrames: preview.frames,
 		channels: Object.freeze(channels),
 	});
+}
+
+/** Null retains the existing one-bar lead-in until a duration is explicitly chosen. */
+export function normalizeRecordingLeadInSeconds(value: unknown): number | null {
+	if (value === null || value === undefined) return null;
+	if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+		throw new RangeError('Lead-in duration must be a finite, nonnegative number of seconds.');
+	}
+	return value;
+}
+
+export function recordingLeadInFrames(project: RecordingProject, sampleRate: number,
+	positionFrame: number, durationSeconds: number | null = null): number {
+	const seconds = normalizeRecordingLeadInSeconds(durationSeconds);
+	if (seconds !== null) return secondsToSampleFrame(seconds, sampleRate, 'enclosingEnd');
+	return project.tempoMap != null || project.signatureMap != null
+		? calculateAudioEditorCountInFrames({ tempoMap: project.tempoMap, signatureMap: project.signatureMap,
+			sampleRate, positionFrame })
+		: countInSampleFrames(1, { bpm: Math.max(1, Number(project.tempo?.bpm) || 120),
+			timeSignature: { numerator: Math.max(1, Number(project.tempo?.timeSignature?.numerator) || 4),
+				denominator: Math.max(1, Number(project.tempo?.timeSignature?.denominator) || 4) } }, sampleRate);
 }

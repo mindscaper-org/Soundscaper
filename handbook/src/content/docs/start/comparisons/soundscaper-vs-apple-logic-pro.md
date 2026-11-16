@@ -89,7 +89,7 @@ Hover for limits. Include any referenced media when sharing projects.
 | Take comping | + — :: Audition, promote, edit comp regions, flatten as one undoable edit | + — :: Quick Swipe Comping |
 | Input monitoring and metering | + | + |
 | Alternate track playlists | / | + — Track alternatives |
-| Punch-and-roll narration | / | ~ — Pre-roll / punch :: General recording controls, rather than a dedicated narration workflow. |
+| Punch-and-roll narration | + — :: Adjustable playback lead-in and Punch again restart recording at the previous punch point. | ~ — Pre-roll / punch :: General recording controls, rather than a dedicated narration workflow. |
 
 [Recording, monitoring, and recovery](/soundscaper/recording/)
 

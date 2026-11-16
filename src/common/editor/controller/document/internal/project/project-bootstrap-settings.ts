@@ -24,7 +24,7 @@ export function prefetchProjectBootstrapSettings(
 		[DELIVERY_PRESETS_SETTING_KEY, null],
 		['input-monitor', false], ['microphone-metering', false],
 		['recording-input-gain', recordingInputGainDefault],
-		['recording-latency-offset-ms', 0], ['recording-lead-in', false],
+		['recording-latency-offset-ms', 0], ['recording-lead-in', false], ['recording-lead-in-seconds', null],
 		...([
 			['waveform-show-rms', false], ['timeline-show-vertical-rulers', true],
 			['timeline-update-while-playing', true], ['timeline-pinned-playhead', false],
