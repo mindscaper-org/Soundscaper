@@ -15,7 +15,7 @@ export interface MidiRenderWorkerPort {
 /** Browser DSP stays on a dedicated worker; native DSP already runs in its isolated host. */
 export async function openThreadedMidiRenderer(data: MidiClipData, instrument: MidiInstrument, sampleRate: number,
 	createWorker: () => MidiRenderWorkerPort = () => new Worker(new URL('./midi-render-worker-entry.ts', import.meta.url), { type: 'module', name: 'soundscaper-midi' }),
-	initialFrame = 0,
+	initialFrame = 0, channelCount?: number,
 ): Promise<MidiAudioRenderer> {
 	const worker = createWorker();
 	const broker = new WorkerRequestBroker({ timeoutMs: 30_000 });
@@ -36,7 +36,7 @@ export async function openThreadedMidiRenderer(data: MidiClipData, instrument: M
 			broker.dispose(); worker.terminate();
 			return openSeekableNativeRenderer(data, instrument, sampleRate, initialFrame, prepared.timeline);
 		}
-		const ready = await request<{ channelCount: number }>({ data, instrument, sampleRate, initialFrame });
+		const ready = await request<{ channelCount: number }>({ data, instrument, sampleRate, initialFrame, channelCount });
 		return { channelCount: ready.channelCount,
 			render: (start, frames) => request<{ channels: Float32Array<ArrayBuffer>[] }>({ start, frames }).then(result => result.channels),
 			close: async () => { broker.dispose(); worker.terminate(); },

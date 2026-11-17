@@ -84,6 +84,13 @@ use continuous synthesis from frame zero. Consequently a live chased attack can
 never replace canonical export samples. Deterministic built-in oscillator windows
 retain absolute source phase and can be evaluated independently at any offset.
 
+Built-in oscillators apply sustain and sostenuto, RPN 0 pitch bend sensitivity,
+channel pan, and Mono/Poly mode in the same independent source windows. Mono mode
+uses the most recently pressed sounding key on each channel and destination. A
+new recipe with noncentral channel pan publishes stereo PCM; recipes without it
+retain mono PCM. Persisted recipes retain their declared channel count when read,
+including older mono recipes, until a MIDI edit republishes their source.
+
 Imported MIDI ports retain separate channel/controller namespaces for every
 instrument engine. Library and native instruments use one isolated synth per
 note-bearing destination and sum their output. Native event preparation stays

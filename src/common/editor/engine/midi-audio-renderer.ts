@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { createMidiRenderer } from './midi-synthesis.ts';
+import { midiBuiltinChannelCount } from './midi-channel-pan.ts';
+import { createMidiPlaneRenderer } from './midi-synthesis.ts';
 import { compileMidiAudioTimeline, type MidiAudioEventTimeline } from './midi-audio-events.ts';
 import type { MidiClipData, MidiInstrument } from '../midi-model.ts';
 import type { MidiNativeInstrument } from '../midi-native-instrument.ts';
@@ -26,7 +27,7 @@ export async function openMidiInstrumentSession(instrument: MidiNativeInstrument
 }
 
 /** Sequential source compilation keeps every stateful instrument render isolated. */
-export async function openMidiAudioRenderer(data: MidiClipData, instrument: MidiInstrument, sampleRate: number, initialFrame = 0, prepared?: MidiAudioEventTimeline): Promise<MidiAudioRenderer> {
+export async function openMidiAudioRenderer(data: MidiClipData, instrument: MidiInstrument, sampleRate: number, initialFrame = 0, prepared?: MidiAudioEventTimeline, publishedChannelCount?: number): Promise<MidiAudioRenderer> {
 	if (typeof instrument !== 'string' || instrument === 'libadlmidi' || instrument === 'fluidsynth') {
 		if (prepared?.ports) return openMidiPortRenderers(prepared.ports,
 			timeline => openMidiAudioRenderer({ version: 1, notes: [] }, instrument, sampleRate, initialFrame, timeline));
@@ -42,8 +43,10 @@ export async function openMidiAudioRenderer(data: MidiClipData, instrument: Midi
 			: (await import('./midi-fluidsynth.ts')).openFluidSynth(sampleRate), initialFrame);
 	}
 	if (typeof instrument === 'string') {
-		const render = createMidiRenderer(data.notes, instrument, sampleRate, data.interchange?.events);
-		return { channelCount: 1, render: async (start: number, frames: number) => [render(start, frames)], close: async () => undefined };
+		const channelCount = publishedChannelCount ?? midiBuiltinChannelCount(data);
+		if (channelCount !== 1 && channelCount !== 2) throw new RangeError('Invalid built-in MIDI channel count.');
+		const render = createMidiPlaneRenderer(data.notes, instrument, sampleRate, data.interchange?.events, channelCount);
+		return { channelCount, render: async (start: number, frames: number) => render(start, frames), close: async () => undefined };
 	}
 	const events = prepared ?? compileMidiAudioTimeline(data, initialFrame);
 	const session = await openMidiInstrumentSession(instrument, sampleRate);

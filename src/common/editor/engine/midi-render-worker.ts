@@ -11,6 +11,7 @@ export interface MidiRenderWorkerRequest {
 	readonly start?: number;
 	readonly frames?: number;
 	readonly initialFrame?: number;
+	readonly channelCount?: number;
 	readonly eventsOnly?: boolean;
 }
 /** Kept independent of worker globals so a real worker can be profiled in Node too. */
@@ -20,7 +21,7 @@ export function createMidiRenderWorker() {
 		if (request.eventsOnly && request.data) return { id: request.id, timeline: compileMidiAudioTimeline(request.data, request.initialFrame) };
 		if (request.data && request.instrument && request.sampleRate) {
 			await render?.close();
-			render = await openMidiAudioRenderer(request.data, request.instrument, request.sampleRate, request.initialFrame);
+			render = await openMidiAudioRenderer(request.data, request.instrument, request.sampleRate, request.initialFrame, undefined, request.channelCount);
 			return { id: request.id, channelCount: render.channelCount };
 		}
 		if (!render) throw new Error('MIDI rendering worker is not initialized.');

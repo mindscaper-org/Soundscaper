@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { midiBuiltinChannelCount } from '../engine/midi-channel-pan.ts';
 import { normalizeMidiClipData, normalizeMidiTrackData, type MidiClipData, type MidiInstrument } from '../midi-model.ts';
 import { openMidiInstrumentSession } from '../engine/midi-audio-renderer.ts';
 import type { StorageRecord } from './media-records.ts';
@@ -19,7 +20,7 @@ export async function publishMidiRecipe(records: Pick<SourceRecordRepository, 'p
 	const data = normalizeMidiClipData(recipe.data), instrument = normalizeMidiTrackData({ version: 1, instrument: recipe.instrument }).instrument;
 	const { sampleRate } = recipe, frameCount = Number(metadata.frameCount);
 	if (!id || !Number.isSafeInteger(sampleRate) || sampleRate < 1 || !Number.isSafeInteger(frameCount) || frameCount < 1 || frameCount > sampleRate * 86400) throw new RangeError('Invalid MIDI source geometry.');
-	let channelCount = instrument === 'libadlmidi' || instrument === 'fluidsynth' ? 2 : 1;
+	let channelCount: number = instrument === 'libadlmidi' || instrument === 'fluidsynth' ? 2 : midiBuiltinChannelCount(data);
 	if (typeof instrument !== 'string') {
 		const renderer = await openMidiInstrumentSession(instrument, sampleRate);
 		try { channelCount = renderer.channelCount; } finally { await renderer.close(); }

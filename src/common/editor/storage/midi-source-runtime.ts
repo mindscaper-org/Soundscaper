@@ -26,7 +26,7 @@ export class MidiSourceRuntime {
 				const recipe = source.midiRecipe as MidiSourceRecipe;
 				entry = { sourceId: String(source.id), readers: 0, renderer: new MidiDemandSource({
 					frameCount: Number(source.frameCount), channelCount: Number(source.channelCount), chunkFrames: Number(source.chunkFrames),
-				}, () => openThreadedMidiRenderer(recipe.data, recipe.instrument, recipe.sampleRate, undefined, origin), 1024 * 1024) };
+				}, () => openThreadedMidiRenderer(recipe.data, recipe.instrument, recipe.sampleRate, undefined, origin, Number(source.channelCount)), 1024 * 1024) };
 			}
 			const current = entry;
 			this.#entries.delete(key); this.#entries.set(key, current);

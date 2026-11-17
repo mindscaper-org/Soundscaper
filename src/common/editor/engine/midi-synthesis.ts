@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { createMidiMonoVoiceIndex } from './midi-mono-voices.ts';
+import { midiPanGains } from './midi-channel-pan.ts';
 import type { MidiInstrument, MidiNote } from '../midi-model.ts';
 import type { MidiFileEvent } from '../midi-file-types.ts';
 import { createMidiExpressionIndex, midiExpressionPhaseArea, midiExpressionStateIndex, midiNoteSoundEnd, type MidiExpressionTimeline } from './midi-expression.ts';
@@ -28,6 +30,15 @@ export function createMidiRenderer(
 	notes: readonly MidiNote[], instrument: MidiInstrument, sampleRate: number,
 	events: readonly MidiFileEvent[] = [],
 ): (startFrame: number, frameCount: number) => Float32Array<ArrayBuffer> {
+	const render = createMidiPlaneRenderer(notes, instrument, sampleRate, events, 1);
+	return (startFrame, frameCount) => render(startFrame, frameCount)[0]!;
+}
+
+/** The published source width owns the PCM contract, including legacy mono recipes. */
+export function createMidiPlaneRenderer(
+	notes: readonly MidiNote[], instrument: MidiInstrument, sampleRate: number,
+	events: readonly MidiFileEvent[] = [], channelCount: 1 | 2 = 1,
+): (startFrame: number, frameCount: number) => Float32Array<ArrayBuffer>[] {
 	if (typeof instrument !== 'string') throw new Error('Native instrument synthesis requires the desktop MIDI renderer.');
 	if (instrument === 'libadlmidi' || instrument === 'fluidsynth') throw new Error('Library instruments require the MIDI worker renderer.');
 	if (!Number.isSafeInteger(sampleRate) || sampleRate < 1) throw new RangeError('Invalid MIDI synthesis sample rate.');
@@ -39,6 +50,7 @@ export function createMidiRenderer(
 			frequency: 440 * 2 ** ((note.pitch - 69) / 12), amplitude: note.velocity / 127 * 0.18,
 			onsetPhaseArea: midiExpressionPhaseArea(onsetState, note.startFrame), timeline };
 	}).filter(note => note.amplitude && note.soundEnd > note.startFrame).sort((left, right) => left.startFrame - right.startFrame);
+	const mono = createMidiMonoVoiceIndex(prepared);
 	let capacity = 1;
 	while (capacity < prepared.length) capacity *= 2;
 	const ends = new Float64Array(capacity * 2);
@@ -48,7 +60,7 @@ export function createMidiRenderer(
 	const release = Math.max(1, Math.round(sampleRate * 0.008));
 	return (startFrame, frameCount) => {
 		assertWindow(sampleRate, startFrame, frameCount);
-		const output = new Float32Array(frameCount);
+		const output = Array.from({ length: channelCount }, () => new Float32Array(frameCount));
 		const visible: PreparedNote[] = [];
 		const endFrame = startFrame + frameCount;
 		const visit = (node: number, left: number, right: number): void => {
@@ -69,20 +81,25 @@ export function createMidiRenderer(
 			for (let fromState = from; fromState < to;) {
 				const state = timeline.states[stateIndex]!;
 				const stateEnd = Math.min(to, timeline.states[stateIndex + 1]?.frame ?? to);
+				const gains = channelCount === 1 ? [1] : midiPanGains(state.pan);
 				if (frequency * state.bendRatio < sampleRate / 2) {
+					let winner = state.mono ? mono.winner(timeline, fromState) : null;
 					for (let frame = fromState; frame < stateEnd; frame += 1) {
+						if (winner && frame >= winner.end) winner = mono.winner(timeline, frame);
+						if (winner && winner.index !== note.index) continue;
 						const age = frame - note.startFrame;
 						const phase = (midiExpressionPhaseArea(state, frame) - onsetPhaseArea) * frequency / sampleRate;
 						const envelope = Math.min(1, age / attack, (soundEnd - frame) / release);
-						output[frame - startFrame]! += wave(instrument, phase) * amplitude * envelope * state.volume * state.expression;
+						const sample = wave(instrument, phase) * amplitude * envelope * state.volume * state.expression;
+						for (let channel = 0; channel < channelCount; channel++) output[channel]![frame - startFrame]! += sample * gains[channel]!;
 					}
 				}
 				fromState = stateEnd;
 				stateIndex += 1;
 			}
 		}
-		for (let frame = 0; frame < frameCount; frame += 1) {
-			if (output[frame] !== 0) output[frame] = Math.tanh(output[frame]!);
+		for (const plane of output) for (let frame = 0; frame < frameCount; frame += 1) {
+			if (plane[frame] !== 0) plane[frame] = Math.tanh(plane[frame]!);
 		}
 		return output;
 	};
