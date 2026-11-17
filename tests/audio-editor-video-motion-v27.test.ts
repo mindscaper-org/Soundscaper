@@ -10,6 +10,7 @@ import {
 } from '../src/common/editor/video-motion-model-v27.ts';
 import {
 	applySimilarityTransformV1,
+	createAdjacentLucasKanadeTrackerV1,
 	createGrayVideoFrameV1,
 	detectShiTomasiFeaturesV1,
 	estimateSimilarityRansacV1,
@@ -157,6 +158,20 @@ test('Shi-Tomasi features and pyramidal Lucas-Kanade tracks are deterministic', 
 	for (const item of accepted) {
 		assert.ok(Math.abs((item.target.x - item.source.x) - 1) < 0.25);
 		assert.ok(Math.abs((item.target.y - item.source.y) - 1) < 0.25);
+	}
+});
+
+test('tracking adjacent pairs keeps the same output when reusing the middle pyramid', () => {
+	const frames = [translatedDot(0, 0), translatedDot(1, 1), translatedDot(2, 2)] as const;
+	const track = createAdjacentLucasKanadeTrackerV1();
+	const options = { windowRadius: 2, pyramidLevels: 3, maximumIterations: 12, epsilon: 1e-4 };
+	for (const [left, right, pyramidLevels] of [[0, 1, 3], [1, 2, 3], [2, 1, 2]] as const) {
+		const previous = frames[left];
+		const next = frames[right];
+		const features = detectShiTomasiFeaturesV1(previous, { maximumFeatures: 8, quality: 0.01, minimumDistance: 2 });
+		const pairOptions = { ...options, pyramidLevels };
+		assert.deepEqual(track(previous, next, features, pairOptions),
+			trackPyramidalLucasKanadeV1(previous, next, features, pairOptions));
 	}
 });
 

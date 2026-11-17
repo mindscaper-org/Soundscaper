@@ -13,9 +13,9 @@ import {
 	type VideoTrackingProcessorV1,
 } from './video-motion-model-v27.ts';
 import {
+	createAdjacentLucasKanadeTrackerV1,
 	detectShiTomasiFeaturesV1,
 	estimateSimilarityRansacV1,
-	trackPyramidalLucasKanadeV1,
 	VIDEO_MOTION_MAXIMUM_RANSAC_MATCHES_V1,
 	type GrayVideoFrameV1,
 	type VideoPointMatchV1,
@@ -89,6 +89,7 @@ export async function analyzeVideoMotionV1(
 	const inputSha256 = digest(request?.inputSha256, 'motion analysis input digest');
 	const stack = normalizeVideoProcessorStackV1(request?.processorStack);
 	const tracking = trackingProcessor(stack);
+	const trackPair = createAdjacentLucasKanadeTrackerV1();
 	const { count, frames } = analysisFrames(request?.frames);
 	const settingsSha256 = videoMotionSettingsSha256V1(stack);
 	const transforms: VideoMotionAnalysisTransformV1[] = [];
@@ -107,7 +108,7 @@ export async function analyzeVideoMotionV1(
 		}
 		transforms.push(Object.freeze({
 			frameNumber: current.frameNumber,
-			transform: analyzePair(previous.frame, current.frame, tracking),
+			transform: analyzePair(previous.frame, current.frame, tracking, trackPair),
 		}));
 		previous = current;
 		request.onProgress?.(Object.freeze({ phase: 'tracking', completed: received - 1, total: count - 1 }));
@@ -208,9 +209,10 @@ function analyzePair(
 	previous: GrayVideoFrameV1,
 	current: GrayVideoFrameV1,
 	tracking: VideoTrackingProcessorV1,
+	trackPair: ReturnType<typeof createAdjacentLucasKanadeTrackerV1>,
 ): VideoSimilarityTransformV1 {
 	const features = detectShiTomasiFeaturesV1(previous, tracking);
-	const tracks = trackPyramidalLucasKanadeV1(previous, current, features, {
+	const tracks = trackPair(previous, current, features, {
 		windowRadius: tracking.windowRadius,
 		pyramidLevels: tracking.pyramidLevels,
 		maximumIterations: 24,

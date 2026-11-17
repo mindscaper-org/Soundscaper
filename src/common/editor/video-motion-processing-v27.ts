@@ -125,16 +125,33 @@ export function detectShiTomasiFeaturesV1(
 	return Object.freeze(selected);
 }
 
+type LucasKanadeOptions = Readonly<{
+	windowRadius: number; pyramidLevels: number; maximumIterations: number; epsilon: number;
+}>;
+
 export function trackPyramidalLucasKanadeV1(
-	previousValue: GrayVideoFrameV1,
-	nextValue: GrayVideoFrameV1,
-	featuresValue: readonly ShiTomasiFeatureV1[],
-	options: Readonly<{
-		readonly windowRadius: number;
-		readonly pyramidLevels: number;
-		readonly maximumIterations: number;
-		readonly epsilon: number;
-	}>,
+	previousValue: GrayVideoFrameV1, nextValue: GrayVideoFrameV1,
+	featuresValue: readonly ShiTomasiFeatureV1[], options: LucasKanadeOptions,
+): readonly LucasKanadeTrackV1[] {
+	return trackPyramidalLucasKanade(previousValue, nextValue, featuresValue, options, buildPyramid);
+}
+
+export function createAdjacentLucasKanadeTrackerV1(): typeof trackPyramidalLucasKanadeV1 {
+	let last: Readonly<{ frame: GrayVideoFrameV1; levels: number; pyramid: readonly GrayVideoFrameV1[] }> | undefined;
+	const getPyramid: typeof buildPyramid = (frame, levels) => {
+		if (last?.frame === frame && last.levels === levels) return last.pyramid;
+		const pyramid = buildPyramid(frame, levels);
+		last = { frame, levels, pyramid };
+		return pyramid;
+	};
+	return (previousValue, nextValue, featuresValue, options) => trackPyramidalLucasKanade(
+		previousValue, nextValue, featuresValue, options, getPyramid,
+	);
+}
+
+function trackPyramidalLucasKanade(
+	previousValue: GrayVideoFrameV1, nextValue: GrayVideoFrameV1,
+	featuresValue: readonly ShiTomasiFeatureV1[], options: LucasKanadeOptions, getPyramid: typeof buildPyramid,
 ): readonly LucasKanadeTrackV1[] {
 	const previous = frameValueChecked(previousValue, 'Lucas-Kanade previous frame');
 	const next = frameValueChecked(nextValue, 'Lucas-Kanade next frame');
@@ -149,8 +166,8 @@ export function trackPyramidalLucasKanadeV1(
 	const requestedLevels = boundedInteger(options?.pyramidLevels, 1, 8, 'Lucas-Kanade pyramid levels');
 	const maximumIterations = boundedInteger(options?.maximumIterations, 1, 64, 'Lucas-Kanade iteration count');
 	const epsilon = bounded(options?.epsilon, Number.EPSILON, 1, 'Lucas-Kanade epsilon');
-	const previousPyramid = buildPyramid(previous, requestedLevels);
-	const nextPyramid = buildPyramid(next, previousPyramid.length);
+	const previousPyramid = getPyramid(previous, requestedLevels);
+	const nextPyramid = getPyramid(next, requestedLevels);
 	const levels = Math.min(previousPyramid.length, nextPyramid.length);
 	return Object.freeze(features.map((feature) => {
 		let targetX = feature.x / 2 ** (levels - 1);
