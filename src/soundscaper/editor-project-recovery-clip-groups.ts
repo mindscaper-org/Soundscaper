@@ -24,6 +24,7 @@ export function restoreSoundscaperRecoveryClipGroups(
 		}, true);
 	}
 	const ownerByClipId = new Map(tracks.flatMap(track => values(track.clipIds).map(id => [id, track.id] as const)));
+	const orderedByTrack = new Map(tracks.map(track => [track.id, values(track.clipIds)]));
 	const clips = values(raw.clips);
 	const consumed = new Set<number>();
 	for (const [index, value] of clips.entries()) {
@@ -49,9 +50,13 @@ export function restoreSoundscaperRecoveryClipGroups(
 		return attempt(`clips[${String(block[0]!.index)}]`, draft => {
 			const additions = block.map(({ clip }) => detach ? { ...clip, avLinkId: null } : clip);
 			draft.clips = [...values(draft.clips), ...additions];
-			draft.tracks = records(draft.tracks).map(track => ({ ...track, ...(Object.hasOwn(track, 'clipIds') ? {
-				clipIds: [...values(track.clipIds), ...additions.filter(clip => ownerByClipId.get(clip.id) === track.id).map(clip => clip.id)],
-			} : {}) }));
+			draft.tracks = records(draft.tracks).map(track => {
+				if (!Object.hasOwn(track, 'clipIds')) return track;
+				const added = additions.filter(clip => ownerByClipId.get(clip.id) === track.id);
+				if (added.length === 0) return track;
+				const admitted = new Set([...values(track.clipIds), ...added.map(clip => clip.id)]);
+				return { ...track, clipIds: orderedByTrack.get(track.id)?.filter(id => admitted.has(id)) ?? [] };
+			});
 		}, true);
 	}
 }
