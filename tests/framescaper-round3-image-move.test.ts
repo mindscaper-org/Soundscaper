@@ -7,6 +7,7 @@ import type { ClipTransformProject } from '../src/common/editor/controller/clip-
 import { createEditorProjectRuntimeSelection } from '../src/framescaper/editor-project-runtime-selection.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
 import { createFramescaperBaselineImageFixture } from './helpers/framescaper-baseline-image-fixture.ts';
+import { applyFramescaperProjectCommand } from '../src/framescaper/editor-project-commands.ts';
 
 function createImageMove() {
 	const { project, clip } = createFramescaperBaselineImageFixture({ imageOnly: true });
@@ -49,4 +50,19 @@ test('a horizontal image drag moves its exact canonical sequence start without c
 	const editor = createImageMove();
 	editor.service.moveClips(editor.clip.id, null, 96_000, { exactFrame: true });
 	assert.deepEqual(editor.getProject().clips.find(clip => clip.id === editor.clip.id), { ...editor.clip, sequenceStartFrame: 20 });
+});
+
+test('moving an image onto a new track in another sequence conforms to that track’s clock', () => {
+	const profile = FRAMESCAPER_PROJECT_RUNTIME_PROFILE;
+	const fixture = createFramescaperBaselineImageFixture({ imageOnly: true });
+	const secondary = applyFramescaperProjectCommand(profile, fixture.project, { type: 'sequence/create', sequence: {
+		...fixture.project.sequences[0], id: 'other-sequence', name: 'Other', rate: { num: 25, den: 1 }, trackIds: [], trackNodes: [],
+	} });
+	const moved = applyFramescaperProjectCommand(profile, secondary, { type: 'batch', commands: [
+		{ type: 'track/add', sequenceId: 'other-sequence', track: { type: 'video', id: 'other-picture', name: 'Picture', clipIds: [] } },
+		{ type: 'clip/move', clipId: fixture.clip.id, trackId: 'other-picture', timelineStartFrame: 48_000 },
+	] });
+	assert.deepEqual(moved.clips.find(clip => clip.id === fixture.clip.id), { ...fixture.clip,
+		sequenceId: 'other-sequence', sequenceStartFrame: 25, sequenceFrameCount: 375,
+	});
 });
