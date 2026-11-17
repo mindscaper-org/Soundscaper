@@ -1,4 +1,5 @@
 import NativePluginEffectHeader from './NativePluginEffectHeader.tsx';
+import { setNativeRackEffectEnabled } from '../../controller/effects/native-plugin-preset-runtime.ts';
 import ClipRackDialogPortal from './ClipRackDialogPortal.tsx';
 import { useCallback, useEffect, useRef, useState } from 'react'; import { publishedCopyFor } from '../../controller/shared/presentation-localization.ts'; import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
@@ -172,12 +173,15 @@ export function AudioEditorEffectsOverlay({
 		});
 	};
 
+	const changeEffectEnabled = (scope, ownerId, effect, enabled) => effect.type === 'native-plugin'
+		? run(ownsOperation => setNativeRackEffectEnabled(controller, scope, ownerId, effect, enabled, ownsOperation))
+		: controller.actions.effects.update(scope, ownerId, effect.id, { enabled });
 	const section = (scope, effects, owner) => ({
 		effectActionsLabel: copy.moreOptions,
 		effects: effects.map((effect) => ({
 			id: effect.id,
 			name: safeEffectLabel(effect, copy),
-			enabled: effect.enabled,
+			enabled: effect.enabled !== false && (effect.type !== 'native-plugin' || effect.bypassed !== true),
 		})),
 		allEnabled: owner?.effectsActive !== false,
 		onToggleAll: (enabled) => {
@@ -189,7 +193,7 @@ export function AudioEditorEffectsOverlay({
 		},
 		onEffectToggle: (index, enabled) => {
 			const effect = effects[index];
-			if (!blocked && effect) controller.actions.effects.update(scope, scope === 'master' ? null : targetId, effect.id, { enabled });
+			if (!blocked && effect) void changeEffectEnabled(scope, scope === 'master' ? null : targetId, effect, enabled);
 		},
 		onEffectChange: (index) => {
 			const effect = effects[index];
@@ -354,7 +358,8 @@ export function AudioEditorEffectsOverlay({
 						<div className="audio-editor-rack-effect-header">
 							{effect.type === 'native-plugin' ? <NativePluginEffectHeader controller={controller} copy={copy}
 								identity={{ instanceId: effect.params.instanceId, ...effect.context }} name={safeEffectLabel(effect, copy)}
-								enabled={!effect.bypassed} disabled={blocked} /> : <PluginEffectPresetHeader
+								enabled={effect.enabled !== false && !effect.bypassed} disabled={blocked}
+								onEnabledChange={enabled => changeEffectEnabled(effectScope, gestureOwnerId, effect, enabled)} /> : <PluginEffectPresetHeader
 								controller={controller} copy={copy} aboutEffect={effect} onAdvancedSettings={onAdvancedSettings}
 								effectType={effect.type} name={safeEffectLabel(effect, copy)} resetKey={`${projectIdentity}:${effect.id}`}
 								disabled={blocked} realtime enabled={effect.enabled} fileService={fileService}
