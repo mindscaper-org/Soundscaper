@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, open, readFile, rename, rm } from 'node:fs/promises';
 import { dirname, isAbsolute } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { OriginalFileOverwriteStore } from './original-file-overwrite.ts';
@@ -29,8 +29,11 @@ export class ProjectFileAssociations {
 			const next = { ...this.#entries, [projectId]: entry };
 			await mkdir(dirname(this.filePath), { recursive: true, mode: 0o700 });
 			const temporary = `${this.filePath}.${randomUUID()}.tmp`;
-			await writeFile(temporary, JSON.stringify(next), { mode: 0o600, flag: 'wx' });
-			await rename(temporary, this.filePath);
+			const handle = await open(temporary, 'wx', 0o600);
+			try {
+				try { await handle.writeFile(JSON.stringify(next)); } finally { await handle.close(); }
+				await rename(temporary, this.filePath);
+			} finally { await rm(temporary, { force: true }).catch(() => undefined); }
 			this.#entries = next;
 		});
 		this.#tail = operation;
@@ -39,8 +42,8 @@ export class ProjectFileAssociations {
 	async restore(projectId: string, owner: object): Promise<Readonly<{ baseline: string; originalFile: Readonly<{ id: string; name: string }> | null }> | null> {
 		if (!validId(projectId)) throw new TypeError('Invalid project identity');
 		await this.#tail.catch(() => undefined);
-		const entry = this.#entries[projectId];
-		if (!entry) return null;
+		if (!Object.hasOwn(this.#entries, projectId)) return null;
+		const entry = this.#entries[projectId]!;
 		try { return { baseline: entry.baseline, originalFile: await this.originals.restoreProjectReference(entry, { owner }) }; }
 		catch { return { baseline: entry.baseline, originalFile: null }; }
 	}
@@ -51,5 +54,8 @@ function validEntry(value: unknown): value is Entry {
 	const entry = value as Partial<Entry>;
 	return typeof entry.path === 'string' && isAbsolute(entry.path) && !entry.path.includes('\0')
 		&& typeof entry.baseline === 'string' && /^[a-f0-9]{64}$/u.test(entry.baseline)
-		&& !!entry.identity && ['dev', 'ino', 'size', 'mtimeNs', 'ctimeNs'].every(key => typeof entry.identity?.[key] === 'string' && /^\d+$/u.test(entry.identity[key]!));
+		&& !!entry.identity && ['dev', 'ino', 'size', 'mtimeNs', 'ctimeNs'].every(key => {
+			const value = entry.identity?.[key];
+			return typeof value === 'string' && (key.endsWith('Ns') ? /^-?\d+$/u : /^\d+$/u).test(value);
+		});
 }

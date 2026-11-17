@@ -9,6 +9,7 @@ import { assertLocalDesktopStorage } from './local-storage-safety.ts';
 export class TemporaryProjectStorage {
 	#active: string;
 	#selected: string;
+	#selectionTail = Promise.resolve();
 	constructor(readonly configurationPath: string, readonly defaultRoot: string, readonly appName: string) {
 		this.#active = this.#selected = defaultRoot;
 	}
@@ -19,12 +20,12 @@ export class TemporaryProjectStorage {
 				this.#active = folder(value.active); this.#selected = folder(value.selected);
 			}
 		} catch (error) { if (!(error instanceof SyntaxError) && (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
-		assertLocalDesktopStorage(this.#active);
-		assertLocalDesktopStorage(this.#selected);
+		const active = assertLocalDesktopStorage(this.#active);
+		const selected = assertLocalDesktopStorage(this.#selected);
 		if (this.#active !== this.#selected) {
 			await migrateDesktopStorageEntries([{
-				source: join(this.#active, this.appName, 'project-library', 'v1'),
-				destination: join(this.#selected, this.appName, 'project-library', 'v1'),
+				source: join(active, this.appName, 'project-library', 'v1'),
+				destination: join(selected, this.appName, 'project-library', 'v1'),
 			}]);
 			await this.#persist(this.#selected, this.#selected);
 			this.#active = this.#selected;
@@ -34,10 +35,14 @@ export class TemporaryProjectStorage {
 	status(): Readonly<{ folder: string; selectedFolder: string; restartRequired: boolean }> {
 		return { folder: this.#active, selectedFolder: this.#selected, restartRequired: this.#active !== this.#selected };
 	}
-	async select(path: string): Promise<ReturnType<TemporaryProjectStorage['status']>> {
-		const selected = folder(path);
-		assertLocalDesktopStorage(selected);
-		const source = join(this.#active, this.appName, 'project-library', 'v1');
+	select(path: string): Promise<ReturnType<TemporaryProjectStorage['status']>> {
+		const selection = this.#selectionTail.then(() => this.#select(path));
+		this.#selectionTail = selection.then(() => undefined, () => undefined);
+		return selection;
+	}
+	async #select(path: string): Promise<ReturnType<TemporaryProjectStorage['status']>> {
+		const selected = assertLocalDesktopStorage(folder(path));
+		const source = join(assertLocalDesktopStorage(this.#active), this.appName, 'project-library', 'v1');
 		const destination = join(selected, this.appName, 'project-library', 'v1');
 		if (nested(source, destination) || nested(destination, source)) throw new Error('Source and destination paths overlap or are nested.');
 		await mkdir(selected, { recursive: true, mode: 0o700 });

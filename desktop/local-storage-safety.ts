@@ -15,8 +15,8 @@ interface StorageProbe {
 const STORAGE_ERROR = 'Working databases require local, unsynced storage. Choose a local temporary data folder; save project archives separately for cloud sync or network sharing.';
 const SYNC_COMPONENT = /^(?:onedrive(?:[ -].*)?|dropbox(?:[ (].*)?|google drive|googledrive(?:-.*)?|icloud(?:drive| drive)?|nextcloud|owncloud)$/iu;
 
-/** Check both the selected spelling and its existing physical ancestors before any writes. */
-export function assertLocalDesktopStorage(path: string, probe: StorageProbe = {}): void {
+/** Check both spellings before any writes and return the physical storage path. */
+export function assertLocalDesktopStorage(path: string, probe: StorageProbe = {}): string {
 	if (/^(?:\\\\|\/\/)/u.test(path)) throw new Error(STORAGE_ERROR);
 	if (typeof path !== 'string' || path.includes('\0') || !isAbsolute(path)) {
 		throw new TypeError('Working database storage requires an absolute filesystem path.');
@@ -32,6 +32,7 @@ export function assertLocalDesktopStorage(path: string, probe: StorageProbe = {}
 			|| roots.some(root => within(root, candidate))) throw new Error(STORAGE_ERROR);
 	}
 	if (!(probe.volumeIsLocal ?? isLocalDesktopVolume)(ancestor.physical)) throw new Error(STORAGE_ERROR);
+	return physical;
 }
 
 function existingAncestor(path: string): { path: string; physical: string } {
