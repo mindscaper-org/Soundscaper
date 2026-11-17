@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { sha256 } from '@noble/hashes/sha2.js';
-import { bytesToHex } from '@noble/hashes/utils.js';
+import { midiNativeInstallationId } from '../../midi-native-installation-id.ts';
 import { readMidiTrack, type MidiInstrument } from '../../midi-model.ts';
 import { normalizeMidiNativeInstrument, type MidiNativeInstrument } from '../../midi-native-instrument.ts';
 import { registerMidiInstrumentProvider } from '../../engine/midi-audio-renderer.ts';
@@ -193,5 +192,5 @@ function encodeState(value: unknown): string {
 }
 function decodeState(value: string): Uint8Array { return Uint8Array.from(atob(value), character => character.charCodeAt(0)); }
 export function installationId(instrument: Pick<MidiNativeInstrument, 'binarySha256' | 'stablePluginId'>): string {
-	return `i${bytesToHex(sha256(new TextEncoder().encode(`${instrument.binarySha256}\0${instrument.stablePluginId}`))).slice(0, 15)}`;
+	return midiNativeInstallationId(instrument);
 }

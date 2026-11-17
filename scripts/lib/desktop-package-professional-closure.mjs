@@ -34,6 +34,7 @@ export function assertProfessionalNativeBuiltClosure({ professional, target, pre
 		['isolation sandbox profile', isolation.sandboxProfile],
 		['isolation broker policy', isolation.brokerPolicy],
 		...isolation.runtimeClosure.map((entry, index) => [`runtime closure entry ${index}`, entry]),
+		...isolation.pluginResources.map((entry, index) => [`plug-in resource ${index}`, entry]),
 	]) {
 		requireFile(`${prefix}${relative(artifact?.path)}`, artifact,
 			`professional native ${label}`, prefix);

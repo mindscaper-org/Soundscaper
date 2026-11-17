@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 #include "professional_host_api.h"
+#include "bundled_factory_data.hpp"
 #include "juce_message_dispatcher.h"
 #include <array>
 #include <cmath>
@@ -34,6 +35,18 @@ int run(const char *path, const char *format)
 int main(int argc, char **argv)
 {
 	if (argc != 3) return 2;
+	for (const auto argument : {"--wrong-option=00", "--bundled-surge-data-hex=", "--bundled-surge-data-hex=0",
+		"--bundled-surge-data-hex=zz", "--bundled-surge-data-hex=00", "--bundled-surge-data-hex=72656c6174697665"})
+		REQUIRE(!soundscaper::configureBundledFactoryData(argument));
+	const auto dataPath = std::filesystem::current_path().u8string();
+	std::string encoded;
+	for (const unsigned char byte : dataPath) { encoded += "0123456789abcdef"[byte >> 4]; encoded += "0123456789abcdef"[byte & 15]; }
+	REQUIRE(soundscaper::configureBundledFactoryData("--bundled-surge-data-hex=" + encoded));
+#ifdef _WIN32
+	REQUIRE(std::filesystem::path(_wgetenv(L"SURGE_DATA_HOME")) == std::filesystem::current_path());
+#else
+	REQUIRE(std::string(std::getenv("SURGE_DATA_HOME")) == std::string(dataPath.begin(), dataPath.end()));
+#endif
 #if defined(__APPLE__)
 	return soundscaper::runMacJuceMessageDispatcher([&]() { return run(argv[1], argv[2]); });
 #else

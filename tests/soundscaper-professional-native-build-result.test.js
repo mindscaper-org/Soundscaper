@@ -36,9 +36,10 @@ import {
 	soundscaperProfessionalNativeToolchainIdentity,
 } from '../scripts/lib/soundscaper-professional-native-toolchain.mjs';
 import {
-	soundscaperProfessionalNativeBuildSelfTestsFixture,
+	soundscaperProfessionalNativeBuildSelfTestsFixture, soundscaperProfessionalNativeSourceAuthenticationFixture as sourceAuthentication,
 } from './helpers/soundscaper-professional-native-build-result-fixtures.js';
 
+import { bundledNativePlugins } from '../desktop/bundled-native-plugins.ts';
 const ROOT = resolve(import.meta.dirname, '..');
 const SOURCE_REVISION = '12'.repeat(20); const BUILD_PLAN_SHA256 = '34'.repeat(32);
 
@@ -56,13 +57,13 @@ test('self-test authority recognizes a normalized path on another Windows volume
 
 test('Soundscaper build-result source scope excludes every Framescaper codec input', () => {
 	assert.deepEqual(soundscaperProfessionalNativeSourceIdsForTarget('mac-arm64'), [
-		'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+		'surge-xt', 'dexed', 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 	]);
 	assert.deepEqual(soundscaperProfessionalNativeSourceIdsForTarget('win-arm64'), [
-		'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library', 'asio-sdk',
+		'surge-xt', 'dexed', 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library', 'asio-sdk',
 	]);
 	assert.deepEqual(soundscaperProfessionalNativeSourceIdsForTarget('linux-x64'), [
-		'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library', 'ladspa-sdk', 'lv2',
+		'surge-xt', 'dexed', 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library', 'ladspa-sdk', 'lv2',
 	]);
 	assert.throws(() => soundscaperProfessionalNativeSourceIdsForTarget('mac-x64'), /target/u);
 });
@@ -173,6 +174,8 @@ test('a build result binds installed payloads, closed dependencies, and passing 
 	assert.equal(candidate.receipt.target, 'linux-x64');
 	assert.deepEqual(candidate.receipt.isolation.runtimeClosure.map(({ path }) => path), [
 		'payload/runtime/effects/soundscaper_juce_effects.clap',
+		'payload/runtime/instruments/Dexed.vst3/Contents/x86_64-linux/Dexed.so',
+		'payload/runtime/instruments/Surge XT.vst3/Contents/x86_64-linux/Surge XT.so',
 		'payload/runtime/libowned.so',
 	]);
 	assert(inspected.some((path) => path.endsWith('payload/runtime/libowned.so')),
@@ -411,6 +414,8 @@ async function candidateFixture(context, target = 'linux-x64', sourceRevision = 
 			: ['windows-v1.json', 'windows-broker-v1.json'];
 	for (const [path, contents] of [
 		[join(professionalInstallRoot, 'runtime/effects/soundscaper_juce_effects.clap'), 'juce-effects'],
+		...bundledNativePlugins(target).filter(plugin => plugin.classification === 'instrument').map(plugin => [join(professionalInstallRoot, 'runtime', plugin.binaryPath), plugin.id]),
+		[join(professionalInstallRoot, 'runtime/instrument-data/surge-xt/wavetables/Fixture.wt'), 'factory-table'],
 		[join(professionalInstallRoot, 'soundscaper_professional.node'), 'addon'],
 		...(target === 'win-x64' ? [[join(professionalInstallRoot, 'runtime/soundscaper_vst2_x86_peer.exe'), 'x86-peer']] : []),
 		[join(professionalInstallRoot, `soundscaper_professional_peer${windows ? '.exe' : ''}`), 'peer'],
@@ -491,22 +496,6 @@ function dependencyInspection(path, imports, target = 'linux-x64') {
 
 function passingSelfTest({ expectedStatus }) { return { status: expectedStatus, stdout: 'passed', stderr: '' }; }
 
-function sourceAuthentication(target) {
-	return {
-		schemaVersion: 1,
-		status: 'authenticated',
-		sources: soundscaperProfessionalNativeSourceIdsForTarget(target).map((id, index) => ({
-			id,
-			authenticationStatus: 'authenticated',
-			archiveEvidence: { byteLength: index + 1, sha256: sha256(`archive:${index}`) },
-			extractedTreeEvidence: {
-				algorithm: 'framescaper-portable-source-tree-sha256-v1',
-				fileCount: index + 1,
-				sha256: sha256(`tree:${index}`),
-			},
-		})),
-	};
-}
 
 function sha256(value) {
 	return createHash('sha256').update(value).digest('hex');

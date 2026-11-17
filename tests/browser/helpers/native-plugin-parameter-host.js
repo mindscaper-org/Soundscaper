@@ -78,7 +78,8 @@ export async function installNativePluginParameterHost(page, options = {}) {
 			openNativeAudioSession: refused, bindNativeAudioSession: refused, nativeAudioSessionStatus: refused,
 			calibrateNativeAudioSession: refused, reportNativeAudioSessionTransfer: refused,
 			reportNativeAudioSessionLoss: refused, closeNativeAudioSession: refused,
-			setNativePluginInstallationAllowed: refused, selectNativePluginInstallation: refused,
+			setNativePluginInstallationAllowed: refused,
+			selectNativePluginInstallation: async ({ installationId }) => instrument && installationId === 'gain-install' ? registry : refused(),
 			instantiateNativePlugin: async ({ installationId, instanceId: requested }) => {
 				if (installationId !== 'gain-install' && (!instrument || !installationId.startsWith('i'))) throw new Error('The requested installation is absent.');
 				const instanceId = requested || 'test-gain-1';

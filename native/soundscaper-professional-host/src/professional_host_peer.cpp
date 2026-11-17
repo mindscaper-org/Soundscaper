@@ -410,6 +410,8 @@ int runFramedPeer(FILE *output)
 
 } // namespace
 
+#include "bundled_factory_data.hpp"
+
 int main(int argc, char **argv)
 {
 #if defined(_WIN32)
@@ -421,6 +423,10 @@ int main(int argc, char **argv)
 #endif
 	if (argc == 2 && std::strcmp(argv[1], "--vamp-analyzer") == 0) {
 		return soundscaper::vamp::runVampAnalyzerPeer();
+	}
+	if (argc == 2 && std::strncmp(argv[1], "--bundled-surge-data-hex=", std::strlen("--bundled-surge-data-hex=")) == 0) {
+		if (!soundscaper::configureBundledFactoryData(argv[1])) return 125;
+		argc = 1;
 	}
 	const int probe = soundscaper::professionalHostContainmentProbe(argc, argv);
 	if (probe >= 0) return probe;

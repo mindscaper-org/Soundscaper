@@ -236,7 +236,7 @@ function command(command_, args, id = undefined, expectedStatus = undefined) {
 
 function commandIdentity(plan) {
 	const fields = ['configure', 'build', 'test', 'install', 'nativeCanary', 'sign',
-		'signatureVerification', 'windowsX86Vst2Bridge'];
+		'signatureVerification', 'windowsX86Vst2Bridge', 'bundledInstruments'];
 	return Object.freeze(Object.fromEntries(fields
 		.filter((field) => plan?.[field] !== undefined)
 		.map((field) => [field, plan[field]])));

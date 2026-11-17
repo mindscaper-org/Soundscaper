@@ -26,6 +26,9 @@ const DESKTOP_ONLY_EXCLUDED_SOURCES = Object.freeze(new Set(['bundled-audio-code
 // Staged sources ship no TypeScript loader. Package aliases resolve to source
 // TypeScript in the repository and compiled runtime members in the application.
 export const DESKTOP_RUNTIME_PACKAGE_IMPORTS = Object.freeze({
+	'#desktop-runtime/bundled-native-plugins': './desktop/project-library-runtime/desktop/bundled-native-plugins.js',
+	'#desktop-runtime/bundled-plugin-resources': './desktop/project-library-runtime/desktop/bundled-plugin-resources.js',
+	'#desktop-runtime/bundled-plugin-factory-data': './desktop/project-library-runtime/desktop/bundled-plugin-factory-data.js',
 	'#desktop-runtime/plugin-midi-events': './desktop/project-library-runtime/desktop/plugin-midi-events.js',
 	'#desktop-runtime/ffmpeg-video-source-characteristics':
 		'./desktop/project-library-runtime/src/common/editor/ffmpeg-video-source-characteristics.js',

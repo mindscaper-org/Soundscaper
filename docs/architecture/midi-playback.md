@@ -85,24 +85,31 @@ libraries. libADLMIDI uses its Nuked slim build without embedded game banks.
 FluidSynth uses the build without libsndfile, with chorus and reverb disabled;
 ordinary track effects remain available.
 
-Surge XT and Dexed use **Effect → Plugin Manager** and the existing native MIDI
-instrument assignment/state workflow. Scan and allow the desired installation,
-select a MIDI track, then assign the instrument. These native plug-ins are
-user-installed and are not added to Soundscaper's installer payloads.
+Desktop packages also include Surge XT 1.3.4 and Dexed 1.1.0 as VST3 instruments.
+They appear in the same Instrument selector and its **Instrument settings** entry,
+only for MIDI tracks. Instruments never appear in the effects manager. Surge XT
+supplies wavetable and other synthesis types; Dexed supplies six-operator FM.
+Authenticated app-provided plug-ins are discovered and enabled automatically;
+explicit disabling and quarantine remain effective across application updates.
+External instruments still require scanning and allowance in preferences.
 
-The optional Linux x64 setup uses exact hashes and a local Dexed source build:
+The professional-native producer builds both pinned complete preferred-source
+archives on each maintained desktop target. It builds only the instrument VST3
+targets, disables automatic user-directory installation and omits Surge's FX
+plug-in and standalone application. Windows ARM64 omits Surge's LuaJIT formula
+oscillator; the other targets retain Lua. The recipe retains MTS support.
+Surge's factory patches, skins, tuning files and wavetables have a separate
+bounded, digest-authenticated resource inventory. They stay outside the VST3
+bundle so each instance's authenticated bundle snapshot remains small. The
+isolated peer receives one read-only factory-directory grant through a fixed
+UTF-8 hex argument and sets the private `SURGE_DATA_HOME` before loading the
+instrument. No renderer path or generic environment-setting API is exposed.
+Framescaper packages retain only the shared effect host and JUCE effects.
 
-```sh
-node scripts/provision-midi-synths.mjs --native
-# Also install into the user's normal discovery paths without overwriting an installation:
-node scripts/provision-midi-synths.mjs --native --install-user
-```
-
-The upstream Dexed 1.1.0 Linux binary requires GLIBC 2.43. Building the pinned
-preferred source avoids imposing that binary's libc requirement on older hosts.
-The recipe disables upstream's automatic copy-after-build and installs only
-through the explicit non-overwriting step. macOS, Windows and other Linux targets
-use appropriate user-installed native VST3 builds through the same host.
+The optional `node scripts/provision-midi-synths.mjs --native` Linux experiment
+provisioner remains available for comparison with upstream distributions. The
+installer producer builds Dexed's preferred source instead of redistributing
+its upstream Linux binary, which requires GLIBC 2.43.
 
 ## Reproduce measurements and audit inputs
 

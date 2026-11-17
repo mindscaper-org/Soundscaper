@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { basename, isAbsolute, relative, resolve, sep } from 'node:path';
-import { BUNDLED_JUCE_EFFECTS_RUNTIME_PATH } from '../../desktop/bundled-juce-effects.ts';
+import { bundledNativePlugins } from '../../desktop/bundled-native-plugins.ts';
 
 const MAXIMUM_ARTIFACT_BYTES = 512 * 1024 * 1024;
 const MAXIMUM_OUTPUT_BYTES = 1024 * 1024;
@@ -37,9 +37,10 @@ export function createSoundscaperProfessionalNativeMacCodeSealPlan(options) {
 		absolutePath: resolve(runtimeRoot, ...path.split('/')),
 		candidatePath: `payload/runtime/${path}`,
 	}));
-	runtimeArtifacts.push({
-		absolutePath: resolve(professionalRoot, 'runtime', BUNDLED_JUCE_EFFECTS_RUNTIME_PATH),
-		candidatePath: `payload/runtime/${BUNDLED_JUCE_EFFECTS_RUNTIME_PATH}`,
+	for (const plugin of bundledNativePlugins('mac-arm64')) runtimeArtifacts.push({
+		absolutePath: resolve(professionalRoot, 'runtime', plugin.binaryPath),
+		signingPath: resolve(professionalRoot, 'runtime', plugin.bundlePath),
+		candidatePath: `payload/runtime/${plugin.binaryPath}`,
 	});
 	runtimeArtifacts.sort((a, b) => a.candidatePath.localeCompare(b.candidatePath));
 	const artifacts = [
@@ -66,6 +67,7 @@ export function createSoundscaperProfessionalNativeMacCodeSealPlan(options) {
 		},
 	].map((artifact) => Object.freeze({
 		...artifact,
+		signingPath: artifact.signingPath ?? artifact.absolutePath,
 		entitlements: artifact.candidatePath === PEER_CANDIDATE_PATH
 			? peerEntitlements.descriptor : null,
 		preSeal: descriptor(artifact.absolutePath, artifact.candidatePath),
@@ -102,15 +104,15 @@ export async function executeSoundscaperProfessionalNativeMacCodeSealPlan(plan, 
 		}
 		runStep(run, materialize(
 			peer ? plan.commands.peerSeal : plan.commands.seal,
-			artifact.absolutePath,
+			artifact.signingPath,
 			plan.peerEntitlements.absolutePath,
 		), 'code sealing');
 		runStep(run, materialize(plan.commands.verification,
-			artifact.absolutePath), 'execution-seal verification');
+			artifact.signingPath), 'execution-seal verification');
 		runStep(run, materialize(
 			peer ? plan.commands.peerEntitlementVerification
 				: plan.commands.nonPeerEntitlementVerification,
-			artifact.absolutePath,
+			artifact.signingPath,
 			plan.peerEntitlements.absolutePath,
 		), peer ? 'peer entitlement verification' : 'non-peer entitlement verification');
 		assertPeerEntitlements(plan.peerEntitlements);

@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto';
 
 import {
-	requiredSoundscaperProfessionalNativeSelfTestIds,
+	requiredSoundscaperProfessionalNativeSelfTestIds, soundscaperProfessionalNativeSourceIdsForTarget,
 } from '../../scripts/lib/soundscaper-professional-native-build-result.mjs';
 
 export function soundscaperProfessionalNativeBuildSelfTestsFixture(target) {
@@ -22,6 +22,23 @@ export function soundscaperProfessionalNativeBuildSelfTestsFixture(target) {
 			commandSha256: sha256(`command:${id}`),
 			outputSha256: sha256(`output:${id}`),
 		}));
+}
+
+export function soundscaperProfessionalNativeSourceAuthenticationFixture(target) {
+	return {
+		schemaVersion: 1,
+		status: 'authenticated',
+		sources: soundscaperProfessionalNativeSourceIdsForTarget(target).map((id, index) => ({
+			id,
+			authenticationStatus: 'authenticated',
+			archiveEvidence: { byteLength: index + 1, sha256: sha256(`archive:${index}`) },
+			extractedTreeEvidence: {
+				algorithm: 'framescaper-portable-source-tree-sha256-v1',
+				fileCount: index + 1,
+				sha256: sha256(`tree:${index}`),
+			},
+		})),
+	};
 }
 
 function sha256(value) {

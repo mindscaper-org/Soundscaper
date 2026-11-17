@@ -11,6 +11,7 @@ export const MIDI_COPY_BY_LOCALE = Object.freeze({
 		empty: 'Select a MIDI track or clip to edit.',
 		clip: 'MIDI clip',
 		instrument: 'Instrument',
+		instrumentSettings: 'Instrument settings',
 		sine: 'Sine', triangle: 'Triangle', square: 'Square', sawtooth: 'Sawtooth',
 		libadlmidi: 'libADLMIDI (FM reference bank)', fluidsynth: 'FluidSynth (reference bank)',
 		snap: 'Note grid',
