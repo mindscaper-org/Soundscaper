@@ -54,12 +54,11 @@ export function appendDawprojectDevices(document: DawprojectDocument, build: Bui
 					const bands = childElements(device, 'Band').map((band, index) => {
 						const bandId = `${id}:band:${index}`, bandType = types[band.attributes.type ?? ''];
 						if (!bandType) throw new RangeError('Unsupported EQ band type.');
-						const order = Number(band.attributes.order ?? 2), slope = order * 6;
-						if (['highpass', 'lowpass'].includes(bandType) && ![12, 24, 36, 48].includes(slope)) throw new RangeError('Unsupported EQ filter order.');
 						const freq = childElement(band, 'Freq');
 						const convert = freq?.attributes.unit === 'semitones' ? (value: number) => 440 * 2 ** ((value - 69) / 12) : (value: number) => value;
 						if (freq) mappings.push({ node: freq, parameterId: 'frequency', elementId: bandId, convert });
-						return { id: bandId, type: bandType, enabled: (!childElement(band, 'Enabled') || booleanAttribute(childElement(band, 'Enabled')!, 'value') !== false), slope: ['highpass', 'lowpass'].includes(bandType) ? slope : 12,
+						// DAWproject EqBand.order identifies the band, not its filter slope.
+						return { id: bandId, type: bandType, enabled: (!childElement(band, 'Enabled') || booleanAttribute(childElement(band, 'Enabled')!, 'value') !== false), slope: 12,
 							frequency: convert(number(freq, 1000)), gain: read(band, 'Gain', 0, 'gain', bandId), q: read(band, 'Q', 1, 'q', bandId) };
 					});
 					if (number(childElement(device, 'InputGain'), 0) !== 0) throw new RangeError('EQ input gain requires a separate gain stage.');
