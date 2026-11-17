@@ -26,7 +26,10 @@ export function chaseMidiAudioEvents(events: readonly MidiBlockEvent[], start: n
 		if (first === 66) {
 			if (second! >= 64 && !sostenuto.has(channel)) {
 				sostenuto.add(channel); for (const voice of voices) if ((voice.data[0]! & 15) === channel && voice.held) voice.captured = true;
-			} else if (second! < 64) sostenuto.delete(channel);
+			} else if (second! < 64) {
+				sostenuto.delete(channel);
+				for (const voice of voices) if ((voice.data[0]! & 15) === channel) voice.captured = false;
+			}
 		}
 		if (first === 121) { sustain.delete(channel); sostenuto.delete(channel); }
 		if (first === 120 || first === 123) for (const voice of voices) if ((voice.data[0]! & 15) === channel) { voice.held = false; if (first === 120) voice.captured = false; }
