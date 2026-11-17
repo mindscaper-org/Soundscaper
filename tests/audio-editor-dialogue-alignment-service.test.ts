@@ -11,6 +11,7 @@ import { dialogueFixture } from './helpers/dialogue-alignment-fixture.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
+import { createEffect } from '../src/common/editor/effects.js';
 
 function fixture() {
 	const lifetime = new EditorControllerLifetime(); lifetime.markReady();
@@ -41,6 +42,20 @@ function fixture() {
 	return { deps, project, generation, commits, rollback, reads, processing };
 }
 const options = { referenceClipId: 'reference', replacementClipId: 'replacement', strength: 1 };
+
+for (const active of [false, true]) test(`aligned copies retain the replacement clip rack and owner bypass, active=${String(active)}`, async () => {
+	const f = fixture(), effect = createEffect('delay', { params: { time: .1, mix: 1, feedback: 0 } });
+	Object.assign(f.project.clips[1]!, { effects: [effect], effectsActive: active });
+	const service = createDialogueAlignmentService(f.deps), review = await service.prepare(options);
+	const id = await service.apply(review.id), command = f.commits[0]!;
+	const original = createSoundscaperProject({ id: f.project.id, sampleRate: 8000,
+		sources: f.project.sources.map(value => createAudioSource(value)), clips: f.project.clips.map(value => createAudioClip(value)),
+		tracks: f.project.tracks.map(value => createAudioTrack(value, 8000)) });
+	const result = createSoundscaperProject(applySoundscaperProjectCommand(original, command));
+	const aligned = result.clips.find(clip => clip.id === id); assert.ok(aligned);
+	assert.deepEqual(aligned.effects, [effect]);
+	assert.equal(aligned.effectsActive, active);
+});
 
 test('dialogue review is private, then publishes one new track and source in one batch without changing either input', async () => {
 	const f = fixture(), before = structuredClone(f.project), service = createDialogueAlignmentService(f.deps);

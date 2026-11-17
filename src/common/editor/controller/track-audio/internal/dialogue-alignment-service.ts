@@ -110,14 +110,16 @@ export function createDialogueAlignmentService(deps: DialogueAlignmentServiceDep
 		try {
 			check();
 			const source = findControllerSource(value.project, value.replacement.sourceId);
-			if (!source) throw fail('dialogueAlignmentStale');
+			const replacementClip = value.project.clips.find(clip => clip.id === value.replacement.clipId);
+			if (!source || !replacementClip) throw fail('dialogueAlignmentStale');
 			// The dry render already has the project clock, even when the original source used another rate.
 			record = await deps.derivedSources.persistDerivedSource({ ...source, sampleRate: value.project.sampleRate },
 				value.result.channels, `${value.replacement.title} — ${formatPresentationMessage(deps.copy, { key: 'dialogueAlignmentAligned' })}`, 'aligned-dialogue-source'); check();
 			const trackId = deps.createId('aligned-dialogue-track'), clipId = deps.createId('aligned-dialogue-clip');
 			const track = createAudioTrack({ id: trackId, name: record.source.name }, value.project.sampleRate);
 			const clip = createAudioClip({ id: clipId, sourceId: record.source.id, title: record.source.name, anchor: 'sample',
-				timelineStartFrame: value.reference.startFrame, durationFrames: value.reference.frameCount, sourceStartFrame: 0, sourceDurationFrames: value.reference.frameCount });
+				timelineStartFrame: value.reference.startFrame, durationFrames: value.reference.frameCount, sourceStartFrame: 0, sourceDurationFrames: value.reference.frameCount,
+				effects: Array.isArray(replacementClip.effects) ? replacementClip.effects : [], effectsActive: replacementClip.effectsActive !== false });
 			deps.commit({ type: 'batch', commands: [
 				{ type: 'source/add', source: record.source as CommandObject },
 				{ type: 'track/add', track: track as CommandObject },
