@@ -13,6 +13,9 @@ import { workspaceSwitcherOptions } from './workspace-switcher-options.ts';
 import { workspaceErrorMessage } from './workspace-error-presentation.ts';
 import { WebFileLoadLimitError } from '../../web-file-limit-failure.ts';
 import { disposeBlenderWorkspaceSession } from './blender-workspace-menu.ts';
+import { getLocaleDescriptor } from '../../../i18n/locales.js';
+import { LOCALE_NAVIGATION_REQUEST_EVENT, productHref } from '../../../product-web-links.js';
+import { rememberLocaleProjectHandoff } from '../../controller/document/locale-project-handoff.ts';
 
 export function useAudioEditorWorkspaceLifecycle({
 	controller,
@@ -179,6 +182,32 @@ export function useAudioEditorWorkspaceLifecycle({
 			globalThis.removeEventListener?.('soundscaper:workspace-ready', publishWorkspaceSwitcherState);
 		};
 	}, [controller, productId, publishWorkspaceSwitcherState, run, switcherOptions]);
+	useEffect(() => {
+		if (fileService.isDesktop) return undefined;
+		let revision = 0;
+		const handleLocaleRequest = (event) => {
+			if (!event.cancelable || event.detail?.productId !== productId) return;
+			const target = getLocaleDescriptor(event.detail.locale);
+			if (!target) return;
+			event.preventDefault();
+			const request = ++revision;
+			void controller.ready.then(async () => {
+				if (revision !== request) return;
+				const projectId = controller.getSnapshot().project?.id;
+				await controller.actions.project.flush();
+				if (revision !== request) return;
+				const destination = productHref(productId, target.locale);
+				rememberLocaleProjectHandoff({ storage: () => globalThis.sessionStorage,
+					location: () => globalThis.location, now: () => Date.now() }, productId, projectId, destination);
+				globalThis.location.assign(destination);
+			}).catch(onError);
+		};
+		globalThis.addEventListener?.(LOCALE_NAVIGATION_REQUEST_EVENT, handleLocaleRequest);
+		return () => {
+			revision += 1;
+			globalThis.removeEventListener?.(LOCALE_NAVIGATION_REQUEST_EVENT, handleLocaleRequest);
+		};
+	}, [controller, fileService.isDesktop, onError, productId]);
 	useEffect(() => {
 		if (!fileService.isDesktop) return undefined;
 		let active = true;

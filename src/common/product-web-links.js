@@ -3,6 +3,8 @@
 import { normalizeProductId } from './product-identities.js';
 import { BUILT_PRODUCT_ID } from './site/route.js';
 
+export const LOCALE_NAVIGATION_REQUEST_EVENT = 'scape:locale-navigation-request';
+
 /**
  * Where a cross-product link points.
  *

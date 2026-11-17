@@ -5,7 +5,7 @@ import { DEFAULT_LOCALE_TAGS, getLocaleDescriptor, ROUTE_LOCALES } from '../i18n
 import { TRANSLATION_CATALOG_LOCALES } from '../i18n/translations/index.js';
 import { useSiteCopy } from './use-site-copy.js';
 import { otherProductId, productIdentity } from '../product-identities.js';
-import { productHref, productWebOrigin } from '../product-web-links.js';
+import { LOCALE_NAVIGATION_REQUEST_EVENT, productHref, productWebOrigin } from '../product-web-links.js';
 import { storeDocumentTheme } from './document-theme.js';
 import { SidebarIcon } from './SidebarIcon.tsx';
 import {
@@ -69,9 +69,12 @@ export default function BrandSidebar({ locale, productId = 'soundscaper' }) {
 		}));
 	};
 	const selectLocale = (event) => {
-		if (ROUTE_LOCALES.some(({ locale: routeLocale }) => routeLocale === event.target.value)) {
-			window.location.assign(productHref(productId, event.target.value));
-		}
+		const nextLocale = event.target.value;
+		if (!ROUTE_LOCALES.some(({ locale: routeLocale }) => routeLocale === nextLocale)) return;
+		const unhandled = window.dispatchEvent(new CustomEvent(LOCALE_NAVIGATION_REQUEST_EVENT, {
+			cancelable: true, detail: { productId, locale: nextLocale },
+		}));
+		if (unhandled) window.location.assign(productHref(productId, nextLocale));
 	};
 	const openPrivacyPolicy = (event) => {
 		if (event.button > 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;

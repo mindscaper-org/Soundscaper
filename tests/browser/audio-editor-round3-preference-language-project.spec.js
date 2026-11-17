@@ -58,6 +58,24 @@ test('the localized workspace opens when browser session storage refuses a read'
 	await expect(localized).toHaveAttribute('data-project-id', projectId);
 });
 
+test('changing language in the site sidebar keeps the current project', async ({ page }) => {
+	const editor = await bootEditor(page, '/en/', { showProjectBin: false });
+	await importFiles(editor, [createWavFixture({ name: 'sidebar-language.wav' })]);
+	const projectId = await editor.getAttribute('data-project-id');
+	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+	await preferences.locator('[data-program-start-option="new-project"] input').check();
+	await expect(preferences.locator('[data-program-start]')).toHaveAttribute('data-program-start', 'new-project');
+	await preferences.press('Escape');
+	await expect(preferences).toBeHidden();
+
+	await page.locator('[data-locale-select]').selectOption('de');
+	await expect(page).toHaveURL(/\/de\/$/u);
+	const localized = await waitForEditor(page);
+	await expect(localized).toHaveAttribute('data-project-id', projectId);
+	await expect(localized).toHaveAttribute('data-clip-count', '1');
+});
+
 async function chooseGerman(page, editor) {
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
