@@ -50,10 +50,11 @@ export function prepareMixerPanelRouting(projectValue: unknown, tracks: readonly
 		const assignment = entries?.length === 1 && isMixerTrackSurfaceAssignmentV21(graph, entries[0]!, id, surfaceWidths) ? entries[0]! : null;
 		const levels: Record<string, number> = {};
 		const editableSendIds: string[] = [];
+		const trackSends = sends.get(id);
 		for (const send of graph.sends) {
-			const matching = sends.get(id)?.get(send.id);
+			const matching = trackSends?.get(send.id);
 			if (!matching?.length) { editableSendIds.push(send.id); continue; }
-			if (matching.length !== 1 || !isMixerTrackSurfaceSendV21(graph, matching[0]!, id, send.id, surfaceWidths)) continue;
+			if (matching.length !== 1 || !isMixerTrackSurfaceSendV21(graph, matching[0]!, id, send.id, surfaceWidths, send.channelCount)) continue;
 			Object.defineProperty(levels, send.id, { value: matching[0]!.level, enumerable: true, configurable: true, writable: true });
 			editableSendIds.push(send.id);
 		}
@@ -61,10 +62,6 @@ export function prepareMixerPanelRouting(projectValue: unknown, tracks: readonly
 			sends: Object.freeze(levels), groupEditable: assignment !== null, editableSendIds: Object.freeze(editableSendIds) }), enumerable: true });
 	}
 	const cues = new Map(graph.cues.map(cue => [cue.id, cue.channelCount]));
-	const sendIds = new Map<string, ReadonlyMap<string, string>>();
-	for (const [trackId, destinations] of sends) {
-		sendIds.set(trackId, new Map([...destinations].map(([id, entries]) => [id, entries[0]!.id])));
-	}
 	return {
 		routes,
 		panAvailable(strip: StripRef) {
@@ -73,7 +70,7 @@ export function prepareMixerPanelRouting(projectValue: unknown, tracks: readonly
 			return stereoStripPanAvailable(width, mode);
 		},
 		sendAddress(trackId: string, sendId: string) {
-			const edgeId = sendIds.get(trackId)?.get(sendId);
+			const edgeId = sends.get(trackId)?.get(sendId)?.[0]?.id;
 			return edgeId ? { kind: 'edge' as const, edgeId, parameterId: 'level' as const } : null;
 		},
 	};
