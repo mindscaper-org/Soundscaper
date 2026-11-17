@@ -38,6 +38,7 @@ import {
 	readCrossProductHandoffProvenance,
 } from './cross-product-handoff-provenance.ts';
 import { confirmFileSizeWarning } from '../editor/controller/shared/file-size-warning.ts';
+import { raceAbortableRead } from '../foundation/abort-race.ts';
 import {
 	admitProjectTransferBytes,
 	admitProjectTransferEntry,
@@ -169,7 +170,7 @@ async function exportOneProject(
 			`The .scape archive for ${project.id} is ${blob.size} bytes, over the ${maximumEntryBytes} byte entry limit.`);
 	}
 	const admittedBytes = await confirmFileSizeWarning(blob.size, maximumEntryBytes, `Project transfer archive ${project.id}`, admitted);
-	const bytes = new Uint8Array(await blob.arrayBuffer());
+	const bytes = new Uint8Array(await raceAbortableRead(() => blob.arrayBuffer(), signal, 'immediate'));
 	admitProjectTransferBytes(bytes, admittedBytes, `The .scape archive for ${project.id}`);
 	const exportedIdentity = result as ProjectTransferArchiveExportResult;
 	const projectId = exportedIdentity.projectId === undefined
@@ -233,6 +234,7 @@ export async function importProjectTransferBundle(
 	const records: ProjectTransferImportRecord[] = [];
 	let index = 0;
 	try {
+		throwIfScapeAborted(signal);
 		for await (const raw of admitted.entries) {
 			throwIfScapeAborted(signal);
 			if (index >= maximumEntries) throw projectTransferEntryLimitRefusal(maximumEntries);

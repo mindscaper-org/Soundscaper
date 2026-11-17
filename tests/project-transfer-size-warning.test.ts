@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { receiveProjectTransfer, sendProjectTransfer, type ProjectTransferPort,
 	type ProjectTransferInboundMessage } from '../src/common/transfer/project-transfer-handshake.ts';
-import { exportProjectTransferBundle } from '../src/common/transfer/project-transfer-bundle.ts';
+import { exportProjectTransferBundle, importProjectTransferBundle } from '../src/common/transfer/project-transfer-bundle.ts';
 import { importTransferArchiveFiles } from '../src/common/transfer/transfer-manual-import.ts';
 import { archiveBytes, collectExport, createFakeArchive, FakeStore } from './project-transfer-bundle-fixture.ts';
 import { runtimeFor } from './project-transfer-runtime-fixture.ts';
@@ -154,4 +154,38 @@ test('manual transfer cancellation settles without waiting for a pending file re
 		stopped: { code: 'aborted', index: 0, reason: reason.message },
 	});
 	assert.equal(store.projects.size, 0);
+});
+
+test('cancelled transfer export settles without publishing late archive bytes', async () => {
+	const blob = new Blob(['archive']);
+	const readStarted = deferred<void>();
+	const read = deferred<ArrayBuffer>();
+	blob.arrayBuffer = () => { readStarted.resolve(); return read.promise; };
+	const abort = new AbortController();
+	const reason = new DOMException('Cancel export', 'AbortError');
+	const exported = collectExport(exportProjectTransferBundle({
+		store: new FakeStore([{ id: 'project', title: 'Project' }]),
+		exportProject: async () => ({ blob }), signal: abort.signal,
+	})).catch((error: unknown) => error);
+	await readStarted.promise;
+	abort.abort(reason);
+	const outcome = await Promise.race([exported, new Promise(resolve => setImmediate(resolve, 'pending'))]);
+	read.resolve(new ArrayBuffer(blob.size));
+	assert.equal(outcome, reason);
+});
+
+test('a pre-cancelled bundle import never pulls the first archive from its source', async () => {
+	const runtime = runtimeFor(createFakeArchive());
+	let read = 0;
+	const reason = new DOMException('Cancel before reading', 'AbortError');
+	const result = await importProjectTransferBundle({
+		store: new FakeStore(), importProject: runtime.importProject, inspectProject: runtime.inspectProject,
+		signal: AbortSignal.abort(reason),
+		entries: {
+			async *[Symbol.asyncIterator]() { read += 1; yield { bytes: new Uint8Array(1) }; },
+		},
+	});
+	assert.equal(read, 0);
+	assert.equal(result.completed, false);
+	assert.equal(result.stopped?.reason, reason.message);
 });

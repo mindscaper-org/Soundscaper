@@ -463,7 +463,7 @@ export async function receiveTransferArchives(
 				conversionReport: record.conversionReport ?? null,
 			});
 			records.push(numbered);
-			options.onRecord?.(numbered);
+			try { options.onRecord?.(numbered); } catch { /* The view cannot change the committed outcome. */ }
 			if (numbered.outcome === 'failed') {
 				throw new Error(encodeTransferRefusal({
 					code: numbered.reasonCode,
