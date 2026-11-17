@@ -90,7 +90,7 @@ export function parseOmfDocument(bytes: Uint8Array): TimelineInterchangeDocument
 		return { mediaId: id, start, name: mobName };
 	}
 	const tracks: TimelineInterchangeTrack[] = [];
-	let sampleRate = 48_000;
+	let sampleRate: number | undefined;
 	let sequenceRate: Rational = { num: 25, den: 1 }, startFrameCount = 0, dropFrame = false;
 	for (const slot of file.refs(composition, 'OMFI:MOBJ:Slots', true)) {
 		const segment = firstRef(slot, 'MSLT:Segment'); if (segment === undefined) continue;
@@ -129,11 +129,11 @@ export function parseOmfDocument(bytes: Uint8Array): TimelineInterchangeDocument
 		tracks.push({ id: trackId, kind: 'audio', name: description === undefined ? 'Audio' : file.text(description, 'OMFI:TRKD:TrackName') || 'Audio', clips });
 	}
 	if (!tracks.length) throw new TypeError('OMF composition contains no supported audio tracks.');
-	if (sampleRate === 48_000) {
+	if (sampleRate === undefined) {
 		const first = [...media.values()][0]?.rate;
 		if (first && first.den === 1 && first.num >= 8_000 && first.num <= 384_000) sampleRate = first.num;
 	}
-	return { format: 'omf', title: file.text(composition, 'OMFI:MOBJ:Name') || 'OMF timeline', sampleRate,
+	return { format: 'omf', title: file.text(composition, 'OMFI:MOBJ:Name') || 'OMF timeline', sampleRate: sampleRate ?? 48_000,
 		rate: sequenceRate, dropFrame, startFrameCount, tracks, media: [...media.values()], issues };
 }
 
