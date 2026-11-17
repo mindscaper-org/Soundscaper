@@ -115,20 +115,23 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 		if (!autoSaving) { for (const timer of timers.values()) clear(timer); timers.clear(); }
 		if (!project) return;
 		void load(project).catch(d.handleError);
-		if (!autoSaving) return;
-		const existing = timers.get(project.id); if (existing) clear(existing);
-		timers.set(project.id, schedule(() => {
-			timers.delete(project.id);
+		if (autoSaving) scheduleFileSave(project.id);
+	}
+	function scheduleFileSave(id: string): void {
+		const existing = timers.get(id);
+		if (existing !== undefined) clear(existing);
+		timers.set(id, schedule(() => {
+			timers.delete(id);
 			void enqueue(async () => {
 				if (disposed || !d.getPreferences().autoSaving || d.canSave?.() === false) return;
-				const beforeFlush = d.getProjects().find(entry => entry.project.id === project.id);
+				const beforeFlush = d.getProjects().find(entry => entry.project.id === id);
 				if (!beforeFlush || beforeFlush.readOnly) return;
 				await load(beforeFlush.project);
-				const entry = entries.get(project.id);
+				const entry = entries.get(id);
 				if (!entry?.originalFile && !entry?.fileHandle) return;
-				if (d.getProject()?.id === project.id) await d.flushInternal();
+				if (d.getProject()?.id === id) await d.flushInternal();
 				if (disposed || !d.getPreferences().autoSaving || d.canSave?.() === false) return;
-				const latest = d.getProjects().find(entry => entry.project.id === project.id);
+				const latest = d.getProjects().find(entry => entry.project.id === id);
 				if (!latest || latest.readOnly) return;
 				await write(latest.project, false);
 			}).catch(d.handleError);
@@ -138,16 +141,23 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 		if (closing) return false;
 		closing = true;
 		const initialId = d.getProject()?.id;
+		const paused: string[] = [];
+		let prepared = false;
 		try {
-			for (const timer of timers.values()) clear(timer); timers.clear();
+			for (const [id, timer] of timers) {
+				if (projectId && id !== projectId) continue;
+				clear(timer);
+				timers.delete(id);
+				paused.push(id);
+			}
 			await tail.catch(() => undefined);
-			await d.flushInternal();
+			if (!projectId || projectId === initialId) await d.flushInternal();
 			if (d.getPreferences().autoSaving) {
 				for (const { project, readOnly } of d.getProjects()) {
 					if ((!projectId || project.id === projectId) && !readOnly) await enqueue(() => write(project, false));
 				}
 			}
-			if (!d.desktop || !d.getPreferences().askBeforeClosing) return true;
+			if (!d.desktop || !d.getPreferences().askBeforeClosing) return (prepared = true);
 			const discard: string[] = [];
 			for (const { project, readOnly } of d.getProjects()) {
 				if ((projectId && project.id !== projectId) || readOnly || !await hasChanges(project)) continue;
@@ -160,11 +170,19 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 				}
 			}
 			for (const id of discard) await d.discard(id);
-			return true;
+			return (prepared = true);
 		} finally {
 			closing = false;
-			if (initialId && d.getProjects().some(entry => entry.project.id === initialId) && d.getProject()?.id !== initialId) await d.activate(initialId);
-			observed = null; observe();
+			try {
+				if (initialId && d.getProjects().some(entry => entry.project.id === initialId) && d.getProject()?.id !== initialId) await d.activate(initialId);
+			} finally {
+				observed = null;
+				observe();
+				if (!prepared && !disposed && d.getPreferences().autoSaving) {
+					const openIds = new Set(d.getProjects().map(entry => entry.project.id));
+					for (const id of paused) if (openIds.has(id) && !timers.has(id)) scheduleFileSave(id);
+				}
+			}
 		}
 	}
 	async function dispose(): Promise<void> {
