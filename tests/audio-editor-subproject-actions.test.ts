@@ -69,6 +69,22 @@ test('idle refresh reads each committed child only once and starts fresh on the 
 	assert.ok(readSubprojectLinks(state.project).every(link => link.revision === 2));
 });
 
+test('each unchanged saved child is canonically hashed once per refresh', async () => {
+	const state = fixture();
+	for (let index = 0; index < 8; index++) await state.actions.add('child');
+	let tracksInspections = 0;
+	state.documents.set('child', new Proxy(state.documents.get('child')!, {
+		getOwnPropertyDescriptor(target, key) {
+			if (key === 'tracks') tracksInspections++;
+			return Reflect.getOwnPropertyDescriptor(target, key);
+		},
+	}));
+	await state.actions.refresh();
+	assert.equal(tracksInspections, 2);
+	await state.actions.refresh();
+	assert.equal(tracksInspections, 4);
+});
+
 test('a child save during rendering discards obsolete output and leaves the parent intact', async () => {
 	const state = fixture();
 	const initial = state.project;

@@ -9,6 +9,7 @@ export interface ResolvedSubprojectNode {
 }
 
 type LoadProject = (id: string) => Promise<SubprojectDocument | null>;
+type DigestProject = (project: SubprojectDocument, descendants: readonly string[]) => string;
 const MAX_VISITED_NODES = 256;
 
 /** Share committed reads within one inspection. Publication starts a fresh inspection. */
@@ -20,6 +21,19 @@ export function cacheSubprojectDocumentReads(load: LoadProject): LoadProject {
 		const pending = load(id);
 		if (reads.size < MAX_VISITED_NODES) reads.set(id, pending);
 		return pending;
+	};
+}
+
+/** A refresh reads detached saved documents and retains only their last descendant signature. */
+export function cacheSubprojectDigests(): DigestProject {
+	const signatures = new WeakMap<SubprojectDocument, { readonly descendants: readonly string[]; readonly digest: string }>();
+	return (project, descendants) => {
+		const previous = signatures.get(project);
+		if (previous?.descendants.length === descendants.length
+			&& descendants.every((digest, index) => digest === previous.descendants[index])) return previous.digest;
+		const digest = subprojectContentDigest(project, descendants);
+		signatures.set(project, { descendants, digest });
+		return digest;
 	};
 }
 
@@ -45,6 +59,7 @@ export async function resolveSubprojectGraph(
 	load: LoadProject,
 	ancestors: readonly string[] = [],
 	signal?: AbortSignal,
+	digestProject: DigestProject = subprojectContentDigest,
 ): Promise<ResolvedSubprojectNode> {
 	let count = 0;
 	async function visit(id: string, path: readonly string[]): Promise<ResolvedSubprojectNode> {
@@ -62,7 +77,7 @@ export async function resolveSubprojectGraph(
 			const node = link.followLatest && link.libraryId === libraryId ? await visit(link.projectId, [...path, id]) : null;
 			children.push({ link, node });
 		}
-		return { project, children, digest: subprojectContentDigest(project, children.map(({ link, node }) => node?.digest ?? link.contentDigest)) };
+		return { project, children, digest: digestProject(project, children.map(({ link, node }) => node?.digest ?? link.contentDigest)) };
 	}
 	return visit(projectId, ancestors);
 }
