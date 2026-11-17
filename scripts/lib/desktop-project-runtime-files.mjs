@@ -2,6 +2,17 @@
 
 /** Shared project authorities shipped in the compiled desktop runtime. */
 export const DESKTOP_PROJECT_RUNTIME_FILES = Object.freeze([
+	'src/common/editor/audio-warp-source-window.js',
+	'src/common/editor/clip-source-stretch-memory.js',
+	'src/common/editor/clip-source-timing.js',
+	'src/common/editor/commands/session-snapshot.js',
+	'src/common/editor/commands/subproject.js',
+	'src/common/editor/commands/track-playlist.js',
+	'src/common/editor/project-source-reference-remap.js',
+	'src/common/editor/session-snapshots.js',
+	'src/common/editor/subprojects.js',
+	'src/common/editor/track-playlist-media.js',
+	'src/common/editor/track-playlists.js',
 	'src/common/editor/adm-strip-existence.js',
 	'src/common/editor/commands/label-clipboard-codec.js',
 	'src/common/editor/commands/midi-commands.js',

@@ -2,6 +2,10 @@
 
 /** Shared curve and definition dependencies of the desktop effect registry. */
 export const DESKTOP_EFFECT_RUNTIME_FILES = Object.freeze([
+	'src/common/editor/effect-auto-idle-preferences.js',
+	'src/common/editor/effect-plugin-identity.js',
+	'src/common/editor/engine/idle-effect-host.js',
+	'src/common/editor/idle-effect-processing.js',
 	'src/common/editor/effect-parameter-validation.js',
 	'src/common/editor/first-party-effects/auto-tune/control-notes.js',
 	'src/common/editor/first-party-effects/auto-tune/definition.js',

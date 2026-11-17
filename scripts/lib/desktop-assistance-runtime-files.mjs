@@ -2,6 +2,13 @@
 
 /** Exact compiled closure owned by desktop local assistance and its model store. */
 export const DESKTOP_ASSISTANCE_RUNTIME_FILES = Object.freeze([
+	'desktop/assistance-onnx-basic-pitch-worker.js',
+	'desktop/assistance-onnx-voicefixer-worker.js',
+	'src/common/editor/assistance/basic-pitch-model.js',
+	'src/common/editor/assistance/basic-pitch-notes.js',
+	'src/common/editor/assistance/music-transcription-v1.js',
+	'src/common/editor/assistance/voicefixer-model.js',
+	'src/common/editor/assistance/voicefixer-signal-v1.js',
 	'config/assistance-sherpa-gpu-build.json',
 	'config/assistance-sherpa-retained-builds.json',
 	'desktop/ai-denoise-helper-process.js',
