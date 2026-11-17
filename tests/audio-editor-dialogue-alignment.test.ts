@@ -43,6 +43,21 @@ test('unequal durations and incomplete final analysis frames retain bounded rate
 	}
 });
 
+test('alignment reuses adjacent distances inside the search corridor', context => {
+	const sampleRate = 8000, frameCount = sampleRate;
+	const reference = Float32Array.from({ length: frameCount }, (_, index) => .2 * Math.sin(index * (.07 + index * .00001)));
+	const min = Math.min;
+	let distanceClamps = 0;
+	context.mock.method(Math, 'min', (...values: number[]) => {
+		if (values.length === 2 && values[0] === 1) distanceClamps++;
+		return min(...values);
+	});
+	const result = analyzeDialogueAlignment({ reference: [reference], replacement: [reference], sampleRate, strength: 1 });
+	assert.equal(result.points.length, 101);
+	assert.ok(result.points.every(point => point.outputFrame === point.sourceFrame));
+	assert.ok(distanceClamps > 4_000 && distanceClamps < 6_000, `expected one distance per corridor cell and a few boundary evaluations, got ${distanceClamps}`);
+});
+
 test('silent, excessive, invalid and unsupported selections fail before allocating alignment work', () => {
 	const voice = dialogueFixture([.5, .5]);
 	const request = { reference: [voice], replacement: [voice], sampleRate: 8000, strength: 1 };

@@ -28,20 +28,32 @@ export function analyzeDialogueAlignment(request: DialogueAlignmentRequest): Dia
 	const reference = dialogueFeatures(request.reference, request.sampleRate), replacement = dialogueFeatures(request.replacement, request.sampleRate);
 	const n = reference.count, m = replacement.count, width = m + 1;
 	const back = new Uint8Array((n + 1) * width), rows = Array.from({ length: 3 }, () => new Float64Array(width).fill(Infinity));
+	const distances = new Float64Array(width);
 	rows[0]![0] = 0;
 	const steps = [[1, 1], [1, 2], [2, 1]] as const;
+	let previousStart = 1, previousEnd = 0;
 	for (let i = 1; i <= n; i++) {
 		const row = rows[i % 3]!; row.fill(Infinity);
-		for (let j = Math.max(1, Math.floor(i * m / n - m * .3)); j <= Math.min(m, Math.ceil(i * m / n + m * .3)); j++) {
+		const start = Math.max(1, Math.floor(i * m / n - m * .3));
+		const end = Math.min(m, Math.ceil(i * m / n + m * .3));
+		let leftDistance = 0;
+		for (let j = start; j <= end; j++) {
+			const aboveDistance = distances[j]!;
 			const distance = dialogueFeatureDistance(reference, i - 1, replacement, j - 1);
+			distances[j] = distance;
 			for (const [index, [di, dj]] of steps.entries()) {
 				if (i < di || j < dj) continue;
-				const extra = di === 2 ? dialogueFeatureDistance(reference, i - 2, replacement, j - 1)
-					: dj === 2 ? dialogueFeatureDistance(reference, i - 1, replacement, j - 2) : 0;
+				// A legal double step may consume a feature outside the adjacent row's corridor.
+				let extra = 0;
+				if (di === 2) extra = j >= previousStart && j <= previousEnd ? aboveDistance
+					: dialogueFeatureDistance(reference, i - 2, replacement, j - 1);
+				else if (dj === 2) extra = j > start ? leftDistance : dialogueFeatureDistance(reference, i - 1, replacement, j - 2);
 				const cost = rows[(i - di) % 3]![j - dj]! + distance * 2 + extra + (di === dj ? 0 : .025);
 				if (cost < row[j]!) { row[j] = cost; back[i * width + j] = index + 1; }
 			}
+			leftDistance = distance;
 		}
+		previousStart = start; previousEnd = end;
 	}
 	if (!Number.isFinite(rows[n % 3]![m])) throw new RangeError('The dialogue cannot be aligned within the stretch limits.');
 	let mismatchCost = 0, mismatchWeight = 0;
