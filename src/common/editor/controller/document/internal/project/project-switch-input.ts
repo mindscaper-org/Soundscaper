@@ -12,6 +12,14 @@ export function isActiveProjectSwitchInput(value: unknown, readyId: string | nul
 	return id !== null && id === readyId && id === activeId;
 }
 
+export function projectSwitchPlayhead(view: unknown, tabPosition: unknown): number {
+	const savedPosition = view && typeof view === 'object' && 'playheadFrame' in view ? view.playheadFrame : null;
+	for (const position of [tabPosition, savedPosition]) {
+		if (typeof position === 'number' && Number.isSafeInteger(position) && position >= 0) return position;
+	}
+	return 0;
+}
+
 /** Only the history owner admits a stored document into the active project shape. */
 export function prepareProjectSwitchHistory<
 	Input,

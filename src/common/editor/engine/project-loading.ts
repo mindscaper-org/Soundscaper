@@ -2,7 +2,7 @@
 import { resolveAdmEbuChannelWeights } from '../loudness-channel-layout.ts';
 import { isBorrowedRealtimeContext } from './realtime-context-custody.ts';
 import { clearPreparedAudioWarpPlayback } from './audio-warp-fallback.ts';
-import { getProjectDurationFrames, getProjectTimelineDurationFrames, normalizeLoop } from './buffer-math.ts';
+import { clampFrame, getProjectDurationFrames, getProjectTimelineDurationFrames, normalizeLoop } from './buffer-math.ts';
 import { configureMasterLoudnessMeterChannelCount, configureNativeSurroundDestination } from '../surround-monitoring.ts';
 import { inheritTrackFolderMediaStateProjectionV12, projectTrackFolderMediaStateV12 } from '../track-folder-media-runtime.ts';
 import { resolveProjectGraphSelection } from './project-graph-selection.ts';
@@ -62,7 +62,9 @@ loadProject(project, sourceBuffers = new Map(), options = {}) {
 		this.playbackMode = 'normal';
 		this.preparedSpeedPlayback = null;
 		clearPreparedAudioWarpPlayback(this);
-		this.positionFrame = Math.min(this.positionFrame, this.playbackDurationFrames);
+		this.positionFrame = options.positionFrame === undefined
+			? Math.min(this.positionFrame, this.playbackDurationFrames)
+			: clampFrame(options.positionFrame, 0, this.playbackDurationFrames);
 		this.playEndFrame = this.playbackDurationFrames;
 		this.loop = normalizeLoop(runtimeProject?.loop, this.playbackDurationFrames, this.durationFrames);
 		this.playRange = null;

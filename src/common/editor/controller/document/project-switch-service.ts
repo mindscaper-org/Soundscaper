@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { EDITOR_PROJECT_TASK_SCOPE, type EditorLifetimeToken } from '../shared/lifecycle.ts'; import { publishedCopyFor } from '../shared/presentation-localization.ts'; import { setLocalizedStatus } from '../../../i18n/presentation-message.ts'; import { publishProjectReadOnlyStatus } from './project-read-only-status.ts'; import { createProjectActivationEditFence } from './project-activation-edit-fence.ts';
-import { inputId, isActiveProjectSwitchInput, prepareProjectSwitchHistory } from './internal/project/project-switch-input.ts'; import { verifyProjectSwitchStorageCurrent } from './internal/project/project-switch-storage-currentness.ts'; import { resetDesktopOriginal } from '../../desktop-overwrite-original.ts';
+import { inputId, isActiveProjectSwitchInput, prepareProjectSwitchHistory, projectSwitchPlayhead } from './internal/project/project-switch-input.ts'; import { verifyProjectSwitchStorageCurrent } from './internal/project/project-switch-storage-currentness.ts'; import { resetDesktopOriginal } from '../../desktop-overwrite-original.ts';
 import { createPlaybackProjectService } from '../source/playback-project-service.ts';
 import { beginProjectSwitchInspectionFence } from './internal/project/project-switch-inspection-fence.ts';
 import type { ProjectLifecycleHistory, ProjectLifecycleLock, ProjectLifecycleProject } from './project-lifecycle-types.ts';
@@ -306,10 +306,11 @@ export function createProjectSwitchService<
 			runtime.retainLiveClipIds();
 			runtime.evictUnreferencedSourceCaches();
 			fallbackAdmission.assertCurrent(activeProject);
+			const position = projectSwitchPlayhead(activeProject.view, tabMetadata.playheadFrame);
 			if (preparedFallbackSources) {
 				await guard(preparedFallbackSources.commit(
 					(preparedSources) => runtime.loadEngineProject(
-						playbackProjection.project, undefined, preparedSources,
+						playbackProjection.project, undefined, preparedSources, position,
 					),
 					{
 						assertCurrent: () => fallbackAdmission.assertCurrent(activeProject),
@@ -317,7 +318,7 @@ export function createProjectSwitchService<
 						transientBuffers: loadedSourceBuffers,
 					},
 				));
-			} else await guard(runtime.loadEngineProject(playbackProjection.project, loadedSourceBuffers));
+			} else await guard(runtime.loadEngineProject(playbackProjection.project, loadedSourceBuffers, undefined, position));
 			providerReplacementFinalized = true;
 			await providerReplacement.commit();
 			runtime.lifetime.assertActive(token);

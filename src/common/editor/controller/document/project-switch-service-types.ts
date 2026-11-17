@@ -213,6 +213,7 @@ export interface ProjectSwitchServiceRuntime<
 		project: Project,
 		transientSourceBuffers?: ReadonlyMap<string, Buffer>,
 		preparedSources?: PreparedProjectSourceInputs<Buffer>,
+		positionFrame?: number,
 	) => PromiseLike<unknown> | unknown;
 	readonly openRecovery?: Readonly<TakeCycleOpenRecoveryProjectPort>;
 	readonly recordOpenedProject: (projectId: string, guard: ProjectSwitchGuard) => Promise<unknown>;

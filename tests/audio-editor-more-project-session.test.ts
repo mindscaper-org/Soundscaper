@@ -5,6 +5,10 @@ import test from 'node:test';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { createProjectSessionSelectionService } from '../src/common/editor/controller/document/internal/project/project-session-selection-service.ts';
+import { createAudioEditorEngine } from '../src/common/editor/engine/runtime-class.ts';
+import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
+import { createMemoryStore } from './helpers/audio-editor-memory-store-baseline.js';
+import { COPY, createAudioEditorController } from './helpers/audio-editor-controller-harness.js';
 
 test('MP07: opening a project restores its durable active track and annotation selection', () => {
 	const project = createSoundscaperProject({ id: 'project',
@@ -22,4 +26,45 @@ test('MP07: opening a project restores its durable active track and annotation s
 	service.restore(project);
 	assert.equal(state.selectedTrackId, 'second');
 	assert.equal(state.selectedAnnotationId, 'cue');
+});
+
+async function openTabFixture(context: test.TestContext) {
+	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
+	const engine = createAudioEditorEngine();
+	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, engine,
+		store: createMemoryStore() as Options['store'], ffmpeg: createMemoryFfmpeg() as Options['ffmpeg'],
+	});
+	context.after(() => controller.dispose());
+	await controller.ready;
+	return { controller, engine, firstId: controller.project!.id };
+}
+
+test('the transport playhead returns to the position last used in each project tab', async context => {
+	const { controller, engine, firstId } = await openTabFixture(context);
+	await controller.actions.transport.seek(24_000);
+	await controller.actions.project.create({ title: 'Second project' });
+	const secondId = controller.project!.id;
+	assert.equal(engine.getPositionFrames(), 0, 'the new tab starts at the beginning');
+	await controller.actions.transport.seek(12_000);
+	await controller.actions.project.openById(firstId);
+	assert.equal(engine.getPositionFrames(), 24_000);
+	await controller.actions.project.openById(secondId);
+	assert.equal(engine.getPositionFrames(), 12_000);
+});
+
+test('the timeline zoom stays with the tab where it was changed', async context => {
+	const { controller, firstId } = await openTabFixture(context);
+	const initialZoom = controller.getSnapshot().timeline.pixelsPerSecond;
+	controller.actions.timeline.zoomIn();
+	const firstZoom = controller.getSnapshot().timeline.pixelsPerSecond;
+	assert.ok(firstZoom > initialZoom);
+	await controller.actions.project.create({ title: 'Second project' });
+	assert.equal(controller.getSnapshot().timeline.pixelsPerSecond, initialZoom);
+	controller.actions.timeline.zoomOut();
+	const secondZoom = controller.getSnapshot().timeline.pixelsPerSecond;
+	const secondId = controller.project!.id;
+	await controller.actions.project.openById(firstId);
+	assert.equal(controller.getSnapshot().timeline.pixelsPerSecond, firstZoom);
+	await controller.actions.project.openById(secondId);
+	assert.equal(controller.getSnapshot().timeline.pixelsPerSecond, secondZoom);
 });

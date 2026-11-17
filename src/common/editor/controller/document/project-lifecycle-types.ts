@@ -12,6 +12,7 @@ export interface ProjectLifecycleTrack {
 export interface ProjectLifecycleProject {
 	readonly id: string;
 	readonly tracks: readonly ProjectLifecycleTrack[];
+	readonly view?: unknown;
 }
 
 export interface ProjectLifecycleHistory<Project extends ProjectLifecycleProject> {
@@ -36,6 +37,7 @@ export interface ProjectLifecycleTabMetadata {
 	readonly selectedTrackId?: string | null;
 	readonly selectedClipId?: string | null;
 	readonly selectedAnnotationId?: string | null;
+	readonly playheadFrame?: number;
 	readonly declaredReadOnly?: boolean;
 	readonly declaredReadOnlyReason?: string | null;
 	readonly intrinsicReadOnly?: boolean;

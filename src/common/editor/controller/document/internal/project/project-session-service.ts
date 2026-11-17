@@ -18,6 +18,11 @@ export interface ProjectSessionTab {
 	readonly [key: string]: unknown;
 }
 
+interface ProjectSessionViewMetadata extends ProjectSessionSelectionMetadata {
+	readonly pixelsPerSecond?: unknown;
+	readonly allowBelowProjectFitZoom?: boolean;
+}
+
 export interface ProjectSessionServiceDependencies<
 	Project extends ProjectSessionProject,
 	Tab extends ProjectSessionTab = ProjectSessionTab,
@@ -29,7 +34,8 @@ export interface ProjectSessionServiceDependencies<
 	readonly setRecentProjectIds: (projectIds: string[]) => void;
 	readonly getActiveProjectId: () => string | null;
 	readonly getActiveProject: () => Project | null;
-	readonly state: ProjectSessionSelectionState;
+	readonly state: ProjectSessionSelectionState & { pixelsPerSecond?: number; allowBelowProjectFitZoom?: boolean };
+	readonly getPlayhead?: () => number;
 	readonly findTrack: ProjectSessionSelectionServiceDependencies<Project>['findTrack'];
 	readonly findClip: ProjectSessionSelectionServiceDependencies<Project>['findClip'];
 	readonly getTabs: () => readonly Tab[];
@@ -46,6 +52,7 @@ export function createProjectSessionService<
 	dependencies: ProjectSessionServiceDependencies<Project, Tab>,
 ) {
 	const projectSelection = createProjectSessionSelectionService(dependencies);
+	const defaultZoom = dependencies.state.pixelsPerSecond;
 	let recentWrites = Promise.resolve();
 	return Object.freeze({
 		sessionTab,
@@ -65,7 +72,12 @@ export function createProjectSessionService<
 	function persistActiveSessionUiState(): void {
 		const projectId = dependencies.getActiveProjectId();
 		if (!projectId || !sessionTab(projectId)) return;
-		dependencies.updateProjectMetadata(projectId, { ...projectSelection.capture() });
+		const { pixelsPerSecond, allowBelowProjectFitZoom } = dependencies.state;
+		dependencies.updateProjectMetadata(projectId, {
+			...projectSelection.capture(),
+			...(pixelsPerSecond === undefined ? {} : { pixelsPerSecond, allowBelowProjectFitZoom: allowBelowProjectFitZoom === true }),
+			...(dependencies.getPlayhead ? { playheadFrame: dependencies.getPlayhead() } : {}),
+		});
 	}
 
 	function setTrackChannelHeightRatio(trackId: unknown, requestedRatio: unknown): number {
@@ -89,9 +101,14 @@ export function createProjectSessionService<
 
 	function restoreProjectSelection(
 		project: Project,
-		metadata: Readonly<ProjectSessionSelectionMetadata> = {},
+		metadata: Readonly<ProjectSessionViewMetadata> = {},
 	): void {
 		projectSelection.restore(project, metadata);
+		if (defaultZoom !== undefined) {
+			const zoom = metadata.pixelsPerSecond;
+			dependencies.state.pixelsPerSecond = typeof zoom === 'number' && Number.isFinite(zoom) && zoom > 0 ? zoom : defaultZoom;
+			dependencies.state.allowBelowProjectFitZoom = metadata.allowBelowProjectFitZoom === true;
+		}
 	}
 
 	async function loadRecentProjectState(guard: ProjectSessionGuard): Promise<string | null> {

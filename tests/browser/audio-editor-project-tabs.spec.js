@@ -154,3 +154,30 @@ test.describe('project tab close controls', () => {
 		expect(errors).toEqual([]);
 	});
 });
+
+test('switching projects restores the playhead and zoom of each tab', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	await renameProject(page, editor, 'First edit');
+	await importFiles(editor, [toneA]);
+	const playhead = editor.getByRole('slider', { name: 'Playhead', exact: true });
+	const firstClip = clipByName(editor, toneA.name);
+	const originalWidth = (await firstClip.boundingBox()).width;
+	await editor.getByRole('button', { name: 'Zoom in', exact: true }).click();
+	await expect.poll(async () => (await firstClip.boundingBox()).width).toBeGreaterThan(originalWidth);
+	const firstWidth = (await firstClip.boundingBox()).width;
+	await playhead.press('ArrowRight');
+	await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(0);
+	const firstFrame = await playhead.getAttribute('aria-valuenow');
+
+	await editor.getByRole('button', { name: 'New project', exact: true }).click();
+	await waitForProjectActivation(editor);
+	await renameProject(page, editor, 'Second edit');
+	await expect(playhead).toHaveAttribute('aria-valuenow', '0');
+	await importFiles(editor, [toneA]);
+	await expect.poll(async () => (await clipByName(editor, toneA.name).boundingBox()).width).toBeCloseTo(originalWidth, 0);
+
+	await editor.getByRole('tab', { name: 'First edit', exact: true }).click();
+	await waitForProjectActivation(editor);
+	await expect(playhead).toHaveAttribute('aria-valuenow', firstFrame);
+	await expect.poll(async () => (await firstClip.boundingBox()).width).toBeCloseTo(firstWidth, 0);
+});

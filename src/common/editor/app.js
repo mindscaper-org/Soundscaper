@@ -362,8 +362,8 @@ export function createAudioEditorController(_root = null, options = {}) {
 			evictUnreferencedSourceCaches: () => evictUnreferencedSourceCaches(
 				sourceBuffers, sourcePeaks, doc.retention.liveSessionSourceIds(),
 			),
-			loadEngineProject: (activeProject, transientBuffers, preparedSources) => engine.loadProject(activeProject, preparedSources?.sourceBuffers
-					?? (transientBuffers?.size ? new Map([...sourceBuffers, ...transientBuffers]) : sourceBuffers), { chunkSources: preparedSources?.chunkSources ?? sourceChunkProviders }), openRecovery: takeCycleOpenRecovery,
+			loadEngineProject: (activeProject, transientBuffers, preparedSources, positionFrame) => engine.loadProject(activeProject, preparedSources?.sourceBuffers
+					?? (transientBuffers?.size ? new Map([...sourceBuffers, ...transientBuffers]) : sourceBuffers), { chunkSources: preparedSources?.chunkSources ?? sourceChunkProviders, positionFrame }), openRecovery: takeCycleOpenRecovery,
 			recordOpenedProject: (projectId, guard) => doc.session.recordOpenedProject(projectId, guard), maintainOpenedProject: (projectId, isCurrentWritable) => store.maintainOpenedProject?.(projectId, () => isCurrentWritable() ? doc.retention.liveSessionLinkedOriginalSourceReferences() : null),
 			createProjectIfAbsent: options.createProjectIfAbsent || (typeof Reflect.get(store, 'createProjectIfAbsent') === 'function' ? (project, publicationOptions = {}) => store.createProjectIfAbsent(project, { ...publicationOptions, confirmFileSizeWarning: options.confirmFileSizeWarning }) : undefined),
 			saveProject: (activeProject) => store.saveProject(activeProject, { protectedLinkedOriginalSourceReferences: doc.retention.liveSessionLinkedOriginalSourceReferences() }),

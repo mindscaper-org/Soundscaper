@@ -40,6 +40,7 @@ export interface EngineLoadProjectOptions {
 	/** The controller may replace its document while a candidate is still preparing. */
 	readonly isCurrent?: () => boolean;
 	readonly chunkSources?: EngineChunkSourceInput;
+	readonly positionFrame?: number;
 	/**
 	 * Keeps the running loudness measurement — its integrated reading and any manual
 	 * pause — across the load. `applyProject` sets it, because re-applying an edited
