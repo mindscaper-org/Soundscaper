@@ -58,8 +58,8 @@ export function parseArdourDocument(text: string): TimelineInterchangeDocument {
 		const disk = childElement(route, 'Diskstream') ?? childElements(childElement(root, 'DiskStreams') ?? root, 'AudioDiskstream')
 			.find(node => node.attributes.id === route.attributes['diskstream-id']);
 		if (!disk && route.attributes['diskstream-id']) throw new ReferenceError('Ardour diskstream is unavailable.');
-		const playlistId = route.attributes['audio-playlist'] ?? disk?.attributes.playlist;
-		const candidates = playlistId ? playlists.filter(node => node.attributes.id === playlistId || node.attributes.name === playlistId)
+		const modernPlaylistId = route.attributes['audio-playlist'], playlistId = modernPlaylistId ?? disk?.attributes.playlist;
+		const candidates = playlistId ? playlists.filter(node => (modernPlaylistId === undefined ? node.attributes.name : node.attributes.id) === playlistId)
 			: playlists.filter(node => node.attributes['orig-track-id'] === id || node.attributes.name === route.attributes.name);
 		if (candidates.length > 1) throw new SyntaxError('Ardour active playlist is ambiguous.');
 		if (!candidates.length && route.attributes['audio-playlist']) throw new ReferenceError('Ardour active playlist is unavailable.');
