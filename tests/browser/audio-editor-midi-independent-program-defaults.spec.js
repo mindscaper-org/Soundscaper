@@ -12,7 +12,8 @@ test('independent imported instruments retain their own sound after sharing a la
 	await chooseNestedCommandAction(page, editor, 'Tracks', ['Remove tracks']);
 	const note = { id: 'key', pitch: 67, channel: 0, velocity: 100, startFrame: 0, durationFrames: 24000 };
 	const file = (name, program) => ({ name: `${name}.mid`, mimeType: 'audio/midi', buffer: Buffer.from(writeMidiFile({ sampleRate: 48000, tempos: [], signatures: [], tracks: [{
-		name, notes: [note], durationFrames: 96000, events: program === undefined ? [] : [{ frame: 0, status: 192, data: [program] }],
+		name, notes: [note], durationFrames: 96000, events: program === undefined ? [] : [{ frame: 0, status: 192, data: [program] },
+			{ frame: 0, status: 176, data: [7, 30] }, { frame: 0, status: 176, data: [1, 127] }, { frame: 0, status: 176, data: [10, 0] }],
 	}] })) });
 	await importFiles(editor, [file('First patch', 40), file('Second default', undefined)]);
 	await expect(editor).toHaveAttribute('data-clip-count', '2');
