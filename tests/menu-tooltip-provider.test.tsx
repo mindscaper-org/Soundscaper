@@ -30,8 +30,14 @@ test('hover explanations render rich content for disabled entries and dispose pe
 	const { createRoot } = await import('react-dom/client');
 	const root = createRoot(dom.container as unknown as Element);
 	try {
-		await act(async () => root.render(<MenuTooltipProvider resolve={() => <><p>Explain the outcome.</p><img src="example.png" alt="Example diagram" /></>}>
-			<div role="menu"><button role="menuitem" aria-disabled="true" data-menu-tooltip-id="example">Example</button></div>
+		await act(async () => root.render(<MenuTooltipProvider resolveShortcut={label => label === 'Assigned' ? 'Alt+9' : ''} resolve={() => <><p>Explain the outcome.</p><img src="example.png" alt="Example diagram" /></>}>
+			<div role="menu"><button role="menuitem" aria-disabled="true" data-menu-tooltip-id="example"><span className="context-menu-item-label">Example</span><span className="context-menu-item-shortcut">Ctrl+Alt+E, F8</span></button>
+				<button role="menuitem" data-menu-tooltip-id="assigned">Assigned</button>
+				<button role="menuitem" data-menu-tooltip-id="local" aria-keyshortcuts="Control+N">Local</button>
+				<div role="menuitem" data-menu-tooltip-id="parent"><span className="context-menu-item-label">Parent</span>
+					<div role="menu"><div role="menuitem"><span className="context-menu-item-shortcut">F4</span></div></div>
+				</div>
+			</div>
 		</MenuTooltipProvider>));
 		const item = dom.one('[role="menuitem"]');
 		await act(async () => { emit('pointerover', { target: item, pointerType: 'mouse' }); });
@@ -39,13 +45,19 @@ test('hover explanations render rich content for disabled entries and dispose pe
 		await act(async () => context.mock.timers.tick(450));
 		const tooltip = document.body.querySelector('[role="tooltip"]');
 		assert.ok(tooltip);
-		assert.equal(tooltip.textContent, 'Explain the outcome.');
+		assert.equal(tooltip.textContent, 'Explain the outcome.Ctrl+Alt+E, F8');
+		assert.equal(tooltip.querySelector('kbd')?.textContent, 'Ctrl+Alt+E, F8');
 		assert.equal(tooltip.querySelector('img')?.getAttribute('alt'), 'Example diagram');
 		assert.equal(item.getAttribute('aria-describedby'), tooltip.getAttribute('id'));
 		await act(async () => { emit('pointerdown', { target: item }); });
 		assert.equal(document.body.querySelector('[role="tooltip"]'), null);
 		assert.equal(item.getAttribute('aria-describedby'), null);
-		await act(async () => { emit('pointerover', { target: item, pointerType: 'mouse' }); });
+		for (const [id, shortcut] of [['assigned', 'Alt+9'], ['local', 'Control+N'], ['parent', null]]) {
+			const target = dom.one(`[data-menu-tooltip-id="${id}"]`);
+			await act(async () => { emit('pointerover', { target, pointerType: 'mouse' }); context.mock.timers.tick(450); });
+			assert.equal(document.body.querySelector('[role="tooltip"]')?.querySelector('kbd')?.textContent ?? null, shortcut);
+		}
+		await act(async () => { emit('pointerdown', { target: item }); emit('pointerover', { target: item, pointerType: 'mouse' }); });
 		await act(async () => root.unmount());
 		await act(async () => context.mock.timers.tick(450));
 		assert.equal(document.body.querySelector('[role="tooltip"]'), null);

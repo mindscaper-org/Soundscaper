@@ -1,12 +1,23 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { useMemo, type ReactNode } from 'react';
+import { useCallback, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import { MenuTooltipProvider } from './MenuTooltipProvider.tsx';
 import { createMenuTooltipResolver } from './menu-tooltip-copy.ts';
+import { createEditorTooltipShortcutResolver } from './editor-tooltip-shortcut.ts';
 
-export function EditorMenuTooltips({ copy, children }: {
+interface ShortcutController {
+	readonly subscribe: (listener: () => void) => () => void;
+	readonly getSnapshot: () => Readonly<{ preferences?: Readonly<{ shortcuts?: Readonly<Record<string, readonly string[]>> }> }>;
+}
+const noSubscribe = () => () => undefined;
+
+export function EditorMenuTooltips({ copy, children, controller }: {
 	readonly copy: Readonly<Record<string, unknown>>;
 	readonly children: ReactNode;
+	readonly controller?: ShortcutController;
 }) {
+	const readShortcuts = useCallback(() => controller?.getSnapshot().preferences?.shortcuts, [controller]);
+	const shortcuts = useSyncExternalStore(controller?.subscribe ?? noSubscribe, readShortcuts, readShortcuts);
+	const resolveShortcut = useMemo(() => createEditorTooltipShortcutResolver([], shortcuts, copy), [shortcuts, copy]);
 	const resolve = useMemo(() => {
 		const text = createMenuTooltipResolver(copy);
 		return (label: string, id: string): ReactNode => {
@@ -20,5 +31,5 @@ export function EditorMenuTooltips({ copy, children }: {
 			</svg></>;
 		};
 	}, [copy]);
-	return <MenuTooltipProvider resolve={resolve}>{children}</MenuTooltipProvider>;
+	return <MenuTooltipProvider resolve={resolve} resolveShortcut={resolveShortcut}>{children}</MenuTooltipProvider>;
 }
