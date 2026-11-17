@@ -37,9 +37,19 @@ for (const sourceRate of [8000, 48_000]) {
 }
 
 test('source control follows reversed playback coordinates', async () => {
-	const { render, target } = fixture(48_000, { reversed: true });
+	const { render, target } = fixture(24_000, { reversed: true, sourceStartFrame: 2,
+		sourceDurationFrames: 4, durationFrames: 8 });
 	const output = await render('voice', target);
-	for (let frame = 0; frame < 8; frame++) assert.ok(Math.abs(output[0]![frame]! - (48_008 - frame) / 1000) < 0.00001);
+	const timelineSamples = [47_996, 47_998, 48_006, 48_004, 48_002, 48_000, 48_008, 48_010];
+	assert.deepEqual(output[0], Float32Array.from(timelineSamples, frame => frame / 1000));
+});
+
+test('source control after a looped clip follows the end of its last repetition', async () => {
+	const { render, target } = fixture(48_000, { sourceStartFrame: 2, sourceDurationFrames: 4,
+		durationFrames: 12, opaqueExtensions: { 'org.soundscaper.clip-loop/v1': { periodFrames: 4, offsetFrames: 0 } } });
+	const output = await render('voice', target);
+	const timelineSamples = [47_998, 47_999, 48_000, 48_001, 48_002, 48_003, 48_012, 48_013];
+	assert.deepEqual(output[0], Float32Array.from(timelineSamples, frame => frame / 1000));
 });
 
 test('source control follows each authored warp segment', async () => {

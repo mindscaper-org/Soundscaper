@@ -30,10 +30,10 @@ export function createSourceControlTrackRenderer(getProject: () => EffectSelecti
 		const points = warp?.points.map(point => ({ source: point.source.num / point.source.den, outer: point.outer.num / point.outer.den }));
 		const sourceEnd = clip.sourceStartFrame + clip.sourceDurationFrames;
 		const timelineAt = (frame: number): number => {
+			if (frame < clip.sourceStartFrame) return clip.timelineStartFrame + (frame - clip.sourceStartFrame) * rate;
+			if (frame >= sourceEnd) return clip.timelineStartFrame + clip.durationFrames + (frame - sourceEnd) * rate;
 			let offset: number;
-			if (frame < clip.sourceStartFrame) offset = (frame - clip.sourceStartFrame) * rate;
-			else if (frame > sourceEnd) offset = timingClip.durationFrames + (frame - sourceEnd) * rate;
-			else if (points) {
+			if (points) {
 				let lower = 0;
 				let upper = points.length - 1;
 				while (upper - lower > 1) {
@@ -45,10 +45,11 @@ export function createSourceControlTrackRenderer(getProject: () => EffectSelecti
 				const right = points[upper]!;
 				offset = left.outer + (frame - left.source) / (right.source - left.source) * (right.outer - left.outer);
 			} else {
-				const progress = (frame - clip.sourceStartFrame) / clip.sourceDurationFrames;
-				offset = (clip.reversed ? 1 - progress : progress) * timingClip.durationFrames;
+				// The first reversed sample is one frame inside the exclusive source end.
+				const sourceOffset = clip.reversed ? sourceEnd - 1 - frame : frame - clip.sourceStartFrame;
+				offset = sourceOffset * timingClip.durationFrames / clip.sourceDurationFrames;
 			}
-			if (loop && frame >= clip.sourceStartFrame && frame <= sourceEnd) {
+			if (loop) {
 				offset = ((offset - loop.offsetFrames) % loop.periodFrames + loop.periodFrames) % loop.periodFrames;
 			}
 			return clip.timelineStartFrame + offset;
