@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { parseFragment } from 'parse5';
+import { chunkGroupForModulePath } from '../scripts/lib/build-chunk-groups.mjs';
 
 import {
 	PRODUCT_BOOTSTRAPS,
@@ -134,6 +135,16 @@ test('the product-ready graph excludes registration work deferred until applicat
 		() => assertProductionStartupGraphs(bundle, 'soundscaper'),
 		/product-ready graph loads deferred offline shell registration/u,
 	);
+});
+
+test('MIDI and Allegro file codecs have an on-demand owner separate from playback', () => {
+	for (const name of ['midi-file.ts', 'allegro-file.ts', 'allegro-file-events.ts']) {
+		const path = `src/common/editor/${name}`;
+		for (const variant of [path, path.replaceAll('/', '\\')]) {
+			assert.equal(chunkGroupForModulePath(variant), 'editor-midi-file-codecs', variant);
+		}
+	}
+	assert.equal(chunkGroupForModulePath('src/common/editor/engine/midi-synthesis.ts'), 'editor-engine');
 });
 
 test('neither product-ready graph includes MIDI or Allegro file codecs', () => {

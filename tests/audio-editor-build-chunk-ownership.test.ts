@@ -117,16 +117,6 @@ test('temporary export sinks load OPFS lease handling only when an export starts
 	assert.equal(group.includeDependenciesRecursively, false);
 });
 
-test('MIDI and Allegro file codecs have an on-demand owner separate from playback', () => {
-	for (const name of ['midi-file.ts', 'allegro-file.ts', 'allegro-file-events.ts']) {
-		const path = `${EDITOR_DIRECTORY}${name}`;
-		for (const variant of [path, path.replaceAll('/', '\\')]) {
-			assert.equal(chunkGroupForModulePath(variant), 'editor-midi-file-codecs', variant);
-		}
-	}
-	assert.equal(chunkGroupForModulePath(`${EDITOR_DIRECTORY}engine/midi-synthesis.ts`), 'editor-engine');
-});
-
 test('no eagerly owned editor module statically imports a lazily owned one', () => {
 	// This is the invariant every per-directory ownership rule exists to serve. A static
 	// import across the boundary makes the importer's chunk depend on the lazy chunk, so the

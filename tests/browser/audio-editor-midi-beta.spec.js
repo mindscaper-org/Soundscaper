@@ -76,7 +76,10 @@ test.describe('beta MIDI editing and shared transport', () => {
 			expect(bytes.byteLength).toBeGreaterThan(20);
 			if (extension === '.mid') expect(Buffer.from(bytes).subarray(0, 4).toString('ascii')).toBe('MThd');
 			else {
+				const clips = editor.getByRole('group', { name: / clip(?:,|$)/u });
 				await importFiles(editor, [{ name: 'roundtrip.gro', mimeType: 'text/plain', buffer: Buffer.from(bytes) }]);
+				await expect(clips).toHaveCount(2);
+				await clickClipInterior(page, clips.last());
 				await noteEditor.getByRole('combobox', { name: 'Selected note', exact: true }).selectOption({ index: 1 });
 				await expect(noteEditor.getByRole('spinbutton', { name: 'Pitch (MIDI number)', exact: true })).toHaveValue('60');
 			}
