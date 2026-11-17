@@ -5,6 +5,8 @@ both editors. Import retains audio track order and names, active takes, item
 positions and lengths, source offsets, item/take gain, mute, track gain/pan/solo,
 master gain/pan/mute, explicit fade lengths, ordinary markers and the initial
 tempo and time signature. The project filename supplies the title.
+Solo-defeat tracks become soloed tracks only when the saved mix already has a
+solo, preserving that mix's audibility without starting an otherwise absent solo.
 Non-default tempo or meter retains the musical-timeline requirement: Soundscaper
 can edit it; Framescaper applies its existing read-only feature compatibility
 policy. A default 120 BPM, 4/4 audio edit remains writable in both products.
