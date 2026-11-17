@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import { createTimecodeSyncSession } from '../src/common/editor/controller/transport/timecode-sync-session.ts';
 import { DEFAULT_TIMECODE_SYNC_SETTINGS, type TimecodeSyncIo, type TimecodeIoSession } from '../src/common/editor/controller/transport/internal/timecode-sync-ports.ts';
 import type { TimecodeReading } from '../src/common/editor/timecode-sync-format.ts';
+import { deferred, settle } from './helpers/async-test-control.ts';
 
 function fixture() {
 	let now = 1000, position = 480000, playing = false, closed = 0, paused = 0, projectId = 'project', blocked = false, receiveBlocked = false;
@@ -169,5 +170,56 @@ test('a retired chase completion never pauses a newly configured project', async
 		await session.configure({ ...DEFAULT_TIMECODE_SYNC_SETTINGS, sendMtc: true });
 		finishOldPlay(); await session.settled();
 		assert.deepEqual(paused, []); assert.equal(playing, true);
+	} finally { await session.dispose(); }
+});
+
+test('reconfiguration waits for a retiring timecode device even across superseded choices', async () => {
+	const f = fixture();
+	const closed = deferred<void>();
+	let closeStarted = false;
+	const opened: string[] = [];
+	const open = f.io.open;
+	f.io.open = async (settings, ...args) => {
+		opened.push(settings.midiOutput ?? '');
+		const device = await open(settings, ...args);
+		return settings.midiOutput === 'first' ? { ...device, close: async () => {
+			closeStarted = true;
+			await closed.promise;
+		} } : device;
+	};
+	await f.session.configure({ ...DEFAULT_TIMECODE_SYNC_SETTINGS, sendMtc: true, midiOutput: 'first' });
+	const second = f.session.configure({ ...DEFAULT_TIMECODE_SYNC_SETTINGS, sendMtc: true, midiOutput: 'second' });
+	assert.equal(closeStarted, true);
+	const third = f.session.configure({ ...DEFAULT_TIMECODE_SYNC_SETTINGS, sendMtc: true, midiOutput: 'third' });
+	try {
+		await settle();
+		assert.deepEqual(opened, ['first']);
+	} finally {
+		closed.resolve();
+		await Promise.all([second, third]);
+		await f.session.dispose();
+	}
+	assert.deepEqual(opened, ['first', 'third']);
+});
+
+test('a timecode locate awaiting Pause cannot seek a newly opened project', async () => {
+	const paused = deferred<void>();
+	let projectId = 'old', playing = true, receive!: (reading: TimecodeReading, timestamp: number) => void;
+	const sought: string[] = [];
+	const session = createTimecodeSyncSession({ now: () => 1000, schedule: () => () => {},
+		io: { devices: async () => ({ midiInputs: [], midiOutputs: [], audioInputs: [], audioOutputs: [] }),
+			open: async (_settings, handler) => { receive = handler; return { sendMidi() {}, clearMidi() {}, updateLtc() {}, close: async () => {} }; } },
+		read: () => ({ projectId, playing, sampleRate: 48000, positionFrame: 0, speed: 1, blocked: false }),
+		seek() { sought.push(projectId); }, play: async () => {},
+		pause: async () => { await paused.promise; playing = false; },
+	});
+	try {
+		await session.configure({ ...DEFAULT_TIMECODE_SYNC_SETTINGS, receive: 'mtc' });
+		receive({ frame: 25, rate: '25', direction: 0 }, 1000);
+		projectId = 'new';
+		paused.resolve();
+		await session.settled();
+		assert.deepEqual(sought, []);
+		assert.equal(session.getSnapshot().locked, false);
 	} finally { await session.dispose(); }
 });

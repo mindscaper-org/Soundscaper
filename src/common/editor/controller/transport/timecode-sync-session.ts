@@ -41,6 +41,7 @@ export function createTimecodeSyncSession(d: Dependencies) {
 	const listeners = new Set<() => void>();
 	let generation = 0, disposed = false;
 	let devices: TimecodeIoSession | null = null;
+	let retirement: Promise<void> | null = null;
 	let admission: AbortController | null = null;
 	let cancelTimer: (() => void) | null = null;
 	let projectId: string | null = null;
@@ -60,12 +61,27 @@ export function createTimecodeSyncSession(d: Dependencies) {
 		publish({ error: error instanceof Error ? error.message : String(error), locked: false });
 		void configure(DEFAULT_TIMECODE_SYNC_SETTINGS, true).catch(() => {});
 	}
-	async function close(): Promise<void> {
+	async function close(stopChase = false): Promise<void> {
 		admission?.abort(); admission = null;
 		cancelTimer?.(); cancelTimer = null;
 		const session = devices; devices = null;
 		lastSend = null; pending = null;
-		await session?.close();
+		const ownedProjectId = projectId;
+		const wasChasing = chasing; chasing = false;
+		if (retirement) return retirement;
+		const closing = retire();
+		retirement = closing;
+		try { await closing; }
+		finally { if (retirement === closing) retirement = null; }
+
+		async function retire(): Promise<void> {
+			try { await session?.close(); }
+			finally { if (stopChase && wasChasing && canChase(ownedProjectId)) await d.pause(); }
+		}
+	}
+	function canChase(ownedProjectId: string | null): boolean {
+		const position = d.read();
+		return position.projectId === ownedProjectId && !position.blocked && !position.receiveBlocked;
 	}
 	async function configure(settings: TimecodeSyncSettings, retainError = false): Promise<void> {
 		if (disposed) return;
@@ -73,13 +89,11 @@ export function createTimecodeSyncSession(d: Dependencies) {
 			|| ![settings.inputChannel, settings.outputChannel].every(channel => Number.isInteger(channel) && channel >= 0 && channel < 32)
 			|| !['off', 'mtc', 'ltc'].includes(settings.receive)) throw new RangeError('Invalid timecode synchronization settings.');
 		const ownGeneration = ++generation;
-		const wasChasing = chasing; chasing = false;
 		publish({ settings: Object.freeze({ ...settings }), active: false, locked: false, ...(retainError ? {} : { error: '' }) });
 		let releasePreparation: (() => Promise<void>) | undefined;
 		try {
 			releasePreparation = settings.sendLtc || settings.receive === 'ltc' ? d.io.prepare?.(settings) : undefined;
-			await close();
-			if (wasChasing && d.read().projectId === projectId && !d.read().blocked && !d.read().receiveBlocked) await d.pause();
+			await close(true);
 			if (generation !== ownGeneration) return;
 			if (!settings.sendLtc && !settings.sendMtc && settings.receive === 'off') return;
 			const position = d.read();
@@ -101,7 +115,7 @@ export function createTimecodeSyncSession(d: Dependencies) {
 			tick();
 		} catch (error) {
 			if (ownGeneration !== generation || disposed) return;
-			await close(); publish({ active: false, error: error instanceof Error ? error.message : String(error) });
+			await close(true); publish({ active: false, error: error instanceof Error ? error.message : String(error) });
 			throw error;
 		} finally { await releasePreparation?.(); }
 	}
@@ -125,7 +139,7 @@ export function createTimecodeSyncSession(d: Dependencies) {
 				if (unwrapped >= Math.min(0, snapshot.settings.offsetSeconds)) seconds = unwrapped;
 				if (!moving || seconds < 0) {
 					if (position.playing) await d.pause();
-					if (generation !== ownGeneration) return;
+					if (generation !== ownGeneration || !canChase(ownProjectId)) return;
 					d.seek(Math.max(0, Math.round(seconds * position.sampleRate)));
 					chasing = false;
 				} else {
@@ -133,8 +147,9 @@ export function createTimecodeSyncSession(d: Dependencies) {
 					if (!position.playing || Math.abs(position.positionFrame - target) > position.sampleRate / timecodeRate(next.reading.rate) * 2) d.seek(target);
 					chasing = true;
 					if (!position.playing) await d.play();
+					if (!canChase(ownProjectId)) return;
 					if (generation !== ownGeneration) {
-						if (d.read().projectId === ownProjectId && !d.read().blocked && !d.read().receiveBlocked) await d.pause();
+						await d.pause();
 						return;
 					}
 				}
