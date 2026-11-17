@@ -117,3 +117,23 @@ test('one malformed sequence does not move tracks out of another healthy seconda
 	assert.equal(project.primarySequenceId, 'main');
 	assert.deepEqual(project.sequences.map(({ id, trackIds }) => [id, trackIds]), [['main', []], ['alternate', ['track']]]);
 });
+
+test('recovery retains the authored folder hierarchy when the separate track registry order is damaged', () => {
+	const original = createSoundscaperProject({
+		id: 'sequence-order', now: NOW,
+		tracks: [{ id: 'second', type: 'audio' }, { id: 'first', type: 'audio' }],
+		trackFolders: [{ id: 'folder', name: 'Dialogue' }],
+		sequences: [{ id: 'main', trackNodes: [
+			{ id: 'folder', kind: 'folder', parentFolderId: null },
+			{ id: 'second', kind: 'track', parentFolderId: 'folder' },
+			{ id: 'first', kind: 'track', parentFolderId: null },
+		] }],
+		primarySequenceId: 'main',
+	});
+	assert.deepEqual(original.sequences[0]?.trackIds, ['second', 'first']);
+	const { project } = repairSoundscaperProject({ ...original, tracks: [...original.tracks].reverse() }, new Set());
+	assert.deepEqual(project.tracks.map(({ id }) => id), ['second', 'first']);
+	assert.deepEqual(project.trackFolders, original.trackFolders);
+	assert.deepEqual(project.sequences[0]?.trackNodes, original.sequences[0]?.trackNodes);
+	assert.deepEqual(project.mixer, original.mixer);
+});

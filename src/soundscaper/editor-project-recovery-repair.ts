@@ -178,11 +178,19 @@ export function repairSoundscaperProject(value: unknown, availableSourceIds: Rea
 		draft.sequences = values(draft.sequences).map((value) => {
 			const sequence = record(value)!;
 			const saved = values(raw.sequences).map(record).find((saved) => saved?.id === sequence.id);
-			return saved ? { ...sequence, trackNodes: values(saved.trackNodes).filter((value) => {
+			if (!saved) return sequence;
+			const trackNodes = values(saved.trackNodes).filter((value) => {
 				const node = record(value);
 				return node?.kind !== 'track' || acceptedTracks.has(String(node.id));
-			}) } : sequence;
+			});
+			const trackIds = trackNodes.flatMap(node => record(node)?.kind === 'track' ? [record(node)?.id] : []);
+			return { ...sequence, trackNodes, trackIds };
 		});
+		const byId = new Map(values(draft.tracks).map(track => [record(track)?.id, track]));
+		const hierarchyIds = values(draft.sequences).flatMap(sequence => values(record(sequence)?.trackIds));
+		if (hierarchyIds.length === byId.size && new Set(hierarchyIds).size === byId.size && hierarchyIds.every(id => byId.has(id))) {
+			draft.tracks = hierarchyIds.map(id => byId.get(id));
+		}
 	};
 	if (!attempt('trackFolders, sequences, mixer', (draft) => { restoreHierarchy(draft); draft.mixer = raw.mixer; })) {
 		attempt('trackFolders, sequences', (draft) => {
