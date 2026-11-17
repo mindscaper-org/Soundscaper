@@ -346,7 +346,9 @@ function buildEffect(
 				effectId: effect.id,
 				params,
 				wasmModule: options.parametricEqWasmModule,
-				channelCount: clamp(positiveInteger(options.parametricEqChannelCount, 2), 1, 32),
+				// Mono sources can arrive in stereo after clip reverb or an upstream
+				// stereo processor. Capacity does not change the input's channel count.
+				channelCount: clamp(positiveInteger(options.parametricEqChannelCount, 2), 2, 32),
 			},
 		}));
 		connect(input, processor);
