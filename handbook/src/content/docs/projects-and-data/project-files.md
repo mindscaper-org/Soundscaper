@@ -42,9 +42,10 @@ suffixes all open everywhere, and saving one from a different product simply
 renames it — for example a `Mix.sscape` saved from Framescaper becomes
 `Mix.fscape`. Nothing about the project changes with the name.
 
-Importing or opening a Scape copy can encounter an existing project with the
-same ID. Use the offered copy workflow when both versions must remain in the
-local library.
+Opening an unchanged saved project resumes its existing local working copy.
+If the file and working copy differ, the editor asks before opening a separate
+copy. Use the offered copy workflow when both versions must remain in the local
+library.
 
 ## Audacity AUP3 and AUP4
 

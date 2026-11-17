@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test } from './audio-editor-test-fixtures.js';
+import { changeWorkingProjectAfterArchiveSave } from './helpers/scape-archive-collision.typecheck.ts';
 import { bootEditor, chooseExportProjectFileAction, chooseFileAction, chooseNestedCommandAction,
 	closeWorkspacePanel, disableNativeSavePicker, downloadBytes, importFiles } from './audio-editor-test-helpers.js';
 import { videoTimingProbeMedia } from './fixtures/video-timing-probe-media.js';
@@ -36,6 +37,7 @@ test('archive copy retains an authored multicamera group', async ({ page }) => {
 	await chooseExportProjectFileAction(page, editor);
 	const download = await downloading;
 	const archive = await downloadBytes(download);
+	await changeWorkingProjectAfterArchiveSave(page, editor);
 	const opening = page.waitForEvent('filechooser');
 	await chooseFileAction(page, editor, 'Open');
 	await (await opening).setFiles({ name: download.suggestedFilename(), mimeType: 'application/vnd.soundscaper.scape+zip',

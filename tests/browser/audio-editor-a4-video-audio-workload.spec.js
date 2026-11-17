@@ -21,7 +21,11 @@ test.afterEach(async ({ page }, testInfo) => {
 	await testInfo.attach('native-workload.json', { path, contentType: 'application/json' });
 });
 
-for (const oversized of [false, true]) test(`video import bounds native decoded audio before allocation: oversized=${oversized}`, async ({ page }) => {
+for (const { oversized, stallMetadata } of [
+	{ oversized: false, stallMetadata: false },
+	{ oversized: true, stallMetadata: false },
+	{ oversized: true, stallMetadata: true },
+]) test(`video import bounds native decoded audio before allocation: oversized=${oversized}${stallMetadata ? ', metadata timeout' : ''}`, async ({ page }) => {
 	test.setTimeout(90_000); await disableNativeSavePicker(page);
 	const file = oversized ? oversizedVideoAudioFixture() : unequalAvPreviewFixture(2), original = Buffer.from(await file.arrayBuffer());
 	await page.addInitScript(({ length, oversized }) => {
@@ -76,12 +80,22 @@ for (const oversized of [false, true]) test(`video import bounds native decoded 
 		});
 		expect(pictureCapability.byteLength).toBe(original.length); expect(pictureCapability.duration).toBe(900);
 	}
+	if (stallMetadata) await page.evaluate(() => {
+		// A native session may never emit metadata or an error. Keep the real
+		// extractor deadline and import cleanup, while withholding native events.
+		const src = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'src');
+		Object.defineProperty(HTMLMediaElement.prototype, 'src', { ...src, set(value) {
+			if (this instanceof HTMLVideoElement && value.startsWith('blob:')) return;
+			src.set.call(this, value);
+		} });
+	});
 	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: original });
-	if (pictureCapability?.width === 0 && pictureCapability.height === 0) {
+	if (stallMetadata || pictureCapability?.width === 0 && pictureCapability.height === 0) {
 		// An unsupported picture stream can emit zero-dimension metadata or a native
-		// media error in separate decoder sessions. Both must stop before audio decode.
-		await expect.poll(() => page.evaluate(() => globalThis.__workloadMetadata.some(value =>
-			(value.event === 'loadedmetadata' || value.event === 'error') && value.width === 0 && value.height === 0))).toBe(true);
+		// media error, or reach the extractor's 15-second metadata deadline without
+		// either event. Wait for the import result before checking allocation/storage.
+		await expect(editor.locator('[data-editor-toast="workspace-status-error"]'))
+			.toContainText('0 file(s) imported, 1 failed', { timeout: 20_000 });
 		await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
 		await expect(editor).toHaveAttribute('data-clip-count', '0');
 		expect(await page.evaluate(() => globalThis.__workloadNative.length)).toBe(0); expect(ffmpegRequests).toHaveLength(0);

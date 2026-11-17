@@ -23,6 +23,7 @@ import {
 	type ScapeOpenInspection,
 	type ScapeOpenDecisionRequester,
 	type ScapeOpenRequestOptions,
+	type ScapeOpenMode,
 } from './scape-open-request-service.ts';
 
 export interface ScapeProjectInspection extends ScapeOpenInspection {
@@ -51,7 +52,7 @@ export interface ScapeProjectFileServiceRuntime<
 	readonly openScape: (
 		file: ScapeProjectInput,
 		options: Readonly<{
-			collision: 'copy' | 'replace';
+			collision: ScapeOpenMode;
 			signal: AbortSignal;
 		}>,
 	) => PromiseLike<Result> | Result;

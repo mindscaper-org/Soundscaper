@@ -49,8 +49,10 @@ for (const replaceSameId of [false, true]) test(`MI23: a Labels panel title draf
 		assert.equal(input().value, 'Uncommitted first-project draft', 'ordinary publications retain the same project draft');
 		if (replaceSameId) {
 			const saved = await store.loadProject('first'); assert.ok(saved);
-			const archive = await exportScapeProject(saved, store); assert.ok(archive.blob instanceof Blob);
-			await controller.actions.project.openScapeFile(new File([archive.blob], 'Replacement.sscape'), () => 'replace');
+			const archive = await exportScapeProject({ ...saved, title: 'Replacement project' }, store); assert.ok(archive.blob instanceof Blob);
+			const decisions: string[] = [];
+			await controller.actions.project.openScapeFile(new File([archive.blob], 'Replacement.sscape'), request => { decisions.push(request.kind); return 'replace'; });
+			assert.deepEqual(decisions, ['collision']);
 		} else await controller.actions.project.openById('second');
 		await act(async () => { render(); });
 		await act(async () => { reactProps(input()).onBlur({ currentTarget: input() }); });

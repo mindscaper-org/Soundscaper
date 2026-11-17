@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test } from './audio-editor-test-fixtures.js';
+import { changeWorkingProjectAfterArchiveSave } from './helpers/scape-archive-collision.typecheck.ts';
 import { bootEditor, openSourceMonitor, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/common/editor/project-media-factory.ts';
@@ -29,6 +30,7 @@ test('Open as copy retains a hidden stretch marker when its source edge is exten
 	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Hidden stretch.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-project-id', 'copied-hidden-markers');
 	await waitForProjectActivation(editor);
+	await changeWorkingProjectAfterArchiveSave(page, editor);
 	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Hidden stretch.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) });
 	const collision = page.getByRole('dialog', { name: 'Project already exists', exact: true });
 	await collision.getByRole('button', { name: 'Open as copy', exact: true }).click();

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { BlobReader, Uint8ArrayWriter, ZipReader } from '@zip.js/zip.js';
+import { changeWorkingProjectAfterArchiveSave } from './helpers/scape-archive-collision.typecheck.ts';
 
 import { parseRiffMarkers } from '../../src/common/editor/riff-markers.ts';
 import { expect, test, longTone } from './audio-editor-test-fixtures.js';
@@ -104,6 +105,7 @@ test.describe('Soundscaper mastering sequence delivery', () => {
 		expect(expectedCues.map(({ label }) => label)).toEqual(['Reprise', 'Opening']);
 
 		const originalProjectId = await editor.getAttribute('data-project-id');
+		await changeWorkingProjectAfterArchiveSave(page, editor);
 		await editor.getByRole('button', { name: 'New project', exact: true }).click();
 		await expect.poll(() => editor.getAttribute('data-project-id')).not.toBe(originalProjectId);
 		const choosingFile = page.waitForEvent('filechooser');

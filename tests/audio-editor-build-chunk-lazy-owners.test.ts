@@ -37,7 +37,7 @@ import { flatEditorModules } from './helpers/editor-chunk-module-inventory.ts';
 test('recording checkpoints and finalization load after a recording gesture', () => {
 	for (const path of [
 		'src/common/editor/controller/recording/internal/recording-checkpoint-writer.ts',
-		'src/common/editor/controller/recording/internal/recording-punch-sequence.js',
+		'src/common/editor/controller/recording/internal/recording-punch-sequence.ts',
 		'src/common/editor/controller/recording/internal/legacy-recording-finalization.ts',
 		'src/common/editor/controller/recording/internal/routed-recording-finalization.ts',
 	]) {
@@ -54,6 +54,7 @@ test('recording checkpoints and finalization load after a recording gesture', ()
 
 test('optional archive code and its ZIP vendor are placed by dynamic reachability', () => {
 	for (const path of [
+		'src/common/editor/scape-project-reopen-assets.ts',
 		'src/common/editor/scape-project.js',
 		'src/common/editor/scape-archive-layout.ts',
 		'src/common/editor/scape-archive-layout-witness.ts',

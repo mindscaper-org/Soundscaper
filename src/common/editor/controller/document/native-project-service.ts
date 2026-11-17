@@ -154,7 +154,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 		try {
 			signal.throwIfAborted();
 			beginImport(operation.task);
-			if (options.collision === 'replace' && runtime.getProject() && !runtime.state.readOnly) {
+			if ((options.collision === 'replace' || options.collision === 'reuse') && runtime.getProject() && !runtime.state.readOnly) {
 				await runtime.flushProject();
 				assertOwnership(operation.task, operation.projectToken);
 			}
@@ -185,7 +185,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 				await runtime.switchProject(imported.project, {
 					readOnly: imported.readOnly,
 					readOnlyReason: imported.readOnly ? runtime.copy.futureProjectReadOnly : null,
-					skipFlush: imported.collision === 'replace',
+					skipFlush: imported.collision === 'replace' || imported.collision === 'reuse',
 					adoptSessionRevision: imported.collision === 'replace',
 					replaceSessionHistory: imported.collision === 'replace',
 					preserveScapeOpenRequest: true,
@@ -207,7 +207,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 				operation.task.assertCurrent();
 			}
 			runtime.projectGeneration.capture(imported.project.id);
-			await runtime.onScapeOpened?.(runtime.getProject()?.id === imported.project.id ? runtime.getProject()! : imported.project, file);
+			await runtime.onScapeOpened?.(imported.collision !== 'reuse' && runtime.getProject()?.id === imported.project.id ? runtime.getProject()! : imported.project, file);
 			setLocalizedStatus(runtime.setStatus, runtime.copy, runtime.state.readOnly ? 'projectReadOnly' : 'projectSaved', undefined, runtime.state.readOnly ? 'error' : 'success');
 			return imported;
 		} finally {

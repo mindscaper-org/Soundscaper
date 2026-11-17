@@ -21,6 +21,12 @@ review both operating-system and browser permissions.
 
 For a normal recording, use the **Record** menu or transport recording action.
 
+Before starting a long recording, use **View → Zoom → Zoom out** until the ruler
+shows the minutes of blank space you want. Recording keeps that scale, and its
+cursor continues moving as new audio arrives. Right-click the timeline ruler
+and enable **Scroll view to playhead** to follow the cursor beyond the visible
+area; turn off **Pinned playhead** if you prefer the cursor to move across it.
+
 For multitrack routing, choose **View → Enable multi-track recording**, arm the
 tracks you want to record, and assign an input to each armed track. Recording
 will not start when no available input is assigned.

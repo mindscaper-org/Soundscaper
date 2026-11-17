@@ -237,9 +237,12 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		createStableId,
 		createAddSourceCommand,
 		preparePunchCommand,
-		preparePunchSequence: async (project, segments) => (
-			(await import('./internal/recording-punch-sequence.js')).prepareRecordingPunchSequence(project, segments)
-		),
+		preparePunchSequence: async (project, segments) => {
+			const { prepareRecordingPunchSequence } = await import('./internal/recording-punch-sequence.ts');
+			const current = document.get();
+			if (!current || current !== project) throw abortError();
+			return prepareRecordingPunchSequence(current, segments, dependencies.projectRuntime.applyCommand);
+		},
 		activateStoredSource: async (source, metadata) => { await dependencies.activateStoredSource(source, metadata); },
 		commitBatch: (project, commands, selection) => {
 			if (project !== document.get()) throw abortError();

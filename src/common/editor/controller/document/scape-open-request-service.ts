@@ -4,15 +4,19 @@ import type { EditorControllerLifetime } from '../shared/lifecycle.ts';
 import type { ScapeProjectInput } from '../../scape-project-input.ts';
 import type { ProjectRecoveryChange } from '../../project-recovery-reason.ts';
 import { withProjectOpenRecovery } from './project-open-recovery.ts';
+import { hasMatchingScapeProjectDigests, isScapeProjectReopenConflict } from '../../scape-project-reopen.ts';
 
 export const SCAPE_OPEN_REQUEST_TASK = 'scape-open-request';
 
 export type ScapeCollisionChoice = 'copy' | 'replace' | 'cancel';
+export type ScapeOpenMode = Exclude<ScapeCollisionChoice, 'cancel'> | 'reuse';
 export type ScapeOpenDecisionChoice = ScapeCollisionChoice | 'open-read-only' | 'copy-read-only';
 export type ScapeOpenDecisionKind = 'compatibility' | 'collision' | 'compatibility-collision' | 'recovery';
 
 export interface ScapeOpenInspection {
 	readonly exists: boolean;
+	readonly projectCanonicalSha256?: string | null;
+	readonly existingProjectCanonicalSha256?: string | null;
 	readonly featureRequirementsCompatibility?: Readonly<{ compatible: boolean }> | null;
 	readonly recoveryChanges?: readonly ProjectRecoveryChange[];
 	readonly [name: string]: unknown;
@@ -42,7 +46,7 @@ export interface ScapeOpenRequestRuntime<Inspection extends ScapeOpenInspection,
 	readonly openScape: (
 		file: ScapeProjectInput,
 		options: Readonly<{
-			collision: Exclude<ScapeCollisionChoice, 'cancel'>;
+			collision: ScapeOpenMode;
 			recover?: boolean;
 			signal: AbortSignal;
 		}>,
@@ -68,15 +72,15 @@ export function createScapeOpenRequestService<
 			const signal = snapshot.signal
 				? AbortSignal.any([task.signal, snapshot.signal])
 				: task.signal;
-			const ownedOptions = Object.freeze({ ...snapshot, recover: false, signal });
+			const ownedOptions = Object.freeze({ ...snapshot, canonicalProjectDigest: 'reopen' as const, recover: false, signal });
 			throwIfAborted(signal);
 			let recoveryAttempted = false;
-			const openInspected = async (inspected: Inspection): Promise<Result | typeof CANCELLED> => {
-				let collision: Exclude<ScapeCollisionChoice, 'cancel'> = 'copy';
+			const openInspected = async (inspected: Inspection, allowReuse = true): Promise<Result | typeof CANCELLED> => {
 				recoveryAttempted ||= Boolean(inspected.recoveryChanges?.length);
 				throwIfAborted(signal);
 				task.assertCurrent();
-				const kind = getOpenDecisionKind(inspected);
+				const kind = getOpenDecisionKind(inspected, allowReuse);
+				let collision: ScapeOpenMode = kind === null && inspected.exists ? 'reuse' : 'copy';
 				if (kind !== null) {
 					const choice = await awaitWithSignal(requestOpenDecision(Object.freeze({ kind, file, inspected, signal })), signal);
 					throwIfAborted(signal);
@@ -84,9 +88,14 @@ export function createScapeOpenRequestService<
 					if (choice === 'cancel') return CANCELLED;
 					collision = resolveOpenDecision(kind, choice);
 				}
-				const result = await awaitWithSignal(runtime.openScape(file, Object.freeze({
-					collision, signal, recover: recoveryAttempted,
-				})), signal);
+				let result: Result;
+				try {
+					result = await awaitWithSignal(runtime.openScape(file, Object.freeze({ collision, signal, recover: recoveryAttempted })), signal);
+				} catch (error) {
+					if (collision !== 'reuse' || !isScapeProjectReopenConflict(error)) throw error;
+					throwIfAborted(signal); task.assertCurrent();
+					return openInspected(await awaitWithSignal(runtime.inspectScape(file, ownedOptions), signal), false);
+				}
 				throwIfAborted(signal);
 				task.assertCurrent();
 				return result;
@@ -110,11 +119,11 @@ export function createScapeOpenRequestService<
 	}
 }
 
-function getOpenDecisionKind(inspected: ScapeOpenInspection): ScapeOpenDecisionKind | null {
+function getOpenDecisionKind(inspected: ScapeOpenInspection, allowReuse: boolean): ScapeOpenDecisionKind | null {
 	const incompatible = inspected.featureRequirementsCompatibility?.compatible === false;
 	if (incompatible) return inspected.exists ? 'compatibility-collision' : 'compatibility';
 	if (inspected.recoveryChanges?.length) return 'recovery';
-	return inspected.exists ? 'collision' : null;
+	return inspected.exists && !(allowReuse && hasMatchingScapeProjectDigests(inspected)) ? 'collision' : null;
 }
 
 function resolveOpenDecision(

@@ -55,10 +55,6 @@ test.describe('damaged local project recovery', () => {
 				const chooser = page.waitForEvent('filechooser');
 				await chooseFileAction(page, editor, 'Open');
 				await (await chooser).setFiles({ name: 'damaged.scape', mimeType: 'application/vnd.soundscaper.scape+zip', buffer: bytes });
-				if (damage === 'corrupt audio') {
-					await page.getByRole('dialog', { name: 'Project already exists', exact: true })
-						.getByRole('button', { name: 'Open as copy', exact: true }).click();
-				}
 			};
 			await open();
 			const recovery = page.getByRole('dialog', { name: 'Project recovery', exact: true });
