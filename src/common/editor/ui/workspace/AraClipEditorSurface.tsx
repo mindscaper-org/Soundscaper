@@ -3,7 +3,7 @@
 import { araFailureInfo, AraOperationError } from '../../ara-failure.ts'
 import { araFailureLabel } from './ara-failure-presentation.ts'
 import { EditorComponentCopyProvider } from '../EditorComponentCopyProvider.tsx'
-import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createRoot } from 'react-dom/client'
 import { DialogFooter } from '@soundscaper/design-system/Footer'
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx'
@@ -87,26 +87,27 @@ export function AraClipEditorDialog({ bridge, clipEditing, controller, copy: hos
 	const [discoveryBusy, setDiscoveryBusy] = useState(false)
 	const [error, setError] = useState<unknown>(null)
 	const [availability, setAvailability] = useState<NativePluginAvailability | null>(null)
-	const refresh = async (): Promise<void> => {
-		const [payload, registry] = await Promise.all([bridge.nativePluginAvailability(), bridge.listNativePlugins()])
-		setAvailability(payload)
-		setPlugins(registry.entries.filter((entry) => entry.format.toLowerCase() === 'vst3')
-			.flatMap((entry) => entry.installations.filter((installation) => !installation.quarantined)
-				.map((installation) => ({ installationId: installation.installationId,
-					label: `${entry.name} ${installation.version} — ${entry.vendor}` }))))
-	}
-	useEffect(() => {
-		let active = true
-		void Promise.all([bridge.nativePluginAvailability(), bridge.listNativePlugins()]).then(([payload, registry]) => {
-			if (!active) return
-			setAvailability(payload)
-			setPlugins(registry.entries.filter((entry) => entry.format.toLowerCase() === 'vst3')
+	const inventoryRequest = useRef(0)
+	const refresh = useCallback(async (): Promise<void> => {
+		const request = ++inventoryRequest.current
+		try {
+			const [payload, registry] = await Promise.all([bridge.nativePluginAvailability(), bridge.listNativePlugins()])
+			if (request !== inventoryRequest.current) return
+			const options = registry.entries.filter((entry) => entry.format.toLowerCase() === 'vst3')
 				.flatMap((entry) => entry.installations.filter((installation) => !installation.quarantined)
 					.map((installation) => ({ installationId: installation.installationId,
-						label: `${entry.name} ${installation.version} — ${entry.vendor}` }))))
-		}).catch((error: unknown) => { if (active) setError(error) })
-		return () => { active = false }
+						label: `${entry.name} ${installation.version} — ${entry.vendor}` })))
+			setAvailability(payload)
+			setPlugins(options)
+			setInstallationId(current => options.some(option => option.installationId === current) ? current : '')
+		} catch (failure) {
+			if (request === inventoryRequest.current) throw failure
+		}
 	}, [bridge])
+	useEffect(() => {
+		void refresh().catch(setError)
+		return () => { inventoryRequest.current += 1 }
+	}, [refresh])
 	useEffect(() => {
 		const unsubscribe = controller.subscribe(() => { void session.reconcile() })
 		return () => { unsubscribe(); void session.dispose().catch(() => undefined) }
@@ -126,12 +127,25 @@ export function AraClipEditorDialog({ bridge, clipEditing, controller, copy: hos
 		}
 		await bridge.applyNativeTierControl({ action: 'set-native-effect-discovery-enabled', enabled: true })
 		await bridge.setNativePluginConsent({ format: 'vst3', action: 'grant' })
-		if (custom) await bridge.setNativePluginConsent({ format: 'vst3', action: 'add-custom-root' })
+		if (custom) {
+			const outcome = await bridge.setNativePluginConsent({ format: 'vst3', action: 'add-custom-root' })
+			if (outcome && typeof outcome === 'object' && 'status' in outcome) {
+				if (outcome.status === 'declined') return
+				if (outcome.status === 'admitted' && 'root' in outcome && outcome.root && typeof outcome.root === 'object'
+					&& 'rootId' in outcome.root && typeof outcome.root.rootId === 'string') {
+					await bridge.scanNativePlugins({ format: 'vst3', rootId: outcome.root.rootId })
+					await refresh()
+					return
+				}
+				if (outcome.status === 'refused' && 'message' in outcome) throw new Error(String(outcome.message))
+			}
+			throw new AraOperationError('discovery-failed', copy.discoveryFailed)
+		}
 		const payload = await bridge.nativePluginAvailability()
 		const format = payload.consent.formats.find((format) => format.format.toLowerCase() === 'vst3')
 		for (const root of format?.roots ?? []) {
-			if (!root.admitted && !custom) await bridge.setNativePluginConsent({ format: 'vst3', action: 'add-standard-root', rootId: root.rootId })
-			if (root.admitted || !custom) await bridge.scanNativePlugins({ format: 'vst3', rootId: root.rootId })
+			if (!root.admitted) await bridge.setNativePluginConsent({ format: 'vst3', action: 'add-standard-root', rootId: root.rootId })
+			await bridge.scanNativePlugins({ format: 'vst3', rootId: root.rootId })
 		}
 		await refresh()
 	}

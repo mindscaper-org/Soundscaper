@@ -51,3 +51,16 @@ for (const [productId, createProductItems] of [
 		assert.equal(disabled?.onClick, undefined);
 	});
 }
+
+test('Soundscaper ARA is unavailable when the focused audio clip is part of a multi-clip selection', () => {
+	const items = createSoundscaperProductItems({ productId: 'soundscaper',
+		project: { ...project, selection: { clipIds: ['clip', 'second-clip'] },
+			clips: [...project.clips, { ...project.clips[0]!, id: 'second-clip', timelineStartFrame: 48_000 }],
+			tracks: [{ ...project.tracks[0]!, clipIds: ['clip', 'second-clip'] }] },
+		snapshot: { selectedClipId: 'clip' }, editBlocked: false, copy: {},
+		actions: { araClipEditing: { open: () => assert.fail('The single-clip effect must not open.') } },
+	}).effect;
+	const ara: MenuItem | undefined = items.find(item => item.id === 'ara-clip-editor');
+	assert.equal(ara?.disabled, true);
+	assert.equal(ara?.onClick, undefined);
+});
