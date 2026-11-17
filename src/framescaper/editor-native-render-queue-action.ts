@@ -57,6 +57,7 @@ export { FRAMESCAPER_NATIVE_MEDIA_RENDER_QUEUE_RESERVATIONS } from './editor-nat
 
 export interface FramescaperNativeRenderQueueProjectOwnerNativeMedia {
 	readonly project: unknown;
+	readonly captureProjectGeneration?: () => Readonly<{ generation: number; projectId: string }>;
 	readonly prepareNativeRenderInputStreamNativeMedia?: (request: Readonly<{
 		readonly planPayload: string;
 		readonly planFingerprint: string;

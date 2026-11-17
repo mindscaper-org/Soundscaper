@@ -13,8 +13,10 @@ import {
 	hasFramescaperNativeCarrierRegeneration,
 	isFramescaperNativeProjectActionRuntime,
 	runFramescaperNativeCarrierRegeneration,
+	type FramescaperNativeProjectActionResult,
 	type FramescaperNativeProjectActionRuntime,
 } from '../common/editor/ui/framescaper-native-project-actions.ts';
+import type { EditorProjectToken } from '../common/editor/controller/shared/lifecycle.ts';
 import type { FramescaperNativeServicesBridge } from '../common/editor/ui/framescaper-native-services-bridge.ts';
 import {
 	createFramescaperControllerFoundationViewAssistance,
@@ -112,9 +114,8 @@ export function bindDeferredFramescaperNativeRenderQueueActionNativeMedia(
 	}
 	const loadAction = retryableRenderQueueActionLoader(profile, owner, loadModule);
 	const runtime = createFramescaperNativeProjectActionSubsetRuntime(RENDER_QUEUE_SURFACES, {
-		'render-queue-enqueue': async (request) => {
-			return await (await loadAction()).run('render-queue-enqueue', request);
-		},
+		'render-queue-enqueue': request => runDeferredProjectAction(owner, loadAction,
+			action => action.run('render-queue-enqueue', request)),
 	});
 	bindFramescaperNativeCarrierRegeneration(runtime, async (jobId) => {
 		await runFramescaperNativeCarrierRegeneration(await loadAction(), jobId);
@@ -138,9 +139,8 @@ export function bindDeferredFramescaperNativeImageSequenceActionNativeMedia(
 	}
 	const loadAction = retryableImageSequenceActionLoader(options, loadModule);
 	const deferred = createFramescaperNativeProjectActionSubsetRuntime(IMAGE_SEQUENCE_SURFACES, {
-		'image-sequence-import': async (request) => {
-			return await (await loadAction()).run('image-sequence-import', request);
-		},
+		'image-sequence-import': request => runDeferredProjectAction(options.owner, loadAction,
+			action => action.run('image-sequence-import', request)),
 	});
 	const runtime = composeFramescaperNativeProjectActionRuntimes([existing, deferred]);
 	bindFramescaperNativeProjectActionRuntime(options.owner, runtime);
@@ -160,9 +160,8 @@ export function bindDeferredFramescaperNativeOpenFxActionNativeMedia(
 	if (existing.surfaces.includes('ofx-add')) throw new Error('Selected nativeMedia OpenFX authoring is already bound.');
 	const loadAction = retryableOpenFxActionLoader(options, loadModule);
 	const deferred = createFramescaperNativeProjectActionSubsetRuntime(OPEN_FX_SURFACES, {
-		'ofx-add': async (request) => {
-			await (await loadAction()).actionRuntime.run('ofx-add', request);
-		},
+		'ofx-add': request => runDeferredProjectAction(options.owner, loadAction,
+			action => action.actionRuntime.run('ofx-add', request)),
 	});
 	const authoringRuntime: FramescaperNativeOpenFxAuthoringRuntimeNativeMedia = {
 		model: async () => (await loadAction()).authoringRuntime.model(),
@@ -179,6 +178,24 @@ export function bindDeferredFramescaperNativeOpenFxActionNativeMedia(
 	bindFramescaperNativeProjectActionRuntime(options.owner, runtime);
 	bindRegisteredOpenFxAuthoringRuntime(options.owner, authoringRuntime);
 	return runtime;
+}
+
+async function runDeferredProjectAction<Action>(
+	owner: Readonly<{ captureProjectGeneration?: () => EditorProjectToken }>,
+	load: () => Promise<Action>,
+	run: (action: Action) => Promise<FramescaperNativeProjectActionResult>,
+): Promise<FramescaperNativeProjectActionResult> {
+	const origin = owner.captureProjectGeneration?.();
+	const action = await load();
+	if (origin) {
+		let current: EditorProjectToken | undefined;
+		try { current = owner.captureProjectGeneration?.(); }
+		catch { return Object.freeze({ cancelled: true }); }
+		if (current?.generation !== origin.generation || current.projectId !== origin.projectId) {
+			return Object.freeze({ cancelled: true });
+		}
+	}
+	return run(action);
 }
 
 /** Install every controller-local selected-baseline runtime on the real assistance owner. */
