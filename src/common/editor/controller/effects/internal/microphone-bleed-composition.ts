@@ -22,13 +22,13 @@ export function createMicrophoneBleedAction(deps: EffectsCompositionDependencies
 			task.setCancellation(() => cancellation.abort(new DOMException('Microphone-bleed reduction was cancelled.', 'AbortError')));
 			return createMicrophoneBleedService({
 				lifetime: deps.lifetime, copy: deps.copy, getProject: () => {
-					const current = deps.getProject() ?? project;
+					const current = deps.getCommandProject();
 					return { id: current.id, revision: current.revision,
 						tracks: current.tracks.map(track => ({ id: track.id, type: track.type, locked: track.locked,
 							audioFreeze: track.audioFreeze, clipIds: track.clipIds })),
 						clips: current.clips.map(clip => ({ id: clip.id, sourceId: clip.sourceId, kind: clip.kind,
 							timelineStartFrame: Number(clip.timelineStartFrame), durationFrames: Number(clip.durationFrames),
-							envelope: clip.envelope?.map(point => ({ frame: Number(point.frame), value: Number(point.value) })) })),
+							envelope: Array.isArray(clip.envelope) ? clip.envelope.map((point: { readonly frame: unknown; readonly value: unknown }) => ({ frame: Number(point.frame), value: Number(point.value) })) : undefined })),
 					};
 				},
 				captureProject: () => token, assertProject: value => deps.projectGeneration.assertCurrent(value),
