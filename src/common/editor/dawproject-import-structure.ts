@@ -155,7 +155,9 @@ export function walkTrack(track: DawprojectTrack, parentFolderId: string | null,
 	}
 	if (role === 'submix' || role === 'effect') {
 		const id = build.createStableId(role === 'submix' ? 'group-bus' : 'send-bus');
-		(role === 'submix' ? build.groups : build.sends).push(strip(id, track.name || (role === 'submix' ? 'Group' : 'Send'), channel!, build, track.loaded === false));
+		const strips = role === 'submix' ? build.groups : build.sends;
+		const fallbackName = `${role === 'submix' ? 'Group' : 'Send'} ${String(strips.length + 1)}`;
+		strips.push(strip(id, track.name.trim() || fallbackName, channel!, build, track.loaded === false));
 		if (channel!.id) {
 			build.stripByChannelId.set(channel!.id, { kind: role === 'submix' ? 'group' : 'send', id });
 			build.busByChannelId.set(channel!.id, id);
