@@ -88,6 +88,29 @@ test('canceling a shortcut import leaves the existing bindings unchanged', async
 	await expect(mono.getByRole('textbox').first()).toHaveValue(original);
 });
 
+test('an Audacity shortcut file can be canceled while it is still being read', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	const preferences = await openShortcutPreferences(page, editor);
+	await page.evaluate(() => {
+		const original = File.prototype.text;
+		File.prototype.text = function () {
+			if (this.name !== 'pending-audacity.xml') return original.call(this);
+			return new Promise((resolve, reject) => {
+				globalThis.releaseAudacityShortcutRead = () => original.call(this).then(resolve, reject);
+			});
+		};
+	});
+	await chooseShortcutExport(page, preferences, EXPORTS[0].xml, 'pending-audacity.xml');
+	await page.waitForFunction(() => typeof globalThis.releaseAudacityShortcutRead === 'function');
+	await preferences.locator('[aria-busy="true"]').getByRole('button', { name: 'Cancel', exact: true }).click({ timeout: 5000 });
+	const importButton = preferences.getByRole('button', { name: 'Import Audacity shortcuts', exact: true });
+	await expect(importButton).toBeFocused();
+	await page.evaluate(async () => { await globalThis.releaseAudacityShortcutRead(); });
+	await expect(preferences.getByRole('region', { name: 'Audacity shortcut import', exact: true })).toHaveCount(0);
+	await chooseShortcutExport(page, preferences, EXPORTS[1].xml);
+	await expect(preferences.getByRole('button', { name: 'Apply shortcuts', exact: true })).toBeEnabled();
+});
+
 test('malformed shortcut XML reports an error and preserves the saved shortcut', async ({ page }) => {
 	let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	let preferences = await openShortcutPreferences(page, editor);
