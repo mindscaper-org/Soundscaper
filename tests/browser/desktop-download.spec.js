@@ -167,6 +167,18 @@ test('download pages are accessible in light and dark mode', async ({ page, cont
 	}
 });
 
+test('enterprise MSI downloads are available through Other downloads on Windows', async ({ page, context }) => {
+	await context.setExtraHTTPHeaders({ 'Sec-CH-UA-Platform': '"Windows"', 'Sec-CH-UA-Arch': '"x86"', 'Sec-CH-UA-Bitness': '"64"' });
+	await mockDownloadPage(context, 'Soundscaper', ['win-x64.exe', 'win-x64.msi']);
+	await page.goto('https://soundscaper.org/download/');
+	await expect(page.getByRole('link', { name: 'Windows x64 installer', exact: true })).toBeVisible();
+	const msi = page.getByRole('link', { name: 'Windows x64 installer (MSI)', exact: true });
+	await expect(msi).toBeHidden();
+	await page.getByText('Other downloads', { exact: true }).click();
+	await expect(msi).toBeVisible();
+	await expect(msi).toHaveAttribute('href', /-win-x64\.msi$/u);
+});
+
 async function mockDownloadPage(context, product, targets = ['win-x64.exe', 'mac-arm64.pkg', 'mac-arm64.dmg', 'linux-arm64.AppImage']) {
 	const id = product.toLowerCase();
 	const origin = `https://${id}.org`;

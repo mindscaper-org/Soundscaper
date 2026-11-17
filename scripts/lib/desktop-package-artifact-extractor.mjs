@@ -15,6 +15,7 @@ import { parseReleaseVersion } from '../../src/common/release/release-version.ts
 
 import { auditExtractedDesktopPackageContent } from './desktop-package-content-manifest.mjs';
 import { extractPkgApplication } from './desktop-pkg-extraction.mjs';
+import { extractMsiApplication } from './desktop-msi-extraction.mjs';
 
 const executeFile = promisify(execFile);
 const MAXIMUM_TOOL_OUTPUT = 1024 * 1024;
@@ -33,6 +34,11 @@ export async function auditDesktopPackageArtifactContent({
 	assertFormatTarget(extension, targetId);
 	const temporaryRoot = await realpath(await mkdtemp(join(tmpdir(), 'm5-package-extract-')));
 	try {
+		if (extension === '.msi') {
+			const payloadRoot = await extractMsiApplication({ artifact, extractedRoot: join(temporaryRoot, 'content'), sevenZip: await sevenZipExecutable(root), productId });
+			return await auditExtractedDesktopPackageContent({ extractedRoot: payloadRoot, packageFormat: extension,
+				runtimeManifestBytes, productId, targetId }, dependencies);
+		}
 		if (extension === '.pkg') {
 			const payloadRoot = await extractPkgApplication({
 				artifact, extractedRoot: join(temporaryRoot, 'content'), productId, targetId,
@@ -389,7 +395,7 @@ async function run(command, args, label, { execute = executeFile } = {}) {
 function assertFormatTarget(extension, targetId) {
 	const allowed = targetId.startsWith('linux-')
 		? ['.appimage', '.deb']
-		: targetId.startsWith('win-') ? ['.exe', '.zip', '.appx'] : ['.dmg', '.pkg'];
+		: targetId.startsWith('win-') ? ['.exe', '.zip', '.appx', '.msi'] : ['.dmg', '.pkg'];
 	if (!allowed.includes(extension)) {
 		throw new Error(`The desktop package format ${extension || '<none>'} does not match ${targetId}.`);
 	}

@@ -47,7 +47,7 @@ export default async function verifyReleaseArtifacts(context, dependencies = {})
 		}
 	}
 	if (platform === 'win32' && ['azure', 'certificate'].includes(env.SCAPE_WIN_SIGNING)) {
-		const installers = context.artifactPaths.filter(path => path.endsWith('.exe'));
+		const installers = context.artifactPaths.filter(path => /\.(?:exe|msi)$/u.test(path));
 		if (installers.length === 0) throw new Error('Signed Windows release produced no installer.');
 		for (const artifact of installers) {
 			await executeFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-File',

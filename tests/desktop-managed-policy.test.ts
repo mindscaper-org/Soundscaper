@@ -1,8 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { resolveManagedPolicy } from '../desktop/managed-policy.ts';
 import { enforceManagedIpc, managedFetch, managedRequestAllowed } from '../desktop/managed-network-policy.ts';
+import { DesktopSettingsStore } from '../desktop/settings.js';
 
 test('machine policy wins per value, and the online master overrides feature permissions', () => {
 	const policy = resolveManagedPolicy({ machine: { OnlineFeaturesAllowed: 0, FreesoundAllowed: 1 },
@@ -48,4 +52,25 @@ test('request filtering preserves local application assets and restricts remote 
 	assert.equal(managedRequestAllowed(policy, 'https://soundscaper.org/api/freesound/preview'), false);
 	assert.equal(managedRequestAllowed(policy, 'https://soundscaper.org/api/audiocom/media'), true);
 	assert.equal(managedRequestAllowed(resolveManagedPolicy({ machine: { OnlineFeaturesAllowed: 0 } }), 'https://example.org'), false);
+});
+
+test('desktop presets reset selected saved values on relaunch and retain unrelated user preferences', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-managed-settings-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const path = join(root, 'settings.json');
+	const saved = new DesktopSettingsStore(path);
+	await saved.load(['en']);
+	await saved.setLocale('fr');
+	await saved.setUpdatesEnabled(false);
+	await saved.setNativeAudioHelperEnabled(true);
+	const policy = resolveManagedPolicy({ machine: { LaunchPreferences: '{"schemaVersion":1,"desktop":{"locale":"de"}}' } });
+	for (let launch = 0; launch < 2; launch++) {
+		const settings = new DesktopSettingsStore(path);
+		await settings.load(['en'], policy.desktopPreferences);
+		assert.equal(settings.snapshot().locale, 'de');
+		assert.equal(settings.snapshot().updatesEnabled, false);
+		assert.equal(settings.snapshot().nativeAudioHelperEnabled, true);
+		await settings.setLocale('fr');
+		assert.equal(settings.snapshot().locale, 'fr');
+	}
 });
