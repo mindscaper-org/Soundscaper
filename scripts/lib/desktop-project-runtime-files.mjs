@@ -3,6 +3,7 @@
 /** Shared project authorities shipped in the compiled desktop runtime. */
 export const DESKTOP_PROJECT_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/adm-strip-existence.js',
+	'src/common/editor/alternative-source-references.js',
 	'src/common/editor/audio-warp-source-window.js',
 	'src/common/editor/clip-source-stretch-memory.js',
 	'src/common/editor/clip-source-timing.js',
@@ -15,8 +16,8 @@ export const DESKTOP_PROJECT_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/frozen-record-id-index.js',
 	'src/common/editor/midi-file-types.js',
 	'src/common/editor/midi-model.js',
-	'src/common/editor/midi-playlist-sources.js',
 	'src/common/editor/midi-native-instrument.js',
+	'src/common/editor/midi-playlist-sources.js',
 	'src/common/editor/project-audio-warp-validation.js',
 	'src/common/editor/project-bext-metadata.js',
 	'src/common/editor/project-command-musical-labels.js',
@@ -53,10 +54,9 @@ export const DESKTOP_PROJECT_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/storage/project-recovery-repository.js',
 	'src/common/editor/subprojects.js',
 	'src/common/editor/take-group-source-references.js',
-	'src/common/editor/alternative-source-references.js',
 	'src/common/editor/track-display-mode.js',
-	'src/common/editor/track-playlist-media.js',
 	'src/common/editor/track-playlist-av-links.js',
+	'src/common/editor/track-playlist-media.js',
 	'src/common/editor/track-playlists.js',
 	'src/common/editor/video-export-project-snapshot.js',
 ]);
