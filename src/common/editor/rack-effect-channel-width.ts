@@ -28,6 +28,21 @@ export function rackEffectChannelCount(project: RackChannelProject, scope: strin
 	return createRackWidthReader(project)(scope, targetId);
 }
 
+/** A prepared processor consumes the output of its predecessors, before later wideners. */
+export function rackEffectInputChannelCount(project: RackChannelProject, scope: string, targetId: string | null, effectId: unknown): number {
+	const owner = rackOwner(project, scope, targetId), empty = { ...owner, effects: [] };
+	let stripped: RackChannelProject;
+	if (scope === 'clip') stripped = { ...project, clips: project.clips?.map(clip => clip.id === targetId ? { ...clip, ...empty } : clip) };
+	else if (scope === 'track') stripped = { ...project, tracks: project.tracks?.map(track => track.id === targetId ? { ...track, ...empty } : track) };
+	else if (scope === 'master') stripped = { ...project, master: empty };
+	else {
+		const key = scope === 'group' ? 'groups' : 'sends';
+		stripped = { ...project, mixer: { ...project.mixer, [key]: project.mixer?.[key]?.map(bus => bus.id === targetId ? { ...bus, ...empty } : bus) } };
+	}
+	const effects = owner?.effects ?? [], index = effects.findIndex(effect => effect.id === effectId);
+	return rackSignalChannelCount({ ...owner, effects: effects.slice(0, index < 0 ? effects.length : index) }, rackEffectChannelCount(stripped, scope, targetId));
+}
+
 function createRackWidthReader(project: RackChannelProject): (scope: string, targetId: string | null) => number {
 	const production = hasProductionMixerProjectAuthority(project)
 		|| (isMixerGraphV21Surface(project.mixer) && Array.isArray(project.automationLanes));

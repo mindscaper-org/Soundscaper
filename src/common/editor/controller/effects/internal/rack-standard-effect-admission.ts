@@ -6,7 +6,7 @@ import { standardEffectStateBytes } from '../../../first-party-effects/standard/
 import { autoTuneRealtimeGeometry } from '../../../first-party-effects/auto-tune/realtime-contract.ts';
 import { aiDenoiseRackGeometry } from '../../../first-party-effects/ai-denoise/contract.ts';
 import { STEREO_LIMITED_RENDER_EFFECT_TYPES } from '../../../adm-render-safety.ts';
-import { rackEffectChannelCount, rackEffectsActive, unavailableRackEffectTypes } from '../../../rack-effect-channel-width.ts';
+import { rackEffectInputChannelCount, rackEffectsActive, unavailableRackEffectTypes } from '../../../rack-effect-channel-width.ts';
 import type { CommandObject } from '../../../commands/protocol.ts';
 import type { ControllerRackEffect, RackEffectProject, RackEffectScope } from './rack-effect-service-types.ts';
 
@@ -18,16 +18,16 @@ export function assertStandardRackEffectConfiguration(project: RackEffectProject
 		throw new RangeError(unsupportedMessage);
 	}
 	if (effect.type === 'ai-denoise') {
-		aiDenoiseRackGeometry(project.sampleRate ?? engineSampleRate ?? 48000, rackEffectChannelCount(project, scope, targetId));
+		aiDenoiseRackGeometry(project.sampleRate ?? engineSampleRate ?? 48000, rackEffectInputChannelCount(project, scope, targetId, effect.id));
 		return;
 	}
 	if (effect.type === 'auto-tune') {
-		autoTuneRealtimeGeometry(project.sampleRate ?? engineSampleRate ?? 48000, rackEffectChannelCount(project, scope, targetId));
+		autoTuneRealtimeGeometry(project.sampleRate ?? engineSampleRate ?? 48000, rackEffectInputChannelCount(project, scope, targetId, effect.id));
 		return;
 	}
 	if (!isStandardEffect(effect.type)) return;
 	const normalized = normalizeEffect(effect) as ControllerRackEffect;
-	const channels = rackEffectChannelCount(project, scope, targetId);
+	const channels = rackEffectInputChannelCount(project, scope, targetId, effect.id);
 	standardEffectStateBytes(effect.type, normalized.params, project.sampleRate ?? engineSampleRate ?? 48000, channels);
 }
 
