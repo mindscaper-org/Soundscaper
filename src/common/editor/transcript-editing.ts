@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { AssistanceTranscript } from './assistance/transcript.ts';
-import { resolveRuntimeProjectProjection, type RuntimeClipProject } from './runtime-clip-projection.ts';
+import { resolveRuntimeProjectProjection, type RuntimeClipProject, type RuntimeClipProjection } from './runtime-clip-projection.ts';
 import { evaluateAudioWarpMapAtSource } from './audio-warp-domain.ts';
 import { addRationals, beatToSampleFrame, roundRational, scaleSampleFrame, type RationalInput } from './timeline-time.ts';
 import { readClipLoop } from './audio-clip-loop.ts';
@@ -61,20 +61,47 @@ export function transcriptEditingProject(value: unknown) {
 		id: project.id, revision: Number(project.revision), sampleRate: Number(project.sampleRate) };
 }
 
+type EditingProject = ReturnType<typeof transcriptEditingProject>;
+
 /** Source text stays immutable; the current occurrences determine what is visible. */
 export function projectTranscriptWords(value: unknown, bodies: readonly TranscriptEditingBody[]): readonly TranscriptEditingWord[] {
 	const project = transcriptEditingProject(value);
-	const sources = new Map(records(project.sources).map(source => [source.id, source]));
+	const sources = new Map(project.sources.map(source => [source.id, source]));
+	return projectWords(project, sources, indexAudioOccurrences(project), bodies);
+}
+
+export function projectTranscriptContents(project: EditingProject, bodies: readonly TranscriptEditingBody[],
+	missingSources: ReadonlySet<string> = new Set()) {
+	const sources = new Map(project.sources.map(source => [source.id, source]));
+	const audioClipsByTrack = indexAudioOccurrences(project);
+	return {
+		words: projectWords(project, sources, audioClipsByTrack, bodies),
+		targets: generationTargets(sources, audioClipsByTrack, missingSources),
+	};
+}
+
+function projectWords(project: EditingProject, sources: ReadonlyMap<unknown, RecordValue>,
+	audioClipsByTrack: ReadonlyMap<RecordValue, readonly RuntimeClipProjection[]>,
+	bodies: readonly TranscriptEditingBody[]): readonly TranscriptEditingWord[] {
 	const words: TranscriptEditingWord[] = [];
-	for (const track of records(project.tracks)) {
-		if (track.type !== 'audio' || !Array.isArray(track.clipIds)) continue;
-		const ids = new Set(track.clipIds);
-		for (const clip of project.clips) {
-			if (clip.kind !== 'audio' || !ids.has(clip.id) || typeof clip.id !== 'string') continue;
+	if (!bodies.length) return words;
+	const bodiesBySource = new Map<string, TranscriptEditingBody[]>();
+	for (const body of bodies) {
+		const group = bodiesBySource.get(body.transcript.sourceId);
+		if (group) group.push(body);
+		else bodiesBySource.set(body.transcript.sourceId, [body]);
+	}
+	for (const [track, clips] of audioClipsByTrack) {
+		const trackId = String(track.id), trackName = typeof track.name === 'string' ? track.name : '', locked = track.locked === true;
+		for (const clip of clips) {
+			const matchingBodies = typeof clip.sourceId === 'string' ? bodiesBySource.get(clip.sourceId) : undefined;
+			if (!matchingBodies || typeof clip.id !== 'string') continue;
 			const source = sources.get(clip.sourceId);
 			if (!source || !Number.isSafeInteger(source.sampleRate) || !Number.isSafeInteger(source.frameCount)) continue;
 			const sourceRate = Number(source.sampleRate);
 			const loop = readClipLoop(clip);
+			const cycles = loop ? Math.ceil((clip.durationFrames + loop.offsetFrames) / loop.periodFrames) : 1;
+			const reversed = clip.reversed === true;
 			const map = (frame: number, policy: 'enclosingStart' | 'enclosingEnd'): number => {
 				if (clip.warpMap != null) {
 					const outer = evaluateAudioWarpMapAtSource(clip.warpMap, frame);
@@ -82,12 +109,12 @@ export function projectTranscriptWords(value: unknown, bodies: readonly Transcri
 						? beatToSampleFrame(addRationals(clip.musicalStartBeat as RationalInput, outer), project.tempoMap!, project.sampleRate, policy === 'enclosingStart' ? 'enclosingStart' : 'enclosingEnd') - clip.timelineStartFrame
 						: roundRational(outer.num, outer.den, policy === 'enclosingStart' ? 'enclosingStart' : 'enclosingEnd');
 				}
-				return scaleSampleFrame(clip.reversed === true ? clip.sourceEndFrame - frame : frame - clip.sourceStartFrame,
+				return scaleSampleFrame(reversed ? clip.sourceEndFrame - frame : frame - clip.sourceStartFrame,
 					clip.sourceDurationFrames, loop?.periodFrames ?? clip.durationFrames, policy === 'enclosingStart' ? 'enclosingStart' : 'enclosingEnd');
 			};
 			let covered: readonly TranscriptCoverageRange[] = [];
-			for (const body of bodies) {
-				if (body.transcript.sourceId !== clip.sourceId || body.transcript.sampleRate !== sourceRate) continue;
+			for (const body of matchingBodies) {
+				if (body.transcript.sampleRate !== sourceRate) continue;
 				// Admitted segments are disjoint within one body. Only higher-priority bodies can mask its words.
 				const bodyCoverage: TranscriptCoverageRange[] = [];
 				for (const [segmentIndex, segment] of body.transcript.segments.entries()) {
@@ -95,23 +122,21 @@ export function projectTranscriptWords(value: unknown, bodies: readonly Transcri
 					const end = Math.min(segment.endFrame, clip.sourceEndFrame);
 					if (end <= start) continue;
 					const timed = segment.words.length > 0 && segment.words.every(word => word.endFrame > word.startFrame);
-					const tokens = timed ? segment.words : [{ ...segment }];
+					const tokens = timed ? segment.words : [segment];
 					for (const [wordIndex, word] of tokens.entries()) {
 						const from = Math.max(word.startFrame, clip.sourceStartFrame);
 						const to = Math.min(word.endFrame, clip.sourceEndFrame);
 						if (to <= from || overlapsTranscriptCoverage(covered, from, to)) continue;
-						const localStart = map(clip.reversed === true ? to : from, 'enclosingStart');
-						const localEnd = map(clip.reversed === true ? from : to, 'enclosingEnd');
-						const cycles = loop ? Math.ceil((clip.durationFrames + loop.offsetFrames) / loop.periodFrames) : 1;
+						const localStart = map(reversed ? to : from, 'enclosingStart');
+						const localEnd = map(reversed ? from : to, 'enclosingEnd');
 						for (let cycle = 0; cycle < cycles; cycle += 1) {
 							const offset = loop ? cycle * loop.periodFrames - loop.offsetFrames : 0;
 							const startFrame = clip.timelineStartFrame + Math.max(0, Math.floor(localStart + offset));
 							const endFrame = clip.timelineStartFrame + Math.min(clip.durationFrames, Math.ceil(localEnd + offset));
 							if (endFrame <= startFrame) continue;
 							words.push({ id: JSON.stringify([clip.id, body.assetId, segmentIndex, wordIndex, cycle]),
-								text: word.text, speaker: segment.speaker, trackId: String(track.id),
-								trackName: typeof track.name === 'string' ? track.name : '', clipId: clip.id,
-								startFrame, endFrame, granularity: timed ? 'word' : 'segment', locked: track.locked === true });
+								text: word.text, speaker: segment.speaker, trackId, trackName, clipId: clip.id,
+								startFrame, endFrame, granularity: timed ? 'word' : 'segment', locked });
 						}
 					}
 					bodyCoverage.push({ start, end });
@@ -156,30 +181,68 @@ function mergeTranscriptCoverage(previous: readonly TranscriptCoverageRange[], c
 
 export function transcriptTextSelection(words: readonly TranscriptEditingWord[]) {
 	if (!words.length) return null;
-	return { startFrame: words.reduce((start, word) => Math.min(start, word.startFrame), Infinity),
-		endFrame: words.reduce((end, word) => Math.max(end, word.endFrame), 0),
-		trackIds: [...new Set(words.map(word => word.trackId))], clipIds: [...new Set(words.map(word => word.clipId))] };
+	let startFrame = Infinity, endFrame = 0;
+	const trackIds = new Set<string>(), clipIds = new Set<string>();
+	for (const word of words) {
+		startFrame = Math.min(startFrame, word.startFrame);
+		endFrame = Math.max(endFrame, word.endFrame);
+		trackIds.add(word.trackId);
+		clipIds.add(word.clipId);
+	}
+	return { startFrame, endFrame, trackIds: [...trackIds], clipIds: [...clipIds] };
 }
 
 export function transcriptAudioSelection(words: readonly TranscriptEditingWord[], selection: TranscriptAudioSelection | null | undefined) {
 	if (!selection || selection.endFrame <= selection.startFrame) return [];
+	const tracks = selection.trackIds?.length ? new Set(selection.trackIds) : null;
+	const clips = selection.clipIds?.length ? new Set(selection.clipIds) : null;
 	return words.filter(word => word.startFrame < selection.endFrame && word.endFrame > selection.startFrame
-		&& (!selection.trackIds?.length || selection.trackIds.includes(word.trackId))
-		&& (!selection.clipIds?.length || selection.clipIds.includes(word.clipId)));
+		&& (!tracks || tracks.has(word.trackId)) && (!clips || clips.has(word.clipId)));
 }
 
 /** Include muted and hidden audio: generation is about the project, not its mix. */
 export function transcriptGenerationTargets(value: unknown, missingSources: ReadonlySet<string> = new Set()): readonly TranscriptGenerationTarget[] {
 	const project = transcriptEditingProject(value);
 	const sources = new Map(project.sources.map(source => [source.id, source]));
-	return records(project.tracks).flatMap(track => {
-		if (track.type !== 'audio' || track.locked === true || !Array.isArray(track.clipIds)) return [];
-		const clipIds: readonly unknown[] = track.clipIds;
-		return project.clips.filter(clip => clip.kind === 'audio' && clipIds.includes(clip.id)
-			&& sources.has(clip.sourceId) && (sources.get(clip.sourceId)!.kind ?? 'audio') === 'audio'
-			&& !missingSources.has(String(clip.sourceId))).map(clip => ({ clipId: String(clip.id), trackId: String(track.id),
-			startFrame: clip.timelineStartFrame, endFrame: clip.timelineEndFrame }));
-	});
+	return generationTargets(sources, indexAudioOccurrences(project), missingSources);
+}
+
+function generationTargets(sources: ReadonlyMap<unknown, RecordValue>,
+	audioClipsByTrack: ReadonlyMap<RecordValue, readonly RuntimeClipProjection[]>,
+	missingSources: ReadonlySet<string>): readonly TranscriptGenerationTarget[] {
+	const targets: TranscriptGenerationTarget[] = [];
+	for (const [track, clips] of audioClipsByTrack) {
+		if (track.locked === true) continue;
+		const trackId = String(track.id);
+		for (const clip of clips) {
+			const source = sources.get(clip.sourceId);
+			if (source && (source.kind ?? 'audio') === 'audio' && !missingSources.has(String(clip.sourceId))) {
+				targets.push({ clipId: String(clip.id), trackId, startFrame: clip.timelineStartFrame, endFrame: clip.timelineEndFrame });
+			}
+		}
+	}
+	return targets;
+}
+
+function indexAudioOccurrences(project: EditingProject): ReadonlyMap<RecordValue, readonly RuntimeClipProjection[]> {
+	const byId = new Map<unknown, RuntimeClipProjection[][]>();
+	const byTrack = new Map<RecordValue, RuntimeClipProjection[]>();
+	for (const track of project.tracks) {
+		if (track.type !== 'audio' || !Array.isArray(track.clipIds) || !track.clipIds.length) continue;
+		const clips: RuntimeClipProjection[] = [];
+		byTrack.set(track, clips);
+		for (const id of new Set<unknown>(track.clipIds)) {
+			const destinations = byId.get(id);
+			if (destinations) destinations.push(clips);
+			else byId.set(id, [clips]);
+		}
+	}
+	for (const clip of project.clips) {
+		if (clip.kind !== 'audio') continue;
+		const destinations = byId.get(clip.id);
+		if (destinations) for (const clips of destinations) clips.push(clip);
+	}
+	return byTrack;
 }
 
 function record(value: unknown): RecordValue {

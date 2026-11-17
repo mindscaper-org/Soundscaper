@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { JSDOM } from 'jsdom';
-import { transcriptCaretWord } from '../src/common/editor/ui/workspace/transcript-dom-selection.ts';
+import { selectedTranscriptWords, transcriptCaretWord } from '../src/common/editor/ui/workspace/transcript-dom-selection.ts';
 import type { TranscriptEditingWord } from '../src/common/editor/transcript-editing.ts';
 
 test('transcript deletion resolves both sides of spaces and paragraph boundaries', context => {
@@ -30,4 +30,18 @@ test('transcript deletion resolves both sides of spaces and paragraph boundaries
 	assert.deepEqual(caret(root.firstChild!, 3), ['two', null]);
 	assert.deepEqual(caret(spans[0]!, 1), ['one', 'two']);
 	assert.deepEqual(caret(spans[1]!.firstChild!, 0), ['one', 'two']);
+});
+
+test('a selection inside one word skips the transcript-wide DOM query', context => {
+	const dom = new JSDOM('<div id="passage"><p><span data-transcript-word="one">First</span></p><p><span data-transcript-word="two">Second</span></p></div>');
+	context.after(() => dom.window.close());
+	const root = dom.window.document.querySelector<HTMLElement>('#passage')!;
+	const word = root.querySelector('[data-transcript-word="two"]')!;
+	const range = dom.window.document.createRange();
+	range.setStart(word.firstChild!, 1);
+	range.setEnd(word.firstChild!, 3);
+	dom.window.getSelection()!.addRange(range);
+	root.querySelectorAll = () => assert.fail('single-word selection must stay inside that word');
+	const words = [{ id: 'one' }, { id: 'two' }] as TranscriptEditingWord[];
+	assert.deepEqual(selectedTranscriptWords(root, words), [words[1]]);
 });

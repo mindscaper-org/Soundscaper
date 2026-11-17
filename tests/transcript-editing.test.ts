@@ -161,3 +161,12 @@ test('generation includes muted and hidden audio while excluding locked tracks a
 	assert.equal(transcriptGenerationTargets(p, new Set(['source-a'])).length, 0);
 	assert.equal(transcriptGenerationTargets({ ...p, sources: [{ ...p.sources[0], kind: 'midi' }] }).length, 0);
 });
+
+test('transcript targets index track membership while preserving clip document order', () => {
+	const clips = Array.from({ length: 64 }, (_, index) => ({ ...project().clips[0]!, id: `clip-${index}`, timelineStartFrame: index * 3_000 }));
+	const p = project(clips);
+	const clipIds = ['clip-55', 'clip-2', 'clip-55'];
+	Object.defineProperty(clipIds, 'includes', { value: () => assert.fail('clip membership must not scan the track for every clip') });
+	assert.deepEqual(transcriptGenerationTargets({ ...p, tracks: [{ ...p.tracks[0], clipIds }] }).map(target => target.clipId),
+		['clip-2', 'clip-55']);
+});

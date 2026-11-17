@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { resolveEditorCopyScope } from '../../../i18n/editor-copy-scope.ts';
 import { TRANSCRIPT_EDITING_COPY_BY_LOCALE } from '../../../i18n/editor-transcript-editing-copy.ts';
 import { transcriptAudioSelection, transcriptTextSelection, transcriptEditingGeometryKey, type TranscriptEditingWord } from '../../transcript-editing.ts';
@@ -7,7 +7,7 @@ import type { TranscriptEditingDocument } from '../../controller/composition/tra
 import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts';
 import { ProcessingButton as Button } from '../dialogs/ProcessingButton.tsx';
 import { centeredTimelinePlayheadScroll } from './timeline-navigation-geometry.js';
-import { selectedTranscriptWords, transcriptCaretWord } from './transcript-dom-selection.ts';
+import { findTranscriptWordElement, indexTranscriptWordPositions, selectedTranscriptWords, transcriptCaretWord } from './transcript-dom-selection.ts';
 import type { TranscriptPanelController, TranscriptPanelSnapshot } from './transcript-editing-panel-types.ts';
 import TranscriptGeneration from './TranscriptGeneration.tsx';
 import './TranscriptEditingPanel.css';
@@ -22,6 +22,7 @@ interface Props {
 }
 
 const EMPTY_WORDS: readonly TranscriptEditingWord[] = Object.freeze([]);
+const EMPTY_IDS: ReadonlySet<string> = new Set<string>();
 
 export default function TranscriptEditingPanel(props: Props) {
 	return <TranscriptEditingSurface key={props.snapshot.project?.id ?? ''} {...props} />;
@@ -42,18 +43,33 @@ function TranscriptEditingSurface({ controller, snapshot, copy, locale, fileServ
 	const generationRef = useRef(generation);
 	generationRef.current = generation;
 	const words = document?.words ?? EMPTY_WORDS;
-	const groups = new Map<string, TranscriptEditingWord[]>();
-	for (const word of words) {
-		const group = groups.get(word.clipId) ?? [];
-		group.push(word); groups.set(word.clipId, group);
-	}
+	const groups = useMemo(() => {
+		const byClip = new Map<string, TranscriptEditingWord[]>();
+		for (const word of words) {
+			const group = byClip.get(word.clipId);
+			if (group) group.push(word);
+			else byClip.set(word.clipId, [word]);
+		}
+		return Array.from(byClip.entries());
+	}, [words]);
+	const wordPositions = useMemo(() => indexTranscriptWordPositions(words), [words]);
+	const hasSegmentTiming = useMemo(() => words.some(word => word.granularity === 'segment'), [words]);
 	const projectId = snapshot.project?.id;
-	const geometry = transcriptEditingGeometryKey(snapshot.project);
+	const geometry = useMemo(() => transcriptEditingGeometryKey(snapshot.project), [snapshot.project]);
 	const disabled = blocked || snapshot.readOnly === true || removing || generation !== null;
-	const selected = transcriptAudioSelection(words, snapshot.project?.selection);
-	const selectedIds = new Set(selected.map(word => word.id));
-	const live = useRef({ document, words, disabled, selected });
-	live.current = { document, words, disabled, selected };
+	const selection = snapshot.project?.selection;
+	const selected = useMemo(() => transcriptAudioSelection(words, selection), [words, selection]);
+	const selectedByClip = useMemo(() => {
+		const byClip = new Map<string, Set<string>>();
+		for (const word of selected) {
+			const group = byClip.get(word.clipId);
+			if (group) group.add(word.id);
+			else byClip.set(word.clipId, new Set([word.id]));
+		}
+		return byClip;
+	}, [selected]);
+	const live = useRef({ words, wordPositions, disabled });
+	live.current = { words, wordPositions, disabled };
 
 	useEffect(() => {
 		let active = true;
@@ -85,7 +101,7 @@ function TranscriptEditingSurface({ controller, snapshot, copy, locale, fileServ
 		if (!element) return undefined;
 		const onSelection = () => {
 			if (live.current.disabled) return;
-			const chosen = selectedTranscriptWords(element, live.current.words);
+			const chosen = selectedTranscriptWords(element, live.current.words, live.current.wordPositions);
 			if (chosen.length) selectWords(chosen);
 		};
 		const onBeforeInput = (event: InputEvent) => {
@@ -103,15 +119,19 @@ function TranscriptEditingSurface({ controller, snapshot, copy, locale, fileServ
 		const request = pendingCaret.current, element = root.current;
 		if (!request || !element || loading || removing) return;
 		pendingCaret.current = null;
-		const onTrack = words.filter(word => word.trackId === request.trackId);
-		const target = request.direction === 'backward'
-			? [...onTrack].reverse().find(word => word.endFrame <= request.frame) ?? onTrack[0]
-			: onTrack.find(word => word.startFrame >= request.frame) ?? onTrack.at(-1);
+		const backward = request.direction === 'backward';
+		let target: TranscriptEditingWord | undefined;
+		for (let offset = 0; offset < words.length; offset += 1) {
+			const word = words[backward ? words.length - 1 - offset : offset]!;
+			if (word.trackId !== request.trackId) continue;
+			target = word;
+			if (backward ? word.endFrame <= request.frame : word.startFrame >= request.frame) break;
+		}
 		if (!target) { panel.current?.focus({ preventScroll: true }); return; }
-		const span = [...element.querySelectorAll<HTMLElement>('[data-transcript-word]')].find(node => node.dataset.transcriptWord === target?.id);
+		const span = findTranscriptWordElement(element, target.id);
 		if (!span?.firstChild) return;
 		const range = element.ownerDocument.createRange();
-		range.setStart(span.firstChild, target!.endFrame <= request.frame ? span.textContent!.length : 0);
+		range.setStart(span.firstChild, target.endFrame <= request.frame ? span.textContent!.length : 0);
 		range.collapse(true);
 		element.focus({ preventScroll: true });
 		const selection = element.ownerDocument.getSelection();
@@ -133,10 +153,10 @@ function TranscriptEditingSurface({ controller, snapshot, copy, locale, fileServ
 
 	function remove(direction: 'backward' | 'forward'): void {
 		if (disabled || !document || !root.current) return;
-		const native = selectedTranscriptWords(root.current, words);
+		const native = selectedTranscriptWords(root.current, words, wordPositions);
 		const selection = root.current.ownerDocument.getSelection();
 		const hasCaret = selection?.isCollapsed && root.current.contains(selection.anchorNode);
-		const caret = !native.length && hasCaret ? transcriptCaretWord(root.current, words, direction) : null;
+		const caret = !native.length && hasCaret ? transcriptCaretWord(root.current, words, direction, wordPositions) : null;
 		const chosen = native.length ? native : hasCaret ? caret ? [caret] : [] : selected;
 		if (!chosen.length) return;
 		const current = controller.getSnapshot().project;
@@ -182,7 +202,7 @@ function TranscriptEditingSurface({ controller, snapshot, copy, locale, fileServ
 		</div> : null}
 		{words.length ? <>
 			<p className="kw-audio-editor__transcript-help">{labels.instructions}</p>
-			{words.some(word => word.granularity === 'segment') ? <p>{labels.segmentTiming}</p> : null}
+			{hasSegmentTiming ? <p>{labels.segmentTiming}</p> : null}
 		</> : null}
 		<div ref={root} role="textbox" aria-label={labels.text} aria-multiline="true" aria-readonly={disabled}
 			aria-busy={loading || removing} hidden={!words.length}
@@ -192,7 +212,7 @@ function TranscriptEditingSurface({ controller, snapshot, copy, locale, fileServ
 			onCut={event => {
 				if (!root.current) return;
 				event.preventDefault();
-				const chosen = selectedTranscriptWords(root.current, words);
+				const chosen = selectedTranscriptWords(root.current, words, wordPositions);
 				if (!chosen.length) return;
 				event.clipboardData.setData('text/plain', chosen.map(word => word.text).join(' '));
 				remove('forward');
@@ -207,17 +227,27 @@ function TranscriptEditingSurface({ controller, snapshot, copy, locale, fileServ
 				} else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey || event.key === 'Enter') event.preventDefault();
 			}}
 			onClick={event => {
-				if (root.current && selectedTranscriptWords(root.current, words).length) return;
+				if (root.current && selectedTranscriptWords(root.current, words, wordPositions).length) return;
 				const element = (event.target as Element).closest<HTMLElement>('[data-transcript-word]');
-				const word = words.find(candidate => candidate.id === element?.dataset.transcriptWord);
+				const id = element?.dataset.transcriptWord;
+				if (!id) return;
+				const word = wordPositions ? words[wordPositions.get(id) ?? -1] : words.find(candidate => candidate.id === id);
 				if (word) jump(word);
 			}}>
-			{[...groups].map(([clipId, group]) => <p key={clipId} role="group" aria-label={group[0]!.trackName}>
-				<span className="kw-audio-editor__transcript-track" contentEditable={false}>{group[0]!.trackName}</span>
-				{group.map(word => <span key={word.id}><span data-transcript-word={word.id}
-					className={selectedIds.has(word.id) ? 'is-selected' : ''}
-					title={word.speaker ?? undefined}>{word.text}</span>{' '}</span>)}
-			</p>)}
+			{groups.map(([clipId, group]) => <TranscriptPassage key={clipId} words={group} selected={selectedByClip.get(clipId) ?? EMPTY_IDS} />)}
 		</div>
 	</div>;
 }
+
+const TranscriptPassage = memo(function TranscriptPassage({ words, selected }: {
+	readonly words: readonly TranscriptEditingWord[];
+	readonly selected: ReadonlySet<string>;
+}) {
+	const trackName = words[0]!.trackName;
+	return <p role="group" aria-label={trackName}>
+		<span className="kw-audio-editor__transcript-track" contentEditable={false}>{trackName}</span>
+		{words.map(word => <span key={word.id}><span data-transcript-word={word.id}
+			className={selected.has(word.id) ? 'is-selected' : ''}
+			title={word.speaker ?? undefined}>{word.text}</span>{' '}</span>)}
+	</p>;
+});

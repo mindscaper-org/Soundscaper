@@ -9,7 +9,7 @@ import { createEditorCommandMutationTransaction } from '../../../commands/mutati
 import { projectForCommandConsumers } from '../../../project-current-runtime.ts';
 import { prepareFrozenTrackEditCommand } from '../../shared/frozen-track-edit-command.ts';
 import { selectAudioEditorControllerEditBlock } from '../../../edit-blocking.ts';
-import { projectTranscriptWords, transcriptEditingProject, transcriptTextSelection, transcriptGenerationTargets,
+import { projectTranscriptContents, transcriptEditingProject, transcriptTextSelection,
 	transcriptEditingGeometryKey,
 	type TranscriptEditingBody } from '../../../transcript-editing.ts';
 import type { AudioEditorCommand } from '../../../commands/protocol.ts';
@@ -25,22 +25,31 @@ export function createTranscriptEditingActions(dependencies: TranscriptEditingDe
 	}
 
 	async function read(projectId: string): Promise<TranscriptEditingDocument> {
-		const project = current(projectId);
-		const geometry = transcriptEditingGeometryKey(project);
+		const authored = dependencies.getProject();
+		const project = transcriptEditingProject(authored);
+		if (project.id !== projectId) throw new Error('The transcript no longer matches the current project.');
+		const geometry = transcriptEditingGeometryKey(authored);
 		const assertGeometry = () => {
-			const latest = current(projectId);
+			const latest = dependencies.getProject() as { readonly id?: unknown; readonly revision?: unknown } | null;
+			if (latest?.id !== projectId || !Number.isSafeInteger(latest.revision)) {
+				throw new Error('The transcript no longer matches the current project.');
+			}
 			if (transcriptEditingGeometryKey(latest) !== geometry) throw new Error('The transcript audio changed while it was loading.');
-			return latest;
+			return Number(latest.revision);
 		};
-		const trackAssets = new Set(project.tracks.flatMap(track => {
+		const trackAssets = new Set<string>();
+		for (const track of project.tracks) {
+			if (track.type !== 'label') continue;
 			const extensions = track.opaqueExtensions as Readonly<Record<string, unknown>> | undefined;
 			const transcript = extensions?.['org.soundscaper.assistance-transcript-v1'] as { assetId?: unknown } | undefined;
-			return track.type === 'label' && typeof transcript?.assetId === 'string' ? [transcript.assetId] : [];
-		}));
-		const references = normalizeAssistanceAssetReferencesV1(project.assistanceAssets ?? []);
-		const sources = new Map((project.sources as readonly { id: string; contentSha256?: string }[] ?? []).map(source => [source.id, source]));
+			if (typeof transcript?.assetId === 'string') trackAssets.add(transcript.assetId);
+		}
+		const references = normalizeAssistanceAssetReferencesV1(project.assistanceAssets);
+		const sources = new Map(project.sources.map(source => [source.id, source]));
 		const bodies: TranscriptEditingBody[] = [];
-		for (const reference of [...references].reverse()) {
+		const decoder = new TextDecoder('utf-8', { fatal: true });
+		for (let index = references.length - 1; index >= 0; index -= 1) {
+			const reference = references[index]!;
 			if (reference.kind !== 'transcript-v1' || !trackAssets.has(reference.id)) continue;
 			const source = sources.get(reference.sourceId);
 			if (!source || source.contentSha256 !== reference.sourceSha256) continue;
@@ -52,16 +61,15 @@ export function createTranscriptEditingActions(dependencies: TranscriptEditingDe
 			if (!bytes || bytes.byteLength !== reference.body.byteLength || bytesToHex(sha256(bytes)) !== reference.body.sha256) {
 				throw new Error('The stored transcript failed its integrity check.');
 			}
-			const transcript = createAssistanceTranscript(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)) as TranscriptDraft);
+			const transcript = createAssistanceTranscript(JSON.parse(decoder.decode(bytes)) as TranscriptDraft);
 			if (transcript.sourceId !== reference.sourceId || transcript.segments.some(segment =>
 				segment.startFrame < reference.sourceStartFrame || segment.endFrame > reference.sourceEndFrame)) {
 				throw new Error('The stored transcript does not match its audio source.');
 			}
 			bodies.push({ assetId: reference.id, transcript });
 		}
-		const latest = assertGeometry();
-		return { projectId, revision: latest.revision, words: projectTranscriptWords(project, bodies),
-			targets: transcriptGenerationTargets(project, dependencies.state.missingSourceIds) };
+		const revision = assertGeometry();
+		return { projectId, revision, ...projectTranscriptContents(project, bodies, dependencies.state.missingSourceIds) };
 	}
 
 	async function remove(projectId: string, revision: number, wordIds: readonly string[]): Promise<void> {
@@ -79,8 +87,14 @@ export function createTranscriptEditingActions(dependencies: TranscriptEditingDe
 		const working = structuredClone(projectForCommandConsumers(project));
 		const transaction = createEditorCommandMutationTransaction(project, working);
 		const commands: AudioEditorCommand[] = [];
-		for (const trackId of selection.trackIds) {
-			const range = transcriptTextSelection(selected.filter(word => word.trackId === trackId))!;
+		const byTrack = new Map<string, typeof selected>();
+		for (const word of selected) {
+			const group = byTrack.get(word.trackId);
+			if (group) group.push(word);
+			else byTrack.set(word.trackId, [word]);
+		}
+		for (const [trackId, words] of byTrack) {
+			const range = transcriptTextSelection(words)!;
 			const command = prepareDisjointRangeDeleteCommand(working, { ranges: [range],
 				trackIds: [trackId], rippleMode: 'track' }) as AudioEditorCommand;
 			transaction.mutate(working, command);
