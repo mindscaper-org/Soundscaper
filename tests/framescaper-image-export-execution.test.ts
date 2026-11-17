@@ -126,3 +126,17 @@ test('an image in a hidden folder neither enables export nor gets opened by its 
 			placement: { trackId: 'video-track' }, authoredState: { source: { kind: 'generator' } } }],
 	} })), null);
 });
+
+test('a range containing only still images can be exported from a project that also contains video', () => {
+	const fixture = createFramescaperBaselineImageFixture();
+	const canonicalProject = framescaperProjectTimelineImageFoundationShapeAssistance(fixture.project);
+	const strategy = createFramescaperVideoExportStrategyTimelineImage(PROFILE);
+	const exportProject = strategy.createExportProject({ canonicalProject, delivery: {
+		project: canonicalProject, audioRenderedFallback: null, videoRenderedFallback: null,
+		requiredAudioSourceIds: [], requiredVideoSourceIds: [],
+	} });
+	const plan = strategy.createPlan({ canonicalProject, exportProject, format: 'webm',
+		range: { startFrame: 96_000, endFrame: 144_000 }, includeAudio: false, canvas: { width: 640, height: 360 },
+	});
+	assert.equal(plan?.strategy, 'framescaper-visual-rgba');
+});
