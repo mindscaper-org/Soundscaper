@@ -10,6 +10,8 @@ import { createSoundscaperProjectStore } from '../src/soundscaper/editor-project
 import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
 import { createAudioClip, createAudioSource, createAudioTrack, createVideoSource } from '../src/common/editor/project-media-factory.ts';
 import { createVideoTimingAssetPublication } from '../src/common/editor/video-timing-asset.ts';
+import { readTrackPlaylists } from '../src/common/editor/track-playlists.ts';
+import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts';
 
 const encoder = new TextEncoder();
 
@@ -96,6 +98,37 @@ for (const damage of ['document', 'audio', 'missing-audio', 'pcm-geometry'] as c
 		assert.deepEqual(await archive.arrayBuffer(), before);
 	});
 }
+
+test('Open Scape recovery retains healthy arrangements on a track with one unavailable playlist', async context => {
+	const store = createSoundscaperProjectStore({ indexedDB: createInstrumentedIndexedDB(), preferOpfs: false });
+	context.after(async () => { await store.close(); });
+	const sources = ['dialogue', 'music'].map(id => createAudioSource({ id, sampleRate: 48000, channelCount: 1, frameCount: 2 }));
+	for (const source of sources) {
+		const writer = await store.beginSourceWrite(source.id, source);
+		await writer.write([Float32Array.of(0.125, -0.25)]);
+		await writer.commit();
+	}
+	const trackId = 'track';
+	let project = createSoundscaperProject({ id: 'playlists', sources,
+		tracks: [createAudioTrack({ id: trackId, clipIds: ['spoken'] })],
+		clips: [createAudioClip({ id: 'spoken', sourceId: 'dialogue', durationFrames: 2 })] });
+	const createPlaylist = { type: 'track/playlist-create', trackId, mode: 'empty', originalId: 'original', originalName: 'Original' } as const;
+	project = applySoundscaperProjectCommand(project, { ...createPlaylist, id: 'music', name: 'Music alternative' });
+	project = applySoundscaperProjectCommand(project, { type: 'clip/add', trackId, clip: createAudioClip({ id: 'bed', sourceId: 'music', durationFrames: 2 }) });
+	project = applySoundscaperProjectCommand(project, { ...createPlaylist, id: 'active', name: 'Current edit' });
+	const runtime = createSoundscaperScapeNativeRuntime();
+	const exported = await runtime.exportScapeProject(project, store);
+	assert.ok(exported.blob);
+	const archive = await rewriteArchive(exported.blob, entries => {
+		entries.delete(exported.manifest.assets.find(asset => asset.sourceId === 'music')!.entry);
+	});
+	const result = await runtime.importScapeProject(archive, store, { recover: true });
+	assert.equal(readTrackPlaylists(result.project)[0]?.activeId, 'active');
+	assert.deepEqual(readTrackPlaylists(result.project)[0]?.playlists.map(entry => entry.id), ['original', 'active']);
+	const recalled = applySoundscaperProjectCommand(result.project, { type: 'track/playlist-activate', trackId, id: 'original' });
+	assert.equal(recalled.clips[0]?.id, 'spoken');
+	assert.ok(result.recoveryChanges?.some(change => change.path === 'metadata.trackPlaylists[0].playlists[1]'));
+});
 
 test('Scape recovery keeps invalid archive integrity closed', async (context) => {
 	const store = createSoundscaperProjectStore({ indexedDB: createInstrumentedIndexedDB(), preferOpfs: false });

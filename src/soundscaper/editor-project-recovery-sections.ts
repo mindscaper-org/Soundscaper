@@ -26,10 +26,26 @@ export function restoreSoundscaperRecoveryAlternatives(value: unknown, attempt: 
 		const install = (draft: DataRecord, value: unknown): void => { draft.metadata = { ...record(draft.metadata), [key]: value }; };
 		if (attempt(path, draft => { install(draft, entries); }, false, !Array.isArray(entries)) || !Array.isArray(entries)) continue;
 		for (const [index, entry] of entries.entries()) {
-			attempt(`${path}[${String(index)}]`, draft => {
+			const entryPath = `${path}[${String(index)}]`;
+			const append = (draft: DataRecord, entry: unknown): void => {
 				const current = record(draft.metadata)?.[key];
 				install(draft, [...(Array.isArray(current) ? current : []), entry]);
-			});
+			};
+			const collection = key === 'trackPlaylists' ? record(entry) : null;
+			const playlists: readonly unknown[] | null = Array.isArray(collection?.playlists) ? collection.playlists : null;
+			const active = playlists?.findIndex(playlist => record(playlist)?.id === collection?.activeId) ?? -1;
+			const partial = collection !== null && playlists !== null && active >= 0;
+			if (attempt(entryPath, draft => { append(draft, entry); }, false, !partial) || !partial) continue;
+			const accepted = new Set([active]);
+			if (!attempt(entryPath, draft => { append(draft, { ...collection, playlists: [playlists[active]] }); })) continue;
+			for (const [playlistIndex] of playlists.entries()) {
+				if (playlistIndex === active) continue;
+				const surviving = playlists.filter((_, index) => accepted.has(index) || index === playlistIndex);
+				if (attempt(`${entryPath}.playlists[${String(playlistIndex)}]`, draft => {
+					const current = record(draft.metadata)?.[key] as unknown[];
+					install(draft, [...current.slice(0, -1), { ...collection, playlists: surviving }]);
+				})) accepted.add(playlistIndex);
+			}
 		}
 	}
 }
