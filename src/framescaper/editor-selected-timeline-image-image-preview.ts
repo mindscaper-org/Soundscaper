@@ -2,7 +2,6 @@
 
 import { sequenceFrameAtSample } from '../common/editor/sequence-frame-navigation.ts';
 import { registerVideoPreviewDrawableRevision } from '../common/editor/controller/clip-video/video-preview-frame-identity.ts';
-import { projectTrackFolderMediaStateV12 } from '../common/editor/track-folder-media-runtime.ts';
 import type { AudioEditorProjectStore } from '../common/editor/storage.js';
 import { createFramescaperImageTimelineTickMapperV1 } from '../common/editor/timeline-image-model.ts';
 import type {
@@ -15,7 +14,7 @@ import type {
 import type { VideoCanvasFit } from '../common/editor/video-canvas-fit.ts';
 import { DEFAULT_VIDEO_CLIP_COMPOSITION } from '../common/editor/video-clip-composition.ts';
 import { resolveVideoRenderDescription } from '../common/editor/video-render-description.ts';
-import { createVisibleVideoTrackPredicate } from '../common/editor/video-track-visibility.js';
+import { indexVisibleFramescaperImageTracks } from './editor-timeline-image-track-index.ts';
 import {
 	fitFramescaperImagePreviewSizeTimelineImage,
 	framescaperImageSourceForClipTimelineImage,
@@ -263,18 +262,13 @@ function imageClipContexts(project: FramescaperProjectTimelineImage): readonly O
 	'loaded' | 'drawable' | 'lastFrameIndex'>[] {
 	const sequence = project.sequences.find(({ id }) => id === project.primarySequenceId);
 	if (!sequence) throw new ReferenceError('The selected timelineImage primary sequence is unavailable.');
-	const sequenceTrackIds = new Set(sequence.trackIds);
-	const videoTracks = projectTrackFolderMediaStateV12(project).tracks
-		.filter(track => track.type === 'video').filter(({ id }) => sequenceTrackIds.has(id));
-	const visible = createVisibleVideoTrackPredicate(videoTracks);
+	const trackByClip = indexVisibleFramescaperImageTracks(project, sequence);
 	const output: Omit<ImageClipPreviewTimelineImage, 'loaded' | 'drawable' | 'lastFrameIndex'>[] = [];
 	for (const clip of project.clips) {
 		if (clip.kind !== 'image' || clip.sequenceId !== sequence.id) continue;
-		const owner = videoTracks.find(({ clipIds }) => clipIds.includes(clip.id));
-		if (!owner || !visible(owner)) continue;
-		const trackIndex = sequence.trackIds.indexOf(owner.id);
-		if (trackIndex < 0) throw new ReferenceError(`timelineImage image track ${owner.id} is outside its sequence.`);
-		output.push({ clip, trackId: owner.id, trackIndex,
+		const owner = trackByClip.get(clip.id);
+		if (!owner) continue;
+		output.push({ clip, ...owner,
 			sourceTicksAt: createFramescaperImageTimelineTickMapperV1(clip, sequence.rate) });
 		if (output.length > FRAMESCAPER_IMAGE_PREVIEW_MAXIMUM_CONTEXTS_TIMELINE_IMAGE) {
 			throw new RangeError('timelineImage image timeline preview exceeds its context count bound.');
