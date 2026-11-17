@@ -69,6 +69,9 @@ program/bank/controller ordering, sustain/sostenuto state and sounding keys,
 then starts processing at that origin. It does not synthesize the entire past
 of the clip. Chased voices restart their envelopes and phase, and previous
 effect tails are not reconstructed. Loops reuse caches with the same origin.
+Each sounding key retains the bank and program latched at its onset. After
+restarting those voices, chase restores the current channel program and pending
+bank selectors for subsequent notes.
 
 Cache keys include the origin. Export readers and derived audio sources always
 use continuous synthesis from frame zero. Consequently a live chased attack can
