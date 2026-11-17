@@ -3,6 +3,22 @@
 import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
 import { addRackEffect, bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, closeDialog, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
 
+test('Duplicate selection retains the clip effect rack', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	await importFiles(editor, [toneA]);
+	let panel = await openClipProperties(page, editor, clipByName(editor, toneA.name));
+	await panel.getByText('Effects', { exact: true }).click();
+	await addRackEffect(page, panel, 'track', 'Echo');
+	await closeDialog(page.getByRole('dialog', { name: 'Echo', exact: true }));
+	await chooseCommandAction(page, editor, 'Select', 'Select all');
+	await chooseCommandAction(page, editor, 'Edit', 'Duplicate');
+	await expect(clipByName(editor, toneA.name)).toHaveCount(2);
+	panel = await openClipProperties(page, editor, clipByName(editor, toneA.name).last());
+	const effects = panel.getByText('Effects', { exact: true });
+	if (await panel.getByRole('button', { name: 'Add effect', exact: true }).count() === 0) await effects.click();
+	await expect(panel.getByRole('group', { name: 'Echo', exact: true })).toBeVisible();
+});
+
 test('a clip Auto Duck can select another track without offering its own input as a detector', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	await chooseCommandAction(page, editor, 'Tracks', 'Remove tracks');

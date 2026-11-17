@@ -177,6 +177,8 @@ export function createClipboardDescriptor(project, options = {}) {
 					...(typeof segment.linkPitchAndTempo === 'boolean' ? { linkPitchAndTempo: segment.linkPitchAndTempo } : {}),
 					...(typeof segment.preserveFormants === 'boolean' ? { preserveFormants: segment.preserveFormants } : {}),
 					...(typeof segment.stretchToTempo === 'boolean' ? { stretchToTempo: segment.stretchToTempo } : {}),
+					...(Array.isArray(segment.effects) ? { effects: structuredClone(segment.effects) } : {}),
+					...(typeof segment.effectsActive === 'boolean' ? { effectsActive: segment.effectsActive } : {}),
 					opaqueExtensions: structuredClone(midiTransferExtensions(segment, track)),
 					...(Number.isSafeInteger(segment.renderCacheRevision) ? {
 						renderCacheRevision: segment.renderCacheRevision,
