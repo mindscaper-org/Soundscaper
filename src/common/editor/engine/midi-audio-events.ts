@@ -31,8 +31,11 @@ export function chaseMidiAudioEvents(events: readonly MidiBlockEvent[], start: n
 				for (const voice of voices) if ((voice.data[0]! & 15) === channel) voice.captured = false;
 			}
 		}
-		if (first === 121) { sustain.delete(channel); sostenuto.delete(channel); }
-		if (first === 120 || first === 123) for (const voice of voices) if ((voice.data[0]! & 15) === channel) { voice.held = false; if (first === 120) voice.captured = false; }
+		if (first === 121) {
+			sustain.delete(channel); sostenuto.delete(channel);
+			for (const voice of voices) if ((voice.data[0]! & 15) === channel) voice.captured = false;
+		}
+		if (first === 120 || first! >= 123 && first! <= 127) for (const voice of voices) if ((voice.data[0]! & 15) === channel) { voice.held = false; if (first === 120) voice.captured = false; }
 		if (first === 120) for (let index = voices.length - 1; index >= 0; index--) { if ((voices[index]!.data[0]! & 15) === channel) voices.splice(index, 1); }
 		prune(channel);
 	}
