@@ -1,14 +1,16 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, disableNativeSavePicker, importFiles } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, disableNativeSavePicker } from './audio-editor-test-helpers.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('a sixteen-track Normalize macro fits the existing memory budget and produces normalized audio', async ({ page }) => {
 	test.setTimeout(90000);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'Microphone.wav', frequency: 330, duration: 10 });
-	await importFiles(editor, Array.from({ length: 16 }, (_, index) => ({ ...recording, name: `Microphone ${index + 1}.wav` })));
+	await editor.locator('[data-import-input]').setInputFiles(Array.from({ length: 16 }, (_, index) => ({ ...recording, name: `Microphone ${index + 1}.wav` })));
+	await expect(editor.locator('[data-track-row]')).toHaveCount(16, { timeout: 20000 });
+	await expect(editor.locator('[data-status]')).toContainText('exceeds the tested envelope');
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
 	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
