@@ -34,8 +34,8 @@ export function soundcraftMixStrip(track: Readonly<Record<string, unknown>>, iss
 		if (!value) return [];
 		const send = dawRecord(value), target = route(send.target);
 		if (!target) return [];
-		return [{ id: `${id}:send:${index}`, target, level: 10 ** (dawNumber(send.level_db, 0) / 20), enabled: send.active !== false,
-			position: 'post-fader' as const }];
+		return [{ id: `${id}:send:${index}`, target, level: 10 ** (dawNumber(send.level_db, 0) / 20), enabled: send.active !== false && send.mute !== true,
+			position: send.pre_fader === true ? 'pre-fader' as const : 'post-fader' as const }];
 	});
 	const automation: TimelineInterchangeAutomation[] = [];
 	for (const value of dawArray(track.automation ?? [])) {
