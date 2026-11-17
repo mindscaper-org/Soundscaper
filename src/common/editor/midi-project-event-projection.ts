@@ -13,11 +13,15 @@ export function createMidiClipEventProjection(interchange: MidiClipInterchange |
 	const portRouted = events.some(event => event.status === 255 && event.metaType === 0x21 && event.data[0] !== 0);
 	const portPerformance = portRouted && events.some(isMidiPerformanceStateEvent);
 	const portPatchSetup = portRouted && events.some(isMidiPatchSetup);
+	const portParameters = portRouted && events.some(isMidiParameterSetup);
 	const windows = new Map<string, Readonly<{ initial: readonly MidiFileEvent[]; visible: readonly MidiFileEvent[] }>>();
 	return {
 		tempos: timingProjection(interchange?.tempos ?? []),
 		signatures: timingProjection(interchange?.signatures ?? []),
 		events(start: number, frames: number, timelineStart: number, global: (frame: number) => number, repeated = false): MidiFileEvent[] {
+			if (portParameters && global(start + frames) < global(start)) {
+				throw new RangeError('Reversed MIDI port-aware parameter setup cannot be preserved by this delivery. Save the native project.');
+			}
 			if (portPatchSetup && global(start + frames) < global(start)) {
 				throw new RangeError('Reversed MIDI port-aware program or bank setup cannot be preserved by this delivery. Save the native project.');
 			}
@@ -71,6 +75,9 @@ export function createMidiClipEventProjection(interchange: MidiClipInterchange |
 				if (windows.size < 3) windows.set(key, window);
 			}
 			const reversed = global(start + frames) < global(start);
+			if (reversed && window.visible.some(event => isMidiParameterSetup(event) && event.frame > start)) {
+				throw new RangeError('Reversed MIDI parameter changes cannot be preserved by this delivery. Save the native project.');
+			}
 			if (reversed && window.visible.some(event => isReverseSetup(event) && event.frame > start)) {
 				throw new RangeError('Reversed MIDI device, program, or bank changes cannot be preserved by this delivery. Save the native project.');
 			}
@@ -85,7 +92,11 @@ export function createMidiClipEventProjection(interchange: MidiClipInterchange |
 }
 
 function isReverseSetup(event: MidiFileEvent): boolean {
-	return event.status === 255 && event.metaType === 9 || isMidiPatchSetup(event);
+	return event.status === 255 && event.metaType === 9 || isMidiPatchSetup(event) || isMidiParameterSetup(event);
+}
+
+function isMidiParameterSetup(event: MidiFileEvent): boolean {
+	return (event.status & 240) === 176 && [6, 38, 96, 97, 98, 99, 100, 101].includes(event.data[0]!);
 }
 
 function isMidiPatchSetup(event: MidiFileEvent): boolean {
