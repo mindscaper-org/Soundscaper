@@ -9,6 +9,7 @@ import {
 import { BUILT_PRODUCT_ID, resolveApplicationRoute } from './common/site/route.js';
 import { editorStartupProgress } from './common/site/editor-startup-progress.ts';
 import { installStaleBuildDetection } from './common/offline/stale-build-runtime.ts';
+import { listenForEarlyApplicationInstallPrompt } from './common/offline/install-prompt-preload.ts';
 
 const applicationRoot = document.getElementById('app');
 const initialLoadProgress = document.querySelector('[data-initial-load-progress]');
@@ -34,6 +35,7 @@ editorStartupProgress.start(BUILT_PRODUCT_ID);
 installStaleBuildDetection({ moduleUrl: import.meta.url });
 
 const route = await resolveApplicationRoute(window);
+if (!route.desktop && !route.privacyPolicy) listenForEarlyApplicationInstallPrompt();
 applyDocumentRoute(route);
 createRoot(applicationRoot).render(<App route={route} />);
 if (import.meta.env.PROD && !route.desktop) {

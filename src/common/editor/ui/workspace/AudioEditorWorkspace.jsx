@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { productProfile } from '../../../products.js';
+import { applicationInstallPromptCapture } from '../../../offline/install-prompt.ts';
 import { useControllerOwnedActionRuntime } from './useControllerOwnedActionRuntime.js';
 import { projectDurationFrames } from '../../project.js';
 import { useAudioEditorSnapshot, useAudioEditorThemeVariables } from '../DesignSystemRuntime.jsx';
@@ -369,6 +370,8 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		toggleFullscreen,
 		workspaceRef,
 	});
+	const installPrompt = applicationInstallPromptCapture();
+	const installAvailable = useSyncExternalStore(installPrompt.subscribe, installPrompt.available, () => false);
 	const applicationMenus = useEditorFeedbackMenus(createWorkspaceApplicationMenus({
 		aboutLabel,
 		aup4InputRef,
@@ -385,6 +388,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		executeEdit,
 		fileService,
 		importInputRef,
+		installAvailable,
 		locale,
 		openDesktopFiles, openProjectFile,
 		openEffects, openAssistanceSearch: assistanceSearchRuntime.openAssistanceSearch,
