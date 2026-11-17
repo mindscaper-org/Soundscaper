@@ -44,7 +44,7 @@ sidebar:
 | Tempo and time-signature maps | + | + |
 | Track templates with routing | / | + — :: Saves track groups, FX, and routing within the saved selection; connections to outside tracks are excluded. |
 | Named session snapshots | + — :: Named editing states share the same audio. File > Session snapshots creates, restores, renames, and deletes snapshots; native project files preserve them. | / — :: Incremented project versions are Save As copies; mixer snapshots require an external extension. |
-| Selection and view memories | / | + — :: Screensets / selection sets |
+| Selection and view memories | ~ — Macro programs :: Saved programs can remember selections and timeline views in their own source; no dedicated memory-location manager. | + — :: Screensets / selection sets |
 | Nested subprojects with automatic proxy updates | / | + — Subprojects :: Embeds an editable project as a rendered media item; saving the subproject refreshes its proxy in parent projects. |
 
 Before moving a desktop project, [consolidate its media](/projects-and-data/project-files/).

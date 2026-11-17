@@ -61,6 +61,7 @@ export const POLICY_NARRATIVE_BINDINGS = Object.freeze([
 		['external-project-document-validation', 'maintained-project-publication-admission'],
 		['native-plugin-hosting', 'trusted-windows-effect-processes'],
 		['audiocom-proxy-boundary', 'bounded-audiocom-oauth-media-proxy'],
+		['macro-program-untrusted-code-runtime', 'macro-program-sandbox-and-dispatch-table'],
 		['macro-program-untrusted-code-runtime', 'macro-program-byte-bound-consent'],
 	].map(([riskId, controlId]) => Object.freeze({
 		marker: controlId,

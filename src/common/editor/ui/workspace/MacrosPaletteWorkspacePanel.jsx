@@ -54,7 +54,7 @@ function PaletteSession({ controller, snapshot, copy, locale, fileService, run }
 				if (entry.kind === 'steps') return controller.actions.macros.run(macros.find((macro) => macro.id === entry.id));
 				const script = scripts.find((candidate) => candidate.id === entry.id);
 				if (!script) return;
-				return controller.actions.macros.runScript({ name: script.name, source: script.source,
+				return controller.actions.macros.runScript({ scriptId: script.id, name: script.name, source: script.source,
 					...(fileService?.isDesktop ? { resolveAudioInput: createMacroAudioInputResolver(fileService,
 						(bytes, sampleRate) => controller.engine.decodeAudioData(bytes, { sampleRate })) } : {}) });
 			})} />

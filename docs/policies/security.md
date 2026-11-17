@@ -1440,9 +1440,39 @@ Path tokens are capabilities. Their required lifecycle is: explicit user selecti
 
 `nyquist-untrusted-code-runtime` is **enforced for the current Nyquist surface only**. Source, PCM input/output, parameters, protocol messages, WebAssembly memory, and run time are bounded; abort/timeout terminates the worker; file-I/O C entry points are disabled; and bundled plug-ins are source-pinned and audited. Web Workers provide fault isolation, not an operating-system security boundary. This control does not establish a general third-party package ABI.
 
-`macro-program-untrusted-code-runtime` is **partial and conditional for macros written as JavaScript**. The program is the body of a module worker built from a blob URL, and neither shipped policy grants `'unsafe-eval'`, so in production the program cannot compile any further code; a static `import` in the body is a syntax error on the author's own line, and the browser's parser is what validates a program before it is stored. The worker prelude reduces the realm by allowlist along the whole prototype chain rather than by deleting named properties, because the worker APIs that matter are accessor properties for which `delete` returns `true` and removes nothing: `fetch`, `XMLHttpRequest`, `WebSocket`, `indexedDB`, `caches`, `Blob`, `URL`, `Worker`, `BroadcastChannel`, `WebAssembly`, `Atomics`, `crypto`, `navigator`, `location` and the timers are made `undefined` and non-configurable, and `postMessage` and `addEventListener` are captured into a closure before removal so a program cannot forge protocol traffic. `Date`, `performance.now` and `Math.random` read a virtual clock and a seeded PRNG, disclosed in the run log, so a run is reproducible — a macro is a test driver as well as a user tool.
+`macro-program-untrusted-code-runtime` is **partial and conditional for macros written as JavaScript**.
 
-The security boundary is the host dispatch table, not the prelude — the same distinction this model draws for Nyquist. A fixed set of reader and mutator names is served and anything else is refused, so recording and the audio, video and screen capture devices have no name to call and a macro can never make the browser ask for a microphone or a camera; neither can other projects, file reads or writes, exports, preferences, persistent storage, raw command dispatch, or the Nyquist evaluator. Reentry is capped at one level. Cancellation, the deadline and any failure all terminate the worker, and the worker is discarded after every run rather than reused, so no state leaks between runs. A run's mutations collapse into one undo entry and roll back on failure; persisted sources, peak analyses and settings a step wrote are deliberately not rolled back, so a rolled-back run may leave orphaned sources for the next collection.
+<!-- policy-narrative:macro-program-sandbox-and-dispatch-table -->
+A macro program is the body of a module worker built from a blob URL, and
+neither shipped policy grants 'unsafe-eval', so in production the program cannot
+compile further code. The worker prelude reduces the realm by allowlist along
+the whole prototype chain: fetch, XMLHttpRequest, WebSocket, indexedDB, caches,
+Blob, URL, Worker, BroadcastChannel, WebAssembly, Atomics, crypto, navigator,
+location and the timers are made undefined and non-configurable. postMessage and
+addEventListener are captured into a closure before removal, and the clock and
+random numbers use the existing deterministic run environment. The security
+boundary is the host's closed dispatch table and bounded plain-data admission. A
+program may control the open project's timeline zoom, scroll coordinates, track
+heights, audio display modes, and supported video visibility; no DOM or window
+capability crosses the boundary. Scroll writes wait for layout and recheck the
+active project and viewport binding before applying. Project edits form one Undo
+entry; zoom and scrolling remain transient. Failure or cancellation compensates
+transient view changes only while the original project remains current. A saved
+program may read its running or staged source and queue a bounded replacement
+for its own explicit saved identity. The manager and palette bind that identity;
+ad hoc and temporary batch runs cannot replace saved programs. Source is
+published only at successful settlement, with an exact record comparison that
+refuses concurrent editing, renaming, deletion, or a read-only library. A
+refused history commit compensates its own source publication without
+overwriting a newer library edit. Source changes use the ordinary asynchronous
+settings-saving path, preserve provenance, and remain outside project Undo.
+Replacement text runs only after another explicit Run action. General persistent
+storage, other library entries, other projects, arbitrary preferences, raw
+command dispatch, devices, project file operations and the Nyquist evaluator
+remain unavailable. Failure, cancellation and deadline terminate the worker;
+workers are discarded after every run. Persisted effect sources and analyses
+retain their existing collection lifecycle.
+<!-- /policy-narrative:macro-program-sandbox-and-dispatch-table -->
 
 <!-- policy-narrative:macro-program-byte-bound-consent -->
 Imported macro programs are stored as bounded source text with their file

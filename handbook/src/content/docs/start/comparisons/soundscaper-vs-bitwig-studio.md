@@ -44,7 +44,7 @@ sidebar:
 | Tempo and time-signature maps | + | + |
 | Track templates with routing | / | ~ — Device chains :: Track/device presets reuse instruments and processing; a complete session-routing template is a separate workflow. |
 | Named session snapshots | + — :: Named editing states share the same audio. File > Session snapshots creates, restores, renames, and deletes snapshots; native project files preserve them. | / |
-| Selection and view memories | / | / |
+| Selection and view memories | ~ — Macro programs :: Saved programs can remember selections and timeline views in their own source; no dedicated memory-location manager. | / |
 | Nested subprojects with automatic proxy updates | / | / |
 
 Before moving a desktop project, [consolidate its media](/projects-and-data/project-files/).

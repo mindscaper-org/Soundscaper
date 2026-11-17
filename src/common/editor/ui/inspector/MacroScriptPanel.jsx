@@ -41,6 +41,7 @@ export default function MacroScriptPanel({ controller, copy, script, blocked, on
 		setRunning(true);
 		try {
 			const result = await controller.actions.macros.runScript({
+				scriptId: script.id,
 				name: script.name,
 				source: script.source,
 				...(fileService?.isDesktop ? { resolveAudioInput: createMacroAudioInputResolver(fileService,
@@ -71,7 +72,7 @@ export default function MacroScriptPanel({ controller, copy, script, blocked, on
 				setRunning(false);
 			}
 		}
-	}, [controller, copy.programApplied, copy.runCancelled, script.name, script.source, fileService]);
+	}, [controller, copy.programApplied, copy.runCancelled, script.id, script.name, script.source, fileService]);
 
 	useLayoutEffect(() => {
 		onRunningChange?.(running);

@@ -7,6 +7,8 @@ import { publishedCopyFor } from '../shared/presentation-localization.ts'; impor
 } from './internal/macro/macro-command-service.ts';
 import { createMacroProgramService } from './internal/macro/macro-program-service.ts';
 import { createMacroScriptHost } from './internal/macro/macro-script-host.ts';
+import { createMacroViewService } from './internal/macro/macro-view-service.ts';
+import { createMacroSelfEdit } from './internal/macro/macro-self-edit.ts';
 import { createMacroScriptLibraryService } from './macro-script-library-service.ts';
 import {
 	createEffectMacroLibraryService,
@@ -36,15 +38,18 @@ export type EffectLibraryActionScope = Pick<EditorActionFunctions,
 	| 'projectSampleRate'
 	| 'timelineDurationFrames'
 	| 'beginMacroTransaction'
+	| 'commit' | 'setZoom' | 'setTimelineView' | 'setAutoFitTrackHeight' | 'updateZoom'
 > & Pick<EditorActionResources, 'effectLibraryState' | 'copy' | 'productId' | 'locale' | 'onMacroScriptLog' | 'macroScriptStartedAt' | 'startMacroScriptTask'> & {
-	readonly state: Pick<EditorActionResources['state'], 'selectedTrackId' | 'projectAdministrationPending'>;
+	readonly state: Pick<EditorActionResources['state'], 'selectedTrackId' | 'projectAdministrationPending' | 'timelineView' | 'pixelsPerSecond' | 'autoFitTrackHeight' | 'allowBelowProjectFitZoom'>;
 	readonly getEditorActions?: () => Readonly<Record<string, unknown>> | null;
 	readonly selection: Pick<MacroCommandServiceRuntime, 'setExactSelection'>;
 };
 
 type EffectPresetActionScope = Pick<EffectLibraryActionScope,
 	'effectLibraryState' | 'listAudioEditorEffectPresets' | 'applyEffectPreset' | 'saveEffectPreset'
-	| 'currentAudacityEffectParams' | 'deleteEffectPreset' | 'importEffectPresets' | 'exportEffectPreset' | 'state'>;
+	| 'currentAudacityEffectParams' | 'deleteEffectPreset' | 'importEffectPresets' | 'exportEffectPreset'> & {
+	readonly state: Pick<EditorActionResources['state'], 'selectedTrackId' | 'projectAdministrationPending'>;
+};
 
 /**
  * The two saved-effect libraries an editor session accumulates: presets, which
@@ -119,7 +124,18 @@ export function createEffectMacroActions(
 		publishDocumentSnapshot: scope.publishDocumentSnapshot,
 		handleError: scope.handleError,
 	});
+	const view = createMacroViewService({
+		getProject: scope.getProject, state: scope.state,
+		setZoom: (value, allowBelowProjectFit) => scope.setZoom(value, { allowBelowProjectFit }),
+		setView: value => scope.setTimelineView(value),
+		setAutoFitTrackHeight: value => scope.setAutoFitTrackHeight(value),
+		zoom: action => scope.updateZoom(action, undefined),
+		updateTracks: updates => scope.commit({ type: 'batch', commands: updates.map(update => ({
+			type: 'track/update', trackId: update.id, changes: update.changes,
+		})) }),
+	});
 	const scriptHost = createMacroScriptHost({
+		view,
 		findRepeatedSound: async (params, signal, reference) => {
 			const target = (actions ?? scope.getEditorActions?.())?.analysis as Readonly<{
 				findRepeatedSound?: (options: Readonly<Record<string, unknown>>, signal?: AbortSignal, reference?: MacroAudioInput) => Promise<unknown>;
@@ -142,6 +158,7 @@ export function createEffectMacroActions(
 	});
 	const sandboxes = new Set<Sandbox>();
 	const group = Object.freeze({
+		bindViewport: view.bindViewport,
 		run: restricted('audioMacros', program.runMacroProgram),
 		cancel: restricted('audioMacros', (() => {
 			scriptHost.cancelMacroScript();
@@ -149,7 +166,8 @@ export function createEffectMacroActions(
 			return program.cancelMacroProgram();
 		})),
 		runScript: restricted('audioMacros', (async (request: unknown) => {
-			const { name, source, resolveAudioInput } = readScriptRequest(request, scope);
+			const { name, source, scriptId, resolveAudioInput } = readScriptRequest(request, scope);
+			const self = createMacroSelfEdit(scripts, source, scriptId, writableLibraryAction(scope, () => undefined));
 			const task = scope.startMacroScriptTask();
 			let runSandbox: Sandbox | null = null;
 			const cancel = () => {
@@ -161,6 +179,7 @@ export function createEffectMacroActions(
 			try {
 				return await scriptHost.runMacroScript({
 					name,
+					self,
 					resolveAudioInput: resolveAudioInput ? async (...args) => {
 						try { return await resolveAudioInput(...args); }
 						catch (error) { if (error instanceof Error && error.name === 'AbortError') cancel(); throw error; }
@@ -231,17 +250,18 @@ type Sandbox = ReturnType<
 function readScriptRequest(
 	request: unknown,
 	scope: EffectLibraryActionScope,
-): Readonly<{ name: string; source: string; resolveAudioInput?: MacroAudioInputResolver }> {
+): Readonly<{ name: string; source: string; scriptId?: string; resolveAudioInput?: MacroAudioInputResolver }> {
 	const value = request && typeof request === 'object' ? request as Record<string, unknown> : {};
 	const source = typeof value.source === 'string' ? value.source : '';
 	if (!source.trim()) throw new RangeError('A macro program needs source to run.');
 	const name = String(value.name ?? '').trim() || publishedCopyFor(scope.copy).untitledMacro || 'Untitled macro';
-	return Object.freeze({ name, source, ...(typeof value.resolveAudioInput === 'function' ? { resolveAudioInput: value.resolveAudioInput as MacroAudioInputResolver } : {}) });
+	if (value.scriptId !== undefined && (typeof value.scriptId !== 'string' || !value.scriptId)) throw new TypeError('A saved program needs a stable ID.');
+	return Object.freeze({ name, source, ...(typeof value.scriptId === 'string' ? { scriptId: value.scriptId } : {}), ...(typeof value.resolveAudioInput === 'function' ? { resolveAudioInput: value.resolveAudioInput as MacroAudioInputResolver } : {}) });
 }
 
 /** A library edit queued before reset admission must not repopulate its deleted settings. */
 function writableLibraryAction<Args extends unknown[], Result>(
-	scope: Pick<EffectLibraryActionScope, 'state'>, operation: (...args: Args) => Result,
+	scope: { readonly state: Pick<EditorActionResources['state'], 'projectAdministrationPending'> }, operation: (...args: Args) => Result,
 ): (...args: Args) => Result {
 	return (...args) => {
 		if (scope.state.projectAdministrationPending) {

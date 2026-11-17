@@ -44,7 +44,7 @@ sidebar:
 | Tempo and time-signature maps | + | + |
 | Track templates with routing | / | + — :: Track presets / archives |
 | Named session snapshots | + — :: Named editing states share the same audio. File > Session snapshots creates, restores, renames, and deletes snapshots; native project files preserve them. | ~ — Versions :: Save New Version makes separate project files; MixConsole snapshots cover mixer states. |
-| Selection and view memories | / | + — :: Workspaces / zoom presets |
+| Selection and view memories | ~ — Macro programs :: Saved programs can remember selections and timeline views in their own source; no dedicated memory-location manager. | + — :: Workspaces / zoom presets |
 | Nested subprojects with automatic proxy updates | / | / |
 
 Before moving a desktop project, [consolidate its media](/projects-and-data/project-files/).

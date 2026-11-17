@@ -38,6 +38,9 @@ interface EditorActionState extends ExportActionState, SelectedLabelState {
 	selectedTrackId: string | null;
 	readonly selectedClipId?: string | null;
 	readonly timelineView: string;
+	readonly pixelsPerSecond?: number;
+	readonly autoFitTrackHeight?: boolean;
+	readonly allowBelowProjectFitZoom?: boolean;
 	readonly preferences?: Readonly<{
 		readonly waveformVisualization?: Readonly<{
 			readonly lowMidCrossoverHz?: number;

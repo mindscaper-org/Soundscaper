@@ -5,6 +5,7 @@ import { useTimelineHitTesting } from './useTimelineHitTesting.js';
 import { useTimelineInteractionState } from './useTimelineInteractionState.js';
 import { useTimelineMenuActions } from './useTimelineMenuActions.js';
 import { useTimelineNavigation } from './useTimelineNavigation.js';
+import { useMacroTimelineViewport } from './useMacroTimelineViewport.ts';
 import { useTimelinePointerFinish } from './useTimelinePointerFinish.js';
 import { useTimelinePointerMove } from './useTimelinePointerMove.js';
 import { useTrackHeaderDrawerDismissal } from './useTrackHeaderDrawerDismissal.js';
@@ -77,6 +78,7 @@ export default function TimelineController({
 		state,
 		model,
 	});
+	useMacroTimelineViewport(controller, model.project?.id, state.scrollRef);
 	const menuActions = useTimelineMenuActions({
 		controller,
 		copy,
