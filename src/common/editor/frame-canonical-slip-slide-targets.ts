@@ -12,8 +12,9 @@ import type { FrameCanonicalSlipSlideRole } from './frame-canonical-slip-slide-d
 import {
 	frameCanonicalLinkedVideoCompanions,
 	frameCanonicalStableParticipants,
-	frameCanonicalTrackParticipants,
+	frameCanonicalTrackSpans,
 	frameCanonicalTrimParticipant,
+	type FrameCanonicalTrackSpan,
 	type FrameCanonicalTrimParticipant,
 } from './frame-canonical-trim-planning.ts';
 
@@ -65,7 +66,7 @@ export function resolveFrameCanonicalSlideTargets(
 		changed = expandRelations(project, roleByClipId);
 		const laneRoles = rolesByLane(index, roleByClipId);
 		for (const [trackId, roles] of laneRoles) {
-			const lane = frameCanonicalTrackParticipants(index, trackId);
+			const lane = frameCanonicalTrackSpans(index, trackId);
 			const triplet = completeTriplet(trackId, lane, roles);
 			for (const [role, participant] of triplet) {
 				if (!roleByClipId.has(participant.clipId)) changed = true;
@@ -83,7 +84,7 @@ export function resolveFrameCanonicalSlideTargets(
 		if (roles.size !== 3 || [...roles.values()].some((values) => values.length !== 1)) {
 			throw new RangeError(`Slide lane ${trackId} does not contain one left, center, and right clip.`);
 		}
-		completeTriplet(trackId, frameCanonicalTrackParticipants(index, trackId), roles);
+		completeTriplet(trackId, frameCanonicalTrackSpans(index, trackId), roles);
 	}
 	return { left, center, right, participants, roleByClipId };
 }
@@ -123,9 +124,9 @@ function rolesByLane(
 
 function completeTriplet(
 	trackId: string,
-	lane: readonly FrameCanonicalTrimParticipant[],
-	roles: ReadonlyMap<FrameCanonicalSlipSlideRole, readonly FrameCanonicalTrimParticipant[]>,
-): ReadonlyMap<FrameCanonicalSlipSlideRole, FrameCanonicalTrimParticipant> {
+	lane: readonly FrameCanonicalTrackSpan[],
+	roles: ReadonlyMap<FrameCanonicalSlipSlideRole, readonly FrameCanonicalTrackSpan[]>,
+): ReadonlyMap<FrameCanonicalSlipSlideRole, FrameCanonicalTrackSpan> {
 	const knownLeft = roles.get('left')?.[0];
 	const knownCenter = roles.get('center')?.[0];
 	const knownRight = roles.get('right')?.[0];
@@ -164,12 +165,12 @@ function completeTriplet(
 
 function uniqueAtBoundary(
 	trackId: string,
-	lane: readonly FrameCanonicalTrimParticipant[],
+	lane: readonly FrameCanonicalTrackSpan[],
 	boundary: number,
 	edge: 'start' | 'end',
 	excludedClipId: string,
 	label: string,
-): FrameCanonicalTrimParticipant {
+): FrameCanonicalTrackSpan {
 	const candidates = lane.filter((item) => item.clipId !== excludedClipId
 		&& (edge === 'start' ? item.timelineStart : item.timelineEnd) === boundary);
 	if (candidates.length !== 1) {
