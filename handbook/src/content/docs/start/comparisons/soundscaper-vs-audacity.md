@@ -43,7 +43,7 @@ sidebar:
 | Markers and named regions | + | ~ — Labels |
 | Tempo and time-signature maps | + | ~ — One tempo |
 | Track templates with routing | / | / |
-| Named session snapshots | / | / |
+| Named session snapshots | + — :: Named editing states share the same audio. File > Session snapshots creates, restores, renames, and deletes snapshots; native project files preserve them. | / |
 | Selection and view memories | / | / |
 | Nested subprojects with automatic proxy updates | / | / |
 

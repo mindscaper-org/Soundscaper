@@ -4,7 +4,7 @@ import { remapTakeGroupSourceIds } from './take-group-source-references.ts';
 import { CLIP_SOURCE_STRETCH_EXTENSION } from './clip-source-stretch-memory.ts';
 
 /** Remap every source identity owned by a copied Scape project. */
-export function remapScapeProjectSourceReferences(
+export function remapProjectSourceReferences(
 	project: unknown,
 	sourceIdMap: ReadonlyMap<string, string>,
 ): void {

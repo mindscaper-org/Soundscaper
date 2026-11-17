@@ -19,7 +19,7 @@ import type { MacroScriptLibraryServiceRuntime } from '../effects/macro-script-l
 import type { EffectControlsState } from '../effects/effect-controls-service.ts';
 import type { TrimMediaFfmpegHost } from '../document/trim-media-service.ts';
 import type { ExportActionState } from '../export/export-action-group.ts';
-import type { EditorTaskScope } from '../shared/lifecycle.ts';
+import type { EditorTaskScope, EditorProjectToken } from '../shared/lifecycle.ts';
 import type { InterchangeProductProjection } from '../../interchange-multicamera-delivery.ts';
 import type { ProjectOpenRecoveryRuntime } from '../document/project-open-recovery.ts';
 import type { SelectedLabelState } from '../../label-clipboard-selection.ts';
@@ -63,6 +63,8 @@ export interface EditorActionResources {
 	readonly prepareEffectSnapshotSources?: (project: DocumentProject, signal: AbortSignal) => Promise<unknown>;
 	readonly onProjectOpenFailure?: ProjectOpenRecoveryRuntime['onProjectOpenFailure'];
 	readonly assertActive?: () => void;
+	readonly captureProjectGeneration?: () => EditorProjectToken;
+	readonly assertProjectGeneration?: (token: EditorProjectToken) => void;
 	readonly AUDIO_EDITOR_DEFAULT_SHORTCUTS: typeof AUDIO_EDITOR_DEFAULT_SHORTCUTS;
 	readonly analysisService: AnalysisActions;
 	readonly dialogueAlignmentService: ReturnType<typeof createTrackAudioComposition>['dialogueAlignment'];

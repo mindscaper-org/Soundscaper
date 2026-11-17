@@ -5,6 +5,19 @@ import test from 'node:test';
 
 import { chunkGroupForModulePath, chunkGroups, workerChunkGroups } from '../scripts/lib/build-chunk-groups.mjs';
 
+test('session snapshot model and archive inventory stay with eager owners', () => {
+	for (const [path, owner] of [
+		['src/common/editor/session-snapshots.ts', 'editor-domain'],
+		['src/common/editor/session-snapshot-media.ts', 'editor-domain'],
+		['src/common/editor/project-source-reference-remap.ts', 'editor-domain'],
+		['src/common/editor/assistance/session-snapshot-asset-inventory.ts', 'editor-domain'],
+		['src/soundscaper/editor-session-snapshot-rebind.ts', 'soundscaper-project-foundations'],
+	] as const) {
+		assert.equal(chunkGroupForModulePath(path), owner);
+		assert.equal(chunkGroupForModulePath(path.replaceAll('/', '\\')), owner);
+	}
+});
+
 test('Auto-Tune MIDI control leaves stay with their shared domain and lazy parameter editor', () => {
 	for (const [path, owner] of [
 		['src/common/editor/first-party-effects/auto-tune/control-notes.ts', 'editor-domain'],

@@ -207,6 +207,16 @@ Each browser project environment loads its desktop library bridge only when the
 preload global is present; ordinary browser startup keeps that renderer code out
 of its static graph.
 
+Soundscaper named session snapshots live in `metadata.sessionSnapshots` as bounded
+editing states, without project identity or media bodies. The enclosing document
+owns one source inventory. Snapshot source IDs are retention roots, independently
+of ordinary revision pruning. A source rewrite retains the previous descriptor
+under an inventory alias pointing at the existing immutable media; per-snapshot
+bindings preserve its logical source IDs. Restore uses the normal undoable command
+and keeps the other alternatives. Scape import rebinds each snapshot against that
+shared inventory, including freeze authority, transcript/TTS bodies and native
+plug-in state. These alternatives share the project's storage and lifetime.
+
 The project library is the working/recovery copy. General's Saving preference
 controls separate publication to an opened or explicitly saved Scape file:
 automatic file saving defaults off on desktop and on in browsers. Internal

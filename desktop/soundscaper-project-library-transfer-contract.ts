@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { sessionSnapshotProjects } from '../src/common/editor/session-snapshots.ts';
 
 import { createHash } from 'node:crypto';
 
@@ -202,42 +203,45 @@ function createTransferBodies(
 ): readonly Readonly<SoundscaperDesktopProjectLibraryTransferBody>[] {
 	const project = validateSoundscaperDesktopCurrentProject(projectValue);
 	const projectSha256 = digest(projectSha256Value, 'project');
-	const sources = project.sources as readonly Readonly<Record<string, unknown>>[];
-	return Object.freeze(project.tracks.flatMap((trackValue) => {
-		const track = trackValue as Readonly<Record<string, unknown>>;
-		if (!Object.hasOwn(track, 'audioFreeze')) return [];
-		const freeze = normalizeAudioTrackFreezeV1(track.audioFreeze);
-		const matches = sources.filter(({ id }) => id === freeze.derivedSourceId);
-		if (matches.length !== 1) throw new Error('Soundscaper freeze body source is missing or ambiguous');
-		const source = matches[0]!;
-		const sourceId = bodyIdentity(source.id, 'source identity');
-		const storageKey = bodyIdentity(source.storageKey, 'storage key');
-		const byteLength = scapeAudioSourceLayout(source as unknown as ScapeAudioSource).archiveBytes;
-		const sha256 = digest(source.contentSha256, 'freeze source');
-		const binding = legacy
-			? createLegacySoundscaperDesktopLibraryFreezeMediaBinding(
-				String(project.id),
-				JSON.stringify([source.id, source.storageKey]),
-				Number(project.revision),
-				projectSha256,
-			)
-			: createSoundscaperDesktopLibraryFreezeMediaBinding(
+	const bodies = [project, ...sessionSnapshotProjects(project)].flatMap(view => {
+		const sources = view.sources as readonly Readonly<Record<string, unknown>>[];
+		return view.tracks.flatMap((trackValue) => {
+			const track = trackValue as Readonly<Record<string, unknown>>;
+			if (!Object.hasOwn(track, 'audioFreeze')) return [];
+			const freeze = normalizeAudioTrackFreezeV1(track.audioFreeze);
+			const matches = sources.filter(({ id }) => id === freeze.derivedSourceId);
+			if (matches.length !== 1) throw new Error('Soundscaper freeze body source is missing or ambiguous');
+			const source = matches[0]!;
+			const sourceId = bodyIdentity(source.id, 'source identity');
+			const storageKey = bodyIdentity(source.storageKey, 'storage key');
+			const byteLength = scapeAudioSourceLayout(source as unknown as ScapeAudioSource).archiveBytes;
+			const sha256 = digest(source.contentSha256, 'freeze source');
+			const binding = legacy
+				? createLegacySoundscaperDesktopLibraryFreezeMediaBinding(
+					String(project.id),
+					JSON.stringify([source.id, source.storageKey]),
+					Number(project.revision),
+					projectSha256,
+				)
+				: createSoundscaperDesktopLibraryFreezeMediaBinding(
+					sourceId,
+					storageKey,
+					byteLength,
+					sha256,
+				);
+			return [Object.freeze({
+				kind: 'audio-freeze' as const,
+				encoding: SOUNDSCAPER_DESKTOP_LIBRARY_FREEZE_MEDIA_ENCODING,
+				bindingId: binding.id,
 				sourceId,
 				storageKey,
+				mimeType: SOUNDSCAPER_DESKTOP_LIBRARY_FREEZE_MEDIA_MIME_TYPE,
 				byteLength,
 				sha256,
-			);
-		return [Object.freeze({
-			kind: 'audio-freeze' as const,
-			encoding: SOUNDSCAPER_DESKTOP_LIBRARY_FREEZE_MEDIA_ENCODING,
-			bindingId: binding.id,
-			sourceId,
-			storageKey,
-			mimeType: SOUNDSCAPER_DESKTOP_LIBRARY_FREEZE_MEDIA_MIME_TYPE,
-			byteLength,
-			sha256,
-		})];
-	}));
+			})];
+		});
+	});
+	return Object.freeze([...new Map(bodies.map(body => [body.bindingId, body])).values()]);
 }
 
 function validatedBundle(

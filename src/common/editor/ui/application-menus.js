@@ -28,8 +28,7 @@ import { selectLabeledAudioRegions } from '../labeled-audio-regions.ts';
 import { createVisibleVideoTrackPredicate } from '../video-track-visibility.js';
 import { createLocalModelManagerMenuItems } from './local-model-manager-menu.ts';
 import { createLocalAssistanceMenuItems } from './local-assistance-menu.ts';
-import { resolveProjectExtensionCopy } from './project-extension-copy.ts';
-import { createCrossProductHandoffMenuItems } from './cross-product-handoff-menu.ts';
+import { createProjectFileSaveMenuItems } from './project-file-save-menu.ts';
 import { projectHasTimelineAudio, projectHasTimelineVideo } from './timeline-media-presence.ts';
 import { exportSurfaceMenuLabel } from './export-surface-copy.ts';
 import { createNyquistPluginMenuItems } from './nyquist-plugin-menu-items.js';
@@ -102,9 +101,6 @@ export default function createApplicationMenus({
 	viewMenu = {},
 	crossProductHandoffAvailable = false,
 }) {
-	// The File menu names the suffix this product writes, so the catalog's
-	// `{projectExtension}` templates resolve here rather than in the catalog.
-	const projectFileCopy = resolveProjectExtensionCopy(copy, productId);
 	const divider = () => ({ divider: true });
 	const editingActions = resolveEditingActionAvailability({
 		project,
@@ -214,16 +210,8 @@ export default function createApplicationMenus({
 				},
 				{ id: 'file-close', label: copy.closeProject, shortcut: 'Ctrl+W', disabled: blocked, onClick: actions.closeProject },
 				divider(),
-				{ id: 'save-project', label: copy.saveProject, shortcut: 'Ctrl+S', disabled: editBlocked, onClick: actions.saveProject },
-				{
-					id: 'file-save-as', label: projectFileCopy.saveScape, preserveLabel: true,
-					resolve: () => ({ disabled: blocked && !snapshot.readOnly }),
-					onClick: actions.saveScape,
-				},
-				...createCrossProductHandoffMenuItems({
-					productId, copy: { ...copy, ...projectFileCopy }, handoffBlocked,
-					available: crossProductHandoffAvailable, actions,
-				}),
+				...createProjectFileSaveMenuItems({ productId, copy, blocked, editBlocked, handoffBlocked,
+					readOnly: Boolean(snapshot.readOnly), crossProductHandoffAvailable, actions }),
 				divider(),
 				{ id: 'import-audio', label: copy.importFile, preserveLabel: true, shortcut: 'Ctrl+I', disabled: blocked, onClick: actions.importFiles },
 				...productItems.fileImport,

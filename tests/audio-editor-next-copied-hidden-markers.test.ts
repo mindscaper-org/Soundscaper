@@ -11,7 +11,7 @@ import { normalizeAudioWarpMap } from '../src/common/editor/audio-warp-domain.ts
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
-import { remapScapeProjectSourceReferences } from '../src/common/editor/scape-project-source-remap.ts';
+import { remapProjectSourceReferences } from '../src/common/editor/project-source-reference-remap.ts';
 import { CLIP_SOURCE_STRETCH_EXTENSION } from '../src/common/editor/clip-source-stretch-memory.ts';
 
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
@@ -60,7 +60,7 @@ test('NP052: native rebinding preserves unrelated extensions and stale source me
 	const stale = { sourceId: 'different-source', sourceFrameCount: 48_000, map: { stale: true } };
 	const project = { clips: [{ sourceId: 'source', opaqueExtensions: { [CLIP_SOURCE_STRETCH_EXTENSION]: known, unrelated } }],
 		projectBin: { clips: [{ sourceId: 'source', opaqueExtensions: { [CLIP_SOURCE_STRETCH_EXTENSION]: stale } }] } };
-	remapScapeProjectSourceReferences(project, new Map([['source', 'copied'], ['different-source', 'copied-other']]));
+	remapProjectSourceReferences(project, new Map([['source', 'copied'], ['different-source', 'copied-other']]));
 	assert.equal(known.sourceId, 'copied'); assert.deepEqual(known.map, { preserved: true });
 	assert.deepEqual(unrelated, { sourceId: 'source', preserved: true });
 	assert.equal(stale.sourceId, 'different-source', 'a source mismatch cannot revive stale hidden timing authority');

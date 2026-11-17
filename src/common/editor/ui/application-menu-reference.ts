@@ -31,6 +31,7 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	// File: local project lifecycle, delivery, interchange, and native media.
 	['claim-project-lock', 'Edit here', 'File', BOTH],
 	['recent-project', 'Recent project', 'File > Open recent', BOTH],
+	['session-snapshots', 'Session snapshots', 'File', SOUNDSCAPER],
 	['switch-product-to-framescaper', 'Edit in Framescaper', 'File', SOUNDSCAPER],
 	['switch-product-to-soundscaper', 'Edit in Soundscaper', 'File', FRAMESCAPER],
 	['cancel-switch-product-to-framescaper', 'Cancel: Edit in Framescaper', 'File', SOUNDSCAPER],

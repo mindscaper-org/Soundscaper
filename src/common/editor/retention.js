@@ -13,6 +13,7 @@ import { collectTakeGroupSourceIds } from './take-group-source-references.ts';
 import { collectVisualPresetGeneratorSourceIds } from './video-visual-preset-v24.ts';
 import { videoSourceCharacteristicsAreReported } from './video-source-characteristics.ts';
 import { retireUnusedScapeLiteralKeys } from './scape-literal-json-keys.ts';
+import { readSessionSnapshots, sessionSnapshotProjects } from './session-snapshots.ts';
 
 const MAXIMUM_FRAMESCAPER_PROJECT_ASSET_ROOTS = 16_384;
 const SHA256 = /^[a-f0-9]{64}$/u;
@@ -47,6 +48,7 @@ export function collectProjectSourceIds(project, target = new Set()) {
 	collectFeatureFallbackSourceIds(project, target);
 	collectReportedSourceCharacteristicsIds(project, target);
 	collectAssistanceAssetSourceIds(project, target);
+	for (const snapshot of readSessionSnapshots(project)) for (const id of snapshot.sourceIds) target.add(id);
 	if (isSoundscaperProductionProject(project)) collectAudioTrackFreezeSourceIds(project, target);
 	if (isSelectedFramescaperProjectSchema(project)) {
 		collectVisualPresetGeneratorSourceIds(project, target);
@@ -234,6 +236,7 @@ export function collectProjectStorageKeys(
 		const storageKey = asset?.body?.storageKey;
 		if (typeof storageKey === 'string' && storageKey) target.add(storageKey);
 	}
+	for (const snapshot of sessionSnapshotProjects(project)) collectProjectStorageKeys(snapshot, target);
 	return target;
 }
 
