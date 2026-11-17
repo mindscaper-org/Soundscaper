@@ -132,3 +132,38 @@ test('scoped insertion carries automation even on a descendant with no clips', a
 	const result = currentProject(controller);
 	assert.equal(result.automationLanes.find(lane => lane.id === 'empty-track-gain')?.points.find(point => point.id === 'later')?.position, 156_000);
 });
+
+test('Edit Duplicate keeps duplicated audio inside its existing folder', async context => {
+	const controller = await fixture(context);
+	controller.actions.timeline.setExactSelection(12_000, 36_000, { trackIds: ['voice'] });
+	controller.actions.edit.duplicate();
+	const project = currentProject(controller);
+	const duplicate = project.tracks.find(track => !['voice', 'ambience', 'music'].includes(track.id));
+	assert.ok(duplicate, controller.getSnapshot().status.message);
+	assert.equal(project.sequences[0]?.trackNodes.find(node => node.id === duplicate.id)?.parentFolderId, 'dialogue');
+	assert.equal(clipCount(controller, duplicate.id), 1);
+	controller.actions.edit.undo();
+	assert.equal(currentProject(controller).tracks.length, 3);
+});
+
+for (const withMarker of [false, true]) test(withMarker
+	? 'folder Ripple Cut does not copy a sequence marker outside the edited subtree'
+	: 'folder Ripple Cut copies audio in the drawn time selection', async context => {
+	const controller = await fixture(context);
+	if (withMarker) {
+		controller.actions.transport.seek(24_000);
+		controller.actions.timelineAnnotations.createMarkerAtPlayhead({ name: 'Music entrance' });
+	}
+	controller.actions.timeline.setExactSelection(12_000, 36_000, { trackIds: ['voice'] });
+	const annotations = currentProject(controller).timelineAnnotations;
+	assert.equal(annotations.length, Number(withMarker));
+	controller.actions.edit.execute('folder-ripple-cut', { folderId: 'dialogue', propagateErrors: true });
+	assert.deepEqual(currentProject(controller).timelineAnnotations, annotations);
+	controller.actions.timeline.setExactSelection(72_000, 72_000, { trackIds: ['voice'] });
+	controller.actions.transport.seek(72_000);
+	await controller.actions.edit.execute('folder-ripple-insert', { folderId: 'dialogue', propagateErrors: true });
+	assert.deepEqual(currentProject(controller).timelineAnnotations, annotations);
+	const project = resolveRuntimeProjectProjection(currentProject(controller));
+	assert.deepEqual(project.clips.filter(clip => clip.timelineStartFrame === 72_000)
+		.map(clip => [clip.title, clip.durationFrames]), [['voice first', 24_000], ['ambience first', 24_000]]);
+});

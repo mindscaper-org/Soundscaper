@@ -20,7 +20,9 @@ interface FolderEditDependencies {
 	getPositionFrames(): number;
 	updateSelection(command: AudioEditorCommand): unknown;
 	commit(command: AudioEditorCommand): unknown;
-	createClipboard(options: Readonly<{ startFrame: number; endFrame: number; trackIds: readonly string[] }>): AudioEditorClipboard;
+	createClipboard(options: Readonly<{
+		startFrame: number; endFrame: number; trackIds: readonly string[]; includeTimelineAnnotations: boolean;
+	}>): AudioEditorClipboard;
 	readonly clipboard: Pick<ClipboardEditService, 'prepareSessionClipboard' | 'commitSplitAtFrames' | 'prepareControllerPaste'>;
 	commitPaste(command: AudioEditorCommand): unknown;
 	publish(): void;
@@ -60,10 +62,12 @@ export function createFolderEditService(dependencies: FolderEditDependencies) {
 			));
 		}
 		if (!range) throw createLocalizedError(Error, dependencies.copy, 'timeSelectionRequired');
-		const publishClipboard = action === 'ripple-cut'
-			? dependencies.clipboard.prepareSessionClipboard(dependencies.createClipboard({ ...range, trackIds: target.trackIds })) : null;
 		const command = prepareRangeDeleteCommand(project, { ...range, trackIds: target.trackIds,
 			rippleMode: action === 'delete' ? 'none' : 'track' }) as AudioEditorCommand;
+		const publishClipboard = action === 'ripple-cut' ? dependencies.clipboard.prepareSessionClipboard(dependencies.createClipboard({
+			startFrame: range.startFrame, endFrame: range.endFrame, trackIds: target.trackIds,
+			includeTimelineAnnotations: command.type === 'range/ripple-delete' && Boolean(command.annotationRippleOperations?.length),
+		})) : null;
 		const result = dependencies.commit(command);
 		publishClipboard?.();
 		if (publishClipboard) dependencies.publish();

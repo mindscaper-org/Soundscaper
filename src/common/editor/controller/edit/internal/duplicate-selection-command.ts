@@ -36,6 +36,7 @@ interface DuplicateProject extends Readonly<Record<string, unknown>> {
 	readonly tempoMap?: HoldTempoMap;
 	readonly tracks: readonly DuplicateTrack[];
 	readonly trackFolders?: readonly object[];
+	readonly primarySequenceId?: string;
 	readonly sequences?: readonly Readonly<{
 		readonly id: string;
 		readonly trackIds?: readonly string[];
@@ -174,16 +175,20 @@ function duplicateLabels(runtime: DuplicateSelectionRuntime, project: DuplicateP
 }
 
 function duplicatePlacement(project: DuplicateProject, sourceTrackId: string, placements: ReadonlyMap<string, SequenceTrackPlacement> | null) {
-	if (!project.trackFolders?.length && !isSelectedFramescaperProjectSchema(project)) return {};
+	const withFolders = Boolean(project.trackFolders?.length);
+	const framescaper = isSelectedFramescaperProjectSchema(project);
+	if (!withFolders && !framescaper) return {};
+	const forSequence = (sequenceId: string, parentFolderId: string | null) => ({
+		...(framescaper || sequenceId !== project.primarySequenceId ? { sequenceId } : {}),
+		...(withFolders ? { parentFolderId } : {}),
+	});
 	if (placements) {
 		const placement = placements.get(sourceTrackId);
-		return placement ? { sequenceId: placement.sequenceId,
-			...(project.trackFolders?.length ? { parentFolderId: placement.parentFolderId } : {}) } : {};
+		return placement ? forSequence(placement.sequenceId, placement.parentFolderId) : {};
 	}
 	for (const sequence of project.sequences ?? []) {
 		const node = sequence.trackNodes?.find((candidate) => candidate.id === sourceTrackId);
-		if (node || sequence.trackIds?.includes(sourceTrackId)) return { sequenceId: sequence.id,
-			...(project.trackFolders?.length ? { parentFolderId: node?.parentFolderId ?? null } : {}) };
+		if (node || sequence.trackIds?.includes(sourceTrackId)) return forSequence(sequence.id, node?.parentFolderId ?? null);
 	}
 	return {};
 }

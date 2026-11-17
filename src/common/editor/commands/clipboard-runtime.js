@@ -202,7 +202,7 @@ export function createClipboardDescriptor(project, options = {}) {
 			};
 		}),
 		...(currentClipboard ? {
-			annotations: createTimelineAnnotationClipboardDescriptors(project, {
+			annotations: options.includeTimelineAnnotations === false ? [] : createTimelineAnnotationClipboardDescriptors(project, {
 				startFrame: range.startFrame,
 				endFrame: range.endFrame,
 				sourceSequenceIds,
