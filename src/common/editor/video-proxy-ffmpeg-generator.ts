@@ -16,13 +16,13 @@
  * recipe's name — which is also why a recipe this port does not recognise is
  * refused before FFmpeg is reached at all.
  *
- * The original's timescale is not pinned here. The port is handed a `Blob` and
- * an identity, never a timing view, so it cannot know one; a caller that holds
- * the original's timing may pass it to `buildVideoProxyGenerationArgs` directly.
- * What protects the promise either way is that the observer probes the body this
- * returns and conformance refuses a proxy whose boundaries drifted.
+ * Container timing is read before encoding so the encoder and muxer use the
+ * original clock and final packet duration. Alpha originals are refused before
+ * work because the maintained H264/yuv420p recipe cannot preserve transparency.
  */
 
+import { normalizeVideoSourceCharacteristics } from './video-source-characteristics.ts';
+import { demuxVideoTiming } from './video-timing-demux.ts';
 import type { FfmpegMediaFileLease } from './ffmpeg-media-file-operation.ts';
 import type {
 	VideoProxyCandidateGeneratorPort,
@@ -88,6 +88,13 @@ export function createFfmpegVideoProxyGenerator(
 			}
 			throwIfAborted(options?.signal);
 			options.assertCurrent();
+			const timing = await demuxVideoTiming(original, signalOptions(options.signal));
+			if (normalizeVideoSourceCharacteristics(timing.characteristics).hasAlpha) {
+				throw new RangeError('This H264 video proxy recipe cannot preserve alpha. Keep using the original picture.');
+			}
+			const timingRequest = { timescale: timing.timescale, finalFrameDurationTicks: timing.finalFrameDurationTicks };
+			// Validate representability before reading the body or starting the encoder.
+			buildVideoProxyGenerationArgs({ inputPath: 'original', outputPath: 'proxy.mp4', ...timingRequest });
 			const bytes = new Uint8Array(await original.arrayBuffer());
 			throwIfAborted(options?.signal);
 			return runOperation(async (lease) => {
@@ -95,7 +102,7 @@ export function createFfmpegVideoProxyGenerator(
 				const output = `${input}-proxy.${VIDEO_PROXY_GENERATION_OUTPUT.extension}`;
 				try {
 					const run = await lease.exec(
-						buildVideoProxyGenerationArgs({ inputPath: input, outputPath: output }),
+						buildVideoProxyGenerationArgs({ inputPath: input, outputPath: output, ...timingRequest }),
 						signalOptions(options?.signal),
 					);
 					if (run.exitCode !== 0) throw new VideoProxyGenerationError(run.exitCode, run.logs);
