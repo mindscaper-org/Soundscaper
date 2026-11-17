@@ -21,6 +21,7 @@ import {
 import { effectRackLatencyFrames } from '../../engine.js';
 import { createStableId } from '../../project.js';
 import { audioTrackChannelCount } from '../../project-audio-factory.js';
+import { createAudioSource } from '../../project-media-factory.ts';
 import {
 	estimateAudioSelectionEffectOutputFrames,
 	estimateAudioSelectionEffectPeakBytes,
@@ -191,7 +192,7 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 		createId: createStableId,
 		cloneProject: dependencies.projectRuntime.cloneProject,
 		audacitySelectionChannelCount,
-		renderSnapshot: dependencies.renderSnapshot,
+		renderSnapshot: (project, range, buffers, signal) => dependencies.renderSnapshot(project, range, buffers, signal, dependencies.sourceChunkProviders),
 		prepareCommittedTimePitchCaches: dependencies.prepareCommittedTimePitchCaches,
 		createRenderEngine: dependencies.createRenderEngine,
 		sourceBuffers: dependencies.sourceBuffers,
@@ -309,6 +310,21 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 			projectGeneration: dependencies.projectGeneration,
 			copy,
 			memoryLimitBytes: AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES,
+			runStreamedNormalization: async (plans, options) => {
+				const { createStreamedMacroNormalizationService } = await import('./internal/macro/streamed-macro-normalization.ts');
+				options.assertCurrent();
+				await createStreamedMacroNormalizationService({ chunkFrames: SOURCE_CHUNK_FRAMES,
+					memoryLimitBytes: AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES, store,
+					getProject: () => dependencies.getCommandProject() as unknown as EffectResultProject,
+					createId: () => createStableId('audacity-effect'), read: (...args) => audio.renderDryTrackRange(...args),
+					activateSource: (source, signal, peaks) => dependencies.activateStoredSource(createAudioSource(source), signal, peaks),
+					releaseSource: dependencies.releaseStoredSource,
+					prepareReplacement: (target, source) => prepareRangeReplacementCommand(requireProject(), {
+						trackId: target.track.id, startFrame: target.startFrame, endFrame: target.endFrame, source }),
+					publish: (command, trackId, clipId) => dependencies.commit(command,
+						{ selectTrackId: trackId, ...(clipId ? { selectClipId: clipId } : {}) }, { microfadeNewClips: false }),
+				})(plans, options);
+			},
 			getProject: requireProject,
 			audacityEffectTarget: (...args) => selection.audacityEffectTarget(...args),
 			audacityEffectTargets: selection.audacityEffectTargets,
@@ -428,7 +444,7 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 			getSelectedClipId: () => state.selectedClipId, editingBlocked: dependencies.editingBlocked,
 			renderClip: (trackId, startFrame, endFrame, channelCount, clipIds, signal) => audio.renderDryTrackRange(trackId, startFrame, endFrame, channelCount, clipIds, signal),
 			preflightStorage: dependencies.preflightStorage, createId: createStableId,
-			activateSource: dependencies.activateAraSource, releaseSource: dependencies.releaseAraSource,
+			activateSource: dependencies.activateStoredSource, releaseSource: dependencies.releaseStoredSource,
 			store, commit: dependencies.commit,
 		}),
 		sourceEditor,

@@ -208,6 +208,16 @@ not remove committed clips or add history entries.
 Standalone analysis runs one job at a time; queued decoded imports retain source
 metadata and read persisted PCM chunks instead of keeping whole decoded buffers.
 
+Timeline macros containing only Normalize and Loudness Normalization use bounded
+PCM reads when their whole-selection estimate exceeds the effect memory limit.
+Each step measures the entire selection before applying its gain; DC removal,
+Float32 rounding, loudness filter history, channel weighting and gating retain
+the one-shot effect semantics across chunk boundaries. Results and waveform peaks
+are written incrementally, registered as playable chunk sources, and published
+together for all selected tracks. Cancellation or a failed write removes staged
+sources; the macro transaction retains its existing single undo entry. Spectral,
+source-editor and length-changing effect runs keep their existing admission paths.
+
 A proxy is an authenticated derivative, never a new timing authority. It is
 bound to the exact original generation, content identity, and timing facts from
 which it was made. Preview may use a conforming proxy, while export and delivery

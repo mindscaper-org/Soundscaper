@@ -4,6 +4,7 @@ import { createEffectMacroService } from '../../src/common/editor/controller/eff
 import { EditorControllerLifetime, EditorProjectGeneration } from '../../src/common/editor/controller/shared/lifecycle.ts';
 import type { EffectTarget } from '../../src/common/editor/controller/effects/effect-selection-service.ts';
 import type { SelectionEffectResult } from '../../src/common/editor/controller/effects/internal/effect-result-service.ts';
+import type { RunStreamedMacroNormalization } from '../../src/common/editor/controller/effects/internal/macro/streamed-macro-normalization.ts';
 
 function deferred<Value>() {
 	let resolve: (value: Value) => void = () => undefined;
@@ -26,6 +27,8 @@ export function createHarness(options: Readonly<{
 	multipleTargets?: boolean;
 	targetClipIds?: readonly string[];
 	sourceSampleRate?: number;
+	targetDurationFrames?: number;
+	runStreamedNormalization?: RunStreamedMacroNormalization;
 }> = {}) {
 	const defaultProject = {
 		id: 'project-a',
@@ -43,6 +46,7 @@ export function createHarness(options: Readonly<{
 	const target: EffectTarget = {
 		track: targetTrack ?? project.tracks[0], startFrame: 100, endFrame: 300, durationFrames: 200,
 		channelCount: 1, hasAudio: true,
+		...(options.targetDurationFrames ? { endFrame: 100 + options.targetDurationFrames, durationFrames: options.targetDurationFrames } : {}),
 		...(options.targetClipIds ? { clipIds: options.targetClipIds } : {}),
 		...(options.sourceSampleRate ? { sourceId: 'source-a', sourceTrackId: 'track-a', sourceClipId: 'clip-a',
 			sourceSampleRate: options.sourceSampleRate, sourceFrameCount: 10_000,
@@ -95,6 +99,7 @@ export function createHarness(options: Readonly<{
 			noiseProfileMissing: 'Noise profile required',
 		},
 		memoryLimitBytes: options.memoryLimitBytes ?? 1_000_000,
+		runStreamedNormalization: options.runStreamedNormalization,
 		getProject: () => project,
 		audacityEffectTarget: () => options.target === false ? null : target,
 		audacityEffectTargets: () => options.target === false ? [] : options.multipleTargets
