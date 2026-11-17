@@ -115,7 +115,9 @@ export function createTimecodeSyncSession(d: Dependencies) {
 			tick();
 		} catch (error) {
 			if (ownGeneration !== generation || disposed) return;
-			await close(true); publish({ active: false, error: error instanceof Error ? error.message : String(error) });
+			await close(true);
+			if (ownGeneration !== generation || disposed) return;
+			publish({ active: false, error: error instanceof Error ? error.message : String(error) });
 			throw error;
 		} finally { await releasePreparation?.(); }
 	}

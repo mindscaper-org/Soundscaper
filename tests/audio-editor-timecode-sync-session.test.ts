@@ -223,3 +223,23 @@ test('a timecode locate awaiting Pause cannot seek a newly opened project', asyn
 		assert.equal(session.getSnapshot().locked, false);
 	} finally { await session.dispose(); }
 });
+
+test('a retired configuration cannot overwrite the current timecode status with an old error', async () => {
+	const f = fixture();
+	const closing = deferred<void>();
+	const open = f.io.open;
+	f.io.open = async (settings, ...args) => {
+		const device = await open(settings, ...args);
+		return settings.midiOutput === 'first' ? { ...device, close: () => closing.promise } : device;
+	};
+	await f.session.configure({ ...DEFAULT_TIMECODE_SYNC_SETTINGS, sendMtc: true, midiOutput: 'first' });
+	f.io.prepare = () => { throw new Error('Old LTC device unavailable'); };
+	const retired = f.session.configure({ ...DEFAULT_TIMECODE_SYNC_SETTINGS, sendLtc: true });
+	const current = f.session.configure({ ...DEFAULT_TIMECODE_SYNC_SETTINGS, sendMtc: true, midiOutput: 'second' });
+	closing.resolve();
+	try {
+		await Promise.allSettled([retired, current]);
+		assert.equal(f.session.getSnapshot().active, true);
+		assert.equal(f.session.getSnapshot().error, '');
+	} finally { await f.session.dispose(); }
+});
