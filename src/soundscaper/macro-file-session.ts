@@ -60,8 +60,10 @@ export async function createSoundscaperMacroFileSession(input: MacroBatchInput, 
 					signal.throwIfAborted();
 					const result: unknown = await controller.actions.export.start({ format, mode: 'mix', range: 'project', bitDepth: 24,
 						includeTail: false, saveToFile: true, saveTarget: target });
-					signal.throwIfAborted();
-					if (!result || typeof result !== 'object' || Reflect.get(result, 'cancelled')) throw new Error(controller.getSnapshot().status.message || 'The processed file could not be exported.');
+					if (!result || typeof result !== 'object' || Reflect.get(result, 'cancelled')) {
+						signal.throwIfAborted();
+						throw new Error(controller.getSnapshot().status.message || 'The processed file could not be exported.');
+					}
 					return result;
 				} finally { await options.fileService.releaseSaveTarget(target); }
 			},
