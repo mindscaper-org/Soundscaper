@@ -38,6 +38,17 @@ test('inconclusive detection keeps manual settings and reports the result', asyn
 	});
 });
 
+test('changing the raw byte offset clears detection feedback for the old sample window', async () => {
+	await withDialog(async h => {
+		await h.choose(stereoFile());
+		await h.number(2, '4');
+		await h.click('Detect');
+		assert.equal(h.dom.one('[role="status"]').textContent, ENGLISH_COPY.rawPcmDetected);
+		await h.number(2, '5');
+		assert.equal(h.dom.find('[role="status"]'), null);
+	});
+});
+
 for (const retire of ['cancel', 'file', 'project', 'unmount'] as const) {
 	test(`pending detection is single-flight and cannot publish after ${retire}`, async () => {
 		await withDialog(async h => {
@@ -106,7 +117,7 @@ async function mountDialog() {
 	const running: Promise<unknown>[] = [], imports: File[] = [];
 	let closes = 0, generation = 0, mounted = true, blocked = false;
 	const controller = { project: null, captureProjectGeneration: () => ({ projectId: null, generation }), actions: {
-		project: { importFiles: (files: readonly File[]) => { imports.push(...files); } },
+		project: { importFiles: (files: readonly File[]) => { imports.push(...files); return { importedFileCount: files.length }; } },
 		timelineAnnotations: { regularInterval: () => undefined },
 	} };
 	const render = async () => {

@@ -20,7 +20,7 @@ for (const [fieldIndex, label] of ['sample rate', 'channel count', 'byte offset'
 		try {
 			await act(async () => { root.render(<RawPcmImportDialog copy={ENGLISH_COPY}
 				controller={{ project: null, actions: {
-					project: { importFiles: (files: readonly File[]) => { imported = files[0] ?? null; } },
+					project: { importFiles: (files: readonly File[]) => { imported = files[0] ?? null; return { importedFileCount: files.length }; } },
 					timelineAnnotations: { regularInterval: () => undefined },
 				} }} onClose={() => { closes += 1; }} run={operation => {
 					const result = Promise.resolve(operation()); pending.push(result); return result;

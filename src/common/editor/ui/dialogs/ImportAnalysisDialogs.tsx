@@ -22,7 +22,9 @@ import EditorControlLabel from '../EditorControlLabel.tsx';
 interface DialogController {
 	readonly project: RegularIntervalDialogProject | null;
 	readonly actions: Readonly<{
-		readonly project: Readonly<{ importFiles(files: readonly File[], options?: Readonly<{ signal: AbortSignal; sourceProvenance?: SourceProvenanceV1 }>): unknown }>;
+		readonly project: Readonly<{ importFiles(files: readonly File[], options?: Readonly<{
+			signal: AbortSignal; sourceProvenance?: SourceProvenanceV1; fileIndexOffset?: number;
+		}>): unknown }>;
 		readonly timelineAnnotations: Readonly<{ regularInterval(options: RegularIntervalAnnotationOptions): unknown }>;
 	}>;
 }
@@ -125,10 +127,11 @@ export function RawPcmImportDialog({ controller, snapshot, copy, run, onClose, f
 				const wav = await withWebFileLoadLimitContext(() => prepareRawPcmWaveFile(file, { sampleFormat, byteOrder, sampleRate: Number(sampleRate), channelCount: Number(channelCount), offsetBytes: Number(offsetBytes) },
 					{ desktop: fileService?.isDesktop === true, confirmFileSizeWarning, signal: cancellation.signal, assertCurrent: () => { if (!projectIsCurrent()) throw new DOMException('The project changed.', 'AbortError'); } }));
 				if (!projectIsCurrent()) return;
-				await controller.actions.project.importFiles([wav], {
-					signal: cancellation.signal, sourceProvenance: createRawPcmSourceProvenance(file),
+				const result = await controller.actions.project.importFiles([wav], {
+					signal: cancellation.signal, sourceProvenance: createRawPcmSourceProvenance(file), fileIndexOffset: 0,
 				});
-				if (!projectIsCurrent()) return;
+				if (!projectIsCurrent() || !result || typeof result !== 'object'
+					|| !('importedFileCount' in result) || result.importedFileCount !== 1) return;
 			} catch (error) {
 				if (!cancellation.signal.aborted) throw error;
 			} finally {
@@ -174,7 +177,8 @@ export function RawPcmImportDialog({ controller, snapshot, copy, run, onClose, f
 			</select></label>
 			<NumberField disabled={busy} label={copy.sampleRate} value={sampleRate} minimum={1} maximum={384_000} onChange={setSampleRate} />
 			<NumberField disabled={busy} label={copy.rawPcmChannelCount} value={channelCount} minimum={1} maximum={32} onChange={setChannelCount} />
-			<NumberField disabled={busy} label={copy.rawPcmByteOffset} value={offsetBytes} minimum={0} maximum={Number.MAX_SAFE_INTEGER} onChange={setOffsetBytes} />
+			<NumberField disabled={busy} label={copy.rawPcmByteOffset} value={offsetBytes} minimum={0} maximum={Number.MAX_SAFE_INTEGER}
+				onChange={value => { setOffsetBytes(value); setDetectionMessage(null); }} />
 			{(detecting || detectionMessage) && <p role="status">{detecting ? copy.rawPcmDetecting : detectionMessage}</p>}
 		</form>
 	</AudioEditorDialogShell>;
