@@ -21,7 +21,7 @@ async function fixture(context: TestContext) {
 		tracks: [{ id: 'track', type: 'audio', name: 'Voice', clipIds: ['clip'] }],
 		clips: [{ id: 'clip', sourceId: 'original', timelineStartFrame: 0, sourceStartFrame: 0, durationFrames: 2 }],
 	}) as SubprojectDocument;
-	let serial = 0, disposed = 0, failed = false;
+	let serial = 0, disposed = 0, failed = false, pcmCopies = 0;
 	const renderer = createSubprojectRenderer({ store, createId: prefix => `${prefix}-${String(++serial)}`,
 		preflight: () => Promise.resolve(), projectForRuntimeConsumers: project => { validateSoundscaperProject(project); return projectForRuntimeConsumers(project); },
 		createEngine: () => {
@@ -35,14 +35,21 @@ async function fixture(context: TestContext) {
 					const chunk = await providers.get(sourceId)!.readStorageChunk(0);
 					const channels = Array.isArray(chunk) ? chunk as readonly Float32Array[] : (chunk as { channels: readonly Float32Array[] }).channels;
 					assert.equal(typeof options.sink, 'function');
-					if (typeof options.sink === 'function') await options.sink(channels, { sampleRate: 48000 });
+					const packet = channels.map(channel => {
+						const copy = new Float32Array(channel);
+						const slice = copy.slice.bind(copy);
+						copy.slice = (start, end) => { pcmCopies++; return slice(start, end); };
+						return copy;
+					});
+					if (typeof options.sink === 'function') await options.sink(packet, { sampleRate: 48000 });
+					for (const channel of packet) channel.fill(0);
 					if (failed) throw new Error('render failed');
 					return { sampleRate: 48000, channelCount: 1, frameCount: 2, chunkCount: 1 };
 				}, dispose() { disposed++; },
 			};
 		},
 	});
-	return { store, child, renderer, disposed: () => disposed, fail() { failed = true; } };
+	return { store, child, renderer, disposed: () => disposed, pcmCopies: () => pcmCopies, fail() { failed = true; } };
 }
 
 test('the proxy renderer uses stored PCM, retains a fixed publication range, and cleans up only its own stage', async context => {
@@ -52,6 +59,7 @@ test('the proxy renderer uses stored PCM, retains a fixed publication range, and
 	const chunks = [];
 	for await (const chunk of f.store.readSourceChunks(String(output.source.storageKey))) chunks.push(chunk.channels[0]);
 	assert.deepEqual(chunks, [new Float32Array([0.25, -0.5, 0, 0])]);
+	assert.equal(f.pcmCopies(), 0);
 	assert.equal(f.disposed(), 1);
 	await output.discard();
 	assert.equal(await f.store.getSourceMetadata(String(output.source.storageKey)), null);

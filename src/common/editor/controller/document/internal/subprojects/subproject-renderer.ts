@@ -115,7 +115,8 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 						throw new RangeError('The subproject renderer changed the published output geometry.');
 					}
 					const publishedChannels = subprojectOutputChannels(channels, geometry.channelCount);
-					await output.write(publishedChannels.map(channel => channel.slice())); frames += length;
+					// The coalescer copies into owned storage before the awaited sink returns.
+					await output.write([...publishedChannels]); frames += length;
 				},
 			};
 			pitch = await prepareSubprojectTimePitchSources(projected as EngineProject, runtime.store, signal);
