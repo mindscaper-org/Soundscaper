@@ -63,7 +63,7 @@ export function createProjectSwitchService<
 		if (firstAudioTrack) runtime.assignPreferredInputToTrack(firstAudioTrack.id);
 	}
 
-	async function openProject(value: unknown): Promise<void> {
+	async function openProject(value: unknown, isCurrent: () => boolean = () => true): Promise<void> {
 		const loaded = runtime.loadProject(value);
 		const readOnly = Boolean(loaded.readOnly || loaded.intrinsicReadOnly);
 		const readOnlyReason = !readOnly
@@ -73,6 +73,7 @@ export function createProjectSwitchService<
 				: runtime.copy.futureProjectReadOnly;
 		const id = inputId(loaded.project);
 		const save = !readOnly && id !== null && Boolean(runtime.createProjectIfAbsent && await runtime.isProjectAbsent?.(id));
+		if (!isCurrent()) return;
 		await switchProject(loaded.project, { readOnly, readOnlyReason, save });
 	}
 

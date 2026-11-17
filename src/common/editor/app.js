@@ -388,7 +388,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		refreshAudioDevices: bindings.refreshAudioDevices,
 		setRemoveDeviceChangeListener: (remove) => { removeDeviceChangeListener = remove; },
 		loadRecentProjectState: (guard) => doc.session.loadRecentProjectState(guard), getStartupPreferences: () => state.preferences?.startup,
-		openProject: (savedProject) => projectSwitchService.openProject(savedProject),
+		openProject: (savedProject, isCurrent) => projectSwitchService.openProject(savedProject, isCurrent),
 		newProject: (newOptions) => projectSwitchService.newProject(newOptions), openRecovery: takeCycleOpenRecovery, onProjectOpenFailure: options.onProjectOpenFailure,
 		publishProjectState: bindings.publishProjectState,
 		saveNow: bindings.saveNow,

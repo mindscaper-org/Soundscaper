@@ -25,7 +25,7 @@ export interface StoredProjectOpenRuntime<Project extends StoredProject> extends
 	readonly store: Readonly<{ loadProject(projectId: string): Promise<Project | null> }>;
 	sessionTab(projectId: string): StoredProjectTab<Project> | null;
 	switchProject(project: Project, options?: StoredProjectOpenOptions): PromiseLike<unknown> | unknown;
-	openProject(project: unknown): PromiseLike<unknown> | unknown;
+	openProject(project: unknown, isCurrent?: () => boolean): PromiseLike<unknown> | unknown;
 	publishProjectState?(): void;
 	assertActive?(): void;
 	getProjectId?(): string | null;
@@ -52,7 +52,8 @@ export function createStoredProjectOpenActions<Project extends StoredProject>(
 		const activate = async (open: () => PromiseLike<unknown> | unknown): Promise<unknown> => {
 			activationStarted = true;
 			const result = await open();
-			if (runtime.onProjectOpenFailure && runtime.hasMissingTimelineSources?.()) throw new Error('The opened project contains missing or unreadable media.');
+			if (runtime.onProjectOpenFailure && (!projectId || !runtime.getProjectId || runtime.getProjectId() === projectId)
+				&& runtime.hasMissingTimelineSources?.()) throw new Error('The opened project contains missing or unreadable media.');
 			return result;
 		};
 		return withProjectOpenRecovery(() => operation(isCurrent, activate), async (error) => {
@@ -83,14 +84,14 @@ export function createStoredProjectOpenActions<Project extends StoredProject>(
 			const saved = await runtime.store.loadProject(projectId);
 			if (!isCurrent()) return null;
 			if (!saved) throw Object.assign(createLocalizedError(Error, runtime.copy, 'projectNotFound'), { name: 'MissingProjectError' });
-			return activateProject(() => runtime.openProject(saved));
+			return activateProject(() => runtime.openProject(saved, isCurrent));
 		});
 	}
 
 	return Object.freeze({
 		open(project: unknown): Promise<unknown> {
 			const id: unknown = project && typeof project === 'object' ? Object.getOwnPropertyDescriptor(project, 'id')?.value : null;
-			return openWithRecovery(typeof id === 'string' ? id : null, async (_isCurrent, activateProject) => activateProject(() => runtime.openProject(project)));
+			return openWithRecovery(typeof id === 'string' ? id : null, async (isCurrent, activateProject) => activateProject(() => runtime.openProject(project, isCurrent)));
 		},
 		async openRecent(projectId: string | null = null): Promise<unknown> {
 			if (projectId === null) {
