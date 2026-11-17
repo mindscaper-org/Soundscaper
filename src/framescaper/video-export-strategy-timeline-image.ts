@@ -2,6 +2,7 @@
 
 import type { FileSizeWarningConfirmation } from '../common/editor/controller/shared/file-size-warning.ts';
 import type { FfmpegOutputSink } from '../common/editor/ffmpeg-output-stream.ts';
+import { brandRuntimeProjectProjection } from '../common/editor/runtime-clip-projection.ts';
 import { resolveVideoExportRange } from '../common/editor/video-export.js';
 import {
 	normalizeFramescaperImageClipV1,
@@ -257,10 +258,16 @@ function imageExportFoundation(project: Readonly<Record<string, unknown>>): Fram
 
 function completeProjectRange(
 	profile: unknown,
-	project: Readonly<Record<string, unknown>>,
+	project: FramescaperProjectTimelineImage,
 ): Readonly<{ readonly startFrame: number; readonly endFrame: number }> {
 	const runtime = framescaperProjectForRuntimeConsumersTimelineImage(profile, project);
-	const range = resolveVideoExportRange(runtime, 'project');
+	const sequence = project.sequences.find(({ id }) => id === project.primarySequenceId);
+	if (!sequence) throw new ReferenceError('The timelineImage image export primary sequence is unavailable.');
+	const trackIds = new Set<string>(sequence.trackIds);
+	const tracks = records(runtime.tracks, 'timelineImage export tracks').filter(({ id }) => trackIds.has(String(id)));
+	const clipIds = new Set(tracks.flatMap(track => array(track.clipIds ?? [], 'timelineImage export track clips')));
+	const clips = records(runtime.clips, 'timelineImage export clips').filter(({ id }) => clipIds.has(id));
+	const range = resolveVideoExportRange(brandRuntimeProjectProjection({ ...runtime, tracks, clips }), 'project');
 	if (!Number.isSafeInteger(range.startFrame) || !Number.isSafeInteger(range.endFrame)
 		|| range.startFrame !== 0 || range.endFrame <= 0) {
 		throw new RangeError('The timelineImage image export project range is invalid.');

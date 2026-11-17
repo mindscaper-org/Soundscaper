@@ -140,3 +140,26 @@ test('a range containing only still images can be exported from a project that a
 	});
 	assert.equal(plan?.strategy, 'framescaper-visual-rgba');
 });
+
+test('File > Export Video project range ends with the primary sequence, even with a later image in an unused sequence', () => {
+	const fixture = createFramescaperBaselineImageFixture({ imageOnly: true });
+	const foreign = { ...fixture.clip, id: 'unused-image', sequenceId: 'unused-sequence', sequenceStartFrame: 900 };
+	const project = applyFramescaperProjectCommand(PROFILE, fixture.project, { type: 'batch', commands: [
+		{ type: 'sequence/create', sequence: { ...fixture.project.sequences[0],
+			id: 'unused-sequence', name: 'Unused', trackIds: [], trackNodes: [] } },
+		{ type: 'track/add', sequenceId: 'unused-sequence', track: { id: 'unused-picture', name: 'Unused picture',
+			type: 'video', clipIds: [] } },
+		{ type: 'image-clip/set', clipId: foreign.id, expectedClip: null, expectedPlacement: null,
+			clip: foreign, placement: { scope: 'timeline', trackId: 'unused-picture' } },
+	] });
+	const canonicalProject = framescaperProjectTimelineImageFoundationShapeAssistance(project);
+	const strategy = createFramescaperVideoExportStrategyTimelineImage(PROFILE);
+	const exportProject = strategy.createExportProject({ canonicalProject, delivery: {
+		project: canonicalProject, audioRenderedFallback: null, videoRenderedFallback: null,
+		requiredAudioSourceIds: [], requiredVideoSourceIds: [],
+	} });
+	const plan = strategy.createPlan({ canonicalProject, exportProject, format: 'webm', range: 'project',
+		includeAudio: false, canvas: { width: 640, height: 360 },
+	});
+	assert.deepEqual(plan?.range, { startFrame: 0, endFrame: 720_000, durationFrames: 720_000 });
+});
