@@ -21,7 +21,8 @@ for (const interaction of ['draft', 'removal-focus'] as const) {
 		const controller = { actions: { labels: {
 			update(trackId: string, labelId: string, changes: unknown) { updates.push({ trackId, labelId, changes }); },
 			remove(trackId: string) { labels = labels.filter(label => label.trackId !== trackId); },
-		}, timeline: { setExactSelection() {} } } };
+			select() {},
+		} } };
 		const render = () => root.render(<LabelManagerList projectId="project" labels={labels} sampleRate={48_000}
 			copy={ENGLISH_COPY} disabled={false} controller={controller} run={operation => operation()} onAdd={() => undefined} />);
 		const control = (track: string, selector: string) => {

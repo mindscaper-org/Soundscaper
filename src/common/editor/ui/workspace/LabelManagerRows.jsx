@@ -76,7 +76,7 @@ export function LabelManagerRow({ label, sampleRate, frameRate = 24, controller,
 					minimum={label.startFrame} disabled={mutationDisabled}
 					onCommit={(value) => updateRange('end', value)} /></label>
 			</div>
-			<Button variant="secondary" disabled={disabled} onClick={() => run(() => controller.actions.timeline.setExactSelection(label.startFrame, label.endFrame))}>{copy.select || copy.selection}</Button>
+			<Button variant="secondary" disabled={disabled} onClick={() => run(() => controller.actions.labels.select(label.trackId, label.id, { seek: true }))}>{copy.select || copy.selection}</Button>
 		</li>
 	);
 }

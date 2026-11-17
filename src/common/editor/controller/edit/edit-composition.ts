@@ -98,6 +98,7 @@ export function createEditComposition<History extends ControllerRuntimeHistory>(
 	});
 	const labelClipboard = createSelectedLabelClipboardService({
 		state, getProject: dependencies.getCommandProject, getPositionFrames: () => engine.getPositionFrames(),
+		seekSelectionStart: frame => { if (engine.getState().state !== 'playing') engine.seek(frame); },
 		createId: createStableId, updateSelection: dependencies.updateSelection, commit: dependencies.commit,
 		prepareClipboard: clipboard.prepareSessionClipboard, publish: dependencies.publishDocumentSnapshot,
 		copy, setStatus: dependencies.setStatus,

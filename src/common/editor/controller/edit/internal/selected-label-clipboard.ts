@@ -18,6 +18,7 @@ interface Dependencies {
 	readonly state: State;
 	getProject(): unknown;
 	getPositionFrames(): number;
+	seekSelectionStart?(frame: number): void;
 	createId(prefix: string): string;
 	updateSelection(command: AudioEditorCommand): unknown;
 	commit(command: AudioEditorCommand, selection?: { selectTrackId: string; selectClipId: null }): unknown;
@@ -34,7 +35,7 @@ const PASTE_ACTIONS = new Set(['paste', 'paste-overlap', 'paste-insert', 'paste-
 export function createSelectedLabelClipboardService(d: Dependencies) {
 	return Object.freeze({ select, handle });
 
-	function select(trackId: string, labelId: string | null, options: { additive?: boolean } = {}) {
+	function select(trackId: string, labelId: string | null, options: { additive?: boolean; seek?: boolean } = {}) {
 		const project = requireProject();
 		if (labelId === null) {
 			d.state.selectedLabels = [];
@@ -60,6 +61,7 @@ export function createSelectedLabelClipboardService(d: Dependencies) {
 		}
 		d.state.selectedLabelsProjectId = project.id;
 		d.state.selectedLabels = refs;
+		if (options.seek && label.endFrame > label.startFrame) d.seekSelectionStart?.(label.startFrame);
 		d.publish();
 		return refs;
 	}
