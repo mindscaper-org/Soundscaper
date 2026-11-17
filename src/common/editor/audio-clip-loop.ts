@@ -159,13 +159,13 @@ export function clipLoopSegmentFields(clip: LoopAudioClip, localStartFrame: numb
 }
 
 /** Stretch repeats with the clip; rendered replacements already contain the repetitions. */
-export function clipLoopTransformFields(clip: LoopAudioClip, changes: Readonly<Record<string, unknown>>): { opaqueExtensions: Record<string, unknown> } | null {
+export function clipLoopTransformFields(clip: LoopAudioClip, changes: Readonly<Record<string, unknown>>, timelineScale?: number): { opaqueExtensions: Record<string, unknown> } | null {
 	const loop = readClipLoop(clip);
 	if (!loop) return null;
+	const factor = timelineScale ?? (typeof changes.durationFrames === 'number' ? changes.durationFrames / clip.durationFrames : 1);
 	const opaqueExtensions = { ...record(clip.opaqueExtensions) };
 	if (changes.sourceId !== undefined && changes.sourceId !== record(clip).sourceId) delete opaqueExtensions[LOOP_EXTENSION];
-	else if (typeof changes.durationFrames === 'number' && changes.durationFrames !== clip.durationFrames) {
-		const factor = changes.durationFrames / clip.durationFrames;
+	else if (factor !== 1) {
 		const periodFrames = Math.max(1, Math.round(loop.periodFrames * factor));
 		opaqueExtensions[LOOP_EXTENSION] = { periodFrames, offsetFrames: Math.min(periodFrames - 1, Math.round(loop.offsetFrames * factor)) };
 	} else return null;

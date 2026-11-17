@@ -38,7 +38,7 @@ export function scaleClipboardClip(
 		avLinkId: descriptor.avLinkId ? avLinkIds[descriptor.avLinkId] || null : null,
 		timelineStartFrame,
 		durationFrames: timelineDurationFrames,
-		...clipLoopTransformFields(descriptor, { durationFrames: timelineDurationFrames }),
+		...clipLoopTransformFields(descriptor, { durationFrames: timelineDurationFrames }, scale),
 		...(descriptor.anchor !== 'musical' && descriptor.warpMap?.feature === 'audio-warp'
 			&& timelineDurationFrames !== descriptor.durationFrames ? {
 				warpMap: { ...descriptor.warpMap, points: normalizeAudioWarpMap(descriptor.warpMap).points.map((point) => ({

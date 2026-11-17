@@ -4,6 +4,7 @@ import test from 'node:test';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
+import { readClipLoop } from '../src/common/editor/audio-clip-loop.ts';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 
@@ -67,4 +68,33 @@ test('Copy and Paste preserve touching clip edges between 44.1 kHz and 48 kHz pr
 		[[0, 1_088], [1_088, 1_089], [2_177, 1_088]]);
 	assert.deepEqual(pasted.clips.map(clip => [clip.sourceStartFrame, clip.sourceDurationFrames]),
 		[[0, 1_000], [1_000, 1_000], [2_000, 1_000]]);
+});
+
+test('Copy and Paste scale the phase of a loop fragment with the projects’ sample rates', async context => {
+	const source = createAudioSource({ id: 'loop', sampleRate: 44_100, frameCount: 1_000, channelCount: 1 });
+	const original = createSoundscaperProject({ id: 'loop-edit', sampleRate: 44_100, sources: [source],
+		clips: [createAudioClip({ id: 'loop-clip', sourceId: source.id, durationFrames: 2_000, sourceDurationFrames: 1_000,
+			opaqueExtensions: { 'org.soundscaper.clip-loop/v1': { periodFrames: 1_000, offsetFrames: 0 } } })],
+		tracks: [createAudioTrack({ id: 'original-track', clipIds: ['loop-clip'] })] });
+	const destination = createSoundscaperProject({ id: 'loop-mix', sampleRate: 48_000 });
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
+	const writer = await store.beginSourceWrite(source.storageKey, source);
+	await writer.write([Float32Array.from({ length: source.frameCount }, (_, frame) => Math.sin(frame / 5) * .25)]);
+	await writer.commit();
+	await store.saveProject(original);
+	await store.saveProject(destination);
+	await store.saveSetting('last-project-id', original.id);
+	const runtime = createSoundscaperProjectRuntimeSelection();
+	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, store,
+		projectRuntime: runtime, sessionController: runtime.createSessionController() });
+	context.after(async () => { await controller.dispose(); });
+	await controller.ready;
+	controller.actions.timeline.setExactSelection(995, 1_006, { trackIds: ['original-track'] });
+	controller.actions.edit.copy();
+	await controller.actions.project.openById(destination.id);
+	await controller.actions.edit.paste();
+	const clip = controller.project?.clips[0];
+	assert.ok(clip, controller.getSnapshot().status.message);
+	assert.equal(clip.durationFrames, 12);
+	assert.deepEqual(readClipLoop(clip), { periodFrames: 1_088, offsetFrames: 1_083 });
 });
