@@ -62,12 +62,16 @@ export function buildSesxProject(document: SesxDocument, options: SesxImportOpti
 	const media: SesxImportMediaBinding[] = [];
 	const sourceByFileId = new Map<string, DataRecord>();
 	const rejectedFileIds = new Set<string>();
+	const hasSolo = document.tracks.some(track => track.solo);
 	for (const track of document.tracks) {
 		const trackId = options.createStableId('track');
+		const safeSolo = hasSolo && !track.mute && track.soloSafe === true;
+		if (safeSolo) addDeliveryReportItem(draft, { code: 'sesx.solo-safe-converted', disposition: 'converted', severity: 'info',
+			scope: { kind: 'track', id: trackId }, message: 'An Audition solo-safe track is imported as soloed to preserve the saved solo mix.' });
 		const builtTrack: DataRecord = {
 			type: 'audio', id: trackId, name: track.name,
 			gain: boundedGain(track.gain, 4, draft, { kind: 'track', id: trackId }),
-			pan: track.pan, mute: track.mute, solo: track.solo, clipIds: [], envelope: [],
+			pan: track.pan, mute: track.mute, solo: track.solo || safeSolo, clipIds: [], envelope: [],
 		};
 		tracks.push(builtTrack);
 		trackNodes.push({ kind: 'track', id: trackId, parentFolderId: null });
