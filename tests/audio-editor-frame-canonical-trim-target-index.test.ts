@@ -9,7 +9,7 @@ import type {
 } from '../src/common/editor/frame-canonical-edge-trim-domain.ts';
 import {
 	frameCanonicalStableParticipants,
-	frameCanonicalTrackParticipants,
+	frameCanonicalTrackSpans,
 } from '../src/common/editor/frame-canonical-trim-planning.ts';
 
 test('stable trim participants retain project clip order while filtering target IDs', () => {
@@ -19,11 +19,11 @@ test('stable trim participants retain project clip order while filtering target 
 	assert.deepEqual(participants.map(({ clipId }) => clipId), ['first', 'third']);
 });
 
-test('track trim participants retain lane order', () => {
+test('track trim spans retain lane order', () => {
 	const index = audioIndex(['second', 'first']);
 
 	assert.deepEqual(
-		frameCanonicalTrackParticipants(index, 'track').map(({ clipId }) => clipId),
+		frameCanonicalTrackSpans(index, 'track').map(({ clipId }) => clipId),
 		['second', 'first'],
 	);
 

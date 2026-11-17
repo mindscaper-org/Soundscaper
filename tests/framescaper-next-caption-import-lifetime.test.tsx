@@ -32,12 +32,14 @@ async function afterCaptionProjectReplacement(draft: 'sidecar' | 'document',
 		fileService={{ isDesktop: true, chooseFiles: () => [new File(['WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nOutgoing content\n'], 'outgoing.vtt')],
 			openReadDescriptor: value => value }} />);
 	const choose = () => dom.container.querySelectorAll('button').find(node => node.textContent === 'Choose sidecar file');
-	const textareas = () => dom.container.querySelectorAll('textarea').map(node => reactProps(node));
-	const fields = () => ({
-		format: reactProps(dom.container.querySelectorAll('select')[0]!).value,
-		text: textareas().find(props => props.maxLength === 16 * 1024 * 1024)?.value,
-		document: textareas().find(props => props.maxLength !== 16 * 1024 * 1024)?.value,
-	});
+	const authoredDocument = () => dom.one('[data-framescaper-finishing-document]');
+	const fields = () => {
+		const authored = authoredDocument();
+		const sidecar = dom.container.querySelectorAll('textarea').find(node => node !== authored);
+		assert.ok(sidecar);
+		return { format: reactProps(dom.container.querySelectorAll('select')[0]!).value,
+			text: reactProps(sidecar).value, document: reactProps(authored).value };
+	};
 	try {
 		await act(async () => { render(); });
 		if (draft === 'sidecar') {
@@ -47,8 +49,7 @@ async function afterCaptionProjectReplacement(draft: 'sidecar' | 'document',
 			assert.equal(fields().format, 'webvtt');
 			assert.match(String(fields().text), /Outgoing content/u);
 		} else {
-			const authored = textareas().find(props => props.maxLength !== 16 * 1024 * 1024);
-			assert.ok(authored);
+			const authored = reactProps(authoredDocument());
 			await act(async () => { authored.onChange({ currentTarget: { value: '[{"id":"unsaved"}]' } }); });
 			assert.match(String(fields().document), /unsaved/u);
 		}
