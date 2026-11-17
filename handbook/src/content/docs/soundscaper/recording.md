@@ -35,6 +35,21 @@ Soundscaper also exposes timed, punch/count-in, loop/take, and sound-activated
 recording workflows through its menus. Start with a normal take before adding
 these conditions.
 
+## Correct narration with punch-and-roll
+
+Open the **Record** dropdown and enable **Lead-in time** to hear the preceding
+passage before capture begins. The gear beside **Lead-in time** opens a duration
+flyout with the standard time input and its format/unit dropdown. Until you
+choose a duration, lead-in follows the existing one-bar count-in. Your chosen
+duration is saved for later sessions; changing it does not enable lead-in.
+
+After starting a normal recording, choose **Punch again** in the Record dropdown
+to finish the current take, return to its original punch point, and record again
+on the same tracks. You can also use it after stopping or during playback.
+A selected recording range is retained for the retry; changing the current
+selection does not change that range. Each completed take remains undoable.
+Punch again is unavailable during scheduled, sound-activated, or loop/take capture.
+
 ## Keep recording notes
 
 Choose **Window → Recording notes** to open the notes panel. Write take numbers,

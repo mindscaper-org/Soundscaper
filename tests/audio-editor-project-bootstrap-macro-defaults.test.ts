@@ -98,7 +98,7 @@ function createFixture({ defaults = true, failWrite = false, failRead = false }:
 		macroScripts: createInitialMacroScriptLibrary(),
 		showRms: false, showVerticalRulers: true, readOnly: false,
 		monitoring: false, microphoneMetering: false, recordingInputGain: 0,
-		latencyOffsetMs: 0, leadInRecording: false,
+		latencyOffsetMs: 0, leadInRecording: false, leadInDurationSeconds: null as number | null,
 		audioHost: 'browser', preferredRecordingSampleRate: 48_000, preferredInputDeviceId: '', preferredInputChannelCount: 1, preferredOutputDeviceId: '',
 		recordingInputGainDefault: 1,
 		metronomeEnabled: false, pinnedPlayhead: false, playbackOnRulerClick: true,

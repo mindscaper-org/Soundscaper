@@ -19,6 +19,8 @@ export type RecordingActionScope = Pick<EditorActionFunctions,
 	| 'toggleRecordingPause'
 	| 'stopRecording'
 	| 'toggleLeadInRecording'
+	| 'punchAgain'
+	| 'setLeadInDurationSeconds'
 	| 'setMonitoring'
 	| 'setMicrophoneMetering'
 	| 'setRecordingInputGain'
@@ -53,6 +55,8 @@ export function createRecordingActionFacade(
 		pause: scope.toggleRecordingPause,
 		stop: scope.stopRecording,
 		toggleLeadIn: restricted('audioRecording', scope.toggleLeadInRecording),
+		punchAgain: restricted('audioRecording', scope.punchAgain),
+		setLeadInDuration: restricted('audioRecording', scope.setLeadInDurationSeconds),
 		setMonitoring: restricted('audioRecording', scope.setMonitoring),
 		setMetering: restricted('audioRecording', scope.setMicrophoneMetering),
 		prepareInputReplacement: scope.prepareMicrophoneMeterInputReplacement,

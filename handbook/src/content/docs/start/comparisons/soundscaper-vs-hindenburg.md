@@ -89,7 +89,7 @@ Hover for limits. Include any referenced media when sharing projects.
 | Take comping | + — :: Audition, promote, edit comp regions, flatten as one undoable edit | / |
 | Input monitoring and metering | + | + |
 | Alternate track playlists | / | / |
-| Punch-and-roll narration | / | / — :: Hindenburg documents this as a Narrator feature; that separate product is outside the Pro column. |
+| Punch-and-roll narration | + — :: Adjustable playback lead-in and Punch again restart recording at the previous punch point. | / — :: Hindenburg documents this as a Narrator feature; that separate product is outside the Pro column. |
 
 [Recording, monitoring, and recovery](/soundscaper/recording/)
 

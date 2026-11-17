@@ -136,6 +136,7 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 	const { renderDryTrackRange } = deferControllerMethods(() => services.effects().audio, ['renderDryTrackRange']);
 	const { setSourceSelection, readSourceSelection, readSourceSelectionDuration, readSourceSelectionSampleRate, loadSourceAudio, loadSourceAudioWindow } = deferControllerMethods(() => services.effects().sourceEditor, ['setSourceSelection', 'readSourceSelection', 'readSourceSelectionDuration', 'readSourceSelectionSampleRate', 'loadSourceAudio', 'loadSourceAudioWindow']);
 	const { cancelNyquistEvaluation } = deferControllerMethods(() => services.effects().nyquistHost, ['cancelNyquistEvaluation']);
+	const { punchAgain, setLeadInDurationSeconds } = deferControllerMethods(() => services.recording().punchAndRoll, ['punchAgain', 'setLeadInDurationSeconds']);
 	const { toggleRecordingPause, toggleLeadInRecording, cancelRecordingStart } = deferControllerMethods(() => services.recording().session, ['toggleRecordingPause', 'toggleLeadInRecording', 'cancelRecordingStart']);
 	const { updateTransportState, updateMeters, updateZoom, setTimelineViewportWidth, setAutoFitTrackHeight, adjustTrackHeight } = deferControllerMethods(() => services.viewStateService(), ['updateTransportState', 'updateMeters', 'updateZoom', 'setTimelineViewportWidth', 'setAutoFitTrackHeight', 'adjustTrackHeight']);
 	const { toggleExport, updateExportProgress, showAnalysis, setStatus, handleError } = deferControllerMethods(() => services.presentationState(), ['toggleExport', 'updateExportProgress', 'showAnalysis', 'setStatus', 'handleError']);
@@ -188,7 +189,7 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 		setAudacityEffectType, setAudacityEffectParamsFromController, setAudacityControlTrack, applyEffectPreset,
 		saveEffectPreset, deleteEffectPreset, importEffectPresets, exportEffectPreset,
 		cancelAudacityEffectPreview, cancelSelectedAudacityEffect, captureRackNoiseProfileFromController, renderDryTrackRange, cancelNyquistEvaluation,
-		toggleRecordingPause, toggleLeadInRecording, cancelRecordingStart, updateTransportState,
+		punchAgain, setLeadInDurationSeconds, toggleRecordingPause, toggleLeadInRecording, cancelRecordingStart, updateTransportState,
 		updateMeters, updateZoom, setTimelineViewportWidth, setAutoFitTrackHeight,
 		adjustTrackHeight, toggleExport, updateExportProgress, showAnalysis,
 		setStatus, handleError, refreshStorageUsage, estimateStorageForPreflight,

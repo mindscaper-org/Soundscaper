@@ -61,6 +61,7 @@ export interface RoutedRecordingController extends RecordingControllerLike {
 }
 
 export interface RecordingStartOptions {
+	readonly punch?: Omit<import('../recording-state.ts').RecordingPunchTarget, 'projectId'>;
 	readonly trackId?: string;
 	readonly multitrack?: boolean;
 	readonly timedStartTimeMs?: number;

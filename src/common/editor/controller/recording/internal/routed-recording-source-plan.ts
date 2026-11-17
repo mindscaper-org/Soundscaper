@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { recordingTrackRoute } from '../../../recording-routing.js';
-import type { RecordingRoute, RecordingTrack, RoutedTrackRoute } from '../recording-transaction-types.ts';
+import type { RecordingProject, RecordingRoute, RecordingTrack, RoutedTrackRoute } from '../recording-transaction-types.ts';
 
 export interface RoutedRecordingSourcePlan {
 	readonly assigned: readonly RoutedTrackRoute[];
@@ -41,4 +41,15 @@ export function planRoutedRecordingSources(
 		skippedTrackIds: Object.freeze(skippedTrackIds),
 		groups: Object.freeze(ordered),
 	});
+}
+
+/** Explicit targets and retries do not depend on the current arm state. */
+export function routedRecordingTargetTracks(project: RecordingProject,
+	options: import('./recording-session-service.ts').RecordingStartOptions): readonly RecordingTrack[] {
+	if (options.trackId) {
+		const track = project.tracks.find(item => item.id === options.trackId && item.type === 'audio');
+		return track ? [track] : [];
+	}
+	return project.tracks.filter(track => track.type === 'audio'
+		&& (options.punch ? options.punch.trackIds.includes(track.id) : track.armed));
 }

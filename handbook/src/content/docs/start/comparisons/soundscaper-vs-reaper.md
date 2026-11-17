@@ -89,7 +89,7 @@ Hover for limits. Include any referenced media when sharing projects.
 | Take comping | + — :: Audition, promote, edit comp regions, flatten as one undoable edit | + — :: Swipe comping / fixed lanes |
 | Input monitoring and metering | + | + |
 | Alternate track playlists | / | ~ — Fixed item lanes :: Alternate material and comp lanes on a track, rather than named Pro Tools-style playlists. |
-| Punch-and-roll narration | / | ~ — :: Auto-punch / pre-roll. Provides contextual punch recording; no dedicated narration mode is documented. |
+| Punch-and-roll narration | + — :: Adjustable playback lead-in and Punch again restart recording at the previous punch point. | ~ — :: Auto-punch / pre-roll. Provides contextual punch recording; no dedicated narration mode is documented. |
 
 [Recording, monitoring, and recovery](/soundscaper/recording/)
 

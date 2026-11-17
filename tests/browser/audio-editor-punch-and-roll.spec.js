@@ -1,0 +1,62 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+
+import { expect, test } from './audio-editor-test-fixtures.js';
+import { assertNoSeriousAxeViolations, bootEditor, collectClientErrors, waitForEditor } from './audio-editor-test-helpers.js';
+import { installOscillatorMicrophone } from './helpers/complex-editing-workflows.js';
+
+test('Record options edits lead-in with the standard time formats and retries a take', async ({ page }) => {
+	await installOscillatorMicrophone(page);
+	const errors = collectClientErrors(page);
+	let editor = await bootEditor(page, '/embed/en/');
+	const openOptions = async () => {
+		await editor.getByRole('button', { name: 'Record options', exact: true }).click();
+		return page.getByRole('dialog', { name: 'Record options', exact: true });
+	};
+	let options = await openOptions();
+	await expect(options.getByRole('button', { name: 'Punch again', exact: true })).toBeDisabled();
+	const gear = options.getByRole('button', { name: 'Lead-in time settings', exact: true });
+	await gear.click();
+	let settings = page.getByRole('dialog', { name: 'Lead-in time settings', exact: true });
+	let duration = settings.getByRole('group', { name: 'Lead-in duration', exact: true });
+	await duration.getByRole('button', { name: 'Lead-in duration: format', exact: true }).click();
+	await page.getByRole('menuitem', { name: 'samples', exact: true }).click();
+	await expect(duration.locator('.timecode-digit')).toHaveCount(12);
+	await duration.getByRole('button', { name: 'Lead-in duration: format', exact: true }).click();
+	await page.getByRole('menuitem', { name: 'seconds + milliseconds', exact: true }).click();
+	await expect(settings).toBeVisible();
+	// Enter three seconds through the visible timecode digits.
+	await duration.locator('.timecode-digit').nth(5).click();
+	await page.keyboard.press('3');
+	await gear.click();
+	await expect(settings).toBeHidden();
+	await gear.click();
+	await expect(duration.locator('.timecode__display')).toHaveText('000,003.000s');
+	await assertNoSeriousAxeViolations(page, '.kw-audio-editor__record-lead-in-settings');
+	await page.keyboard.press('Escape');
+	await expect(settings).toBeHidden();
+	await expect(gear).toBeFocused();
+	await expect(options).toBeVisible();
+	await expect(options.getByRole('checkbox', { name: 'Lead-in time', exact: true })).not.toBeChecked();
+	await options.getByRole('checkbox', { name: 'Lead-in time', exact: true }).check();
+	await page.reload();
+	editor = await waitForEditor(page);
+	options = await openOptions();
+	await expect(options.getByRole('checkbox', { name: 'Lead-in time', exact: true })).toBeChecked();
+	await options.getByRole('button', { name: 'Lead-in time settings', exact: true }).click();
+	settings = page.getByRole('dialog', { name: 'Lead-in time settings', exact: true });
+	duration = settings.getByRole('group', { name: 'Lead-in duration', exact: true });
+	await expect(duration.locator('.timecode__display')).toHaveText('000,003.000s');
+	await page.keyboard.press('Escape');
+	await page.keyboard.press('Escape');
+	const record = editor.locator('[data-transport="record"] .kw-audio-editor__split-button-main button');
+	await record.click();
+	await expect(record).toHaveAttribute('aria-label', 'Pause recording');
+	options = await openOptions();
+	await expect(options.getByRole('button', { name: 'Lead-in time settings', exact: true })).toBeDisabled();
+	await options.getByRole('button', { name: 'Punch again', exact: true }).click();
+	await expect(options).toBeHidden();
+	await expect(record).toHaveAttribute('aria-label', 'Pause recording');
+	await editor.getByRole('button', { name: 'Stop', exact: true }).click();
+	await expect(record).toHaveAttribute('aria-pressed', 'false');
+	expect(errors).toEqual([]);
+});

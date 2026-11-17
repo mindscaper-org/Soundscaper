@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { calculateAudioEditorCountInFrames } from '../../transport/transport-model.ts';
-import { countInSampleFrames, secondsToSampleFrame } from '../../../timeline-time.ts';
+import { recordingLeadInFrames } from '../recording-model.ts';
+import { secondsToSampleFrame } from '../../../timeline-time.ts';
 import { CLOCKED_RECORDING_START_LEAD_SECONDS } from '../../../recording-start-lead.ts';
 import type { RecordingProject } from '../recording-transaction-types.ts';
 
@@ -14,6 +14,7 @@ export interface RecordingStartTimingRequest {
 	readonly contextSampleRate: number;
 	readonly requestedStartFrame: number;
 	readonly leadInEnabled: boolean;
+	readonly leadInDurationSeconds?: number | null;
 	readonly createTimedRecordingPastError: () => Error;
 }
 
@@ -74,6 +75,7 @@ export function planRecordingStartTiming({
 	contextSampleRate,
 	requestedStartFrame,
 	leadInEnabled,
+	leadInDurationSeconds = null,
 	createTimedRecordingPastError,
 }: RecordingStartTimingRequest): RecordingStartTimingPlan {
 	const remainingSeconds = timedStartTimeMs === null
@@ -86,20 +88,7 @@ export function planRecordingStartTiming({
 		? contextCurrentTime + CLOCKED_RECORDING_START_LEAD_SECONDS
 		: contextCurrentTime + remainingSeconds;
 	const leadInFrames = remainingSeconds === null && leadInEnabled
-		? project.tempoMap != null || project.signatureMap != null
-			? calculateAudioEditorCountInFrames({
-				tempoMap: project.tempoMap,
-				signatureMap: project.signatureMap,
-				sampleRate: projectSampleRate,
-				positionFrame: requestedStartFrame,
-			})
-			: countInSampleFrames(1, {
-				bpm: Math.max(1, Number(project.tempo?.bpm) || 120),
-				timeSignature: {
-					numerator: Math.max(1, Number(project.tempo?.timeSignature?.numerator) || 4),
-					denominator: Math.max(1, Number(project.tempo?.timeSignature?.denominator) || 4),
-				},
-			}, projectSampleRate)
+		? recordingLeadInFrames(project, projectSampleRate, requestedStartFrame, leadInDurationSeconds)
 		: 0;
 	const availableLeadInFrames = Math.min(leadInFrames, requestedStartFrame);
 	return Object.freeze({
