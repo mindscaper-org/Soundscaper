@@ -7,6 +7,7 @@ import { createEffect } from '../src/common/editor/effects.js';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { applySoundscaperProjectCommand as apply } from '../src/soundscaper/editor-project-commands.ts';
 import { projectForRuntimeConsumers } from '../src/common/editor/project-current-runtime.ts';
+import type { EngineEffect } from '../src/common/editor/engine/types.ts';
 
 for (const multiple of [false, true]) test(`deleting ${multiple ? 'a control folder' : 'a control track'} leaves a playable clip rack`, async context => {
 	const controls = multiple ? ['voice', 'linked'] : ['voice'];
@@ -30,8 +31,9 @@ for (const multiple of [false, true]) test(`deleting ${multiple ? 'a control fol
 	try {
 		engine.loadProject(projectForRuntimeConsumers(project), new Map([['source', buffer as unknown as globalThis.AudioBuffer]]));
 		await engine.renderMix({ startFrame: 0, endFrame: 512, includeTail: false });
-		assert.equal(project.clips[0]!.effects[0]!.enabled, false);
-		assert.equal(project.clips[0]!.effects[0]!.context.controlTrackId, null);
-		assert.equal(original.clips[0]!.effects[0]!.enabled, true);
+		const effect = (project.clips[0]!.effects as readonly EngineEffect[])[0]!;
+		assert.equal(effect.enabled, false);
+		assert.equal(effect.context?.controlTrackId, null);
+		assert.equal((original.clips[0]!.effects as readonly EngineEffect[])[0]!.enabled, true);
 	} finally { await engine.dispose(); }
 });
