@@ -5,6 +5,7 @@ import { createTrackPlaylistCommandHandlers } from './track-playlist-runtime.ts'
 import { removeTrackPlaylistCollections } from '../track-playlists.ts';
 import { prepareRemovedTrackDuckWork } from './removed-track-duck-work.ts';
 import { retainedClipEffectRacks } from './retained-clip-effect-racks.ts';
+import { retireRemovedMidiControls } from './removed-track-midi-controls.ts';
 import { compareCodeUnits } from '../code-unit-order.ts';
 import { deriveFolderBusOwnershipV13 } from '../folder-bus-v13.ts';
 import { insertTrackNodeV12 } from '../track-hierarchy-mutation-v12.ts';
@@ -111,6 +112,7 @@ export function removeTracksAndDependents(project, trackIds) {
 	project.clips = project.clips.filter((clip) => !clipIds.has(clip.id));
 	project.tracks = project.tracks.filter((track) => !removedTrackIds.has(String(track.id)));
 	removeTrackPlaylistCollections(project, removedTrackIds);
+	retireRemovedMidiControls(project, removedTrackIds);
 	// A take graph is owned by one track, and the document refuses a group whose
 	// track is gone. Leaving them behind made a cycle-recorded track impossible to
 	// delete at all: the commit failed on the validator rather than on anything the
