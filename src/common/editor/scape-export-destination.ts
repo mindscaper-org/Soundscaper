@@ -2,7 +2,7 @@
 
 import { BlobWriter } from '@zip.js/zip.js/index-native.js';
 
-import { aggregateScapeErrors, throwIfScapeAborted } from '../scape/abort.ts';
+import { aggregateScapeErrors, scapeAbortReason, throwIfScapeAborted } from '../scape/abort.ts';
 
 interface ScapeZipWriter {
 	close(comment?: Uint8Array, options?: Readonly<{ zip64?: boolean; preventClose?: boolean }>): Promise<unknown>;
@@ -15,6 +15,28 @@ export interface ScapeExportDestination {
 	readonly byteLength: number;
 	finish(writer: ScapeZipWriter, signal?: AbortSignal): Promise<Blob | null>;
 	abort(writer: ScapeZipWriter, primary: unknown): Promise<never>;
+}
+
+export async function openScapeExportWritable(
+	createWritable: (maximumArchiveBytes: number) => PromiseLike<WritableStream<Uint8Array>> | WritableStream<Uint8Array>,
+	maximumArchiveBytes: number,
+	signal?: AbortSignal,
+): Promise<WritableStream<Uint8Array>> {
+	throwIfScapeAborted(signal);
+	let writable: WritableStream<Uint8Array>;
+	try {
+		writable = await createWritable(maximumArchiveBytes);
+	} catch (error) {
+		throwIfScapeAborted(signal);
+		throw error;
+	}
+	if (signal?.aborted) {
+		const reason = scapeAbortReason(signal);
+		try { await writable.abort(reason); }
+		catch (error) { throw aggregateScapeErrors(reason, [error], 'The cancelled Scape destination could not be cleaned up.'); }
+		throw reason;
+	}
+	return writable;
 }
 
 export function createScapeExportDestination(

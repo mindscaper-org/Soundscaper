@@ -14,7 +14,7 @@ import { createDigest as createScapeDigest, bytesStream as scapeBytesStream, hex
 import { extractScapeAudio, scapeAudioSourceStream } from './scape-archive-media.ts';
 import { scapeHashingStream, verifyScapeAssetBytes, verifyScapeExtractedAsset } from '../scape/asset-bytes.ts';
 import { extractScapeVideo } from './scape-archive-video.ts'; import { confirmScapeProxyImportSizes } from './scape-proxy-import-size-warning.ts';
-import { createScapeExportDestination } from './scape-export-destination.ts';
+import { createScapeExportDestination, openScapeExportWritable } from './scape-export-destination.ts';
 import {
 	assertScapeExportBlob,
 	completeScapeExportAsset,
@@ -78,7 +78,7 @@ export async function exportScapeProject(project, store, options = {}) {
 		additionalAssets,
 	});
 	const resolvedWritable = createWritable
-		? await awaitScapeOperation(createWritable(plan.maximumArchiveBytes), signal)
+		? await openScapeExportWritable(createWritable, plan.maximumArchiveBytes, signal)
 		: writable;
 	if ((writable || createWritable) && (!resolvedWritable || typeof resolvedWritable.getWriter !== 'function')) {
 		throw new TypeError('The Scape streaming destination is not writable.');

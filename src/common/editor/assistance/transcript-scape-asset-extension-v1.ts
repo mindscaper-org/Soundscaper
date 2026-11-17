@@ -304,7 +304,7 @@ async function stageBody(
 		await verifyStoredBody(material, request);
 		return;
 	}
-	const writerValue = await awaitScapeOperation(request.store.beginMediaAssetWrite(
+	const writerValue = await request.store.beginMediaAssetWrite(
 		material.reference.storageKey,
 		{
 			name: `${material.reference.sha256}.json`,
@@ -317,7 +317,7 @@ async function stageBody(
 			expectedSha256: material.reference.sha256,
 			...(request.signal ? { signal: request.signal } : {}),
 		},
-	), request.signal);
+	);
 	if (!writerValue || typeof writerValue.commitOwned !== 'function'
 		|| writerValue.maximumChunkBytes !== SCAPE_VIDEO_MAXIMUM_CHUNK_BYTES) {
 		throw new TypeError('Assistance transcript import requires an exact bounded owned media writer.');
