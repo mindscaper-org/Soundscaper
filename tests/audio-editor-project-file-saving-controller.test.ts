@@ -11,7 +11,7 @@ type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 
 test('desktop controller saves an opened Scape to its original and asks only about later file changes', async t => {
 	const memory = createMemoryStore();
-	const store = Object.assign(memory, { async deleteProjectIfCurrent(project: { id: string }) { return memory.projects.delete(project.id); } }), decisions: string[] = [], targets: unknown[] = [], prompts: unknown[] = [];
+	const store = Object.assign(memory, { async deleteProjectSnapshot(project: { id: string }) { return memory.projects.delete(project.id); } }), decisions: string[] = [], targets: unknown[] = [], prompts: unknown[] = [];
 	const original = { id: 'a'.repeat(48), name: 'original.sscape' };
 	const fileService = createAudioEditorFileService({ bridge: {
 		prepareOriginalOverwrite: async (id: string) => { targets.push(id); return { id: 'b'.repeat(48), name: original.name }; },

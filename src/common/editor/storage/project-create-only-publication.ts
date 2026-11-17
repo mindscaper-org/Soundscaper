@@ -43,11 +43,25 @@ export async function deleteStoreProjectIfCurrent(
 	repository: ProjectRepositoryPort,
 	project: ProjectDocument,
 ): Promise<boolean> {
-	const remove = repository.deleteIfCurrent;
-	if (typeof remove !== 'function') return false;
+	return deleteProjectWithExpectedSnapshot(lifecycle, project, () => repository.deleteIfCurrent?.(project));
+}
+
+export async function deleteStoreProjectSnapshot(
+	lifecycle: LinkedOriginalStoreService,
+	repository: ProjectRepositoryPort,
+	project: ProjectDocument,
+): Promise<boolean> {
+	return deleteProjectWithExpectedSnapshot(lifecycle, project, () => repository.deleteSnapshot?.(project));
+}
+
+async function deleteProjectWithExpectedSnapshot(
+	lifecycle: LinkedOriginalStoreService,
+	project: ProjectDocument,
+	remove: () => Promise<boolean> | undefined,
+): Promise<boolean> {
 	try {
 		return await lifecycle.deleteProject(project.id, async () => {
-			const deleted = await remove.call(repository, project);
+			const deleted = await remove();
 			if (!deleted) throw PROJECT_CREATION_FENCE_LOST;
 			return true;
 		});

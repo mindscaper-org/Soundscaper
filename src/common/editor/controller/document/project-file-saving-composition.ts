@@ -82,10 +82,12 @@ export function bindProjectFileSaving(d: Readonly<{
 	});
 }
 
+interface TemporaryProjectRow { id: string; updatedAt?: unknown; revision?: unknown; title?: unknown }
+
 export interface TemporaryProjectStore {
-	listProjects(): PromiseLike<readonly { id: string; updatedAt?: unknown }[]>;
+	listProjects(): PromiseLike<readonly TemporaryProjectRow[]>;
 	loadProject(id: string): PromiseLike<unknown>;
-	deleteProject(id: string): PromiseLike<unknown>;
+	deleteProjectSnapshot(project: unknown): PromiseLike<boolean>;
 }
 
 /** Cap closed library copies; open sessions and a concurrently changed copy always survive. */
@@ -107,9 +109,17 @@ export async function pruneTemporaryProjects(d: Readonly<{
 			if (lock.readOnly || d.openIds.has(project.id) || d.isOpen?.(project.id)) continue;
 			const expected = await d.store.loadProject(project.id);
 			if (d.openIds.has(project.id) || d.isOpen?.(project.id)) continue;
-			if (sameProjectSnapshot(expected, project)) await d.store.deleteProject(project.id);
+			if (matchesTemporaryProject(expected, project)) await d.store.deleteProjectSnapshot(expected);
 		} finally { await lock.release(); }
 	}
+}
+
+function matchesTemporaryProject(value: unknown, row: TemporaryProjectRow): boolean {
+	if (sameProjectSnapshot(value, row)) return true;
+	if (!value || typeof value !== 'object' || 'tracks' in row || typeof row.revision !== 'number') return false;
+	const project = value as Partial<TemporaryProjectRow>;
+	return project.id === row.id && project.revision === row.revision
+		&& project.updatedAt === row.updatedAt && project.title === row.title;
 }
 
 export function createControllerFileSavingRuntime<Project extends NativeProjectDocument>(d: Readonly<{
@@ -125,6 +135,7 @@ export function createControllerFileSavingRuntime<Project extends NativeProjectD
 	handleError: ProjectFileSavingRuntime['handleError'];
 }>): ProjectFileSavingRuntime {
 	const getProjects = () => d.session.getSnapshot().tabs.map(tab => ({ project: tab.history.present, readOnly: Boolean(tab.readOnly) }));
+	const isOpen = (id: string): boolean => d.session.getSnapshot().tabs.some(tab => tab.projectId === id);
 	return {
 		getProjects, isReady: d.ready, getPreferences: () => d.preferences().saving, getRetentionKey: () => JSON.stringify(d.preferences().temporaryData), subscribe: d.subscribe, signal: d.signal, handleError: d.handleError,
 		activate: id => {
@@ -133,15 +144,20 @@ export function createControllerFileSavingRuntime<Project extends NativeProjectD
 			return d.switchProject(tab.history.present);
 		},
 		discard: async id => {
+			const expected = await d.store.loadProject(id);
 			await d.closeProject(id, { discard: true });
+			if (isOpen(id)) throw new Error('The project is still open.');
+			if (!expected) return;
 			const lock = await d.acquire(id);
 			try {
 				if (lock.readOnly) throw new Error('The discarded project is in use.');
-				const expected = await d.store.loadProject(id);
-				if (expected) await d.store.deleteProject(id);
+				if (isOpen(id)) throw new Error('The project is still open.');
+				if (!await d.store.deleteProjectSnapshot(expected) && await d.store.loadProject(id)) {
+					throw new Error('The discarded project changed before it could be removed.');
+				}
 			} finally { await lock.release(); }
 		},
 		prune: () => pruneTemporaryProjects({ store: d.store, preferences: d.preferences().temporaryData,
-			openIds: new Set(d.session.getSnapshot().tabs.map(tab => tab.projectId)), isOpen: id => d.session.getSnapshot().tabs.some(tab => tab.projectId === id), acquire: d.acquire }),
+			openIds: new Set(d.session.getSnapshot().tabs.map(tab => tab.projectId)), isOpen, acquire: d.acquire }),
 	};
 }

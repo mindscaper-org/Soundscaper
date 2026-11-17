@@ -177,6 +177,10 @@ export class ProjectCompareAndSwapRepository implements ProjectRepositoryPort {
 		return remove ? remove.call(this.#delegate, project) : Promise.resolve(false);
 	}
 
+	deleteSnapshot(project: ProjectDocument): Promise<boolean> {
+		return this.#delegate.deleteSnapshot?.(project) ?? Promise.resolve(false);
+	}
+
 	delete(projectId: string): Promise<void> {
 		return this.#delegate.delete(projectId);
 	}

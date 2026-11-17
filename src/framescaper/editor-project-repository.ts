@@ -180,6 +180,10 @@ export class FramescaperProjectRepository implements ProjectRepositoryPort {
 		return this.#delegate.deleteExact(this.#exact(projectValue));
 	}
 
+	deleteSnapshot(project: ProjectDocument): Promise<boolean> {
+		return this.#delegate.deleteSnapshot?.(this.#exact(project)) ?? Promise.resolve(false);
+	}
+
 	async delete(projectId: string): Promise<void> { await this.#delegate.delete(projectId); }
 
 	#exact(value: unknown): FramescaperProject & ProjectDocument {

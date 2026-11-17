@@ -78,6 +78,7 @@ export interface ProjectRepositoryPort {
 	listRevisions(projectId: string): Promise<ProjectRevision[]>;
 	deleteIfCurrent?(project: ProjectDocument): Promise<boolean>;
 	deleteExact?(project: ProjectDocument): Promise<boolean>;
+	deleteSnapshot?(project: ProjectDocument): Promise<boolean>;
 	delete(projectId: string): Promise<void>;
 	/** Replace only document/revision rows with a captured snapshot; see ProjectRepository.restore. */
 	restore?(projectId: string, snapshot: Readonly<{
@@ -356,8 +357,17 @@ export class ProjectRepository implements ProjectRepositoryPort {
 	}
 
 	async delete(projectId: string): Promise<void> {
+		await this.#delete(projectId);
+	}
+
+	deleteSnapshot(project: ProjectDocument): Promise<boolean> {
+		return this.#delete(project.id, compactProjectSourceMetadata(clone(project)) as ProjectDocument);
+	}
+
+	async #delete(projectId: string, expected?: ProjectDocument): Promise<boolean> {
 		const database = await this.#port.database();
 		if (!database) {
+			if (expected && !sameProjectSnapshot(this.#port.memory.projects.get(projectId), expected)) return false;
 			if (this.#sessionGuard?.hasOtherMemorySession()) {
 				throw new Error('Another editor session still owns local project history.');
 			}
@@ -380,10 +390,10 @@ export class ProjectRepository implements ProjectRepositoryPort {
 				}
 			}
 			applyMemoryMutations(mutations);
-			return;
+			return true;
 		}
 		await this.#sessionGuard?.reclaimStoppedSessions(database);
-		await transact(database, [
+		return transact(database, [
 			'projects',
 			'revisions',
 			'settings',
@@ -391,6 +401,7 @@ export class ProjectRepository implements ProjectRepositoryPort {
 			LINKED_ORIGINAL_PROVISIONAL_ROOT_STORE_NAME,
 		], 'readwrite', async (stores) => {
 			const { projects, revisions } = stores;
+			if (expected && !sameProjectSnapshot(await request(projects.get(projectId)), expected)) return false;
 			await this.#assertDeleteAllowed(stores.settings);
 			await readStoredLinkedOriginalProvisionalRootInventory(
 				stores[LINKED_VIDEO_ORIGINAL_STORE_NAME],
@@ -408,6 +419,7 @@ export class ProjectRepository implements ProjectRepositoryPort {
 				),
 				projectId,
 			);
+			return true;
 		});
 	}
 

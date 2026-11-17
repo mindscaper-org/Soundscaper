@@ -8,7 +8,7 @@ import { DEFAULT_OPFS_DIRECTORY_NAME } from './storage/opfs-repository.ts';
 import { DEFAULT_OPFS_WORKER_NAME } from './storage/opfs-sync-worker-client.ts';
 import { admitLocalStoreClear } from './storage/linked-video-original-lifecycle-coordinator.ts';
 import { LinkedOriginalStoreService } from './storage/linked-original-store-service.ts';
-import { createStoreProjectIfAbsent, createStoreScapeProjectIfAbsent, deleteStoreProjectIfCurrent } from './storage/project-create-only-publication.ts';
+import { createStoreProjectIfAbsent, createStoreScapeProjectIfAbsent, deleteStoreProjectIfCurrent, deleteStoreProjectSnapshot } from './storage/project-create-only-publication.ts';
 import { saveStoreProjectIfCurrent } from './storage/project-conditional-publication.ts';
 import { duplicateStoreProject } from './storage/project-store-defaults.ts';
 import { restoreStoreProjectSnapshot, restoreStoreProjectSnapshotIfCurrent } from './storage/project-snapshot-restore.ts';
@@ -130,7 +130,7 @@ export class AudioEditorProjectStore {
 	createProjectIfAbsent(project, options = {}) { return createStoreProjectIfAbsent(this, this.projectRepository, project, options); }
 	createScapeProjectIfAbsent(project, options = {}) { return createStoreScapeProjectIfAbsent(this, this.projectRepository, project, options); }
 	deleteProjectIfCurrent(project) { return deleteStoreProjectIfCurrent(this.linkedOriginalStoreService, this.projectRepository, project); }
-
+	deleteProjectSnapshot(project) { return deleteStoreProjectSnapshot(this.linkedOriginalStoreService, this.projectRepository, project); }
 	/**
 	 * @param {string} projectId
 	 * @param {() => unknown} [collectProtectedSourceReferences]

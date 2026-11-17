@@ -72,6 +72,22 @@ function proxyHandler<Store extends FramescaperDesktopProjectStoreLocal>(
 	localStore: Store,
 	renderer: FramescaperDesktopProjectLibraryRenderer,
 ): ProxyHandler<Store> {
+	async function deleteProjectSnapshot(projectValue: unknown): Promise<boolean> {
+		const project = cloneFramescaperProject(profile, projectValue);
+		const lifecycle = localStore.linkedOriginalStoreService;
+		if (typeof lifecycle?.deleteProject !== 'function') {
+			return renderer.deleteProjectIfCurrent(project);
+		}
+		try {
+			return await lifecycle.deleteProject(String(project.id), async () => {
+				if (!await renderer.deleteProjectIfCurrent(project)) throw SCAPE_CREATION_FENCE_LOST;
+				return true;
+			});
+		} catch (error) {
+			if (error === SCAPE_CREATION_FENCE_LOST) return false;
+			throw error;
+		}
+	}
 	const overrides = Object.freeze({
 		listProjects: () => renderer.listProjects(),
 		loadProject: async (projectId: string, optionsValue: unknown = {}) => {
@@ -124,22 +140,8 @@ function proxyHandler<Store extends FramescaperDesktopProjectStoreLocal>(
 			await admitProjectPublication(localStore, project as ProjectDocument, publicationOptions);
 			return renderer.createScapeProjectIfAbsent(project, projectPublicationWarningOptions(publicationOptions));
 		},
-		deleteProjectIfCurrent: async (projectValue: unknown) => {
-			const project = cloneFramescaperProject(profile, projectValue);
-			const lifecycle = localStore.linkedOriginalStoreService;
-			if (typeof lifecycle?.deleteProject !== 'function') {
-				return renderer.deleteProjectIfCurrent(project);
-			}
-			try {
-				return await lifecycle.deleteProject(String(project.id), async () => {
-					if (!await renderer.deleteProjectIfCurrent(project)) throw SCAPE_CREATION_FENCE_LOST;
-					return true;
-				});
-			} catch (error) {
-				if (error === SCAPE_CREATION_FENCE_LOST) return false;
-				throw error;
-			}
-		},
+		deleteProjectIfCurrent: deleteProjectSnapshot,
+		deleteProjectSnapshot,
 		deleteProject: async (projectId: string) => {
 			const lifecycle = localStore.linkedOriginalStoreService;
 			if (typeof lifecycle?.deleteProject === 'function') {

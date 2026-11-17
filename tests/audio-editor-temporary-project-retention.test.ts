@@ -7,7 +7,7 @@ test('the temporary limit keeps the newest closed copies and protects all open p
 	const deleted: unknown[] = [];
 	const projects = Array.from({ length: 14 }, (_, index) => ({ id: `project-${index}`, updatedAt: index.toString().padStart(2, '0') }));
 	const store = { listProjects: async () => projects, loadProject: async (id: string) => projects.find(project => project.id === id),
-		deleteProject: async (id: string) => { deleted.push(projects.find(project => project.id === id)); } };
+		deleteProjectSnapshot: async (project: unknown) => { deleted.push(project); return true; } };
 	const acquire = async () => ({ readOnly: false, release() {} });
 	await pruneTemporaryProjects({ store, openIds: new Set(['project-0', 'project-1']), acquire });
 	assert.deepEqual(deleted, projects.slice(2, 6).reverse());

@@ -74,8 +74,81 @@ test('temporary cleanup keeps a project reopened while its stored snapshot is lo
 	let reopened = false;
 	await pruneTemporaryProjects({ store: { listProjects: () => store.listProjects(),
 		loadProject: async id => { const project = await store.loadProject(id); reopened = true; return project; },
-		deleteProject: id => store.deleteProject(id),
+		deleteProjectSnapshot: expected => store.deleteProjectSnapshot(expected),
 	}, preferences: { limitProjects: true, maximumProjects: 1 }, openIds: new Set([current.id]),
 	isOpen: id => id === old.id && reopened, acquire: async () => ({ readOnly: false, release() {} }) });
 	assert.ok(await store.loadProject(old.id), 'the newly open tab must retain its working copy');
+});
+
+test('the desktop catalog summary identifies an eligible closed working copy', async context => {
+	const store = createSoundscaperEphemeralProjectStore();
+	context.after(async () => { await store.close(); });
+	const old = createSoundscaperProject({ id: 'old-desktop', now: '2026-11-17T12:00:00Z' });
+	const current = createSoundscaperProject({ id: 'current-desktop', now: '2026-11-17T12:01:00Z' });
+	await store.saveProject(old);
+	await store.saveProject(current);
+	await pruneTemporaryProjects({
+		store: {
+			listProjects: async () => (await store.listProjects()).map(({ id, title, revision, updatedAt }) => ({ id, title, revision, updatedAt })),
+			loadProject: id => store.loadProject(id),
+			deleteProjectSnapshot: expected => store.deleteProjectSnapshot(expected),
+		},
+		openIds: new Set([current.id]), preferences: { limitProjects: true, maximumProjects: 1 },
+		acquire: async () => ({ readOnly: false, release() {} }),
+	});
+	assert.equal(await store.loadProject(old.id), null);
+	assert.ok(await store.loadProject(current.id));
+});
+
+test('cleanup uses exact deletion when another window publishes after the final read', async context => {
+	const store = createSoundscaperEphemeralProjectStore();
+	context.after(async () => { await store.close(); });
+	const old = createSoundscaperProject({ id: 'old-racing', now: '2026-11-17T12:00:00Z' });
+	const current = createSoundscaperProject({ id: 'current-racing', now: '2026-11-17T12:01:00Z' });
+	const newer = applySoundscaperProjectCommand(old, { type: 'project/rename', title: 'Saved in another window' });
+	await store.saveProject(old);
+	await store.saveProject(current);
+	await pruneTemporaryProjects({
+		store: {
+			listProjects: () => store.listProjects(), loadProject: id => store.loadProject(id),
+			deleteProjectSnapshot: async expected => { await store.saveProject(newer); return store.deleteProjectSnapshot(expected); },
+		},
+		openIds: new Set([current.id]), preferences: { limitProjects: true, maximumProjects: 1 },
+		acquire: async () => ({ readOnly: false, release() {} }),
+	});
+	assert.deepEqual(await store.loadProject(old.id), newer);
+});
+
+test('Discard preserves a newer revision saved before it acquired the closed tab lock', async context => {
+	const store = createSoundscaperEphemeralProjectStore();
+	context.after(async () => { await store.close(); });
+	const project = createSoundscaperProject({ id: 'discard-racing' });
+	const updated = applySoundscaperProjectCommand(project, { type: 'project/rename', title: 'Taken over and saved' });
+	await store.saveProject(project);
+	let open = true;
+	const runtime = createControllerFileSavingRuntime({
+		session: { getSnapshot: () => ({ tabs: open ? [{ projectId: project.id, history: { present: project } }] : [] }) }, store,
+		preferences: () => ({ saving: { autoSaving: false, askBeforeClosing: true }, temporaryData: { limitProjects: true, maximumProjects: 10 } }),
+		switchProject: async () => undefined, closeProject: async () => { open = false; },
+		acquire: async () => { await store.saveProject(updated); return { readOnly: false, release() {} }; },
+		subscribe: () => () => undefined, signal: new AbortController().signal, handleError: error => { throw error; },
+	});
+	await assert.rejects(async () => runtime.discard(project.id), /changed/u);
+	assert.deepEqual(await store.loadProject(project.id), updated);
+});
+
+test('Discard leaves the stored copy alone when the tab could not close', async context => {
+	const store = createSoundscaperEphemeralProjectStore();
+	context.after(async () => { await store.close(); });
+	const project = createSoundscaperProject({ id: 'discard-still-open' });
+	await store.saveProject(project);
+	const runtime = createControllerFileSavingRuntime({
+		session: { getSnapshot: () => ({ tabs: [{ projectId: project.id, history: { present: project } }] }) }, store,
+		preferences: () => ({ saving: { autoSaving: false, askBeforeClosing: true }, temporaryData: { limitProjects: true, maximumProjects: 10 } }),
+		switchProject: async () => undefined, closeProject: async () => ({ closed: false }),
+		acquire: async () => ({ readOnly: false, release() {} }), subscribe: () => () => undefined,
+		signal: new AbortController().signal, handleError: error => { throw error; },
+	});
+	await assert.rejects(async () => runtime.discard(project.id), /open/u);
+	assert.deepEqual(await store.loadProject(project.id), project);
 });

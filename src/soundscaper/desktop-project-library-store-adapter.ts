@@ -127,6 +127,18 @@ function proxyHandler<Store extends SoundscaperDesktopProjectStoreLocal>(
 	lifecycle: SoundscaperDesktopProjectStoreLocal['linkedOriginalStoreService'],
 ): ProxyHandler<Store> {
 	const pendingDeleteCleanup = new Set<string>();
+	async function deleteProjectSnapshot(projectValue: unknown): Promise<boolean> {
+		const project = soundscaperProjectClone(profile, projectValue);
+		try {
+			return await lifecycle.deleteProject(String(project.id), async () => {
+				if (!await renderer.deleteProjectIfCurrent(project)) throw SCAPE_CREATION_FENCE_LOST;
+				return true;
+			});
+		} catch (error) {
+			if (error === SCAPE_CREATION_FENCE_LOST) return false;
+			throw error;
+		}
+	}
 	const overrides = Object.freeze({
 		listProjects: () => renderer.listProjects(),
 		readProjectRecoveryCandidates: async (projectId: string) => {
@@ -228,18 +240,8 @@ function proxyHandler<Store extends SoundscaperDesktopProjectStoreLocal>(
 			}
 			return Object.freeze({ ...expected });
 		},
-		deleteProjectIfCurrent: async (projectValue: unknown) => {
-			const project = soundscaperProjectClone(profile, projectValue);
-			try {
-				return await lifecycle.deleteProject(String(project.id), async () => {
-					if (!await renderer.deleteProjectIfCurrent(project)) throw SCAPE_CREATION_FENCE_LOST;
-					return true;
-				});
-			} catch (error) {
-				if (error === SCAPE_CREATION_FENCE_LOST) return false;
-				throw error;
-			}
-		},
+		deleteProjectIfCurrent: deleteProjectSnapshot,
+		deleteProjectSnapshot,
 		deleteProject: async (projectId: string) => {
 			try {
 				await lifecycle.deleteProject(projectId, () => renderer.deleteProject(projectId));
