@@ -5,11 +5,14 @@ import { normalizeMidiNativeInstrument, type MidiNativeInstrument } from '../../
 import { registerMidiInstrumentProvider } from '../../engine/midi-audio-renderer.ts';
 import { acceptNativeMidiPort, createNativeMidiRpc, expectNativeMidiPort } from '../../native-midi-port.ts';
 import type { NativePluginInstanceProjectionV1, NativePluginProjectStateV1, NativePluginRegistryView, SoundscaperNativePluginHostBridgeV1 } from '../../native-plugin-host-contract.ts';
+import type { EditorProjectToken } from '../shared/lifecycle.ts';
 type SoundscaperNativeServicesBridge = SoundscaperNativePluginHostBridgeV1 & { listNativePlugins(): Promise<NativePluginRegistryView> };
 
 interface MidiController {
 	readonly project?: unknown;
 	getSnapshot(): Readonly<{ selectedTrackId?: string | null }>;
+	captureProjectGeneration(projectId: string): EditorProjectToken;
+	assertProjectGeneration(token: EditorProjectToken): void;
 	readonly actions: { readonly midi?: { setInstrument(trackId: string, instrument: MidiInstrument): Promise<unknown> } };
 }
 interface Options {
@@ -59,8 +62,19 @@ export function withSoundscaperNativeMidiBridge<T extends Core>(options: Options
 			if (typeof raw.listNativePlugins !== 'function') return core.bridge.instantiateNativePlugin(request);
 			const trackId = controller?.getSnapshot().selectedTrackId;
 			const project = controller?.project as { id?: unknown; sampleRate?: number; tracks?: readonly { id: string }[] } | undefined;
+			const token = typeof project?.id === 'string' ? controller?.captureProjectGeneration(project.id) : null;
+			const originalInstrument = readMidiTrack(project?.tracks?.find(track => track.id === trackId))?.instrument;
+			const assertCurrent = () => {
+				if (token) controller?.assertProjectGeneration(token);
+				const current = controller?.project as typeof project;
+				const instrument = readMidiTrack(current?.tracks?.find(track => track.id === trackId))?.instrument;
+				if (current?.id !== project?.id || current?.sampleRate !== project?.sampleRate
+					|| controller?.getSnapshot().selectedTrackId !== trackId || JSON.stringify(instrument) !== JSON.stringify(originalInstrument)) {
+					throw new Error('The native plug-in selection changed.');
+				}
+			};
 			const registry = await raw.listNativePlugins();
-			if (controller?.project !== project || controller?.getSnapshot().selectedTrackId !== trackId) throw new Error('The native plug-in selection changed.');
+			assertCurrent();
 			const entry = registry.entries.find(entry => entry.installations.some(item => item.installationId === request.installationId));
 			if (entry?.classification !== 'instrument') return core.bridge.instantiateNativePlugin(request);
 			const track = project?.tracks?.find(track => track.id === trackId);
@@ -72,7 +86,8 @@ export function withSoundscaperNativeMidiBridge<T extends Core>(options: Options
 					&& old.stablePluginId === session.instance.stablePluginId && old.state) await session.rpc.request('load-state', { bytes: decodeState(old.state) });
 				const state = await session.rpc.request('save-state');
 				const instrument = normalizeMidiNativeInstrument({ kind: 'native', ...session.instance, name: entry.name, state: encodeState(state.bytes) });
-				if (closing || controller.project !== project) throw new Error('The project changed before instrument assignment.');
+				if (closing) throw new Error('The project changed before instrument assignment.');
+				assertCurrent();
 				await controller.actions.midi.setInstrument(trackId, instrument);
 				assignments.set(session.instance.instanceId, { trackId, projectId: project?.id, instrument });
 				return { ...session.instance, classification: 'instrument' };
