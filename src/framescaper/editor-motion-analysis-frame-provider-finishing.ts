@@ -141,20 +141,22 @@ function createFrameStream(options: MotionFrameProviderOptions) {
 			failure = error;
 			throw error;
 		} finally {
-			try {
-				await extractor.dispose();
-			} catch (cleanupError) {
-				if (failure !== undefined) {
-					throw new AggregateError(
-						[failure, cleanupError],
-						'Motion frame decoding and extractor cleanup both failed.',
-						{ cause: failure },
-					);
-				}
-				throw cleanupError;
-			}
+			await disposeExtractor(extractor, failure);
 		}
 	};
+}
+
+async function disposeExtractor(extractor: MotionFrameExtractorFinishing, failure: unknown): Promise<void> {
+	try {
+		await extractor.dispose();
+	} catch (cleanupError) {
+		if (failure === undefined) throw cleanupError;
+		throw new AggregateError(
+			[failure, cleanupError],
+			'Motion frame decoding and extractor cleanup both failed.',
+			{ cause: failure },
+		);
+	}
 }
 
 async function loadOriginal(
