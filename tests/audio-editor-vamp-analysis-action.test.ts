@@ -178,6 +178,21 @@ test('Vamp analysis refuses missing track identity and an incompatible rendered 
 	}
 });
 
+test('a mono-only Vamp analyzer can analyze a track rendered by the stereo programme output', async () => {
+	const { action, bridge, engine, calls } = harness();
+	assert.ok(action);
+	bridge.listNativeVampAnalyzers = async () => rawCatalog().map(row => ({ ...row,
+		configuration: { ...row.configuration, maximumChannels: 1 },
+	}));
+	engine.renderTrack = async () => ({ channels: [new Float32Array(8).fill(.125), new Float32Array(8).fill(.625)] });
+	const result = await action.analyze({ projectId: 'project-1', projectRevision: 5, selectedTrackId: 'track-1', request: REQUEST }, new AbortController().signal);
+	const configured = calls.find(([kind]) => kind === 'configure')?.[1] as { channelCount: number };
+	const pushed = calls.find(([kind]) => kind === 'push')?.[1] as { channels: Float32Array[] };
+	assert.equal(configured.channelCount, 1);
+	assert.deepEqual(pushed.channels, [new Float32Array(8).fill(.375)]);
+	assert.equal(result.features.length, 1);
+});
+
 test('forged native feature timing and values cannot enter the analysis result', async () => {
 	const cases = [
 		{

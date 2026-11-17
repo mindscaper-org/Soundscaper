@@ -103,7 +103,7 @@ export function createDesktopVampAnalysisAction(options: Readonly<{
 			const rendered = await renderSelection(options.engine, input, request, signal);
 			signal.throwIfAborted();
 			assertProject(options.getProject(), input.projectId, input.projectRevision);
-			const channels = admitRenderedChannels(rendered, request.endFrame - request.startFrame,
+			const { channels, channelCount } = admitRenderedChannels(rendered, request.endFrame - request.startFrame,
 				row.configuration);
 			const sizes = analysisSizes(row.configuration);
 			let sessionId: string | null = null;
@@ -129,7 +129,7 @@ export function createDesktopVampAnalysisAction(options: Readonly<{
 					request.parameters.map(({ id, value }) => [id, value]),
 				));
 				const configured = await bridge.configureNativeVampAnalyzer({
-					sessionId, sampleRate: request.sampleRate, channelCount: channels.length,
+					sessionId, sampleRate: request.sampleRate, channelCount,
 					stepSize: sizes.stepSize, blockSize: sizes.blockSize,
 					frameCount: request.endFrame - request.startFrame,
 					parameters: parameterValues, program: request.program,
@@ -140,9 +140,13 @@ export function createDesktopVampAnalysisAction(options: Readonly<{
 					signal.throwIfAborted();
 					assertProject(options.getProject(), input.projectId, input.projectRevision);
 					const endFrame = Math.min(channels[0]!.length, startFrame + CHUNK_FRAMES);
+					const pcm = channels.slice(0, channelCount).map((channel) => channel.slice(startFrame, endFrame));
+					if (channelCount < channels.length) {
+						const mono = pcm[0]!, right = channels[1]!;
+						for (let frame = 0; frame < mono.length; frame += 1) mono[frame] = (mono[frame]! + right[startFrame + frame]!) * .5;
+					}
 					const batch = record(await bridge.pushNativeVampAnalyzerPcm({
-						sessionId, startFrame,
-						channels: channels.map((channel) => channel.slice(startFrame, endFrame)),
+						sessionId, startFrame, channels: pcm,
 					}), 'Vamp analyzer feature batch');
 					appendNativeFeatures(nativeFeatures, batch.features, 'Vamp analyzer features');
 					signal.throwIfAborted();
@@ -263,15 +267,17 @@ function admitRenderedChannels(
 	rendered: RenderedAudio,
 	frameCount: number,
 	configuration: Readonly<NativeCatalogConfiguration>,
-): readonly Float32Array[] {
+) {
 	const channels = audioBufferChannels(rendered);
-	if (channels.length < configuration.minimumChannels || channels.length > configuration.maximumChannels) {
+	// Track renders use the project output layout, including for mono material.
+	const channelCount = channels.length === 2 && configuration.maximumChannels === 1 ? 1 : channels.length;
+	if (channelCount < configuration.minimumChannels || channelCount > configuration.maximumChannels) {
 		throw new RangeError('The rendered channel count is outside the Vamp analyzer channel range.');
 	}
 	if (channels.some((channel) => channel.length !== frameCount)) {
 		throw new RangeError('The Vamp analysis render did not preserve the requested range.');
 	}
-	return Object.freeze(channels);
+	return { channels, channelCount };
 }
 
 function analysisSizes(configuration: Readonly<NativeCatalogConfiguration>): Readonly<{
