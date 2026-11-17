@@ -11,9 +11,7 @@ interface RoutedEvent {
 	readonly destination?: MidiImportDestination;
 }
 
-const EXPRESSION_CONTROLLERS = new Set([7, 11, 64, 120, 121, 123, 124, 125, 126, 127]);
-
-/** Keep separately authored channel controls with their unique playable owner. */
+/** Keep separately authored patch and channel controls with their unique playable owner. */
 export function routeMidiImportControls(tracks: readonly MidiFileTrack[]): readonly MidiFileTrack[] {
 	const owners = new Map<string, number | null>();
 	for (const [index, track] of tracks.entries()) {
@@ -35,9 +33,9 @@ export function routeMidiImportControls(tracks: readonly MidiFileTrack[]): reado
 		for (const { event, order } of track.events.map((event, order) => ({ event, order })).sort((a, b) => a.event.frame - b.event.frame)) {
 			destination = midiImportSelector(destination, event);
 			const type = event.status & 0xf0;
-			const expression = type === 0xe0 || type === 0xb0 && EXPRESSION_CONTROLLERS.has(event.data[0]!);
+			const channelSetup = [0xa0, 0xb0, 0xc0, 0xd0, 0xe0].includes(type);
 			const key = midiImportDestinationKey(destination);
-			const owner = expression ? owners.get(`${event.status & 0x0f}:${key}`) : undefined;
+			const owner = channelSetup ? owners.get(`${event.status & 0x0f}:${key}`) : undefined;
 			if (owner === undefined || owner === null || owner === index || midiImportDestinationKey(destinationAt[owner]!(event.frame)) !== key) retained.push(event);
 			else incoming[owner]!.push({ source: index, order, event, destination });
 		}
