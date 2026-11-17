@@ -431,7 +431,8 @@ export const chunkGroups = [
 	},
 	{
 		name: 'editor-engine',
-		test: new RegExp(`${editorPath}(?:engine(?:\\.js|[\\\\/])|recording(?:\\.js|[\\\\/]|-listening-output\\.ts)|playback-meter\\.js)`),
+		// The library instrument entry points are imported on demand by the MIDI renderer.
+		test: new RegExp(String.raw`${editorPath}(?!engine[\\/](?:midi-adlmidi|midi-fluidsynth|midi-library-renderer|midi-soundfont-reference)\.ts$)(?:engine(?:\.js|[\\/])|recording(?:\.js|[\\/]|-listening-output\.ts)|playback-meter\.js)`),
 		priority: 90,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,

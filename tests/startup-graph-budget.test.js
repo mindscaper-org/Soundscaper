@@ -105,6 +105,27 @@ test('each product-ready graph excludes the other product tree', () => {
 	);
 });
 
+test('the product-ready graph excludes synth libraries reached only on instrument use', () => {
+	for (const library of ['libadlmidi-js', 'js-synthesizer']) {
+		const bundle = fixtureBundle();
+		const bootstrap = addProductBootstrap(bundle, 'soundscaper');
+		const synthFile = 'assets/instrument-library.js';
+		bundle[synthFile] = chunk({
+			fileName: synthFile,
+			code: 'synth',
+			modules: { [`/workspace/node_modules/${library}/index.js`]: {} },
+		});
+		bootstrap.dynamicImports = [synthFile];
+		assert.doesNotThrow(() => assertProductionStartupGraphs(bundle, 'soundscaper'));
+
+		bootstrap.imports.push(synthFile);
+		assert.throws(
+			() => assertProductionStartupGraphs(bundle, 'soundscaper'),
+			new RegExp(`soundscaper product-ready graph.*${library}`, 'u'),
+		);
+	}
+});
+
 test('the emitted Framescaper project-command chunk cannot reciprocally import a feature chunk', () => {
 	const bundle = fixtureBundle();
 	bundle['assets/framescaper-project-commands.js'] = chunk({

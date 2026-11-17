@@ -260,11 +260,18 @@ export function assertTransferArchiveRuntimeDoesNotReachProductBootstrap(bundle)
 
 export function assertProductGraphOwnership(product, graph) {
 	const otherProduct = product === 'framescaper' ? 'soundscaper' : 'framescaper';
-	const forbiddenModule = [...graph.moduleIds].find((moduleId) => (
+	const moduleIds = [...graph.moduleIds];
+	const forbiddenModule = moduleIds.find((moduleId) => (
 		moduleId.includes(`/src/${otherProduct}/`)
 	));
 	if (forbiddenModule) {
 		throw new Error(`${product} product-ready graph owns forbidden ${otherProduct} product module ${forbiddenModule}.`);
+	}
+	const synthModule = moduleIds.find((moduleId) => (
+		/\/node_modules\/(?:libadlmidi-js|js-synthesizer)\//u.test(moduleId)
+	));
+	if (synthModule) {
+		throw new Error(`${product} product-ready graph loads the on-demand MIDI synthesizer module ${synthModule}.`);
 	}
 }
 
