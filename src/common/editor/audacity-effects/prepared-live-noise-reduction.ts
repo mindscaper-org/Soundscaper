@@ -16,7 +16,7 @@ export function createPreparedLiveNoiseReduction(profileValue: NoiseProfile, sam
 	if (!Number.isSafeInteger(frameCount) || frameCount < 1) throw new RangeError('Live noise context geometry is invalid.');
 	const meanPowers = Float32Array.from(profileValue.meanPowers);
 	const window = periodicHann(NOISE_WINDOW_SIZE);
-	const normalization = noiseReductionNormalization(frameCount, window);
+	const normalization = noiseReductionNormalization(window);
 	let sensitivity: number | undefined, smoothing: number | undefined;
 	let geometry: ReturnType<typeof prepareNoiseReductionGeometry> | undefined;
 	return Object.freeze({

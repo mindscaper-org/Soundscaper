@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import { applyAudacityNoiseReduction, applyAudacityPaulstretch, captureAudacityNoiseProfile } from '../src/common/editor/audacity-effects/spectral.js';
+import { noiseReductionNormalization } from '../src/common/editor/audacity-effects/spectral-noise-reduction.js';
+import { createNoiseReductionGainEnvelope } from '../src/common/editor/audacity-effects/noise-reduction-gain-envelope.ts';
 import { initializePffft } from '../src/common/editor/pffft.js';
 
 await initializePffft();
@@ -20,6 +22,44 @@ function digest(channels: readonly Float32Array[]): string {
 }
 
 const profile = captureAudacityNoiseProfile([signal(4_099)], 8_000);
+
+test('noise window normalization keeps one hop of weights, preserving addition order', () => {
+	const window = Float64Array.from({ length: 2_048 }, (_, index) => 0.5 - 0.5 * Math.cos(2 * Math.PI * index / 2_048));
+	const frameCount = 20_001;
+	const reference = new Float64Array(frameCount);
+	for (let start = -1_536; start < frameCount; start += 512) {
+		for (let index = 0; index < window.length; index += 1) {
+			const frame = start + index;
+			if (frame >= 0 && frame < frameCount) reference[frame] = reference[frame]! + window[index]! ** 2;
+		}
+	}
+	const actual = noiseReductionNormalization(window);
+	assert.equal(actual.length, 512);
+	for (let frame = 0; frame < frameCount; frame += 1) assert.equal(actual[frame % actual.length], reference[frame]);
+});
+
+test('packed gate windows reproduce both Float32 propagation passes', () => {
+	const frames = 135, bins = 9;
+	for (const [attenuation, attack, release] of [[0, 0, 0], [0.16, 0.74, 0.97], [0.95, 1, 1], [0.94, 0.999999998, 0.97]] as const) {
+		const firstWindow = 27;
+		const actual = createNoiseReductionGainEnvelope(frames, bins, attenuation, release, attack, firstWindow);
+		const expected = new Float32Array(frames * bins).fill(attenuation);
+		for (let frame = 0; frame < frames; frame++) for (let bin = 0; bin < bins; bin++) {
+			if (bin !== 0 && (frame === 31 || frame === 32 || frame === 127 || (frame * 41 + bin * 53) % 47 < bin)) {
+				actual.open(frame, bin);
+				expected[frame * bins + bin] = 1;
+			}
+		}
+		for (let index = bins; index < expected.length; index++) expected[index] = Math.max(expected[index]!, expected[index - bins]! * release);
+		for (let frame = frames - 2; frame >= 0; frame--) for (let bin = 0; bin < bins; bin++) {
+			const index = frame * bins + bin;
+			expected[index] = Math.max(expected[index]!, expected[index + bins]! * attack);
+		}
+		for (let frame = firstWindow; frame < frames; frame++) {
+			assert.deepEqual(actual.read(frame), expected.subarray(frame * bins, (frame + 1) * bins), String(frame));
+		}
+	}
+});
 const noiseFixtures = [
 	[1, 'aed10bdbfd0848a0574e33f976612b608cce839142609af684cbcf047fc6a442', 'fba27741564d198448a060efcd05ed34ac00b0c6590ea1b027c34544e6bc69b0'],
 	[511, 'fac9c45c9f1acf8a0368cf5417700d7c0812a28c9967a4c342866fad05be191a', 'fac4ce6192c0ee8432c4f87bd40820303627ecd2a3dcb498a205a740cc97817d'],
