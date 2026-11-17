@@ -224,6 +224,8 @@ connected lanes. Unsupported effects, time maps, transitions and event/library
 authoring appear in the import report. FCPXML contained items respect their
 parent's visible range; connected items retain overhangs while respecting any
 containing ancestor, following Apple's [timing attributes](https://developer.apple.com/documentation/professional-video-applications/timing-attributes).
+Split audio edits retain their separate source start, timeline start and duration
+without changing the picture edit.
 Selected companion media and desktop
 session-folder lookup bind referenced sources. Missing media retains an offline
 source and its edit for relinking rather than silently dropping clips.

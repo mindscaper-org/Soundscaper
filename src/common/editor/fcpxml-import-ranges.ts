@@ -2,9 +2,17 @@
 import { addRationals, compareRationals, subtractRationals, type Rational } from './timeline-time.ts';
 
 export interface FcpxmlImportWindow { readonly start: Rational; readonly end?: Rational }
+export interface FcpxmlImportRange { readonly start: Rational; readonly duration?: Rational }
+export type FcpxmlImportRanges = Readonly<Record<'audio' | 'video', FcpxmlImportRange>>;
+export type FcpxmlImportWindows = Readonly<Record<'audio' | 'video', FcpxmlImportWindow>>;
+
+export function fcpxmlChildWindows(ancestors: FcpxmlImportWindows, parent: FcpxmlImportRanges, contained: boolean): FcpxmlImportWindows {
+	return { audio: fcpxmlChildWindow(ancestors.audio, parent.audio.start, parent.audio.duration, contained),
+		video: fcpxmlChildWindow(ancestors.video, parent.video.start, parent.video.duration, contained) };
+}
 
 /** Contained items inherit their parent's trim; anchored items inherit only containing ancestors. */
-export function fcpxmlChildWindow(ancestor: FcpxmlImportWindow, parentStart: Rational, parentDuration: Rational | undefined, contained: boolean): FcpxmlImportWindow {
+function fcpxmlChildWindow(ancestor: FcpxmlImportWindow, parentStart: Rational, parentDuration: Rational | undefined, contained: boolean): FcpxmlImportWindow {
 	if (!contained || !parentDuration) return ancestor;
 	const parentEnd = addRationals(parentStart, parentDuration);
 	return { start: compareRationals(ancestor.start, parentStart) > 0 ? ancestor.start : parentStart,
