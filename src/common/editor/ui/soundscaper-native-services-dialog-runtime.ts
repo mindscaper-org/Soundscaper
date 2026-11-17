@@ -11,6 +11,7 @@
 import type { SoundscaperNativeServicesBridge } from './soundscaper-native-services-bridge.ts';
 import { soundscaperNativeServicesStoreFor } from './soundscaper-native-services-bridge.ts';
 import { pendingNativePluginParameterWrites } from './native-plugin-parameter-write-drain.ts';
+import { notifyNativePluginRegistryChanged } from './native-plugin-registry-events.ts';
 import {
 	EMPTY_SOUNDSCAPER_NATIVE_SERVICES_DIALOG_STATE,
 	reduceSoundscaperNativeServicesDialog,
@@ -53,6 +54,7 @@ export function createSoundscaperNativeServicesDialogRuntime(
 			publish(reduceSoundscaperNativeServicesDialog(state, { type: 'begin', action }));
 			const event = await runSoundscaperNativeServicesAction(bridge, action);
 			publish(reduceSoundscaperNativeServicesDialog(state, event));
+			if (event.type === 'settled' && event.result.registry) notifyNativePluginRegistryChanged();
 			if (event.type === 'settled' && action.type !== 'refresh' && action.type !== 'describe-devices') {
 				await soundscaperNativeServicesStoreFor(bridge).refresh().catch(() => null);
 			}

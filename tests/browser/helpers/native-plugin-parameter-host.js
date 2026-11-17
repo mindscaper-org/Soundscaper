@@ -19,7 +19,7 @@ export async function openInstalledGain(page, options = {}) {
 /** Desktop host fixture over the production preload relay and plug-in RPC port. */
 export async function installNativePluginParameterHost(page, options = {}) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(({ parameterCount, holdParameterReads, parameterLabel, vendorUi, allowBypass, instrument, pluginName, stablePluginId }) => {
+	await page.addInitScript(({ parameterCount, holdParameterReads, parameterLabel, vendorUi, allowBypass, instrument, pluginName, stablePluginId, allowRegistryEdits, initiallyAllowed }) => {
 		const format = instrument ? 'vst3' : vendorUi ? 'clap' : 'ladspa';
 		const values = Array.from({ length: parameterCount }, () => .25);
 		const heldParameterReplies = [];
@@ -47,7 +47,7 @@ export async function installNativePluginParameterHost(page, options = {}) {
 		const quarantine = { loaded: true, degraded: false, records: [], pendingFaults: 0 };
 		const registry = { entries: [{ entryId: 'gain', stablePluginId, classification: instrument ? 'instrument' : 'effect', format: format.toUpperCase(), name: pluginName, vendor: 'Test host',
 			eligible: true, ineligibleReason: null, installations: [{ installationId: 'gain-install',
-				version: '1', allowed: true, selected: true, quarantined: false }] }] };
+				version: '1', allowed: initiallyAllowed, selected: true, quarantined: false }] }] };
 		const plugins = { enabled: true, quarantined: false, payload: { status: 'available', reason: null },
 			formats: [{ format, consented: true }], consent: { scanningEnabled: true, formats: [{ format, supported: true,
 				granted: true, roots: [{ rootId: `system-${format}`, origin: 'standard', name: format.toUpperCase(), admitted: true }] }] }, quarantine };
@@ -78,7 +78,11 @@ export async function installNativePluginParameterHost(page, options = {}) {
 			openNativeAudioSession: refused, bindNativeAudioSession: refused, nativeAudioSessionStatus: refused,
 			calibrateNativeAudioSession: refused, reportNativeAudioSessionTransfer: refused,
 			reportNativeAudioSessionLoss: refused, closeNativeAudioSession: refused,
-			setNativePluginInstallationAllowed: refused,
+			setNativePluginInstallationAllowed: allowRegistryEdits ? async ({ installationId, allowed }) => {
+				if (installationId !== 'gain-install') return refused();
+				registry.entries[0].installations[0].allowed = allowed;
+				return structuredClone(registry);
+			} : refused,
 			selectNativePluginInstallation: async ({ installationId }) => instrument && installationId === 'gain-install' ? registry : refused(),
 			instantiateNativePlugin: async ({ installationId, instanceId: requested }) => {
 				if (installationId !== 'gain-install' && (!instrument || !installationId.startsWith('i'))) throw new Error('The requested installation is absent.');
@@ -170,5 +174,6 @@ export async function installNativePluginParameterHost(page, options = {}) {
 		Object.defineProperty(globalThis, 'soundscaperDesktop', { configurable: true, value: Object.freeze({ v1: bridge }) });
 	}, { parameterCount: options.parameterCount ?? 1, holdParameterReads: options.holdParameterReads === true,
 		parameterLabel: options.parameterLabel ?? '', vendorUi: options.vendorUi === true, allowBypass: options.allowBypass === true, instrument: options.instrument === true,
-		pluginName: options.pluginName ?? 'Test Gain', stablePluginId: options.stablePluginId ?? 'org.test.gain' });
+		pluginName: options.pluginName ?? 'Test Gain', stablePluginId: options.stablePluginId ?? 'org.test.gain',
+		allowRegistryEdits: options.allowRegistryEdits === true, initiallyAllowed: options.initiallyAllowed !== false });
 }
