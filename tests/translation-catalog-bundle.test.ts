@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { transform } from 'esbuild';
@@ -18,7 +20,7 @@ async function loadModule(source: string): Promise<Record<string, unknown>> {
 }
 
 async function loadBundledModule(plugin: ReturnType<typeof createTranslationCatalogBundlePlugin>, source: string,
-	onDependency?: (source: string) => Promise<void>) {
+	onDependency?: (source: string, specifier: string) => Promise<void>) {
 	for (const match of source.matchAll(/(?:from\s*|import\()\s*("scape:translation-(?:source-text|locale-text:)[^"\\]*")/gu)) {
 		const specifier: unknown = JSON.parse(match[1]!);
 		assert.equal(typeof specifier, 'string');
@@ -26,7 +28,7 @@ async function loadBundledModule(plugin: ReturnType<typeof createTranslationCata
 		assert.ok(id);
 		const dependency = await plugin.load.call({ addWatchFile() {} }, id);
 		assert.ok(dependency);
-		await onDependency?.(dependency);
+		await onDependency?.(dependency, specifier as string);
 		const url = `data:text/javascript,${encodeURIComponent(dependency)}`;
 		source = source.replace(match[0], match[0].replace(match[1]!, JSON.stringify(url)));
 	}
@@ -90,6 +92,28 @@ test('the bundle plugin only substitutes lazy imports from the generated catalog
 	assert.deepEqual((await loadBundledModule(plugin, source)).default, catalog);
 });
 
+test('a small catalog keeps its original module graph without text pools', async () => {
+	const root = await mkdtemp(join(tmpdir(), 'translation-catalog-small-'));
+	try {
+		const directory = join(root, 'src/common/i18n/translations');
+		await mkdir(directory, { recursive: true });
+		await writeFile(join(directory, 'index.js'), 'export default {};');
+		const catalog = { schemaVersion: 2, locale: 'fr', provenance: {}, entries: { play: ['machine', 'Play', 'Lire'] } };
+		await writeFile(join(directory, 'fr.json'), `${JSON.stringify(catalog, null, '\t')}\n`);
+		const plugin = createTranslationCatalogBundlePlugin();
+		const importer = join(directory, 'index.js');
+		const id = plugin.resolveId('./fr.json', importer);
+		assert.ok(id);
+		const source = await plugin.load.call({ addWatchFile() {} }, id);
+		assert.ok(source);
+		assert.equal(source.includes('scape:translation-locale-text:'), false);
+		assert.equal(source.includes('scape:translation-source-text'), false);
+		assert.deepEqual((await loadBundledModule(plugin, source)).default, catalog);
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
 test('the complete Hindi catalog fits the production chunk budget without removing entries', async () => {
 	const catalog = JSON.parse(await readFile(new URL('../src/common/i18n/translations/hi.json', import.meta.url), 'utf8')) as Record<string, unknown>;
 	const plugin = createTranslationCatalogBundlePlugin();
@@ -141,10 +165,21 @@ test('expanded Russian catalog fits a locale chunk while retaining all source te
 	assert.ok(id);
 	const source = await plugin.load.call({ addWatchFile() {} }, id);
 	assert.ok(source);
-	assert.equal(source.includes('scape:translation-locale-text:'), false, 'Locales already under budget retain their existing module graph.');
+	assert.ok(source.includes('scape:translation-locale-text:'), 'The expanded Russian catalog splits localized text into lazy pools.');
 	const { code } = await transform(source, { minify: true, charset: 'utf8' });
 	assert.ok(Buffer.byteLength(code) < 490_000, `Russian locale module is ${Buffer.byteLength(code)} bytes`);
-	assert.deepEqual((await loadBundledModule(plugin, code)).default, catalog);
+	let localePools = 0;
+	const module = await loadBundledModule(plugin, code, async (dependency, specifier) => {
+		const minified = await transform(dependency, { minify: true, charset: 'utf8' });
+		assert.ok(Buffer.byteLength(minified.code) < 490_000, `${specifier} exceeds the unchanged chunk ceiling.`);
+		if (specifier.startsWith('scape:translation-locale-text:')) {
+			localePools++;
+			assert.ok(Buffer.byteLength(dependency) < 400_000, `${specifier} exceeds the independent locale-text pool bound.`);
+		}
+	});
+	assert.ok(localePools > 0, 'Russian localized text is emitted into independently bounded lazy pools.');
+	assert.deepEqual(module.default, catalog);
+	for (const [key, value] of Object.entries(catalog)) assert.deepEqual(module[key], value);
 	const sharedId = plugin.resolveId('scape:translation-source-text', undefined);
 	assert.ok(sharedId);
 	const sharedSource = await plugin.load.call({ addWatchFile() {} }, sharedId);
