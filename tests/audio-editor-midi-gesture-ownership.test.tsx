@@ -94,7 +94,7 @@ async function mountPanel(extraNote = false) {
 	const noop = () => undefined, telemetry = { positionFrame: 0 };
 	const controller = { subscribeTelemetry: () => noop, getTelemetrySnapshot: () => telemetry,
 		actions: { midi: { addNote: noop, updateNote: noop, deleteNotes: noop, resizeClip: noop, setInstrument: noop,
-			previewNote: (_pitch: number, _instrument?: string, options?: { noteId?: string }) => { previews.push(options?.noteId); },
+			previewNote: (_pitch: number, _instrument?: unknown, options?: { noteId?: string }) => { previews.push(options?.noteId); },
 			updateNotes: async (_clipId: string, edits: readonly Update[]) => {
 				updates.push(edits);
 				if (updates.length === 1) await first.promise;
