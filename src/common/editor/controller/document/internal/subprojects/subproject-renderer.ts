@@ -15,6 +15,7 @@ import { applyMediaChannelMapping } from '../../../../media-export.js';
 import { defaultMixerChannelMapV21 } from '../../../../mixer-graph-v21.ts';
 import type { SubprojectDocument, SubprojectGeometry, SubprojectRenderedSource } from '../../subproject-actions.ts';
 import type { ResolvedSubprojectNode } from './subproject-graph.ts';
+import { prepareSubprojectTimePitchSources } from './subproject-time-pitch.ts';
 
 export interface SubprojectRenderStore extends StoredSourceReader {
 	getSourceMetadata(id: string): Promise<StoredSourceMetadata | null>;
@@ -26,6 +27,7 @@ export interface SubprojectRendererRuntime {
 	createId(prefix: string): string;
 	createEngine(): Pick<EnginePublicApi, 'renderMixToSink'> & {
 		readonly renderMix?: EnginePublicApi['renderMix'];
+		readonly setSourceResolver?: EnginePublicApi['setSourceResolver'];
 		loadProject(...args: Parameters<EnginePublicApi['loadProject']>): unknown;
 		dispose(): PromiseLike<void> | void;
 	};
@@ -74,6 +76,7 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 		signal?.throwIfAborted();
 		const providers = new Map<string, ReturnType<typeof createStoredChunkProvider>>();
 		let engine: ReturnType<SubprojectRendererRuntime['createEngine']> | null = null;
+		let pitch: Awaited<ReturnType<typeof prepareSubprojectTimePitchSources>> | null = null;
 		let writer: OwnedAudioSourceWriter | null = null;
 		let published = false;
 		try {
@@ -110,7 +113,10 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 					await output.write(publishedChannels.map(channel => channel.slice())); frames += length;
 				},
 			};
+			pitch = await prepareSubprojectTimePitchSources(projected as EngineProject, runtime.store, signal);
 			engine = runtime.createEngine();
+			if (pitch.resolve && !engine.setSourceResolver) throw new TypeError('The subproject engine cannot resolve processed clips.');
+			engine.setSourceResolver?.(pitch.resolve);
 			engine.loadProject(projected as EngineProject, new Map(), { chunkSources: providers });
 			const nativeFrames = options.endFrame!;
 			const maximumOfflineBytes = 64 * 1024 * 1024;
@@ -150,7 +156,10 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 		} finally {
 			if (writer && !published) await writer.abort();
 			try { await engine?.dispose(); }
-			finally { for (const provider of providers.values()) await provider.dispose(); }
+			finally {
+				try { for (const provider of providers.values()) await provider.dispose(); }
+				finally { await pitch?.close(); }
+			}
 		}
 	}
 	return Object.freeze({ plan, render });
