@@ -24,7 +24,11 @@ export class MtcDecoder {
 	private lastTime = -Infinity;
 
 	push(bytes: ArrayLike<number>, timestamp = 0): TimecodeReading[] {
-		if (timestamp - this.lastTime > 250) this.count = 0;
+		if (timestamp - this.lastTime > 250) {
+			this.count = 0;
+			this.quarter = false;
+			this.sysex = null;
+		}
 		this.lastTime = timestamp;
 		const readings: TimecodeReading[] = [];
 		for (let index = 0; index < bytes.length; index += 1) {

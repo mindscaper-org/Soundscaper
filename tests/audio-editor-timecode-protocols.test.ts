@@ -79,6 +79,18 @@ test('MTC discards a partial cycle across a signal gap and recovers on a fresh c
 	assert.equal(decoder.push(bytes.flatMap(value => [241, value]), 501)[0].frame, 2);
 });
 
+test('MTC discards stale incomplete full-frame and quarter-frame messages across a signal gap', () => {
+	const decoder = new MtcDecoder();
+	const full = encodeMtcFullFrame(93079, '25');
+	assert.deepEqual(decoder.push(full.slice(0, 7), 1), []);
+	assert.deepEqual(decoder.push(full.slice(7), 500), []);
+	assert.deepEqual(decoder.push(full, 501), [{ frame: 93079, rate: '25', direction: 0 }]);
+	const quarter = encodeMtcQuarterFrames(93079, '25');
+	assert.deepEqual(decoder.push([0xf1], 502), []);
+	assert.deepEqual(decoder.push([quarter[0], ...quarter.slice(1).flatMap(byte => [0xf1, byte])], 1000), []);
+	assert.deepEqual(decoder.push(quarter.flatMap(byte => [0xf1, byte]), 1001), [{ frame: 93081, rate: '25', direction: 1 }]);
+});
+
 test('LTC recognizes reverse playback and enforces the selected drop-frame flag', () => {
 	const encoder = new LtcEncoder(48000, '25'), decoder = new LtcDecoder(48000, '25');
 	encoder.seek(100);
