@@ -217,6 +217,11 @@ and keeps the other alternatives. Scape import rebinds each snapshot against tha
 shared inventory, including freeze authority, transcript/TTS bodies and native
 plug-in state. These alternatives share the project's storage and lifetime.
 
+Track playlists replace only their audio arrangement. A camera link survives
+recall when its picture partner still shares the same range and media lane group;
+otherwise recall retires that link and leaves picture placement intact. Replacing
+linked audio requires the picture track to be unlocked if its link must change.
+
 The project library is the working/recovery copy. General's Saving preference
 controls separate publication to an opened or explicitly saved Scape file:
 automatic file saving defaults off on desktop and on in browsers. Internal

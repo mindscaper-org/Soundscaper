@@ -69,6 +69,23 @@ test('MTC input locates, chases quarter frames, and pauses on signal loss', asyn
 	await dialog.getByRole('button', { name: 'Disable synchronization' }).click();
 });
 
+test('MTC receive locates timeline zero with a negative offset across midnight', async ({ page }) => {
+	await installMidi(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	await importFiles(editor, [audio]);
+	const dialog = await openSync(page, editor);
+	await dialog.getByLabel('Receive timecode', { exact: true }).selectOption('mtc');
+	await dialog.getByRole('button', { name: 'Connect MIDI devices' }).click();
+	await dialog.getByLabel('MTC MIDI input', { exact: true }).selectOption('tc-in');
+	await dialog.getByLabel('Timecode at timeline zero (seconds)').fill('-1');
+	await dialog.getByRole('button', { name: 'Apply synchronization' }).click();
+	await expect(dialog.getByRole('status')).toHaveText('Waiting for timecode.');
+	await page.evaluate(() => globalThis.__timecode.emit([240, 127, 127, 1, 1, 55, 59, 59, 0, 247]));
+	await expect(dialog.getByRole('status')).toHaveText('Receiving timecode.');
+	await expect.poll(async () => Number(await editor.getByRole('slider', { name: 'Playhead', exact: true }).getAttribute('aria-valuenow'))).toBe(0);
+	await dialog.getByRole('button', { name: 'Disable synchronization' }).click();
+});
+
 test('LTC uses the selected discrete output channel and stops its real audio worklet on disable', async ({ page }) => {
 	await page.addInitScript(() => {
 		const NativeNode = AudioWorkletNode;

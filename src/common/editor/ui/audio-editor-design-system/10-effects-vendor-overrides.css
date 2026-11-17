@@ -504,10 +504,6 @@
 	min-height: 44px;
 }
 
-.audio-editor-rack-effect-header .effect-header__right {
-	display: none;
-}
-
 .audio-editor-effect-preset-drawer {
 	display: grid;
 	grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.3fr);

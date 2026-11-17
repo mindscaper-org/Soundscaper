@@ -69,11 +69,25 @@ program/bank/controller ordering, sustain/sostenuto state and sounding keys,
 then starts processing at that origin. It does not synthesize the entire past
 of the clip. Chased voices restart their envelopes and phase, and previous
 effect tails are not reconstructed. Loops reuse caches with the same origin.
+Each sounding key retains the bank and program latched at its onset. After
+restarting those voices, chase restores the current channel program and pending
+bank selectors for subsequent notes.
+
+MIDI and Allegro delivery refuse trims beginning inside a released
+sostenuto-held voice, earlier clip boundaries that cut those held tails,
+and reversed ranges containing them.
+Sending the saved pedal before a reconstructed Note On would lose the capture.
+Audio export and native project saving preserve the authored result.
 
 Cache keys include the origin. Export readers and derived audio sources always
 use continuous synthesis from frame zero. Consequently a live chased attack can
 never replace canonical export samples. Deterministic built-in oscillator windows
 retain absolute source phase and can be evaluated independently at any offset.
+
+Imported MIDI ports retain separate channel/controller namespaces for every
+instrument engine. Library and native instruments use one isolated synth per
+note-bearing destination and sum their output. Native event preparation stays
+on the worker, including destination separation and seek state.
 
 ## Engines and opt-in routes
 
@@ -85,10 +99,16 @@ libraries. libADLMIDI uses its Nuked slim build without embedded game banks.
 FluidSynth uses the build without libsndfile, with chorus and reverb disabled;
 ordinary track effects remain available.
 
+Selected-note auditions retain the note's MIDI channel and the program and
+controller setup at its onset, including its port destination. They use the
+requested pitch even while a piano-roll pitch edit is still publishing.
+
 Desktop packages also include Surge XT 1.3.4 and Dexed 1.1.0 as VST3 instruments.
 They appear in the same Instrument selector and its **Instrument settings** entry,
 only for MIDI tracks. Instruments never appear in the effects manager. Surge XT
 supplies wavetable and other synthesis types; Dexed supplies six-operator FM.
+Instrument settings retain their editor for the selected track and instrument;
+changing that owner closes the previous editor while preserving its saved MIDI state.
 Authenticated app-provided plug-ins are discovered and enabled automatically;
 explicit disabling and quarantine remain effective across application updates.
 External instruments still require scanning and allowance in preferences.

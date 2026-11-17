@@ -5,6 +5,7 @@ import { browserProjectHandle, type ProjectFileTarget } from '../../file-save-st
 import { normalizeSavingPreferences, normalizeTemporaryDataPreferences, type SavingPreferences, type TemporaryDataPreferences } from '../../saving-preferences.ts';
 import { createProjectFileSaving } from './internal/project-file-saving.ts';
 import type { NativeProjectDocument, NativeSavedFile } from './native-project-types.ts';
+import { sameProjectSnapshot } from '../../storage/project-snapshot-equality.ts';
 
 export interface ProjectFileSavingRuntime {
 	getProjects(): readonly Readonly<{ project: NativeProjectDocument; readOnly: boolean }>[];
@@ -84,7 +85,7 @@ export function bindProjectFileSaving(d: Readonly<{
 export interface TemporaryProjectStore {
 	listProjects(): PromiseLike<readonly { id: string; updatedAt?: unknown }[]>;
 	loadProject(id: string): PromiseLike<unknown>;
-	deleteProjectIfCurrent?(project: unknown): PromiseLike<boolean>;
+	deleteProject(id: string): PromiseLike<unknown>;
 }
 
 /** Cap closed library copies; open sessions and a concurrently changed copy always survive. */
@@ -96,7 +97,7 @@ export async function pruneTemporaryProjects(d: Readonly<{
 	acquire(id: string): PromiseLike<Readonly<{ readOnly: boolean; release(): PromiseLike<unknown> | unknown }>>;
 }>): Promise<void> {
 	const preferences = normalizeTemporaryDataPreferences(d.preferences);
-	if (!preferences.limitProjects || !d.store.deleteProjectIfCurrent) return;
+	if (!preferences.limitProjects) return;
 	const projects = [...await d.store.listProjects()].sort((a, b) => String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')));
 	const keepClosed = Math.max(0, preferences.maximumProjects - projects.filter(project => d.openIds.has(project.id)).length);
 	const closed = projects.filter(project => !d.openIds.has(project.id));
@@ -105,7 +106,8 @@ export async function pruneTemporaryProjects(d: Readonly<{
 		try {
 			if (lock.readOnly || d.openIds.has(project.id) || d.isOpen?.(project.id)) continue;
 			const expected = await d.store.loadProject(project.id);
-			if (expected) await d.store.deleteProjectIfCurrent(expected);
+			if (d.openIds.has(project.id) || d.isOpen?.(project.id)) continue;
+			if (sameProjectSnapshot(expected, project)) await d.store.deleteProject(project.id);
 		} finally { await lock.release(); }
 	}
 }
@@ -136,7 +138,7 @@ export function createControllerFileSavingRuntime<Project extends NativeProjectD
 			try {
 				if (lock.readOnly) throw new Error('The discarded project is in use.');
 				const expected = await d.store.loadProject(id);
-				if (expected && d.store.deleteProjectIfCurrent) await d.store.deleteProjectIfCurrent(expected);
+				if (expected) await d.store.deleteProject(id);
 			} finally { await lock.release(); }
 		},
 		prune: () => pruneTemporaryProjects({ store: d.store, preferences: d.preferences().temporaryData,

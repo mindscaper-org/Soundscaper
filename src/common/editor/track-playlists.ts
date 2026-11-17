@@ -4,6 +4,7 @@ import { readClosedDomainArray, readClosedDomainRecord } from '../foundation/clo
 import { createTakeCompDocumentGroupsV17 } from './take-comp-document-v17.ts';
 import { reconcileProjectOwnedFeatureRequirements } from './project-owned-feature-requirements.ts';
 import type { ProjectFeatureRequirementsManifest } from './project-feature-requirements.ts';
+import { reconcileTrackPlaylistAvLinks } from './track-playlist-av-links.ts';
 
 type Data = Record<string, unknown>;
 export const TRACK_PLAYLIST_LIMIT = 64;
@@ -92,6 +93,7 @@ export function installTrackPlaylistState(project: Data, trackId: string, state:
 		while (usedIds.has(id)) id = `${original.slice(0, 100)}-playlist-${String(suffix++)}`;
 		clip.id = id; usedIds.add(id);
 	}
+	reconcileTrackPlaylistAvLinks(project, track, records(project.clips).filter(clip => outgoingIds.has(String(clip.id))), others, clips);
 	track.clipIds = clips.map(clip => clip.id);
 	project.clips = [...others, ...clips];
 	project.takeGroups = createTakeCompDocumentGroupsV17([
@@ -104,7 +106,8 @@ export function installTrackPlaylistState(project: Data, trackId: string, state:
 }
 
 /** Validate stored alternatives with the same project validators used by live edits. */
-export function validateTrackPlaylists(projectValue: unknown, validate: (project: unknown) => unknown): void {
+export function validateTrackPlaylists(projectValue: unknown, validate: (project: unknown) => unknown,
+	prepareDraft?: (project: Data, trackId: string) => void): void {
 	const project = dataRecord(projectValue);
 	const metadata = { ...dataRecord(project.metadata) };
 	delete metadata.trackPlaylists;
@@ -112,6 +115,7 @@ export function validateTrackPlaylists(projectValue: unknown, validate: (project
 	for (const collection of readTrackPlaylists(project)) for (const playlist of collection.playlists) {
 		if (!playlist.state) continue;
 		const draft: Data = structuredClone({ ...project, metadata });
+		prepareDraft?.(draft, collection.trackId);
 		installTrackPlaylistState(draft, collection.trackId, playlist.state);
 		draft.featureRequirements = reconcileProjectOwnedFeatureRequirements(draft,
 			draft.featureRequirements as ProjectFeatureRequirementsManifest);

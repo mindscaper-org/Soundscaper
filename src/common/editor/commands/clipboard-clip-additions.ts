@@ -8,6 +8,7 @@ import { sequenceForTrack } from './clipboard-time-runtime.js';
 import { assertClipSourceBounds, normalizeClipForProject, requireTrack } from './shared-runtime.js';
 import { createClipEditIndex } from './clip-edit-index.ts';
 import { firstById } from './editing-work-index.ts';
+import { pastedAudioEffectRack } from './clipboard-audio-effects.ts';
 import type { AudioEditorClipboard } from './protocol.ts';
 
 interface Clip extends Record<string, unknown> {
@@ -19,6 +20,7 @@ interface Clip extends Record<string, unknown> {
 interface Track extends Record<string, unknown> { id: string; clipIds: string[] }
 interface Project extends Record<string, unknown> {
 	clips: Clip[];
+	tracks: Track[];
 	sources: (Record<string, unknown> & { id: string })[];
 	projectBin?: { clips: Clip[] };
 }
@@ -49,6 +51,7 @@ export function stageClipboardClipAdditions(
 	const clipIds = new Set(project.clips.map(clip => clip.id));
 	for (const clip of project.projectBin?.clips ?? []) clipIds.add(clip.id);
 	const sources = firstById(project.sources);
+	const trackIds = new Set(project.tracks.map(track => track.id));
 	const clipIndex = mode === 'reject' ? createClipEditIndex(project.clips) : null;
 	const existingByTrack = new Map<string, Clip[]>();
 	const pendingByTrack = new Map<string, Clip[]>();
@@ -68,6 +71,7 @@ export function stageClipboardClipAdditions(
 				command.videoEffectIds?.[key], targetSequence, conformedAnchor,
 			);
 			const clip = normalizeClipForProject(project, { ...scaled,
+				...pastedAudioEffectRack(descriptor.effects, command.trackMap ?? {}, trackIds),
 				...retimedClipSourceStretchFields(descriptor, Number(project.sampleRate), clipboard.sampleRate),
 			}) as Clip;
 			assertSourceBounds(project, clip, sources.get(clip.sourceId));

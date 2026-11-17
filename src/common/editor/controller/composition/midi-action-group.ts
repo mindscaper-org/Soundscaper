@@ -5,7 +5,7 @@ import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import { readMidiClip, readMidiTrack } from '../../midi-model.ts';
 import type { MidiTransferSelection, MidiTransferSnapshot } from '../track-audio/midi-service-types.ts';
 import type { MidiProject, MidiService } from '../track-audio/midi-service-types.ts';
-import type { MidiInstrument, MidiNote } from '../../midi-model.ts';
+import type { MidiInstrument, MidiNote, MidiPreviewTarget } from '../../midi-model.ts';
 import type { MidiClipResize, MidiNoteUpdate } from '../track-audio/midi-service-types.ts';
 import { createMidiImportFiles } from './internal/midi-import-files.ts';
 import { resolveMidiCopy } from '../../../i18n/editor-midi-copy.ts';
@@ -26,9 +26,9 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 		trackName: () => resolveMidiCopy(scope.copy).track,
 		clipName: () => resolveMidiCopy(scope.copy).clip,
 		store: scope.store,
-		previewNote: async (pitch, instrument, signal) => {
+		previewNote: async (pitch, instrument, signal, data) => {
 			const { previewMidiNote } = await import('../track-audio/midi-preview.ts');
-			await previewMidiNote(scope.engine, pitch, instrument, signal);
+			await previewMidiNote(scope.engine, pitch, instrument, signal, undefined, data);
 		},
 		saveFile: request => scope.fileService.saveFile(request),
 		publishDeliveryReport: report => {
@@ -57,12 +57,12 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 		deleteNotes: (clipId: string, ids: readonly string[]) => edit(service => service.deleteNotes(clipId, ids)),
 		resizeClip: (clipId: string, changes: MidiClipResize) => edit(service => service.resizeClip(clipId, changes)),
 		setInstrument: (trackId: string, instrument: MidiInstrument) => edit(service => service.setInstrument(trackId, instrument)),
-		previewNote: async (pitch: number, instrument?: MidiInstrument) => {
+		previewNote: async (pitch: number, instrument?: MidiInstrument, target?: MidiPreviewTarget) => {
 			const task = scope.startMidiPreviewTask();
 			try {
 				const loaded = await raceAbortableRead(service, task.signal);
 				task.assertCurrent();
-				await loaded.previewNote(pitch, instrument, task.signal);
+				await loaded.previewNote(pitch, instrument, task.signal, target);
 			} catch (error) { if (!task.signal.aborted) throw error; }
 			finally { task.finish(); }
 		},

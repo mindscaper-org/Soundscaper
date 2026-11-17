@@ -25,7 +25,9 @@ export function parseReaperDocument(text: string): TimelineInterchangeDocument {
 		|| ![1, 2, 4, 8, 16, 32].includes(denominator)) throw new RangeError('Unsupported REAPER tempo or time signature.');
 	const media = new Map<string, TimelineInterchangeMedia>();
 	const tracks: TimelineInterchangeTrack[] = [];
-	for (const [index, track] of reaperChildren(root.entries, 'TRACK').entries()) {
+	const sourceTracks = reaperChildren(root.entries, 'TRACK');
+	const hasSolo = sourceTracks.some(track => reaperNumber(reaperValues(track.entries, 'MUTESOLO')?.[1]) !== 0);
+	for (const [index, track] of sourceTracks.entries()) {
 		const control = (name: string) => reaperValues(track.entries, name);
 		reportReaperProcessing(track.entries, report);
 		if (track.entries.some(entry => ['AUXRECV', 'HWOUT'].includes(entry.name))
@@ -43,9 +45,12 @@ export function parseReaperDocument(text: string): TimelineInterchangeDocument {
 		if (ordered.some((clip, index) => index > 0 && compareRationals(clip.start, addRationals(ordered[index - 1]!.start, ordered[index - 1]!.duration)) < 0)) {
 			report('overlap-converted', 'REAPER overlapping item mix modes are omitted; overlapping cuts play additively.', 'converted');
 		}
+		const muteSolo = control('MUTESOLO'), muted = reaperNumber(muteSolo?.[0]) !== 0;
+		const defeat = hasSolo && !muted && reaperNumber(muteSolo?.[2]) !== 0;
+		if (defeat) report('solo-defeat-converted', 'A track that defeats the saved solo mix is imported as soloed to preserve its audibility.', 'converted');
 		tracks.push({ id: `track-${index}`, name: control('NAME')?.[0] ?? '', kind: 'audio', clips,
 			gain: reaperNumber(control('VOLPAN')?.[0], 1), pan: reaperNumber(control('VOLPAN')?.[1]),
-			mute: reaperNumber(control('MUTESOLO')?.[0]) !== 0, solo: reaperNumber(control('MUTESOLO')?.[1]) !== 0 });
+			mute: muted, solo: reaperNumber(muteSolo?.[1]) !== 0 || defeat });
 	}
 	reportReaperProcessing(root.entries, report);
 	const markers = root.entries.filter(entry => entry.kind === 'line' && entry.name === 'MARKER').flatMap(entry => {

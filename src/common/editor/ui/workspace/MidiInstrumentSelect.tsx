@@ -7,6 +7,7 @@ import { resolveSoundscaperNativeServicesBridge } from '../soundscaper-native-se
 import { midiNativeInstrumentChoices, type MidiNativeInstrumentChoice } from './midi-native-instrument-choices.ts';
 import EditorControlLabel from '../EditorControlLabel.tsx';
 import { openSoundscaperMidiInstrumentSettings } from './SoundscaperNativeServicesSurface.tsx';
+import { subscribeNativePluginRegistryChanges } from '../native-plugin-registry-events.ts';
 
 interface Props {
 	readonly controller: object;
@@ -26,8 +27,15 @@ export function MidiInstrumentSelect({ controller, track, instrument, sampleRate
 	const refresh = useCallback(async () => bridge ? midiNativeInstrumentChoices(await bridge.listNativePlugins(), track) : [], [bridge, track]);
 	useEffect(() => {
 		let current = true;
-		void refresh().then(next => { if (current) setChoices(next); }).catch(() => { if (current) setChoices([]); });
-		return () => { current = false; };
+		let generation = 0;
+		const update = () => {
+			const requested = ++generation;
+			void refresh().then(next => { if (current && requested === generation) setChoices(next); })
+				.catch(() => { if (current && requested === generation) setChoices([]); });
+		};
+		const unsubscribe = subscribeNativePluginRegistryChanges(update);
+		update();
+		return () => { current = false; unsubscribe(); };
 	}, [refresh]);
 	const selected = typeof instrument === 'string' ? instrument : `native:${midiNativeInstallationId(instrument)}`;
 	const assign = (value: string) => {

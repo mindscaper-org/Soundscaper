@@ -12,6 +12,7 @@ interface OverviewController {
 			snapFrame(frame: number): number;
 			setExactSelection(start: number, end: number, details: Readonly<{ trackIds: readonly string[]; clipIds: readonly string[] }>): unknown;
 		};
+		readonly transport: { seek(frame: number): unknown };
 	};
 }
 
@@ -71,7 +72,10 @@ export function FolderContentOverview({ project, folderId, name, copy, selection
 			const range = rangeAt(event, drag.current.startFrame);
 			drag.current = null; setPreview(null);
 			event.currentTarget.releasePointerCapture(event.pointerId);
-			run(() => controller.actions.timeline.setExactSelection(range.startFrame, range.endFrame, { trackIds: target.trackIds, clipIds: [] }));
+			run(() => {
+				controller.actions.timeline.setExactSelection(range.startFrame, range.endFrame, { trackIds: target.trackIds, clipIds: [] });
+				if (range.startFrame === range.endFrame) controller.actions.transport.seek(range.startFrame);
+			});
 		}}
 		onPointerCancel={() => { drag.current = null; setPreview(null); }}
 		onLostPointerCapture={() => { drag.current = null; setPreview(null); }}>

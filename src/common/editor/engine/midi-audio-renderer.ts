@@ -3,6 +3,8 @@ import { createMidiRenderer } from './midi-synthesis.ts';
 import { compileMidiAudioTimeline, type MidiAudioEventTimeline } from './midi-audio-events.ts';
 import type { MidiClipData, MidiInstrument } from '../midi-model.ts';
 import type { MidiNativeInstrument } from '../midi-native-instrument.ts';
+import { openMidiPortRenderers, splitMidiInstrumentPorts } from './midi-instrument-ports.ts';
+import type { MidiAudioRenderer } from './midi-demand-source.ts';
 
 export interface MidiBlockEvent { readonly frame: number; readonly data: readonly number[] }
 export interface MidiInstrumentSession {
@@ -24,7 +26,15 @@ export async function openMidiInstrumentSession(instrument: MidiNativeInstrument
 }
 
 /** Sequential source compilation keeps every stateful instrument render isolated. */
-export async function openMidiAudioRenderer(data: MidiClipData, instrument: MidiInstrument, sampleRate: number, initialFrame = 0, prepared?: MidiAudioEventTimeline) {
+export async function openMidiAudioRenderer(data: MidiClipData, instrument: MidiInstrument, sampleRate: number, initialFrame = 0, prepared?: MidiAudioEventTimeline): Promise<MidiAudioRenderer> {
+	if (typeof instrument !== 'string' || instrument === 'libadlmidi' || instrument === 'fluidsynth') {
+		if (prepared?.ports) return openMidiPortRenderers(prepared.ports,
+			timeline => openMidiAudioRenderer({ version: 1, notes: [] }, instrument, sampleRate, initialFrame, timeline));
+		if (!prepared) {
+			const parts = splitMidiInstrumentPorts(data);
+			if (parts.length !== 1 || parts[0] !== data) return openMidiPortRenderers(parts, part => openMidiAudioRenderer(part, instrument, sampleRate, initialFrame));
+		}
+	}
 	if (instrument === 'libadlmidi' || instrument === 'fluidsynth') {
 		const { openMidiLibraryRenderer } = await import('./midi-library-renderer.ts');
 		return openMidiLibraryRenderer(data, async () => instrument === 'libadlmidi'

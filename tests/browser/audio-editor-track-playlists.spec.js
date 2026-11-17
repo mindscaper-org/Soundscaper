@@ -2,6 +2,7 @@
 
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, clipByName, collectClientErrors, importFiles,
+	openNestedCommandMenu, getMenuItem, openEffectsForTrack, addRackEffect, closeEffectsPanel,
 	waitForEditor, waitForProjectActivation } from './audio-editor-test-helpers.js';
 
 async function openPlaylists(page, editor) {
@@ -16,6 +17,10 @@ test('track playlists preserve edits, undo switches, rename and persist across r
 	let editor = await bootEditor(page, '/embed/en/');
 	await expect(page.getByRole('dialog', { name: 'Track playlists', exact: true })).toHaveCount(0);
 	await importFiles(editor, [toneA]);
+	const effects = await openEffectsForTrack(editor, await editor.locator('[data-track-row]').count() - 1);
+	await addRackEffect(page, effects, 'track', 'Feedback delay');
+	await page.getByRole('dialog', { name: 'Feedback delay', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
+	await closeEffectsPanel(effects);
 	await clipByName(editor, toneA.name).getByText(toneA.name, { exact: true }).click();
 	let dialog = await openPlaylists(page, editor);
 	await dialog.getByRole('textbox', { name: 'Playlist name', exact: true }).fill('Dialogue edit');
@@ -30,6 +35,19 @@ test('track playlists preserve edits, undo switches, rename and persist across r
 	await dialog.getByRole('listbox', { name: 'Playlists', exact: true }).selectOption({ label: 'Original' });
 	await dialog.getByRole('button', { name: 'Activate playlist', exact: true }).click();
 	await expect(clipByName(editor, toneA.name)).toHaveCount(1);
+	await dialog.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
+	await chooseNestedCommandAction(page, editor, 'Tracks', ['Freeze', 'Freeze track']);
+	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+	const tracks = await openNestedCommandMenu(page, editor, 'Tracks', []);
+	await expect(getMenuItem(tracks, 'Freeze (fresh)')).toBeVisible();
+	await page.keyboard.press('Escape');
+	await chooseNestedCommandAction(page, editor, 'Tracks', ['Freeze', 'Unfreeze track']);
+	dialog = await openPlaylists(page, editor);
+	await dialog.getByRole('listbox', { name: 'Playlists', exact: true }).selectOption({ label: 'Dialogue edit' });
+	await dialog.getByRole('button', { name: 'Activate playlist', exact: true }).click();
+	await expect(clipByName(editor, toneA.name)).toHaveCount(0);
+	await dialog.getByRole('listbox', { name: 'Playlists', exact: true }).selectOption({ label: 'Original' });
+	await dialog.getByRole('button', { name: 'Activate playlist', exact: true }).click();
 	await dialog.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
 	await page.keyboard.press('ControlOrMeta+z');
 	await expect(clipByName(editor, toneA.name)).toHaveCount(0);
@@ -63,5 +81,39 @@ test('track playlists preserve edits, undo switches, rename and persist across r
 	await dialog.getByRole('button', { name: 'Activate playlist', exact: true }).click();
 	await expect(clipByName(editor, toneA.name)).toHaveCount(1);
 	await dialog.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
+	expect(errors).toEqual([]);
+});
+
+test('a restored MIDI playlist uses the instrument currently assigned to its track', async ({ page }) => {
+	await page.addInitScript(() => {
+		const OriginalWorker = globalThis.Worker;
+		globalThis.__playlistMidiInstruments = [];
+		globalThis.Worker = class extends OriginalWorker {
+			constructor(url, options) { super(url, options); this.midi = options?.name === 'soundscaper-midi'; }
+			postMessage(message, options) {
+				if (this.midi && message.instrument) globalThis.__playlistMidiInstruments.push(message.instrument);
+				super.postMessage(message, options);
+			}
+		};
+	});
+	const errors = collectClientErrors(page), editor = await bootEditor(page, '/embed/en/');
+	await chooseNestedCommandAction(page, editor, 'Tracks', ['Add new track', 'MIDI track (beta)']);
+	await chooseNestedCommandAction(page, editor, 'Window', ['Piano roll (beta)']);
+	await editor.getByRole('button', { name: 'Add note', exact: true }).click();
+	await expect(editor.getByRole('combobox', { name: 'Selected note', exact: true }).getByRole('option')).toHaveCount(2);
+	let dialog = await openPlaylists(page, editor);
+	await dialog.getByRole('textbox', { name: 'Playlist name', exact: true }).fill('Second take');
+	await dialog.getByRole('button', { name: 'Duplicate current playlist', exact: true }).click();
+	await dialog.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
+	const instrument = editor.getByRole('combobox', { name: 'Instrument', exact: true });
+	await instrument.selectOption('square');
+	await expect(instrument).toHaveValue('square');
+	dialog = await openPlaylists(page, editor);
+	await dialog.getByRole('listbox', { name: 'Playlists', exact: true }).selectOption({ label: 'Original' });
+	await dialog.getByRole('button', { name: 'Activate playlist', exact: true }).click();
+	await dialog.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
+	await editor.getByRole('button', { name: 'Play', exact: true }).click();
+	await expect.poll(() => page.evaluate(() => globalThis.__playlistMidiInstruments.at(-1))).toBe('square');
+	await editor.getByRole('button', { name: 'Stop', exact: true }).click();
 	expect(errors).toEqual([]);
 });

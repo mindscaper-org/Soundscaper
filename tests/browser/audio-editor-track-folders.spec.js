@@ -128,5 +128,21 @@ test.describe('audio editor track folder tree', () => {
 		await expect.poll(() => later('voice-later')).toBe(144_000);
 		await expect.poll(() => later('ambience-later')).toBe(144_000);
 		await expect(folder).toHaveAttribute('aria-expanded', 'false');
+		await command('Select folder contents');
+		const occupied = await overview.locator('.audio-editor-folder-content-span').last().boundingBox();
+		expect(occupied).not.toBeNull();
+		await page.mouse.click(occupied.x + occupied.width / 2, occupied.y + occupied.height / 2);
+		const beforeSplit = await persistedProject(page, project.id);
+		await command('Split folder contents');
+		for (const trackId of ['voice', 'ambience']) {
+			const count = beforeSplit.tracks.find(track => track.id === trackId).clipIds.length;
+			await expect.poll(async () => (await persistedProject(page, project.id)).tracks.find(track => track.id === trackId).clipIds.length).toBe(count + 1);
+			const afterSplit = await persistedProject(page, project.id), ids = afterSplit.tracks.find(track => track.id === trackId).clipIds;
+			const cursor = afterSplit.selection.startFrame;
+			expect(cursor).toBeGreaterThan(144_000);
+			expect(cursor).toBeLessThan(192_000);
+			expect(afterSplit.clips.some(clip => ids.includes(clip.id) && clip.timelineStartFrame === cursor)).toBe(true);
+		}
+		expect((await persistedProject(page, project.id)).tracks.find(track => track.id === 'music').clipIds).toEqual(beforeSplit.tracks.find(track => track.id === 'music').clipIds);
 	});
 });

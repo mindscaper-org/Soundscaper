@@ -10,6 +10,9 @@ Settings and device IDs remain local to that workspace and are not project data.
 `timecode-sync-format.ts` reuses the sequence timecode label authority for 24,
 25, 30000/1001 drop-frame, and 30 fps. Wire labels wrap at 24 hours. The offset
 is timecode seconds at timeline zero: send adds it, receive subtracts it.
+Receive unwraps wire days around the current timeline position, preserving
+offset origins and ongoing playback through midnight. The drop-frame day uses
+its exact frame count. Positions before timeline zero remain clamped to zero.
 
 `timecode-mtc.ts` encodes universal realtime full-frame SysEx and quarter-frame
 messages. Its bounded streaming decoder requires ordered complete cycles,

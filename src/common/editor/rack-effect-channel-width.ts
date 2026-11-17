@@ -3,6 +3,7 @@ import { STEREO_LIMITED_RENDER_EFFECT_TYPES } from './adm-render-safety.ts';
 import { isMixerGraphV21Surface } from './mixer-graph-surface-v21.ts';
 import { hasProductionMixerProjectAuthority } from './project-schema-version.ts';
 import { resolveTerminalChannelWidths, type TerminalWidthProject } from './terminal-channel-widths.ts';
+import { clipRackTrackInputChannelCounts, rackSignalChannelCount } from './effect-signal-width.ts';
 
 interface RackChannelOwner {
 	readonly effectsActive?: boolean;
@@ -27,18 +28,34 @@ export function rackEffectChannelCount(project: RackChannelProject, scope: strin
 	return createRackWidthReader(project)(scope, targetId);
 }
 
+/** A prepared processor consumes the output of its predecessors, before later wideners. */
+export function rackEffectInputChannelCount(project: RackChannelProject, scope: string, targetId: string | null, effectId: unknown): number {
+	const owner = rackOwner(project, scope, targetId), empty = { ...owner, effects: [] };
+	let stripped: RackChannelProject;
+	if (scope === 'clip') stripped = { ...project, clips: project.clips?.map(clip => clip.id === targetId ? { ...clip, ...empty } : clip) };
+	else if (scope === 'track') stripped = { ...project, tracks: project.tracks?.map(track => track.id === targetId ? { ...track, ...empty } : track) };
+	else if (scope === 'master') stripped = { ...project, master: empty };
+	else {
+		const key = scope === 'group' ? 'groups' : 'sends';
+		stripped = { ...project, mixer: { ...project.mixer, [key]: project.mixer?.[key]?.map(bus => bus.id === targetId ? { ...bus, ...empty } : bus) } };
+	}
+	const effects = owner?.effects ?? [], index = effects.findIndex(effect => effect.id === effectId);
+	return rackSignalChannelCount({ ...owner, effects: effects.slice(0, index < 0 ? effects.length : index) }, rackEffectChannelCount(stripped, scope, targetId));
+}
+
 function createRackWidthReader(project: RackChannelProject): (scope: string, targetId: string | null) => number {
 	const production = hasProductionMixerProjectAuthority(project)
 		|| (isMixerGraphV21Surface(project.mixer) && Array.isArray(project.automationLanes));
 	const masterWidth = supportedWidth(project.masterChannels);
 	const widths = resolveTerminalChannelWidths(project, production ? masterWidth : 2);
+	const clipOutputWidths = clipRackTrackInputChannelCounts(project, widths.tracks);
 	const legacyWidth = production ? 0 : Math.min(32, Math.max(2, masterWidth, ...widths.tracks.values()));
 	return (scope, targetId) => {
 		if (scope === 'clip') {
 			const clip = project.clips?.find(clip => clip.id === targetId);
-			return supportedWidth(Number(project.sources?.find(source => source.id === clip?.sourceId)?.channelCount ?? 2));
+			return rackSignalChannelCount(clip, supportedWidth(Number(project.sources?.find(source => source.id === clip?.sourceId)?.channelCount ?? 2)));
 		}
-		if (scope === 'track') return widths.tracks.get(String(targetId)) ?? (production ? masterWidth : 2);
+		if (scope === 'track') return rackSignalChannelCount(project.tracks?.find(track => track.id === targetId), clipOutputWidths.get(String(targetId)) ?? (production ? masterWidth : 2));
 		if (!production) return legacyWidth;
 		if (scope === 'master') return masterWidth;
 		return (scope === 'group' ? widths.groups : widths.sends).get(String(targetId)) ?? masterWidth;

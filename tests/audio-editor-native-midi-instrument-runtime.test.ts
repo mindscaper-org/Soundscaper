@@ -5,12 +5,14 @@ import { MessageChannel } from 'node:worker_threads';
 import { withSoundscaperNativeMidiBridge } from '../src/common/editor/controller/track-audio/native-midi-instrument-runtime.ts';
 import type { SoundscaperNativePluginHostBridgeV1 } from '../src/common/editor/native-plugin-host-contract.ts';
 import { createMidiTrack } from '../src/common/editor/midi-factory.ts';
-import { readMidiTrack } from '../src/common/editor/midi-model.ts';
+import { readMidiTrack, type MidiInstrument } from '../src/common/editor/midi-model.ts';
+import { EditorProjectGeneration } from '../src/common/editor/controller/shared/lifecycle.ts';
 
-function fixture() {
+function fixture(options: { onOpen?: () => void; publish?: (trackId: string, instrument: MidiInstrument) => Promise<void> } = {}) {
 	const events = new EventTarget();
 	const project = { id: 'p', sampleRate: 8000, tracks: [createMidiTrack({ id: 'm', name: 'MIDI' }, 8000)] };
 	let current: unknown = project;
+	const generation = new EditorProjectGeneration(); generation.activate(project.id);
 	let opened = 0, closed = 0;
 	const ports: MessageChannel[] = [];
 	const refused = async (): Promise<never> => { throw new Error('unavailable'); };
@@ -19,6 +21,7 @@ function fixture() {
 			installations: [{ installationId: 'installation', version: '1', allowed: true, selected: true, quarantined: false }] }] }),
 		instantiateNativePlugin: async request => {
 			opened++;
+			options.onOpen?.();
 			const channel = new MessageChannel(); ports.push(channel);
 			channel.port1.on('message', (request: { requestId: string; kind: string }) => {
 				channel.port1.postMessage({ protocolVersion: 1, requestId: request.requestId, kind: 'state', bytes: new Uint8Array([1]), reportedLatencyFrames: 0 });
@@ -33,10 +36,11 @@ function fixture() {
 		persistNativePluginState: refused, restoreNativePluginState: refused, openNativePluginVendorUi: refused, closeNativePluginVendorUi: refused,
 	};
 	const runtime = withSoundscaperNativeMidiBridge({ bridge: raw, windowValue: events as Pick<Window, 'addEventListener' | 'removeEventListener'>,
-		controller: { get project() { return current; }, getSnapshot: () => ({ selectedTrackId: 'm' }), actions: { midi: {
-			setInstrument: async () => { throw new Error('publication rejected'); },
+		controller: { get project() { return current; }, getSnapshot: () => ({ selectedTrackId: 'm' }),
+			captureProjectGeneration: generation.capture.bind(generation), assertProjectGeneration: generation.assertCurrent.bind(generation), actions: { midi: {
+			setInstrument: async (trackId, instrument) => { if (options.publish) return options.publish(trackId, instrument); throw new Error('publication rejected'); },
 		} } } }, { bridge: raw, dispose: async () => undefined });
-	return { runtime, project, opened: () => opened, closed: () => closed, setProject: (value: unknown) => { current = value; },
+	return { runtime, project, generation, opened: () => opened, closed: () => closed, setProject: (value: unknown) => { current = value; },
 		async cleanup() { await runtime.dispose(); for (const channel of ports) { channel.port1.close(); channel.port2.close(); } } };
 }
 
@@ -46,6 +50,30 @@ test('native instrument assignment requires a selected MIDI carrier before openi
 	try {
 		await assert.rejects(f.runtime.bridge.instantiateNativePlugin({ installationId: 'installation', instanceId: null }), /Select a MIDI track/);
 		assert.equal(f.opened(), 0);
+	} finally { await f.cleanup(); }
+});
+
+test('native instrument assignment survives an unrelated mix edit during process startup', async () => {
+	let published: MidiInstrument | null = null;
+	const f = fixture({ onOpen: () => f.setProject({ ...f.project, tracks: [{ ...f.project.tracks[0], gain: .5 }] }),
+		publish: async (_id, instrument) => { published = instrument; } });
+	try {
+		await f.runtime.bridge.instantiateNativePlugin({ installationId: 'installation', instanceId: null });
+		assert.ok(published && typeof published === 'object');
+		assert.equal(f.opened(), 1);
+	} finally { await f.cleanup(); }
+});
+
+for (const change of ['instrument', 'activation'] as const) test(`native assignment refuses an obsolete ${change} during process startup`, async () => {
+	let publications = 0;
+	const f = fixture({ onOpen: () => {
+		if (change === 'activation') f.generation.activate('p');
+		else f.setProject({ ...f.project, tracks: [createMidiTrack({ id: 'm', instrument: 'square' }, 8000)] });
+	}, publish: async () => { publications++; } });
+	try {
+		await assert.rejects(f.runtime.bridge.instantiateNativePlugin({ installationId: 'installation', instanceId: null }));
+		assert.equal(publications, 0);
+		assert.equal(f.closed(), 1);
 	} finally { await f.cleanup(); }
 });
 

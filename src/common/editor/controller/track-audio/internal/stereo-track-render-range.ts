@@ -19,7 +19,10 @@ export function stereoTrackRenderRange(
 		const owned = (track.clipIds ?? []).flatMap(id => { const clip = byId.get(id); return clip ? [clip] : []; });
 		if (!owned.length) return 0;
 		const end = Math.max(...owned.map(clip => clip.timelineStartFrame + clip.durationFrames));
-		const tail = track.effectsActive === false ? 0 : rackTailFrames(track.effects ?? [], sampleRate, 10, automationLanes);
+		const clipTail = Math.max(0, ...owned.map(clip => clip.effectsActive === false ? 0
+			: rackTailFrames(clip.effects ?? [], sampleRate, 10, automationLanes)));
+		const tail = Math.min(sampleRate * 10, clipTail + (track.effectsActive === false ? 0
+			: rackTailFrames(track.effects ?? [], sampleRate, 10, automationLanes)));
 		return end + tail;
 	});
 	return Object.freeze({ startFrame, endFrame: Math.max(0, ...ends) });

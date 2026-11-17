@@ -42,7 +42,7 @@ test('folder command menu disables range edits without a range and mutation of l
 test('the folder overview becomes interactive only after its descendant tracks are explicitly selected', () => {
 	const project = resolveRuntimeProjectProjection(folderEditProject().project);
 	const props = { project, folderId: 'dialogue', name: 'Dialogue', copy: ENGLISH_COPY,
-		controller: { actions: { timeline: { snapFrame: (frame: number) => frame, setExactSelection: () => undefined } } },
+		controller: { actions: { timeline: { snapFrame: (frame: number) => frame, setExactSelection: () => undefined }, transport: { seek: () => undefined } } },
 		pixelsPerSecond: 100, sampleRate: 48_000, renderOriginX: 0, run: (operation: () => unknown) => operation() };
 	const passive = renderToStaticMarkup(<FolderContentOverview {...props} />);
 	assert.doesNotMatch(passive, /role="group"/u);

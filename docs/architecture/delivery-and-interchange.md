@@ -221,7 +221,12 @@ EDL, OTIO and FCPXML imports share File > Open, the ordinary Import chooser,
 and drop routing. They retain cut placement, source trims and sequence clocks;
 OTIO also accepts nested tracks/stacks and FCPXML accepts asset clips and
 connected lanes. Unsupported effects, time maps, transitions and event/library
-authoring appear in the import report. Selected companion media and desktop
+authoring appear in the import report. FCPXML contained items respect their
+parent's visible range; connected items retain overhangs while respecting any
+containing ancestor, following Apple's [timing attributes](https://developer.apple.com/documentation/professional-video-applications/timing-attributes).
+Split audio edits retain their separate source start, timeline start and duration
+without changing the picture edit.
+Selected companion media and desktop
 session-folder lookup bind referenced sources. Missing media retains an offline
 source and its edit for relinking rather than silently dropping clips.
 
@@ -241,12 +246,16 @@ mobs, mono/stereo WAV essence, gaps and source offsets. Export Other embeds
 24-bit PCM audio, with a 256 MiB decoded-PCM limit; the domain writer can also
 describe linked WAV sources. Overlapping clips become separate tracks. Import
 reads embedded WAV/AIFF or retains linked references, and reports unsupported
-components. The profile does not carry picture or editable MIDI authoring.
+components. Mono file slots retain their saved physical channel selection when
+several cuts reference one interleaved recording. The profile does not carry
+picture or editable MIDI authoring.
 
 AAF uses standard AAF 1.2 objects in a bounded Compound File Binary container.
 File > Open, Import and drop routing read audio cuts through composition,
 master and source mobs, including linked media, embedded WAV/AIFF and
 uncompressed PCM essence. Missing sources retain offline edits for relinking.
+MultipleDescriptor audio slots retain separate media identities, including
+independent linked WAV recordings within one source mob.
 Single-input effect groups retain their cuts and report omitted processing;
 transitions become reported overlapping cuts. Other unsupported components keep
 their duration as a reported gap. Source offsets use the referenced slot's edit
@@ -346,15 +355,31 @@ timeline import staging and activation boundary. Readers select active audio
 playlists and retain exact cut placement and source offsets, static controls,
 and fade lengths. Ardour sample and superclock values are converted to rational
 seconds; beat-domain audio regions are refused before staging. Separate stereo source
-files become parallel hard-panned tracks with a conversion report. Overlapping
+files become parallel hard-panned tracks with a conversion report. Mono regions
+that select the first channel of an interleaved file retain that selection;
+mono and stereo regions can share the file through separate source views. Overlapping
 Ardour layers remain additive cuts with a reported layering omission. SoundCraft
 v0/v1 sessions retain sample-domain timing and their sequence frame rate.
 `.scraftz` ZIP bundles admit bounded, unique relative members and one root
 session before inflating anything, verify requested members, and read audio one
 source at a time. Desktop lookup uses existing owner-scoped session and folder
 grants; project paths never authorize arbitrary filesystem reads. Missing media
-retains offline cuts. Track gain, mono pan, mute and send-level automation,
+retains offline cuts. Absolute Ardour source origins take precedence over derived
+internal paths for linked recordings, using those same media grants and fallback rules.
+Ardour source gains restore the original levels of normalized archive FLAC audio;
+independent stereo channel gains use parallel hard-panned tracks through the shared strip.
+Track gain, mono pan, mute and send-level automation,
 clip gain envelopes, bus/send routing and master controls are imported.
+SoundCraft sends retain their pre/post-fader taps and mute.
+Ardour pre-fader sends retain upstream active input trim. Their trim and send
+automation curves are multiplied on the sample clock with bounded interpolation
+error, while bypassed trim contributes unity.
+Saved Ardour track and auxiliary-bus mute points gate main, pre-fader and
+post-fader deliveries independently, including mute automation. A separate main gate becomes an
+auxiliary strip when post-fader sends must stay audible. Inactive routes gate
+every delivery.
+Disconnected or unresolved strip outputs use silent main assignments to retain a valid editable
+graph while preserving the absence of programme audio.
 SoundCraft aux/master strips and arrangement folders retain their identities;
 folder mute/solo stays a structural gate rather than a duplicate bus gate.
 Markers, ranges, modern stepped tempo maps and bar-aligned meter changes are

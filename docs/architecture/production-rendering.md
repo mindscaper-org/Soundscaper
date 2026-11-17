@@ -103,6 +103,10 @@ tails include the clip and downstream insert path. Dry processing and mixes
 with effects disabled bypass clip racks. Parallel stack execution falls back to
 the conventional graph while an active clip rack is present.
 
+Clip Auto Duck reads its detector before final mix compensation. Its input and
+detector align after resolving upstream clip-rack dependencies; processed detector
+tracks contribute their latency before the final common clip delay is chosen.
+
 Scape retains clip rack state and declares the separate audio-clip-effects
 capability so earlier readers can report the unsupported processing. AUP4
 export reports the omitted clip racks.
@@ -118,6 +122,11 @@ controls and downstream routing. Fader, pan, strip automation, sends, buses, and
 master processing therefore remain live. The graph and PDC plan used for normal
 rendering also define the freeze capture; freeze does not maintain a second
 render graph.
+
+Freeze retains the track's declared channel width. A rack that expands a mono
+source to stereo must first be rendered to a matching-width track; Freeze
+refuses that capture instead of folding its image to mono. Bypassed widening
+effects and already matching stereo tracks remain eligible.
 
 A freeze record binds the derived body to the track, rack, automation, and other
 input digests required to establish freshness. If any authority changes, the

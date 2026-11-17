@@ -5,7 +5,7 @@ import { NoteGrid } from '@soundscaper/design-system/PianoRoll/NoteGrid';
 import { PianoKeyboard } from '@soundscaper/design-system/PianoRoll/PianoKeyboard';
 import { PianoRollRuler } from '@soundscaper/design-system/PianoRoll/PianoRollRuler';
 import { PianoRollClipStrip } from '@soundscaper/design-system/PianoRoll/PianoRollClipStrip';
-import { readMidiClip, readMidiTrack, type MidiInstrument, type MidiNote } from '../../midi-model.ts';
+import { readMidiClip, readMidiTrack, type MidiInstrument, type MidiNote, type MidiPreviewTarget } from '../../midi-model.ts';
 import { createStableId } from '../../stable-id.js';
 import type { EditorAudioClip, EditorAudioTrack } from '../../types.ts';
 import { resolveMidiCopy } from '../../../i18n/editor-midi-copy.ts';
@@ -26,7 +26,7 @@ interface MidiActions {
 	deleteNotes(clipId: string, ids: readonly string[]): unknown;
 	resizeClip(clipId: string, changes: ClipChanges): unknown;
 	setInstrument(trackId: string, instrument: MidiInstrument): unknown;
-	previewNote(pitch: number, instrument?: MidiInstrument): unknown;
+	previewNote(pitch: number, instrument?: MidiInstrument, target?: MidiPreviewTarget): unknown;
 }
 
 interface ClipChanges {
@@ -91,6 +91,7 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 	const [hoveredPitch, setHoveredPitch] = useState<number | null>(null);
 	const gesture = useRef(false);
 	const gestureNotes = useRef(new Set<string>());
+	const gesturePreviewNote = useRef<string | undefined>(undefined);
 	const clipDraftRevision = useRef(0);
 	const gestureDraft = useRef<symbol | null>(null);
 	const [gestureRevision, setGestureRevision] = useState(0);
@@ -115,6 +116,7 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 		if (!gesture.current) return;
 		gesture.current = false;
 		gestureNotes.current = new Set();
+		gesturePreviewNote.current = undefined;
 		pendingNotes.current = new Map(); pendingClip.current = null;
 		clipDraftRevision.current += 1;
 		const owner = gestureDraft.current; gestureDraft.current = null;
@@ -132,6 +134,7 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 		gestureDraft.current = Symbol();
 		const target = event.target instanceof Element ? event.target.closest('[data-note-id]') : null;
 		const note = notes[Number(target?.getAttribute('data-note-id')) - 1];
+		gesturePreviewNote.current = note?.id;
 		gestureNotes.current = new Set(note ? selectedIds.has(note.id) ? selectedIds : [note.id] : []);
 	};
 
@@ -146,6 +149,7 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 			if (!gesture.current) return;
 			gesture.current = false;
 			gestureNotes.current = new Set();
+			gesturePreviewNote.current = undefined;
 			const revision = clipDraftRevision.current;
 			const owner = gestureDraft.current; gestureDraft.current = null;
 			const updates = [...pendingNotes.current].map(([id, changes]) => ({ id, changes }));
@@ -170,7 +174,8 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 	}, [clip.id, controller, disabled, run]);
 
 	const edit = (operation: () => unknown) => { if (!disabled) run(operation); };
-	const preview = (pitch: number) => { run(() => controller.actions.midi.previewNote(pitch, instrument)); };
+	const preview = (pitch: number) => { run(() => controller.actions.midi.previewNote(pitch, instrument,
+		{ clipId: clip.id, noteId: gesture.current ? gesturePreviewNote.current : activeNote?.id })); };
 	const select = (numericIds: readonly number[], additive = false) => {
 		setSelectedIds(previous => new Set([
 			...(additive ? previous : []),

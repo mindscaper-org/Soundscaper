@@ -97,9 +97,10 @@ export function parseAafDocument(bytes: Uint8Array): TimelineInterchangeDocument
 		if (!descriptor) {
 			const segment = file.ref(slot, 0x4803); return segment ? source(segment, targetRate, start, duration, depth + 1) : offline(object, targetRate, offset, duration);
 		}
-		if (descriptor.classCode === 0x44) descriptor = file.refs(descriptor, 0x3f01).find(item => file.integer(item, 0x3006) === slotId);
+		const multiple = descriptor.classCode === 0x44;
+		if (multiple) descriptor = file.refs(descriptor, 0x3f01).find(item => file.integer(item, 0x3006) === slotId);
 		if (!descriptor) return offline(object, targetRate, offset, duration);
-		const id = `aaf-media-${uid(mob, 0x4401)}`;
+		const id = `aaf-media-${uid(mob, 0x4401)}${multiple ? `:slot-${slotId}` : ''}`;
 		if (!media.has(id)) {
 			let path = '';
 			for (const locator of file.refs(descriptor, 0x2f01)) { path = file.text(locator, locator.classCode === 0x32 ? 0x4001 : 0x4101); if (path) break; }

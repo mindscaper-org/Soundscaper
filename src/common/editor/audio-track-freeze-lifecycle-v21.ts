@@ -10,6 +10,7 @@ import { normalizeAutomationLaneV21 } from './automation-lane-v21.ts';
 import { normalizeMixerGraphV21 } from './mixer-graph-v21.ts';
 import { resolveTerminalChannelWidths } from './terminal-channel-widths.ts';
 import { collectTakeGroupSourceIds } from './take-group-source-references.ts';
+import { collectAlternativeSourceIds } from './alternative-source-references.ts';
 import { createExactFreezeRecordIndex, inspectFreezeDataRecord as inspectDataRecord, freezeStableId as stableId } from './audio-freeze-work-index.ts';
 import {
 	classifyAudioTrackFreezeFreshnessV1,
@@ -258,6 +259,7 @@ export function commitAudioTrackFreezeCandidateV21(
 		&& lane.address.strip.id === trackId
 	)));
 	const retainedSourceIds = collectTakeGroupSourceIds(project, clipSourceIds(nextClips));
+	collectAlternativeSourceIds(project, retainedSourceIds);
 	for (const sourceId of projectBinClipSourceIds(project)) retainedSourceIds.add(sourceId);
 	const nextSources = Object.freeze(sources.filter((candidate, index) => {
 		const sourceId = recordId(candidate, `project source ${String(index)}`);
@@ -372,7 +374,7 @@ function currentFreeze(track: DataRecord): AudioTrackFreezeV1 | undefined {
 
 function sourceIdReferenced(project: DataRecord, sourceId: string): boolean {
 	return clipSourceIds(projectArray(project, 'clips')).has(sourceId)
-		|| projectBinClipSourceIds(project).has(sourceId);
+		|| projectBinClipSourceIds(project).has(sourceId) || collectAlternativeSourceIds(project).has(sourceId);
 }
 
 function freezeSourceReferenced(tracks: readonly unknown[], sourceId: string): boolean {

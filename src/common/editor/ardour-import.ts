@@ -4,6 +4,7 @@ import { parseXmlDocument, childElement, childElements, type XmlElement } from '
 import { addRationals, compareRationals, divideRationals, type Rational } from './timeline-time.ts';
 import { ardourMetadata } from './native-daw-import-metadata.ts';
 import { ardourMixStrip, ardourRegionEnvelope } from './ardour-import-mix.ts';
+import { readArdourAudioViews } from './ardour-import-audio-views.ts';
 import { readArdourMidiTrack } from './ardour-import-midi.ts';
 import { ardourRouteHasFlag } from './ardour-route-flags.ts';
 import { timelineImportIssue, timelineInterchangeMediaName, TIMELINE_INTERCHANGE_MAXIMUM_BYTES,
@@ -49,7 +50,8 @@ export function parseArdourDocument(text: string): TimelineInterchangeDocument {
 		if (routeIds.has(id)) throw new SyntaxError('Duplicate Ardour route ID.');
 		routeIds.add(id);
 		if (ardourRouteHasFlag(route, 'MonitorOut')) { omit('monitor-processing-omitted', 'Monitor processing is not imported.'); continue; }
-		const mix = ardourMixStrip(route, root, sampleRate, issues);
+		const { mainMuteBus, ...mix } = ardourMixStrip(route, root, sampleRate, issues);
+		if (mainMuteBus) buses.push(mainMuteBus);
 		if (ardourRouteHasFlag(route, 'MasterOut')) { master = mix; continue; }
 		if (route.attributes['default-type'] === 'midi') {
 			tracks.push({ ...readArdourMidiTrack(root, route, playlists, sourceNodes, media, selectedPlaylists, issues), ...mix }); continue;
@@ -57,8 +59,8 @@ export function parseArdourDocument(text: string): TimelineInterchangeDocument {
 		const disk = childElement(route, 'Diskstream') ?? childElements(childElement(root, 'DiskStreams') ?? root, 'AudioDiskstream')
 			.find(node => node.attributes.id === route.attributes['diskstream-id']);
 		if (!disk && route.attributes['diskstream-id']) throw new ReferenceError('Ardour diskstream is unavailable.');
-		const playlistId = route.attributes['audio-playlist'] ?? disk?.attributes.playlist;
-		const candidates = playlistId ? playlists.filter(node => node.attributes.id === playlistId || node.attributes.name === playlistId)
+		const modernPlaylistId = route.attributes['audio-playlist'], playlistId = modernPlaylistId ?? disk?.attributes.playlist;
+		const candidates = playlistId ? playlists.filter(node => (modernPlaylistId === undefined ? node.attributes.name : node.attributes.id) === playlistId)
 			: playlists.filter(node => node.attributes['orig-track-id'] === id || node.attributes.name === route.attributes.name);
 		if (candidates.length > 1) throw new SyntaxError('Ardour active playlist is ambiguous.');
 		if (!candidates.length && route.attributes['audio-playlist']) throw new ReferenceError('Ardour active playlist is unavailable.');
@@ -76,50 +78,34 @@ export function parseArdourDocument(text: string): TimelineInterchangeDocument {
 			if (numeric(region.attributes.stretch, 1) !== 1 || numeric(region.attributes.shift, 1) !== 1) {
 				omit('stretch-region-omitted', 'A stretched or pitch shifted region cannot be represented by an unprocessed audio cut.'); continue;
 			}
-			const refs = Object.entries(region.attributes).filter(([key]) => /^source-\d+$/u.test(key))
-				.sort(([a], [b]) => Number(a.slice(7)) - Number(b.slice(7))).map(([, value]) => value);
-			if (!refs.length) throw new ReferenceError('Ardour audio region has no source.');
-			const paths = refs.map(ref => {
-				const source = sourceNodes.get(ref);
-				if (!source || source.attributes.type === 'midi') throw new ReferenceError('Ardour region references an unavailable audio source.');
-				return required(source, 'name');
-			});
-			const distinctPaths = new Set(paths);
-			if (refs.length > 2 || (region.attributes.channels && integer(region.attributes.channels, 'channel count', 1) !== refs.length)
-				|| refs.some((ref, index) => integer(sourceNodes.get(ref)!.attributes.channel ?? '0', 'source channel') !== (distinctPaths.size === 1 ? index : 0))) {
-				throw new RangeError('Ardour audio import requires an unremapped mono or stereo channel layout.');
-			}
+			const views = readArdourAudioViews(region, sourceNodes);
 			const start = time(required(region, 'position')), duration = time(required(region, 'length'));
 			if (duration.num <= 0) throw new RangeError('Ardour region length must be positive.');
-			for (const [index, path] of [...distinctPaths].entries()) {
-				if (!media.has(path)) media.set(path, { id: path, path: mediaPath(path, title),
+			for (const [index, { path, channelIndices, gain }] of views.entries()) {
+				const mediaId = `ardour-audio:${JSON.stringify([path, channelIndices])}`;
+				if (!media.has(mediaId)) media.set(mediaId, { id: mediaId, path: mediaPath(path, title), channelIndices,
 					name: timelineInterchangeMediaName(path), kind: 'audio', aliases: [path, `sounds/${path}`] });
 				const clip: TimelineInterchangeClip = { id: region.attributes.id ?? `region-${clips.length}`, name: region.attributes.name ?? '',
-					mediaId: path, start, duration, sourceStart: time(required(region, 'start')),
-					gain: numeric(region.attributes['scale-amplitude'] ?? region.attributes['scale-gain'], 1),
+					mediaId, start, duration, sourceStart: time(required(region, 'start')),
+					gain: numeric(region.attributes['scale-amplitude'] ?? region.attributes['scale-gain'], 1) * gain,
 					muted: flag(region.attributes.muted) || (region.attributes.flags ?? '').split(',').includes('Muted'),
 					envelope: ardourRegionEnvelope(region, root, Math.round(duration.num / duration.den * sampleRate), sampleRate, issues),
 					fadeIn: fadeLength(region, 'FadeIn', time), fadeOut: fadeLength(region, 'FadeOut', time) };
-				if (distinctPaths.size === 1) clips.push(clip);
+				if (views.length === 1) clips.push(clip);
 				else { if (!splitTracks.has(index)) splitTracks.set(index, []); splitTracks.get(index)!.push(clip); }
 			}
-			if (distinctPaths.size > 1) issues.push(timelineImportIssue('ardour', 'split-stereo-converted', 'Split stereo sources become parallel left and right audio tracks.', 'converted'));
+			if (views.length > 1) issues.push(timelineImportIssue('ardour', 'split-stereo-converted', 'Separate stereo source channels become parallel left and right audio tracks.', 'converted'));
+			if (views.some(view => view.gain !== 1)) issues.push(timelineImportIssue('ardour', 'source-gain-converted', 'Source gain is retained in each clip; independent stereo channel gains use parallel left and right tracks.', 'converted'));
 			if (childElement(region, 'FadeIn') || childElement(region, 'FadeOut')) issues.push(timelineImportIssue('ardour', 'fade-curve-converted', 'Explicit fade lengths use the editor default curve; implicit Ardour fades are omitted.', 'converted'));
 		}
-		const gainNodes = childElements(route, 'Processor').filter(node => ['amp', 'trim'].includes(node.attributes.type ?? ''));
 		if ([clips, ...splitTracks.values()].some(hasOverlaps)) omit('layering-omitted', 'Region layer priorities and crossfades are omitted; overlapping cuts play additively.');
-		const gain = gainNodes.reduce((gain, node) => gain * control(node, 'gaincontrol', 1), numeric(io?.attributes.gain, 1));
+		const { gain = 1, pan = 0 } = mix;
 		const oldPanners = io ? childElements(childElement(io, 'Panner') ?? io, 'StreamPanner') : [];
-		const pan = control(childElement(route, 'Pannable') ?? route, 'pan-azimuth',
-			oldPanners.length === 1 ? numeric(oldPanners[0]!.attributes.x, 0.5) : 0.5) * 2 - 1;
 		if (oldPanners.length > 1) omit('channel-pan-omitted', 'Independent legacy channel panners are replaced by centered stereo balance.');
 		if (pan < -1 || pan > 1 || gain < 0) throw new RangeError('Ardour track gain or pan is invalid.');
-		const controls = { gain, pan, mute: flag(route.attributes.muted) || control(route, 'mute', 0) !== 0
-			|| flag(childElement(route, 'MuteMaster')?.attributes.muted) || route.attributes.active === 'no',
-			solo: flag(route.attributes['self-solo'] ?? route.attributes.soloed) || control(route, 'solo', 0) !== 0 };
 		const name = route.attributes.name ?? io?.attributes.name ?? playlist.attributes.name ?? '';
-		if (splitTracks.size) buses.push({ id, name, channelCount: 2, ...mix, ...controls });
-		const leafMix = splitTracks.size ? { gain: 1, pan: 0, mute: false, solo: false, output: id } : { ...mix, ...controls };
+		if (splitTracks.size) buses.push({ id, name, channelCount: 2, ...mix });
+		const leafMix = splitTracks.size ? { gain: 1, pan: 0, mute: false, solo: false, output: id } : mix;
 		if (clips.length || !splitTracks.size) tracks.push({ id: splitTracks.size ? `${id}:mono` : id, name, kind: 'audio', clips, ...leafMix });
 		for (const [index, clips] of splitTracks) tracks.push({ id: `${id}:${index}`, name: `${name} (${index === 0 ? 'L' : 'R'})`,
 			kind: 'audio', clips, ...leafMix, pan: index === 0 ? -1 : 1 });
@@ -153,9 +139,6 @@ function required(node: XmlElement, name: string): string {
 	return value;
 }
 function flag(value: string | undefined): boolean { return value === '1' || value === 'yes' || value === 'true'; }
-function control(node: XmlElement, name: string, fallback: number): number {
-	return numeric(childElements(node, 'Controllable').find(child => child.attributes.name === name)?.attributes.value, fallback);
-}
 function mediaPath(path: string, title: string): string {
 	return /[\\/]/u.test(path) ? path : `interchange/${title}/audiofiles/${path}`;
 }

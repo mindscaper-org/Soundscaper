@@ -2,7 +2,7 @@
 import { createAudioWorkletLoadOnce } from '../audio-worklet-load-once.ts';
 import { AI_DENOISE_CONNECT, AI_DENOISE_TYPE, AI_DENOISE_RATE, aiDenoiseRackGeometry } from '../first-party-effects/ai-denoise/contract.ts';
 import { effectRackMatchesTrack, projectEffectRacks } from './project-effects.ts';
-import { rackEffectChannelCount, type RackChannelProject } from '../rack-effect-channel-width.ts';
+import { rackEffectInputChannelCount, type RackChannelProject } from '../rack-effect-channel-width.ts';
 import type { EngineProject } from './types.ts';
 import { effectGraphKey } from './effect-rack-node-registry.ts';
 
@@ -47,7 +47,7 @@ async function prepareOwned(context: BaseAudioContext, project: EngineProject,
 			const key = effectGraphKey(rack.scope, rack.targetId, effect.id);
 			if (selected.has(key)) throw new Error('AI denoising requires unique effect identities within a rack.');
 			selected.add(key);
-			const channels = rackEffectChannelCount(project as RackChannelProject, rack.scope, rack.targetId);
+			const channels = rackEffectInputChannelCount(project as RackChannelProject, rack.scope, rack.targetId, effect.id);
 			aiDenoiseRackGeometry(context.sampleRate, channels);
 			const previous = entries.get(key);
 			if (previous?.channels === channels && previous.isAlive()) continue;

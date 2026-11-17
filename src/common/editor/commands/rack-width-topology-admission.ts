@@ -58,6 +58,8 @@ function changesTopology(command: AudioEditorCommand): boolean {
 		case 'mixer-graph/set':
 		case 'take-comp/flatten':
 		case 'audio-freeze/commit':
+		case 'track/playlist-create':
+		case 'track/playlist-activate':
 		case 'effect/add': return true;
 		default: return false;
 	}

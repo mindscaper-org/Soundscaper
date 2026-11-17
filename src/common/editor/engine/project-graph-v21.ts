@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { clipRackTrackInputChannelCounts } from '../effect-signal-width.ts';
 
 import { connectSurroundMonitoring } from '../surround-monitoring.ts';
 import { inheritsTrackFolderMuteV12 } from '../track-folder-media-runtime.ts';
@@ -133,6 +134,7 @@ export function buildProjectGraphV21(
 	const productionStripAnalysersV21 = new Map<string, StripMeterAnalyserBankV21>();
 	const pathPdcDelayParamsV21 = new Map<string, AudioParam>();
 	const trackWidths = resolveTerminalChannelWidths(project, project.masterChannels).tracks;
+	const clipOutputWidths = clipRackTrackInputChannelCounts(project, trackWidths);
 	const edgeGeometry = prepareProjectEdgeGeometryV21(graph, tracks, trackWidths, project.masterChannels);
 	const vcaFactorForStrip = createProjectVcaGainResolverV21(graph.vcas, respectMuteSolo);
 	const compensatedTrackInputs = new Map<string, AudioNode>();
@@ -177,6 +179,7 @@ export function buildProjectGraphV21(
 	);
 	const taps = new Map<string, StripTapsV21>();
 	for (const strip of strips) {
+		const inputWidth = strip.scope === 'track' ? clipOutputWidths.get(String(strip.id)) ?? strip.width : strip.width;
 		const latencyFrames = plan.nodeOutputLatencyFrames.get(strip.key) ?? 0;
 		const explicitSidechains = sidechainInputs.get(strip.key);
 		registerSuspended(strip.ref, strip.suspendedEffects);
@@ -189,9 +192,9 @@ export function buildProjectGraphV21(
 			effectAnalysers,
 			parameterRegistry,
 			baseParameterLatencyFrames: plan.nodeInputLatencyFrames.get(strip.key) ?? 0,
-			effectChannelCount: strip.width,
+			effectChannelCount: inputWidth,
 			parametricEqWasmModule,
-			parametricEqChannelCount: strip.width,
+			parametricEqChannelCount: inputWidth,
 			onParametricEqError,
 		});
 		const pre = output;

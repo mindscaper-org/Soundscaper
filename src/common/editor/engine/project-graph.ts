@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { clipRackTrackInputChannelCounts } from '../effect-signal-width.ts';
 
 import { connectSurroundMonitoring } from '../surround-monitoring.ts';
 import { resolveTerminalChannelWidths } from '../terminal-channel-widths.ts';
@@ -167,6 +168,7 @@ export function buildProjectGraph(
 	const groupById = new Map(groups.map((bus) => [String(bus.id), bus]));
 	const sendById = new Map(sends.map((bus) => [String(bus.id), bus]));
 	const terminalChannelWidths = resolveTerminalChannelWidths(project);
+	const clipOutputWidths = clipRackTrackInputChannelCounts(project, terminalChannelWidths.tracks);
 	// Create every dry input first so Auto Duck can route its control track.
 	for (const [index, track] of tracks.entries()) {
 		trackInputs.set(String(track.id ?? index), addNode(nodes, context.createGain()));
@@ -180,7 +182,7 @@ export function buildProjectGraph(
 	const clipLatency = projectClipEffectLatencyFrames(project, context.sampleRate);
 	const effectChannelCounts = new Map(tracks.map((track, index) => [
 		String(track.id ?? index),
-		terminalChannelWidths.tracks.get(String(track.id ?? index)) ?? 2,
+		clipOutputWidths.get(String(track.id ?? index)) ?? 2,
 	]));
 	const mixEffectChannelCount = clamp(Math.max(
 		2,

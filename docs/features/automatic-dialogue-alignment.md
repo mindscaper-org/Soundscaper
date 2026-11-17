@@ -15,8 +15,11 @@ rendered. The replacement duration must be between half and twice the reference
 duration. Inputs need not overlap on the timeline.
 
 Analysis renders each named clip separately at the project sample rate. Clip
-processing is included; track and master processing are excluded. The reference
-and replacement are explicit dialog choices rather than an inference from
+gain, fades and playback transforms are included. The replacement's effect rack
+and rack bypass remain on the created copy and process its aligned audio;
+analysis and review previews use the signal before that rack. Track and master
+processing are excluded. The reference and replacement are explicit dialog
+choices rather than an inference from
 track order. Changing either choice or alignment strength invalidates the review.
 
 **Analyze and align** prepares private PCM. **Play reference**, **Play replacement**,

@@ -15,6 +15,24 @@ export function nativePluginPresetBridge(owner: unknown): SoundscaperNativePlugi
 	return owner && typeof owner === 'object' ? bridges.get(owner) ?? null : null;
 }
 
+interface NativeRackPowerController {
+	readonly actions: Readonly<{ effects: Readonly<{
+		update(scope: string, targetId: string | null, effectId: string, changes: Readonly<{ enabled: boolean }>): unknown;
+	}> }>;
+}
+
+/** The native host owns bypass; re-enable a slot disabled by older rack controls. */
+export async function setNativeRackEffectEnabled(controller: NativeRackPowerController, scope: string, targetId: string | null,
+	effect: Readonly<{ id: string; enabled?: boolean; params: Readonly<{ instanceId: string }> }>, enabled: boolean,
+	isCurrent: () => boolean): Promise<void> {
+	if (!isCurrent()) return;
+	const bridge = nativePluginPresetBridge(controller);
+	if (bridge) await bridge.setNativePluginBypassed({ instanceId: effect.params.instanceId, bypassed: !enabled });
+	if (isCurrent() && (!bridge || enabled && effect.enabled === false)) {
+		controller.actions.effects.update(scope, targetId, effect.id, { enabled });
+	}
+}
+
 export function subscribeNativePluginPresetRestores(instanceId: string, listener: () => void): () => void {
 	let group = listeners.get(instanceId);
 	if (!group) { group = new Set(); listeners.set(instanceId, group); }

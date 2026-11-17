@@ -7,6 +7,7 @@ import { createAudioClip, createAudioSource, createAudioTrack } from '../src/com
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectHistory as createEditorHistory, executeSoundscaperProjectCommand as executeEditorCommand, undoSoundscaperProjectCommand as undoEditorCommand, redoSoundscaperProjectCommand as redoEditorCommand } from '../src/soundscaper/editor-project-history.ts';
 import { resolveRuntimeProjectProjection } from '../src/common/editor/runtime-clip-projection.ts';
+import { createEffect } from '../src/common/editor/effects.js';
 import type { AudioEditorCommand } from '../src/common/editor/commands/protocol.ts';
 
 function fixture(twoTracks = false) {
@@ -102,4 +103,29 @@ test('an asynchronous read tolerates selection changes and refuses changed trans
 	changed.history = executeEditorCommand(changed.history, { type: 'track/update', trackId: 'track', changes: { locked: true } });
 	releaseChanged();
 	await assert.rejects(stale, /audio changed/iu);
+});
+
+test('deleting the final transcript passage retires an empty track freeze and remains undoable', async () => {
+	const f = fixture();
+	const original = f.history.present;
+	const source = original.sources[0]!;
+	const frozen = createSoundscaperProject({ ...original,
+		sources: [...original.sources, { ...source, id: 'frozen-source', storageKey: 'frozen-source' }],
+		tracks: original.tracks.map(track => track.id !== 'track' ? track : { ...track,
+			effects: [createEffect('delay', { params: { time: .05, feedback: 0, mix: .5 } })], audioFreeze: {
+			schemaVersion: 1, derivedSourceId: 'frozen-source', renderStartFrame: 0, renderFrameCount: 144_000,
+			capturePosition: 'post-insert-pre-strip', inputDigestSha256: '12'.repeat(32),
+			rackDigestSha256: '34'.repeat(32), automationDigestSha256: '56'.repeat(32), freshnessDigestSha256: '78'.repeat(32),
+		} }),
+	});
+	f.history = createEditorHistory(frozen);
+	const document = await f.actions.read('project');
+	await f.actions.remove('project', document.revision, document.words.map(word => word.id));
+	assert.deepEqual(f.history.present.tracks.find(track => track.id === 'track')?.clipIds, []);
+	assert.equal(f.history.present.tracks.find(track => track.id === 'track')?.audioFreeze, undefined);
+	assert.equal((await f.actions.read('project')).words.length, 0);
+	f.history = undoEditorCommand(f.history);
+	assert.deepEqual(f.history.present.tracks.find(track => track.id === 'track')?.audioFreeze,
+		frozen.tracks.find(track => track.id === 'track')?.audioFreeze);
+	assert.equal((await f.actions.read('project')).words.length, 3);
 });

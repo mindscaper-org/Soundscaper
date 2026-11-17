@@ -11,8 +11,11 @@ import { audioBufferChannels } from '../../../../rendered-audio-channels.ts';
 import { resampleChannelsWindowedSinc } from '../../../source/source-audio.ts';
 import { SOURCE_CHUNK_FRAMES } from '../../../../source-pcm-contract.ts';
 import { createAudioSource } from '../../../../project-media-factory.ts';
+import { applyMediaChannelMapping } from '../../../../media-export.js';
+import { defaultMixerChannelMapV21 } from '../../../../mixer-graph-v21.ts';
 import type { SubprojectDocument, SubprojectGeometry, SubprojectRenderedSource } from '../../subproject-actions.ts';
 import type { ResolvedSubprojectNode } from './subproject-graph.ts';
+import { prepareSubprojectTimePitchSources } from './subproject-time-pitch.ts';
 
 export interface SubprojectRenderStore extends StoredSourceReader {
 	getSourceMetadata(id: string): Promise<StoredSourceMetadata | null>;
@@ -24,6 +27,7 @@ export interface SubprojectRendererRuntime {
 	createId(prefix: string): string;
 	createEngine(): Pick<EnginePublicApi, 'renderMixToSink'> & {
 		readonly renderMix?: EnginePublicApi['renderMix'];
+		readonly setSourceResolver?: EnginePublicApi['setSourceResolver'];
 		loadProject(...args: Parameters<EnginePublicApi['loadProject']>): unknown;
 		dispose(): PromiseLike<void> | void;
 	};
@@ -67,14 +71,17 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 		signal?.throwIfAborted();
 		const projected = projectTrackFolderMediaStateV12(runtime.projectForRuntimeConsumers(project));
 		assertBackgroundRackSupport(projected);
+		const renderChannels = Number(projected.masterChannels ?? 2);
 		await runtime.preflight(geometry.frameCount * geometry.channelCount * 4);
 		signal?.throwIfAborted();
 		const providers = new Map<string, ReturnType<typeof createStoredChunkProvider>>();
 		let engine: ReturnType<SubprojectRendererRuntime['createEngine']> | null = null;
+		let pitch: Awaited<ReturnType<typeof prepareSubprojectTimePitchSources>> | null = null;
 		let writer: OwnedAudioSourceWriter | null = null;
 		let published = false;
 		try {
-			const used = new Set((projected.clips as readonly { sourceId: string }[]).map(clip => clip.sourceId));
+			const used = new Set((projected.clips as readonly { kind?: string; sourceId: string }[])
+				.filter(clip => clip.kind === 'audio').map(clip => clip.sourceId));
 			for (const value of project.sources) {
 				if (!used.has(String(value.id))) continue;
 				if (value.kind !== 'audio') throw new RangeError('Audio subprojects require rendered audio sources.');
@@ -98,19 +105,23 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 				preferBoundedOffline: true, signal, sink: async (channels, metadata) => {
 					signal?.throwIfAborted();
 					const length = channels[0]?.length ?? 0;
-					if (metadata.sampleRate !== geometry.sampleRate || channels.length !== geometry.channelCount
+					if (metadata.sampleRate !== geometry.sampleRate || channels.length !== renderChannels
 						|| !length || length > 65_536 || channels.some(channel => channel.length !== length) || frames + length > geometry.frameCount) {
 						throw new RangeError('The subproject renderer changed the published output geometry.');
 					}
-					await output.write(channels.map(channel => channel.slice())); frames += length;
+					const publishedChannels = subprojectOutputChannels(channels, geometry.channelCount);
+					await output.write(publishedChannels.map(channel => channel.slice())); frames += length;
 				},
 			};
+			pitch = await prepareSubprojectTimePitchSources(projected as EngineProject, runtime.store, signal);
 			engine = runtime.createEngine();
+			if (pitch.resolve && !engine.setSourceResolver) throw new TypeError('The subproject engine cannot resolve processed clips.');
+			engine.setSourceResolver?.(pitch.resolve);
 			engine.loadProject(projected as EngineProject, new Map(), { chunkSources: providers });
 			const nativeFrames = options.endFrame!;
 			const maximumOfflineBytes = 64 * 1024 * 1024;
 			let result;
-			if (engine.renderMix && Math.max(nativeFrames, geometry.frameCount) * geometry.channelCount * 4 <= maximumOfflineBytes) {
+			if (engine.renderMix && Math.max(nativeFrames, geometry.frameCount) * Math.max(renderChannels, geometry.channelCount) * 4 <= maximumOfflineBytes) {
 				// Use the ordinary offline mixer within its existing admission ceiling.
 				// Longer publications retain the bounded, continuous-clock sink path.
 				const audio = await engine.renderMix({ startFrame: 0, endFrame: nativeFrames, outputFrames: nativeFrames,
@@ -123,7 +134,7 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 				}
 				result = { sampleRate: geometry.sampleRate, channelCount: channels.length, frameCount: frames };
 			} else result = await engine.renderMixToSink(options);
-			if (result.sampleRate !== geometry.sampleRate || result.channelCount !== geometry.channelCount || result.frameCount !== frames) {
+			if (result.sampleRate !== geometry.sampleRate || result.channelCount !== renderChannels || result.frameCount !== frames) {
 				throw new RangeError('The subproject renderer returned inconsistent audio.');
 			}
 			while (frames < geometry.frameCount) {
@@ -145,10 +156,20 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 		} finally {
 			if (writer && !published) await writer.abort();
 			try { await engine?.dispose(); }
-			finally { for (const provider of providers.values()) await provider.dispose(); }
+			finally {
+				try { for (const provider of providers.values()) await provider.dispose(); }
+				finally { await pitch?.close(); }
+			}
 		}
 	}
 	return Object.freeze({ plan, render });
+}
+
+function subprojectOutputChannels(channels: readonly Float32Array[], width: number): readonly Float32Array[] {
+	if (channels.length === width) return channels;
+	if (width <= 2) return applyMediaChannelMapping(channels, width === 1 ? 'mono' : 'stereo');
+	return defaultMixerChannelMapV21(channels.length, width).map(channel => channel < 0
+		? new Float32Array(channels[0]!.length) : channels[channel]!);
 }
 
 function assertBackgroundRackSupport(project: Readonly<Record<string, unknown>>): void {

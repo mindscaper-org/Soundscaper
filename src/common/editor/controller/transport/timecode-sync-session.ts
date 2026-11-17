@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { encodeMtcFullFrame, encodeMtcQuarterFrames } from '../../timecode-mtc.ts';
-import { TIMECODE_RATES, timecodeRate, type TimecodeReading } from '../../timecode-sync-format.ts';
+import { TIMECODE_RATES, timecodeDayFrames, timecodeRate, type TimecodeReading } from '../../timecode-sync-format.ts';
 import { DEFAULT_TIMECODE_SYNC_SETTINGS, type TimecodeSyncIo, type TimecodeSyncSettings, type TimecodeIoSession } from './internal/timecode-sync-ports.ts';
 export { DEFAULT_TIMECODE_SYNC_SETTINGS } from './internal/timecode-sync-ports.ts';
 export type { TimecodeDevices, TimecodeSyncSettings, TimecodeSyncIo } from './internal/timecode-sync-ports.ts';
@@ -118,6 +118,11 @@ export function createTimecodeSyncSession(d: Dependencies) {
 				const moving = next.reading.direction === 1 && now() - next.timestamp < 500;
 				let seconds = next.reading.frame / timecodeRate(next.reading.rate) - snapshot.settings.offsetSeconds;
 				if (moving) seconds += Math.max(0, now() - next.timestamp) / 1000;
+				const day = timecodeDayFrames(next.reading.rate) / timecodeRate(next.reading.rate);
+				const unwrapped = seconds + Math.round((position.positionFrame / position.sampleRate - seconds) / day) * day;
+				// Wire labels have no day field. Retain the nearest timeline day,
+				// including a negative offset's wrapped origin and quantization remainder.
+				if (unwrapped >= Math.min(0, snapshot.settings.offsetSeconds)) seconds = unwrapped;
 				if (!moving || seconds < 0) {
 					if (position.playing) await d.pause();
 					if (generation !== ownGeneration) return;

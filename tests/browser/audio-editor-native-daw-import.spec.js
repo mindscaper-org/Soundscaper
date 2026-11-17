@@ -12,6 +12,25 @@ import { persistedProject } from './helpers/complex-editing-workflows.js';
 import { readMidiClip } from '../../src/common/editor/midi-model.ts';
 import { soundcraftNestedFolderSession } from '../helpers/soundcraft-folder-import-fixture.ts';
 
+test('File Import and reload retain Ardour bypassed controls and inactive routes', async ({ page }) => {
+	let editor = await bootEditor(page, '/embed/en/', { defaultWorkspace: true });
+	const xml = ardourSession(true).replace('default-type="audio" audio-playlist', 'active="0" default-type="audio" audio-playlist')
+		.replace('<Processor type="amp">', '<Processor type="amp" active="0">')
+		.replace('</Pannable>', '</Pannable><Processor type="main-outs"><PannerShell bypassed="1"/></Processor><Automation><AutomationList automation-id="mute" state="Play"><events>0 0\n48000 1</events></AutomationList></Automation>');
+	await importFiles(editor, [{ name: 'Bypassed.ardour', mimeType: 'application/xml', buffer: Buffer.from(xml) },
+		{ name: 'voice.wav', mimeType: 'audio/wav', buffer: Buffer.from(encodeWav([new Float32Array(48000).fill(.25)], { sampleRate: 48000, float: true })) }]);
+	await expect(editor).toHaveAttribute('data-clip-count', '1');
+	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+	const id = await editor.getAttribute('data-project-id');
+	await page.reload(); editor = await waitForEditor(page);
+	await expect(editor).toHaveAttribute('data-project-id', id);
+	const project = await persistedProject(page, id);
+	expect(project.tracks[0].gain).toBe(1);
+	expect(project.tracks[0].pan).toBe(0);
+	expect(project.tracks[0].mute).toBe(true);
+	expect(project.automationLanes).toHaveLength(0);
+});
+
 test('File Import opens nested SoundCraft folders and retains the parent fader route after reload', async ({ page }) => {
 	let editor = await bootEditor(page, '/embed/en/', { defaultWorkspace: true });
 	const session = soundcraftNestedFolderSession();

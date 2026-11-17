@@ -2,7 +2,7 @@
 
 import { expect, test, createWavFixture, monoTone } from './audio-editor-test-fixtures.js';
 import { addRackEffect, bootEditor, chooseCommandAction, clipByName, closeDialog,
-	closeEffectsPanel, commitInput, disableNativeSavePicker, importFiles, openEffectsForTrack,
+	closeEffectsPanel, commitInput, disableNativeSavePicker, importFiles, openEffectsForTrack, openClipProperties,
 } from './audio-editor-test-helpers.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
@@ -15,19 +15,20 @@ function tailRms(samples) {
 	return Math.sqrt(tail.reduce((sum, sample) => sum + sample * sample, 0) / tail.length);
 }
 
-test('Make stereo retains the audible authored rack tail when replacing the two mono tracks', async ({ page }) => {
+for (const scope of ['track', 'clip']) test(`Make stereo retains the audible ${scope} rack tail when replacing the two mono tracks`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [monoTone, silent]);
 	const programme = clipByName(editor, monoTone.name);
-	const effects = await openEffectsForTrack(editor, 1);
+	const effects = scope === 'track' ? await openEffectsForTrack(editor, 1) : await openClipProperties(page, editor, programme);
+	if (scope === 'clip') await effects.getByText('Effects', { exact: true }).click();
 	await addRackEffect(page, effects, 'track', 'Feedback delay');
 	const delay = page.getByRole('dialog', { name: 'Feedback delay', exact: true });
 	for (const [parameter, value] of Object.entries({ time: '0.5', feedback: '0', mix: '1' })) {
 		await commitInput(delay.locator(`[data-effect-param="${parameter}"] input`), value);
 	}
 	await closeDialog(delay);
-	await closeEffectsPanel(effects);
+	if (scope === 'track') await closeEffectsPanel(effects);
 	const before = await exportSamples(page, editor, { includeTail: true });
 	expect(before.length).toBe(62_400);
 	expect(tailRms(before)).toBeGreaterThan(0.1);
