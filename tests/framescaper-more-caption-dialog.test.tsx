@@ -31,15 +31,18 @@ test('MI11: importing a named TTML track selects its preserved identity for imme
 			openReadDescriptor: value => value, saveFile: request => { saved.push(request.suggestedName); } }} />);
 	try {
 		await act(async () => { render(); });
+		const exportButton = () => dom.container.querySelectorAll('button').find(node => node.textContent === 'Export selected track');
+		assert.equal(exportButton()?.hasAttribute('disabled'), true, 'an empty project has no available caption track');
 		const choose = dom.container.querySelectorAll('button').find(node => node.textContent === 'Choose sidecar file');
 		assert.ok(choose);
 		await act(async () => { void reactProps(choose).onClick({}); await new Promise<void>(resolve => setImmediate(resolve)); });
 		await act(async () => { render(); });
 		assert.ok(Array.isArray(project.videoCaptionTracks) && project.videoCaptionTracks.some((track: unknown) =>
 			track !== null && typeof track === 'object' && 'id' in track && track.id === 'provider-english'));
-		const exportButton = dom.container.querySelectorAll('button').find(node => node.textContent === 'Export selected track');
-		assert.ok(exportButton);
-		await act(async () => { void reactProps(exportButton).onClick({}); await new Promise<void>(resolve => setImmediate(resolve)); });
+		const available = exportButton();
+		assert.ok(available);
+		assert.equal(available.hasAttribute('disabled'), false);
+		await act(async () => { void reactProps(available).onClick({}); await new Promise<void>(resolve => setImmediate(resolve)); });
 		assert.deepEqual(saved, ['provider-english.ttml']);
 	} finally {
 		await act(async () => { root.unmount(); });

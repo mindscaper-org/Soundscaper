@@ -84,6 +84,7 @@ export function CaptionSidecarEditor(props: Readonly<{
 	readonly onChooseFile: (file?: Blob) => void;
 	readonly fileRef: React.RefObject<HTMLInputElement | null>;
 	}>) {
+	const hasExportTrack = records(record(props.project).videoCaptionTracks).some(({ id }) => id === props.trackId);
 	return <fieldset disabled={props.exportBlocked}>
 		<legend>{text(props.copy, 'captionSidecarInterchange', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.captionSidecarInterchange)}</legend>
 		<label><EditorControlLabel>{text(props.copy, 'format', 'Format')}</EditorControlLabel><select value={props.format} onChange={(event) => props.onFormat(
@@ -105,7 +106,7 @@ export function CaptionSidecarEditor(props: Readonly<{
 			text(props.copy, 'captionChooseSidecarFile', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.captionChooseSidecarFile)
 		}</button><button type="button" disabled={props.blocked} onClick={props.onImport}>{
 			text(props.copy, 'captionImportSidecar', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.captionImportSidecar)
-		}</button><button type="button" onClick={props.onExport}>{
+		}</button><button type="button" disabled={!hasExportTrack} onClick={props.onExport}>{
 			text(props.copy, 'captionExportSelectedTrack', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.captionExportSelectedTrack)
 		}</button><input ref={props.fileRef} type="file"
 			accept=".srt,.vtt,.webvtt,.ttml,.imsc,.xml,text/vtt,application/x-subrip,application/ttml+xml"
