@@ -164,8 +164,10 @@ function duplicateLabels(runtime: DuplicateSelectionRuntime, project: DuplicateP
 		return [{ ...structuredClone(label), id: runtime.createStableId('label'),
 			startFrame: clippedStart, endFrame: clippedEnd,
 			...(label.anchor === 'musical' ? {
-				startBeat: sampleFrameToBeat(clippedStart, project.tempoMap!, project.sampleRate!),
-				endBeat: sampleFrameToBeat(clippedEnd, project.tempoMap!, project.sampleRate!),
+				...(clippedStart !== startFrame
+					? { startBeat: sampleFrameToBeat(clippedStart, project.tempoMap!, project.sampleRate!) } : {}),
+				...(clippedEnd !== endFrame
+					? { endBeat: sampleFrameToBeat(clippedEnd, project.tempoMap!, project.sampleRate!) } : {}),
 			} : {}),
 		}];
 	});

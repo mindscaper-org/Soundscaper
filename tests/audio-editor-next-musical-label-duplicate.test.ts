@@ -45,3 +45,30 @@ for (const anchor of ['musical', 'sample'] as const) test(`NP018: Edit Duplicate
 function record(value: unknown): value is Readonly<Record<string, unknown>> {
 	return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
+
+test('Edit Duplicate preserves the exact musical beats at unchanged label edges', async context => {
+	const runtime = createSoundscaperProjectRuntimeSelection();
+	const controller = createAudioEditorController(null, {
+		headless: true, locale: 'en', copy: COPY,
+		projectRuntime: runtime, sessionController: runtime.createSessionController(),
+		store: createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name }),
+	});
+	context.after(async () => { await controller.dispose(); });
+	await controller.ready;
+	await controller.actions.project.open(createSoundscaperProject({
+		id: 'label-duplicate-authority', sampleRate: 48_000,
+		tempoMap: { mode: 'musical', events: [{ id: 'head', beat: { num: 0, den: 1 }, bpm: { num: 120, den: 1 } }] },
+		tracks: [{ id: 'script', type: 'label', labels: [{ id: 'line', title: 'Narration', anchor: 'musical',
+			startBeat: { num: 1, den: 7 }, endBeat: { num: 4, den: 7 } }] }],
+	}));
+	controller.actions.timeline.setExactSelection(5_000, 20_000, { trackIds: ['script'] });
+	controller.actions.edit.duplicate();
+	const project: unknown = controller.project;
+	assert.ok(validateSoundscaperProject(project));
+	const duplicate = project.tracks.find(track => track.id !== 'script');
+	assert.ok(duplicate, controller.getSnapshot().status.message);
+	const label: unknown = duplicate.labels?.[0];
+	assert.ok(record(label));
+	assert.deepEqual(label.startBeat, { num: 5, den: 24 });
+	assert.deepEqual(label.endBeat, { num: 4, den: 7 });
+});
