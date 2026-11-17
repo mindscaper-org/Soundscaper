@@ -2,6 +2,7 @@
 
 import { sequenceFrameAtSample } from '../common/editor/sequence-frame-navigation.ts';
 import { resolveVideoCanvasMaterializationSize, type VideoCanvasFit } from '../common/editor/video-canvas-fit.ts';
+import { resizeVideoRgbaNearest } from '../common/editor/video-rgba-nearest-resize.ts';
 import type { BlobLike } from '../common/editor/storage/media-records.ts';
 import {
 	openFramescaperImageFramePackSnapshotV1,
@@ -114,17 +115,8 @@ export function scaleFramescaperImageRgbaTimelineImage(
 	if (sourceWidth === targetWidth && sourceHeight === targetHeight) {
 		return pixelsValue.slice() as Uint8Array<ArrayBuffer>;
 	}
-	const output = new Uint8Array(targetWidth * targetHeight * 4);
-	for (let y = 0; y < targetHeight; y += 1) {
-		throwIfAborted(signal);
-		const sourceY = Math.min(sourceHeight - 1, Math.floor(y * sourceHeight / targetHeight));
-		for (let x = 0; x < targetWidth; x += 1) {
-			const sourceX = Math.min(sourceWidth - 1, Math.floor(x * sourceWidth / targetWidth));
-			const sourceOffset = (sourceY * sourceWidth + sourceX) * 4;
-			output.set(pixelsValue.subarray(sourceOffset, sourceOffset + 4), (y * targetWidth + x) * 4);
-		}
-	}
-	return output;
+	return resizeVideoRgbaNearest({ pixels: pixelsValue, width: sourceWidth, height: sourceHeight },
+		targetWidth, targetHeight, 0, () => { throwIfAborted(signal); });
 }
 
 export function fitFramescaperImagePreviewSizeTimelineImage(

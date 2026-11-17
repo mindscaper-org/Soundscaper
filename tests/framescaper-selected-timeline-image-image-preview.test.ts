@@ -13,6 +13,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 
 import type { AudioEditorProjectStore } from '../src/common/editor/storage.js';
+import { resizeVideoRgbaNearest } from '../src/common/editor/video-rgba-nearest-resize.ts';
 import { shouldRenderExactProductVideoPreview } from '../src/common/editor/ui/workspace/video-preview-exact-render-policy.ts';
 import type { ProductVideoVisualPreviewSession } from '../src/common/editor/ui/workspace/product-video-visual-preview-runtime.ts';
 import { applyFramescaperProjectCommandTimelineImage } from '../src/framescaper/editor-project-timeline-image-commands.ts';
@@ -41,6 +42,13 @@ import {
 } from './helpers/framescaper-timeline-image-preview-fixture.ts';
 
 type Data = Record<string, unknown>;
+
+test('packed nearest resizing preserves edge and center mapping for unaligned transparent RGBA', () => {
+	const bytes = new Uint8Array([99, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 0, 99]);
+	const frame = { width: 3, height: 1, pixels: bytes.subarray(1, 13) };
+	assert.deepEqual([...resizeVideoRgbaNearest(frame, 2, 1, 0)], [10, 20, 30, 40, 50, 60, 70, 80]);
+	assert.deepEqual([...resizeVideoRgbaNearest(frame, 2, 1, 0.5)], [10, 20, 30, 40, 90, 100, 110, 0]);
+});
 
 test('a timeline image clip resolves into a layer entry carrying its source, drawable and frame address', async () => {
 	const drawables: RecordedDrawableTimelineImage[] = [];

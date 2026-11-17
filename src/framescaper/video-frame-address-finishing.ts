@@ -3,6 +3,7 @@
 /** Traversal-independent source-domain RGBA access for selected finishing finishing. */
 
 import type { UnifiedExactRenderRgbaFrameV13 } from '../common/editor/unified-exact-render-finishing-consumers-v13.ts';
+import { resizeVideoRgbaNearest } from '../common/editor/video-rgba-nearest-resize.ts';
 import {
 	VIDEO_PREVIEW_CAPTURE_MAXIMUM_HEIGHT,
 	VIDEO_PREVIEW_CAPTURE_MAXIMUM_WIDTH,
@@ -190,14 +191,7 @@ function resizeFrame(
 	width: number,
 	height: number,
 ): UnifiedExactRenderRgbaFrameV13 {
-	const pixels = new Uint8Array(width * height * 4);
-	for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
-		const sourceX = Math.min(frame.width - 1, Math.floor((x + 0.5) * frame.width / width));
-		const sourceY = Math.min(frame.height - 1, Math.floor((y + 0.5) * frame.height / height));
-		const sourceOffset = (sourceY * frame.width + sourceX) * 4;
-		pixels.set(frame.pixels.subarray(sourceOffset, sourceOffset + 4), (y * width + x) * 4);
-	}
-	return Object.freeze({ width, height, pixels });
+	return Object.freeze({ width, height, pixels: resizeVideoRgbaNearest(frame, width, height, 0.5) });
 }
 
 function checkedFrame(value: unknown, name: string): UnifiedExactRenderRgbaFrameV13 {
