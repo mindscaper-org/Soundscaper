@@ -80,6 +80,28 @@ test('CTC alignment is deterministic for tied paths and averages token confidenc
 	assert.ok(Math.abs(result.words[1]!.confidence! - Math.exp(-0.5)) < 1e-12);
 });
 
+test('CTC alignment keeps packed backpointers through a tight mixed-token corridor', (t) => {
+	const tokens = Array.from({ length: 90 }, (_, index) => index % 3 === 0 ? 2 : 1);
+	const rows = [[0, NEGATIVE, NEGATIVE], ...tokens.flatMap(token => [
+		token === 1 ? [NEGATIVE, 0, NEGATIVE] : [NEGATIVE, NEGATIVE, 0],
+		[0, NEGATIVE, NEGATIVE],
+	])];
+	const lengths: number[] = [];
+	const Bytes = Uint8Array;
+	const original = Object.getOwnPropertyDescriptor(globalThis, 'Uint8Array')!;
+	Object.defineProperty(globalThis, 'Uint8Array', { ...original, value: class extends Bytes {
+		constructor(length: number) { super(length); lengths.push(length); }
+	} });
+	t.after(() => { Object.defineProperty(globalThis, 'Uint8Array', original); });
+	const result = alignAssistanceCtcWordsV1(request({
+		frameCount: rows.length, emissionLogProbabilities: emissions(rows),
+		words: tokens.map((token, wordIndex) => ({ segmentIndex: 0, wordIndex, text: 'word', tokenIds: [token] })),
+	}));
+	assert.deepEqual(result.words.map(({ startSample, endSample }) => [startSample, endSample]),
+		tokens.map((_, index) => [(index * 2 + 1) * 320, (index * 2 + 2) * 320]));
+	assert.ok(Math.max(...lengths) <= Math.ceil(rows.length * (tokens.length * 2 + 1) / 4));
+});
+
 test('CTC alignment refuses malformed emissions, transcript order, unreachable paths, and excess work', () => {
 	assert.throws(() => alignAssistanceCtcWordsV1(request({
 		emissionLogProbabilities: Float32Array.of(Number.NaN, ...request()

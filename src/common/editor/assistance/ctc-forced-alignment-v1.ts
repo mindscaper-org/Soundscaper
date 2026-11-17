@@ -25,7 +25,6 @@ const MAXIMUM_TRELLIS_CELLS = 20_000_000;
 const MAXIMUM_WORDS = 100_000;
 const MAXIMUM_TOKENS = 250_000;
 const UNREACHABLE = Number.NEGATIVE_INFINITY;
-const NO_BACKPOINTER = 255;
 const CONTROL = /[\u0000-\u001f\u007f]/u;
 
 export interface AssistanceCtcWordV1 {
@@ -63,34 +62,39 @@ export function alignAssistanceCtcWordsV1(value: unknown): AssistanceWordAlignme
 	if (trellisCells > MAXIMUM_TRELLIS_CELLS) {
 		throw new RangeError('The CTC alignment work exceeds its bounded trellis.');
 	}
-	const backpointers = new Uint8Array(trellisCells);
-	backpointers.fill(NO_BACKPOINTER);
+	// Four two-bit transitions per byte. Zero represents an unwritten cell.
+	const backpointers = new Uint8Array(Math.ceil(trellisCells / 4));
+	const { tokens, skips, arrival, remaining } = trellisGeometry(request, stateCount);
 	let prior = new Float64Array(stateCount);
 	prior.fill(UNREACHABLE);
 	prior[0] = emission(request, 0, request.blankTokenId);
-	backpointers[0] = 0;
 	if (stateCount > 1) {
 		prior[1] = emission(request, 0, request.tokenIds[0]!);
-		backpointers[1] = 0;
 	}
 	let current = new Float64Array(stateCount);
+	let firstState = 0, lastState = 1;
 	for (let frame = 1; frame < request.frameCount; frame += 1) {
-		current.fill(UNREACHABLE);
-		for (let state = 0; state < stateCount; state += 1) {
+		while (remaining[firstState]! > request.frameCount - frame - 1) firstState++;
+		while (lastState + 1 < stateCount && arrival[lastState + 1]! <= frame) lastState++;
+		// Only the corridor and its two-cell halo can be read by the following row.
+		current.fill(UNREACHABLE, Math.max(0, firstState - 2), lastState + 3);
+		const emissionOffset = frame * request.vocabularySize;
+		const pointerOffset = frame * stateCount;
+		for (let state = firstState; state <= lastState; state += 1) {
 			let best = prior[state]!;
 			let step = 0;
 			if (state > 0 && prior[state - 1]! > best) {
 				best = prior[state - 1]!;
 				step = 1;
 			}
-			if (maySkipBlank(request.tokenIds, state) && prior[state - 2]! > best) {
+			if (skips[state] && prior[state - 2]! > best) {
 				best = prior[state - 2]!;
 				step = 2;
 			}
 			if (best === UNREACHABLE) continue;
-			const tokenId = stateToken(request, state);
-			current[state] = best + emission(request, frame, tokenId);
-			backpointers[frame * stateCount + state] = step;
+			current[state] = best + request.emissionLogProbabilities[emissionOffset + tokens[state]!]!;
+			const cell = pointerOffset + state;
+			backpointers[cell >>> 2]! |= (step + 1) << ((cell & 3) * 2);
 		}
 		const previous = prior;
 		prior = current;
@@ -108,13 +112,29 @@ export function alignAssistanceCtcWordsV1(value: unknown): AssistanceWordAlignme
 	for (let frame = request.frameCount - 1; frame >= 0; frame -= 1) {
 		path[frame] = state;
 		if (frame === 0) break;
-		const step = backpointers[frame * stateCount + state]!;
-		if (step === NO_BACKPOINTER || step > state) {
+		const cell = frame * stateCount + state;
+		const step = ((backpointers[cell >>> 2]! >>> ((cell & 3) * 2)) & 3) - 1;
+		if (step < 0 || step > state) {
 			throw new Error('The CTC trellis produced an invalid backpointer.');
 		}
 		state -= step;
 	}
 	return alignedWords(request, path);
+}
+
+function trellisGeometry(request: NormalizedCtcRequest, stateCount: number) {
+	const tokens = new Uint32Array(stateCount), skips = new Uint8Array(stateCount);
+	// Earliest arrival and shortest distance to either of the two final states.
+	const arrival = new Uint32Array(stateCount), remaining = new Uint32Array(stateCount);
+	for (let state = 0; state < stateCount; state++) {
+		tokens[state] = stateToken(request, state);
+		skips[state] = maySkipBlank(request.tokenIds, state) ? 1 : 0;
+		if (state >= 2) arrival[state] = 1 + arrival[state - (skips[state] ? 2 : 1)]!;
+	}
+	for (let state = stateCount - 3; state >= 0; state--) {
+		remaining[state] = 1 + remaining[state + (skips[state + 2] ? 2 : 1)]!;
+	}
+	return { tokens, skips, arrival, remaining };
 }
 
 function normalizeRequest(value: unknown): NormalizedCtcRequest {
