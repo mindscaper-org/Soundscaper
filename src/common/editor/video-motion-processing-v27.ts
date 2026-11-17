@@ -45,22 +45,33 @@ const MAXIMUM_PIXELS = 16_777_216;
 const MAXIMUM_FEATURES = 4_096;
 export const VIDEO_MOTION_MAXIMUM_RANSAC_MATCHES_V1 = 512;
 const MAXIMUM_RANSAC_HYPOTHESES = 1_024;
+const ownedGrayFrames = new WeakSet<GrayVideoFrameV1>();
 
 export function createGrayVideoFrameV1(value: Readonly<{
 	readonly width: unknown;
 	readonly height: unknown;
 	readonly samples: unknown;
 }>): GrayVideoFrameV1 {
+	const owned = value as GrayVideoFrameV1;
+	if (ownedGrayFrames.has(owned)) return owned;
 	const width = positiveInteger(value?.width, 'gray frame width');
 	const height = positiveInteger(value?.height, 'gray frame height');
 	if (width * height > MAXIMUM_PIXELS) throw new RangeError('The gray frame exceeds its pixel bound.');
 	if (!Array.isArray(value?.samples) || value.samples.length !== width * height) {
 		throw new RangeError('The gray frame requires exactly width times height samples.');
 	}
-	const samples = value.samples.map((sample, index) => bounded(
-		sample, 0, 1, `gray frame sample ${String(index)}`,
-	));
-	return Object.freeze({ width, height, samples: Object.freeze(samples) });
+	const sourceSamples: readonly unknown[] = value.samples;
+	const samples: number[] = [];
+	for (let index = 0; index < width * height; index += 1) {
+		const sample = sourceSamples[index];
+		if (typeof sample !== 'number' || !(sample >= 0 && sample <= 1)) {
+			throw new RangeError(`gray frame sample ${String(index)} is outside its finite bound.`);
+		}
+		samples.push(sample === 0 ? 0 : sample);
+	}
+	const frame = Object.freeze({ width, height, samples: Object.freeze(samples) });
+	ownedGrayFrames.add(frame);
+	return frame;
 }
 
 export function detectShiTomasiFeaturesV1(
@@ -441,8 +452,7 @@ function fitSimilarity(
 
 function frameValueChecked(value: unknown, name: string): GrayVideoFrameV1 {
 	if (!value || typeof value !== 'object') throw new TypeError(`${name} must be a gray frame.`);
-	const candidate = value as Partial<GrayVideoFrameV1>;
-	return createGrayVideoFrameV1({ width: candidate.width, height: candidate.height, samples: candidate.samples });
+	return createGrayVideoFrameV1(value as GrayVideoFrameV1);
 }
 
 function featureValue(value: unknown, name: string): ShiTomasiFeatureV1 {

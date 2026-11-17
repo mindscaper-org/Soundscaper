@@ -119,6 +119,17 @@ test('motion analysis references are digest-bound and stale inputs refuse export
 	}), /stale|input digest/iu);
 });
 
+test('gray frame admission reuses owned immutable frames and snapshots external samples', () => {
+	const input = { width: 2, height: 1, samples: [-0, 0.5] };
+	const admitted = createGrayVideoFrameV1(input);
+	assert.equal(createGrayVideoFrameV1(admitted), admitted);
+	input.samples[1] = 1;
+	assert.deepEqual(admitted.samples, [0, 0.5]);
+	assert.throws(() => createGrayVideoFrameV1(Object.freeze({
+		width: 2, height: 1, samples: Object.freeze([0, NaN]),
+	})), /gray frame sample 1/iu);
+});
+
 test('Shi-Tomasi features and pyramidal Lucas-Kanade tracks are deterministic', () => {
 	const before = translatedDot(0, 0);
 	const after = translatedDot(1, 1);
