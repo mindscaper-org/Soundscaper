@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readSubprojectLinks, subprojectContentDigest } from '../src/common/editor/subprojects.ts';
+import { readSubprojectLinks, subprojectContentDigest, validateSubprojectLinks } from '../src/common/editor/subprojects.ts';
 import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts';
 import { createSoundscaperProject, validateSoundscaperProject, type SoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectHistory, executeSoundscaperProjectCommand, undoSoundscaperProjectCommand } from '../src/soundscaper/editor-project-history.ts';
@@ -72,6 +72,18 @@ test('link validation rejects self links, duplicate proxy ownership, missing med
 	(missing as unknown as Record<string, unknown>).sources = [];
 	assert.throws(() => validateSoundscaperProject(missing));
 	assert.throws(() => applySoundscaperProjectCommand(project, { ...install, link: { ...link, id: 'other' } }), /proxy|source/iu);
+});
+
+test('subproject admission skips the media inventory of projects without links', () => {
+	const project = fixture();
+	let sourceReads = 0;
+	const inspected = { ...project, get sources() { sourceReads++; return project.sources; } };
+	validateSubprojectLinks(inspected);
+	validateSubprojectLinks({ ...project, metadata: { ...project.metadata, subprojects: [] }, get sources() { sourceReads++; return project.sources; } });
+	assert.equal(sourceReads, 0);
+	const linked = { ...inspected, metadata: { ...project.metadata, subprojects: [link] } };
+	assert.doesNotThrow(() => validateSubprojectLinks(linked));
+	assert.throws(() => validateSubprojectLinks({ ...linked, sources: [] }), /exact rendered source geometry/iu);
 });
 
 test('render identities ignore selection and named snapshots but include audible state and nested output', () => {

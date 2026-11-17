@@ -48,9 +48,11 @@ export function readSubprojectLinks(project: unknown): readonly SubprojectLink[]
 }
 
 export function validateSubprojectLinks(project: unknown): void {
+	const links = readSubprojectLinks(project);
+	if (links.length === 0) return;
 	const root = record(project);
 	const sources = Array.isArray(root?.sources) ? root.sources.map(record) : [];
-	for (const link of readSubprojectLinks(project)) {
+	for (const link of links) {
 		if (root?.schemaFamily !== 'soundscaper') throw new RangeError('Subprojects require a Soundscaper project.');
 		const source = sources.find(candidate => candidate?.id === link.sourceId);
 		if (!source || source.kind !== 'audio' || source.sampleRate !== link.sampleRate
