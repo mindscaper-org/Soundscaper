@@ -5,11 +5,12 @@ import test from 'node:test';
 
 import type { ProductVideoExportStrategyEncodeRequest } from '../src/common/editor/controller/export/product-video-export-strategy.ts';
 import type { FfmpegOutputSink } from '../src/common/editor/ffmpeg-output-stream.ts';
+import { parseScapeProjectDocument, serializeScapeProjectDocument } from '../src/common/editor/scape-project-document.ts';
 import type { VideoKeyframeOfflineVideoExportRequest } from '../src/common/editor/ui/video-keyframe-offline-video-export.ts';
 import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts';
 import { createSoundscaperPlaybackProjectService } from '../src/soundscaper/editor-project-playback.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
-import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
+import { createSoundscaperProject, loadSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import {
 	createSoundscaperDesktopVideoExportStrategy,
 	createSoundscaperVideoExportStrategy,
@@ -106,7 +107,11 @@ test('Soundscaper V29 keyed strategy refuses a stale export projection after can
 test('video export accepts a reopened project containing portable binary extension payloads', () => {
 	const runtime = createSoundscaperProjectRuntimeSelection();
 	const payload = Uint8Array.of(7, 12, 18);
-	const project = createSoundscaperProject({ ...framescaperV20Options(), opaqueExtensions: { provenance: { payload } } });
+	const saved = createSoundscaperProject({ ...framescaperV20Options(), opaqueExtensions: { provenance: { payload } } });
+	const document = serializeScapeProjectDocument(saved);
+	const reopened = loadSoundscaperProject(parseScapeProjectDocument(document, { currentProjectSchemaFamily: 'soundscaper' }));
+	if (reopened.readOnly) assert.fail('The saved Soundscaper document must reopen for editing.');
+	const { project } = reopened;
 	const strategy = createSoundscaperVideoExportStrategy(runtime, dependencies());
 	const exportProject = strategy.createExportProject({ canonicalProject: project, delivery: fallbackFreeDelivery(project) });
 	const plan = strategy.createPlan({ canonicalProject: project, exportProject, format: 'mp4', range: 'project',
