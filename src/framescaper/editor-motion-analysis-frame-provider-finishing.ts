@@ -3,12 +3,13 @@
 import { digestMediaContent } from '../common/media/content-digest.ts';
 import type { BlobLike } from '../common/editor/storage/media-records.ts';
 import type { GrayVideoFrameV1 } from '../common/editor/video-motion-processing-v27.ts';
+import type { VideoMotionAnalysisFrameV1 } from '../common/editor/video-motion-analysis-v27.ts';
 import { videoBoundaryTime, type VideoSourceTimingView } from '../common/editor/video-source-timing-view.ts';
 import { exactVideoMidpointSeconds } from '../common/editor/video-exact-time-midpoint.ts';
 import { loadVideoTimingAsset } from '../common/editor/video-timing-storage.ts';
 import type { VideoTimingAssetReference } from '../common/editor/video-timing-asset.ts';
 import type {
-	FramescaperMotionAnalysisFrameProviderFinishing,
+	FramescaperMotionAnalysisFrameProviderFinishing, FramescaperMotionAnalysisFrameRequestFinishing,
 	FramescaperMotionAnalysisProgressFinishing,
 } from './editor-motion-analysis-actions-finishing.ts';
 
@@ -55,18 +56,38 @@ type MotionGrayDecoderFinishing = (
 const MAXIMUM_DECODE_WIDTH = 320;
 const MAXIMUM_DECODE_HEIGHT = 180;
 
-/** Build authenticated source-domain gray frames for the selected finishing built-in analyzer. */
-export function createFramescaperMotionAnalysisFrameProviderFinishing(options: Readonly<{
+interface MotionFrameProviderOptions {
 	readonly store: MotionFrameStoreFinishing;
 	readonly createExtractor?: MotionFrameExtractorFactoryFinishing;
 	readonly decodeGray?: MotionGrayDecoderFinishing;
-}>): FramescaperMotionAnalysisFrameProviderFinishing {
+}
+
+export function createFramescaperMotionAnalysisFrameProviderFinishing(options: MotionFrameProviderOptions): (
+	request: FramescaperMotionAnalysisFrameRequestFinishing,
+) => Promise<readonly VideoMotionAnalysisFrameV1[]> {
+	const stream = createFrameStream(options);
+	return async (request) => {
+		const frames: VideoMotionAnalysisFrameV1[] = [];
+		for await (const frame of stream(request)) frames.push(frame);
+		return Object.freeze(frames);
+	};
+}
+
+/** Decode each authenticated source picture as the paired tracker requests it. */
+export function createFramescaperMotionAnalysisFrameStreamProviderFinishing(
+	options: MotionFrameProviderOptions,
+): FramescaperMotionAnalysisFrameProviderFinishing {
+	const stream = createFrameStream(options);
+	return (request) => ({ count: request.endFrame - request.startFrame, frames: stream(request) });
+}
+
+function createFrameStream(options: MotionFrameProviderOptions) {
 	if (!options.store || typeof options.store.loadMediaAsset !== 'function') {
 		throw new TypeError('The selected finishing motion frame provider requires an original-media store.');
 	}
 	const createExtractor = options.createExtractor ?? defaultExtractor;
 	const decodeGray = options.decodeGray ?? decodeGrayImage;
-	return async (request) => {
+	return async function* (request: FramescaperMotionAnalysisFrameRequestFinishing): AsyncGenerator<VideoMotionAnalysisFrameV1> {
 		throwIfAborted(request.signal);
 		const source = sourceRecord(request.source);
 		const storageKey = stableId(source.storageKey ?? source.id, 'finishing motion source storage key');
@@ -87,7 +108,6 @@ export function createFramescaperMotionAnalysisFrameProviderFinishing(options: R
 		if (!extractor || typeof extractor.capture !== 'function' || typeof extractor.dispose !== 'function') {
 			throw new TypeError('The selected finishing motion frame extractor is invalid.');
 		}
-		const frames: Array<Readonly<{ readonly frameNumber: number; readonly frame: GrayVideoFrameV1 }>> = [];
 		let failure: unknown;
 		try {
 			const total = request.endFrame - request.startFrame;
@@ -112,28 +132,28 @@ export function createFramescaperMotionAnalysisFrameProviderFinishing(options: R
 					frame = await decodeGray(captured.blob, frameNumber, request.signal);
 				}
 				throwIfAborted(request.signal);
-				frames.push(Object.freeze({ frameNumber, frame }));
 				progress(request.onProgress, {
-					phase: 'decoding', completed: frames.length, total,
+					phase: 'decoding', completed: frameNumber - request.startFrame + 1, total,
 				});
+				yield Object.freeze({ frameNumber, frame });
 			}
 		} catch (error) {
 			failure = error;
-		}
-		try {
-			await extractor.dispose();
-		} catch (cleanupError) {
-			if (failure !== undefined) {
-				throw new AggregateError(
-					[failure, cleanupError],
-					'Motion frame decoding and extractor cleanup both failed.',
-					{ cause: failure },
-				);
+			throw error;
+		} finally {
+			try {
+				await extractor.dispose();
+			} catch (cleanupError) {
+				if (failure !== undefined) {
+					throw new AggregateError(
+						[failure, cleanupError],
+						'Motion frame decoding and extractor cleanup both failed.',
+						{ cause: failure },
+					);
+				}
+				throw cleanupError;
 			}
-			throw cleanupError;
 		}
-		if (failure !== undefined) throw failure;
-		return Object.freeze(frames);
 	};
 }
 

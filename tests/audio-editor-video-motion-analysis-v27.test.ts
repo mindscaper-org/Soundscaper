@@ -147,6 +147,28 @@ test('motion analysis is cancellable and never admits an optical-flow retime pro
 	}), /retime|unsupported|processor/iu);
 });
 
+test('streamed motion tracking consumes consecutive pairs before requesting later pictures', async () => {
+	const pictures = [0, 1, 2].map((offset) => ({ frameNumber: offset + 10, frame: translatedSquare(offset, offset) }));
+	const progress: number[] = [];
+	async function* frames() {
+		yield pictures[0]!;
+		yield pictures[1]!;
+		assert.deepEqual(progress, [1]);
+		yield pictures[2]!;
+	}
+	const request = { analysisId: 'analysis-1', inputSha256: SHA_A, processorStack: stack() };
+	const streamed = await analyzeVideoMotionV1({
+		...request, frames: { count: pictures.length, frames: frames() },
+		onProgress(value) { progress.push(value.completed); },
+	});
+	const ordinary = await analyzeVideoMotionV1({ ...request, frames: pictures });
+	assert.deepEqual(streamed.bytes, ordinary.bytes);
+	assert.deepEqual(progress, [1, 2]);
+	await assert.rejects(() => analyzeVideoMotionV1({
+		...request, frames: { count: pictures.length + 1, frames: (async function* () { yield* pictures; })() },
+	}), /stream frame count/u);
+});
+
 test('motion analysis yields to task-queued cancellation between frame pairs', async () => {
 	const controller = new AbortController();
 	const progress: number[] = [];

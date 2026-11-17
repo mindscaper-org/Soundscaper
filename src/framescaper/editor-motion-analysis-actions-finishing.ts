@@ -11,10 +11,11 @@ import {
 	type VideoProcessorStackV1,
 } from '../common/editor/video-motion-model-v27.ts';
 import type {
+	VideoMotionAnalysisFrameStreamV1,
+	VideoMotionAnalysisFrameV1,
 	VideoMotionAnalysisProgressV1,
 	VideoMotionAnalysisResultV1,
 } from '../common/editor/video-motion-analysis-v27.ts';
-import type { GrayVideoFrameV1 } from '../common/editor/video-motion-processing-v27.ts';
 import {
 	snapshotFramescaperOwnedFinishingCommandFinishing,
 } from './editor-project-finishing-finishing-command.ts';
@@ -53,13 +54,8 @@ export interface FramescaperMotionAnalysisFrameRequestFinishing {
 
 export type FramescaperMotionAnalysisFrameProviderFinishing = (
 	request: FramescaperMotionAnalysisFrameRequestFinishing,
-) => PromiseLike<readonly Readonly<{
-	readonly frameNumber: number;
-	readonly frame: GrayVideoFrameV1;
-}>[]> | readonly Readonly<{
-	readonly frameNumber: number;
-	readonly frame: GrayVideoFrameV1;
-}>[];
+) => PromiseLike<readonly VideoMotionAnalysisFrameV1[] | VideoMotionAnalysisFrameStreamV1>
+	| readonly VideoMotionAnalysisFrameV1[] | VideoMotionAnalysisFrameStreamV1;
 
 interface MotionAnalysisOwnerFinishing {
 	readonly project: unknown;

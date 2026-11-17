@@ -47,7 +47,7 @@ import {
 	bindFramescaperMotionAnalysisActionsFinishing,
 	createFramescaperMotionAnalysisActionsFinishing,
 } from './editor-motion-analysis-actions-finishing.ts';
-import { createFramescaperMotionAnalysisFrameProviderFinishing } from './editor-motion-analysis-frame-provider-finishing.ts';
+import { createFramescaperMotionAnalysisFrameStreamProviderFinishing } from './editor-motion-analysis-frame-provider-finishing.ts';
 import { FRAMESCAPER_NATIVE_MEDIA_PROJECT_RUNTIME_PROFILE } from './editor-domain-runtime-profile.ts';
 import { bindFramescaperSelectedAuthoringController } from './editor-selected-authoring-controller-assistance.ts';
 import { bindFramescaperSelectedRenderSessionRuntimeAssistance } from './editor-selected-render-session-assistance.ts';
@@ -220,7 +220,7 @@ export function bindFramescaperInheritedProductRuntimesAssistance(options: Reado
 	bindFramescaperMotionAnalysisActionsFinishing(controller, createFramescaperMotionAnalysisActionsFinishing({
 		owner: view as never,
 		store: environment.store,
-		frameProvider: createFramescaperMotionAnalysisFrameProviderFinishing({
+		frameProvider: createFramescaperMotionAnalysisFrameStreamProviderFinishing({
 			store: environment.controllerStore,
 		}),
 	}));
