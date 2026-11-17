@@ -155,7 +155,10 @@ async function collectStashedFiles(
 	const cache = await cacheStorage.open(SHARED_FILES_CACHE_NAME);
 	const manifestUrl = sharedFilesManifestUrl(token);
 	const response = await cache.match(manifestUrl);
-	if (!response) return collection('missing');
+	if (!response) {
+		reportError(onError, new Error('The shared files are no longer available. Share the files again to retry.'));
+		return collection('missing');
+	}
 	const entries = sharedFilesManifest(await parsedJson(response));
 	// Acquire body Responses while the manifest still identifies their cache
 	// keys. A service-worker prune may run in another context as soon as the
