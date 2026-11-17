@@ -21,6 +21,7 @@
  */
 
 import { EDITOR_UI_CHUNK_GROUPS } from './build-editor-ui-chunks.mjs';
+import { deferredEditorFeatureChunks } from './build-deferred-editor-features.mjs';
 
 import {
 	EDITOR_ASSISTANCE_MODEL_PREFLIGHT_CHUNK_TEST,
@@ -94,6 +95,7 @@ export {
 
 /** @type {import('rolldown').CodeSplittingGroup[]} */
 export const chunkGroups = [
+	...deferredEditorFeatureChunks,
 	{
 		// Transcript projection and inference are requested only by the optional panel.
 		name: 'editor-transcript-editing',

@@ -25,11 +25,17 @@ async function installMidi(page) {
 
 test('menu opt-in sends MTC through the selected port, survives closing its dialog, and releases on disable', async ({ page }) => {
 	await installMidi(page);
+	const timecodeChunks = [];
+	page.on('request', request => {
+		if (/\/assets\/editor-timecode-[^/]+\.js$/u.test(new URL(request.url()).pathname)) timecodeChunks.push(request.url());
+	});
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [audio]);
 	await expect(editor.getByRole('button', { name: 'Timecode synchronization', exact: true })).toHaveCount(0);
+	expect(timecodeChunks).toHaveLength(0);
 	const dialog = await openSync(page, editor);
 	await expect(dialog.getByRole('status')).toHaveText('Synchronization is off.');
+	expect(timecodeChunks.length).toBeGreaterThan(0);
 	expect(await page.evaluate(() => globalThis.__timecode.probe.requests)).toEqual([]);
 	await dialog.getByRole('checkbox', { name: 'Send MTC', exact: true }).check();
 	await dialog.getByRole('button', { name: 'Connect MIDI devices' }).click();

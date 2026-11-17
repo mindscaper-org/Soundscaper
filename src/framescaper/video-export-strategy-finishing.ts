@@ -8,12 +8,12 @@ import {
 	createVideoExactPictureExportFrameSource,
 	type VideoKeyframeExportFrame,
 } from '../common/editor/video-keyframe-export-frame-source.ts';
-import {
+import type {
 	encodeVideoKeyframeVideo,
-	encodeVideoKeyframeVideoToSink,
-	type VideoKeyframeVideoEncoderRequest,
-	type VideoKeyframeVideoEncoderResult,
-	type VideoKeyframeVideoSinkEncoderResult,
+	VideoKeyframeVideoEditorFfmpeg,
+	VideoKeyframeVideoEncoderRequest,
+	VideoKeyframeVideoEncoderResult,
+	VideoKeyframeVideoSinkEncoderResult,
 } from '../common/editor/video-keyframe-video-encoder.ts';
 import type { VideoKeyframeOfflineEncoderOptions } from '../common/editor/ui/video-keyframe-offline-video-export-encoder.ts';
 import type { VideoKeyframeOfflineRgbaRenderer } from '../common/editor/ui/video-keyframe-offline-rgba-renderer.ts';
@@ -99,8 +99,15 @@ interface ExactExecutionDependenciesFinishing {
 }
 
 const DEFAULT_PICTURE_ENCODERS = Object.freeze({
-	encodePicture: encodeVideoKeyframeVideo,
-	encodePictureToSink: encodeVideoKeyframeVideoToSink as PictureSinkEncoderFinishing,
+	async encodePicture(editorFfmpeg: VideoKeyframeVideoEditorFfmpeg | null | undefined, request: VideoKeyframeVideoEncoderRequest) {
+		const runtime = await import('../common/editor/video-keyframe-video-encoder.ts');
+		return runtime.encodeVideoKeyframeVideo(editorFfmpeg, request);
+	},
+	async encodePictureToSink<Output>(editorFfmpeg: VideoKeyframeVideoEditorFfmpeg | null | undefined,
+		request: VideoKeyframeVideoEncoderRequest, sink: FfmpegOutputSink<Output>) {
+		const runtime = await import('../common/editor/video-keyframe-video-encoder.ts');
+		return runtime.encodeVideoKeyframeVideoToSink(editorFfmpeg, request, sink);
+	},
 });
 
 // The shared JavaScript resolver also accepts explicit sample range records.

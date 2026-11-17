@@ -147,6 +147,33 @@ test('MIDI and Allegro file codecs have an on-demand owner separate from playbac
 	assert.equal(chunkGroupForModulePath('src/common/editor/engine/midi-synthesis.ts'), 'editor-engine');
 });
 
+test('optional feature chunks stay outside both product-ready graphs', () => {
+	const features = {
+		timecode: 'controller/transport/timecode-sync-session.ts',
+		'midi-authoring': 'controller/track-audio/midi-service.ts',
+		'waveform-gpu': 'controller/source/internal/waveform-gpu-runtime.ts',
+		'overwrite-audio': 'desktop-original-export-settings.ts',
+		ara: 'controller/effects/internal/ara-clip-editing.ts',
+		'dialogue-alignment': 'controller/track-audio/internal/dialogue-alignment-service.ts',
+		'microphone-bleed': 'microphone-bleed-worker-client.ts',
+		'embedded-metadata': 'imported-metadata-reader.ts',
+		'video-keyframe-export': 'video-keyframe-video-encoder.ts',
+		blender: 'controller/export/blender-live-session.ts',
+		'import-codec-inspection': 'matroska-opus-end-padding.ts',
+		'clip-fades': 'ui/timeline/ClipFadesDialog.tsx',
+	};
+	for (const [feature, path] of Object.entries(features)) {
+		const source = `src/common/editor/${path}`;
+		const name = `editor-${feature}`;
+		assert.equal(chunkGroupForModulePath(source), name, source);
+		assert.equal(chunkGroupForModulePath(source.replaceAll('/', '\\')), name, source);
+		for (const product of ['soundscaper', 'framescaper']) {
+			assert.throws(() => assertProductGraphOwnership(product, { moduleIds: new Set([`/workspace/${source}`]) }),
+				new RegExp(`${product} product-ready graph loads deferred ${name} module`, 'u'));
+		}
+	}
+});
+
 test('neither product-ready graph includes MIDI or Allegro file codecs', () => {
 	for (const product of ['soundscaper', 'framescaper']) {
 		const bundle = fixtureBundle();

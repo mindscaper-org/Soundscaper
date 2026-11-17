@@ -200,8 +200,8 @@ test('Freesound and attribution UI stay behind the optional surface boundary', (
 });
 
 test('Freesound and imported metadata stay behind import admission', () => {
+	assert.equal(chunkGroupForModulePath('src/common/editor/imported-media-metadata.ts'), 'editor-embedded-metadata');
 	for (const path of [
-		'src/common/editor/imported-media-metadata.ts',
 		'src/common/editor/source-provenance.ts',
 		'src/common/editor/source-provenance-derivation.ts',
 		'src/common/editor/controller/import/freesound-import-service.ts',
