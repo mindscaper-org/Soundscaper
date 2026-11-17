@@ -254,6 +254,8 @@ AAF uses standard AAF 1.2 objects in a bounded Compound File Binary container.
 File > Open, Import and drop routing read audio cuts through composition,
 master and source mobs, including linked media, embedded WAV/AIFF and
 uncompressed PCM essence. Missing sources retain offline edits for relinking.
+MultipleDescriptor audio slots retain separate media identities, including
+independent linked WAV recordings within one source mob.
 Single-input effect groups retain their cuts and report omitted processing;
 transitions become reported overlapping cuts. Other unsupported components keep
 their duration as a reported gap. Source offsets use the referenced slot's edit
