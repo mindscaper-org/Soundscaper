@@ -294,6 +294,7 @@ export function assertAssistanceOnnxEnhancementSeparationModelBindingV1(
 	binding: AssistanceOperationModelBinding,
 ): void {
 	if (operation === 'speech-enhancement') {
+		if (binding.modelId === 'voicefixer' && binding.version === '1.0.0') return;
 		if (binding.modelId !== 'deepfilternet3' || binding.version !== '3.0.0') {
 			throw new TypeError('Speech enhancement requires the exact DeepFilterNet3 3.0.0 identity.');
 		}

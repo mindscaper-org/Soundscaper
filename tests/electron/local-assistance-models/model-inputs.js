@@ -87,6 +87,14 @@ export async function prepareModelInput(fixtureId, page) {
 	};
 	if (fixtureId === 'speech-16khz') return loadSpeechFixture(false);
 	if (fixtureId === 'noisy-speech-48khz') return loadSpeechFixture(true);
+	if (fixtureId === 'clipped-speech-48khz') {
+		const input = await loadSpeechFixture(true);
+		const bytes = Buffer.from(input.bytes);
+		for (let offset = 44; offset < bytes.length; offset += 4) {
+			bytes.writeFloatLE(Math.max(-0.08, Math.min(0.08, bytes.readFloatLE(offset))), offset);
+		}
+		return { ...input, bytes };
+	}
 	if (fixtureId === 'aligned-speech-16khz') {
 		const input = await loadSpeechFixture(false);
 		const text = MODEL_JFK_TEXT;

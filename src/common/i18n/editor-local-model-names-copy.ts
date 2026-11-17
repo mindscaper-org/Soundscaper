@@ -6,6 +6,7 @@ export const LOCAL_MODEL_NAMES_COPY: Readonly<Record<string, string>> = {
 	'gtcrn': 'GTCRN Noise Reduction',
 	'dpdfnet2-48khz': 'DPDFNet2 48 kHz Noise Reduction',
 	'voxlock': 'VoxLock Voice Isolation',
+	'voicefixer': 'VoiceFixer Speech Declipping and Restoration',
 	'dereverb-room': 'Room Dereverberation',
 	'tiger-dnr': 'TIGER Dialogue / Music / Effects',
 	'silero-vad-v6': 'Silero Voice Activity Detection',

@@ -1,5 +1,11 @@
 # Local model license texts
 
+The `voicefixer-*` files retain the original inference-code MIT license,
+checkpoint CC-BY-4.0 terms, the conversion-code Apache-2.0 notice and the
+unmodified ONNX model card. Source URLs and byte identities are pinned in
+`config/voicefixer-model-source.json`; underlying checkpoint attribution remains
+required despite the conversion repository's MIT model-card declaration.
+
 These files retain the complete upstream license texts without edits. The five
 conversion-code licenses were read from the exact authenticated source archives
 in the conversion execution register. Qwen's license was read at its pinned model

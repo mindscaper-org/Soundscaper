@@ -101,6 +101,9 @@ qualification plans belong in Git history, not in the maintained documentation s
 
 ## Work on product features
 
+- [Speech declipping](features/speech-declipping.md) covers optional VoiceFixer
+  restoration, signal geometry and model admission.
+
 - [Timecode synchronization](features/timecode-synchronization.md) covers MTC/LTC
   send and receive, transport chasing, routing, and device-session lifetime.
 

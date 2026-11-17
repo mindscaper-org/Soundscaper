@@ -1,0 +1,142 @@
+{
+	"schemaVersion": 1,
+	"sourceRevision": "aa259fa578b9d5f4c76fda3cd967f73542b0e15b",
+	"artifacts": [
+		{
+			"fileName": "analysis.onnx",
+			"byteLength": 282016051,
+			"sha256": "113d24062c5c9f87293a4e4771fbd4930136ccdff87ccbe6a6cb47726fc9cae9",
+			"inputs": [
+				{
+					"name": "mel_orig",
+					"shape": [
+						"b",
+						1,
+						501,
+						128
+					]
+				}
+			],
+			"outputs": [
+				{
+					"name": "mel",
+					"shape": [
+						"b",
+						"Addmel_dim_1",
+						"Addmel_dim_2",
+						"Addmel_dim_3"
+					]
+				}
+			],
+			"opsets": [
+				{
+					"domain": "",
+					"version": 17
+				}
+			],
+			"operators": {
+				"Add": 55,
+				"AveragePool": 6,
+				"BatchNormalization": 112,
+				"Cast": 8,
+				"Clip": 2,
+				"Concat": 65,
+				"Constant": 413,
+				"ConstantOfShape": 4,
+				"Conv": 112,
+				"ConvTranspose": 6,
+				"Div": 2,
+				"GRU": 4,
+				"Gather": 6,
+				"LeakyRelu": 100,
+				"Log": 2,
+				"MatMul": 4,
+				"Mul": 3,
+				"Pad": 2,
+				"Relu": 10,
+				"Reshape": 8,
+				"Shape": 6,
+				"Sigmoid": 1,
+				"Slice": 110,
+				"Squeeze": 2,
+				"Sub": 4,
+				"Transpose": 14,
+				"Unsqueeze": 72
+			}
+		},
+		{
+			"fileName": "vocoder.onnx",
+			"byteLength": 132905282,
+			"sha256": "51b513f2e5510bd7d1e61d255015d47e2fc7b5af95eb35f25b6e5030446c5310",
+			"inputs": [
+				{
+					"name": "mel",
+					"shape": [
+						"b",
+						1,
+						501,
+						128
+					]
+				}
+			],
+			"outputs": [
+				{
+					"name": "wav",
+					"shape": [
+						"b",
+						1,
+						"b"
+					]
+				}
+			],
+			"opsets": [
+				{
+					"domain": "",
+					"version": 17
+				}
+			],
+			"operators": {
+				"Abs": 1,
+				"Add": 38,
+				"Cast": 232,
+				"Clip": 1,
+				"Concat": 4,
+				"Constant": 43,
+				"ConstantOfShape": 3,
+				"Conv": 71,
+				"ConvTranspose": 4,
+				"Div": 78,
+				"Elu": 5,
+				"Gather": 4,
+				"LeakyRelu": 69,
+				"Log": 1,
+				"Max": 1,
+				"Mod": 1,
+				"Mul": 79,
+				"Pad": 2,
+				"ReduceL2": 75,
+				"Reshape": 4,
+				"Shape": 4,
+				"Sin": 4,
+				"Slice": 3,
+				"Squeeze": 1,
+				"Sub": 5,
+				"Tanh": 1,
+				"Transpose": 3,
+				"Unsqueeze": 3
+			}
+		},
+		{
+			"fileName": "mel_filters.npy",
+			"byteLength": 524928,
+			"sha256": "d534ace99f19552fadd89d07d8cef0e3ff398b608ed2247c975c153b95b17f04",
+			"dtype": "float32",
+			"shape": [
+				1025,
+				128
+			],
+			"finite": true,
+			"nonNegative": true
+		}
+	]
+}

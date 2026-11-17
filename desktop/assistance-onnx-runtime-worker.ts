@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { createAssistanceBasicPitchWorkerAdapterV1 } from './assistance-onnx-basic-pitch-worker.ts';
+import { createAssistanceOnnxVoiceFixerWorkerAdapterV1 } from './assistance-onnx-voicefixer-worker.ts';
 
 /** Reviewed ONNX Runtime adapters mounted inside the isolated worker. */
 
@@ -153,6 +154,9 @@ export function createAssistanceOnnxRuntimeWorkerAdapterV1(
 		const loadRuntime = sessionCache === undefined ? acceleratedLoader
 			: async (entrypoint: string) => sessionCache.wrapRuntime(await acceleratedLoader(entrypoint));
 		const executeAudio = createAssistanceOnnxAudioRuntimeWorkerAdapterV1(loadRuntime);
+		if (context.grant.task === 'speech-enhancement' && context.grant.models[0]?.modelId === 'voicefixer') {
+			return createAssistanceOnnxVoiceFixerWorkerAdapterV1(loadRuntime)(context);
+		}
 		if (context.grant.task === 'music-transcription') return createAssistanceBasicPitchWorkerAdapterV1(loadRuntime)(context);
 		const executeEnhancementSeparation =
 			createAssistanceOnnxEnhancementSeparationWorkerAdapterV1(loadRuntime);

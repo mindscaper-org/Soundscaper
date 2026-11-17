@@ -81,6 +81,8 @@ export default function LocalAssistanceGuidedSettings({
 			</SelectSetting>
 			{settings.modelId === 'voxlock' && <p>{text(copy, 'localAssistanceVoxLockReference',
 				LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceVoxLockReference)}</p>}
+			{settings.modelId === 'voicefixer' && <p>{text(copy, 'localAssistanceVoiceFixerScope',
+				LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceVoiceFixerScope)}</p>}
 		</SettingsGroup>;
 		case 'identify-speakers':
 		case 'reduce-reverb':
