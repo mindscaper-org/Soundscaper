@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test, createWavFixture } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, collectClientErrors, clipByName, importFiles, registerAudioEditorHooks, closeWorkspacePanel, waitForEditor } from './audio-editor-test-helpers.js';
-import { selectClipRange } from './helpers/complex-editing-workflows.js';
+import { addRackEffect, bootEditor, chooseCommandAction, chooseNestedCommandAction, collectClientErrors, clipByName, closeDialog, closeEffectsPanel, importFiles, openEffectsForTrack, registerAudioEditorHooks, closeWorkspacePanel, waitForEditor } from './audio-editor-test-helpers.js';
+import { persistedProject, selectClipRange } from './helpers/complex-editing-workflows.js';
 import { installMilestone7LocalAssistanceFixture, milestone7FixtureSnapshot, completeMilestone7Run } from './helpers/milestone-7-local-assistance.js';
 
 test.describe('Transcript-based editing', () => {
@@ -110,4 +110,39 @@ test.describe('Transcript-based editing', () => {
 		await expect(panel.getByRole('button', { name: 'Generate transcript', exact: true })).toBeDisabled();
 		await expect(panel).toContainText('Transcript generation is available in the desktop app.');
 	});
+
+	test('Backspace can remove the final transcribed audio from a frozen track and Undo restores it', async ({ page }) => {
+		test.setTimeout(120_000);
+		await installMilestone7LocalAssistanceFixture(page, [], { transcriptWordTiming: true });
+		const errors = collectClientErrors(page), editor = await bootEditor(page, '/en/');
+		await importFiles(editor, [createWavFixture({ name: 'Frozen interview.wav', duration: .5, channelCount: 1 })]);
+		const effects = await openEffectsForTrack(editor, await editor.locator('[data-track-row]').count() - 1);
+		await addRackEffect(page, effects, 'track', 'Feedback delay');
+		await closeDialog(page.getByRole('dialog', { name: 'Feedback delay', exact: true }));
+		await closeEffectsPanel(effects);
+		await chooseCommandAction(page, editor, 'Edit', 'Transcript-based editing');
+		const panel = editor.locator('[data-workspace-panel="transcript-editing"]');
+		page.on('dialog', dialog => { void dialog.accept(); });
+		await panel.getByRole('button', { name: 'Generate transcript', exact: true }).click();
+		await expect.poll(async () => (await milestone7FixtureSnapshot(page)).progressEvents).toBe(1);
+		await completeMilestone7Run(page);
+		const transcript = panel.getByRole('textbox', { name: 'Transcript', exact: true });
+		await expect(transcript.locator('[data-transcript-word]')).toHaveCount(5);
+		await clipByName(editor, 'Frozen interview.wav').getByText('Frozen interview.wav', { exact: true }).click();
+		await chooseNestedCommandAction(page, editor, 'Tracks', ['Freeze', 'Freeze track']);
+		const projectId = await editor.getAttribute('data-project-id');
+		await expect.poll(async () => (await persistedProject(page, projectId)).tracks.some(track => Boolean(track.audioFreeze))).toBe(true);
+		await expect(transcript).toHaveAttribute('aria-busy', 'false');
+		await transcript.press('ControlOrMeta+a');
+		await transcript.press('Backspace');
+		await expect(clipByName(editor, 'Frozen interview.wav')).toHaveCount(0);
+		await expect(panel.getByRole('alert')).toHaveCount(0);
+		await expect.poll(async () => (await persistedProject(page, projectId)).tracks.some(track => Boolean(track.audioFreeze))).toBe(false);
+		await editor.getByRole('button', { name: 'Undo', exact: true }).click();
+		await expect(transcript.locator('[data-transcript-word]')).toHaveCount(5);
+		await expect(clipByName(editor, 'Frozen interview.wav')).toHaveCount(1);
+		await expect.poll(async () => (await persistedProject(page, projectId)).tracks.some(track => Boolean(track.audioFreeze))).toBe(true);
+		expect(errors).toEqual([]);
+	});
+
 });

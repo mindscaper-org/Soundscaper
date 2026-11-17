@@ -7,6 +7,7 @@ import { createAssistanceTranscript, type TranscriptDraft } from '../../../assis
 import { prepareDisjointRangeDeleteCommand } from '../../../commands/range-runtime.js';
 import { createEditorCommandMutationTransaction } from '../../../commands/mutation-transaction.ts';
 import { projectForCommandConsumers } from '../../../project-current-runtime.ts';
+import { prepareFrozenTrackEditCommand } from '../../shared/frozen-track-edit-command.ts';
 import { selectAudioEditorControllerEditBlock } from '../../../edit-blocking.ts';
 import { projectTranscriptWords, transcriptEditingProject, transcriptTextSelection, transcriptGenerationTargets,
 	transcriptEditingGeometryKey,
@@ -86,9 +87,9 @@ export function createTranscriptEditingActions(dependencies: TranscriptEditingDe
 			commands.push(command);
 		}
 		current(projectId, revision);
-		dependencies.commit({ type: 'batch', commands: [...commands, { type: 'selection/set',
+		dependencies.commit(prepareFrozenTrackEditCommand(dependencies.getProject(), { type: 'batch', commands: [...commands, { type: 'selection/set',
 			startFrame: selection.startFrame, endFrame: selection.startFrame, trackIds: selection.trackIds,
-			clipIds: [], frequencyRange: null }] });
+			clipIds: [], frequencyRange: null }] }));
 	}
 	return Object.freeze({ read, remove });
 }
