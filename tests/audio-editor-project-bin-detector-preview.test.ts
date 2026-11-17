@@ -17,24 +17,33 @@ import type { WebAudioEditorEngine } from '../src/common/editor/engine/runtime-c
 // must audition that rack using the same detector clock as timeline playback.
 test('Project Bin Play preserves a moved clip external detector without mixing its guide', async context => {
 	const native = createNodeWebAudioEngineFactory(context), engines: WebAudioEditorEngine[] = [];
-	const factory: typeof native.createEngine = options => { const engine = native.createEngine(options); engines.push(engine); return engine; };
+	const previews = new Set<WebAudioEditorEngine>();
+	const factory: typeof native.createEngine = options => {
+		const engine = native.createEngine(options), load = engine.loadProject.bind(engine);
+		engine.loadProject = (project, ...args) => {
+			if (project?.title === 'Project Bin preview') previews.add(engine);
+			return load(project, ...args);
+		};
+		engines.push(engine); return engine;
+	};
 	const music = new Float32Array(48000).fill(.25), guide = new Float32Array(48000); guide.fill(.5, 12000, 24000);
 	const { store } = await createTwoTrackFixture('bin-duck-preview', new Map([['main', music], ['guide', guide]]), 48000);
 	const controller = createAudioEditorController(null, { headless: true, copy: ENGLISH_COPY, locale: 'en', store,
 		engine: factory(), engineFactory: factory, ffmpeg: { dispose() {} } as unknown as NonNullable<Parameters<typeof createAudioEditorController>[1]>['ffmpeg'] });
 	try {
 		await controller.ready;
-		controller.actions.track.update('guide', { gain: 0 });
-		controller.actions.clip.move('main-clip', 'main', 12000);
-		controller.actions.effects.add({ scope: 'clip', trackId: 'main-clip', type: 'audacity-auto-duck',
+		await controller.actions.track.update('guide', { gain: 0 });
+		await controller.actions.clip.move('main-clip', 'main', 12000);
+		await controller.actions.effects.add({ scope: 'clip', trackId: 'main-clip', type: 'audacity-auto-duck',
 			context: { controlTrackId: 'guide' }, params: { outerFadeDown: .1, outerFadeUp: .1, maximumPause: .1 } });
 		const options = { startFrame: 12000, endFrame: 60000, includeTail: false, includeMaster: false, includeTrackPan: false, preRollFrames: 0 } as const;
-		const expected = audioBufferChannels(await engines[0]!.renderMix(options))[0]!;
+		const expected = new Float32Array(audioBufferChannels(await engines[0]!.renderMix(options))[0]!);
 		assert.ok(expected.some(sample => sample > .2) && expected.some(sample => sample > 0 && sample < .1), 'timeline music must actually duck');
 		controller.actions.projectBin.moveFromTimeline('main-clip');
 		await controller.actions.projectBin.playPause('main-clip');
 		assert.equal(controller.getSnapshot().projectBinPreview?.state, 'playing');
-		const measured = audioBufferChannels(await engines[1]!.renderMix(options))[0]!;
+		assert.equal(previews.size, 1, 'observe the actual Bin preview project, independently of other renderer creation');
+		const measured = audioBufferChannels(await [...previews][0]!.renderMix(options))[0]!;
 		const error = measured.reduce((maximum, sample, frame) => Math.max(maximum, Math.abs(sample - expected[frame]!)), 0);
 		assert.ok(error < 1e-6, `the moved clip must retain authored ducking without guide audio; error ${error}`);
 	} finally { await controller.dispose(); }

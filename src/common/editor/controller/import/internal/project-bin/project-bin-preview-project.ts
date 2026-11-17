@@ -31,8 +31,9 @@ export function createProjectBinAudioPreviewProject(project: ProjectBinProject, 
 			effects: [], effectsActive: false, envelope: [] }))],
 	});
 	const mixer = preview.mixer as MixerGraphV21;
+	const auditionMixer: MixerGraphV21 = { ...mixer, edges: mixer.edges.map(edge => ({ ...edge,
+		level: edge.source.kind === 'track' && controlIds.has(edge.source.id) ? 0 : edge.level })) };
 	const output: EngineProject = { ...preview, ...(controlIds.size || previewClip.warpMap != null ? { tempoMap: project.tempoMap } : {}),
-		mixer: { ...mixer, edges: mixer.edges.map(edge => ({ ...edge,
-			level: edge.source.kind === 'track' && controlIds.has(edge.source.id) ? 0 : edge.level })) } };
+		mixer: auditionMixer };
 	return { project: output, startFrame, endFrame: startFrame + previewClip.durationFrames, clipIds: [clip.id, ...clipIds] };
 }
