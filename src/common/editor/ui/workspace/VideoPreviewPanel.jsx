@@ -297,7 +297,7 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 		try {
 			const visualSession = visualSessionRef.current;
 			const productFrame = visualSession?.resolve(timelineFrame) ?? null;
-			if (shouldRenderExactProductVideoPreview(visualSession, playhead.transportState)) {
+			if (shouldRenderExactProductVideoPreview(visualSession, playhead.transportState, productFrame)) {
 				if (!layersSynchronized || !areVideoPreviewMediaLayersReadyForExactRender(compositorLayersRef.current)) return;
 				void exactRenders.run({
 					render: () => visualSession.renderExact({

@@ -9,8 +9,11 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex } from '@noble/hashes/utils.js';
 
 import type { AudioEditorProjectStore } from '../src/common/editor/storage.js';
+import { shouldRenderExactProductVideoPreview } from '../src/common/editor/ui/workspace/video-preview-exact-render-policy.ts';
 import type { ProductVideoVisualPreviewSession } from '../src/common/editor/ui/workspace/product-video-visual-preview-runtime.ts';
 import { applyFramescaperProjectCommandTimelineImage } from '../src/framescaper/editor-project-timeline-image-commands.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
@@ -96,6 +99,22 @@ test('the drawable is presented once per distinct frame index rather than once p
 	assert.deepEqual(drawables[0]?.presented, [37, 74, 37],
 		'only index changes present, with the exact first byte of each seeded frame');
 	session.dispose();
+});
+
+test('preview authenticates the pack and decodes a distant picture only when it is demanded', async () => {
+	const original = imageFixture('image-source', 2, 1, 8);
+	const bytes = original.bytes.slice();
+	bytes[bytes.length - 1]! ^= 0xff;
+	const fixture = { bytes, source: { ...original.source, contentSha256: bytesToHex(sha256(bytes)) } };
+	const drawables: RecordedDrawableTimelineImage[] = [];
+	const session = await openSession({ ...scene({ fixtures: [fixture] }), createImageDrawable: drawableFactory(drawables) });
+	try {
+		assert.equal(entriesOf(session.resolve(0))[0]?.imageFrameIndex, 0);
+		assert.deepEqual(drawables[0]?.presented, [37]);
+		assert.throws(() => session.resolve(7 * SECOND_PACK_FRAME_SAMPLE), /compressed digest/u);
+		assert.deepEqual(drawables[0]?.presented, [37], 'a failed picture is not presented');
+		assert.equal(entriesOf(session.resolve(0))[0]?.imageFrameIndex, 0);
+	} finally { session.dispose(); }
 });
 
 test('two clips sharing one source open it once and still receive independently backed drawables', async () => {
@@ -269,7 +288,7 @@ test('an inherited layer that claims a different index for a shared track is ref
 	session.dispose();
 });
 
-test('the inherited exact route is offered only while the session composites no image of its own', async () => {
+test('a paused playhead outside an image clip can still evaluate exact effects on the rest of the programme', async () => {
 	const exact = {
 		renderExact: (request: Readonly<{ timelineSample: number }>) => Promise.resolve({
 			frame: previewFrame([{ trackId: 'exact-track', trackIndex: 3, entries: [] }], ['render:exact']),
@@ -283,7 +302,10 @@ test('the inherited exact route is offered only while the session composites no 
 		createInheritedSession: inherited(inheritedLog(), exact),
 	});
 
-	assert.equal(withImage.renderExact, undefined);
+	assert.equal(shouldRenderExactProductVideoPreview(withImage, 'paused', withImage.resolve(0)), false);
+	assert.equal(shouldRenderExactProductVideoPreview(withImage, 'paused', withImage.resolve(960_000)), true);
+	const gap = await withImage.renderExact!({ timelineSample: 960_000, mediaLayers: [] });
+	assert.deepEqual(gap.renderedEffectIds, ['effect-1']);
 	const rendered = await withoutImage.renderExact!({ timelineSample: 96_000, mediaLayers: [] });
 	assert.deepEqual(rendered.layers, [{ sample: 96_000 }]);
 	assert.deepEqual(rendered.renderedEffectIds, ['effect-1']);

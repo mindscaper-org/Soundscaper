@@ -9,6 +9,7 @@ export interface ProductVideoVisualPreviewLedger {
 }
 
 export interface ProductVideoVisualPreviewFrame {
+	readonly requiresLayeredPreview?: boolean;
 	readonly layers: readonly Readonly<{
 		readonly trackId: string;
 		readonly trackIndex: number;

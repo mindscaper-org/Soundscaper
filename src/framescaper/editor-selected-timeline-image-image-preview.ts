@@ -22,15 +22,20 @@ import {
 	scaleFramescaperImageRgbaTimelineImage,
 	throwIfFramescaperImagePreviewAbortedTimelineImage,
 	type FramescaperImageClipV1,
-	type FramescaperImageFramePackReaderV1,
-	type FramescaperImageSourceV1,
 } from './editor-selected-timeline-image-image-frame-source.ts';
 import {
 	admitFramescaperImageProjectBinThumbnailResourcesTimelineImage,
 	admitFramescaperImageTimelinePreviewResourcesTimelineImage,
 	assertFramescaperImagePreviewReaderMetadataTimelineImage,
 	FRAMESCAPER_IMAGE_PREVIEW_MAXIMUM_CONTEXTS_TIMELINE_IMAGE,
+	type FramescaperImagePreviewResourceContextTimelineImage,
 } from './editor-selected-timeline-image-image-preview-resources.ts';
+import {
+	createFramescaperImagePreviewPrefetchTimelineImage,
+	disposeFramescaperImagePreviewFramesTimelineImage,
+	openFramescaperImagePreviewFramesTimelineImage,
+	type FramescaperImagePreviewFramesTimelineImage,
+} from './editor-selected-timeline-image-image-preview-frames.ts';
 import { FRAMESCAPER_FINISHING_PROJECT_RUNTIME_PROFILE } from './editor-domain-runtime-profile.ts';
 import { framescaperProjectFinishingFoundationShapeNativeMedia } from './editor-project-native-media-foundation.ts';
 import { framescaperProjectNativeMediaFoundationShapeTimelineImage } from './editor-project-timeline-image-foundation.ts';
@@ -52,6 +57,7 @@ export interface FramescaperImagePreviewVideoTimelineImage {
 
 export interface FramescaperImagePreviewDrawableTimelineImage {
 	readonly video: FramescaperImagePreviewVideoTimelineImage;
+	/** Consume the borrowed picture synchronously. */
 	present(rgba: Uint8Array<ArrayBuffer>): void;
 	dispose(): void;
 }
@@ -87,23 +93,9 @@ export interface FramescaperSelectedProjectBinThumbnailOptionsTimelineImage
 	readonly cloneProject?: (profile: unknown, project: unknown) => FramescaperProjectTimelineImage;
 }
 
-interface LoadedImageSourceTimelineImage {
-	readonly source: FramescaperImageSourceV1;
-	readonly reader: FramescaperImageFramePackReaderV1;
-	readonly width: number;
-	readonly height: number;
-	readonly frames: Uint8Array<ArrayBuffer>[];
-}
-
-interface PlannedImageSourceTimelineImage {
-	readonly source: FramescaperImageSourceV1;
-	readonly width: number;
-	readonly height: number;
-}
-
 interface ImageClipPreviewTimelineImage {
 	readonly clip: FramescaperImageClipV1;
-	readonly loaded: LoadedImageSourceTimelineImage;
+	readonly loaded: FramescaperImagePreviewFramesTimelineImage;
 	readonly trackId: string;
 	readonly trackIndex: number;
 	readonly sequenceRate: Readonly<{ readonly num: number; readonly den: number }>;
@@ -128,7 +120,7 @@ export async function createFramescaperSelectedVisualPreviewSessionTimelineImage
 		createDefaultInheritedSession(request, options.store)
 	));
 	const inheritedPromise = Promise.resolve().then(() => inheritedFactory({ project, ...canvas }));
-	const imagePromise = loadTimelineSources(
+	const imagePromise = openFramescaperImagePreviewFramesTimelineImage(
 		options.store, [...plannedSources.values()], options.signal,
 	);
 	const [inheritedResult, imageResult] = await Promise.allSettled([
@@ -141,7 +133,7 @@ export async function createFramescaperSelectedVisualPreviewSessionTimelineImage
 		);
 	}
 	if (inheritedResult.status === 'rejected') {
-		if (imageResult.status === 'fulfilled') disposeLoadedSources(imageResult.value);
+		if (imageResult.status === 'fulfilled') disposeFramescaperImagePreviewFramesTimelineImage(imageResult.value);
 		throw inheritedResult.reason;
 	}
 	if (imageResult.status === 'rejected') {
@@ -169,24 +161,28 @@ export async function createFramescaperSelectedVisualPreviewSessionTimelineImage
 		}
 	} catch (error) {
 		disposeClipDrawables(clips);
-		disposeLoadedSources(loaded);
+		disposeFramescaperImagePreviewFramesTimelineImage(loaded);
 		disposeInheritedSession(inherited);
 		throw error;
 	}
 	if (inherited === null && clips.length === 0) return null;
 	let disposed = false;
+	const schedulePrefetch = createFramescaperImagePreviewPrefetchTimelineImage();
 	const imageFrame = (timelineSampleValue: number): ProductVideoVisualPreviewFrame => {
 		if (disposed) throw new Error('The selected timelineImage image preview session is disposed.');
-		return resolveImageFrame(project, clips, timelinePosition(timelineSampleValue), canvas);
+		throwIfFramescaperImagePreviewAbortedTimelineImage(options.signal);
+		return resolveImageFrame(project, clips, timelinePosition(timelineSampleValue), canvas, schedulePrefetch);
 	};
-	const resolve = (timelineSample: number): ProductVideoVisualPreviewFrame => (
-		mergePreviewFrames(inherited?.resolve(timelinePosition(timelineSample)) ?? emptyFrame(), imageFrame(timelineSample))
-	);
-	// The inherited exact executor owns a flattened finishing graph and cannot place a
-	// new timelineImage image between its already-composited tracks. Keep the exact route
-	// only when this session has no image node; image projects retain the layered
-	// compositor path until the timelineImage exact plan owns image nodes itself.
-	const renderExact = clips.length === 0 ? inherited?.renderExact : undefined;
+	const resolve = (timelineSample: number): ProductVideoVisualPreviewFrame => {
+		try {
+			return mergePreviewFrames(inherited?.resolve(timelinePosition(timelineSample)) ?? emptyFrame(), imageFrame(timelineSample));
+		} catch (error) {
+			schedulePrefetch();
+			throw error;
+		}
+	};
+	// Active images require the layered compositor because the exact session omits their tracks.
+	const renderExact = inherited?.renderExact;
 	return Object.freeze({
 		resolve,
 		resolveTransitionWeight(clipId: string, timelineSample: number): number | null {
@@ -201,6 +197,7 @@ export async function createFramescaperSelectedVisualPreviewSessionTimelineImage
 		}>) {
 			const sample = timelinePosition(request.timelineSample);
 			const images = imageFrame(sample);
+			if (images.layers.length) throw new Error('Active images require layered preview.');
 			const result = await renderExact.call(inherited, {
 				timelineSample: sample,
 				mediaLayers: request.mediaLayers,
@@ -210,8 +207,9 @@ export async function createFramescaperSelectedVisualPreviewSessionTimelineImage
 		dispose(): void {
 			if (disposed) return;
 			disposed = true;
+			schedulePrefetch();
 			disposeClipDrawables(clips);
-			disposeLoadedSources(loaded);
+			disposeFramescaperImagePreviewFramesTimelineImage(loaded);
 			disposeInheritedSession(inherited);
 		},
 	});
@@ -289,8 +287,8 @@ function planTimelineSources(
 	project: FramescaperProjectTimelineImage,
 	contexts: readonly Omit<ImageClipPreviewTimelineImage, 'loaded' | 'drawable' | 'lastFrameIndex'>[],
 	canvas: Readonly<{ width: number; height: number; fit?: VideoCanvasFit }>,
-): ReadonlyMap<string, PlannedImageSourceTimelineImage> {
-	const output = new Map<string, PlannedImageSourceTimelineImage>();
+): ReadonlyMap<string, FramescaperImagePreviewResourceContextTimelineImage> {
+	const output = new Map<string, FramescaperImagePreviewResourceContextTimelineImage>();
 	for (const { clip } of contexts) {
 		if (output.has(clip.sourceId)) continue;
 		const source = framescaperImageSourceForClipTimelineImage(project.sources, clip);
@@ -302,54 +300,18 @@ function planTimelineSources(
 	return output;
 }
 
-async function loadTimelineSources(
-	store: AudioEditorProjectStore,
-	plannedSources: readonly PlannedImageSourceTimelineImage[],
-	signal?: AbortSignal,
-): Promise<LoadedImageSourceTimelineImage[]> {
-	const output: LoadedImageSourceTimelineImage[] = [];
-	try {
-		for (const { source, width, height } of [...plannedSources]
-			.sort((left, right) => compareText(left.source.id, right.source.id))) {
-			const reader = await openFramescaperStoredImageFramePackTimelineImage(
-				store, source, signal,
-				(byteLength) => { assertFramescaperImagePreviewReaderMetadataTimelineImage(source, byteLength); },
-			);
-			const frames: Uint8Array<ArrayBuffer>[] = [];
-			try {
-				for (let index = 0; index < source.canonical.frameCount; index += 1) {
-					const raw = await reader.readFrame(index, signal);
-					try {
-						frames.push(scaleFramescaperImageRgbaTimelineImage(
-							raw, source.canonical.width, source.canonical.height,
-							width, height, signal,
-						));
-					} finally { raw.fill(0); }
-				}
-			} catch (error) {
-				for (const frame of frames) frame.fill(0);
-				frames.length = 0;
-				throw error;
-			}
-			output.push(Object.freeze({ source, reader, width, height, frames }));
-		}
-		return output;
-	} catch (error) {
-		disposeLoadedSources(output);
-		throw error;
-	}
-}
-
 function resolveImageFrame(
 	project: FramescaperProjectTimelineImage,
 	clips: readonly ImageClipPreviewTimelineImage[],
 	timelineSample: number,
 	canvas: Readonly<{ width: number; height: number }>,
+	schedulePrefetch: (next?: () => void) => void,
 ): ProductVideoVisualPreviewFrame {
 	const sequence = project.sequences.find(({ id }) => id === project.primarySequenceId)!;
 	const sequenceFrame = sequenceFrameAtSample(timelineSample, sequence.rate, project.sampleRate);
 	const layers = new Map<string, { trackId: string; trackIndex: number; entries: Data[] }>();
 	const nodes: string[] = [];
+	let prefetch: (() => void) | undefined;
 	for (const context of clips) {
 		const clip = context.clip;
 		if (sequenceFrame < clip.sequenceStartFrame
@@ -358,8 +320,11 @@ function resolveImageFrame(
 			context.loaded.reader, clip, timelineSample, context.sequenceRate, project.sampleRate,
 		);
 		if (context.lastFrameIndex !== address.frameIndex) {
-			context.drawable.present(context.loaded.frames[address.frameIndex]!);
+			context.drawable.present(context.loaded.read(address.frameIndex));
 			context.lastFrameIndex = address.frameIndex;
+		}
+		if (sequenceFrame + 1 < clip.sequenceStartFrame + clip.sequenceFrameCount) {
+			prefetch ??= context.loaded.prefetchAfter(address.frameIndex);
 		}
 		const layer = layers.get(context.trackId) ?? {
 			trackId: context.trackId, trackIndex: context.trackIndex, entries: [],
@@ -368,6 +333,7 @@ function resolveImageFrame(
 		layers.set(context.trackId, layer);
 		nodes.push(`render:image:${clip.id}`);
 	}
+	schedulePrefetch(prefetch);
 	const ids = uniqueSorted(nodes);
 	return Object.freeze({
 		layers: Object.freeze([...layers.values()].map((layer) => Object.freeze({
@@ -409,6 +375,7 @@ function mergePreviewFrames(
 	const layers = mergeVisualLayers(left.layers, right.layers);
 	return Object.freeze({
 		layers,
+		...(right.layers.length ? { requiresLayeredPreview: true } : {}),
 		adjustments: Object.freeze([...left.adjustments, ...right.adjustments]),
 		activeFreezeNodeIds: uniqueSorted([...left.activeFreezeNodeIds, ...right.activeFreezeNodeIds]),
 		availablePresetIds: uniqueSorted([...left.availablePresetIds, ...right.availablePresetIds]),
@@ -512,14 +479,6 @@ function assertDrawable(value: FramescaperImagePreviewDrawableTimelineImage, wid
 		|| value.video.videoWidth !== width || value.video.videoHeight !== height) {
 		throw new TypeError('A timelineImage image preview drawable has invalid dimensions or lifecycle ports.');
 	}
-}
-
-function disposeLoadedSources(sources: LoadedImageSourceTimelineImage[]): void {
-	for (const source of sources) {
-		for (const frame of source.frames) frame.fill(0);
-		source.frames.length = 0;
-	}
-	sources.length = 0;
 }
 
 function disposeClipDrawables(clips: ImageClipPreviewTimelineImage[]): void {
