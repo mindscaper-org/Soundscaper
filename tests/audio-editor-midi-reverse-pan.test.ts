@@ -12,13 +12,14 @@ async function render(data: MidiClipData) {
 	try { return await renderer.render(0, 16000); } finally { await renderer.close(); }
 }
 
-test('reversing a recorded MIDI pan trajectory preserves the actual stereo instrument positions on delivery', async () => {
+for (const initialPan of [0, null]) test(`reversing a recorded MIDI pan trajectory retains initial pan ${String(initialPan)} on delivery`, async () => {
 	const f = midiServiceFixture();
-	await f.service.importDocument(parseMidiFile(writeMidiFile(midiPanTrajectory()), { sampleRate: 8000 }));
+	await f.service.importDocument(parseMidiFile(writeMidiFile(midiPanTrajectory(initialPan)), { sampleRate: 8000 }));
 	await f.service.setInstrument(f.project().tracks[0]!.id, 'fluidsynth');
 	const clip = f.project().clips[0]!;
 	const source = await render(readMidiClip(clip)!);
-	assert.ok(channelEnergy(source[0]!, 3000, 4000) > channelEnergy(source[1]!, 3000, 4000) * 10);
+	if (initialPan === 0) assert.ok(channelEnergy(source[0]!, 3000, 4000) > channelEnergy(source[1]!, 3000, 4000) * 10);
+	else assert.ok(Math.abs(channelEnergy(source[0]!, 3000, 4000) / channelEnergy(source[1]!, 3000, 4000) - 1) < .05);
 	assert.ok(channelEnergy(source[1]!, 11000, 12000) > channelEnergy(source[0]!, 11000, 12000) * 10);
 	f.apply({ type: 'clip/update', clipId: clip.id, changes: { reversed: true } });
 	await f.service.exportFile('midi');
@@ -28,5 +29,6 @@ test('reversing a recorded MIDI pan trajectory preserves the actual stereo instr
 	await recipient.service.setInstrument(recipient.project().tracks[0]!.id, 'fluidsynth');
 	const output = await render(readMidiClip(recipient.project().clips[0])!);
 	assert.ok(channelEnergy(output[1]!, 3500, 4500) > channelEnergy(output[0]!, 3500, 4500) * 10, 'the reversed first voice must be on the right');
-	assert.ok(channelEnergy(output[0]!, 12000, 13000) > channelEnergy(output[1]!, 12000, 13000) * 10, 'the reversed second voice must be on the left');
+	if (initialPan === 0) assert.ok(channelEnergy(output[0]!, 12000, 13000) > channelEnergy(output[1]!, 12000, 13000) * 10, 'the reversed second voice must be on the left');
+	else assert.ok(Math.abs(channelEnergy(output[0]!, 12000, 13000) / channelEnergy(output[1]!, 12000, 13000) - 1) < .05, 'the native center default must return after the recorded pan');
 });
