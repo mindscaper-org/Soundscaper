@@ -45,6 +45,7 @@ import {
 	type SoundscaperNativeProjectOperation,
 } from './soundscaper-native-renderer-project-operation.ts';
 import { closeSoundscaperNativePluginVendorUi } from './soundscaper-native-vendor-ui-close.ts';
+import { openSoundscaperNativePluginVendorUi } from './soundscaper-native-vendor-ui-open.ts';
 import { createSerialProjectOperationQueue } from '../controller/shared/serial-project-operation-queue.ts';
 
 const PLUGIN_PORT_EVENT = 'soundscaper-native-plugin-rpc-port-v1';
@@ -295,13 +296,15 @@ function createNativeEffectRendererBridge(options: Readonly<{
 			}
 			return withTransportLatency(instance);
 		}),
-		async setNativePluginBypassed(request: Readonly<{ instanceId: string; bypassed: boolean }>) {
+		setNativePluginBypassed: ownershipOperations.wrap(stateOperations.wrap(async (operation, request: Readonly<{ instanceId: string; bypassed: boolean }>) => {
+			assertRuntimeOpen();
 			const bypassed = project?.admitBypassed(request.instanceId, request.bypassed) ?? request.bypassed;
 			const instance = await options.bridge.setNativePluginBypassed({ ...request, bypassed });
-			const update = project?.setBypassed(request.instanceId, bypassed);
+			assertRuntimeOpen();
+			const update = operation.commit(() => project?.setBypassed(request.instanceId, bypassed));
 			setNativePluginBypassed(request.instanceId, update?.bypassed ?? bypassed, update?.transition?.contextTime);
 			return instance;
-		},
+		})),
 		...createNativePluginPresetStatePort({ queue: stateOperations, read: saveNativePluginRuntimeState,
 			load: loadNativePluginRuntimeState, persist: persistState }),
 		persistNativePluginState: stateOperations.wrap(persistState),
@@ -326,19 +329,11 @@ function createNativeEffectRendererBridge(options: Readonly<{
 			activeStateKeys.set(request.instanceId, stateKey(projectState, projectOperation.projectId));
 			return Object.freeze({ projectState: restored.projectState });
 		}),
-		async openNativePluginVendorUi(request: Readonly<{ instanceId: string }>) {
-			const outcome = await options.bridge.openNativePluginVendorUi(request);
-			if (outcome.status !== 'opened') return outcome;
-			try {
-				await openNativePluginRuntimeVendorUi(request.instanceId, outcome.window.windowHandleId);
-				return outcome;
-			} catch (error) {
-				await options.bridge.closeNativePluginVendorUi({
-					instanceId: request.instanceId, windowHandleId: outcome.window.windowHandleId,
-				}).catch(() => false);
-				throw error;
-			}
-		},
+		openNativePluginVendorUi: ownershipOperations.wrap(async (request: Readonly<{ instanceId: string }>) => {
+			const operation = captureSoundscaperNativeProjectOperation(options.controller);
+			return openSoundscaperNativePluginVendorUi(options.bridge, request, openNativePluginRuntimeVendorUi,
+				() => { assertRuntimeOpen(); operation.assertCurrent(); });
+		}),
 		async closeNativePluginVendorUi(request: Readonly<{ instanceId: string; windowHandleId: string }>) {
 			return closeSoundscaperNativePluginVendorUi(
 				request, closeNativePluginRuntimeVendorUi,
