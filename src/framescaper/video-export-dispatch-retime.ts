@@ -7,11 +7,13 @@ import {
 	createVideoKeyframeExportInventory,
 } from '../common/editor/video-keyframe-export-inventory.ts';
 import { resolveVideoExportRange } from '../common/editor/video-export.js';
+import { resolveRuntimeProjectProjection } from '../common/editor/runtime-clip-projection.ts';
 import {
 	assertFramescaperProjectRetimeProfile,
 	type FramescaperProjectRetimeProfile,
 } from './editor-domain-runtime-profile.ts';
-import { framescaperProjectForRuntimeConsumersRetime } from './editor-project-retime-runtime.ts';
+import { framescaperProjectForPlaybackFoundationRetime } from './editor-project-retime-runtime.ts';
+import { framescaperVideoExportPrimarySequence } from './video-export-primary-sequence.ts';
 import {
 	validateFramescaperProjectRetime,
 	type FramescaperProjectRetime,
@@ -57,7 +59,9 @@ export function classifyFramescaperVideoExportDispatchRetime(
 	assertFramescaperProjectRetimeProfile(profile);
 	validateFramescaperProjectRetime(profile, projectValue);
 	const requestedRange = snapshotRequestedRange(requestedRangeValue);
-	const runtimeProject = framescaperProjectForRuntimeConsumersRetime(profile, projectValue);
+	const runtimeProject = resolveRuntimeProjectProjection(framescaperVideoExportPrimarySequence(
+		framescaperProjectForPlaybackFoundationRetime(profile, projectValue),
+	));
 	const range = resolveExactRange(runtimeProject, requestedRange);
 	const inventory = createVideoKeyframeExportInventory({
 		project: runtimeProject,

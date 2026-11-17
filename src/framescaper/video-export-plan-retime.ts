@@ -9,6 +9,7 @@ import {
 	type VideoKeyframeExportPlanV7,
 } from '../common/editor/video-keyframe-export-plan-v7.ts';
 import { resolveExactVideoExportCanvas } from '../common/editor/video-export.js';
+import { resolveRuntimeProjectProjection } from '../common/editor/runtime-clip-projection.ts';
 import { isVideoCanvasFit, type VideoCanvasFit } from '../common/editor/video-canvas-fit.ts';
 import {
 	normalizeVideoDeliveryQuality,
@@ -22,7 +23,8 @@ import {
 	assertFramescaperProjectRetimeProfile,
 	type FramescaperProjectRetimeProfile,
 } from './editor-domain-runtime-profile.ts';
-import { framescaperProjectForRuntimeConsumersRetime } from './editor-project-retime-runtime.ts';
+import { framescaperProjectForPlaybackFoundationRetime } from './editor-project-retime-runtime.ts';
+import { framescaperVideoExportPrimarySequence } from './video-export-primary-sequence.ts';
 import {
 	validateFramescaperProjectRetime,
 	type FramescaperProjectRetime,
@@ -94,7 +96,9 @@ export function createFramescaperVideoKeyframeExportPlanRetime(
 	if (decision.strategy !== 'keyed-retime' && buildOptions.allowNeutralExact !== true) {
 		throw new RangeError('The exact export range has no active authored keyframes or retime; use legacy-v6 dispatch.');
 	}
-	const runtimeProject = framescaperProjectForRuntimeConsumersRetime(profile, projectValue);
+	const runtimeProject = resolveRuntimeProjectProjection(framescaperVideoExportPrimarySequence(
+		framescaperProjectForPlaybackFoundationRetime(profile, projectValue),
+	));
 	const inventory = createVideoKeyframeExportInventory({
 		project: runtimeProject,
 		startFrame: decision.range.startFrame,

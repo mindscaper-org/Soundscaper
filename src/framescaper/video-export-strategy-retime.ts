@@ -35,6 +35,7 @@ import {
 	type FramescaperProjectRetimeProfile,
 } from './editor-domain-runtime-profile.ts';
 import { framescaperProjectForPlaybackFoundationRetime } from './editor-project-retime-runtime.ts';
+import { framescaperVideoExportPrimarySequence } from './video-export-primary-sequence.ts';
 import type { FramescaperProjectRetime } from './editor-project-retime-validation.ts';
 import {
 	classifyFramescaperVideoExportDispatchRetime,
@@ -87,7 +88,7 @@ export function createFramescaperVideoExportStrategyRetime(
 				request.canonicalProject as FramescaperProjectRetime,
 			);
 			assertFallbackFreeDelivery(request.delivery);
-			const exportProject = freezeExportProject(projectTrackFolderMediaStateV12(foundation));
+			const exportProject = freezeExportProject(projectTrackFolderMediaStateV12(framescaperVideoExportPrimarySequence(foundation)));
 			exportAuthorities.set(exportProject, request.canonicalProject);
 			return exportProject;
 		},
@@ -95,12 +96,12 @@ export function createFramescaperVideoExportStrategyRetime(
 			if (exportAuthorities.get(request.exportProject) !== request.canonicalProject) {
 				throw new TypeError('The retime export projection is not owned by its exact canonical project.');
 			}
-			const currentExportProject = projectTrackFolderMediaStateV12(
+			const currentExportProject = projectTrackFolderMediaStateV12(framescaperVideoExportPrimarySequence(
 				framescaperProjectForPlaybackFoundationRetime(
 					profile,
 					request.canonicalProject as FramescaperProjectRetime,
 				),
-			);
+			));
 			assertMatchingExportDataGraph(request.exportProject, currentExportProject,
 				'retime export projection', 'canonical retime project');
 			const decision = classifyFramescaperVideoExportDispatchRetime(
