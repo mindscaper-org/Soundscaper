@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createStreamedMacroNormalizationService } from '../src/common/editor/controller/effects/internal/macro/streamed-macro-normalization.ts';
+import { createStreamedEffectService } from '../src/common/editor/controller/effects/internal/streamed/streamed-effect-service.ts';
+import { runStreamedSelectionProcessing } from '../src/common/editor/streamed-effects/processing.ts';
 import type { EffectTarget } from '../src/common/editor/controller/effects/effect-selection-service.ts';
 import type { EffectResultSourceWriter } from '../src/common/editor/controller/effects/internal/effect-result-service.ts';
 
@@ -11,7 +12,9 @@ function fixture(failAt: 'read' | 'write' | 'second-write' | 'commit' | 'activat
 	let id = 0, stale = false, largestRead = 0;
 	const target: EffectTarget = { track: { id: 'track', name: 'LP', type: 'audio' }, startFrame: 17, endFrame: 140_017,
 		durationFrames: 140_000, channelCount: 2, hasAudio: true };
-	const service = createStreamedMacroNormalizationService({
+	const service = createStreamedEffectService({
+		process: async (request, ports) => runStreamedSelectionProcessing(request, ports),
+		readStored: async () => { throw new Error('Unexpected intermediate read'); },
 		chunkFrames: 65_536, memoryLimitBytes: 256 * 1024 ** 2,
 		getProject: () => ({ id: 'project', sources: [], clips: [], tracks: [] }),
 		createId: () => `printed-${++id}`,

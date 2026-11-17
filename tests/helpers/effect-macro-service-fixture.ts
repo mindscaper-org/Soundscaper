@@ -4,7 +4,7 @@ import { createEffectMacroService } from '../../src/common/editor/controller/eff
 import { EditorControllerLifetime, EditorProjectGeneration } from '../../src/common/editor/controller/shared/lifecycle.ts';
 import type { EffectTarget } from '../../src/common/editor/controller/effects/effect-selection-service.ts';
 import type { SelectionEffectResult } from '../../src/common/editor/controller/effects/internal/effect-result-service.ts';
-import type { RunStreamedMacroNormalization } from '../../src/common/editor/controller/effects/internal/macro/streamed-macro-normalization.ts';
+import type { RunStreamedEffects } from '../../src/common/editor/controller/effects/internal/streamed/streamed-effect-service.ts';
 
 function deferred<Value>() {
 	let resolve: (value: Value) => void = () => undefined;
@@ -28,7 +28,7 @@ export function createHarness(options: Readonly<{
 	targetClipIds?: readonly string[];
 	sourceSampleRate?: number;
 	targetDurationFrames?: number;
-	runStreamedNormalization?: RunStreamedMacroNormalization;
+	runStreamedEffects?: RunStreamedEffects;
 }> = {}) {
 	const defaultProject = {
 		id: 'project-a',
@@ -99,7 +99,7 @@ export function createHarness(options: Readonly<{
 			noiseProfileMissing: 'Noise profile required',
 		},
 		memoryLimitBytes: options.memoryLimitBytes ?? 1_000_000,
-		runStreamedNormalization: options.runStreamedNormalization,
+		runStreamedEffects: options.runStreamedEffects,
 		getProject: () => project,
 		audacityEffectTarget: () => options.target === false ? null : target,
 		audacityEffectTargets: () => options.target === false ? [] : options.multipleTargets

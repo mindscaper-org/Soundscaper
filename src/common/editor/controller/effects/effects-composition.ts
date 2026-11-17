@@ -39,6 +39,7 @@ import { createEffectAudioService } from './internal/effect-audio-service.ts';
 import { createDeferredAraClipEditingRuntime } from './internal/deferred-ara-clip-editing.ts';
 import { createEffectControlsService } from './effect-controls-service.ts';
 import { createSelectionEffectExecutionService } from './internal/effect-execution-service.ts';
+import { createStreamedEffectsComposition } from './internal/streamed-composition.ts';
 import { createSourceControlTrackRenderer } from './internal/source-control-track-renderer.ts';
 import { canSliceSimpleDryTrackPcm } from './internal/direct-dry-track-pcm.ts';
 import { createEffectMacroService, type EffectMacroServiceRuntime } from './internal/macro/effect-macro-service.ts';
@@ -196,7 +197,7 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 		renderSnapshot: (project, range, buffers, signal) => dependencies.renderSnapshot(project, range, buffers, signal, dependencies.sourceChunkProviders),
 		prepareCommittedTimePitchCaches: dependencies.prepareCommittedTimePitchCaches,
 		createRenderEngine: dependencies.createRenderEngine,
-		sourceBuffers: dependencies.sourceBuffers,
+		sourceBuffers: dependencies.sourceBuffers, sourceChunkProviders: dependencies.sourceChunkProviders,
 		audioBufferChannels,
 		matchAudacitySelectionChannels,
 		// The worker answers a capture request with a profile; the audio service reads only that.
@@ -307,27 +308,14 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 		publishDocumentSnapshot: dependencies.publishDocumentSnapshot,
 		setStatus: dependencies.setStatus,
 	});
+	const runStreamedEffects = createStreamedEffectsComposition(dependencies, audio, effectMemoryLimitBytes);
 	const macro = dependencies.composition.macros
 		? createEffectMacroService<RenderedAudio>({
 			lifetime: dependencies.lifetime,
 			projectGeneration: dependencies.projectGeneration,
 			copy,
 			get memoryLimitBytes() { return effectMemoryLimitBytes(); },
-			runStreamedNormalization: async (plans, options) => {
-				const { createStreamedMacroNormalizationService } = await import('./internal/macro/streamed-macro-normalization.ts');
-				options.assertCurrent();
-				await createStreamedMacroNormalizationService({ chunkFrames: SOURCE_CHUNK_FRAMES,
-					get memoryLimitBytes() { return effectMemoryLimitBytes(); }, store,
-					getProject: () => dependencies.getCommandProject() as unknown as EffectResultProject,
-					createId: () => createStableId('audacity-effect'), read: (...args) => audio.renderDryTrackRange(...args),
-					activateSource: (source, signal, peaks) => dependencies.activateStoredSource(createAudioSource(source), signal, peaks),
-					releaseSource: dependencies.releaseStoredSource,
-					prepareReplacement: (target, source) => prepareRangeReplacementCommand(requireProject(), {
-						trackId: target.track.id, startFrame: target.startFrame, endFrame: target.endFrame, source }),
-					publish: (command, trackId, clipId) => dependencies.commit(command,
-						{ selectTrackId: trackId, ...(clipId ? { selectClipId: clipId } : {}) }, { microfadeNewClips: false }),
-				})(plans, options);
-			},
+			runStreamedEffects,
 			getProject: requireProject,
 			audacityEffectTarget: (...args) => selection.audacityEffectTarget(...args),
 			audacityEffectTargets: selection.audacityEffectTargets,
@@ -373,6 +361,12 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 	const execution = dependencies.composition.effects
 		? createSelectionEffectExecutionService({
 		cancelSelectionWorkers: () => worker.cancelWorkers(),
+			runStreamedEffects,
+			measureSelectionPeak: async (targets, assertCurrent) => {
+				const { measureSelectionPeak } = await import('./internal/streamed/selection-peak.ts');
+				return measureSelectionPeak(targets, (target, start, end) => audio.renderDryTrackRange(target.track.id, start, end, target.channelCount, target.clipIds), assertCurrent);
+			},
+			audioSelectionEffectLabel,
 			beginResultTransaction: dependencies.beginResultTransaction,
 			pauseSourcePreview: dependencies.pauseSourcePreview, batchPresentation: dependencies.batchPresentation,
 			get AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES() { return effectMemoryLimitBytes(); },

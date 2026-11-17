@@ -208,15 +208,37 @@ not remove committed clips or add history entries.
 Standalone analysis runs one job at a time; queued decoded imports retain source
 metadata and read persisted PCM chunks instead of keeping whole decoded buffers.
 
-Timeline macros containing only Normalize and Loudness Normalization use bounded
-PCM reads when their whole-selection estimate exceeds the effect memory limit.
-Each step measures the entire selection before applying its gain; DC removal,
-Float32 rounding, loudness filter history, channel weighting and gating retain
-the one-shot effect semantics across chunk boundaries. Results and waveform peaks
-are written incrementally, registered as playable chunk sources, and published
-together for all selected tracks. Cancellation or a failed write removes staged
-sources; the macro transaction retains its existing single undo entry. Spectral,
-source-editor and length-changing effect runs keep their existing admission paths.
+Full-spectrum destructive Apply uses bounded PCM reads and a persistent worker
+for admitted fixed-length effects, independently of selection size or memory
+ceiling. Timeline ranges, exact selected clips and source-editor selections
+share this path; source edits stream untouched prefix/suffix PCM into the new
+source. Normalize, loudness normalization, DC removal and no-clipping Amplify
+measure the complete selection before replaying it. Amplify's dialog default
+likewise retains only the measured peak. Float32 stage boundaries, filter and
+RNG history, channel linking and lookahead survive packet boundaries.
+
+The worker prefetches at most one programme packet while the sink writes its
+preceding output; detector reads stay serial with programme preparation. Each
+sink write is acknowledged before another output packet can be delivered.
+FIR EQ retains the offline FFT geometry and accumulation order. Click removal
+uses its finite final-window rule; Auto Duck closes its detector at the exact
+selection end before draining delayed programme audio. Offline Echo parameter
+ranges stay independent of live ranges, and its complete delay history is
+charged before allocation. DSP histories, packets and waveform peaks are
+budgeted separately from duration.
+
+Macros containing admitted causal effects and analysis/gain steps use the same
+writer. Contiguous causal steps share one streaming pass; analysis barriers
+stage bounded media, preserving the authored rack prefix and each Float32
+stage. Intermediate media are removed before publication. Results and waveform
+peaks are written incrementally and registered as playable chunk sources before
+one atomic edit for all targets. Cancellation, stale ownership and failed writes
+remove staged sources. Spectral selections, duration-changing effects, pitched
+processing and macro racks without an admitted streaming adapter retain their
+existing processing and memory admission paths. The reusable
+`node --import tsx scripts/benchmark-streamed-selection-effects.mjs` probe
+compares kernel throughput; its separate memory modes exclude browser rendering
+and storage and must not be presented as application throughput measurements.
 
 Electron admits up to 4 GiB of estimated peak effect memory by default. The
 Advanced preferences page offers an effect memory limit in whole GiB, applied to

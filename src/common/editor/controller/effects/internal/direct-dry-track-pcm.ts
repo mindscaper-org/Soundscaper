@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { readClipLoop } from '../../../audio-clip-loop.ts';
-import type { EngineSourceBufferInput } from '../../../engine/public-api.ts';
+import { readWaveformPcmWindow } from '../../source/waveform-analysis.ts';
+import type { EngineChunkSourceInput, EngineSourceBufferInput } from '../../../engine/public-api.ts';
 import type { EffectAudioProject } from './effect-audio-service-types.ts';
 
 const EXACT_RANGE_PCM = new WeakSet<readonly Float32Array[]>();
@@ -14,7 +15,7 @@ export function canSliceSimpleDryTrackPcm(channels: readonly Float32Array[]): bo
 /** Admit only a neutral, same-rate stereo clip; every richer graph uses the engine. */
 export async function renderSimpleDryTrackPcm(project: EffectAudioProject, sourceBuffers: EngineSourceBufferInput,
 	trackId: string, startFrame: number, endFrame: number, channelCount: number,
-	requestedClipIds: readonly string[] | null = null, signal: AbortSignal | null = null): Promise<Float32Array[] | null> {
+	requestedClipIds: readonly string[] | null = null, signal: AbortSignal | null = null, sourceChunkProviders?: EngineChunkSourceInput): Promise<Float32Array[] | null> {
 	signal?.throwIfAborted();
 	if (channelCount !== 2 || project.masterChannels !== 2 || !Number.isSafeInteger(startFrame)
 		|| startFrame < 0 || !Number.isSafeInteger(endFrame) || endFrame <= startFrame
@@ -56,22 +57,36 @@ export async function renderSimpleDryTrackPcm(project: EffectAudioProject, sourc
 	const buffers = sourceBuffers as ReadonlyMap<unknown, AudioBuffer>;
 	const buffer = typeof buffers.get === 'function' ? buffers.get(clip.sourceId)
 		: (sourceBuffers as Readonly<Record<string, AudioBuffer>>)[clip.sourceId];
-	if (!buffer || buffer.sampleRate !== project.sampleRate || buffer.numberOfChannels !== 2
-		|| buffer.length < sourceStart + duration || typeof buffer.getChannelData !== 'function') return null;
 	const from = Math.max(startFrame, clipStart);
 	const to = Math.min(endFrame, clipStart + duration);
 	const offset = sourceStart + from - clipStart;
 	const destination = from - startFrame;
 	const count = to - from;
+	let samples: readonly Float32Array[];
+	let inputOffset = offset;
+	if (buffer) {
+		if (buffer.sampleRate !== project.sampleRate || buffer.numberOfChannels !== 2 || buffer.length < sourceStart + duration || typeof buffer.getChannelData !== 'function') return null;
+		samples = [buffer.getChannelData(0), buffer.getChannelData(1)];
+	} else {
+		const providers = sourceChunkProviders as ReadonlyMap<string, import('../../../engine/types.ts').EngineChunkSource> | undefined;
+		const provider = providers && (typeof providers.get === 'function' ? providers.get(clip.sourceId)
+			: (sourceChunkProviders as Readonly<Record<string, import('../../../engine/types.ts').EngineChunkSource>>)[clip.sourceId]);
+		if (!provider || provider.sampleRate !== project.sampleRate || provider.channelCount !== 2 || provider.frameCount < sourceStart + duration) return null;
+		samples = await readWaveformPcmWindow({ ...provider, readStorageChunk: async (index, options) => {
+			const value = await provider.readStorageChunk(index, options);
+			return [...('channels' in value ? value.channels : value)];
+		} }, { startFrame: offset, endFrame: offset + count }, signal ? { signal } : {});
+		signal?.throwIfAborted(); inputOffset = 0;
+	}
 	const output = Array.from({ length: 2 }, () => new Float32Array(endFrame - startFrame));
 	let lastYield = performance.now();
 	for (let channel = 0; channel < 2; channel += 1) {
-		const input = buffer.getChannelData(channel);
+		const input = samples[channel]!;
 		for (let frame = 0; frame < count; frame += 65_536) {
 			const frames = Math.min(65_536, count - frame);
 			const target = output[channel]!;
 			for (let index = 0; index < frames; index += 1) {
-				const sample = input[offset + frame + index]!;
+				const sample = input[inputOffset + frame + index]!;
 				// Native graphs differ in signed-zero and subnormal handling across engines.
 				if (!Number.isFinite(sample) || (sample === 0 ? Object.is(sample, -0)
 					: sample < 2 ** -126 && sample > -(2 ** -126))) return null;

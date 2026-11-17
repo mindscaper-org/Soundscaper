@@ -16,13 +16,14 @@ export interface StreamedNormalizationRequest {
 	readonly channelCount: number;
 	readonly sampleRate: number;
 	readonly chunkFrames?: number;
+	readonly yieldToMainThread?: boolean;
 	readonly read: (startFrame: number, endFrame: number) => Promise<readonly Float32Array[]>;
 	readonly assertCurrent: () => void;
 }
 type Transform = (channels: readonly Float32Array[]) => Float32Array[];
 
 export function isStreamedNormalizationStep(step: NormalizationStep): boolean {
-	return step.type === 'audacity-normalize' || step.type === 'audacity-loudness-normalization';
+	return step.type === 'audacity-normalize' || step.type === 'audacity-loudness-normalization' || step.type === 'audacity-amplify' || step.type === 'audacity-remove-dc-offset';
 }
 
 /** Measure whole selections, then replay bounded reads through each Float32 stage. */
@@ -37,7 +38,9 @@ export async function prepareStreamedNormalization(request: StreamedNormalizatio
 	const transforms: Transform[] = [];
 	for (const effect of effects) {
 		const settings = normalizeAudacityEffectParams(effect.type, effect.params) as Readonly<Record<string, unknown>>;
-		transforms.push(effect.type === 'audacity-normalize' ? await measurePeak(settings) : await measureLoudness(settings));
+		transforms.push(effect.type === 'audacity-normalize' ? await measurePeak(settings)
+			: effect.type === 'audacity-remove-dc-offset' ? await measurePeak({ removeDc: true, applyGain: false })
+			: effect.type === 'audacity-amplify' ? await measureAmplify(settings) : await measureLoudness(settings));
 	}
 	return readProcessed;
 
@@ -52,11 +55,20 @@ export async function prepareStreamedNormalization(request: StreamedNormalizatio
 			assertAudacityEffectOutput(channels);
 			for (const transform of transforms) channels = assertAudacityEffectOutput(transform(channels));
 			yield channels;
-			if (performance.now() - lastYield >= 8) {
+			if (request.yieldToMainThread !== false && performance.now() - lastYield >= 8) {
 				await new Promise<void>(resolve => setTimeout(resolve, 0));
 				assertCurrent(); lastYield = performance.now();
 			}
 		}
+	}
+
+	async function measureAmplify(settings: Readonly<Record<string, unknown>>): Promise<Transform> {
+		let peak = 0, gain = 10 ** (Number(settings.gainDb) / 20);
+		if (!settings.allowClipping) {
+			for await (const channels of readProcessed()) for (const channel of channels) for (const sample of channel) peak = Math.max(peak, Math.abs(sample));
+			if (peak > 0 && peak * gain > 1) gain = 1 / peak;
+		}
+		return channels => channels.map(channel => Float32Array.from(channel, sample => sample * gain));
 	}
 
 	async function measurePeak(settings: Readonly<Record<string, unknown>>): Promise<Transform> {

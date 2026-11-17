@@ -31,7 +31,8 @@ import { macroSpectralContext, type MacroSpectralSelection } from './macro-spect
 import { bindNativeAutoDuckControls, macroNeedsSilentTargets } from './macro-target-admission.ts';
 import { runMacroTargetPlans } from './macro-linked-truncation.ts';
 import { macroRackHistoryFrames, macroRackHistoryScratchBytes } from './macro-rack-history.ts';
-import type { RunStreamedMacroNormalization } from './streamed-macro-normalization.ts';
+import type { RunStreamedEffects } from '../streamed/streamed-effect-service.ts';
+import { canStreamEffectMacro } from '../../../../streamed-effects/admission.ts';
 
 const EFFECT_MACRO_TASK = 'selection-effect-macro';
 
@@ -117,7 +118,7 @@ export interface EffectMacroServiceRuntime<Buffer = MacroRenderBuffer> {
 	readonly copy: MacroCopy;
 	readonly memoryLimitBytes: number;
 	readonly runSelectionEffectChain?: RunOfflineSelectionChain;
-	readonly runStreamedNormalization?: RunStreamedMacroNormalization;
+	readonly runStreamedEffects?: RunStreamedEffects;
 	readonly getProject: () => MacroProject;
 	readonly audacityEffectTarget: (trackId?: string | null) => EffectTarget | null;
 	readonly audacityEffectTargets?: (options?: Readonly<{ includeSilentTracks?: boolean }>) => readonly EffectTarget[];
@@ -232,9 +233,7 @@ export function createEffectMacroService<Buffer = MacroRenderBuffer>(runtime: Ef
 		});
 		const outputBytes = plans.reduce((sum, plan) => sum + plan.outputBytes, 0);
 		const estimatedPeakBytes = plans.reduce((sum, plan) => sum + plan.peakBytes, 0);
-		const streamed = estimatedPeakBytes > runtime.memoryLimitBytes && runtime.runStreamedNormalization && plans.every(plan =>
-			!plan.spectralSelection && !plan.target.sourceId && !plan.target.clipId && plan.effects.every(effect =>
-				effect.type === 'audacity-normalize' || effect.type === 'audacity-loudness-normalization'));
+		const streamed = runtime.runStreamedEffects && plans.every(plan => !plan.spectralSelection && canStreamEffectMacro(plan.effects));
 		if (estimatedPeakBytes > runtime.memoryLimitBytes && !streamed) throw runtime.audacityEffectMemoryError();
 		if (targets.length > 1 && !runtime.persistAudacityEffectResults) throw new Error('The macro result adapter cannot commit multiple targets.');
 		const selectionDetails = runtime.effectSelectionDetails?.(targets)
@@ -252,7 +251,7 @@ export function createEffectMacroService<Buffer = MacroRenderBuffer>(runtime: Ef
 			assertOwnership(runtime, ownership);
 			const effectName = String(request.name || publishedCopyFor(runtime.copy).untitledMacro || publishedCopyFor(runtime.copy).macrosPalette).trim()
 				|| publishedCopyFor(runtime.copy).untitledMacro || publishedCopyFor(runtime.copy).macrosPalette;
-			if (streamed) await runtime.runStreamedNormalization!(plans, { effectName, sampleRate, selectionDetails,
+			if (streamed) await runtime.runStreamedEffects!(plans, { effectName, sampleRate, selectionDetails,
 				signal: ownership.task.signal, assertCurrent: () => assertOwnership(runtime, ownership) });
 			else {
 				const results = await runMacroTargetPlans(plans, {
