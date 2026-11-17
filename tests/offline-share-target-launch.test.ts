@@ -307,6 +307,7 @@ test('a stash whose manifest cannot be read is swept rather than trusted', async
 	assert.equal(collected.result.status, 'unreadable');
 	assert.deepEqual([...cache.entries.keys()], [], 'an unreadable stash leaves nothing behind');
 	assert.deepEqual(collected.launches, []);
+	assert.match(String(collected.errors[0]), /shared.file.*manifest/iu);
 });
 
 test('a forged manifest cannot exceed the worker aggregate byte limit', async (t) => {
@@ -325,7 +326,7 @@ test('a forged manifest cannot exceed the worker aggregate byte limit', async (t
 	const collected = await collect(t, { href: `${ORIGIN}/en/?share=${token}`, caches: cacheStorage });
 
 	assert.equal(collected.result.status, 'unreadable');
-	assert.deepEqual(collected.errors, []);
+	assert.match(String(collected.errors[0]), /shared.file.*manifest/iu);
 	assert.deepEqual(collected.launches, []);
 	assert.deepEqual([...cache.entries.keys()], [], 'the rejected stash is swept across the full index range');
 });

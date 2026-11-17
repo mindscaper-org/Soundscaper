@@ -84,6 +84,14 @@ test('the probe declines to guess when it cannot read a published inventory', as
 	}), 'unknown');
 });
 
+test('an unrelated JSON inventory cannot trigger a stale build reload prompt', async () => {
+	const fetchImpl: ShellInventoryFetch = async () => ({
+		ok: true,
+		json: async () => ({ assets: [{ url: '/offline.html' }] }),
+	});
+	assert.equal(await probeStaleBuild({ moduleUrl: RUNNING_MODULE, fetchImpl }), 'unknown');
+});
+
 test('discarding a stale build clears both shell cache generations, the worker and the document', async () => {
 	const deleted: string[] = [];
 	const unregistered: string[] = [];
@@ -100,7 +108,8 @@ test('discarding a stale build clears both shell cache generations, the worker a
 		},
 		serviceWorker: {
 			getRegistrations: () => Promise.resolve([
-				{ unregister: () => { unregistered.push('shell'); return Promise.resolve(true); } },
+				{ scope: 'https://soundscaper.org/', unregister: () => { unregistered.push('shell'); return Promise.resolve(true); } },
+				{ scope: 'https://soundscaper.org/handbook/', unregister: () => { unregistered.push('handbook'); return Promise.resolve(true); } },
 			]),
 		},
 		documentUrl: 'https://soundscaper.org/en/',

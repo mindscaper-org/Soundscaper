@@ -182,6 +182,7 @@ async function collectStashedFiles(
 		// A manifest that cannot be read still names a stash that must not be
 		// left behind, so the whole index range is swept.
 		await deleteSharedFileBodies(cache, token, 0);
+		reportError(onError, new Error('The shared-file handoff manifest could not be read.'));
 		return collection('unreadable');
 	}
 	let collected: Awaited<ReturnType<typeof readStashedFiles>>;
