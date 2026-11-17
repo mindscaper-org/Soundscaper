@@ -16,14 +16,16 @@ test('opening a DAWproject folder with its own media keeps the subtree before fo
 		['folder', null], ['track', folder.id], ['track', folder.id], ['track', null],
 	]);
 	assert.equal(project.clips.length, 1);
-	assert.equal(project.tracks[0]!.clipIds[0], project.clips[0]!.id);
+	const track = project.tracks[0];
+	assert.ok(track?.type === 'audio');
+	assert.equal(track.clipIds[0], project.clips[0]!.id);
 });
 
 test('folder devices continue processing all children when the folder has its own media', async () => {
 	const project = await openFolder('<Devices><Compressor deviceRole="audioFX"><Threshold value="-18" unit="decibel"/></Compressor></Devices>');
 	const bus = project.mixer.groups.find(bus => bus.id === project.trackFolders[0]!.id)!;
 	assert.deepEqual(bus.effects.map(effect => effect.type), ['compressor']);
-	assert.ok(project.tracks.every(track => !('effects' in track) || !track.effects.length));
+	assert.ok(project.tracks.every(track => track.type !== 'audio' || !track.effects.length));
 });
 
 async function openFolder(devices = '') {
