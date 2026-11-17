@@ -68,7 +68,10 @@ export function parseOmfDocument(bytes: Uint8Array): TimelineInterchangeDocument
 		if (descriptor === undefined) {
 			const child = firstRef(slot, 'MSLT:Segment'); return child === undefined ? null : source(child, targetRate, start, requestedDuration, depth + 1);
 		}
-		const id = `omf-media-${mob}`, mobName = file.text(mob, 'OMFI:MOBJ:Name');
+		const physical = description === undefined ? 0 : file.integer(description, 'OMFI:TRKD:PhysicalTrack');
+		const slotSegment = firstRef(slot, 'MSLT:Segment');
+		const channelIndices = physical > 0 && slotSegment !== undefined && dataKind(slotSegment) === 'omfi:data:Sound' ? [physical - 1] : undefined;
+		const id = `omf-media-${mob}${channelIndices ? `:channel-${physical}` : ''}`, mobName = file.text(mob, 'OMFI:MOBJ:Name');
 		if (!media.has(id)) {
 			const body = embedded.get(uid(mob, 'OMFI:MOBJ:MobID'));
 			const locators = file.refs(descriptor, 'OMFI:MDES:Locator', true);
@@ -84,7 +87,7 @@ export function parseOmfDocument(bytes: Uint8Array): TimelineInterchangeDocument
 			const sourceRate = rational(file, descriptor, 'OMFI:MDFL:SampleRate', targetRate);
 			const duration = divideRationals(nonNegative(file.integer(descriptor, 'OMFI:MDFL:Length'), 'source length'), sourceRate);
 			const name = mobName || path.split(/[\\/]/u).at(-1) || `Audio${body?.extension ?? '.wav'}`;
-			media.set(id, { id, name, path: path || name, kind: 'audio', rate: sourceRate, duration,
+			media.set(id, { id, name, path: path || name, kind: 'audio', rate: sourceRate, duration, ...(channelIndices ? { channelIndices } : {}),
 				...(body ? { blob: new Blob([new Uint8Array(body.bytes)], { type: body.mime }) } : {}) });
 		}
 		return { mediaId: id, start, name: mobName };

@@ -246,7 +246,9 @@ mobs, mono/stereo WAV essence, gaps and source offsets. Export Other embeds
 24-bit PCM audio, with a 256 MiB decoded-PCM limit; the domain writer can also
 describe linked WAV sources. Overlapping clips become separate tracks. Import
 reads embedded WAV/AIFF or retains linked references, and reports unsupported
-components. The profile does not carry picture or editable MIDI authoring.
+components. Mono file slots retain their saved physical channel selection when
+several cuts reference one interleaved recording. The profile does not carry
+picture or editable MIDI authoring.
 
 AAF uses standard AAF 1.2 objects in a bounded Compound File Binary container.
 File > Open, Import and drop routing read audio cuts through composition,
