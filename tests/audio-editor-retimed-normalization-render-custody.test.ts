@@ -189,7 +189,9 @@ for (const profile of profiles) test(`StaffPad normalization custody: ${'bpm' in
 			const render = async () => {
 				// The public exporter owns source/cache preparation and its detached
 				// renderer. The live headless engine may retain a lazy source mapping.
-				const project = clipboardProject(controller.project), initial = createExportDialogInitialSettings(project);
+				const project = clipboardProject(controller.project), initial = {
+					...createExportDialogInitialSettings(project), dither: 'triangular', includeTail: true,
+				};
 				const request = createExportDialogRequest(initial, { project, desktop: false,
 					channelMapping: initial.channelMapping, metadata: exportDialogMetadataFields(initial, {}) });
 				assert.deepEqual([request.format, request.sampleFormat, request.dither, request.includeTail, request.channelMapping],

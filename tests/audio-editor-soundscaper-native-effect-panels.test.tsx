@@ -66,12 +66,20 @@ test('a hosted native effect mounts its generated parameter controls inside the 
 			bypassed: false, latencySamples: 0,
 		},
 	};
-	const markup = renderToStaticMarkup(<SoundscaperNativeEffectManagePanel
-		copy={COPY}
-		state={state}
-		disabled={false}
-		perform={() => {}}
-	/>);
+	const previousReact = Object.getOwnPropertyDescriptor(globalThis, 'React');
+	Object.defineProperty(globalThis, 'React', { configurable: true, value: React });
+	let markup: string;
+	try {
+		markup = renderToStaticMarkup(<SoundscaperNativeEffectManagePanel
+			copy={COPY}
+			state={state}
+			disabled={false}
+			perform={() => {}}
+		/>);
+	} finally {
+		if (previousReact) Object.defineProperty(globalThis, 'React', previousReact);
+		else Reflect.deleteProperty(globalThis, 'React');
+	}
 
 	assert.match(markup, /data-native-plugin-instance="plugin_instance_ladspa"/u);
 	assert.match(markup, /Loading plug-in parameters/u,

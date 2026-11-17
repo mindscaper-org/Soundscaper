@@ -208,9 +208,9 @@ test('annotation list exposes equivalent named editing fields and native workflo
 	assert.match(markup, />Add marker at playhead</u);
 	assert.match(markup, />Add region from selection</u);
 	assert.match(markup, /aria-label="Marker and region list"/u);
-	assert.match(markup, />Start sample<span class="audio-editor-timecode-input" data-timecode-input="samples"/u);
+	assert.match(markup, /<label><span class="audio-editor-control-label">Start sample<\/span><span class="audio-editor-timecode-input" data-timecode-input="samples"/u);
 	assert.match(markup, /role="group" aria-label="Start sample"/u);
-	assert.match(markup, />End sample<span class="audio-editor-timecode-input" data-timecode-input="samples"/u);
+	assert.match(markup, /<label><span class="audio-editor-control-label">End sample<\/span><span class="audio-editor-timecode-input" data-timecode-input="samples"/u);
 	assert.doesNotMatch(markup, /defaultValue/u);
 	assert.match(markup, />Batch selected annotations</u);
 	assert.match(markup, /role="status"/u);
@@ -248,7 +248,7 @@ test('blocked annotation surfaces retain roving focus while exposing disabled mu
 	assert.match(layerMarkup, /role="option"[^>]*aria-disabled="true"[^>]*tabindex="0"/u);
 	assert.match(panelMarkup, /class="audio-editor-timeline-annotation-list__item"[^>]*aria-disabled="true"[^>]*tabindex="0"/u);
 	assert.doesNotMatch(panelMarkup, /audio-editor-timeline-annotation-list__item"[^>]*\sdisabled=/u);
-	assert.match(panelMarkup, />Name<input disabled=""/u);
+	assert.match(panelMarkup, /<label><span class="audio-editor-control-label">Name<\/span><input disabled=""/u);
 	assert.match(panelMarkup, />Previous annotation<\/button>/u);
 });
 

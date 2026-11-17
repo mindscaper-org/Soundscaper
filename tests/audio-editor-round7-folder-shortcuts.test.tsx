@@ -31,7 +31,7 @@ for (const modifiers of [{ ctrlKey: true }, { metaKey: true }, { ctrlKey: true, 
 		const edits: unknown[] = [];
 		const noop = () => undefined;
 		const controller = { actions: { trackFolders: {
-			select: noop, toggleCollapsed: noop, update: noop, rename: noop,
+			selectedFolderId: () => null, select: noop, toggleCollapsed: noop, update: noop, rename: noop,
 			moveNode: (...args: unknown[]) => { edits.push(args); },
 		} } };
 		const Component = TrackListView as unknown as React.ComponentType<Record<string, unknown>>;

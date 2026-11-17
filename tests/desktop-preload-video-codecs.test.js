@@ -78,7 +78,7 @@ async function preload(response) {
 		ArrayBuffer, clearTimeout, Date, Float32Array, JSON, Map, Number, Object, Promise,
 		RangeError, Reflect, Set, setTimeout, String, structuredClone, TextEncoder,
 		TypeError, Uint8Array, URL,
-		window: { postMessage() {} },
+		window: { addEventListener() {}, postMessage() {} },
 		require: () => ({
 			contextBridge: {
 				exposeInMainWorld(name, value) { if (name === 'soundscaperDesktop') bridge = value.v1; },
