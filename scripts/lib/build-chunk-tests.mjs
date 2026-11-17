@@ -427,9 +427,10 @@ export const FRAMESCAPER_TIMELINE_IMAGE_CHUNK_TEST =
  * chunk that both worlds can import without dragging the other's graph. The
  * archive facade adds only erased type imports and dynamic implementation
  * imports, so sharing this owner does not grow the mounted transfer graph.
+ * Transfer reads also share the dependency-free abort race with the editors.
  */
 export const PROJECT_INTERCHANGE_FOUNDATION_CHUNK_TEST = new RegExp(
-	`(?:${editorPath}(?:import-file-extensions|project-schema-identity|controller[\\\\/](?:document[\\\\/]deferred-archive-runtime|shared[\\\\/]file-size-warning(?:-confirmation)?))|src[\\\\/]common[\\\\/](?:cross-product-handoff-intent|project-file-extensions|project-size-limits))\\.ts$`,
+	`(?:${editorPath}(?:import-file-extensions|project-schema-identity|controller[\\\\/](?:document[\\\\/]deferred-archive-runtime|shared[\\\\/]file-size-warning(?:-confirmation)?))|src[\\\\/]common[\\\\/](?:cross-product-handoff-intent|project-file-extensions|project-size-limits|foundation[\\\\/]abort-race))\\.ts$`,
 );
 
 /** Flat editor modules and `assistance/` domain modules shared by the shell and dialogs. */
