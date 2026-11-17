@@ -4,6 +4,7 @@ import { indexedLaneBlocks, removedClipIds } from './track-mixer-work.ts';
 import { createTrackPlaylistCommandHandlers } from './track-playlist-runtime.ts';
 import { removeTrackPlaylistCollections } from '../track-playlists.ts';
 import { prepareRemovedTrackDuckWork } from './removed-track-duck-work.ts';
+import { retainedClipEffectRacks } from './retained-clip-effect-racks.ts';
 import { compareCodeUnits } from '../code-unit-order.ts';
 import { deriveFolderBusOwnershipV13 } from '../folder-bus-v13.ts';
 import { insertTrackNodeV12 } from '../track-hierarchy-mutation-v12.ts';
@@ -145,6 +146,7 @@ function folderBusGuards(project) {
 function disableAutoDuckForRemovedControlTrack(project, controlTrackId) {
 	const racks = [
 		project.master.effects,
+		...retainedClipEffectRacks(project),
 		...project.tracks.filter((track) => Array.isArray(track.effects)).map((track) => track.effects),
 		...(project.mixer?.groups || []).map((bus) => bus.effects),
 		...(project.mixer?.sends || []).map((bus) => bus.effects),
