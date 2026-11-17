@@ -106,3 +106,27 @@ test('Advanced owns the waveform renderer in both products', () => {
 		assert.doesNotMatch(renderPage('track-display', productId), /Waveform renderer/u);
 	}
 });
+
+test('Advanced offers the 4 GiB effect memory preference only on desktop in both products', () => {
+	for (const productId of ['soundscaper', 'framescaper']) {
+		assert.match(renderPage('advanced', productId, true), /aria-label="Effect memory limit \(GiB\)"[^>]*value="4"/u);
+		assert.doesNotMatch(renderPage('advanced', productId, false), /Effect memory limit/u);
+	}
+});
+
+test('the desktop effect memory preference commits a larger limit through the existing preference action', async () => {
+	const dom = installReactTestDom();
+	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT; actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+	const updates: unknown[] = [];
+	const { createRoot } = await import('react-dom/client'); const root = createRoot(dom.container as unknown as Element);
+	try {
+		await act(async () => root.render(<AdvancedPreferencesPage controller={{ actions: { preferences: { update: changes => { updates.push(changes); } } } }}
+			preferences={createAudioEditorPreferencesV1()} copy={ENGLISH_COPY} fileService={{ isDesktop: true }} run={operation => { void operation(); }} />));
+		const input = dom.container.querySelectorAll('input').find(element => element.getAttribute('aria-label') === 'Effect memory limit (GiB)');
+		assert.ok(input);
+		await act(async () => { reactProps(input).onChange({ currentTarget: { value: '8' } }); });
+		await act(async () => { reactProps(input).onBlur(); });
+		assert.deepEqual(updates, [{ advanced: { effectMemoryLimitGiB: 8 } }]);
+	} finally { await act(async () => root.unmount()); actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct; dom.restore(); }
+});

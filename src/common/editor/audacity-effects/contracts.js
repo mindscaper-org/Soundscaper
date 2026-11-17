@@ -22,7 +22,7 @@ const FLOAT32_BYTES = Float32Array.BYTES_PER_ELEMENT;
 const FLOAT64_BYTES = Float64Array.BYTES_PER_ELEMENT;
 const MEMORY_ESTIMATE_OVERHEAD_BYTES = 2 * 1024 ** 2;
 
-export const AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES = 256 * 1024 ** 2;
+export { BROWSER_EFFECT_PEAK_MEMORY_LIMIT_BYTES as AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES } from '../effect-memory-budget.ts';
 export const AUDACITY_STAFFPAD_EFFECT_TYPES = Object.freeze([
 	'audacity-change-pitch',
 	'audacity-change-tempo',

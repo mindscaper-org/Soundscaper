@@ -34,7 +34,7 @@ interface FullPreviewTarget {
 /** Build Audacity's temporary, processed mix from every current effect target. */
 export function createSelectionEffectPreviewService(runtime: SelectionEffectPreviewRuntime) {
 	const {
-		AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES, AUDIO_SELECTION_EFFECT_DEFINITIONS, abortError,
+		AUDIO_SELECTION_EFFECT_DEFINITIONS, abortError,
 		assertAudacityEffectOutput, audacityEffectMemoryError, audacityEffectTargets,
 		audacitySpectralEffectContext, bufferFromChannels, cancelAudacityEffectPreview, copy,
 		currentAudacityEffectParams, engine, estimateAudioSelectionEffectPeakBytes,
@@ -45,6 +45,7 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 	} = runtime;
 
 	return async function previewAudacityEffectFromController(request: RuntimeValue = {}) {
+		const AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES = Number(runtime.AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES);
 		if (state.audacityEffectProcessing) return false;
 		runtime.releasePreparedPcm?.();
 		runtime.pauseSourcePreview?.();

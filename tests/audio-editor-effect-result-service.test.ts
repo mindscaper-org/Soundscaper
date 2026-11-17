@@ -4,6 +4,30 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHarness, target, requireBatch } from './helpers/effect-result-service-fixture.ts';
 
+test('uncached effect results activate stored audio before the final document edit', async () => {
+	const activated: string[] = [];
+	const { events, service } = createHarness({ runtime: {
+		cacheSourceBuffer: () => false,
+		activateSource: async source => { activated.push(source.id); assert.equal(events.commits.length, 0); },
+	} });
+	await service.persistAudacityEffectResults([{ target: target('track-1'), channels: [new Float32Array(4)] }], 'reverse');
+	assert.deepEqual(activated, ['audacity-effect-1']);
+	assert.equal(events.commits.length, 1);
+});
+
+test('failed activation of an uncached effect releases playback resources and rolls back stored audio', async () => {
+	const released: string[] = [];
+	const { events, service } = createHarness({ runtime: {
+		cacheSourceBuffer: () => false,
+		activateSource: async () => { throw new Error('activation failed'); },
+		releaseSource: async sourceId => { released.push(sourceId); },
+	} });
+	await assert.rejects(service.persistAudacityEffectResults([{ target: target('track-1'), channels: [new Float32Array(4)] }], 'reverse'), /activation failed/u);
+	assert.deepEqual(released, ['audacity-effect-1']);
+	assert.deepEqual(events.sourcesDeleted, ['audacity-effect-1']);
+	assert.equal(events.commits.length, 0);
+});
+
 test('effect results replace exact clips together without range alignment constraints', async () => {
 	const { events, service } = createHarness();
 	const replacements = await service.persistAudacityEffectResults([

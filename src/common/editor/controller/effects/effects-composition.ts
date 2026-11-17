@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createLocalizedError } from '../../../i18n/presentation-message.ts'; import {
-	AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES,
 	assertAudacityEffectOutput,
 	estimateAudacityEffectPeakBytes,
 } from '../../audacity-effects/contracts.js';
@@ -22,6 +21,7 @@ import { effectRackLatencyFrames } from '../../engine.js';
 import { createStableId } from '../../project.js';
 import { audioTrackChannelCount } from '../../project-audio-factory.js';
 import { createAudioSource } from '../../project-media-factory.ts';
+import { effectPeakMemoryLimitBytes } from '../../effect-memory-budget.ts';
 import {
 	estimateAudioSelectionEffectOutputFrames,
 	estimateAudioSelectionEffectPeakBytes,
@@ -110,13 +110,14 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 	const captureProject = () => dependencies.projectGeneration.capture(requireProject().id);
 	const assertProject = (token: ReturnType<typeof captureProject>) => dependencies.projectGeneration.assertCurrent(token);
 	const memoryError = () => audacityEffectMemoryError(copy);
+	const effectMemoryLimitBytes = () => effectPeakMemoryLimitBytes(dependencies.isDesktop === true, state.preferences?.advanced?.effectMemoryLimitGiB);
 	const sourceEditor = createSourceEditorEffects<AudioBuffer>({
 		getProject: dependencies.getCommandProject,
 		publishDocumentSnapshot: dependencies.publishDocumentSnapshot,
 		loadSourceWindow: (source, request) => loadSourceEditorAudioWindow(source, request, { store,
 			buffer: typeof dependencies.sourceBuffers.get === 'function' ? dependencies.sourceBuffers.get(source.id) as AudioBuffer | undefined : undefined }),
 		loadSourceBuffer: async (source) => {
-			if (source.frameCount * source.channelCount * Float32Array.BYTES_PER_ELEMENT > AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES) throw memoryError();
+			if (source.frameCount * source.channelCount * Float32Array.BYTES_PER_ELEMENT > effectMemoryLimitBytes()) throw memoryError();
 			const cached = typeof dependencies.sourceBuffers.get === 'function'
 				? dependencies.sourceBuffers.get(source.id) as AudioBuffer | undefined : undefined;
 			if (cached) return cached;
@@ -177,7 +178,7 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 		assertProject,
 		state,
 		copy,
-		memoryLimitBytes: AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES,
+		get memoryLimitBytes() { return effectMemoryLimitBytes(); },
 		getProject: requireProject,
 		activeSelection: dependencies.activeSelection,
 		audacityEffectTarget: (...args) => selection.audacityEffectTarget(...args),
@@ -208,6 +209,8 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 		publishDocumentSnapshot: dependencies.publishDocumentSnapshot,
 	});
 	const result: SelectionEffectResult = createSelectionEffectResultService<AudioBuffer>({
+		activateSource: (source, signal) => dependencies.activateStoredSource(createAudioSource(source), signal ?? new AbortController().signal),
+		releaseSource: dependencies.releaseStoredSource,
 		expandSourceResult: sourceEditor.expandResult,
 		SOURCE_CHUNK_FRAMES,
 		assertAudacityEffectOutput,
@@ -309,12 +312,12 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 			lifetime: dependencies.lifetime,
 			projectGeneration: dependencies.projectGeneration,
 			copy,
-			memoryLimitBytes: AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES,
+			get memoryLimitBytes() { return effectMemoryLimitBytes(); },
 			runStreamedNormalization: async (plans, options) => {
 				const { createStreamedMacroNormalizationService } = await import('./internal/macro/streamed-macro-normalization.ts');
 				options.assertCurrent();
 				await createStreamedMacroNormalizationService({ chunkFrames: SOURCE_CHUNK_FRAMES,
-					memoryLimitBytes: AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES, store,
+					get memoryLimitBytes() { return effectMemoryLimitBytes(); }, store,
 					getProject: () => dependencies.getCommandProject() as unknown as EffectResultProject,
 					createId: () => createStableId('audacity-effect'), read: (...args) => audio.renderDryTrackRange(...args),
 					activateSource: (source, signal, peaks) => dependencies.activateStoredSource(createAudioSource(source), signal, peaks),
@@ -372,7 +375,7 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 		cancelSelectionWorkers: () => worker.cancelWorkers(),
 			beginResultTransaction: dependencies.beginResultTransaction,
 			pauseSourcePreview: dependencies.pauseSourcePreview, batchPresentation: dependencies.batchPresentation,
-			AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES,
+			get AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES() { return effectMemoryLimitBytes(); },
 			AUDIO_SELECTION_EFFECT_DEFINITIONS,
 			NYQUIST_AGGREGATE_AUDIO_LIMIT_BYTES,
 			abortError,

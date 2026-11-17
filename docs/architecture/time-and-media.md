@@ -218,6 +218,13 @@ together for all selected tracks. Cancellation or a failed write removes staged
 sources; the macro transaction retains its existing single undo entry. Spectral,
 source-editor and length-changing effect runs keep their existing admission paths.
 
+Electron admits up to 4 GiB of estimated peak effect memory by default. The
+Advanced preferences page offers an effect memory limit in whole GiB, applied to
+the next preparation, preview or effect/macro run and persisted across restarts.
+Browser processing retains its 256 MiB allowance even when a desktop preference
+is present. These admission limits do not reserve RAM or change individual DSP
+or WebAssembly allocation constraints.
+
 A proxy is an authenticated derivative, never a new timing authority. It is
 bound to the exact original generation, content identity, and timing facts from
 which it was made. Preview may use a conforming proxy, while export and delivery

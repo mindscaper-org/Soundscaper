@@ -39,7 +39,7 @@ type RuntimeValue = SelectionEffectExecutionRuntime[string];
 
 export function createSelectionEffectExecutionService(runtime: SelectionEffectExecutionRuntime) {
 	const {
-		AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES, AUDIO_SELECTION_EFFECT_DEFINITIONS, NYQUIST_AGGREGATE_AUDIO_LIMIT_BYTES,
+		AUDIO_SELECTION_EFFECT_DEFINITIONS, NYQUIST_AGGREGATE_AUDIO_LIMIT_BYTES,
 		activeSelection, audacityEffectMemoryError, audacityEffectSelectionDetails,
 		audacityEffectTargets, audacitySpectralEffectContext,
 		cancelAudacityEffectPreview, copy, currentAudacityEffectParams, editingBlocked,
@@ -59,7 +59,7 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 		startTask: (name, options) => runtime.lifetime.startTask(name, options),
 	});
 	const previewAudacityEffectFromController = createSelectionEffectPreviewService({
-		...runtime, releasePreparedPcm: () => preparedAudio.clear(),
+		...runtime, get AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES() { return runtime.AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES; }, releasePreparedPcm: () => preparedAudio.clear(),
 	});
 	let preparationGeneration = 0;
 	let activeSelectionOwnership: SelectionEffectOwnership | null = null;
@@ -77,6 +77,7 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 	}
 
 	async function prepareAudacityEffectFromController(type: string, beforeReadAudio?: () => Promise<() => void>) {
+		const AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES = Number(runtime.AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES);
 		const generation = ++preparationGeneration;
 		preparedAudio.clear();
 		setAudacityEffectType(type);
@@ -137,6 +138,7 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 	}
 
 	async function applySelectedAudacityEffect() {
+		const AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES = Number(runtime.AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES);
 		if (editingBlocked()) return;
 		runtime.pauseSourcePreview?.();
 		const type = state.audacityEffectType;

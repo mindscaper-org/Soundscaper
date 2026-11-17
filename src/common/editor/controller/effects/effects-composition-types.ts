@@ -55,7 +55,7 @@ export type EffectsCompositionState =
 	& RackEffectServiceRuntime['state']
 	& SelectionEffectResultRuntime['state']
 	& {
-		preferences?: Readonly<{ performance?: Readonly<{ optimizeFor?: string }> }>;
+		preferences?: Readonly<{ performance?: Readonly<{ optimizeFor?: string }>; advanced?: Readonly<{ effectMemoryLimitGiB?: number }> }>;
 		audacityEffectProcessing: boolean;
 		audacityPreviewGeneration: number;
 		readSourceSelectionFrames?: (() => number | null) | null;
@@ -92,6 +92,7 @@ export type EffectsCompositionEngine = Pick<EnginePublicApi,
 >;
 
 export interface EffectsCompositionDependencies {
+	readonly isDesktop?: boolean;
 	readonly beginResultTransaction: () => Pick<MacroTransaction<unknown>, 'commit' | 'rollback'>;
 	readonly pauseSourcePreview?: () => void;
 	readonly state: EffectsCompositionState;

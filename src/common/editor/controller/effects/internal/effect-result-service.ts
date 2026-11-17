@@ -145,6 +145,8 @@ interface PasteOptions {
 }
 
 export interface SelectionEffectResultRuntime<Buffer extends AudioBufferLike = AudioBufferLike> {
+	readonly activateSource?: (source: EffectResultSource, signal: AbortSignal | null) => Promise<unknown>;
+	readonly releaseSource?: (sourceId: string) => Promise<unknown>;
 	readonly expandSourceResult?: (target: EffectTarget, channels: Float32Array[], signal?: AbortSignal | null) => Promise<Float32Array[]>;
 	readonly SOURCE_CHUNK_FRAMES: number;
 	readonly assertAudacityEffectOutput: (channels: Float32Array[]) => unknown;
@@ -390,11 +392,13 @@ export function createSelectionEffectResultService<Buffer extends AudioBufferLik
 			for (const entry of entries) {
 				assertOperationCurrent();
 				if (!isPersistedEntry(entry)) continue;
-				if (entry.buffer) cacheSourceBuffer(entry.sourceId, entry.buffer);
+				const bufferCached = entry.buffer ? cacheSourceBuffer(entry.sourceId, entry.buffer) : false;
 				const peaks = await generateWaveformPeaks(entry.channels, copy);
 				assertOperationCurrent();
 				sourcePeaks.set(entry.sourceId, peaks);
 				await store.saveAnalysis(peakCacheKey(entry.sourceId), peaks).catch(() => undefined);
+				assertOperationCurrent();
+				if (bufferCached === false) await runtime.activateSource?.(entry.source, signal);
 				assertOperationCurrent();
 			}
 			assertOperationCurrent();
@@ -432,6 +436,7 @@ export function createSelectionEffectResultService<Buffer extends AudioBufferLik
 		} catch (error) {
 			for (const entry of entries) {
 				if (!entry.sourceId) continue;
+				await runtime.releaseSource?.(entry.sourceId).catch(() => undefined);
 				sourceBuffers.delete(entry.sourceId);
 				sourcePeaks.delete(entry.sourceId);
 				await store.deleteAnalysis?.(peakCacheKey(entry.sourceId)).catch(() => undefined);

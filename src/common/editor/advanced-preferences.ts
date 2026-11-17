@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { normalizeEffectMemoryLimitGiB } from './effect-memory-budget.ts';
 
 export const AUDIO_COM_DEFAULT_SERVER_URL = 'https://api.audio.com';
 
 export interface AudioEditorAdvancedPreferences {
 	readonly audioComServerUrl: string;
+	readonly effectMemoryLimitGiB: number;
 }
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
@@ -22,17 +24,21 @@ export function normalizeAudioComServerUrl(value: unknown): string {
 }
 
 export function normalizeAudioEditorAdvancedPreferences(value: unknown): AudioEditorAdvancedPreferences {
-	if (value === undefined) return Object.freeze({ audioComServerUrl: AUDIO_COM_DEFAULT_SERVER_URL });
+	if (value === undefined) return Object.freeze({ audioComServerUrl: AUDIO_COM_DEFAULT_SERVER_URL, effectMemoryLimitGiB: normalizeEffectMemoryLimitGiB() });
 	if (!value || typeof value !== 'object' || Array.isArray(value)
 		|| ![Object.prototype, null].includes(Object.getPrototypeOf(value) as object | null)) {
 		throw new TypeError('advanced preferences must be a plain data object.');
 	}
-	if (Reflect.ownKeys(value).some((key) => key !== 'audioComServerUrl')) {
+	if (Reflect.ownKeys(value).some((key) => key !== 'audioComServerUrl' && key !== 'effectMemoryLimitGiB')) {
 		throw new TypeError('advanced preferences contain an unsupported field.');
 	}
-	const descriptor = Object.getOwnPropertyDescriptor(value, 'audioComServerUrl');
-	if (descriptor && (!descriptor.enumerable || !Object.hasOwn(descriptor, 'value'))) {
-		throw new TypeError('advanced.audioComServerUrl must be an enumerable data property.');
+	for (const key of Reflect.ownKeys(value)) {
+		const descriptor = Object.getOwnPropertyDescriptor(value, key)!;
+		if (!descriptor.enumerable || !Object.hasOwn(descriptor, 'value')) throw new TypeError(`advanced.${String(key)} must be an enumerable data property.`);
 	}
-	return Object.freeze({ audioComServerUrl: normalizeAudioComServerUrl(descriptor ? descriptor.value : AUDIO_COM_DEFAULT_SERVER_URL) });
+	const server = Object.getOwnPropertyDescriptor(value, 'audioComServerUrl');
+	return Object.freeze({
+		audioComServerUrl: normalizeAudioComServerUrl(server ? server.value : AUDIO_COM_DEFAULT_SERVER_URL),
+		effectMemoryLimitGiB: normalizeEffectMemoryLimitGiB(Object.getOwnPropertyDescriptor(value, 'effectMemoryLimitGiB')?.value),
+	});
 }
