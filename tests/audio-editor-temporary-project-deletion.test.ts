@@ -152,3 +152,23 @@ test('Discard leaves the stored copy alone when the tab could not close', async 
 	await assert.rejects(async () => runtime.discard(project.id), /open/u);
 	assert.deepEqual(await store.loadProject(project.id), project);
 });
+
+test('Discard cannot delete changes already saved from another editor while the tab was inactive', async context => {
+	const store = createSoundscaperEphemeralProjectStore();
+	context.after(async () => { await store.close(); });
+	const ours = createSoundscaperProject({ id: 'discard-inactive' });
+	const theirs = applySoundscaperProjectCommand(ours, { type: 'project/rename', title: 'Edited from the other window' });
+	await store.saveProject(theirs);
+	let open = true;
+	const runtime = createControllerFileSavingRuntime({
+		session: { getSnapshot: () => ({ tabs: open ? [{ projectId: ours.id, history: { present: ours } }] : [] }) }, store,
+		getPersistedProject: () => ours,
+		preferences: () => ({ saving: { autoSaving: false, askBeforeClosing: true }, temporaryData: { limitProjects: true, maximumProjects: 10 } }),
+		switchProject: async () => undefined, closeProject: async () => { open = false; },
+		acquire: async () => ({ readOnly: false, release() {} }), subscribe: () => () => undefined,
+		signal: new AbortController().signal, handleError: error => { throw error; },
+	});
+
+	await assert.rejects(async () => runtime.discard(ours.id), /changed/u);
+	assert.deepEqual(await store.loadProject(ours.id), theirs);
+});

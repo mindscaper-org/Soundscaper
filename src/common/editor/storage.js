@@ -130,7 +130,11 @@ export class AudioEditorProjectStore {
 	createProjectIfAbsent(project, options = {}) { return createStoreProjectIfAbsent(this, this.projectRepository, project, options); }
 	createScapeProjectIfAbsent(project, options = {}) { return createStoreScapeProjectIfAbsent(this, this.projectRepository, project, options); }
 	deleteProjectIfCurrent(project) { return deleteStoreProjectIfCurrent(this.linkedOriginalStoreService, this.projectRepository, project); }
-	deleteProjectSnapshot(project) { return deleteStoreProjectSnapshot(this.linkedOriginalStoreService, this.projectRepository, project); }
+	async deleteProjectSnapshot(project) {
+		const deleted = await deleteStoreProjectSnapshot(this.linkedOriginalStoreService, this.projectRepository, project);
+		if (deleted) await this.assistanceDerivativeRepository?.purgeProject(project.id).catch(() => undefined);
+		return deleted;
+	}
 	/**
 	 * @param {string} projectId
 	 * @param {() => unknown} [collectProtectedSourceReferences]
@@ -143,15 +147,11 @@ export class AudioEditorProjectStore {
 	async loadProject(projectId, { revision, signal } = {}) {
 		return this.projectRepository.load(projectId, { revision, signal });
 	}
-	async listProjects() {
-		return this.projectRepository.list();
-	}
+	async listProjects() { return this.projectRepository.list(); }
 	/** @param {string} projectId */
 	readProjectRecoveryCandidates(projectId) { return this.projectRecoveryRepository.read(projectId); }
 	listProjectRecoverySummaries() { return this.projectRecoveryRepository.list(); }
-	async listProjectRevisions(projectId) {
-		return this.projectRepository.listRevisions(projectId);
-	}
+	async listProjectRevisions(projectId) { return this.projectRepository.listRevisions(projectId); }
 	async deleteProject(projectId) {
 		const result = await this.linkedOriginalStoreService.deleteProject(projectId, () => this.projectRepository.delete(projectId));
 		await this.assistanceDerivativeRepository?.purgeProject(projectId).catch(() => undefined);

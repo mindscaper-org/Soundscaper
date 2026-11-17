@@ -1,14 +1,16 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { createProjectSessionSelectionService } from '../src/common/editor/controller/document/internal/project/project-session-selection-service.ts';
 import { createAudioEditorEngine } from '../src/common/editor/engine/runtime-class.ts';
-import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
+import { createMemoryFfmpeg, waitFor } from './helpers/audio-editor-controller-fixtures.js';
 import { createMemoryStore } from './helpers/audio-editor-memory-store-baseline.js';
 import { COPY, createAudioEditorController } from './helpers/audio-editor-controller-harness.js';
+import { createSoundscaperEphemeralProjectStore } from '../src/soundscaper/editor-project-store.ts';
+import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 
 test('MP07: opening a project restores its durable active track and annotation selection', () => {
 	const project = createSoundscaperProject({ id: 'project',
@@ -28,11 +30,11 @@ test('MP07: opening a project restores its durable active track and annotation s
 	assert.equal(state.selectedAnnotationId, 'cue');
 });
 
-async function openTabFixture(context: test.TestContext) {
+async function openTabFixture(context: TestContext) {
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const engine = createAudioEditorEngine();
 	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, engine,
-		store: createMemoryStore() as Options['store'], ffmpeg: createMemoryFfmpeg() as Options['ffmpeg'],
+		store: createMemoryStore() as unknown as Options['store'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'],
 	});
 	context.after(() => controller.dispose());
 	await controller.ready;
@@ -67,4 +69,26 @@ test('the timeline zoom stays with the tab where it was changed', async context 
 	assert.equal(controller.getSnapshot().timeline.pixelsPerSecond, firstZoom);
 	await controller.actions.project.openById(secondId);
 	assert.equal(controller.getSnapshot().timeline.pixelsPerSecond, secondZoom);
+});
+
+test('temporary working-copy cleanup retires deleted entries from Recent Projects', async context => {
+	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
+	const store = createSoundscaperEphemeralProjectStore();
+	const projectRuntime = createSoundscaperProjectRuntimeSelection();
+	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY,
+		projectRuntime, sessionController: projectRuntime.createSessionController(),
+		store, engine: createAudioEditorEngine(), ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'],
+	});
+	context.after(() => controller.dispose());
+	await controller.ready;
+	await controller.actions.project.rename('Old edit');
+	const oldId = controller.project!.id;
+	await controller.actions.project.create({ title: 'New edit' });
+	const activeId = controller.project!.id;
+	assert.ok(controller.getSnapshot().recentProjects.some(project => project.id === oldId));
+	await controller.actions.preferences.update({ temporaryData: { limitProjects: true, maximumProjects: 1 } });
+	await controller.actions.project.close(oldId);
+	await waitFor(() => !controller.getSnapshot().recentProjects.some(project => project.id === oldId));
+	assert.equal(await store.loadProject(oldId), null);
+	assert.ok(controller.getSnapshot().recentProjects.some(project => project.id === activeId));
 });

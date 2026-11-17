@@ -97,21 +97,23 @@ export async function pruneTemporaryProjects(d: Readonly<{
 	openIds: ReadonlySet<string>;
 	isOpen?(id: string): boolean;
 	acquire(id: string): PromiseLike<Readonly<{ readOnly: boolean; release(): PromiseLike<unknown> | unknown }>>;
-}>): Promise<void> {
+}>): Promise<boolean> {
 	const preferences = normalizeTemporaryDataPreferences(d.preferences);
-	if (!preferences.limitProjects) return;
+	if (!preferences.limitProjects) return false;
 	const projects = [...await d.store.listProjects()].sort((a, b) => String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')));
 	const keepClosed = Math.max(0, preferences.maximumProjects - projects.filter(project => d.openIds.has(project.id)).length);
 	const closed = projects.filter(project => !d.openIds.has(project.id));
+	let changed = false;
 	for (const project of closed.slice(keepClosed)) {
 		const lock = await d.acquire(project.id);
 		try {
 			if (lock.readOnly || d.openIds.has(project.id) || d.isOpen?.(project.id)) continue;
 			const expected = await d.store.loadProject(project.id);
 			if (d.openIds.has(project.id) || d.isOpen?.(project.id)) continue;
-			if (matchesTemporaryProject(expected, project)) await d.store.deleteProjectSnapshot(expected);
+			if (matchesTemporaryProject(expected, project) && await d.store.deleteProjectSnapshot(expected)) changed = true;
 		} finally { await lock.release(); }
 	}
+	return changed;
 }
 
 function matchesTemporaryProject(value: unknown, row: TemporaryProjectRow): boolean {
@@ -129,6 +131,8 @@ export function createControllerFileSavingRuntime<Project extends NativeProjectD
 	preferences(): Readonly<{ saving: SavingPreferences; temporaryData: TemporaryDataPreferences }>;
 	switchProject(project: Project): PromiseLike<unknown> | unknown;
 	closeProject(id: string, options: { discard: boolean }): PromiseLike<unknown> | unknown;
+	getPersistedProject?(id: string): Project | null;
+	refreshCatalog?(): PromiseLike<unknown> | unknown;
 	acquire: Parameters<typeof pruneTemporaryProjects>[0]['acquire'];
 	subscribe: ProjectFileSavingRuntime['subscribe'];
 	signal: AbortSignal;
@@ -144,7 +148,7 @@ export function createControllerFileSavingRuntime<Project extends NativeProjectD
 			return d.switchProject(tab.history.present);
 		},
 		discard: async id => {
-			const expected = await d.store.loadProject(id);
+			const expected = d.getPersistedProject ? d.getPersistedProject(id) : await d.store.loadProject(id);
 			await d.closeProject(id, { discard: true });
 			if (isOpen(id)) throw new Error('The project is still open.');
 			if (!expected) return;
@@ -156,8 +160,12 @@ export function createControllerFileSavingRuntime<Project extends NativeProjectD
 					throw new Error('The discarded project changed before it could be removed.');
 				}
 			} finally { await lock.release(); }
+			await d.refreshCatalog?.();
 		},
-		prune: () => pruneTemporaryProjects({ store: d.store, preferences: d.preferences().temporaryData,
-			openIds: new Set(d.session.getSnapshot().tabs.map(tab => tab.projectId)), isOpen, acquire: d.acquire }),
+		prune: async () => {
+			const changed = await pruneTemporaryProjects({ store: d.store, preferences: d.preferences().temporaryData,
+				openIds: new Set(d.session.getSnapshot().tabs.map(tab => tab.projectId)), isOpen, acquire: d.acquire });
+			if (changed) await d.refreshCatalog?.();
+		},
 	};
 }

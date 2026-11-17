@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, chooseFileAction, chooseNestedCommandAction, collectClientErrors,
+import { bootEditor, chooseCommandAction, chooseFileAction, chooseNestedCommandAction, collectClientErrors, getMenuItem, openNestedCommandMenu,
 	waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 
@@ -33,5 +33,8 @@ test('the temporary-project preference removes an older closed library copy', as
 	await expect.poll(() => persistedProject(page, oldId)).toBeNull();
 	expect((await persistedProject(page, recentId)).id).toBe(recentId);
 	expect((await persistedProject(page, currentId)).id).toBe(currentId);
+	const recent = await openNestedCommandMenu(page, editor, 'File', ['Open recent']);
+	await expect(getMenuItem(recent, 'Old working copy')).toHaveCount(0);
+	await expect(getMenuItem(recent, 'Current working copy')).toBeVisible();
 	expect(errors).toEqual([]);
 });

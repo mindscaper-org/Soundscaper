@@ -400,7 +400,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		copy,
 	});
 	const nativeProjectService = createNativeProjectComposition({
-		lifetime, projectGeneration, state, copy, store, fileService, taskProgress, confirmFileSizeWarning: options.confirmFileSizeWarning, fileSaving: createControllerFileSavingRuntime({ session: sessionController, store, ready: () => lifetime.phase === 'ready', preferences: () => state.preferences, switchProject: bindings.switchProject, closeProject: closeProjectTab, acquire: acquireLock, subscribe: documentChannel.subscribe, signal: lifetime.signal, handleError: bindings.handleError }),
+		lifetime, projectGeneration, state, copy, store, fileService, taskProgress, confirmFileSizeWarning: options.confirmFileSizeWarning, fileSaving: createControllerFileSavingRuntime({ session: sessionController, store, ready: () => lifetime.phase === 'ready', preferences: () => state.preferences, switchProject: bindings.switchProject, closeProject: closeProjectTab, getPersistedProject: doc.saves.getPersistedSnapshot, refreshCatalog: () => projectAdminService.listProjects({ flush: false }), acquire: acquireLock, subscribe: documentChannel.subscribe, signal: lifetime.signal, handleError: bindings.handleError }),
 		getProject: documentScope.get, projectForRuntimeConsumers: projectRuntime.projectForRuntimeConsumers, acquireReplaceProjectWriteAuthority: createScapeReplaceWriteAuthority({ getActiveProjectId: () => documentScope.get()?.id ?? null, getActiveReadOnly: () => state.readOnly, getActiveLock: () => state.projectLock, acquireProjectLock: acquireLock }),
 		switchProject: bindings.switchProject,
 		editingBlocked,
