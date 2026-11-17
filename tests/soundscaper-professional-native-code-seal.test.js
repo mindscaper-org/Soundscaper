@@ -27,8 +27,13 @@ test('mac ad-hoc sealing covers runtime dependencies before every consumer and v
 	});
 	assert.equal(plan.schemaVersion, 1);
 	assert.equal(plan.method, 'codesign-ad-hoc');
+	for (const artifact of plan.artifacts.filter(artifact => artifact.candidatePath.includes('/instruments/'))) {
+		assert.match(artifact.signingPath, /\.vst3$/u);
+	}
 	assert.deepEqual(plan.artifacts.map(({ candidatePath }) => candidatePath), [
 		'payload/runtime/effects/soundscaper_juce_effects.clap',
+		'payload/runtime/instruments/Dexed.vst3/Contents/MacOS/Dexed',
+		'payload/runtime/instruments/Surge XT.vst3/Contents/MacOS/Surge XT',
 		'payload/runtime/libalpha.dylib',
 		'payload/runtime/nested/libbeta.dylib',
 		'payload/soundscaper_professional.node',
@@ -68,17 +73,17 @@ test('mac ad-hoc sealing covers runtime dependencies before every consumer and v
 			command: 'codesign',
 			argv: peer
 				? ['--force', '--entitlements', plan.peerEntitlements.absolutePath,
-					'--sign', '-', artifact.absolutePath]
-				: ['--force', '--sign', '-', artifact.absolutePath],
+					'--sign', '-', artifact.signingPath]
+				: ['--force', '--sign', '-', artifact.signingPath],
 		});
 		assert.deepEqual(calls[index * 3 + 1], {
 			command: 'codesign',
-			argv: ['--verify', '--strict', '--verbose=2', artifact.absolutePath],
+			argv: ['--verify', '--strict', '--verbose=2', artifact.signingPath],
 		});
 		assert.deepEqual(calls[index * 3 + 2], {
 			command: 'codesign',
 			argv: ['--verify', '--verbose=2', '--test-requirement',
-				peer ? PEER_REQUIREMENT : NON_PEER_REQUIREMENT, artifact.absolutePath],
+				peer ? PEER_REQUIREMENT : NON_PEER_REQUIREMENT, artifact.signingPath],
 		});
 	}
 	assert.equal(result.schemaVersion, 1);
@@ -167,6 +172,8 @@ async function codeSealFixture(context) {
 		join(professionalInstallRoot, 'soundscaper_professional_peer'),
 		join(professionalInstallRoot, 'soundscaper_delivery_fs'),
 		join(professionalInstallRoot, 'runtime/effects/soundscaper_juce_effects.clap'),
+		join(professionalInstallRoot, 'runtime/instruments/Dexed.vst3/Contents/MacOS/Dexed'),
+		join(professionalInstallRoot, 'runtime/instruments/Surge XT.vst3/Contents/MacOS/Surge XT'),
 		join(isolationInstallRoot, 'bin/milestone5-native-isolation-launcher'),
 	]) {
 		await mkdir(dirname(path), { recursive: true });

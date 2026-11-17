@@ -175,7 +175,7 @@ safe values keep their numeric representation, while larger NTFS identifiers use
 canonical decimal strings through authentication, registry storage and host grants.
 
 Registry identity is the format plus its native stable identifier. An installed
-binary additionally binds platform, architecture, version, and digest. A new or
+binary additionally binds platform, architecture, version, and digest. An external new or
 changed digest requires an explicit allow decision; path ordering never resolves
 a stable-ID collision silently.
 
@@ -198,9 +198,11 @@ the runtime-file ceiling.
 **Effect → JUCE** lists all bundled effects and selects the requested effect in
 Plugin Manager. Each menu insertion has fresh controls while existing authored
 rack instances remain active. **Effect → Plugin Manager** also exposes them through CLAP discovery's
-**Soundscaper JUCE effects** folder. Existing consent, installation allowance,
-quarantine, process isolation, rack binding, state storage, playback, and native
-rendering apply. Existing installations receive no new folder grants.
+**Soundscaper JUCE effects** folder. Authenticated app-provided effects are discovered
+and enabled by default through a private startup scan. Saved disables and quarantine
+take precedence. External discovery still requires folder consent and installation
+allowance. Process isolation, rack binding, state storage, playback, and native
+rendering apply. Existing installations receive no new external folder grants.
 
 The common processor prepares all buffers and convolution kernels outside the
 audio callback. IR changes crossfade over 2048 samples, with retired engines
@@ -238,7 +240,10 @@ output to diagnostics, so plug-in logging cannot corrupt framed RPC replies.
 VST2, VST3 and CLAP are cross-platform effect targets, Audio Units is macOS-only,
 LADSPA and LV2 effects are Linux-only, and Vamp is an analyzer rather than an
 effect. VST2/VST3 instruments and Linux LV2 instruments can be assigned to a
-selected MIDI beta track from Plugin Manager. Instruments retain the same
+selected MIDI beta track from the piano roll's **Instrument** selector. Its
+**Instrument settings** entry opens the instrument manager for parameter and preset
+editing. Instruments are excluded from **Effect → Plugin Manager** and audio-track
+targets. Instruments retain the same
 consent, installation allowance, binary identity, containment and quarantine
 checks as effects. Immutable MIDI source recipes are synthesized on demand through
 separate bounded native sessions, preserving stereo/multichannel PCM and

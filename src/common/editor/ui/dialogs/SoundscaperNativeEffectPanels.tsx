@@ -12,6 +12,7 @@ import PreferenceDropdownField from './PreferenceDropdownField.jsx';
 import NativePluginParameterControls from './NativePluginParameterControls.tsx';
 import { juceEffectById } from '../../juce-effects/catalog.ts';
 import { findJuceEffectEntry } from '../../juce-effects/registry-selection.ts';
+import { hasSelectedMidiInstrumentTrack } from '../workspace/midi-native-instrument-choices.ts';
 
 import type {
 	NativePluginEntryView,
@@ -31,16 +32,19 @@ export interface SoundscaperNativeEffectPanelProps {
 	readonly state: SoundscaperNativeServicesDialogState;
 	readonly disabled: boolean;
 	readonly perform: (action: SoundscaperNativeServicesDialogAction) => void;
+	readonly instrumentOnly?: boolean;
 }
 
 export function SoundscaperNativeEffectManagePanel({
-	copy, state, disabled, perform, controller, bridge, headerCopy, processingBlocked = false, requestedJuceEffectId,
+	copy, state, disabled, perform, controller, bridge, headerCopy, processingBlocked = false, requestedJuceEffectId, instrumentOnly = false,
 }: SoundscaperNativeEffectPanelProps & { readonly processingBlocked?: boolean; readonly requestedJuceEffectId?: string }) {
 	const [query, setQuery] = useState(() => juceEffectById(requestedJuceEffectId)?.pluginName ?? '');
 	const [format, setFormat] = useState('all');
 	const [status, setStatus] = useState('all');
 	const [selectedId, setSelectedId] = useState<string | null>(null);
-	const entries = state.registry?.entries ?? [];
+	const instrumentTarget = instrumentOnly && hasSelectedMidiInstrumentTrack(controller);
+	const entries = (state.registry?.entries ?? []).filter(entry => entry.classification === 'instrument'
+		? instrumentTarget : !instrumentOnly);
 	const useBlocked = disabled || processingBlocked || state.plugins?.enabled !== true
 		|| state.plugins.quarantined || state.plugins.payload.status !== 'available';
 	const visible = entries.filter((entry) => (format === 'all' || entry.format === format)
@@ -50,7 +54,7 @@ export function SoundscaperNativeEffectManagePanel({
 		: visible.find((entry) => entry.entryId === selectedId);
 	const records = state.plugins?.quarantine.records ?? [];
 	return <div className="audio-editor-soundscaper-native-manage">
-		{state.pluginInstance !== null && <PluginInstanceControls
+		{state.pluginInstance !== null && (state.pluginInstance.classification === 'instrument' ? instrumentTarget : !instrumentOnly) && <PluginInstanceControls
 			copy={copy} state={state} disabled={disabled || processingBlocked} perform={perform} controller={controller} bridge={bridge} headerCopy={headerCopy} />}
 		<div className="kw-processing-filters">
 			<ProcessingSearchField value={query} onChange={setQuery} label={copy.searchPlugins} />

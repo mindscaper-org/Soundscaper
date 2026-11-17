@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { readAuthenticatedWindowsPluginArchitecture } from './windows-plugin-architecture.ts';
+import { isBundledFactoryLaunch } from './bundled-plugin-factory-data.ts';
 /** Windows trusted plug-in processes: authenticated host, Job limits, ambient user access. */
 
 import { spawn as nodeSpawn, type ChildProcess } from 'node:child_process';
@@ -40,6 +41,7 @@ export function createNativePluginProcessLauncher(options: Readonly<{
 	target: string;
 	peerExecutable: NativeChildIsolationArtifactDescriptor;
 	peerArchitecture?: 'ia32';
+	factoryData?: NativeChildIsolationLaunchRequest['readOnly'][number];
 	artifacts: Readonly<{
 		launcher: NativeChildIsolationArtifactDescriptor;
 		sandboxProfile: NativeChildIsolationArtifactDescriptor;
@@ -87,7 +89,7 @@ export function createNativePluginProcessLauncher(options: Readonly<{
 				throw new Error('Legacy VST2 allocation compatibility requires a trusted Windows x64 process.');
 			}
 			if (request.executable.path !== peer.path || request.executable.sha256 !== peer.sha256
-				|| request.arguments.length !== 0 || request.runtimeClosure?.length
+				|| (request.arguments.length !== 0 && !isBundledFactoryLaunch(request, options.factoryData)) || request.runtimeClosure?.length
 				|| request.extraInput || !request.framedControl
 				|| request.workloadPayload?.sha256 !== peer.sha256) {
 				throw new Error('A trusted plug-in process requires its exact authenticated peer and framed transport.');

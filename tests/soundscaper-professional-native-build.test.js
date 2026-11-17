@@ -99,6 +99,7 @@ async function sourceRoots(context, withdrawn = 'juce', embeddedVst3Version = '3
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-pro-sources-'));
 	context.after(() => rm(root, { recursive: true, force: true }));
 	const roots = {
+		'surge-xt': join(root, 'surge-xt'), dexed: join(root, 'dexed'),
 		'electron-node-api-headers': join(root, 'electron-node-api-headers'),
 		juce: join(root, 'juce'), clap: join(root, 'clap'),
 		'vst3-sdk': join(root, 'vst3-sdk'), fst: join(root, 'fst'),
@@ -110,6 +111,7 @@ async function sourceRoots(context, withdrawn = 'juce', embeddedVst3Version = '3
 	for (const path of [
 		join(roots['electron-node-api-headers'], 'include/node/node_api.h'),
 		join(roots.juce, 'CMakeLists.txt'),
+		join(roots['surge-xt'], 'CMakeLists.txt'), join(roots.dexed, 'CMakeLists.txt'),
 		join(roots.juce, 'modules/juce_audio_processors/format_types/juce_VST3PluginFormat.cpp'),
 		join(roots.juce, JUCE_VST3_SDK_CLOSURE, '.closure'),
 		join(roots.juce, JUCE_VST3_VERSION_HEADER),
@@ -205,7 +207,7 @@ test('professional build plans bind exact SDK pins and never treat the VST3 meta
 	assert.equal(linux.configure.argv.some((argument) => Object.values(roots).some((root) => argument.includes(root))), false,
 		'CMake may consume only auditor-owned source snapshots.');
 	assert.doesNotMatch(linux.configure.argv.join(' '), /vst3-sdk(?:\/|\\)/u);
-	assert.deepEqual(executeSoundscaperProfessionalNativeBuild(linux, {
+	assert.deepEqual(executeSoundscaperProfessionalNativeBuild(linux, { executeBundledInstruments: () => undefined,
 		run: (_command, _arguments, options) => (assert.equal(options.maxBuffer, 8 * 1024 * 1024), { status: 0, stderr: '', stdout: '' }),
 	}).status, 'built');
 	const macosSdk = join(dirname(roots.juce), 'MacOSX15.5.sdk');
@@ -233,7 +235,7 @@ test('professional build plans bind exact SDK pins and never treat the VST3 meta
 	assert.deepEqual(windows.configure.argv.slice(4, 6), ['-A', 'x64']);
 	assert.match(windows.configure.argv.join(' '), /CMAKE_SYSTEM_VERSION=10\.0\.26100/u);
 	assert.match(windows.configure.argv.join(' '), /SOUNDSCAPER_ASIO_ROOT/u);
-	assert.deepEqual(executeSoundscaperProfessionalNativeBuild(windows, {
+	assert.deepEqual(executeSoundscaperProfessionalNativeBuild(windows, { executeBundledInstruments: () => undefined,
 		run: () => ({ status: 0, stderr: '', stdout: '' }),
 	}).status, 'built');
 	const windowsArm = createSoundscaperProfessionalNativeBuildPlan({

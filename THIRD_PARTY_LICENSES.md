@@ -74,10 +74,16 @@ and `./build.sh nuked slim`; rebuild FluidSynth with its Emscripten CMake recipe
 and libsndfile disabled. These upstream prebuilt bytes are authenticated by
 hash; a byte-identical local rebuild is not claimed.
 
-Surge XT and Dexed use the existing user-installed desktop VST3 host. Their
-plug-in binaries, factory banks and native dependencies are not bundled into
-Soundscaper's distributable installers by this integration. The optional Linux
-experiment provisioner records their exact upstream archive identities.
+Soundscaper desktop installers bundle Surge XT 1.3.4 and Dexed 1.1.0 VST3
+instruments, built from complete pinned preferred-source archives. Both select
+GPL-3.0-or-later; their retained upstream and dependency notices are enumerated
+in `config/soundscaper-professional-native-notices.json` and installed under
+`licenses/professional-native/`. The acquisition register records archive and
+extracted-tree identities. `scripts/lib/bundled-midi-instrument-build.ts` owns
+the exact build profile and working-copy patches; acquire the corresponding
+sources with `node scripts/provision-milestone-5-native-sources.mjs --source surge-xt --source dexed`.
+Surge's factory data is included with its retained notices. These instruments
+are available only for MIDI tracks and are enabled by default.
 
 ## Soundscaper professional-native desktop payload
 
@@ -86,6 +92,8 @@ inventory under `licenses/professional-native/`. The exact filenames, byte
 lengths, SHA-256 digests, source targets, and selected license arms are recorded
 in [`config/soundscaper-professional-native-notices.json`](config/soundscaper-professional-native-notices.json):
 
+- Surge XT 1.3.4 and its factory data — GPL-3.0-or-later and retained dependency notices; all Soundscaper targets
+- Dexed 1.1.0 — GPL-3.0-or-later and retained dependency notices; all Soundscaper targets
 - Electron 45.2.3 Node-API headers — MIT; all five targets
 - JUCE 9.0.1 — AGPL-3.0-only selected; all five targets
 - CLAP 1.2.4 — MIT; all five targets

@@ -318,7 +318,8 @@ if (parentPort && typeof parentPort.on === 'function') {
 
 export async function createProfessionalNativeHelperRoleSeams(location, role, ports = {}, wine = null) {
 	const { createSoundscaperProfessionalNativeVerifier } = await import('./soundscaper-professional-native-payload.mjs');
-	const descriptor = await (ports.verifyPayload ?? createSoundscaperProfessionalNativeVerifier(location))();
+	const descriptor = await (ports.verifyPayload ?? createSoundscaperProfessionalNativeVerifier({ ...location,
+		instrumentResources: role === 'plugin-host' || role === 'plugin-scanner' }))();
 	if (role === 'audio') {
 		return { addonPath: descriptor.path, addonSha256: descriptor.sha256, loadAddon: loadVerifiedNativeAddon };
 	}
@@ -376,14 +377,16 @@ export async function createProfessionalNativeHelperRoleSeams(location, role, po
 		const createPeer = ports.createPeer ?? (await import(
 			'./project-library-runtime/desktop/soundscaper-professional-plugin-peer.js'
 		)).createSoundscaperProfessionalPluginPeer;
+		const { bundledPluginFactoryDirectory, withBundledPluginFactoryData } = await import('#desktop-runtime/bundled-plugin-factory-data');
+		const factoryData = await bundledPluginFactoryDirectory(descriptor);
 		const formats = descriptor.target.startsWith('mac-') ? ['vst3', 'vst2', 'clap', 'au']
 			: descriptor.target.startsWith('linux-') ? ['vst3', 'vst2', 'clap', 'lv2', 'ladspa'] : ['vst3', 'vst2', 'clap'];
 		let effectPeer = createPeer({
-			launcher: descriptor.target.startsWith('win-')
+			launcher: withBundledPluginFactoryData(descriptor.target.startsWith('win-')
 				? (ports.createPluginLauncher ?? (await import('./project-library-runtime/desktop/native-plugin-process-launcher.js'))
-					.createNativePluginProcessLauncher)({ target: descriptor.target, peerExecutable: descriptor.pluginPeer,
+					.createNativePluginProcessLauncher)({ target: descriptor.target, peerExecutable: descriptor.pluginPeer, factoryData,
 					artifacts: { launcher: descriptor.isolation.launcher, sandboxProfile: descriptor.isolation.sandboxProfile,
-						brokerPolicy: descriptor.isolation.brokerPolicy } }) : launcher,
+						brokerPolicy: descriptor.isolation.brokerPolicy } }) : launcher, factoryData),
 			peerExecutable: descriptor.pluginPeer, entryExecutable, entryArguments,
 			runtimeReadExecute: descriptor.target.startsWith('win-') ? [] : runtimeClosure, pluginFormats: formats,
 		});

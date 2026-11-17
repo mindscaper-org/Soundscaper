@@ -14,7 +14,7 @@ export const SOUNDSCAPER_NATIVE_SERVICE_SURFACES = Object.freeze([
 ] as const);
 
 export type SoundscaperNativeServiceSurface =
-	(typeof SOUNDSCAPER_NATIVE_SERVICE_SURFACES)[number];
+	(typeof SOUNDSCAPER_NATIVE_SERVICE_SURFACES)[number] | 'native-instrument-manage';
 
 /** Plugin management stays reachable so the user can enable or repair effects. */
 export const SOUNDSCAPER_ALWAYS_REACHABLE_SURFACES: readonly SoundscaperNativeServiceSurface[] =

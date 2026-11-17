@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
 import { lstat, open, realpath } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, parse, resolve } from 'node:path';
-import { BUNDLED_JUCE_EFFECTS_RUNTIME_PATH } from './bundled-juce-effects.ts';
+import { bundledNativePlugins } from './bundled-native-plugins.ts';
 
 import {
 	canonicalNativeChildFileIdentity,
@@ -74,9 +74,9 @@ export async function resolveSoundscaperProfessionalLinuxSystemRuntime(
 	const target = linuxTarget(options?.target);
 	const peer = artifact(options?.peer, 'professional peer');
 	const packagedRuntimeClosure = artifactArray(options?.runtimeClosure);
-	const effectPath = resolve(dirname(peer.path), 'runtime', BUNDLED_JUCE_EFFECTS_RUNTIME_PATH);
-	if (packagedRuntimeClosure.length > 1 || packagedRuntimeClosure.some(({ path }) => path !== effectPath)) {
-		throw new Error('The packaged ELF runtime closure must be empty except for the verified bundled JUCE effect.');
+	const bundledPaths = new Set(bundledNativePlugins(target).map(plugin => resolve(dirname(peer.path), 'runtime', plugin.binaryPath)));
+	if (packagedRuntimeClosure.length > bundledPaths.size || packagedRuntimeClosure.some(({ path }) => !bundledPaths.has(path))) {
+		throw new Error('The packaged ELF runtime closure may contain only the verified bundled plug-ins.');
 	}
 	const readArtifact = dependencies.readArtifact ?? authenticatedSystemArtifact;
 	const run = dependencies.run ?? ((command, args, commandOptions) =>
@@ -85,7 +85,7 @@ export async function resolveSoundscaperProfessionalLinuxSystemRuntime(
 		throw new TypeError('Linux system-runtime resolution requires file and command ports.');
 	}
 	for (const bundled of packagedRuntimeClosure) {
-		await authenticatedPeerBytes(bundled, 'bundled JUCE effect');
+		await authenticatedPeerBytes(bundled, 'bundled plug-in');
 	}
 	const peerBytes = await authenticatedPeerBytes(peer);
 	const requestedLoader = elfInterpreter(peerBytes, target);
@@ -99,16 +99,16 @@ export async function resolveSoundscaperProfessionalLinuxSystemRuntime(
 	}
 	const loader = systemArtifact(await readArtifact(loaderPath, 'ELF interpreter'), loaderPath,
 		'ELF interpreter');
-	const defaultRows = loaderRows(commandText(run, loader.path,
-		['--inhibit-cache', '--list', peer.path], 'default ELF closure inspection'), target);
+	const closureInputs = [peer, ...packagedRuntimeClosure];
+	const defaultRows = closureInputs.flatMap(input => loaderRows(commandText(run, loader.path,
+		['--inhibit-cache', '--list', input.path], 'default ELF closure inspection'), target));
 	const libraryPath = [...new Set(defaultRows.map(({ path }) => dirname(path)))]
 		.sort().join(':');
 	if (libraryPath.length < 1 || libraryPath.length > 32_768) {
 		throw new Error('The professional ELF library path is empty or unbounded.');
 	}
-	const exactArgs = ['--inhibit-cache', '--library-path', libraryPath, '--list', peer.path];
-	const exactRows = loaderRows(commandText(run, loader.path, exactArgs,
-		'exact ELF closure inspection'), target);
+	const exactRows = closureInputs.flatMap(input => loaderRows(commandText(run, loader.path,
+		['--inhibit-cache', '--library-path', libraryPath, '--list', input.path], 'exact ELF closure inspection'), target));
 	const paths = [...new Set([loader.path, ...defaultRows.map(({ path }) => path),
 		...exactRows.map(({ path }) => path)])].sort();
 	if (paths.length > MAXIMUM_RUNTIME_FILES) {

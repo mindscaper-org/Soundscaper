@@ -22,7 +22,7 @@ export const MILESTONE_5_NATIVE_SOURCE_ACQUISITIONS =
 	'config/milestone-5-native-source-acquisitions.json';
 
 export const MILESTONE_5_NATIVE_SOURCE_IDS = Object.freeze([
-	'electron-node-api-headers',
+	'surge-xt', 'dexed', 'electron-node-api-headers',
 	'juce',
 	'clap',
 	'vst3-sdk', 'fst',

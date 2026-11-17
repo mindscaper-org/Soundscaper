@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { windowsVst2X86BuildSteps } from './windows-vst2-x86-build.mjs';
+import { createBundledMidiInstrumentBuildPlan, executeBundledMidiInstrumentBuild } from './bundled-midi-instrument-build.ts';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
@@ -45,6 +46,8 @@ const JUCE_VST3_VERSION_HEADER = `${JUCE_VST3_SDK_CLOSURE}/pluginterfaces/vst/vs
 const LV2_INCLUDE_ROOT = 'include';
 
 const EXPECTED = Object.freeze({
+	'surge-xt': Object.freeze({ version: '1.3.4', commit: 'f7b97c682ade0b87da85ca5968b63d5c7c98e68d', license: 'GPL-3.0-or-later' }),
+	dexed: Object.freeze({ version: '1.1.0', commit: 'fea2f0f0f2c397799f59b27eb11c038cd34b22c5', license: 'GPL-3.0-or-later' }),
 	'electron-node-api-headers': Object.freeze({ version: '45.2.3', commit: null, license: 'MIT' }),
 	juce: Object.freeze({ version: '9.0.1', commit: 'e18f7f506c0b96f2c738a0bcd7fe6467a5005ad8', license: 'AGPL-3.0-only' }),
 	fst: Object.freeze({ version: '0.177.0', commit: '30f49e6fe97cb822eaadcc6e1ae9941d004bff54', license: 'GPL-3.0-or-later' }),
@@ -97,6 +100,7 @@ export function createSoundscaperProfessionalNativeBuildPlan(options) {
 	const register = readMilestone5NativeSourceAcquisitions(repositoryRoot, sourceManifestPath);
 	for (const [id, expected] of Object.entries(EXPECTED)) assertSource(register, id, expected);
 	const requiredSourceIds = [
+		'surge-xt', 'dexed',
 		'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 		...(target.startsWith('win-') ? ['asio-sdk'] : []),
 		...(target.startsWith('linux-') ? ['ladspa-sdk', 'lv2'] : []),
@@ -209,6 +213,10 @@ function authenticatedBuildPlan({
 			commit: EXPECTED['vst3-sdk'].commit,
 		}),
 		features: featuresFor(target),
+		bundledInstruments: createBundledMidiInstrumentBuildPlan({ target,
+			sourceRoots: { 'surge-xt': snapshotRoots['surge-xt'], dexed: snapshotRoots.dexed },
+			buildRoot: resolve(buildRoot, 'bundled-instruments'), installRoot,
+			...(options.macosSdkPath === undefined ? {} : { macosSdkPath: options.macosSdkPath }) }),
 		configure: Object.freeze({
 			command: 'cmake',
 			argv: Object.freeze(['-S', sourceRoot, '-B', buildRoot, ...targetSelection, ...definitions]),
@@ -245,6 +253,7 @@ export function executeSoundscaperProfessionalNativeBuild(plan, options = {}) {
 				));
 			}
 		}
+		(options.executeBundledInstruments ?? executeBundledMidiInstrumentBuild)(plan.bundledInstruments);
 		for (const witness of plan.sourceAuthentication) verifyMilestone5NativeSourceInput(witness);
 		return Object.freeze({
 			target: plan.target, buildRoot: plan.buildRoot, installRoot: plan.installRoot, status: 'built',
@@ -277,7 +286,7 @@ function sourceAuthenticationSummary(witnesses) {
 function normalizeSourceRoots(value) {
 	assert(value && typeof value === 'object' && !Array.isArray(value), 'Native sourceRoots must be a record.');
 	const roots = {};
-	for (const id of ['electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library', 'asio-sdk', 'ladspa-sdk', 'lv2']) {
+	for (const id of Object.keys(EXPECTED)) {
 		if (value[id] !== undefined) roots[id] = resolve(String(value[id]));
 	}
 	assert(roots['electron-node-api-headers'] && roots.juce && roots.clap && roots['vst3-sdk'] && roots.fst && roots['vamp-plugin-sdk'] && roots['ara-api'] && roots['ara-library'],
@@ -289,7 +298,7 @@ function normalizeSourceArchives(value) {
 	assert(value && typeof value === 'object' && !Array.isArray(value),
 		'Native sourceArchives must be a record.');
 	const archives = {};
-	for (const id of ['electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library', 'asio-sdk', 'ladspa-sdk', 'lv2']) {
+	for (const id of Object.keys(EXPECTED)) {
 		if (value[id] !== undefined) archives[id] = resolve(String(value[id]));
 	}
 	assert(archives['electron-node-api-headers'] && archives.juce && archives.clap && archives['vst3-sdk'] && archives.fst && archives['vamp-plugin-sdk'] && archives['ara-api'] && archives['ara-library'],
