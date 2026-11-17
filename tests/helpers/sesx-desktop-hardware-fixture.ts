@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { IPC } from '../../desktop/constants.js';
 import { ReadCapabilityStore } from '../../desktop/file-capabilities.js';
 import { registerFileCapabilityIpc } from '../../desktop/main-file-capability-ipc.mjs';
@@ -34,9 +34,10 @@ interface SessionIpcOptions {
 const registerSessionIpc = registerFileCapabilityIpc as unknown as (options: SessionIpcOptions) => void;
 
 /** Only OS dialog/IPC transport are modeled; host capabilities, media grants and reads are real. */
-export async function sesxDesktopHardwareFixture(xml: string, wave: Uint8Array) {
+export async function sesxDesktopHardwareFixture(xml: string | ((directory: string) => string), wave: Uint8Array,
+	options: Readonly<{ fileName?: string; extraFiles?: readonly Readonly<{ path: string; bytes: Uint8Array }>[] }> = {}) {
 	const directory = await mkdtemp(join(tmpdir(), 'sesx-controller-custody-'));
-	const sessionPath = join(directory, 'Selection.sesx');
+	const sessionPath = join(directory, options.fileName ?? 'Selection.sesx');
 	const reads = new ReadCapabilityStore(), targets = new SaveTargetStore();
 	const saves = new AtomicSaveManager({ targets });
 	const owner = {}, releasedReads: string[] = [], releasedSessions: string[] = [];
@@ -54,7 +55,10 @@ export async function sesxDesktopHardwareFixture(xml: string, wave: Uint8Array) 
 		await rm(directory, { recursive: true, force: true });
 	};
 	try {
-		await writeFile(sessionPath, xml); await writeFile(join(directory, 'Stereo.wav'), wave);
+		await writeFile(sessionPath, typeof xml === 'string' ? xml : xml(directory)); await writeFile(join(directory, 'Stereo.wav'), wave);
+		for (const file of options.extraFiles ?? []) {
+			const path = join(directory, file.path); await mkdir(dirname(path), { recursive: true }); await writeFile(path, file.bytes);
+		}
 		const handlers = new Map<string, (event: unknown, value: unknown) => unknown>();
 		registerSessionIpc({ channels: IPC, desktopSmokeProbe: { resolveOpenPaths: () => null, resolveSavePath: () => null },
 			dialog, handle: (name: string, listener: (event: unknown, value: unknown) => unknown) => { handlers.set(name, listener); },

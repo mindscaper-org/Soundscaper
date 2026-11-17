@@ -360,7 +360,9 @@ v0/v1 sessions retain sample-domain timing and their sequence frame rate.
 session before inflating anything, verify requested members, and read audio one
 source at a time. Desktop lookup uses existing owner-scoped session and folder
 grants; project paths never authorize arbitrary filesystem reads. Missing media
-retains offline cuts. Track gain, mono pan, mute and send-level automation,
+retains offline cuts. Absolute Ardour source origins take precedence over derived
+internal paths for linked recordings, using those same media grants and fallback rules.
+Track gain, mono pan, mute and send-level automation,
 clip gain envelopes, bus/send routing and master controls are imported.
 SoundCraft sends retain their pre/post-fader taps and mute.
 Ardour pre-fader sends retain upstream active input trim. Their trim and send

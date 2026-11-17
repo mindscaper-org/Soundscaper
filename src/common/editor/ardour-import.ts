@@ -83,7 +83,7 @@ export function parseArdourDocument(text: string): TimelineInterchangeDocument {
 			const paths = refs.map(ref => {
 				const source = sourceNodes.get(ref);
 				if (!source || source.attributes.type === 'midi') throw new ReferenceError('Ardour region references an unavailable audio source.');
-				return required(source, 'name');
+				return audioSourcePath(source);
 			});
 			const distinctPaths = new Set(paths);
 			if (refs.length > 2 || (region.attributes.channels && integer(region.attributes.channels, 'channel count', 1) !== refs.length)
@@ -152,6 +152,10 @@ function required(node: XmlElement, name: string): string {
 function flag(value: string | undefined): boolean { return value === '1' || value === 'yes' || value === 'true'; }
 function mediaPath(path: string, title: string): string {
 	return /[\\/]/u.test(path) ? path : `interchange/${title}/audiofiles/${path}`;
+}
+function audioSourcePath(source: XmlElement): string {
+	const name = required(source, 'name'), origin = source.attributes.origin;
+	return origin && /^(?:[\\/]|[a-z]:[\\/])/iu.test(origin) ? origin : name;
 }
 function fadeLength(region: XmlElement, name: string, time: (value: string) => Rational): Rational {
 	if (['0', 'no', 'false'].includes(region.attributes[name === 'FadeIn' ? 'fade-in-active' : 'fade-out-active'] ?? '')) return { num: 0, den: 1 };
