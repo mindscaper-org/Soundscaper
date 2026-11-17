@@ -94,7 +94,7 @@ export function ardourMixStrip(route: XmlElement, root: XmlElement, sampleRate: 
 	const outputs = childElements(route, 'IO').filter(node => node.attributes.direction === 'Output');
 	const connections = outputs.flatMap(io => [...walkXml(io)].filter(node => node.name === 'Connection').map(node => node.attributes.other ?? '').filter(Boolean));
 	const destinations = new Set(connections.map(connection => connection.split('/')[0]!));
-	let output: string | null | undefined;
+	let output: string | null | undefined = outputs.length > 0 && connections.length === 0 ? null : undefined;
 	if (destinations.size === 1) {
 		const name = [...destinations][0]!, target = names.get(name);
 		if (target && !ardourRouteHasFlag(target, 'MasterOut')) output = target.attributes.id;
