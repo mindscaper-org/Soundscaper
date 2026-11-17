@@ -178,6 +178,50 @@ test('PO kits retain their baseline and notices, and stale JSON imports remain r
 	await expect(editor.getByRole('button', { name: 'Alte Wiedergabe', exact: true })).toHaveCount(0);
 });
 
+test('using the current translation baseline preserves an imported entry author', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	const surface = await openTranslator(page, editor);
+	const contribution = { version: 1, locale: 'de', snapshotId: 'older-catalog', contributor: 'Submission author', entries: [{
+		key: 'play', source: 'Old play wording', baselineText: 'Vorherige Wiedergabe', baselineEntry: null,
+		translation: 'Ton wiedergeben', contributor: 'Original translator',
+	}] };
+	await surface.getByLabel(en.import, { exact: true }).setInputFiles({
+		name: 'older-translations.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(contribution)),
+	});
+	await expect(surface.getByRole('alert')).toContainText(en.stale);
+	await surface.getByRole('button', { name: en.useCurrent, exact: true }).click();
+	await expect(surface.getByRole('alert')).toHaveCount(0);
+	const download = page.waitForEvent('download');
+	await surface.getByRole('button', { name: en.export, exact: true }).click();
+	const { entries } = JSON.parse(new TextDecoder().decode(await downloadBytes(await download)));
+	expect(entries).toEqual([expect.objectContaining({ key: 'play', source: 'Play', contributor: 'Original translator' })]);
+});
+
+test('a translation draft stays exportable after closing and reopening when browser storage is full', async ({ page }) => {
+	await page.addInitScript(() => {
+		const write = Storage.prototype.setItem;
+		Storage.prototype.setItem = function (key, value) {
+			if (key.startsWith('soundscaper-community-translations-v1:')) throw new DOMException('Storage full', 'QuotaExceededError');
+			write.call(this, key, value);
+		};
+	});
+	const editor = await bootEditor(page, '/embed/en/');
+	let surface = await openTranslator(page, editor);
+	await selectMessage(surface, 'play');
+	await surface.getByRole('textbox', { name: en.translation, exact: true }).fill('Ton starten');
+	await surface.getByRole('button', { name: en.save, exact: true }).click();
+	await expect(surface.getByRole('alert')).toContainText(en.storageFailed);
+	await surface.getByRole('button', { name: en.close, exact: true }).click();
+	await expect(surface).toHaveCount(0);
+	surface = await openTranslator(page, editor);
+	await selectMessage(surface, 'play');
+	await expect(surface.getByRole('textbox', { name: en.translation, exact: true })).toHaveValue('Ton starten');
+	const capture = page.waitForEvent('download');
+	await surface.getByRole('button', { name: en.export, exact: true }).click();
+	const draft = JSON.parse(new TextDecoder().decode(await downloadBytes(await capture)));
+	expect(draft.entries).toEqual([expect.objectContaining({ key: 'play', translation: 'Ton starten' })]);
+});
+
 test('RTL target preview restores the route presentation on close', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	const surface = await openTranslator(page, editor);

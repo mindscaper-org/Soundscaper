@@ -154,8 +154,7 @@ export default function CommunityTranslationSurface({ port, initialLocale, copy:
 	function useCurrentBaseline(): void {
 		if (!loaded || !baseline) return;
 		if (!acceptableTranslation(source, translation)) { setError({ key: 'invalid' }); return; }
-		const rebased = { ...currentDraft(), entries: loaded.draft.entries.filter(({ key }) => key !== selectedKey) };
-		run(() => save(updateTranslationDraft(rebased, loaded.snapshot, selectedKey, translation, note)));
+		run(() => save(updateTranslationDraft(currentDraft(), loaded.snapshot, selectedKey, translation, note, { useCurrentBaseline: true })));
 	}
 	const reviewMessage = assessment?.stale.some(({ key }) => key === selectedKey) ? copy.stale
 		: assessment?.conflicts.some(({ key }) => key === selectedKey) ? copy.conflict
