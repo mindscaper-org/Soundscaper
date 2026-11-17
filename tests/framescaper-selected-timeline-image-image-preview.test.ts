@@ -12,6 +12,8 @@ import test from 'node:test';
 
 import type { AudioEditorProjectStore } from '../src/common/editor/storage.js';
 import type { ProductVideoVisualPreviewSession } from '../src/common/editor/ui/workspace/product-video-visual-preview-runtime.ts';
+import { applyFramescaperProjectCommandTimelineImage } from '../src/framescaper/editor-project-timeline-image-commands.ts';
+import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
 import {
 	assetStore,
 	binScene,
@@ -193,6 +195,23 @@ test('a hidden track, an audio track and an unsoloed sibling all withhold their 
 		'solo outranks the hidden flag on the soloed track itself');
 	hidden.dispose();
 	soloed.dispose();
+});
+
+test('a still image inside a hidden folder contributes no preview picture', async () => {
+	const project = applyFramescaperProjectCommandTimelineImage(PROFILE, committedProject(IMAGE_FIXTURE), {
+		type: 'batch', commands: [{
+			type: 'track-folder/add', sequenceId: 'main-sequence', folder: { id: 'picture-folder', name: 'Pictures', hidden: true },
+		}, {
+			type: 'track-node/move', sequenceId: 'main-sequence', nodeId: 'video-track', parentFolderId: 'picture-folder', index: 0,
+		}],
+	});
+	const calls: string[] = [];
+	const session = await openSession({ project, store: assetStore([IMAGE_FIXTURE], calls),
+		createInheritedSession: inherited(inheritedLog()),
+	});
+	assert.deepEqual(entriesOf(session.resolve(0)), []);
+	assert.deepEqual(calls, []);
+	session.dispose();
 });
 
 test('more image contexts than the preview bound are refused before any source is opened', async () => {

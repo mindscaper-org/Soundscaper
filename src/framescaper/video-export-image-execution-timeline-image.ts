@@ -7,6 +7,7 @@ import {
 	type FramescaperImageSourceV1,
 } from '../common/editor/timeline-image-model.ts';
 import { FRAMESCAPER_IMAGE_FRAME_PACK_MAXIMUM_CHUNK_BYTES } from '../common/editor/timeline-image-frame-pack-v1.ts';
+import { projectTrackFolderMediaStateV12 } from '../common/editor/track-folder-media-runtime.ts';
 import type { UnifiedExactRenderPlanV13 } from '../common/editor/unified-exact-render-plan.ts';
 import { DEFAULT_VIDEO_CLIP_COMPOSITION } from '../common/editor/video-clip-composition.ts';
 import { defaultVideoSourceColorInterpretationV1 } from '../common/editor/video-color-management-v27.ts';
@@ -310,7 +311,8 @@ function visibleImageClips(
 	const sequence = project.sequences.find(({ id }) => id === project.primarySequenceId);
 	if (!sequence) throw new ReferenceError('The timelineImage image export primary sequence is unavailable.');
 	const sequenceTrackIds = new Set(sequence.trackIds);
-	const tracks = project.tracks.filter(track => track.type === 'video').filter(({ id }) => sequenceTrackIds.has(id));
+	const tracks = projectTrackFolderMediaStateV12(project).tracks
+		.filter(track => track.type === 'video' && sequenceTrackIds.has(track.id));
 	const visible = createVisibleVideoTrackPredicate(tracks);
 	return Object.freeze(project.clips.flatMap((value) => {
 		if (value.kind !== 'image') return [];

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { sequenceFrameAtSample } from '../common/editor/sequence-frame-navigation.ts';
+import { projectTrackFolderMediaStateV12 } from '../common/editor/track-folder-media-runtime.ts';
 import type { AudioEditorProjectStore } from '../common/editor/storage.js';
 import type {
 	ProductVideoVisualPreviewCreateRequest,
@@ -264,13 +265,12 @@ function imageClipContexts(project: FramescaperProjectTimelineImage): readonly O
 	const sequence = project.sequences.find(({ id }) => id === project.primarySequenceId);
 	if (!sequence) throw new ReferenceError('The selected timelineImage primary sequence is unavailable.');
 	const sequenceTrackIds = new Set(sequence.trackIds);
-	const videoTracks = project.tracks.filter(track => track.type === 'video').filter(({ id }) => sequenceTrackIds.has(id));
+	const videoTracks = projectTrackFolderMediaStateV12(project).tracks
+		.filter(track => track.type === 'video' && sequenceTrackIds.has(track.id));
 	const visible = createVisibleVideoTrackPredicate(videoTracks);
 	const output: Omit<ImageClipPreviewTimelineImage, 'loaded' | 'drawable' | 'lastFrameIndex'>[] = [];
-	for (const value of project.clips) {
-		if (value.kind !== 'image') continue;
-		const clip = value as FramescaperImageClipV1;
-		if (clip.sequenceId !== sequence.id) continue;
+	for (const clip of project.clips) {
+		if (clip.kind !== 'image' || clip.sequenceId !== sequence.id) continue;
 		const owner = videoTracks.find(({ clipIds }) => clipIds.includes(clip.id));
 		if (!owner || !visible(owner)) continue;
 		const trackIndex = sequence.trackIds.indexOf(owner.id);

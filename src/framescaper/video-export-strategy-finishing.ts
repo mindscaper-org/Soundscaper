@@ -2,6 +2,7 @@
 
 import { compareCodeUnits } from '../common/editor/code-unit-order.ts';
 import type { FfmpegOutputSink } from '../common/editor/ffmpeg-output-stream.ts';
+import { projectTrackFolderMediaStateV12 } from '../common/editor/track-folder-media-runtime.ts';
 import { assertManagedVideoColorRenderAdmissionV1 } from '../common/editor/video-color-management-v27.ts';
 import {
 	createVideoExactPictureExportFrameSource,
@@ -518,12 +519,11 @@ function hasVisiblePictureKind(
 	if (!primary) throw new ReferenceError('finishing picture primary sequence is unavailable.');
 	const trackIds = new Set(array(primary.trackIds, 'finishing picture sequence track IDs').map(String));
 	const clips = new Map(records(project.clips, 'finishing picture clips').map((clip) => [String(clip.id), clip]));
-	const tracks = records(project.tracks, 'finishing picture tracks');
+	const tracks = records(projectTrackFolderMediaStateV12(project).tracks, 'finishing picture tracks')
+		.filter(({ id }) => trackIds.has(String(id)));
 	const visible = createVisibleVideoTrackPredicate(tracks);
-	return tracks.some((track) => trackIds.has(String(track.id)) && visible(track)
-		&& array(track.clipIds, 'finishing picture track clip IDs').some((id) => (
-			kinds.has(String(clips.get(String(id))?.kind))
-		)));
+	return tracks.some(track => visible(track) && array(track.clipIds, 'finishing picture track clip IDs')
+		.some(id => kinds.has(String(clips.get(String(id))?.kind))));
 }
 
 function allVideoSourceIds(projectValue: Readonly<Record<string, unknown>>): readonly string[] {

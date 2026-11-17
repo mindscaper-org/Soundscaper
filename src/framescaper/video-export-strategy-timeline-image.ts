@@ -241,7 +241,8 @@ function imageExportFoundation(project: Readonly<Record<string, unknown>>): Fram
 		.map((track) => [String(track.id), track] as const));
 	foundation.tracks = records(foundation.tracks, 'timelineImage inherited export tracks').map((track) => {
 		const canonical = canonicalTracks.get(String(track.id));
-		return canonical ? { ...track, clipIds: [...array(canonical.clipIds, 'timelineImage export track clip IDs')] } : track;
+		return canonical && track.type !== 'label'
+			? { ...track, clipIds: [...array(canonical.clipIds, 'timelineImage export track clip IDs')] } : track;
 	});
 	foundation.sources = [
 		...records(foundation.sources, 'timelineImage inherited export sources'),
