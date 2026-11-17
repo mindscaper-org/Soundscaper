@@ -190,7 +190,7 @@ test('play selection bounds the run and starts it at the selection', async () =>
 	fixture.setPositionFrame(40);
 	assert.equal(await fixture.service.handleTransport('play-selection'), 'played');
 
-	assert.deepEqual(fixture.calls.playRanges, [{ startFrame: 10, endFrame: 30 }]);
+	assert.deepEqual(fixture.calls.playRanges, [{ startFrame: 10, endFrame: 30, overrideLoop: true }]);
 	assert.deepEqual(fixture.calls.seeks, [10]);
 });
 

@@ -211,7 +211,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 				if (generation !== transportRequestGeneration || foregroundPlayPreparation !== preparation || snapshot !== getProject()) return;
 				if (spectral) return await playSpectralSelection(engine, spectral, () => generation === transportRequestGeneration && foregroundPlayPreparation === preparation, { clockedStart: state.metronomeEnabled });
 				engine.setPlaybackFrequencyRange?.(null);
-				bindPlaybackToTimeSelection(engine, action === 'play-selection' && !snapshot.loop?.enabled ? playbackSelection() : null);
+				bindPlaybackToTimeSelection(engine, action === 'play-selection' ? playbackSelection() : null, true);
 				return await engine.play({ clockedStart: state.metronomeEnabled });
 			} finally {
 				if (foregroundPlayPreparation === preparation) foregroundPlayPreparation = null;
@@ -275,9 +275,9 @@ export function createEditorTransportService<Project extends TransportProject = 
 	}
 
 	function setSelectionToLoopRegion() {
-		const loop = requireProject().loop;
+		const { loop, selection } = requireProject();
 		if (!loop?.enabled || loop.endFrame <= loop.startFrame) throw createLocalizedError(Error, copy, 'timeSelectionRequired');
-		return setExactSelection(loop.startFrame, loop.endFrame);
+		return setExactSelection(loop.startFrame, loop.endFrame, { trackIds: selection?.trackIds ?? [] });
 	}
 
 	function setLoopRegionInOut() {

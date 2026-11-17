@@ -279,7 +279,7 @@ export interface EnginePublicApi {
 	endScrub(): number;
 	setLoop(loopOrEnabled: EngineLoop | boolean, startFrame?: number, endFrame?: number): NormalizedLoop;
 	/** Bound the next run of playback to a range, or clear the bound with null. */
-	setPlayRange(range: Readonly<{ startFrame: number; endFrame: number }> | null): NormalizedPlayRange | null;
+	setPlayRange(range: NormalizedPlayRange | null): NormalizedPlayRange | null;
 	getPositionFrames(): number;
 	getState(): EngineStateSnapshot;
 	commitNativeEffectPdcRevision(request: EngineNativeEffectPdcRevision): EngineNativeEffectPdcCommit;
