@@ -44,6 +44,15 @@ for (const moveFirst of [false, true]) test(`undoing a held MIDI note retires ${
 	} finally { await panel.dispose(); }
 });
 
+test('clicking a different grid note auditions that note context immediately', async () => {
+	const panel = await mountPanel(true);
+	try {
+		await panel.begin(10); await panel.release();
+		await panel.begin(10, 2); await panel.release();
+		assert.deepEqual(panel.previews, ['note', 'other']);
+	} finally { await panel.dispose(); }
+});
+
 function noteProject(notes: readonly MidiNote[]) {
 	const source = createAudioSource({ id: 'source', storageKey: 'pcm', name: 'Notes', frameCount: 96_000, sampleRate: 48_000, channelCount: 1 });
 	const clip = withMidiClipData(createAudioClip({ id: 'clip', sourceId: source.id, durationFrames: 96_000, sourceDurationFrames: 96_000 }), { version: 1, notes });
@@ -57,7 +66,7 @@ function noteProject(notes: readonly MidiNote[]) {
 		trackFolders: admitted.trackFolders.map(folder => ({ ...folder })), takeGroups: admitted.takeGroups.map(group => ({ ...group })) };
 }
 
-async function mountPanel() {
+async function mountPanel(extraNote = false) {
 	const dom = installReactTestDom();
 	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const priorAct = globals.IS_REACT_ACT_ENVIRONMENT;
@@ -79,10 +88,13 @@ async function mountPanel() {
 	const updates: (readonly Update[])[] = [];
 	const first = deferred<void>();
 	let notes: readonly MidiNote[] = [{ id: 'note', pitch: 60, velocity: 100, channel: 0, startFrame: 0, durationFrames: 24_000 }];
+	if (extraNote) notes = [...notes, { ...notes[0]!, id: 'other', channel: 3, pitch: 62 }];
+	const previews: (string | undefined)[] = [];
 	let publish: (next: readonly MidiNote[]) => void = () => undefined;
 	const noop = () => undefined, telemetry = { positionFrame: 0 };
 	const controller = { subscribeTelemetry: () => noop, getTelemetrySnapshot: () => telemetry,
-		actions: { midi: { addNote: noop, updateNote: noop, deleteNotes: noop, resizeClip: noop, setInstrument: noop, previewNote: noop,
+		actions: { midi: { addNote: noop, updateNote: noop, deleteNotes: noop, resizeClip: noop, setInstrument: noop,
+			previewNote: (_pitch: number, _instrument?: string, options?: { noteId?: string }) => { previews.push(options?.noteId); },
 			updateNotes: async (_clipId: string, edits: readonly Update[]) => {
 				updates.push(edits);
 				if (updates.length === 1) await first.promise;
@@ -100,10 +112,10 @@ async function mountPanel() {
 	}); };
 	await act(async () => root.render(<Fixture />));
 	return {
-		updates,
+		updates, previews,
 		left: () => String(Reflect.get(dom.one('[data-note-id="1"]').style, 'left')),
-		begin: async (x: number) => { await act(async () => {
-			const target = dom.one('[data-note-id="1"]');
+		begin: async (x: number, noteId = 1) => { await act(async () => {
+			const target = dom.one(`[data-note-id="${String(noteId)}"]`);
 			target.getBoundingClientRect = () => ({ left: Number.parseFloat(String(Reflect.get(target.style, 'left'))), width: 50 });
 			reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({ target });
 			reactProps(target).onMouseDown?.({ target, currentTarget: target, button: 0, clientX: x, clientY: 10, preventDefault() {}, stopPropagation() {} });
