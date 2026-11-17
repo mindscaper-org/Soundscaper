@@ -135,6 +135,17 @@ test('neutral stored stereo clips use bounded chunk reads without materializing 
 	let reads = 0;
 	const providers = new Map([['source', { sampleRate: 44100, channelCount: 2, frameCount: 2003, chunkFrames: 512,
 		readStorageChunk: async (index: number) => { reads++; return channels.map(channel => channel.subarray(index * 512, (index + 1) * 512)); } }]]);
-	const output = await renderSimpleDryTrackPcm(project, new Map(), 'track', 103, 1601, 2, null, null, providers);
+	const NativeFloat32Array = globalThis.Float32Array;
+	let fullPlanes = 0;
+	globalThis.Float32Array = new Proxy(NativeFloat32Array, {
+		construct(target, args, receiver) {
+			if (args[0] === 1498) fullPlanes++;
+			return Reflect.construct(target, args, receiver);
+		},
+	});
+	const output = await renderSimpleDryTrackPcm(project, new Map(), 'track', 103, 1601, 2, null, null, providers)
+		.finally(() => { globalThis.Float32Array = NativeFloat32Array; });
 	assert.ok(output); assert.deepEqual(output[0], channels[0].subarray(19, 1517)); assert.equal(reads, 3);
+	assert.equal(fullPlanes, 2);
+	assert.notEqual(output[0].buffer, channels[0].buffer);
 });

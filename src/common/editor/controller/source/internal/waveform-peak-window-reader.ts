@@ -50,7 +50,7 @@ export async function readWaveformPeakWindow(
 		throwIfAborted(options.signal);
 		const value = await provider.readStorageChunk(chunkIndex);
 		throwIfAborted(options.signal);
-		const channels = Array.isArray(value) ? value : value.channels;
+		const channels = 'channels' in value ? value.channels : value;
 		if (channels.length !== provider.channelCount || channels.some((channel) => !(channel instanceof Float32Array))
 			|| channels.some((channel) => channel.length !== channels[0]?.length)) {
 			throw new Error('The waveform peak window received invalid PCM channels.');

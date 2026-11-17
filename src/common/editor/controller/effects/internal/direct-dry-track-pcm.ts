@@ -24,18 +24,25 @@ export async function renderSimpleDryTrackPcm(project: EffectAudioProject, sourc
 	const track = project.tracks.find((candidate) => candidate.id === trackId);
 	if (!track || track.type !== 'audio' || (track.gain ?? 1) !== 1 || (track.pan ?? 0) !== 0
 		|| track.mute || track.solo || nonempty(track.effects) || nonempty(track.envelope)
-		|| track.audioFreeze != null || new Set(track.clipIds).size !== track.clipIds?.length) return null;
+		|| track.audioFreeze != null) return null;
+	const trackIds = new Set(track.clipIds);
+	if (trackIds.size !== track.clipIds?.length) return null;
 	const scope = requestedClipIds?.length ? new Set(requestedClipIds) : null;
-	const trackIds = new Set(track.clipIds?.filter((id) => !scope || scope.has(id)));
-	// Canonical musical/sequence clips need the engine's coordinate projection;
-	// ignoring their absent scalar bounds could omit another audible overlap.
-	if (project.clips.some(clip => trackIds.has(clip.id) && (typeof clip.timelineStartFrame !== 'number'
-		|| typeof clip.durationFrames !== 'number'))) return null;
-	const clips = project.clips.filter((clip) => trackIds.has(clip.id)
-		&& typeof clip.timelineStartFrame === 'number' && typeof clip.durationFrames === 'number'
-		&& clip.timelineStartFrame < endFrame && clip.timelineStartFrame + clip.durationFrames > startFrame);
-	if (clips.length !== 1) return null;
-	const clip = clips[0]!;
+	const clipById = new Map<string, EffectAudioProject['clips'][number]>();
+	let clip: EffectAudioProject['clips'][number] | undefined;
+	for (const candidate of project.clips) {
+		if (!trackIds.has(candidate.id)) continue;
+		clipById.set(candidate.id, candidate);
+		if (scope && !scope.has(candidate.id)) continue;
+		// Missing scalar bounds may hide a canonical musical or sequence clip.
+		const { timelineStartFrame, durationFrames } = candidate;
+		if (typeof timelineStartFrame !== 'number' || typeof durationFrames !== 'number') return null;
+		if (timelineStartFrame < endFrame && timelineStartFrame + durationFrames > startFrame) {
+			if (clip) return null;
+			clip = candidate;
+		}
+	}
+	if (!clip) return null;
 	const duration = clip.durationFrames!;
 	const clipStart = clip.timelineStartFrame!;
 	const sourceStart = clip.sourceStartFrame ?? 0;
@@ -47,13 +54,14 @@ export async function renderSimpleDryTrackPcm(project: EffectAudioProject, sourc
 		|| (clip.pitchCents ?? 0) !== 0 || (clip.speedRatio ?? 1) !== 1 || clip.linkPitchAndTempo
 		|| clip.stretchToTempo || readClipLoop(clip)) return null;
 	// A wider track route can downmix even when the selected source is stereo.
-	const clipById = new Map(project.clips.map(clip => [clip.id, clip]));
-	const sourceById = new Map(project.sources.map(source => [source.id, source]));
-	for (const clipId of track.clipIds ?? []) {
+	const sourceWidths = new Map<string, number | undefined>();
+	for (const clipId of trackIds) {
 		const authored = clipById.get(clipId);
-		const source = authored && sourceById.get(authored.sourceId);
-		if (!source || source.channelCount !== 1 && source.channelCount !== 2) return null;
+		if (!authored) return null;
+		sourceWidths.set(authored.sourceId, undefined);
 	}
+	for (const source of project.sources) if (sourceWidths.has(source.id)) sourceWidths.set(source.id, source.channelCount);
+	for (const width of sourceWidths.values()) if (width !== 1 && width !== 2) return null;
 	const buffers = sourceBuffers as ReadonlyMap<unknown, AudioBuffer>;
 	const buffer = typeof buffers.get === 'function' ? buffers.get(clip.sourceId)
 		: (sourceBuffers as Readonly<Record<string, AudioBuffer>>)[clip.sourceId];
@@ -62,7 +70,7 @@ export async function renderSimpleDryTrackPcm(project: EffectAudioProject, sourc
 	const offset = sourceStart + from - clipStart;
 	const destination = from - startFrame;
 	const count = to - from;
-	let samples: readonly Float32Array[];
+	let samples: Float32Array[];
 	let inputOffset = offset;
 	if (buffer) {
 		if (buffer.sampleRate !== project.sampleRate || buffer.numberOfChannels !== 2 || buffer.length < sourceStart + duration || typeof buffer.getChannelData !== 'function') return null;
@@ -72,26 +80,25 @@ export async function renderSimpleDryTrackPcm(project: EffectAudioProject, sourc
 		const provider = providers && (typeof providers.get === 'function' ? providers.get(clip.sourceId)
 			: (sourceChunkProviders as Readonly<Record<string, import('../../../engine/types.ts').EngineChunkSource>>)[clip.sourceId]);
 		if (!provider || provider.sampleRate !== project.sampleRate || provider.channelCount !== 2 || provider.frameCount < sourceStart + duration) return null;
-		samples = await readWaveformPcmWindow({ ...provider, readStorageChunk: async (index, options) => {
-			const value = await provider.readStorageChunk(index, options);
-			return [...('channels' in value ? value.channels : value)];
-		} }, { startFrame: offset, endFrame: offset + count }, signal ? { signal } : {});
+		samples = await readWaveformPcmWindow(provider, { startFrame: offset, endFrame: offset + count }, signal ? { signal } : {});
 		signal?.throwIfAborted(); inputOffset = 0;
 	}
-	const output = Array.from({ length: 2 }, () => new Float32Array(endFrame - startFrame));
+	const outputFrames = endFrame - startFrame;
+	const ownsSelection = !buffer && count === outputFrames;
+	const output = ownsSelection ? samples : Array.from({ length: 2 }, () => new Float32Array(outputFrames));
 	let lastYield = performance.now();
 	for (let channel = 0; channel < 2; channel += 1) {
 		const input = samples[channel]!;
+		const target = output[channel]!;
 		for (let frame = 0; frame < count; frame += 65_536) {
 			const frames = Math.min(65_536, count - frame);
-			const target = output[channel]!;
 			for (let index = 0; index < frames; index += 1) {
 				const sample = input[inputOffset + frame + index]!;
 				// Native graphs differ in signed-zero and subnormal handling across engines.
 				if (!Number.isFinite(sample) || (sample === 0 ? Object.is(sample, -0)
 					: sample < 2 ** -126 && sample > -(2 ** -126))) return null;
-				target[destination + frame + index] = sample;
 			}
+			if (!ownsSelection) target.set(input.subarray(inputOffset + frame, inputOffset + frame + frames), destination + frame);
 			if (performance.now() - lastYield >= 4) {
 				await new Promise<void>((resolve) => setTimeout(resolve, 0));
 				signal?.throwIfAborted();
