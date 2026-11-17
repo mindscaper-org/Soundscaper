@@ -9,12 +9,13 @@ import { readSubprojectLinks } from '../src/common/editor/subprojects.ts';
 function fixture() {
 	let project: SubprojectDocument = createSoundscaperProject({ id: 'parent' }) as SubprojectDocument;
 	const documents = new Map<string, SubprojectDocument>([['child', createSoundscaperProject({ id: 'child', title: 'Scene' }) as SubprojectDocument]]);
+	const reads = new Map<string, number>();
 	let serial = 0, discarded = 0, renders = 0, blocked = false;
 	let beforeRender: () => Promise<void> = () => Promise.resolve();
 	const runtime: SubprojectRuntime = {
 		getProject: () => project,
 		assertWritable: () => { if (blocked) throw new Error('read-only'); },
-		loadProject: id => Promise.resolve(documents.get(id) ?? null),
+		loadProject: id => { reads.set(id, (reads.get(id) ?? 0) + 1); return Promise.resolve(documents.get(id) ?? null); },
 		listProjects: () => Promise.resolve([...documents.values(), project]),
 		getLibraryId: () => Promise.resolve('library'),
 		commit: command => { project = applySoundscaperProjectCommand(project, command) as SubprojectDocument; },
@@ -27,7 +28,7 @@ function fixture() {
 		},
 		reportError: error => { throw error; }, wait: () => Promise.resolve(),
 	};
-	return { actions: createSubprojectActions(runtime), documents, get project() { return project; },
+	return { actions: createSubprojectActions(runtime), documents, reads, get project() { return project; },
 		get discarded() { return discarded; }, get renders() { return renders; },
 		beforeRender(callback: () => Promise<void>) { beforeRender = callback; },
 		setProject(value: SubprojectDocument) { project = value; }, block() { blocked = true; } };
@@ -52,6 +53,20 @@ test('inserting creates ordinary playable audio and refresh follows only committ
 	assert.equal(state.renders, 2);
 	await state.actions.refresh({ force: true });
 	assert.equal(state.renders, 3);
+});
+
+test('idle refresh reads each committed child only once and starts fresh on the next refresh', async () => {
+	const state = fixture();
+	for (let index = 0; index < 8; index++) await state.actions.add('child');
+	assert.equal(state.reads.get('child'), 16);
+	state.reads.clear();
+	await state.actions.refresh();
+	assert.equal(state.reads.get('child'), 1);
+	assert.equal(state.renders, 8);
+	state.documents.set('child', { ...state.documents.get('child')!, master: { gain: 0.5 }, revision: 2 });
+	await state.actions.refresh();
+	assert.equal(state.renders, 16);
+	assert.ok(readSubprojectLinks(state.project).every(link => link.revision === 2));
 });
 
 test('a child save during rendering discards obsolete output and leaves the parent intact', async () => {

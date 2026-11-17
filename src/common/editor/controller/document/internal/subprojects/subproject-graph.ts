@@ -8,14 +8,29 @@ export interface ResolvedSubprojectNode {
 	readonly children: readonly { readonly link: SubprojectLink; readonly node: ResolvedSubprojectNode | null }[];
 }
 
+type LoadProject = (id: string) => Promise<SubprojectDocument | null>;
+const MAX_VISITED_NODES = 256;
+
+/** Share committed reads within one inspection. Publication starts a fresh inspection. */
+export function cacheSubprojectDocumentReads(load: LoadProject): LoadProject {
+	const reads = new Map<string, ReturnType<LoadProject>>();
+	return id => {
+		const cached = reads.get(id);
+		if (cached) return cached;
+		const pending = load(id);
+		if (reads.size < MAX_VISITED_NODES) reads.set(id, pending);
+		return pending;
+	};
+}
+
 /** Pinned links also participate in cycle admission, even though they do not refresh. */
 export async function assertSubprojectGraphAcyclic(projectId: string, libraryId: string,
-	load: (id: string) => Promise<SubprojectDocument | null>, ancestors: readonly string[], signal?: AbortSignal): Promise<void> {
+	load: LoadProject, ancestors: readonly string[], signal?: AbortSignal): Promise<void> {
 	let count = 0;
 	async function visit(id: string, path: readonly string[]): Promise<void> {
 		signal?.throwIfAborted();
 		if (path.includes(id)) throw new RangeError('Subproject dependency cycle detected.');
-		if (path.length >= SUBPROJECT_DEPTH_LIMIT || ++count > 256) throw new RangeError('Subproject dependency depth or size exceeds its limit.');
+		if (path.length >= SUBPROJECT_DEPTH_LIMIT || ++count > MAX_VISITED_NODES) throw new RangeError('Subproject dependency depth or size exceeds its limit.');
 		const project = await load(id);
 		if (!project) return;
 		for (const link of readSubprojectLinks(project)) if (link.libraryId === libraryId) await visit(link.projectId, [...path, id]);
@@ -27,7 +42,7 @@ export async function assertSubprojectGraphAcyclic(projectId: string, libraryId:
 export async function resolveSubprojectGraph(
 	projectId: string,
 	libraryId: string,
-	load: (id: string) => Promise<SubprojectDocument | null>,
+	load: LoadProject,
 	ancestors: readonly string[] = [],
 	signal?: AbortSignal,
 ): Promise<ResolvedSubprojectNode> {
@@ -36,7 +51,7 @@ export async function resolveSubprojectGraph(
 		signal?.throwIfAborted();
 		if (path.includes(id)) throw new RangeError('Subproject dependency cycle detected.');
 		if (path.length >= SUBPROJECT_DEPTH_LIMIT) throw new RangeError('Subproject nesting exceeds the supported depth.');
-		if (++count > 256) throw new RangeError('Subproject dependency graph exceeds its limit.');
+		if (++count > MAX_VISITED_NODES) throw new RangeError('Subproject dependency graph exceeds its limit.');
 		const project = await load(id);
 		signal?.throwIfAborted();
 		if (!project || project.id !== id) throw new ReferenceError('A linked subproject is missing from this library.');

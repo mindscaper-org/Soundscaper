@@ -2,7 +2,7 @@
 import { createAddTrackCommand, createAddClipCommand } from '../../commands/factories.ts';
 import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import { readSubprojectLinks, type SubprojectLink } from '../../subprojects.ts';
-import { assertSubprojectGraphAcyclic, resolveSubprojectGraph, type ResolvedSubprojectNode } from './internal/subprojects/subproject-graph.ts';
+import { assertSubprojectGraphAcyclic, cacheSubprojectDocumentReads, resolveSubprojectGraph, type ResolvedSubprojectNode } from './internal/subprojects/subproject-graph.ts';
 import { createSubprojectRenderer, type SubprojectRendererRuntime } from './internal/subprojects/subproject-renderer.ts';
 
 export function createStoredSubprojectActions(runtime: Omit<SubprojectRuntime, 'plan' | 'render'> & {
@@ -60,14 +60,18 @@ export function createSubprojectActions(runtime: SubprojectRuntime) {
 		signal?.throwIfAborted();
 		if (requireProject() !== project) throw new DOMException('The parent project changed while rendering its subproject.', 'AbortError');
 	}
+	async function admitGraph(id: string, libraryId: string, parentId: string, signal?: AbortSignal): Promise<ResolvedSubprojectNode> {
+		const load = cacheSubprojectDocumentReads(runtime.loadProject);
+		await assertSubprojectGraphAcyclic(id, libraryId, load, [parentId], signal);
+		return resolveSubprojectGraph(id, libraryId, load, [parentId], signal);
+	}
 	async function publish(project: SubprojectDocument, expected: SubprojectLink | null,
 		node: ResolvedSubprojectNode, geometry: SubprojectGeometry, libraryId: string, signal?: AbortSignal, relink = false): Promise<void> {
 		const rendered = await runtime.render(node, geometry, signal);
 		let committed = false;
 		try {
 			assertCurrent(project, signal);
-			await assertSubprojectGraphAcyclic(node.project.id, libraryId, runtime.loadProject, [project.id], signal);
-			const current = await resolveSubprojectGraph(node.project.id, libraryId, runtime.loadProject, [project.id], signal);
+			const current = await admitGraph(node.project.id, libraryId, project.id, signal);
 			assertCurrent(project, signal);
 			if (current.digest !== node.digest) throw new DOMException('The saved subproject changed before publication.', 'AbortError');
 			const link: SubprojectLink = { ...geometry, id: expected?.id ?? runtime.createId('subproject'),
@@ -93,6 +97,7 @@ export function createSubprojectActions(runtime: SubprojectRuntime) {
 	async function refresh(options: { readonly id?: string; readonly force?: boolean; readonly signal?: AbortSignal } = {}): Promise<void> {
 		const original = requireProject(), libraryId = await runtime.getLibraryId();
 		assertCurrent(original, options.signal);
+		let load = cacheSubprojectDocumentReads(runtime.loadProject);
 		for (const initial of readSubprojectLinks(original)) {
 			if (options.id && initial.id !== options.id) continue;
 			const project = requireProject();
@@ -103,10 +108,11 @@ export function createSubprojectActions(runtime: SubprojectRuntime) {
 				if (options.force) throw new RangeError('This subproject belongs to another library. Relink it explicitly to resume updates.');
 				continue;
 			}
-			const node = await resolveSubprojectGraph(link.projectId, libraryId, runtime.loadProject, [project.id], options.signal);
+			const node = await resolveSubprojectGraph(link.projectId, libraryId, load, [project.id], options.signal);
 			assertCurrent(project, options.signal);
 			if (node.digest === link.contentDigest || (!options.force && installed.get(`${project.id}:${link.id}`) === node.digest)) continue;
 			await publish(project, link, node, link, libraryId, options.signal);
+			load = cacheSubprojectDocumentReads(runtime.loadProject);
 		}
 	}
 	return Object.freeze({
@@ -122,8 +128,7 @@ export function createSubprojectActions(runtime: SubprojectRuntime) {
 			const project = requireProject();
 			if (project.id !== id) throw new DOMException('The active project changed.', 'AbortError');
 			const libraryId = await runtime.getLibraryId();
-			await assertSubprojectGraphAcyclic(projectId, libraryId, runtime.loadProject, [project.id]);
-			const node = await resolveSubprojectGraph(projectId, libraryId, runtime.loadProject, [project.id]);
+			const node = await admitGraph(projectId, libraryId, project.id);
 			assertCurrent(project);
 			await publish(project, null, node, runtime.plan(node.project, project.sampleRate), libraryId);
 		}),
@@ -133,8 +138,7 @@ export function createSubprojectActions(runtime: SubprojectRuntime) {
 			const expected = readSubprojectLinks(project).find(link => link.id === id);
 			if (!expected) throw new ReferenceError('Unknown subproject.');
 			const libraryId = await runtime.getLibraryId();
-			await assertSubprojectGraphAcyclic(projectId, libraryId, runtime.loadProject, [project.id]);
-			const node = await resolveSubprojectGraph(projectId, libraryId, runtime.loadProject, [project.id]);
+			const node = await admitGraph(projectId, libraryId, project.id);
 			assertCurrent(project);
 			await publish(project, expected, node, expected, libraryId, undefined, true);
 		}),
