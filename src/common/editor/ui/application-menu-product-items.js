@@ -7,7 +7,7 @@ import { createFramescaperFinishingMenuItems } from './framescaper-finishing-men
 import { createFramescaperNativeServicesMenuItems } from './framescaper-native-services-menu.ts';
 import { createSoundscaperNativeServicesMenuItems } from './soundscaper-native-services-menu.ts';
 import { createSoundscaperWorkflowApplicationMenuItems } from './soundscaper-workflow-product-runtime.tsx';
-import { resolveSelectionRange } from '../selection-range.ts';
+import { resolveVampAnalysisSelection } from '../vamp-analysis-selection.ts';
 import { appendParallelStackProcessingMenu } from './parallel-stack-menu.ts';
 import { createAraApplicationMenuItems } from './ara-application-menu.ts';
 
@@ -16,7 +16,7 @@ export function createApplicationMenuProductTrackItems({ productId, project, edi
 }
 
 export function createApplicationMenuProductItems({
-	productId, capabilities = {}, project, snapshot = {}, editBlocked, copy, actions,
+	productId, capabilities = {}, project, snapshot = {}, durationFrames = 0, editBlocked, copy, actions,
 }) {
 	const nestedSequences = createFramescaperNestedSequenceMenuItems({
 		productId, project, editingBlocked: editBlocked, copy: {
@@ -92,9 +92,7 @@ export function createApplicationMenuProductItems({
 		snapshot: soundscaperNativeRuntime?.snapshot ?? null,
 		analyzerRuntimeAvailable: soundscaperNativeRuntime?.vampAnalyzerAvailable,
 		effectTargetAvailable: Boolean(project?.tracks?.some(track => track.type === 'audio' && track.id === snapshot.selectedTrackId)),
-		analyzerSelectionAvailable: Boolean(resolveSelectionRange(project, {
-			selectedClipId: snapshot.selectedClipId ?? null,
-		})),
+		analyzerSelectionAvailable: Boolean(resolveVampAnalysisSelection(project, snapshot.selectedClipId ?? null, durationFrames)),
 		editingBlocked: editBlocked,
 		readOnly: snapshot.readOnly === true,
 		copy,

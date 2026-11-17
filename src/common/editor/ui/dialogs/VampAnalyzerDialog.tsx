@@ -255,10 +255,15 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 			defaultParams={{ program: null, parameters: defaults(selectedAnalyzer), outputId: selectedAnalyzer.outputs[0]?.id ?? '' }}
 			apply={params => {
 				if (typeof params.outputId === 'string') selectOutput(params.outputId);
-				setProgram(typeof params.program === 'string' && selectedAnalyzer.programs.includes(params.program) ? params.program : null);
+				const nextProgram = typeof params.program === 'string' && selectedAnalyzer.programs.includes(params.program) ? params.program : null;
+				setProgram(nextProgram);
 				const values = params.parameters && typeof params.parameters === 'object' ? params.parameters as Record<string, unknown> : {};
-				setParameters(Object.fromEntries(selectedAnalyzer.parameters.map(parameter => [parameter.id,
-					typeof values[parameter.id] === 'string' || typeof values[parameter.id] === 'number' ? String(values[parameter.id]) : String(parameter.defaultValue)])));
+				const nextParameters = nextProgram === null ? defaults(selectedAnalyzer) : {};
+				for (const { id } of selectedAnalyzer.parameters) {
+					const value = values[id];
+					if (typeof value === 'string' || typeof value === 'number') nextParameters[id] = String(value);
+				}
+				setParameters(nextParameters);
 				setResult(null);
 			}} /> : null}
 		onClose={close}
@@ -294,9 +299,9 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 				<select value={selectedScope} disabled={pending || publishing}
 					onChange={(event) => {
 						const value = event.currentTarget.value;
-						if (value === 'track' || value === 'master') { setSelectedScope(value); setResult(null); }
+						if (value === 'master' || (value === 'track' && props.scope === 'track')) { setSelectedScope(value); setResult(null); }
 					}}>
-					<option value="track">{labels.selectedTrack}</option>
+					<option value="track" disabled={props.scope !== 'track'}>{labels.selectedTrack}</option>
 					<option value="master">{labels.master}</option>
 				</select>
 			</label>

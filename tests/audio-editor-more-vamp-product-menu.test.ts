@@ -21,11 +21,20 @@ test('the shipping Vamp entry reports missing selection and missing analyzer run
 	}
 });
 
-function menu(selection: boolean, runtime: boolean) {
+test('the Analyze menu refuses a selection that extends past the audio timeline', () => {
+	for (const durationFrames of [0, 32_000]) {
+		const item = menu(true, true, durationFrames).analyze.find((item: { id: string }) => item.id === 'native-analyzer-use');
+		assert.ok(item);
+		assert.equal(item.disabled, true);
+		assert.equal('onClick' in item, false);
+	}
+});
+
+function menu(selection: boolean, runtime: boolean, durationFrames = 48_000) {
 	return createApplicationMenuProductItems({ productId: 'soundscaper', capabilities: {},
 		project: { sampleRate: 48_000, tracks: [], clips: [], selection: selection
 			? { startFrame: 0, endFrame: 48_000, trackIds: [], clipIds: [] } : null },
-		snapshot: {}, editBlocked: false, copy: SOUNDSCAPER_NATIVE_SERVICES_COPY,
+		snapshot: {}, durationFrames, editBlocked: false, copy: SOUNDSCAPER_NATIVE_SERVICES_COPY,
 		actions: { soundscaperNativeServices: { vampAnalyzerAvailable: runtime, open() {}, snapshot: {
 			enabled: false, quarantined: false, payloadAvailable: true, payloadDetail: '',
 			pluginEnabled: true, pluginQuarantined: false, pluginPayloadAvailable: true,

@@ -4,7 +4,7 @@ import { createSoundscaperNativeServicesMenuItems } from '../common/editor/ui/so
 import { createSoundscaperWorkflowApplicationMenuItems } from '../common/editor/ui/soundscaper-workflow-application-menu.ts';
 import { appendParallelStackProcessingMenu } from '../common/editor/ui/parallel-stack-menu.ts';
 import { createAraApplicationMenuItems } from '../common/editor/ui/ara-application-menu.ts';
-import { resolveSelectionRange } from '../common/editor/selection-range.ts';
+import { resolveVampAnalysisSelection } from '../common/editor/vamp-analysis-selection.ts';
 
 const EMPTY_ITEMS = Object.freeze([]);
 
@@ -20,7 +20,7 @@ export function createFramescaperVideoFinishingMenuItems() {
 }
 
 export function createApplicationMenuProductItems({
-	productId, capabilities = {}, project, snapshot = {}, editBlocked, copy, actions,
+	productId, capabilities = {}, project, snapshot = {}, durationFrames = 0, editBlocked, copy, actions,
 }) {
 	const workflowRuntime = actions.soundscaperWorkflow || null;
 	const run = actions.run || ((operation) => operation());
@@ -45,9 +45,7 @@ export function createApplicationMenuProductItems({
 		snapshot: nativeRuntime?.snapshot ?? null,
 		analyzerRuntimeAvailable: nativeRuntime?.vampAnalyzerAvailable,
 		effectTargetAvailable: Boolean(project?.tracks?.some(track => track.type === 'audio' && track.id === snapshot.selectedTrackId)),
-		analyzerSelectionAvailable: Boolean(resolveSelectionRange(project, {
-			selectedClipId: snapshot.selectedClipId ?? null,
-		})),
+		analyzerSelectionAvailable: Boolean(resolveVampAnalysisSelection(project, snapshot.selectedClipId ?? null, durationFrames)),
 		editingBlocked: editBlocked,
 		readOnly: snapshot.readOnly === true,
 		copy,

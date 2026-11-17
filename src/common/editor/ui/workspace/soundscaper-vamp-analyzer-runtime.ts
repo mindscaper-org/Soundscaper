@@ -3,7 +3,7 @@
 /** Project-fenced renderer adapter for the menu-opened Vamp analyzer. */
 
 import { createStableId } from '../../stable-id.js';
-import { resolveSelectionRange } from '../../selection-range.ts';
+import { resolveVampAnalysisSelection } from '../../vamp-analysis-selection.ts';
 import {
 	normalizeVampAnalysisRequest,
 	normalizeVampAnalysisResult,
@@ -85,9 +85,8 @@ export function createSoundscaperVampAnalyzerSession(
 	const project = admitProject(options.controller?.project);
 	const port = options.port ?? options.controller?.actions?.analysis?.vamp ?? null;
 	if (project === null || port === null) return null;
-	const durationFrames = positiveSafeInteger(options.durationFrames, 'Vamp project duration');
-	const range = resolveSelectionRange(project, { selectedClipId: options.selectedClipId ?? null });
-	if (!range || range.endFrame > durationFrames) return null;
+	const range = resolveVampAnalysisSelection(project, options.selectedClipId ?? null, options.durationFrames);
+	if (!range) return null;
 	const selectedTrackId = selectedAudioTrackId(project, options.selectedTrackId ?? null);
 	const scope: VampAnalysisScope = selectedTrackId === null ? 'master' : 'track';
 	const projectId = project.id;
@@ -197,11 +196,4 @@ function selectedAudioTrackId(project: VampWorkspaceProject, selectedTrackId: st
 	if (typeof selectedTrackId !== 'string' || selectedTrackId.length === 0) return null;
 	return project.tracks.some((track) => track.id === selectedTrackId && track.type === 'audio')
 		? selectedTrackId : null;
-}
-
-function positiveSafeInteger(value: unknown, name: string): number {
-	if (!Number.isSafeInteger(value) || Number(value) <= 0) {
-		throw new RangeError(`${name} must be a positive safe integer.`);
-	}
-	return Number(value);
 }
