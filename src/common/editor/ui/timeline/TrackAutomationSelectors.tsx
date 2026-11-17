@@ -42,7 +42,7 @@ export function TrackAutomationSelectors({
 	const targetLabel = copy.automationParameter || 'Automation parameter';
 	const modeLabel = copy.automationMode || 'Automation mode';
 	const selectTarget = (event: ChangeEvent<HTMLSelectElement>) => {
-		if (runtime && runtime.snapshot.mode !== 'read') runtime.setMode('read', null);
+		if (runtime && mode !== 'read') runtime.setMode('read', null);
 		onTarget(event.currentTarget.value);
 	};
 
