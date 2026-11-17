@@ -222,10 +222,20 @@ export function validateProjectMidiCarriers(project: Readonly<{
 	sources?: readonly Readonly<Record<string, unknown>>[];
 }>): void {
 	for (const track of project.tracks) readMidiTrack(track);
+	const sources = project.sources;
+	let sourceIndex: Map<unknown, Readonly<Record<string, unknown>>> | undefined;
+	let nextSource = 0;
 	for (const clip of [...project.clips, ...project.binClips ?? []]) {
 		const midi = readMidiClip(clip);
-		if (!midi || !project.sources) continue;
-		const source = project.sources.find(source => source.id === record(clip, 'MIDI clip').sourceId);
+		if (!midi || !sources) continue;
+		sourceIndex ??= new Map();
+		const sourceId = record(clip, 'MIDI clip').sourceId;
+		while (!sourceIndex.has(sourceId) && nextSource < sources.length) {
+			const candidate = sources[nextSource++]!;
+			const id = candidate.id;
+			if (!Number.isNaN(id) && !sourceIndex.has(id)) sourceIndex.set(id, candidate);
+		}
+		const source = sourceIndex.get(sourceId);
 		if (!source || source.kind !== 'audio' || midi.notes.some(note => note.startFrame + note.durationFrames > Number(source.frameCount))) {
 			throw new RangeError('MIDI notes require a complete audio fallback source.');
 		}
