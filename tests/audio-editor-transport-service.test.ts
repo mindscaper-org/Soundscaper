@@ -326,6 +326,22 @@ test('metronome click waits for the audible start of buffered playback', async (
 	fixture.service.stopMetronome();
 });
 
+test('the final cut-preview click ends when the audition ends', async () => {
+	const fixture = createTransportFixture();
+	const stops: (number | undefined)[] = [];
+	fixture.setPlaybackState({ state: 'playing', cutPreview: true });
+	Object.assign(fixture.engine, { getCutPreviewSegments: () => [
+		{ startFrame: 4_800, endFrame: 5_760, contextStartTime: 1 },
+	] });
+	fixture.setAudioContext(metronomeContext(() => {}, when => { stops.push(when); }));
+	fixture.state.metronomeEnabled = true;
+	fixture.state.transportState = 'playing';
+	try {
+		await fixture.service.runMetronomeScheduler();
+		assert.deepEqual(stops, [1.02]);
+	} finally { fixture.service.stopMetronome(); }
+});
+
 test('metronome replaces a queued click when audible playback starts later', async () => {
 	const fixture = createTransportFixture();
 	const starts: number[] = [];

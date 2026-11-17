@@ -397,7 +397,9 @@ export function createEditorTransportService<Project extends TransportProject = 
 			if (!state.metronomeEnabled) return;
 			const plan = cutMetronome.plan(segments, sampleRate, context.currentTime, METRONOME_LOOKAHEAD_SECONDS, scheduleAt);
 			if (plan.changed) stopPendingMetronomeClicks(state);
-			for (const pulse of plan.pulses) emitMetronomeClick(context, engine.getPlaybackDestination?.() ?? context.destination, state, pulse.when, pulse.accent);
+			const last = segments.at(-1);
+			const endTime = last && last.contextStartTime + (last.endFrame - last.startFrame) / sampleRate;
+			for (const pulse of plan.pulses) emitMetronomeClick(context, engine.getPlaybackDestination?.() ?? context.destination, state, pulse.when, pulse.accent, endTime);
 			return;
 		}
 		if (cutMetronome.reset()) stopPendingMetronomeClicks(state);
