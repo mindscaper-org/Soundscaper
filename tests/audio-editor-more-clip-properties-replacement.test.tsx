@@ -40,12 +40,15 @@ for (const panel of [false, true]) test(`${panel ? 'panel' : 'dialog'} clip name
 	await render();
 	await act(async () => { reactProps(input()).onChange({ currentTarget: { value: 'Old draft' }, target: { value: 'Old draft' } }); });
 	const saved = await fixture.store.loadProject(fixture.project.id); assert.ok(saved);
-	const archive = await exportScapeProject(saved, fixture.store); const blob = archive.blob; assert.ok(blob instanceof Blob);
+	// Keep matching clip IDs while making this a genuine replacement rather than an unchanged reopen.
+	const archive = await exportScapeProject({ ...saved, title: 'Replacement project' }, fixture.store); const blob = archive.blob; assert.ok(blob instanceof Blob);
 	const generation = controller.captureProjectGeneration().generation;
+	const decisions: string[] = [];
 	await act(async () => {
-		await controller.actions.project.openScapeFile(new File([blob], 'Replacement.sscape'), () => 'replace');
+		await controller.actions.project.openScapeFile(new File([blob], 'Replacement.sscape'), request => { decisions.push(request.kind); return 'replace'; });
 		controller.actions.timeline.selectClip('voice-clip');
 	});
+	assert.deepEqual(decisions, ['collision']);
 	assert.notEqual(controller.captureProjectGeneration().generation, generation);
 	await render();
 	assert.equal(input().value, 'Voice');

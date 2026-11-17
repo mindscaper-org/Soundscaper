@@ -33,8 +33,10 @@ for (const [mode, grouped] of [['duplicate', false], ['duplicate', true], ['arch
 	const archive = createFramescaperScapeNativeRuntime(PROFILE);
 	if (mode === 'duplicate') await controller.actions.project.duplicate(undefined);
 	else {
-		const saved = await archive.exportScapeProject(original, fixture.environment.store); assert.ok(saved.blob);
-		await controller.actions.project.openScapeFile(new File([saved.blob], 'Cameras.fscape'), () => 'copy');
+		const saved = await archive.exportScapeProject({ ...original, title: 'Archived cameras' }, fixture.environment.store); assert.ok(saved.blob);
+		const decisions: string[] = [];
+		await controller.actions.project.openScapeFile(new File([saved.blob], 'Cameras.fscape'), request => { decisions.push(request.kind); return 'copy'; });
+		assert.deepEqual(decisions, ['collision']);
 	}
 	const copied = await fixture.verifyMedia(controller.project);
 	assert.notEqual(copied.id, original.id); assert.match(copied.title, /copy/iu);

@@ -41,7 +41,10 @@ test('NP052: native Open as copy retains hidden stretch source identity', async 
 	await controller.actions.project.openScapeFile(new File([archive.blob], 'Hidden stretch.sscape'), () => 'copy');
 	assert.equal(controller.getSnapshot().readOnly, false);
 	const originalId = controller.project?.id;
-	await controller.actions.project.openScapeFile(new File([archive.blob], 'Hidden stretch.sscape'), () => 'copy');
+	await controller.actions.project.rename('Newer working copy');
+	const decisions: string[] = [];
+	await controller.actions.project.openScapeFile(new File([archive.blob], 'Hidden stretch.sscape'), request => { decisions.push(request.kind); return 'copy'; });
+	assert.deepEqual(decisions, ['collision']);
 	assert.notEqual(controller.project?.id, originalId);
 	const copied = controller.project;
 	assert.notEqual(copied?.clips[0]?.sourceId, 'source', 'Copy genuinely remapped the occupied native source ID');
