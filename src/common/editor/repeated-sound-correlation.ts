@@ -19,18 +19,24 @@ export async function findRepeatedSoundMatches(
 	let size = 32;
 	while (size < frames + length - 1) size *= 2;
 	await initializePffft();
+	const kernel = new Float64Array(size), kernelImaginary = new Float64Array(size);
+	const real = new Float64Array(size), imaginary = new Float64Array(size);
 	let exampleEnergy = 0;
 	for (let channel = 0; channel < example.length; channel += 1) {
 		const template = example[channel]!, samples = channels[channel]!;
 		const mean = template.reduce((sum, value) => sum + value, 0) / length;
-		const kernel = new Float64Array(size), kernelImaginary = new Float64Array(size);
+		if (channel > 0) {
+			kernel.fill(0, length);
+			kernelImaginary.fill(0);
+			real.fill(0, frames);
+			imaginary.fill(0);
+		}
 		for (let frame = 0; frame < length; frame += 1) {
 			const value = template[length - 1 - frame]! - mean;
 			kernel[frame] = value;
 			exampleEnergy += value * value;
 		}
 		fft(kernel, kernelImaginary);
-		const real = new Float64Array(size), imaginary = new Float64Array(size);
 		real.set(samples);
 		fft(real, imaginary);
 		for (let index = 0; index < size; index += 1) {
@@ -52,15 +58,17 @@ export async function findRepeatedSoundMatches(
 		}
 	}
 	if (exampleEnergy < length * 1e-12) throw new RangeError('The selected example is silent or constant.');
-	const scores = Float64Array.from(dots, (dot, index) => energies[index]! < length * 1e-12 ? 0
-		: Math.min(1, Math.abs(dot) / Math.sqrt(exampleEnergy * energies[index]!)));
+	const score = (index: number): number => energies[index]! < length * 1e-12 ? 0
+		: Math.min(1, Math.abs(dots[index]!) / Math.sqrt(exampleEnergy * energies[index]!));
 	const peaks: RepeatedSoundMatch[] = [];
+	let previous = -1, similarity = score(0);
 	for (let offset = 0; offset < count; offset += 1) {
-		const similarity = scores[offset]!;
-		if (similarity + 1e-6 >= threshold && similarity >= (scores[offset - 1] ?? -1)
-			&& similarity > (scores[offset + 1] ?? -1)) {
+		const next = offset + 1 < count ? score(offset + 1) : -1;
+		if (similarity + 1e-6 >= threshold && similarity >= previous && similarity > next) {
 			peaks.push({ startFrame: offset, endFrame: offset + length, similarity });
 		}
+		previous = similarity;
+		similarity = next;
 	}
 	return selectRepeatedSoundMatches(peaks);
 }

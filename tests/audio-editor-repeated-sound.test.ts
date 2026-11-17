@@ -40,6 +40,22 @@ test('multichannel comparison preserves opposite-phase stereo and ignores silent
 	assert.deepEqual(matches.map(match => match.startFrame), [230]);
 });
 
+test('multichannel repeated-sound detection reuses the FFT workspace and retains only two score inputs', async (t) => {
+	const example = noise(64), recording = noise(512, 17);
+	recording.set(example, 219);
+	await findRepeatedSoundMatches([example], [recording]);
+	const allocated: number[] = [];
+	const Plane = Float64Array;
+	const original = Object.getOwnPropertyDescriptor(globalThis, 'Float64Array')!;
+	Object.defineProperty(globalThis, 'Float64Array', { ...original, value: class extends Plane {
+		constructor(length: number) { super(length); allocated.push(length); }
+	} });
+	t.after(() => { Object.defineProperty(globalThis, 'Float64Array', original); });
+	const matches = await findRepeatedSoundMatches([example, example], [recording, recording]);
+	assert.deepEqual(matches.map(({ startFrame }) => startFrame), [219]);
+	assert.deepEqual(allocated, [449, 449, 1024, 1024, 1024, 1024]);
+});
+
 test('silence, invalid thresholds, non-finite PCM and mismatched channel geometry are refused', async () => {
 	await assert.rejects(findRepeatedSoundMatches([new Float32Array(32)], [noise(64)], .9), /silent/i);
 	await assert.rejects(findRepeatedSoundMatches([noise(32)], [noise(64)], NaN), /threshold/i);
