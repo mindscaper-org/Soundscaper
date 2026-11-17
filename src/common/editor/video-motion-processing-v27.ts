@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { sampleGrayVideoFrameBilinearV1 } from './gray-video-frame-sampling-v1.ts';
+import { collectShiTomasiCandidatesV1 } from './video-motion-shi-tomasi-v27.ts';
 
 /** Deterministic CPU motion processing with an optional GPU execution port. */
 
@@ -86,30 +87,7 @@ export function detectShiTomasiFeaturesV1(
 	const maximumFeatures = boundedInteger(options?.maximumFeatures, 1, MAXIMUM_FEATURES, 'Shi-Tomasi maximum features');
 	const quality = bounded(options?.quality, Number.EPSILON, 1, 'Shi-Tomasi quality');
 	const minimumDistance = bounded(options?.minimumDistance, 0, 256, 'Shi-Tomasi minimum distance');
-	const candidates: ShiTomasiFeatureV1[] = [];
-	let maximumScore = 0;
-	for (let y = 2; y < frame.height - 2; y += 1) {
-		for (let x = 2; x < frame.width - 2; x += 1) {
-			let xx = 0;
-			let xy = 0;
-			let yy = 0;
-			for (let oy = -1; oy <= 1; oy += 1) {
-				for (let ox = -1; ox <= 1; ox += 1) {
-					const gradientX = (pixel(frame, x + ox + 1, y + oy) - pixel(frame, x + ox - 1, y + oy)) / 2;
-					const gradientY = (pixel(frame, x + ox, y + oy + 1) - pixel(frame, x + ox, y + oy - 1)) / 2;
-					xx += gradientX * gradientX;
-					xy += gradientX * gradientY;
-					yy += gradientY * gradientY;
-				}
-			}
-			const trace = xx + yy;
-			const discriminant = Math.sqrt(Math.max(0, (xx - yy) ** 2 + 4 * xy ** 2));
-			const score = (trace - discriminant) / 2;
-			if (score <= 0) continue;
-			maximumScore = Math.max(maximumScore, score);
-			candidates.push(Object.freeze({ x, y, score }));
-		}
-	}
+	const { candidates, maximumScore } = collectShiTomasiCandidatesV1(frame);
 	const threshold = maximumScore * quality;
 	candidates.sort((left, right) => right.score - left.score || left.y - right.y || left.x - right.x);
 	const selected: ShiTomasiFeatureV1[] = [];
@@ -169,6 +147,7 @@ function trackPyramidalLucasKanade(
 	const previousPyramid = getPyramid(previous, requestedLevels);
 	const nextPyramid = getPyramid(next, requestedLevels);
 	const levels = Math.min(previousPyramid.length, nextPyramid.length);
+	const referenceSamples = new Float64Array((2 * windowRadius + 1) ** 2);
 	return Object.freeze(features.map((feature) => {
 		let targetX = feature.x / 2 ** (levels - 1);
 		let targetY = feature.y / 2 ** (levels - 1);
@@ -185,7 +164,7 @@ function trackPyramidalLucasKanade(
 			const result = lucasKanadeLevel(
 				previousPyramid[level]!, nextPyramid[level]!,
 				sourceX, sourceY, targetX, targetY,
-				windowRadius, maximumIterations, epsilon,
+				windowRadius, maximumIterations, epsilon, referenceSamples,
 			);
 			if (result === null) continue;
 			targetX = result.x;
@@ -295,8 +274,15 @@ function lucasKanadeLevel(
 	radius: number,
 	iterations: number,
 	epsilon: number,
+	referenceSamples: Float64Array,
 ): Readonly<{ x: number; y: number; error: number }> | null {
-	if (!inside(previous, sourceX, sourceY, radius + 1)) return null;
+	if (!inside(previous, sourceX, sourceY, radius + 1) || !inside(next, initialX, initialY, radius + 1)) return null;
+	let offset = 0;
+	for (let oy = -radius; oy <= radius; oy += 1) {
+		for (let ox = -radius; ox <= radius; ox += 1) {
+			referenceSamples[offset++] = sampleGrayVideoFrameBilinearV1(previous, sourceX + ox, sourceY + oy);
+		}
+	}
 	let targetX = initialX;
 	let targetY = initialY;
 	let meanError = Number.POSITIVE_INFINITY;
@@ -317,7 +303,7 @@ function lucasKanadeLevel(
 					- sampleGrayVideoFrameBilinearV1(next, nextX - 1, nextY)) / 2;
 				const gradientY = (sampleGrayVideoFrameBilinearV1(next, nextX, nextY + 1)
 					- sampleGrayVideoFrameBilinearV1(next, nextX, nextY - 1)) / 2;
-				const error = sampleGrayVideoFrameBilinearV1(previous, sourceX + ox, sourceY + oy)
+				const error = referenceSamples[count]!
 					- sampleGrayVideoFrameBilinearV1(next, nextX, nextY);
 				xx += gradientX * gradientX;
 				xy += gradientX * gradientY;

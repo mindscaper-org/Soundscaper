@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import {
@@ -161,6 +162,15 @@ test('Shi-Tomasi features and pyramidal Lucas-Kanade tracks are deterministic', 
 	}
 });
 
+test('overlapping Shi–Tomasi windows retain their exact floating-point scores and ordering', () => {
+	const width = 35, height = 15;
+	const samples = Array.from({ length: width * height }, (_, i) => ((i * 73) ^ ((i % width + 1) * i)) % 251 / 251);
+	const frame = createGrayVideoFrameV1({ width, height, samples });
+	const features = detectShiTomasiFeaturesV1(frame, { maximumFeatures: 50, quality: 0.0001, minimumDistance: 1.5 });
+	assert.equal(createHash('sha256').update(JSON.stringify(features)).digest('hex'),
+		'3ae78400ee740ba6b0440afff43e393ab120f2caadfadf1423040b30aef18965');
+});
+
 test('tracking adjacent pairs keeps the same output when reusing the middle pyramid', () => {
 	const frames = [translatedDot(0, 0), translatedDot(1, 1), translatedDot(2, 2)] as const;
 	const track = createAdjacentLucasKanadeTrackerV1();
@@ -173,6 +183,21 @@ test('tracking adjacent pairs keeps the same output when reusing the middle pyra
 		assert.deepEqual(track(previous, next, features, pairOptions),
 			trackPyramidalLucasKanadeV1(previous, next, features, pairOptions));
 	}
+});
+
+test('iterated tracking retains its subpixel tracks, errors and lost border features', () => {
+	const width = 40, height = 32;
+	const frameAt = (dx: number, dy: number) => createGrayVideoFrameV1({
+		width, height, samples: Array.from({ length: width * height }, (_, i) => {
+			const x = i % width - dx, y = Math.floor(i / width) - dy;
+			return ((x * 73 ^ y * 63) & 255) / 255;
+		}),
+	});
+	const tracks = trackPyramidalLucasKanadeV1(frameAt(0, 0), frameAt(1, 1), [
+		{ x: 12.25, y: 11.125, score: 0.1 }, { x: 24, y: 18.5, score: 0.2 }, { x: 3, y: 3, score: 0.3 },
+	], { windowRadius: 3, pyramidLevels: 3, maximumIterations: 24, epsilon: 1e-4 });
+	assert.equal(createHash('sha256').update(JSON.stringify(tracks)).digest('hex'),
+		'99364b64643386ab60be163b720e8f86fa97601a76b8d6912095071c210ab427');
 });
 
 test('deterministic RANSAC recovers a similarity transform and ignores an outlier', () => {
