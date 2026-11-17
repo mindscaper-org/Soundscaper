@@ -1,21 +1,49 @@
 ---
 title: "Soundscaper"
-description: "Tallenna, muokkaa, sekoita, analysoi ja vie monikanavaista ääntä paikallisesti."
+description: "Tallenna, muokkaa, miksaa, analysoi ja vie moniraitaista ääntä paikallisesti."
 sidebar:
   order: 1
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"f817270f3e324e8eda728d34fd6ab03847b617adb5e312cbbe142615c3c4f1a0","model":"qwen3.8:latest","modelDigest":"22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"f817270f3e324e8eda728d34fd6ab03847b617adb5e312cbbe142615c3c4f1a0","targetLocale":"fi"} -->
+<!-- docs-ai-provenance: {"factPacketSha256":"bf2117eaad6e316cda0211ea5d56cf6d694309dc6b17392b58729abcd702c6c4","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"bf2117eaad6e316cda0211ea5d56cf6d694309dc6b17392b58729abcd702c6c4","targetLocale":"fi"} -->
 
-Soundscaper on äänikeskeinen editor. Se yhdistää Audacityn mukaisen valikkorakenteen ja muokkausmallin projektikansioon, tuhoamattomaan moniraitajärjestelyyn, nauhoitukseen, reaaliaikaisiin efekteihin, äänenvoimakkuuden ja taajuuden analyysiin sekä siirrettävään projektivaihtoon.
+Soundscaper on äänen käsittelyyn keskittyvä editori. Se yhdistää Audacityn kaltaiset valikot ja muokkausmallin projektisäiliöön, moniraitaiseen ei-tuhoavaan järjestelyyn, tallennukseen, reaaliaikatehosteisiin, äänenvoimakkuuden ja taajuuksien analysointiin sekä siirrettävien projektien vaihtoon.
 
-## Suositeltu polku
+## Suositeltu eteneminen
 
-1. Seuraa oppasta [Ensimmäinen Soundscaper-projektisi](/tutorials/your-first-project/).
-2. [Aseta nauhoitus](/soundscaper/recording/), jos tarvitset uutta materiaalia.
-3. [Muokkaa, mikkaa ja vie](/soundscaper/edit-mix-and-export/).
-4. Tarkista [tallennus- ja varmuuskopiointikäyttäytyminen](/projects-and-data/storage-backups-and-privacy/).
-5. Valitse [ohje](/guides/) tehtävääsi varten — kohinan poisto, fadeet, äänenvoimakkuus, vienti ja muuta.
+1. Seuraa opasta [Ensimmäinen Soundscaper-projektisi](/tutorials/your-first-project/).
+2. [Määritä tallennus](/soundscaper/recording/), jos tarvitset uutta aineistoa.
+3. [Muokkaa, miksaa ja vie](/soundscaper/edit-mix-and-export/).
+4. Tutustu [tallennukseen ja varmuuskopiointiin](/projects-and-data/storage-backups-and-privacy/).
+5. Valitse tilanteeseesi sopiva [käyttöopas](/guides/) – esimerkiksi kohinanpoisto, häivytys, äänenvoimakkuus tai vienti.
 
-Avaa selaimen editor osoitteessa [soundscaper.org/en](https://soundscaper.org/en/).
+Avaa selaineditori osoitteessa [soundscaper.org/en](https://soundscaper.org/en/).
 
-Työpöytäapua varten katso [paikallinen käsittely, mallit ja lisäosat](/help/local-processing/).
+Työpöytäversion ohjeita on sivulla [Paikallinen käsittely, mallit ja liitännäiset](/help/local-processing/).
+
+Jos haluat seurata tai ohjata muuta kuljetinta, tutustu [aikakoodin synkronointiin](/soundscaper/timecode-synchronization/).
+
+## Toimintojen käyttöoppaat
+
+Valitse alla oleva tehtävä. Kussakin oppaassa kerrotaan tarvittavat asiat, toiminnon avaaminen, tuloksen tarkistaminen ja toiminta tilanteissa, joissa toiminto ei sovellu aineistoosi.
+
+- [Tallenna ja palauta istunnon tilannevedos](/soundscaper/save-session-snapshots/)
+- [Vertaa yhden raidan vaihtoehtoisia muokkauksia](/soundscaper/compare-track-playlists/)
+- [Käytä tallennettua projektia uudelleen linkitettynä äänenä](/soundscaper/reuse-a-subproject/)
+- [Yritä selostusta uudelleen ennakko-osalla](/soundscaper/punch-and-roll-narration/)
+- [Käytä reaaliaikatehosteita yhteen leikkeeseen](/soundscaper/process-one-clip/)
+- [Sovita äänitallenteen sointia](/soundscaper/match-a-voice-recording/)
+- [Kohdista korvaava dialogiotos](/soundscaper/align-a-dialogue-take/)
+- [Vähennä dialogimikrofonien välistä vuotoa](/soundscaper/reduce-microphone-bleed/)
+- [Leikkaa puhuttua ääntä litteroinnin avulla](/soundscaper/edit-a-transcript/)
+- [Vähennä kohinaa toiston aikana](/soundscaper/denoise-during-playback/)
+- [Palauta vaurioitunut puhe paikallisella mallilla](/soundscaper/restore-damaged-speech/)
+- [Muunna tallennetut sävelet muokattavaksi MIDIksi](/soundscaper/turn-audio-into-midi/)
+- [Toista MIDIä soittimella](/soundscaper/play-midi-instruments/)
+- [Tuo äänisessio toisesta editorista](/soundscaper/import-a-daw-session/)
+- [Tarkastele ääntä toiston aikana](/soundscaper/inspect-live-audio/)
+- [Etsi toiston aikana paljon suoritinta käyttäviä tehosteita](/soundscaper/find-expensive-effects/)
+- [Vie silmukka tehostehäntineen](/soundscaper/export-a-seamless-loop/)
+- [Käytä työpöydän ääniliitännäisiä](/soundscaper/use-desktop-plugins/)
+- [Palauta ääntä vaurioituneesta Audacity-projektista](/soundscaper/recover-an-audacity-project/)
+- [Muokkaa raitoja supistetun kansion sisällä](/soundscaper/edit-a-collapsed-folder/)
+- [Renderöi ADM-ohjelma kaiuttimille](/soundscaper/export-adm-speaker-audio/)
