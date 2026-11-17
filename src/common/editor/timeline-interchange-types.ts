@@ -23,7 +23,7 @@ export interface TimelineInterchangeStrip {
 	readonly sends?: readonly Readonly<{ id: string; target: string; level: number; enabled: boolean; position: 'pre-fader' | 'post-fader' }>[];
 }
 
-export type TimelineInterchangeFormat = 'edl' | 'otio' | 'fcpxml' | 'omf' | 'aaf' | 'adl' | 'ardour' | 'soundcraft' | 'protools' | 'hindenburg';
+export type TimelineInterchangeFormat = 'edl' | 'otio' | 'fcpxml' | 'omf' | 'aaf' | 'adl' | 'ardour' | 'soundcraft' | 'protools' | 'hindenburg' | 'reaper';
 export interface TimelineInterchangeClip {
 	readonly id: string;
 	readonly name: string;
