@@ -18,6 +18,7 @@ import type {
 import { createCurrentAudioEditorProject } from '../src/common/editor/project-current.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { projectForCommand } from '../src/common/editor/project-command-projection.ts';
+import { createEffect } from '../src/common/editor/effects.js';
 
 const NOW = '2026-09-10T12:00:00.000Z';
 type PasteCommand = Extract<AudioEditorCommand, { readonly type: 'clipboard/paste' }>;
@@ -179,6 +180,26 @@ test('grouped descriptors and trimmed destinations remain separate clips', async
 	}
 });
 
+test('paste into an existing clip preserves racks on both sides of the paste', async () => {
+	const effect = createEffect('audacity-invert', { id: 'clip-invert' });
+	for (const owner of ['clipboard', 'destination'] as const) {
+		const hasCopiedRack = owner === 'clipboard';
+		const document = currentProject(20, 2, hasCopiedRack ? [] : [effect]);
+		const command = paste(clipboard({ effects: hasCopiedRack ? [effect] : [] }));
+		const projected = projectForCommand(document as unknown as Record<string, unknown>) as unknown as ControllerProject;
+		const fixture = request(command, projected);
+		await commitPasteIntoExistingClipCommand(fixture.input);
+		const result = applyEditorCommand(document, fixture.commits[0]!, { now: NOW });
+		const copied = result.clips.find(clip => clip.id === 'pasted');
+		const existing = result.clips.find(clip => clip.id === 'existing');
+		assert.equal(copied?.kind, 'audio');
+		assert.equal(existing?.kind, 'audio');
+		assert.deepEqual(copied.effects?.map(({ id }) => id) ?? [], hasCopiedRack ? [effect.id] : []);
+		assert.deepEqual(existing.effects?.map(({ id }) => id) ?? [], hasCopiedRack ? [] : [effect.id]);
+		assert.deepEqual(fixture.persisted, []);
+	}
+});
+
 test('ambiguous and overlapping destination geometry refuses both join modes', async () => {
 	for (const neighbor of [clip('containing', 11, 2), clip('tail-neighbor', 13, 2)]) {
 		for (const mode of ['overlap', 'insert-track'] as const) {
@@ -224,7 +245,7 @@ function onlyPaste(command: AudioEditorCommand): PasteCommand {
 	throw new Error('Missing clipboard/paste command.');
 }
 
-function currentProject(laterStartFrame = 20, laterDurationFrames = 2) {
+function currentProject(laterStartFrame = 20, laterDurationFrames = 2, effects: readonly ReturnType<typeof createEffect>[] = []) {
 	const existingSource = createAudioSource({ id: 'existing-source', frameCount: 8, channelCount: 1 });
 	const pastedSource = createAudioSource({ id: 'paste-source', frameCount: 2, channelCount: 1 });
 	const context = {
@@ -234,6 +255,7 @@ function currentProject(laterStartFrame = 20, laterDurationFrames = 2) {
 	const existing = createAudioClip({
 		id: 'existing', sourceId: existingSource.id, timelineStartFrame: 10,
 		sourceStartFrame: 2, sourceDurationFrames: 4, durationFrames: 4,
+		effects,
 	}, context);
 	const later = createAudioClip({
 		id: 'later', sourceId: existingSource.id, timelineStartFrame: laterStartFrame,
