@@ -188,6 +188,9 @@ async function commitImportedSequence(
 		published = options.owner.project;
 		await committedResult;
 		committed = true;
+		if (!sameActivation(options, activation) || record(options.owner.project, 'project').id !== project.id) {
+			throw new Error('The selected nativeMedia project changed after image-sequence publication.');
+		}
 		await options.owner.actions.project.save();
 	} catch (error) {
 		const failures: unknown[] = [error];
@@ -338,8 +341,10 @@ function assertCurrentProject(
 function sameActivation(options: BindFramescaperNativeImageSequenceActionNativeMediaOptions,
 	expected: Readonly<{ generation: number; projectId: string }> | undefined): boolean {
 	if (!expected) return true;
-	const current = options.owner.captureProjectGeneration?.();
-	return current?.generation === expected.generation && current.projectId === expected.projectId;
+	try {
+		const current = options.owner.captureProjectGeneration?.();
+		return current?.generation === expected.generation && current.projectId === expected.projectId;
+	} catch { return false; }
 }
 
 function assertOptions(options: BindFramescaperNativeImageSequenceActionNativeMediaOptions): void {

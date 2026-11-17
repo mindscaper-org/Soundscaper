@@ -456,7 +456,7 @@ test('a queued import is cancelled when its original project has since closed', 
 	let reached = (): void => undefined;
 	const gate = new Promise<void>(resolve => { release = resolve; });
 	const parked = new Promise<void>(resolve => { reached = resolve; });
-	fixture.state.commit = async () => {
+	fixture.state.save = async () => {
 		reached();
 		await gate;
 	};
@@ -469,6 +469,19 @@ test('a queued import is cancelled when its original project has since closed', 
 	await Promise.all([running, queued]);
 	assert.equal(fixture.commands.length, 1);
 	assert.equal(fixture.operations().filter(operation => operation === 'begin').length, 1);
+});
+
+test('an image sequence finishing its edit after a tab switch never saves or undoes the other project', async () => {
+	const fixture = harness();
+	fixture.state.commit = async () => {
+		await Promise.resolve();
+		fixture.state.project = project('replacement-project');
+	};
+	await assert.rejects(fixture.run(fixture.runtime()), /project changed after image-sequence publication/u);
+	assert.equal(fixture.commands.length, 1);
+	assert.equal(fixture.state.saves, 0);
+	assert.equal(fixture.state.undos, 0);
+	assert.deepEqual(fixture.discards, []);
 });
 
 test('binding refuses a controller that has no existing native action runtime', () => {
