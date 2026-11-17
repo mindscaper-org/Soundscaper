@@ -7,6 +7,7 @@ import { ardourMidiTempos } from './ardour-import-midi.ts';
 import { createInterchangeMidiClock } from './interchange-midi-clock.ts';
 import type { InterchangeAutomationPoint } from './interchange-automation.ts';
 import { ardourRouteHasFlag } from './ardour-route-flags.ts';
+import { composeArdourGainCurves } from './ardour-import-gain-curves.ts';
 
 export function ardourAutomationPoints(list: XmlElement, root: XmlElement, sampleRate: number): readonly InterchangeAutomationPoint[] {
 	const interpolation = list.attributes['interpolation-style'] ?? 'Linear';
@@ -39,16 +40,21 @@ export function ardourMixStrip(route: XmlElement, root: XmlElement, sampleRate: 
 	const routeId = route.attributes.id ?? childElement(route, 'IO')?.attributes.id ?? '';
 	const routeInactive = ['0', 'no', 'false'].includes(route.attributes.active ?? childElement(route, 'IO')?.attributes.active ?? '');
 	const processors = childElements(route, 'Processor');
-	const add = (node: XmlElement, parameter: TimelineInterchangeAutomation['parameter'], convert: (value: number) => number = value => value) => {
+	const curves = (node: XmlElement, parameter: TimelineInterchangeAutomation['parameter'], convert: (value: number) => number = value => value) => {
+		const result: TimelineInterchangeAutomation[] = [];
 		for (const list of walkXml(node)) {
 			if (list.name !== 'AutomationList' || !childElement(list, 'events')?.text.trim()) continue;
 			if (['Off', '0'].includes(list.attributes.state ?? '')) continue;
 			try {
 				const points = ardourAutomationPoints(list, root, sampleRate).map(point => ({ ...point, value: convert(point.value) }));
-				automation.push({ parameter, points });
+				result.push({ parameter, points });
 				if (!['Linear', 'Discrete', undefined].includes(list.attributes['interpolation-style'])) issues.push(timelineImportIssue('ardour', 'automation-interpolation-converted', 'Ardour curved interpolation retains its points with linear interpolation.', 'converted'));
 			} catch (error) { issues.push(timelineImportIssue('ardour', 'automation-clock-unsupported', 'An unsupported automation clock was omitted.', 'omitted', { reason: String(error) })); }
 		}
+		return result;
+	};
+	const add = (node: XmlElement, parameter: TimelineInterchangeAutomation['parameter'], convert?: (value: number) => number) => {
+		automation.push(...curves(node, parameter, convert));
 	};
 	const gainProcessors = processors.filter(node => ['amp', 'trim'].includes(node.attributes.type ?? '')
 		&& !['0', 'no', 'false'].includes(node.attributes.active ?? ''));
@@ -84,7 +90,15 @@ export function ardourMixStrip(route: XmlElement, root: XmlElement, sampleRate: 
 			if (!target) { issues.push(timelineImportIssue('ardour', 'external-send-omitted', 'A hardware send has no internal destination.')); continue; }
 			const id = `${routeId}:send:${index}`;
 			const amp = childElement(processor, 'Amplifier') ?? processor;
-			sends.push({ id, target, level: control(amp, 'gaincontrol', 1), enabled: processor.attributes.active !== '0', position }); add(amp, { sendId: id });
+			const prefix = position === 'pre-fader' ? gainProcessors.filter(node => processors.indexOf(node) < index) : [];
+			const factors = [amp, ...prefix].map(node => {
+				const lanes = curves(node, { sendId: id });
+				if (lanes.length > 1) throw new RangeError('An Ardour gain processor has ambiguous automation.');
+				return { gain: control(node, 'gaincontrol', 1), points: lanes[0]?.points ?? [] };
+			});
+			sends.push({ id, target, level: factors.reduce((gain, factor) => gain * factor.gain, 1), enabled: processor.attributes.active !== '0', position });
+			const points = composeArdourGainCurves(factors);
+			if (points) automation.push({ parameter: { sendId: id }, points });
 		} else if (!['amp', 'trim', 'meter', 'main-outs', 'diskreader', 'diskwriter', 'intreturn', 'capture'].includes(type)) {
 			effects.push(interchangeMissingEffect('ardour', `${routeId}:processor:${index}`, processor.attributes.name ?? type, processor, processor.attributes.active !== '0'));
 			issues.push(timelineImportIssue('ardour', 'effect-state-preserved', 'An Ardour processor retains its parameters, automation and serialized state as a bypassed rack entry.', 'converted'));
