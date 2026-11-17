@@ -1,4 +1,5 @@
 import NativePluginEffectHeader from './NativePluginEffectHeader.tsx';
+import ClipRackDialogPortal from './ClipRackDialogPortal.tsx';
 import { useCallback, useEffect, useRef, useState } from 'react'; import { publishedCopyFor } from '../../controller/shared/presentation-localization.ts'; import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { EffectsPanel } from '@soundscaper/design-system/EffectsPanel';
@@ -338,6 +339,7 @@ export function AudioEditorEffectsOverlay({
 				/>
 			</div>}
 			{renderDialogs && effect && (
+				<ClipRackDialogPortal anchor={scope === 'clip' ? rackRef.current : null}>
 				<AudioEditorDialogShell
 					isOpen
 					title={safeEffectLabel(effect, copy)}
@@ -446,6 +448,7 @@ export function AudioEditorEffectsOverlay({
 						/>
 					</section>
 				</AudioEditorDialogShell>
+				</ClipRackDialogPortal>
 			)}
 
 			{renderRack && picker && (
