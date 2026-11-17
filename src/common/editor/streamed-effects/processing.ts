@@ -29,18 +29,19 @@ export async function runStreamedSelectionProcessing(request: StreamedProcessing
 		|| !Number.isFinite(sampleRate) || sampleRate <= 0 || !effects.length || !effects.every(effect => canStreamSelectionEffect(effect.type, effect.params))) {
 		throw new RangeError('Invalid streamed effect geometry or unsupported effect.');
 	}
+	if (effects.every(effect => isStreamedGainEffect(effect.type))) {
+		const stream = await prepareStreamedNormalization({ ...request, read: (start, end) => ports.read(start, end),
+			assertCurrent: ports.assertCurrent, yieldToMainThread: ports.yieldToMainThread });
+		for await (const channels of stream()) { ports.assertCurrent(); await ports.write(channels); ports.assertCurrent(); }
+		return;
+	}
+	if (effects.some(effect => isStreamedGainEffect(effect.type))) throw new RangeError('Normalization requires a staged analysis barrier.');
 	const read = async (start: number, end: number): Promise<Float32Array[]> => {
 		ports.assertCurrent();
 		const channels = [...await ports.read(start, end)]; ports.assertCurrent();
 		if (channels.length !== channelCount || channels.some(channel => channel.length !== end - start)) throw new RangeError('Invalid streamed PCM channel geometry.');
 		assertAudacityEffectOutput(channels); return channels;
 	};
-	if (effects.every(effect => isStreamedGainEffect(effect.type))) {
-		const stream = await prepareStreamedNormalization({ ...request, read, assertCurrent: ports.assertCurrent, yieldToMainThread: ports.yieldToMainThread });
-		for await (const channels of stream()) { ports.assertCurrent(); await ports.write(channels); ports.assertCurrent(); }
-		return;
-	}
-	if (effects.some(effect => isStreamedGainEffect(effect.type))) throw new RangeError('Normalization requires a staged analysis barrier.');
 	let stream: Stream = async function* () {
 		let pending = read(0, Math.min(frameCount, STREAMED_EFFECT_CHUNK_FRAMES));
 		for (let offset = 0; offset < frameCount; offset += STREAMED_EFFECT_CHUNK_FRAMES) {

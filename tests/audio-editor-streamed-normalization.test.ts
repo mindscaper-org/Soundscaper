@@ -53,6 +53,47 @@ test('streamed normalization rejects malformed reads and cancellation before pub
 	await assert.rejects(prepareStreamedNormalization({ ...request, assertCurrent: () => { throw new Error('Cancelled'); } }), /Cancelled/u);
 });
 
+test('streamed normalization measures raw PCM before a borrowed reader reuses its packet', async () => {
+	const source = Float32Array.of(.1, -.25, .5, -.75, .2);
+	const params = { removeDc: true, applyGain: true, peakDb: -3 };
+	const packet = new Float32Array(2);
+	const stream = await prepareStreamedNormalization({
+		effects: [{ type: 'audacity-normalize', params }], sampleRate,
+		frameCount: source.length, channelCount: 1, chunkFrames: packet.length,
+		assertCurrent: () => undefined,
+		read: async (start, end) => {
+			packet.set(source.subarray(start, end));
+			return [packet.subarray(0, end - start)];
+		},
+	});
+	const samples: number[] = [];
+	for await (const [channel] of stream()) samples.push(...channel!);
+	assert.deepEqual(samples, [...applyAudacityNormalize([source], sampleRate, params)[0]!]);
+});
+
+for (const failWrite of [false, true]) test(`a failed read ahead is observed when a normalization write ${failWrite ? 'rejects' : 'settles'}`, async () => {
+	let reads = 0, writes = 0;
+	const stream = await prepareStreamedNormalization({
+		effects: [{ type: 'audacity-amplify', params: { allowClipping: true } }], sampleRate,
+		frameCount: 3, channelCount: 1, chunkFrames: 2, assertCurrent: () => undefined,
+		read: async (start, end) => {
+			reads++;
+			if (start) throw new Error('Source read failed.');
+			return [new Float32Array(end - start)];
+		},
+	});
+	await assert.rejects(async () => {
+		for await (const chunk of stream()) {
+			assert.equal(chunk[0]!.length, 2);
+			assert.equal(reads, 2);
+			writes++;
+			await new Promise<void>(resolve => setImmediate(resolve));
+			if (failWrite) throw new Error('Sink write failed.');
+		}
+	}, failWrite ? /Sink write failed/u : /Source read failed/u);
+	assert.equal(writes, 1);
+});
+
 test('streamed peak normalization retains independent gain, DC-only, subnormal PCM and signed zero', async () => {
 	for (const channels of [input(2, 137), [Float32Array.from([0, -0, 2 ** -149, -(2 ** -149), 0])]]) {
 		for (const params of [{ applyGain: false, removeDc: false }, { applyGain: false, removeDc: true },
