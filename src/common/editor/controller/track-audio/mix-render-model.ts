@@ -215,9 +215,12 @@ export function mixRenderTailFrames(
 		});
 		if (tail !== null) return tail;
 	}
-	const trackTail = Math.max(0, ...targetTracks.map((track) => (
-		track.effectsActive === false ? 0 : rackTailFrames(track.effects || [], sampleRate, 10, lanes)
-	)));
+	const clipTails = new Map(snapshot.clips.map(clip => [clip.id, clip.effectsActive === false ? 0
+		: rackTailFrames((clip.effects ?? []) as readonly ControllerEffect[], sampleRate, 10, lanes)]));
+	const trackTail = Math.max(0, ...targetTracks.map(track => {
+		const clipTail = Math.max(0, ...(track.clipIds ?? []).map(id => clipTails.get(id) ?? 0));
+		return clipTail + (track.effectsActive === false ? 0 : rackTailFrames(track.effects || [], sampleRate, 10, lanes));
+	}));
 	const busTail = (options.includeBuses ?? targetTracks.length > 1)
 		? Math.max(0, ...mixerStrips(snapshot)
 			.map((bus) => bus.effectsActive === false ? 0 : rackTailFrames(bus.effects || [], sampleRate, 10, lanes)))
