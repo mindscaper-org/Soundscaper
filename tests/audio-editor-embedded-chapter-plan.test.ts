@@ -87,7 +87,7 @@ test('last point chapters include delivered effect tails and the final enclosing
 			{ id: 'labels', type: 'label', labels: [{ id: 'one', startFrame: 0, endFrame: 0, title: 'One' }] },
 		],
 	});
-	const plan = createExportPlan(created, { format: 'mp3', range: { startFrame: 0, endFrame: 48_000 }, embedLabelChapters: true });
+	const plan = createExportPlan(created, { format: 'mp3', range: { startFrame: 0, endFrame: 48_000 }, embedLabelChapters: true, includeTail: true });
 	assert.ok(plan.tailFrames > 0);
 	assert.ok(plan.encoding.embeddedChapters);
 	assert.equal(plan.encoding.embeddedChapters[0].endFrame, plan.outputFrames);
