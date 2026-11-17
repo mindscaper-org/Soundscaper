@@ -6,6 +6,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import {
 	bootEditor,
 	chooseCommandAction,
+	chooseNestedCommandAction,
 	collectClientErrors,
 	registerAudioEditorHooks,
 	stubStorageEstimate,
@@ -13,6 +14,8 @@ import {
 import { videoTimingProbeMedia } from './fixtures/video-timing-probe-media.js';
 import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 import { ASSISTANCE_OPERATIONS } from '../../src/common/editor/assistance/operation.ts';
+import { createDeterministicSilentVideoFixture } from './fixtures/deterministic-av-media.js';
+import { completeMilestone7Run, installMilestone7LocalAssistanceFixture, milestone7FixtureSnapshot } from './helpers/milestone-7-local-assistance.js';
 
 // Keep this desktop-assistance workflow focused on consent and publication.
 // This repository-owned VP8 fixture carries the exact container timing
@@ -186,6 +189,41 @@ test.describe('menu-only Local Assistance workflows', () => {
 			.toBeGreaterThan(0);
 		expect(consentMessages).toHaveLength(1);
 		await expect.poll(() => fixtureSnapshot(page).then(({ installCalls }) => installCalls)).toBe(1);
+		expect(errors).toEqual([]);
+	});
+
+	test('closing during Apply selected retains output custody until publication finishes', async ({ page }) => {
+		test.setTimeout(120_000);
+		await stubStorageEstimate(page, { usage: 1024 ** 2, quota: 2 * 1024 ** 3 });
+		await installMilestone7LocalAssistanceFixture(page);
+		const errors = collectClientErrors(page);
+		const editor = await bootEditor(page, '/framescaper/en/');
+		const video = createDeterministicSilentVideoFixture('guided-disposal.webm');
+		await editor.locator('[data-project-bin-input]').setInputFiles([video]);
+		await editor.getByRole('button', { name: `Add to timeline: ${video.name.replace(/\.[^.]+$/u, '')}`, exact: true }).click();
+		const clip = editor.getByRole('group', { name: /^Video clip:/u }).first();
+		await expect(clip).toBeVisible({ timeout: 30_000 });
+		await clip.focus();
+		await page.keyboard.press('Enter');
+		page.on('dialog', dialog => { void dialog.accept(); });
+		await openAssistanceTask(page, editor, 'Index Video');
+		const assistance = page.getByRole('dialog', { name: 'Index Video', exact: true });
+		await assistance.getByRole('button', { name: 'Analyze', exact: true }).click();
+		await expect.poll(() => milestone7FixtureSnapshot(page).then(({ progressEvents }) => progressEvents)).toBe(1);
+		await completeMilestone7Run(page);
+		await assistance.getByRole('button', { name: 'Review result', exact: true }).click();
+		await assistance.getByRole('checkbox', { name: '1 video index rows', exact: true }).check();
+		await page.evaluate(() => { globalThis.__milestone7Fixture.stallNextRead = true; });
+		await assistance.getByRole('button', { name: 'Apply selected', exact: true }).click();
+		await expect.poll(() => milestone7FixtureSnapshot(page).then(({ readWaits }) => readWaits)).toBe(1);
+		await assistance.locator('button').filter({ hasText: /^Close$/u }).click();
+		await expect(assistance).toBeHidden();
+		expect((await milestone7FixtureSnapshot(page)).custodyReleases).toBe(0);
+		await page.evaluate(() => globalThis.__milestone7Fixture.releaseRead());
+		await expect.poll(() => milestone7FixtureSnapshot(page).then(({ custodyReleases }) => custodyReleases)).toBe(1);
+		await chooseNestedCommandAction(page, editor, 'Tools', ['Search', 'Indexed Search']);
+		await editor.getByRole('combobox', { name: 'Search commands and media', exact: true }).fill('Launch Plan');
+		await expect(editor.locator('[data-editor-search-option][data-editor-search-kind="assistance"]').filter({ hasText: 'OCR: Launch Plan' })).toBeVisible();
 		expect(errors).toEqual([]);
 	});
 

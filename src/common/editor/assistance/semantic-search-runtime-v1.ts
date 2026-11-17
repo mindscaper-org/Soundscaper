@@ -30,6 +30,7 @@ const CUSTODY_FIELDS = Object.freeze([
 ]);
 const RECORD_FIELDS = Object.freeze(['kind', 'identitySha256', 'payloadSha256']);
 const RECORD_KINDS = Object.freeze(['embeddings', 'recognized-text', 'visual-index'] as const);
+const MAXIMUM_CUSTODY_RECORDS = 4_095;
 
 export interface AssistanceSemanticSearchProjectAuthorityV1 {
 	readonly schemaFamily: ProjectSchemaFamily;
@@ -180,18 +181,21 @@ function reviewCustody(
 		throw new Error('Semantic-index custody disagrees with current project revision authority.');
 	}
 	if (!Array.isArray(row.records) || row.records.length < 1
-		|| row.records.length > RECORD_KINDS.length) {
+		|| row.records.length > MAXIMUM_CUSTODY_RECORDS) {
 		throw new RangeError('Authenticated semantic-index custody record inventory is invalid.');
 	}
 	let prior = -1;
+	let priorIdentity = '';
 	const kinds = new Set(row.records.map((value, index) => {
 		const record = exactRecord(value, RECORD_FIELDS, `semantic-index custody record ${String(index)}`);
 		const kindIndex = RECORD_KINDS.indexOf(record.kind as typeof RECORD_KINDS[number]);
-		if (kindIndex <= prior || !SHA256.test(String(record.identitySha256))
+		const identity = String(record.identitySha256);
+		if (kindIndex < 0 || kindIndex < prior || kindIndex === prior && identity <= priorIdentity || !SHA256.test(identity)
 			|| !SHA256.test(String(record.payloadSha256))) {
 			throw new TypeError('Authenticated semantic-index custody records are invalid or non-canonical.');
 		}
 		prior = kindIndex;
+		priorIdentity = identity;
 		return RECORD_KINDS[kindIndex]!;
 	}));
 	const index = row.index as AssistanceSemanticIndexV1;

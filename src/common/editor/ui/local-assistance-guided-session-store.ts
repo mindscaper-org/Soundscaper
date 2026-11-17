@@ -2,6 +2,7 @@
 
 /** Guided-workflow selection and honest aggregate-request execution, separate from operation-v1. */
 import { localAssistanceGuidedAcceptanceReview } from './local-assistance-guided-acceptance-review.ts';
+import { normalizePreparationOutcome } from './local-assistance-guided-preparation-outcome.ts';
 import {
 	ASSISTANCE_GUIDED_WORKFLOW_IDS,
 	normalizeAssistanceWorkflowId,
@@ -18,7 +19,6 @@ import {
 	type AssistanceWorkflowV1,
 } from '../assistance/workflow.ts';
 import {
-	validateAssistanceWorkflowReviewAuthorityV1,
 	type AssistanceWorkflowReviewMediaAssetV1,
 	type AssistanceWorkflowReviewAuthorityV1,
 } from '../assistance/workflow-review-authority-v1.ts';
@@ -46,7 +46,6 @@ import {
 import { verifyLocalAssistanceGuidedReviewMediaAuthority as verifyReviewMediaAuthority } from
 	'../controller/assistance/local-assistance-guided-review-media-verification.ts';
 import {
-	LOCAL_ASSISTANCE_GUIDED_PREPARATION_UNAVAILABLE_REASONS,
 	type LocalAssistanceGuidedPreparationUnavailableReason,
 	type LocalAssistanceSelectedMediaPreparationPort,
 } from '../assistance/local-assistance-preparation.ts';
@@ -148,6 +147,7 @@ export function createLocalAssistanceGuidedSessionStore(
 	let controller: AbortController | null = null;
 	let activeJobId: string | null = null;
 	let running: Promise<void> | null = null;
+	let accepting: Promise<void> | null = null;
 	let cancelRequested = false;
 	let disposed = false;
 	const retainedJobs = new Map<string, Readonly<{
@@ -395,7 +395,7 @@ export function createLocalAssistanceGuidedSessionStore(
 			draft, proposalId, sourceFrame, crop, snapshot.highlightSourceTimeAuthority,
 		) });
 	};
-	const accept = async (): Promise<void> => {
+	const executeAcceptance = async (): Promise<void> => {
 		if (!snapshot.canAccept || !snapshot.review || !workflow?.readOutput
 			|| !options.preparation?.acceptGuidedWorkflowResult) {
 			throw new Error('The Guided result has no selected publication ready for acceptance.');
@@ -429,6 +429,11 @@ export function createLocalAssistanceGuidedSessionStore(
 				error: error instanceof Error ? error.message : 'Guided result acceptance failed.' });
 		}
 	};
+	const accept = (): Promise<void> => {
+		if (accepting) return accepting;
+		accepting = executeAcceptance().finally(() => { accepting = null; });
+		return accepting;
+	};
 	const cancel = async (): Promise<void> => {
 		if (!running || !snapshot.canCancel || !workflow) return;
 		cancelRequested = true;
@@ -446,6 +451,7 @@ export function createLocalAssistanceGuidedSessionStore(
 			try { await workflow.cancel(activeJobId); } catch { /* Best-effort disposal. */ }
 		}
 		await running;
+		await accepting;
 		for (const jobId of retainedJobs.keys()) custodyReleases?.track(jobId);
 		retainedJobs.clear();
 		await custodyReleases?.releaseAll();
@@ -565,28 +571,4 @@ class GuidedPreparationUnavailableError extends Error {
 	constructor(reason: LocalAssistanceGuidedPreparationUnavailableReason) {
 		super(`Guided preparation is unavailable: ${reason}`); this.reason = reason;
 	}
-}
-
-function normalizePreparationOutcome(value: unknown): Readonly<{
-	outcome: 'prepared'; workflow: unknown; reviewAuthority: AssistanceWorkflowReviewAuthorityV1;
-}> | Readonly<{
-	outcome: 'unavailable'; reason: LocalAssistanceGuidedPreparationUnavailableReason;
-}> {
-	if (!value || typeof value !== 'object' || Array.isArray(value) || ArrayBuffer.isView(value)) {
-		throw new TypeError('Guided preparation returned an invalid outcome.');
-	}
-	const row = value as Record<string, unknown>;
-	if (row.outcome === 'prepared' && Object.keys(row).length === 3 && Object.hasOwn(row, 'workflow')
-		&& Object.hasOwn(row, 'reviewAuthority')) {
-		return Object.freeze({ outcome: 'prepared', workflow: row.workflow,
-			reviewAuthority: validateAssistanceWorkflowReviewAuthorityV1(row.reviewAuthority) });
-	}
-	if (row.outcome === 'unavailable' && Object.keys(row).length === 2
-		&& LOCAL_ASSISTANCE_GUIDED_PREPARATION_UNAVAILABLE_REASONS.includes(
-			row.reason as LocalAssistanceGuidedPreparationUnavailableReason,
-		)) {
-		return Object.freeze({ outcome: 'unavailable',
-			reason: row.reason as LocalAssistanceGuidedPreparationUnavailableReason });
-	}
-	throw new TypeError('Guided preparation returned an invalid outcome.');
 }

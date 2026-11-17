@@ -16,8 +16,29 @@ import { AssistanceDerivativeRepository } from
 import { getMemoryDatabase } from '../src/common/editor/storage/memory-backend.ts';
 import type { StorageRepositoryPort } from '../src/common/editor/storage/repository-port.ts';
 import { assistanceWorkflowFixture } from './helpers/assistance-workflow-fixture.ts';
+import { createAssistanceSemanticSearchMenuSourceV1 } from '../src/common/editor/assistance/semantic-search-runtime-v1.ts';
 
 const PROJECT_IDENTITY = Object.freeze({ schemaFamily: 'framescaper' as const, schemaVersion: 1 as const });
+
+test('project search retains indexed rows from two sources even when their local row IDs match', async () => {
+	const repository = derivativeRepository();
+	const workflow = assistanceWorkflowFixture();
+	for (const [sourceId, frame] of [['source-a', 10], ['source-b', 20]] as const) {
+		const selected = { ...workflow, fence: { ...workflow.fence,
+			sourceRanges: workflow.fence.sourceRanges.map(range => ({ ...range, sourceId })) } };
+		await repository.save(selected, 'embeddings', payload('transcript', [[1, 0]], [{ resultId: 'chunk:0', timelineFrame: frame, label: sourceId }], [], sourceId));
+	}
+	const authority = { ...PROJECT_IDENTITY, projectId: 'project-a', projectRevision: 8 };
+	const now = Date.now();
+	const session = { sessionVersion: 1 as const, sessionId: 'a'.repeat(40), ...authority, expiresAtEpochMs: now + 60_000 };
+	const source = createAssistanceSemanticSearchMenuSourceV1({ now: () => now, custody: createLocalAssistanceSemanticIndexCustodyV1(repository),
+		sessions: { open: async () => session, authorize: async () => session, revoke: async () => true, embedInstalledQuery: async () => [1, 0] } });
+	const opened = await source.open(authority);
+	try {
+		const found = await opened.coordinator.search('source');
+		assert.deepEqual(found.entries.map(entry => entry.label), ['source-a', 'source-b']);
+	} finally { await opened.dispose(); }
+});
 
 test('semantic custody reopens current transcript, visual, and OCR indexes from disposable records',
 	async () => {
@@ -64,12 +85,13 @@ function payload(
 	vectors: readonly (readonly number[])[],
 	rows: readonly Readonly<{ resultId: string; timelineFrame: number; label: string }>[],
 	ocr: readonly Readonly<{ resultId: string; timelineFrame: number; label: string }>[],
+	sourceId = 'source-a',
 ) {
 	return { mediaType: ASSISTANCE_SEMANTIC_DERIVATIVE_MEDIA_TYPE,
 		bytes: createAssistanceSemanticDerivativeBundleV1({
 			provider, ...PROJECT_IDENTITY,
 			projectId: 'project-a', projectRevision: 8, sequenceId: 'sequence-a',
-			sourceId: 'source-a', matrix: createAssistanceEmbeddingMatrixV1({ dimensions: 2, vectors }),
+			sourceId, matrix: createAssistanceEmbeddingMatrixV1({ dimensions: 2, vectors }),
 			rows, ocr,
 		}) };
 }

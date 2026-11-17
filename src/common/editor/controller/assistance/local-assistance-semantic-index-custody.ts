@@ -3,7 +3,7 @@
 /** Reopen current-revision semantic bundles as authenticated menu-search custody. */
 
 import { compareCodeUnits } from '../../code-unit-order.ts';
-import { createAssistanceEmbeddingMatrixV1 } from '../../assistance/binary-formats-v1.ts';
+import { mergeSemanticSourceIndexes } from './internal/local-assistance-semantic-index-merge.ts';
 import {
 	ASSISTANCE_SEMANTIC_DERIVATIVE_MEDIA_TYPE,
 	reviewAssistanceSemanticDerivativeBundleV1,
@@ -54,13 +54,17 @@ export function createLocalAssistanceSemanticIndexCustodyV1(
 		candidates.sort(newestFirst);
 		const sequenceId = candidates[0]!.bundle.sequenceId;
 		const sequence = candidates.filter(({ bundle }) => bundle.sequenceId === sequenceId);
-		const transcript = sequence.find(({ bundle }) => bundle.provider === 'transcript') ?? null;
-		const visual = sequence.find(({ bundle }) => bundle.provider === 'visual') ?? null;
-		if (!transcript && !visual) return null;
-		const empty = createAssistanceEmbeddingMatrixV1({ dimensions: 1, vectors: [] });
-		const selected = [transcript, visual].filter((value): value is Candidate => value !== null);
+		const latest = new Map<string, Candidate>();
+		for (const entry of sequence) {
+			const key = `${entry.bundle.provider}:${entry.bundle.sourceId}`;
+			if (!latest.has(key)) latest.set(key, entry);
+		}
+		const selected = [...latest.values()];
 		selected.sort((left, right) => KINDS.indexOf(left.record.kind as typeof KINDS[number])
-			- KINDS.indexOf(right.record.kind as typeof KINDS[number]));
+			- KINDS.indexOf(right.record.kind as typeof KINDS[number])
+			|| compareCodeUnits(left.record.identitySha256, right.record.identitySha256));
+		const transcript = mergeSemanticSourceIndexes(selected.filter(({ bundle }) => bundle.provider === 'transcript').map(({ bundle }) => bundle));
+		const visual = mergeSemanticSourceIndexes(selected.filter(({ bundle }) => bundle.provider === 'visual').map(({ bundle }) => bundle));
 		return Object.freeze({
 			custodyVersion: 1 as const,
 			disposition: 'authenticated-disposable' as const,
@@ -78,9 +82,9 @@ export function createLocalAssistanceSemanticIndexCustodyV1(
 				schemaVersion: authority.schemaVersion,
 				projectId: authority.projectId,
 				projectRevision: authority.projectRevision,
-				transcript: embeddedIndex(transcript, empty),
-				visual: embeddedIndex(visual, empty),
-				ocr: visual?.bundle.ocr ?? Object.freeze([]),
+				transcript: Object.freeze({ matrix: transcript.matrix, rows: transcript.rows }),
+				visual: Object.freeze({ matrix: visual.matrix, rows: visual.rows }),
+				ocr: visual.ocr,
 			}),
 		});
 	} });
@@ -105,13 +109,6 @@ function candidate(
 	} catch {
 		return [];
 	}
-}
-
-function embeddedIndex(candidateValue: Candidate | null, empty: Uint8Array) {
-	return Object.freeze({
-		matrix: candidateValue?.bundle.matrixBytes ?? empty,
-		rows: candidateValue?.bundle.rows ?? Object.freeze([]),
-	});
 }
 
 function newestFirst(left: Candidate, right: Candidate): number {

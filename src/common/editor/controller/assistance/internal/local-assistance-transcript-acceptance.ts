@@ -302,7 +302,9 @@ function createTranscriptLabelCommands(
 	if (transcript.segments.length > MAX_TRANSCRIPT_LABEL_COMMANDS) {
 		throw new RangeError('A reviewed transcript exceeds the accepted label ceiling.');
 	}
-	const digestValue = assetId.slice(ASSET_ID_PREFIX.length);
+	const digestValue = bytesToHex(sha256(UTF8.encode(JSON.stringify({
+		assetId, sequenceId: authority.fence.sequenceId, occurrenceIds: [...authority.fence.occurrenceIds].sort(),
+	}))));
 	const trackId = `${TRACK_ID_PREFIX}${digestValue}`;
 	const labels = transcript.segments.map((segment, index) => Object.freeze({
 		id: `${trackId}:segment:${String(index)}`,
@@ -318,12 +320,22 @@ function createTranscriptLabelCommands(
 			[TRACK_EXTENSION_KEY]: { schemaVersion: 1, assetId },
 		},
 	});
-	const existing = authority.tracks.find((track) => track.id === trackId);
+	const legacyId = `${TRACK_ID_PREFIX}${assetId.slice(ASSET_ID_PREFIX.length)}`;
+	const existing = authority.tracks.find((track) => track.id === trackId)
+		?? authority.tracks.find((track) => track.id === legacyId && legacyTrackWithinSelection(track, authority));
 	if (!existing) return Object.freeze([add]);
 	if (existing.type !== 'label' || !ownedTranscriptTrack(existing, assetId)) {
 		throw new Error(`Transcript acceptance track identity ${trackId} is already owned by another edit.`);
 	}
-	return Object.freeze([Object.freeze({ type: 'track/remove' as const, trackId }), add]);
+	return Object.freeze([Object.freeze({ type: 'track/remove' as const, trackId: existing.id as string }), add]);
+}
+
+function legacyTrackWithinSelection(track: Readonly<Record<string, unknown>>, authority: NormalizedAuthority): boolean {
+	return Array.isArray(track.labels) && track.labels.length > 0 && track.labels.every((value: unknown) => {
+		const label = dataRecord(value);
+		return label && Number.isSafeInteger(label.startFrame) && Number.isSafeInteger(label.endFrame)
+			&& Number(label.startFrame) >= authority.timelineStartFrame && Number(label.endFrame) <= authority.timelineEndFrame;
+	});
 }
 
 function projectFrame(sourceFrame: number, authority: NormalizedAuthority): number {

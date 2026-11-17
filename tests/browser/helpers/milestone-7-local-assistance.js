@@ -37,6 +37,10 @@ export async function installMilestone7LocalAssistanceFixture(page, additionalMo
 			latestInput: null,
 			modelCalls: 0,
 			progressEvents: 0,
+			readWaits: 0,
+			custodyReleases: 0,
+			stallNextRead: false,
+			releaseRead: () => undefined,
 			queryCalls: 0,
 			requests: new Map(),
 			stagedInputBodies: new Map(),
@@ -44,6 +48,7 @@ export async function installMilestone7LocalAssistanceFixture(page, additionalMo
 		};
 		const workflowListeners = new Set();
 		const outputReservations = new Map();
+		const releasedJobs = new Set();
 		const opaqueId = () => (state.id++).toString(16).padStart(40, '0');
 		const claim = (custody) => Object.freeze({
 			claimVersion: 1, direction: custody.direction, claimId: custody.claimId,
@@ -89,7 +94,7 @@ export async function installMilestone7LocalAssistanceFixture(page, additionalMo
 					producer: { stageId: request.producer.stageId, slotId: request.producer.slotId,
 						claimId: request.producer.claimId } });
 			},
-			release: async () => true,
+			release: async (jobId) => { state.custodyReleases++; releasedJobs.add(jobId); return true; },
 		});
 		const workflow = Object.freeze({
 			custody,
@@ -132,6 +137,12 @@ export async function installMilestone7LocalAssistanceFixture(page, additionalMo
 			cancel: async (jobId) => Object.freeze({ contractVersion: 1, jobId,
 				outcome: 'cancelled' }),
 			readOutput: async ({ claim: outputClaim }) => {
+				if (state.stallNextRead) {
+					state.stallNextRead = false;
+					state.readWaits++;
+					await new Promise(resolve => { state.releaseRead = resolve; });
+					if (releasedJobs.has(outputClaim.jobId)) throw new Error('Output custody released during acceptance.');
+				}
 				if (!outputReservations.has(outputClaim.claimId)) {
 					throw new Error('Fixture output custody is unavailable.');
 				}
@@ -424,6 +435,7 @@ export async function milestone7FixtureSnapshot(page) {
 			consents: [...state.consents], highlightSourceTimeRows: signals?.sourceTimeAuthority ?? [],
 			modelCalls: state.modelCalls, progressEvents: state.progressEvents,
 			queryCalls: state.queryCalls, stagedSlots: [...state.stagedSlots],
+			readWaits: state.readWaits, custodyReleases: state.custodyReleases,
 			workflowFences: [...state.requests.values()]
 				.map(({ workflowId, fence }) => ({ workflowId, fence })),
 		};
