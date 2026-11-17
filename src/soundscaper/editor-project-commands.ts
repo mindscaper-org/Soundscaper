@@ -2,6 +2,8 @@
 
 import { createMasteringSequenceRuntimeHandlers } from '../common/editor/commands/mastering-sequence-runtime.ts';
 import { hasTrackPlaylistCommand, applyTrackPlaylistCommandTree } from './editor-track-playlist-commands.ts';
+import { applySessionSnapshotCommand } from '../common/editor/commands/session-snapshot-runtime.ts';
+import { SESSION_SNAPSHOT_COMMAND_TYPES, type SessionSnapshotCommand } from '../common/editor/commands/session-snapshot.ts';
 import {
 	applyAssistanceAssetUpsertCommandV1,
 	hasAssistanceAssetUpsertCommandTypeV1,
@@ -91,6 +93,11 @@ export function applySoundscaperProjectCommand(
 	if (hasTrackPlaylistCommand(command)) {
 		return finalize(applyTrackPlaylistCommandTree(project, command,
 			(current, child) => applySoundscaperProjectCommand(current, child, options)), project, options);
+	}
+	if (SESSION_SNAPSHOT_COMMAND_TYPES.some(type => type === command.type)) {
+		const draft = structuredClone(project) as Record<string, unknown>;
+		applySessionSnapshotCommand(draft, command as SessionSnapshotCommand);
+		return finalize(draft, project, options);
 	}
 	if (hasAssistanceAssetUpsertCommandTypeV1(command)) {
 		return applyAssistanceCommand(project, command, options);

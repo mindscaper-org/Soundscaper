@@ -3,6 +3,7 @@
 import type { AutomationLaneV21 } from '../common/editor/automation-lane-v21.ts';
 import { validateTrackPlaylists } from '../common/editor/track-playlists.ts';
 import { validateSubprojectLinks } from '../common/editor/subprojects.ts';
+import { validateSessionSnapshots } from '../common/editor/session-snapshots.ts';
 import {
 	normalizeAssistanceAssetReferencesV1,
 	validateAssistanceAssetSourceBindingsV1,
@@ -112,6 +113,7 @@ function validateAdditions(project: Record<string, unknown>): void {
 	validateAssistanceAssetSourceBindingsV1(assets, project.sources);
 	validateTrackPlaylists(project, validateSoundscaperProject);
 	validateSubprojectLinks(project);
+	validateSessionSnapshots(project, validateSoundscaperProject);
 }
 
 function recordArray(value: unknown, name: string): readonly Readonly<Record<string, unknown>>[] {

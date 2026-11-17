@@ -2,7 +2,6 @@
 
 // Stable command identity, English label, and purpose. Descriptions are localized separately.
 export const MENU_TOOLTIP_COMMANDS: Readonly<Record<string, readonly [string, string]>> = Object.freeze({
-	"track-playlists": ["Track playlists", "Switch between alternate clip arrangements on the selected track while keeping the current mix and other tracks."],
 	'match-eq': ['Match EQ', 'Match the selected audio’s tonal balance to a learned reference or saved voice profile.'],
 	'transcript-based-editing': ['Transcript-based editing', 'Select spoken words to locate and edit their audio on the timeline.'],
 	'panel-transcript-editing': ['Transcript-based editing', 'Select spoken words to locate and edit their audio on the timeline.'],
@@ -45,6 +44,8 @@ export const MENU_TOOLTIP_COMMANDS: Readonly<Record<string, readonly [string, st
 	"overwrite-original-file": ["Overwrite Voice.wav", "Replace the originally opened media with the current rendered result."],
 	"delivery-queue": ["Delivery queue", "Prepare and run several output jobs without setting each one up again."],
 	"subprojects": ["Subprojects", "Reuse an independently editable project as audio that updates when its changes are saved."],
+	"session-snapshots": ["Session snapshots", "Keep named arrangements and mixes that share the project’s audio, and restore them later."],
+	"track-playlists": ["Track playlists", "Switch between alternate clip arrangements on the selected track while keeping the current mix and other tracks."],
 	"delivery-report": ["Delivery Report", "Review the results and any issues from the most recent output job."],
 	"export-other": ["Export other", "Create files for other editing applications or specialized delivery workflows."],
 	"midi-export-file": ["Export MIDI (beta)", "Write note events and timing to a standard musical performance file."],

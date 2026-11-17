@@ -20,6 +20,7 @@ import { createMixerParameterActions } from './internal/mixer-parameter-actions.
 import { createProjectOwnedFeatureActionFacades } from './internal/project-owned-feature-action-facades.ts';
 import { createTimelineAnnotationActionFacade } from '../document/timeline-annotation-action-facade.ts';
 import { createRecordingNotesActionFacade } from '../document/recording-notes-action-facade.ts';
+import { createSessionSnapshotActionFacade } from '../document/session-snapshot-action-facade.ts';
 import { createTrackPlaylistActionFacade } from '../track-audio/track-playlist-action-facade.ts';
 import { createVideoActionGroup } from '../clip-video/video-action-group.ts';
 import { snapshotProductActionExtensions } from './internal/product-action-extensions.ts';
@@ -443,6 +444,9 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 		trackPlaylists: createTrackPlaylistActionFacade({ getProject, commit, createId: createStableId,
 			prepare: afterMidiEdits(() => undefined), assertActive: () => scope.assertActive?.(),
 			captureGeneration: scope.captureProjectGeneration, assertGeneration: scope.assertProjectGeneration }),
+		sessionSnapshots: createSessionSnapshotActionFacade({ getProject, commit, createId: createStableId,
+			prepare: afterMidiEdits(() => flushProject({ prepareCurrentSnapshot: true })), save: saveNow,
+			assertActive: () => scope.assertActive?.(), captureGeneration: scope.captureProjectGeneration, assertGeneration: scope.assertProjectGeneration }),
 		preferences: createPreferenceActionGroup(scope, recordingPreferences),
 		clipSourcePreview: Object.freeze({ ...scope.clipSourcePreviewService }),
 		clip: Object.freeze({

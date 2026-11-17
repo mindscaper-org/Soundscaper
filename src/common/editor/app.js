@@ -589,7 +589,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		setTrackDisplayMode, setTrackRate,
 		startTakeCycleRecording: () => recording.session.startTakeCycleRecording(),
 		state, cleanupDisposableStorage: storageCapacityService.cleanupDisposableStorage, cleanupDerivativeCache: storageCapacityService.cleanupDerivativeCache,
-		store, persistSetting, publishDocumentSnapshot, prepareMicrophoneMeterInputReplacement: microphoneMeterService.prepareInputReplacement,
+		store, persistSetting, publishDocumentSnapshot, captureProjectGeneration: documentScope.captureCurrent, assertProjectGeneration: documentScope.assertCurrent, prepareMicrophoneMeterInputReplacement: microphoneMeterService.prepareInputReplacement,
 		toggleMetronome,
 		toggleSelectionFollowsLoop,
 		recoverTakeCycleRecording: (pending) => takeCycleOpenRecovery.resolve(pending, 'recover'), discardTakeCycleRecording: (pending) => takeCycleOpenRecovery.resolve(pending, 'discard'),

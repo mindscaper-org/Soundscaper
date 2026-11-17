@@ -478,6 +478,7 @@ Product availability follows each product profile’s command filters and each l
 | Selection tool | `select-tool` | F1 | Tools toolbar | Soundscaper, Framescaper | Audacity |
 | Selection toolbar | `local://selection-toolbar` | — | View > Toolbars | Soundscaper, Framescaper | Soundscaper local |
 | Separate Dialogue / Music / Effects | `assistance-task-separate-dialogue-music-effects` | — | Effect > Source Separation | Soundscaper, Framescaper | Soundscaper local |
+| Session snapshots | `session-snapshots` | — | File | Soundscaper | Soundscaper local |
 | Set loop in/out | `set-loop-region-in-out` | I | Select > Looping | Soundscaper, Framescaper | Audacity |
 | Set loop to selection | `set-loop-region-to-selection` | Shift+L | Select > Looping | Soundscaper, Framescaper | Audacity |
 | Set selection to loop | `set-selection-to-loop` | — | Select > Looping | Soundscaper, Framescaper | Audacity |
@@ -548,6 +549,7 @@ Product availability follows each product profile’s command filters and each l
 | Toggle track selection | `track-view-toggle-selection` | Ctrl+Enter; Ctrl+Return; Return; NUMPAD_ENTER | Keyboard navigation | Soundscaper, Framescaper | Audacity |
 | Tone | `generator://tone` | — | Generate | Soundscaper | Audacity |
 | Track headers | `local://track-header-drawer` | — | View | Soundscaper, Framescaper | Soundscaper local |
+| Track playlists | `track-playlists` | — | Tracks | Soundscaper | Soundscaper local |
 | Track sample rate | `action://trackedit/track/change-rate?rate=%1` | — | Clip properties | Soundscaper, Framescaper | Audacity |
 | Track start to cursor | `select-track-start-to-cursor` | Shift+J | Select > Region | Soundscaper, Framescaper | Audacity |
 | Track start to end | `select-track-start-to-end` | — | Select > Region | Soundscaper, Framescaper | Audacity |

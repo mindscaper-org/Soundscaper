@@ -50,6 +50,7 @@ import { PARALLEL_STACK_COPY_BY_LOCALE } from './editor-parallel-stack-copy.ts';
 import { CLIP_SPREADSHEET_COPY_BY_LOCALE } from './editor-clip-spreadsheet-copy.ts';
 import { TRANSCRIPT_EDITING_COPY_BY_LOCALE } from './editor-transcript-editing-copy.ts';
 import { SUBPROJECT_COPY_BY_LOCALE } from './editor-subproject-copy.ts';
+import { SESSION_SNAPSHOT_COPY_BY_LOCALE } from './editor-session-snapshot-copy.ts';
 import { TRACK_PLAYLIST_COPY_BY_LOCALE } from './editor-track-playlist-copy.ts';
 import { ABOUT_DIALOG_COPY_BY_LOCALE } from './editor-about-dialog-copy.ts';
 import { ORIGINAL_FILE_OVERWRITE_COPY_BY_LOCALE } from './editor-original-file-overwrite-copy.ts';
@@ -138,6 +139,7 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'parallelStacks', ...PARALLEL_STACK_COPY_BY_LOCALE },
 	{ owner: 'clipSpreadsheet', ...CLIP_SPREADSHEET_COPY_BY_LOCALE },
 	{ owner: 'transcriptEditing', ...TRANSCRIPT_EDITING_COPY_BY_LOCALE },
+	{ owner: 'sessionSnapshots', ...SESSION_SNAPSHOT_COPY_BY_LOCALE },
 	{ owner: 'subprojects', ...SUBPROJECT_COPY_BY_LOCALE },
 	{ owner: 'trackPlaylists', ...TRACK_PLAYLIST_COPY_BY_LOCALE },
 	{ owner: 'framescaperNative', en: FRAMESCAPER_NATIVE_SERVICES_COPY, aliases: processingAliases },

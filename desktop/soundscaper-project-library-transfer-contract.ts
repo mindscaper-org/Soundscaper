@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { sessionSnapshotProjects } from '../src/common/editor/session-snapshots.ts';
 
 import { createHash } from 'node:crypto';
 
@@ -202,8 +203,9 @@ function createTransferBodies(
 ): readonly Readonly<SoundscaperDesktopProjectLibraryTransferBody>[] {
 	const project = validateSoundscaperDesktopCurrentProject(projectValue);
 	const projectSha256 = digest(projectSha256Value, 'project');
-	const sources = project.sources as readonly Readonly<Record<string, unknown>>[];
-	return Object.freeze(project.tracks.flatMap((trackValue) => {
+	const bodies = [project, ...sessionSnapshotProjects(project)].flatMap(view => {
+	const sources = view.sources as readonly Readonly<Record<string, unknown>>[];
+	return view.tracks.flatMap((trackValue) => {
 		const track = trackValue as Readonly<Record<string, unknown>>;
 		if (!Object.hasOwn(track, 'audioFreeze')) return [];
 		const freeze = normalizeAudioTrackFreezeV1(track.audioFreeze);
@@ -237,7 +239,8 @@ function createTransferBodies(
 			byteLength,
 			sha256,
 		})];
-	}));
+	}); });
+	return Object.freeze([...new Map(bodies.map(body => [body.bindingId, body])).values()]);
 }
 
 function validatedBundle(

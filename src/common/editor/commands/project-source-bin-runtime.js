@@ -5,6 +5,8 @@ import { adoptMidiTransferContext, midiBinTransferContexts } from './midi-transf
 import { createEnvelopeValueEvaluator } from '../automation.js';
 import { setProjectRecordingNotes } from '../recording-notes.ts';
 import { createSubprojectCommandHandlers } from './subproject-runtime.ts';
+import { createSessionSnapshotCommandHandlers } from './session-snapshot-runtime.ts';
+import { sessionSnapshotUsesSource } from '../session-snapshot-media.ts';
 import { trackPlaylistUsesSource } from '../track-playlist-media.ts';
 import { processSourceAudio } from './source-process-audio-runtime.ts';
 import {
@@ -308,7 +310,7 @@ function removeProjectBinSourceFromProject(project, clipId) {
 	const takeSourceIds = collectTakeGroupSourceIds(project);
 	for (const sourceId of sourceIds) {
 		const inUse = takeSourceIds.has(sourceId) || [...project.clips, ...projectBin.clips].some((candidate) => candidate.sourceId === sourceId);
-		if (!inUse && !trackPlaylistUsesSource(project, sourceId)) project.sources = project.sources.filter((source) => source.id !== sourceId);
+		if (!inUse && !sessionSnapshotUsesSource(project, sourceId) && !trackPlaylistUsesSource(project, sourceId)) project.sources = project.sources.filter((source) => source.id !== sourceId);
 	}
 }
 
@@ -431,7 +433,7 @@ function replaceProjectBinMedia(project, command) {
 	const takeSourceIds = collectTakeGroupSourceIds(project);
 	for (const { oldSource } of replacementBySourceId.values()) {
 		const inUse = takeSourceIds.has(oldSource.id) || [...project.clips, ...projectBin.clips].some((clip) => clip.sourceId === oldSource.id);
-		if (!inUse && !trackPlaylistUsesSource(project, oldSource.id)) project.sources = project.sources.filter((source) => source.id !== oldSource.id);
+		if (!inUse && !sessionSnapshotUsesSource(project, oldSource.id) && !trackPlaylistUsesSource(project, oldSource.id)) project.sources = project.sources.filter((source) => source.id !== oldSource.id);
 	}
 }
 
@@ -512,6 +514,7 @@ function setTimeDisplay(project, command) {
 }
 export function createProjectSourceBinRuntimeHandlers(dispatchChild) {
 	return {
+		...createSessionSnapshotCommandHandlers(),
 		...createSubprojectCommandHandlers(),
 		'batch'(project, command) {
 			if (!Array.isArray(command.commands) || !command.commands.length) {

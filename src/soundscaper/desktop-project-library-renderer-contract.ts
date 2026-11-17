@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { sessionSnapshotProjects } from '../common/editor/session-snapshots.ts';
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
@@ -318,8 +319,9 @@ function bodiesForProject(
 ): readonly Readonly<SoundscaperDesktopBody>[] {
 	const project = soundscaperProjectClone(profile, projectValue);
 	const projectDigest = digest(projectSha256, 'project');
-	const sources = project.sources as readonly Readonly<Record<string, unknown>>[];
-	const bodies = project.tracks.flatMap((trackValue) => {
+	const bodies = [project, ...sessionSnapshotProjects(project)].flatMap(view => {
+	const sources = view.sources as readonly Readonly<Record<string, unknown>>[];
+	return view.tracks.flatMap((trackValue) => {
 		const track = trackValue as Readonly<Record<string, unknown>>;
 		if (!Object.hasOwn(track, 'audioFreeze')) return [];
 		const freeze = normalizeAudioTrackFreezeV1(track.audioFreeze);
@@ -345,8 +347,8 @@ function bodiesForProject(
 			byteLength,
 			sha256,
 		})];
-	});
-	return Object.freeze(bodies);
+	}); });
+	return Object.freeze([...new Map(bodies.map(body => [body.bindingId, body])).values()]);
 }
 
 export function validateSoundscaperDesktopBodyChunk(value: unknown, length: number): Uint8Array {
