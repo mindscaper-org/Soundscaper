@@ -59,6 +59,7 @@ export interface MidiPerformanceOccurrence {
 	readonly eligible: boolean;
 	readonly notes: readonly MidiNote[];
 	readonly events: readonly MidiFileEvent[];
+	readonly volumeDefault?: number;
 }
 type PerformanceBoundary = Readonly<{ frame: number; kind: 0 | 1; occurrence: MidiPerformanceOccurrence; channels: ReadonlySet<number> }>;
 type PerformanceEvent = Readonly<{ frame: number; kind: 2; track: number; order: number; event: MidiFileEvent }>;
@@ -68,7 +69,7 @@ type PerformanceMarker = PerformanceBoundary | PerformanceEvent;
 export function quietMidiClipPerformanceEvents(document: MidiFileDocument, occurrences: readonly MidiPerformanceOccurrence[], reserve: (count: number) => void): ReadonlyMap<number, readonly MidiFileEvent[]> {
 	const added = new Map<number, MidiFileEvent[]>();
 	if (!occurrences.some(occurrence => occurrence.eligible)
-		|| !document.tracks.some(track => track.program !== undefined || track.events?.some(event => isMidiPerformanceStateEvent(event) || isMidiProgramStateEvent(event)))) return added;
+		|| !document.tracks.some(track => track.program !== undefined || track.events?.some(event => quietChanges(event).length || isMidiProgramStateEvent(event)))) return added;
 	if (document.tracks.some(track => track.notes.some(note => (note.midiPort ?? 0) !== 0)
 		|| track.events?.some(event => event.status === 240 || event.status === 247
 			|| event.status === 255 && (event.metaType === 9 || event.metaType === 0x20
@@ -82,7 +83,7 @@ export function quietMidiClipPerformanceEvents(document: MidiFileDocument, occur
 		if (data.program !== undefined && !data.events?.some(event => (event.status & 240) === 192)) {
 			markers.push({ frame: 0, kind: 2, track, order: -1, event: { frame: 0, status: 192, data: [data.program] } });
 		}
-		for (const [order, event] of (data.events ?? []).entries()) if (changes(event).length || isMidiProgramStateEvent(event)) markers.push({ frame: event.frame, kind: 2, track, order, event });
+		for (const [order, event] of (data.events ?? []).entries()) if (quietChanges(event).length || isMidiProgramStateEvent(event)) markers.push({ frame: event.frame, kind: 2, track, order, event });
 	}
 	markers.sort((a, b) => a.frame - b.frame || a.kind - b.kind || (a.kind === 2 && b.kind === 2 ? a.track - b.track || a.order - b.order : 0));
 	const active = new Int32Array(16);
@@ -104,14 +105,14 @@ export function quietMidiClipPerformanceEvents(document: MidiFileDocument, occur
 		}
 		for (const { occurrence } of starts) {
 			if (!occurrence.eligible) continue;
-			const own = new Set(occurrence.events.filter(event => event.frame === frame).flatMap(changes).map(key));
+			const own = new Set(occurrence.events.filter(event => event.frame === frame).flatMap(quietChanges).map(key));
 			for (const channel of new Set(occurrence.notes.map(note => note.channel))) {
 				if (active[channel] !== 1) continue;
-				for (const controller of [7, 11, 64, null]) {
+				for (const controller of [1, 7, 10, 11, 64, null]) {
 					const identity = `${(controller === null ? 224 : 176) | channel}:${controller ?? ''}`;
 					const previous = state.get(identity);
 					if (!previous || previous.track !== occurrence.track || own.has(identity)) continue;
-					const reset = defaultState(previous.event);
+					const reset = quietDefault(previous.event, occurrence.volumeDefault ?? 127);
 					if (equivalentPerformanceState(previous.event, reset)) continue;
 					const event = { ...reset, frame };
 					append(occurrence.track, event);
@@ -123,12 +124,23 @@ export function quietMidiClipPerformanceEvents(document: MidiFileDocument, occur
 		for (let cursor = from; cursor < index; cursor += 1) {
 			const marker = markers[cursor]!;
 			if (marker.kind === 2) {
-				for (const event of changes(marker.event)) state.set(key(event), { track: marker.track, event });
+				for (const event of quietChanges(marker.event)) state.set(key(event), { track: marker.track, event });
 				programs.observe(marker.event, marker.track);
 			}
 		}
 	}
 	return added;
+}
+
+function quietChanges(event: MidiFileEvent): readonly MidiFileEvent[] {
+	if ((event.status & 240) === 176 && event.data[0] === 1) return [event];
+	const values = changes(event);
+	return (event.status & 240) === 176 && event.data[0] === 121 ? [...values, { ...event, data: [1, 0] }] : values;
+}
+
+function quietDefault(event: MidiFileEvent, volume: number): MidiFileEvent {
+	return (event.status & 240) === 176 && (event.data[0] === 1 || event.data[0] === 7)
+		? { ...event, frame: 0, data: [event.data[0]!, event.data[0] === 1 ? 0 : volume] } : defaultState(event);
 }
 
 function equivalentPerformanceState(a: MidiFileEvent, b: MidiFileEvent): boolean {

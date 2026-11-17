@@ -78,6 +78,7 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 				}
 				const visible = eventProjection.events(start, sourceFrames, timelineStart, global, initializePerformance);
 				occurrences.push({ track: trackIndex, start: timelineStart, end: timelineEnd, notes: notes.slice(firstOccurrenceNote), events: visible,
+					volumeDefault: metadata.instrument === 'fluidsynth' || metadata.instrument === 'libadlmidi' ? 100 : 127,
 					eligible: Boolean(source && source.sampleRate === project.sampleRate && start === 0 && sourceFrames === source.frameCount
 						&& timelineEnd - timelineStart === sourceFrames && initializePerformance !== true && persistedClip.reversed !== true && persistedClip.warpMap == null) });
 				reserveEvents(visible.length);
