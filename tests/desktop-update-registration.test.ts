@@ -42,7 +42,8 @@ for (const [currentVersion, version, tag, name] of [
 		fetchImpl: async (url: string) => {
 			if (url.startsWith('https://api.github.com/')) {
 				requests++;
-				return Response.json([{ tag_name: tag, prerelease: true, assets: [{ name, size: bytes.length,
+				const unavailable = currentVersion!.startsWith('Soundscaper') ? 'Soundscaper.2026.Nov.12.a' : 'soundscaper-v999.0.0';
+				return Response.json([{ tag_name: unavailable, assets: [] }, { tag_name: tag, prerelease: true, assets: [{ name, size: bytes.length,
 					digest: `sha256:${createHash('sha256').update(bytes).digest('hex')}`,
 					browser_download_url: `https://github.com/LeoWattenberg/Soundscaper/releases/download/${tag}/${name}`,
 				}] }]);

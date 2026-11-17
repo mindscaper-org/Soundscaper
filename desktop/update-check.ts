@@ -5,6 +5,7 @@ const RELEASES_API = 'https://api.github.com/repos/LeoWattenberg/Soundscaper/rel
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const MAXIMUM_RELEASE_PAGES = 50;
 interface GitHubRelease { readonly tag_name: string; readonly draft?: unknown; readonly prerelease?: unknown; readonly assets?: unknown }
+type SupportsRelease = (release: GitHubRelease, version: string) => boolean;
 interface CheckerOptions {
 	readonly currentVersion: string;
 	readonly settings: {
@@ -14,6 +15,7 @@ interface CheckerOptions {
 	readonly fetchImpl?: (url: string, options: RequestInit) => Promise<Pick<Response, 'ok' | 'status' | 'json'>>;
 	readonly now?: () => number;
 	readonly tagPrefix?: string;
+	readonly supportsRelease?: SupportsRelease;
 }
 export type ReleaseCheckResult =
 	| { readonly status: 'available'; readonly version: string; readonly prerelease: boolean }
@@ -28,7 +30,7 @@ export class ReleaseChecker {
 	async check({ manual = false } = {}): Promise<ReleaseCheckResult> {
 		this.#availableRelease = null;
 		this.#availableVersion = null;
-		const { settings, currentVersion, tagPrefix = 'v', fetchImpl = fetch, now = Date.now } = this.#options;
+		const { settings, currentVersion, tagPrefix = 'v', fetchImpl = fetch, now = Date.now, supportsRelease } = this.#options;
 		const snapshot = settings.snapshot();
 		if (!snapshot.updatesEnabled && !manual) return Object.freeze({ status: 'disabled' });
 		const timestamp = now();
@@ -36,7 +38,8 @@ export class ReleaseChecker {
 		const elapsed = timestamp - lastCheck;
 		if (!manual && Number.isFinite(lastCheck) && elapsed >= 0 && elapsed < CHECK_INTERVAL_MS) return Object.freeze({ status: 'throttled' });
 		try {
-			await settings.recordUpdateCheck(timestamp);
+			try { await settings.recordUpdateCheck(timestamp); }
+			catch { /* A read-only settings file does not block a release lookup. */ }
 			const releases: unknown[] = [];
 			const signal = AbortSignal.timeout(10_000);
 			for (let page = 1; page <= MAXIMUM_RELEASE_PAGES; page++) {
@@ -50,7 +53,7 @@ export class ReleaseChecker {
 				if (inventory.length < 20) break;
 				if (page === MAXIMUM_RELEASE_PAGES) throw new Error('Release inventory exceeds pagination limit');
 			}
-			const release = selectUpdate(releases, currentVersion, tagPrefix);
+			const release = selectUpdate(releases, currentVersion, tagPrefix, supportsRelease);
 			const version = release ? versionFromReleaseTag(release.tag_name, tagPrefix) : null;
 			this.#availableRelease = release;
 			this.#availableVersion = version?.text ?? null;
@@ -64,7 +67,7 @@ export class ReleaseChecker {
 	get availableVersion(): string | null { return this.#availableVersion; }
 }
 
-export function selectUpdate(releases: unknown, currentVersion: string, tagPrefix = 'v'): GitHubRelease | null {
+export function selectUpdate(releases: unknown, currentVersion: string, tagPrefix = 'v', supportsRelease?: SupportsRelease): GitHubRelease | null {
 	const current = parseReleaseVersion(currentVersion);
 	if (!current) return null;
 	return (Array.isArray(releases) ? releases as unknown[] : [])
@@ -74,5 +77,6 @@ export function selectUpdate(releases: unknown, currentVersion: string, tagPrefi
 		.filter(({ release, version }) => version && (current.kind !== 'calendar' || version.kind !== 'calendar' || current.product === version.product)
 			&& (version.kind === 'calendar' || isPreviewVersion(current) || (!release.prerelease && !isPreviewVersion(version)))
 			&& compareVersions(version, current) > 0)
-		.sort((left, right) => compareVersions(right.version!, left.version!))[0]?.release ?? null;
+		.sort((left, right) => compareVersions(right.version!, left.version!))
+		.find(({ release, version }) => !supportsRelease || supportsRelease(release, version!.text))?.release ?? null;
 }

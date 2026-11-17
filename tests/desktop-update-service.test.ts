@@ -36,6 +36,23 @@ test('a manual check joining startup retains requested current or error feedback
 	}
 });
 
+test('a manual check overrides automatic throttling and the automatic preference', async () => {
+	for (const skipped of ['disabled', 'throttled']) {
+		const checks: boolean[] = [];
+		const messages: string[] = [];
+		const service = new DesktopUpdateService({ appName: 'Soundscaper', portable: false, windowsStore: false,
+			checkRelease: async ({ manual }) => { checks.push(manual); return { status: manual ? 'current' : skipped }; },
+			showMessage: async options => { messages.push(options.title); return { response: 2 }; },
+			openExternal: async () => {}, install: async () => {}, installPending: async () => false });
+		const automatic = service.check(false);
+		const manual = service.check(true);
+		await automatic;
+		assert.equal((await manual).status, 'current');
+		assert.deepEqual(checks, [false, true]);
+		assert.deepEqual(messages, ['Soundscaper is up to date']);
+	}
+});
+
 test('the update notification offers installation now or next launch and closing skips it', async () => {
 	for (const response of [0, 1, 2]) {
 		const f = fixture(response);

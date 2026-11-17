@@ -43,7 +43,10 @@ export class DesktopUpdateService {
 	async #check(manual: boolean): Promise<UpdateResult> {
 		const d = this.#options;
 		try {
-			const result = await checkDesktopDistributionUpdates({ ...d, manual });
+			let result = await checkDesktopDistributionUpdates({ ...d, manual });
+			if (!manual && this.#manualRequested && (result.status === 'disabled' || result.status === 'throttled')) {
+				result = await checkDesktopDistributionUpdates({ ...d, manual: true });
+			}
 			if (result.status === 'available') {
 				const version = result.version ?? '';
 				const name = version.startsWith(`${d.appName}.`) || version.startsWith(`${d.appName}-`) ? version : `${d.appName} ${version}`;

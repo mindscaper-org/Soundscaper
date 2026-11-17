@@ -63,6 +63,7 @@ export class DesktopSettingsStore {
 	#filePath;
 	#settings = { ...DEFAULTS };
 	#mutationTail = Promise.resolve();
+	#readOnly = false;
 
 	constructor(filePath) {
 		this.#filePath = filePath;
@@ -75,10 +76,12 @@ export class DesktopSettingsStore {
 		} catch (error) {
 			if (error?.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error;
 		}
+		this.#readOnly = Number.isSafeInteger(parsed?.schemaVersion) && parsed.schemaVersion > SETTINGS_SCHEMA_VERSION;
 		this.#settings = validateSettings({ ...validateSettings(parsed), ...launchPreferences });
 		if (!this.#settings.locale) {
 			const locale = resolveLocale(preferredLocales, SUPPORTED_LOCALES);
-			await this.#update((settings) => ({ ...settings, locale }));
+			if (this.#readOnly) this.#settings = { ...this.#settings, locale };
+			else await this.#update((settings) => ({ ...settings, locale }));
 		}
 		return this.snapshot();
 	}
@@ -255,6 +258,7 @@ export class DesktopSettingsStore {
 	/** Whole-file replacements must observe and commit in invocation order. */
 	#update(project) {
 		const mutation = this.#mutationTail.then(async () => {
+			if (this.#readOnly) throw new Error('These desktop preferences were created by a newer version.');
 			const next = project(this.#settings);
 			await this.#write(next);
 			this.#settings = next;

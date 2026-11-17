@@ -10,8 +10,13 @@ export function createDesktopUpdates({ app, appName, tagPrefix, storage, setting
 	currentVersion = app.getVersion(), platform = process.platform, arch = process.arch, windowsStore = process.windowsStore, appImage = process.env.APPIMAGE, fetchImpl = fetch, policyAllowed = true }) {
 	const available = !storage.portable && windowsStore !== true && policyAllowed;
 	handle(UPDATE_PREFERENCES_CHANNEL, (_event, enabled) => updatePreferences(settings, available, enabled));
-	const checker = new ReleaseChecker({ currentVersion, settings, tagPrefix, fetchImpl });
 	const target = { productName: appName, tagPrefix, platform, arch, appImage: !!appImage };
+	const checker = new ReleaseChecker({ currentVersion, settings, tagPrefix, fetchImpl,
+		supportsRelease: (release, version) => {
+			try { selectUpdateInstaller(release, { ...target, version }); return true; }
+			catch { return false; }
+		},
+	});
 	const installation = new DesktopUpdateInstallation({
 		root: join(storage.stateRoot, 'updates'), currentVersion,
 		fetchImpl,
