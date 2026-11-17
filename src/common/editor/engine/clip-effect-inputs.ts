@@ -20,8 +20,8 @@ export function projectClipEffectLatencyFrames(project: EngineProject, sampleRat
 /** Build once per clip, shared by loop repeats, warp segments and chunk sources. */
 export function buildClipEffectInputs(context: BaseAudioContext, project: EngineProject, plan: ClipEffectLatencyPlan,
 	trackInputs: Map<string, AudioNode>, nodes: AudioNodeArray, options: EffectRackOptions, onlyTrackId: unknown = null): void {
-	if (!plan.hasActiveEffects) return;
 	const { clips, maximumLatencyFrames: maximumLatency } = plan;
+	if (![...plan.clipPlans.keys()].some(id => activeRackEffects(clips.get(id)).some(effect => effect.enabled !== false && effect.bypassed !== true))) return;
 	const widths = new Map((project.sources ?? []).map(source => [source.id, source.channelCount ?? 2]));
 	const detectorInputs = new Map<string, AudioNode>();
 	for (const track of project.tracks ?? []) {

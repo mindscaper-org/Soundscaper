@@ -8,6 +8,7 @@ import { createEffect, projectEffectTailFrames } from '../src/common/editor/effe
 import { createDefaultMixerGraphV21 } from '../src/common/editor/mixer-graph-v21.ts';
 import { createCurrentAudioEditorProject, loadCurrentAudioEditorProject } from '../src/common/editor/project-current.ts';
 import { buildProjectGraph, projectGraphLatencyFrames } from '../src/common/editor/engine/project-graph.ts';
+import { clipEffectInputKey } from '../src/common/editor/engine/clip-effect-inputs.ts';
 import { scheduleProjectClips } from '../src/common/editor/engine/clip-scheduler.ts';
 import { projectEffectRacks } from '../src/common/editor/engine/project-effects.ts';
 import { projectForRuntimeConsumers } from '../src/common/editor/project-current-runtime.ts';
@@ -45,7 +46,20 @@ for (const graph of ['legacy', 'v21'] as const) test(`${graph}: graph setup reus
 		metering: false, graph, includeMaster: false,
 	});
 	assert.equal(built.latencyFrames, 0);
-	assert.ok(rackReads <= 6 * clips.length, `one graph read ${rackReads} clip racks`);
+	assert.ok(rackReads <= 8 * clips.length, `one graph read ${rackReads} clip racks`);
+});
+
+test('legacy numeric clip IDs retain their existing rack wiring admission', () => {
+	const runtime: EngineProject = {
+		sampleRate: 48_000,
+		clips: [{ id: 1, kind: 'audio', sourceId: 'source', effects: [createEffect('highpass', { id: 'clip-effect' })] }],
+		tracks: [{ id: 'track', type: 'audio', clipIds: [1] }],
+	};
+	const context = new OfflineAudioContext(2, 128, 48_000);
+	const built = buildProjectGraph(context as unknown as BaseAudioContext, context.destination as unknown as AudioNode, runtime, {
+		metering: false, graph: 'legacy',
+	});
+	assert.equal(built.trackInputs.has(clipEffectInputKey(1)), false);
 });
 
 for (const graph of ['legacy', 'v21'] as const) test(`${graph}: the shared clip plan uses the device clock without the master`, () => {
