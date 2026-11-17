@@ -39,6 +39,7 @@ export function createApplicationMenuProductItems({
 		},
 	}, { execute: actions.executeMulticameraCommand });
 	const workflowRuntime = actions.soundscaperWorkflow || null;
+	const run = actions.run || ((operation) => operation());
 	const soundscaperWorkflows = createSoundscaperWorkflowApplicationMenuItems({
 		productId,
 		capabilities: workflowRuntime ? capabilities : {},
@@ -51,7 +52,7 @@ export function createApplicationMenuProductItems({
 		copy,
 	}, {
 		openMasteringSequences: () => workflowRuntime?.openMasteringSequences?.(),
-		freeze: (operation, trackId) => workflowRuntime?.freeze(operation, trackId),
+		freeze: (operation, trackId) => run(() => workflowRuntime?.freeze(operation, trackId)),
 	});
 	const nativeRuntime = actions.framescaperNativeServices || null;
 	const authoringRuntime = actions.framescaperCandidateAuthoring || null;
