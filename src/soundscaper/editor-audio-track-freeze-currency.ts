@@ -3,6 +3,7 @@
 import { audioTrackFreezeRenderFingerprintV1 } from '../common/editor/audio-track-freeze-v21.ts';
 import type { SoundscaperProject } from './editor-project.ts';
 import type { EditorProjectToken } from '../common/editor/controller/shared/lifecycle.ts';
+import { hasSoundscaperFreezeSidechain } from './editor-audio-track-freeze-sidechain.ts';
 
 type DataRecord = Readonly<Record<string, unknown>>;
 
@@ -81,18 +82,23 @@ export function soundscaperFreezeRenderFingerprint(
 	);
 	const clips = records(document.clips).filter((clip) => clipIds.has(String(clip.id)));
 	const sourceIds = [...new Set(clips.map((clip) => String(clip.sourceId)))].sort();
-	const sources = records(document.sources);
-	return audioTrackFreezeRenderFingerprintV1({
+	const sources = new Map(records(document.sources).map(source => [source.id, source]));
+	const fingerprint = audioTrackFreezeRenderFingerprintV1({
 		sampleRate: Number(document.sampleRate),
 		track,
 		clips,
 		sourceContentIdentities: sourceIds.map((sourceId) => Object.freeze({
 			sourceId,
-			contentSha256: persistedContentDigest(sources, sourceId),
+			contentSha256: persistedContentDigest(sources.get(sourceId)),
 		})),
 		automationLanes: records(document.automationLanes),
 		tempoMap: document.tempoMap ?? null,
 	});
+	const bindings = sourceIds.map(id => {
+		const source = sources.get(id);
+		return [source?.storageKey, source?.sampleRate, source?.frameCount, source?.channelCount, source?.chunkFrames];
+	});
+	return JSON.stringify([fingerprint, hasSoundscaperFreezeSidechain(document, track), bindings]);
 }
 
 /**
@@ -102,8 +108,7 @@ export function soundscaperFreezeRenderFingerprint(
  * no persisted digest is compared as itself; the authoritative content check
  * happens at publication, where the bytes have actually been read.
  */
-function persistedContentDigest(sources: readonly DataRecord[], sourceId: string): string {
-	const source = sources.find((candidate) => String(candidate.id) === sourceId);
+function persistedContentDigest(source: DataRecord | undefined): string {
 	const digestValue = source?.contentSha256;
 	return typeof digestValue === 'string' && /^[a-f0-9]{64}$/u.test(digestValue)
 		? digestValue

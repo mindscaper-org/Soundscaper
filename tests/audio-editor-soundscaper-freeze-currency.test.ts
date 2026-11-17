@@ -133,14 +133,16 @@ test('a rack another strip keys cannot be frozen into a self-keyed render', asyn
 	const { applySoundscaperProjectCommand } = await import(
 		'../src/soundscaper/editor-project-commands.ts'
 	);
-	const { createAudioTrack } = await import('../src/common/editor/project-media-factory.ts');
+	const { createAudioClip, createAudioSource, createAudioTrack } = await import('../src/common/editor/project-media-factory.ts');
 	const { createSoundscaperProject } = await import('../src/soundscaper/editor-project.ts');
 
 	const base = createSoundscaperProject({
 		id: 'freeze-sidechain', title: 'Freeze sidechain', now: '2026-08-19T12:00:00.000Z',
+		sources: [createAudioSource({ id: 'source', frameCount: 8, sampleRate: 48_000, channelCount: 1 })],
+		clips: [createAudioClip({ id: 'clip', sourceId: 'source', durationFrames: 8 })],
 		tracks: [
 			createAudioTrack({
-				id: 'voice', name: 'Voice', clipIds: [],
+				id: 'voice', name: 'Voice', clipIds: ['clip'],
 				effects: [{ id: 'voice-fx', type: 'limiter', enabled: true, params: {} }],
 			}),
 			createAudioTrack({ id: 'music', name: 'Music', clipIds: [] }),

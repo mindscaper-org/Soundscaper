@@ -23,6 +23,7 @@ import type { StorageRecord } from '../common/editor/storage/media-records.ts';
 import type { AudioSourceWriter } from '../common/editor/storage/source-write-repository.ts';
 import type { TransientAnalysisPcmStore } from '../common/editor/controller/analysis/transient-analysis-pcm-access.ts';
 import type { SoundscaperProject } from './editor-project-validation.ts';
+import { assertSoundscaperFreezeHasNoSidechain } from './editor-audio-track-freeze-sidechain.ts';
 import {
 	arrayValue, dataArray, dataRecord, exactRecordById, nonNegativeInteger,
 	positiveInteger, safeAdd, stableId, throwIfAborted, type DataRecord,
@@ -71,6 +72,7 @@ export function planFreezeRange(project: SoundscaperProject, trackId: string) {
 	const runtime = resolveRuntimeProjectProjection(project);
 	assertFreezeRackWidth(runtime, trackId);
 	const track = exactRecordById(runtime.tracks, trackId, 'audio freeze track');
+	assertSoundscaperFreezeHasNoSidechain(project, track);
 	const clips = arrayValue(track.clipIds, 'audio freeze track.clipIds')
 		.map((id) => exactRecordById(runtime.clips, String(id), 'audio freeze clip'));
 	if (clips.length === 0) throw new RangeError('An empty audio track cannot be frozen.');
@@ -106,6 +108,7 @@ export async function renderFreezeBody(
 	const runtime = resolveRuntimeProjectProjection(request.project);
 	assertFreezeRackWidth(runtime, request.trackId);
 	const track = exactRecordById(runtime.tracks, request.trackId, 'audio freeze render track');
+	assertSoundscaperFreezeHasNoSidechain(request.project, track);
 	const ownedIds = new Set(arrayValue(track.clipIds, 'audio freeze render track.clipIds').map(String));
 	const runtimeClips = dataArray(runtime.clips, 'runtime project.clips');
 	const clips = runtimeClips.filter((clip) => ownedIds.has(String(clip.id)));
@@ -160,11 +163,12 @@ export async function renderFreezeBody(
 			signal: request.signal,
 		});
 		assertCurrentSoundscaperFreezeProject(controller, ticket);
-		const channels = Object.freeze(audioBufferChannels(rendered as AudioBuffer | PlanarPcm)
-			.map((channel) => channel.slice()));
-		if (channels.length === 0 || channels.some((channel) => channel.length !== request.renderFrameCount)) {
+		const output = audioBufferChannels(rendered as AudioBuffer | PlanarPcm);
+		if (output.length !== renderProject.masterChannels || output.some(channel => channel.length !== request.renderFrameCount)
+			|| ('sampleRate' in rendered && rendered.sampleRate !== request.sampleRate)) {
 			throw new RangeError('The offline freeze renderer returned unexpected PCM geometry.');
 		}
+		const channels = Object.freeze(output.map(channel => channel.slice()));
 		const body = Object.freeze({ channels, frameCount: request.renderFrameCount, sampleRate: request.sampleRate });
 		return Object.freeze({ body, frameCount: body.frameCount, sampleRate: body.sampleRate, channelCount: channels.length });
 	} catch (error) {
