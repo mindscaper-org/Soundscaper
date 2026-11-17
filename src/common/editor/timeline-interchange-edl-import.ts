@@ -15,6 +15,7 @@ interface Event {
 	readonly recordOut: number;
 	name: string;
 	path: string;
+	sourceFile?: string;
 }
 
 export function parseEdlTimeline(text: string, requestedRate?: Rational): TimelineInterchangeDocument {
@@ -54,7 +55,7 @@ export function parseEdlTimeline(text: string, requestedRate?: Rational): Timeli
 			const clipName = line.match(/^\*\s*FROM CLIP NAME:\s*(.+?)\s*$/iu);
 			const sourceFile = line.match(/^\*\s*(?:SOURCE FILE|FROM FILE):\s*(.+?)\s*$/iu);
 			if (clipName) for (const event of previous) { event.name = clipName[1]!; event.path = clipName[1]!; }
-			if (sourceFile) for (const event of previous) event.path = sourceFile[1]!;
+			if (sourceFile) for (const event of previous) event.sourceFile = sourceFile[1]!;
 			if (/^M2\s/u.test(line)) issues.push(timelineImportIssue('edl', 'motion-omitted', 'EDL M2 motion records are omitted.'));
 		}
 	}
@@ -70,8 +71,8 @@ export function parseEdlTimeline(text: string, requestedRate?: Rational): Timeli
 		const clips: TimelineInterchangeTrack['clips'][number][] = [];
 		for (const event of events.filter(event => event.kind === kind)) {
 			if (event.reel === 'BL') continue;
-			const mediaId = `${kind}:${event.path}`;
-			if (!media.some(item => item.id === mediaId)) media.push({ id: mediaId, path: event.path, name: event.name, kind, rate });
+			const path = event.sourceFile ?? event.path, mediaId = `${kind}:${path}`;
+			if (!media.some(item => item.id === mediaId)) media.push({ id: mediaId, path, name: event.name, kind, rate });
 			clips.push({ id: event.id, name: event.name, mediaId, start: seconds(event.recordIn - startFrameCount), duration: seconds(event.recordOut - event.recordIn), sourceStart: seconds(event.sourceIn) });
 		}
 		if (clips.length) tracks.push({ id: kind, name: kind === 'video' ? 'Video' : 'Audio', kind, clips });
