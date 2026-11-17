@@ -4,7 +4,7 @@ import { getTransientNodes, releaseTransientNodes } from './audio-node-utils.ts'
 import { createEffectSpectrumBank, PARAMETRIC_EQ_SPECTRUM_FFT_SIZE, readSpectrumChannels,
 	type EffectSpectrumMetadata, type SpectrumAnalyserNode } from './effect-spectrum.ts';
 import type { ProjectGraph } from './project-graph.ts';
-import { canonicalStripRefKey } from '../parameter-address.ts';
+import { mixerEndpointKeyV21 } from '../mixer-signal-edge-v21.ts';
 import { ENGINE_ASSERT_ACTIVE } from './runtime-symbols.ts';
 import type { EngineRuntimeMethodMap } from './runtime-types.ts';
 
@@ -55,7 +55,7 @@ export function createPlaybackSpectrumSession(owner: {
 			if (!tap) {
 				const source = trackId === null ? graph.masterAnalyser : graph.trackAnalysers.get(trackId);
 				if (!source) return null;
-				const key = canonicalStripRefKey(trackId === null ? { kind: 'master' } : { kind: 'track', id: trackId });
+				const key = mixerEndpointKeyV21(trackId === null ? { kind: 'master' } : { kind: 'track', id: trackId });
 				const width = graph.productionStripAnalysersV21?.get(key)?.analysers.length ?? 2;
 				const nodes = new Set<AudioNode>();
 				try {

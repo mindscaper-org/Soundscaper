@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createPlaybackSpectrumSession } from '../src/common/editor/engine/playback-spectrum.ts';
 import type { ProjectGraph } from '../src/common/editor/engine/project-graph.ts';
-import { canonicalStripRefKey } from '../src/common/editor/parameter-address.ts';
+import { mixerEndpointKeyV21 } from '../src/common/editor/mixer-signal-edge-v21.ts';
 
 function fixture() {
 	const nodes: Array<AudioNode & { disconnected: boolean }> = [];
@@ -94,7 +94,7 @@ test('playback spectrum taps honor mono and surround strip channel counts', () =
 		const f = fixture();
 		const graph = f.owner.graph!;
 		const strip = { kind: 'track' as const, id: 'bass' };
-		f.owner.graph = { ...graph, productionStripAnalysersV21: new Map([[canonicalStripRefKey(strip), {
+		f.owner.graph = { ...graph, productionStripAnalysersV21: new Map([[mixerEndpointKeyV21(strip), {
 			strip, output: graph.trackAnalysers.get('bass')!, channelLabels: [],
 			analysers: Array.from({ length: width }, () => graph.masterAnalyser!),
 		}]]) };
