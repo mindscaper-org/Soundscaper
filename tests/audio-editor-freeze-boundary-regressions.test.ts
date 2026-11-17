@@ -60,7 +60,7 @@ function addSidechain(project: ReturnType<typeof projectFixture>) {
 		destination: { kind: 'effect-sidechain', strip: { kind: 'track', id: 'voice' }, effectId: 'limiter' },
 		position: 'pre-fader', level: 1, enabled: true, channelMap: [],
 	};
-	return applySoundscaperProjectCommand(project, { type: 'mixer-graph/set', expected: project.mixer,
+	return applySoundscaperProjectCommand(project, { type: 'mixer-graph/set', expected: { ...project.mixer },
 		mixer: { ...project.mixer, edges: [...project.mixer.edges, edge] } });
 }
 
@@ -146,8 +146,14 @@ test('freeze rejects incorrectly widened offline PCM instead of changing the tra
 test('freeze rejects an AudioBuffer from a different clock', async context => {
 	const project = projectFixture(), state = await fixture(context, project);
 	const range = planFreezeRange(project, 'voice');
-	const foreignClock = { numberOfChannels: WIDTH, sampleRate: 44_100, length: range.renderFrameCount,
-		getChannelData: () => new Float32Array(range.renderFrameCount) } as AudioBuffer;
+	const samples = new Float32Array(range.renderFrameCount);
+	const sampleRate = 44_100;
+	const foreignClock: AudioBuffer = {
+		numberOfChannels: WIDTH, sampleRate, length: samples.length, duration: samples.length / sampleRate,
+		getChannelData: () => samples,
+		copyFromChannel(destination, _channel, start = 0) { destination.set(samples.subarray(start, start + destination.length)); },
+		copyToChannel(source, _channel, start = 0) { samples.set(source.subarray(0, samples.length - start), start); },
+	};
 	await assert.rejects(renderFreezeBody(state.store, { project }, () => ({
 		loadProject() {}, renderTrack: () => Promise.resolve(foreignClock), async dispose() {},
 	}), { project, trackId: 'voice', sampleRate: RATE, ...range }), /sample rate|clock|geometry/iu);
