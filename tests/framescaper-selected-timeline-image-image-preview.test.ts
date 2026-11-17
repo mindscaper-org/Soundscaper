@@ -17,6 +17,7 @@ import { resizeVideoRgbaNearest } from '../src/common/editor/video-rgba-nearest-
 import { shouldRenderExactProductVideoPreview } from '../src/common/editor/ui/workspace/video-preview-exact-render-policy.ts';
 import type { ProductVideoVisualPreviewSession } from '../src/common/editor/ui/workspace/product-video-visual-preview-runtime.ts';
 import { applyFramescaperProjectCommandTimelineImage } from '../src/framescaper/editor-project-timeline-image-commands.ts';
+import { createFramescaperImageClipIndex } from '../src/framescaper/editor-timeline-image-clip-index.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
 import {
 	assetStore,
@@ -42,6 +43,19 @@ import {
 } from './helpers/framescaper-timeline-image-preview-fixture.ts';
 
 type Data = Record<string, unknown>;
+
+test('image clip queries preserve layer order, exact ends, and overlapping clips during seeks', () => {
+	const contexts = [
+		{ clip: imageClip('early-end', undefined, { sequenceStartFrame: 2, sequenceFrameCount: 2 }) },
+		{ clip: imageClip('later', undefined, { sequenceStartFrame: 4, sequenceFrameCount: 3 }) },
+		{ clip: imageClip('background', undefined, { sequenceFrameCount: 10 }) },
+	];
+	const clipsAt = createFramescaperImageClipIndex(contexts);
+	for (const [frame, ids] of [[4, ['later', 'background']], [2, ['early-end', 'background']],
+		[10, []], [0, ['background']]] as const) {
+		assert.deepEqual(clipsAt(frame).map(({ clip }) => clip.id), ids);
+	}
+});
 
 test('packed nearest resizing preserves edge and center mapping for unaligned transparent RGBA', () => {
 	const bytes = new Uint8Array([99, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 0, 99]);

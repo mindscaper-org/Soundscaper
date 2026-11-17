@@ -12,6 +12,7 @@ import { DEFAULT_VIDEO_CLIP_COMPOSITION } from '../common/editor/video-clip-comp
 import { defaultVideoSourceColorInterpretationV1 } from '../common/editor/video-color-management-v27.ts';
 import { resolveVideoRenderDescription } from '../common/editor/video-render-description.ts';
 import { indexVisibleFramescaperImageTracks } from './editor-timeline-image-track-index.ts';
+import { createFramescaperImageClipIndex } from './editor-timeline-image-clip-index.ts';
 import {
 	framescaperImageSourceForClipTimelineImage,
 	openFramescaperStoredImageFramePackTimelineImage,
@@ -105,6 +106,7 @@ export async function createFramescaperVideoExportImageExecutionTimelineImage(op
 		throw error;
 	}
 	const resources = Object.freeze({ ...baseResources, readerMetadataBytes });
+	const clipsAt = createFramescaperImageClipIndex(contexts);
 	let disposed = false;
 	let active = false;
 	return Object.freeze({
@@ -116,7 +118,7 @@ export async function createFramescaperVideoExportImageExecutionTimelineImage(op
 				assertReady({ ...options, signal: request.signal });
 				assertCanvas(options.foundationPlan, request.width, request.height);
 				const sequenceFrame = floorRational(request.sequencePosition);
-				const resolved = resolvedImageContexts(contexts, sequenceFrame);
+				const resolved = resolvedImageContexts(clipsAt(sequenceFrame), sequenceFrame);
 				admitResolvedImageFrames(resolved, resources, request.width, request.height);
 				retainCachedFrames(frameCache, new Set(resolved.map(({ context, frameIndex }) => (
 					imageFrameKey(context.source.id, frameIndex)
@@ -286,11 +288,8 @@ function resolvedImageContexts(
 	contexts: readonly ImageContextTimelineImage[],
 	sequenceFrame: number,
 ): readonly ResolvedImageContextTimelineImage[] {
-	return Object.freeze(contexts.flatMap((context) => {
-		const { clip } = context;
-		if (sequenceFrame < clip.sequenceStartFrame
-			|| sequenceFrame >= clip.sequenceStartFrame + clip.sequenceFrameCount) return [];
-		return [{ context, frameIndex: context.reader.frameIndexAtTicks(context.sourceTicksAt(sequenceFrame)) }];
+	return contexts.map((context) => ({
+		context, frameIndex: context.reader.frameIndexAtTicks(context.sourceTicksAt(sequenceFrame)),
 	}));
 }
 

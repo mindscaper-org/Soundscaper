@@ -15,6 +15,7 @@ import type { VideoCanvasFit } from '../common/editor/video-canvas-fit.ts';
 import { DEFAULT_VIDEO_CLIP_COMPOSITION } from '../common/editor/video-clip-composition.ts';
 import { resolveVideoRenderDescription } from '../common/editor/video-render-description.ts';
 import { indexVisibleFramescaperImageTracks } from './editor-timeline-image-track-index.ts';
+import { createFramescaperImageClipIndex } from './editor-timeline-image-clip-index.ts';
 import {
 	fitFramescaperImagePreviewSizeTimelineImage,
 	framescaperImageSourceForClipTimelineImage,
@@ -110,7 +111,9 @@ export async function createFramescaperSelectedVisualPreviewSessionTimelineImage
 	const project = admittedProject(options?.profile, options?.project, options?.cloneProject);
 	const canvas = previewCanvas(options?.width, options?.height, options?.fit);
 	throwIfFramescaperImagePreviewAbortedTimelineImage(options.signal);
-	const contexts = imageClipContexts(project);
+	const sequence = project.sequences.find(({ id }) => id === project.primarySequenceId);
+	if (!sequence) throw new ReferenceError('The selected timelineImage primary sequence is unavailable.');
+	const contexts = imageClipContexts(project, sequence);
 	const plannedSources = planTimelineSources(project, contexts, canvas);
 	admitFramescaperImageTimelinePreviewResourcesTimelineImage(contexts.map(({ clip }) => {
 		const planned = required(plannedSources, clip.sourceId, 'planned image source');
@@ -168,10 +171,12 @@ export async function createFramescaperSelectedVisualPreviewSessionTimelineImage
 	if (inherited === null && clips.length === 0) return null;
 	let disposed = false;
 	const schedulePrefetch = createFramescaperImagePreviewPrefetchTimelineImage();
+	const clipsAt = createFramescaperImageClipIndex(clips);
 	const imageFrame = (timelineSampleValue: number): ProductVideoVisualPreviewFrame => {
 		if (disposed) throw new Error('The selected timelineImage image preview session is disposed.');
 		throwIfFramescaperImagePreviewAbortedTimelineImage(options.signal);
-		return resolveImageFrame(project, clips, timelinePosition(timelineSampleValue), canvas, schedulePrefetch);
+		const frame = sequenceFrameAtSample(timelinePosition(timelineSampleValue), sequence.rate, project.sampleRate);
+		return resolveImageFrame(clipsAt, frame, canvas, schedulePrefetch);
 	};
 	const resolve = (timelineSample: number): ProductVideoVisualPreviewFrame => {
 		try {
@@ -258,10 +263,8 @@ export async function createFramescaperSelectedProjectBinThumbnailTimelineImage(
 	});
 }
 
-function imageClipContexts(project: FramescaperProjectTimelineImage): readonly Omit<ImageClipPreviewTimelineImage,
+function imageClipContexts(project: FramescaperProjectTimelineImage, sequence: FramescaperProjectTimelineImage['sequences'][number]): readonly Omit<ImageClipPreviewTimelineImage,
 	'loaded' | 'drawable' | 'lastFrameIndex'>[] {
-	const sequence = project.sequences.find(({ id }) => id === project.primarySequenceId);
-	if (!sequence) throw new ReferenceError('The selected timelineImage primary sequence is unavailable.');
 	const trackByClip = indexVisibleFramescaperImageTracks(project, sequence);
 	const output: Omit<ImageClipPreviewTimelineImage, 'loaded' | 'drawable' | 'lastFrameIndex'>[] = [];
 	for (const clip of project.clips) {
@@ -297,21 +300,16 @@ function planTimelineSources(
 }
 
 function resolveImageFrame(
-	project: FramescaperProjectTimelineImage,
-	clips: readonly ImageClipPreviewTimelineImage[],
-	timelineSample: number,
+	clipsAt: (frame: number) => readonly ImageClipPreviewTimelineImage[],
+	sequenceFrame: number,
 	canvas: Readonly<{ width: number; height: number }>,
 	schedulePrefetch: (next?: () => void) => void,
 ): ProductVideoVisualPreviewFrame {
-	const sequence = project.sequences.find(({ id }) => id === project.primarySequenceId)!;
-	const sequenceFrame = sequenceFrameAtSample(timelineSample, sequence.rate, project.sampleRate);
 	const layers = new Map<string, { trackId: string; trackIndex: number; entries: Data[] }>();
 	const nodes: string[] = [];
 	let prefetch: (() => void) | undefined;
-	for (const context of clips) {
+	for (const context of clipsAt(sequenceFrame)) {
 		const clip = context.clip;
-		if (sequenceFrame < clip.sequenceStartFrame
-			|| sequenceFrame >= clip.sequenceStartFrame + clip.sequenceFrameCount) continue;
 		const sourceTicks = context.sourceTicksAt(sequenceFrame);
 		const address = { sourceTicks, frameIndex: context.loaded.reader.frameIndexAtTicks(sourceTicks) };
 		if (context.lastFrameIndex !== address.frameIndex) {
