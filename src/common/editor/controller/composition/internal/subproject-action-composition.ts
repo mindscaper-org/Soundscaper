@@ -57,6 +57,8 @@ export function createSubprojectActionComposition(runtime: EditorActionRuntime, 
 	const subprojects = Object.freeze({ libraryId: invoke('libraryId'), candidates: invoke('candidates'), add: invoke('add'), refresh: invoke('refresh'), relink: invoke('relink'),
 		follow: invoke('follow'), detach: invoke('detach'), open: invoke('open'), watch: invoke('watch') });
 	const refreshForDelivery = async (): Promise<void> => {
+		// A read-only copy carries the installed proxy without authority to publish child updates.
+		if (bindings.getSnapshot().readOnly) return;
 		const project = runtime.getProject();
 		const metadata = project?.metadata as { subprojects?: readonly unknown[] } | undefined;
 		if (metadata?.subprojects?.length) await subprojects.refresh();
