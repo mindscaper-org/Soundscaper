@@ -9,6 +9,7 @@ type Data = Readonly<Record<string, unknown>>;
 export interface FramescaperImageBatchPlacementRequestTimelineImage {
 	readonly sequenceId?: string;
 	readonly preferredTrackId?: string;
+	readonly createTrack?: boolean;
 	readonly sequenceStartFrame: number;
 	readonly sequenceFrameCounts: readonly number[];
 	readonly createId: (prefix: string) => string;
@@ -51,7 +52,7 @@ export function createFramescaperImageBatchPlacementTimelineImage(
 	const selection = record(project.selection, 'selection');
 	const selectedTrackIds = request.preferredTrackId ? [request.preferredTrackId]
 		: Array.isArray(selection.trackIds) ? selection.trackIds.map(String) : [];
-	const candidates = tracks.filter((track) => (
+	const candidates = request.createTrack ? [] : tracks.filter((track) => (
 		track.type === 'video' && track.locked !== true && sequenceTrackIds.has(String(track.id))
 	)).sort((left, right) => (
 		Number(selectedTrackIds.includes(String(right.id))) - Number(selectedTrackIds.includes(String(left.id)))

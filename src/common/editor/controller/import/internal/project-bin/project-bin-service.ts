@@ -176,7 +176,7 @@ export function createProjectBinService(
 
 	function placeProjectBinClip(
 		binClipId: string,
-		placement: Readonly<{ trackId?: string | null; timelineStartFrame?: unknown }> = {},
+		placement: Readonly<{ trackId?: string | null; timelineStartFrame?: unknown; createTrack?: boolean }> = {},
 	): string | null | Promise<string> {
 		dependencies.lifetime.assertActive();
 		if (dependencies.editingBlocked()) return null;

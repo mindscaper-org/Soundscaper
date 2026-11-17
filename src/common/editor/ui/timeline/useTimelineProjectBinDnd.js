@@ -5,6 +5,7 @@ import {
 	AUDIO_EDITOR_PROJECT_BIN_DRAG_TYPE,
 	parseFreesoundResultDragPayload,
 } from '../../project-bin-dnd.js';
+import { isProductVisualClip } from '../../video-timeline-internals.js';
 import { compatibleMediaTrack } from './geometry.ts';
 import { withWebFileLoadLimitContext } from '../../web-file-limit-failure.ts';
 import { NEW_AUDIO_TRACK_DROP_TARGET } from './constants.ts';
@@ -59,8 +60,13 @@ export function useTimelineProjectBinDnd({
 			? project.projectBin.clips.filter((candidate) => candidate.binItemId === clip.binItemId)
 			: [clip];
 		const compatibleTracks = itemClips.map((itemClip) => (
-			target.trackId ? compatibleMediaTrack(project, target.trackId, itemClip.kind) : null
+			target.trackId ? compatibleMediaTrack(project, target.trackId, projectBinTrackKind(itemClip)) : null
 		));
+		if (itemClips.some((itemClip, index) => isProductVisualClip(itemClip) && lockedTrack(project, compatibleTracks[index]?.id))) {
+			event.dataTransfer.dropEffect = 'none';
+			clearProjectBinDragState();
+			return;
+		}
 		const previewCreatesTrack = target.createTrack
 			|| Boolean(target.trackId && compatibleTracks.some((candidate) => !candidate));
 		const previews = itemClips.map((itemClip, index) => {
@@ -124,8 +130,13 @@ export function useTimelineProjectBinDnd({
 			if (String(payload.projectId) !== String(project.id)) return;
 			const clip = project.projectBin?.clips.find((item) => String(item.id) === String(payload.clipId));
 			if (!clip) return;
+			const visual = isProductVisualClip(clip);
+			const compatibleTrack = visual && target.trackId ? compatibleMediaTrack(project, target.trackId, 'video') : null;
+			if (visual && lockedTrack(project, compatibleTrack?.id)) return;
+			const trackId = compatibleTrack?.id ?? target.trackId;
 			run(() => controller.actions.projectBin.place(clip.id, {
-				...(target.trackId ? { trackId: target.trackId } : {}),
+				...(trackId ? { trackId } : {}),
+				...(visual && !compatibleTrack ? { createTrack: true } : {}),
 				timelineStartFrame: target.timelineStartFrame,
 			}));
 			return;
@@ -156,6 +167,14 @@ export function useTimelineProjectBinDnd({
 	}, [clearProjectBinDragState]);
 
 	return { onTimelineDragOver, onTimelineDragLeave, onTimelineDrop };
+}
+
+function projectBinTrackKind(clip) {
+	return isProductVisualClip(clip) ? 'video' : clip.kind;
+}
+
+function lockedTrack(project, trackId) {
+	return trackId != null && project.tracks.some(track => track.id === trackId && track.locked === true);
 }
 
 export function importFreesoundTimelineDrop(controller, request, runtime = /** @type {import('../workspace/freesound-workspace-service.ts').FreesoundWorkspaceRuntime} */ ({})) {
