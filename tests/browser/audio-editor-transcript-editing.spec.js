@@ -46,6 +46,10 @@ test.describe('Transcript-based editing', () => {
 			const selection = document.getSelection();
 			selection.removeAllRanges(); selection.addRange(range);
 		});
+		await page.keyboard.press('ControlOrMeta+x');
+		await expect(transcript).toHaveAttribute('aria-busy', 'false');
+		await expect(plan).toHaveCount(1);
+		await expect(launch).toHaveCount(1);
 		await page.keyboard.press('ArrowRight');
 		await page.keyboard.press('Backspace');
 		await expect(launch).toHaveCount(0);

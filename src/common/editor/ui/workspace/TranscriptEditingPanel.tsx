@@ -189,6 +189,7 @@ function TranscriptEditingSurface({ controller, snapshot, copy, locale, fileServ
 				if (!root.current) return;
 				event.preventDefault();
 				const chosen = selectedTranscriptWords(root.current, words);
+				if (!chosen.length) return;
 				event.clipboardData.setData('text/plain', chosen.map(word => word.text).join(' '));
 				remove('forward');
 			}}
