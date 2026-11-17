@@ -25,6 +25,7 @@ Families describe product entry points, not every file extension a decoder might
 | --- | --- | --- |
 | Audio analysis | Enabled | Not enabled |
 | Audio automation | Enabled | Enabled |
+| Audio clip effects | Enabled | Not enabled |
 | Audio effects | Enabled | Not enabled |
 | Audio generators | Enabled | Not enabled |
 | Audio import | Enabled | Enabled |

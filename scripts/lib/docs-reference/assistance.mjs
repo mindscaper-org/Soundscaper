@@ -36,6 +36,7 @@ const WORKFLOW_LABELS = Object.freeze({
 const TASK_LABELS = Object.freeze({
 	'voice-activity-detection': 'Voice activity detection',
 	'speech-recognition': 'Speech recognition',
+	'music-transcription': 'Music transcription',
 	'word-alignment': 'Word alignment',
 	'speaker-diarization': 'Speaker diarization',
 	'speaker-segmentation': 'Speaker segmentation',

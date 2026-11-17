@@ -43,6 +43,7 @@ Each operation has the menu entry below for use without a surrounding workflow. 
 | Editorial generation | `editorial-generation` | `advanced:editorial-generation` |
 | Green-screen keying | `video-keying` | Framescaper: Effect > Video effects > CorridorKey 2.0 |
 | Image and text embedding | `image-text-embedding` | `advanced:image-text-embedding` |
+| Music transcription | `music-transcription` | `advanced:music-transcription` |
 | Optical character recognition | `optical-character-recognition` | `advanced:optical-character-recognition` |
 | Saliency detection | `saliency-detection` | `advanced:saliency-detection` |
 | Shot detection | `shot-detection` | `advanced:shot-detection` |

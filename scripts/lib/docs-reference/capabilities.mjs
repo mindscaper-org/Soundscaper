@@ -17,6 +17,7 @@ const CAPABILITY_LABELS = Object.freeze({
 	audioRecording: 'Audio recording',
 	audioGenerators: 'Audio generators',
 	audioEffects: 'Audio effects',
+	audioClipEffects: 'Audio clip effects',
 	audioSpectralEditing: 'Spectral audio editing',
 	audioAnalysis: 'Audio analysis',
 	audioMacros: 'Audio macros',

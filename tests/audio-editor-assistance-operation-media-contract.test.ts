@@ -47,6 +47,7 @@ const EXPECTED = Object.freeze([
 	row('source-separation', ['audio'], [['audio']], ['separated-audio']),
 	row('audio-tagging', ['audio'], [['audio']], ['audio-tags']),
 	row('beat-tracking', ['audio'], [['audio']], ['beat-grid']),
+	row('music-transcription', ['audio'], [['audio']], ['midi-notes']),
 	row('text-embedding', ['transcript', 'text'], [['transcript', 'text']], ['embeddings'], [
 		['transcript'], ['text'],
 	]),
