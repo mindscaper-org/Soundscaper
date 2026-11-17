@@ -3,7 +3,7 @@ import { usePresentationFeedback, feedbackFailure } from '../presentation-feedba
 
 import { VIDEO_PROXY_ADDITIONAL_COPY } from '../../../i18n/editor-video-proxy-additional-copy.ts';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import {
@@ -21,6 +21,7 @@ import type { FramescaperVideoProxyModeRetime } from '../../../../framescaper/ed
 import type { FramescaperSidecarFileReader } from '../framescaper-sidecar-file.ts';
 import { withFramescaperVideoProxyFile } from '../framescaper-video-proxy-file.ts';
 import EditorControlLabel from '../EditorControlLabel.tsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 
 interface ProxyFileService extends FramescaperSidecarFileReader {
 	readonly isDesktop?: boolean;
@@ -46,7 +47,12 @@ interface FramescaperVideoProxyDialogProps {
 	readonly onClose: () => void;
 }
 
-export default function FramescaperVideoProxyDialog({
+export default function FramescaperVideoProxyDialog(props: FramescaperVideoProxyDialogProps) {
+	const id = (props.snapshot.project as Readonly<{ id?: unknown }> | null)?.id;
+	return <ProjectVideoProxyDialog key={editorProjectEditSessionKey(props.controller, id)} {...props} />;
+}
+
+function ProjectVideoProxyDialog({
 	controller, snapshot, editingBlocked, copy, fileService, run, onClose,
 }: FramescaperVideoProxyDialogProps) {
 	const runtime = framescaperVideoProxyActionRuntimeFor(controller);
@@ -69,6 +75,7 @@ export default function FramescaperVideoProxyDialog({
 	const [error, setError] = usePresentationFeedback(copy, VIDEO_PROXY_ADDITIONAL_COPY, 'videoProxy');
 	const [changedRelink, setChangedRelink] = useState<FramescaperVideoProxyOriginalRelinkCandidate | null>(null);
 	const abortRef = useRef<AbortController | null>(null);
+	const live = useRef(false);
 	const existingFileRef = useRef<HTMLInputElement | null>(null);
 	const modeGenerationRef = useRef(0);
 	const modeMutationRef = useRef<Promise<void>>(Promise.resolve());
@@ -85,9 +92,13 @@ export default function FramescaperVideoProxyDialog({
 		setMode(selectedSourceId && runtime ? runtime.mode(selectedSourceId) : 'auto');
 		setChangedRelink(null);
 	}, [runtime, selectedSourceId]);
-	useEffect(() => () => {
-		abortRef.current?.abort();
-		modeGenerationRef.current += 1;
+	useLayoutEffect(() => {
+		live.current = true;
+		return () => {
+			live.current = false;
+			abortRef.current?.abort();
+			modeGenerationRef.current += 1;
+		};
 	}, []);
 
 	const changeMode = (value: string): void => {
@@ -99,7 +110,7 @@ export default function FramescaperVideoProxyDialog({
 		setStatus('');
 		setError('');
 		const mutation = modeMutationRef.current.then(() => (
-			runAwaitedAudioEditorOperation(run, () => runtime.setMode(sourceId, next)).then(() => undefined)
+			runAwaitedAudioEditorOperation(run, () => live.current ? runtime.setMode(sourceId, next) : undefined)
 		));
 		modeMutationRef.current = mutation.catch(() => undefined);
 		void mutation.then(() => {

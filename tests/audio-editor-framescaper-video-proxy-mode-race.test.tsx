@@ -306,6 +306,79 @@ test('a rejected preview mode change restores the mode the runtime still owns', 
 	}
 });
 
+test('Video Proxy > Attach Existing retires the chooser of an outgoing project', async () => {
+	const dom = installTestDom();
+	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const priorAct = globals.IS_REACT_ACT_ENVIRONMENT;
+	globals.IS_REACT_ACT_ENVIRONMENT = true;
+	const chooser = deferred<readonly unknown[]>();
+	const calls: string[] = [];
+	let projectId = 'outgoing';
+	const controller = {};
+	bindFramescaperVideoProxyActionRuntime(controller, registerFramescaperVideoProxyActionRuntime({
+		mode: () => 'auto', previewTrust: () => 'unverified', setMode: async () => undefined,
+		pressure: () => null, reportPreviewPressure: async () => undefined,
+		generate: async () => undefined, detach: async () => undefined, regenerate: async () => undefined,
+		attachExisting: async () => { calls.push(projectId); }, relinkOriginal: async () => 'relinked',
+	}));
+	const { createRoot } = await import('react-dom/client');
+	const root = createRoot(dom.container as unknown as Element);
+	const render = () => root.render(<FramescaperVideoProxyDialog controller={controller}
+		snapshot={{ project: { ...project(), id: projectId }, selectedClipId: 'video-clip' }} editingBlocked={false}
+		copy={{}} fileService={{ isDesktop: true, chooseFiles: () => chooser.promise, openReadDescriptor: value => value }}
+		run={operation => operation()} onClose={() => undefined} />);
+	const attach = () => dom.elements('button').find(node => node.hasAttribute('data-video-proxy-attach-existing'))!;
+	try {
+		await act(async () => { render(); });
+		await act(async () => { props(attach()).onClick(); });
+		assert.equal(attach().hasAttribute('disabled'), true);
+		projectId = 'incoming';
+		await act(async () => { render(); });
+		await act(async () => { chooser.resolve([new File(['proxy'], 'proxy.webm')]); });
+		assert.deepEqual(calls, []);
+		assert.equal(attach().hasAttribute('disabled'), false);
+	} finally {
+		await act(async () => { root.unmount(); }); dom.restore(); globals.IS_REACT_ACT_ENVIRONMENT = priorAct;
+	}
+});
+
+test('Video Proxy never applies an outgoing queued preview mode to a replaced project', async () => {
+	const dom = installTestDom();
+	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const priorAct = globals.IS_REACT_ACT_ENVIRONMENT;
+	globals.IS_REACT_ACT_ENVIRONMENT = true;
+	const first = deferred<void>();
+	const calls: string[] = [];
+	let projectId = 'outgoing';
+	const controller = {};
+	bindFramescaperVideoProxyActionRuntime(controller, registerFramescaperVideoProxyActionRuntime({
+		mode: () => 'auto', previewTrust: () => 'unverified', async setMode(_id, mode) {
+			calls.push(`${projectId}/${mode}`);
+			if (mode === 'proxy') await first.promise;
+		},
+		pressure: () => null, reportPreviewPressure: async () => undefined,
+		generate: async () => undefined, detach: async () => undefined, regenerate: async () => undefined,
+		attachExisting: async () => undefined, relinkOriginal: async () => 'relinked',
+	}));
+	const { createRoot } = await import('react-dom/client');
+	const root = createRoot(dom.container as unknown as Element);
+	const render = () => root.render(<FramescaperVideoProxyDialog controller={controller}
+		snapshot={{ project: { ...project(), id: projectId }, selectedClipId: 'video-clip' }} editingBlocked={false}
+		copy={{}} fileService={{}} run={operation => operation()} onClose={() => undefined} />);
+	try {
+		await act(async () => { render(); });
+		await change(dom.elements('select')[1]!, 'proxy');
+		await change(dom.elements('select')[1]!, 'original');
+		assert.deepEqual(calls, ['outgoing/proxy']);
+		projectId = 'incoming';
+		await act(async () => { render(); });
+		await act(async () => { first.resolve(); });
+		assert.deepEqual(calls, ['outgoing/proxy']);
+	} finally {
+		await act(async () => { root.unmount(); }); dom.restore(); globals.IS_REACT_ACT_ENVIRONMENT = priorAct;
+	}
+});
+
 function project() {
 	return {
 		schemaFamily: 'framescaper', schemaVersion: 1,
