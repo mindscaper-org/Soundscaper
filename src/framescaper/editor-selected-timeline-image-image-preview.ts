@@ -323,8 +323,9 @@ function resolveImageFrame(
 			context.drawable.present(context.loaded.read(address.frameIndex));
 			context.lastFrameIndex = address.frameIndex;
 		}
-		if (sequenceFrame + 1 < clip.sequenceStartFrame + clip.sequenceFrameCount) {
-			prefetch ??= context.loaded.prefetchAfter(address.frameIndex);
+		if (!prefetch && sequenceFrame + 1 < clip.sequenceStartFrame + clip.sequenceFrameCount) {
+			const nextIndex = context.loaded.reader.frameIndexAtTicks(context.sourceTicksAt(sequenceFrame + 1));
+			if (nextIndex !== address.frameIndex) prefetch = context.loaded.prefetch(nextIndex);
 		}
 		const layer = layers.get(context.trackId) ?? {
 			trackId: context.trackId, trackIndex: context.trackIndex, entries: [],

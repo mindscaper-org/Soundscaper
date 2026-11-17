@@ -17,7 +17,7 @@ export interface FramescaperImagePreviewFramesTimelineImage extends FramescaperI
 	readonly reader: FramescaperImageFramePackSnapshotReaderV1;
 	/** Borrowed until the next cache miss or disposal. Present onto the drawable immediately. */
 	read(index: number): Uint8Array<ArrayBuffer>;
-	prefetchAfter(index: number): (() => void) | undefined;
+	prefetch(index: number): (() => void) | undefined;
 	dispose(): void;
 }
 
@@ -77,12 +77,11 @@ export function createFramescaperImagePreviewFramesTimelineImage(
 		return rgba;
 	}
 	return Object.freeze({ ...context, reader, read,
-		prefetchAfter(index: number): (() => void) | undefined {
-			const next = index + 1;
-			if (next >= source.canonical.frameCount || next === refusedPrefetch || pictures.has(next)) return undefined;
+		prefetch(index: number): (() => void) | undefined {
+			if (index >= source.canonical.frameCount || index === refusedPrefetch || pictures.has(index)) return undefined;
 			return () => {
-				if (disposed || signal?.aborted || pictures.has(next)) return;
-				try { read(next); } catch { refusedPrefetch = next; }
+				if (disposed || signal?.aborted || pictures.has(index)) return;
+				try { read(index); } catch { refusedPrefetch = index; }
 			};
 		},
 		dispose(): void {

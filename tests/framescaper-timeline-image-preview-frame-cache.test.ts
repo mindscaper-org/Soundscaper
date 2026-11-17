@@ -28,22 +28,23 @@ test('the preview retains two pictures per source and replaces older prefetch af
 		assert.deepEqual(decoded, []);
 		const first = frames.read(0);
 		assert.equal(first[0], 37);
-		prefetch(frames.prefetchAfter(0));
+		prefetch(frames.prefetch(1));
 		assert.equal(frames.read(3)[0], 148);
-		prefetch(frames.prefetchAfter(3));
+		// At a lower sequence rate the next timeline picture can skip a packed picture.
+		prefetch(frames.prefetch(5));
 		assert.deepEqual(decoded, [0, 3]);
 		context.mock.timers.tick(1);
-		assert.equal(frames.read(4)[0], 185);
-		assert.deepEqual(decoded, [0, 3, 4]);
+		assert.equal(frames.read(5)[0], 222);
+		assert.deepEqual(decoded, [0, 3, 5]);
 		assert.ok(first.every(value => value === 0), 'evicted pixels are zeroed');
 		assert.equal(frames.read(0)[0], 37);
-		prefetch(frames.prefetchAfter(0));
+		prefetch(frames.prefetch(1));
 	} finally {
 		prefetch();
 		frames.dispose();
 	}
 	context.mock.timers.tick(1);
-	assert.deepEqual(decoded, [0, 3, 4, 0], 'disposal retires the pending prefetch');
+	assert.deepEqual(decoded, [0, 3, 5, 0], 'disposal retires the pending prefetch');
 });
 
 test('timeline preview budgets per-source cache slots and independently backed drawables', () => {
