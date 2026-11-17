@@ -247,7 +247,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 				assertReadyToCommit: () => assertOwnership(operation.task, operation.projectToken),
 				fileName, prepared, project: snapshot, signal: operation.task.signal,
 			});
-			await runtime.onScapeSaved?.(snapshot, saved);
+			if (!options.saveCopy) await runtime.onScapeSaved?.(snapshot, saved);
 			if (finishSave(operation.task, operation.projectToken, 'saved')) {
 				setLocalizedStatus(runtime.setStatus, runtime.copy, "projectSaved", undefined, 'success');
 				runtime.publishDocumentSnapshot();
