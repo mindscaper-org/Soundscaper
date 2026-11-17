@@ -264,6 +264,28 @@ def live(addon, root, bpy, scene=None):
         server.server_close()
 
 
+def meta(addon, root):
+    for legacy in (False, True):
+        scene = Scene(legacy=legacy)
+        addon.apply_manifest(scene, snapshot(), root)
+        strips = addon.scene_strips(scene)
+        imported = strips.pop()
+        children = Strips([imported])
+        group = Strip("Group", "", 1, 1)
+        group.type = "META"
+        setattr(group, "sequences" if legacy else "strips", children)
+        strips.append(group)
+        write_wav(root / "audio/2/voice.wav")
+        addon.apply_manifest(scene, snapshot(2), root)
+        assert len(strips) == 1 and strips[0] is group
+        assert len(children) == 1 and children[0] is imported
+        assert imported.sound.filepath.endswith("audio/2/voice.wav")
+        removed = snapshot(3)
+        removed["tracks"] = []
+        addon.apply_manifest(scene, removed, root)
+        assert not children and len(strips) == 1
+
+
 def menus(addon, root, bpy):
     addon.register()
     assert len(bpy.types.TOPBAR_MT_file_import.callbacks) == 1

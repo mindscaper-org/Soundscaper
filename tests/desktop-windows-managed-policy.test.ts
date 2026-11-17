@@ -6,6 +6,16 @@ import { win32 } from 'node:path';
 import { promisify } from 'node:util';
 import { loadWindowsManagedPolicy } from '../desktop/windows-managed-policy.ts';
 
+test('combined valid Unicode launch presets fit the registry query output budget', async () => {
+	const preset = JSON.stringify({ schemaVersion: 1, editor: { workspace: { custom: [{ id: 'custom', name: '漢'.repeat(60_000), layout: {} }] } } });
+	assert.ok(preset.length < 65_536);
+	const script = `const preset = JSON.stringify({schemaVersion:1,editor:{workspace:{custom:[{id:'custom',name:'漢'.repeat(60000),layout:{}}]}}});process.stdout.write(JSON.stringify({machine:{LaunchPreferences:preset},user:{LaunchPreferences:preset},msi:false}));`;
+	const execute = promisify(execFile);
+	const policy = await loadWindowsManagedPolicy({ platform: 'win32', productId: 'soundscaper', environment: { SystemRoot: 'C:\\Windows' },
+		execute: async (_path, _args, options) => execute(process.execPath, ['-e', script], options) });
+	assert.ok(policy.editorPreferences);
+});
+
 test('Windows reads machine/user policy and MSI ownership through a bounded native registry query', async () => {
 	const calls: unknown[][] = [];
 	const policy = await loadWindowsManagedPolicy({ platform: 'win32', productId: 'framescaper', environment: { SystemRoot: 'C:\\Windows' },

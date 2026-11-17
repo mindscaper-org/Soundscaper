@@ -17,6 +17,24 @@ function fixture(response = 2, portable = false, policyAllowed = true) {
 	return { service, calls, prompt: () => prompt };
 }
 
+test('a manual check joining startup retains requested current or error feedback', async () => {
+	for (const status of ['current', 'error', 'offline']) {
+		const result = Promise.withResolvers<{ status: string }>();
+		const messages: string[] = [];
+		let checks = 0;
+		const service = new DesktopUpdateService({ appName: 'Soundscaper', portable: false, windowsStore: false,
+			checkRelease: () => { checks++; return result.promise; },
+			showMessage: async options => { messages.push(options.title); return { response: 2 }; },
+			openExternal: async () => {}, install: async () => {}, installPending: async () => false });
+		const automatic = service.check(false);
+		const manual = service.check(true);
+		result.resolve({ status });
+		await Promise.all([automatic, manual]);
+		assert.equal(checks, 1);
+		assert.deepEqual(messages, [status === 'current' ? 'Soundscaper is up to date' : 'Could not check for updates']);
+	}
+});
+
 test('the update notification offers installation now or next launch and closing skips it', async () => {
 	for (const response of [0, 1, 2]) {
 		const f = fixture(response);

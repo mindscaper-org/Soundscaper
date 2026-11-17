@@ -13,7 +13,8 @@ export function enforceManagedIpc(policy: ManagedPolicy, channel: string, args: 
 	else if (channel === 'soundscaper:v1:mcp:start') feature = 'LocalIntegrationsAllowed';
 	else if (channel === 'soundscaper:blender:select' && (args[0] as { live?: unknown } | undefined)?.live !== false) feature = 'LocalIntegrationsAllowed';
 	if (feature) policy.assertAllowed(feature);
-	if (channel.endsWith(':authorize') || channel === 'soundscaper:v1:audiocom:link') policy.assertAllowed('ExternalLinksAllowed');
+	if (channel === 'soundscaper:v1:freesound:authorize' || channel === 'soundscaper:v1:audiocom:authorize'
+		|| channel === 'soundscaper:v1:audiocom:link') policy.assertAllowed('ExternalLinksAllowed');
 }
 
 export function managedFetch(policy: ManagedPolicy, feature: ManagedFeature, fetchImpl: typeof fetch = fetch): typeof fetch {

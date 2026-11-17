@@ -54,6 +54,14 @@ test('request filtering preserves local application assets and restricts remote 
 	assert.equal(managedRequestAllowed(resolveManagedPolicy({ machine: { OnlineFeaturesAllowed: 0 } }), 'https://example.org'), false);
 });
 
+test('external-link restrictions preserve local semantic authorization but block provider handoffs', () => {
+	const policy = resolveManagedPolicy({ machine: { ExternalLinksAllowed: 0 } });
+	assert.doesNotThrow(() => enforceManagedIpc(policy, 'soundscaper:v1:assistance:semantic-search:authorize', []));
+	for (const channel of ['soundscaper:v1:freesound:authorize', 'soundscaper:v1:audiocom:authorize', 'soundscaper:v1:audiocom:link']) {
+		assert.throws(() => enforceManagedIpc(policy, channel, []), /ExternalLinksAllowed/u);
+	}
+});
+
 test('desktop presets reset selected saved values on relaunch and retain unrelated user preferences', async context => {
 	const root = await mkdtemp(join(tmpdir(), 'scape-managed-settings-'));
 	context.after(() => rm(root, { recursive: true, force: true }));

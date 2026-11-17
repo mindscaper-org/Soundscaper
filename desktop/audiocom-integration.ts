@@ -180,7 +180,8 @@ export function createDesktopAudiocomProxy({ appOrigin, apiOrigin, fetchImpl, se
 				const provider = await providerFromResponse(upstream.clone(), selected, apiOrigin);
 				if (generation === providerGeneration) onProviderConfiguration(provider);
 			}
-			if ((upstream.status === 401 && token) || (path === '/oauth/session' && request.method === 'DELETE' && upstream.ok)) await sessionStore.clear();
+			if (sessionStore.get() === token && ((upstream.status === 401 && token)
+				|| (path === '/oauth/session' && request.method === 'DELETE' && upstream.ok))) await sessionStore.clear();
 			if (path === '/oauth/poll' && upstream.ok) return await sanitizePoll(upstream, sessionStore);
 			return new Response(upstream.body, { status: upstream.status, statusText: upstream.statusText, headers: responseHeaders(upstream.headers) });
 		} catch { return failure(502, 'audio.com request failed'); }

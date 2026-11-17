@@ -2,7 +2,7 @@
 
 import { mkdir, readFile, rename, writeFile, access } from 'node:fs/promises';
 import { constants } from 'node:fs';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { migrateDesktopStorageEntries } from './desktop-storage-migration.ts';
 import { assertLocalDesktopStorage } from './local-storage-safety.ts';
 
@@ -37,6 +37,9 @@ export class TemporaryProjectStorage {
 	async select(path: string): Promise<ReturnType<TemporaryProjectStorage['status']>> {
 		const selected = folder(path);
 		assertLocalDesktopStorage(selected);
+		const source = join(this.#active, this.appName, 'project-library', 'v1');
+		const destination = join(selected, this.appName, 'project-library', 'v1');
+		if (nested(source, destination) || nested(destination, source)) throw new Error('Source and destination paths overlap or are nested.');
 		await mkdir(selected, { recursive: true, mode: 0o700 });
 		await access(selected, constants.W_OK);
 		await this.#persist(this.#active, selected);
@@ -49,6 +52,10 @@ export class TemporaryProjectStorage {
 		await writeFile(temporary, JSON.stringify({ active, selected }), { mode: 0o600 });
 		await rename(temporary, this.configurationPath);
 	}
+}
+function nested(parent: string, child: string): boolean {
+	const path = relative(parent, child);
+	return path !== '' && !isAbsolute(path) && path !== '..' && !path.startsWith(`..${sep}`);
 }
 function folder(value: unknown): string {
 	if (typeof value !== 'string' || value.length > 4096 || value.includes('\0') || !isAbsolute(value)) throw new TypeError('Temporary data folder must be an absolute directory.');

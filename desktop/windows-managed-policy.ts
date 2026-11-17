@@ -12,6 +12,9 @@ interface Options {
 	readonly execute?: (path: string, args: string[], options: QueryOptions) => Promise<{ stdout: string }>;
 }
 const executeFile = promisify(execFile);
+// Two 65,536-character presets can each expand to six JSON-escaped bytes per
+// UTF-16 code unit, in addition to the fixed registry envelope.
+const MAXIMUM_REGISTRY_OUTPUT_BYTES = 2 * 65_536 * 6 + 16 * 1024;
 
 /** Read local GPO registry material; do not contact a domain controller or run a shell command. */
 export async function loadWindowsManagedPolicy({ platform = process.platform, productId, environment = process.env, execute = executeFile }: Options): Promise<ManagedPolicy> {
@@ -23,7 +26,7 @@ export async function loadWindowsManagedPolicy({ platform = process.platform, pr
 	const script = registryScript(product);
 	const { stdout } = await execute(win32.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
 		['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')],
-		{ timeout: 10_000, maxBuffer: 256 * 1024, windowsHide: true, encoding: 'utf8' });
+		{ timeout: 10_000, maxBuffer: MAXIMUM_REGISTRY_OUTPUT_BYTES, windowsHide: true, encoding: 'utf8' });
 	const data: unknown = JSON.parse(stdout.replace(/^\uFEFF/u, '').trim());
 	if (!data || typeof data !== 'object' || !('machine' in data) || !('user' in data) || !('msi' in data)
 		|| typeof data.msi !== 'boolean' || !isRecord(data.machine) || !isRecord(data.user)) throw new TypeError('Invalid Windows registry policy response.');

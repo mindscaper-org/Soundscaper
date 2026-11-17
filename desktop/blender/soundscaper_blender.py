@@ -107,6 +107,14 @@ def scene_strips(scene):
     return editor.strips if hasattr(editor, "strips") else editor.sequences
 
 
+def _strip_inventory(strips):
+    for strip in strips:
+        yield strip, strips
+        if strip.type == "META":
+            children = strip.strips if hasattr(strip, "strips") else strip.sequences
+            yield from _strip_inventory(children)
+
+
 def _set_time(strip, modern, legacy, value):
     setattr(strip, modern if hasattr(strip, modern) else legacy, value)
 
@@ -130,8 +138,9 @@ def apply_manifest(scene, manifest, root):
     manifest = validate_manifest(manifest, root)
     root = Path(root).resolve()
     strips = scene_strips(scene)
+    inventory = list(_strip_inventory(strips))
     project_id = manifest["projectId"]
-    managed = [strip for strip in strips if strip.get(PROJECT_KEY) == project_id and strip.type == "SOUND"]
+    managed = [strip for strip, _owner in inventory if strip.get(PROJECT_KEY) == project_id and strip.type == "SOUND"]
     existing = {strip.get(TRACK_KEY): strip for strip in managed}
     wanted = {track["id"] for track in manifest["tracks"]}
     retained = [strip for strip in strips if strip not in managed or strip.get(TRACK_KEY) in wanted]
@@ -168,7 +177,7 @@ def apply_manifest(scene, manifest, root):
                 strip.sound = loaded[track["id"]]
                 changed.append(strip)
         if changed:
-            _reload_sounds(scene, strips, changed)
+            _reload_sounds(scene, [strip for strip, _owner in _strip_inventory(strips)], changed)
         for track in manifest["tracks"]:
             strip = existing[track["id"]]
             start = 1 + round(track["startSeconds"] * fps)
@@ -181,7 +190,8 @@ def apply_manifest(scene, manifest, root):
         for strip in managed:
             if strip.get(TRACK_KEY) not in wanted:
                 old_sounds.append(strip.sound)
-                strips.remove(strip)
+                owner = next(owner for candidate, owner in inventory if candidate is strip)
+                owner.remove(strip)
     finally:
         for sound in old_sounds + list(loaded.values()):
             if sound is None:

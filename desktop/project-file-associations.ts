@@ -38,7 +38,7 @@ export class ProjectFileAssociations {
 	}
 	async restore(projectId: string, owner: object): Promise<Readonly<{ baseline: string; originalFile: Readonly<{ id: string; name: string }> | null }> | null> {
 		if (!validId(projectId)) throw new TypeError('Invalid project identity');
-		await this.#tail;
+		await this.#tail.catch(() => undefined);
 		const entry = this.#entries[projectId];
 		if (!entry) return null;
 		try { return { baseline: entry.baseline, originalFile: await this.originals.restoreProjectReference(entry, { owner }) }; }

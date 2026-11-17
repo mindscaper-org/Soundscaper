@@ -20,6 +20,7 @@ interface UpdateServiceOptions {
 export class DesktopUpdateService {
 	readonly #options: UpdateServiceOptions;
 	#checking: Promise<UpdateResult> | null = null;
+	#manualRequested = false;
 	constructor(options: UpdateServiceOptions) { this.#options = options; }
 	async startup(): Promise<void> {
 		if (this.#options.portable || this.#options.windowsStore || this.#options.policyAllowed === false) return;
@@ -33,8 +34,9 @@ export class DesktopUpdateService {
 	check(manual: boolean): Promise<UpdateResult> {
 		if (this.#options.policyAllowed === false) return Promise.resolve({ status: 'disabled' });
 		if (this.#options.portable) return Promise.resolve({ status: 'portable' });
+		this.#manualRequested ||= manual;
 		if (this.#checking) return this.#checking;
-		const checking = this.#check(manual).finally(() => { this.#checking = null; });
+		const checking = this.#check(manual).finally(() => { this.#checking = null; this.#manualRequested = false; });
 		this.#checking = checking;
 		return checking;
 	}
@@ -49,9 +51,9 @@ export class DesktopUpdateService {
 					message: `${name} is available.`,
 					buttons: ['Install now', 'Install on next launch', 'Skip'], defaultId: 0, cancelId: 2 });
 				if (response === 0 || response === 1) await d.install(response === 0 ? 'now' : 'next-launch');
-			} else if (manual && result.status === 'current') {
+			} else if (this.#manualRequested && result.status === 'current') {
 				await d.showMessage({ type: 'info', title: `${d.appName} is up to date`, message: 'You are using the newest available release.' });
-			} else if (manual && result.status === 'error') {
+			} else if (this.#manualRequested && (result.status === 'error' || result.status === 'offline')) {
 				await d.showMessage({ type: 'warning', title: 'Could not check for updates', message: result.message ?? 'Could not check for updates.' });
 			}
 			return result;

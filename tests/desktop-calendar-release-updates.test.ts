@@ -7,6 +7,23 @@ import { compareVersions } from '../src/common/release/release-version.ts';
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 function release(tag_name: string, prerelease = false, draft = false) { return { tag_name, prerelease, draft }; }
 
+test('a matching product update remains visible beyond other product release pages', async () => {
+	const wanted = release('Soundscaper.2026.Nov.16.a');
+	const inventory = [...Array.from({ length: 20 }, (_, index) => release(`Framescaper.2026.Nov.17.${String.fromCharCode(97 + index)}`)), wanted];
+	const pages: number[] = [];
+	const checker = new ReleaseChecker({ currentVersion: 'Soundscaper.2026.Nov.11.a', tagPrefix: 'Soundscaper',
+		settings: { snapshot: () => ({ updatesEnabled: true, lastUpdateCheck: null }), recordUpdateCheck: async () => {} },
+		fetchImpl: async address => {
+			const url = new URL(address);
+			const page = Number(url.searchParams.get('page') ?? 1);
+			const size = Number(url.searchParams.get('per_page'));
+			pages.push(page);
+			return Response.json(inventory.slice((page - 1) * size, page * size));
+		} });
+	assert.deepEqual(await checker.check({ manual: true }), { status: 'available', version: wanted.tag_name, prerelease: false });
+	assert.deepEqual(pages, [1, 2]);
+});
+
 test('named calendar versions order years, calendar months, numeric days, and build letters', () => {
 	const pairs = [
 		['Soundscaper.2026.Dec.31.zz', 'Soundscaper-alpha.2027.Jan.1.a'],

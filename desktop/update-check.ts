@@ -3,6 +3,7 @@ import { compareVersions, isPreviewVersion, parseReleaseVersion, versionFromRele
 
 const RELEASES_API = 'https://api.github.com/repos/LeoWattenberg/Soundscaper/releases?per_page=20';
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const MAXIMUM_RELEASE_PAGES = 50;
 interface GitHubRelease { readonly tag_name: string; readonly draft?: unknown; readonly prerelease?: unknown; readonly assets?: unknown }
 interface CheckerOptions {
 	readonly currentVersion: string;
@@ -36,11 +37,20 @@ export class ReleaseChecker {
 		if (!manual && Number.isFinite(lastCheck) && elapsed >= 0 && elapsed < CHECK_INTERVAL_MS) return Object.freeze({ status: 'throttled' });
 		try {
 			await settings.recordUpdateCheck(timestamp);
-			const response = await fetchImpl(RELEASES_API, { headers: {
-				Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28',
-			}, signal: AbortSignal.timeout(10_000) });
-			if (!response.ok) throw new Error(`GitHub returned HTTP ${response.status}`);
-			const release = selectUpdate(await response.json(), currentVersion, tagPrefix);
+			const releases: unknown[] = [];
+			const signal = AbortSignal.timeout(10_000);
+			for (let page = 1; page <= MAXIMUM_RELEASE_PAGES; page++) {
+				const response = await fetchImpl(page === 1 ? RELEASES_API : `${RELEASES_API}&page=${page}`, { headers: {
+					Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28',
+				}, signal });
+				if (!response.ok) throw new Error(`GitHub returned HTTP ${response.status}`);
+				const inventory: unknown = await response.json();
+				if (!Array.isArray(inventory)) throw new TypeError('Invalid release inventory');
+				releases.push(...inventory);
+				if (inventory.length < 20) break;
+				if (page === MAXIMUM_RELEASE_PAGES) throw new Error('Release inventory exceeds pagination limit');
+			}
+			const release = selectUpdate(releases, currentVersion, tagPrefix);
 			const version = release ? versionFromReleaseTag(release.tag_name, tagPrefix) : null;
 			this.#availableRelease = release;
 			this.#availableVersion = version?.text ?? null;
