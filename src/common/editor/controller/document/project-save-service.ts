@@ -319,12 +319,16 @@ export function createProjectSaveService<Project extends ProjectSaveSnapshot>(
 			const gate = suspendedProjects.get(project.id);
 			if (gate) {
 				if (scheduledProjectId === project.id) cancelScheduled();
-				return gate.promise.then(() => flushCurrentProject(
-					allowTerminal, forceCurrentSnapshot, preparationPurpose, allowFileSizeWarning,
-				));
+				const epoch = currentProjectSaveEpoch(project.id);
+				const writeFence = dependencies.getWriteFence?.(project.id) ?? null;
+				return gate.promise.then(() => {
+					if (!dependencies.isCurrentProject(project.id) || !ownsProjectSaveEpoch(project.id, epoch)
+						|| !ownsWriteFence(project.id, writeFence)) return undefined;
+					return flushCurrentProject(allowTerminal, forceCurrentSnapshot, preparationPurpose, allowFileSizeWarning);
+				});
 			}
 		}
-		cancelScheduled();
+		if (!project || scheduledProjectId === project.id) cancelScheduled();
 		if (!project) return undefined;
 		const generation = state.saveGeneration;
 		return enqueueSaveSnapshot(
