@@ -11,7 +11,7 @@ import {
 	createSessionStripMeterStore,
 	type StripMeterSnapshot,
 } from '../production-audio/strip-meter-session.ts';
-import { createStripAnalysisScheduler } from '../production-audio/strip-analysis-scheduler.ts';
+import { createStripAnalysisScheduler, type StripAnalysisCandidate } from '../production-audio/strip-analysis-scheduler.ts';
 import { canonicalStripRefKey } from '../parameter-address.ts';
 import type { StripMeterAnalyserBankV21 } from './strip-meter-analyser-bank-v21.ts';
 import { createProductionStripMeterWorkerClient } from './production-strip-meter-worker-client.ts';
@@ -116,14 +116,17 @@ function scheduledBanks(
 	banks: ReadonlyMap<string, StripMeterAnalyserBankV21> | null | undefined,
 	demand: ReadonlySet<string> | null,
 ): readonly StripMeterAnalyserBankV21[] {
-	const bankValues = [...(banks?.values() ?? [])];
-	const byStrip = new Map(bankValues.map((bank) => [canonicalStripRefKey(bank.strip), bank]));
-	const plan = session.scheduler.plan(bankValues.map((bank) => ({
-		strip: bank.strip,
-		visible: demand === null || demand.has(canonicalStripRefKey(bank.strip)),
-		armed: false,
-		costFrames: bank.analysers.reduce((total, analyser) => total + analyserFrameCount(analyser), 0),
-	})));
+	const byStrip = new Map<string, StripMeterAnalyserBankV21>();
+	const candidates: StripAnalysisCandidate[] = [];
+	for (const bank of banks?.values() ?? []) {
+		const key = canonicalStripRefKey(bank.strip);
+		const visible = demand === null || demand.has(key);
+		if (visible) byStrip.set(key, bank);
+		// Hidden candidates keep their round-robin positions. Their costs do not enter the budget.
+		const costFrames = visible ? bank.analysers.reduce((total, analyser) => total + analyserFrameCount(analyser), 0) : 1;
+		candidates.push({ strip: bank.strip, visible, armed: false, costFrames });
+	}
+	const plan = session.scheduler.plan(candidates);
 	return plan.scheduled.flatMap((candidate) => {
 		const bank = byStrip.get(canonicalStripRefKey(candidate.strip));
 		return bank ? [bank] : [];
