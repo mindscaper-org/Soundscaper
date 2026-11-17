@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { TRACK_PLAYLIST_LIMIT } from '../common/editor/track-playlists.ts';
+
 type DataRecord = Record<string, unknown>;
 type Admission = (path: string, update: (draft: DataRecord) => void, relationships?: boolean, reportFailure?: boolean) => boolean;
 const ALTERNATIVES = ['subprojects', 'trackPlaylists', 'sessionSnapshots'] as const;
@@ -34,7 +36,7 @@ export function restoreSoundscaperRecoveryAlternatives(value: unknown, attempt: 
 			const collection = key === 'trackPlaylists' ? record(entry) : null;
 			const playlists: readonly unknown[] | null = Array.isArray(collection?.playlists) ? collection.playlists : null;
 			const active = playlists?.findIndex(playlist => record(playlist)?.id === collection?.activeId) ?? -1;
-			const partial = collection !== null && playlists !== null && active >= 0;
+			const partial = collection !== null && playlists !== null && playlists.length <= TRACK_PLAYLIST_LIMIT && active >= 0;
 			if (attempt(entryPath, draft => { append(draft, entry); }, false, !partial) || !partial) continue;
 			const accepted = new Set([active]);
 			if (!attempt(entryPath, draft => { append(draft, { ...collection, playlists: [playlists[active]] }); })) continue;
