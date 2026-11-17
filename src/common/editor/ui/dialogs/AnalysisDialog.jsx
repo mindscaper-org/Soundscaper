@@ -29,6 +29,7 @@ function ReportAnalysisDialog({ mode, requestId = 0, controller, snapshot, copy,
 	const selection = resolveSelectionRange(project, { selectedClipId: snapshot.selectedClipId ?? null });
 	const [payload, setPayload] = useState(null);
 	const [pending, setPending] = useState(false);
+	const [savingReport, setSavingReport] = useState(false);
 	const [error, setError] = useState('');
 	const operationRef = useRef(null);
 	const reportSaveRef = useRef(null);
@@ -60,6 +61,7 @@ function ReportAnalysisDialog({ mode, requestId = 0, controller, snapshot, copy,
 			&& snapshot.analysisReport?.type === 'contrast' ? snapshot.analysisReport : null;
 		setPayload(savedContrast ? { result: null, report: savedContrast } : null);
 		setPending(false);
+		setSavingReport(false);
 		setError('');
 		if ((analysisMode !== 'contrast' || repeatRequest) && selection && !blocked) {
 			const range = { startFrame: selection.startFrame, endFrame: selection.endFrame };
@@ -81,9 +83,10 @@ function ReportAnalysisDialog({ mode, requestId = 0, controller, snapshot, copy,
 		perform(() => controller.actions.analysis.contrast(role, 'master'), (report) => ({ result: null, report }));
 	};
 	const exportReport = () => {
-		if (!payload) return;
+		if (!payload || reportSaveRef.current !== null) return;
 		const submission = Symbol('analysis-report-save');
 		reportSaveRef.current = submission;
+		setSavingReport(true);
 		const text = JSON.stringify({
 			schemaVersion: 1,
 			project: { id: project?.id, title: project?.title, sampleRate: project?.sampleRate },
@@ -94,6 +97,11 @@ function ReportAnalysisDialog({ mode, requestId = 0, controller, snapshot, copy,
 			mimeType: 'application/json', text,
 		})).catch((cause) => {
 			if (reportSaveRef.current === submission) setError(cause instanceof Error ? cause.message : String(cause));
+		}).finally(() => {
+			if (reportSaveRef.current === submission) {
+				reportSaveRef.current = null;
+				setSavingReport(false);
+			}
 		});
 	};
 	return <AudioEditorDialogShell
@@ -119,7 +127,7 @@ function ReportAnalysisDialog({ mode, requestId = 0, controller, snapshot, copy,
 					<Button disabled={blocked || pending || !selection} onClick={() => captureContrast('foreground')}>{copy.captureContrastForeground}</Button>
 					<Button disabled={blocked || pending || !selection} onClick={() => captureContrast('background')}>{copy.captureContrastBackground}</Button>
 				</>}
-				<Button variant="secondary" disabled={!payload || pending} onClick={exportReport}>{copy.export}</Button>
+				<Button variant="secondary" disabled={!payload || pending || savingReport} onClick={exportReport}>{copy.export}</Button>
 			</div>
 		</div>
 	</AudioEditorDialogShell>;
