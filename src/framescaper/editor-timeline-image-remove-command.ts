@@ -44,13 +44,17 @@ export function prepareTimelineImageRemoveCommand(project: FramescaperProjectTim
 			removal.type === 'clip/remove' ? [removal.clipId] : removal.clipIds);
 		const removed = new Set(ids);
 		const images = ids.filter(id => isOwnedVisual(clips.get(id)));
-		if (!images.length) return value;
+		const rippleMode = removal.type === 'clip/remove-many' ? removal.rippleMode : 'none';
+		const ownedVisualTracks = new Set([...clips].filter(([, clip]) => isOwnedVisual(clip)).map(([id]) => owners.get(id)));
+		const rippleTracks = rippleMode === 'track'
+			? new Set(ids.map(id => owners.get(id)).filter(trackId => ownedVisualTracks.has(trackId))) : new Set();
+		if (!images.length && !rippleTracks.size) return value;
 		const commands: FramescaperProjectCommandTimelineImage[] = [];
 		const inherited = ids.filter(id => !isOwnedVisual(clips.get(id)));
-		const rippleMode = removal.type === 'clip/remove-many' ? removal.rippleMode : 'none';
 		if (inherited.length) commands.push({ type: 'clip/remove-many', clipIds: inherited, rippleMode });
 		for (const id of images) commands.push(imageMutation(id, null));
-		if (rippleMode === 'track') for (const trackId of new Set(images.map(id => owners.get(id)))) {
+		const visualRemovalTracks = new Set(images.map(id => owners.get(id)));
+		for (const trackId of rippleTracks) {
 			const ranges = mergeRanges(ids.filter(id => owners.get(id) === trackId).map(id => {
 				const clip = clips.get(id)!;
 				return { start: Number(clip.sequenceStartFrame), end: Number(clip.sequenceStartFrame) + Number(clip.sequenceFrameCount) };
@@ -62,7 +66,7 @@ export function prepareTimelineImageRemoveCommand(project: FramescaperProjectTim
 				const shift = ranges.reduce((sum, range) => sum + (start >= range.end ? range.end - range.start : 0), 0);
 				if (!shift) continue;
 				if (isOwnedVisual(clip)) commands.push(imageMutation(String(clip.id), start - shift));
-				else {
+				else if (visualRemovalTracks.has(trackId)) {
 					const sequence = project.sequences.find(item => item.id === clip.sequenceId)!;
 					commands.push({ type: 'clip/move', clipId: String(clip.id), timelineStartFrame:
 						videoFrameToSampleFrame(start - shift, sequence.rate, project.sampleRate) });
