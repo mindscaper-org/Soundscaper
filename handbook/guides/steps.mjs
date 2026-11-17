@@ -528,7 +528,7 @@ export function describeStep(entry, { fixture, facet = 'howto' }) {
 		case 'export-project':
 			return `Choose ${menuPath(['File', 'Export project file (.sscape)'])}. The whole project downloads as one \`.sscape\` file.`;
 		case 'open-project-file':
-			return `Choose ${menuPath(['File', 'Open'])} and pick the file. On a computer that does not have the project yet it opens directly; here, where the library already holds it, Soundscaper offers ${bold('Open as read-only copy')} — press it.`;
+			return `Open Soundscaper on the destination computer, then choose ${menuPath(['File', 'Open'])} and pick the exported file.`;
 		case 'resample':
 			return `Open the clip's menu from the ${bold('Clip menu')} button on its name bar and choose ${bold('Clip properties')}. Press ${bold('Resample')}, set the rate to \`${String(entry.rate)}\` and press ${bold('Resample')} again.`;
 		case 'drag-clip':

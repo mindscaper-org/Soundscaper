@@ -14,12 +14,15 @@ import { createAup3Fixture } from '../../aup3-fixture.js';
 import { SCAPE_MIME_TYPE } from '../../../src/common/editor/scape-project-format.ts';
 import {
 	addRackEffect,
+	bootEditor,
 	chooseExportProjectFileAction,
 	chooseFileAction,
 	closeClipProperties, closeDialog,
 	closeEffectsPanel,
+	collectClientErrors,
 	openClipProperties,
 	openEffectsForTrack,
+	waitForProjectActivation,
 } from '../audio-editor-test-helpers.js';
 import { resampleClipFormat, expectClipSampleRate } from '../audio-editor-clip-settings-test-helpers.js';
 import { GUIDE_FIXTURES } from '../../../handbook/guides/fixtures.mjs';
@@ -79,20 +82,28 @@ export async function runExportProject(page, state) {
 
 export async function runOpenProjectFile(page, state) {
 	if (!state.projectFile) throw new Error('This step needs a project file from an earlier export step.');
-	const { editor } = state;
-	const originalId = await editor.getAttribute('data-project-id');
-	const [chooser] = await Promise.all([
-		page.waitForEvent('filechooser'),
-		chooseFileAction(page, editor, 'Open'),
-	]);
-	await chooser.setFiles(state.projectFile);
-	// The library already holds this project, so the editor asks before it
-	// opens a second copy; on another computer the file opens straight away.
-	const copy = page.getByRole('button', { name: /^Open as (?:read-only )?copy$/u });
-	await expect(copy).toBeVisible({ timeout: OPEN_TIMEOUT });
-	await copy.click();
-	await expect.poll(() => editor.getAttribute('data-project-id'), { timeout: OPEN_TIMEOUT }).not.toBe(originalId);
-	await expect(editor.locator('[data-editor-task-progress="import"]')).toHaveCount(0, { timeout: OPEN_TIMEOUT });
+	const originalId = await state.editor.getAttribute('data-project-id');
+	const trackCount = await state.editor.getAttribute('data-track-count');
+	const clipName = / clip, starts at /u;
+	const originalClip = await state.editor.getByRole('group', { name: clipName }).getAttribute('aria-label');
+	const context = await page.context().browser().newContext({ serviceWorkers: 'block' });
+	try {
+		const destination = await context.newPage();
+		const errors = collectClientErrors(destination);
+		const editor = await bootEditor(destination, page.url());
+		const [chooser] = await Promise.all([
+			destination.waitForEvent('filechooser'),
+			chooseFileAction(destination, editor, 'Open'),
+		]);
+		await chooser.setFiles(state.projectFile);
+		await expect(editor).toHaveAttribute('data-project-id', originalId, { timeout: OPEN_TIMEOUT });
+		await waitForProjectActivation(editor);
+		await expect(editor).toHaveAttribute('data-track-count', trackCount);
+		await expect(editor.getByRole('group', { name: clipName })).toHaveAccessibleName(originalClip);
+		expect(errors).toEqual([]);
+	} finally {
+		await context.close();
+	}
 }
 
 export async function runResample(page, state, entry, clip) {
