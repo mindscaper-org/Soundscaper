@@ -188,7 +188,7 @@ function desktopInstallerName(
 		} else if (named) {
 			if (DESKTOP_DOWNLOAD_TARGETS.some(target => asset.name === `${tag}-${target}`)) return asset.name;
 		} else if (asset.name.startsWith(prefix) && !/source/iu.test(asset.name)
-			&& /\.(?:AppImage|deb|dmg|pkg|exe|zip|flatpak)$/iu.test(asset.name)) return asset.name;
+			&& /\.(?:AppImage|deb|dmg|pkg|exe|msi|zip|flatpak)$/iu.test(asset.name)) return asset.name;
 	}
 	return null;
 }
@@ -197,5 +197,13 @@ function newerRelease(tag: string, published: number, previousTag: string, previ
 	const next = parseReleaseVersion(tag), previous = parseReleaseVersion(previousTag);
 	if (next?.kind === 'calendar') return previous?.kind !== 'calendar' || compareVersions(next, previous) > 0;
 	if (previous?.kind === 'calendar') return false;
-	return published > previousPublished || (published === previousPublished && tag > previousTag);
+	if (published !== previousPublished) return published > previousPublished;
+	const nextLegacy = next ?? legacyProductVersion(tag);
+	const previousLegacy = previous ?? legacyProductVersion(previousTag);
+	const versionOrder = nextLegacy && previousLegacy ? compareVersions(nextLegacy, previousLegacy) : 0;
+	return versionOrder !== 0 ? versionOrder > 0 : tag > previousTag;
+}
+
+function legacyProductVersion(tag: string) {
+	return parseReleaseVersion(tag.replace(/^(?:soundscaper|framescaper)-(?=v)/u, ''));
 }

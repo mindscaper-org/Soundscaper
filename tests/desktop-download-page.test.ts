@@ -75,6 +75,14 @@ test('a newer release appears on the next visit without rebuilding the page', as
 	assert.ok(!updated.includes('1.0.0-rc.1'));
 });
 
+test('release candidates published in the same second sort numeric version identifiers correctly', async () => {
+	const response = await handleDownloadPageRequest(new Request('https://soundscaper.org/download/'),
+		async () => Response.json([release('soundscaper', '1.0.0-rc.9'), release('soundscaper', '1.0.0-rc.10')]));
+	const html = await response.text();
+	assert.ok(html.includes(`${RELEASES}/tag/soundscaper-v1.0.0-rc.10`));
+	assert.ok(!html.includes(`${RELEASES}/tag/soundscaper-v1.0.0-rc.9`));
+});
+
 test('no RC and an unavailable release feed leave a usable release link with distinct messages', async () => {
 	const request = new Request('https://soundscaper.org/download/');
 	const empty = await handleDownloadPageRequest(request, async () => Response.json([]));
