@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { decodeBasicPitchNotes, basicPitchFrameSample } from '../src/common/editor/assistance/basic-pitch-notes.ts';
+import { createBasicPitchNoteDecoder, decodeBasicPitchNotes, basicPitchFrameSample } from '../src/common/editor/assistance/basic-pitch-notes.ts';
 import { reviewMusicTranscriptionV1, musicTranscriptionMidiDocument } from '../src/common/editor/assistance/music-transcription-v1.ts';
 
 function activations(count = 80) {
@@ -56,6 +56,28 @@ test('window stitching keeps a long note continuous and does not accumulate timi
 	assert.equal(result.notes.length, 1);
 	assert.equal(result.notes[0]!.startSample, 1280);
 	assert.equal(result.notes[0]!.durationSamples, basicPitchFrameSample(299) - 1280);
+});
+
+test('chunked Basic Pitch decoding keeps onset lookahead across borrowed inference packets', () => {
+	const input = { ...activations(300), sampleCount: 72_000 };
+	note(input, 60, 5, 180);
+	note(input, 69, 141, 245);
+	input.onsets[142 * 88 + 39] = 0.86;
+	input.onsets[143 * 88 + 39] = 0.96;
+	const expected = decodeBasicPitchNotes(input);
+	const decoder = createBasicPitchNoteDecoder(input.frameCount, input.sampleCount);
+	let start = 0;
+	for (const end of [1, 142, 143, 180, 284, 300]) {
+		const frames = input.frames.slice(start * 88, end * 88);
+		const onsets = input.onsets.slice(start * 88, end * 88);
+		decoder.push(frames, onsets);
+		frames.fill(0); onsets.fill(0);
+		start = end;
+	}
+	assert.deepEqual(decoder.finish(), expected);
+	assert.deepEqual(expected.notes.map(({ pitch, startSample }) => [pitch, startSample]), [
+		[60, 1280], [69, 36096], [60, 36420],
+	]);
 });
 
 test('tensor corruption, invalid note geometry and cancelled decoding fail closed', () => {

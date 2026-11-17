@@ -209,8 +209,9 @@ timings. Physical audio-device qualification remains separate.
 ## Catalog and availability
 
 Music transcription uses the pinned Basic Pitch ONNX graph with 22.05 kHz mono
-input. Its adapter reads bounded overlapping windows and retains note/onset
-activations for at most 30 minutes under a one-GiB helper ceiling. The owning
+input. Its adapter reads bounded overlapping windows and decodes note and onset
+rows as they arrive. The 30-minute selection limit and one-GiB helper ceiling
+still apply. The owning
 ONNX loader selects authenticated GPU providers and the portable fallback.
 The owned decoder produces discrete pitches, estimated velocities and original
 timing; it does not assign instruments, decode pitch bends or quantize rhythm.

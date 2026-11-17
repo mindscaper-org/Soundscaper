@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { BASIC_PITCH_INPUT_SAMPLES, BASIC_PITCH_OUTPUT_FRAMES, BASIC_PITCH_BORDER_FRAMES,
-	BASIC_PITCH_RETAINED_FRAMES, BASIC_PITCH_WINDOW_STEP, decodeBasicPitchNotes } from '../src/common/editor/assistance/basic-pitch-notes.ts';
+	BASIC_PITCH_RETAINED_FRAMES, BASIC_PITCH_WINDOW_STEP, createBasicPitchNoteDecoder } from '../src/common/editor/assistance/basic-pitch-notes.ts';
 import { MUSIC_TRANSCRIPTION_MAXIMUM_SAMPLES } from '../src/common/editor/assistance/music-transcription-v1.ts';
 import { BASIC_PITCH_MODEL_ID, BASIC_PITCH_MODEL_VERSION } from '../src/common/editor/assistance/basic-pitch-model.ts';
 import { openAssistanceFloat32MonoWaveFileV1 } from './assistance-float32-mono-wave-file-reader.ts';
@@ -38,7 +38,7 @@ export function createAssistanceBasicPitchWorkerAdapterV1(loadRuntime: Loader) {
 					|| JSON.stringify([...session.outputNames].sort()) !== JSON.stringify([NOTES, ONSETS, CONTOURS].sort())) throw new TypeError('Invalid Basic Pitch graph signature.');
 				const windowCount = Math.ceil((wave.sampleCount + BASIC_PITCH_BORDER_FRAMES * 256) / BASIC_PITCH_WINDOW_STEP);
 				const frameCount = windowCount * BASIC_PITCH_RETAINED_FRAMES;
-				const frames = new Float32Array(frameCount * 88), onsets = new Float32Array(frameCount * 88);
+				const decoder = createBasicPitchNoteDecoder(frameCount, wave.sampleCount, signal);
 				for (let window = 0; window < windowCount; window++) {
 					signal?.throwIfAborted();
 					const start = window * BASIC_PITCH_WINDOW_STEP - BASIC_PITCH_BORDER_FRAMES * 256;
@@ -50,11 +50,10 @@ export function createAssistanceBasicPitchWorkerAdapterV1(loadRuntime: Loader) {
 					const note = probabilityTensor(result[NOTES], 88), onset = probabilityTensor(result[ONSETS], 88);
 					probabilityTensor(result[CONTOURS], 264);
 					const left = BASIC_PITCH_BORDER_FRAMES * 88, right = (BASIC_PITCH_OUTPUT_FRAMES - BASIC_PITCH_BORDER_FRAMES) * 88;
-					frames.set(note.subarray(left, right), window * BASIC_PITCH_RETAINED_FRAMES * 88);
-					onsets.set(onset.subarray(left, right), window * BASIC_PITCH_RETAINED_FRAMES * 88);
+					decoder.push(note.subarray(left, right), onset.subarray(left, right));
 					context.onProgress((window + 1) / (windowCount + 1));
 				}
-				const result = decodeBasicPitchNotes({ frames, onsets, frameCount, sampleCount: wave.sampleCount }, signal);
+				const result = decoder.finish();
 				return await publishAssistanceOnnxOutputV1(context, () => Buffer.from(JSON.stringify(result)), 'Basic Pitch output exceeds its reservation.');
 			} finally { await session.release?.(); }
 		} finally { await wave.close(); }
