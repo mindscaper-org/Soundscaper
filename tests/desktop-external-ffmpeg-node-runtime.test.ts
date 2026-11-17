@@ -2,6 +2,9 @@
 
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
 import {
@@ -23,6 +26,26 @@ interface FakeExternalFfmpegChild extends ExternalFfmpegChildProcess {
 	readonly kills: string[];
 	emit(event: string, ...arguments_: unknown[]): boolean;
 }
+
+test('the real process runner supports Node coverage propagation without mutating its launch contract', async () => {
+	const directory = await mkdtemp(join(tmpdir(), 'scape-process-coverage-'));
+	const previous = process.env.NODE_V8_COVERAGE;
+	try {
+		process.env.NODE_V8_COVERAGE = join(directory, 'coverage');
+		const runner = createExternalFfmpegNodeRunner({ workingDirectory: directory });
+		const result = await runner.run({ executablePath: process.execPath, arguments: ['--version'],
+			shell: false, standardInput: 'ignore', maximumDurationMs: 5_000, maximumOutputBytes: 1024 });
+		assert.equal(result.status, 'exited');
+		if (result.status === 'exited') {
+			assert.equal(result.exitCode, 0);
+			assert.equal(result.stdout.trim(), process.version);
+		}
+	} finally {
+		if (previous === undefined) delete process.env.NODE_V8_COVERAGE;
+		else process.env.NODE_V8_COVERAGE = previous;
+		await rm(directory, { recursive: true, force: true });
+	}
+});
 
 test('the external FFmpeg target matrix has five rows and keeps mac x64 retired', () => {
 	assert.equal(resolveExternalFfmpegTarget('win32', 'x64'), 'win-x64');

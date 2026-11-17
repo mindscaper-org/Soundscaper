@@ -4,6 +4,7 @@ import { interchangeAutomationLane } from './interchange-automation.ts';
 import { canonicalParameterAddressKey, type ParameterAddress, type StripRef } from './parameter-address.ts';
 import { stripParameterDescriptor, effectParameterInventory } from './effect-parameter-descriptors.ts';
 import { normalizeAutomationLaneV21, type AutomationLaneV21 } from './automation-lane-v21.ts';
+import { scaleSampleFrame } from './timeline-time.ts';
 import { timelineImportIssue, type TimelineInterchangeDocument, type TimelineInterchangeStrip } from './timeline-interchange-types.ts';
 import type { DeliveryReportItem } from './delivery-report.ts';
 
@@ -52,7 +53,7 @@ export function timelineInterchangeMix(document: TimelineInterchangeDocument, tr
 				? effect && effect.type !== 'missing' ? effectParameterInventory(owner, effect, { sampleRate }).descriptors.find(value => value.id === canonicalParameterAddressKey(address)) : undefined
 				: stripParameterDescriptor(address);
 			if (!descriptor?.automatable) { issues.push(timelineImportIssue(document.format, 'automation-target-unavailable', 'Automation for an unavailable effect parameter is retained in its opaque effect state.')); continue; }
-			const points = curve.points.map(point => ({ ...point, ...(parameter === 'mute' ? { interpolation: 'hold' as const } : {}), frame: Math.round(point.frame * sampleRate / document.sampleRate) }));
+			const points = curve.points.map(point => ({ ...point, ...(parameter === 'mute' ? { interpolation: 'hold' as const } : {}), frame: scaleSampleFrame(point.frame, document.sampleRate, sampleRate, 'point') }));
 			const lane = interchangeAutomationLane(points, address, createId, value => bounded(curve.unit === 'decibel' ? 10 ** (value / 20)
 				: curve.unit === 'normalized' ? value * 2 - 1 : value, descriptor.minimum, descriptor.maximum));
 			if (!lane) continue;

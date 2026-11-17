@@ -69,11 +69,12 @@ test('export plans define mix/stem policy, encoding defaults, tails, names, and 
 	}) });
 	const mix = createExportPlan(project, { format: 'wav', date: NOW });
 	assert.equal(mix.encoding.bitDepth, 24);
-	assert.equal(mix.dither, true);
+	assert.equal(mix.dither, false);
+	assert.equal(mix.tailFrames, 0, 'effect tails require explicit opt-in');
 	assert.equal(mix.outputs[0].respectMuteSolo, true);
 	assert.equal(mix.outputs[0].includeMaster, true);
 	assert.equal(mix.outputs[0].fileName, 'Studio-Test-mix-2026-07-12.wav');
-	assert.ok(mix.tailFrames > 2 * AUDIO_EDITOR_SAMPLE_RATE);
+	assert.ok(createExportPlan(project, { includeTail: true }).tailFrames > 2 * AUDIO_EDITOR_SAMPLE_RATE);
 	assert.equal(mix.render.strategy, 'offline');
 
 	const stems = createExportPlan(project, { mode: 'stems', format: 'opus', bitRate: 160, date: NOW });
@@ -114,14 +115,14 @@ test('export tails include the longest active routed group or send rack', () => 
 		changes: { groupId: 'tail-group', sends: { 'tail-send': 0.5 } },
 	});
 
-	assert.equal(createExportPlan(project).tailFrames, 48_000);
-	assert.equal(createExportPlan(project, { mode: 'stems' }).tailFrames, 48_000);
+	assert.equal(createExportPlan(project, { includeTail: true }).tailFrames, 48_000);
+	assert.equal(createExportPlan(project, { mode: 'stems', includeTail: true }).tailFrames, 48_000);
 
 	project = apply(project, {
 		type: 'mixer/bus-update', busType: 'send', busId: 'tail-send',
 		changes: { effectsActive: false },
 	});
-	assert.equal(createExportPlan(project).tailFrames, 24_000);
+	assert.equal(createExportPlan(project, { includeTail: true }).tailFrames, 24_000);
 });
 
 test('streaming analysis is chunk-invariant and reports channel-aware production levels', () => {

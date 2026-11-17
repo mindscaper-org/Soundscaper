@@ -138,14 +138,25 @@ export const Flyout: React.FC<FlyoutProps> = ({
     updatePosition();
     window.addEventListener('resize', updatePosition);
 
+    // Updating the observed surface during delivery can trigger another layout
+    // in the same observer cycle. Reposition once in the next animation frame.
+    let resizeFrame: number | null = null;
+    const schedulePosition = () => {
+      if (resizeFrame !== null) return;
+      resizeFrame = requestAnimationFrame(() => {
+        resizeFrame = null;
+        updatePosition();
+      });
+    };
     const resizeObserver = typeof ResizeObserver === 'undefined'
       ? undefined
-      : new ResizeObserver(updatePosition);
+      : new ResizeObserver(schedulePosition);
     if (resizeObserver && flyoutRef.current) resizeObserver.observe(flyoutRef.current);
 
     return () => {
       window.removeEventListener('resize', updatePosition);
       resizeObserver?.disconnect();
+      if (resizeFrame !== null) cancelAnimationFrame(resizeFrame);
     };
   }, [children, isOpen, updatePosition]);
 

@@ -117,6 +117,18 @@ const ASSISTANCE_SITES: readonly FoundationTimeConversionSite[] = [
 		behavior: 'Reviewed voice and speaker ranges point-resolve the selected source extent at the model rate, then outward-enclose each accepted label on the project timeline.',
 		conversions: [{ helper: 'scaleSampleFrame', policies: ['point', 'enclosingStart', 'enclosingEnd'] }],
 	},
+	{
+		id: 'music-transcription-note-clock',
+		file: 'src/common/editor/assistance/music-transcription-v1.ts',
+		behavior: 'Reviewed transcription note endpoints scale from the fixed model sample rate to nearest project sample points before editable MIDI is authored.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
+		id: 'music-transcription-selection-extent',
+		file: 'src/common/editor/controller/assistance/internal/local-assistance-music-acceptance.ts',
+		behavior: 'Music acceptance compares the selected duration at the project clock with its nearest model sample count before accepting the reviewed transcription.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
 ];
 
 export const FOUNDATION_TIME_CONVERSION_ASSISTANCE_SITES = deepFreezeAuditSites(ASSISTANCE_SITES);

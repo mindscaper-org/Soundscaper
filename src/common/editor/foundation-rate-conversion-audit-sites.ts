@@ -151,6 +151,7 @@ export const FOUNDATION_RATE_CONVERSION_AUDIT_SITES: readonly FoundationTimeConv
 		file: 'src/common/editor/controller/recording/recording-model.ts',
 		behavior: 'Captured frame counts change from the input device rate to the project output rate once under point rounding without unsafe floating multiplication. A timed recording converts its wall-clock duration to an enclosing-end frame offset, so it never stops before the requested instant.',
 		conversions: [
+			{ helper: 'countInSampleFrames', policies: ['point'] },
 			{ helper: 'scaleSampleFrame', policies: ['point'] },
 			{ helper: 'secondsToSampleFrame', policies: ['enclosingEnd'] },
 		],

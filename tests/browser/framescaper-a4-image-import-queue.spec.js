@@ -71,6 +71,8 @@ for (const variant of [{ late: 'success', returning: false }, { late: 'failure',
 			await expect(editor.getByRole('group', { name: /^Image clip:/u })).toHaveCount(1);
 			if (variant.late) expect(await page.evaluate(() => globalThis.__imageReadSettled)).toBe(false);
 			await savedImage(page, editor, png, projectId);
+			await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+			await expect(editor.locator('[data-status]').first()).toHaveText('All changes saved locally');
 			const status = await editor.locator('[data-status]').first().textContent();
 			if (variant.late) {
 				await page.evaluate(failure => globalThis.__releaseOldImage(failure), variant.late === 'failure');

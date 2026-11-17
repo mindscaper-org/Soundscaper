@@ -160,7 +160,8 @@ export function createExternalFfmpegNodeRunner(options: NodeRunnerOptions): Exte
 		throw new TypeError('An absolute external FFmpeg scratch directory is required.');
 	}
 	const launch = options.launch ?? ((executablePath, arguments_, launchOptions) => (
-		spawn(executablePath, [...arguments_], launchOptions) as unknown as ExternalFfmpegChildProcess
+		// Node adds inherited coverage variables to an explicit environment during spawn.
+		spawn(executablePath, [...arguments_], { ...launchOptions, env: { ...launchOptions.env } }) as unknown as ExternalFfmpegChildProcess
 	));
 	const setTimer = options.setTimer ?? setTimeout;
 	const clearTimer = options.clearTimer ?? clearTimeout;
