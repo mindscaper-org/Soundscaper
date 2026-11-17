@@ -5,27 +5,31 @@ import test from 'node:test';
 import { createRecordingPunchAndRollService } from '../src/common/editor/controller/recording/internal/recording-punch-and-roll-service.ts';
 import { createControllerRecordingState } from '../src/common/editor/controller/recording/recording-state.ts';
 import type { RecordingStartOptions } from '../src/common/editor/controller/recording/internal/recording-session-service.ts';
+import type { RecordingProject } from '../src/common/editor/controller/recording/recording-transaction-types.ts';
+import { deferred, settle } from './helpers/async-test-control.ts';
 
-function fixture() {
+function fixture(beforePersist?: (seconds: number) => Promise<void>) {
 	const state = { ...createControllerRecordingState({ recordingRouting: { routes: {}, offsets: {} },
 		recordingInputGain: 1, preferredInputDeviceId: 'default' }), readOnly: false, disposed: false };
 	let projectId = 'project';
+	let tracks: RecordingProject['tracks'] = [{ id: 'voice', type: 'audio' }, { id: 'backup', type: 'audio' }];
 	let generation = 0;
 	const events: unknown[] = [];
 	let finishStop: (() => void) | null = null;
 	const service = createRecordingPunchAndRollService({
 		state,
-		getProject: () => ({ id: projectId, tracks: [{ id: 'voice', type: 'audio' }, { id: 'backup', type: 'audio' }] }),
+		getProject: () => ({ id: projectId, tracks }),
 		captureCurrent: () => generation,
 		assertCurrent: (token: number) => { if (token !== generation) throw new DOMException('changed', 'AbortError'); },
 		stopRecording: async () => { events.push('stop'); await new Promise<void>(resolve => { finishStop = resolve; }); state.recorder = null; },
 		startRecording: async (options: RecordingStartOptions) => { events.push(options); },
 		pauseTransport: () => { events.push('pause'); },
 		seek: (frame: number) => { events.push(frame); },
-		persistDuration: async (seconds: number) => { events.push(['persist', seconds]); },
-		publish: () => {},
+		persistDuration: async (seconds: number) => { events.push(['persist', seconds]); await beforePersist?.(seconds); },
+		publish: () => { events.push('publish'); },
 	});
 	return { service, state, events, finish: () => { assert.ok(finishStop); finishStop(); },
+		setTracks: (next: RecordingProject['tracks']) => { tracks = next; },
 		switchProject: () => { projectId = 'other'; generation++; } };
 }
 
@@ -63,7 +67,7 @@ test('lead-in duration persists without enabling recording and stays fixed durin
 	assert.equal(await f.service.setLeadInDurationSeconds(3.25), true);
 	assert.equal(f.state.leadInDurationSeconds, 3.25);
 	assert.equal(f.state.leadInRecording, false);
-	assert.deepEqual(f.events, [['persist', 3.25]]);
+	assert.deepEqual(f.events, [['persist', 3.25], 'publish']);
 	for (const value of [-1, NaN, Infinity]) {
 		await assert.rejects(f.service.setLeadInDurationSeconds(value), { name: 'RangeError' });
 	}
@@ -72,12 +76,53 @@ test('lead-in duration persists without enabling recording and stays fixed durin
 	assert.equal(f.state.leadInDurationSeconds, 3.25);
 });
 
+test('overlapping lead-in preferences persist and publish in invocation order', async () => {
+	const firstWrite = deferred<void>(), firstStarted = deferred<void>();
+	const f = fixture(async seconds => {
+		if (seconds === 1) { firstStarted.resolve(); await firstWrite.promise; }
+	});
+	const first = f.service.setLeadInDurationSeconds(1);
+	await firstStarted.promise;
+	const second = f.service.setLeadInDurationSeconds(2);
+	try {
+		await settle();
+		assert.deepEqual(f.events, [['persist', 1]]);
+	} finally {
+		firstWrite.resolve();
+		assert.deepEqual(await Promise.all([first, second]), [true, true]);
+	}
+	assert.equal(f.state.leadInDurationSeconds, 2);
+});
+
+test('a late lead-in preference write cannot publish through a disposed controller', async () => {
+	const written = deferred<void>(), started = deferred<void>();
+	const f = fixture(async () => { started.resolve(); await written.promise; });
+	const original = f.state.leadInDurationSeconds;
+	const saving = f.service.setLeadInDurationSeconds(2);
+	await started.promise;
+	f.state.disposed = true;
+	written.resolve();
+	assert.equal(await saving, false);
+	assert.equal(f.state.leadInDurationSeconds, original);
+	assert.deepEqual(f.events, [['persist', 2]]);
+});
+
 
 test('Stop cancels a retry while the preceding take is still finalizing', async () => {
 	const f = fixture();
 	f.service.rememberPunch(48_000, null, ['voice']);
 	const pending = f.service.punchAgain();
 	f.service.cancelPendingRetry();
+	f.finish();
+	assert.equal(await pending, false);
+	assert.deepEqual(f.events, ['stop']);
+});
+
+test('Punch Again rechecks recorded targets after finalization before moving transport', async () => {
+	const f = fixture();
+	f.service.rememberPunch(48_000, null, ['voice']);
+	const pending = f.service.punchAgain();
+	f.setTracks([{ id: 'backup', type: 'audio' }]);
 	f.finish();
 	assert.equal(await pending, false);
 	assert.deepEqual(f.events, ['stop']);

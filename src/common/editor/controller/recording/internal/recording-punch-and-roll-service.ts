@@ -28,6 +28,7 @@ export function createRecordingPunchAndRollService<Token>(runtime: PunchAndRollR
 	let remembered: { target: RecordingPunchTarget; token: Token } | null = null;
 	let retry: Promise<boolean> | null = null;
 	let retryGeneration = 0;
+	let durationWrite = Promise.resolve(false);
 	const blocked = () => state.disposed || state.readOnly || Boolean(state.takeCycleRecovery)
 		|| state.recordingStarting || state.recordingAdmissionPending
 		|| state.timedRecordingPreparing || Boolean(state.timedRecording);
@@ -45,7 +46,9 @@ export function createRecordingPunchAndRollService<Token>(runtime: PunchAndRollR
 		const project = runtime.getProject();
 		if (!current || blocked() || current.target.projectId !== project?.id
 			|| state.recorder && state.recordingKind !== 'ordinary') return Promise.resolve(false);
-		const tracks = current.target.trackIds.map(id => project.tracks.find(track => track.id === id));
+		const { startFrame, selection, trackIds } = current.target;
+		const targetTracks = (candidate: RecordingProject | null) => trackIds.map(id => candidate?.tracks.find(track => track.id === id && track.type === 'audio'));
+		const tracks = targetTracks(project);
 		if (tracks.some(track => !track)) return Promise.resolve(false);
 		const generation = retryGeneration;
 		const operation = (async () => {
@@ -54,9 +57,11 @@ export function createRecordingPunchAndRollService<Token>(runtime: PunchAndRollR
 			await runtime.stopRecording();
 			runtime.assertCurrent(current.token);
 			if (generation !== retryGeneration || blocked() || state.recorder) return false;
+			const currentTracks = targetTracks(runtime.getProject());
+			if (currentTracks.some(track => !track)) return false;
+			assertRecordingTargetsUnlocked(currentTracks.filter(track => track !== undefined));
 			runtime.pauseTransport();
-			runtime.seek(current.target.startFrame);
-			const { startFrame, selection, trackIds } = current.target;
+			runtime.seek(startFrame);
 			const started = runtime.startRecording({ ...(trackIds.length === 1 ? { trackId: trackIds[0] } : { multitrack: true }),
 				punch: { startFrame, selection, trackIds } });
 			if (!started) return false;
@@ -70,10 +75,15 @@ export function createRecordingPunchAndRollService<Token>(runtime: PunchAndRollR
 		const seconds = normalizeRecordingLeadInSeconds(value);
 		if (seconds === null) throw new RangeError('Choose a lead-in duration.');
 		if (blocked() || state.recorder) return false;
-		await runtime.persistDuration(seconds);
-		state.leadInDurationSeconds = seconds;
-		runtime.publish();
-		return true;
+		durationWrite = durationWrite.catch(() => false).then(async () => {
+			if (state.disposed) return false;
+			await runtime.persistDuration(seconds);
+			if (state.disposed) return false;
+			state.leadInDurationSeconds = seconds;
+			runtime.publish();
+			return true;
+		});
+		return durationWrite;
 	}
 	function cancelPendingRetry(): void {
 		retryGeneration++;
