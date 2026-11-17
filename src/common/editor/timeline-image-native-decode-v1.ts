@@ -6,6 +6,7 @@ import { admitImageDecodeWorkload, IMAGE_IMPORT_LIMITS } from '../imaging/image-
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from './controller/shared/file-size-warning.ts';
 import { routeImageDecoder } from './image-decoder-routing.ts';
 import { assertBrowserNativeImageResources } from './browser-image-resource-admission.ts';
+import { assertBrowserNativeImageMetadata } from './browser-image-metadata-admission.ts';
 import { assertBrowserNativeImagePrecision } from './browser-image-precision-admission.ts';
 import {
 	createFramescaperImageFramePackWithWarningsV1,
@@ -81,6 +82,7 @@ export async function decodeFramescaperBrowserNativeImageV1(
 	const mimeType = NATIVE_MIME_TYPES.get(classification.format);
 	if (!mimeType) throw new RangeError(`The reviewed ${classification.format} format has no supported browser-native route.`);
 	assertBrowserNativeImagePrecision(request.bytes, classification.format);
+	assertBrowserNativeImageMetadata(request.bytes, classification.format);
 	const maximumFileInputBytes = await confirmFileSizeWarning(request.bytes.byteLength,
 		request.maximumFileInputBytes ?? IMAGE_IMPORT_LIMITS.maximumFileInputBytes, request.fileName, request);
 	assertBrowserNativeImageResources(request.bytes, classification.format);
