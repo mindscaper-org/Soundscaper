@@ -489,7 +489,7 @@ export function createSelectionViewService<
 
 	function setZoom(
 		pixelsPerSecond: unknown,
-		options: Readonly<{ allowBelowProjectFit?: boolean }> = {},
+		options: Readonly<{ allowBelowProjectFit?: boolean }> = { allowBelowProjectFit: true },
 	) {
 		const project = getProject();
 		if (!project) return state.pixelsPerSecond;

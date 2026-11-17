@@ -109,7 +109,7 @@ export function createViewStateService<Project extends ViewStateProject = ViewSt
 	 */
 	function updateZoom(action: unknown, requestedViewportWidth: unknown, requestedFactor?: unknown) {
 		const project = getProject();
-		state.allowBelowProjectFitZoom = false;
+		state.allowBelowProjectFitZoom = true;
 		if (action === 'fit') {
 			const viewport = Math.max(1, Number(requestedViewportWidth) || state.timelineViewportWidth || 960);
 			const sampleRate = projectSampleRate();
@@ -124,11 +124,9 @@ export function createViewStateService<Project extends ViewStateProject = ViewSt
 			const fitViewport = annotationEndFrame > 0 ? Math.max(1, viewport - 24) : viewport;
 			state.pixelsPerSecond = Math.max(AUDIO_EDITOR_MIN_PIXELS_PER_SECOND, Math.min(MAX_PIXELS_PER_SECOND, fitViewport / fitDurationSeconds));
 		} else {
-			const durationSeconds = editorTimelineDurationFrames(project, projectSampleRate()) / projectSampleRate();
-			const minimum = state.timelineViewportWidth > 0 ? state.timelineViewportWidth / durationSeconds : 1;
 			const requested = Number(requestedFactor);
 			const factor = Number.isFinite(requested) && requested > 1 ? requested : 2;
-			state.pixelsPerSecond = Math.max(minimum, Math.min(
+			state.pixelsPerSecond = Math.max(AUDIO_EDITOR_MIN_PIXELS_PER_SECOND, Math.min(
 				MAX_PIXELS_PER_SECOND,
 				state.pixelsPerSecond * (action === 'in' ? factor : 1 / factor),
 			));

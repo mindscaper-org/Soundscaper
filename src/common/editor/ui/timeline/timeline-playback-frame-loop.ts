@@ -45,14 +45,14 @@ export function lowRateTimelinePositionFrame(
 	return Math.floor(positionFrame / intervalFrames) * intervalFrames;
 }
 
-/** Compacted capture advances the visible playhead only as waveform frames are written. */
+/** Capture outlives finite backing playback; compacted capture follows only written frames. */
 export function liveTimelinePositionFrame(
 	telemetry: TimelinePositionTelemetry,
 	readEnginePosition: () => number,
 ): number {
-	return telemetry.transportState === 'recording' && telemetry.compactedRecording
-		? Math.max(0, Math.round(Number(telemetry.positionFrame) || 0))
-		: readEnginePosition();
+	if (telemetry.transportState !== 'recording') return readEnginePosition();
+	const recordedFrame = Math.max(0, Math.round(Number(telemetry.positionFrame) || 0));
+	return telemetry.compactedRecording ? recordedFrame : Math.max(recordedFrame, readEnginePosition());
 }
 
 export function resolveTimelinePlaybackScroll({

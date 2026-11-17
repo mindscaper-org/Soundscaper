@@ -516,7 +516,7 @@ test('zoom bounds preserve both the ceiling and exact presets below project fit'
 	assert.equal(fixture.service.setZoom(10_000), 10_000);
 	fixture.state.timelineViewportWidth = 1_000;
 	assert.equal(fixture.service.setZoom(5, { allowBelowProjectFit: true }), 5);
-	assert.equal(fixture.service.setZoom(5), 10);
+	assert.equal(fixture.service.setZoom(5), 5);
 });
 
 test('zero-crossing alignment commits success and reports render failures', async () => {
