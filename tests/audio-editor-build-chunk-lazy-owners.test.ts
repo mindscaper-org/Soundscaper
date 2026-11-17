@@ -65,6 +65,7 @@ test('optional archive code and its ZIP vendor are placed by dynamic reachabilit
 		'src/common/editor/dawproject-export.ts',
 		'src/common/editor/dawproject-export-routing-omissions.ts',
 		'src/common/editor/dawproject-import.ts',
+		'src/common/editor/ardour-route-flags.ts',
 		'src/common/editor/dawproject-xml.ts',
 	]) {
 		assert.ok(EDITOR_OPTIONAL_ARCHIVE_CHUNK_TEST.test(path), `${path} must be an archive implementation`);
