@@ -20,6 +20,7 @@
  */
 
 import { sourceCommandRanges } from './source-range-work.ts';
+import { preserveTrackPlaylistSource, trackPlaylistUsesSource } from '../track-playlist-media.ts';
 import { preserveSessionSnapshotSource, sessionSnapshotUsesSource } from '../session-snapshot-media.ts';
 import {
 	assertClipSourceBounds,
@@ -43,6 +44,7 @@ export function removeSource(project, sourceId) {
 		...(project.projectBin?.clips || []),
 	].some((clip) => clip.sourceId === sourceId);
 	if (inUse) throw new RangeError('A source in use cannot be removed.');
+	if (trackPlaylistUsesSource(project, sourceId)) return;
 	if (sessionSnapshotUsesSource(project, sourceId)) return;
 	const index = project.sources.findIndex((source) => source.id === sourceId);
 	if (index < 0) throw new ReferenceError(`Unknown source: ${sourceId}.`);
@@ -90,6 +92,7 @@ export function reprobeSource(project, command) {
 		if (upgraded[key] !== source[key]) throw new RangeError(`A re-probe cannot change ${key}.`);
 	}
 	const index = project.sources.findIndex((candidate) => candidate.id === source.id);
+	preserveTrackPlaylistSource(project, source.id);
 	preserveSessionSnapshotSource(project, source.id);
 	project.sources[index] = upgraded;
 	const ranges = sourceCommandRanges(Array.isArray(command.clips) ? command.clips : [], true);
@@ -186,6 +189,7 @@ export function rewriteSourceMedia(project, command) {
 	}
 
 	const index = project.sources.findIndex((candidate) => candidate.id === source.id);
+	preserveTrackPlaylistSource(project, source.id);
 	preserveSessionSnapshotSource(project, source.id);
 	project.sources[index] = rewritten;
 	const conform = (clip) => {

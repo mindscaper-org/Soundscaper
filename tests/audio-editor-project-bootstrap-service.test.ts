@@ -380,3 +380,14 @@ void test('bootstrap forwards opaque stored documents to admission without requi
 	assert.equal(opened, saved);
 	assert.ok(!fixture.events.includes('save-now'));
 });
+
+
+test('bootstrap restores a custom lead-in and falls back to a bar for invalid saved durations', async () => {
+	for (const [saved, expected] of [[3.25, 3.25], [-1, null], ['invalid', null], [null, null]] as const) {
+		const fixture = createFixture();
+		fixture.settings.set('recording-lead-in-seconds', saved);
+		await fixture.service.bootstrap(fixture.lifetime.capture());
+		assert.equal(fixture.state.leadInDurationSeconds, expected);
+		assert.equal(fixture.state.leadInRecording, false);
+	}
+});

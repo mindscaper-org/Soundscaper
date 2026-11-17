@@ -88,8 +88,8 @@ Hover for limits. Include any referenced media when sharing projects.
 | Loop recording into takes | + | + |
 | Take comping | + — :: Audition, promote, edit comp regions, flatten as one undoable edit | + |
 | Input monitoring and metering | + | + |
-| Alternate track playlists | / | ~ — Take lanes :: Stores alternate audio performances in take lanes; not interchangeable whole-track playlists. |
-| Punch-and-roll narration | / | / |
+| Alternate track playlists | + — :: Tracks → Track playlists creates empty or duplicate arrangements, recalls each track independently, and preserves the current mix. | ~ — Take lanes :: Stores alternate audio performances in take lanes; not interchangeable whole-track playlists. |
+| Punch-and-roll narration | + — :: Adjustable playback lead-in and Punch again restart recording at the previous punch point. | / |
 
 [Recording, monitoring, and recovery](/soundscaper/recording/)
 

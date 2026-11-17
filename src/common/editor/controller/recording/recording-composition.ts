@@ -15,6 +15,7 @@ import {
 } from '../../recording-routing.js';
 import { createStreamingWindowedSincResampler } from '../../resample.js';
 import { abortError } from '../shared/app-helpers.ts';
+import { createRecordingPunchAndRollService } from './internal/recording-punch-and-roll-service.ts';
 import { createRecordingMidiAdmission } from './internal/recording-midi-admission.ts';
 import { createLegacyRecordingCaptureService } from './internal/legacy-recording-capture-service.ts';
 import { planNewRecordingTracks } from './internal/new-recording-tracks.ts';
@@ -140,9 +141,16 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		dependencies.publishDocumentSnapshot();
 	};
 
+	const punchAndRoll = createRecordingPunchAndRollService({ state, getProject: document.get,
+		captureCurrent: document.captureCurrent, assertCurrent: document.assertCurrent,
+		stopRecording: () => session.stopRecording(), startRecording: options => session.startRecording(options),
+		pauseTransport: () => engine.pause(), seek: frame => { engine.seek(frame); dependencies.updatePlayhead(frame); },
+		persistDuration: seconds => dependencies.persistSetting('recording-lead-in-seconds', seconds, { policy: 'required' }),
+		publish: dependencies.publishDocumentSnapshot });
 	const ordinaryRecovery = createOrdinaryRecordingRecoveryComposition(dependencies);
 	const captureRuntime: RecordingCaptureCommonRuntime & Readonly<{ engine: RecordingCompositionEngine }> = {
 		state,
+		rememberPunch: punchAndRoll.rememberPunch,
 		soundActivation,
 		engine,
 		capturePool,
@@ -325,7 +333,7 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		abortError,
 		addTrack: dependencies.addTrack,
 		prepareRecordingOptions: (options) => {
-			if (!state.preferences.recording.alwaysRecordToNewTrack) return options;
+			if (options.punch || !state.preferences.recording.alwaysRecordToNewTrack) return options;
 			const plan = planNewRecordingTracks(requireProject(), state.recordingRouting, options, createStableId, publishedCopyFor(copy).recordingLabel);
 			if (!plan) return options;
 			dependencies.commit(plan.command, { selectTrackId: plan.selectTrackId });
@@ -507,8 +515,12 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 
 	return Object.freeze({
 		routing,
+		punchAndRoll,
 		inputs,
-		session,
+		session: Object.freeze({ ...session,
+			stopRecording: () => { punchAndRoll.cancelPendingRetry(); return session.stopRecording(); },
+			cancelRecordingStart: () => { punchAndRoll.cancelPendingRetry(); return session.cancelRecordingStart(); },
+		}),
 		timed,
 		takeCycle,
 		publishRecordingPreview,

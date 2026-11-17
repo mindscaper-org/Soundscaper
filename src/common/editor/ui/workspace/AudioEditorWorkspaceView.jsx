@@ -456,7 +456,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 			<AudioEditorWorkspaceOverlays model={overlayModel} />
 			<EditorOverlayHost ref={setEditorOverlayTarget} />
 			<EditorNotificationSurfaces copy={copy} />
-			<AudioEditorButtonTooltips rootRef={editorRef} />
+			<AudioEditorButtonTooltips rootRef={editorRef} menus={applicationMenus} shortcuts={snapshot.preferences?.shortcuts} copy={copy} />
 			{webFileLimitPrompt && <WebFileLimitDialog copy={copy} productId={productId} onClose={dismissWebFileLimitPrompt} />}
 		</div>
 		</MeterPanelControlsProvider>

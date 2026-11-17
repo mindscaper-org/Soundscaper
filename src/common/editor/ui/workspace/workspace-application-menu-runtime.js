@@ -257,6 +257,8 @@ export function createWorkspaceApplicationMenus({
 				saveArchiveManifest: () => run(() => controller.actions.media.saveArchiveManifest()),
 				renameProject: () => { setDialogValue(project?.title || ''); setDialog('rename'); },
 				openSessionSnapshots: () => openSurface('session-snapshots'),
+				openSubprojects: () => openSurface('subprojects'),
+				openTrackPlaylists: () => openSurface('track-playlists'),
 				duplicateProject: () => run(() => controller.actions.project.duplicate()),
 				deleteProject: () => setDialog('delete'),
 				clearData: () => setDialog('clear'),

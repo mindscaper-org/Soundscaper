@@ -220,6 +220,8 @@ export const EDITOR_ACTION_FUNCTION_NAMES = defineEditorActionFunctionNames([
 	'switchProject',
 	'timelineDurationFrames',
 	'toggleLeadInRecording',
+	'punchAgain',
+	'setLeadInDurationSeconds',
 	'toggleMetronome',
 	'togglePinnedPlayhead',
 	'toggleRecordingPause',

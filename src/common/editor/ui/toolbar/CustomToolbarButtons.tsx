@@ -34,6 +34,7 @@ export function CustomToolbarButtonGroup({ buttons, actions, copy, run }: GroupP
 				type="button"
 				className="tool-button tool-button--default kw-audio-editor__custom-toolbar-button"
 				aria-label={button.name}
+				data-action-id={button.actionId}
 				title={disabled ? `${button.name}: ${action?.disabledReason || copy.customToolbarButtonUnavailable}` : button.name}
 				disabled={disabled}
 				onClick={() => { if (!disabled && action.onClick) run(action.onClick); }}

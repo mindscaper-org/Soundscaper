@@ -5,6 +5,7 @@ import { useTheme } from '@soundscaper/design-system/ThemeProvider';
 import { retainTooltipDescription } from '@soundscaper/design-system/utils/retain-tooltip-description';
 import { withinHelpTooltipPointerPath } from './help-tooltip-pointer-path.ts';
 import { menuTooltipPosition } from './menu-tooltip-position.ts';
+import type { TooltipShortcutResolver } from './editor-tooltip-shortcut.ts';
 import './menu-tooltip.css';
 
 const ITEM = '[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"], .menu__item';
@@ -17,21 +18,26 @@ function menuItem(target: EventTarget | null): HTMLElement | null {
 	return target instanceof Element ? target.closest<HTMLElement>(ITEM) : null;
 }
 
-function explanationFor(target: HTMLElement, resolve: MenuTooltipResolver): Explanation | null {
+function explanationFor(target: HTMLElement, resolve: MenuTooltipResolver, resolveShortcut?: TooltipShortcutResolver): Explanation | null {
 	// A top-level menu's open sheet already occupies the space beside its trigger.
 	if (target.closest('[role="menubar"]') && target.getAttribute('aria-expanded') === 'true') return null;
 	const label = target.querySelector('.context-menu-item-label, .menu__label') ?? target;
 	const marker = target.hasAttribute('data-menu-tooltip-id') ? target : label.querySelector<HTMLElement>('[data-menu-tooltip-id], [data-action-id]') ?? target;
 	const id = marker.getAttribute('data-menu-tooltip-id') ?? marker.getAttribute('data-action-id') ?? '';
-	const content = resolve(label.getAttribute('aria-label') ?? label.textContent ?? '', id);
+	const name = label.getAttribute('aria-label') ?? label.textContent ?? '';
+	const content = resolve(name, id);
+	const shortcut = [...target.querySelectorAll<HTMLElement>('.context-menu-item-shortcut, .menu__shortcut')]
+		.find(element => element.closest(ITEM) === target)?.textContent?.trim()
+		|| resolveShortcut?.(name, id, target) || target.getAttribute('aria-keyshortcuts');
 	const reason = label.querySelector<HTMLElement>('[data-disabled-reason]')?.getAttribute('data-disabled-reason');
-	return content ? { target, content: <>{content}{reason && <p className="menu-tooltip__reason">{reason}</p>}</> } : null;
+	return content ? { target, content: <>{content}{shortcut && <p className="menu-tooltip__shortcut"><kbd>{shortcut}</kbd></p>}{reason && <p className="menu-tooltip__reason">{reason}</p>}</> } : null;
 }
 
 /** One delegated lifecycle covers nested menus, portaled menus, and disabled entries. */
-export function MenuTooltipProvider({ children, resolve }: {
+export function MenuTooltipProvider({ children, resolve, resolveShortcut }: {
 	readonly children: ReactNode;
 	readonly resolve: MenuTooltipResolver;
+	readonly resolveShortcut?: TooltipShortcutResolver;
 }) {
 	const [explanation, setExplanation] = useState<Explanation | null>(null);
 	const surfaceRef = useRef<HTMLDivElement>(null);
@@ -57,7 +63,7 @@ export function MenuTooltipProvider({ children, resolve }: {
 			const target = menuItem(event.target);
 			if (!target || target === active?.target || target === pending) return;
 			dismiss();
-			const next = explanationFor(target, resolve);
+			const next = explanationFor(target, resolve, resolveShortcut);
 			if (!next) return;
 			pending = target;
 			timer = setTimeout(() => show(next), HOVER_DELAY);
@@ -76,7 +82,7 @@ export function MenuTooltipProvider({ children, resolve }: {
 			const target = menuItem(event.target);
 			if (!target?.closest('[role="menu"]') || (!keyboard && !target.matches(':focus-visible'))) return;
 			keyboard = true;
-			const next = target && explanationFor(target, resolve);
+			const next = target && explanationFor(target, resolve, resolveShortcut);
 			if (next) show(next);
 		};
 		const blur = (event: FocusEvent) => { if (active?.target === event.target) dismiss(); };
@@ -102,7 +108,7 @@ export function MenuTooltipProvider({ children, resolve }: {
 			document.removeEventListener('focusout', blur);
 			window.removeEventListener('blur', dismiss);
 		};
-	}, [resolve]);
+	}, [resolve, resolveShortcut]);
 	return <>{children}{explanation && <MenuTooltipSurface explanation={explanation} id={tooltipId} surfaceRef={surfaceRef} />}</>;
 }
 

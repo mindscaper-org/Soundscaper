@@ -146,6 +146,8 @@ export const MENU_TOOLTIP_CONTEXT_DEFINITIONS: Readonly<Record<string, readonly 
 	"automation-smooth": ["Smooth", "Ease the parameter continuously between neighboring control points."],
 	"playback-pause": ["Pause", "Temporarily suspend playback at the current time position."],
 	"playback-resume": ["Resume playback", "Continue auditioning from the suspended time position."],
+	'recording-punch-again': ['Punch again', 'Finish the current take and restart recording at the previous punch point on the same tracks.'],
+	'recording-lead-in-settings': ['Lead-in time settings', 'Choose how much existing audio plays before recording begins.'],
 	"recording-pause": ["Pause recording", "Temporarily suspend input capture without ending the current take."],
 	"recording-resume": ["Resume recording", "Continue input capture within the current take."],
 	"stop": ["Stop", "End the current playback or capture operation."],

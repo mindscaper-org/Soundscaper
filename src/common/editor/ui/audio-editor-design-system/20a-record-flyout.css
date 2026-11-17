@@ -108,3 +108,22 @@
 	padding: 0;
 	border: 0;
 }
+
+.kw-audio-editor__record-flyout-lead-in {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 30px;
+	gap: 4px;
+}
+
+.kw-audio-editor__record-lead-in-settings {
+	z-index: calc(var(--flyout-z) + 1);
+	width: min(300px, calc(100vw - 20px));
+	padding: 14px;
+	color: var(--text);
+	background: var(--panel);
+}
+
+.kw-audio-editor__record-lead-in-settings .audio-editor-timecode-input {
+	display: block;
+	margin-top: 8px;
+}

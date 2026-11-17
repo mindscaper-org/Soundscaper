@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { recordingTrackRoute, recordingRouteSourceKey, type RecordingRoute } from '../../../recording-routing.js';
-import { planRoutedRecordingSources } from './routed-recording-source-plan.ts';
+import { planRoutedRecordingSources, routedRecordingTargetTracks } from './routed-recording-source-plan.ts';
 import type { RecordingCapturePool, RecordingEnginePort, RecordingProject } from '../recording-transaction-types.ts';
 import type { RecordingSessionServiceRuntime } from './recording-session-service.ts';
 import { raceAbortablePromise } from '../../../../foundation/abort-race.ts';
@@ -38,8 +38,7 @@ export function createRecordingMidiAdmission<Project extends RecordingProject>(r
 			? [{ route: preferred.deviceId === 'display' ? { kind: 'display', channelStart: 0, channelCount: preferred.channelCount }
 				: { kind: 'device', deviceId: preferred.deviceId, channelStart: 0, channelCount: preferred.channelCount }, channels: preferred.channelCount }]
 			: legacy ? [{ route: { kind: 'device', deviceId: 'default', channelStart: 0, channelCount: 2 }, channels: 2 }]
-				: planRoutedRecordingSources(options.trackId ? project.tracks.filter(track => track.id === options.trackId)
-					: project.tracks.filter(track => track.type === 'audio' && track.armed), runtime.getRoutes(), recordingRouteSourceKey).groups
+				: planRoutedRecordingSources(routedRecordingTargetTracks(project, options), runtime.getRoutes(), recordingRouteSourceKey).groups
 					.map(group => ({ route: group.routes[0]!.route, channels: Math.max(...group.routes.map(item => item.route.channelStart + item.route.channelCount)) }));
 		// Keep display permission in the invoking gesture, ahead of every await.
 		const acquisitions = options.reusePreparedInputsOnly ? [] : sources.map(source => invoke(() => source.route.kind === 'display'

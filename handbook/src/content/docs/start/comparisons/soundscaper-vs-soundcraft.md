@@ -88,8 +88,8 @@ Hover for limits. Include any referenced media when sharing projects.
 | Loop recording into takes | + | ~ — Desktop only |
 | Take comping | + — :: Audition, promote, edit comp regions, flatten as one undoable edit | + |
 | Input monitoring and metering | + | ~ — Desktop only :: Desktop input monitoring; recording unavailable on Web and FreeBSD |
-| Alternate track playlists | / | + — Playlists |
-| Punch-and-roll narration | / | / |
+| Alternate track playlists | + — :: Tracks → Track playlists creates empty or duplicate arrangements, recalls each track independently, and preserves the current mix. | + — Playlists |
+| Punch-and-roll narration | + — :: Adjustable playback lead-in and Punch again restart recording at the previous punch point. | / |
 
 [Recording, monitoring, and recovery](/soundscaper/recording/)
 

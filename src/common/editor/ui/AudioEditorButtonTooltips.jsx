@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Flyout } from '@soundscaper/design-system/Flyout';
 import { retainAudioEditorDialogEscapeOwner } from './dialog-escape-ownership.ts';
+import { createEditorTooltipShortcutResolver } from './editor-tooltip-shortcut.ts';
 import { withinHelpTooltipPointerPath } from './help-tooltip-pointer-path.ts';
 
 const BUTTON_SELECTOR = 'button';
@@ -9,8 +10,15 @@ const BUTTON_SELECTOR = 'button';
  * Supplies one hover-only Flyout for every editor button. Button labels already
  * come from the localized editor catalog, including its Audacity translations,
  * so the tooltip always follows the visible command language.
+ * @param {{
+ *   rootRef: import('react').RefObject<HTMLElement | null>,
+ *   menus?: readonly import('./editor-tooltip-shortcut.ts').TooltipShortcutMenu[],
+ *   shortcuts?: Readonly<Record<string, readonly string[]>>,
+ *   copy?: Readonly<Record<string, unknown>>,
+ * }} props
  */
-export default function AudioEditorButtonTooltips({ rootRef }) {
+export default function AudioEditorButtonTooltips({ rootRef, menus, shortcuts, copy }) {
+	const resolveShortcut = useMemo(() => createEditorTooltipShortcutResolver(menus, shortcuts, copy), [menus, shortcuts, copy]);
 	const [tooltip, setTooltip] = useState(null);
 	const dismissedButtonRef = useRef(null);
 	const tooltipButton = tooltip?.button ?? null;
@@ -105,6 +113,8 @@ export default function AudioEditorButtonTooltips({ rootRef }) {
 		};
 	}, [rootRef]);
 
+	const shortcut = tooltip ? resolveShortcut(tooltip.label, '', tooltip.button) : '';
+	const description = (tooltip?.label || '') + (shortcut ? ` (${shortcut})` : '');
 	return (
 		<Flyout
 			isOpen={Boolean(tooltip)}
@@ -115,11 +125,11 @@ export default function AudioEditorButtonTooltips({ rootRef }) {
 			showArrow
 			closeOnOutsideClick={false}
 			closeOnEscape={false}
-			ariaLabel={tooltip?.label || ''}
+			ariaLabel={description}
 			role="tooltip"
 			className="kw-audio-editor__button-tooltip"
 		>
-			<span data-audio-editor-button-tooltip>{tooltip?.label}</span>
+			<span data-audio-editor-button-tooltip>{tooltip?.label}{shortcut && <> (<kbd>{shortcut}</kbd>)</>}</span>
 		</Flyout>
 	);
 }

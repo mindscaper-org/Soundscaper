@@ -184,6 +184,8 @@ export interface EditorDocumentSnapshotState extends Readonly<SelectedLabelState
 	readonly latencyOffsetMs: number;
 	readonly recordingPaused: boolean;
 	readonly leadInRecording: boolean;
+	readonly leadInDurationSeconds?: number | null;
+	readonly lastRecordingPunch?: import('../recording/recording-state.ts').RecordingPunchTarget | null;
 	readonly metronomeEnabled: boolean;
 	readonly recordingInputGain: number;
 	readonly selectionFollowsLoop: boolean;
@@ -432,6 +434,8 @@ export function createEditorDocumentSnapshot<Project extends SnapshotProject>(
 		recordingOptions: Object.freeze({
 			paused: state.recordingPaused,
 			leadIn: state.leadInRecording,
+			leadInDurationSeconds: state.leadInDurationSeconds ?? null,
+			canPunchAgain: state.lastRecordingPunch?.projectId === currentProject?.id && state.lastRecordingPunch?.trackIds.every(id => currentProject?.tracks?.some(track => track.id === id)) === true,
 			metronome: state.metronomeEnabled,
 			inputGain: state.recordingInputGain,
 		}),

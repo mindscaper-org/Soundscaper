@@ -104,6 +104,8 @@ qualification plans belong in Git history, not in the maintained documentation s
 - [Speech declipping](features/speech-declipping.md) covers optional VoiceFixer
   restoration, signal geometry and model admission.
 
+- [Nested subprojects](features/nested-subprojects.md) covers saved-project links,
+  automatic proxy refresh, dependency admission, and portable audio behavior.
 - [Timecode synchronization](features/timecode-synchronization.md) covers MTC/LTC
   send and receive, transport chasing, routing, and device-session lifetime.
 
