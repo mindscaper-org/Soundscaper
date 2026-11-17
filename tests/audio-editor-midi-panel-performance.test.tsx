@@ -5,7 +5,7 @@ import test from 'node:test';
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import PianoRollWorkspacePanel from '../src/common/editor/ui/workspace/PianoRollWorkspacePanel.tsx';
-import { withMidiClipData, withMidiTrackData } from '../src/common/editor/midi-model.ts';
+import { MIDI_EXTENSION_KEY, readMidiClip, withMidiClipData, withMidiTrackData } from '../src/common/editor/midi-model.ts';
 import type { EditorProject } from '../src/common/editor/types.ts';
 import { installReactTestDom, ReactTestElement, reactProps } from './helpers/react-test-dom.ts';
 
@@ -36,13 +36,20 @@ test('piano-roll view and drag updates retain unchanged note options while edite
 		velocity: 96, channel: 0, startFrame: index * 24_000, durationFrames: 12_000 }));
 	const clip = withMidiClipData({ kind: 'audio' as const, id: 'clip', sourceId: 'source', title: 'Notes',
 		timelineStartFrame: 0, sourceStartFrame: 0, durationFrames: 120_000_000, sourceDurationFrames: 120_000_000 }, { version: 1, notes });
+	let noteReads = 0;
+	const observedClip = { ...clip, opaqueExtensions: { [MIDI_EXTENSION_KEY]: {
+		...readMidiClip(clip), get notes() { noteReads++; return notes; },
+	} } };
 	const track = withMidiTrackData({ type: 'audio' as const, id: 'track', name: 'Notes', height: 114,
 		collapsed: false, locked: false, clipIds: ['clip'] }, { version: 1, instrument: 'sine' });
-	const project = { id: 'project', sampleRate: 48_000, clips: [clip], tracks: [track] } as unknown as EditorProject;
+	const project = { id: 'project', sampleRate: 48_000, clips: [observedClip], tracks: [track] } as unknown as EditorProject;
 	const render = (document: EditorProject) => root.render(<PianoRollWorkspacePanel controller={controller}
 		snapshot={{ project: document, selectedTrackId: 'track', selectedClipId: 'clip' }} copy={{}} blocked={false} run={operation => operation()} />);
 	try {
 		await act(async () => { render(project); });
+		assert.equal(noteReads, 1, 'one selection admission supplies the editor notes');
+		await act(async () => { render({ ...project, revision: project.revision + 1 }); });
+		assert.equal(noteReads, 1, 'a new project view with unchanged clip membership retains selection admission');
 		dom.one('[data-note-id="1"]').getBoundingClientRect = () => ({ left: 0, width: 50 });
 		const option = dom.one('[value="note-4000"]');
 		const initialProps = reactProps(option);

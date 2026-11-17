@@ -5,7 +5,7 @@ import { NoteGrid } from '@soundscaper/design-system/PianoRoll/NoteGrid';
 import { PianoKeyboard } from '@soundscaper/design-system/PianoRoll/PianoKeyboard';
 import { PianoRollRuler } from '@soundscaper/design-system/PianoRoll/PianoRollRuler';
 import { PianoRollClipStrip } from '@soundscaper/design-system/PianoRoll/PianoRollClipStrip';
-import { readMidiClip, readMidiTrack, type MidiInstrument, type MidiNote, type MidiPreviewTarget } from '../../midi-model.ts';
+import { readMidiTrack, type MidiInstrument, type MidiNote, type MidiPreviewTarget } from '../../midi-model.ts';
 import { createStableId } from '../../stable-id.js';
 import type { EditorAudioClip, EditorAudioTrack } from '../../types.ts';
 import { resolveMidiCopy } from '../../../i18n/editor-midi-copy.ts';
@@ -61,19 +61,22 @@ const SUBDIVISIONS = [1, 2, 4, 8, 16, 32] as const;
 type Subdivision = typeof SUBDIVISIONS[number];
 
 export default function PianoRollWorkspacePanel(props: PianoRollWorkspacePanelProps) {
-	const project = props.snapshot.project, selection = midiPanelSelection(project, props.snapshot.selectedTrackId, props.snapshot.selectedClipId);
+	const { project, selectedTrackId, selectedClipId } = props.snapshot;
+	const tracks = project?.tracks, clips = project?.clips;
+	const selection = useMemo(() => tracks && clips
+		? midiPanelSelection({ tracks, clips }, selectedTrackId, selectedClipId) : null, [tracks, clips, selectedTrackId, selectedClipId]);
 	const persistedClip = selection?.clip;
 	const clip = useMemo(() => project && persistedClip ? resolveMidiPanelClip(project, persistedClip) : null, [project, persistedClip]);
 	if (!selection || !project || !clip) return <p className="kw-audio-editor__panel-empty">{resolveMidiCopy(props.copy).empty}</p>;
-	return <PianoRollEditor key={`${project.id}:${clip.id}`} {...props} project={project} track={selection.track} clip={clip} />;
+	return <PianoRollEditor key={`${project.id}:${clip.id}`} {...props} project={project} track={selection.track} clip={clip} persistedNotes={selection.notes} />;
 }
 
-function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, project, track, clip }: PianoRollWorkspacePanelProps & {
+function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, project, track, clip, persistedNotes }: PianoRollWorkspacePanelProps & {
 	readonly project: MidiPanelProject; readonly track: EditorAudioTrack; readonly clip: EditorAudioClip;
+	readonly persistedNotes: readonly MidiNote[];
 }) {
 	const copy = resolveMidiCopy(inputCopy);
 	const sampleRate = project.sources?.find(source => source.id === clip.sourceId)?.sampleRate ?? project.sampleRate;
-	const persistedNotes = useMemo(() => readMidiClip(clip)?.notes ?? [], [clip]);
 	const instrument = readMidiTrack(track)?.instrument ?? 'sine';
 	const disabled = blocked || snapshot.readOnly === true || track.locked === true;
 	const [panelRef, panelSize] = useElementSize();
