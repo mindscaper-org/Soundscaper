@@ -27,7 +27,7 @@ async function rewriteArchive(input: Blob, damage: (entries: Map<string, Uint8Ar
 	return writer.close();
 }
 
-for (const damage of ['document', 'audio', 'missing-audio'] as const) {
+for (const damage of ['document', 'audio', 'missing-audio', 'pcm-geometry'] as const) {
 	test(`normal Scape opening offers and imports a recovered copy after ${damage} damage`, async (context) => {
 		const sender = createSoundscaperProjectStore({ indexedDB: createInstrumentedIndexedDB(), preferOpfs: false });
 		const recipient = createSoundscaperProjectStore({ indexedDB: createInstrumentedIndexedDB(), preferOpfs: false });
@@ -48,7 +48,24 @@ for (const damage of ['document', 'audio', 'missing-audio'] as const) {
 			if (damage !== 'document') {
 				const name = exported.manifest.assets.find(({ sourceId }) => sourceId === 'second')!.entry;
 				if (damage === 'missing-audio') entries.delete(name);
-				else { const bytes = entries.get(name)!; bytes[bytes.length - 1] ^= 0x20; }
+				else if (damage === 'pcm-geometry') {
+					const bytes = entries.get(name)!;
+					new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).setUint32(0, 1, true);
+					const digest = digestBytes(bytes);
+					const manifest = JSON.parse(new TextDecoder().decode(entries.get('manifest.json'))) as {
+						project: { size: number; sha256: string }; assets: { entry: string; sha256: string }[];
+					};
+					manifest.assets.find(asset => asset.entry === name)!.sha256 = digest;
+					const raw = JSON.parse(new TextDecoder().decode(entries.get('project.json'))) as {
+						sources: { id: string; contentSha256?: string }[];
+					};
+					const damaged = raw.sources.find(({ id }) => id === 'second')!;
+					if (damaged.contentSha256 !== undefined) damaged.contentSha256 = digest;
+					const projectBytes = encoder.encode(JSON.stringify(raw));
+					Object.assign(manifest.project, { size: projectBytes.byteLength, sha256: digestBytes(projectBytes) });
+					entries.set('project.json', projectBytes);
+					entries.set('manifest.json', encoder.encode(JSON.stringify(manifest)));
+				} else { const bytes = entries.get(name)!; bytes[bytes.length - 1] ^= 0x20; }
 			} else {
 				const raw = JSON.parse(new TextDecoder().decode(entries.get('project.json'))) as { tracks: { gain: number }[] };
 				raw.tracks[0]!.gain = -999;
