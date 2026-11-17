@@ -13,7 +13,7 @@ for (const preFader of [true, false]) for (const automated of [true, false]) tes
 	const project = createSoundscaperProject({ ...plan.project, mixer: plan.production.mixer });
 	const send = project.mixer.edges.find(edge => edge.kind === 'send'); assert.ok(send);
 	const lane = project.automationLanes.find(lane => lane.address.kind === 'edge' && lane.address.edgeId === send.id);
-	const stripGain = preFader ? 1 : project.tracks[0]!.gain;
+	const stripGain = preFader ? 1 : Number(project.tracks[0]!.gain);
 	assert.ok(Math.abs(send.level * stripGain - .5) < .000001, 'the cue must retain the -6 dB input trim');
 	if (automated) { assert.ok(lane); assert.ok(lane.points.every(point => Math.abs(point.value * stripGain - .5) < .000001)); }
 });
