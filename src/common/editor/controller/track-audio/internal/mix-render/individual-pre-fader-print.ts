@@ -6,6 +6,7 @@ import { defaultMixerChannelMapV21, normalizeMixerGraphV21, type MixerGraphV21 }
 import { mixerEdgeCarriesSignalV21 } from '../../../../mixer-signal-edge-v21.ts';
 import { isSoundscaperProductionProject } from '../../../../project-schema-version.ts';
 import { resolveTerminalChannelWidths } from '../../../../terminal-channel-widths.ts';
+import { clipRackTrackInputChannelCounts, rackSignalChannelCount } from '../../../../effect-signal-width.ts';
 import { isControllerPcmSource, type ControllerProject, type ControllerTrack, type MutableControllerProject } from '../../track-domain-types.ts';
 
 /** A retained pre-fader tap needs a print before the controls that distinguish both taps. */
@@ -33,6 +34,7 @@ export function prepareIndividualPreFaderPrint(project: ControllerProject, prepa
 		&& edge.position === 'pre-fader' && mixerEdgeCarriesSignalV21(edge)
 		&& (edge.level > 0 || positiveEdges.has(edge.id)) ? [edge.source.id] : []));
 	const widths = preTracks.size ? resolveTerminalChannelWidths(project, Number(project.masterChannels)).tracks : new Map<string, number>();
+	const clipOutputWidths = preTracks.size ? clipRackTrackInputChannelCounts(project, widths) : widths;
 	const clips = new Map(project.clips.map(clip => [clip.id, clip]));
 	const sources = new Map(project.sources.map(source => [source.id, source]));
 	const results = new Map<string, Map<boolean, number>>();
@@ -47,12 +49,9 @@ export function prepareIndividualPreFaderPrint(project: ControllerProject, prepa
 			return source && isControllerPcmSource(source) ? [source.channelCount] : [];
 		}));
 		if (sourceWidths.size > 1) throw new RangeError('Individual Mix & Render cannot preserve pre-fader routing on a track with changing channel widths. Choose Mix down instead.');
-		if (width === 1 && renderEffects && track.effectsActive !== false && (track.effects ?? []).some(effect => {
-			if (effect.type !== 'reverb' || effect.enabled === false || effect.bypassed === true) return false;
-			const params = effect.params && typeof effect.params === 'object' && !Array.isArray(effect.params)
-				? effect.params as Readonly<Record<string, unknown>> : {};
-			return Number(params.mix ?? .2) > 0;
-		})) throw new RangeError('Individual Mix & Render cannot preserve pre-fader routing on a mono track with stereo reverb. Choose Mix down instead.');
+		if (width === 1 && renderEffects && rackSignalChannelCount(track, clipOutputWidths.get(track.id) ?? width) > 1) {
+			throw new RangeError('Individual Mix & Render cannot preserve pre-fader routing on a mono track with stereo reverb. Choose Mix down instead.');
+		}
 		const byEffects = results.get(track.id) ?? new Map<boolean, number>();
 		byEffects.set(renderEffects, width); results.set(track.id, byEffects);
 		return width;
