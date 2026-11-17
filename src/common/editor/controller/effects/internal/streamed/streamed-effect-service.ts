@@ -21,6 +21,7 @@ export type RunStreamedEffects = (plans: readonly StreamedEffectPlan[], options:
 export interface StreamedEffectRuntime {
 	readonly chunkFrames: number; readonly memoryLimitBytes: number; readonly memoryError?: () => Error;
 	readonly getProject: () => EffectResultProject; readonly createId: () => string;
+	readonly getSelectedTrackId?: () => string | null;
 	readonly read: (trackId: string, start: number, end: number, channels: number, clipIds?: readonly string[]) => Promise<readonly Float32Array[]>;
 	readonly readControl?: (trackId: string, target: EffectTarget) => Promise<readonly Float32Array[]>;
 	readonly readStored: (source: EffectResultSource, start: number, end: number, signal: AbortSignal) => Promise<readonly Float32Array[]>;
@@ -109,8 +110,10 @@ export function createStreamedEffectService(runtime: StreamedEffectRuntime): Run
 			if (!first.sourceId) commands.push(exact ? { type: 'selection/set', startFrame: 0, endFrame: 0,
 				trackIds: [...new Set(exact.map(entry => entry.target.track.id))], clipIds: exact.map(entry => entry.target.clipId), frequencyRange: null }
 				: { type: 'selection/set', startFrame: first.startFrame, endFrame: first.endFrame, ...options.selectionDetails });
-			runtime.publish({ type: 'batch', commands }, first.sourceTrackId ?? first.track.id, first.sourceClipId ?? (exact ? undefined
-				: commands[0]?.type === 'range/replace' ? commands[0].clipId : undefined));
+			const focusedTrackId = runtime.getSelectedTrackId?.();
+			const trackId = first.sourceTrackId ?? entries.find(({ target }) => target.track.id === focusedTrackId)?.target.track.id ?? first.track.id;
+			const clipId = first.sourceClipId ?? (entries.length === 1 && commands[0]?.type === 'range/replace' ? commands[0].clipId : undefined);
+			runtime.publish({ type: 'batch', commands }, trackId, clipId);
 		} catch (error) { for (const sourceId of staged) await remove(sourceId).catch(() => undefined); throw error; }
 		async function remove(sourceId: string): Promise<void> {
 			const failures: unknown[] = [];

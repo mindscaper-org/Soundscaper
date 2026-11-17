@@ -21,6 +21,7 @@ export function createStreamedEffectsComposition(dependencies: EffectsCompositio
 		options.assertCurrent();
 		await createStreamedEffectService({ memoryError: () => audacityEffectMemoryError(dependencies.copy), chunkFrames: SOURCE_CHUNK_FRAMES, get memoryLimitBytes() { return memoryLimitBytes(); }, store: dependencies.store,
 			getProject: () => dependencies.getCommandProject() as unknown as EffectResultProject, createId: () => createStableId('audacity-effect'),
+			getSelectedTrackId: () => dependencies.state.selectedTrackId,
 			read: (...args) => audio.renderDryTrackRange(...args, options.signal),
 			readControl: createSourceControlTrackRenderer(dependencies.getCommandProject, audio.renderDryTrackRange),
 			readStored: async (source, startFrame, endFrame, signal) => {
