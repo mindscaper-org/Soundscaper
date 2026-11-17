@@ -10,7 +10,7 @@ import {
 	bindProductProjectBinActions, type ProductProjectBinActions,
 } from '../common/editor/controller/composition/project-bin-action-group.ts';
 import { createFramescaperImageBatchPlacementTimelineImage } from './editor-image-placement-timeline-image.ts';
-import { rebaseSequenceVisualFrame } from './editor-sequence-visual-rate-conformance.ts';
+import { rebaseSequenceVisualFrame } from '../common/editor/timeline-visual-placement-time.ts';
 import { createSplitVisualPresentationPlanner } from './editor-split-visual-presentations.ts';
 
 type Data = Readonly<Record<string, unknown>>;

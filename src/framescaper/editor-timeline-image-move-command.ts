@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { normalizeFramescaperImageClipV1, type FramescaperImageClipV1 } from '../common/editor/timeline-image-model.ts';
-import { rebaseSequenceVisualFrame } from './editor-sequence-visual-rate-conformance.ts';
+import { rebaseSequenceVisualFrame } from '../common/editor/timeline-visual-placement-time.ts';
 import { sampleFrameToVideoFrame } from '../common/editor/timeline-time.ts';
 import type { AudioEditorCommand } from '../common/editor/commands/protocol.ts';
 import type { FramescaperProjectTimelineImage } from './editor-project-timeline-image.ts';

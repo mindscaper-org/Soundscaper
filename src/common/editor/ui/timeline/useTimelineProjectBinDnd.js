@@ -7,7 +7,8 @@ import {
 } from '../../project-bin-dnd.js';
 import { isProductVisualClip } from '../../video-timeline-internals.js';
 import { resolveSequenceTimingView } from '../../sequence-timing-model.ts';
-import { sampleFrameToVideoFrame, videoFrameToSampleFrame } from '../../timeline-time.ts';
+import { sampleFrameToVideoFrame, videoFrameRangeToSampleRange } from '../../timeline-time.ts';
+import { rebaseSequenceVisualFrame } from '../../timeline-visual-placement-time.ts';
 import { compatibleMediaTrack } from './geometry.ts';
 import { withWebFileLoadLimitContext } from '../../web-file-limit-failure.ts';
 import { NEW_AUDIO_TRACK_DROP_TARGET } from './constants.ts';
@@ -73,15 +74,16 @@ export function useTimelineProjectBinDnd({
 			|| Boolean(target.trackId && compatibleTracks.some((candidate) => !candidate));
 		const previews = itemClips.map((itemClip, index) => {
 			const previewTrack = compatibleTracks[index];
+			const range = isProductVisualClip(itemClip)
+				? pictureDropRange(project, itemClip, previewTrack?.id ?? target.trackId, target.timelineStartFrame)
+				: null;
 			return {
-				clip: itemClip,
+				clip: range ? { ...itemClip, durationFrames: range.durationFrames } : itemClip,
 				clipId: itemClip.id,
 				trackId: previewCreatesTrack
 					? `${NEW_AUDIO_TRACK_DROP_TARGET}-${index}`
 					: previewTrack?.id || target.trackId,
-				timelineStartFrame: isProductVisualClip(itemClip)
-					? pictureDropSample(project, previewTrack?.id ?? target.trackId, target.timelineStartFrame)
-					: target.timelineStartFrame,
+				timelineStartFrame: range?.startFrame ?? target.timelineStartFrame,
 			};
 		});
 		const activePreview = previews.find((preview) => preview.clipId === clip.id) || previews[0];
@@ -94,6 +96,7 @@ export function useTimelineProjectBinDnd({
 			current?.clipId === preview.clipId
 			&& current.trackId === preview.trackId
 			&& current.timelineStartFrame === preview.timelineStartFrame
+			&& current.clip?.durationFrames === preview.clip?.durationFrames
 			&& current.createTrack === preview.createTrack
 				? current
 				: preview
@@ -177,11 +180,13 @@ function projectBinTrackKind(clip) {
 	return isProductVisualClip(clip) ? 'video' : clip.kind;
 }
 
-function pictureDropSample(project, trackId, sample) {
+function pictureDropRange(project, clip, trackId, sample) {
 	const sequenceId = project.sequences.find(sequence => sequence.trackIds.includes(trackId))?.id;
 	const { rate } = resolveSequenceTimingView(project, sequenceId);
+	const origin = resolveSequenceTimingView(project, clip.sequenceId);
 	const frame = sampleFrameToVideoFrame(sample, rate, project.sampleRate, 'point');
-	return videoFrameToSampleFrame(frame, rate, project.sampleRate, 'point');
+	const count = Math.max(1, rebaseSequenceVisualFrame(clip.sequenceFrameCount, origin.rate, rate));
+	return videoFrameRangeToSampleRange(frame, count, rate, project.sampleRate);
 }
 
 function lockedTrack(project, trackId) {

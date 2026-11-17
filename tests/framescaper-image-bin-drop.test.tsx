@@ -9,6 +9,7 @@ import { useTimelineProjectBinDnd } from '../src/common/editor/ui/timeline/useTi
 import { applyFramescaperProjectCommand } from '../src/framescaper/editor-project-commands.ts';
 import { createFramescaperProjectBinVisualActions } from '../src/framescaper/editor-project-bin-visual-actions.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
+import { createEditorProjectRuntimeSelection } from '../src/framescaper/editor-project-runtime-selection.ts';
 import { createFramescaperBaselineImageFixture } from './helpers/framescaper-baseline-image-fixture.ts';
 import { installReactTestDom } from './helpers/react-test-dom.ts';
 
@@ -31,21 +32,35 @@ async function dropImage(context: TestContext, trackId: string | null, locked = 
 		} } },
 	}, prefix => `${prefix}-drag-${String(++minted)}`);
 	assert.deepEqual(actions.moveFromTimeline(clip.id), [clip.id]);
+	if (trackId === 'secondary-track') {
+		const binClip = project.projectBin.clips.find(item => item.id === clip.id);
+		assert.ok(binClip);
+		const inBin = { scope: 'project-bin' };
+		project = applyFramescaperProjectCommand(PROFILE, project, { type: 'batch', commands: [
+			{ type: 'sequence/create', sequence: { ...project.sequences[0], id: 'secondary', name: 'Secondary',
+				rate: { num: 1, den: 1 }, trackIds: [], trackNodes: [] } },
+			{ type: 'track/add', sequenceId: 'secondary', track: { id: trackId, type: 'video', clipIds: [] } },
+			{ type: 'image-clip/set', clipId: clip.id, expectedClip: binClip, expectedPlacement: inBin,
+				clip: { ...binClip, sequenceFrameCount: 1 }, placement: inBin },
+		] });
+	}
 	if (locked) project = applyFramescaperProjectCommand(PROFILE, project, {
 		type: 'track/update', trackId, changes: { locked: true },
 	});
 	const start = project;
 	const root = createRoot(dom.container as unknown as Element);
 	let handlers: ReturnType<typeof useTimelineProjectBinDnd> | null = null;
-	type DropPreview = Readonly<{ createTrack?: boolean; trackId?: string; timelineStartFrame?: number }>;
+	type DropPreview = Readonly<{ createTrack?: boolean; trackId?: string; timelineStartFrame?: number;
+		clip?: Readonly<{ durationFrames?: number }> }>;
 	let preview: DropPreview | null = null;
+	const view = createEditorProjectRuntimeSelection(PROFILE).projectForCommandConsumers(project);
 	function Harness() {
 		handlers = useTimelineProjectBinDnd({
 			controller: { actions: { projectBin: actions } }, mutationsBlocked: false,
 			state: { setDraggingClipIds() {}, setProjectBinDragPreview(change: unknown) {
 				preview = typeof change === 'function' ? change(preview) as typeof preview : change as typeof preview;
 			} },
-			model: { project }, hitTesting: {
+			model: { project: view }, hitTesting: {
 				clearProjectBinDragState() {}, timelineDropTargetAt: () => ({ trackId, createTrack: trackId === null, timelineStartFrame }),
 			},
 			menuActions: { run: (operation: () => unknown) => operation() },
@@ -100,4 +115,12 @@ test('the Project Bin image ghost lands on the same frame boundary as the commit
 	const image = result.project.clips.find(item => item.kind === 'image');
 	assert.equal(image?.sequenceStartFrame, 10);
 	assert.equal(result.preview?.timelineStartFrame, 48_000);
+});
+
+test('dragging a short image from the Bin onto a slower sequence previews the complete destination frame', async context => {
+	const result = await dropImage(context, 'secondary-track');
+	const image = result.project.clips.find(item => item.kind === 'image');
+	assert.equal(image?.sequenceId, 'secondary');
+	assert.equal(image?.sequenceFrameCount, 1);
+	assert.equal(result.preview?.clip?.durationFrames, 48_000);
 });
