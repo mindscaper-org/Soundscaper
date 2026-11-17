@@ -97,23 +97,35 @@ function createActionRuntime(
 	options: BindFramescaperNativeImageSequenceActionNativeMediaOptions,
 ): FramescaperNativeProjectActionRuntime {
 	const mintId = options.mintId ?? (() => `image-sequence-${globalThis.crypto.randomUUID()}`);
-	const importSequence = serialize((request: FramescaperNativeImageSequenceImportRequestNativeMedia) => (
-		importCurrentSequence(options, mintId, request)
+	const importSequence = serialize((intent: ImageSequenceImportIntent) => (
+		importCurrentSequence(options, mintId, intent)
 	));
 	return createFramescaperNativeProjectActionSubsetRuntime(SURFACES, {
-		'image-sequence-import': (request) => importSequence(
-			snapshotFramescaperNativeImageSequenceImportRequestNativeMedia(request),
-		),
+		'image-sequence-import': (request) => {
+			const activation = options.owner.captureProjectGeneration?.();
+			return importSequence({
+				request: snapshotFramescaperNativeImageSequenceImportRequestNativeMedia(request),
+				projectId: activation?.projectId ?? stableId(record(options.owner.project, 'project').id, 'project ID'),
+				activation,
+			});
+		},
 	});
+}
+
+interface ImageSequenceImportIntent {
+	readonly request: FramescaperNativeImageSequenceImportRequestNativeMedia;
+	readonly projectId: string;
+	readonly activation: Readonly<{ generation: number; projectId: string }> | undefined;
 }
 
 async function importCurrentSequence(
 	options: BindFramescaperNativeImageSequenceActionNativeMediaOptions,
 	mintId: () => string,
-	request: FramescaperNativeImageSequenceImportRequestNativeMedia,
+	{ request, projectId, activation }: ImageSequenceImportIntent,
 ): Promise<FramescaperNativeProjectActionResult> {
+	if (!sameActivation(options, activation)) return Object.freeze({ cancelled: true });
 	const project = cloneFramescaperProjectNativeMedia(options.profile, options.owner.project);
-	const activation = options.owner.captureProjectGeneration?.();
+	if (project.id !== projectId) return Object.freeze({ cancelled: true });
 	const bridge = exactBridge(options.bridge);
 	const ports = createFramescaperImageSequenceProductionPortsProfessionalMedia({
 		bridge,
