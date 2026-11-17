@@ -42,6 +42,11 @@ The imports support TypeScript and stylesheet assets used by editor modules.
 Plain JavaScript tests without those dependencies can use `node --test` directly.
 Use `--test-name-pattern='test name'` before the file to narrow a run further.
 
+The WebGL pixelation Node regression uses Playwright's Chromium headless shell.
+CI installs it when a shard selects the test. For local runs, install the
+locked browser with `npx playwright install --only-shell chromium`. Add
+`--with-deps` on Linux when the system libraries are missing.
+
 The ordinary Node runner checks each selected test's dependency graph before
 choosing its bootstrap. Closed JavaScript and compatible, erasable TypeScript
 graphs use Node's native loader. The `@noble/hashes/sha2.js` and

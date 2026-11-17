@@ -44,6 +44,7 @@ export function nativePrerequisitesForTests(repositoryRoot, files) {
 		boost: classifyNodeTestFiles(repositoryRoot, files).get('framescaper').length > 0,
 		electron: [...dependencies].some(file => /electron/iu.test(readFileSync(file, 'utf8'))),
 		desktop_runtime: needsDesktopRuntimeTestFixture(files),
+		chromium: dependencies.has(resolve(repositoryRoot, 'tests/audio-editor-more50-pixelate.test.ts')),
 	};
 }
 
