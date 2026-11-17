@@ -59,7 +59,8 @@ export function createClipSourcePreviewService(dependencies: ClipSourcePreviewDe
 	let unsubscribePosition: (() => unknown) | null = null;
 	let preparation: AbortController | null = null;
 	let loadedFingerprint: string | null = null;
-	let loadedSourceResources: readonly [unknown, unknown] | null = null;
+	let loadedSourceResources: readonly unknown[] | null = null;
+	let originFrame = 0;
 	let disposed = false;
 	let disposal: Promise<void> | null = null;
 	let focusedToken: EditorProjectToken | null = null;
@@ -138,7 +139,8 @@ export function createClipSourcePreviewService(dependencies: ClipSourcePreviewDe
 		update({ state: 'loading', durationFrames: sourcePreviewTarget(project, clipId).range.totalFrames });
 		try {
 			resources.retirePlayback();
-			await resources.prepare(project, abort.signal, { clipIds: [clipId] });
+			const preparedIds = preview.clipSourcePreviewPreparedClipIds;
+			await resources.prepare(project, abort.signal, { clipIds: Array.isArray(preparedIds) ? preparedIds.map(String) : [clipId] });
 			if (!isCurrent()) return;
 			dependencies.assertProject(token);
 			if (!engine) {
@@ -149,25 +151,25 @@ export function createClipSourcePreviewService(dependencies: ClipSourcePreviewDe
 				unsubscribePosition = engine.subscribePosition((positionFrame) => {
 					if (disposed) return;
 					try { if (focusedToken) dependencies.assertProject(focusedToken); } catch { blur(); return; }
-					update({ positionFrame });
+					update({ positionFrame: Math.max(0, Math.min(snapshot.durationFrames, positionFrame - originFrame)) });
 				});
 				engine.setSourceResolver?.(resources.sourceResolver);
 			}
 			const savedPosition = snapshot.positionFrame;
-			const sourceId = sourcePreviewTarget(project, clipId).source.id;
-			const buffer = sourceResource(resources.sourceBuffers, sourceId);
-			const provider = sourceResource(resources.sourceChunkProviders, sourceId);
+			const currentResources = (preview.sources ?? []).flatMap(source => [sourceResource(resources.sourceBuffers, String(source.id)),
+				sourceResource(resources.sourceChunkProviders, String(source.id))]);
 			if (loadedFingerprint !== fingerprint || !loadedSourceResources
-				|| loadedSourceResources[0] !== buffer || loadedSourceResources[1] !== provider) {
+				|| loadedSourceResources.length !== currentResources.length || currentResources.some((value, index) => value !== loadedSourceResources![index])) {
+				originFrame = Number(preview.clipSourcePreviewOriginFrame) || 0;
 				engine.loadProject(preview, resources.sourceBuffers, { chunkSources: resources.sourceChunkProviders });
 				loadedFingerprint = fingerprint;
-				loadedSourceResources = [buffer, provider];
+				loadedSourceResources = currentResources;
 			}
 			configureRange();
 			const playRange = snapshot.loop ? snapshot.loopRange ?? snapshot.selection : snapshot.selection;
 			const start = playRange?.startFrame ?? 0;
 			const end = playRange?.endFrame ?? snapshot.durationFrames;
-			engine.seek(savedPosition < start || savedPosition >= end ? start : savedPosition);
+			engine.seek(originFrame + (savedPosition < start || savedPosition >= end ? start : savedPosition));
 			update({ state: 'playing' });
 			await engine.play();
 			if (isCurrent()) dependencies.assertProject(token);
@@ -193,7 +195,7 @@ export function createClipSourcePreviewService(dependencies: ClipSourcePreviewDe
 		assertActive();
 		const positionFrame = Math.max(0, Math.min(snapshot.durationFrames, Math.round(frame)));
 		if (!Number.isFinite(positionFrame)) throw new RangeError('Source preview position must be finite.');
-		engine?.seek(positionFrame);
+		engine?.seek(positionFrame + originFrame);
 		update({ positionFrame });
 		return positionFrame;
 	}
@@ -223,8 +225,9 @@ export function createClipSourcePreviewService(dependencies: ClipSourcePreviewDe
 
 	function configureRange(): void {
 		const range = snapshot.loopRange ?? snapshot.selection;
-		engine?.setLoop(snapshot.loop, range?.startFrame ?? 0, range?.endFrame ?? snapshot.durationFrames);
-		engine?.setPlayRange(snapshot.loop ? null : snapshot.selection ?? { startFrame: 0, endFrame: snapshot.durationFrames });
+		engine?.setLoop(snapshot.loop, originFrame + (range?.startFrame ?? 0), originFrame + (range?.endFrame ?? snapshot.durationFrames));
+		const selection = snapshot.selection ?? { startFrame: 0, endFrame: snapshot.durationFrames };
+		engine?.setPlayRange(snapshot.loop ? null : { startFrame: originFrame + selection.startFrame, endFrame: originFrame + selection.endFrame });
 	}
 
 	function trim(clipId: string, changes: ClipSourceTrim): unknown {

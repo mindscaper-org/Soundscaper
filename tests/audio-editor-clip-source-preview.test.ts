@@ -4,6 +4,7 @@ import test from 'node:test';
 import { createClipSourcePreviewService, type ClipSourcePreviewDependencies } from '../src/common/editor/controller/clip-video/internal/clip-source-preview-service.ts';
 import { EditorControllerLifetime, EditorProjectGeneration } from '../src/common/editor/controller/shared/lifecycle.ts';
 import type { EngineProject } from '../src/common/editor/engine/types.ts';
+import { createEffect } from '../src/common/editor/effects.js';
 
 function fixture(prepare: () => Promise<unknown> = async () => undefined, disposeEngine: () => Promise<void> = async () => undefined) {
 	const events: string[] = [];
@@ -72,6 +73,22 @@ test('full-source preview keeps clip processing within its active span and owns 
 	await service.dispose();
 	await service.dispose();
 	assert.equal(events.filter((event) => event === 'dispose').length, 1);
+});
+
+test('source transport translates a detector preview origin back to its own source clock', async () => {
+	const f = fixture();
+	Object.assign(f.project, { tracks: [{ id: 'owner', type: 'audio', clipIds: ['clip'] }, { id: 'guide', type: 'audio', clipIds: ['guide'] }] });
+	Object.assign(f.project.clips[0]!, { effects: [createEffect('audacity-auto-duck', { context: { controlTrackId: 'guide' } })] });
+	const guide = Object.assign({ ...f.project.clips[0]! }, { id: 'guide', timelineStartFrame: 0, effects: [] });
+	f.project.clips.push(guide);
+	f.service.focus('clip');
+	await f.service.playPause('clip');
+	assert.ok(f.events.includes('seek:1000'), 'source frame 100 plays at engine frame 1000 beside its guide');
+	assert.equal(f.service.snapshot().positionFrame, 100);
+	f.service.seek(150);
+	assert.equal(f.events.at(-1), 'seek:1050');
+	assert.equal(f.service.snapshot().positionFrame, 150);
+	await f.service.dispose();
 });
 
 test('timeline playback and leaving the source editor pause its private transport', async () => {
