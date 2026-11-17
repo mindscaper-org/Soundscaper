@@ -47,7 +47,7 @@ export function prepareTimelineImageRemoveCommand(project: FramescaperProjectTim
 		const rippleMode = removal.type === 'clip/remove-many' ? removal.rippleMode : 'none';
 		const ownedVisualTracks = new Set([...clips].filter(([, clip]) => isOwnedVisual(clip)).map(([id]) => owners.get(id)));
 		const rippleTracks = rippleMode === 'track'
-			? new Set(ids.map(id => owners.get(id)).filter(trackId => ownedVisualTracks.has(trackId))) : new Set();
+			? new Set(ids.map(id => owners.get(id)).filter(trackId => ownedVisualTracks.has(trackId))) : new Set<string | undefined>();
 		if (!images.length && !rippleTracks.size) return value;
 		const commands: FramescaperProjectCommandTimelineImage[] = [];
 		const inherited = ids.filter(id => !isOwnedVisual(clips.get(id)));

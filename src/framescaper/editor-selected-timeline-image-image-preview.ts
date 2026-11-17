@@ -266,7 +266,7 @@ function imageClipContexts(project: FramescaperProjectTimelineImage): readonly O
 	if (!sequence) throw new ReferenceError('The selected timelineImage primary sequence is unavailable.');
 	const sequenceTrackIds = new Set(sequence.trackIds);
 	const videoTracks = projectTrackFolderMediaStateV12(project).tracks
-		.filter(track => track.type === 'video' && sequenceTrackIds.has(track.id));
+		.filter(track => track.type === 'video').filter(({ id }) => sequenceTrackIds.has(id));
 	const visible = createVisibleVideoTrackPredicate(videoTracks);
 	const output: Omit<ImageClipPreviewTimelineImage, 'loaded' | 'drawable' | 'lastFrameIndex'>[] = [];
 	for (const clip of project.clips) {

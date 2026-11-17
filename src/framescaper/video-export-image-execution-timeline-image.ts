@@ -312,7 +312,7 @@ function visibleImageClips(
 	if (!sequence) throw new ReferenceError('The timelineImage image export primary sequence is unavailable.');
 	const sequenceTrackIds = new Set(sequence.trackIds);
 	const tracks = projectTrackFolderMediaStateV12(project).tracks
-		.filter(track => track.type === 'video' && sequenceTrackIds.has(track.id));
+		.filter(track => track.type === 'video').filter(({ id }) => sequenceTrackIds.has(id));
 	const visible = createVisibleVideoTrackPredicate(tracks);
 	return Object.freeze(project.clips.flatMap((value) => {
 		if (value.kind !== 'image') return [];
