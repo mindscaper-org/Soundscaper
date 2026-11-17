@@ -57,7 +57,9 @@ for (const centered of [false, true]) test(`stereo ${centered ? 'centered' : 'L/
 	await f.service.splitStereoTrack('detector', !centered);
 	assert.deepEqual(f.getProject().tracks.find(track => track.id === 'programme')!.effects, before);
 	assert.equal(f.getProject().tracks.length, 3);
-	assert.equal(f.getProject().tracks.find(track => track.id === 'detector')!.clipIds.length, 1);
+	const clipIds = f.getProject().tracks.find(track => track.id === 'detector')!.clipIds;
+	assert.ok(Array.isArray(clipIds));
+	assert.equal(clipIds.length, 1);
 });
 
 test('channel splitting refuses saved alternatives before allocating media and retains every playlist', async () => {

@@ -31,7 +31,7 @@ test('pitch bend sensitivity follows RPN selection, updates a held bend, and pre
 	const events = [cc(0, 101, 0), cc(0, 100, 0), cc(0, 6, 12), { frame: 0, status: 0xe0, data: [127, 127] }, cc(1000, 38, 50), cc(2000, 99, 1), cc(2000, 6, 1)] satisfies MidiFileEvent[];
 	const index = createMidiExpressionIndex(events);
 	const states = index.forNote(note()).states;
-	assert.equal(states.findLast(state => state.frame === 0)!.bendRatio, 2 ** ((8191 / 8192 * 12) / 12));
+	assert.equal([...states].reverse().find(state => state.frame === 0)!.bendRatio, 2 ** ((8191 / 8192 * 12) / 12));
 	assert.equal(states.at(-1)!.bendRatio, 2 ** ((8191 / 8192 * 12.5) / 12));
 	assert.equal(index.forNote(note(69, 0, 4800, 1)).states.at(-1)!.bendRatio, 1);
 });
@@ -73,7 +73,7 @@ test('pitch sensitivity reset preserves its assignment, null/NRPN selection bloc
 	const events = [cc(0, 101, 0), cc(0, 100, 0), cc(0, 6, 12), cc(0, 96, 0), cc(0, 97, 0), cc(0, 121, 0),
 		cc(0, 6, 1), { frame: 0, status: 0xe0, data: [0, 96] }, cc(100, 99, 0), cc(100, 6, 3), cc(200, 100, 0), cc(200, 6, 4)] satisfies MidiFileEvent[];
 	const states = createMidiExpressionIndex(events).forNote(note()).states;
-	assert.equal(states.findLast(state => state.frame === 0)!.bendRatio, Math.sqrt(2));
+	assert.equal([...states].reverse().find(state => state.frame === 0)!.bendRatio, Math.sqrt(2));
 	assert.equal(states.at(-1)!.bendRatio, Math.sqrt(2), 'CC121 nulls the prior RPN selection');
 	const selected = [...events, cc(300, 101, 0), cc(300, 6, 4)];
 	assert.equal(createMidiExpressionIndex(selected).forNote(note()).states.at(-1)!.bendRatio, 2 ** (2 / 12));
