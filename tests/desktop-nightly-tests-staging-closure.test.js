@@ -51,6 +51,8 @@ const PRELOAD_FIXTURE_ALIASES = Object.freeze({
 	'./project-library-runtime/desktop/desktop-audio-codec-operation-contract.js': './desktop-audio-codec-operation-contract.ts',
 	'./project-library-runtime/desktop/desktop-audio-codec-capability-contract.js': './desktop-audio-codec-capability-contract.ts',
 	'./project-library-runtime/desktop/project-saving-preload.js': './project-saving-preload.ts',
+	'./project-library-runtime/desktop/cpu-profile-preload.js': './cpu-profile-preload.ts',
+	'./project-library-runtime/desktop/ai-denoise-preload.js': './ai-denoise-preload.ts',
 	'./project-library-runtime/desktop/save-target-preload.js': './save-target-preload.ts',
 	'./project-library-runtime/desktop/audiocom-authorization.js': './audiocom-authorization.ts',
 	'./project-library-runtime/desktop/audiocom-links.js': './audiocom-links.ts',
@@ -82,6 +84,8 @@ test('nightly payload production modules have a closed local-import graph', () =
 	assert.ok(result.visited.has('tests/helpers/scape-archive-rewrite.js'));
 	assert.ok(result.visited.has('desktop/main-file-capability-ipc.mjs'));
 	assert.ok(result.visited.has('desktop/save-target-preload.ts'));
+	assert.ok(result.visited.has('desktop/cpu-profile-preload.ts'));
+	assert.ok(result.visited.has('desktop/ai-denoise-preload.ts'));
 	assert.ok(result.visited.has('desktop/macro-batch-save.ts'));
 	assert.ok(result.visited.has('desktop/desktop-video-h264-encoder.ts'));
 	assert.ok(result.visited.has('desktop/ara-preload.ts'));
@@ -105,7 +109,8 @@ test('nightly payload production-module audit rejects an unstaged local dependen
 
 test('nightly preload contract aliases still require their maintained owners in the staged payload', () => {
 	for (const owner of ['desktop/desktop-audio-codec-operation-contract.ts',
-		'desktop/desktop-audio-codec-capability-contract.ts', 'desktop/save-target-preload.ts']) {
+		'desktop/desktop-audio-codec-capability-contract.ts', 'desktop/save-target-preload.ts',
+		'desktop/cpu-profile-preload.ts', 'desktop/ai-denoise-preload.ts']) {
 		const withoutOwner = NIGHTLY_TEST_PAYLOAD_INPUTS.filter(({ source }) => source !== owner);
 		assert.throws(() => inspectLocalImportClosure(withoutOwner), error => (
 			error instanceof Error && error.message.startsWith('Unstaged local import ') && error.message.includes(owner)

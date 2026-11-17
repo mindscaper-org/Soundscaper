@@ -38,6 +38,7 @@ export const DESKTOP_SMOKE_EXPECTED_BRIDGE = Object.freeze([
 	'collectAssistanceModelGarbage',
 	'configureNativeVampAnalyzer',
 	'confirmProjectSave',
+	'cpuProfiler',
 	'deleteDesktopVideoCodecOperation',
 	'describeNativeAudioBackend',
 	'editText',
