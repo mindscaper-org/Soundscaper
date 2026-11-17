@@ -31,6 +31,7 @@ import { macroSpectralContext, type MacroSpectralSelection } from './macro-spect
 import { bindNativeAutoDuckControls, macroNeedsSilentTargets } from './macro-target-admission.ts';
 import { runMacroTargetPlans } from './macro-linked-truncation.ts';
 import { macroRackHistoryFrames, macroRackHistoryScratchBytes } from './macro-rack-history.ts';
+import { macroPlanPeakBytes } from './macro-plan-memory.ts';
 
 const EFFECT_MACRO_TASK = 'selection-effect-macro';
 
@@ -229,7 +230,7 @@ export function createEffectMacroService<Buffer = MacroRenderBuffer>(runtime: Ef
 			) };
 		});
 		const outputBytes = plans.reduce((sum, plan) => sum + plan.outputBytes, 0);
-		const estimatedPeakBytes = plans.reduce((sum, plan) => sum + plan.peakBytes, 0);
+		const estimatedPeakBytes = macroPlanPeakBytes(plans);
 		if (estimatedPeakBytes > runtime.memoryLimitBytes) throw runtime.audacityEffectMemoryError();
 		if (targets.length > 1 && !runtime.persistAudacityEffectResults) throw new Error('The macro result adapter cannot commit multiple targets.');
 		const selectionDetails = runtime.effectSelectionDetails?.(targets)
