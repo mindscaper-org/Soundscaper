@@ -26,6 +26,7 @@ const PACKAGE_GATE_LABELS = Object.freeze({
 const PACKAGE_LABELS = Object.freeze({
 	nsis: 'Installer',
 	zip: 'Zip archive',
+	msi: 'Enterprise MSI',
 	dmg: 'Disk image',
 	AppImage: 'AppImage',
 	deb: 'Debian package',
