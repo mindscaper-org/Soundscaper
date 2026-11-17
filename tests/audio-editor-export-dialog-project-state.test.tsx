@@ -141,6 +141,46 @@ test('a late export failure cannot publish into a replacement project', async ()
 	}
 });
 
+test('reselecting MP3 keeps the chosen quality for the actual export request', async () => {
+	const dom = installReactTestDom();
+	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean; React?: typeof React };
+	const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT, previousReact = actGlobal.React;
+	actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+	actGlobal.React = React;
+	Object.assign(window, { innerHeight: 768, innerWidth: 1024 });
+	const { createRoot } = await import('react-dom/client');
+	const root = createRoot(dom.container as unknown as Element);
+	const requests: Readonly<Record<string, unknown>>[] = [];
+	const project = exportProject('voice-workshop', 48_000, 'Voice workshop', 'Narrator', {});
+	try {
+		await act(async () => root.render(<ExportDialog isOpen controller={exportController(requests)}
+			snapshot={exportSnapshot(project)} copy={ENGLISH_COPY} productId="soundscaper"
+			fileService={{ isDesktop: false }} onClose={() => undefined} />));
+		await select('format', /MP3/iu);
+		await select('bitRateMode', /constant/iu);
+		await select('quality', /^320/u);
+		await select('format', /MP3/iu);
+		await act(async () => reactProps(descendantByTag(dom.one('[data-export-action="start"]'), 'button')).onClick({}));
+		assert.equal(requests[0]?.format, 'mp3');
+		assert.equal(requests[0]?.bitRateMode, 'constant');
+		assert.equal(requests[0]?.bitRate, 320);
+	} finally {
+		await act(async () => root.unmount());
+		actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
+		actGlobal.React = previousReact;
+		dom.restore();
+	}
+	async function select(field: string, label: RegExp): Promise<void> {
+		const trigger = dom.one(`[data-export-field="${field}"]`).querySelector('.dropdown__trigger');
+		assert.ok(trigger);
+		await act(async () => reactProps(trigger).onClick());
+		const body = dom.container.ownerDocument.body;
+		const option = body.querySelectorAll('[role="option"]').find(node => label.test(node.textContent));
+		assert.ok(option, `Missing ${field} option ${String(label)}`);
+		await act(async () => reactProps(option).onClick());
+	}
+});
+
 function descendantByTag(root: ReactTestElement, tagName: string): ReactTestElement {
 	const expected = tagName.toUpperCase();
 	const pending = [...root.childNodes];

@@ -353,7 +353,10 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 				<div className="audio-editor-export-dialog__content">
 				<section className="audio-editor-export-section">
 					<h3>{copy.exportSection}</h3>
-					<LabeledDropdown label={copy.format} hook="format" value={settings.format} onChange={(format) => { if (format === settings.format) void availability.retry(); setFormat(format); }} disabled={settingsDisabled} options={[
+					<LabeledDropdown label={copy.format} hook="format" value={settings.format} onChange={(format) => {
+						if (format === settings.format) void availability.retry();
+						else setFormat(format);
+					}} disabled={settingsDisabled} options={[
 						...audioFormatDescriptors.map((descriptor) => ({
 							value: descriptor.id,
 							label: descriptor.id === 'custom-ffmpeg'
