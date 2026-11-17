@@ -49,7 +49,7 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 		return { sampleRate, channelCount, frameCount };
 	}
 	async function render(node: ResolvedSubprojectNode, geometry: SubprojectGeometry, signal?: AbortSignal): Promise<SubprojectRenderedSource> {
-		const temporary: SubprojectRenderedSource[] = [];
+		const temporary = new Map<string, SubprojectRenderedSource>();
 		try {
 			async function visit(current: ResolvedSubprojectNode, output: SubprojectGeometry): Promise<SubprojectRenderedSource> {
 				signal?.throwIfAborted();
@@ -57,7 +57,12 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 				const sources = project.sources as Record<string, unknown>[];
 				for (const { link, node: child } of current.children) {
 					if (!child || child.digest === link.contentDigest) continue;
-					const rendered = await visit(child, link); temporary.push(rendered);
+					const key = JSON.stringify([child.project.id, child.digest, link.sampleRate, link.channelCount, link.frameCount]);
+					let rendered = temporary.get(key);
+					if (!rendered) {
+						rendered = await visit(child, link);
+						temporary.set(key, rendered);
+					}
 					const index = sources.findIndex(source => source.id === link.sourceId);
 					if (index < 0) throw new ReferenceError('The nested subproject proxy is missing.');
 					sources[index] = createAudioSource({ ...rendered.source, id: link.sourceId });
@@ -65,7 +70,7 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 				return await renderOne(project as unknown as SubprojectDocument, output, signal);
 			}
 			return await visit(node, geometry);
-		} finally { for (const source of temporary.reverse()) await source.discard(); }
+		} finally { for (const source of [...temporary.values()].reverse()) await source.discard(); }
 	}
 	async function renderOne(project: SubprojectDocument, geometry: SubprojectGeometry, signal?: AbortSignal): Promise<SubprojectRenderedSource> {
 		signal?.throwIfAborted();

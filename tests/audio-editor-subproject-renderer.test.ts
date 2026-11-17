@@ -87,3 +87,22 @@ test('nested rendering uses current descendant PCM through valid temporary sourc
 	assert.equal(middle.sources[0]!.storageKey, 'original');
 	assert.deepEqual((await f.store.listSources()).map(source => source.id).sort(), ['changed', 'original', output.source.id].sort());
 });
+
+test('nested links share identical child output while other geometries render independently', async context => {
+	const f = await fixture(context);
+	let parent = { ...f.child, id: 'parent' };
+	for (const [sourceId, frameCount] of [['original', 2], ['second', 2], ['longer', 4]] as const) {
+		const source = { ...f.child.sources[0]!, id: sourceId, storageKey: sourceId, frameCount };
+		parent = applySoundscaperProjectCommand(parent, { type: 'subproject/install', expected: null, source,
+			link: { id: `link-${sourceId}`, projectId: f.child.id, libraryId: 'library', title: f.child.title, sourceId,
+				followLatest: true, revision: 0, contentDigest: 'a'.repeat(64), sampleRate: 48000, channelCount: 1, frameCount },
+		}) as SubprojectDocument;
+	}
+	const node = await resolveSubprojectGraph(parent.id, 'library', id => Promise.resolve(id === parent.id ? parent : f.child));
+	const output = await f.renderer.render(node, { sampleRate: 48000, channelCount: 1, frameCount: 2 });
+	const pcm = [];
+	for await (const chunk of f.store.readSourceChunks(String(output.source.storageKey))) pcm.push(chunk.channels[0]);
+	assert.deepEqual(pcm, [new Float32Array([0.25, -0.5])]);
+	assert.equal(f.disposed(), 3);
+	assert.deepEqual((await f.store.listSources()).map(source => source.id).sort(), ['original', output.source.id].sort());
+});
