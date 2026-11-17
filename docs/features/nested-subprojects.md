@@ -18,6 +18,9 @@ with silence; material beyond the published range remains outside the placement.
 Insert another placement to publish a different range or channel layout.
 The child keeps its own tempo map. Sample-rate conversion uses the existing
 windowed-sinc implementation and endpoint rounding policies.
+Reference video remains in the child; proxy publication reads its audio mix.
+Independent clip pitch and stretch prepare immutable StaffPad cache sources
+in a separate render scope, including when the parent's playback cache is cold.
 
 Each proxy is an ordinary managed PCM source. Refresh creates a new immutable
 source and swaps the link and its timeline/Project Bin placements in one history

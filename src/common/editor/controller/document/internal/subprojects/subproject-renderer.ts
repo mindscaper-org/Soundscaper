@@ -77,7 +77,8 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 		let writer: OwnedAudioSourceWriter | null = null;
 		let published = false;
 		try {
-			const used = new Set((projected.clips as readonly { sourceId: string }[]).map(clip => clip.sourceId));
+			const used = new Set((projected.clips as readonly { kind?: string; sourceId: string }[])
+				.filter(clip => clip.kind === 'audio').map(clip => clip.sourceId));
 			for (const value of project.sources) {
 				if (!used.has(String(value.id))) continue;
 				if (value.kind !== 'audio') throw new RangeError('Audio subprojects require rendered audio sources.');
