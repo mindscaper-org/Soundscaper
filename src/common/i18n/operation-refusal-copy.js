@@ -14,6 +14,7 @@ export const OPERATION_REFUSAL_COPY_BY_LOCALE = Object.freeze({
 			importedSourcePcmInvalid: 'Imported audio source {source} has invalid PCM channels.',
 			trackNotFound: 'The track could not be found.',
 			trackDestinationInvalid: 'Track destination must be a finite index.',
+			trackPlaylistsBeforeChannelRewrite: 'Save a session snapshot and remove the track’s playlists before splitting or merging its channels.',
 			audioTrackRequired: 'Select an audio track first.',
 			unknownTrackDisplay: 'Unknown audio track display mode.',
 			timeSelectionRequired: 'Create a time selection first.',

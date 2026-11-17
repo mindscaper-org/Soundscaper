@@ -6,7 +6,7 @@ import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { resolveTimecodeSyncCopy } from '../../../i18n/editor-timecode-sync-copy.ts';
 import { createTimecodeSyncSession, DEFAULT_TIMECODE_SYNC_SETTINGS, type TimecodeDevices, type TimecodeSyncSettings } from '../../controller/transport/timecode-sync-session.ts';
 import { createBrowserTimecodeSyncIo } from '../../controller/transport/timecode-sync-browser.ts';
-import { workspaceTimecodeRuntime, type TimecodeWorkspaceController } from '../workspace/timecode-sync-workspace.ts';
+import { timecodeReceiveBlocked, workspaceTimecodeRuntime, type TimecodeWorkspaceController } from '../workspace/timecode-sync-workspace.ts';
 import EditorControlLabel from '../EditorControlLabel.tsx';
 
 const EMPTY_DEVICES: TimecodeDevices = { midiInputs: [], midiOutputs: [], audioInputs: [], audioOutputs: [] };
@@ -24,7 +24,7 @@ export default function TimecodeSyncDialog({ controller, copy: copyInput, onClos
 				return { projectId: controller.project?.id ?? null, sampleRate: controller.project?.sampleRate ?? 48000,
 					positionFrame: controller.engine.getPositionFrames(), playing: state.state === 'playing', speed: state.playbackRate,
 					blocked: snapshot.phase === 'disposing' || snapshot.phase === 'disposed' || snapshot.projectActivationPending === true || snapshot.projectAdministrationPending === true,
-					receiveBlocked: snapshot.transportState === 'recording' || snapshot.recordingStarting === true || snapshot.recordingScheduling === true || Boolean(snapshot.scheduledRecording) || controller.project?.loop?.enabled === true || state.playbackRate !== 1 || state.cutPreview === true };
+					receiveBlocked: timecodeReceiveBlocked(snapshot, state, controller.project?.loop?.enabled === true) };
 			},
 			seek: frame => controller.actions.transport.seek(frame),
 			play: async () => { if (controller.engine.getState().state !== 'playing') await controller.actions.transport.playPause(); },

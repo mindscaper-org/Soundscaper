@@ -108,7 +108,7 @@ export function createTimecodeSyncSession(d: Dependencies) {
 	function pump(): void {
 		if (pumping) return;
 		pumping = true;
-		const ownGeneration = generation;
+		const ownGeneration = generation, ownProjectId = projectId;
 		processing = (async () => {
 			while (pending && ownGeneration === generation) {
 				const next = pending; pending = null;
@@ -134,7 +134,7 @@ export function createTimecodeSyncSession(d: Dependencies) {
 					chasing = true;
 					if (!position.playing) await d.play();
 					if (generation !== ownGeneration) {
-						if (d.read().projectId === projectId && !d.read().blocked && !d.read().receiveBlocked) await d.pause();
+						if (d.read().projectId === ownProjectId && !d.read().blocked && !d.read().receiveBlocked) await d.pause();
 						return;
 					}
 				}

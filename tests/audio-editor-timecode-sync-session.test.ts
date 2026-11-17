@@ -150,3 +150,24 @@ test('audio activation failure retires an existing sender and reports the failur
 	assert.equal(f.session.getSnapshot().error, 'Audio clock unavailable');
 	await f.session.dispose();
 });
+
+test('a retired chase completion never pauses a newly configured project', async () => {
+	let projectId = 'old', playing = false, receive!: (reading: TimecodeReading, timestamp: number) => void;
+	let finishOldPlay!: () => void;
+	const paused: string[] = [];
+	const session = createTimecodeSyncSession({ now: () => 1000, schedule: () => () => {},
+		io: { devices: async () => ({ midiInputs: [], midiOutputs: [], audioInputs: [], audioOutputs: [] }),
+			open: async (_settings, handler) => { receive = handler; return { sendMidi() {}, clearMidi() {}, updateLtc() {}, close: async () => {} }; } },
+		read: () => ({ projectId, playing, sampleRate: 48000, positionFrame: 0, speed: 1, blocked: false }),
+		seek() {}, play: () => new Promise<void>(resolve => { finishOldPlay = resolve; }),
+		pause: async () => { paused.push(projectId); playing = false; },
+	});
+	try {
+		await session.configure({ ...DEFAULT_TIMECODE_SYNC_SETTINGS, receive: 'mtc' });
+		receive({ frame: 25, rate: '25', direction: 1 }, 1000);
+		projectId = 'new'; playing = true;
+		await session.configure({ ...DEFAULT_TIMECODE_SYNC_SETTINGS, sendMtc: true });
+		finishOldPlay(); await session.settled();
+		assert.deepEqual(paused, []); assert.equal(playing, true);
+	} finally { await session.dispose(); }
+});

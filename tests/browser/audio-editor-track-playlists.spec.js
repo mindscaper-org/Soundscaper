@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { chooseTrackMenuAction } from './helpers/track-menu.js';
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, clipByName, collectClientErrors, importFiles,
 	openNestedCommandMenu, getMenuItem, openEffectsForTrack, addRackEffect, closeEffectsPanel,
@@ -116,4 +117,28 @@ test('a restored MIDI playlist uses the instrument currently assigned to its tra
 	await expect.poll(() => page.evaluate(() => globalThis.__playlistMidiInstruments.at(-1))).toBe('square');
 	await editor.getByRole('button', { name: 'Stop', exact: true }).click();
 	expect(errors).toEqual([]);
+});
+
+
+test('stereo channel splitting refuses saved playlists and leaves both alternatives available', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	await importFiles(editor, [toneA]);
+	const clip = clipByName(editor, toneA.name);
+	await clip.locator('.clip-header').click();
+	let dialog = await openPlaylists(page, editor);
+	await dialog.getByRole('textbox', { name: 'Playlist name', exact: true }).fill('Alternate take');
+	await dialog.getByRole('button', { name: 'Duplicate current playlist', exact: true }).click();
+	await dialog.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: 'Close' }).click();
+	const trackCount = await editor.locator('[data-track-row]').count();
+	const row = clip.locator('xpath=ancestor::div[@data-track-row][1]');
+	await chooseTrackMenuAction(page, editor, row, ['Track channels', 'Split stereo to left/right mono']);
+	await expect(editor.getByRole('alert')).toContainText('remove the track’s playlists');
+	await expect(editor.locator('[data-track-row]')).toHaveCount(trackCount);
+	await expect(clip).toHaveCount(1);
+	dialog = await openPlaylists(page, editor);
+	await expect(dialog.getByRole('option', { name: 'Original', exact: true })).toHaveCount(1);
+	await expect(dialog.getByRole('option', { name: 'Alternate take (active)', exact: true })).toHaveCount(1);
+	await dialog.getByRole('listbox', { name: 'Playlists', exact: true }).selectOption({ label: 'Original' });
+	await dialog.getByRole('button', { name: 'Activate playlist', exact: true }).click();
+	await expect(clip).toHaveCount(1);
 });

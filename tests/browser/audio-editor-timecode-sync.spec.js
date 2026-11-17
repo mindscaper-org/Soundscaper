@@ -201,3 +201,27 @@ test('disable cancels pending LTC device permission and stops a late microphone 
 	await expect(dialog.getByRole('status')).toHaveText('Synchronization is off.');
 	await expect(dialog.getByRole('alert')).toHaveCount(0);
 });
+
+test('MTC receive refuses a stopped transport whose chosen playback speed is not normal', async ({ page }) => {
+	await installMidi(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	await importFiles(editor, [audio]);
+	await editor.getByRole('button', { name: 'Play options', exact: true }).click();
+	await editor.getByRole('slider', { name: 'Playback speed', exact: true }).fill('0.5');
+	await page.keyboard.press('Escape');
+	const dialog = await openSync(page, editor);
+	await dialog.getByLabel('Receive timecode', { exact: true }).selectOption('mtc');
+	await dialog.getByRole('button', { name: 'Connect MIDI devices' }).click();
+	await dialog.getByLabel('MTC MIDI input', { exact: true }).selectOption('tc-in');
+	await dialog.getByRole('button', { name: 'Apply synchronization' }).click();
+	await expect(dialog.getByRole('alert')).toContainText('normal playback');
+	await expect(dialog.getByRole('status')).toHaveText('Synchronization is off.');
+	await dialog.press('Escape');
+	await editor.getByRole('button', { name: 'Play options', exact: true }).click();
+	await editor.getByRole('slider', { name: 'Playback speed', exact: true }).fill('1');
+	await page.keyboard.press('Escape');
+	await openSync(page, editor);
+	await dialog.getByRole('button', { name: 'Apply synchronization' }).click();
+	await expect(dialog.getByRole('status')).toHaveText('Waiting for timecode.');
+	await dialog.getByRole('button', { name: 'Disable synchronization' }).click();
+});
