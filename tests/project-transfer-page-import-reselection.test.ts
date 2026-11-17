@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createTransferView } from '../src/common/transfer/transfer-page-view.ts';
-import { FakeDocument, type FakeElement, settle } from './project-transfer-page-fixture.ts';
+import { deferred, FakeDocument, type FakeElement, settle } from './project-transfer-page-fixture.ts';
 
 function fileInput(document: FakeDocument): FakeElement {
 	const input = document.body.querySelector('input[type=file]');
@@ -79,7 +79,7 @@ test('an empty selection neither imports nor leaves a stale value behind', async
 test('the archive picker waits for the active import before admitting another batch', async () => {
 	const document = new FakeDocument();
 	const runs: string[][] = [];
-	const firstImport = Promise.withResolvers<void>();
+	const firstImport = deferred<void>();
 	const view = createTransferView(document as unknown as Document, 'Receive', 'Summary');
 	view.files('Import downloaded .scape archives', '.scape', async (files) => {
 		runs.push(files.map(({ name }) => name));

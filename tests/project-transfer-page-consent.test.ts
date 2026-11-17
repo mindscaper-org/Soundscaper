@@ -6,7 +6,7 @@ import { createCrossProductHandoffLaunchIntent, serializeCrossProductHandoffLaun
 import { mountTransferPage } from '../src/common/transfer/transfer-page-entry.ts';
 import type { TransferPageDependencies } from '../src/common/transfer/transfer-page-context.ts';
 import { createFakeArchive, FakeStore } from './project-transfer-bundle-fixture.ts';
-import { FakeWindow, settle } from './project-transfer-page-fixture.ts';
+import { deferred, FakeWindow, settle } from './project-transfer-page-fixture.ts';
 import { runtimeFor } from './project-transfer-runtime-fixture.ts';
 
 const selfOrigin = 'https://soundscaper.org';
@@ -63,7 +63,7 @@ test('refreshing the project list while Send is awaiting confirmation invalidate
 });
 
 test('a sender cannot start another transfer while the download is preparing', async () => {
-	const loading = Promise.withResolvers<never>();
+	const loading = deferred<never>();
 	const sender = await openSender({ loadRuntime: () => loading.promise });
 	await sender.document.clickButton('Download the ticked archives');
 	await sender.document.clickButton(/^Send /u);
@@ -84,7 +84,7 @@ test('Find my projects cannot race the automatic listing for an editable handoff
 		sourceProject: project,
 		destinationFamily: 'framescaper',
 	}));
-	const listing = Promise.withResolvers<void>();
+	const listing = deferred<void>();
 	let reads = 0;
 	const mounted = mountTransferPage({
 		scope: sender as never,

@@ -5,7 +5,7 @@ import test from 'node:test';
 
 import { mountTransferPage } from '../src/common/transfer/transfer-page-entry.ts';
 import { createFakeArchive, FakeStore } from './project-transfer-bundle-fixture.ts';
-import { FakeWindow, settle, type FakeMessageEvent } from './project-transfer-page-fixture.ts';
+import { deferred, FakeWindow, settle, type FakeMessageEvent } from './project-transfer-page-fixture.ts';
 import { runtimeFor } from './project-transfer-runtime-fixture.ts';
 
 const selfOrigin = 'https://framescaper.org';
@@ -15,7 +15,7 @@ const configuration = { selfOrigin, peerOrigin, allowedOrigins: [selfOrigin, pee
 test('manual import becomes available after the live receiving session releases the page', async () => {
 	const receiver = new FakeWindow(selfOrigin);
 	receiver.opener = new FakeWindow(peerOrigin);
-	const loading = Promise.withResolvers<never>();
+	const loading = deferred<never>();
 	const mounted = mountTransferPage({
 		scope: receiver as never,
 		role: 'receive',

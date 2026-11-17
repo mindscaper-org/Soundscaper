@@ -12,12 +12,14 @@
 
 import assert from 'node:assert/strict';
 
-export function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+export function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (reason: unknown) => void } {
 	let resolve!: (value: T) => void;
-	const promise = new Promise<T>((settleWith) => {
+	let reject!: (reason: unknown) => void;
+	const promise = new Promise<T>((settleWith, failWith) => {
 		resolve = settleWith;
+		reject = failWith;
 	});
-	return { promise, resolve };
+	return { promise, resolve, reject };
 }
 
 /** Let the page's promise chain and the protocol's microtasks run out. */
