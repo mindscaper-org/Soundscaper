@@ -4,6 +4,7 @@ import { readClosedDomainArray, readClosedDomainRecord } from '../foundation/clo
 import { createTakeCompDocumentGroupsV17 } from './take-comp-document-v17.ts';
 import { reconcileProjectOwnedFeatureRequirements } from './project-owned-feature-requirements.ts';
 import type { ProjectFeatureRequirementsManifest } from './project-feature-requirements.ts';
+import { reconcileTrackPlaylistAvLinks } from './track-playlist-av-links.ts';
 
 type Data = Record<string, unknown>;
 export const TRACK_PLAYLIST_LIMIT = 64;
@@ -92,6 +93,7 @@ export function installTrackPlaylistState(project: Data, trackId: string, state:
 		while (usedIds.has(id)) id = `${original.slice(0, 100)}-playlist-${String(suffix++)}`;
 		clip.id = id; usedIds.add(id);
 	}
+	reconcileTrackPlaylistAvLinks(project, track, records(project.clips).filter(clip => outgoingIds.has(String(clip.id))), others, clips);
 	track.clipIds = clips.map(clip => clip.id);
 	project.clips = [...others, ...clips];
 	project.takeGroups = createTakeCompDocumentGroupsV17([
