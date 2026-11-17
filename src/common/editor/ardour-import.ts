@@ -92,10 +92,12 @@ export function parseArdourDocument(text: string): TimelineInterchangeDocument {
 			const start = time(required(region, 'position')), duration = time(required(region, 'length'));
 			if (duration.num <= 0) throw new RangeError('Ardour region length must be positive.');
 			for (const [index, path] of [...distinctPaths].entries()) {
-				if (!media.has(path)) media.set(path, { id: path, path: mediaPath(path, title),
+				const channelIndices = refs.flatMap((ref, channel) => paths[channel] === path ? [integer(sourceNodes.get(ref)!.attributes.channel ?? '0', 'source channel')] : []);
+				const mediaId = `ardour-audio:${JSON.stringify([path, channelIndices])}`;
+				if (!media.has(mediaId)) media.set(mediaId, { id: mediaId, path: mediaPath(path, title), channelIndices,
 					name: timelineInterchangeMediaName(path), kind: 'audio', aliases: [path, `sounds/${path}`] });
 				const clip: TimelineInterchangeClip = { id: region.attributes.id ?? `region-${clips.length}`, name: region.attributes.name ?? '',
-					mediaId: path, start, duration, sourceStart: time(required(region, 'start')),
+					mediaId, start, duration, sourceStart: time(required(region, 'start')),
 					gain: numeric(region.attributes['scale-amplitude'] ?? region.attributes['scale-gain'], 1),
 					muted: flag(region.attributes.muted) || (region.attributes.flags ?? '').split(',').includes('Muted'),
 					envelope: ardourRegionEnvelope(region, root, Math.round(duration.num / duration.den * sampleRate), sampleRate, issues),

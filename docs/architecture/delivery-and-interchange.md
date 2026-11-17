@@ -346,7 +346,9 @@ timeline import staging and activation boundary. Readers select active audio
 playlists and retain exact cut placement and source offsets, static controls,
 and fade lengths. Ardour sample and superclock values are converted to rational
 seconds; beat-domain audio regions are refused before staging. Separate stereo source
-files become parallel hard-panned tracks with a conversion report. Overlapping
+files become parallel hard-panned tracks with a conversion report. Mono regions
+that select the first channel of an interleaved file retain that selection;
+mono and stereo regions can share the file through separate source views. Overlapping
 Ardour layers remain additive cuts with a reported layering omission. SoundCraft
 v0/v1 sessions retain sample-domain timing and their sequence frame rate.
 `.scraftz` ZIP bundles admit bounded, unique relative members and one root
