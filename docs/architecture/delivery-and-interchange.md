@@ -362,6 +362,8 @@ source at a time. Desktop lookup uses existing owner-scoped session and folder
 grants; project paths never authorize arbitrary filesystem reads. Missing media
 retains offline cuts. Absolute Ardour source origins take precedence over derived
 internal paths for linked recordings, using those same media grants and fallback rules.
+Ardour source gains restore the original levels of normalized archive FLAC audio;
+independent stereo channel gains use parallel hard-panned tracks through the shared strip.
 Track gain, mono pan, mute and send-level automation,
 clip gain envelopes, bus/send routing and master controls are imported.
 SoundCraft sends retain their pre/post-fader taps and mute.
