@@ -401,3 +401,22 @@ test('the V14 professional plan reaches the same finishing resolver', async () =
 		/unavailable|derived|exact|unsupported/iu,
 	);
 });
+
+test('spatial denoise in the actual preview path yields so a new cancellation can run', async () => {
+	const project = createFramescaperProjectFinishing(PROFILE, {
+		...framescaperV20Options(), videoTransitionsByTrackId: { 'video-track': [] },
+		finishing: finishing({ processors: [{ schemaVersion: 1, id: 'spatial-cancellable',
+			kind: 'spatial-denoise', enabled: true, radius: 16, strength: 1 }], grade: null }),
+	});
+	const plan = createFramescaperProjectUnifiedExactRenderPlanFinishing(PROFILE, project, {
+		...renderAuthority(project, 10), visualFreshnessByModelId: new Map(),
+	});
+	const abort = new AbortController();
+	const timer = setTimeout(() => abort.abort(new DOMException('User cancelled denoise', 'AbortError')), 0);
+	try {
+		await assert.rejects(createUnifiedExactRenderFinishingPreviewConsumerV13(plan).resolveFrame({
+			clipId: 'video-clip', sourceFrame: 0, sequenceFrame: 0,
+			frame: rgba(192, 192, Array.from({ length: 192 * 192 }, (_, index) => index % 256)), signal: abort.signal,
+		}), { name: 'AbortError', message: 'User cancelled denoise' });
+	} finally { clearTimeout(timer); }
+});

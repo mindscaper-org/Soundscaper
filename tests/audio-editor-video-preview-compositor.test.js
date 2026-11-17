@@ -3,7 +3,6 @@ import test from 'node:test';
 
 import {
 	VIDEO_PREVIEW_MAX_GAUSSIAN_BLUR_KERNEL_SIGMA,
-	VIDEO_PREVIEW_PIXELATE_GRID_SIZE,
 	videoEffectPasses,
 	videoPreviewBlurViewport,
 	videoPreviewViewports,
@@ -49,7 +48,6 @@ test('contains the export canvas before fitting each source into the shared view
 });
 
 test('maps all supported video effects to bounded preview passes', () => {
-	assert.equal(VIDEO_PREVIEW_PIXELATE_GRID_SIZE, 2);
 	assert.deepEqual(videoEffectPasses(effect('color-adjust', {
 		brightness: 0.2,
 		contrast: 1.4,

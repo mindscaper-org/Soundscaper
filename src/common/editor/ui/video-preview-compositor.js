@@ -53,7 +53,6 @@ import { applyVideoPreviewEntryEffects } from './video-preview-entry-effects.js'
 
 export {
 	VIDEO_PREVIEW_MAX_GAUSSIAN_BLUR_KERNEL_SIGMA,
-	VIDEO_PREVIEW_PIXELATE_GRID_SIZE,
 	videoEffectPasses,
 } from './video-preview-effects.js';
 export { videoPreviewBlurViewport, videoPreviewViewports } from './video-preview-viewports.js';

@@ -13,7 +13,7 @@ import {
 	type VideoMotionAnalysisBodyV1,
 } from './video-motion-analysis-v27.ts';
 import {
-	processSpatialDenoiseV1,
+	processSpatialDenoiseCooperativeV1,
 	processTemporalDenoiseV1,
 	type VideoMotionWebGl2AcceleratorV1,
 	type VideoTemporalNeighborV1,
@@ -211,7 +211,7 @@ async function resolveFrame(
 					resolveStabilizationTransformV1(motion, processor.strength), body, frame,
 				), request.signal);
 			} else if (processor.kind === 'spatial-denoise') {
-				frame = spatialDenoise(frame, processor.radius, processor.strength, request.signal);
+				frame = await spatialDenoise(frame, processor.radius, processor.strength, request.signal);
 			} else {
 				const body = analysisBody(authority, source, stack, processor.analysisId,
 					request.analysisBodies, analysisCache);
@@ -269,15 +269,15 @@ function applicablePresentations(
 	});
 }
 
-function spatialDenoise(
+async function spatialDenoise(
 	frame: UnifiedExactRenderRgbaFrameV13,
 	radius: number,
 	strength: number,
 	signal?: AbortSignal,
-): UnifiedExactRenderRgbaFrameV13 {
+): Promise<UnifiedExactRenderRgbaFrameV13> {
 	const pixels = frame.pixels.slice();
 	for (let channel = 0; channel < 3; channel += 1) {
-		const output = processSpatialDenoiseV1(channelFrame(frame, channel), { radius, strength, signal });
+		const output = await processSpatialDenoiseCooperativeV1(channelFrame(frame, channel), { radius, strength, signal });
 		writeChannel(pixels, channel, output);
 	}
 	return Object.freeze({ width: frame.width, height: frame.height, pixels });

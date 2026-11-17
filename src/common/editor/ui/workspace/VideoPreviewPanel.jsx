@@ -180,7 +180,7 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 		}));
 	}, [controller, layers, mediaErrorRevision, missingSourceIds]);
 	const activeEntries = resolvedLayers.flatMap((layer) => layer.clips);
-	useFramescaperVideoProxyPreviewPressure({ reporter: controller.actions.video?.reportPreviewPressure || null, entries: activeEntries, elements: videoElementsRef, canvas: canvasRef, referenceWidth: referenceCanvas.width, referenceHeight: referenceCanvas.height, playing: transportState === 'playing', run });
+	useFramescaperVideoProxyPreviewPressure({ reporter: controller.actions.video?.reportPreviewPressure || null, entries: activeEntries, elements: videoElementsRef, canvas: canvasRef, referenceWidth: referenceCanvas.width, referenceHeight: referenceCanvas.height, playing: transportState === 'playing', previewResolution: snapshot.preferences?.view?.videoPreviewResolution, run });
 	const renderableMediaEntries = keyframePreviewFailed
 		? []
 		: activeEntries.filter((entry) => entry.available);

@@ -60,30 +60,77 @@ export async function processTemporalDenoiseV1(request: Readonly<{
 	return temporalDenoiseCpu(current, neighbors, strength, request.signal);
 }
 
+interface SpatialDenoiseOptions {
+	readonly radius: number;
+	readonly strength: number;
+	readonly signal?: AbortSignal;
+}
+
+/** Synchronous scalar oracle, sharing the bounded sliding-window kernel. */
 export function processSpatialDenoiseV1(
-	frameValueInput: GrayVideoFrameV1,
-	options: Readonly<{ readonly radius: number; readonly strength: number; readonly signal?: AbortSignal }>,
+	frameValueInput: GrayVideoFrameV1, options: Readonly<SpatialDenoiseOptions>,
 ): GrayVideoFrameV1 {
+	const work = spatialDenoiseRows(frameValueInput, options);
+	let result = work.next();
+	while (!result.done) result = work.next();
+	return result.value;
+}
+
+/** Preview/export release the event loop between bounded row groups so abort can arrive. */
+export async function processSpatialDenoiseCooperativeV1(
+	frameValueInput: GrayVideoFrameV1, options: Readonly<SpatialDenoiseOptions>,
+): Promise<GrayVideoFrameV1> {
+	throwIfAborted(options.signal);
+	const work = spatialDenoiseRows(frameValueInput, options);
+	let result = work.next();
+	while (!result.done) {
+		await new Promise<void>(resolve => { globalThis.setTimeout(resolve, 0); });
+		throwIfAborted(options.signal);
+		result = work.next();
+	}
+	return result.value;
+}
+
+function* spatialDenoiseRows(
+	frameValueInput: GrayVideoFrameV1, options: Readonly<SpatialDenoiseOptions>,
+): Generator<void, GrayVideoFrameV1> {
+	throwIfAborted(options.signal);
 	const frame = frameValue(frameValueInput, 'spatial denoise frame');
 	const radius = boundedInteger(options?.radius, 1, 16, 'spatial denoise radius');
 	const strength = bounded(options?.strength, 0, 1, 'spatial denoise strength');
-	const samples: number[] = [];
-	for (let y = 0; y < frame.height; y += 1) {
+	if (strength === 0) return frame;
+	const { width, height } = frame;
+	const diameter = radius * 2 + 1;
+	const horizontal = new Float64Array(width * height);
+	for (let y = 0; y < height; y += 1) {
 		throwIfAborted(options.signal);
-		for (let x = 0; x < frame.width; x += 1) {
-			let total = 0;
-			let count = 0;
-			for (let oy = -radius; oy <= radius; oy += 1) {
-				for (let ox = -radius; ox <= radius; ox += 1) {
-					total += pixelClamped(frame, x + ox, y + oy);
-					count += 1;
-				}
-			}
-			const original = pixel(frame, x, y);
-			samples.push(original + (total / count - original) * strength);
+		let sum = 0;
+		for (let x = -radius; x <= radius; x += 1) sum += pixelClamped(frame, x, y);
+		for (let x = 0; x < width; x += 1) {
+			horizontal[y * width + x] = sum / diameter;
+			sum += pixelClamped(frame, x + radius + 1, y) - pixelClamped(frame, x - radius, y);
 		}
+		if ((y & 15) === 15) yield;
 	}
-	return createGrayVideoFrameV1({ width: frame.width, height: frame.height, samples });
+	const columns = new Float64Array(width);
+	const row = (y: number): number => Math.max(0, Math.min(height - 1, y)) * width;
+	for (let y = -radius; y <= radius; y += 1) {
+		const offset = row(y);
+		for (let x = 0; x < width; x += 1) columns[x] = columns[x]! + horizontal[offset + x]!;
+	}
+	const samples = new Array<number>(width * height);
+	for (let y = 0; y < height; y += 1) {
+		throwIfAborted(options.signal);
+		const entering = row(y + radius + 1), leaving = row(y - radius);
+		for (let x = 0; x < width; x += 1) {
+			const original = frame.samples[y * width + x]!;
+			const value = original + (columns[x]! / diameter - original) * strength;
+			samples[y * width + x] = Math.max(0, Math.min(1, value));
+			columns[x] = columns[x]! + horizontal[entering + x]! - horizontal[leaving + x]!;
+		}
+		if ((y & 15) === 15) yield;
+	}
+	return createGrayVideoFrameV1({ width, height, samples });
 }
 
 function temporalDenoiseCpu(
