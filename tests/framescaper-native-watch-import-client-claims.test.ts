@@ -229,7 +229,7 @@ test('a claim aimed at a stale project revision is negatively acknowledged', asy
 	assert.deepEqual(scope.rec.completions, [{
 		schemaFamily: 'framescaper', schemaVersion: 1, claimId: CLAIM_ID, projectId: PROJECT_ID,
 		binId: 'project-bin', sourceId: null, contentSha256: CONTENT_SHA256,
-		expectedProjectRevision: 1, committedProjectRevision: 2, success: false,
+		expectedProjectRevision: 1, committedProjectRevision: 1, success: false,
 	}]);
 	assert.deepEqual(scope.rec.imports, [], 'a stale claim never reaches the importer');
 
@@ -284,7 +284,7 @@ test('a materialized file whose content digest no longer matches the claim is re
 	assert.equal(scope.rec.completions[0]!.contentSha256, 'f'.repeat(64));
 });
 
-test('a project swapped out while the locator loads aborts the import unacknowledged', async () => {
+test('a project swapped out while the locator loads returns the abandoned claim to main', async () => {
 	const scope: Rig = rig({
 		load: async () => {
 			scope.state.project = projectAt(7, [], []);
@@ -294,8 +294,29 @@ test('a project swapped out while the locator loads aborts the import unacknowle
 
 	assert.equal(await scope.watcher.pollNow(), false);
 	assert.deepEqual(messages(scope.rec), ['The active selected project changed during watch import.']);
-	assert.deepEqual(scope.rec.completions, [],
-		'a project that moved on must not be told the claim failed against it');
+	assert.equal(scope.rec.completions[0]?.success, false);
+	assert.equal(scope.rec.completions[0]?.committedProjectRevision, 2);
+});
+
+test('changing tabs during import acknowledgement never flushes the replacement tab', async () => {
+	const scope: Rig = rig({
+		onImportFiles: state => { state.project = IMPORTED; },
+		complete: () => { scope.state.project = { ...EMPTY, id: 'project-2' }; return false; },
+	});
+	assert.equal(await scope.watcher.pollNow(), false);
+	assert.equal(scope.rec.flushes.length, 1);
+	assert.equal(scope.rec.completions.length, 1);
+});
+
+test('a watch claim requiring a proxy never reports success after proxy generation falls short', async () => {
+	const scope = rig({
+		claim: claim({ generateProxies: true }),
+		onImportFiles: state => { state.project = IMPORTED; },
+		proxy: () => undefined,
+	});
+	assert.equal(await scope.watcher.pollNow(), false);
+	assert.deepEqual(scope.rec.completions.map(item => [item.success, item.committedProjectRevision]), [[false, 2]]);
+	assert.equal(scope.rec.flushes.length, 1);
 });
 
 test('a link-mode import commits one revision, flushes it and acknowledges success', async () => {
@@ -392,16 +413,16 @@ test('an existing-source claim that names no committed source is negatively ackn
 	assert.equal(scope.rec.completions[0]!.sourceId, null);
 });
 
-test('an existing-source claim with no proxy work reports empty work yet still acknowledges', async () => {
+test('an existing-source claim with no proxy work reports empty work and returns the claim', async () => {
 	const scope = rig({ project: WITH_EXISTING, claim: claim({ existingSourceId: 'source-existing' }) });
 
-	assert.equal(await scope.watcher.pollNow(), true);
+	assert.equal(await scope.watcher.pollNow(), false);
 	assert.deepEqual(messages(scope.rec), ['A watch claim carried no pending baseline work.']);
 	assert.deepEqual(scope.rec.completions, [{
 		schemaFamily: 'framescaper', schemaVersion: 1, claimId: CLAIM_ID, projectId: PROJECT_ID,
-		binId: 'project-bin', sourceId: 'source-existing', contentSha256: CONTENT_SHA256,
-		expectedProjectRevision: 2, committedProjectRevision: 2, success: true,
-	}], 'the committed-retry path acknowledges the claim the poll body had just rejected');
+		binId: 'project-bin', sourceId: null, contentSha256: CONTENT_SHA256,
+		expectedProjectRevision: 2, committedProjectRevision: 2, success: false,
+	}]);
 });
 
 test('proxy generation on an existing source commits and acknowledges the attached revision', async () => {
@@ -444,7 +465,7 @@ test('a proxy claim without a bound proxy scheduler is refused', async () => {
 	assert.equal(scope.rec.completions[0]!.success, false);
 });
 
-test('proxy generation that publishes no exact attachment retries the commit three times', async () => {
+test('proxy generation that publishes no exact attachment returns the unfinished claim', async () => {
 	const partial: readonly Data[] = [
 		{ originalSha256: 'e'.repeat(64), sha256: PROXY_SHA256 },
 		{ originalSha256: CONTENT_SHA256, sha256: 'not-a-digest' },
@@ -461,9 +482,7 @@ test('proxy generation that publishes no exact attachment retries the commit thr
 
 		assert.equal(await scope.watcher.pollNow(), false);
 		assert.equal(messages(scope.rec)[0], 'Requested proxy generation did not publish an exact attachment.');
-		assert.equal(scope.rec.completions.length, 3, 'the committed retry budget is three attempts');
-		assert.ok(scope.rec.completions.every((completion) => completion.success === true
-			&& completion.committedProjectRevision === 3));
+		assert.deepEqual(scope.rec.completions.map(item => [item.success, item.committedProjectRevision]), [[false, 2]]);
 	}
 });
 
@@ -489,16 +508,15 @@ test('a committed import whose acknowledgement is refused once succeeds on the f
 	assert.deepEqual(messages(scope.rec), ['The watch-import completion was not acknowledged.']);
 });
 
-test('a flush that moves the project under a committed import exhausts the retry unacknowledged', async () => {
+test('a flush that moves the project under a committed import retires the retry unacknowledged', async () => {
 	const scope = rig({
 		onImportFiles: (state) => { state.project = IMPORTED; },
 		onFlush: (state) => { state.project = projectAt(9, [], []); },
 	});
 
 	assert.equal(await scope.watcher.pollNow(), false);
-	assert.deepEqual(messages(scope.rec), Array.from({ length: 4 },
-		() => 'The active selected project changed during watch import.'));
-	assert.equal(scope.rec.flushes.length, 4);
+	assert.deepEqual(messages(scope.rec), ['The active selected project changed during watch import.']);
+	assert.equal(scope.rec.flushes.length, 1);
 	assert.deepEqual(scope.rec.completions, [],
 		'a commit that cannot be flushed onto the live project is never acknowledged');
 });
