@@ -355,6 +355,9 @@ source at a time. Desktop lookup uses existing owner-scoped session and folder
 grants; project paths never authorize arbitrary filesystem reads. Missing media
 retains offline cuts. Track gain, mono pan, mute and send-level automation,
 clip gain envelopes, bus/send routing and master controls are imported.
+SoundCraft sends retain their pre/post-fader taps and mute. Disconnected or
+unresolved strip outputs use silent main assignments to retain a valid editable
+graph while preserving the absence of programme audio.
 SoundCraft aux/master strips and arrangement folders retain their identities;
 folder mute/solo stays a structural gate rather than a duplicate bus gate.
 Markers, ranges, modern stepped tempo maps and bar-aligned meter changes are

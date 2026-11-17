@@ -25,10 +25,12 @@ export function timelineInterchangeMix(document: TimelineInterchangeDocument, tr
 		const edgeIds = new Map<string, string>();
 		if (owner.kind !== 'master') {
 			const target = strip.output ? busIds.get(strip.output) : undefined;
-			if (strip.output && !target) issues.push(timelineImportIssue(document.format, 'routing-target-missing', 'An unresolved output is retained as a disabled assignment.', 'missing', { target: strip.output }));
+			const connected = strip.output !== null && (!strip.output || Boolean(target));
+			if (strip.output && !target) issues.push(timelineImportIssue(document.format, 'routing-target-missing', 'An unresolved output is retained as a silent assignment.', 'missing', { target: strip.output }));
+			if (strip.output === null) issues.push(timelineImportIssue(document.format, 'disconnected-output-converted', 'An unassigned output is represented by a silent main assignment.', 'converted'));
 			edges.push({ id: createId('assignment'), kind: 'assignment', source: owner,
-				destination: target ? { kind: 'mixer-node', id: target } : { kind: 'master' }, position: 'post-fader', level: 1,
-				enabled: strip.output !== null && (!strip.output || Boolean(target)), channelMap: defaultMixerChannelMapV21(widths.get(owner.id) ?? 2, target ? widths.get(target)! : 2) });
+				destination: target ? { kind: 'mixer-node', id: target } : { kind: 'master' }, position: 'post-fader', level: connected ? 1 : 0,
+				enabled: true, channelMap: defaultMixerChannelMapV21(widths.get(owner.id) ?? 2, target ? widths.get(target)! : 2) });
 		}
 		for (const send of strip.sends ?? []) {
 			const target = busIds.get(send.target);
