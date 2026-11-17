@@ -10,6 +10,7 @@ import { projectForRuntimeConsumers } from '../src/common/editor/project-current
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { EditorControllerLifetime, EditorProjectGeneration } from '../src/common/editor/controller/shared/lifecycle.ts';
 import type { AudioEditorCommand } from '../src/common/editor/commands/protocol.ts';
+import { createEffect } from '../src/common/editor/effects.js';
 
 for (const [name, changes] of [
 	['gain', { gain: 0.5 }],
@@ -38,13 +39,26 @@ test('a title edit permits the unchanged audio normalization to complete', async
 	assert.equal(fixture.commits.length, 1);
 });
 
-function createFixture(context: test.TestContext) {
+for (const [name, command] of [
+	['rack parameters', { type: 'effect/update', scope: 'clip', trackId: 'clip', effectId: 'verb', changes: { params: { mix: .9 } } }],
+	['rack bypass', { type: 'clip/update', clipId: 'clip', changes: { effectsActive: false } }],
+	['effect bypass', { type: 'effect/update', scope: 'clip', trackId: 'clip', effectId: 'verb', changes: { enabled: false } }],
+] as const) test(`normalization cannot publish a gain measured before later ${name} changes`, async context => {
+	const fixture = createFixture(context, { effects: [createEffect('reverb', { id: 'verb' })] });
+	const job = fixture.service.handleClipAction('normalize-peak');
+	await fixture.started;
+	fixture.command(command); fixture.finish();
+	await assert.rejects(job, { name: 'AbortError' });
+	assert.equal(fixture.commits.length, 0);
+});
+
+function createFixture(context: test.TestContext, initial: Readonly<Record<string, unknown>> = {}) {
 	const lifetime = new EditorControllerLifetime(); lifetime.markReady();
 	context.after(() => { lifetime.beginDisposal(); lifetime.finishDisposal(); });
 	const generation = new EditorProjectGeneration(); generation.activate('project');
 	let persisted = createSoundscaperProject({ id: 'project', now: '2026-10-08T04:00:00.000Z', sampleRate: 48_000,
 		sources: [createAudioSource({ id: 'source', sampleRate: 48_000, frameCount: 38_400, channelCount: 1 })],
-		clips: [createAudioClip({ id: 'clip', sourceId: 'source', durationFrames: 38_400, sourceDurationFrames: 38_400 })],
+		clips: [createAudioClip({ id: 'clip', sourceId: 'source', durationFrames: 38_400, sourceDurationFrames: 38_400, ...initial })],
 		tracks: [createAudioTrack({ id: 'track', clipIds: ['clip'] })] });
 	let begin: () => void = () => {};
 	const started = new Promise<void>(resolve => { begin = resolve; });
@@ -64,6 +78,7 @@ function createFixture(context: test.TestContext) {
 		analyzeChannels: () => { begin(); return analysis; },
 	};
 	return { service: createClipPropertyService(dependencies), commits, started, finish,
+		command: (command: AudioEditorCommand) => { persisted = applySoundscaperProjectCommand(persisted, command); },
 		edit: (changes: Readonly<Record<string, unknown>>) => {
 			persisted = applySoundscaperProjectCommand(persisted, { type: 'clip/update', clipId: 'clip', changes });
 		} };
