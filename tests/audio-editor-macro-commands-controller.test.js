@@ -133,14 +133,18 @@ test('a macro moves the selection between its effect steps and undoes as one', a
 			],
 		}), true);
 
-		// Each run resolved its own target from whatever the command before it
-		// selected: the first second, then the last.
+		// The second render warms its rack over the preceding audio, then writes
+		// only the last second selected by the second command.
 		assert.deepEqual(renderRanges, [
 			{ startFrame: 0, endFrame: 48_000 },
-			{ startFrame: 48_000, endFrame: 96_000 },
+			{ startFrame: 0, endFrame: 65_536 },
+			{ startFrame: 65_536, endFrame: 96_000 },
 		]);
 
 		let snapshot = controller.getSnapshot();
+		assert.deepEqual(snapshot.project.clips.map(({ timelineStartFrame, durationFrames }) => [timelineStartFrame, durationFrames]), [
+			[0, 48_000], [48_000, 48_000],
+		]);
 		assert.equal(snapshot.history.undoEntries.length, historyBefore + 1,
 			'two effect runs still undo as the one action the user asked for');
 		assert.equal(snapshot.history.undoEntries[0].type, 'macro/run');

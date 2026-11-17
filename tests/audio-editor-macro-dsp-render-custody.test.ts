@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { createEffectMacroStep } from '../src/common/editor/effect-macro-steps.ts';
@@ -12,15 +12,36 @@ import { createMacroThreadOwner } from './helpers/macro-thread-worker-transport.
 
 const FRAMES = 38_400;
 const SIMPLE_PROGRAMS = [
-	['faded single Invert', "await sound.select.all(); await sound.effect('audacity-invert');", -1, 1],
-	['two concurrent awaited Inverts', "await sound.select.all(); await Promise.all([sound.effect('audacity-invert'), sound.effect('audacity-invert')]);", 1, 2],
-	['offline Amplify followed by staged Invert', "await sound.effects([{type:'audacity-amplify',params:{gainDb:0}},{type:'audacity-invert',params:{}}]);", -1, 1],
+	['faded single Invert', "await sound.select.all(); await sound.effect('audacity-invert');", [-1]],
+	['two concurrent awaited Inverts', "await sound.select.all(); await Promise.all([sound.effect('audacity-invert'), sound.effect('audacity-invert')]);", [-1, 1]],
+	['offline Amplify followed by staged Invert', "await sound.effects([{type:'audacity-amplify',params:{gainDb:0}},{type:'audacity-invert',params:{}}]);", [1, -1]],
 ] as const;
 
-for (const [name, program, sign, invertCount] of SIMPLE_PROGRAMS) test(`real macro DSP retains ${name}`, { timeout: 30_000 }, async context => {
+function observeSourceWrites(context: TestContext, store: Awaited<ReturnType<typeof macroDspCustody>>['store']): Float32Array[][][] {
+	const writes: Float32Array[][][] = [];
+	const begin = store.beginSourceWrite.bind(store);
+	context.mock.method(store, 'beginSourceWrite', async (...args: Parameters<typeof begin>) => {
+		const writer = await begin(...args);
+		const packets: Float32Array[][] = [];
+		return { ...writer,
+			async write(channels: Float32Array[]) {
+				packets.push(channels.map(channel => channel.slice()));
+				return writer.write(channels);
+			},
+			async commit(...commitArgs: Parameters<typeof writer.commit>) {
+				const result = await writer.commit(...commitArgs);
+				writes.push(packets);
+				return result;
+			},
+		};
+	});
+	return writes;
+}
+
+for (const [name, program, stageSigns] of SIMPLE_PROGRAMS) test(`real macro DSP retains ${name}`, { timeout: 30_000 }, async context => {
 	const custody = await macroDspCustody(context);
 	try {
-		const { controller, store, factory } = custody, recording = macroRecording('browser-tone-a.wav', 330);
+		const { controller, store } = custody, recording = macroRecording('browser-tone-a.wav', 330);
 		await controller.actions.project.importFiles([recording.file]);
 		const imported = clipboardProject(controller.project), original = imported.sources[0], originalClip = imported.clips[0];
 		assert.ok(original?.kind === 'audio' && originalClip?.kind === 'audio');
@@ -31,27 +52,33 @@ for (const [name, program, sign, invertCount] of SIMPLE_PROGRAMS) test(`real mac
 		assertMacroPcm(before, independentlyFaded(recording.pcm), 'independent original RIFF programme', .35);
 		if (name.startsWith('offline')) controller.actions.timeline.selectAll();
 		const baseline = clipboardProject(controller.project), history = controller.getSnapshot().history.undoEntries.length;
+		const writes = observeSourceWrites(context, store);
 		await assert.doesNotReject(controller.actions.macros.runScript({ name, source: program }));
 		const changed = clipboardProject(controller.project), clip = changed.clips[0]; assert.ok(clip?.kind === 'audio');
 		const printed = changed.sources.find(source => source.id === clip.sourceId); assert.ok(printed?.kind === 'audio');
 		assert.notEqual(printed.id, original.id);
 		assert.deepEqual([changed.clips.length, printed.frameCount, printed.channelCount, clip.fadeInFrames, clip.fadeOutFrames], [1, FRAMES, 2, 0, 0]);
 		assert.equal(controller.getSnapshot().history.undoEntries.length, history + 1, 'one actual macro transaction');
-		const expected = before.map(channel => Float32Array.from(channel, sample => sign * sample));
+		const expectedForSign = (sign: number) => before.map(channel => Float32Array.from(channel, sample => sign * sample));
+		assert.equal(writes.length, stageSigns.length);
+		for (const [index, sign] of stageSigns.entries()) {
+			const packets = writes[index]!;
+			assert.equal(packets.length, 1);
+			assertMacroPcm(packets[0]!, expectedForSign(sign), `macro stage ${index + 1}`);
+		}
+		const expected = expectedForSign(stageSigns.at(-1)!);
 		assertMacroPcm(await readCustodyPcm(store, printed), expected, 'real macro sourcewriter');
 		assertMacroPcm(await custody.render(FRAMES), expected, 'real macro delivery');
 		await custody.history(baseline, changed, before, expected);
 		await custody.source(original, recording.pcm);
-		const inverts = factory.snapshot().worklets.filter(worklet => worklet.processorType === 'audacity-invert');
-		assert.equal(inverts.length, 2 * invertCount, 'each requested Invert reached shipping DSP for both channels');
-		await custody.assertPrograms([program], [name.startsWith('offline') ? ['effect.chain'] : ['select.all', ...Array.from({ length: invertCount }, () => 'effect.apply')]]);
+		await custody.assertPrograms([program], [name.startsWith('offline') ? ['effect.chain'] : ['select.all', ...stageSigns.map(() => 'effect.apply')]]);
 	} finally { await custody.dispose(); }
 });
 
 test('real step-list Invert rewrites both tracks selected by Select all', { timeout: 30_000 }, async context => {
 	const custody = await macroDspCustody(context);
 	try {
-		const { controller, store, factory } = custody;
+		const { controller, store } = custody;
 		const recordings = [macroRecording('browser-tone-a.wav', 330), macroRecording('browser-tone-b.wav', 660)];
 		await controller.actions.project.importFiles(recordings.map(recording => recording.file));
 		const imported = clipboardProject(controller.project); assert.equal(imported.clips.length, 2);
@@ -82,7 +109,6 @@ test('real step-list Invert rewrites both tracks selected by Select all', { time
 		assertMacroPcm(await custody.render(FRAMES), expected, 'both selected tracks are inverted');
 		await custody.history(baseline, changed, before, expected);
 		for (const [index, source] of imported.sources.entries()) await custody.source(source, recordings[index]!.pcm);
-		assert.equal(factory.snapshot().worklets.filter(worklet => worklet.processorType === 'audacity-invert').length, 4);
 		await custody.assertPrograms([], []);
 	} finally { await custody.dispose(); }
 });
