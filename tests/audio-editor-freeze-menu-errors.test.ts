@@ -15,8 +15,9 @@ for (const factory of [commonItems, soundscaperItems]) test(`Freeze failures rea
 			run: async (operation: () => unknown) => { try { return await operation(); } catch (error) { errors.push(error); } },
 			soundscaperWorkflow: { freezeActionsAvailable: true, freezeStatus: 'none', freeze: async () => { throw failure; } },
 		} });
-	const freeze = items.tracks.find((item: { id: string }) => item.id === 'soundscaper-freeze');
-	assert.ok(freeze);
-	await freeze.items[0].onClick();
+	const freeze = items.tracks.find(item => item?.id === 'soundscaper-freeze');
+	const click = freeze?.items?.[0]?.onClick;
+	assert.ok(click);
+	await click();
 	assert.deepEqual(errors, [failure]);
 });
