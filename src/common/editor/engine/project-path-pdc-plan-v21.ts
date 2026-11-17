@@ -32,6 +32,7 @@ export interface ProjectPathPdcPlanV21 {
 
 export interface ProjectPathPdcOptionsV21 {
 	readonly sampleRate?: number
+	readonly clipLatencyFrames?: number
 }
 
 interface ProjectEffectHostV21 {
@@ -88,7 +89,7 @@ export function compileProjectPathPdcPlanV21(
 	const orderedVertices = orderPdcVertices(states.keys(), dependencies)
 	const incomingDependencies = indexPdcDependencies(dependencies)
 	const inputFrames = new Map<string, number>()
-	const sourceLatency = projectClipEffectLatencyFrames(projectValue as EngineProject, sampleRate)
+	const sourceLatency = options.clipLatencyFrames ?? projectClipEffectLatencyFrames(projectValue as EngineProject, sampleRate)
 	const outputFrames = new Map<string, number>()
 	for (const vertex of orderedVertices) {
 		let input = vertex.startsWith('track:') ? sourceLatency : 0

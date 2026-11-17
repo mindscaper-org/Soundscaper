@@ -29,6 +29,42 @@ function project() {
 	});
 }
 
+for (const graph of ['legacy', 'v21'] as const) test(`${graph}: graph setup reuses one clip latency plan`, () => {
+	let rackReads = 0;
+	const clips = Array.from({ length: 1_000 }, (_, index) => ({
+		id: `clip-${index}`, kind: 'audio', sourceId: 'source',
+		get effects() { rackReads++; return []; },
+	}));
+	const track = { id: 'track', type: 'audio', clipIds: clips.map(clip => clip.id) };
+	const runtime: EngineProject = {
+		sampleRate: 48_000, clips, tracks: [track], masterChannels: 2,
+		...(graph === 'v21' ? { mixer: createDefaultMixerGraphV21([track]), automationLanes: [] } : {}),
+	};
+	const context = new OfflineAudioContext(2, 128, 48_000);
+	const built = buildProjectGraph(context as unknown as BaseAudioContext, context.destination as unknown as AudioNode, runtime, {
+		metering: false, graph, includeMaster: false,
+	});
+	assert.equal(built.latencyFrames, 0);
+	assert.ok(rackReads <= 6 * clips.length, `one graph read ${rackReads} clip racks`);
+});
+
+for (const graph of ['legacy', 'v21'] as const) test(`${graph}: the shared clip plan uses the device clock without the master`, () => {
+	const document = applyEditorCommand(project(), { type: 'effect/add', scope: 'clip', trackId: 'first',
+		effect: createEffect('compressor', { id: 'clip-compressor' }) });
+	const runtime = {
+		...projectForRuntimeConsumers(document),
+		master: { effects: [createEffect('compressor', { id: 'master-compressor' })] },
+		...(graph === 'v21' ? { mixer: createDefaultMixerGraphV21([{ id: 'track', channelCount: 1 }]), automationLanes: [] } : {}),
+	} as EngineProject;
+	const sampleRate = 44_100;
+	const context = new OfflineAudioContext(2, 512, sampleRate);
+	const built = buildProjectGraph(context as unknown as BaseAudioContext, context.destination as unknown as AudioNode, runtime, {
+		metering: false, graph, includeMaster: false,
+	});
+	assert.equal(built.latencyFrames, 264);
+	assert.equal(projectGraphLatencyFrames(runtime, { graph, includeMaster: false, sampleRate }), built.latencyFrames);
+});
+
 test('clip racks retain external controls and force conventional graph admission', () => {
 	const document = projectForRuntimeConsumers(project()) as EngineProject;
 	const processed = { ...document, schemaFamily: 'soundscaper', schemaVersion: 1,

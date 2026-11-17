@@ -4,7 +4,7 @@ import { addNode, connect, type AudioNodeArray } from './audio-node-utils.ts';
 import { activeRackEffects } from './project-effects.ts';
 import { applyEffectRack, type EffectRackOptions } from './effect-rack.ts';
 import type { EngineProject } from './types.ts';
-import { compileClipEffectLatencyPlan } from './clip-effect-latency-plan.ts';
+import { compileClipEffectLatencyPlan, type ClipEffectLatencyPlan } from './clip-effect-latency-plan.ts';
 import { delayAudioNodeFrames } from './frame-delay.ts';
 
 /** A namespace separate from persisted track IDs in the scheduler's input map. */
@@ -18,13 +18,12 @@ export function projectClipEffectLatencyFrames(project: EngineProject, sampleRat
 }
 
 /** Build once per clip, shared by loop repeats, warp segments and chunk sources. */
-export function buildClipEffectInputs(context: BaseAudioContext, project: EngineProject,
+export function buildClipEffectInputs(context: BaseAudioContext, project: EngineProject, plan: ClipEffectLatencyPlan,
 	trackInputs: Map<string, AudioNode>, nodes: AudioNodeArray, options: EffectRackOptions, onlyTrackId: unknown = null): void {
-	const plan = compileClipEffectLatencyPlan(project, context.sampleRate), maximumLatency = plan.maximumLatencyFrames;
-	const clips = new Map((project.clips ?? []).map(clip => [clip.id, clip]));
+	if (!plan.hasActiveEffects) return;
+	const { clips, maximumLatencyFrames: maximumLatency } = plan;
 	const widths = new Map((project.sources ?? []).map(source => [source.id, source.channelCount ?? 2]));
 	const detectorInputs = new Map<string, AudioNode>();
-	if (![...plan.clipPlans.keys()].some(id => activeRackEffects(clips.get(id)).some(effect => effect.enabled !== false && effect.bypassed !== true))) return;
 	for (const track of project.tracks ?? []) {
 		const destination = trackInputs.get(String(track.id));
 		if (!destination || track.type === 'video' || track.type === 'label') continue;

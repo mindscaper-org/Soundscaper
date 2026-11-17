@@ -10,6 +10,7 @@ export interface ProjectPdcPlanOptions {
 	readonly trackId?: unknown;
 	readonly includeMaster?: boolean;
 	readonly sampleRate?: number;
+	readonly clipLatencyFrames?: number;
 	readonly fallbackTrackIndexIds?: boolean;
 }
 
@@ -29,11 +30,12 @@ export function compileProjectPdcPlan(
 		trackId: onlyTrackId = null,
 		includeMaster = true,
 		sampleRate = project?.sampleRate || DEFAULT_SAMPLE_RATE,
+		clipLatencyFrames,
 		fallbackTrackIndexIds = false,
 	}: ProjectPdcPlanOptions = {},
 ): ProjectPdcPlan {
 	const trackLatencyFrames = new Map<string, number>();
-	const clipLatency = project ? projectClipEffectLatencyFrames(project, sampleRate) : 0;
+	const clipLatency = clipLatencyFrames ?? (project ? projectClipEffectLatencyFrames(project, sampleRate) : 0);
 	let index = 0;
 	for (const track of project?.tracks || []) {
 		if (track.type === 'label' || track.type === 'video') continue;

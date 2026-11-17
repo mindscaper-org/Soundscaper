@@ -37,7 +37,8 @@ import {
 } from './project-graph-v21.ts';
 import type { ProjectPathPdcPlanV21 } from './project-path-pdc-plan-v21.ts';
 import type { StripMeterAnalyserBankV21 } from './strip-meter-analyser-bank-v21.ts';
-import { buildClipEffectInputs, projectClipEffectLatencyFrames } from './clip-effect-inputs.ts';
+import { buildClipEffectInputs } from './clip-effect-inputs.ts';
+import { compileClipEffectLatencyPlan } from './clip-effect-latency-plan.ts';
 import { ScheduledParameterRegistry } from './scheduled-parameter-registry.ts';
 import type {
 	EngineMixerBus,
@@ -173,13 +174,16 @@ export function buildProjectGraph(
 	for (const [index, track] of tracks.entries()) {
 		trackInputs.set(String(track.id ?? index), addNode(nodes, context.createGain()));
 	}
+	const sampleRate = context.sampleRate || DEFAULT_SAMPLE_RATE;
+	const clipEffects = compileClipEffectLatencyPlan(project, sampleRate);
+	const clipLatency = clipEffects.maximumLatencyFrames;
 	const pdcPlan = compileProjectPdcPlan(project, {
 		trackId: onlyTrackId,
 		includeMaster,
-		sampleRate: context.sampleRate || DEFAULT_SAMPLE_RATE,
+		sampleRate,
+		clipLatencyFrames: clipLatency,
 		fallbackTrackIndexIds: true,
 	});
-	const clipLatency = projectClipEffectLatencyFrames(project, context.sampleRate);
 	const effectChannelCounts = new Map(tracks.map((track, index) => [
 		String(track.id ?? index),
 		clipOutputWidths.get(String(track.id ?? index)) ?? 2,
@@ -437,7 +441,7 @@ export function buildProjectGraph(
 		);
 	} else connect(connectionSource, destination);
 
-	buildClipEffectInputs(context, project, trackInputs, nodes, { effectNodes, effectAnalysers, effectAnalysis, parametricEqWasmModule, onParametricEqError, parameterRegistry }, onlyTrackId);
+	buildClipEffectInputs(context, project, clipEffects, trackInputs, nodes, { effectNodes, effectAnalysers, effectAnalysis, parametricEqWasmModule, onParametricEqError, parameterRegistry }, onlyTrackId);
 	return {
 		nodes,
 		sources,

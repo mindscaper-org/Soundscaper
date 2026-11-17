@@ -9,6 +9,7 @@ export interface ClipEffectLatency {
 	readonly inputDelays: ReadonlyMap<string, number>;
 	readonly detectorDelays: ReadonlyMap<string, number>;
 }
+export type ClipEffectLatencyPlan = ReturnType<typeof compileClipEffectLatencyPlan>;
 const EMPTY_LATENCY: ClipEffectLatency = { latencyFrames: 0, inputDelays: new Map(), detectorDelays: new Map() };
 
 /** Detector taps precede final mix compensation. Resolve their processing dependencies first. */
@@ -18,6 +19,7 @@ export function compileClipEffectLatencyPlan(project: EngineProject, sampleRate:
 		.map((track, index) => [String(track.id ?? index), track]));
 	const dependencies = new Map<string, Set<string>>(), dependents = new Map<string, string[]>(), controlTracks = new Set<string>();
 	const trackLatencyFrames = new Map<string, number>(), clipPlans = new Map<string, ClipEffectLatency>();
+	let hasActiveEffects = false;
 	for (const [id, track] of tracks) {
 		const controls = new Set<string>();
 		for (const clipId of track.clipIds ?? []) for (const effect of activeRackEffects(clips.get(clipId))) {
@@ -36,6 +38,7 @@ export function compileClipEffectLatencyPlan(project: EngineProject, sampleRate:
 			if (clip?.kind !== 'audio') continue;
 			const effects = activeRackEffects(clip).filter(effect => effect.enabled !== false && effect.bypassed !== true);
 			if (!effects.length) { clipPlans.set(String(clipId), EMPTY_LATENCY); continue; }
+			hasActiveEffects = true;
 			let latency = 0;
 			const inputDelays = new Map<string, number>(), detectorDelays = new Map<string, number>();
 			for (const effect of effects) {
@@ -58,7 +61,7 @@ export function compileClipEffectLatencyPlan(project: EngineProject, sampleRate:
 		}
 	}
 	if (trackLatencyFrames.size !== tracks.size) throw new RangeError('Clip detector feedback cycle.');
-	return { maximumLatencyFrames: Math.max(0, ...trackLatencyFrames.values()), trackLatencyFrames, clipPlans, controlTracks };
+	return { maximumLatencyFrames: Math.max(0, ...trackLatencyFrames.values()), trackLatencyFrames, clipPlans, controlTracks, clips, hasActiveEffects };
 }
 
 function detector(effect: EngineEffect): string | null {
