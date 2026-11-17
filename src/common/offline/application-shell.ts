@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { normalizeProductId } from '../product-identities.js';
-import { APPLICATION_READY_SELECTOR } from '../site/application-ready-scheduler.js';
+import { APPLICATION_READY_OBSERVER_OPTIONS, APPLICATION_READY_SELECTOR } from '../site/application-ready-scheduler.js';
 import { BUILT_PRODUCT_ID } from '../site/route.js';
 
 interface OfflineServiceWorkerContainer {
@@ -127,7 +127,7 @@ function waitForEditorReadiness(): Promise<void> {
 			observer.disconnect();
 			resolve();
 		});
-		observer.observe(root, { childList: true, subtree: true });
+		observer.observe(root, APPLICATION_READY_OBSERVER_OPTIONS);
 	});
 }
 

@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import test from 'node:test';
+import { JSDOM } from 'jsdom';
 
 import { webBuildRouting } from '../scripts/lib/product-web-routing.mjs';
 import {
@@ -151,6 +152,30 @@ test('registration scheduling waits for load, editor readiness, and an idle turn
 	idleCallback();
 	assert.equal((await scheduled).status, 'registered');
 	assert.equal(registrations, 1);
+});
+
+test('registration observes readiness when an existing editor node changes only its attributes', async (context) => {
+	const dom = new JSDOM('<div id="app"><section data-audio-editor-bound="false"></section></div>');
+	context.after(() => dom.window.close());
+	const documentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document');
+	const observerDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'MutationObserver');
+	Object.defineProperty(globalThis, 'document', { configurable: true, value: dom.window.document });
+	Object.defineProperty(globalThis, 'MutationObserver', { configurable: true, value: dom.window.MutationObserver });
+	context.after(() => {
+		for (const [key, descriptor] of [['document', documentDescriptor], ['MutationObserver', observerDescriptor]] as const) {
+			if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+			else Reflect.deleteProperty(globalThis, key);
+		}
+	});
+	const scheduled = scheduleOfflineApplicationShellRegistration({
+		desktop: false, productId: 'soundscaper', location: new URL('https://soundscaper.org/en/'),
+		serviceWorker: { register: async () => ({}) },
+		waitForLoad: async () => undefined, waitForIdle: async () => undefined,
+	});
+	await Promise.resolve();
+	dom.window.document.querySelector('section')?.setAttribute('data-audio-editor-bound', 'true');
+	const result = await Promise.race([scheduled, new Promise(resolve => setImmediate(resolve, 'pending'))]);
+	assert.deepEqual(result, { status: 'registered', registration: {} });
 });
 
 test('Electron, non-HTTP documents, and browsers without service workers are unchanged', async () => {

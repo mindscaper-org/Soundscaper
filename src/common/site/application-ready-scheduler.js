@@ -4,6 +4,10 @@ export const APPLICATION_READY_EVENT = 'scape:application-ready';
 export const APPLICATION_READY_SELECTOR =
 	'[data-audio-editor-bound="true"], [data-privacy-policy-dialog="true"], '
 	+ '[data-stale-build-overlay], [role="alert"], [role="alertdialog"]';
+export const APPLICATION_READY_OBSERVER_OPTIONS = Object.freeze({
+	childList: true, subtree: true,
+	attributeFilter: ['data-audio-editor-bound', 'data-privacy-policy-dialog', 'data-stale-build-overlay', 'role'],
+});
 
 /** @typedef {{
  * addEventListener: (type: string, listener: EventListener) => void,

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App, { applyDocumentRoute } from './common/site/App.jsx';
 import {
 	APPLICATION_READY_EVENT,
+	APPLICATION_READY_OBSERVER_OPTIONS,
 	APPLICATION_READY_SELECTOR,
 } from './common/site/application-ready-scheduler.js';
 import { BUILT_PRODUCT_ID, resolveApplicationRoute } from './common/site/route.js';
@@ -22,7 +23,7 @@ const markApplicationReady = () => {
 	window.dispatchEvent(new Event(APPLICATION_READY_EVENT));
 };
 const readinessObserver = new MutationObserver(markApplicationReady);
-readinessObserver.observe(applicationRoot, { childList: true, subtree: true });
+readinessObserver.observe(applicationRoot, APPLICATION_READY_OBSERVER_OPTIONS);
 markApplicationReady();
 
 editorStartupProgress.start(BUILT_PRODUCT_ID);
