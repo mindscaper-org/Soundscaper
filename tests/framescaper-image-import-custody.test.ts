@@ -11,7 +11,7 @@ import { createProjectStore, type AudioEditorProjectStore } from '../src/common/
 import { framescaperCandidateAuthoringActionRuntimeFor } from '../src/common/editor/ui/framescaper-candidate-authoring-actions.ts';
 import { createFramescaperAudioEditorController } from '../src/framescaper/editor-controller.ts';
 import { createFramescaperEditorProjectEnvironment } from '../src/framescaper/editor-project-environment.ts';
-import { cloneFramescaperProject } from '../src/framescaper/editor-project.ts';
+import { cloneFramescaperProject, createFramescaperProject } from '../src/framescaper/editor-project.ts';
 import { createFramescaperScapeNativeRuntime } from '../src/framescaper/editor-scape-native.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
 import { ordinaryImageResourceFixture } from './helpers/ordinary-image-resource-fixture.ts';
@@ -89,6 +89,54 @@ async function assertBody(store: AudioEditorProjectStore, source: FramescaperIma
 		assert.deepEqual(reader.timings[index], { presentationTicks: BigInt(index) * ticks, durationTicks: ticks });
 	}
 }
+
+for (const occupied of [false, true]) test(`Generate > Add Images stays in the selected secondary sequence (${occupied ? 'occupied' : 'empty'} track)`, async context => {
+	const image = fixtures[0]!;
+	installDecodedFrames(context, image);
+	const file = new File([Uint8Array.from(image.bytes)], 'Poster.png', { type: 'image/png' });
+	const environment = await createFramescaperEditorProjectEnvironment({ storeOptions: {
+		indexedDB: createInstrumentedIndexedDB() as unknown as IDBFactory, preferOpfs: false,
+		storageManager: { estimate: async () => ({ usage: 0, quota: 1024 ** 3 }), persisted: async () => true, persist: async () => true } as unknown as StorageManager,
+	} });
+	const project = createFramescaperProject(PROFILE, {
+		id: 'secondary-still-import', primarySequenceId: 'primary',
+		tracks: [{ id: 'primary-track', type: 'video', name: 'Primary', clipIds: [] },
+			{ id: 'secondary-track', type: 'video', name: 'Secondary', clipIds: occupied ? ['solid'] : [] }],
+		sequences: [{ id: 'primary', rate: { num: 30, den: 1 }, trackIds: ['primary-track'] },
+			{ id: 'secondary', rate: { num: 25, den: 1 }, trackIds: ['secondary-track'] }],
+		...(occupied ? {
+			visualModel: { generatorSources: [{ schemaVersion: 1, kind: 'generator', id: 'solid-source', name: 'Solid',
+				width: 1920, height: 1080, frameRate: { num: 25, den: 1 }, frameCount: 125,
+				generator: { kind: 'solid', color: '#000000ff' } }] },
+			clips: [{ schemaVersion: 1, kind: 'generator', id: 'solid', sourceId: 'solid-source', sequenceId: 'secondary',
+				sequenceStartFrame: 0, sequenceFrameCount: 125, sourceInFrame: 0, sourceFrameCount: 125 }],
+		} : {}),
+	});
+	assert.ok(await environment.createProjectIfAbsent(project));
+	await environment.store.saveSetting('framescaper:last-project-id', project.id);
+	const controller = createFramescaperAudioEditorController(environment, { fileService: {
+		...createAudioEditorFileService(), isDesktop: true, chooseFiles: async () => [{ id: 'selected-image' }],
+		async withReadDescriptors<Result>(_descriptors: readonly unknown[], _request: unknown,
+			consume: (files: readonly File[]) => PromiseLike<Result> | Result): Promise<Result> { return await consume([file]); },
+	} });
+	try {
+		await controller.ready;
+		controller.actions.timeline.selectTrack('secondary-track');
+		const runtime = framescaperCandidateAuthoringActionRuntimeFor(controller);
+		assert.ok(runtime);
+		await runtime.run('video-still');
+		const imported = cloneFramescaperProject(PROFILE, controller.project);
+		const poster = imported.clips.find(clip => clip.kind === 'image');
+		assert.ok(poster);
+		assert.equal(poster.sequenceId, 'secondary');
+		assert.equal(poster.sequenceFrameCount, 125);
+		const secondary = imported.sequences.find(sequence => sequence.id === 'secondary');
+		const owner = imported.tracks.find(track => Array.isArray(track.clipIds) && track.clipIds.includes(poster.id));
+		assert.ok(owner && secondary?.trackIds.includes(owner.id));
+		assert.equal(owner.id === 'secondary-track', !occupied);
+		assert.deepEqual(await environment.store.loadProject(project.id), imported);
+	} finally { await controller.dispose(); await environment.close(); }
+});
 
 function installDecodedFrames(context: TestContext, fixture: Fixture) {
 	const saved = ['ImageDecoder', 'OffscreenCanvas'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const);
