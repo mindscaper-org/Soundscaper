@@ -6,7 +6,7 @@ import { createMidiProjectProgramDefaults, isMidiProgramStateEvent } from './mid
 
 /** These are the performance controls interpreted by the beta PCM fallback. */
 export function isMidiPerformanceStateEvent(event: MidiFileEvent): boolean {
-	return (event.status & 240) === 224 || ((event.status & 240) === 176 && [7, 11, 64, 121].includes(event.data[0]!));
+	return (event.status & 240) === 224 || ((event.status & 240) === 176 && [7, 10, 11, 64, 121].includes(event.data[0]!));
 }
 
 export function createMidiPerformanceStateProjection(events: readonly MidiFileEvent[]) {
@@ -49,7 +49,7 @@ function changes(event: MidiFileEvent): readonly MidiFileEvent[] {
 function key(event: MidiFileEvent): string { return `${event.status}:${(event.status & 240) === 176 ? event.data[0] : ''}`; }
 
 function defaultState(event: MidiFileEvent): MidiFileEvent {
-	return { ...event, frame: 0, data: (event.status & 240) === 224 ? [0, 64] : [event.data[0]!, event.data[0] === 64 ? 0 : 127] };
+	return { ...event, frame: 0, data: (event.status & 240) === 224 ? [0, 64] : [event.data[0]!, event.data[0] === 10 ? 64 : event.data[0] === 64 ? 0 : 127] };
 }
 
 export interface MidiPerformanceOccurrence {
