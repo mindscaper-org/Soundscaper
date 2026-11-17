@@ -5,15 +5,29 @@ import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import catalog from '../config/local-model-catalog.json' with { type: 'json' };
+import basicPitchSource from '../config/basic-pitch-model-source.json' with { type: 'json' };
 import { ASSISTANCE_WORKFLOW_IDS } from '../src/common/editor/assistance/workflow.ts';
 import { EDITOR_WORKFLOW_CASES } from './electron/local-assistance-models/editor-workflow-cases.ts';
 
-test('packaged editor nightly covers every guided and Advanced recipe with published models', () => {
+test('packaged editor nightly covers every recipe with published models or the pinned publication candidate', () => {
 	assert.deepEqual(Object.keys(EDITOR_WORKFLOW_CASES).sort(), [...ASSISTANCE_WORKFLOW_IDS].sort());
+	const pending = Object.entries(EDITOR_WORKFLOW_CASES).filter(([, modelCase]) => (
+		'pendingPublication' in modelCase && modelCase.pendingPublication
+	));
+	assert.deepEqual(pending.map(([workflowId, modelCase]) => [workflowId, modelCase.modelIds]), [
+		['advanced:music-transcription', basicPitchSource.realTestCase.modelIds],
+	]);
+	assert.equal(basicPitchSource.catalogActivation, 'after-public-readback');
 	const ids = new Set(catalog.entries.map(model => model.modelId));
 	for (const [workflowId, modelCase] of Object.entries(EDITOR_WORKFLOW_CASES)) {
 		assert.ok(modelCase.modelIds.length > 0, workflowId);
-		for (const id of modelCase.modelIds) assert.ok(ids.has(id), `${workflowId}: ${id} must be published`);
+		for (const id of modelCase.modelIds) {
+			// The Electron case explicitly waits for this candidate's verified publication.
+			const pendingCandidate = workflowId === 'advanced:music-transcription'
+				&& 'pendingPublication' in modelCase && modelCase.pendingPublication
+				&& id === basicPitchSource.modelId;
+			assert.ok(ids.has(id) || pendingCandidate, `${workflowId}: ${id} must be published`);
+		}
 	}
 });
 
