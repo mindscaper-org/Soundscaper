@@ -11,6 +11,7 @@ import {
 import { PROJECT_BIN_LINKED_VIDEO_RELINK_TASK } from '../src/common/editor/controller/import/project-bin-linked-video-relink-service.ts';
 import { TAKE_CYCLE_RECORDING_TASK } from '../src/common/editor/controller/recording/take-cycle-recording-service.ts';
 import type { ProjectLifecycleLock } from '../src/common/editor/controller/document/project-lifecycle-types.ts';
+import { settle } from './helpers/async-test-control.ts';
 
 function deferred<Value>() {
 	let resolve: (value: Value | PromiseLike<Value>) => void = () => undefined;
@@ -187,6 +188,42 @@ test('a successful forced claim publishes writable session ownership', async () 
 		projectId: 'project-a', readOnly: false, reason: null, lockMethod: 'test',
 	});
 	assert.deepEqual(fixture.statuses.at(-1), ['Ready', 'success']);
+});
+
+test('a second Edit here click cannot supersede its own pending forced lock claim', async () => {
+	const previous = createLock('project-a', { readOnly: true });
+	const next = createLock('project-a');
+	const acquired = deferred<ProjectLifecycleLock>();
+	const started = deferred<void>();
+	const fixture = createFixture(previous);
+	let calls = 0;
+	fixture.setAcquisition(() => { calls++; started.resolve(); return acquired.promise; });
+	const first = fixture.service.claimProjectLock();
+	await started.promise;
+	const second = fixture.service.claimProjectLock();
+	await settle();
+	acquired.resolve(next);
+	assert.deepEqual(await Promise.all([first, second]), [true, false]);
+	assert.equal(calls, 1);
+	assert.equal(next.releases, 0);
+});
+
+test('temporary snapshot verification failure retries before restoring write access', async () => {
+	const temporary = new Error('Temporary storage read failure');
+	let attempts = 0;
+	const previous = createLock('project-a', { readOnly: true });
+	const next = createLock('project-a');
+	const fixture = createFixture(previous, async () => { if (++attempts === 1) throw temporary; return true; });
+	await fixture.service.recoverProjectLock('project-a', previous, next);
+	assert.equal(fixture.state.readOnly, true);
+	assert.deepEqual(fixture.errors, [temporary]);
+	const retry = fixture.timers.get(fixture.state.projectLockRetryTimer);
+	assert.ok(retry);
+	retry();
+	await settle();
+	assert.equal(fixture.state.readOnly, false);
+	assert.equal(fixture.state.projectLock, next);
+	assert.equal(next.releases, 0);
 });
 
 test('recovery keeps a stale in-memory project read-only after claiming a new lock', async () => {
