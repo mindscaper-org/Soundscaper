@@ -37,6 +37,7 @@ export function ardourMixStrip(route: XmlElement, root: XmlElement, sampleRate: 
 	issues: TimelineInterchangeDocument['issues'][number][]): TimelineInterchangeStrip {
 	const automation: TimelineInterchangeAutomation[] = [], effects: Readonly<Record<string, unknown>>[] = [], sends: NonNullable<TimelineInterchangeStrip['sends']>[number][] = [];
 	const routeId = route.attributes.id ?? childElement(route, 'IO')?.attributes.id ?? '';
+	const routeInactive = ['0', 'no', 'false'].includes(route.attributes.active ?? childElement(route, 'IO')?.attributes.active ?? '');
 	const processors = childElements(route, 'Processor');
 	const add = (node: XmlElement, parameter: TimelineInterchangeAutomation['parameter'], convert: (value: number) => number = value => value) => {
 		for (const list of walkXml(node)) {
@@ -69,10 +70,10 @@ export function ardourMixStrip(route: XmlElement, root: XmlElement, sampleRate: 
 		} } else if (child.name === 'Controllable' && child.attributes.name === 'pan-azimuth') add(child, 'pan', value => value * 2 - 1);
 	}
 	for (const child of route.children) {
-		if (child.name === 'Automation' && route.attributes.active !== 'no') for (const list of childElements(child, 'AutomationList')) {
+		if (child.name === 'Automation' && !routeInactive) for (const list of childElements(child, 'AutomationList')) {
 			if (list.attributes['automation-id'] === 'mute') add(list, 'mute');
 		}
-		if (route.attributes.active !== 'no' && child.name === 'Controllable' && child.attributes.name === 'mute') add(child, 'mute');
+		if (!routeInactive && child.name === 'Controllable' && child.attributes.name === 'mute') add(child, 'mute');
 	}
 	let position: 'pre-fader' | 'post-fader' = 'pre-fader';
 	for (const [index, processor] of processors.entries()) {
@@ -101,7 +102,7 @@ export function ardourMixStrip(route: XmlElement, root: XmlElement, sampleRate: 
 	} else if (destinations.size > 1) issues.push(timelineImportIssue('ardour', 'output-fanout-converted', 'Several output destinations are replaced by main output.', 'converted'));
 	return { gain: gainProcessors.reduce((gain, node) => gain * control(node, 'gaincontrol', 1), legacyGain),
 		pan: panBypassed ? 0 : control(pannable ?? route, 'pan-azimuth', oldPanners.length === 1 ? finite(oldPanners[0]!.attributes.x ?? '.5') : .5) * 2 - 1,
-		mute: control(route, 'mute', 0) !== 0 || flag(route.attributes.muted) || flag(childElement(route, 'MuteMaster')?.attributes.muted) || route.attributes.active === 'no',
+		mute: control(route, 'mute', 0) !== 0 || flag(route.attributes.muted) || flag(childElement(route, 'MuteMaster')?.attributes.muted) || routeInactive,
 		solo: control(route, 'solo', 0) !== 0 || flag(route.attributes['self-solo'] ?? route.attributes.soloed),
 		effects, automation, sends, opaqueExtensions: { 'soundscaper.interchange-mix': { format: 'ardour', route } }, ...(output === undefined ? {} : { output }) };
 }
