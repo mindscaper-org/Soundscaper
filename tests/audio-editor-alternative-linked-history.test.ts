@@ -19,7 +19,7 @@ for (const alternative of ['snapshot', 'playlist'] as const) test(`Undo retains 
 	const store = createSoundscaperProjectStore({ indexedDB: null, preferOpfs: false, storageManager: null,
 		linkedOriginalPort: {
 			load: () => ({ blob, locatorRevision: 'original_revision_00001' }),
-			release(reference) { released.push(reference); return true; },
+			release(reference: unknown) { released.push(reference); return true; },
 		} });
 	context.after(async () => { await store.close(); });
 	await store.ready();
