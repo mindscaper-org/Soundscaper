@@ -68,14 +68,14 @@ export class DesktopSettingsStore {
 		this.#filePath = filePath;
 	}
 
-	async load(preferredLocales = []) {
+	async load(preferredLocales = [], launchPreferences = {}) {
 		let parsed = null;
 		try {
 			parsed = JSON.parse(await readFile(this.#filePath, 'utf8'));
 		} catch (error) {
 			if (error?.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error;
 		}
-		this.#settings = validateSettings(parsed);
+		this.#settings = validateSettings({ ...validateSettings(parsed), ...launchPreferences });
 		if (!this.#settings.locale) {
 			const locale = resolveLocale(preferredLocales, SUPPORTED_LOCALES);
 			await this.#update((settings) => ({ ...settings, locale }));

@@ -22,6 +22,7 @@ export function createPreferencesComposition(d: {
 	readonly defaultOptimizationMode?: AudioEditorOptimizationMode;
 	readonly defaultWaveformRenderer?: 'gpu';
 	readonly isDesktop?: boolean;
+	readonly loadManagedPreferences?: () => Promise<unknown>;
 	readonly engine?: object & { readonly context?: BaseAudioContext | null };
 	readonly state: { preferences: Preferences; preferencesReadOnly: boolean; timelineView: string };
 	readonly lifetime: EditorControllerLifetime;
@@ -72,7 +73,18 @@ export function createPreferencesComposition(d: {
 		service,
 		actions: createEditorPreferenceActionOwner(createEditorPreferenceActionDelegates(service, createStableId)),
 		async load(token = d.lifetime.capture()): Promise<Preferences> {
-			return applyLoadedPreferenceSession(await service.load(value => d.lifetime.guard(value, token)), d.state);
+			const preset = d.isDesktop ? await d.lifetime.guard(d.loadManagedPreferences?.() ?? null, token) : null;
+			let loaded = await service.load(value => d.lifetime.guard(value, token));
+			if (preset && typeof preset === 'object' && 'launchId' in preset && typeof preset.launchId === 'string'
+				&& 'preferences' in preset && preset.preferences && typeof preset.preferences === 'object'
+				&& Object.keys(preset.preferences).length && !d.state.preferencesReadOnly) {
+				const key = `${d.productId}:managed-preference-launch`;
+				if (await d.lifetime.guard(d.loadSetting(key, null), token) !== preset.launchId) {
+					loaded = await d.lifetime.guard(service.update(preset.preferences), token);
+					await d.lifetime.guard(d.persistSetting(key, preset.launchId, { policy: 'required' }), token);
+				}
+			}
+			return applyLoadedPreferenceSession(loaded, d.state);
 		},
 	});
 }

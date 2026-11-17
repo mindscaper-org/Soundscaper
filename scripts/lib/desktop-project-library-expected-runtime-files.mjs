@@ -41,6 +41,7 @@ export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	'desktop/temporary-project-storage.js',
 	'desktop/windows-store-distribution.js',
 	'desktop/update-installation.js', 'desktop/update-service.js', 'desktop/update-preferences.js',
+	'desktop/managed-policy.js', 'desktop/windows-managed-policy.js', 'desktop/managed-network-policy.js',
 	'desktop/update-check.js', 'src/common/release/release-version.js',
 	...DESKTOP_ASSISTANCE_RUNTIME_FILES, ...DESKTOP_ARA_RUNTIME_FILES, ...DESKTOP_BLENDER_RUNTIME_FILES,
 	...DESKTOP_EXTERNAL_FFMPEG_RUNTIME_FILES,

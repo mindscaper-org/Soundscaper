@@ -7,8 +7,8 @@ import { DesktopUpdateService } from './project-library-runtime/desktop/update-s
 import { UPDATE_PREFERENCES_CHANNEL, updatePreferences } from './project-library-runtime/desktop/update-preferences.js';
 
 export function createDesktopUpdates({ app, appName, tagPrefix, storage, settings, shell, dialog, windowFor, handle,
-	currentVersion = app.getVersion(), platform = process.platform, arch = process.arch, windowsStore = process.windowsStore, appImage = process.env.APPIMAGE, fetchImpl = fetch }) {
-	const available = !storage.portable && windowsStore !== true;
+	currentVersion = app.getVersion(), platform = process.platform, arch = process.arch, windowsStore = process.windowsStore, appImage = process.env.APPIMAGE, fetchImpl = fetch, policyAllowed = true }) {
+	const available = !storage.portable && windowsStore !== true && policyAllowed;
 	handle(UPDATE_PREFERENCES_CHANNEL, (_event, enabled) => updatePreferences(settings, available, enabled));
 	const checker = new ReleaseChecker({ currentVersion, settings, tagPrefix, fetchImpl });
 	const target = { productName: appName, tagPrefix, platform, arch, appImage: !!appImage };
@@ -34,7 +34,7 @@ export function createDesktopUpdates({ app, appName, tagPrefix, storage, setting
 		},
 	});
 	return new DesktopUpdateService({
-		appName, portable: storage.portable, windowsStore,
+		appName, portable: storage.portable, windowsStore, policyAllowed,
 		checkRelease: (options) => checker.check(options), openExternal: (url) => shell.openExternal(url),
 		showMessage: (options) => {
 			const window = windowFor();
