@@ -219,6 +219,7 @@ const soundscaperProjectFoundationModules = Object.freeze([
 	'editor-project-feature-requirements',
 	'editor-project-production-validation',
 	'editor-project-validation',
+	'editor-track-playlist-validation',
 	'editor-session-snapshot-rebind',
 	'editor-project',
 	'editor-scape-assets',
