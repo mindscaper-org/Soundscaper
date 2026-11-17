@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { addRationals, subtractRationals, divideRationals, compareRationals, multiplyRationals, roundRational, type Rational } from './timeline-time.ts';
+import { addRationals, subtractRationals, divideRationals, compareRationals, multiplyRationals, roundRational, scaleSampleFrame, type Rational } from './timeline-time.ts';
 import { sequenceTimecodeFromFrameCount, sequenceTimecodeToFrameCount } from './sequence-timecode.ts';
 import { createDeliveryReport, addDeliveryReportItem, sealDeliveryReport, type DeliveryReport } from './delivery-report.ts';
 import { resolveVideoSourceTimingViews } from './video-source-timing-views.ts';
@@ -124,7 +124,7 @@ export function buildTimelineInterchangeProject(document: TimelineInterchangeDoc
 		...(document.tempoMap ? { tempoMap: document.tempoMap } : {}),
 		...(document.signatureMap ? { signatureMap: document.signatureMap } : {}),
 		automationLanes: production.automationLanes, finishing: { mixer: production.mixer, automationLanes: production.automationLanes },
-		timelineAnnotations: document.markers?.map(marker => ({ id: options.createStableId('marker'), sequenceId: 'main-sequence', anchor: 'sample', ...(marker.endFrame === undefined ? { kind: 'marker', positionFrame: Math.round(marker.frame * sampleRate / document.sampleRate) } : { kind: 'region', startFrame: Math.round(marker.frame * sampleRate / document.sampleRate), endFrame: Math.round(marker.endFrame * sampleRate / document.sampleRate) }), name: marker.name, color: 'auto', batchId: null, opaqueExtensions: {} })),
+		timelineAnnotations: document.markers?.map(marker => ({ id: options.createStableId('marker'), sequenceId: 'main-sequence', anchor: 'sample', ...(marker.endFrame === undefined ? { kind: 'marker', positionFrame: scaleSampleFrame(marker.frame, document.sampleRate, sampleRate, 'point') } : { kind: 'region', startFrame: scaleSampleFrame(marker.frame, document.sampleRate, sampleRate, 'point'), endFrame: scaleSampleFrame(marker.endFrame, document.sampleRate, sampleRate, 'point') }), name: marker.name, color: 'auto', batchId: null, opaqueExtensions: {} })),
 		trackFolders: trackNodes.filter(node => node.kind === 'folder').map(node => { const folder = folders.get(node.id)!; return { id: node.id, name: folder.name, mute: folder.mute, solo: folder.solo }; }),
 		primarySequenceId: 'main-sequence', sequences: [{ id: 'main-sequence', name: title, rate: document.rate,
 			dropFrame: document.dropFrame, startTimecode: sequenceTimecodeFromFrameCount(document.startFrameCount, document.rate, document.dropFrame),

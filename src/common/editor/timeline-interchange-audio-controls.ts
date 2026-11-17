@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { interchangeClipEnvelope } from './interchange-clip-envelope.ts';
-import { multiplyRationals, roundRational } from './timeline-time.ts';
+import { multiplyRationals, roundRational, scaleSampleFrame } from './timeline-time.ts';
 import { addDeliveryReportItem, type createDeliveryReport } from './delivery-report.ts';
 import type { TimelineInterchangeClip, TimelineInterchangeTrack, TimelineInterchangeFormat } from './timeline-interchange-types.ts';
 
@@ -18,7 +18,7 @@ export function interchangeClipControls(clip: TimelineInterchangeClip, sampleRat
 		const frames = multiplyRationals(value, sampleRate);
 		return Math.min(duration, roundRational(frames.num, frames.den, 'point'));
 	};
-	const envelope = clip.envelope?.length ? interchangeClipEnvelope(clip.envelope.map(point => ({ frame: Math.round(point.frame * sampleRate / sourceSampleRate), value: point.value, interpolation: 'linear' as const })), duration) : undefined;
+	const envelope = clip.envelope?.length ? interchangeClipEnvelope(clip.envelope.map(point => ({ frame: scaleSampleFrame(point.frame, sourceSampleRate, sampleRate, 'point'), value: point.value, interpolation: 'linear' as const })), duration) : undefined;
 	return { ...(envelope ? { envelope: envelope.filter(point => point.frame <= duration) } : {}), gain: clip.muted ? 0 : boundedGain(clip.gain ?? 1, 16, format, draft), fadeInFrames: fade(clip.fadeIn), fadeOutFrames: fade(clip.fadeOut) };
 }
 
