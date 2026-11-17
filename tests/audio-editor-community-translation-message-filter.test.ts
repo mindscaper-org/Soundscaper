@@ -36,3 +36,11 @@ test('searching Changed can find the old English wording and baseline from an im
 		}), ['action']);
 	}
 });
+
+test('search matches precomposed query characters against equivalent imported Unicode', () => {
+	const snapshot = createContributionSnapshot('fr', { action: 'Preview' }, { action: 'Aperçu' });
+	const draft = updateTranslationDraft(createTranslationDraft(snapshot), snapshot, 'action', 'Ve\u0301rification');
+	assert.deepEqual(communityTranslationMessageKeys(snapshot, draft, {
+		query: 'Vérification', filter: 'changed', reviewKeys: new Set(), locale: 'fr',
+	}), ['action']);
+});

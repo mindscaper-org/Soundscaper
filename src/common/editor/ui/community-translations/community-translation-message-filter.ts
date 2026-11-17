@@ -14,8 +14,9 @@ export function communityTranslationMessageKeys(
 	draft: TranslationContribution,
 	{ query, filter, reviewKeys, locale }: CommunityTranslationMessageOptions,
 ): readonly string[] {
-	const needle = query.toLowerCase();
-	const localizedNeedle = query.toLocaleLowerCase(locale);
+	const normalizedQuery = query.normalize('NFC');
+	const needle = normalizedQuery.toLowerCase();
+	const localizedNeedle = normalizedQuery.toLocaleLowerCase(locale);
 	const changes = new Map<string, TranslationContribution['entries'][number]>();
 	for (const change of draft.entries) {
 		const key = change.key;
@@ -29,8 +30,11 @@ export function communityTranslationMessageKeys(
 		if (filter === 'review' && !reviewKeys.has(key)) return false;
 		if (filter === 'missing' && publishedTranslationOrigin(entry) !== 'missing') return false;
 		return !needle || [key, entry?.source, entry?.baselineText, change?.translation, change?.source, change?.baselineText]
-			.some((value) => value !== undefined && (value.toLowerCase().includes(needle)
-				|| value.toLocaleLowerCase(locale).includes(localizedNeedle)));
+			.some((value) => {
+				if (value === undefined) return false;
+				const normalized = value.normalize('NFC');
+				return normalized.toLowerCase().includes(needle) || normalized.toLocaleLowerCase(locale).includes(localizedNeedle);
+			});
 	});
 }
 
