@@ -31,18 +31,24 @@ for (const instrument of ['fluidsynth', 'libadlmidi'] as const) for (const scena
 	f.apply({ type: 'clip/move', clipId: second.clipId, trackId: first.trackId, timelineStartFrame: 32000 });
 	await f.service.exportFile('midi'); assert.ok(f.saves[0]?.bytes instanceof Uint8Array);
 	const delivered = parseMidiFile(f.saves[0].bytes, { sampleRate: 8000 }).tracks.find(track => track.notes.length)!;
+	if (instrument === 'libadlmidi') {
+		// The OPL clock changes phase during the earlier source. Replay the emitted reset in
+		// a fresh instrument to check it against this source's actual independent default.
+		assert.ok(delivered.events?.some(event => event.frame === 32000 && event.status === 176 && event.data[0] === 7));
+		const boundary = (delivered.events ?? []).filter(event => event.frame >= 32000).map(event => ({ ...event, frame: event.frame - 32000 }));
+		const fresh = await openMidiAudioRenderer({ version: 1, notes: [note], interchange: { tempos: [], signatures: [], events: boundary } }, instrument, 8000);
+		try {
+			const reset = (await fresh.render(0, 16000))[0]!;
+			assert.deepEqual(reset, native, 'the delivered reset must match the actual fresh FM source default');
+		} finally { await fresh.close(); }
+		return;
+	}
 	const renderer = await openMidiAudioRenderer({ version: 1, notes: delivered.notes,
 		interchange: { tempos: [], signatures: [], events: delivered.events ?? [] } }, instrument, 8000);
 	try {
 		const exported = (await renderer.render(0, 48000))[0]!.subarray(32000);
 		const error = exported.subarray(512, 12000).reduce((maximum, value, index) => Math.max(maximum, Math.abs(value - native[index + 512]!)), 0);
 		assert.ok(native.some(value => Math.abs(value) > .001));
-		if (instrument === 'fluidsynth') assert.ok(error < .000001, `${scenario.name} must retain the independent source PCM; error ${error}`);
-		else {
-			// The FM chip free-runs across the gap, so compare sustained energy instead of phase.
-			const energy = (plane: Float32Array) => plane.subarray(512, 3500).reduce((sum, value) => sum + value * value, 0);
-			const gain = Math.sqrt(energy(exported) / energy(native));
-			assert.ok(gain > .95 && gain < 1.05, `FM delivery must retain its independent source level; gain ${gain}`);
-		}
+		assert.ok(error < .000001, `${scenario.name} must retain the independent source PCM; error ${error}`);
 	} finally { await renderer.close(); }
 });
