@@ -26,7 +26,7 @@ export function reconcileAutoDuckControlRoutes(previous: SoundscaperProject,
 	const project = projectValue as unknown as SoundscaperProject;
 	const widths = resolveTerminalChannelWidths(project, project.masterChannels).tracks;
 	const previousControls = new Map(racks(previous, previous.mixer).flatMap(rack => rack.effects.map(effect =>
-		[effect.id, effect.context?.controlTrackId] as const)));
+		[effectKey(rack.strip, effect.id), effect.context?.controlTrackId] as const)));
 	let edges = [...graph.edges];
 	for (const rack of racks(project, graph)) for (const effect of rack.effects) {
 		if (effect.type !== 'audacity-auto-duck') continue;
@@ -36,7 +36,8 @@ export function reconcileAutoDuckControlRoutes(previous: SoundscaperProject,
 			&& edge.destination.effectId === effect.id
 			&& mixerEndpointKeyV21(edge.destination.strip) === mixerEndpointKeyV21(rack.strip);
 		const assigned = edges.filter(targetsEffect);
-		const changedControl = previousControls.has(effect.id) && previousControls.get(effect.id) !== control;
+		const key = effectKey(rack.strip, effect.id);
+		const changedControl = previousControls.has(key) && previousControls.get(key) !== control;
 		// An unchanged selector cannot rewrite advanced routing authored elsewhere.
 		if (assigned.length > 0 && !changedControl) continue;
 		if (assigned.length === 1 && assigned[0]!.source.kind === 'track' && assigned[0]!.source.id === control) continue;
@@ -53,6 +54,10 @@ export function reconcileAutoDuckControlRoutes(previous: SoundscaperProject,
 		edges = [...edges.filter(edge => !targetsEffect(edge)), route];
 	}
 	return { ...graph, edges };
+}
+
+function effectKey(strip: StripRef, effectId: string): string {
+	return JSON.stringify([mixerEndpointKeyV21(strip), effectId]);
 }
 
 function racks(project: SoundscaperProject, graph: MixerGraphV21): readonly Rack[] {
