@@ -22,12 +22,13 @@ export function parseReleaseVersion(value: unknown): ReleaseVersion | null {
 		return { kind: 'calendar', text, product: calendar[1] as CalendarVersion['product'], year, month, day,
 			build: calendar[6]!, channel: (calendar[2] ?? 'stable') as CalendarVersion['channel'] };
 	}
-	const semantic = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/u.exec(text);
+	const semantic = /^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/u.exec(text);
 	if (!semantic) return null;
 	const major = Number(semantic[1]), minor = Number(semantic[2]), patch = Number(semantic[3]);
 	if (![major, minor, patch].every(Number.isSafeInteger)) return null;
-	return { kind: 'semantic', text: text.replace(/^v/u, ''), major, minor, patch,
-		prerelease: semantic[4] ? semantic[4].split('.') : [] };
+	const prerelease = semantic[4] ? semantic[4].split('.') : [];
+	if (prerelease.some(part => /^0\d+$/u.test(part))) return null;
+	return { kind: 'semantic', text: text.replace(/^v/u, ''), major, minor, patch, prerelease };
 }
 
 export function versionFromReleaseTag(tag: string, tagPrefix: string): ReleaseVersion | null {
@@ -63,7 +64,7 @@ export function compareVersions(leftValue: string | ReleaseVersion, rightValue: 
 		for (const key of ['year', 'month', 'day'] as const) {
 			if (left[key] !== right[key]) return left[key] < right[key] ? -1 : 1;
 		}
-		const build = compareBuildLetters(left.build, right.build);
+		const build = compareLengthThenLexically(left.build, right.build);
 		return build || Math.sign(CHANNELS[left.channel] - CHANNELS[right.channel]);
 	}
 	if (left.kind !== 'semantic' || right.kind !== 'semantic') throw new TypeError('Invalid release version.');
@@ -77,24 +78,23 @@ export function compareVersions(leftValue: string | ReleaseVersion, rightValue: 
 	if (leftDate && rightDate) {
 		if (leftDate.month !== rightDate.month) return Math.sign(leftDate.month - rightDate.month);
 		if (leftDate.day !== rightDate.day) return Math.sign(leftDate.day - rightDate.day);
-		return compareBuildLetters(leftDate.build, rightDate.build);
+		return compareLengthThenLexically(leftDate.build, rightDate.build);
 	}
 	for (let index = 0; index < Math.max(left.prerelease.length, right.prerelease.length); index++) {
 		const leftPart = left.prerelease[index], rightPart = right.prerelease[index];
 		if (leftPart === undefined) return -1;
 		if (rightPart === undefined) return 1;
 		if (leftPart === rightPart) continue;
-		const leftNumber = /^\d+$/u.test(leftPart) ? Number(leftPart) : null;
-		const rightNumber = /^\d+$/u.test(rightPart) ? Number(rightPart) : null;
-		if (leftNumber !== null && rightNumber !== null) return leftNumber < rightNumber ? -1 : 1;
-		if (leftNumber !== null) return -1;
-		if (rightNumber !== null) return 1;
+		const leftNumeric = /^\d+$/u.test(leftPart);
+		const rightNumeric = /^\d+$/u.test(rightPart);
+		if (leftNumeric && rightNumeric) return compareLengthThenLexically(leftPart, rightPart);
+		if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1;
 		return leftPart < rightPart ? -1 : 1;
 	}
 	return 0;
 }
 
-function compareBuildLetters(left: string, right: string): number {
+function compareLengthThenLexically(left: string, right: string): number {
 	if (left.length !== right.length) return Math.sign(left.length - right.length);
 	return left === right ? 0 : left < right ? -1 : 1;
 }

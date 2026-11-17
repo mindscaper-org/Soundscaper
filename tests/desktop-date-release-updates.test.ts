@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { ReleaseChecker, selectUpdate } from '../desktop/update-check.ts';
-import { compareVersions } from '../src/common/release/release-version.ts';
+import { compareVersions, parseReleaseVersion } from '../src/common/release/release-version.ts';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -63,4 +63,17 @@ test('a November desktop build does not notify about an October RC', async () =>
 		]),
 	});
 	assert.deepEqual(await checker.check(), { status: 'current' });
+});
+test('numeric semantic prerelease identifiers retain ordering beyond double precision', () => {
+	const earlier = '1.0.0-rc.9007199254740992';
+	const later = '1.0.0-rc.9007199254740993';
+	assert.equal(compareVersions(earlier, later), -1);
+	assert.equal(compareVersions(later, earlier), 1);
+});
+
+test('malformed semantic release tags cannot be ordered or offered as updates', () => {
+	for (const version of ['01.2.3', '1.02.3', '1.2.03', '1.2.3-beta..1', '1.2.3-01', '1.2.3+foo..bar']) {
+		assert.equal(parseReleaseVersion(version), null, version);
+	}
+	assert.ok(parseReleaseVersion('1.2.3-beta.1+00.build'));
 });
