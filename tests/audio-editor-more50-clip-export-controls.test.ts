@@ -59,7 +59,7 @@ test('clip export renders the authored ducking without adding its loud detector 
 		tracks: [{ id: 'music', type: 'audio', clipIds: ['music'] }, { id: 'voice', type: 'audio', clipIds: ['voice'], gain: 0 }],
 	});
 	const buffers = new Map([['music', music as unknown as globalThis.AudioBuffer], ['voice', voice as unknown as globalThis.AudioBuffer]]);
-	const render = async (value: object) => {
+	const render = async (value: typeof project) => {
 		const engine = native.createEngine();
 		try {
 			engine.loadProject(projectForRuntimeConsumers(value), buffers);
