@@ -24,8 +24,8 @@ export function chaseMidiAudioEvents(events: readonly MidiBlockEvent[], start: n
 		const [status, first, second] = event.data, channel = status! & 15, type = status! & 240;
 		if (type === 0x90 && second) { voices.push({ data: event.data, program: programs.capture(channel), held: true, captured: false }); continue; }
 		if (type === 0x80 || type === 0x90) {
-			const voice = voices.find(value => value.held && (value.data[0]! & 15) === channel && value.data[1] === first);
-			if (voice) voice.held = false; prune(channel); continue;
+			for (const voice of voices) if ((voice.data[0]! & 15) === channel && voice.data[1] === first) voice.held = false;
+			prune(channel); continue;
 		}
 		state.push({ frame: 0, data: event.data });
 		programs.observe(event.data);
