@@ -9,6 +9,8 @@ export function midiFileImportTracks(document: MidiFileDocument) {
 	const authored = routed.filter((track, index) => track.notes.length || track.events?.length
 		|| !track.conductorOnly && !document.tracks[index]?.events?.length);
 	const tracks = authored.length ? authored : routed.slice(0, 1);
-	const emptyTrackEnd = routed.filter(track => !tracks.includes(track)).reduce((end, track) => Math.max(end, track.durationFrames ?? 0), 0);
+	const included = new Set(tracks);
+	let emptyTrackEnd = 0;
+	for (const track of routed) if (!included.has(track)) emptyTrackEnd = Math.max(emptyTrackEnd, track.durationFrames ?? 0);
 	return tracks.map(track => ({ ...track, durationFrames: Math.max(track.durationFrames ?? 0, emptyTrackEnd) }));
 }
