@@ -45,3 +45,16 @@ test('actual TXT/SRT/WebVTT/Podcast label file profiles preserve every independe
 		assert.deepEqual(await recipient.store.loadProject(before.id), before);
 	}
 });
+
+test('Import Labels reads WebVTT character references once, including quotes and numeric references', async context => {
+	const fixture = await labelFileProfileCustody(context);
+	await fixture.import(new File([
+		'WEBVTT\n\n00:00:00.250 --> 00:00:01.500\n<v Alice>&QUOT;Alice&apos;s caf&#233;&quot; &amp; &lt;b&gt; &amp;amp;\n',
+	], 'browser-captions.vtt', { type: 'text/vtt' }));
+	const expected = [{ title: '"Alice\'s café" & <b> &amp;', startFrame: 12_000, endFrame: 72_000 }];
+	assert.deepEqual(labelFilePoints(labelFileProject(fixture.controller.project)), expected);
+	const reopened = await fixture.reopen();
+	assert.deepEqual(labelFilePoints(reopened.project), expected);
+	const exported = await reopened.controller.actions.labels.export({ format: 'vtt' });
+	assert.match(exported.text, /"Alice's café" &amp; &lt;b&gt; &amp;amp;/u);
+});
