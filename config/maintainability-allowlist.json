@@ -148,7 +148,6 @@
 		"tests/audio-editor-sound-activated-recording-capture.test.ts": 600,
 		"tests/audio-editor-soundscaper-command-history.test.ts": 592,
 		"tests/audio-editor-soundscaper-native-renderer-lifetime.test.ts": 599,
-		"tests/audio-editor-soundscaper-native-renderer-rollback.test.ts": 592,
 		"tests/audio-editor-soundscaper-native-services-dialog.test.tsx": 559,
 		"tests/audio-editor-soundscaper-v21-freeze-browser-integration.test.ts": 550,
 		"tests/audio-editor-storage-capacity-service.test.ts": 573,

@@ -29,6 +29,7 @@ import type {
 	SoundscaperNativeServicesBridge,
 } from './soundscaper-native-services-bridge.ts';
 import { createSoundscaperNativePluginProjectBinding } from './soundscaper-native-plugin-project-binding.ts';
+import { createSoundscaperNativePluginBypassPort } from './soundscaper-native-renderer-bypass.ts';
 import {
 	createNativePluginStateCaptureProvider,
 	registerNativePluginStateQuiescence,
@@ -296,15 +297,8 @@ function createNativeEffectRendererBridge(options: Readonly<{
 			}
 			return withTransportLatency(instance);
 		}),
-		setNativePluginBypassed: ownershipOperations.wrap(stateOperations.wrap(async (operation, request: Readonly<{ instanceId: string; bypassed: boolean }>) => {
-			assertRuntimeOpen();
-			const bypassed = project?.admitBypassed(request.instanceId, request.bypassed) ?? request.bypassed;
-			const instance = await options.bridge.setNativePluginBypassed({ ...request, bypassed });
-			assertRuntimeOpen();
-			const update = operation.commit(() => project?.setBypassed(request.instanceId, bypassed));
-			setNativePluginBypassed(request.instanceId, update?.bypassed ?? bypassed, update?.transition?.contextTime);
-			return instance;
-		})),
+		...createSoundscaperNativePluginBypassPort({ bridge: options.bridge, project, activeStateKeys,
+			stateOperations, ownershipOperations, assertRuntimeOpen }),
 		...createNativePluginPresetStatePort({ queue: stateOperations, read: saveNativePluginRuntimeState,
 			load: loadNativePluginRuntimeState, persist: persistState }),
 		persistNativePluginState: stateOperations.wrap(persistState),
@@ -477,7 +471,7 @@ function createNativeEffectRendererBridge(options: Readonly<{
 		listen();
 		const states = projectPluginStates(projectOperation.project);
 		const desired = new Map(states
-			.filter((state) => state.enabled && !state.bypassed && state.continuity === 'live')
+			.filter((state) => state.enabled && (state.continuity === 'live' || state.continuity === 'bypass'))
 			.map((state) => [state.instanceId, stateKey(state, projectOperation.projectId)]));
 		for (const [instanceId, activeKey] of activeStateKeys) {
 			if (desired.get(instanceId) === activeKey) continue;
