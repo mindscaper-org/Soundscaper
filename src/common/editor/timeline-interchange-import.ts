@@ -7,6 +7,7 @@ import { parseFcpxmlTimeline } from './timeline-interchange-fcpxml-import.ts';
 import { parseArdourDocument } from './ardour-import.ts';
 import { parseSoundcraftDocument } from './soundcraft-import.ts';
 import { parseHindenburgDocument } from './hindenburg-import.ts';
+import { parseReaperDocument } from './reaper-import.ts';
 import { TIMELINE_INTERCHANGE_MAXIMUM_BYTES, type TimelineInterchangeDocument } from './timeline-interchange-types.ts';
 import type { Rational } from './timeline-time.ts';
 
@@ -21,6 +22,7 @@ export function parseTimelineInterchange(fileName: string, text: string,
 	if (/\.ardour$/iu.test(fileName)) return parseArdourDocument(text);
 	if (/\.scraft$/iu.test(fileName)) return parseSoundcraftDocument(text);
 	if (/\.nhsx$/iu.test(fileName)) return parseHindenburgDocument(text);
+	if (/\.rpp$/iu.test(fileName)) return parseReaperDocument(text);
 	if (/\.(?:fcpxml|xml)$/iu.test(fileName)) return parseFcpxmlTimeline(text);
-	throw new TypeError('An EDL, OTIO, FCPXML, Ardour, SoundCraft or Hindenburg filename is required.');
+	throw new TypeError('An EDL, OTIO, FCPXML, Ardour, SoundCraft, Hindenburg or REAPER filename is required.');
 }

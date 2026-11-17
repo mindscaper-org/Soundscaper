@@ -62,15 +62,16 @@ export async function withDesktopProjectReadDescriptor<Value>(
 			});
 		}
 		const legacySes = /\.ses$/iu.test(String(descriptor?.name || ''));
-		const boundedSession = legacySes || /\.(?:sesx|nhsx)$/iu.test(String(descriptor?.name || ''));
-		const sessionKind = legacySes ? 'SES' : /\.nhsx$/iu.test(String(descriptor?.name || '')) ? 'NHSX' : 'SESX';
+		const reaper = /\.rpp$/iu.test(String(descriptor?.name || ''));
+		const boundedSession = legacySes || reaper || /\.(?:sesx|nhsx)$/iu.test(String(descriptor?.name || ''));
+		const sessionKind = legacySes ? 'SES' : reaper ? 'RPP' : /\.nhsx$/iu.test(String(descriptor?.name || '')) ? 'NHSX' : 'SESX';
 		const maximumBytes = legacySes ? SES_BINARY_MAXIMUM_BYTES : SESX_XML_MAXIMUM_BYTES;
 		if (boundedSession && typeof descriptor.size === 'number' && descriptor.size > maximumBytes) {
 			if (typeof descriptor.id !== 'string' || typeof fileService.releaseRead !== 'function') {
 				throw new Error(`Desktop ${sessionKind} capability release is unavailable.`);
 			}
 			await fileService.releaseRead(descriptor.id);
-			throw new RangeError(`The ${sessionKind} session exceeds the 32 MiB ${legacySes ? 'binary' : 'XML'} limit.`);
+			throw new RangeError(`The ${sessionKind} session exceeds the 32 MiB ${legacySes ? 'binary' : reaper ? 'text' : 'XML'} limit.`);
 		}
 		return await fileService.withReadDescriptors([descriptor], {}, (files) => {
 			if (files.length !== 1 || !(files[0] instanceof Blob)) {
@@ -79,7 +80,7 @@ export async function withDesktopProjectReadDescriptor<Value>(
 			return consumers.openMaterialized(files[0]);
 		});
 	} finally {
-		if (/\.(?:sesx?|edl|otio|fcpxml|omfi?|aaf|nhsx)$/iu.test(String(descriptor?.name || '')) && typeof descriptor?.id === 'string') {
+		if (/\.(?:sesx?|edl|otio|fcpxml|omfi?|aaf|nhsx|rpp)$/iu.test(String(descriptor?.name || '')) && typeof descriptor?.id === 'string') {
 			await fileService.releaseSesxSession?.(descriptor.id);
 		}
 	}
