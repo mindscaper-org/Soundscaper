@@ -14,7 +14,7 @@ interface Dependencies<Project extends FileSavingProject> {
 	readonly getPreferences: () => SavingPreferences;
 	readonly activate: (id: string) => Awaitable<unknown>;
 	readonly flushInternal: () => Awaitable<unknown>;
-	readonly write: (project: Project, target?: unknown) => Promise<Readonly<Record<string, unknown>>>;
+	readonly write: (project: Project, target: unknown, assertWritable: () => void) => Promise<Readonly<Record<string, unknown>>>;
 	readonly prepareOriginal: (original: ProjectFileReference) => Awaitable<unknown>;
 	readonly ask: (project: Project) => Promise<SaveDecision>;
 	readonly discard: (id: string) => Awaitable<unknown>;
@@ -36,7 +36,13 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 	let observed: Project | null = null, autoSaving = d.getPreferences().autoSaving;
 	const schedule = d.schedule ?? ((callback, ms) => Number(globalThis.setTimeout(callback, ms)));
 	const clear = d.clear ?? (timer => globalThis.clearTimeout(timer));
-	return Object.freeze({ opened, saved, save, observe, hasChanges, prepareClose, drain: () => tail, dispose });
+	return Object.freeze({ opened, saved, save, observe, hasChanges, prepareClose, releaseCopyTarget, drain: () => tail, dispose });
+
+	async function releaseCopyTarget(result: unknown): Promise<void> {
+		const original = (result as ProjectFileTarget).originalFile;
+		if (!original || [...entries.values()].some(entry => entry.originalFile?.id === original.id)) return;
+		try { await d.release?.(original); } catch (error) { d.handleError(error); }
+	}
 
 	async function load(project: Project): Promise<void> {
 		if (entries.has(project.id)) return;
@@ -81,7 +87,8 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 		const project = d.getProject();
 		if (!project || disposed) return false;
 		return enqueue(async () => {
-			await d.flushInternal();
+			if (disposed) return false;
+			if (d.getProject()?.id === project.id) await d.flushInternal();
 			const latest = d.getProjects().find(entry => entry.project.id === project.id);
 			if (!latest || latest.readOnly) return false;
 			return write(latest.project, true);
@@ -95,9 +102,18 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 		if (!hasTarget && !explicit) return true;
 		const target = entry.originalFile ? await d.prepareOriginal(entry.originalFile) : entry.fileHandle;
 		if (hasTarget && !target) throw new Error('The original project file is unavailable. Export a project file to choose a new destination.');
-		const result = await d.write(project, target);
+		const ownsDestination = () => !disposed && entries.get(project.id) === entry;
+		const assertWritable = () => {
+			if (!ownsDestination() || !d.getProjects().some(tab => tab.project.id === project.id && !tab.readOnly)) {
+				throw new DOMException('The project lost write access before the file could be saved.', 'AbortError');
+			}
+		};
+		assertWritable();
+		const result = await d.write(project, target, assertWritable);
 		if (result.cancelled === true) return false;
-		await saved(project, result as ProjectFileTarget);
+		if (ownsDestination() && d.getProjects().some(tab => tab.project.id === project.id)) {
+			await saved(project, result as ProjectFileTarget);
+		} else await releaseCopyTarget(result);
 		return true;
 	}
 	function observe(): void {
@@ -140,9 +156,9 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 	async function prepareClose(projectId?: string): Promise<boolean> {
 		if (closing) return false;
 		closing = true;
-		const initialId = d.getProject()?.id;
 		const paused: string[] = [];
 		let prepared = false;
+		let restoreSelection: Readonly<{ from: string; to: string }> | null = null;
 		try {
 			for (const [id, timer] of timers) {
 				if (projectId && id !== projectId) continue;
@@ -151,31 +167,41 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 				paused.push(id);
 			}
 			await tail.catch(() => undefined);
-			if (!projectId || projectId === initialId) await d.flushInternal();
+			if (!projectId || projectId === d.getProject()?.id) await d.flushInternal();
 			if (d.getPreferences().autoSaving) {
 				for (const { project, readOnly } of d.getProjects()) {
 					if ((!projectId || project.id === projectId) && !readOnly) await enqueue(() => write(project, false));
 				}
 			}
-			if (!d.desktop || !d.getPreferences().askBeforeClosing) return (prepared = true);
-			const discard: string[] = [];
-			for (const { project, readOnly } of d.getProjects()) {
-				if ((projectId && project.id !== projectId) || readOnly || !await hasChanges(project)) continue;
-				const decision = await d.ask(project);
-				if (decision === 'cancel') return false;
-				if (decision === 'discard') discard.push(project.id);
-				else {
-					await d.activate(project.id);
-					if (!await save()) return false;
+			if (d.desktop && d.getPreferences().askBeforeClosing) {
+				const discard: string[] = [];
+				for (const { project, readOnly } of d.getProjects()) {
+					if ((projectId && project.id !== projectId) || readOnly || !await hasChanges(project)) continue;
+					const decision = await d.ask(project);
+					if (decision === 'cancel') return false;
+					if (decision === 'discard') discard.push(project.id);
+					else {
+						const activeId = d.getProject()?.id;
+						if (activeId && activeId !== project.id) {
+							const restoreId: string = restoreSelection?.from === activeId ? restoreSelection.to : activeId;
+							restoreSelection = { from: project.id, to: restoreId };
+							await d.activate(project.id);
+						}
+						if (d.getProject()?.id !== project.id || !await save()) return false;
+					}
 				}
+				for (const id of discard) await d.discard(id);
 			}
-			for (const id of discard) await d.discard(id);
-			return (prepared = true);
+			prepared = true;
+			return true;
 		} finally {
-			closing = false;
 			try {
-				if (initialId && d.getProjects().some(entry => entry.project.id === initialId) && d.getProject()?.id !== initialId) await d.activate(initialId);
+				if (restoreSelection && d.getProject()?.id === restoreSelection.from
+					&& d.getProjects().some(entry => entry.project.id === restoreSelection?.to)) {
+					await d.activate(restoreSelection.to);
+				}
 			} finally {
+				closing = false;
 				observed = null;
 				observe();
 				if (!prepared && !disposed && d.getPreferences().autoSaving) {

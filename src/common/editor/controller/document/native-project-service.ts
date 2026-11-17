@@ -225,10 +225,12 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 		if (runtime.state.readOnly && futureScapeArchive?.projectId === projectAtStart.id) {
 			const operation = beginProjectTask('native-project-save', projectAtStart.id, PROJECT_SCOPED_TASK);
 			try {
-				return await saveNativeScapeArchiveCopy(runtime, {
+				const result = await saveNativeScapeArchiveCopy(runtime, {
 					assertReady: () => assertOwnership(operation.task, operation.projectToken),
 					fallbackFileName: projectAtStart.title, options, retained: futureScapeArchive, signal: operation.task.signal,
 				});
+				if ('manifest' in result) await runtime.releaseScapeCopyTarget?.(result);
+				return result;
 			} finally { operation.task.finish(); }
 		}
 		if (runtime.hasMissingTimelineSources(projectAtStart)) throw createLocalizedError(Error, runtime.copy, 'missingSourcesPreventSave');
@@ -247,7 +249,8 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 				assertReadyToCommit: () => assertOwnership(operation.task, operation.projectToken),
 				fileName, prepared, project: snapshot, signal: operation.task.signal,
 			});
-			if (!options.saveCopy) await runtime.onScapeSaved?.(snapshot, saved);
+			if (options.saveCopy) await runtime.releaseScapeCopyTarget?.(saved);
+			else await runtime.onScapeSaved?.(snapshot, saved);
 			if (finishSave(operation.task, operation.projectToken, 'saved')) {
 				setLocalizedStatus(runtime.setStatus, runtime.copy, "projectSaved", undefined, 'success');
 				runtime.publishDocumentSnapshot();

@@ -13,12 +13,20 @@ function fixture(desktop = true) {
 	const timers: Array<() => void> = [];
 	const clearedTimers = new Set<number>();
 	let flushes = 0;
+	let flush: () => Promise<void> = async () => undefined;
+	let beforeCommit: () => Promise<void> = async () => undefined;
 	let fail = false, cancelSave = false;
 	const service = createProjectFileSaving<Project>({
 		desktop, getProject: () => current, getPreferences: () => settings,
 		getProjects: () => [...tabs.values()].map(project => ({ project, readOnly: readOnlyIds.has(project.id) })),
-		activate: async id => { current = tabs.get(id)!; }, flushInternal: async () => { flushes += 1; },
-		write: async (_project, target) => { if (fail) throw new Error('disk full'); writes.push(target); return cancelSave ? { cancelled: true } : { fileHandle: target ?? { createWritable() {} } }; },
+		activate: async id => { current = tabs.get(id)!; }, flushInternal: async () => { flushes += 1; await flush(); },
+		write: async (_project, target, assertWritable?: () => void) => {
+			await beforeCommit();
+			assertWritable?.();
+			if (fail) throw new Error('disk full');
+			writes.push(target);
+			return cancelSave ? { cancelled: true } : { fileHandle: target ?? { createWritable() {} } };
+		},
 		prepareOriginal: async original => ({ id: original.id, name: original.name }),
 		ask: async () => decisions.shift() as 'save' | 'discard' | 'cancel',
 		discard: async id => { discarded.push(id); tabs.delete(id); }, handleError: () => undefined,
@@ -33,6 +41,8 @@ function fixture(desktop = true) {
 			await service.drain();
 		},
 		getFlushes: () => flushes,
+		setFlush: (operation: () => Promise<void>) => { flush = operation; },
+		setBeforeCommit: (operation: () => Promise<void>) => { beforeCommit = operation; },
 		edit: () => { current = { ...current, revision: current.revision + 1, title: `${current.title}!` }; tabs.set(current.id, current); service.observe(); },
 		setAuto: (value: boolean) => { settings = { ...settings, autoSaving: value }; service.observe(); },
 		setAsk: (value: boolean) => { settings = { ...settings, askBeforeClosing: value }; },
@@ -112,4 +122,56 @@ test('closing an inactive read-only tab does not flush the active project', asyn
 	assert.equal(await f.service.prepareClose('b'), true);
 	assert.equal(f.getFlushes(), 0);
 	assert.deepEqual(f.writes, []);
+});
+
+test('canceling a close does not undo an unrelated project switch during its flush', async () => {
+	const f = fixture();
+	let resume = () => {};
+	const blockedFlush = new Promise<void>(resolve => { resume = resolve; });
+	f.setFlush(() => blockedFlush);
+	await f.service.opened(f.getProject(), {});
+	f.edit();
+	f.tabs.set('b', { id: 'b', title: 'B', revision: 0, tracks: [] });
+	f.decisions.push('cancel');
+
+	const closing = f.service.prepareClose('a');
+	f.select('b');
+	resume();
+	assert.equal(await closing, false);
+	assert.equal(f.getProject().id, 'b');
+});
+
+test('a pending Save cannot overwrite the original after another window takes over its tab', async () => {
+	const f = fixture();
+	const original = { createWritable() {} };
+	await f.service.opened(f.getProject(), { fileHandle: original });
+	f.edit();
+	f.setBeforeCommit(async () => { await Promise.resolve(); f.readOnlyIds.add('a'); });
+
+	await assert.rejects(f.service.save(), { name: 'AbortError' });
+	assert.deepEqual(f.writes, []);
+	assert.equal(await f.service.hasChanges(f.tabs.get('a')!), true);
+});
+
+test('a queued explicit Save does not flush a tab the user selected while it was waiting', async () => {
+	const f = fixture();
+	f.tabs.set('b', { id: 'b', title: 'B', revision: 0, tracks: [] });
+	const target = { createWritable() {} };
+	await f.service.opened(f.getProject(), { fileHandle: target });
+	f.edit();
+	let beginWrite = (): void => undefined;
+	let releaseWrite = (): void => undefined;
+	const writing = new Promise<void>(resolve => { beginWrite = resolve; });
+	const release = new Promise<void>(resolve => { releaseWrite = resolve; });
+	f.setBeforeCommit(() => { beginWrite(); return release; });
+	const firstSave = f.service.save();
+	await writing;
+	const queuedSave = f.service.save();
+	f.select('b');
+	releaseWrite();
+
+	assert.deepEqual(await Promise.all([firstSave, queuedSave]), [true, true]);
+	assert.equal(f.getFlushes(), 1);
+	assert.deepEqual(f.writes, [target, target]);
+	assert.equal(f.getProject().id, 'b');
 });

@@ -34,7 +34,7 @@ export function bindProjectFileSaving(d: Readonly<{
 	copy: object;
 	getProject(): NativeProjectDocument | null;
 	flush(): PromiseLike<unknown> | unknown;
-	write(project: NativeProjectDocument, target?: unknown): Promise<NativeSavedFile>;
+	write(project: NativeProjectDocument, target: unknown, assertWritable: () => void): Promise<NativeSavedFile>;
 }>) {
 	const runtime = d.runtime;
 	const service = createProjectFileSaving({

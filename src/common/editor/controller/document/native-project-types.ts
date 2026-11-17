@@ -372,6 +372,7 @@ export interface NativeAudioBuffer {
 export interface NativeProjectServiceRuntime {
 	readonly onScapeOpened?: (project: NativeProjectDocument, input: object) => NativeAwaitable<void>;
 	readonly onScapeSaved?: (project: NativeProjectDocument, result: NativeSavedFile) => NativeAwaitable<void>;
+	readonly releaseScapeCopyTarget?: (result: NativeSavedFile) => NativeAwaitable<void>;
 	readonly projectForRuntimeConsumers?: InterchangeProductProjection;
 	readonly confirmFileSizeWarning?: FileSizeWarningConfirmation;
 	readonly lifetime: Pick<EditorControllerLifetime, 'assertActive' | 'startTask'>;

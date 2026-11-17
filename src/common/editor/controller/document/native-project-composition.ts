@@ -35,6 +35,7 @@ export function createNativeProjectComposition(dependencies: NativeProjectCompos
 		...dependencies,
 		onScapeOpened: (project, input) => saving.opened(project, input),
 		onScapeSaved: (project, result) => saving.saved(project, result),
+		releaseScapeCopyTarget: result => saving.service.releaseCopyTarget(result),
 		copyFutureScapeArchive: dependencies.copyFutureScapeArchive ?? ((input, write, options) => (
 			deferredArchiveRuntime.copyFutureScapeArchive(input, write, {
 				...options, currentProjectSchemaFamily: dependencies.currentProjectSchemaFamily,
@@ -55,14 +56,17 @@ export function createNativeProjectComposition(dependencies: NativeProjectCompos
 	const saving = bindProjectFileSaving({
 		runtime: dependencies.fileSaving, fileService: dependencies.fileService, copy: dependencies.copy,
 		getProject: dependencies.getProject, flush: () => dependencies.flushProject({ prepareCurrentSnapshot: true, preparationPurpose: 'scape-save' }),
-		write: async (project, target) => {
+		write: async (project, target, assertWritable) => {
 			if (dependencies.hasMissingTimelineSources(project)) throw new Error(dependencies.copy.missingSourcesPreventSave);
 			const runtime = { ...dependencies, ensureProjectFileName: withProjectFileExtension, scapeMimeType: SCAPE_MIME_TYPE };
 			const task = dependencies.lifetime.startTask('project-file-save');
 			try {
 				const { fileName, prepared } = await beginNativeScapeSave(runtime, { fallbackFileName: project.title, options: { saveTarget: target }, signal: task.signal });
 				if (prepared.mode === 'cancelled') return { cancelled: true };
-				return (await publishNativeScape(runtime, { project, fileName, prepared, signal: task.signal, assertReadyToCommit: () => task.assertCurrent() })).saved;
+				return (await publishNativeScape(runtime, {
+					project, fileName, prepared, signal: task.signal,
+					assertReadyToCommit: () => { task.assertCurrent(); assertWritable(); },
+				})).saved;
 			} finally { task.finish(); }
 		},
 	});
