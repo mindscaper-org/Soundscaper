@@ -23,6 +23,7 @@ import { publishedCopyFor } from '../../controller/shared/presentation-localizat
 import { useAvailableAuthoringPreset } from './useAvailableAuthoringPreset.ts';
 import { useAuthoringPresetRemovalFocus } from './useAuthoringPresetRemovalFocus.ts';
 import EditorControlLabel from '../EditorControlLabel.tsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 
 interface Props {
 	readonly copy?: Readonly<Record<string, string>>;
@@ -38,6 +39,12 @@ interface Props {
 }
 
 export default function FramescaperSelectedVisualAuthoringDialog(props: Props) {
+	const projectId = (props.project as Readonly<{ id?: unknown }> | null)?.id;
+	const owner = editorProjectEditSessionKey(props.controller, projectId);
+	return <SelectedVisualAuthoringDialog key={`${owner}:${props.surface}`} {...props} />;
+}
+
+function SelectedVisualAuthoringDialog(props: Props) {
 	const text = resolveEditorCopyScope('selectedVisualAuthoring', SELECTED_VISUAL_AUTHORING_COPY, props.copy);
 	const model = useMemo(() => createFramescaperSelectedVisualAuthoringModel({
 		surface: props.surface, project: props.project, copy: props.copy,
