@@ -4,7 +4,18 @@ import test from 'node:test';
 import { parseMidiFile, writeMidiFile } from '../src/common/editor/midi-file.ts';
 import { openMidiAudioRenderer, registerMidiInstrumentProvider } from '../src/common/editor/engine/midi-audio-renderer.ts';
 import { compileMidiAudioTimeline } from '../src/common/editor/engine/midi-audio-events.ts';
+import { splitMidiInstrumentPorts } from '../src/common/editor/engine/midi-instrument-ports.ts';
 import type { MidiClipData } from '../src/common/editor/midi-model.ts';
+
+test('single-port preparation keeps the input and does not sort its interchange events', () => {
+	let frameReads = 0;
+	const events = Array.from({ length: 512 }, (_, index) => ({
+		get frame() { frameReads++; return 512 - index; }, status: 0xb0, data: [7, 100],
+	}));
+	const data: MidiClipData = { version: 1, notes: [], interchange: { tempos: [], signatures: [], events } };
+	assert.equal(splitMidiInstrumentPorts(data)[0], data);
+	assert.equal(frameReads, 0);
+});
 
 for (const instrument of ['fluidsynth', 'libadlmidi'] as const) test(`imported MIDI port controls remain isolated with ${instrument}`, async () => {
 	const note = { id: 'key', pitch: 69, channel: 0, velocity: 100, startFrame: 0, durationFrames: 4000, midiPort: 1 };
