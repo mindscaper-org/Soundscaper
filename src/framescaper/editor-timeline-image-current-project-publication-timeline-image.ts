@@ -102,6 +102,10 @@ export function createFramescaperTimelineImageCurrentProjectPublicationTimelineI
 		}
 		const bytes = new Uint8Array(await request.body.arrayBuffer());
 		dependencies.session.assertProjectHistoryToken(expected.id, capture.token);
+		request.signal?.throwIfAborted();
+		if (!sameProject(dependencies.controller.project, expected)) {
+			throw stale('The active Framescaper project changed while reading the image body.');
+		}
 		const published = await dependencies.publishIfCurrent({
 			expected,
 			project: nextHistory.present,
@@ -115,6 +119,7 @@ export function createFramescaperTimelineImageCurrentProjectPublicationTimelineI
 		}
 		dependencies.session.updateProjectHistory(expected.id, nextHistory, { dirty: false });
 		dependencies.session.markProjectSaved(expected.id);
+		if (request.signal?.aborted || dependencies.controller.project?.id !== expected.id) return published;
 		await dependencies.controller.actions.project.openById(expected.id, {
 			adoptSessionRevision: true,
 		});
