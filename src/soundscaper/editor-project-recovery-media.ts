@@ -19,17 +19,20 @@ export async function readSoundscaperRecoveryAvailableMediaSources(
 ): Promise<ReadonlySet<string>> {
 	serializeScapeProjectDocument(project);
 	const available = new Set<string>();
-	const sources = record(project)?.sources;
-	if (!Array.isArray(sources)) return available;
+	const document = record(project);
+	if (!document || !Array.isArray(document.sources)) return available;
+	const sources: unknown[] = document.sources;
 	for (const value of sources) {
 		const source = record(value);
 		if (!source || typeof source.id !== 'string' || (source.kind !== 'audio' && source.kind !== 'video')) continue;
 		const storageKey = typeof source.storageKey === 'string' && source.storageKey ? source.storageKey : source.id;
-		const cacheKey = JSON.stringify([source.kind, storageKey, source.frameCount, source.channelCount, source.sampleRate, source.contentSha256, source.timingAsset]);
+		const cacheKey = JSON.stringify([source.kind, storageKey, source.frameCount, source.channelCount,
+			source.sampleRate, source.contentSha256, source.timingAsset,
+			source.kind === 'video' ? [document.id, source.id] : null]);
 		if (availability.has(cacheKey)) { if (availability.get(cacheKey)) available.add(source.id); continue; }
 		try {
 			if (source.kind === 'video') {
-				const readable = await soundscaperRecoveryVideoAvailable(store, record(project)!, source);
+				const readable = await soundscaperRecoveryVideoAvailable(store, document, source);
 				availability.set(cacheKey, readable);
 				if (readable) available.add(source.id);
 				continue;

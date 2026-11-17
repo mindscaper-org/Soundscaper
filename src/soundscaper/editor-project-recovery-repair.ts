@@ -8,7 +8,7 @@ import { normalizeProjectFeatureRequirements } from '../common/editor/project-fe
 import { reconcileProjectOwnedFeatureRequirements } from '../common/editor/project-owned-feature-requirements.ts';
 import { reconcileSoundscaperProjectFeatureRequirements } from './editor-project-feature-requirements.ts';
 import { createSoundscaperProject, validateSoundscaperProject, type SoundscaperProject } from './editor-project.ts';
-import { PROJECT_SCHEMA_VERSION, SOUNDSCAPER_PROJECT_SCHEMA_FAMILY } from './editor-project-validation.ts';
+import { isCurrentProjectSchemaIdentity, SOUNDSCAPER_PROJECT_SCHEMA_FAMILY } from '../common/editor/project-schema-identity.ts';
 import { restoreSoundscaperRecoveryClipGroups } from './editor-project-recovery-clip-groups.ts';
 import { restoreRecoveryRecord, restoreSoundscaperRecoveryAlternatives, restoreSoundscaperRecoverySequences } from './editor-project-recovery-sections.ts';
 import type { SoundscaperProjectRecoveryChange } from './editor-project-recovery-types.ts';
@@ -22,8 +22,7 @@ export interface SoundscaperProjectRepair {
 /** Salvage only current owning-family data. Every admitted result passes the production validator. */
 export function repairSoundscaperProject(value: unknown, availableSourceIds: ReadonlySet<string>): SoundscaperProjectRepair {
 	const original = record(value);
-	if (!original || original.schemaFamily !== SOUNDSCAPER_PROJECT_SCHEMA_FAMILY
-		|| original.schemaVersion !== PROJECT_SCHEMA_VERSION) {
+	if (!original || !isCurrentProjectSchemaIdentity(original, SOUNDSCAPER_PROJECT_SCHEMA_FAMILY)) {
 		throw new Error('Recovery supports only the current Soundscaper project schema.');
 	}
 	// Reuse the maintained codec's bounded graph traversal; never invoke accessors or repair future data.
@@ -36,10 +35,12 @@ export function repairSoundscaperProject(value: unknown, availableSourceIds: Rea
 	raw.sources = values(raw.sources).filter((source, index) => {
 		const candidate = record(source);
 		const sourceId = candidate?.id;
-		if (typeof sourceId === 'string' && availableSourceIds.has(sourceId)) {
-			if (candidate?.kind === 'audio' && (typeof candidate.name !== 'string' || !candidate.name.trim())) {
+		if (candidate && typeof sourceId === 'string' && availableSourceIds.has(sourceId)) {
+			if (typeof candidate.name !== 'string' || !candidate.name.trim()) {
 				candidate.name = sourceId;
-				note(`sources[${String(index)}].name`, 'Reset an invalid media name; verified audio remains available.', 'media-name-reset');
+				const path = `sources[${String(index)}].name`;
+				if (candidate.kind === 'audio') note(path, 'Reset an invalid media name; verified audio remains available.', 'media-name-reset');
+				else note(path, 'Reset an invalid media name; verified video remains available.');
 			}
 			available.add(sourceId); return true;
 		}
