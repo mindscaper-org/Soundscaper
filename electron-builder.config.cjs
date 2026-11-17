@@ -127,7 +127,8 @@ module.exports = {
 		},
 	},
 	dmg: {
-		title: `${releaseName}-\${arch}`,
+		// DMG titles expand ${arch} to a suffix that already includes its hyphen.
+		title: `${releaseName}\${arch}`,
 		sign: signing.mac.notarize,
 		artifactName: `${releaseName}-mac-\${arch}.\${ext}`,
 	},
