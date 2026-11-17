@@ -10,6 +10,7 @@ import {
 import type { FrequencyWaveformRuntimeEntry } from '../src/common/editor/controller/source/frequency-waveform-source-service.ts';
 import type { FrequencyWaveformRuntimeWindowEntry } from '../src/common/editor/controller/source/frequency-waveform-window-service.ts';
 import type { SourceRuntimeProject } from '../src/common/editor/controller/source/source-runtime-composition-types.ts';
+import { deferred } from './helpers/async-test-control.ts';
 
 const PCM = new Float32Array(4_096);
 const PROJECT: SourceRuntimeProject = Object.freeze({
@@ -25,6 +26,7 @@ function createFixture(
 	deleteAnalysis: (key: string) => Promise<void> = async () => undefined,
 	project: SourceRuntimeProject | null = null,
 	bufferedSource = false,
+	beforeReadPcm?: (startFrame: number, signal?: AbortSignal) => Promise<void>,
 ) {
 	const deleted: string[] = [];
 	const analyses = new Map<string, FrequencyWaveformRuntimeEntry>();
@@ -55,15 +57,11 @@ function createFixture(
 				await deleteAnalysis(key);
 			},
 		},
-		requestPcmWindow: async (clipId, options) => project ? {
-			clipId,
-			sourceId: 'source',
-			startFrame: 0,
-			endFrame: PCM.length,
-			visibleStartFrame: options.startFrame,
-			visibleEndFrame: options.endFrame,
-			channels: [PCM],
-		} : null,
+		requestPcmWindow: async (clipId, options) => {
+			await beforeReadPcm?.(options.startFrame, options.signal);
+			return project ? { clipId, sourceId: 'source', startFrame: 0, endFrame: PCM.length,
+				visibleStartFrame: options.startFrame, visibleEndFrame: options.endFrame, channels: [PCM] } : null;
+		},
 	};
 	return {
 		runtime: createFrequencyWaveformRuntime(inputs),
@@ -148,4 +146,33 @@ test('lazy spectral runtime analyzes a resident PCM buffer without reading store
 	assert.equal(analysis?.frameCount, PCM.length);
 	assert.equal(fixture.storedReads(), 0);
 	assert.equal(fixture.analyses.get('source')?.analysis, analysis);
+});
+
+test('a retired viewport request does not start whole-source analysis', async () => {
+	const started = deferred<void>();
+	const fixture = createFixture(async () => undefined, PROJECT, false, async (startFrame, signal) => {
+		if (startFrame !== 16) return;
+		started.resolve();
+		await new Promise<void>((_resolve, reject) => {
+			signal?.addEventListener('abort', () => { reject(signal.reason); }, { once: true });
+		});
+	});
+	const retired = fixture.runtime.requestFrequencyWaveform('clip', { startFrame: 16, endFrame: 32 });
+	await started.promise;
+	const current = fixture.runtime.requestFrequencyWaveform('clip', { startFrame: 32, endFrame: 48 });
+	const [oldResult, newResult] = await Promise.all([retired, current]);
+	assert.equal(oldResult, null);
+	assert.ok(newResult && 'startFrame' in newResult && newResult.startFrame === 32);
+	assert.equal(fixture.storedReads(), 0);
+});
+
+test('identical concurrent viewport requests share the same resolved window', async () => {
+	const fixture = createFixture(async () => undefined, PROJECT);
+	const range = { startFrame: 32, endFrame: 48 };
+	const [first, second] = await Promise.all([
+		fixture.runtime.requestFrequencyWaveform('clip', range),
+		fixture.runtime.requestFrequencyWaveform('clip', { ...range }),
+	]);
+	assert.ok(first && 'startFrame' in first && first.startFrame === 32);
+	assert.strictEqual(second, first);
 });

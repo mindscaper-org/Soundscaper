@@ -9,6 +9,7 @@ import {
 	type FrequencyWaveformWindow,
 } from '../../frequency-waveform-contract.ts';
 import { requiredAudioSource } from './internal/frequency-waveform-source-admission.ts';
+import { createBoundedWorkQueue } from './internal/bounded-work-queue.ts';
 import type {
 	FrequencyWaveformRuntimeClip,
 	FrequencyWaveformRuntimeProject,
@@ -24,15 +25,6 @@ const DEFAULT_MAXIMUM_RESIDENT_WINDOW_BYTES = 16 * 1_024 * 1_024;
 const MAXIMUM_FREQUENCY_WAVEFORM_PADDING_FRAMES = 65_536;
 const CROSSOVER_SETTLING_RESIDUAL = 1e-4;
 
-interface GenerationJob {
-	abort: () => void;
-	generate: () => Awaitable<FrequencyWaveformWindow>;
-	reject: (reason?: unknown) => void;
-	resolve: (value: FrequencyWaveformWindow | PromiseLike<FrequencyWaveformWindow>) => void;
-	signal: AbortSignal;
-	settled: boolean;
-}
-
 export interface FrequencyWaveformPcmWindow {
 	readonly clipId: string;
 	readonly sourceId: string;
@@ -47,6 +39,7 @@ export interface FrequencyWaveformRuntimeWindowEntry {
 	readonly projectId: string;
 	readonly sourceId: string;
 	readonly storageKey: string;
+	readonly sourceFrameCount: number;
 	readonly mappingSignature: string;
 	readonly requestStartFrame: number;
 	readonly requestEndFrame: number;
@@ -116,8 +109,7 @@ export function createFrequencyWaveformWindowService<
 		sourceId: string;
 		controller: AbortController;
 	}>>();
-	const generationQueue: GenerationJob[] = [];
-	let activeGenerations = 0;
+	const generationQueue = createBoundedWorkQueue(MAXIMUM_CONCURRENT_WINDOW_GENERATIONS, DEFAULT_MAXIMUM_RESIDENT_WINDOW_ENTRIES);
 	let runtimeGeneration = 0;
 
 	async function requestFrequencyWaveformWindow(
@@ -177,7 +169,7 @@ export function createFrequencyWaveformWindowService<
 		const runtimeAtStart = runtimeGeneration;
 		const controller = new AbortController();
 		requests.set(requestKey, { clipId: clip.id, sourceId: source.id, controller });
-		const promise = resolveWindow(clip.id, source, range, crossovers, controller.signal)
+		const promise = generationQueue.run(() => resolveWindow(clip.id, source, range, crossovers, controller.signal), { signal: controller.signal })
 			.then((window) => {
 				if (!requestIsCurrent(
 					project.id, clip.id, source, mappingSignature, requestKey,
@@ -187,6 +179,7 @@ export function createFrequencyWaveformWindowService<
 					projectId: project.id,
 					sourceId: source.id,
 					storageKey: sourceStorageKey(source),
+					sourceFrameCount: source.frameCount,
 					mappingSignature,
 					requestStartFrame: range.startFrame,
 					requestEndFrame: range.endFrame,
@@ -229,7 +222,7 @@ export function createFrequencyWaveformWindowService<
 			|| visibleEndFrame <= visibleStartFrame) {
 			throw new RangeError('Frequency waveform visible PCM range is invalid.');
 		}
-		const generated = await scheduleGeneration(signal, () => dependencies.generateWindow(
+		const generated = await dependencies.generateWindow(
 			pcm.channels,
 			source.sampleRate,
 			{
@@ -239,7 +232,8 @@ export function createFrequencyWaveformWindowService<
 				visibleFrameCount: visibleEndFrame - visibleStartFrame,
 				signal,
 			},
-		));
+		);
+		throwIfAborted(signal);
 		const window = validateFrequencyWaveformWindow(generated);
 		if (window.sampleRate !== source.sampleRate || window.channelCount !== source.channelCount
 			|| window.startFrame !== visibleStartFrame
@@ -249,60 +243,6 @@ export function createFrequencyWaveformWindowService<
 			throw new Error('Frequency waveform window does not match its source request.');
 		}
 		return window;
-	}
-
-	function scheduleGeneration(
-		signal: AbortSignal,
-		generate: () => Awaitable<FrequencyWaveformWindow>,
-	): Promise<FrequencyWaveformWindow> {
-		throwIfAborted(signal);
-		return new Promise((resolve, reject) => {
-			const job: GenerationJob = {
-				generate,
-				reject,
-				resolve,
-				signal,
-				settled: false,
-				abort: () => undefined,
-			};
-			job.abort = () => {
-				if (job.settled) return;
-				job.settled = true;
-				reject(abortError(signal));
-			};
-			signal.addEventListener('abort', job.abort, { once: true });
-			generationQueue.push(job);
-			pumpGenerationQueue();
-		});
-	}
-
-	function pumpGenerationQueue(): void {
-		while (activeGenerations < MAXIMUM_CONCURRENT_WINDOW_GENERATIONS && generationQueue.length) {
-			const job = generationQueue.shift()!;
-			if (job.settled || job.signal.aborted) {
-				job.signal.removeEventListener('abort', job.abort);
-				continue;
-			}
-			activeGenerations += 1;
-			void Promise.resolve().then(job.generate).then(
-				(value) => {
-					if (!job.settled) {
-						job.settled = true;
-						job.resolve(value);
-					}
-				},
-				(error: unknown) => {
-					if (!job.settled) {
-						job.settled = true;
-						job.reject(error);
-					}
-				},
-			).finally(() => {
-				job.signal.removeEventListener('abort', job.abort);
-				activeGenerations -= 1;
-				pumpGenerationQueue();
-			});
-		}
 	}
 
 	function retainRuntimeEntry(clipId: string, entry: FrequencyWaveformRuntimeWindowEntry): void {
@@ -420,6 +360,7 @@ function runtimeEntryMatches(
 		&& entry.projectId === projectId
 		&& entry.sourceId === source.id
 		&& entry.storageKey === sourceStorageKey(source)
+		&& entry.sourceFrameCount === source.frameCount
 		&& entry.requestStartFrame === range.startFrame
 		&& entry.requestEndFrame === range.endFrame
 		&& entry.mappingSignature === mappingSignature

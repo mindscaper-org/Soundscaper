@@ -19,6 +19,7 @@ import {
 	generateFrequencyWaveformWindowWithFft,
 } from '../src/common/editor/frequency-waveform-analysis.ts';
 import { fft, initializePffft } from '../src/common/editor/pffft.js';
+import { deferred, settle } from './helpers/async-test-control.ts';
 
 await initializePffft();
 
@@ -194,6 +195,28 @@ test('clip source remapping cannot reuse a resident window for the old projectio
 	assert.equal(fixture.windows.get(CLIP.id)?.mappingSignature.includes('500'), true);
 });
 
+test('shortening a source invalidates a resident window with old FFT padding', async () => {
+	const fixture = createFixture();
+	await fixture.service.requestFrequencyWaveformWindow(CLIP.id, OPTIONS);
+	fixture.resizeSource(4_000);
+	await fixture.service.requestFrequencyWaveformWindow(CLIP.id, OPTIONS);
+	assert.equal(fixture.pcmRequests.length, 2);
+});
+
+test('bounded frequency jobs keep PCM reads behind available generation slots', async () => {
+	const release = deferred<void>();
+	const fixture = createFixture({ extraClips: ['clip-2', 'clip-3'], holdGenerationsUntil: release.promise });
+	const pending = ['clip', 'clip-2', 'clip-3'].map(id => fixture.service.requestFrequencyWaveformWindow(id, OPTIONS));
+	try {
+		await settle();
+		assert.deepEqual(fixture.pcmRequests.map(({ clipId }) => clipId), ['clip', 'clip-2']);
+	} finally {
+		release.resolve();
+		for (const result of await Promise.all(pending)) assert.ok(result);
+	}
+	assert.equal(fixture.pcmRequests.length, 3);
+});
+
 test('byte-bounded residency keeps more than eight simultaneously visible tiny clips', async () => {
 	const sources = Array.from({ length: 12 }, (_, index) => ({
 		...SOURCE,
@@ -241,6 +264,8 @@ test('byte-bounded residency keeps more than eight simultaneously visible tiny c
 function createFixture(options: Readonly<{
 	holdFirstGeneration?: boolean;
 	holdFirstPcmRead?: boolean;
+	extraClips?: readonly string[];
+	holdGenerationsUntil?: Promise<void>;
 }> = {}) {
 	const windows = new Map();
 	const pcmRequests: Array<Readonly<{ clipId: string; options: Readonly<Record<string, number>> }>> = [];
@@ -256,7 +281,8 @@ function createFixture(options: Readonly<{
 	let firstPcmSignal: AbortSignal | null = null;
 	let resolvePcmStarted: () => void = () => undefined;
 	const firstPcmReadStarted = new Promise<void>((resolve) => { resolvePcmStarted = resolve; });
-	let project = { id: 'project', clips: [{ ...CLIP, sourceStartFrame: 0 }], sources: [SOURCE] };
+	let project = { id: 'project', clips: [CLIP.id, ...options.extraClips ?? []].map(id => ({ ...CLIP, id, sourceStartFrame: 0 })),
+		sources: [{ ...SOURCE, frameCount: Number(SOURCE.frameCount) }] };
 	const service = createFrequencyWaveformWindowService({
 		findClip: (value, id) => value.clips.find((candidate) => candidate.id === id),
 		findSource: (value, id) => value.sources.find((candidate) => candidate.id === id),
@@ -278,19 +304,22 @@ function createFixture(options: Readonly<{
 				});
 			}
 			const shift = requestOptions.startFrame === 100 ? 0 : 10;
-			const visibleStartFrame = 2_000 + shift + requestOptions.sourcePaddingFrames;
+			const startFrame = 2_000 + shift;
+			const visibleStartFrame = startFrame + requestOptions.sourcePaddingFrames;
+			const endFrame = Math.min(project.sources[0]!.frameCount, visibleStartFrame + 8 + requestOptions.sourcePaddingFrames);
 			return {
 				clipId,
 				sourceId: SOURCE.id,
-				startFrame: 2_000 + shift,
-				endFrame: visibleStartFrame + 8 + requestOptions.sourcePaddingFrames,
+				startFrame,
+				endFrame,
 				visibleStartFrame,
 				visibleEndFrame: visibleStartFrame + 8,
-				channels: [new Float32Array(requestOptions.sourcePaddingFrames * 2 + 8)],
+				channels: [new Float32Array(endFrame - startFrame)],
 			};
 		},
 		generateWindow: async (_channels, _sampleRate, generationOptions) => {
 			generateCalls.push(generationOptions);
+			await options.holdGenerationsUntil;
 			if (options.holdFirstGeneration && !firstSignal) {
 				firstSignal = generationOptions.signal;
 				resolveStarted();
@@ -320,6 +349,7 @@ function createFixture(options: Readonly<{
 		remapClip(sourceStartFrame: number) {
 			project = { ...project, clips: [{ ...project.clips[0]!, sourceStartFrame }] };
 		},
+		resizeSource(frameCount: number) { project = { ...project, sources: [{ ...SOURCE, frameCount }] }; },
 	};
 }
 
