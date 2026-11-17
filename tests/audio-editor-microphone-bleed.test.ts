@@ -35,6 +35,19 @@ test('silence, constant signals, equally loud microphones and unrelated sounds d
 	}
 });
 
+test('a louder microphone prepares each lag window once per decision', context => {
+	const frameCount = 1600, contextFrames = 320, decisions = 10, lagCount = 81;
+	let seed = 837749;
+	const tracks = Array.from({ length: 8 }, (_, track) => [Float32Array.from({ length: frameCount + 2 * contextFrames }, () => {
+		seed = Math.imul(seed, 1664525) + 1013904223 | 0;
+		return .003 * 2 ** track * seed / 2 ** 31;
+	})]);
+	const slices = context.mock.method(Float32Array.prototype, 'slice');
+	const result = analyzeMicrophoneBleedBlock({ tracks, sampleRate: rate, offsetFrames: contextFrames, frameCount, options: {} });
+	assert.deepEqual(result, tracks.map(() => new Array<boolean>(decisions).fill(false)));
+	assert.ok(slices.mock.callCount() <= decisions * tracks.length * (1 + lagCount), 'different targets should share the same centered reference');
+});
+
 test('sparse curves hold speech open, anticipate interruptions, and join chunks without a seam', () => {
 	const decisions = Array.from({ length: 100 }, (_, i) => i < 50 || i >= 60);
 	const curves = buildMicrophoneBleedCurves([decisions], rate, 16000, {});

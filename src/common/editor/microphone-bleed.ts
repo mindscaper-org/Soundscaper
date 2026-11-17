@@ -61,12 +61,17 @@ export function analyzeMicrophoneBleedBlock(request: MicrophoneBleedBlock): bool
 		return output;
 	}));
 	const result = tracks.map(() => [] as boolean[]), lagLimit = Math.ceil(sampleRate * .01 / stride);
+	const lagCount = 2 * lagLimit + 1;
+	const shiftedWindows = new Array<ReturnType<typeof centered> | undefined>(tracks.length * lagCount);
 	for (let frame = 0; frame < frameCount; frame += hop) {
 		const center = Math.floor((offsetFrames + frame + hop / 2) / stride);
 		const start = Math.max(lagLimit, center - Math.floor(hop / stride));
 		const end = Math.min(decimated[0]![0]!.length - lagLimit, center + Math.floor(hop / stride));
 		const windows = decimated.map(channels => channels.map(channel => centered(channel, start, end))
 			.sort((a, b) => b.energy - a.energy)[0]!);
+		// All targets see the same selected reference channel and frame bounds in this hop.
+		shiftedWindows.fill(undefined);
+		for (const [index, window] of windows.entries()) shiftedWindows[index * lagCount + lagLimit] = window;
 		for (let target = 0; target < tracks.length; target++) {
 			const local = windows[target]!;
 			let duck = false;
@@ -76,7 +81,8 @@ export function analyzeMicrophoneBleedBlock(request: MicrophoneBleedBlock): bool
 					// Six dB of dominance is required in addition to waveform agreement.
 					if (other === target || reference.energy < local.energy * 4) continue;
 					for (let lag = -lagLimit; lag <= lagLimit && !duck; lag++) {
-						const shifted = centered(reference.channel, start + lag, end + lag);
+						const cacheIndex = other * lagCount + lag + lagLimit;
+						const shifted = shiftedWindows[cacheIndex] ??= centered(reference.channel, start + lag, end + lag);
 						let product = 0;
 						for (let index = 0; index < local.values.length; index++) product += local.values[index]! * shifted.values[index]!;
 						const similarity = Math.abs(product) / Math.sqrt(Math.max(1e-30, local.energy * shifted.energy));
