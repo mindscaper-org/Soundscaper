@@ -3,6 +3,7 @@
 import { sequenceFrameAtSample } from '../common/editor/sequence-frame-navigation.ts';
 import { projectTrackFolderMediaStateV12 } from '../common/editor/track-folder-media-runtime.ts';
 import type { AudioEditorProjectStore } from '../common/editor/storage.js';
+import { createFramescaperImageTimelineTickMapperV1 } from '../common/editor/timeline-image-model.ts';
 import type {
 	ProductVideoVisualPreviewCreateRequest,
 	ProductVideoVisualPreviewFrame,
@@ -17,7 +18,6 @@ import { createVisibleVideoTrackPredicate } from '../common/editor/video-track-v
 import {
 	fitFramescaperImagePreviewSizeTimelineImage,
 	framescaperImageSourceForClipTimelineImage,
-	mapFramescaperImageFrameAtSampleTimelineImage,
 	openFramescaperStoredImageFramePackTimelineImage,
 	scaleFramescaperImageRgbaTimelineImage,
 	throwIfFramescaperImagePreviewAbortedTimelineImage,
@@ -98,7 +98,7 @@ interface ImageClipPreviewTimelineImage {
 	readonly loaded: FramescaperImagePreviewFramesTimelineImage;
 	readonly trackId: string;
 	readonly trackIndex: number;
-	readonly sequenceRate: Readonly<{ readonly num: number; readonly den: number }>;
+	readonly sourceTicksAt: (sequenceFrame: number) => bigint;
 	readonly drawable: FramescaperImagePreviewDrawableTimelineImage;
 	lastFrameIndex: number;
 }
@@ -273,7 +273,8 @@ function imageClipContexts(project: FramescaperProjectTimelineImage): readonly O
 		if (!owner || !visible(owner)) continue;
 		const trackIndex = sequence.trackIds.indexOf(owner.id);
 		if (trackIndex < 0) throw new ReferenceError(`timelineImage image track ${owner.id} is outside its sequence.`);
-		output.push({ clip, trackId: owner.id, trackIndex, sequenceRate: sequence.rate });
+		output.push({ clip, trackId: owner.id, trackIndex,
+			sourceTicksAt: createFramescaperImageTimelineTickMapperV1(clip, sequence.rate) });
 		if (output.length > FRAMESCAPER_IMAGE_PREVIEW_MAXIMUM_CONTEXTS_TIMELINE_IMAGE) {
 			throw new RangeError('timelineImage image timeline preview exceeds its context count bound.');
 		}
@@ -316,9 +317,8 @@ function resolveImageFrame(
 		const clip = context.clip;
 		if (sequenceFrame < clip.sequenceStartFrame
 			|| sequenceFrame >= clip.sequenceStartFrame + clip.sequenceFrameCount) continue;
-		const address = mapFramescaperImageFrameAtSampleTimelineImage(
-			context.loaded.reader, clip, timelineSample, context.sequenceRate, project.sampleRate,
-		);
+		const sourceTicks = context.sourceTicksAt(sequenceFrame);
+		const address = { sourceTicks, frameIndex: context.loaded.reader.frameIndexAtTicks(sourceTicks) };
 		if (context.lastFrameIndex !== address.frameIndex) {
 			context.drawable.present(context.loaded.read(address.frameIndex));
 			context.lastFrameIndex = address.frameIndex;

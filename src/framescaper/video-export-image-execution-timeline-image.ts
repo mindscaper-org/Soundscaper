@@ -2,7 +2,7 @@
 
 import { confirmFileSizeWarning, type FileSizeWarningConfirmation, type FileSizeWarningOptions } from '../common/editor/controller/shared/file-size-warning.ts';
 import {
-	mapFramescaperImageTimelineFrameV1,
+	createFramescaperImageTimelineTickMapperV1,
 	type FramescaperImageClipV1,
 	type FramescaperImageSourceV1,
 } from '../common/editor/timeline-image-model.ts';
@@ -28,6 +28,7 @@ interface ImageContextTimelineImage {
 	readonly clip: FramescaperImageClipV1;
 	readonly source: FramescaperImageSourceV1;
 	readonly reader: FramescaperImageFramePackReaderV1;
+	readonly sourceTicksAt: (sequenceFrame: number) => bigint;
 	readonly trackId: string;
 	readonly trackIndex: number;
 }
@@ -97,7 +98,8 @@ export async function createFramescaperVideoExportImageExecutionTimelineImage(op
 				readers.set(source.id, reader);
 			}
 			assertReady(options);
-			contexts.push({ ...item, source, reader });
+			const sourceTicksAt = createFramescaperImageTimelineTickMapperV1(item.clip, sequenceRate(project, item.clip.sequenceId));
+			contexts.push({ ...item, source, reader, sourceTicksAt });
 		}
 	} catch (error) {
 		disposeExecutionState(contexts, readers, frameCache);
@@ -115,7 +117,7 @@ export async function createFramescaperVideoExportImageExecutionTimelineImage(op
 				assertReady({ ...options, signal: request.signal });
 				assertCanvas(options.foundationPlan, request.width, request.height);
 				const sequenceFrame = floorRational(request.sequencePosition);
-				const resolved = resolvedImageContexts(contexts, project, sequenceFrame);
+				const resolved = resolvedImageContexts(contexts, sequenceFrame);
 				admitResolvedImageFrames(resolved, resources, request.width, request.height);
 				retainCachedFrames(frameCache, new Set(resolved.map(({ context, frameIndex }) => (
 					imageFrameKey(context.source.id, frameIndex)
@@ -283,20 +285,13 @@ async function linearFrame(
 
 function resolvedImageContexts(
 	contexts: readonly ImageContextTimelineImage[],
-	project: FramescaperProjectTimelineImage,
 	sequenceFrame: number,
 ): readonly ResolvedImageContextTimelineImage[] {
 	return Object.freeze(contexts.flatMap((context) => {
 		const { clip } = context;
 		if (sequenceFrame < clip.sequenceStartFrame
 			|| sequenceFrame >= clip.sequenceStartFrame + clip.sequenceFrameCount) return [];
-		const address = mapFramescaperImageTimelineFrameV1({
-			clip,
-			sequenceFrame,
-			sequenceRate: sequenceRate(project, clip.sequenceId),
-			timings: context.reader.timings,
-		});
-		return [{ context, frameIndex: address.frameIndex }];
+		return [{ context, frameIndex: context.reader.frameIndexAtTicks(context.sourceTicksAt(sequenceFrame)) }];
 	}));
 }
 
