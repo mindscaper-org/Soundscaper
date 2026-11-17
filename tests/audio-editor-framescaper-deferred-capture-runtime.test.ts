@@ -31,7 +31,7 @@ interface Harness {
 	release(): void;
 }
 
-function fakeBinding(calls: string[], onInitialize?: () => void): FramescaperCaptureBinding {
+function fakeBinding(calls: string[], onInitialize?: () => void, disposeFailure?: Error): FramescaperCaptureBinding {
 	const actions = Object.fromEntries([
 		'openSetup', 'selectDisplaySource', 'configure', 'setSetupDefaults', 'arm', 'resetFailure',
 		'requestPreview', 'listDisplaySources', 'selectDevice', 'configureSource', 'release', 'start',
@@ -57,7 +57,10 @@ function fakeBinding(calls: string[], onInitialize?: () => void): FramescaperCap
 		get webVcrSnapshot() { return { capability: { status: 'available', reason: null }, marker: 'loaded' }; },
 		get webVcrActions() { return webVcrActions; },
 		initialize: async () => { calls.push('initialize'); onInitialize?.(); },
-		dispose: async () => { calls.push('dispose'); },
+		dispose: async () => {
+			calls.push('dispose');
+			if (disposeFailure) throw disposeFailure;
+		},
 		originSnapshot: (projectId?: string | null) => ({ marker: 'loaded', activeProjectId: projectId ?? null }),
 		assertOriginEditAllowed: (projectId: string) => { calls.push(`edit:${projectId}`); },
 		assertOriginCloseAllowed: (projectId: string) => { calls.push(`close:${projectId}`); },
@@ -76,6 +79,7 @@ function harness(options: Readonly<{
 	readonly probeFailure?: Error;
 	readonly loadFailure?: Error;
 	readonly initializeFailure?: Error;
+	readonly disposeFailure?: Error;
 }> = {}): Harness {
 	const calls: string[] = [];
 	const warnings: unknown[] = [];
@@ -95,7 +99,7 @@ function harness(options: Readonly<{
 			createAppBinding: () => fakeBinding(calls, () => {
 				initializations += 1;
 				if (initializations === 1 && options.initializeFailure) throw options.initializeFailure;
-			}),
+			}, options.disposeFailure),
 			createDerivativeScheduler: () => async () => { calls.push('scheduled'); },
 		} as unknown as typeof FRAMESCAPER_EDITOR_CAPTURE_IMPLEMENTATION;
 	};
@@ -201,6 +205,20 @@ test('failed capture initialization disposes its partial binding and permits ret
 	await fixture.binding.initialize();
 	assert.deepEqual(fixture.calls, ['initialize', 'dispose', 'initialize']);
 	assert.equal(fixture.loads, 1);
+});
+
+test('failed capture cleanup retains both failures and the initialization cause', async () => {
+	const initializeFailure = new Error('capture initialization failed');
+	const disposeFailure = new Error('capture cleanup failed');
+	const fixture = harness({ desktopBridge: {}, initializeFailure, disposeFailure });
+	fixture.release();
+	await assert.rejects(fixture.binding.initialize(), (error: unknown) => {
+		assert.ok(error instanceof AggregateError);
+		assert.equal(error.cause, initializeFailure);
+		assert.deepEqual(error.errors, [initializeFailure, disposeFailure]);
+		return true;
+	});
+	assert.deepEqual(fixture.calls, ['initialize', 'dispose']);
 });
 
 test('closing during a deferred preview prevents the retired gesture from opening a source', async () => {

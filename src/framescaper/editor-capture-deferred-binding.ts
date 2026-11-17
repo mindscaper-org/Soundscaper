@@ -126,11 +126,14 @@ export function createDeferredFramescaperCaptureAppBinding(
 					await binding.initialize();
 					assertAlive();
 				} catch (error) {
-					try { await binding.dispose(); }
-					catch (cleanupError) {
-						throw new AggregateError([error, cleanupError], 'Framescaper capture initialization and cleanup failed.', { cause: error });
+					let failure = error;
+					try {
+						await binding.dispose();
+					} catch (cleanupError) {
+						failure = new AggregateError([error, cleanupError],
+							'Framescaper capture initialization and cleanup failed.', { cause: error });
 					}
-					throw error;
+					throw failure;
 				}
 				loaded = binding;
 				for (const replay of journal.splice(0)) {
