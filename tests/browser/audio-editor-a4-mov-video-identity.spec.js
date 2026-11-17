@@ -15,12 +15,19 @@ for (const variant of ['generic', 'proper', 'audio']) test(`ordinary ${variant} 
 	await expect(editor.locator('[data-clip-kind="video"]')).toHaveCount(variant === 'audio' ? 0 : 1);
 	if (variant !== 'audio') {
 		const image = editor.locator('.audio-editor-video-clip__filmstrip img').first();
-		await expect.poll(() => image.evaluate(value => value.complete && value.naturalWidth === 64 && value.naturalHeight === 32)).toBe(true);
-		const rgba = await image.evaluate(value => {
-			const canvas = document.createElement('canvas'); canvas.width = value.naturalWidth; canvas.height = value.naturalHeight;
-			const context = canvas.getContext('2d'); context.drawImage(value, 0, 0);
-			return [...context.getImageData(32, 16, 1, 1).data];
-		});
+		let rgba = [];
+		await expect.poll(async () => {
+			rgba = await image.evaluate(async value => {
+				if (!value.complete || value.naturalWidth !== 64 || value.naturalHeight !== 32) return [];
+				const source = value.currentSrc;
+				try { await value.decode(); } catch { return []; }
+				if (value.currentSrc !== source) return [];
+				const canvas = document.createElement('canvas'); canvas.width = value.naturalWidth; canvas.height = value.naturalHeight;
+				const context = canvas.getContext('2d'); context.drawImage(value, 0, 0);
+				return [...context.getImageData(32, 16, 1, 1).data];
+			});
+			return rgba[0] < 40 && rgba[1] > 60 && rgba[1] < 100 && rgba[2] > 200 && rgba[3] === 255;
+		}, { message: 'The decoded filmstrip must present the fixture blue frame.' }).toBe(true);
 		// Authored RGB20/80/220 remains blue after H264 and the existing WebP filmstrip encoding.
 		expect(rgba[0]).toBeLessThan(40); expect(rgba[1]).toBeGreaterThan(60); expect(rgba[1]).toBeLessThan(100);
 		expect(rgba[2]).toBeGreaterThan(200); expect(rgba[3]).toBe(255);
