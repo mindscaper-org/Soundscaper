@@ -24,6 +24,7 @@ import { midiTransferExtensions } from '../../commands/midi-transfer-context.ts'
 import { prepareMidiTransferPublication } from './internal/midi-transfer-publication.ts';
 import { midiWarpNoteGrowth } from './internal/midi-warp-note-growth.ts';
 import { deliverMidiFile } from './internal/midi-file-delivery.ts';
+import { midiPreviewData } from './internal/midi-preview-data.ts';
 import type { MidiProject, MidiService, MidiServiceDependencies } from './midi-service-types.ts';
 
 type ImportedMidiTrack = Readonly<{ name: string; data: MidiClipData; program?: number; durationFrames?: number }>;
@@ -130,10 +131,11 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 				commitOwned({ type: 'batch', commands });
 			} catch (error) { await rollbackSources(sources, error); }
 		}),
-		previewNote: async (pitch, instrument = 'triangle', signal) => {
+		previewNote: async (pitch, instrument = 'triangle', signal, target) => {
 			signal?.throwIfAborted();
 			if (!Number.isSafeInteger(pitch) || pitch < 0 || pitch > 127) throw new RangeError('Invalid MIDI preview pitch.');
-			await dependencies.previewNote(pitch, normalizeMidiTrackData({ version: 1, instrument }).instrument, signal);
+			await dependencies.previewNote(pitch, normalizeMidiTrackData({ version: 1, instrument }).instrument, signal,
+				target ? midiPreviewData(requireProject().clips, target, pitch) : undefined);
 		},
 		importDocument: (document, options = {}) => {
 			const detached = structuredClone(document);

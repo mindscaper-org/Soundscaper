@@ -90,6 +90,10 @@ libraries. libADLMIDI uses its Nuked slim build without embedded game banks.
 FluidSynth uses the build without libsndfile, with chorus and reverb disabled;
 ordinary track effects remain available.
 
+Selected-note auditions retain the note's MIDI channel and the program and
+controller setup at its onset, including its port destination. They use the
+requested pitch even while a piano-roll pitch edit is still publishing.
+
 Desktop packages also include Surge XT 1.3.4 and Dexed 1.1.0 as VST3 instruments.
 They appear in the same Instrument selector and its **Instrument settings** entry,
 only for MIDI tracks. Instruments never appear in the effects manager. Surge XT

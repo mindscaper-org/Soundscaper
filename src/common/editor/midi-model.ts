@@ -46,6 +46,8 @@ export interface MidiTrackData {
 	readonly program?: number;
 }
 
+export interface MidiPreviewTarget { readonly clipId: string; readonly noteId?: string }
+
 type Carrier = Readonly<Record<string, unknown>>;
 const ABSENT_MIDI_DATA = Symbol('absent-midi-data');
 
