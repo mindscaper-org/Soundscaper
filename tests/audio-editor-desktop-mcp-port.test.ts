@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { AUDIO_EDITOR_COMMAND_TYPES } from '../src/common/editor/commands/protocol.ts';
 import { createSoundscaperDesktopMcpPort } from '../src/common/editor/desktop-mcp-port.ts';
+import { deferred } from './helpers/async-test-control.ts';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 
 function fixture(metadataNote = 'safe') {
@@ -175,7 +176,7 @@ test('desktop MCP snapshots valid command batches before normal commit', async (
 test('desktop MCP awaits asynchronous command publication and reports its failure', async () => {
 	for (const reject of [false, true]) {
 		let project = { id: 'project', title: 'Project', revision: 2 };
-		const pending = Promise.withResolvers<void>();
+		const pending = deferred<void>();
 		const responses: Array<{ success: boolean; result?: unknown; error?: string }> = [];
 		let listener: ((request: { requestId: string; operation: string; args: unknown }) => void) | undefined;
 		const port = createSoundscaperDesktopMcpPort({
@@ -191,12 +192,12 @@ test('desktop MCP awaits asynchronous command publication and reports its failur
 			await new Promise(resolve => setImmediate(resolve));
 			assert.deepEqual(responses, []);
 			if (reject) pending.reject(new Error('MIDI rendering failed'));
-			else pending.resolve();
+			else pending.resolve(undefined);
 			await new Promise(resolve => setImmediate(resolve));
 			if (reject) assert.deepEqual(responses, [{ requestId: 'move', success: false, error: 'MIDI rendering failed' }]);
 			else assert.deepEqual(responses, [{ requestId: 'move', success: true, result: { projectId: 'project', revision: 3 } }]);
 		} finally {
-			pending.resolve();
+			pending.resolve(undefined);
 			port.dispose();
 		}
 	}

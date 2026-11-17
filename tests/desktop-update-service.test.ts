@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DesktopUpdateService } from '../desktop/update-service.ts';
+import { deferred } from './helpers/async-test-control.ts';
 
 function fixture(response = 2, portable = false, policyAllowed = true) {
 	const calls: string[] = [];
@@ -19,7 +20,7 @@ function fixture(response = 2, portable = false, policyAllowed = true) {
 
 test('a manual check joining startup retains requested current or error feedback', async () => {
 	for (const status of ['current', 'error', 'offline']) {
-		const result = Promise.withResolvers<{ status: string }>();
+		const result = deferred<{ status: string }>();
 		const messages: string[] = [];
 		let checks = 0;
 		const service = new DesktopUpdateService({ appName: 'Soundscaper', portable: false, windowsStore: false,
