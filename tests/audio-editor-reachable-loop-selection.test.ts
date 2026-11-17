@@ -53,5 +53,5 @@ test('Set Selection to Loop Region keeps the chosen audio tracks', async context
 	assert.deepEqual([selection?.startFrame, selection?.endFrame], [24_000, 36_000]);
 	assert.deepEqual(selection?.trackIds, trackIds);
 	controller.actions.edit.deleteLeaveGap();
-	assert.equal(controller.project?.tracks.filter(track => track.clipIds?.length === 2).length, 2);
+	assert.equal(controller.project?.tracks.filter(track => Array.isArray(track.clipIds) && track.clipIds.length === 2).length, 2);
 });

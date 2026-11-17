@@ -67,7 +67,8 @@ test('Edit Duplicate preserves the exact musical beats at unchanged label edges'
 	assert.ok(validateSoundscaperProject(project));
 	const duplicate = project.tracks.find(track => track.id !== 'script');
 	assert.ok(duplicate, controller.getSnapshot().status.message);
-	const label: unknown = duplicate.labels?.[0];
+	assert.ok(Array.isArray(duplicate.labels));
+	const label: unknown = duplicate.labels[0];
 	assert.ok(record(label));
 	assert.deepEqual(label.startBeat, { num: 5, den: 24 });
 	assert.deepEqual(label.endBeat, { num: 4, den: 7 });
