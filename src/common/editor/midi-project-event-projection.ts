@@ -7,9 +7,9 @@ import { createMidiPerformanceStateProjection, isMidiPerformanceStateEvent } fro
 interface OrderedEvent { readonly event: MidiFileEvent; readonly index: number }
 
 /** One export clip owns its ordering and at most three loop-edge source windows. */
-export function createMidiClipEventProjection(interchange: MidiClipInterchange | undefined) {
+export function createMidiClipEventProjection(interchange: MidiClipInterchange | undefined, volumeDefault = 127) {
 	const events = [...(interchange?.events ?? [])].sort(byFrame);
-	const performance = createMidiPerformanceStateProjection(events);
+	const performance = createMidiPerformanceStateProjection(events, volumeDefault);
 	const portRouted = events.some(event => event.status === 255 && event.metaType === 0x21 && event.data[0] !== 0);
 	const portPerformance = portRouted && events.some(isMidiPerformanceStateEvent);
 	const portPatchSetup = portRouted && events.some(isMidiPatchSetup);

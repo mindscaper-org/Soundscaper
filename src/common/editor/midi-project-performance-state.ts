@@ -9,9 +9,9 @@ export function isMidiPerformanceStateEvent(event: MidiFileEvent): boolean {
 	return (event.status & 240) === 224 || ((event.status & 240) === 176 && [7, 10, 11, 64, 121].includes(event.data[0]!));
 }
 
-export function createMidiPerformanceStateProjection(events: readonly MidiFileEvent[]) {
+export function createMidiPerformanceStateProjection(events: readonly MidiFileEvent[], volumeDefault = 127) {
 	const defaults = new Map<string, MidiFileEvent>();
-	for (const event of events) for (const change of changes(event)) defaults.set(key(change), defaultState(change));
+	for (const event of events) for (const change of changes(event)) defaults.set(key(change), defaultState(change, volumeDefault));
 	const windows = new Map<string, Readonly<{ state: readonly MidiFileEvent[]; undo: readonly MidiFileEvent[] }>>();
 	return {
 		initial(frame: number): MidiFileEvent[] { return [...defaults.values()].map(event => ({ ...event, frame })); },
@@ -48,8 +48,8 @@ function changes(event: MidiFileEvent): readonly MidiFileEvent[] {
 
 function key(event: MidiFileEvent): string { return `${event.status}:${(event.status & 240) === 176 ? event.data[0] : ''}`; }
 
-function defaultState(event: MidiFileEvent): MidiFileEvent {
-	return { ...event, frame: 0, data: (event.status & 240) === 224 ? [0, 64] : [event.data[0]!, event.data[0] === 10 ? 64 : event.data[0] === 64 ? 0 : 127] };
+function defaultState(event: MidiFileEvent, volumeDefault = 127): MidiFileEvent {
+	return { ...event, frame: 0, data: (event.status & 240) === 224 ? [0, 64] : [event.data[0]!, event.data[0] === 7 ? volumeDefault : event.data[0] === 10 ? 64 : event.data[0] === 64 ? 0 : 127] };
 }
 
 export interface MidiPerformanceOccurrence {

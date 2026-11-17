@@ -45,6 +45,7 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 		const metadata = readMidiTrack(track);
 		if (!metadata) return [];
 		const trackIndex = exportedTracks++;
+		const volumeDefault = metadata.instrument === 'fluidsynth' || metadata.instrument === 'libadlmidi' ? 100 : 127;
 		const notes: MidiFileDocument['tracks'][number]['notes'][number][] = [];
 		const events: MidiFileEvent[] = [];
 		let durationFrames = 0;
@@ -53,7 +54,7 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 			const data = readMidiClip(persistedClip);
 			if (!persistedClip || !data) continue;
 			const source = sourcesById.get(String(persistedClip.sourceId));
-			const eventProjection = createMidiClipEventProjection(data.interchange);
+			const eventProjection = createMidiClipEventProjection(data.interchange, volumeDefault);
 			const noteProjection = createMidiClipNoteProjection(data);
 			const importedRootTempo = data.interchange && midiInitialTimingEvent(data.interchange.tempos);
 			const preserveTempos = !timing.hasTempoChanges && importedRootTempo && Math.abs(importedRootTempo.bpm - timing.tempos[0]!.bpm) < 0.000001;
@@ -78,7 +79,7 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 				}
 				const visible = eventProjection.events(start, sourceFrames, timelineStart, global, initializePerformance);
 				occurrences.push({ track: trackIndex, start: timelineStart, end: timelineEnd, notes: notes.slice(firstOccurrenceNote), events: visible,
-					volumeDefault: metadata.instrument === 'fluidsynth' || metadata.instrument === 'libadlmidi' ? 100 : 127,
+					volumeDefault,
 					eligible: Boolean(source && source.sampleRate === project.sampleRate && start === 0 && sourceFrames === source.frameCount
 						&& timelineEnd - timelineStart === sourceFrames && initializePerformance !== true && persistedClip.reversed !== true && persistedClip.warpMap == null) });
 				reserveEvents(visible.length);
