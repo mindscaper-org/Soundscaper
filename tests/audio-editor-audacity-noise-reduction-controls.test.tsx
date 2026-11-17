@@ -16,8 +16,8 @@ test('noise reduction presents the pinned second-step instructions and renders e
 	assert.match(markup, /<h3[^>]*>Step 2<\/h3>/u);
 	assert.match(markup, /Select all of the audio you want filtered/u);
 	assert.match(markup, /role="radiogroup" aria-label="Output"/u);
-	assert.match(markup, /<input[^>]*value="reduce"[^>]*\/>[^<]*Audio with noise removed/u);
-	assert.match(markup, /<input(?=[^>]*value="residue")(?=[^>]*checked="")[^>]*\/>[^<]*Noise only/u);
+	assert.match(markup, /<label[^>]*><input[^>]*value="reduce"[^>]*\/><span[^>]*>Audio with noise removed<\/span><\/label>/u);
+	assert.match(markup, /<label[^>]*><input(?=[^>]*value="residue")(?=[^>]*checked="")[^>]*\/><span[^>]*>Noise only<\/span><\/label>/u);
 });
 
 test('noise reduction announces the active reduce mode and disables its output choices with the effect', () => {

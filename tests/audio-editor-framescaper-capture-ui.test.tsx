@@ -103,8 +103,8 @@ test('Inputs setup exposes combined camera and microphone capture without implic
 		copy={ENGLISH_COPY} run={(operation) => operation()} />);
 	assert.deepEqual(calls, []);
 	assert.match(markup, />Inputs setup</u);
-	assert.match(markup, /type="checkbox"[^>]*checked=""[^>]*\/><span>Camera<\/span>/u);
-	assert.match(markup, /type="checkbox"[^>]*checked=""[^>]*\/><span>Microphone<\/span>/u);
+	assert.match(markup, /<label><input type="checkbox"[^>]*checked=""[^>]*\/><span[^>]*>Camera<\/span><\/label>/u);
+	assert.match(markup, /<label><input type="checkbox"[^>]*checked=""[^>]*\/><span[^>]*>Microphone<\/span><\/label>/u);
 	assert.match(markup, />Preview sources</u);
 	assert.match(markup, /aria-label="Speakers"/u);
 });
