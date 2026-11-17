@@ -91,6 +91,8 @@ export function createDesktopVampAnalysisAction(options: Readonly<{
 			assertProject(options.getProject(), input.projectId, input.projectRevision);
 			signal.throwIfAborted();
 			const catalog = await loadCatalog();
+			signal.throwIfAborted();
+			assertProject(options.getProject(), input.projectId, input.projectRevision);
 			const row = configurations.get(catalogKey(request));
 			if (row === undefined || !catalog.some((candidate) => catalogKey(candidate) === catalogKey(request))) {
 				throw new Error('The selected Vamp analyzer installation is no longer available.');
@@ -98,7 +100,7 @@ export function createDesktopVampAnalysisAction(options: Readonly<{
 			if (!row.outputs.some(({ id }) => id === request.outputId)) {
 				throw new Error('The selected Vamp output is no longer available.');
 			}
-			const rendered = await renderSelection(options.engine, input, request);
+			const rendered = await renderSelection(options.engine, input, request, signal);
 			signal.throwIfAborted();
 			assertProject(options.getProject(), input.projectId, input.projectRevision);
 			const channels = admitRenderedChannels(rendered, request.endFrame - request.startFrame,
@@ -241,9 +243,10 @@ function renderSelection(
 	engine: VampActionEngine,
 	input: Readonly<DesktopVampAnalysisInput>,
 	request: Readonly<VampAnalysisRequest>,
+	signal: AbortSignal,
 ): Promise<RenderedAudio> {
 	const options = Object.freeze({
-		startFrame: request.startFrame, endFrame: request.endFrame,
+		startFrame: request.startFrame, endFrame: request.endFrame, signal,
 		includeTail: false, preRollFrames: Math.min(request.startFrame, request.sampleRate * 10),
 	});
 	if (request.scope === 'track') {
