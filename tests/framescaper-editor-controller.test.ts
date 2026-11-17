@@ -236,6 +236,7 @@ test('a presentation file service drives the desktop video-still picker with the
 	const controller = await controllerWith({
 		fileService: {
 			isDesktop: true,
+			getEnvironment: () => null,
 			chooseFiles: async (request: unknown) => { requests.push(request); return []; },
 			withReadDescriptors: async () => [],
 		},
@@ -249,7 +250,7 @@ test('a presentation file service drives the desktop video-still picker with the
 });
 
 test('a desktop file service without bounded read capabilities is refused', async () => {
-	const controller = await controllerWith({ fileService: { isDesktop: true } });
+	const controller = await controllerWith({ fileService: { isDesktop: true, getEnvironment: () => null } });
 	await controller.ready;
 	assert.ok(controller.project);
 

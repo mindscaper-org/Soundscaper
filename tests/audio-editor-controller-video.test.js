@@ -290,7 +290,7 @@ test('desktop video export API and generic FFmpeg dispatch stage raw media and a
 	const ffmpeg = createVideoMemoryFfmpeg();
 	const renderCalls = [], downloads = [], cleanups = [];
 	const fileService = {
-		isDesktop: true,
+		isDesktop: true, getEnvironment: () => null,
 		getDesktopVideoExportCapabilities: availableDesktopVideoExportCapabilities,
 		async createDownload(request) {
 			downloads.push(request);
