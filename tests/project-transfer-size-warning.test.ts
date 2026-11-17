@@ -12,6 +12,7 @@ import { receiveTransferArchives } from '../src/common/transfer/transfer-session
 import { confirmFileSizeWarning } from '../src/common/editor/controller/shared/file-size-warning.ts';
 import { negotiateTransferSizeOffer } from '../src/common/transfer/project-transfer-size-warning.ts';
 import { PROJECT_TRANSFER_MAX_ENTRY_BYTES } from '../src/common/transfer/project-transfer-handshake-wire.ts';
+import { deferred } from './helpers/async-test-control.ts';
 
 function wire() {
 	const subscribers = [new Set<(message: ProjectTransferInboundMessage) => void>(), new Set<(message: ProjectTransferInboundMessage) => void>()];
@@ -130,4 +131,27 @@ test('manual transfer warnings precede reads and accepted files retain exact bod
 	const invalid = await importTransferArchiveFiles({ runtime, store, files: [{ ...file, byteLength: bytes.byteLength + 1 }],
 		maximumEntryBytes: 1, confirmFileSizeWarning: async () => true });
 	assert.equal(invalid.completed, false); assert.match(invalid.stopped?.reason ?? '', /declared.*but read/);
+});
+
+test('manual transfer cancellation settles without waiting for a pending file read', async () => {
+	const runtime = runtimeFor(createFakeArchive());
+	const store = new FakeStore();
+	const bytes = archiveBytes({ id: 'project', title: 'Project' });
+	const readStarted = deferred<void>();
+	const read = deferred<Uint8Array>();
+	const abort = new AbortController();
+	const reason = new DOMException('Cancel manual import', 'AbortError');
+	const importing = importTransferArchiveFiles({
+		runtime, store, signal: abort.signal,
+		files: [{ name: 'project.scape', byteLength: bytes.byteLength, read: () => { readStarted.resolve(); return read.promise; } }],
+	}).catch((error: unknown) => error);
+	await readStarted.promise;
+	abort.abort(reason);
+	const outcome = await Promise.race([importing, new Promise(resolve => setImmediate(resolve, 'pending'))]);
+	read.resolve(bytes);
+	assert.deepEqual(outcome, {
+		completed: false, entries: [], failed: 0, imported: 0, skipped: 0, total: 0,
+		stopped: { code: 'aborted', index: 0, reason: reason.message },
+	});
+	assert.equal(store.projects.size, 0);
 });

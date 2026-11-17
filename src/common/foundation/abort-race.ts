@@ -21,7 +21,10 @@ export function raceAbortablePromise<Value>(
 	abortReason: AbortReasonSelector = signalAbortReason,
 ): Promise<Value> {
 	if (!signal) return Promise.resolve(operation);
-	return raceAbortable(() => operation, signal, abortReason, 'immediate');
+	const started = Promise.resolve(operation);
+	// This operation already owns work even if cancellation wins before the race starts.
+	void started.catch(() => undefined);
+	return raceAbortable(() => started, signal, abortReason, 'immediate');
 }
 
 function raceAbortable<Value>(

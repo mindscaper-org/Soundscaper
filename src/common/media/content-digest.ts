@@ -3,6 +3,7 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { createAbortGuard } from '../foundation/abort-error.ts';
+import { raceAbortableRead } from '../foundation/abort-race.ts';
 
 const nativeBlobSlice = Blob.prototype.slice;
 const nativeBlobSize = Object.getOwnPropertyDescriptor(Blob.prototype, 'size')?.get;
@@ -82,7 +83,7 @@ export async function digestMediaContent(
 		}
 		let buffer: ArrayBuffer;
 		try {
-			buffer = await part.arrayBuffer();
+			buffer = await raceAbortableRead(() => part.arrayBuffer(), signal, 'immediate');
 		} catch (error) {
 			throwIfAborted(signal);
 			throw error;

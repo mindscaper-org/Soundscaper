@@ -21,6 +21,7 @@ import {
 } from './transfer-archive-stream.ts';
 import { TransferManualImportRefusalError } from './transfer-manual-refusal.ts';
 import { confirmFileSizeWarning, type FileSizeWarningConfirmation } from '../editor/controller/shared/file-size-warning.ts';
+import { raceAbortableRead } from '../foundation/abort-race.ts';
 
 const DEFAULT_MAXIMUM_ENTRIES = 512;
 const DEFAULT_MAXIMUM_ENTRY_BYTES = 512 * 1024 * 1024;
@@ -200,7 +201,7 @@ async function readManualFile(
 	let bytes: unknown;
 	try {
 		signal?.throwIfAborted();
-		bytes = await source.read();
+		bytes = await raceAbortableRead(() => source.read(), signal, 'immediate');
 		signal?.throwIfAborted();
 	} catch (error) {
 		if (signal?.aborted) throw error;
