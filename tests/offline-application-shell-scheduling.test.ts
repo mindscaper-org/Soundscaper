@@ -68,7 +68,9 @@ test('default scheduling waits for document load, editor readiness, and browser 
 			constructor(callback: () => void) { notifyMutation = callback; }
 			observe(target: unknown, options: MutationObserverInit): void {
 				assert.equal(target, root);
-				assert.deepEqual(options, { childList: true, subtree: true });
+				assert.equal(options.childList, true);
+				assert.equal(options.subtree, true);
+				assert.ok(options.attributeFilter?.includes('data-audio-editor-bound'));
 				observed = true;
 			}
 			disconnect(): void { disconnected = true; }

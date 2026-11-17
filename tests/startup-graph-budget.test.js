@@ -126,6 +126,16 @@ test('the product-ready graph excludes synth libraries reached only on instrumen
 	}
 });
 
+test('the product-ready graph excludes registration work deferred until application readiness', () => {
+	const bundle = fixtureBundle();
+	addProductBootstrap(bundle, 'soundscaper');
+	bundle['assets/shared.js'].modules['/workspace/src/common/offline/application-shell.ts'] = {};
+	assert.throws(
+		() => assertProductionStartupGraphs(bundle, 'soundscaper'),
+		/product-ready graph loads deferred offline shell registration/u,
+	);
+});
+
 test('the emitted Framescaper project-command chunk cannot reciprocally import a feature chunk', () => {
 	const bundle = fixtureBundle();
 	bundle['assets/framescaper-project-commands.js'] = chunk({

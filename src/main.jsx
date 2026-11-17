@@ -8,7 +8,6 @@ import {
 } from './common/site/application-ready-scheduler.js';
 import { BUILT_PRODUCT_ID, resolveApplicationRoute } from './common/site/route.js';
 import { editorStartupProgress } from './common/site/editor-startup-progress.ts';
-import { scheduleOfflineApplicationShellRegistration } from './common/offline/application-shell.ts';
 import { installStaleBuildDetection } from './common/offline/stale-build-runtime.ts';
 
 const applicationRoot = document.getElementById('app');
@@ -37,9 +36,15 @@ installStaleBuildDetection({ moduleUrl: import.meta.url });
 const route = await resolveApplicationRoute(window);
 applyDocumentRoute(route);
 createRoot(applicationRoot).render(<App route={route} />);
-if (import.meta.env.PROD) {
-	void scheduleOfflineApplicationShellRegistration({
-		desktop: route.desktop,
-		productId: route.productId,
-	});
+if (import.meta.env.PROD && !route.desktop) {
+	const scheduleOfflineShell = () => {
+		void import('./common/offline/application-shell.ts')
+			.then(({ scheduleOfflineApplicationShellRegistration }) => scheduleOfflineApplicationShellRegistration({
+				desktop: false,
+				productId: route.productId,
+			}))
+			.catch(() => undefined);
+	};
+	if (applicationReady) scheduleOfflineShell();
+	else window.addEventListener(APPLICATION_READY_EVENT, scheduleOfflineShell, { once: true });
 }

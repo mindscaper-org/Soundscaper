@@ -273,6 +273,9 @@ export function assertProductGraphOwnership(product, graph) {
 	if (synthModule) {
 		throw new Error(`${product} product-ready graph loads the on-demand MIDI synthesizer module ${synthModule}.`);
 	}
+	if (moduleIds.some((moduleId) => moduleId.endsWith('/src/common/offline/application-shell.ts'))) {
+		throw new Error(`${product} product-ready graph loads deferred offline shell registration.`);
+	}
 }
 
 /**
