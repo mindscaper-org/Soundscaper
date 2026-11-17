@@ -11,6 +11,7 @@ export interface ResolvedSubprojectNode {
 type LoadProject = (id: string) => Promise<SubprojectDocument | null>;
 type DigestProject = (project: SubprojectDocument, descendants: readonly string[]) => string;
 const MAX_VISITED_NODES = 256;
+const MAX_CACHED_DOCUMENTS = 32;
 
 /** Share committed reads within one inspection. Publication starts a fresh inspection. */
 export function cacheSubprojectDocumentReads(load: LoadProject): LoadProject {
@@ -19,7 +20,7 @@ export function cacheSubprojectDocumentReads(load: LoadProject): LoadProject {
 		const cached = reads.get(id);
 		if (cached) return cached;
 		const pending = load(id);
-		if (reads.size < MAX_VISITED_NODES) reads.set(id, pending);
+		if (reads.size < MAX_CACHED_DOCUMENTS) reads.set(id, pending);
 		return pending;
 	};
 }
