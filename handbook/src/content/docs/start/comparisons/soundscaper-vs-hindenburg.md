@@ -43,9 +43,9 @@ sidebar:
 | Markers and named regions | + | + |
 | Tempo and time-signature maps | + | / |
 | Track templates with routing | / | / |
-| Named session snapshots | + — :: Named editing states share the same audio. File > Session snapshots creates, restores, renames, and deletes snapshots; native project files preserve them. | / |
+| Named session snapshots | + — :: File → Session snapshots creates, restores, renames, and deletes named editing states. Snapshots share audio and retain media removed from the current edit, including through consolidation and .sscape saves. | / |
 | Selection and view memories | ~ — Macro programs :: Saved programs can remember selections and timeline views in their own source; no dedicated memory-location manager. | / |
-| Nested subprojects with automatic proxy updates | / | / |
+| Nested subprojects with automatic proxy updates | + — Audio proxies :: File → Subprojects links saved local projects and refreshes their audio after child saves. Updates keep the published range; portable parents carry proxy audio and editable children travel separately. Active native plug-ins in a child must first be committed to audio. | / |
 
 Before moving a desktop project, [consolidate its media](/projects-and-data/project-files/).
 
@@ -111,7 +111,7 @@ Hover for limits. Include any referenced media when sharing projects.
 | Linked-track edit groups | ~ — Folder edits :: Explicit edits can target all folder descendants; ordinary edits on one child do not propagate to siblings. No persistent linked-track groups. | ~ — Region groups |
 | Beat slicing and gap smoothing | / | / |
 | Offline effect render handles | / | / |
-| Non-destructive clip effects | / | / |
+| Non-destructive clip effects | + — Clip racks :: Clip properties → Effects adds editable processing before the track rack, with per-effect and rack bypass; .sscape saves preserve it. Native plug-ins retain their desktop runtime and offline-render requirements. | / |
 | Place audio at its BWF timestamp | + — On import :: Uses BWF TimeReference relative to the project origin unless an explicit import position is supplied. | / |
 
 Import [Audacity shortcuts](/reference/generated/commands/) in Preferences; review conflicts before applying.
@@ -149,9 +149,9 @@ Import [Audacity shortcuts](/reference/generated/commands/) in Preferences; revi
 | Real-time effect rack per track | + — :: A wider real-time set than upstream; optional parallel processing for eligible built-in stacks | + |
 | Parametric EQ | + | + |
 | Effect presets | + | + |
-| Macros and batch chains | + — :: Saved step-list macros, templates, and JavaScript macro programs | / |
+| Macros and batch chains | + — :: Saved step-list macros, templates, and JavaScript macro programs; programs can control timeline views and optionally save changes to their own source. | / |
 | VST2 plug-ins | + | + — :: Official plug-in support lists VST alongside VST3 and AU; current requirements emphasize VST3 on Windows and AU on macOS. |
-| VST3 plug-ins | + | ~ — Windows :: Current Windows requirements list VST3; macOS requirements list AU. |
+| VST3 plug-ins | + — Native / Wine :: Native VST3 hosting; Linux x64 also supports Windows x64 VST3 effects and instruments through bundled yabridge, with an opt-in bridge and separately installed Wine. Requires the matching staged runtime. | ~ — Windows :: Current Windows requirements list VST3; macOS requirements list AU. |
 | AAX plug-ins | / | / |
 | CLAP plug-ins | + | / |
 | Audio Units (AU) | + — Mac | + — Mac |
@@ -204,8 +204,8 @@ See [plug-in management](/help/local-processing/#manage-plugins-and-devices), [m
 | Retrospective MIDI capture | / | / |
 | Built-in instruments | + — :: Oscillators / FM / SoundFont. Four basic waveforms plus libADLMIDI FM and FluidSynth SoundFont reference banks, synthesized on demand in a worker. Additional native instruments are user-installed. | / |
 | Instrument plug-in hosting | + — :: VST2/VST3 instruments and Linux LV2 instruments on MIDI beta tracks, through Plugin Manager. | / |
-| Melody audio to MIDI | / | / |
-| Polyphonic audio to MIDI | / | / |
+| Melody audio to MIDI | + — Local model | / |
+| Polyphonic audio to MIDI | + — Local model | / |
 | Audio slicing to playable notes | / | / |
 | MIDI output to hardware | / | / |
 | Standard MIDI File import / export | + — Types 0 / 1 :: Imports type 0/1 files and exports type 1, with retained supported controllers and tempo data. | / |
@@ -307,7 +307,7 @@ A looping timeline clip does not count as a clip launcher.
 | Spectrum plot | + | / |
 | Clipping and RMS in the waveform | + | / |
 | Speech-intelligibility contrast | + | / |
-| Live spectrum overlays from multiple tracks | / | / |
+| Live spectrum overlays from multiple tracks | + — Analysis panel :: Analyze → Analysis → Spectrum overlays live audio-track and master spectra during playback when no range is selected. Selecting a range switches to offline selection analysis. | / |
 | Per-plug-in CPU profiling | ~ — Rack instances :: Help → CPU profiling measures CPU and elapsed time per effect. Native plug-in rows measure the renderer bridge only; isolated native DSP and helper processes are excluded. | / |
 
 Display options: **Track visualization** and **Preferences → Track display**.

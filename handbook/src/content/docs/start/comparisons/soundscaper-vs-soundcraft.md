@@ -43,9 +43,9 @@ sidebar:
 | Markers and named regions | + | + |
 | Tempo and time-signature maps | + | + |
 | Track templates with routing | / | / |
-| Named session snapshots | + — :: Named editing states share the same audio. File > Session snapshots creates, restores, renames, and deletes snapshots; native project files preserve them. | / |
+| Named session snapshots | + — :: File → Session snapshots creates, restores, renames, and deletes named editing states. Snapshots share audio and retain media removed from the current edit, including through consolidation and .sscape saves. | / |
 | Selection and view memories | ~ — Macro programs :: Saved programs can remember selections and timeline views in their own source; no dedicated memory-location manager. | ~ — Locations :: Named positions and selections; not all Pro Tools view-recall settings are implemented. |
-| Nested subprojects with automatic proxy updates | / | / |
+| Nested subprojects with automatic proxy updates | + — Audio proxies :: File → Subprojects links saved local projects and refreshes their audio after child saves. Updates keep the published range; portable parents carry proxy audio and editable children travel separately. Active native plug-ins in a child must first be committed to audio. | / |
 
 Before moving a desktop project, [consolidate its media](/projects-and-data/project-files/).
 
@@ -111,7 +111,7 @@ Hover for limits. Include any referenced media when sharing projects.
 | Linked-track edit groups | ~ — Folder edits :: Explicit edits can target all folder descendants; ordinary edits on one child do not propagate to siblings. No persistent linked-track groups. | + — Edit groups |
 | Beat slicing and gap smoothing | / | ~ — Beat Analysis :: Detects and quantises clip starts; no equivalent edit-smoothing stage was found. |
 | Offline effect render handles | / | / — :: The pinned AudioSuite assessment lists render handles as missing. |
-| Non-destructive clip effects | / | ~ — Clip processors :: Per-clip EQ/dynamics controls; not arbitrary hosted plug-in chains. |
+| Non-destructive clip effects | + — Clip racks :: Clip properties → Effects adds editable processing before the track rack, with per-effect and rack bypass; .sscape saves preserve it. Native plug-ins retain their desktop runtime and offline-render requirements. | ~ — Clip processors :: Per-clip EQ/dynamics controls; not arbitrary hosted plug-in chains. |
 | Place audio at its BWF timestamp | + — On import :: Uses BWF TimeReference relative to the project origin unless an explicit import position is supplied. | / — :: Manual Spot placement is available; automatic placement at imported BWF TimeReference was not found in the pinned source. |
 
 Import [Audacity shortcuts](/reference/generated/commands/) in Preferences; review conflicts before applying.
@@ -149,9 +149,9 @@ Import [Audacity shortcuts](/reference/generated/commands/) in Preferences; revi
 | Real-time effect rack per track | + — :: A wider real-time set than upstream; optional parallel processing for eligible built-in stacks | + — 10 slots |
 | Parametric EQ | + | + — :: Built-in 1-band and 7-band EQ with adjustable frequency, gain, and Q |
 | Effect presets | + | + |
-| Macros and batch chains | + — :: Saved step-list macros, templates, and JavaScript macro programs | ~ — CLI scripting |
+| Macros and batch chains | + — :: Saved step-list macros, templates, and JavaScript macro programs; programs can control timeline views and optionally save changes to their own source. | ~ — CLI scripting |
 | VST2 plug-ins | + | / |
-| VST3 plug-ins | + | ~ — Desktop only :: Desktop; signed macOS builds restrict third-party VST3; unavailable on Web |
+| VST3 plug-ins | + — Native / Wine :: Native VST3 hosting; Linux x64 also supports Windows x64 VST3 effects and instruments through bundled yabridge, with an opt-in bridge and separately installed Wine. Requires the matching staged runtime. | ~ — Desktop only :: Desktop; signed macOS builds restrict third-party VST3; unavailable on Web |
 | AAX plug-ins | / | / |
 | CLAP plug-ins | + | ~ — Desktop only |
 | Audio Units (AU) | + — Mac | ~ — Mac :: MacOS desktop; unavailable on Web; plug-in editor views are a documented gap |
@@ -204,8 +204,8 @@ See [plug-in management](/help/local-processing/#manage-plugins-and-devices), [m
 | Retrospective MIDI capture | / | / — :: No MIDI input buffer; the retrospective command accepts notes supplied by a script. |
 | Built-in instruments | + — :: Oscillators / FM / SoundFont. Four basic waveforms plus libADLMIDI FM and FluidSynth SoundFont reference banks, synthesized on demand in a worker. Additional native instruments are user-installed. | + — Synths / sampler |
 | Instrument plug-in hosting | + — :: VST2/VST3 instruments and Linux LV2 instruments on MIDI beta tracks, through Plugin Manager. | + |
-| Melody audio to MIDI | / | + — Monophonic :: Built-in pitch tracking converts a sung or played melody into notes. |
-| Polyphonic audio to MIDI | / | / |
+| Melody audio to MIDI | + — Local model | + — Monophonic :: Built-in pitch tracking converts a sung or played melody into notes. |
+| Polyphonic audio to MIDI | + — Local model | / |
 | Audio slicing to playable notes | / | / |
 | MIDI output to hardware | / | / — :: MIDI device output is not implemented. |
 | Standard MIDI File import / export | + — Types 0 / 1 :: Imports type 0/1 files and exports type 1, with retained supported controllers and tempo data. | + |
@@ -307,7 +307,7 @@ A looping timeline clip does not count as a clip launcher.
 | Spectrum plot | + | / |
 | Clipping and RMS in the waveform | + | ~ — RMS only :: RMS waveform view; no clipping highlight found in audited source |
 | Speech-intelligibility contrast | + | / |
-| Live spectrum overlays from multiple tracks | / | / |
+| Live spectrum overlays from multiple tracks | + — Analysis panel :: Analyze → Analysis → Spectrum overlays live audio-track and master spectra during playback when no range is selected. Selecting a range switches to offline selection analysis. | / |
 | Per-plug-in CPU profiling | ~ — Rack instances :: Help → CPU profiling measures CPU and elapsed time per effect. Native plug-in rows measure the renderer bridge only; isolated native DSP and helper processes are excluded. | / |
 
 Display options: **Track visualization** and **Preferences → Track display**.
