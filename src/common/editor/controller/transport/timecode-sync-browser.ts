@@ -32,12 +32,17 @@ function browserResources(): TimecodeBrowserResources {
 export function createBrowserTimecodeSyncIo(resources?: TimecodeBrowserResources): TimecodeSyncIo {
 	const r = resources ?? browserResources();
 	let midi: MIDIAccess | null = null;
+	let midiRequest: Promise<MIDIAccess> | null = null;
 	let prepared: { context: EngineAudioContext; resumed: Promise<void>; claimed: boolean } | null = null;
 	async function requestMidi(): Promise<MIDIAccess> {
 		if (!r.navigator.requestMIDIAccess) throw new Error('MIDI Time Code requires Web MIDI with SysEx permission.');
-		midi ??= await r.navigator.requestMIDIAccess({ sysex: true });
-		if (!midi.sysexEnabled) throw new Error('MIDI Time Code requires SysEx permission.');
-		return midi;
+		if (midi) return midi;
+		midiRequest ??= r.navigator.requestMIDIAccess({ sysex: true }).then(access => {
+			if (!access.sysexEnabled) throw new Error('MIDI Time Code requires SysEx permission.');
+			midi = access;
+			return access;
+		}).finally(() => { midiRequest = null; });
+		return midiRequest;
 	}
 	return {
 		prepare: () => {
@@ -71,8 +76,9 @@ export function createBrowserTimecodeSyncIo(resources?: TimecodeBrowserResources
 			const message = (event: MIDIMessageEvent): void => {
 				if (!closed && event.data) for (const reading of decoder.push(event.data, event.timeStamp)) receive(reading, event.timeStamp);
 			};
+			const midiPortDisconnected = (): boolean => input?.state === 'disconnected' || output?.state === 'disconnected';
 			const disconnect = (): void => {
-				if (!closed && (input?.state === 'disconnected' || output?.state === 'disconnected')) fail(new Error('The timecode MIDI port disconnected.'));
+				if (!closed && midiPortDisconnected()) fail(new Error('The timecode MIDI port disconnected.'));
 			};
 			const inputLost = (): void => { if (!closed) fail(new Error('The LTC audio input disconnected.')); };
 			const contextLost = (): void => { if (!closed && context?.state !== 'running') fail(new Error('The LTC audio clock stopped.')); };
@@ -99,7 +105,7 @@ export function createBrowserTimecodeSyncIo(resources?: TimecodeBrowserResources
 					context = lease?.context ?? r.createContext();
 					await (lease?.resumed ?? context.resume());
 					assertCurrent();
-					if (settings.audioOutput && settings.audioOutput !== 'default') {
+					if (settings.sendLtc && settings.audioOutput && settings.audioOutput !== 'default') {
 						if (!context.setSinkId) throw new Error('This browser cannot select an LTC audio output device.');
 						await context.setSinkId(settings.audioOutput);
 						assertCurrent();
@@ -149,6 +155,7 @@ export function createBrowserTimecodeSyncIo(resources?: TimecodeBrowserResources
 						if (!output || output.state !== 'connected') throw new Error('Select an available MTC MIDI output.');
 						if (output.connection !== 'open') { ownedPorts.push(output); await output.open(); if (closed || signal?.aborted) { await output.close(); assertCurrent(); } }
 					}
+					if (midiPortDisconnected()) throw new Error('The timecode MIDI port disconnected.');
 					access.addEventListener('statechange', disconnect);
 				}
 				return { sendMidi: (bytes, timestamp) => output?.send(bytes, timestamp), clearMidi: () => output?.clear(), close,
