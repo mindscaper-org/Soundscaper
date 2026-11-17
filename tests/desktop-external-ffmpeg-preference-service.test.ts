@@ -114,6 +114,29 @@ test('browsing an automatically detected path pins it for later rescans and inst
 	assert.deepEqual(probes, [null, PATH, PATH, PATH]);
 });
 
+test('Install discovers a working system FFmpeg when the previously selected executable remains unsupported', async () => {
+	const systemPath = '/usr/bin/ffmpeg';
+	const settings = settingsFixture(null);
+	const probes: Array<string | null> = [];
+	const service = createExternalFfmpegPreferenceService(ports(settings, {
+		choose: () => Promise.resolve(PATH),
+		probe: (path) => {
+			probes.push(path);
+			return Promise.resolve(path === null ? available({ executablePath: systemPath }) : {
+				status: 'unavailable', state: 'unsupported', location: PATH, detail: 'This manually selected version is unsupported.',
+			});
+		},
+		confirm: () => Promise.resolve(true),
+		install: () => Promise.resolve({ status: 'installed', exitCode: 0, stdout: '', stderr: '' }),
+	}));
+	assert.equal((await service.choose()).state, 'unsupported');
+	const installed = await service.install();
+	assert.equal(installed.state, 'ready');
+	assert.equal(installed.location, systemPath);
+	assert.equal(settings.snapshot().externalFfmpegSelection?.source, 'automatic');
+	assert.deepEqual(probes, [PATH, PATH, null]);
+});
+
 test('cancelled Browse preserves state and Clear removes selection and admission', async () => {
 	const settings = settingsFixture(null);
 	const service = createExternalFfmpegPreferenceService(ports(settings, {

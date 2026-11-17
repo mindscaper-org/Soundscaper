@@ -2,7 +2,7 @@
 
 import { Button } from '@soundscaper/design-system/Button';
 import { PreferencePanel } from '@soundscaper/design-system/PreferencePanel';
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { resolveEditorCopyScope } from '../../../i18n/editor-copy-scope.ts';
 import { DESKTOP_FFMPEG_COPY } from '../../../i18n/editor-desktop-ffmpeg-copy.ts';
@@ -32,11 +32,11 @@ export interface DesktopFfmpegStatus {
 }
 
 export interface DesktopFfmpegPreferenceFileService {
-	readonly getExternalFfmpegStatus?: () => Promise<unknown>;
-	readonly chooseExternalFfmpeg?: () => Promise<unknown>;
-	readonly clearExternalFfmpeg?: () => Promise<unknown>;
-	readonly rescanExternalFfmpeg?: () => Promise<unknown>;
-	readonly installExternalFfmpeg?: () => Promise<unknown>;
+	readonly getExternalFfmpegStatus?: () => Promise<unknown> | null;
+	readonly chooseExternalFfmpeg?: () => Promise<unknown> | null;
+	readonly clearExternalFfmpeg?: () => Promise<unknown> | null;
+	readonly rescanExternalFfmpeg?: () => Promise<unknown> | null;
+	readonly installExternalFfmpeg?: () => Promise<unknown> | null;
 }
 
 
@@ -68,42 +68,41 @@ export default function DesktopFfmpegPreferencePanel({
 	const [status, setStatus] = useState(() => normalizeDesktopFfmpegStatus(initialStatus));
 	const locationId = useId();
 	const getterAvailable = typeof fileService.getExternalFfmpegStatus === 'function';
+	const requestRevision = useRef(0);
+	const perform = useCallback(async (
+		method: keyof DesktopFfmpegPreferenceFileService,
+		pendingState: 'probing' | 'installing',
+	): Promise<void> => {
+		const operation = fileService[method];
+		if (typeof operation !== 'function') return;
+		const revision = ++requestRevision.current;
+		setStatus((prior) => ({ ...prior, state: pendingState, detail: '' }));
+		try {
+			let next = normalizeDesktopFfmpegStatus(await operation.call(fileService));
+			while (revision === requestRevision.current) {
+				setStatus(next);
+				if (!isBusy(next) || !fileService.getExternalFfmpegStatus) return;
+				await new Promise<void>((resolve) => { globalThis.setTimeout(resolve, 250); });
+				if (revision !== requestRevision.current) return;
+				next = normalizeDesktopFfmpegStatus(await fileService.getExternalFfmpegStatus());
+			}
+		} catch (error) {
+			if (revision === requestRevision.current) setStatus((prior) => errorStatus(error, prior));
+		}
+	}, [fileService]);
 
 	useEffect(() => {
-		let current = true;
-		if (!getterAvailable) {
-			setStatus(unavailableStatus());
-			return () => { current = false; };
-		}
-		setStatus((prior) => ({ ...prior, state: 'probing', detail: '' }));
-		void fileService.getExternalFfmpegStatus!().then((nextStatus) => {
-			if (current) setStatus(normalizeDesktopFfmpegStatus(nextStatus));
-		}).catch((error: unknown) => {
-			if (current) setStatus((prior) => errorStatus(error, prior));
-		});
-		return () => { current = false; };
-	}, [fileService, getterAvailable]);
+		if (getterAvailable) void perform('getExternalFfmpegStatus', 'probing');
+		else setStatus(unavailableStatus());
+		return () => { requestRevision.current += 1; };
+	}, [getterAvailable, perform]);
 
-	const busy = status.state === 'probing' || status.state === 'installing';
+	const busy = isBusy(status);
 	const location = status.location ?? copy.externalFfmpegNoLocation;
 	const summary = getterAvailable
 		? statusSummary(copy, status)
 		: copy.externalFfmpegControlsUnavailable;
 	const detail = getterAvailable && status.state !== 'ready' ? status.detail : '';
-
-	async function perform(
-		method: keyof DesktopFfmpegPreferenceFileService,
-		pendingState: 'probing' | 'installing',
-	): Promise<void> {
-		const operation = fileService[method];
-		if (typeof operation !== 'function') return;
-		setStatus((prior) => ({ ...prior, state: pendingState, detail: '' }));
-		try {
-			setStatus(normalizeDesktopFfmpegStatus(await operation.call(fileService)));
-		} catch (error) {
-			setStatus((prior) => errorStatus(error, prior));
-		}
-	}
 
 	return (
 		<PreferencePanel title={copy.externalFfmpeg}>
@@ -134,6 +133,10 @@ export default function DesktopFfmpegPreferencePanel({
 			</div>
 		</PreferencePanel>
 	);
+}
+
+function isBusy(status: DesktopFfmpegStatus): boolean {
+	return status.state === 'probing' || status.state === 'installing';
 }
 
 export function normalizeDesktopFfmpegStatus(value: unknown): DesktopFfmpegStatus {

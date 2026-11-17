@@ -225,7 +225,14 @@ export function createExternalFfmpegPreferenceService(
 				return exposedStatus();
 			}
 			const outcome = await options.install(planResult.plan);
-			if (outcome.status === 'installed') return probe(manualSelectionPath());
+			if (outcome.status === 'installed') {
+				const manualPath = manualSelectionPath();
+				if (manualPath !== null) {
+					await probe(manualPath);
+					if (current.state === 'ready') return exposedStatus();
+				}
+				return probe(null);
+			}
 			if (outcome.status === 'cancelled') {
 				current = previous;
 				return exposedStatus();
