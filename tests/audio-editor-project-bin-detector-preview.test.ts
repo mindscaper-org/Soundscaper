@@ -35,7 +35,7 @@ test('Project Bin Play preserves a moved clip external detector without mixing i
 		await controller.actions.track.update('guide', { gain: 0 });
 		await controller.actions.clip.move('main-clip', 'main', 12000);
 		await controller.actions.effects.add({ scope: 'clip', trackId: 'main-clip', type: 'audacity-auto-duck',
-			context: { controlTrackId: 'guide' }, params: { outerFadeDown: .1, outerFadeUp: .1, maximumPause: .1 } });
+			options: { context: { controlTrackId: 'guide' }, params: { outerFadeDown: .1, outerFadeUp: .1, maximumPause: .1 } } });
 		const options = { startFrame: 12000, endFrame: 60000, includeTail: false, includeMaster: false, includeTrackPan: false, preRollFrames: 0 } as const;
 		const expected = new Float32Array(audioBufferChannels(await engines[0]!.renderMix(options))[0]!);
 		assert.ok(expected.some(sample => sample > .2) && expected.some(sample => sample > 0 && sample < .1), 'timeline music must actually duck');
