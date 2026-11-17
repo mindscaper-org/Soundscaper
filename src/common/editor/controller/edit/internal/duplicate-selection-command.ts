@@ -58,7 +58,10 @@ export interface DuplicateSelectionRuntime {
 	readonly createStableId: (prefix?: string) => string;
 	readonly createClipboardDescriptor: (
 		project: DuplicateProject,
-		options: Readonly<{ startFrame: number; endFrame: number; trackIds: readonly string[]; clipIds?: readonly string[] }>,
+		options: Readonly<{
+			startFrame: number; endFrame: number; trackIds: readonly string[]; clipIds?: readonly string[];
+			includeTimelineAnnotations: false;
+		}>,
 	) => AudioEditorClipboard;
 	readonly prepareTrackDuplicateCarrier?: (
 		project: DuplicateProject,
@@ -88,6 +91,7 @@ export function prepareDuplicateSelectionCommand(
 		startFrame: range.startFrame,
 		endFrame: range.endFrame,
 		trackIds: range.trackIds.filter(id => trackById.get(id)?.type !== 'label'),
+		includeTimelineAnnotations: false,
 		...(range.exactClips ? { clipIds: range.clipIds } : {}),
 	});
 	const requested = new Set([...range.trackIds, ...clipboard.tracks.map((track) => track.sourceTrackId)]);

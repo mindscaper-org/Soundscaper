@@ -58,3 +58,26 @@ for (const selectionKind of ['headers', 'range'] as const) {
 		assert.deepEqual(controller.getSnapshot().project!.mixer, after);
 	});
 }
+
+test('Edit Duplicate does not create an extra sequence marker while copying an audio track', async context => {
+	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
+	const runtime = createSoundscaperProjectRuntimeSelection();
+	const controller = createAudioEditorController(null, {
+		headless: true, locale: 'en', copy: COPY, projectRuntime: runtime, sessionController: runtime.createSessionController(),
+		store: createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name }),
+		engine: createMemoryEngine() as unknown as Options['engine'],
+	});
+	context.after(async () => { await controller.dispose(); });
+	await controller.ready;
+	await controller.actions.generators.generate('tone', { durationSeconds: .2, frequency: 440 });
+	const { selectedTrackId } = controller.getSnapshot();
+	assert.ok(selectedTrackId);
+	controller.actions.transport.seek(4_000);
+	controller.actions.timelineAnnotations.createMarkerAtPlayhead({ name: 'Cue' });
+	controller.actions.timeline.setExactSelection(0, 8_000, { trackIds: [selectedTrackId] });
+	const annotations = controller.project?.timelineAnnotations;
+	assert.equal(annotations?.length, 1);
+	controller.actions.edit.duplicate();
+	assert.equal(controller.project?.clips.length, 2);
+	assert.deepEqual(controller.project?.timelineAnnotations, annotations);
+});
