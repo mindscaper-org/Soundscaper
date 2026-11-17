@@ -3,6 +3,7 @@ import { STEREO_LIMITED_RENDER_EFFECT_TYPES } from './adm-render-safety.ts';
 import { isMixerGraphV21Surface } from './mixer-graph-surface-v21.ts';
 import { hasProductionMixerProjectAuthority } from './project-schema-version.ts';
 import { resolveTerminalChannelWidths, type TerminalWidthProject } from './terminal-channel-widths.ts';
+import { clipRackTrackInputChannelCounts, rackSignalChannelCount } from './effect-signal-width.ts';
 
 interface RackChannelOwner {
 	readonly effectsActive?: boolean;
@@ -32,13 +33,14 @@ function createRackWidthReader(project: RackChannelProject): (scope: string, tar
 		|| (isMixerGraphV21Surface(project.mixer) && Array.isArray(project.automationLanes));
 	const masterWidth = supportedWidth(project.masterChannels);
 	const widths = resolveTerminalChannelWidths(project, production ? masterWidth : 2);
+	const clipOutputWidths = clipRackTrackInputChannelCounts(project, widths.tracks);
 	const legacyWidth = production ? 0 : Math.min(32, Math.max(2, masterWidth, ...widths.tracks.values()));
 	return (scope, targetId) => {
 		if (scope === 'clip') {
 			const clip = project.clips?.find(clip => clip.id === targetId);
-			return supportedWidth(Number(project.sources?.find(source => source.id === clip?.sourceId)?.channelCount ?? 2));
+			return rackSignalChannelCount(clip, supportedWidth(Number(project.sources?.find(source => source.id === clip?.sourceId)?.channelCount ?? 2)));
 		}
-		if (scope === 'track') return widths.tracks.get(String(targetId)) ?? (production ? masterWidth : 2);
+		if (scope === 'track') return rackSignalChannelCount(project.tracks?.find(track => track.id === targetId), clipOutputWidths.get(String(targetId)) ?? (production ? masterWidth : 2));
 		if (!production) return legacyWidth;
 		if (scope === 'master') return masterWidth;
 		return (scope === 'group' ? widths.groups : widths.sends).get(String(targetId)) ?? masterWidth;

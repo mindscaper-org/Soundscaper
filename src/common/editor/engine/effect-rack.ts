@@ -2,6 +2,7 @@
 
 import { profileEffectBoundary } from './cpu-profile-instrumentation.ts';
 import { delayAudioNodeFrames } from './frame-delay.ts';
+import { effectSignalChannelCount } from '../effect-signal-width.ts';
 import {
 	audacityLiveEffectCapability,
 	isAudacityLiveEffect,
@@ -152,6 +153,7 @@ export function applyEffectRack(
 ): AudioNode {
 	let output = input;
 	let upstreamLatencyFrames = 0;
+	let channelCount = positiveInteger(options.effectChannelCount, 2);
 	for (const effect of Array.isArray(effects) ? effects : []) {
 		if (!effect || effect.enabled === false || effect.bypassed === true) continue;
 		const inputDelay = options.inputDelayFramesByEffectId?.get(String(effect.id)) ?? 0;
@@ -160,12 +162,15 @@ export function applyEffectRack(
 		output = profileEffectBoundary(context, output, effect, nodes, options, 'begin');
 		output = applyEffect(context, output, effect, nodes, {
 			...options,
+			effectChannelCount: channelCount,
+			parametricEqChannelCount: Math.max(channelCount, positiveInteger(options.parametricEqChannelCount, 2)),
 			sidechainDelayFrames: options.detectorDelayFramesByEffectId?.get(String(effect.id))
 				?? nonNegativeInteger(options.baseSidechainDelayFrames, 0) + upstreamLatencyFrames,
 			parameterLatencyFrames: nonNegativeInteger(options.baseParameterLatencyFrames, 0) + upstreamLatencyFrames,
 		});
 		output = profileEffectBoundary(context, output, effect, nodes, options, 'end');
 		upstreamLatencyFrames += effectLatencyFrames(effect, context.sampleRate || DEFAULT_SAMPLE_RATE);
+		channelCount = effectSignalChannelCount(effect, channelCount);
 	}
 	return output;
 }
