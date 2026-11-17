@@ -94,6 +94,30 @@ test.describe('keyboard shortcut preferences', () => {
 		await expect(row.locator(`[data-shortcut-binding="${existing}"]`)).toBeFocused();
 	});
 
+	test('a shortcut draft survives looking up another command and changing the sort', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		const preferences = await openShortcutPreferences(page, editor);
+		const row = await shortcutRow(preferences, 'new-mono-track', 'New mono track');
+		const binding = row.locator('[data-shortcut-binding="0"]');
+		await binding.fill('Ctrl+Shift+F12');
+		await shortcutRow(preferences, 'new-label-track', 'New label track');
+		await expect(row).toHaveCount(0);
+		await chooseDropdown(page, preferences.locator('[role="group"][aria-label="Sort commands"]'), 'Alphabetical');
+		await shortcutRow(preferences, 'new-mono-track', 'New mono track');
+		await expect(binding).toHaveValue('Ctrl+Shift+F12');
+	});
+
+	test('resetting shortcut defaults clears an unassigned draft even when the installed defaults are current', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		const preferences = await openShortcutPreferences(page, editor);
+		const row = await shortcutRow(preferences, 'new-mono-track', 'New mono track');
+		const binding = row.locator('[data-shortcut-binding="0"]');
+		const original = await binding.inputValue();
+		await binding.fill('Ctrl+Shift+F12');
+		await preferences.getByRole('button', { name: 'Restore default shortcuts', exact: true }).click();
+		await expect(binding).toHaveValue(original);
+	});
+
 	test('captures extra mouse buttons, detects conflicts, and keeps modified bindings after reload', async ({ page, context, browserName }) => {
 		test.skip(browserName !== 'chromium', 'Trusted Back/Forward input requires the Chromium CDP interface.');
 		const session = await context.newCDPSession(page);

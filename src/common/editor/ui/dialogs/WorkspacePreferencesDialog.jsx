@@ -68,6 +68,7 @@ export default function WorkspacePreferencesDialog({
 	const keyboardCopy = resolveEditorCopyScope('keyboardMap', KEYBOARD_MAP_COPY_BY_LOCALE.en, copy);
 	const [shortcutSearch, setShortcutSearch] = useState('');
 	const [shortcutSort, setShortcutSort] = useState(DEFAULT_SHORTCUT_SORT_MODE);
+	const [shortcutDrafts, setShortcutDrafts] = useState(() => new Map());
 	const [workspaceName, setWorkspaceName] = useState('');
 	const workspaceNameRevision = useRef(0);
 	const workspaceNameRef = useRef(null);
@@ -314,11 +315,14 @@ export default function WorkspacePreferencesDialog({
 										<Fragment key={group.id}>
 											{group.label && <h5 className="kw-audio-editor-preferences__shortcut-group" data-shortcut-group={group.id}
 												data-translation-key={group.id.startsWith('location:') ? shortcutCategoryMessageKey(group.id.slice('location:'.length)) : undefined}>{group.label}</h5>}
-										{group.commands.map((command) => <ShortcutEditorRow key={command.id} productId={productId} command={command} commands={commands} preferences={preferences} controller={controller} copy={copy} run={run} conflictFor={conflictFor} />)}
+											{group.commands.map((command) => <ShortcutEditorRow key={command.id} productId={productId} command={command} commands={commands} preferences={preferences} controller={controller} copy={copy} run={run} conflictFor={conflictFor} drafts={shortcutDrafts} />)}
 										</Fragment>
 									))}
 								</div>
-								<Button variant="secondary" onClick={() => run(() => controller.actions.preferences.resetShortcuts())}>{copy.shortcutsReset}</Button>
+								<Button variant="secondary" onClick={() => run(async () => {
+									await controller.actions.preferences.resetShortcuts();
+									setShortcutDrafts(new Map());
+								})}>{copy.shortcutsReset}</Button>
 							</PreferencePanel>
 						)}
 					</main>
