@@ -18,6 +18,7 @@ import { createDefaultMixerGraphV21 } from '../common/editor/mixer-graph-v21.ts'
 import { createAudioSource } from '../common/editor/project-media-factory.ts';
 import { resolveRuntimeProjectProjection } from '../common/editor/runtime-clip-projection.ts';
 import { resolveTerminalChannelWidths } from '../common/editor/terminal-channel-widths.ts';
+import { rackEffectChannelCount } from '../common/editor/rack-effect-channel-width.ts';
 import type { StorageRecord } from '../common/editor/storage/media-records.ts';
 import type { AudioSourceWriter } from '../common/editor/storage/source-write-repository.ts';
 import type { TransientAnalysisPcmStore } from '../common/editor/controller/analysis/transient-analysis-pcm-access.ts';
@@ -68,6 +69,7 @@ export interface FreezeTimePitchRenderOptions {
 
 export function planFreezeRange(project: SoundscaperProject, trackId: string) {
 	const runtime = resolveRuntimeProjectProjection(project);
+	assertFreezeRackWidth(runtime, trackId);
 	const track = exactRecordById(runtime.tracks, trackId, 'audio freeze track');
 	const clips = arrayValue(track.clipIds, 'audio freeze track.clipIds')
 		.map((id) => exactRecordById(runtime.clips, String(id), 'audio freeze clip'));
@@ -102,6 +104,7 @@ export async function renderFreezeBody(
 ): Promise<Readonly<{ readonly body: FreezeBody; readonly frameCount: number; readonly sampleRate: number; readonly channelCount: number }>> {
 	const ticket = captureSoundscaperFreezeProject(controller, request.project, request.trackId);
 	const runtime = resolveRuntimeProjectProjection(request.project);
+	assertFreezeRackWidth(runtime, request.trackId);
 	const track = exactRecordById(runtime.tracks, request.trackId, 'audio freeze render track');
 	const ownedIds = new Set(arrayValue(track.clipIds, 'audio freeze render track.clipIds').map(String));
 	const runtimeClips = dataArray(runtime.clips, 'runtime project.clips');
@@ -169,6 +172,13 @@ export async function renderFreezeBody(
 		throw error;
 	} finally {
 		await cleanupRenderResources(engine, providers, failure);
+	}
+}
+
+function assertFreezeRackWidth(project: DataRecord, trackId: string): void {
+	const declared = resolveTerminalChannelWidths(project as never, Number(project.masterChannels)).tracks.get(trackId);
+	if (declared !== undefined && rackEffectChannelCount(project as never, 'track', trackId) !== declared) {
+		throw new RangeError('Freeze requires matching track and effect channel widths. Render to a matching-width track first.');
 	}
 }
 

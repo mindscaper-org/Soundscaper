@@ -123,6 +123,11 @@ master processing therefore remain live. The graph and PDC plan used for normal
 rendering also define the freeze capture; freeze does not maintain a second
 render graph.
 
+Freeze retains the track's declared channel width. A rack that expands a mono
+source to stereo must first be rendered to a matching-width track; Freeze
+refuses that capture instead of folding its image to mono. Bypassed widening
+effects and already matching stereo tracks remain eligible.
+
 A freeze record binds the derived body to the track, rack, automation, and other
 input digests required to establish freshness. If any authority changes, the
 freeze becomes stale and the canonical live track is used. Stale derived audio
