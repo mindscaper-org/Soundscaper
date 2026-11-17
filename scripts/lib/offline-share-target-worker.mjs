@@ -238,7 +238,11 @@ async function deleteSharedFileStash(cache, token, count) {
 		? Math.min(count, limits.maximumFiles)
 		: limits.maximumFiles;
 	await cache.delete(sharedFilesManifestUrl(token));
-	for (let index = 0; index < total; index += 1) await cache.delete(sharedFilesBodyUrl(token, index));
+	const deletions = await Promise.allSettled(Array.from({ length: total }, async (_unused, index) => (
+		cache.delete(sharedFilesBodyUrl(token, index))
+	)));
+	const failed = deletions.find(result => result.status === 'rejected');
+	if (failed) throw failed.reason;
 }
 
 /**

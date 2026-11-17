@@ -196,6 +196,25 @@ test('a cache write refusal tells the editor browser storage failed', async () =
 	assert.deepEqual(await stashedTokens(cacheStorage), []);
 });
 
+test('a failed share removes its other staged bodies even when one cleanup delete fails', async () => {
+	const cacheStorage = new ShareCacheStorage();
+	const cache = await cacheStorage.open(sharedFilesCacheName());
+	const token = '01'.repeat(16);
+	const put = cache.put.bind(cache);
+	const remove = cache.delete.bind(cache);
+	cache.put = async (url, response) => {
+		if (url === sharedFilesBodyUrl(token, 2)) throw new Error('The third body could not be stored');
+		await put(url, response);
+	};
+	cache.delete = async (url) => {
+		if (url === sharedFilesBodyUrl(token, 0)) throw new Error('The first body could not be deleted');
+		return remove(url);
+	};
+	const { location } = await submit(['one.wav', 'two.wav', 'three.wav'].map(name => mediaFile(name, name)), { cacheStorage });
+	assert.equal(location.searchParams.get('share-error'), 'storage');
+	assert.deepEqual([...cache.entries.keys()], [sharedFilesBodyUrl(token, 0)]);
+});
+
 test('a cache pruning refusal is reported as browser storage failure', async () => {
 	const cacheStorage = new ShareCacheStorage();
 	const cache = await cacheStorage.open(sharedFilesCacheName());
