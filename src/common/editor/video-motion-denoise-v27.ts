@@ -83,12 +83,27 @@ export async function processSpatialDenoiseCooperativeV1(
 	throwIfAborted(options.signal);
 	const work = spatialDenoiseRows(frameValueInput, options);
 	let result = work.next();
-	while (!result.done) {
-		await new Promise<void>(resolve => { globalThis.setTimeout(resolve, 0); });
-		throwIfAborted(options.signal);
-		result = work.next();
+	if (result.done) return result.value;
+	const tasks = typeof MessageChannel === 'function' ? new MessageChannel() : null;
+	try {
+		while (!result.done) {
+			await new Promise<void>((resolve) => {
+				// Ordinary tasks admit queued cancellation without nested timer clamping.
+				if (!tasks) {
+					globalThis.setTimeout(resolve, 0);
+					return;
+				}
+				tasks.port1.onmessage = () => resolve();
+				tasks.port2.postMessage(null);
+			});
+			throwIfAborted(options.signal);
+			result = work.next();
+		}
+		return result.value;
+	} finally {
+		tasks?.port1.close();
+		tasks?.port2.close();
 	}
-	return result.value;
 }
 
 function* spatialDenoiseRows(
@@ -101,36 +116,55 @@ function* spatialDenoiseRows(
 	if (strength === 0) return frame;
 	const { width, height } = frame;
 	const diameter = radius * 2 + 1;
-	const horizontal = new Float64Array(width * height);
-	for (let y = 0; y < height; y += 1) {
+	// Keep the active vertical window and one entering row. The extra slot
+	// preserves the leaving row until the column totals have been updated.
+	const bufferedRows = Math.min(height, diameter + 1);
+	const horizontal = new Float64Array(width * bufferedRows);
+	const horizontalOffset = (y: number): number => (y % bufferedRows) * width;
+	for (let y = 0; y <= radius && y < height; y += 1) {
 		throwIfAborted(options.signal);
-		let sum = 0;
-		for (let x = -radius; x <= radius; x += 1) sum += pixelClamped(frame, x, y);
-		for (let x = 0; x < width; x += 1) {
-			horizontal[y * width + x] = sum / diameter;
-			sum += pixelClamped(frame, x + radius + 1, y) - pixelClamped(frame, x - radius, y);
-		}
-		if ((y & 15) === 15) yield;
+		spatialDenoiseHorizontalRow(frame, y, radius, diameter, horizontal, horizontalOffset(y));
 	}
 	const columns = new Float64Array(width);
-	const row = (y: number): number => Math.max(0, Math.min(height - 1, y)) * width;
 	for (let y = -radius; y <= radius; y += 1) {
-		const offset = row(y);
+		const offset = horizontalOffset(Math.max(0, Math.min(height - 1, y)));
 		for (let x = 0; x < width; x += 1) columns[x] = columns[x]! + horizontal[offset + x]!;
 	}
 	const samples = new Array<number>(width * height);
 	for (let y = 0; y < height; y += 1) {
 		throwIfAborted(options.signal);
-		const entering = row(y + radius + 1), leaving = row(y - radius);
+		const enteringRow = y + radius + 1;
+		const entering = horizontalOffset(Math.min(height - 1, enteringRow));
+		const leaving = horizontalOffset(Math.max(0, y - radius));
+		if (enteringRow < height) {
+			spatialDenoiseHorizontalRow(frame, enteringRow, radius, diameter, horizontal, entering);
+		}
+		const output = y * width;
 		for (let x = 0; x < width; x += 1) {
-			const original = frame.samples[y * width + x]!;
+			const original = frame.samples[output + x]!;
 			const value = original + (columns[x]! / diameter - original) * strength;
-			samples[y * width + x] = Math.max(0, Math.min(1, value));
+			samples[output + x] = Math.max(0, Math.min(1, value));
 			columns[x] = columns[x]! + horizontal[entering + x]! - horizontal[leaving + x]!;
 		}
 		if ((y & 15) === 15) yield;
 	}
 	return createGrayVideoFrameV1({ width, height, samples });
+}
+
+function spatialDenoiseHorizontalRow(
+	frame: GrayVideoFrameV1, y: number, radius: number, diameter: number,
+	horizontal: Float64Array, offset: number,
+): void {
+	const { width, samples } = frame;
+	const row = y * width;
+	let sum = 0;
+	for (let x = -radius; x <= radius; x += 1) {
+		sum += samples[row + Math.max(0, Math.min(width - 1, x))]!;
+	}
+	for (let x = 0; x < width; x += 1) {
+		horizontal[offset + x] = sum / diameter;
+		sum += samples[row + Math.min(width - 1, x + radius + 1)]! - samples[row + Math.max(0, x - radius)]!;
+	}
 }
 
 function temporalDenoiseCpu(
@@ -187,10 +221,6 @@ function frameValue(value: unknown, name: string): GrayVideoFrameV1 {
 
 function pixel(frame: GrayVideoFrameV1, x: number, y: number): number {
 	return frame.samples[y * frame.width + x]!;
-}
-
-function pixelClamped(frame: GrayVideoFrameV1, x: number, y: number): number {
-	return pixel(frame, Math.max(0, Math.min(frame.width - 1, x)), Math.max(0, Math.min(frame.height - 1, y)));
 }
 
 function inside(frame: GrayVideoFrameV1, x: number, y: number): boolean {
