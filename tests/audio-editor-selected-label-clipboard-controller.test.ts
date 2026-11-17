@@ -156,3 +156,21 @@ test('a label clipboard crosses native project tabs and scales each boundary to 
 	assert.deepEqual(controller.getSnapshot().project, beforeLockedPaste.project);
 	assert.equal(controller.getSnapshot().history.undoEntries.length, beforeLockedPaste.history.undoEntries.length);
 });
+
+test('returning to a project tab restores the labels selected there for editing', async context => {
+	const controller = await fixture(context);
+	const origin = controller.project!.id;
+	const first = controller.actions.labels.add(null, { title: 'Verse', startFrame: 1200, endFrame: 1200 });
+	const track = labelTrack(controller);
+	const second = controller.actions.labels.add(track.id, { title: 'Chorus', startFrame: 2400, endFrame: 3600 });
+	assert.ok(first && second);
+	controller.actions.labels.select(track.id, first);
+	controller.actions.labels.select(track.id, second, { additive: true });
+
+	await controller.actions.project.create({ title: 'Different project' });
+	assert.deepEqual(controller.getSnapshot().selectedLabels, []);
+	await controller.actions.project.openById(origin);
+	assert.deepEqual(controller.getSnapshot().selectedLabels, [
+		{ trackId: track.id, labelId: first }, { trackId: track.id, labelId: second },
+	]);
+});

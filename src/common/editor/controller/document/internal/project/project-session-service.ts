@@ -74,7 +74,7 @@ export function createProjectSessionService<
 		if (!projectId || !sessionTab(projectId)) return;
 		const { pixelsPerSecond, allowBelowProjectFitZoom } = dependencies.state;
 		dependencies.updateProjectMetadata(projectId, {
-			...projectSelection.capture(),
+			...projectSelection.capture(dependencies.getActiveProject()),
 			...(pixelsPerSecond === undefined ? {} : { pixelsPerSecond, allowBelowProjectFitZoom: allowBelowProjectFitZoom === true }),
 			...(dependencies.getPlayhead ? { playheadFrame: dependencies.getPlayhead() } : {}),
 		});
