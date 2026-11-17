@@ -3,11 +3,11 @@
 import {
 	createAutomationLaneFrameEvaluatorV21,
 	prepareAutomationLaneForSchedulingV21,
-	resolveAutomationLanePointFramesV21,
 	type AutomationLaneFrameOptionsV21,
 	type AutomationLaneV21,
 } from '../automation-lane-v21.ts';
 import { createIndexedBeatFrameProjector } from '../indexed-tempo-projector.ts';
+import type { Rational } from '../timeline-time.ts';
 import type { ParameterDescriptor } from '../parameter-address.ts';
 import type {
 	ScheduledParameterEvent,
@@ -43,8 +43,13 @@ export function compileAutomationLaneEventsV21(
 	const frameOptions = Object.freeze({ sampleRate, tempoMap: options.tempoMap });
 	const maximumEvents = boundedMaximumEvents(options.maximumEvents);
 	const tolerance = automationTolerance(options.descriptor);
-	const resolved = resolveAutomationLanePointFramesV21(lane, frameOptions);
-	const tempoBoundaries = resolvedTempoBoundaries(lane, frameOptions);
+	const absolute = lane.timebase === 'absolute-samples';
+	const tempoMap = absolute ? undefined : frameOptions.tempoMap;
+	if (!absolute && !tempoMap) throw new TypeError('A musical automation lane requires the project tempo map.');
+	const projectBeat = tempoMap ? createIndexedBeatFrameProjector(tempoMap, sampleRate) : null;
+	const resolved = projectBeat ? lane.points.map(point => projectBeat(point.position as Rational)) : null;
+	const pointFrame = (index: number): number => resolved ? resolved[index]! : lane.points[index]!.position as number;
+	const tempoBoundaries = tempoMap && projectBeat ? [...new Set(tempoMap.events.map(({ beat }) => projectBeat(beat)))].sort(numberOrder) : [];
 	const events: ScheduledParameterEvent[] = [];
 	const append = (kind: ScheduledParameterEvent['kind'], frame: number, value: number): void => {
 		const previous = events.at(-1);
@@ -58,9 +63,19 @@ export function compileAutomationLaneEventsV21(
 
 	append('set', fromFrame, evaluate(fromFrame));
 	if (toFrame === fromFrame || lane.points.length === 1) return Object.freeze(events);
-	for (const [index, shape] of lane.segments.entries()) {
-		const segmentStart = resolved[index]!.frame;
-		const segmentEnd = resolved[index + 1]!.frame;
+	let first = 0;
+	if (absolute) {
+		let last = lane.segments.length;
+		while (first < last) {
+			const middle = (first + last) >>> 1;
+			if (pointFrame(middle + 1) < fromFrame) first = middle + 1; else last = middle;
+		}
+	}
+	for (let index = first; index < lane.segments.length; index++) {
+		const shape = lane.segments[index]!;
+		const segmentStart = pointFrame(index);
+		if (absolute && segmentStart > toFrame) break;
+		const segmentEnd = pointFrame(index + 1);
 		if (segmentEnd < fromFrame || segmentStart > toFrame) continue;
 		if (segmentEnd < segmentStart) throw new RangeError('Resolved automation points must not move backwards.');
 		if (segmentStart === segmentEnd) {
@@ -167,16 +182,6 @@ function appendCurvedInterval(
 	}
 	appendCurvedInterval(start, split, startValue, splitValue, tolerance, evaluate, append);
 	appendCurvedInterval(split, end, splitValue, endValue, tolerance, evaluate, append);
-}
-
-function resolvedTempoBoundaries(
-	lane: AutomationLaneV21,
-	options: AutomationLaneFrameOptionsV21,
-): readonly number[] {
-	if (lane.timebase !== 'musical-beats') return Object.freeze([]);
-	if (!options.tempoMap) throw new TypeError('A musical automation lane requires the project tempo map.');
-	const project = createIndexedBeatFrameProjector(options.tempoMap, options.sampleRate);
-	return Object.freeze([...new Set(options.tempoMap.events.map(({ beat }) => project(beat)))].sort(numberOrder));
 }
 
 function tempoWindow(boundaries: readonly number[], start: number, end: number): number[] {
