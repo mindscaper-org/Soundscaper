@@ -79,6 +79,24 @@ test('a live fader commit retains the same active source and adopts its static e
 	assert.equal(f.canonicalGain(), .6);
 });
 
+test('two mixer faders can complete independent gestures after either commits its edit', async t => {
+	const f = await fixture(t);
+	const { mixer } = f.controller.actions;
+	const trackId = f.controller.getSnapshot().selectedTrackId; assert.ok(typeof trackId === 'string');
+	const track = { kind: 'strip', strip: { kind: 'track', id: trackId }, parameterId: 'gain' } as const;
+	mixer.beginParameterGesture(MASTER);
+	mixer.beginParameterGesture(track);
+	mixer.previewParameterGesture(MASTER, .7);
+	mixer.previewParameterGesture(track, .5);
+	mixer.commitParameterGesture(MASTER, .7);
+	mixer.commitParameterGesture(track, .5);
+	assert.equal(f.canonicalGain(), .7);
+	assert.equal(f.controller.project?.tracks.find(candidate => candidate.id === trackId)?.gain, .5);
+	f.controller.actions.edit.undo();
+	assert.equal(f.canonicalGain(), .7);
+	assert.equal(f.controller.project?.tracks.find(candidate => candidate.id === trackId)?.gain, 1);
+});
+
 test('a stopped fader commit still applies its value to the next playback graph', async t => {
 	const f = await fixture(t);
 	f.controller.actions.mixer.beginParameterGesture(MASTER);

@@ -11,7 +11,7 @@ import { projectStripPanAvailable } from '../../../terminal-channel-widths.ts';
 import type { AutomationLaneV21 } from '../../../automation-lane-v21.ts';
 
 type StripAddress = Extract<ParameterAddress, { readonly kind: 'strip' }>;
-type Runtime = Pick<EditorActionRuntime, 'getProject' | 'copy'> & Readonly<{
+type Runtime = Pick<EditorActionRuntime, 'getProject' | 'copy' | 'captureProjectGeneration' | 'assertProjectGeneration'> & Readonly<{
 	commit: (command: AudioEditorCommand, selection?: Parameters<EditorActionRuntime['commit']>[1], options?: Parameters<EditorActionRuntime['commit']>[2]) => unknown;
 	engine: Pick<EditorActionRuntime['engine'], 'previewScheduledParameter'>
 		& Partial<Pick<EditorActionRuntime['engine'], 'restoreScheduledAutomationLane' | 'configureMixerParameter'>>;
@@ -33,6 +33,7 @@ export function createMixerParameterActions(runtime: Runtime) {
 	const projectGenerations = new WeakMap<object, number>();
 	let generation = 0;
 	const captureProject = (): EditorProjectToken => {
+		if (runtime.captureProjectGeneration && runtime.assertProjectGeneration) return runtime.captureProjectGeneration();
 		const project = runtime.getProject();
 		if (!project) throw createLocalizedError(Error, runtime.copy, 'projectNotFound');
 		let current = projectGenerations.get(project);
@@ -61,6 +62,10 @@ export function createMixerParameterActions(runtime: Runtime) {
 		sessions,
 		captureProject,
 		assertProject: (token) => {
+			if (runtime.captureProjectGeneration && runtime.assertProjectGeneration) {
+				runtime.assertProjectGeneration(token);
+				return;
+			}
 			const current = captureProject();
 			if (token.projectId !== current.projectId || token.generation !== current.generation) throw new Error('Mixer project changed.');
 		},
