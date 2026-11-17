@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { sequenceFrameAtSample } from '../common/editor/sequence-frame-navigation.ts';
+import { registerVideoPreviewDrawableRevision } from '../common/editor/controller/clip-video/video-preview-frame-identity.ts';
 import { projectTrackFolderMediaStateV12 } from '../common/editor/track-folder-media-runtime.ts';
 import type { AudioEditorProjectStore } from '../common/editor/storage.js';
 import { createFramescaperImageTimelineTickMapperV1 } from '../common/editor/timeline-image-model.ts';
@@ -456,17 +457,22 @@ function createCanvasDrawable(request: Readonly<{
 	canvas.height = request.height;
 	const context = canvas.getContext('2d');
 	if (!context) throw new Error('Selected timelineImage image preview has no 2D canvas context.');
+	let revision = 0;
+	const video = Object.freeze({
+		drawable: canvas, videoWidth: request.width, videoHeight: request.height,
+		readyState: 4 as const, currentTime: 0 as const, pause() {},
+	});
+	registerVideoPreviewDrawableRevision(video, () => revision);
 	return Object.freeze({
-		video: Object.freeze({
-			drawable: canvas, videoWidth: request.width, videoHeight: request.height,
-			readyState: 4 as const, currentTime: 0 as const, pause() {},
-		}),
+		video,
 		present(rgba: Uint8Array<ArrayBuffer>) {
 			context.putImageData(new ImageData(
 				new Uint8ClampedArray(rgba), request.width, request.height,
 			), 0, 0);
+			revision += 1;
 		},
 		dispose() {
+			revision += 1;
 			context.clearRect(0, 0, request.width, request.height);
 			canvas.width = 0;
 			canvas.height = 0;

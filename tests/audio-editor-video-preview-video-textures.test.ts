@@ -8,7 +8,7 @@ import {
 	releaseVideoTexture,
 	uploadVideoTexture,
 } from '../src/common/editor/ui/video-preview-video-textures.js';
-import { createVideoPreviewFrameIdentity } from '../src/common/editor/controller/clip-video/video-preview-frame-identity.ts';
+import { createVideoPreviewFrameIdentity, registerVideoPreviewDrawableRevision } from '../src/common/editor/controller/clip-video/video-preview-frame-identity.ts';
 
 type FrameCallback = (now: number, metadata: { mediaTime: number; presentedFrames: number }) => void;
 
@@ -139,6 +139,23 @@ test('opaque exact-render drawable wrappers always upload their freshly presente
 	uploadVideoTexture(gl, textures, exact, 1);
 	uploadVideoTexture(gl, textures, exact, 2);
 	assert.equal(counters.images + counters.subImages, 2);
+});
+
+test('an owned image drawable uploads only when its presented pixels change', () => {
+	const { gl, textures, counters } = fixture();
+	const image = Object.freeze({ videoWidth: 640, videoHeight: 360, drawable: {} });
+	let revision = 1;
+	registerVideoPreviewDrawableRevision(image, () => revision);
+	uploadVideoTexture(gl, textures, image, 1);
+	uploadVideoTexture(gl, textures, image, 2);
+	assert.equal(counters.images + counters.subImages, 1);
+	revision += 1;
+	uploadVideoTexture(gl, textures, image, 3);
+	uploadVideoTexture(gl, textures, image, 4);
+	assert.equal(counters.images + counters.subImages, 2);
+	pruneVideoTextures(gl, textures, 5);
+	uploadVideoTexture(gl, textures, image, 6);
+	assert.equal(counters.images + counters.subImages, 3, 'a new texture must receive pixels after eviction');
 });
 
 test('reused textures remain live in the current render generation and cleanup cancels callbacks', () => {
