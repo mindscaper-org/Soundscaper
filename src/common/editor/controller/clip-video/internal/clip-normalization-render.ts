@@ -54,8 +54,8 @@ export async function renderClipNormalizationAudio(
 		if (nativeBuffer) buffers.set(clip.sourceId, nativeBuffer);
 		engine.loadProject(controlled?.project ?? preview, buffers, { chunkSources: resources.sourceChunkProviders });
 		const renderEngine = engine as typeof engine & Pick<EnginePublicApi, 'renderMix'>;
-		const startFrame = controlled ? clip.timelineStartFrame : 0;
-		const output = await renderEngine.renderMix({ startFrame, endFrame: startFrame + clip.durationFrames,
+		const startFrame = controlled ? playbackClip.timelineStartFrame : 0;
+		const output = await renderEngine.renderMix({ startFrame, endFrame: startFrame + playbackClip.durationFrames,
 			includeTail: false, includeMaster: false, includeTrackPan: false, preRollFrames: 0, signal });
 		signal.throwIfAborted();
 		if ('getChannelData' in output) return output;

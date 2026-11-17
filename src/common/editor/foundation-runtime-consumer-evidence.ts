@@ -2,6 +2,7 @@
 import { FOUNDATION_SELECTION_RUNTIME_CONSUMERS } from './foundation-selection-consumer-evidence.ts';
 import { FOUNDATION_TIME_PITCH_RUNTIME_CONSUMERS } from './foundation-time-pitch-consumer-evidence.ts';
 import { FOUNDATION_FILE_DELIVERY_RUNTIME_CONSUMERS } from './foundation-file-delivery-consumer-evidence.ts';
+import { FOUNDATION_RUNTIME_ADDITIONAL_CONSUMERS } from './foundation-runtime-additional-consumer-evidence.ts';
 export type FoundationRuntimeConsumerSurface =
 	| 'playback'
 	| 'preview'
@@ -31,7 +32,7 @@ export interface FoundationRuntimeConsumerEvidence {
  * boundary before reading any persisted/resolved clip timing field.
  */
 const entries: FoundationRuntimeConsumerEvidence[] = [
-	...FOUNDATION_SELECTION_RUNTIME_CONSUMERS, ...FOUNDATION_TIME_PITCH_RUNTIME_CONSUMERS, ...FOUNDATION_FILE_DELIVERY_RUNTIME_CONSUMERS,
+	...FOUNDATION_SELECTION_RUNTIME_CONSUMERS, ...FOUNDATION_TIME_PITCH_RUNTIME_CONSUMERS, ...FOUNDATION_FILE_DELIVERY_RUNTIME_CONSUMERS, ...FOUNDATION_RUNTIME_ADDITIONAL_CONSUMERS,
 	{ id: 'bin-audio-duration-presentation', surface: 'preview', file: 'src/common/editor/ui/workspace/useProjectBinPresentation.ts', entryPoint: 'useProjectBinAudioDuration', inputIdentifier: 'project', projectedIdentifier: null, boundary: 'resolveRuntimeClipProjection', evidence: 'Audio Bin cards resolve authored beat extents at the current tempo before displaying duration; sample clips and visual media retain their existing timing paths.' },
 	{
 		id: 'video-source-readiness', surface: 'video-export', file: 'src/common/editor/controller/export/video-export-source-inventory.ts',
@@ -98,7 +99,7 @@ const entries: FoundationRuntimeConsumerEvidence[] = [
 		inputIdentifier: 'project', projectedIdentifier: 'clip', boundary: 'resolveRuntimeClipProjection',
 		evidence: 'Source editor stretch drags resolve authored sample or musical clip geometry before converting an output sample offset back to the exact warp anchor domain.',
 	},
-	{"id": "bin-audio-preview", "file": "src/common/editor/controller/import/internal/project-bin/project-bin-preview-service.ts", "entryPoint": "playPauseProjectBinClip", "inputIdentifier": "project", "projectedIdentifier": null, "boundary": "resolveProjectBinAudioPreviewClip", "surface": "preview", "evidence": "Project Bin reads resolved clip geometry at its audio preview and replacement boundary while retaining authored documents for checkpoint ownership."},
+	{"id": "bin-audio-preview", "file": "src/common/editor/controller/import/internal/project-bin/project-bin-preview-project.ts", "entryPoint": "createProjectBinAudioPreviewProject", "inputIdentifier": "project", "projectedIdentifier": "previewClip", "boundary": "resolveProjectBinAudioPreviewClip", "surface": "preview", "evidence": "Project Bin constructs its audition through this preview-project boundary, which resolves clip geometry before building the transient audio project while authored documents remain the checkpoint authority."},
 	{"id": "bin-preview-geometry", "file": "src/common/editor/controller/import/internal/project-bin/project-bin-runtime.ts", "entryPoint": "resolveProjectBinAudioPreviewClip", "inputIdentifier": "project", "projectedIdentifier": "resolved", "boundary": "resolveRuntimeClipProjection", "surface": "preview", "evidence": "Project Bin reads resolved clip geometry at its audio preview and replacement boundary while retaining authored documents for checkpoint ownership."},
 	{"id": "bin-replacement-geometry", "file": "src/common/editor/controller/import/internal/project-bin/project-bin-runtime.ts", "entryPoint": "projectBinReplacementShortensClip", "inputIdentifier": "project", "projectedIdentifier": "resolved", "boundary": "resolveRuntimeClipProjection", "surface": "composition", "evidence": "Project Bin reads resolved clip geometry at its audio preview and replacement boundary while retaining authored documents for checkpoint ownership."},
 	{"id": "bin-replacement-ranges", "file": "src/common/editor/controller/import/internal/project-bin/project-bin-replacement-service.ts", "entryPoint": "prepareProjectBinReplacement", "inputIdentifier": "baseProject", "projectedIdentifier": null, "boundary": "projectBinReplacementShortensClip", "surface": "composition", "evidence": "Project Bin reads resolved clip geometry at its audio preview and replacement boundary while retaining authored documents for checkpoint ownership."},

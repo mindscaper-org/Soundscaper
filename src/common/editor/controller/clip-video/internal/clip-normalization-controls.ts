@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { clipEffectControlTrackIds } from '../../../clip-effect-control-tracks.ts';
 import { clipTimePitchPlaybackProjection } from '../../../clip-time-pitch-playback-projection.ts';
+import { resolveRuntimeClipProjection } from '../../../runtime-clip-projection.ts';
 import { createAudioPreviewProject } from '../../../engine/audio-preview-project.ts';
 import type { EngineProject } from '../../../engine/types.ts';
 import type { MixerGraphV21 } from '../../../mixer-graph-v21.ts';
@@ -22,8 +23,9 @@ export function clipNormalizationControlProject(project: ClipTransformProject, c
 	});
 	const sourceIds = new Set(project.clips.filter(value => clipIds.has(value.id)).map(value => value.sourceId));
 	const sources = project.sources.filter(source => sourceIds.has(source.id));
+	const targetGeometry = resolveRuntimeClipProjection(project, clip);
 	const clips = project.clips.filter(value => clipIds.has(value.id)).map(value => value.id === clip.id
-		? { ...measured.clips![0]!, timelineStartFrame: clip.timelineStartFrame }
+		? { ...measured.clips![0]!, timelineStartFrame: targetGeometry.timelineStartFrame }
 		: clipTimePitchPlaybackProjection(project, value, sources.find(source => source.id === value.sourceId)!));
 	const preview = createAudioPreviewProject({ sampleRate: project.sampleRate, masterChannels: outputChannels, sources, clips, tracks });
 	const mixer = preview.mixer as MixerGraphV21;

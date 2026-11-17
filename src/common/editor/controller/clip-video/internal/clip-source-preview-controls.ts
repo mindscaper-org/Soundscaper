@@ -2,6 +2,7 @@
 import { clipEffectControlTrackIds } from '../../../clip-effect-control-tracks.ts';
 import { clipTimePitchPlaybackProjection } from '../../../clip-time-pitch-playback-projection.ts';
 import { clipSourcePreviewWarpMap } from '../../../clip-source-timing.ts';
+import { resolveRuntimeClipProjection } from '../../../runtime-clip-projection.ts';
 import { createAudioPreviewProject } from '../../../engine/audio-preview-project.ts';
 import type { EngineProject } from '../../../engine/types.ts';
 import type { MixerGraphV21 } from '../../../mixer-graph-v21.ts';
@@ -18,16 +19,19 @@ export function withClipSourcePreviewControls(original: ClipSourcePreviewProject
 	controls.delete(String(owner.id));
 	const authored = original.clips.find(clip => clip.id === clipId), measured = preview.clips?.find(clip => clip.id === clipId);
 	if (!authored || !measured) throw new ReferenceError('The source audition clip is missing.');
-	const origin = Math.max(0, Number(authored.timelineStartFrame) - Number(measured.timelineStartFrame));
-	const shift = Number(measured.timelineStartFrame) + origin - Number(authored.timelineStartFrame);
+	const playbackProject = { sampleRate: original.sampleRate, tempoMap: original.tempoMap };
+	const targetGeometry = resolveRuntimeClipProjection(playbackProject, authored);
+	const origin = Math.max(0, targetGeometry.timelineStartFrame - Number(measured.timelineStartFrame));
+	const shift = Number(measured.timelineStartFrame) + origin - targetGeometry.timelineStartFrame;
 	const guides = original.tracks!.filter(track => controls.has(String(track.id)));
 	const ids = new Set(guides.flatMap(track => track.clipIds ?? []));
 	const sourceById = new Map(original.sources.map(source => [source.id, source]));
 	const guideClips = original.clips.filter(clip => ids.has(clip.id)).map(clip => {
 		const source = sourceById.get(clip.sourceId);
 		if (!source) throw new ReferenceError('The source audition control media is missing.');
-		return { ...clipTimePitchPlaybackProjection({ sampleRate: original.sampleRate, tempoMap: original.tempoMap }, clip, source), anchor: 'sample', musicalStartBeat: null,
-			musicalDurationBeats: null, musicalExtent: 'fixedSamples', timelineStartFrame: Number(clip.timelineStartFrame) + shift,
+		const projected = clipTimePitchPlaybackProjection(playbackProject, clip, source);
+		return { ...projected, anchor: 'sample', musicalStartBeat: null,
+			musicalDurationBeats: null, musicalExtent: 'fixedSamples', timelineStartFrame: Number(projected.timelineStartFrame) + shift,
 			warpMap: clipSourcePreviewWarpMap(original, clip, source) };
 	});
 	const sourceIds = new Set(guideClips.map(clip => clip.sourceId));
