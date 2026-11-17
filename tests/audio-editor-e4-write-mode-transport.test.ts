@@ -9,6 +9,7 @@ import { createAudioTrack } from '../src/common/editor/project-media-factory.ts'
 import { stripParameterDescriptor } from '../src/common/editor/effect-parameter-descriptors.ts';
 import { evaluateAutomationLaneAtFrameV21 as evaluate, type AutomationLaneV21 } from '../src/common/editor/automation-lane-v21.ts';
 import type { AudioEditorCommand } from '../src/common/editor/commands/protocol.ts';
+import { createSoundscaperEphemeralProjectStore } from '../src/soundscaper/editor-project-store.ts';
 
 for (const transportState of ['playing', 'recording']) test(`choosing Write during ${transportState} immediately owns and records the control`, () => {
 	const f = fixture();
@@ -101,6 +102,39 @@ test('cancelling an active Write does not silently rearm it on the next running 
 	assert.equal(valueAt(f.lane(), 150), .2);
 });
 
+test('saving and reopening before a second Write pass preserves both disjoint automation ranges', async context => {
+	const store = createSoundscaperEphemeralProjectStore();
+	context.after(async () => { await store.close(); });
+	const first = fixture();
+	first.session.setMode('write', 'voice-gain');
+	first.authority.transportState = 'playing';
+	first.move(100); first.move(200); first.stop();
+	await store.saveProject(first.history.present);
+	const saved = await store.loadProject(first.history.present.id);
+	assert.ok(saved);
+	const reopened = fixture(saved as typeof first.history.present);
+	reopened.session.setMode('write', 'voice-gain');
+	reopened.authority.transportState = 'playing';
+	reopened.move(300); reopened.move(400); reopened.stop();
+	assert.equal(valueAt(reopened.lane(), 150), 1);
+	assert.equal(valueAt(reopened.lane(), 250), .2);
+	assert.equal(valueAt(reopened.lane(), 350), 1);
+	assert.equal(reopened.history.undoStack.length, 1);
+});
+
+test('crossing a playback loop while Write is armed retires the capture without breaking the transport tick', () => {
+	const f = fixture();
+	f.session.setMode('write', 'voice-gain');
+	f.authority.transportState = 'playing';
+	f.move(100); f.move(200);
+	assert.doesNotThrow(() => f.move(110));
+	assert.equal(f.session.getSnapshot().active, false);
+	f.move(140);
+	f.stop();
+	assert.equal(valueAt(f.lane(), 150), .2);
+	assert.equal(f.history.undoStack.length, 0);
+});
+
 for (const reason of ['revision', 'project', 'readOnly', 'locked', 'dispose'] as const) test(`running Write capture retains its ${reason} authority fence`, () => {
 	const f = fixture(); f.authority.transportState = 'playing'; f.move(100);
 	f.session.setMode('write', 'voice-gain'); f.move(200);
@@ -116,12 +150,11 @@ for (const reason of ['revision', 'project', 'readOnly', 'locked', 'dispose'] as
 	assert.equal(f.history.undoStack.length, 0);
 });
 
-function fixture() {
-	const project = createSoundscaperProject({ id: 'running-write', tracks: ['voice', 'music'].map(id => createAudioTrack({ id })),
+function fixture(project = createSoundscaperProject({ id: 'running-write', tracks: ['voice', 'music'].map(id => createAudioTrack({ id })),
 		automationLanes: ['voice', 'music'].map(id => ({ id: `${id}-gain`,
 			address: { kind: 'strip' as const, strip: { kind: 'track' as const, id }, parameterId: 'gain' },
 			timebase: 'absolute-samples' as const, points: [{ id: `${id}-a`, position: 0, value: .2 },
-				{ id: `${id}-b`, position: 1000, value: .2 }], segments: [{ kind: 'hold' }] })) });
+				{ id: `${id}-b`, position: 1000, value: .2 }], segments: [{ kind: 'hold' }] })) })) {
 	let history = createSoundscaperProjectHistory(project), locked = false;
 	const authority = { projectId: project.id, projectRevision: project.revision, readOnly: false, lockReadOnly: false,
 		transportState: 'stopped', positionFrame: 0, sampleRate: project.sampleRate, tempoMap: project.tempoMap };
