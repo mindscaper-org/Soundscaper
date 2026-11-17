@@ -29,6 +29,7 @@ import {
 	FRAMESCAPER_IMAGE_FRAME_PACK_MAXIMUM_CHUNK_BYTES,
 	FramescaperImageFramePackV1Error,
 	type FramescaperImageEncodedFrameLayoutV1,
+	type FramescaperImageIndexedFrameV1,
 } from './timeline-image-frame-pack-v1-layout.ts';
 
 export {
@@ -92,6 +93,10 @@ export interface FramescaperImageFramePackReaderV1 {
 	readOriginal(signal?: AbortSignal): Promise<Uint8Array>;
 	readFrame(index: number, signal?: AbortSignal): Promise<Uint8Array>;
 	frameIndexAtTicks(sourceTicks: bigint): number;
+}
+
+export interface FramescaperImageFramePackSnapshotReaderV1 extends FramescaperImageFramePackReaderV1 {
+	readFrameSync(index: number, signal?: AbortSignal): Uint8Array;
 }
 
 const RECEIPT_RESIDENT_BYTE_MULTIPLIER = 32;
@@ -242,6 +247,48 @@ function prepareImageFramePack(input: FramescaperImageFramePackInputV1): Readonl
 export async function openFramescaperImageFramePackV1(
 	request: OpenFramescaperImageFramePackRequestV1,
 ): Promise<FramescaperImageFramePackReaderV1> {
+	return (await admitFramePack(request)).reader;
+}
+
+/** Take exclusive custody of resident bytes before authenticating a synchronous picture source. */
+export async function openFramescaperImageFramePackSnapshotV1(
+	sourceValue: FramescaperImageSourceV1,
+	buffer: ArrayBuffer,
+	signal?: AbortSignal,
+	admitResidentMetadata?: (byteLength: number) => void,
+): Promise<FramescaperImageFramePackSnapshotReaderV1> {
+	const source = normalizeFramescaperImageSourceV1(sourceValue);
+	cancelled(signal);
+	if (!(buffer instanceof ArrayBuffer) || buffer.byteLength !== source.assetByteLength) {
+		throw new FramescaperImageFramePackV1Error('The image frame-pack snapshot has the wrong byte length.');
+	}
+	const snapshot = new Uint8Array(structuredClone(buffer, { transfer: [buffer] }));
+	const header = decodeFramescaperImageFramePackHeaderV1(snapshot.subarray(0, FRAMESCAPER_IMAGE_FRAME_PACK_HEADER_BYTES), source);
+	const metadataByteEstimate = estimateFramescaperImageFramePackReaderMetadataBytesV1(
+		header.receiptByteLength, source.canonical.frameCount,
+	);
+	admitResidentMetadata?.(metadataByteEstimate);
+	const { reader, frameAt } = await admitFramePack({
+		source, signal, read: (offset, length) => snapshot.slice(offset, offset + length),
+	});
+	if (reader.residentMetadataByteEstimate !== metadataByteEstimate) {
+		throw new FramescaperImageFramePackV1Error('The image frame-pack snapshot changed its reader metadata estimate.');
+	}
+	return Object.freeze({
+		...reader,
+		readFrameSync(index: number, frameSignal?: AbortSignal): Uint8Array {
+			cancelled(signal);
+			cancelled(frameSignal);
+			const frame = frameAt(index);
+			return decodeFrame(source, frame, snapshot.subarray(frame.offset, frame.offset + frame.compressedByteLength));
+		},
+	});
+}
+
+async function admitFramePack(request: OpenFramescaperImageFramePackRequestV1): Promise<Readonly<{
+	reader: FramescaperImageFramePackReaderV1;
+	frameAt(index: number): FramescaperImageIndexedFrameV1;
+}>> {
 	const source = normalizeFramescaperImageSourceV1(request?.source);
 	if (typeof request?.read !== 'function') {
 		throw new FramescaperImageFramePackV1Error('An image frame-pack reader requires a range-read port.');
@@ -280,8 +327,14 @@ export async function openFramescaperImageFramePackV1(
 	const timings = Object.freeze(indexedFrames.map(({ presentationTicks, durationTicks }) => (
 		Object.freeze({ presentationTicks, durationTicks })
 	)));
-	return Object.freeze({
-		version: 1,
+	const frameAt = (index: number) => {
+		if (!Number.isSafeInteger(index) || index < 0 || index >= indexedFrames.length) {
+			throw new FramescaperImageFramePackV1Error('The image frame index is outside its closed domain.');
+		}
+		return indexedFrames[index]!;
+	};
+	const reader = Object.freeze({
+		version: 1 as const,
 		source,
 		receipt,
 		timings,
@@ -297,31 +350,13 @@ export async function openFramescaperImageFramePackV1(
 			return value;
 		},
 		async readFrame(index: number, signal?: AbortSignal): Promise<Uint8Array> {
-			if (!Number.isSafeInteger(index) || index < 0 || index >= indexedFrames.length) {
-				throw new FramescaperImageFramePackV1Error('The image frame index is outside its closed domain.');
-			}
+			const frame = frameAt(index);
 			cancelled(signal);
 			await current(request);
-			const frame = indexedFrames[index]!;
 			const compressed = await readSection(
 				request.read, frame.offset, frame.compressedByteLength, signal,
 			);
-			if (digest(compressed) !== frame.compressedSha256) {
-				throw new FramescaperImageFramePackV1Error('The image frame compressed digest is invalid.');
-			}
-			let rgba: Uint8Array;
-			try {
-				rgba = unzlibSync(compressed, { out: new Uint8Array(frame.rawByteLength + 1) });
-			} catch (cause) {
-				throw new FramescaperImageFramePackV1Error('The image frame zlib stream is invalid.', { cause });
-			}
-			if (rgba.byteLength !== frame.rawByteLength || digest(rgba) !== frame.rawSha256) {
-				throw new FramescaperImageFramePackV1Error('The image frame raw length or digest is invalid.');
-			}
-			const frameHasAlpha = validateCanonicalPixels(rgba);
-			if (!source.canonical.hasAlpha && frameHasAlpha) {
-				throw new FramescaperImageFramePackV1Error('The image frame alpha disagrees with its persisted summary.');
-			}
+			const rgba = decodeFrame(source, frame, compressed);
 			await current(request);
 			return rgba;
 		},
@@ -339,6 +374,28 @@ export async function openFramescaperImageFramePackV1(
 			return Math.max(0, Math.min(timings.length - 1, low - 1));
 		},
 	});
+	return { reader, frameAt };
+}
+
+function decodeFrame(source: FramescaperImageSourceV1, frame: FramescaperImageIndexedFrameV1,
+	compressed: Uint8Array): Uint8Array {
+	if (digest(compressed) !== frame.compressedSha256) {
+		throw new FramescaperImageFramePackV1Error('The image frame compressed digest is invalid.');
+	}
+	let rgba: Uint8Array;
+	try {
+		rgba = unzlibSync(compressed, { out: new Uint8Array(frame.rawByteLength + 1) });
+	} catch (cause) {
+		throw new FramescaperImageFramePackV1Error('The image frame zlib stream is invalid.', { cause });
+	}
+	if (rgba.byteLength !== frame.rawByteLength || digest(rgba) !== frame.rawSha256) {
+		throw new FramescaperImageFramePackV1Error('The image frame raw length or digest is invalid.');
+	}
+	const frameHasAlpha = validateCanonicalPixels(rgba);
+	if (!source.canonical.hasAlpha && frameHasAlpha) {
+		throw new FramescaperImageFramePackV1Error('The image frame alpha disagrees with its persisted summary.');
+	}
+	return rgba;
 }
 
 function frameInput(
