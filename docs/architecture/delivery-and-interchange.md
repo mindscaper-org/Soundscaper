@@ -221,7 +221,10 @@ EDL, OTIO and FCPXML imports share File > Open, the ordinary Import chooser,
 and drop routing. They retain cut placement, source trims and sequence clocks;
 OTIO also accepts nested tracks/stacks and FCPXML accepts asset clips and
 connected lanes. Unsupported effects, time maps, transitions and event/library
-authoring appear in the import report. Selected companion media and desktop
+authoring appear in the import report. FCPXML contained items respect their
+parent's visible range; connected items retain overhangs while respecting any
+containing ancestor, following Apple's [timing attributes](https://developer.apple.com/documentation/professional-video-applications/timing-attributes).
+Selected companion media and desktop
 session-folder lookup bind referenced sources. Missing media retains an offline
 source and its edit for relinking rather than silently dropping clips.
 
