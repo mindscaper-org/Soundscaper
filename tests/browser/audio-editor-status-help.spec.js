@@ -22,9 +22,9 @@ test('contextual status help opts in through View and follows the current shortc
 	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
 	await chooseCommandAction(page, editor, 'View', 'Contextual status help');
 	await editor.getByRole('button', { name: 'Undo', exact: true }).hover();
-	await expect(editor.getByText('Undo (Ctrl+Alt+Shift+Y)', { exact: true })).toBeVisible();
+	await expect(editor.getByTitle('Undo (Ctrl+Alt+Shift+Y)', { exact: true })).toBeVisible();
 	await editor.getByRole('button', { name: 'Undo', exact: true }).focus();
-	await expect(editor.getByText('Undo (Ctrl+Alt+Shift+Y)', { exact: true })).toBeVisible();
+	await expect(editor.getByTitle('Undo (Ctrl+Alt+Shift+Y)', { exact: true })).toBeVisible();
 	await chooseCommandAction(page, editor, 'View', 'Contextual status help');
 	await editor.getByRole('button', { name: 'Undo', exact: true }).hover();
 	await expect(editor.getByText(hint, { exact: true })).toBeVisible();

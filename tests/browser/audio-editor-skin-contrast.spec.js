@@ -161,7 +161,7 @@ for (const product of ['soundscaper', 'framescaper']) {
 						await chooseCommandAction(page, editor, 'Generate', 'Tone');
 						const generator = page.getByRole('dialog', { name: 'Tone', exact: true });
 						await expect(generator).toBeVisible();
-						await contrast(generator.locator('input'));
+						await contrast(generator.getByRole('textbox'));
 						for (const variant of ['primary', 'secondary']) {
 							const action = generator.locator(`.button--${variant}`).first();
 							await contrast(action);
