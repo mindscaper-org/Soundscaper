@@ -4,7 +4,7 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction } from './au
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 import { createAudioClip } from '../../src/common/editor/project-media-factory.ts';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
-import { createSoundscaperProjectStore } from '../../src/soundscaper/editor-project-store.ts';
+import { createSoundscaperEphemeralProjectStore } from '../../src/soundscaper/editor-project-store.ts';
 import { createEnvelopeValueEvaluator } from '../../src/common/editor/automation.js';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 
@@ -21,7 +21,7 @@ test('microphone bleed creates envelopes on beat-anchored recordings', async ({ 
 			anchor: 'musical', musicalStartBeat: 2, musicalExtent: 'beat', musicalDurationBeats: 8, sourceDurationFrames: frames })),
 		tracks: [0, 1].map(index => ({ id: `track-${index}`, type: 'audio', name: `Microphone ${index + 1}`, clipIds: [`clip-${index}`] })),
 	});
-	const store = createSoundscaperProjectStore({ indexedDB: null, preferOpfs: false });
+	const store = createSoundscaperEphemeralProjectStore();
 	let buffer;
 	try {
 		for (const [index, gain] of [1, .2].entries()) {
