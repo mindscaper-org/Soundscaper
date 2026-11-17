@@ -41,6 +41,26 @@ for (const [type, params] of cases) test(`streamed ${type} retains complete-sele
 	assert.deepEqual(actual, expected);
 });
 
+test('streamed FIR coalesces its final tail into exact transferable channel buffers', async () => {
+	const frames = 65_537;
+	const source = new Float32Array(frames);
+	const sizes: number[] = [];
+	await runStreamedSelectionProcessing({
+		effects: [{ type: 'audacity-filter-curve-eq', params: { filterLength: 511 } }],
+		sampleRate, channelCount: 1, frameCount: frames,
+	}, {
+		assertCurrent: () => undefined, yieldToMainThread: false,
+		read: async (start, end) => [source.slice(start, end)],
+		write: async ([channel]) => {
+			assert.ok(channel);
+			assert.equal(channel.buffer.byteLength, channel.byteLength);
+			sizes.push(channel.length);
+			structuredClone(channel, { transfer: [channel.buffer as ArrayBuffer] });
+		},
+	});
+	assert.deepEqual(sizes, [65_536, 1]);
+});
+
 test('stream admission preserves offline Echo ranges and rejects unsupported duration/spectral jobs', () => {
 	assert.equal(canStreamSelectionEffect('audacity-echo', { delaySeconds: 20, decay: 1 }), true);
 	assert.equal(canStreamSelectionEffect('audacity-reverse', {}), false);

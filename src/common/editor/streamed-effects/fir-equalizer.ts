@@ -20,23 +20,34 @@ export async function* streamFirEqualizer(input: AsyncGenerator<Float32Array[]>,
 	const real = new Float64Array(fftSize), imaginary = new Float64Array(fftSize);
 	let incoming: Float32Array[] = [], accumulated: Float64Array[] = [], fill = 0, offset = 0;
 	for await (const channels of input) {
-		if (!incoming.length) { incoming = channels.map(() => new Float32Array(blockSize)); accumulated = channels.map(() => new Float64Array(fftSize)); }
+		if (!accumulated.length) accumulated = channels.map(() => new Float64Array(fftSize));
 		for (let from = 0; from < channels[0]!.length;) {
 			const count = Math.min(blockSize - fill, channels[0]!.length - from);
+			const final = offset + fill + count === frameCount;
+			if (fill === 0 && (count === blockSize || final)) {
+				const output = convolve(channels, from, count, final);
+				from += count;
+				offset += count;
+				if (output[0]!.length) yield output;
+				continue;
+			}
+			if (!incoming.length) incoming = channels.map(() => new Float32Array(blockSize));
 			for (let channel = 0; channel < channels.length; channel++) incoming[channel]!.set(channels[channel]!.subarray(from, from + count), fill);
 			fill += count; from += count;
-			if (fill === blockSize || offset + fill === frameCount) {
-				const output = convolve(fill, offset + fill === frameCount); offset += fill; fill = 0;
+			if (fill === blockSize || final) {
+				const output = convolve(incoming, 0, fill, final); offset += fill; fill = 0;
 				if (output[0]!.length) yield output;
 			}
 		}
 	}
 	if (offset !== frameCount || fill !== 0) throw new RangeError('Incomplete FIR input.');
-	function convolve(count: number, final: boolean): Float32Array[] {
+	function convolve(channels: readonly Float32Array[], from: number, count: number, final: boolean): Float32Array[] {
 		const convolutionFrames = count + length - 1, end = offset + (final ? convolutionFrames : count);
 		const first = Math.max(offset, delay), last = Math.min(end, frameCount + delay);
-		return incoming.map((channel, index) => {
-			real.fill(0, count); imaginary.fill(0); real.set(channel.subarray(0, count)); fft(real, imaginary, false);
+		return channels.map((channel, index) => {
+			real.fill(0, count); imaginary.fill(0);
+			real.set(count === channel.length ? channel : channel.subarray(from, from + count));
+			fft(real, imaginary, false);
 			for (let bin = 0; bin < fftSize; bin++) {
 				const re = real[bin]!, im = imaginary[bin]!;
 				real[bin] = re * kernelReal[bin]! - im * kernelImaginary[bin]!;
@@ -46,8 +57,11 @@ export async function* streamFirEqualizer(input: AsyncGenerator<Float32Array[]>,
 			const ring = accumulated[index]!;
 			for (let position = 0; position < convolutionFrames; position++) { const slot = (offset + position) & mask; ring[slot] = ring[slot]! + real[position]!; }
 			const output = new Float32Array(Math.max(0, last - first));
-			for (let frame = offset; frame < end; frame++) {
-				const slot = frame & mask; if (frame >= first && frame < last) output[frame - first] = ring[slot]!; ring[slot] = 0;
+			for (let frame = offset; frame < Math.min(first, end); frame++) ring[frame & mask] = 0;
+			for (let frame = first; frame < last; frame++) {
+				const slot = frame & mask;
+				output[frame - first] = ring[slot]!;
+				ring[slot] = 0;
 			}
 			return output;
 		});

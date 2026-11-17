@@ -36,6 +36,7 @@ export async function runStreamedSelectionProcessing(request: StreamedProcessing
 		return;
 	}
 	if (effects.some(effect => isStreamedGainEffect(effect.type))) throw new RangeError('Normalization requires a staged analysis barrier.');
+	const prefetch = !effects.some(effect => effect.type === 'audacity-auto-duck');
 	const read = async (start: number, end: number): Promise<Float32Array[]> => {
 		ports.assertCurrent();
 		const channels = [...await ports.read(start, end)]; ports.assertCurrent();
@@ -46,11 +47,11 @@ export async function runStreamedSelectionProcessing(request: StreamedProcessing
 		let pending = read(0, Math.min(frameCount, STREAMED_EFFECT_CHUNK_FRAMES));
 		for (let offset = 0; offset < frameCount; offset += STREAMED_EFFECT_CHUNK_FRAMES) {
 			const channels = await pending, next = offset + STREAMED_EFFECT_CHUNK_FRAMES;
-			if (next < frameCount && !effects.some(effect => effect.type === 'audacity-auto-duck')) {
+			if (next < frameCount && prefetch) {
 				pending = read(next, Math.min(frameCount, next + STREAMED_EFFECT_CHUNK_FRAMES)); void pending.catch(() => undefined);
 			}
 			yield channels;
-			if (next < frameCount && effects.some(effect => effect.type === 'audacity-auto-duck')) pending = read(next, Math.min(frameCount, next + STREAMED_EFFECT_CHUNK_FRAMES));
+			if (next < frameCount && !prefetch) pending = read(next, Math.min(frameCount, next + STREAMED_EFFECT_CHUNK_FRAMES));
 		}
 	};
 	for (const effect of effects) {
@@ -62,7 +63,7 @@ export async function runStreamedSelectionProcessing(request: StreamedProcessing
 			: () => process(previous(), effect.type, params, effect.context);
 	}
 	let written = 0, lastYield = performance.now();
-	for await (const channels of packetizeEffectPcm(stream())) {
+	for await (const channels of packetizeEffectPcm(stream(), frameCount)) {
 		ports.assertCurrent(); assertAudacityEffectOutput(channels);
 		written += channels[0]!.length; if (written > frameCount) throw new RangeError('Streamed output exceeds the selection.');
 		await ports.write(channels); ports.assertCurrent();
@@ -81,16 +82,18 @@ export async function runStreamedSelectionProcessing(request: StreamedProcessing
 				if (control) { assertAudacityEffectOutput(control); if (control.some(channel => channel.length !== channels[0]!.length)) throw new RangeError('Invalid detector PCM.'); }
 				const result = block(channels, control); if (result) yield result; }
 			processor.finish?.();
+			let silence: Float32Array[] | undefined;
 			for (let remaining = latency; remaining > 0;) {
 				ports.assertCurrent(); const count = Math.min(STREAMED_EFFECT_CHUNK_FRAMES, remaining); remaining -= count;
-				const result = block(Array.from({ length: channelCount }, () => new Float32Array(count))); if (result) yield result;
+				if (silence?.[0]?.length !== count) silence = Array.from({ length: channelCount }, () => new Float32Array(count));
+				const result = block(silence); if (result) yield result;
 			}
 		} finally { processor.dispose?.(); }
 		function block(channels: Float32Array[], control?: Float32Array[]): Float32Array[] | null {
 			const frames = channels[0]!.length, output = channels.map(() => new Float32Array(frames));
 			processor.process(channels, output, control);
 			const start = Math.max(0, latency - seen), end = Math.min(frames, frameCount + latency - seen); seen += frames;
-			return end > start ? output.map(channel => channel.subarray(start, end)) : null;
+			return start === 0 && end === frames ? output : end > start ? output.map(channel => channel.subarray(start, end)) : null;
 		}
 	}
 }
