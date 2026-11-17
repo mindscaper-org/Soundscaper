@@ -44,7 +44,9 @@ function resolveCachedDisplaySize(
 	const width = Number(video?.videoWidth);
 	const height = Number(video?.videoHeight);
 	if (!source || typeof source !== 'object' || !width || !height) return null;
-	const key = `${String((source as Record<string, unknown>).id)}:${width}x${height}`;
+	const value = source as Record<string, unknown>;
+	const facts = JSON.stringify([value.characteristics ?? null, value.frameRate ?? null]);
+	const key = `${String(value.id)}:${width}x${height}:${facts}`;
 	const cached = cache.get(key);
 	if (cached !== undefined) return cached;
 	const size = resolveVideoSourceDisplaySize({ ...source, width, height });

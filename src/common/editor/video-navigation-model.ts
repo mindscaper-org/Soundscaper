@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createVisibleVideoTrackPredicate, isProductVisualClip } from './video-timeline.js';
+import { createVisibleVideoTrackPredicate } from './video-track-visibility.js';
+import { isProductVisualClip } from './video-timeline-internals.js';
+import { projectTrackFolderMediaStateV12 } from './track-folder-media-runtime.ts';
 
 import {
 	sequenceFrameAtSample,
@@ -204,10 +206,8 @@ function editableVideoTracks(context: SequenceContext): DataRecord[] {
 }
 
 function visibleVideoTracks(context: SequenceContext): DataRecord[] {
-	const visible = createVisibleVideoTrackPredicate(arrayOf(context.project.tracks));
-	return arrayOf(context.project.tracks).filter((track) => (
-		visible(track) && context.memberTrackIds.has(String(track.id))
-	));
+	const tracks = arrayOf(context.project.tracks).filter((track) => context.memberTrackIds.has(String(track.id)));
+	return tracks.filter(createVisibleVideoTrackPredicate(tracks));
 }
 
 function videoClipsOnTracks(
@@ -250,7 +250,7 @@ function videoClipRange(clip: DataRecord, sequenceId: string): Readonly<{ start:
 }
 
 function resolveSequenceContext(projectValue: unknown, requestedSequenceId?: string): SequenceContext {
-	const project = record(projectValue, 'project');
+	const project = projectTrackFolderMediaStateV12(record(projectValue, 'project'));
 	const sampleRate = positiveSafeInteger(project.sampleRate, 'project.sampleRate');
 	const sequenceId = nonEmptyId(
 		requestedSequenceId ?? project.primarySequenceId,

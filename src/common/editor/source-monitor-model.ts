@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createVisibleVideoTrackPredicate } from './video-track-visibility.js';
+import { projectTrackFolderMediaStateV12 } from './track-folder-media-runtime.ts';
 import { sequenceFrameAtSample } from './sequence-frame-navigation.ts';
 import { proportionalSourceFrame, sourceFrameTimecodeLabel } from './source-properties-model.ts';
 import { normalizeVideoSourceCharacteristicsForConsumer } from './video-source-characteristics-consumer.ts';
@@ -207,7 +209,7 @@ export function resolveProgramFrame(
 	request: ProgramFrameRequest,
 	bridgeValue?: VideoRetimeProgramOrdinalBridge,
 ): ProgramFrame | null {
-	const project = record(projectValue, 'project');
+	const project = projectTrackFolderMediaStateV12(record(projectValue, 'project'));
 	const sampleRate = positiveSafeInteger(project.sampleRate, 'project.sampleRate');
 	const sequenceId = String(request.sequenceId ?? project.primarySequenceId ?? '');
 	const sequence = arrayOf(project.sequences).find((candidate) => String(candidate.id) === sequenceId);
@@ -219,7 +221,11 @@ export function resolveProgramFrame(
 		sampleRate,
 	);
 	const trackIdByClipId = new Map<string, string>();
-	for (const track of arrayOf(project.tracks)) {
+	const memberIds = new Set(Array.isArray(sequence.trackIds) ? sequence.trackIds.map(String) : []);
+	const tracks = arrayOf(project.tracks).filter(track => memberIds.size === 0 || memberIds.has(String(track.id)));
+	const visible = createVisibleVideoTrackPredicate(tracks);
+	const visibleTrackIds = new Set(tracks.filter(visible).map(track => String(track.id)));
+	for (const track of tracks) {
 		if (track.type !== 'video') continue;
 		for (const clipId of Array.isArray(track.clipIds) ? track.clipIds : []) {
 			trackIdByClipId.set(String(clipId), String(track.id));
@@ -238,7 +244,7 @@ export function resolveProgramFrame(
 			matched = clip;
 			break;
 		}
-		matched ??= clip;
+		if (trackId !== null && visibleTrackIds.has(trackId)) matched ??= clip;
 	}
 	if (!matched) return null;
 	const trackId = trackIdByClipId.get(String(matched.id));
