@@ -26,7 +26,11 @@ export function createDialogueAlignmentPreview(lifetime: EditorControllerLifetim
 		try {
 			await stopPlayback(); task.assertCurrent(); assertCurrent();
 			if (generation !== request) throw new DOMException('Preview cancelled.', 'AbortError');
-			engine = createEngine({ onState: state => { if (state === 'stopped' && generation === request) release?.(); } });
+			let started = false;
+			engine = createEngine({ onState: state => {
+				if (state === 'playing') started = true;
+				if (state === 'stopped' && started && generation === request) release?.();
+			} });
 			const length = audio.channels[0]!.length;
 			const project = createAudioPreviewProject({ sampleRate: audio.sampleRate, sources: [{ id: 'preview-source', storageKey: 'preview-source',
 				name: 'Dialogue preview', sampleRate: audio.sampleRate, channelCount: audio.channels.length, frameCount: length }],

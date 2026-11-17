@@ -55,6 +55,7 @@ test('Edit > Audio clips aligns and previews dialogue, publishes one undoable co
 	expect((await persistedProject(page, project.id)).clips).toHaveLength(2);
 	await dialog.getByRole('button', { name: 'Play aligned', exact: true }).click();
 	await expect(dialog.getByRole('button', { name: 'Stop preview', exact: true })).toBeEnabled();
+	await expect(dialog.getByRole('alert')).toHaveCount(0);
 	await dialog.getByRole('button', { name: 'Stop preview', exact: true }).click();
 	await dialog.getByRole('spinbutton', { name: 'Alignment strength (%)', exact: true }).fill('75');
 	await expect(dialog.getByRole('button', { name: 'Create aligned copy', exact: true })).toBeDisabled();
