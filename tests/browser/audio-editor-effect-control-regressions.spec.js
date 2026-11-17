@@ -11,19 +11,22 @@ async function openTone(page) {
 	return page.getByRole('dialog', { name: 'Tone', exact: true });
 }
 
-async function openAmplify(page) {
+async function openAmplifyGainField(page) {
 	const dialog = await openTone(page);
 	await dialog.getByRole('button', { name: 'Generate', exact: true }).click();
 	await expect(dialog).toBeHidden();
 	const editor = page.locator('[data-audio-editor]');
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await chooseNestedCommandAction(page, editor, 'Effect', ['Volume and compression', 'Amplify']);
-	return page.getByRole('dialog', { name: 'Apply effect', exact: true });
+	const amplify = page.getByRole('dialog', { name: 'Apply effect', exact: true });
+	const gain = amplify.locator('[data-effect-param="gainDb"]');
+	// The generated tone peaks at 0.8. Wait for Amplify's asynchronous peak scan.
+	await expect(gain.getByRole('slider').first()).toHaveValue('1.9');
+	return gain;
 }
 
 test('clearing an effect number refuses the empty value instead of changing it to zero', async ({ page }) => {
-	const dialog = await openAmplify(page);
-	const field = dialog.locator('[data-effect-param="gainDb"]');
+	const field = await openAmplifyGainField(page);
 	const number = field.getByRole('spinbutton');
 	await commitInput(number, '-6');
 	await expect(field.getByRole('slider').first()).toHaveValue('-6');
@@ -32,8 +35,8 @@ test('clearing an effect number refuses the empty value instead of changing it t
 });
 
 test('rejected effect numbers expose their error to assistive technology', async ({ page }) => {
-	const dialog = await openAmplify(page);
-	const number = dialog.locator('[data-effect-param="gainDb"]').getByRole('spinbutton');
+	const field = await openAmplifyGainField(page);
+	const number = field.getByRole('spinbutton');
 	await commitInput(number, '1000');
 	await expect(number).toHaveAttribute('aria-invalid', 'true');
 });

@@ -15,7 +15,7 @@ test('ordinary Apply streams a long normalization and a realtime effect through 
 			await dialog.getByRole('button', { name: 'Apply to selection', exact: true }).click();
 			await expect(dialog).toBeHidden({ timeout: 90000 });
 		} else await expect(dialog).toHaveCount(0);
-		await expect(editor.locator('[data-status]')).toHaveAttribute('data-state', 'success');
+		await expect(editor.locator('[data-status]')).toHaveText('Applied the Audacity effect.', { timeout: 60_000 });
 		await expect.poll(async () => (await effectSourceMetadata(page)).find(source => source.name.includes(name))?.frameCount).toBe(11520000);
 		await editor.getByRole('button', { name: 'Undo', exact: true }).click();
 		await editor.getByRole('button', { name: 'Redo', exact: true }).click();

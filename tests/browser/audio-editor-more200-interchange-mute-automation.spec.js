@@ -40,7 +40,9 @@ test('cut export retains native static, track and bus mute automation', async ({
 		expect(clips).toHaveLength(automated ? 1 : 0);
 		await chooseCommandAction(page, editor, 'File', 'Delivery Report');
 		const report = page.getByRole('dialog', { name: 'Delivery Report', exact: true });
-		await expect(report.locator('[data-severity="warning"]').filter({ hasText: 'automation' })).toHaveCount(automated ? 1 : 0);
+		const automationWarnings = report.locator('[data-severity="warning"]').filter({ hasText: 'automationLanes: mute-ride' });
+		await expect(automationWarnings.filter({ hasText: 'track automationLanes is omitted.' })).toHaveCount(automated ? 1 : 0);
+		await expect(automationWarnings.filter({ hasText: 'mixerNodes: bus' })).toHaveCount(bus ? 1 : 0);
 		await report.getByRole('button', { name: 'Close', exact: true }).last().click();
 		await expect(report).toBeHidden();
 	}, { timeout: 90_000 });
