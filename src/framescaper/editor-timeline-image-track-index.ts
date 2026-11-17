@@ -20,7 +20,8 @@ export function indexVisibleFramescaperImageTracks(
 	const clipTracks = new Map<string, ImageTrackPlacement | null>();
 	for (const track of tracks) {
 		const placement = visible(track) ? { trackId: track.id, trackIndex: trackIndexes.get(track.id)! } : null;
-		for (const clipId of track.clipIds) {
+		// Both callers admit the project before indexing its projected tracks.
+		for (const clipId of track.clipIds as readonly string[]) {
 			if (!clipTracks.has(clipId)) clipTracks.set(clipId, placement);
 		}
 	}
