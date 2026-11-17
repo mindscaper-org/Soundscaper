@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { FileSizeWarningConfirmation } from '../common/editor/controller/shared/file-size-warning.ts';
+import { createExportRenderProject } from '../common/editor/controller/export/export-render-project.ts';
 import type { FfmpegOutputSink } from '../common/editor/ffmpeg-output-stream.ts';
 import { resolveVideoExportRange } from '../common/editor/video-export.js';
 import {
@@ -90,9 +91,13 @@ export function createFramescaperVideoExportStrategyTimelineImage(
 		createExportProject(request: ProductVideoExportProjectRequest) {
 			const authority = projectAuthority(profile, request.canonicalProject);
 			foundationAuthorities.set(authority.inheritedProject, authority);
+			const { sequences, subsequences } = authority.canonicalSnapshot;
+			const delivery = sequences.length > 1 && Array.isArray(subsequences) && subsequences.length === 0
+				? { ...request.delivery, project: createExportRenderProject(request.delivery.project) }
+				: request.delivery;
 			const exportProject = delegate.createExportProject({
 				canonicalProject: authority.inheritedProject,
-				delivery: request.delivery,
+				delivery,
 			});
 			exports.set(exportProject, authority);
 			return exportProject;

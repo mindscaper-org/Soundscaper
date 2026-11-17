@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createEditorVideoExportAction } from '../src/common/editor/controller/export/internal/video/video-export-service.ts';
 import { createVideoTrack } from '../src/common/editor/project-media-factory.ts';
 import { createFramescaperProject } from '../src/framescaper/editor-project.ts';
 import { createFramescaperVideoExportStrategyTimelineImage } from '../src/framescaper/video-export-strategy-timeline-image.ts';
@@ -35,6 +36,24 @@ test('File > Export Video keeps the primary video when an empty track in an unus
 	const { strategy, canonicalProject, exportProject } = exportProjectWithSecondaryTrack({ solo: true });
 	const plan = strategy.createPlan({ canonicalProject, exportProject, format: 'webm', range: 'project', includeAudio: false, canvas: undefined });
 	assert.deepEqual(plan?.activeClipIds, ['video-clip']);
+});
+
+test('File > Export Video checks the primary programme for picture and source readiness', async () => {
+	for (const options of [{ solo: true }, { hasClip: true }]) {
+		const { strategy, canonicalProject } = exportProjectWithSecondaryTrack(options);
+		const reachedSourceReadiness = new Error('Source readiness reached');
+		const runExport = createEditorVideoExportAction({
+			state: { exportAbort: null, exportGeneration: 0, disposed: false },
+			getProject: () => canonicalProject,
+			findClip: (project: { clips: readonly RecordData[] }, id: string) => project.clips.find(clip => clip.id === id),
+			hasMissingTimelineSources(project: { clips: readonly RecordData[] }) {
+				assert.deepEqual(project.clips.map(({ id }) => id), ['video-clip']);
+				throw reachedSourceReadiness;
+			},
+			options: { productVideoExportStrategy: strategy },
+		} as never, async () => assert.fail('This regression stops before rendering.'));
+		await assert.rejects(runExport({ format: 'video-webm', includeAudio: false }), error => error === reachedSourceReadiness);
+	}
 });
 
 test('File > Export Video leaves overlapping footage from an unused sequence out of the primary programme', () => {
