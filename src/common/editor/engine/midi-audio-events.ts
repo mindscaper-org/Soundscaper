@@ -4,55 +4,77 @@ import type { MidiBlockEvent } from './midi-audio-renderer.ts';
 import { splitMidiInstrumentPorts } from './midi-instrument-ports.ts';
 import { createMidiChasedPrograms, type MidiChasedProgram } from './midi-chased-programs.ts';
 
+interface ChasedVoice {
+	readonly data: readonly number[];
+	readonly channel: number;
+	readonly program: MidiChasedProgram;
+	held: boolean;
+	captured: boolean;
+}
+
 /** DAW-style cold seek: restore channel state and sounding keys, without running past DSP. */
 export function chaseMidiAudioEvents(events: readonly MidiBlockEvent[], start: number): MidiBlockEvent[] {
 	const state: MidiBlockEvent[] = [], sustain = new Set<number>(), sostenuto = new Set<number>();
 	const programs = createMidiChasedPrograms();
-	const voices: { data: readonly number[]; program: MidiChasedProgram; held: boolean; captured: boolean }[] = [];
-	const restart = (voice: typeof voices[number]): void => {
-		for (const data of programs.select(voice.data[0]! & 15, voice.program)) state.push({ frame: 0, data });
+	const voices = new Set<ChasedVoice>();
+	const channels = Array.from({ length: 16 }, () => ({
+		voices: new Set<ChasedVoice>(), held: new Map<number | undefined, ChasedVoice[]>(),
+	}));
+	const restart = (voice: ChasedVoice): void => {
+		for (const data of programs.select(voice.channel, voice.program)) state.push({ frame: 0, data });
 		state.push({ frame: 0, data: voice.data });
 	};
-	const prune = (channel: number) => {
-		for (let index = voices.length - 1; index >= 0; index--) {
-			const voice = voices[index]!;
-			if ((voice.data[0]! & 15) === channel && !voice.held && !sustain.has(channel) && !(voice.captured && sostenuto.has(channel))) voices.splice(index, 1);
+	const captured = (voice: ChasedVoice): boolean => voice.captured && sostenuto.has(voice.channel);
+	const prune = (voice: ChasedVoice): void => {
+		if (!voice.held && !sustain.has(voice.channel) && !captured(voice)) {
+			voices.delete(voice);
+			channels[voice.channel]!.voices.delete(voice);
 		}
 	};
 	for (const event of events) {
 		if (event.frame >= start) break;
 		const [status, first, second] = event.data, channel = status! & 15, type = status! & 240;
-		if (type === 0x90 && second) { voices.push({ data: event.data, program: programs.capture(channel), held: true, captured: false }); continue; }
+		const current = channels[channel]!;
+		if (type === 0x90 && second) {
+			const voice: ChasedVoice = { data: event.data, channel, program: programs.capture(channel), held: true, captured: false };
+			voices.add(voice);
+			current.voices.add(voice);
+			const held = current.held.get(first);
+			if (held) held.push(voice); else current.held.set(first, [voice]);
+			continue;
+		}
 		if (type === 0x80 || type === 0x90) {
-			for (const voice of voices) if ((voice.data[0]! & 15) === channel && voice.data[1] === first) voice.held = false;
-			prune(channel); continue;
+			for (const voice of current.held.get(first) ?? []) { voice.held = false; prune(voice); }
+			current.held.delete(first);
+			continue;
 		}
 		state.push({ frame: 0, data: event.data });
 		programs.observe(event.data);
 		if (type !== 0xb0) continue;
-		if (first === 64) { if (second! >= 64) sustain.add(channel); else sustain.delete(channel); }
-		if (first === 66) {
-			if (second! >= 64 && !sostenuto.has(channel)) {
-				sostenuto.add(channel); for (const voice of voices) if ((voice.data[0]! & 15) === channel && voice.held) voice.captured = true;
-			} else if (second! < 64) {
-				sostenuto.delete(channel);
-				for (const voice of voices) if ((voice.data[0]! & 15) === channel) voice.captured = false;
-			}
+		if (first === 64) {
+			if (second! >= 64) sustain.add(channel);
+			else if (sustain.delete(channel)) for (const voice of current.voices) prune(voice);
+		} else if (first === 66 && second! >= 64 && !sostenuto.has(channel)) {
+			sostenuto.add(channel);
+			for (const voice of current.voices) if (voice.held) voice.captured = true;
+		} else if (first === 121 || (first === 66 && second! < 64)) {
+			if (first === 121) sustain.delete(channel);
+			sostenuto.delete(channel);
+			for (const voice of current.voices) { voice.captured = false; prune(voice); }
+		} else if (first === 120) {
+			current.held.clear();
+			for (const voice of current.voices) voices.delete(voice);
+			current.voices.clear();
+		} else if (first! >= 123 && first! <= 127) {
+			current.held.clear();
+			for (const voice of current.voices) { voice.held = false; prune(voice); }
 		}
-		if (first === 121) {
-			sustain.delete(channel); sostenuto.delete(channel);
-			for (const voice of voices) if ((voice.data[0]! & 15) === channel) voice.captured = false;
-		}
-		if (first === 120 || first! >= 123 && first! <= 127) for (const voice of voices) if ((voice.data[0]! & 15) === channel) { voice.held = false; if (first === 120) voice.captured = false; }
-		if (first === 120) for (let index = voices.length - 1; index >= 0; index--) { if ((voices[index]!.data[0]! & 15) === channel) voices.splice(index, 1); }
-		prune(channel);
 	}
-	const captured = voices.filter(voice => voice.captured && sostenuto.has(voice.data[0]! & 15));
 	for (const channel of sostenuto) state.push({ frame: 0, data: [0xb0 | channel, 66, 0] });
-	for (const voice of captured) restart(voice);
+	for (const voice of voices) if (captured(voice)) restart(voice);
 	for (const channel of sostenuto) state.push({ frame: 0, data: [0xb0 | channel, 66, 127] });
-	for (const voice of voices) if (!captured.includes(voice)) restart(voice);
-	for (const voice of voices) if (!voice.held) state.push({ frame: 0, data: [0x80 | voice.data[0]! & 15, voice.data[1]!, 0] });
+	for (const voice of voices) if (!captured(voice)) restart(voice);
+	for (const voice of voices) if (!voice.held) state.push({ frame: 0, data: [0x80 | voice.channel, voice.data[1]!, 0] });
 	for (const data of programs.restore()) state.push({ frame: 0, data });
 	return state;
 }
@@ -62,15 +84,37 @@ export interface MidiAudioEventTimeline {
 	readonly messages: Uint32Array<ArrayBuffer>;
 	readonly ports?: readonly MidiAudioEventTimeline[];
 }
+
+export function firstMidiAudioEventAtOrAfter(events: readonly MidiBlockEvent[], frame: number): number {
+	let low = 0, high = events.length;
+	while (low < high) {
+		const middle = (low + high) >>> 1;
+		if (events[middle]!.frame < frame) low = middle + 1; else high = middle;
+	}
+	return low;
+}
+
 export function compileMidiAudioTimeline(data: MidiClipData, start = 0): MidiAudioEventTimeline {
 	const parts = splitMidiInstrumentPorts(data);
 	if (parts.length !== 1 || parts[0] !== data) {
 		return { frames: new Float64Array(), messages: new Uint32Array(), ports: parts.map(part => compileMidiAudioTimeline(part, start)) };
 	}
 	const all = midiAudioEvents(data);
-	const events = start ? [...chaseMidiAudioEvents(all, start), ...all.filter(event => event.frame >= start).map(event => ({ ...event, frame: event.frame - start }))] : all;
-	return { frames: Float64Array.from(events.map(event => event.frame)), messages: Uint32Array.from(events.map(event =>
-		event.data[0]! | (event.data[1] ?? 0) << 8 | (event.data[2] ?? 0) << 16 | event.data.length << 24)) };
+	const chased = start ? chaseMidiAudioEvents(all, start) : [];
+	const first = start ? firstMidiAudioEventAtOrAfter(all, start) : 0;
+	const length = chased.length + all.length - first;
+	const frames = new Float64Array(length), messages = new Uint32Array(length);
+	let output = 0;
+	const append = (events: readonly MidiBlockEvent[], begin: number, offset: number): void => {
+		for (let index = begin; index < events.length; index++) {
+			const { frame, data: bytes } = events[index]!;
+			frames[output] = frame - offset;
+			messages[output++] = bytes[0]! | (bytes[1] ?? 0) << 8 | (bytes[2] ?? 0) << 16 | bytes.length << 24;
+		}
+	};
+	append(chased, 0, 0);
+	append(all, first, start || 0);
+	return { frames, messages };
 }
 
 /** Keep same-sample panic provenance consistent with Standard MIDI export. */
