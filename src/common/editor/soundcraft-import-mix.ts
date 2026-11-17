@@ -30,11 +30,12 @@ export function soundcraftMixStrip(track: Readonly<Record<string, unknown>>, iss
 		issues.push(timelineImportIssue('soundcraft', 'hardware-output-converted', 'A hardware output is routed to the main output.', 'converted'));
 		return undefined;
 	};
+	const trimDb = dawNumber(mixer.trim_db, 0);
 	const sends = dawArray(mixer.sends ?? []).flatMap((value, index) => {
 		if (!value) return [];
 		const send = dawRecord(value), target = route(send.target);
 		if (!target) return [];
-		return [{ id: `${id}:send:${index}`, target, level: 10 ** (dawNumber(send.level_db, 0) / 20), enabled: send.active !== false && send.mute !== true,
+		return [{ id: `${id}:send:${index}`, target, level: 10 ** ((dawNumber(send.level_db, 0) + (send.pre_fader === true ? trimDb : 0)) / 20), enabled: send.active !== false && send.mute !== true,
 			position: send.pre_fader === true ? 'pre-fader' as const : 'post-fader' as const }];
 	});
 	const automation: TimelineInterchangeAutomation[] = [];
@@ -55,11 +56,13 @@ export function soundcraftMixStrip(track: Readonly<Record<string, unknown>>, iss
 			const point = dawRecord(value); return { frame: dawInteger(point.at, 'automation position'), value: dawNumber(point.value, 0), interpolation: parameter === 'mute' ? 'hold' as const : 'linear' as const };
 		}) });
 	}
-	const trim = 10 ** (dawNumber(mixer.trim_db, 0) / 20);
-	if (trim !== 1) {
+	if (trimDb !== 0) {
 		for (let index = 0; index < automation.length; index++) {
 			const lane = automation[index]!;
-			if (lane.parameter === 'gain') automation[index] = { ...lane, points: lane.points.map(point => ({ ...point, value: point.value + dawNumber(mixer.trim_db, 0) })) };
+			const parameter = lane.parameter;
+			const trimmed = parameter === 'gain' || typeof parameter === 'object' && 'sendId' in parameter
+				&& sends.some(send => send.id === parameter.sendId && send.position === 'pre-fader');
+			if (trimmed) automation[index] = { ...lane, points: lane.points.map(point => ({ ...point, value: point.value + trimDb })) };
 		}
 	}
 	if (track.instrument) effects.push(interchangeMissingEffect('soundcraft', `${id}:instrument`, 'Instrument', track.instrument));
