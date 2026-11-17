@@ -108,7 +108,7 @@ export async function mountedMacroManagerFixture(initialDraft: MacroEntry = {
 	// asserts against are the ones that actually gate a run rather than a double's
 	// approximation of them.
 	const scriptPublishers = new Set<(scripts: readonly MacroScriptRecord[]) => void>();
-	const scriptState = { macroScripts: createMacroScriptLibrary() };
+	const scriptState = { macroScripts: createMacroScriptLibrary(), macroScriptsReadOnly: false };
 	let mintedScripts = 0;
 	const scriptService = createMacroScriptLibraryService({
 		state: scriptState,
@@ -217,6 +217,7 @@ export async function mountedMacroManagerFixture(initialDraft: MacroEntry = {
 		runs,
 		scriptRuns,
 		scripts: scriptLibrary,
+		setScriptLibraryReadOnly: (value: boolean) => { scriptState.macroScriptsReadOnly = value; },
 		cancels: () => cancels,
 		exports,
 		button: (label: string) => buttonByLabel(dom.container, label),

@@ -133,6 +133,7 @@ export function AudioEditorMacroManagerDialog({
 		openMacro(next ? null : macros[0] || null);
 	};
 	const blocked = selectAudioEditorEditBlock(snapshot).blocked;
+	const reportLibraryAction = (operation) => { try { return operation(); } catch (cause) { showMessage(feedbackFailure(cause), 'error'); } };
 	const hasRunTarget = Boolean(snapshot.selection || snapshot.selectedClipId);
 	const canStartRun = hasRunTarget || macroStartsWithCommand(effects);
 	const templatesAvailable = productId === 'soundscaper';
@@ -444,17 +445,17 @@ export function AudioEditorMacroManagerDialog({
 							exportProgram: managerCopy.exportProgram,
 							deleteProgram: managerCopy.deleteProgram,
 							onSelect: (scriptId) => { setSelectedScriptId(scriptId); openMacro(null); },
-							onCreate: createScript,
+							onCreate: () => reportLibraryAction(createScript),
 							onImport: () => scriptInputRef.current?.click(),
 							onExport: () => { void exportScript(); },
-							onDelete: deleteScript,
+							onDelete: () => reportLibraryAction(deleteScript),
 						}}
 						onSelect={(macroId) => {
 							setSelectedScriptId(null);
 							openMacro(macros.find((macro) => macro.id === macroId) || null);
 						}}
 						onCreate={() => createMacro({ name: publishedCopyFor(copy).untitledMacro, effects: [] })}
-						onDelete={deleteMacro}
+						onDelete={() => reportLibraryAction(deleteMacro)}
 						onExport={exportMacro}
 						onImport={() => fileInputRef.current?.click()}
 					/>
