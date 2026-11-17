@@ -293,6 +293,7 @@ export function createProjectSaveService<Project extends ProjectSaveSnapshot>(
 
 	async function terminalFlush(): Promise<unknown> {
 		terminal = true;
+		cancelScheduled();
 		const operation = flushCurrentProject(
 			true,
 			dependencies.prepareSnapshot !== undefined,

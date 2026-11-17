@@ -84,6 +84,18 @@ test('a resumed Save preserves the pending autosave of a different project', asy
 	assert.deepEqual(runtime.writes, [{ id: 'project', revision: 0 }, { id: 'other-project', revision: 1 }]);
 });
 
+test('terminal flush cancels a scheduled autosave even if another project is active', async () => {
+	const runtime = fixture();
+	runtime.firstWrite.resolve();
+	runtime.setProject({ id: 'other-project', revision: 1 });
+	assert.equal(runtime.service.scheduleAutosave(), true);
+	runtime.setProject({ id: 'project', revision: 0 });
+	await runtime.service.terminalFlush();
+	runtime.fireScheduled();
+	await runtime.service.drain();
+	assert.deepEqual(runtime.writes, [{ id: 'project', revision: 0 }]);
+});
+
 test('slow storage persists the in-flight autosave and newest queued edit without cloning the backlog', async () => {
 	const runtime = fixture();
 	runtime.autosave({ id: 'project', revision: 0 });
