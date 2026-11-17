@@ -29,6 +29,8 @@ import { WineVst3Preferences, WINE_VST3_ACTIONS } from './project-library-runtim
 import { changeWineVst3Configuration } from './project-library-runtime/desktop/wine-vst3-revocation.js';
 import { createDefaultPluginDiscoveryConsent } from './project-library-runtime/desktop/plugin-discovery-defaults.js';
 import { bundledJuceEffectsDirectory } from './project-library-runtime/desktop/bundled-juce-effects.js';
+import { createBundledPluginStartup } from './project-library-runtime/desktop/bundled-plugin-startup.js';
+import { authenticatePluginCandidate } from './plugin-candidate-authentication.mjs';
 import { createDesktopNativeAddonHelperSupervisor } from './native-helper-registration.mjs';
 import { productionSoundscaperPluginFormatActivated } from './soundscaper-native-activation-policy.mjs';
 import { createPluginRegistryAllowanceStore } from './plugin-registry-allowance-store.mjs';
@@ -240,11 +242,17 @@ export function registerDesktopPluginDiscovery({
 			catch { return null; }
 		},
 	});
-	const service = new DesktopPluginScanService({
-		supervisor: observeScannedPlugins(supervisor, registry, {
-			isFormatActivated: formatIsActive, onRecorded: allowances.observe, linuxWineVst3Enabled: () => wine.enabled, windowsX86Vst2Enabled: () => bridgeConsent.enabled,
+	let bundled;
+	const observedSupervisor = observeScannedPlugins(supervisor, registry, {
+			isFormatActivated: formatIsActive, onRecorded: (observation, admission) => { allowances.observe(observation, admission); bundled?.observe(observation, admission); }, linuxWineVst3Enabled: () => wine.enabled, windowsX86Vst2Enabled: () => bridgeConsent.enabled,
 			onIdentityChanged: (digest) => scannerQuarantine.quarantine(digest, 'identity-change'),
-		}),
+		});
+	bundled = createBundledPluginStartup({ registry, supervisor: observedSupervisor, quarantine: scannerQuarantine,
+		describePayload, isEnabled: () => settings.snapshot().nativePluginDiscoveryEnabled === true, isFormatActive: formatIsActive,
+		authenticate: authenticatePluginCandidate, preferencesPath: join(userDataPath, 'bundled-native-plugin-defaults-v1.json'),
+		writeFile: (path, contents) => durable.writeFile(path, contents), allowances });
+	const service = new DesktopPluginScanService({
+		supervisor: observedSupervisor,
 		consent: discoveryConsent,
 		quarantine: scannerQuarantine,
 		roots: discoveryRoots,
@@ -279,7 +287,8 @@ export function registerDesktopPluginDiscovery({
 		describePayload, desktopRoot, packaged, resourcesPath,
 		...(vampAnalyzerRuntime ? { runtime: vampAnalyzerRuntime } : {}),
 		...(vampAnalyzerBackend ? { backend: vampAnalyzerBackend } : {}),
-		effects: Object.freeze({ service, registry, allowances, hosting, isFormatActive: formatIsActive,
+		effects: Object.freeze({ service, registry, allowances, hosting, isFormatActive: formatIsActive, ready: bundled.ready,
+			onInstallationAllowed: bundled.setAllowed,
 			onInstallationRevoked: (id) => ara.withdrawInstallation(id),
 			settleQuarantine: () => scannerQuarantine.settle() }),
 	});
@@ -350,12 +359,14 @@ export function registerDesktopPluginDiscovery({
 		const scannerFault = quarantine.describe(digest)?.scope === 'scanner';
 		const cleared = await quarantine.clear(digest, clearance);
 		if (cleared && scannerFault) service.clearQuarantine();
+		if (cleared) bundled.cancel();
 		// The in-memory hold releases with the durable one, or an explicit
 		// re-enable would leave the digest dead until the editor restarts.
 		const restored = hosting ? hosting.isolation.restoreDigest(digest) : false;
 		return Object.freeze({ cleared: cleared || restored });
 	});
 	handle(channels.nativePluginInstantiate, async (event, value) => {
+		await bundled.ready();
 		await rebindPluginInstallation(allowances, registry, value?.installationId);
 		const runtime = requireHosting(hosting);
 		const owner = ownerFor(event);
@@ -399,12 +410,14 @@ export function registerDesktopPluginDiscovery({
 		ready: async () => {
 			await Promise.all([quarantine.load(), wine.ready()]);
 			await persistConsent();
+			void bundled.ready().catch(error => console.error('Bundled plug-in startup failed:', error));
 			return Object.freeze([]);
 		},
 		setEnabled: async (enabled) => {
 			const result = await settings.setNativePluginDiscoveryEnabled(enabled === true);
 			if (!result) {
 				service.cancelAll();
+				bundled.cancel();
 				const vampDisabled = vamp.disable();
 				await ara.disable();
 				await hosting?.closeAll();
@@ -423,6 +436,7 @@ export function registerDesktopPluginDiscovery({
 			void hosting?.closeAll();
 			hosting?.service.dispose();
 			service.dispose();
+			bundled.dispose();
 			await vamp.dispose();
 			await ara.dispose();
 		},

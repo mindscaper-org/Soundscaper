@@ -4,6 +4,60 @@
 	"purpose": "Exact source identities for Milestone 5 native build recipes. Source authentication is separate from redistribution terms, patent considerations, and runtime activation.",
 	"sources": [
 		{
+			"id": "surge-xt",
+			"version": "1.3.4",
+			"git": {
+				"tag": "release_xt_1.3.4",
+				"commit": "f7b97c682ade0b87da85ca5968b63d5c7c98e68d"
+			},
+			"archive": {
+				"url": "https://github.com/surge-synthesizer/releases-xt/releases/download/1.3.4/surge-src-1.3.4.tar.gz",
+				"fileName": "surge-src-1.3.4.tar.gz",
+				"byteLength": 319327963,
+				"sha256": "d4b8f595a0595205ddd63eacadd23a0be33df46affc83afe9eafff7018990d55"
+			},
+			"extractedTree": {
+				"algorithm": "framescaper-portable-source-tree-sha256-v1",
+				"fileCount": 12930,
+				"sha256": "c2d20f5d851f10f3bd2b4e570904cebcc94862556b17e755cd8812c98807ddf6"
+			},
+			"license": "GPL-3.0-or-later and retained third-party notices",
+			"licenseSelection": "GPL-3.0-or-later",
+			"authenticationStatus": "pinned-metadata",
+			"activationStatus": "accepted",
+			"blockedBy": null,
+			"uses": [
+				"bundled-midi-instrument"
+			]
+		},
+		{
+			"id": "dexed",
+			"version": "1.1.0",
+			"git": {
+				"tag": "v1.1.0",
+				"commit": "fea2f0f0f2c397799f59b27eb11c038cd34b22c5"
+			},
+			"archive": {
+				"url": "https://github.com/asb2m10/dexed/releases/download/v1.1.0/dexed-source-fea2f0f.tar.gz",
+				"fileName": "dexed-source-fea2f0f.tar.gz",
+				"byteLength": 42889987,
+				"sha256": "894a83f89e68ef551d43581b9f0d211fa2f3f9f243d872138ac997c50ead6040"
+			},
+			"extractedTree": {
+				"algorithm": "framescaper-portable-source-tree-sha256-v1",
+				"fileCount": 4806,
+				"sha256": "ac750f60cf2390112419d9bf92068dee3d8d730035f48d9db08ab8187423fd24"
+			},
+			"license": "GPL-3.0-or-later and retained third-party notices",
+			"licenseSelection": "GPL-3.0-or-later",
+			"authenticationStatus": "pinned-metadata",
+			"activationStatus": "accepted",
+			"blockedBy": null,
+			"uses": [
+				"bundled-midi-instrument"
+			]
+		},
+		{
 			"id": "electron-node-api-headers",
 			"version": "45.2.3",
 			"git": {

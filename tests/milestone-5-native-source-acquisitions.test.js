@@ -24,6 +24,10 @@ import { collectExtractedSourceTree } from '../native/framescaper-media-host/bui
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
 const EXPECTED_PINS = {
+	'surge-xt': ['1.3.4', 'f7b97c682ade0b87da85ca5968b63d5c7c98e68d', 319327963,
+		'd4b8f595a0595205ddd63eacadd23a0be33df46affc83afe9eafff7018990d55'],
+	dexed: ['1.1.0', 'fea2f0f0f2c397799f59b27eb11c038cd34b22c5', 42889987,
+		'894a83f89e68ef551d43581b9f0d211fa2f3f9f243d872138ac997c50ead6040'],
 	'electron-node-api-headers': ['45.2.3', null, 350118,
 		'5300f8e7965734f7cc1aec0c89ce8c0b68644129b858fb0a530ebbd9cd4a4284'],
 	juce: ['9.0.1', 'e18f7f506c0b96f2c738a0bcd7fe6467a5005ad8', 23609832,
@@ -60,6 +64,7 @@ const EXPECTED_PINS = {
 		'9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23'],
 };
 const EXPECTED_LICENSE_SELECTIONS = {
+	'surge-xt': 'GPL-3.0-or-later', dexed: 'GPL-3.0-or-later',
 	'electron-node-api-headers': 'MIT',
 	juce: 'AGPL-3.0-only',
 	clap: 'MIT',
@@ -144,7 +149,7 @@ test('Soundscaper source audit excludes every deferred Framescaper native input'
 		null,
 	);
 	assert.deepEqual(audit.sources.map(({ id }) => id), [
-		'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+		'surge-xt', 'dexed', 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 		'asio-sdk', 'ladspa-sdk', 'lv2',
 	]);
 	assert.deepEqual(audit.delegatedSources, []);

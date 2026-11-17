@@ -4,6 +4,653 @@
 	"purpose": "Exact installed-notice inventory for authenticated Soundscaper professional-native source inputs.",
 	"sources": [
 		{
+			"id": "surge-xt",
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
+			"notices": [
+				{
+					"name": "surge-xt-000-LICENSE",
+					"origin": "authenticated-source",
+					"path": "LICENSE",
+					"byteLength": 35116,
+					"sha256": "d4c0fe570b3750d909691ce5f494c9cd11ee047bbbedda9a5d75cc548e4df06b"
+				},
+				{
+					"name": "surge-xt-001-LICENSE.txt",
+					"origin": "authenticated-source",
+					"path": "libs/CLI11/LICENSE.txt",
+					"byteLength": 1586,
+					"sha256": "89022151dbf5827a22430557ef2f8a75808dd25fa1e9a12709ef5421d363e66d"
+				},
+				{
+					"name": "surge-xt-002-LICENSE.md",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/LICENSE.md",
+					"byteLength": 1957,
+					"sha256": "aca7d911fdc27bea07eadb18efb38225c3987d512816cea0cef203d1c96415e9"
+				},
+				{
+					"name": "surge-xt-003-LICENSE-for-gradlewrapper.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/examples/DemoRunner/Builds/Android/gradle/wrapper/LICENSE-for-gradlewrapper.txt",
+					"byteLength": 11325,
+					"sha256": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14"
+				},
+				{
+					"name": "surge-xt-004-LICENSE.md",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/examples/Plugins/extern/LICENSE.md",
+					"byteLength": 1028,
+					"sha256": "efea13f17440ed04ceb383d1476bb6691cba47178325ea723be3a29c9d5a5546"
+				},
+				{
+					"name": "surge-xt-005-LICENSE-for-gradlewrapper.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/extras/AudioPerformanceTest/Builds/Android/gradle/wrapper/LICENSE-for-gradlewrapper.txt",
+					"byteLength": 11325,
+					"sha256": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14"
+				},
+				{
+					"name": "surge-xt-006-LICENSE-for-gradlewrapper.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/extras/AudioPluginHost/Builds/Android/gradle/wrapper/LICENSE-for-gradlewrapper.txt",
+					"byteLength": 11325,
+					"sha256": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14"
+				},
+				{
+					"name": "surge-xt-007-LICENSE-for-gradlewrapper.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/extras/NetworkGraphicsDemo/Builds/Android/gradle/wrapper/LICENSE-for-gradlewrapper.txt",
+					"byteLength": 11325,
+					"sha256": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14"
+				},
+				{
+					"name": "surge-xt-008-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/extras/Projucer/Source/BinaryData/gradle/LICENSE",
+					"byteLength": 11325,
+					"sha256": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14"
+				},
+				{
+					"name": "surge-xt-009-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_devices/native/oboe/LICENSE",
+					"byteLength": 11358,
+					"sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+				},
+				{
+					"name": "surge-xt-010-Flac_Licence.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_formats/codecs/flac/Flac Licence.txt",
+					"byteLength": 2448,
+					"sha256": "123926094aa97c30e346c23a12a453b7063c56e6c414e342dd5ae0fea13bd77d"
+				},
+				{
+					"name": "surge-xt-011-Ogg_Vorbis_Licence.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_formats/codecs/oggvorbis/Ogg Vorbis Licence.txt",
+					"byteLength": 2477,
+					"sha256": "62d5ce5c59484dc99e462ec8f815bfc76f64a2e4759500c14beaf3772a7d1181"
+				},
+				{
+					"name": "surge-xt-012-COPYING",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_formats/codecs/oggvorbis/libvorbis-1.3.7/COPYING",
+					"byteLength": 1470,
+					"sha256": "ec1815db59fcd302846df949d7424876cb2e2dc5ed1606c5fb0b36787b1cf43a"
+				},
+				{
+					"name": "surge-xt-013-LICENSE.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_plugin_client/AU/AudioUnitSDK/LICENSE.txt",
+					"byteLength": 11358,
+					"sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+				},
+				{
+					"name": "surge-xt-014-COPYING",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_processors/format_types/LV2_SDK/lilv/COPYING",
+					"byteLength": 751,
+					"sha256": "e06562d6bcf0341b2ac2ad0f0ca36801d2ebf388d5ef297011625e4c36e963f0"
+				},
+				{
+					"name": "surge-xt-015-COPYING",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_processors/format_types/LV2_SDK/lv2/COPYING",
+					"byteLength": 846,
+					"sha256": "0b0b07d852e3ce7fa04986e141f73001bd7f260683968f0a19e02dbcc4131aa6"
+				},
+				{
+					"name": "surge-xt-016-COPYING",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_processors/format_types/LV2_SDK/serd/COPYING",
+					"byteLength": 751,
+					"sha256": "e06562d6bcf0341b2ac2ad0f0ca36801d2ebf388d5ef297011625e4c36e963f0"
+				},
+				{
+					"name": "surge-xt-017-COPYING",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_processors/format_types/LV2_SDK/sord/COPYING",
+					"byteLength": 751,
+					"sha256": "e06562d6bcf0341b2ac2ad0f0ca36801d2ebf388d5ef297011625e4c36e963f0"
+				},
+				{
+					"name": "surge-xt-018-COPYING",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_processors/format_types/LV2_SDK/sratom/COPYING",
+					"byteLength": 752,
+					"sha256": "3fc429d6b944fa20306357196a28bb4dd7c25e2d67edebec771f44de5bd7f9e8"
+				},
+				{
+					"name": "surge-xt-019-LICENSE.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_processors/format_types/VST3_SDK/LICENSE.txt",
+					"byteLength": 2761,
+					"sha256": "d18cb2a42e54a6554b098af9b4c9da1958ae4933691a3b788f1773d8070fb014"
+				},
+				{
+					"name": "surge-xt-020-VST3_License_Agreement.pdf",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_processors/format_types/VST3_SDK/VST3_License_Agreement.pdf",
+					"byteLength": 135822,
+					"sha256": "cd702954a80e2dc8edb2b80dfcdbab44cab1e4c024cc916ad23a3a98633a109b"
+				},
+				{
+					"name": "surge-xt-021-LICENSE.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_processors/format_types/VST3_SDK/base/LICENSE.txt",
+					"byteLength": 1856,
+					"sha256": "116d5c3db6afc905fbfd2864548f0448b696a28be23251e120bd57eab508aab4"
+				},
+				{
+					"name": "surge-xt-022-LICENSE.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_processors/format_types/VST3_SDK/pluginterfaces/LICENSE.txt",
+					"byteLength": 2761,
+					"sha256": "d18cb2a42e54a6554b098af9b4c9da1958ae4933691a3b788f1773d8070fb014"
+				},
+				{
+					"name": "surge-xt-023-LICENSE.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_processors/format_types/VST3_SDK/public.sdk/LICENSE.txt",
+					"byteLength": 1856,
+					"sha256": "116d5c3db6afc905fbfd2864548f0448b696a28be23251e120bd57eab508aab4"
+				},
+				{
+					"name": "surge-xt-024-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_graphics/image_formats/pnglib/LICENSE",
+					"byteLength": 5345,
+					"sha256": "bf5e22b9dce8464064ae17a48ea1133c3369ac9e1d80ef9e320e5219aa14ea9b"
+				},
+				{
+					"name": "surge-xt-025-COPYRIGHT",
+					"origin": "authenticated-source",
+					"path": "libs/LuaJitLib/LuaJIT/COPYRIGHT",
+					"byteLength": 2935,
+					"sha256": "43fc251179d900f9948e51dd3cc93733d1219f2db060faaa0c8100ad054f54d8"
+				},
+				{
+					"name": "surge-xt-026-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/PEGTL/LICENSE",
+					"byteLength": 1104,
+					"sha256": "8dd848eff55d8f925ad676daf6cba065c4ef7b85698ae1fbdc6603ae4fa32cba"
+				},
+				{
+					"name": "surge-xt-027-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/airwindows/LICENSE",
+					"byteLength": 1070,
+					"sha256": "b4f5719b00ba3fecf8c0ce651e843651bd80f08a10cf4cf1f00e673a5bcaf23b"
+				},
+				{
+					"name": "surge-xt-028-LICENSE.md",
+					"origin": "authenticated-source",
+					"path": "libs/clap-juce-extensions/LICENSE.md",
+					"byteLength": 1059,
+					"sha256": "ee3bd73591efbb9272e28d066fc430790a1e9eeb75b6658864f4377fe79dc558"
+				},
+				{
+					"name": "surge-xt-029-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/clap-juce-extensions/clap-libs/clap/LICENSE",
+					"byteLength": 1072,
+					"sha256": "ced49f9ef950277afdb56199369ea6e8165ebfdbfbb37ebfe1827e0de892088d"
+				},
+				{
+					"name": "surge-xt-030-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/clap-juce-extensions/clap-libs/clap-helpers/LICENSE",
+					"byteLength": 1072,
+					"sha256": "ced49f9ef950277afdb56199369ea6e8165ebfdbfbb37ebfe1827e0de892088d"
+				},
+				{
+					"name": "surge-xt-031-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/eurorack/eurorack/stmlib/LICENSE",
+					"byteLength": 2746,
+					"sha256": "6fde7600ac71ff9e4bdc28b642063d1a65e195f28bb07fb52a9b476efb5aa791"
+				},
+				{
+					"name": "surge-xt-032-LICENSE.rst",
+					"origin": "authenticated-source",
+					"path": "libs/fmt/LICENSE.rst",
+					"byteLength": 1408,
+					"sha256": "825c9324e70f8c839c8ba910543dd4a7daee243b86ef960594c11381a19980b8"
+				},
+				{
+					"name": "surge-xt-033-python-license.txt",
+					"origin": "authenticated-source",
+					"path": "libs/fmt/doc/python-license.txt",
+					"byteLength": 14903,
+					"sha256": "dcc4d9738d3e8d3b9f51286f1dc90d0c49ea8325982008ced021932a0b0b0cda"
+				},
+				{
+					"name": "surge-xt-034-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/libpng/LICENSE",
+					"byteLength": 5344,
+					"sha256": "7b7b507ce6d29bcd161f923ef4453cc2ed4c4bef52348b3ab0d6c1a5f5adc1ca"
+				},
+				{
+					"name": "surge-xt-035-COPYING",
+					"origin": "authenticated-source",
+					"path": "libs/libsamplerate/COPYING",
+					"byteLength": 1334,
+					"sha256": "2c1f76ce2effdddb425018405d5690c0b1ab4e6976e35296b0a6db65c5e1a55d"
+				},
+				{
+					"name": "surge-xt-036-license.md",
+					"origin": "authenticated-source",
+					"path": "libs/libsamplerate/docs/license.md",
+					"byteLength": 377,
+					"sha256": "9722032e4b5684f0ecd399480183a9029623636add1e9515621defaf8dbcf3ed"
+				},
+				{
+					"name": "surge-xt-037-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/melatonin_inspector/LICENSE",
+					"byteLength": 1072,
+					"sha256": "d813cde81ac44702941b1e515eb2829c5f15575feb59c69d6a3def1b7035c411"
+				},
+				{
+					"name": "surge-xt-038-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/oddsound-mts/MTS-ESP/LICENSE",
+					"byteLength": 661,
+					"sha256": "481d4c320dc5c1a7f5b4604c8e9a08ac7710e73291b177c468ab69e0fe158837"
+				},
+				{
+					"name": "surge-xt-039-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/pybind11/LICENSE",
+					"byteLength": 1684,
+					"sha256": "83965b843b98f670d3a85bd041ed4b372c8ec50d7b4a5995a83ac697ba675dcb"
+				},
+				{
+					"name": "surge-xt-040-COPYING",
+					"origin": "authenticated-source",
+					"path": "libs/simde/COPYING",
+					"byteLength": 1077,
+					"sha256": "75ce0a8c5a7bff42fbd6f8f3b469b518132132c4f4948fb8d02b1ccb5d0df9d8"
+				},
+				{
+					"name": "surge-xt-041-COPYING",
+					"origin": "authenticated-source",
+					"path": "libs/simde/test/munit/COPYING",
+					"byteLength": 1106,
+					"sha256": "551a04ab9278e48e3d4ef8b0381ad54e54e84fac1a225c50247fa3669dfdef75"
+				},
+				{
+					"name": "surge-xt-042-LICENSE.md",
+					"origin": "authenticated-source",
+					"path": "libs/sst/sst-basic-blocks/LICENSE.md",
+					"byteLength": 35116,
+					"sha256": "d4c0fe570b3750d909691ce5f494c9cd11ee047bbbedda9a5d75cc548e4df06b"
+				},
+				{
+					"name": "surge-xt-043-LICENSE.md",
+					"origin": "authenticated-source",
+					"path": "libs/sst/sst-cpputils/LICENSE.md",
+					"byteLength": 1096,
+					"sha256": "a8995bab79c290f4fa6eab0192694ba47fe31441027e9f74e9dc95da46ccd1c7"
+				},
+				{
+					"name": "surge-xt-044-LICENSE.md",
+					"origin": "authenticated-source",
+					"path": "libs/sst/sst-effects/LICENSE.md",
+					"byteLength": 35116,
+					"sha256": "d4c0fe570b3750d909691ce5f494c9cd11ee047bbbedda9a5d75cc548e4df06b"
+				},
+				{
+					"name": "surge-xt-045-LICENSE.md",
+					"origin": "authenticated-source",
+					"path": "libs/sst/sst-filters/LICENSE.md",
+					"byteLength": 35116,
+					"sha256": "d4c0fe570b3750d909691ce5f494c9cd11ee047bbbedda9a5d75cc548e4df06b"
+				},
+				{
+					"name": "surge-xt-046-LICENSE.md",
+					"origin": "authenticated-source",
+					"path": "libs/sst/sst-plugininfra/LICENSE.md",
+					"byteLength": 322,
+					"sha256": "012770edfc14a78d1512c8c3a8e64a622e577a27b22bbdf5c986126778579325"
+				},
+				{
+					"name": "surge-xt-047-LICENSE_MIT.md",
+					"origin": "authenticated-source",
+					"path": "libs/sst/sst-plugininfra/LICENSE_MIT.md",
+					"byteLength": 1059,
+					"sha256": "ee3bd73591efbb9272e28d066fc430790a1e9eeb75b6658864f4377fe79dc558"
+				},
+				{
+					"name": "surge-xt-048-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/sst/sst-plugininfra/libs/filesystem/ghc-filesystem/LICENSE",
+					"byteLength": 1086,
+					"sha256": "1b265537c97cfb422ffb52492c96979943f54fab8746a6dd38d8329953d487cc"
+				},
+				{
+					"name": "surge-xt-049-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/sst/sst-plugininfra/libs/miniz/LICENSE",
+					"byteLength": 1184,
+					"sha256": "0115478d567121238cf6cc1c0c361926cf07a49d9e4c9e66da97fac6a01646b3"
+				},
+				{
+					"name": "surge-xt-050-LICENSE.md",
+					"origin": "authenticated-source",
+					"path": "libs/sst/sst-waveshapers/LICENSE.md",
+					"byteLength": 35116,
+					"sha256": "d4c0fe570b3750d909691ce5f494c9cd11ee047bbbedda9a5d75cc548e4df06b"
+				},
+				{
+					"name": "surge-xt-051-LICENSE.md",
+					"origin": "authenticated-source",
+					"path": "libs/tuning-library/LICENSE.md",
+					"byteLength": 1059,
+					"sha256": "ee3bd73591efbb9272e28d066fc430790a1e9eeb75b6658864f4377fe79dc558"
+				},
+				{
+					"name": "surge-xt-052-OFL.txt",
+					"origin": "authenticated-source",
+					"path": "resources/fonts/OFL.txt",
+					"byteLength": 4400,
+					"sha256": "7d0a6c233c518d60264d50cfe51c1f8e56e32e3c96825485ded2c1afafd20e1e"
+				},
+				{
+					"name": "surge-xt-053-License.txt",
+					"origin": "authenticated-source",
+					"path": "scripts/installer_mac/Resources/License.txt",
+					"byteLength": 34633,
+					"sha256": "94c2cc224a565ac7ab014afa7c501e0bcf2309f2fdbdd38caa8c7a1425e8bf0d"
+				}
+			]
+		},
+		{
+			"id": "dexed",
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
+			"notices": [
+				{
+					"name": "dexed-000-LICENSE",
+					"origin": "authenticated-source",
+					"path": "LICENSE",
+					"byteLength": 35147,
+					"sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+				},
+				{
+					"name": "dexed-001-LICENSE.md",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/LICENSE.md",
+					"byteLength": 4971,
+					"sha256": "2633539bb26d244f0966fbc4df59400ea99bdf575fa96291851c1c3ff3456146"
+				},
+				{
+					"name": "dexed-002-LICENSE-for-gradlewrapper.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/examples/DemoRunner/Builds/Android/gradle/wrapper/LICENSE-for-gradlewrapper.txt",
+					"byteLength": 11325,
+					"sha256": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14"
+				},
+				{
+					"name": "dexed-003-LICENSE.md",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/examples/Plugins/extern/LICENSE.md",
+					"byteLength": 1028,
+					"sha256": "efea13f17440ed04ceb383d1476bb6691cba47178325ea723be3a29c9d5a5546"
+				},
+				{
+					"name": "dexed-004-LICENSE-for-gradlewrapper.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/extras/AudioPerformanceTest/Builds/Android/gradle/wrapper/LICENSE-for-gradlewrapper.txt",
+					"byteLength": 11325,
+					"sha256": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14"
+				},
+				{
+					"name": "dexed-005-LICENSE-for-gradlewrapper.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/extras/AudioPluginHost/Builds/Android/gradle/wrapper/LICENSE-for-gradlewrapper.txt",
+					"byteLength": 11325,
+					"sha256": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14"
+				},
+				{
+					"name": "dexed-006-LICENSE-for-gradlewrapper.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/extras/NetworkGraphicsDemo/Builds/Android/gradle/wrapper/LICENSE-for-gradlewrapper.txt",
+					"byteLength": 11325,
+					"sha256": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14"
+				},
+				{
+					"name": "dexed-007-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/extras/Projucer/Source/BinaryData/gradle/LICENSE",
+					"byteLength": 11325,
+					"sha256": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14"
+				},
+				{
+					"name": "dexed-008-LICENSE.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_devices/native/asio/LICENSE.txt",
+					"byteLength": 2640,
+					"sha256": "61e56814f24b32216884b2db0b4dcc317111a5ab354d54d19dd9fc13d71b1c7a"
+				},
+				{
+					"name": "dexed-009-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_devices/native/oboe/LICENSE",
+					"byteLength": 11358,
+					"sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+				},
+				{
+					"name": "dexed-010-Flac_Licence.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_formats/codecs/flac/Flac Licence.txt",
+					"byteLength": 2448,
+					"sha256": "123926094aa97c30e346c23a12a453b7063c56e6c414e342dd5ae0fea13bd77d"
+				},
+				{
+					"name": "dexed-011-Ogg_Vorbis_Licence.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_formats/codecs/oggvorbis/Ogg Vorbis Licence.txt",
+					"byteLength": 2477,
+					"sha256": "62d5ce5c59484dc99e462ec8f815bfc76f64a2e4759500c14beaf3772a7d1181"
+				},
+				{
+					"name": "dexed-012-COPYING",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_formats/codecs/oggvorbis/libvorbis-1.3.7/COPYING",
+					"byteLength": 1470,
+					"sha256": "ec1815db59fcd302846df949d7424876cb2e2dc5ed1606c5fb0b36787b1cf43a"
+				},
+				{
+					"name": "dexed-013-LICENSE.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_plugin_client/AAX/SDK/LICENSE.txt",
+					"byteLength": 597,
+					"sha256": "44edcb3404ef6e6120ae463070aeac7451198f1fabdaffdc7b03e938e45d3c6d"
+				},
+				{
+					"name": "dexed-014-LICENSE.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_plugin_client/AU/AudioUnitSDK/LICENSE.txt",
+					"byteLength": 11358,
+					"sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+				},
+				{
+					"name": "dexed-015-COPYING",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_processors_headless/format_types/LV2_SDK/lilv/COPYING",
+					"byteLength": 751,
+					"sha256": "e06562d6bcf0341b2ac2ad0f0ca36801d2ebf388d5ef297011625e4c36e963f0"
+				},
+				{
+					"name": "dexed-016-COPYING",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_processors_headless/format_types/LV2_SDK/lv2/COPYING",
+					"byteLength": 846,
+					"sha256": "0b0b07d852e3ce7fa04986e141f73001bd7f260683968f0a19e02dbcc4131aa6"
+				},
+				{
+					"name": "dexed-017-COPYING",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_processors_headless/format_types/LV2_SDK/serd/COPYING",
+					"byteLength": 751,
+					"sha256": "e06562d6bcf0341b2ac2ad0f0ca36801d2ebf388d5ef297011625e4c36e963f0"
+				},
+				{
+					"name": "dexed-018-COPYING",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_processors_headless/format_types/LV2_SDK/sord/COPYING",
+					"byteLength": 751,
+					"sha256": "e06562d6bcf0341b2ac2ad0f0ca36801d2ebf388d5ef297011625e4c36e963f0"
+				},
+				{
+					"name": "dexed-019-COPYING",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_processors_headless/format_types/LV2_SDK/sratom/COPYING",
+					"byteLength": 752,
+					"sha256": "3fc429d6b944fa20306357196a28bb4dd7c25e2d67edebec771f44de5bd7f9e8"
+				},
+				{
+					"name": "dexed-020-LICENSE.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_processors_headless/format_types/VST3_SDK/LICENSE.txt",
+					"byteLength": 1257,
+					"sha256": "d6115b263faa1cdf8c7372d70889c833dde1cec95252e7ee93e4f7d599ec96ca"
+				},
+				{
+					"name": "dexed-021-LICENSE.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_processors_headless/format_types/VST3_SDK/base/LICENSE.txt",
+					"byteLength": 1257,
+					"sha256": "d6115b263faa1cdf8c7372d70889c833dde1cec95252e7ee93e4f7d599ec96ca"
+				},
+				{
+					"name": "dexed-022-LICENSE.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_processors_headless/format_types/VST3_SDK/pluginterfaces/LICENSE.txt",
+					"byteLength": 1257,
+					"sha256": "d6115b263faa1cdf8c7372d70889c833dde1cec95252e7ee93e4f7d599ec96ca"
+				},
+				{
+					"name": "dexed-023-LICENSE.txt",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_audio_processors_headless/format_types/VST3_SDK/public.sdk/LICENSE.txt",
+					"byteLength": 1257,
+					"sha256": "d6115b263faa1cdf8c7372d70889c833dde1cec95252e7ee93e4f7d599ec96ca"
+				},
+				{
+					"name": "dexed-024-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_core/zip/zlib/LICENSE",
+					"byteLength": 1312,
+					"sha256": "8545e90fe8d2bc6b8b8e9f4caecd2d9215727dbd1c153c7adeedfbaaea51f38b"
+				},
+				{
+					"name": "dexed-025-COPYING",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_graphics/fonts/harfbuzz/COPYING",
+					"byteLength": 1971,
+					"sha256": "ba8f810f2455c2f08e2d56bb49b72f37fcf68f1f4fade38977cfd7372050ad64"
+				},
+				{
+					"name": "dexed-026-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_graphics/image_formats/pnglib/LICENSE",
+					"byteLength": 5345,
+					"sha256": "bf5e22b9dce8464064ae17a48ea1133c3369ac9e1d80ef9e320e5219aa14ea9b"
+				},
+				{
+					"name": "dexed-027-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_graphics/unicode/sheenbidi/LICENSE",
+					"byteLength": 11358,
+					"sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+				},
+				{
+					"name": "dexed-028-LICENSE.md",
+					"origin": "authenticated-source",
+					"path": "libs/JUCE/modules/juce_javascript/choc/LICENSE.md",
+					"byteLength": 1166,
+					"sha256": "098e8bc855cead3961ece222ca427296808a0c77605a8c24e77224d1ad8a0cae"
+				},
+				{
+					"name": "dexed-029-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/MTS-ESP/LICENSE",
+					"byteLength": 661,
+					"sha256": "481d4c320dc5c1a7f5b4604c8e9a08ac7710e73291b177c468ab69e0fe158837"
+				},
+				{
+					"name": "dexed-030-LICENSE.md",
+					"origin": "authenticated-source",
+					"path": "libs/clap-juce-extensions/LICENSE.md",
+					"byteLength": 1059,
+					"sha256": "ee3bd73591efbb9272e28d066fc430790a1e9eeb75b6658864f4377fe79dc558"
+				},
+				{
+					"name": "dexed-031-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/clap-juce-extensions/clap-libs/clap/LICENSE",
+					"byteLength": 1072,
+					"sha256": "ced49f9ef950277afdb56199369ea6e8165ebfdbfbb37ebfe1827e0de892088d"
+				},
+				{
+					"name": "dexed-032-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/clap-juce-extensions/clap-libs/clap-helpers/LICENSE",
+					"byteLength": 1072,
+					"sha256": "ced49f9ef950277afdb56199369ea6e8165ebfdbfbb37ebfe1827e0de892088d"
+				},
+				{
+					"name": "dexed-033-LICENSE",
+					"origin": "authenticated-source",
+					"path": "libs/surgesynthteam_tuningui/LICENSE",
+					"byteLength": 1059,
+					"sha256": "ee3bd73591efbb9272e28d066fc430790a1e9eeb75b6658864f4377fe79dc558"
+				},
+				{
+					"name": "dexed-034-LICENSE.md",
+					"origin": "authenticated-source",
+					"path": "libs/tuning-library/LICENSE.md",
+					"byteLength": 1059,
+					"sha256": "ee3bd73591efbb9272e28d066fc430790a1e9eeb75b6658864f4377fe79dc558"
+				}
+			]
+		},
+		{
 			"id": "electron-node-api-headers",
 			"targets": ["linux-x64", "linux-arm64", "mac-arm64", "win-x64", "win-arm64"],
 			"notices": [

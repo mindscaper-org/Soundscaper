@@ -35,6 +35,14 @@ test('menu insertion forwards the chosen identity, keeps manager controls on reo
 	host.open('native-effect-manage', 'org.soundscaper.juce.phaser');
 	assert.notEqual(host.dialogRuntime, first, 'another insertion has independent controls');
 	assert.equal(props().requestedJuceEffectId, 'org.soundscaper.juce.phaser');
+	const effectRuntime = host.dialogRuntime;
+	host.open('native-instrument-manage');
+	assert.notEqual(host.dialogRuntime, effectRuntime, 'MIDI instrument controls have their own runtime');
+	const instrumentRuntime = host.dialogRuntime;
+	host.open('native-instrument-manage');
+	assert.equal(host.dialogRuntime, instrumentRuntime, 'instrument controls remain reachable after closing their view');
+	host.open('native-effect-manage');
+	assert.equal(host.dialogRuntime, effectRuntime, 'effects cannot reopen an instrument editor');
 	await host.dispose();
 });
 

@@ -5,13 +5,14 @@ import { NoteGrid } from '@soundscaper/design-system/PianoRoll/NoteGrid';
 import { PianoKeyboard } from '@soundscaper/design-system/PianoRoll/PianoKeyboard';
 import { PianoRollRuler } from '@soundscaper/design-system/PianoRoll/PianoRollRuler';
 import { PianoRollClipStrip } from '@soundscaper/design-system/PianoRoll/PianoRollClipStrip';
-import { readMidiClip, readMidiTrack, MIDI_INSTRUMENTS, type MidiInstrument, type MidiNote } from '../../midi-model.ts';
+import { readMidiClip, readMidiTrack, type MidiInstrument, type MidiNote } from '../../midi-model.ts';
 import { createStableId } from '../../stable-id.js';
 import type { EditorAudioClip, EditorAudioTrack } from '../../types.ts';
 import { resolveMidiCopy } from '../../../i18n/editor-midi-copy.ts';
 import { useElementSize } from '../use-element-size.ts';
 import { createMidiPanelPlayheadProjector, designSystemMidiClip, midiBeatsPerMeasure, midiNoteChanges, midiPanelClipResize, midiPanelSelection, midiPanelDraftNotes, midiPanelNoteDraft, discardMidiPanelDraftNotes, resolveMidiPanelClip, type MidiPanelNoteDrafts, type MidiPanelProject } from './midi-panel-projection.ts';
 import { MidiNoteNumberField } from './MidiNoteNumberField.tsx';
+import { MidiInstrumentSelect } from './MidiInstrumentSelect.tsx';
 import { createMidiPanelMusicalClock } from './midi-panel-musical-clock.ts';
 import { pianoRollGridMath } from '@soundscaper/design-system/PianoRoll/musical-clock';
 import { secondsToSampleFrame } from '../../timeline-time.ts';
@@ -56,7 +57,6 @@ interface PianoRollWorkspacePanelProps {
 const KEY_PITCHES: Readonly<Record<string, number>> = {
 	a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12,
 };
-const INSTRUMENTS = MIDI_INSTRUMENTS;
 const SUBDIVISIONS = [1, 2, 4, 8, 16, 32] as const;
 type Subdivision = typeof SUBDIVISIONS[number];
 
@@ -245,11 +245,8 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 
 	return <div ref={panelRef} className="kw-audio-editor__piano-roll" aria-label={copy.pianoRoll} onKeyDown={keyDown}>
 		<div ref={controlsRef} className="kw-audio-editor__piano-roll-controls">
-			<label><EditorControlLabel>{copy.instrument}</EditorControlLabel><select value={typeof instrument === 'string' ? instrument : 'native'} disabled={disabled}
-				onChange={event => { const value = event.currentTarget.value as MidiInstrument; edit(() => controller.actions.midi.setInstrument(track.id, value)); }}>
-				{typeof instrument !== 'string' && <option value="native">{instrument.name}</option>}
-				{INSTRUMENTS.map(value => <option key={value} value={value}>{copy[value]}</option>)}
-			</select></label>
+			<MidiInstrumentSelect controller={controller} track={track} instrument={instrument} sampleRate={project.sampleRate}
+				disabled={disabled} copy={copy} setInstrument={value => edit(() => controller.actions.midi.setInstrument(track.id, value))} run={edit} />
 			<label><EditorControlLabel>{copy.snap}</EditorControlLabel><select value={subdivision} onChange={event => setSubdivision(Number(event.currentTarget.value) as Subdivision)}>
 				{SUBDIVISIONS.map(value => <option key={value} value={value}>1/{value * 4}</option>)}
 			</select></label>

@@ -79,10 +79,11 @@ function NativeServicesDialog({
 	initialState = EMPTY_SOUNDSCAPER_NATIVE_SERVICES_DIALOG_STATE,
 	runtime: workspaceRuntime,
 	copy: hostCopy,
+	initialSurface,
 	onClose,
 }: SoundscaperNativeServicesDialogProps) {
 	const copy = useMemo(() => resolveSoundscaperNativeServicesCopy(hostCopy), [hostCopy]);
-	const surface = 'native-effect-manage';
+	const surface = initialSurface === 'native-instrument-manage' ? initialSurface : 'native-effect-manage';
 	const scanner = workspaceScanner ?? soundscaperPluginScanRuntimeFor(bridge);
 	const scan = useSyncExternalStore(scanner.subscribe, scanner.getSnapshot, scanner.getSnapshot);
 	const localRuntime = useMemo(
@@ -108,7 +109,7 @@ function NativeServicesDialog({
 	};
 
 	return <AudioEditorDialogShell
-		title={copy.pluginManage.replace(/…$/u, '')}
+		title={(surface === 'native-instrument-manage' ? copy.instrumentManage : copy.pluginManage).replace(/…$/u, '')}
 		onClose={close}
 		width={760}
 		initialFocus={`[data-native-service-tab="${surface}"]`}
@@ -133,7 +134,7 @@ function NativeServicesDialog({
 					tabIndex={surface === candidate ? 0 : -1}
 					data-native-service-tab={candidate}
 					onKeyDown={handleTabKey}
-				>{copy.tabEffectManage}</button>)}
+				>{surface === 'native-instrument-manage' ? copy.instrumentManage : copy.tabEffectManage}</button>)}
 			</div>
 			<p role="status" aria-live="polite" aria-busy={busy ? 'true' : undefined}>
 				{state.error || (busy ? copy.working : state.completed === null ? '' : copy.operationComplete)}
@@ -152,6 +153,7 @@ function NativeServicesDialog({
 					disabled={busy}
 					processingBlocked={processingBlocked}
 					requestedJuceEffectId={requestedJuceEffectId}
+					instrumentOnly={surface === 'native-instrument-manage'}
 					perform={perform}
 				/>
 			</section>

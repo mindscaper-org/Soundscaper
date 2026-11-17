@@ -21,7 +21,7 @@ export const SOUNDSCAPER_PROFESSIONAL_NATIVE_COMPLIANCE_NAME =
 	'Soundscaper-professional-native-compliance.json';
 
 const SOURCE_IDS = Object.freeze([
-	'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+	'surge-xt', 'dexed', 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 	'asio-sdk', 'ladspa-sdk', 'lv2',
 ]);
 const FORBIDDEN_SOURCE_IDS = new Set(['x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib']);
@@ -219,7 +219,7 @@ async function assertExactSourceRoot(root) {
 async function regularArchiveBytes(path, source) {
 	const before = await lstat(path).catch(() => null);
 	if (!before?.isFile() || before.isSymbolicLink() || before.size < 1
-		|| before.size > MAXIMUM_ARCHIVE_BYTES || before.size !== source.archive.byteLength) {
+		|| before.size > (source.id === 'surge-xt' ? 319_327_963 : MAXIMUM_ARCHIVE_BYTES) || before.size !== source.archive.byteLength) {
 		throw new Error(`Professional-native ${source.id} corresponding-source archive is not a regular file.`);
 	}
 	let handle;

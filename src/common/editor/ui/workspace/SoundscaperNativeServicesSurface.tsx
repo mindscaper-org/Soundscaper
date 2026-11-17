@@ -142,6 +142,8 @@ export function createSoundscaperNativeServicesSurfaceHost(
 		? createSoundscaperAudioHostRuntime({ controller: options.controller, bridge, engine: options.engine }) : null;
 	void audioHost?.refresh();
 	const dialogRuntime = createSoundscaperNativeServicesDialogRuntime(bridge);
+	const instrumentDialogRuntime = createSoundscaperNativeServicesDialogRuntime(bridge);
+	let effectDialogRuntime = dialogRuntime;
 	let activeDialogRuntime = dialogRuntime;
 	let requestedJuceEffectId: string | undefined;
 	let openGeneration = 0;
@@ -213,7 +215,11 @@ export function createSoundscaperNativeServicesSurfaceHost(
 			if (!documentValue) return;
 			requestedJuceEffectId = surface === 'native-effect-manage' ? juceEffectById(stablePluginId)?.stablePluginId : undefined;
 			// Each menu insertion gets fresh controls; authored instances stay owned by the renderer.
-			if (requestedJuceEffectId) activeDialogRuntime = createSoundscaperNativeServicesDialogRuntime(bridge);
+			if (surface === 'native-instrument-manage') activeDialogRuntime = instrumentDialogRuntime;
+			else {
+				if (requestedJuceEffectId) effectDialogRuntime = createSoundscaperNativeServicesDialogRuntime(bridge);
+				activeDialogRuntime = effectDialogRuntime;
+			}
 			++openGeneration;
 			openSurface = surface;
 			returnFocus = captureNativeProcessingReturnFocus(documentValue);
@@ -277,6 +283,10 @@ const HOSTS = new WeakMap<object, OwnedHost>();
 /** Scan completion shares the same manager and native instances as the Effect menu. */
 export function openSoundscaperPluginManager(owner: object): void {
 	HOSTS.get(owner)?.host.open('native-effect-manage');
+}
+
+export function openSoundscaperMidiInstrumentSettings(owner: object): void {
+	HOSTS.get(owner)?.host.open('native-instrument-manage');
 }
 
 const EMPTY_SUBSCRIBE = (): (() => void) => () => {};

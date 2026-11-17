@@ -3,6 +3,7 @@
 import { PROCESSING_DIALOG_COPY_BY_LOCALE } from './processing-dialog-copy.js';
 
 export const SOUNDSCAPER_NATIVE_SERVICES_COPY = Object.freeze({
+	instrumentManage: 'Instrument settings',
 	...PROCESSING_DIALOG_COPY_BY_LOCALE.en,
 	latencyFrames: '{count} latency frames',
 	blocksRendered: '{count} blocks rendered',

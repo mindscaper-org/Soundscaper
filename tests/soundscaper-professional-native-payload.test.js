@@ -62,6 +62,7 @@ test('a verified professional Node bridge stages exactly its manifest and payloa
 		'milestone5-native-isolation-launcher',
 		'native-isolation-broker-v1.json',
 		'native-isolation-profile-v1.json',
+		'runtime',
 		'soundscaper-professional-native-build-result.json',
 		'soundscaper-professional-native-payload-manifest.json',
 		'soundscaper_delivery_fs',
@@ -99,6 +100,9 @@ test('Framescaper stages and authenticates only the isolated audio plugin host c
 	assert.equal(summary.payload, null);
 	assert.equal(summary.osAudioCodec, null);
 	assert.equal(summary.deliveryFilesystem, null);
+	assert.deepEqual(summary.isolation.runtimeClosure, []);
+	assert.deepEqual(summary.isolation.pluginResources, []);
+	await verifyStagedSoundscaperProfessionalNativePayload({ release, outputRoot, pluginOnly: true });
 	assert.deepEqual((await readdir(outputRoot)).sort(), [
 		'milestone5-native-isolation-launcher', 'native-isolation-broker-v1.json',
 		'native-isolation-profile-v1.json', 'soundscaper-professional-native-build-result.json',
@@ -232,11 +236,20 @@ async function builtFixture(context) {
 		if (key === 'pluginPeer' || key === 'deliveryFilesystem') target[key] = descriptor;
 		else {
 			target.isolation ??= { launcher: null, sandboxProfile: null, brokerPolicy: null,
-				entrypointPath: artifacts.pluginPeer[0], runtimeClosure: [] };
+				entrypointPath: artifacts.pluginPeer[0], runtimeClosure: [], pluginResources: [] };
 			target.isolation[key] = descriptor;
 		}
 		await mkdir(dirname(join(root, path)), { recursive: true });
 		await writeFile(join(root, path), artifactBytes);
+	}
+	for (const [kind, path, body] of [
+		['runtimeClosure', 'instruments/Surge XT.vst3/Contents/x86_64-linux/Surge XT.so', 'fixture instrument'],
+		['pluginResources', 'instrument-data/surge-xt/wavetables/basic.wt', 'fixture wavetable'],
+	]) {
+		const bytes = Buffer.from(body), artifactPath = `${targetRoot}/runtime/${path}`;
+		target.isolation[kind].push({ path: artifactPath, byteLength: bytes.length, sha256: hash(bytes) });
+		await mkdir(dirname(join(root, artifactPath)), { recursive: true });
+		await writeFile(join(root, artifactPath), bytes);
 	}
 	const payloadPath = join(root, target.payload.path);
 	await mkdir(dirname(payloadPath), { recursive: true });
@@ -265,7 +278,9 @@ function buildResultReceipt(target) {
 	const launcher = local(target.isolation.launcher, 'payload/milestone5-native-isolation-launcher');
 	const sandboxProfile = local(target.isolation.sandboxProfile, 'payload/native-isolation-profile-v1.json');
 	const brokerPolicy = local(target.isolation.brokerPolicy, 'payload/native-isolation-broker-v1.json');
-	const files = [payload, pluginPeer, deliveryFilesystem, launcher, sandboxProfile, brokerPolicy];
+	const runtimeClosure = target.isolation.runtimeClosure.map(artifact => local(artifact, artifact.path.replace(/^native\/soundscaper-professional-host\/prebuilt\/linux-x64\//u, 'payload/')));
+	const pluginResources = target.isolation.pluginResources.map(artifact => local(artifact, artifact.path.replace(/^native\/soundscaper-professional-host\/prebuilt\/linux-x64\//u, 'payload/')));
+	const files = [payload, pluginPeer, deliveryFilesystem, launcher, sandboxProfile, brokerPolicy, ...runtimeClosure, ...pluginResources];
 	const tests = requiredSoundscaperProfessionalNativeSelfTestIds(target.id).map((id) => ({
 		id, status: 'passed', commandSha256: hash(Buffer.from(`command:${id}`)),
 		outputSha256: hash(Buffer.from(`output:${id}`)),
@@ -306,6 +321,7 @@ function buildResultReceipt(target) {
 			bindVerificationCheck('dependency-closure', target.id, {
 				status: 'closed', maximumRuntimeFiles: 128,
 				inspections: [
+					...runtimeClosure.map(artifact => ({ architecture: architectureReceipt(target.id), artifactPath: artifact.path, imports: [], rpaths: [] })),
 					{ architecture: architectureReceipt(target.id), artifactPath: deliveryFilesystem.path,
 						imports: [], rpaths: [] },
 					{ architecture: architectureReceipt(target.id), artifactPath: launcher.path,
@@ -323,7 +339,7 @@ function buildResultReceipt(target) {
 		],
 		payload, osAudioCodec: null, pluginPeer, deliveryFilesystem,
 		isolation: { launcher, sandboxProfile, brokerPolicy, entrypointPath: pluginPeer.path,
-			runtimeClosure: [] },
+			runtimeClosure, pluginResources },
 	});
 }
 
@@ -350,7 +366,7 @@ function hash(bytes) { return createHash('sha256').update(bytes).digest('hex'); 
 function sourceAuthentication(target) {
 	const sourceRegister = JSON.parse(readFileSync(join(ROOT,
 		'config/milestone-5-native-source-acquisitions.json'), 'utf8'));
-	const ids = ['electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+	const ids = ['surge-xt', 'dexed', 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 		...(target.startsWith('win-') ? ['asio-sdk'] : []),
 		...(target.startsWith('linux-') ? ['ladspa-sdk', 'lv2'] : [])];
 	return {

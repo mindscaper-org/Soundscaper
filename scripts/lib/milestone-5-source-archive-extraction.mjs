@@ -141,19 +141,28 @@ function extractAuthenticatedSourceArchive({
 
 function extractTarGzip(archivePath, extractionRoot) {
 	const entries = [];
+	const dotPrefixes = new Set();
+	let entryCount = 0;
 	listTar({
 		file: archivePath,
 		sync: true,
 		strict: true,
 		onentry(entry) {
+			if (++entryCount > MAXIMUM_ENTRIES) throw new Error('The source archive entry count is outside its admission budget.');
+			let path = String(entry.path).replace(/\/+$/u, '');
+			if (path === '.' && entry.type === 'Directory' && entry.size === 0) return;
+			let dotPrefix = 0;
+			while (path.startsWith('./')) { path = path.slice(2); dotPrefix++; }
+			dotPrefixes.add(dotPrefix);
 			entries.push({
-				path: archivePathValue(entry.path),
+				path: archivePathValue(path),
 				type: entry.type,
 				size: entry.size,
 				linkpath: entry.linkpath,
 			});
 		},
 	});
+	if (dotPrefixes.size !== 1) throw new Error('A source tar archive must use one uniform dot prefix.');
 	const inventory = normalizeInventory(entries);
 	extractTar({
 		file: archivePath,
@@ -161,7 +170,7 @@ function extractTarGzip(archivePath, extractionRoot) {
 		sync: true,
 		strict: true,
 		preservePaths: false,
-		strip: inventory.strip,
+		strip: inventory.strip + [...dotPrefixes][0],
 	});
 	materializeTarSymlinks(extractionRoot, inventory.symlinks);
 	return inventory;
