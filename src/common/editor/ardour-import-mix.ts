@@ -49,7 +49,8 @@ export function ardourMixStrip(route: XmlElement, root: XmlElement, sampleRate: 
 			} catch (error) { issues.push(timelineImportIssue('ardour', 'automation-clock-unsupported', 'An unsupported automation clock was omitted.', 'omitted', { reason: String(error) })); }
 		}
 	};
-	const gainProcessors = processors.filter(node => ['amp', 'trim'].includes(node.attributes.type ?? ''));
+	const gainProcessors = processors.filter(node => ['amp', 'trim'].includes(node.attributes.type ?? '')
+		&& !['0', 'no', 'false'].includes(node.attributes.active ?? ''));
 	const ioGain = childElement(route, 'IO')?.attributes.gain;
 	const legacyGain = ioGain === undefined ? 1 : finite(ioGain);
 	const automated = gainProcessors.filter(node => [...walkXml(node)].some(child => child.name === 'AutomationList' && childElement(child, 'events')?.text.trim() && !['Off', '0'].includes(child.attributes.state ?? '')));
