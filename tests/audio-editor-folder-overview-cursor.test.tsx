@@ -11,7 +11,9 @@ import { controllerSession } from './helpers/soundscaper-controller-session.ts';
 import { folderEditProject } from './helpers/folder-edit-project.ts';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-test('clicking the collapsed folder overview places Split contents at the clicked cursor', async context => {
+for (const interruption of [null, 'onPointerCancel', 'onLostPointerCapture', 'onPointerDown'] as const) test(interruption
+	? `the collapsed folder overview keeps the original pointer after unrelated ${interruption}`
+	: 'clicking the collapsed folder overview places Split contents at the clicked cursor', async context => {
 	const { project, source } = folderEditProject(), { controller, store } = await controllerSession(context);
 	const writer = await store.beginSourceWrite(source.storageKey, source);
 	await writer.write([new Float32Array(source.frameCount).fill(.2)]); await writer.commit();
@@ -37,6 +39,9 @@ test('clicking the collapsed folder overview places Split contents at the clicke
 	const event = { currentTarget: target, clientX: CLIP_CONTENT_OFFSET + 50, pointerId: 1, button: 0, isPrimary: true,
 		preventDefault() {}, stopPropagation() {} };
 	await act(async () => { reactProps(lane).onPointerDown?.(event); });
+	if (interruption) await act(async () => {
+		reactProps(lane)[interruption]?.({ ...event, pointerId: 2, clientX: CLIP_CONTENT_OFFSET + 80 });
+	});
 	await act(async () => { reactProps(lane).onPointerUp?.(event); });
 	assert.equal(controller.project?.selection.startFrame, 24_000);
 	assert.equal(controller.project?.selection.endFrame, 24_000);

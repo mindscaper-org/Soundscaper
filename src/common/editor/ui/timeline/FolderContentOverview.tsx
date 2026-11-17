@@ -49,13 +49,18 @@ export function FolderContentOverview({ project, folderId, name, copy, selection
 		const endFrame = frameAt(event);
 		return { startFrame: Math.min(startFrame, endFrame), endFrame: Math.max(startFrame, endFrame) };
 	};
+	const cancelDrag = (event: PointerEvent<HTMLDivElement>): void => {
+		if (drag.current?.pointerId !== event.pointerId) return;
+		drag.current = null;
+		setPreview(null);
+	};
 	const displayed = preview ?? (selected ? selection : null);
 	return <div className="audio-editor-folder-content-overview" data-folder-overview={folderId}
 		role={selected ? 'group' : undefined} aria-label={selected ? formatLocalizedTemplate(copy.folderContentOverview, { name }) : undefined}
 		aria-hidden={selected ? undefined : true} tabIndex={selected ? -1 : undefined}
 		onClick={event => event.stopPropagation()}
 		onPointerDown={event => {
-			if (!selected || event.button !== 0 || event.isPrimary === false) return;
+			if (!selected || drag.current !== null || event.button !== 0 || event.isPrimary === false) return;
 			event.preventDefault(); event.stopPropagation();
 			event.currentTarget.focus({ preventScroll: true });
 			drag.current = { pointerId: event.pointerId, startFrame: frameAt(event) };
@@ -77,8 +82,8 @@ export function FolderContentOverview({ project, folderId, name, copy, selection
 				if (range.startFrame === range.endFrame) controller.actions.transport.seek(range.startFrame);
 			});
 		}}
-		onPointerCancel={() => { drag.current = null; setPreview(null); }}
-		onLostPointerCapture={() => { drag.current = null; setPreview(null); }}>
+		onPointerCancel={cancelDrag}
+		onLostPointerCapture={cancelDrag}>
 		{spans.map(span => <span key={`${span.startFrame}:${span.endFrame}`} className="audio-editor-folder-content-span" aria-hidden="true"
 			style={{ left: timelineContentLeft(CLIP_CONTENT_OFFSET + span.startFrame / sampleRate * pixelsPerSecond), width: Math.max(1, (span.endFrame - span.startFrame) / sampleRate * pixelsPerSecond) }} />)}
 		{displayed && displayed.endFrame > displayed.startFrame && <span className="audio-editor-folder-content-selection" aria-hidden="true"
