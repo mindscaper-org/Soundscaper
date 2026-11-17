@@ -25,8 +25,25 @@ export function transcriptCaretWord(root: HTMLElement, words: readonly Transcrip
 	const element = anchor.nodeType === Node.ELEMENT_NODE ? anchor as Element : anchor.parentElement;
 	const span = element?.closest<HTMLElement>('[data-transcript-word]');
 	const index = words.findIndex(word => word.id === span?.dataset.transcriptWord);
-	if (index < 0) return null;
-	if (direction === 'backward' && selection?.anchorOffset === 0) return words[index - 1] ?? null;
-	if (direction === 'forward' && selection?.anchorOffset === anchor.textContent?.length) return words[index + 1] ?? null;
-	return words[index] ?? null;
+	if (span && index >= 0) {
+		const before = root.ownerDocument.createRange();
+		before.selectNodeContents(span);
+		before.setEnd(anchor, selection!.anchorOffset);
+		if (direction === 'backward' && !before.toString().length) return words[index - 1] ?? null;
+		if (direction === 'forward' && before.toString().length === span.textContent?.length) return words[index + 1] ?? null;
+		return words[index] ?? null;
+	}
+	// Native arrow navigation also places the caret in separator text and at
+	// paragraph boundaries. Find the word on the requested side of that point.
+	const spans = [...root.querySelectorAll<HTMLElement>('[data-transcript-word]')];
+	if (direction === 'backward') spans.reverse();
+	for (const candidate of spans) {
+		const content = root.ownerDocument.createRange();
+		content.selectNodeContents(candidate);
+		const position = content.comparePoint(anchor, selection!.anchorOffset);
+		if (position === (direction === 'backward' ? 1 : -1)) {
+			return words.find(word => word.id === candidate.dataset.transcriptWord) ?? null;
+		}
+	}
+	return null;
 }

@@ -130,8 +130,10 @@ function TranscriptEditingSurface({ controller, snapshot, copy, locale, fileServ
 	function remove(direction: 'backward' | 'forward'): void {
 		if (disabled || !document || !root.current) return;
 		const native = selectedTranscriptWords(root.current, words);
-		const caret = native.length || selected.length ? null : transcriptCaretWord(root.current, words, direction);
-		const chosen = native.length ? native : selected.length ? selected : caret ? [caret] : [];
+		const selection = root.current.ownerDocument.getSelection();
+		const hasCaret = selection?.isCollapsed && root.current.contains(selection.anchorNode);
+		const caret = !native.length && hasCaret ? transcriptCaretWord(root.current, words, direction) : null;
+		const chosen = native.length ? native : hasCaret ? caret ? [caret] : [] : selected;
 		if (!chosen.length) return;
 		const current = controller.getSnapshot().project;
 		if (!current || current.id !== document.projectId) return;
