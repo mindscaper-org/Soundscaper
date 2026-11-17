@@ -8,7 +8,7 @@ import {
 	createUnifiedExactRenderFinishingPreviewConsumerV13,
 } from '../src/common/editor/unified-exact-render-finishing-consumers-v13.ts';
 import { warpApplied } from '../src/common/editor/unified-exact-render-finishing-motion-v13.ts';
-import { analyzeVideoMotionV1 } from '../src/common/editor/video-motion-analysis-v27.ts';
+import { analyzeVideoMotionV1, requireVideoMotionAnalysisBodyV1 } from '../src/common/editor/video-motion-analysis-v27.ts';
 import { createGrayVideoFrameV1 } from '../src/common/editor/video-motion-processing-v27.ts';
 import { createFramescaperProjectUnifiedExactRenderPlanFinishing } from '../src/framescaper/editor-project-unified-render-plan-finishing.ts';
 import { FRAMESCAPER_FINISHING_PROJECT_RUNTIME_PROFILE } from '../src/framescaper/editor-domain-runtime-profile.ts';
@@ -181,6 +181,14 @@ test('similarity stabilization consumes only an authenticated fresh source-domai
 		analysisBodies: new Map([['analysis-1', analysis.bytes]]),
 	});
 	assert.ok(centroidX(stabilized) < centroidX(frame) - 0.5);
+	const admitted = requireVideoMotionAnalysisBodyV1(analysis.reference, analysis.bytes, {
+		inputSha256: SOURCE_SHA, processorStack: trackingStack,
+	});
+	const retained = await consumer.resolveFrame({
+		clipId: 'video-clip', sourceFrame: 1, sequenceFrame: 1, frame,
+		analysisBodies: new Map([['analysis-1', admitted]]),
+	});
+	assert.deepEqual(retained, stabilized);
 	const large = scaledGrayRgba(after, 2);
 	const largeStabilized = await consumer.resolveFrame({
 		clipId: 'video-clip', sourceFrame: 1, sequenceFrame: 1, frame: large,

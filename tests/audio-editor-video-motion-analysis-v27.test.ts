@@ -92,6 +92,17 @@ test('built-in tracking produces a deterministic digest-bound analysis with prog
 	});
 	assert.deepEqual(admitted, result.body);
 	assert.equal(Object.isFrozen(admitted.transforms), true);
+	const expected = { inputSha256: SHA_A, processorStack: stack() };
+	assert.equal(requireVideoMotionAnalysisBodyV1(result.reference, admitted, expected), admitted);
+	assert.throws(() => requireVideoMotionAnalysisBodyV1(
+		result.reference, structuredClone(admitted), expected,
+	), /authenticated/u);
+	assert.throws(() => requireVideoMotionAnalysisBodyV1(
+		{ ...result.reference, endFrame: 14 }, admitted, expected,
+	), /persisted reference/u);
+	assert.throws(() => requireVideoMotionAnalysisBodyV1(
+		{ ...result.reference, byteLength: result.reference.byteLength + 1 }, admitted, expected,
+	), /byte length/u);
 	assert.throws(() => requireVideoMotionAnalysisBodyV1(
 		result.reference,
 		result.bytes,
@@ -103,10 +114,9 @@ test('built-in tracking produces a deterministic digest-bound analysis with prog
 			},
 		},
 	), /stale|settings digest/iu);
-	const corrupt = result.bytes.slice();
-	corrupt[corrupt.length - 2] ^= 1;
+	result.bytes[result.bytes.length - 2] ^= 1;
 	assert.throws(() => requireVideoMotionAnalysisBodyV1(
-		result.reference, corrupt, { inputSha256: SHA_A, processorStack: stack() },
+		result.reference, result.bytes, expected,
 	), /digest|JSON|analysis body/iu);
 });
 

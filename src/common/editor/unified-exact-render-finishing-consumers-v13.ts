@@ -18,10 +18,7 @@ import {
 	type VideoMotionWebGl2AcceleratorV1,
 	type VideoTemporalNeighborV1,
 } from './video-motion-denoise-v27.ts';
-import type {
-	VideoMotionAnalysisReferenceV1,
-	VideoProcessorStackV1,
-} from './video-motion-model-v27.ts';
+import type { VideoProcessorStackV1 } from './video-motion-model-v27.ts';
 import {
 	resolveStabilizationTransformV1,
 	type VideoSimilarityTransformV1,
@@ -75,7 +72,7 @@ export interface UnifiedExactRenderFinishingFrameRequestV13 {
 		readonly height: number;
 		readonly signal?: AbortSignal;
 	}>) => PromiseLike<UnifiedExactRenderRgbaFrameV13 | null> | UnifiedExactRenderRgbaFrameV13 | null;
-	readonly analysisBodies?: ReadonlyMap<string, Uint8Array<ArrayBuffer>>;
+	readonly analysisBodies?: ReadonlyMap<string, Uint8Array<ArrayBuffer> | VideoMotionAnalysisBodyV1>;
 	readonly lutBodies?: ReadonlyMap<string, ParsedCubeLutV1>;
 	readonly accelerator?: VideoMotionWebGl2AcceleratorV1;
 	readonly onAcceleratorFallback?: (reason: string) => void;
@@ -393,7 +390,7 @@ function analysisBody(
 	source: UnifiedExactRenderPlanSource,
 	stack: VideoProcessorStackV1,
 	analysisId: string,
-	assets: ReadonlyMap<string, Uint8Array<ArrayBuffer>> | undefined,
+	assets: UnifiedExactRenderFinishingFrameRequestV13['analysisBodies'],
 	cache: Map<string, VideoMotionAnalysisBodyV1>,
 ): VideoMotionAnalysisBodyV1 {
 	const cached = cache.get(analysisId);
@@ -401,23 +398,14 @@ function analysisBody(
 	const reference = authority.finishing.motionAnalyses.find(({ id }) => id === analysisId);
 	if (!reference) throw new ReferenceError(`V13 motion analysis ${analysisId} is unavailable.`);
 	if (!(assets instanceof Map)) throw new ReferenceError('An authenticated V13 motion analysis body map is unavailable.');
-	const bytes = assets.get(analysisId);
-	if (!bytes) throw new ReferenceError(`The V13 motion analysis body ${analysisId} is unavailable.`);
-	const body = requireAnalysis(reference, bytes, source, stack);
-	cache.set(analysisId, body);
-	return body;
-}
-
-function requireAnalysis(
-	reference: VideoMotionAnalysisReferenceV1,
-	bytes: Uint8Array<ArrayBuffer>,
-	source: UnifiedExactRenderPlanSource,
-	stack: VideoProcessorStackV1,
-): VideoMotionAnalysisBodyV1 {
-	return requireVideoMotionAnalysisBodyV1(reference, bytes, {
+	const analysis = assets.get(analysisId);
+	if (!analysis) throw new ReferenceError(`The V13 motion analysis body ${analysisId} is unavailable.`);
+	const body = requireVideoMotionAnalysisBodyV1(reference, analysis, {
 		inputSha256: source.contentSha256,
 		processorStack: stack,
 	});
+	cache.set(analysisId, body);
+	return body;
 }
 
 function adjacentMotion(body: VideoMotionAnalysisBodyV1, frame: number): VideoSimilarityTransformV1 {
