@@ -12,7 +12,6 @@ import {
 	archiveFileNameForCrossProductHandoffReportSidecar,
 	CROSS_PRODUCT_HANDOFF_REPORT_SIDECAR_MAX_BYTES,
 	decodeCrossProductHandoffReportSidecarFile,
-	isCrossProductHandoffReportSidecarFileName,
 } from './cross-product-handoff-report-sidecar.ts';
 import {
 	requireTransferRuntime,
@@ -27,6 +26,7 @@ const DEFAULT_MAXIMUM_ENTRIES = 512;
 const DEFAULT_MAXIMUM_ENTRY_BYTES = 512 * 1024 * 1024;
 const MAXIMUM_ADMITTED_ENTRY_BYTES = Number.MAX_SAFE_INTEGER;
 const PROJECT_FILE_NAME_PATTERN = /\.(?:sscape|fscape|liscape|scape)$/iu;
+const DUPLICATE_SIDECAR_NAME_PATTERN = /^(.*)\.conversion-report (\([1-9]\d*\))\.json$/iu;
 
 export interface TransferArchiveSource {
 	readonly name: string;
@@ -46,7 +46,7 @@ export interface ImportTransferArchiveFilesOptions {
 	readonly onProgress?: (progress: Bundle.ProjectTransferProgress) => void;
 }
 
-/** Import archives sequentially after pairing exact `<archive>.conversion-report.json` names. */
+/** Import archives sequentially after pairing their conversion reports by download name. */
 export async function importTransferArchiveFiles(
 	options: ImportTransferArchiveFilesOptions,
 ): Promise<Bundle.ProjectTransferImportResult> {
@@ -126,7 +126,7 @@ function admitManualFiles(
 				`Manual transfer file ${admitted.name} was selected twice.`);
 		}
 		names.add(admitted.name);
-		if (isCrossProductHandoffReportSidecarFileName(admitted.name)) {
+		if (manualSidecarArchiveName(admitted.name) !== null) {
 			if (admitted.byteLength > CROSS_PRODUCT_HANDOFF_REPORT_SIDECAR_MAX_BYTES) {
 				throw new TransferManualImportRefusalError('entry-too-large',
 					`Conversion report sidecar ${admitted.name} is ${admitted.byteLength} bytes, over the`
@@ -172,6 +172,15 @@ function snapshotManualFile(source: unknown): TransferArchiveSource | null {
 	});
 }
 
+function manualSidecarArchiveName(fileName: string): string | null {
+	const canonicalName = archiveFileNameForCrossProductHandoffReportSidecar(fileName);
+	if (canonicalName !== null) return canonicalName;
+	const duplicate = fileName.match(DUPLICATE_SIDECAR_NAME_PATTERN);
+	if (!duplicate || !PROJECT_FILE_NAME_PATTERN.test(duplicate[1])) return null;
+	const [, archiveName, counter] = duplicate;
+	return archiveName.replace(PROJECT_FILE_NAME_PATTERN, (extension) => ` ${counter}${extension}`);
+}
+
 function pairManualSidecars(selected: Readonly<{
 	archives: readonly TransferArchiveSource[];
 	sidecars: readonly TransferArchiveSource[];
@@ -179,7 +188,7 @@ function pairManualSidecars(selected: Readonly<{
 	const sidecars = new Map<string, TransferArchiveSource>();
 	const archiveNames = new Set(selected.archives.map(({ name }) => name));
 	for (const source of selected.sidecars) {
-		const archiveName = archiveFileNameForCrossProductHandoffReportSidecar(source.name);
+		const archiveName = manualSidecarArchiveName(source.name);
 		if (archiveName === null || !archiveNames.has(archiveName)) {
 			throw new TransferManualImportRefusalError('malformed-entry',
 				`Conversion report sidecar ${source.name} has no matching selected archive.`);

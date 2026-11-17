@@ -76,6 +76,32 @@ test('an empty selection neither imports nor leaves a stale value behind', async
 	assert.equal(input.value, '');
 });
 
+test('the archive picker waits for the active import before admitting another batch', async () => {
+	const document = new FakeDocument();
+	const runs: string[][] = [];
+	const firstImport = Promise.withResolvers<void>();
+	const view = createTransferView(document as unknown as Document, 'Receive', 'Summary');
+	view.files('Import downloaded .scape archives', '.scape', async (files) => {
+		runs.push(files.map(({ name }) => name));
+		await firstImport.promise;
+	});
+	const input = fileInput(document);
+
+	input.files = [archive('first.scape')];
+	change(input);
+	input.files = [archive('second.scape')];
+	change(input);
+	firstImport.resolve();
+	await settle();
+	assert.deepEqual(runs, [['first.scape']]);
+	assert.equal(input.disabled, false);
+
+	input.files = [archive('second.scape')];
+	change(input);
+	await settle();
+	assert.deepEqual(runs, [['first.scape'], ['second.scape']]);
+});
+
 test('a report says when it cancels a pending transfer confirmation', () => {
 	const document = new FakeDocument();
 	const view = createTransferView(document as unknown as Document, 'Send', 'Summary');

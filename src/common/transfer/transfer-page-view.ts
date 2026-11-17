@@ -152,8 +152,11 @@ export function createTransferView(document: Document, title: string, summary: s
 				// dropped, and the page looks dead. The chosen files are already
 				// captured above, so clearing the control costs the import nothing.
 				input.value = '';
-				if (!files.length) return;
-				run(files).catch((error) => view.status(describeTransferError(error), 'error'));
+				if (input.disabled || !files.length) return;
+				input.disabled = true;
+				void run(files)
+					.catch((error) => view.status(describeTransferError(error), 'error'))
+					.finally(() => { input.disabled = false; });
 			});
 			caption.append(input);
 			wrapper.append(caption);
