@@ -36,10 +36,11 @@ export function parseFcpxmlTimeline(text: string): TimelineInterchangeDocument {
 			if (++visited > TIMELINE_INTERCHANGE_MAXIMUM_ITEMS) throw new RangeError('FCPXML item limit exceeded.');
 			if (!TIMED_ELEMENTS.has(node.name)) continue;
 			const offset = node.attributes.offset ? xmlTime(node.attributes.offset) : cursor;
-			const duration = node.attributes.duration ? xmlTime(node.attributes.duration) : inheritedDuration ?? ZERO;
+			const asset = resources.get(node.attributes.ref ?? '');
+			const implicitDuration = node.name === 'asset-clip' ? asset?.attributes.duration : undefined;
+			const duration = node.attributes.duration ? xmlTime(node.attributes.duration) : implicitDuration ? xmlTime(implicitDuration) : inheritedDuration ?? ZERO;
 			if (duration.num <= 0) throw new RangeError('FCPXML timeline items require positive durations.');
 			const timelineStart = addRationals(parentTimelineStart, subtractRationals(offset, parentSourceStart));
-			const asset = resources.get(node.attributes.ref ?? '');
 			const sourceStart = xmlTime(node.attributes.start ?? (['asset-clip', 'video', 'audio'].includes(node.name) ? asset?.attributes.start : undefined) ?? '0s');
 			const lane = node.attributes.lane ?? inheritedLane;
 			const window = fcpxmlChildWindow(ancestorWindow, parentTimelineStart, inheritedDuration, !node.attributes.lane || node.attributes.lane === '0');
