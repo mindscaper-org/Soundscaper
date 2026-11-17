@@ -7,6 +7,7 @@ export function createTrustedDesktopIpc(options: {
 	readonly ipcMain: { handle(channel: string, listener: Listener): unknown; on(channel: string, listener: Listener): unknown };
 	readonly windowFor: () => { readonly webContents: unknown } | null;
 	readonly assertDocumentUrl: (url: string) => void;
+	readonly beforeInvoke?: (channel: string, args: readonly unknown[]) => void;
 }) {
 	function assertTrusted(eventValue: unknown): void {
 		const event = eventValue as { sender?: { mainFrame?: unknown }; senderFrame?: { url: string } } | null;
@@ -19,7 +20,7 @@ export function createTrustedDesktopIpc(options: {
 	}
 	return {
 		handle(channel: string, listener: Listener): void {
-			options.ipcMain.handle(channel, (event, ...args) => { assertTrusted(event); return listener(event, ...args); });
+			options.ipcMain.handle(channel, (event, ...args) => { assertTrusted(event); options.beforeInvoke?.(channel, args); return listener(event, ...args); });
 		},
 		on(channel: string, listener: Listener): void {
 			options.ipcMain.on(channel, (event, ...args) => { assertTrusted(event); listener(event, ...args); });

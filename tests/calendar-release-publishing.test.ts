@@ -20,7 +20,7 @@ test('the release register, public tag, numeric package version, and installer n
 	assert.equal(config.buildVersion, metadata.packageVersion);
 	assert.equal(config.extraMetadata.releaseVersion, metadata.applicationVersion);
 	for (const row of desktopReleaseTargetPackageInventory('soundscaper', 'win-x64', metadata.applicationVersion)) {
-		assert.ok(row.pattern.test(`${version}-win-x64.${row.label.endsWith('ZIP') ? 'zip' : 'exe'}`));
+		assert.ok(row.pattern.test(`${version}-win-x64.${row.label.endsWith('ZIP') ? 'zip' : row.label.endsWith('MSI') ? 'msi' : 'exe'}`));
 	}
 });
 

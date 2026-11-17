@@ -214,6 +214,7 @@ export function registerAssistanceIpc(options: AssistanceIpcOptions): void {
 }
 
 export interface AssistanceServiceFactoryOptions {
+	readonly fetchImpl?: typeof fetch;
 	readonly userDataPath: string;
 	readonly settingsDirectory: string | null;
 	readonly catalog: unknown;
@@ -238,7 +239,7 @@ export function assistanceServiceFrom(options: AssistanceServiceFactoryOptions):
 		throw new TypeError('The licensing register carries no local model evidence.');
 	}
 	return createAssistanceService({
-		userDataPath: options.userDataPath,
+		userDataPath: options.userDataPath, fetchImpl: options.fetchImpl,
 		settingsDirectory: options.settingsDirectory,
 		catalog: options.catalog,
 		licensingEvidence: register.localModelEvidence,

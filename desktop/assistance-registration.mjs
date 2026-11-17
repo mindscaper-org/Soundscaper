@@ -143,14 +143,14 @@ function assistanceBackgroundPriority(pid) {
 
 export function registerAssistance({
 	channels, handle, on, sendToRenderer, app, settings, dialog, windowFor,
-	externalFfmpegPreferences, onOperationError, storagePaths,
+	externalFfmpegPreferences, onOperationError, storagePaths, fetchImpl = fetch,
 }) {
 	let child = null;
 	const dataRoot = storagePaths?.dataRoot ?? app.getPath('userData');
 	const cacheRoot = storagePaths?.cacheRoot ?? app.getPath('userData');
 	const runtimeRoot = join(dataRoot, 'runtime');
 	const runtimeInstaller = createAssistanceRuntimeInstaller({
-		runtimeRoot,
+		runtimeRoot, fetchImpl,
 		...(storagePaths?.xdgEnabled ? { archiveCacheRoot: join(cacheRoot, 'runtime-archives') } : {}),
 		distributionPath: resolve(import.meta.dirname, '..', 'config',
 			'assistance-runtime-distribution.json'),
@@ -243,7 +243,7 @@ export function registerAssistance({
 	let service = null;
 	const createService = () => {
 		service ??= assistanceServiceFrom({
-			userDataPath: dataRoot,
+			userDataPath: dataRoot, fetchImpl,
 			settingsDirectory: settings.snapshot().modelsDirectory,
 			catalog: assistanceCatalog,
 			licensingMatrix,

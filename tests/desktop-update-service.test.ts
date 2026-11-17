@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DesktopUpdateService } from '../desktop/update-service.ts';
 
-function fixture(response = 2, portable = false) {
+function fixture(response = 2, portable = false, policyAllowed = true) {
 	const calls: string[] = [];
 	let prompt: { buttons?: string[]; cancelId?: number; detail?: string } | undefined;
 	const service = new DesktopUpdateService({
-		appName: 'Soundscaper', portable, windowsStore: false,
+		appName: 'Soundscaper', portable, windowsStore: false, policyAllowed,
 		checkRelease: async () => { calls.push('check'); return { status: 'available', version: '2.0.0' }; },
 		showMessage: async options => { prompt = options; return { response }; },
 		openExternal: async () => { calls.push('external'); },
@@ -40,4 +40,12 @@ test('startup opens a deferred installer before attempting a fresh check', async
 	const f = fixture();
 	await f.service.startup();
 	assert.deepEqual(f.calls, ['pending', 'check']);
+});
+
+test('managed update restrictions block automatic/manual checks and already staged installers', async () => {
+	const f = fixture(0, false, false);
+	await f.service.startup();
+	assert.deepEqual(await f.service.check(true), { status: 'disabled' });
+	assert.deepEqual(await f.service.check(false), { status: 'disabled' });
+	assert.deepEqual(f.calls, []);
 });

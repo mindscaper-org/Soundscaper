@@ -33,8 +33,10 @@ const PACKAGES = [
 	`Soundscaper-${VERSION}-mac-arm64.dmg`,
 	`Soundscaper-${VERSION}-mac-arm64.pkg`,
 	`Soundscaper-${VERSION}-win-x64.exe`,
+	`Soundscaper-${VERSION}-win-x64.msi`,
 	`Soundscaper-${VERSION}-win-x64.zip`,
 	`Soundscaper-${VERSION}-win-arm64.exe`,
+	`Soundscaper-${VERSION}-win-arm64.msi`,
 	`Soundscaper-${VERSION}-win-arm64.zip`,
 ];
 const FRAMESCAPER_PACKAGES = PACKAGES
@@ -67,6 +69,7 @@ test('target package inventory is the exact shared naming authority', () => {
 	const windows = desktopReleaseTargetPackageInventory('soundscaper', 'win-arm64', VERSION);
 	assert.deepEqual(windows.map(({ label }) => label), [
 		'Windows ARM64 installer',
+		'Windows ARM64 MSI',
 		'Windows ARM64 ZIP',
 	]);
 	assert.throws(
@@ -89,7 +92,7 @@ test('Soundscaper release inventory is exact and version-bound', () => {
 		() => validateDesktopReleasePackageInventory([...PACKAGES, `Soundscaper-${VERSION}-linux-x86_64.AppImage`], VERSION),
 		/Unexpected or duplicate desktop package/iu,
 	);
-	for (const name of [`Soundscaper-${VERSION}-win-x64.EXE`, `Soundscaper-${VERSION}-win-x64.msi`]) {
+	for (const name of [`Soundscaper-${VERSION}-win-x64.EXE`, `Soundscaper-${VERSION}-win-x64.MSI`]) {
 		assert.throws(() => validateDesktopReleasePackageInventory([...PACKAGES, name], VERSION),
 			/Unexpected desktop release input/iu);
 	}
@@ -114,12 +117,12 @@ test('release inventories accept exactly both Flatpak architectures per selected
 	}
 });
 
-test('stable Soundscaper assembly selects exactly ten packages and five runtime manifests', () => {
+test('stable Soundscaper assembly selects exactly twelve packages and five runtime manifests', () => {
 	const selected = [...PACKAGES, ...SOUNDSCAPER_RUNTIME_MANIFESTS];
 	assert.doesNotThrow(() => validateDesktopReleaseInputInventory(
 		selected, VERSION, ['soundscaper'],
 	));
-	assert.equal(PACKAGES.length, 10);
+	assert.equal(PACKAGES.length, 12);
 	assert.equal(SOUNDSCAPER_RUNTIME_MANIFESTS.length, 5);
 	assert.throws(
 		() => validateDesktopReleaseInputInventory(

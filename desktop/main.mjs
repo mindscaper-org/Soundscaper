@@ -39,6 +39,8 @@ import { FRAMESCAPER_IMAGE_SEQUENCE_IMPORT_AUTHORITY } from './framescaper-route
 import { framescaperWebVcrSmokeTrust } from './framescaper-web-vcr-smoke-plan.js';
 import { disposeDesktopNativeTier, registerDesktopNativeTier, revokeDesktopNativeTierOwner } from './native-tier-registration.mjs';
 import { registerHostAffordances } from './host-affordances.mjs';
+import { loadWindowsManagedPolicy } from './project-library-runtime/desktop/windows-managed-policy.js';
+import { enforceManagedIpc, managedFetch, installManagedRequestPolicy } from './project-library-runtime/desktop/managed-network-policy.js';
 import { createTrustedDesktopIpc } from './project-library-runtime/desktop/main-trusted-ipc.js';
 import { registerCpuProfiler } from './project-library-runtime/desktop/cpu-profile-service.js';
 import { registerBlenderIpc } from './project-library-runtime/desktop/blender-ipc.js';
@@ -84,7 +86,8 @@ const saves = new AtomicSaveManager({ targets: saveTargets, confirmFileSizeWarni
 const APPLICATION_VERSION = DECLARED_APPLICATION_VERSION ?? app.getVersion();
 if (DECLARED_PACKAGE_VERSION !== null && app.getVersion() !== DECLARED_PACKAGE_VERSION) throw new Error('Packaged application version does not match its selected product release line.');
 const rendererSaveOwnership = new RendererSaveOwnership();
-const { handle, on } = createTrustedDesktopIpc({ ipcMain, windowFor: () => mainWindow, assertDocumentUrl: assertEditorDocumentUrl });
+let managedPolicy = null; const managedLaunchId = randomUUID();
+const { handle, on } = createTrustedDesktopIpc({ beforeInvoke: (channel, args) => { if (managedPolicy) enforceManagedIpc(managedPolicy, channel, args); }, ipcMain, windowFor: () => mainWindow, assertDocumentUrl: assertEditorDocumentUrl });
 let mainWindow = null; const sesxMediaSessions = new SesxMediaSessionStore({ readCapabilities, dialog, windowFor: () => mainWindow });
 let nightlyTestsWindow = null;
 let settings = null, updates = null; let temporaryProjectStorage = null, projectFileAssociations = null;
@@ -216,8 +219,9 @@ async function startApplication() {
 	if (applicationShutdown.requested) return;
 	configureWindowsApplicationIdentity({ platform: process.platform, windowsStore: process.windowsStore, appId: APP_ID, setAppUserModelId: (identity) => app.setAppUserModelId(identity) });
 	const resources = resourceRoots();
+	managedPolicy = await loadWindowsManagedPolicy({ productId: PRODUCT_ID });
 	settings = new DesktopSettingsStore(resolve(desktopStorage.configRoot, 'desktop-settings.json'));
-	await settings.load([app.getLocale(), ...app.getPreferredSystemLanguages()]);
+	await settings.load([app.getLocale(), ...app.getPreferredSystemLanguages()], managedPolicy.desktopPreferences);
 	if (applicationShutdown.requested) return;
 	nativeServices = await startFramescaperNativeServicesRegistration({
 		productId: PRODUCT_ID, userDataPath: desktopStorage.stateRoot, dataDataPath: desktopStorage.dataRoot, cacheDataPath: desktopStorage.cacheRoot, renderInputDataPath: desktopStorage.renderInputRoot, instanceId: randomUUID(),
@@ -228,9 +232,10 @@ async function startApplication() {
 		onFenced: (error) => { console.error('Framescaper native services were fenced:', cleanError(error)); void exitApplication(1); },
 		...createFramescaperNativeServicesElectronPorts(settings, (error) => console.error('Framescaper native service failed:', cleanError(error))),
 	});
-	updates = createDesktopUpdates({ app, currentVersion: APPLICATION_VERSION, appName: APP_NAME, tagPrefix: UPDATE_TAG_PREFIX, storage: desktopStorage, settings, shell, dialog, windowFor: () => mainWindow, handle });
-	freesound = await createDesktopFreesoundIntegration({ appOrigin: APP_ORIGIN, apiOrigin: 'https://soundscaper.org', channels: IPC, filePath: resolve(desktopStorage.stateRoot, 'freesound-session.json'), handle, platform: process.platform, productId: PRODUCT_ID, safeStorage, shell }); audiocom = await createDesktopAudiocomIntegration({ appOrigin: APP_ORIGIN, apiOrigin: 'https://soundscaper.org', channels: IPC, filePath: resolve(desktopStorage.stateRoot, 'audiocom-session.json'), handle, platform: process.platform, productId: PRODUCT_ID, safeStorage, shell });
+	updates = createDesktopUpdates({ app, policyAllowed: managedPolicy.allows('ApplicationUpdatesAllowed'), currentVersion: APPLICATION_VERSION, appName: APP_NAME, tagPrefix: UPDATE_TAG_PREFIX, storage: desktopStorage, settings, shell, dialog, windowFor: () => mainWindow, handle });
+	freesound = await createDesktopFreesoundIntegration({ fetchImpl: managedFetch(managedPolicy, 'FreesoundAllowed'), appOrigin: APP_ORIGIN, apiOrigin: 'https://soundscaper.org', channels: IPC, filePath: resolve(desktopStorage.stateRoot, 'freesound-session.json'), handle, platform: process.platform, productId: PRODUCT_ID, safeStorage, shell }); audiocom = await createDesktopAudiocomIntegration({ fetchImpl: managedFetch(managedPolicy, 'AudiocomAllowed'), appOrigin: APP_ORIGIN, apiOrigin: 'https://soundscaper.org', channels: IPC, filePath: resolve(desktopStorage.stateRoot, 'audiocom-session.json'), handle, platform: process.platform, productId: PRODUCT_ID, safeStorage, shell });
 	const desktopSession = session.fromPartition(SESSION_PARTITION);
+	installManagedRequestPolicy(managedPolicy, desktopSession);
 	await desktopSession.protocol.handle(APP_SCHEME, createProtocolHandler({
 		productId: PRODUCT_ID,
 		rendererRoot: resources.renderer,
@@ -369,12 +374,12 @@ async function registerIpcHandlers(desktopSession) {
 	if (PRODUCT_ID === 'soundscaper') blender = registerBlenderIpc({ handle, ownerFor: rendererSaveOwnerFor, isOwnerCurrent: isRendererSaveOwnerCurrent, removeHandler: (channel) => ipcMain.removeHandler(channel), dialog, windowFor: () => mainWindow, addonPath: resolve(__dirname, 'blender/soundscaper_blender.py') });
 	captureSecurity = registerDesktopCaptureSecurity({
 		appOrigin: APP_ORIGIN, desktopCapturer, desktopRoot: __dirname, desktopSession,
-		createWebVcrWindow: (options) => new BrowserWindow(options), sessionFromPartition: (partition) => session.fromPartition(partition),
+		createWebVcrWindow: (options) => new BrowserWindow(options), sessionFromPartition: (partition) => { const guestSession = session.fromPartition(partition); installManagedRequestPolicy(managedPolicy, guestSession, 'WebVcrAllowed'); return guestSession; },
 		handle, removeHandler: (channel) => ipcMain.removeHandler(channel),
 		ownerFor: rendererSaveOwnerFor,
 		currentOwnerFor: (webContents) => rendererSaveOwnership.currentOwnerFor(webContents),
 		observeWebVcrDisplaySecurityWitness: (value) => desktopSmokeProbe.observeWebVcrDisplaySecurityWitness(value),
-		platform: process.platform, productId: PRODUCT_ID, webVcrEnabled: FRAMESCAPER_WEB_VCR_ENABLED,
+		platform: process.platform, productId: PRODUCT_ID, webVcrEnabled: FRAMESCAPER_WEB_VCR_ENABLED && managedPolicy.allows('WebVcrAllowed'),
 		systemVersion: process.getSystemVersion?.() ?? '', webVcrSmokeTrust: framescaperWebVcrSmokeTrust(process.argv, { packaged: app.isPackaged, productId: PRODUCT_ID }), windowFor: () => mainWindow,
 	});
 	projectLibraryIpc = projectLibraryRuntime.registerRendererBridge({
@@ -397,9 +402,9 @@ async function registerIpcHandlers(desktopSession) {
 		arch: process.arch,
 		version: APPLICATION_VERSION,
 		development: !app.isPackaged,
-		locale: settings.snapshot().locale,
+		locale: settings.snapshot().locale, managedPreferences: { launchId: managedLaunchId, preferences: managedPolicy.editorPreferences },
 		supportedLocales: [...SUPPORTED_LOCALES], runtimeVersions: { electron: process.versions.electron, chromium: process.versions.chrome, node: process.versions.node },
-		capabilities: { displayAudio: process.platform === 'win32', updates: !desktopStorage.portable && process.windowsStore !== true && settings.snapshot().updatesEnabled },
+		capabilities: { displayAudio: process.platform === 'win32', updates: managedPolicy.allows('ApplicationUpdatesAllowed') && !desktopStorage.portable && process.windowsStore !== true && settings.snapshot().updatesEnabled },
 	}));
 	if (SOAK_DEBUG_ENABLED) { handle(IPC.soakDebugProcessMetrics, () => collectSoakDebugProcessMetrics(app)); handle(IPC.soakDebugCoverageCheckpoint, checkpointSoakMainCoverage); }
 	registerProjectSavingIpc({ channels: IPC, handle, ownerFor: rendererSaveOwnerFor, files: projectFileAssociations, storage: temporaryProjectStorage, chooseFolder: async (defaultPath) => { const result = await dialog.showOpenDialog(mainWindow, { title: 'Temporary data folder', defaultPath, properties: ['openDirectory', 'createDirectory'] }); return result.canceled ? null : result.filePaths[0] ?? null; }, prompt: (options) => dialog.showMessageBox(mainWindow, options) });
@@ -415,7 +420,7 @@ async function registerIpcHandlers(desktopSession) {
 		return locale;
 	});
 	handle(IPC.checkForUpdates, () => updates.check(true));
-	assistance = registerAssistance({ channels: IPC, handle, on, sendToRenderer, app, storagePaths: desktopStorage, settings, dialog, windowFor: () => mainWindow, externalFfmpegPreferences: externalFfmpegPreferences.service }); assistanceSemanticSearch = registerAssistanceSemanticSearchMainIpc({ handle, removeHandler: (channel) => ipcMain.removeHandler(channel), ownerFor: rendererSaveOwnerFor, query: assistance.semanticQuery });
+	assistance = registerAssistance({ fetchImpl: managedFetch(managedPolicy, 'ModelDownloadsAllowed'), channels: IPC, handle, on, sendToRenderer, app, storagePaths: desktopStorage, settings, dialog, windowFor: () => mainWindow, externalFfmpegPreferences: externalFfmpegPreferences.service }); assistanceSemanticSearch = registerAssistanceSemanticSearchMainIpc({ handle, removeHandler: (channel) => ipcMain.removeHandler(channel), ownerFor: rendererSaveOwnerFor, query: assistance.semanticQuery });
 	registerHostAffordances({ channels: IPC, handle, windowFor: () => mainWindow });
 	handle(IPC.windowAction, (_event, action) => runCurrentWindowAction(action));
 	on(IPC.rendererReady, () => {

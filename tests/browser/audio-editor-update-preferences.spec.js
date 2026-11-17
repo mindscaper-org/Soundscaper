@@ -31,6 +31,26 @@ for (const path of ['/embed/en/', '/framescaper/embed/en/']) {
 		await expect(checkbox).toBeDisabled();
 		await expect(checkbox).not.toBeChecked();
 	});
+	test(`managed launch preferences permit session changes and reset after relaunch in ${path}`, async ({ page }) => {
+		await installDesktopBridge(page, false, true);
+		let editor = await bootEditor(page, path);
+		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+		const dialog = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+		await dialog.getByRole('tab', { name: /Appearance$/u }).click();
+		await expect(dialog.getByRole('radio', { name: 'Dark', exact: true })).toBeChecked();
+		await dialog.getByRole('radio', { name: 'Light', exact: true }).check();
+		await dialog.getByRole('button', { name: 'Close', exact: true }).last().click();
+		await page.reload(); editor = await waitForEditor(page);
+		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+		await dialog.getByRole('tab', { name: /Appearance$/u }).click();
+		await expect(dialog.getByRole('radio', { name: 'Light', exact: true })).toBeChecked();
+		await dialog.getByRole('button', { name: 'Close', exact: true }).last().click();
+		await page.evaluate(() => sessionStorage.setItem('test-managed-launch', 'next-launch'));
+		await page.reload(); editor = await waitForEditor(page);
+		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+		await dialog.getByRole('tab', { name: /Appearance$/u }).click();
+		await expect(dialog.getByRole('radio', { name: 'Dark', exact: true })).toBeChecked();
+	});
 	test(`browser General preferences omit desktop update checks in ${path}`, async ({ page }) => {
 		const editor = await bootEditor(page, path);
 		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
@@ -39,11 +59,13 @@ for (const path of ['/embed/en/', '/framescaper/embed/en/']) {
 	});
 }
 
-async function installDesktopBridge(page, available) {
+async function installDesktopBridge(page, available, managed = false) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(available => {
+	await page.addInitScript(({ available, managed }) => {
 		globalThis.soundscaperDesktop = { v1: {
-			getEnvironment: async () => null, signalReady: () => undefined,
+			getEnvironment: async () => managed ? { platform: 'linux', locale: 'en', supportedLocales: ['en'], capabilities: {},
+				managedPreferences: { launchId: sessionStorage.getItem('test-managed-launch') ?? 'first-launch', preferences: { appearance: { theme: 'dark' } } } } : null,
+			signalReady: () => undefined,
 			onOpenProject: () => () => {}, onCloseRequested: () => () => {},
 			onMenuCommand: () => () => {}, onWindowStateChanged: () => () => {},
 			getExternalFfmpegStatus: async () => ({ state: 'unconfigured', location: null, version: null, detail: '', canInstall: false, canBrowse: false, canClear: false }),
@@ -52,5 +74,5 @@ async function installDesktopBridge(page, available) {
 				return { available, enabled: available && localStorage.getItem('test-update-checks') !== 'false' };
 			},
 		} };
-	}, available);
+	}, { available, managed });
 }

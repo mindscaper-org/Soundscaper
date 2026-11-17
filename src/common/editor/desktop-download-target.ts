@@ -5,6 +5,7 @@ import type { DesktopDownloadProductId } from './desktop-download-links.ts';
 const PACKAGES = [
 	['windows-x64.exe', 'win-x64.exe'], ['windows-arm64.exe', 'win-arm64.exe'],
 	['windows-x64.zip', 'win-x64.zip'], ['windows-arm64.zip', 'win-arm64.zip'],
+	['windows-x64.msi', 'win-x64.msi'], ['windows-arm64.msi', 'win-arm64.msi'],
 	['mac-arm64.pkg', 'mac-arm64.pkg'], ['mac-arm64.dmg', 'mac-arm64.dmg'],
 	['linux-x64.AppImage', 'linux-x64.AppImage'], ['linux-arm64.AppImage', 'linux-arm64.AppImage'],
 	['linux-x64.deb', 'linux-x64.deb'], ['linux-arm64.deb', 'linux-arm64.deb'],

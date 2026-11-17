@@ -104,9 +104,32 @@ function Write-InstallerConsent([ValidateSet('Soundscaper', 'Framescaper')][stri
 
 function Install-OptionalFfmpeg([bool] $IsSystem, [bool] $IsAdministrator, [string] $ApplicationName, [string] $TargetArchitecture) {
 	Assert-InteractiveUser -IsSystem $IsSystem -IsAdministrator $IsAdministrator
+	Assert-FfmpegPolicy -ApplicationName $ApplicationName
 	$winget = Install-WinGetIfMissing
 	Install-FfmpegWithWinGet -Winget $winget -TargetArchitecture $TargetArchitecture
 	Write-InstallerConsent -ApplicationName $ApplicationName
+}
+
+function Assert-FfmpegPolicy([string] $ApplicationName) {
+	foreach ($name in @('OnlineFeaturesAllowed', 'ExternalCodecInstallationAllowed')) {
+		$value = $null
+		foreach ($hive in @([Microsoft.Win32.RegistryHive]::CurrentUser, [Microsoft.Win32.RegistryHive]::LocalMachine)) {
+			$base = [Microsoft.Win32.RegistryKey]::OpenBaseKey($hive, [Microsoft.Win32.RegistryView]::Registry64)
+			try {
+				$key = $base.OpenSubKey("Software\Policies\Mindscaper\$ApplicationName")
+				if ($null -ne $key) {
+					try {
+						if ($key.GetValueNames() -contains $name) {
+							if ($key.GetValueKind($name).ToString() -ne 'DWord') { throw 'Invalid administrator network policy' }
+							$value = $key.GetValue($name)
+							if ($value -notin @(0, 1)) { throw 'Invalid administrator network policy' }
+						}
+					} finally { $key.Dispose() }
+				}
+			} finally { $base.Dispose() }
+		}
+		if ($value -eq 0) { throw 'FFmpeg installation is disabled by administrator policy' }
+	}
 }
 
 $completion = $null

@@ -76,6 +76,8 @@ qualification plans belong in Git history, not in the maintained documentation s
   credentials and first-candidate workflow.
 - [Desktop installers](operations/desktop-installers.md) describes the optional
   FFmpeg components, package-manager setup, and Debian recommendations.
+- [Windows enterprise deployment](operations/windows-enterprise-deployment.md)
+  covers MSI deployment, Group Policy restrictions and launch preference presets.
 - [Microsoft Store AppX packaging](operations/microsoft-store-appx.md) covers
   optional Windows package builds, Store identity, and installed-package qualification.
 - [Build local-model runtimes](operations/local-models/build-runtimes.md),

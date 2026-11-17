@@ -10,6 +10,7 @@ interface UpdateServiceOptions {
 	readonly appName: string;
 	readonly portable: boolean;
 	readonly windowsStore: boolean | undefined;
+	readonly policyAllowed?: boolean;
 	readonly checkRelease: (options: { manual: boolean }) => Promise<UpdateResult>;
 	readonly showMessage: (options: MessageOptions) => Promise<{ response: number }>;
 	readonly openExternal: (url: string) => Promise<void>;
@@ -21,7 +22,7 @@ export class DesktopUpdateService {
 	#checking: Promise<UpdateResult> | null = null;
 	constructor(options: UpdateServiceOptions) { this.#options = options; }
 	async startup(): Promise<void> {
-		if (this.#options.portable || this.#options.windowsStore) return;
+		if (this.#options.portable || this.#options.windowsStore || this.#options.policyAllowed === false) return;
 		try {
 			if (await this.#options.installPending()) return;
 		} catch {
@@ -30,6 +31,7 @@ export class DesktopUpdateService {
 		await this.check(false);
 	}
 	check(manual: boolean): Promise<UpdateResult> {
+		if (this.#options.policyAllowed === false) return Promise.resolve({ status: 'disabled' });
 		if (this.#options.portable) return Promise.resolve({ status: 'portable' });
 		if (this.#checking) return this.#checking;
 		const checking = this.#check(manual).finally(() => { this.#checking = null; });

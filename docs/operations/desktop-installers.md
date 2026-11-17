@@ -1,9 +1,12 @@
 # Desktop installers
 
 Soundscaper and Framescaper share the same installation options. Windows uses
-an NSIS setup program and macOS offers a PKG installer alongside the DMG.
+an NSIS setup program, an enterprise MSI, and macOS offers a PKG installer alongside the DMG.
 The download page prefers the PKG for Apple silicon Macs; explicit DMG links
 remain available.
+
+See [Windows enterprise deployment](windows-enterprise-deployment.md) for MSI
+installation, administrator-managed updates, and Group Policy templates.
 
 ## Update checks
 

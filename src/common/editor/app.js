@@ -270,7 +270,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 	});
 	const preferences = createPreferencesComposition({
 		productId, defaultWorkspace: product.defaultWorkspace, defaultOptimizationMode, defaultWaveformRenderer, isDesktop: fileService.isDesktop, state, lifetime, copy, engine,
-		loadSetting: (key, fallback) => store.loadSetting(key, fallback), persistSetting, publish: publishDocumentSnapshot, setPcmOptimizationMode: (mode) => store.setPcmOptimizationMode?.(mode),
+		loadSetting: (key, fallback) => store.loadSetting(key, fallback), loadManagedPreferences: async () => (await fileService.getEnvironment())?.managedPreferences ?? null, persistSetting, publish: publishDocumentSnapshot, setPcmOptimizationMode: (mode) => store.setPcmOptimizationMode?.(mode),
 	});
 	const preferencesService = preferences.service;
 	const doc = createDocumentComposition({

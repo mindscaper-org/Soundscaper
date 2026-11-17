@@ -51,10 +51,12 @@ const RELEASE_TARGET_PACKAGE_ROWS = Object.freeze({
 	]),
 	'win-arm64': Object.freeze([
 		['Windows ARM64 installer', 'win-arm64\\.exe'],
+		['Windows ARM64 MSI', 'win-arm64\\.msi'],
 		['Windows ARM64 ZIP', 'win-arm64\\.zip'],
 	]),
 	'win-x64': Object.freeze([
 		['Windows x64 installer', 'win-x64\\.exe'],
+		['Windows x64 MSI', 'win-x64\\.msi'],
 		['Windows x64 ZIP', 'win-x64\\.zip'],
 	]),
 });
@@ -224,7 +226,7 @@ export function validateDesktopReleasePackageInventory(
 				pattern,
 			])
 	)));
-	const releasePackages = packageFiles.filter((name) => /\.(?:AppImage|deb|dmg|pkg|exe|zip)$/u.test(name));
+	const releasePackages = packageFiles.filter((name) => /\.(?:AppImage|deb|dmg|pkg|exe|msi|zip)$/u.test(name));
 	for (const [label, pattern] of requiredPackages) {
 		assert(releasePackages.filter((name) => pattern.test(name)).length === 1, `Expected exactly one ${label}.`);
 	}

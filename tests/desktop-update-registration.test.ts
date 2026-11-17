@@ -66,4 +66,11 @@ for (const [currentVersion, version, tag, name] of [
 	createDesktopUpdates({ ...ports, storage: { ...ports.storage, portable: true } });
 	assert.deepEqual(await handlers.get(UPDATE_PREFERENCES_CHANNEL)!(null, true), { available: false, enabled: false });
 	assert.equal(settings.snapshot().updatesEnabled, false);
+	const blocked = createDesktopUpdates({ ...ports, policyAllowed: false });
+	assert.deepEqual(await handlers.get(UPDATE_PREFERENCES_CHANNEL)!(null, true), { available: false, enabled: false });
+	assert.deepEqual(await blocked.check(true), { status: 'disabled' });
+	await blocked.startup();
+	assert.equal(requests, 1);
+	assert.equal(downloads, 1);
+	assert.equal(opened.length, 1, 'managed restrictions also block the already staged installer');
 });

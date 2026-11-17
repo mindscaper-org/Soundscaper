@@ -12,6 +12,7 @@ import { AUDACITY_DOWNLOAD_LANGUAGES } from './audacity-download/localization.ts
 const PACKAGE_KEYS: Readonly<Record<DesktopDownloadTarget, DownloadCopyKey>> = {
 	'win-x64.exe': 'windowsInstaller', 'win-arm64.exe': 'windowsInstaller',
 	'win-x64.zip': 'windowsPortable', 'win-arm64.zip': 'windowsPortable',
+	'win-x64.msi': 'windowsInstaller', 'win-arm64.msi': 'windowsInstaller',
 	'mac-arm64.pkg': 'macPkg', 'mac-arm64.dmg': 'macDmg',
 	'linux-x64.AppImage': 'linuxAppImage', 'linux-arm64.AppImage': 'linuxAppImage',
 	'linux-x64.deb': 'linuxDeb', 'linux-arm64.deb': 'linuxDeb',
@@ -90,7 +91,7 @@ function releaseEyebrow(release: DesktopReleaseCandidate, locale: string): strin
 type Installer = DesktopReleaseCandidate['installers'][number];
 
 function renderRelease(release: DesktopReleaseCandidate, environment: DesktopDownloadEnvironment, t: Translate, comparisonLink: string): string {
-	const matches = (installer: Installer): boolean => environment.platform !== null
+	const matches = (installer: Installer): boolean => !installer.target.endsWith('.msi') && environment.platform !== null
 		&& installer.target.startsWith(`${environment.platform}-`)
 		&& (environment.architecture === null || installer.target.startsWith(`${environment.platform}-${environment.architecture}.`));
 	const matching = release.installers.filter(matches);
@@ -119,7 +120,7 @@ function renderPlatforms(installers: readonly Installer[], group: string, t: Tra
 		const headingId = `${group}-${platform.id}-title`;
 		return `<section class="platform" aria-labelledby="${headingId}">
 			<h2 id="${headingId}">${platform.name}</h2><p>${t(platform.detail)}</p>
-			<ul>${packages.map(installer => `<li><a class="package" href="${escapeHtml(installer.url)}">${t(PACKAGE_KEYS[installer.target], { architecture: installer.target.includes('-arm64.') ? 'ARM64' : 'x64' })} <span aria-hidden="true">↓</span></a></li>`).join('')}</ul>
+			<ul>${packages.map(installer => `<li><a class="package" href="${escapeHtml(installer.url)}">${t(PACKAGE_KEYS[installer.target], { architecture: installer.target.includes('-arm64.') ? 'ARM64' : 'x64' })}${installer.target.endsWith('.msi') ? ' (MSI)' : ''} <span aria-hidden="true">↓</span></a></li>`).join('')}</ul>
 		</section>`;
 	}).join('');
 }

@@ -16,6 +16,8 @@
 		"types": ["node"]
 	},
 	"include": [
+		"desktop/windows-managed-policy.ts",
+		"desktop/managed-network-policy.ts",
 		"desktop/external-wine.ts",
 		"desktop/plugin-registration-paths.ts",
 		"desktop/yabridge-payload.ts",
