@@ -68,6 +68,35 @@ test('a newer partial transcript replaces only its covered words in an older ful
 	assert.deepEqual(projectTranscriptWords(project(), [replacement, body]).map(word => word.text), ['One', 'TWO', 'three.']);
 });
 
+test('long transcripts project without scanning prior segment ranges for every word', t => {
+	const original = Array.prototype.some;
+	const descriptor = Object.getOwnPropertyDescriptor(Array.prototype, 'some')!;
+	t.after(() => { Object.defineProperty(Array.prototype, 'some', descriptor); });
+	Object.defineProperty(Array.prototype, 'some', { ...descriptor, value: function (this: unknown[],
+		predicate: (value: unknown, index: number, array: unknown[]) => unknown, thisArg?: unknown,
+	): boolean {
+		const first = this[0];
+		if (first && typeof first === 'object' && 'start' in first && 'end' in first) {
+			assert.ok(this.length < 32, 'projected words should avoid linear scans of accumulated coverage');
+		}
+		return original.call(this, predicate, thisArg);
+	} });
+
+	const segments = Array.from({ length: 700 }, (_, index) => ({
+		startFrame: index * 4, endFrame: index * 4 + 2, text: String(index), speaker: null, words: [],
+	}));
+	const older = { assetId: 'older', transcript: { ...body.transcript, segments } };
+	const newer = { assetId: 'newer', transcript: { ...body.transcript, segments: [
+		{ startFrame: 400, endFrame: 502, text: 'replaced', speaker: null, words: [] },
+	] } };
+	const latest = { assetId: 'latest', transcript: { ...body.transcript, segments: [
+		{ startFrame: 480, endFrame: 562, text: 'latest', speaker: null, words: [] },
+	] } };
+	assert.deepEqual(projectTranscriptWords(project(), [older]).map(word => word.text), segments.map(segment => segment.text));
+	assert.deepEqual(projectTranscriptWords(project(), [latest, newer, older]).map(word => word.text),
+		[...segments.slice(0, 100).map(segment => segment.text), 'latest', ...segments.slice(141).map(segment => segment.text)]);
+});
+
 test('text selection encloses complete words and maps back from audio without selecting other tracks', () => {
 	const words = projectTranscriptWords(project(), [body]);
 	assert.deepEqual(transcriptTextSelection(words.slice(0, 2)), {

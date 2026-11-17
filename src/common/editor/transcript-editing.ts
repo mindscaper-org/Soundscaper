@@ -39,6 +39,7 @@ export interface TranscriptGenerationTarget {
 }
 
 type RecordValue = Readonly<Record<string, unknown>>;
+interface TranscriptCoverageRange { readonly start: number; end: number }
 
 /** Selection and transport revisions do not invalidate authenticated source text. */
 export function transcriptEditingGeometryKey(value: unknown): string {
@@ -84,9 +85,11 @@ export function projectTranscriptWords(value: unknown, bodies: readonly Transcri
 				return scaleSampleFrame(clip.reversed === true ? clip.sourceEndFrame - frame : frame - clip.sourceStartFrame,
 					clip.sourceDurationFrames, loop?.periodFrames ?? clip.durationFrames, policy === 'enclosingStart' ? 'enclosingStart' : 'enclosingEnd');
 			};
-			const covered: { start: number; end: number }[] = [];
+			let covered: readonly TranscriptCoverageRange[] = [];
 			for (const body of bodies) {
 				if (body.transcript.sourceId !== clip.sourceId || body.transcript.sampleRate !== sourceRate) continue;
+				// Admitted segments are disjoint within one body. Only higher-priority bodies can mask its words.
+				const bodyCoverage: TranscriptCoverageRange[] = [];
 				for (const [segmentIndex, segment] of body.transcript.segments.entries()) {
 					const start = Math.max(segment.startFrame, clip.sourceStartFrame);
 					const end = Math.min(segment.endFrame, clip.sourceEndFrame);
@@ -96,7 +99,7 @@ export function projectTranscriptWords(value: unknown, bodies: readonly Transcri
 					for (const [wordIndex, word] of tokens.entries()) {
 						const from = Math.max(word.startFrame, clip.sourceStartFrame);
 						const to = Math.min(word.endFrame, clip.sourceEndFrame);
-						if (to <= from || covered.some(range => range.start < to && range.end > from)) continue;
+						if (to <= from || overlapsTranscriptCoverage(covered, from, to)) continue;
 						const localStart = map(clip.reversed === true ? to : from, 'enclosingStart');
 						const localEnd = map(clip.reversed === true ? from : to, 'enclosingEnd');
 						const cycles = loop ? Math.ceil((clip.durationFrames + loop.offsetFrames) / loop.periodFrames) : 1;
@@ -111,8 +114,9 @@ export function projectTranscriptWords(value: unknown, bodies: readonly Transcri
 								startFrame, endFrame, granularity: timed ? 'word' : 'segment', locked: track.locked === true });
 						}
 					}
-					covered.push({ start, end });
+					bodyCoverage.push({ start, end });
 				}
+				covered = mergeTranscriptCoverage(covered, bodyCoverage);
 			}
 		}
 	}
@@ -120,6 +124,34 @@ export function projectTranscriptWords(value: unknown, bodies: readonly Transcri
 	const trackOrder = new Map(project.tracks.map((track, index) => [String(track.id), index]));
 	return words.sort((left, right) => clipStarts.get(left.clipId)! - clipStarts.get(right.clipId)!
 		|| trackOrder.get(left.trackId)! - trackOrder.get(right.trackId)! || left.clipId.localeCompare(right.clipId) || left.startFrame - right.startFrame);
+}
+
+function overlapsTranscriptCoverage(covered: readonly TranscriptCoverageRange[], start: number, end: number): boolean {
+	let low = 0;
+	let high = covered.length;
+	while (low < high) {
+		const middle = Math.floor((low + high) / 2);
+		if (covered[middle]!.end <= start) low = middle + 1;
+		else high = middle;
+	}
+	return low < covered.length && covered[low]!.start < end;
+}
+
+function mergeTranscriptCoverage(previous: readonly TranscriptCoverageRange[], current: readonly TranscriptCoverageRange[]): readonly TranscriptCoverageRange[] {
+	if (previous.length === 0) return current;
+	if (current.length === 0) return previous;
+	const merged: TranscriptCoverageRange[] = [];
+	let previousIndex = 0;
+	let currentIndex = 0;
+	while (previousIndex < previous.length || currentIndex < current.length) {
+		const takePrevious = currentIndex === current.length
+			|| (previousIndex < previous.length && previous[previousIndex]!.start <= current[currentIndex]!.start);
+		const range = takePrevious ? previous[previousIndex++]! : current[currentIndex++]!;
+		const last = merged.at(-1);
+		if (last && last.end >= range.start) last.end = Math.max(last.end, range.end);
+		else merged.push({ ...range });
+	}
+	return merged;
 }
 
 export function transcriptTextSelection(words: readonly TranscriptEditingWord[]) {
