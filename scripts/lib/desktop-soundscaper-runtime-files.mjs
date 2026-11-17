@@ -102,4 +102,5 @@ export const DESKTOP_SOUNDSCAPER_RUNTIME_FILES = Object.freeze([
 	'src/soundscaper/editor-project-feature-requirements.js',
 	'src/soundscaper/editor-project-production-validation.js',
 	'src/soundscaper/editor-project-validation.js',
+	'src/soundscaper/editor-track-playlist-validation.js',
 ]);
