@@ -168,46 +168,21 @@ async function defaultDecoder(
 ): Promise<FrameDecoderFinishing> {
 	const module = await import('../common/editor/video-media.js');
 	const extractor = await module.createAudioEditorVideoFrameExtractor(body, options) as Readonly<{
-		capture(timestamp: number, options: Readonly<Record<string, unknown>>): Promise<Readonly<{ blob: Blob }>>;
+		capturePixels(timestamp: number, options: Readonly<Record<string, unknown>>): Promise<UnifiedExactRenderRgbaFrameV13>;
 		dispose(): unknown;
 	}>;
 	return Object.freeze({
-		async capture(request: Parameters<FrameDecoderFinishing['capture']>[0]) {
-			const captured = await extractor.capture(request.timestampSeconds, {
+		capture(request: Parameters<FrameDecoderFinishing['capture']>[0]) {
+			return extractor.capturePixels(request.timestampSeconds, {
 				// This extractor owns a bounded analysis raster. resolve() retains the
 				// returned geometry and performs the requested output resize explicitly.
 				maximumWidth: Math.max(2, Math.min(request.width, VIDEO_PREVIEW_CAPTURE_MAXIMUM_WIDTH)),
 				maximumHeight: Math.max(2, Math.min(request.height, VIDEO_PREVIEW_CAPTURE_MAXIMUM_HEIGHT)),
-				mimeType: 'image/png', alpha: true, signal: request.signal,
+				alpha: true, signal: request.signal,
 			});
-			return decodeImage(captured.blob, request.signal);
 		},
 		async dispose() { await extractor.dispose(); },
 	});
-}
-
-async function decodeImage(body: Blob, signal: AbortSignal): Promise<UnifiedExactRenderRgbaFrameV13> {
-	throwIfAborted(signal);
-	if (typeof globalThis.createImageBitmap !== 'function' || !globalThis.document?.createElement) {
-		throw new Error('Selected finishing frame-address image decoding is unavailable.');
-	}
-	const bitmap = await globalThis.createImageBitmap(body, {
-		colorSpaceConversion: 'none', premultiplyAlpha: 'none',
-	});
-	try {
-		throwIfAborted(signal);
-		const canvas = globalThis.document.createElement('canvas');
-		canvas.width = bitmap.width;
-		canvas.height = bitmap.height;
-		const context = canvas.getContext('2d', { willReadFrequently: true });
-		if (!context) throw new Error('Selected finishing frame-address readback is unavailable.');
-		context.drawImage(bitmap, 0, 0);
-		const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
-		return Object.freeze({
-			width: canvas.width, height: canvas.height,
-			pixels: Uint8Array.from(data) as Uint8Array<ArrayBuffer>,
-		});
-	} finally { bitmap.close(); }
 }
 
 function resizeFrame(

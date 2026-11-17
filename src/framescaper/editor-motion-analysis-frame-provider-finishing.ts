@@ -34,6 +34,10 @@ interface MotionFrameExtractorFinishing {
 			readonly signal?: AbortSignal;
 		}>,
 	): PromiseLike<Readonly<{ readonly blob: Blob }>>;
+	capturePixels?(
+		timestampSeconds: number,
+		options?: Readonly<{ readonly maximumWidth?: number; readonly maximumHeight?: number; readonly signal?: AbortSignal }>,
+	): PromiseLike<Readonly<{ readonly width: number; readonly height: number; readonly pixels: Uint8Array }>>;
 	dispose(): unknown;
 }
 
@@ -90,17 +94,23 @@ export function createFramescaperMotionAnalysisFrameProviderFinishing(options: R
 			for (let frameNumber = request.startFrame; frameNumber < request.endFrame; frameNumber += 1) {
 				throwIfAborted(request.signal);
 				const timestamp = timestampAt(frameNumber);
-				const captured = await extractor.capture(timestamp, {
+				const captureOptions = {
 					maximumWidth: MAXIMUM_DECODE_WIDTH,
 					maximumHeight: MAXIMUM_DECODE_HEIGHT,
-					mimeType: 'image/png',
 					...(request.signal ? { signal: request.signal } : {}),
-				});
-				throwIfAborted(request.signal);
-				if (!(captured?.blob instanceof Blob)) {
-					throw new TypeError('The finishing motion frame extractor returned no pathless image body.');
+				};
+				let frame: GrayVideoFrameV1;
+				if (options.decodeGray === undefined && extractor.capturePixels) {
+					const { width, height, pixels } = await extractor.capturePixels(timestamp, captureOptions);
+					frame = await grayFrameFromPixels(width, height, pixels, request.signal);
+				} else {
+					const captured = await extractor.capture(timestamp, { ...captureOptions, mimeType: 'image/png' });
+					throwIfAborted(request.signal);
+					if (!(captured?.blob instanceof Blob)) {
+						throw new TypeError('The finishing motion frame extractor returned no pathless image body.');
+					}
+					frame = await decodeGray(captured.blob, frameNumber, request.signal);
 				}
-				const frame = await decodeGray(captured.blob, frameNumber, request.signal);
 				throwIfAborted(request.signal);
 				frames.push(Object.freeze({ frameNumber, frame }));
 				progress(request.onProgress, {
@@ -220,18 +230,30 @@ async function decodeGrayImage(
 		}
 		context.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height);
 		const rgba = context.getImageData(0, 0, bitmap.width, bitmap.height).data;
-		const samples = new Array<number>(bitmap.width * bitmap.height);
-		for (let pixel = 0, offset = 0; pixel < samples.length; pixel += 1, offset += 4) {
-			samples[pixel] = (
-				0.2126 * rgba[offset]! + 0.7152 * rgba[offset + 1]! + 0.0722 * rgba[offset + 2]!
-			) / 255;
-		}
-		throwIfAborted(signal);
-		const module = await import('../common/editor/video-motion-processing-v27.ts');
-		return module.createGrayVideoFrameV1({ width: bitmap.width, height: bitmap.height, samples });
+		return await grayFrameFromPixels(bitmap.width, bitmap.height, rgba, signal);
 	} finally {
 		bitmap.close();
 	}
+}
+
+async function grayFrameFromPixels(
+	width: number, height: number, rgba: Uint8Array | Uint8ClampedArray, signal?: AbortSignal,
+): Promise<GrayVideoFrameV1> {
+	throwIfAborted(signal);
+	const pixelCount = width * height;
+	if (!Number.isSafeInteger(width) || width < 1 || !Number.isSafeInteger(height) || height < 1
+		|| rgba.length !== pixelCount * 4) {
+		throw new RangeError('The finishing motion frame readback changed geometry.');
+	}
+	const samples = new Array<number>(pixelCount);
+	for (let pixel = 0, offset = 0; pixel < samples.length; pixel += 1, offset += 4) {
+		samples[pixel] = (
+			0.2126 * rgba[offset]! + 0.7152 * rgba[offset + 1]! + 0.0722 * rgba[offset + 2]!
+		) / 255;
+	}
+	throwIfAborted(signal);
+	const module = await import('../common/editor/video-motion-processing-v27.ts');
+	return module.createGrayVideoFrameV1({ width, height, samples });
 }
 
 function createCanvas(width: number, height: number): HTMLCanvasElement {

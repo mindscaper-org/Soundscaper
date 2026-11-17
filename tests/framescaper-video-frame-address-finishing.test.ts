@@ -113,7 +113,7 @@ test('decoder creation finishing after disposal cannot reopen frame addressing',
 	assert.equal(disposals, 1);
 });
 
-test('the default decoder admits full-size temporal frame requests through the preview extractor', async () => {
+test('the default decoder admits full-size temporal frame requests without a still-image round trip', async () => {
 	const originals = new Map<string, PropertyDescriptor | undefined>();
 	for (const name of ['document', 'createImageBitmap']) {
 		originals.set(name, Object.getOwnPropertyDescriptor(globalThis, name));
@@ -131,16 +131,14 @@ test('the default decoder admits full-size temporal frame requests through the p
 				getContext() {
 					return {
 						drawImage() {},
-						getImageData: () => ({
-							data: new Uint8ClampedArray(canvas.width * canvas.height * 4),
-						}),
+						getImageData() {
+							capturedWidth = canvas.width;
+							capturedHeight = canvas.height;
+							return { data: new Uint8ClampedArray(canvas.width * canvas.height * 4) };
+						},
 					};
 				},
-				toBlob(callback: (body: Blob | null) => void, mimeType: string) {
-					capturedWidth = canvas.width;
-					capturedHeight = canvas.height;
-					callback(new Blob(['captured'], { type: mimeType }));
-				},
+				toBlob() { assert.fail('temporal frame addressing attempted still encoding'); },
 			};
 			return canvas;
 		},
@@ -149,9 +147,7 @@ test('the default decoder admits full-size temporal frame requests through the p
 		document: { configurable: true, value: document },
 		createImageBitmap: {
 			configurable: true,
-			value: async () => ({
-				width: capturedWidth, height: capturedHeight, close() {},
-			}),
+			value: () => { assert.fail('temporal frame addressing attempted still decoding'); },
 		},
 	});
 	const addressing = createFramescaperVideoFrameAddressFinishing({

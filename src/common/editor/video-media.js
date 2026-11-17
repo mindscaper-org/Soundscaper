@@ -98,7 +98,15 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 	let captureTail = Promise.resolve();
 	const thumbnailKeyframes = createVideoThumbnailKeyframeSelector(file);
 
-	async function capture(timestampSeconds, captureOptions = {}) {
+	function capture(timestampSeconds, captureOptions = {}) {
+		return captureWithOutput(timestampSeconds, captureOptions, encodeCapturedFrame);
+	}
+
+	function capturePixels(timestampSeconds, captureOptions = {}) {
+		return captureWithOutput(timestampSeconds, captureOptions, readCapturedFramePixels);
+	}
+
+	async function captureWithOutput(timestampSeconds, captureOptions, readFrame) {
 		if (disposed) throw new Error('The video frame extractor is closed.');
 		const capturePlan = planVideoPreviewCapture({
 			sourceWidth: width,
@@ -135,17 +143,17 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 			await waitForCaptureTurn(predecessor, abortScope.signal);
 			const selectedTimestamp = captureOptions.preferKeyframe
 				? await thumbnailKeyframes.nearest(timestamp, durationSeconds, abortScope.signal) : timestamp;
-			return await captureFrame({ ...request, timestamp: selectedTimestamp });
+			return await captureFrame({ ...request, timestamp: selectedTimestamp }, readFrame);
 		} finally {
 			abortScope.dispose();
 			release();
 		}
 	}
 
-	async function captureFrame(request) {
+	async function captureFrame(request, readFrame) {
 		throwIfCaptureAborted(request.signal);
 		if (disposed) throw new Error('The video frame extractor is closed.');
-		const { alpha, capturePlan, mimeType, quality, signal, timeoutMs, timestamp } = request;
+		const { alpha, capturePlan, signal, timeoutMs, timestamp } = request;
 		// A metadata-only decoder can strand a paused-frame callback if sought
 		// before its first drawable frame has loaded.
 		if (video.readyState < 2) await waitForMediaEvent(video, 'loadeddata', {
@@ -172,16 +180,14 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		const context = canvas.getContext?.('2d', { alpha });
 		if (!context?.drawImage) throw new Error('Canvas video-frame capture is unavailable.');
 		context.drawImage(video, 0, 0, capturePlan.outputWidth, capturePlan.outputHeight);
-		const blob = await canvasToBlob(canvas, mimeType, quality);
+		const output = await readFrame(canvas, context, request);
 		throwIfCaptureAborted(signal);
-		assertVideoPreviewEncodedBytes(blob.size, capturePlan.maximumEncodedBytes);
 		hasPresentedFrame = true;
 		return Object.freeze({
 			timestampSeconds: timestamp,
 			width: capturePlan.outputWidth,
 			height: capturePlan.outputHeight,
-			mimeType: blob.type || mimeType,
-			blob,
+			...output,
 		});
 	}
 
@@ -195,7 +201,23 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		});
 	}
 
-	return Object.freeze({ metadata, capture, dispose });
+	return Object.freeze({ metadata, capture, capturePixels, dispose });
+}
+
+async function encodeCapturedFrame(canvas, _context, { capturePlan, mimeType, quality, signal }) {
+	const blob = await canvasToBlob(canvas, mimeType, quality);
+	throwIfCaptureAborted(signal);
+	assertVideoPreviewEncodedBytes(blob.size, capturePlan.maximumEncodedBytes);
+	return { mimeType: blob.type || mimeType, blob };
+}
+
+function readCapturedFramePixels(_canvas, context, { capturePlan }) {
+	if (typeof context.getImageData !== 'function') {
+		throw new Error('Canvas video-frame readback is unavailable.');
+	}
+	const { data } = context.getImageData(0, 0, capturePlan.outputWidth, capturePlan.outputHeight);
+	if (data.byteLength !== capturePlan.rgbaUsefulBinary.bytes) throw new RangeError('Canvas video-frame readback changed geometry.');
+	return { pixels: new Uint8Array(data.buffer, data.byteOffset, data.byteLength) };
 }
 
 function createCaptureAbortScope(signals) {

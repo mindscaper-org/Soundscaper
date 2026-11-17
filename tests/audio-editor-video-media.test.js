@@ -89,6 +89,27 @@ test('video preview capture serializes canvas and encoder work within one extrac
 	fixture.extractor.dispose();
 });
 
+test('decoded pixel capture shares the seek queue and bypasses still encoding', async () => {
+	const fixture = await videoExtractorFixture({ deferEncoding: true });
+	const encoded = fixture.extractor.capture(1);
+	await fixture.waitForEncodeCount(1);
+	const decoded = fixture.extractor.capturePixels(2, { maximumWidth: 64, maximumHeight: 36, alpha: true });
+	await new Promise((resolve) => { setImmediate(resolve); });
+	assert.equal(fixture.drawCount(), 1);
+	fixture.releaseNextEncoding();
+	await encoded;
+	const frame = await decoded;
+	assert.deepEqual(fixture.seeks, [1, 2]);
+	assert.equal(fixture.encodeCount(), 1);
+	assert.deepEqual([frame.timestampSeconds, frame.width, frame.height], [2, 64, 36]);
+	assert.equal(frame.pixels.length, 64 * 36 * 4);
+	assert.deepEqual(frame.pixels.subarray(0, 4), Uint8Array.of(1, 20, 90, 128));
+	frame.pixels[0] = 255;
+	const repeated = await fixture.extractor.capturePixels(2, { maximumWidth: 64, maximumHeight: 36, alpha: true });
+	assert.equal(repeated.pixels[0], 1, 'readback is detached from the next capture');
+	fixture.extractor.dispose();
+});
+
 test('video preview capture fences cancellation before seek and after encoding', async () => {
 	const preAborted = await videoExtractorFixture();
 	const earlyController = new AbortController();
@@ -190,7 +211,16 @@ async function videoExtractorFixture(options = {}) {
 				const canvas = {
 					width: 0,
 					height: 0,
-					getContext() { return { drawImage() { drawCount += 1; } }; },
+					getContext() {
+						return {
+							drawImage() { drawCount += 1; },
+							getImageData(_x, _y, width, height) {
+								const data = new Uint8ClampedArray(width * height * 4);
+								data.set([1, 20, 90, 128]);
+								return { data };
+							},
+						};
+					},
 					toBlob(callback, mimeType) {
 						const complete = () => callback(new Blob([
 							options.encodedBytes == null ? 'thumbnail' : new Uint8Array(options.encodedBytes),
