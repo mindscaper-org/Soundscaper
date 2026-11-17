@@ -17,6 +17,7 @@ export const collections = {
 		schema: docsSchema({
 			extend: z.object({
 				layoutPreset: z.enum(['default', 'full-width']).default('default'),
+				diataxis: z.enum(['tutorial', 'how-to', 'reference', 'explanation']).optional(),
 			}),
 		}),
 	}),
