@@ -27,10 +27,11 @@ interface Harness {
 	readonly binding: NonNullable<ReturnType<typeof createDeferredFramescaperCaptureAppBinding>>;
 	readonly warnings: unknown[];
 	readonly changes: number;
+	readonly whenLoadStarts: Promise<void>;
 	release(): void;
 }
 
-function fakeBinding(calls: string[]): FramescaperCaptureBinding {
+function fakeBinding(calls: string[], onInitialize?: () => void): FramescaperCaptureBinding {
 	const actions = Object.fromEntries([
 		'openSetup', 'selectDisplaySource', 'configure', 'setSetupDefaults', 'arm', 'resetFailure',
 		'requestPreview', 'listDisplaySources', 'selectDevice', 'configureSource', 'release', 'start',
@@ -55,7 +56,7 @@ function fakeBinding(calls: string[]): FramescaperCaptureBinding {
 		actions,
 		get webVcrSnapshot() { return { capability: { status: 'available', reason: null }, marker: 'loaded' }; },
 		get webVcrActions() { return webVcrActions; },
-		initialize: async () => { calls.push('initialize'); },
+		initialize: async () => { calls.push('initialize'); onInitialize?.(); },
 		dispose: async () => { calls.push('dispose'); },
 		originSnapshot: (projectId?: string | null) => ({ marker: 'loaded', activeProjectId: projectId ?? null }),
 		assertOriginEditAllowed: (projectId: string) => { calls.push(`edit:${projectId}`); },
@@ -73,18 +74,28 @@ function harness(options: Readonly<{
 	readonly webVcrBridge?: unknown;
 	readonly webVcrEnabled?: boolean;
 	readonly probeFailure?: Error;
+	readonly loadFailure?: Error;
+	readonly initializeFailure?: Error;
 }> = {}): Harness {
 	const calls: string[] = [];
 	const warnings: unknown[] = [];
 	let loads = 0;
 	let changes = 0;
+	let initializations = 0;
 	let release = () => {};
 	const gate = new Promise<void>((resolve) => { release = resolve; });
+	let started = () => {};
+	const whenLoadStarts = new Promise<void>(resolve => { started = resolve; });
 	const load: FramescaperCaptureImplementationLoader = async () => {
 		loads += 1;
+		started();
 		await gate;
+		if (loads === 1 && options.loadFailure) throw options.loadFailure;
 		return {
-			createAppBinding: () => fakeBinding(calls),
+			createAppBinding: () => fakeBinding(calls, () => {
+				initializations += 1;
+				if (initializations === 1 && options.initializeFailure) throw options.initializeFailure;
+			}),
 			createDerivativeScheduler: () => async () => { calls.push('scheduled'); },
 		} as unknown as typeof FRAMESCAPER_EDITOR_CAPTURE_IMPLEMENTATION;
 	};
@@ -95,7 +106,7 @@ function harness(options: Readonly<{
 		},
 		async listProject(projectId: string) { return Array.from({ length: options.manifests?.[projectId] ?? 0 }, () => ({})); },
 	};
-	const binding = createDeferredFramescaperCaptureAppBinding({
+	const binding = createDeferredFramescaperCaptureRuntime(load).createAppBinding({
 		productId: 'framescaper', schemaFamily: 'framescaper', schemaVersion: 1, isDesktop: false, embedded: false,
 		store: {
 			framescaperCaptureManifestRepository: repository,
@@ -107,7 +118,7 @@ function harness(options: Readonly<{
 		webVcrEnabled: options.webVcrEnabled ?? false,
 		onWarning: (error: unknown) => { warnings.push(error); },
 		onChange: () => { changes += 1; },
-	} as unknown as FramescaperCaptureAppBindingOptions, load);
+	} as unknown as FramescaperCaptureAppBindingOptions);
 	assert.ok(binding);
 	return {
 		get loads() { return loads; },
@@ -115,6 +126,7 @@ function harness(options: Readonly<{
 		binding,
 		warnings,
 		get changes() { return changes; },
+		whenLoadStarts,
 		release,
 	};
 }
@@ -170,12 +182,44 @@ test('a store without the capture repositories is a cold boot, not a load', asyn
 	assert.equal(fixture.loads, 0);
 });
 
+test('retrying capture after a transient load failure loads a fresh implementation', async () => {
+	const failure = new Error('capture implementation download was interrupted');
+	const fixture = harness({ loadFailure: failure });
+	fixture.release();
+	await assert.rejects(fixture.binding.actions.requestPreview(['camera']), (error: unknown) => error === failure);
+	await fixture.binding.actions.requestPreview(['camera']);
+	assert.equal(fixture.loads, 2);
+	assert.deepEqual(fixture.calls, ['initialize', 'requestPreview:[["camera"]]']);
+});
+
+test('failed capture initialization disposes its partial binding and permits retry', async () => {
+	const failure = new Error('the recovery store was temporarily unavailable');
+	const fixture = harness({ desktopBridge: {}, initializeFailure: failure });
+	fixture.release();
+	await assert.rejects(fixture.binding.initialize(), (error: unknown) => error === failure);
+	assert.deepEqual(fixture.calls, ['initialize', 'dispose']);
+	await fixture.binding.initialize();
+	assert.deepEqual(fixture.calls, ['initialize', 'dispose', 'initialize']);
+	assert.equal(fixture.loads, 1);
+});
+
+test('closing during a deferred preview prevents the retired gesture from opening a source', async () => {
+	const fixture = harness();
+	const preview = assert.rejects(fixture.binding.actions.requestPreview(['camera']), /disposed/u);
+	await fixture.whenLoadStarts;
+	const disposal = fixture.binding.dispose();
+	fixture.release();
+	await Promise.all([preview, disposal]);
+	assert.deepEqual(fixture.calls, []);
+	assert.equal(fixture.changes, 0);
+});
+
 test('asynchronous actions load once, initialize once and then delegate; guards delegate after load', async () => {
 	const fixture = harness();
 	await fixture.binding.initialize();
 	const first = fixture.binding.actions.requestPreview(['camera']);
 	const second = fixture.binding.webVcrActions.navigate('https://example.test/');
-	await Promise.resolve();
+	await fixture.whenLoadStarts;
 	assert.equal(fixture.loads, 1, 'concurrent actions share one load');
 	fixture.release();
 	await Promise.all([first, second]);
@@ -198,7 +242,7 @@ test('synchronous actions before the load are journaled and replayed in order af
 	fixture.binding.actions.setSetupDefaults({ countdownMs: 0 });
 	fixture.binding.actions.configure({ destination: 'project' });
 	fixture.binding.service.setRuntimeAvailability({ status: 'checking' });
-	await Promise.resolve();
+	await fixture.whenLoadStarts;
 	assert.equal(fixture.loads, 1, 'the first synchronous gesture starts the load');
 	assert.deepEqual(fixture.calls, [], 'nothing reaches the runtime before it is loaded');
 	fixture.release();

@@ -109,26 +109,44 @@ export function createDeferredFramescaperCaptureAppBinding(
 		options.onWarning?.(error);
 	}
 
+	function assertAlive(): void {
+		if (disposed) throw new Error('Framescaper capture is disposed.');
+	}
+
 	function ensureLoaded(): Promise<FramescaperCaptureBinding> {
 		if (disposed) return Promise.reject(new Error('Framescaper capture is disposed.'));
+		if (loaded) return Promise.resolve(loaded);
 		loading ??= Promise.resolve()
 			.then(load)
 			.then(async (implementation) => {
+				assertAlive();
 				const binding = implementation.createAppBinding(options);
 				if (!binding) throw new Error('The Framescaper capture runtime did not bind to this editor.');
-				await binding.initialize();
+				try {
+					await binding.initialize();
+					assertAlive();
+				} catch (error) {
+					try { await binding.dispose(); }
+					catch (cleanupError) {
+						throw new AggregateError([error, cleanupError], 'Framescaper capture initialization and cleanup failed.', { cause: error });
+					}
+					throw error;
+				}
 				loaded = binding;
 				for (const replay of journal.splice(0)) {
 					try { replay(); } catch (error) { warn(error); }
 				}
 				options.onChange?.();
 				return binding;
+			}).catch((error: unknown) => {
+				loading = null;
+				throw error;
 			});
 		return loading;
 	}
 
 	function kick(): void {
-		ensureLoaded().catch(warn);
+		void ensureLoaded().catch(warn);
 	}
 
 	async function shouldLoadAtStartup(): Promise<boolean> {
@@ -146,6 +164,7 @@ export function createDeferredFramescaperCaptureAppBinding(
 
 	function deferSync<Name extends SyncCaptureAction>(name: Name): FramescaperCaptureSessionActions[Name] {
 		return ((...args: Parameters<FramescaperCaptureSessionActions[Name]>) => {
+			if (disposed) return;
 			const apply = (binding: FramescaperCaptureBinding) => (
 				(binding.actions[name] as (...value: typeof args) => void)(...args)
 			);
@@ -158,13 +177,19 @@ export function createDeferredFramescaperCaptureAppBinding(
 
 	function deferAsync<Name extends AsyncCaptureAction>(name: Name): FramescaperCaptureSessionActions[Name] {
 		return ((...args: Parameters<FramescaperCaptureSessionActions[Name]>) => ensureLoaded().then(
-			(binding) => (binding.actions[name] as (...value: typeof args) => Promise<void>)(...args),
+			(binding) => {
+				assertAlive();
+				return (binding.actions[name] as (...value: typeof args) => Promise<void>)(...args);
+			},
 		)) as FramescaperCaptureSessionActions[Name];
 	}
 
 	function deferWebVcr<Name extends WebVcrAction>(name: Name): FramescaperWebVcrActions[Name] {
 		return ((...args: Parameters<FramescaperWebVcrActions[Name]>) => ensureLoaded().then(
-			(binding) => (binding.webVcrActions[name] as (...value: typeof args) => Promise<void>)(...args),
+			(binding) => {
+				assertAlive();
+				return (binding.webVcrActions[name] as (...value: typeof args) => Promise<void>)(...args);
+			},
 		)) as FramescaperWebVcrActions[Name];
 	}
 
@@ -214,7 +239,10 @@ export function createDeferredFramescaperCaptureAppBinding(
 		initialized ??= (async () => {
 			if (loading || loaded) { await ensureLoaded(); return; }
 			if (await shouldLoadAtStartup()) await ensureLoaded();
-		})();
+		})().catch((error: unknown) => {
+			initialized = null;
+			throw error;
+		});
 		return initialized;
 	}
 
@@ -226,6 +254,7 @@ export function createDeferredFramescaperCaptureAppBinding(
 
 	async function dispose(): Promise<void> {
 		disposed = true;
+		journal.length = 0;
 		if (!loading) return;
 		const binding = await loading.catch(() => null);
 		if (binding) await binding.dispose();
@@ -250,6 +279,7 @@ export function createDeferredFramescaperCaptureAppBinding(
 		get snapshot() { return loaded ? loaded.service.snapshot : FRAMESCAPER_CAPTURE_IDLE_SNAPSHOT; },
 		actions,
 		setRuntimeAvailability: (value: Parameters<FramescaperCaptureSessionService['setRuntimeAvailability']>[0]) => {
+			if (disposed) return;
 			if (loaded) { loaded.service.setRuntimeAvailability(value); return; }
 			journal.push(() => loaded?.service.setRuntimeAvailability(value));
 			kick();
@@ -264,7 +294,7 @@ export function createDeferredFramescaperCaptureAppBinding(
 		get snapshot() { return loaded ? loaded.snapshot : FRAMESCAPER_CAPTURE_IDLE_SNAPSHOT; },
 		actions,
 		get webVcrSnapshot() { return loaded ? loaded.webVcrSnapshot : idleWebVcr; },
-		get webVcrActions() { return loaded ? loaded.webVcrActions : webVcrActions; },
+		webVcrActions,
 		initialize,
 		dispose,
 		originSnapshot,
