@@ -11,7 +11,7 @@ export default function ProjectTabs({ projects, activeProjectId, copy, disabled,
 		closingProjectRef.current = null;
 		const ownerDocument = closing.ownerDocument;
 		if (ownerDocument.activeElement === ownerDocument.body) {
-			tabListRef.current?.querySelector('[aria-selected="true"]')?.focus({ preventScroll: true });
+			focusProjectTab(tabListRef.current?.querySelector('[aria-selected="true"]'));
 		}
 	}, [disabled, projects]);
 	useEffect(() => {
@@ -19,7 +19,7 @@ export default function ProjectTabs({ projects, activeProjectId, copy, disabled,
 		activationFocusRef.current = false;
 		const activeTab = tabListRef.current?.querySelector('[aria-selected="true"]');
 		if (activeTab?.ownerDocument.activeElement === activeTab.ownerDocument.body) {
-			activeTab.focus({ preventScroll: true });
+			focusProjectTab(activeTab);
 		}
 	}, [activeProjectId, disabled]);
 	const unique = [];
@@ -49,8 +49,9 @@ export default function ProjectTabs({ projects, activeProjectId, copy, disabled,
 			activationFocusRef.current = true;
 			onSelect(next.id);
 		}
+		const target = tabListRef.current?.querySelectorAll('[role="tab"]')[nextIndex];
 		requestAnimationFrame(() => {
-			tabListRef.current?.querySelectorAll('[role="tab"]')[nextIndex]?.focus({ preventScroll: true });
+			if (target?.isConnected && !target.disabled) focusProjectTab(target);
 		});
 	};
 	return (
@@ -92,4 +93,9 @@ export default function ProjectTabs({ projects, activeProjectId, copy, disabled,
 			}} aria-label={copy.newProject}>+</button>
 		</nav>
 	);
+}
+
+function focusProjectTab(tab) {
+	tab?.focus({ preventScroll: true });
+	tab?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
 }

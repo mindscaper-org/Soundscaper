@@ -181,3 +181,26 @@ test('switching projects restores the playhead and zoom of each tab', async ({ p
 	await expect(playhead).toHaveAttribute('aria-valuenow', firstFrame);
 	await expect.poll(async () => (await firstClip.boundingBox()).width).toBeCloseTo(firstWidth, 0);
 });
+
+test('keyboard navigation brings a clipped destination project tab into view', async ({ page }) => {
+	await page.setViewportSize({ width: 1024, height: 800 });
+	const editor = await bootEditor(page, '/embed/en/');
+	const titles = ['First', 'Second', 'Third', 'Fourth'].map(ordinal => `${ordinal} recording project with a long title`);
+	await renameProject(page, editor, titles[0]);
+	for (const title of titles.slice(1)) {
+		await editor.getByRole('button', { name: 'New project', exact: true }).click();
+		await waitForProjectActivation(editor);
+		await renameProject(page, editor, title);
+	}
+	const tabs = editor.getByRole('navigation', { name: 'Project tabs' });
+	const first = tabs.getByRole('tab', { name: titles[0], exact: true });
+	const last = tabs.getByRole('tab', { name: titles.at(-1), exact: true });
+	await first.click();
+	await waitForProjectActivation(editor);
+	await expect(last).not.toBeInViewport();
+	await page.keyboard.press('End');
+	await expect(last).toHaveAttribute('aria-selected', 'true');
+	await waitForProjectActivation(editor);
+	await expect(last).toBeFocused();
+	await expect(last).toBeInViewport({ ratio: 0.75 });
+});
