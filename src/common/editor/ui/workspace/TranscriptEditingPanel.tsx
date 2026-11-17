@@ -111,7 +111,7 @@ function TranscriptEditingSurface({ controller, snapshot, copy, locale, fileServ
 		const span = [...element.querySelectorAll<HTMLElement>('[data-transcript-word]')].find(node => node.dataset.transcriptWord === target?.id);
 		if (!span?.firstChild) return;
 		const range = element.ownerDocument.createRange();
-		range.setStart(span.firstChild, request.direction === 'backward' && target!.endFrame <= request.frame ? span.textContent!.length : 0);
+		range.setStart(span.firstChild, target!.endFrame <= request.frame ? span.textContent!.length : 0);
 		range.collapse(true);
 		element.focus({ preventScroll: true });
 		const selection = element.ownerDocument.getSelection();

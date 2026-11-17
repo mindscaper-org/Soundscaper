@@ -170,4 +170,36 @@ test.describe('Transcript-based editing', () => {
 		await expect(transcript.locator('[data-transcript-word]')).toHaveCount(5);
 		await expect(panel.getByRole('alert')).toHaveCount(0);
 	});
+
+	test('Delete after removing the last transcript word leaves preceding audio intact', async ({ page }) => {
+		test.setTimeout(120_000);
+		await installMilestone7LocalAssistanceFixture(page, [], { transcriptWordTiming: true });
+		const editor = await bootEditor(page, '/en/');
+		await importFiles(editor, [createWavFixture({ name: 'Passage ending.wav', duration: .5, channelCount: 1 })]);
+		await chooseCommandAction(page, editor, 'Edit', 'Transcript-based editing');
+		const panel = editor.locator('[data-workspace-panel="transcript-editing"]');
+		page.on('dialog', dialog => { void dialog.accept(); });
+		await panel.getByRole('button', { name: 'Generate transcript', exact: true }).click();
+		await expect.poll(async () => (await milestone7FixtureSnapshot(page)).progressEvents).toBe(1);
+		await completeMilestone7Run(page);
+		const transcript = panel.getByRole('textbox', { name: 'Transcript', exact: true });
+		await expect(transcript.locator('[data-transcript-word]')).toHaveCount(5);
+		await transcript.getByText('interview.', { exact: true }).dblclick();
+		await page.keyboard.press('Delete');
+		await expect(transcript.locator('[data-transcript-word]')).toHaveCount(4);
+		await expect(transcript.getByText('interview.', { exact: true })).toHaveCount(0);
+		await expect(transcript).toHaveAttribute('aria-busy', 'false');
+		await expect.poll(() => transcript.evaluate(element => {
+			const selection = element.ownerDocument.getSelection();
+			if (!selection?.rangeCount || !selection.isCollapsed || !element.lastElementChild) return null;
+			const right = selection.getRangeAt(0).cloneRange();
+			right.setEnd(element.lastElementChild, element.lastElementChild.childNodes.length);
+			return right.toString().trim();
+		})).toBe('');
+		await page.keyboard.press('Delete');
+		await expect(transcript).toHaveAttribute('aria-busy', 'false');
+		await expect(transcript.getByText('the', { exact: true })).toHaveCount(1);
+		await expect(transcript.locator('[data-transcript-word]')).toHaveCount(4);
+		await expect(panel.getByRole('alert')).toHaveCount(0);
+	});
 });
