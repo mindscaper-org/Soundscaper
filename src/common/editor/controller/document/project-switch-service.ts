@@ -3,9 +3,7 @@
 import { EDITOR_PROJECT_TASK_SCOPE, type EditorLifetimeToken } from '../shared/lifecycle.ts'; import { publishedCopyFor } from '../shared/presentation-localization.ts'; import { setLocalizedStatus } from '../../../i18n/presentation-message.ts'; import { publishProjectReadOnlyStatus } from './project-read-only-status.ts'; import { createProjectActivationEditFence } from './project-activation-edit-fence.ts';
 import { inputId, isActiveProjectSwitchInput, prepareProjectSwitchHistory } from './internal/project/project-switch-input.ts'; import { verifyProjectSwitchStorageCurrent } from './internal/project/project-switch-storage-currentness.ts'; import { resetDesktopOriginal } from '../../desktop-overwrite-original.ts';
 import { createPlaybackProjectService } from '../source/playback-project-service.ts';
-import { SCAPE_OPEN_REQUEST_TASK } from './scape-open-request-service.ts';
-import { SCAPE_INSPECTION_TASK } from './internal/scape/scape-inspection-service.ts';
-import type { ScapeInspectionFence } from './internal/scape/scape-inspection-quiescence.ts';
+import { beginProjectSwitchInspectionFence } from './internal/project/project-switch-inspection-fence.ts';
 import type { ProjectLifecycleHistory, ProjectLifecycleLock, ProjectLifecycleProject } from './project-lifecycle-types.ts';
 import type {
 	NewProjectOptions,
@@ -40,6 +38,8 @@ export function createProjectSwitchService<
 	const playbackProjects = runtime.playbackProjectService
 		?? createPlaybackProjectService(runtime.productCapabilities), openRecovery = runtime.openRecovery ?? createImmediateTakeCycleOpenRecoveryProjectPort();
 	const activationEditFence = createProjectActivationEditFence(runtime.state, runtime.publishDocumentSnapshot);
+	const beginScapeInspectionFence = (preserveOpenRequest = false) =>
+		beginProjectSwitchInspectionFence(runtime.scapeInspectionQuiescence, runtime.lifetime, preserveOpenRequest);
 	let readyProjectId = runtime.getProject()?.id ?? null;
 	return Object.freeze({
 		newProject,
@@ -74,19 +74,6 @@ export function createProjectSwitchService<
 		const id = inputId(loaded.project);
 		const save = !readOnly && id !== null && Boolean(runtime.createProjectIfAbsent && await runtime.isProjectAbsent?.(id));
 		await switchProject(loaded.project, { readOnly, readOnlyReason, save });
-	}
-
-	function beginScapeInspectionFence(preserveOpenRequest = false): ScapeInspectionFence {
-		const reason = new DOMException('The editor task was superseded.', 'AbortError');
-		const fence = runtime.scapeInspectionQuiescence.beginFence(reason);
-		try {
-			if (!preserveOpenRequest) runtime.lifetime.cancelTask(SCAPE_OPEN_REQUEST_TASK, reason);
-			runtime.lifetime.cancelTask(SCAPE_INSPECTION_TASK, reason);
-		} catch (error) {
-			try { fence.release(); } catch (cleanupError) { throw projectSwitchCleanupError(error, cleanupError, 'Scape cancellation and activation-fence cleanup both failed.'); }
-			throw error;
-		}
-		return fence;
 	}
 
 	function switchProject(
@@ -189,6 +176,7 @@ export function createProjectSwitchService<
 		// The session call's successful return is the activation authority boundary.
 		let targetSessionActivated = false;
 		let activeLock: ProjectLifecycleLock | null = null, switchFailure: unknown | typeof NO_PROJECT_SWITCH_FAILURE = NO_PROJECT_SWITCH_FAILURE;
+		let stagedLock: ProjectLifecycleLock | null = null;
 		const previousProject = runtime.getProject();
 		try {
 			// Cancellation is a registry query, not an inventory: everything the
@@ -211,6 +199,16 @@ export function createProjectSwitchService<
 			if (!options.skipFlush && previousProject && previousProject.id !== projectId && !runtime.state.readOnly && !openRecovery.blocked) {
 				await guard(runtime.saveNow());
 			}
+			const previousLock = runtime.state.projectLock;
+			if (!previousLock || previousLock.projectId !== projectId || previousLock.readOnly) {
+				stagedLock = await runtime.acquireProjectLock(projectId, { force: true });
+				runtime.lifetime.assertActive(token);
+			}
+			const activationLock = stagedLock ?? previousLock;
+			if (!activationLock) throw new Error('Project activation requires an acquired project lock.');
+			const storageCurrent = !activationLock.readOnly && await guard(verifyProjectSwitchStorageCurrent(
+				runtime, projectId, activationProject, Boolean(existingCapture), options,
+			));
 			runtime.cancelScheduledSave();
 			readyProjectId = null;
 			runtime.stopEngine();
@@ -218,24 +216,13 @@ export function createProjectSwitchService<
 			await guard(runtime.disposeRenderEngines());
 			providerReplacement = runtime.beginSourceChunkProviderReplacement();
 			runtime.cancelEffectPreview({ publish: false });
-			if (!runtime.state.projectLock
-				|| runtime.state.projectLock.projectId !== projectId
-				|| runtime.state.projectLock.readOnly) {
+			if (stagedLock) {
 				await guard(runtime.releaseProjectLock());
-				const nextLock = await runtime.acquireProjectLock(projectId, { force: true });
-				try {
-					runtime.lifetime.assertActive(token);
-				} catch (error) {
-					await discardLock(nextLock);
-					throw error;
-				}
-				runtime.state.projectLock = nextLock;
+				runtime.state.projectLock = stagedLock;
+				stagedLock = null;
 			}
-			activeLock = runtime.state.projectLock;
-			if (!activeLock) throw new Error('Project activation requires an acquired project lock.');
-			const activationLock = activeLock;
-			runtime.watchProjectLockLoss(projectId, activationLock);
-			const lockReadOnly = activationLock.readOnly || !await guard(verifyProjectSwitchStorageCurrent(runtime, projectId, activationProject, Boolean(existingCapture), options));
+			activeLock = activationLock;
+			const lockReadOnly = activationLock.readOnly || !storageCurrent;
 			const existingMetadata = existingCapture ? runtime.sessionTab(projectId)?.metadata || {} : {};
 			const retainStoredReadOnly = existingCapture != null || options.readOnly == null;
 			const declaredReadOnly = retainStoredReadOnly
@@ -291,6 +278,7 @@ export function createProjectSwitchService<
 			fallbackAdmission.assertCurrent(activeProject);
 			resetProjectScopedState();
 			runtime.setProject(activeProject);
+			runtime.watchProjectLockLoss(projectId, activationLock);
 			runtime.projectGeneration.activate(activeProject.id);
 			await guard(openRecovery.inspectOpenedProject(projectId));
 			await guard(runtime.loadRecordingRouting(activeProject));
@@ -390,6 +378,8 @@ export function createProjectSwitchService<
 			const lifetimeDisposed = () => runtime.isDisposedError(error)
 				|| runtime.lifetime.signal.aborted;
 			const canPublishFailedTarget = () => failedTarget && !lifetimeDisposed();
+			const abandonedLock = stagedLock;
+			if (abandonedLock) await cleanup(() => discardLock(abandonedLock), 'Project switching and staged-lock release both failed.');
 			const targetLock = failedTarget
 				? runtime.state.projectLock?.projectId === projectId
 					? runtime.state.projectLock : activeLock
