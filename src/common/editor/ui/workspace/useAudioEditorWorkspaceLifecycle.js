@@ -14,7 +14,6 @@ import { workspaceErrorMessage } from './workspace-error-presentation.ts';
 import { WebFileLoadLimitError } from '../../web-file-limit-failure.ts';
 import { disposeBlenderWorkspaceSession } from './blender-workspace-menu.ts';
 import { getLocaleDescriptor } from '../../../i18n/locales.js';
-import { LOCALE_NAVIGATION_REQUEST_EVENT, productHref } from '../../../product-web-links.js';
 import { rememberLocaleProjectHandoff } from '../../controller/document/locale-project-handoff.ts';
 
 export function useAudioEditorWorkspaceLifecycle({
@@ -188,7 +187,8 @@ export function useAudioEditorWorkspaceLifecycle({
 		const handleLocaleRequest = (event) => {
 			if (!event.cancelable || event.detail?.productId !== productId) return;
 			const target = getLocaleDescriptor(event.detail.locale);
-			if (!target) return;
+			const destination = event.detail.destination;
+			if (!target || destination !== `/${encodeURIComponent(target.locale)}/`) return;
 			event.preventDefault();
 			const request = ++revision;
 			void controller.ready.then(async () => {
@@ -196,16 +196,15 @@ export function useAudioEditorWorkspaceLifecycle({
 				const projectId = controller.getSnapshot().project?.id;
 				await controller.actions.project.flush();
 				if (revision !== request) return;
-				const destination = productHref(productId, target.locale);
 				rememberLocaleProjectHandoff({ storage: () => globalThis.sessionStorage,
 					location: () => globalThis.location, now: () => Date.now() }, productId, projectId, destination);
 				globalThis.location.assign(destination);
 			}).catch(onError);
 		};
-		globalThis.addEventListener?.(LOCALE_NAVIGATION_REQUEST_EVENT, handleLocaleRequest);
+		globalThis.addEventListener?.('scape:locale-navigation-request', handleLocaleRequest);
 		return () => {
 			revision += 1;
-			globalThis.removeEventListener?.(LOCALE_NAVIGATION_REQUEST_EVENT, handleLocaleRequest);
+			globalThis.removeEventListener?.('scape:locale-navigation-request', handleLocaleRequest);
 		};
 	}, [controller, fileService.isDesktop, onError, productId]);
 	useEffect(() => {
