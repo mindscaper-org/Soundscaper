@@ -232,6 +232,13 @@ publication and rollback. A same-ID replacement installs the committed document
 as fresh session history; rollback leaves staged assets intact if ownership has
 changed and they may now be referenced by another writer.
 
+An unchanged Scape file resumes its existing library project and session history.
+Canonical document digests select this path; import rechecks equality after pending
+edits are flushed and performs no project or media publication. Archive bodies are
+verified against their descriptors and local audio or video before activation. A changed working
+copy returns to the collision decision. Recovery and feature compatibility still
+require their existing explicit choices.
+
 Project startup, direct activation, recent projects, library opens, Scape archives,
 and Audacity imports share one bounded recovery attempt. Cancellation,
 lost ownership, inaccessible storage, and quota failures remain errors. Stored

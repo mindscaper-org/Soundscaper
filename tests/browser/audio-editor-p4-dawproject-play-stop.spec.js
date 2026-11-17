@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test } from './audio-editor-test-fixtures.js';
+import { changeWorkingProjectAfterArchiveSave } from './helpers/scape-archive-collision.typecheck.ts';
 import { strFromU8, unzipSync } from 'fflate';
 import { bootEditor, chooseFileAction, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { writeDawprojectArchive } from '../../src/common/editor/dawproject-archive.ts';
@@ -45,6 +46,7 @@ test('DAWproject stopped and unstopped content survive native delivery and reope
 			const project = parseScapeProjectDocument(strFromU8(unzipSync(saved)['project.json']), { currentProjectSchemaFamily: 'soundscaper' });
 			expect(project.clips[0].durationFrames).toBe(96_000); expect(project.clips[0].sourceDurationFrames).toBe(96_000);
 			expect(project.sources[0].frameCount).toBe(192_000);
+			await changeWorkingProjectAfterArchiveSave(page, editor);
 			const reopening = page.waitForEvent('filechooser'); await chooseFileAction(page, editor, 'Open');
 			await (await reopening).setFiles({ name: 'Saved content stop.sscape', mimeType: 'application/zip', buffer: Buffer.from(saved) });
 			const collision = page.getByRole('dialog', { name: 'Project already exists', exact: true });

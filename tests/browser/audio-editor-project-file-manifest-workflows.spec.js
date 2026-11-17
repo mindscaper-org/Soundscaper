@@ -1,4 +1,5 @@
 import { originPrivateFileSystemAvailable } from './helpers/storage-capabilities.js';
+import { changeWorkingProjectAfterArchiveSave } from './helpers/scape-archive-collision.typecheck.ts';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 
@@ -90,6 +91,7 @@ test.describe('project archive and checksum files', () => {
 			(sum, member) => sum + member.byteLength, 0,
 		));
 		await checksumDownload.delete();
+		await changeWorkingProjectAfterArchiveSave(page, editor);
 
 		const chooserPromise = page.waitForEvent('filechooser');
 		await chooseFileAction(page, editor, 'Open');
@@ -158,6 +160,7 @@ test.describe('project archive and checksum files', () => {
 		const download = await downloading;
 		const archive = await downloadBytes(download);
 		await download.delete();
+		await changeWorkingProjectAfterArchiveSave(page, editor);
 		const corrupted = await corruptLastAudioAsset(archive);
 		const storedBefore = await scapeStorageSnapshot(page);
 		expect(storedBefore.storedRows.sources).toHaveLength(2);

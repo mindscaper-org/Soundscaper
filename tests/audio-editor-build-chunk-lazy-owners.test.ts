@@ -54,6 +54,7 @@ test('recording checkpoints and finalization load after a recording gesture', ()
 
 test('optional archive code and its ZIP vendor are placed by dynamic reachability', () => {
 	for (const path of [
+		'src/common/editor/scape-project-reopen-assets.ts',
 		'src/common/editor/scape-project.js',
 		'src/common/editor/scape-archive-layout.ts',
 		'src/common/editor/scape-archive-layout-witness.ts',
