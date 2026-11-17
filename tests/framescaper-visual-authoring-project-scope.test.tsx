@@ -8,7 +8,9 @@ import FramescaperSelectedVisualAuthoringDialog from '../src/common/editor/ui/di
 import { createFramescaperProject } from '../src/framescaper/editor-project.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
 import { createEditorProjectRuntimeSelection } from '../src/framescaper/editor-project-runtime-selection.ts';
-import { bindFramescaperSelectedAuthoringController } from '../src/framescaper/editor-selected-finishing-authoring-controller.ts';
+import { bindFramescaperSelectedAuthoringController, framescaperSelectedVisualAuthoringRuntimeFor } from '../src/framescaper/editor-selected-finishing-authoring-controller.ts';
+import { createFramescaperSelectedVisualAuthoringModel } from '../src/framescaper/editor-selected-finishing-visual-authoring-model.ts';
+import { applyFramescaperProjectCommand } from '../src/framescaper/editor-project-commands.ts';
 import { bindFramescaperSelectedFreezeCaptureFinishing } from '../src/framescaper/editor-selected-finishing-freeze-capture.ts';
 import { createMemoryProjectStore } from './helpers/memory-project-store.ts';
 import { framescaperBaselineOptions } from './helpers/framescaper-baseline-model-fixture.ts';
@@ -53,4 +55,21 @@ test('a Freeze Frame capture from the previous project leaves the newly opened d
 		await act(async () => { failCapture(new Error('Capture retired.')); root.unmount(); });
 		release(); dom.restore(); globals.React = previousReact; globals.IS_REACT_ACT_ENVIRONMENT = previousAct;
 	}
+});
+
+test('a moving playhead does not make the selected clip adjustment stale', async context => {
+	let project = createFramescaperProject(PROFILE, framescaperBaselineOptions());
+	let playhead = 0;
+	const surface = 'video-adjustment-layer';
+	const controller = { get project() { return project; }, getSnapshot: () => ({ selectedClipId: 'video-clip' }),
+		getTelemetrySnapshot: () => ({ positionFrame: playhead }), actions: { edit: { commit(command: unknown) {
+			project = applyFramescaperProjectCommand(PROFILE, project, command);
+		} } } };
+	bindFramescaperSelectedAuthoringController({ controller, store: createMemoryProjectStore(context, 'visual-playhead-scope') });
+	const model = createFramescaperSelectedVisualAuthoringModel({ surface, project, selectedClipId: 'video-clip', playheadSample: playhead });
+	const runtime = framescaperSelectedVisualAuthoringRuntimeFor(controller);
+	assert.ok(runtime);
+	playhead = 4_800;
+	await runtime.run(surface, { fence: model.fence, operation: 'apply', clipId: 'video-clip', brightness: 0.3 });
+	assert.ok(Array.isArray(project.videoAdjustmentLayers) && project.videoAdjustmentLayers.length === 1);
 });

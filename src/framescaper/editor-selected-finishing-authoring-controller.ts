@@ -117,11 +117,13 @@ export function bindFramescaperSelectedAuthoringController(options: Readonly<{
 			return enqueue(async () => {
 				const model = await import('./editor-selected-finishing-visual-authoring-model.ts');
 				const state = runtimeState(controller);
+				const requiresPlayhead = surface === 'video-freeze';
 				model.assertFramescaperSelectedVisualAuthoringRuntimeFenceFinishing({
 					project: state.project,
 					fence: request.fence,
 					selectedClipId: state.selectedClipId,
 					playheadSample: state.playheadSample,
+					requiresPlayhead,
 				});
 				const commands = await import('./editor-selected-finishing-visual-authoring-commands.ts');
 				const captures = await import('./editor-selected-finishing-freeze-capture.ts');
@@ -142,6 +144,7 @@ export function bindFramescaperSelectedAuthoringController(options: Readonly<{
 						fence: request.fence,
 						selectedClipId: current.selectedClipId,
 						playheadSample: current.playheadSample,
+						requiresPlayhead,
 					});
 				});
 			});
