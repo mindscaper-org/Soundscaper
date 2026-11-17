@@ -97,6 +97,7 @@ export async function mountSender(context: TransferPageContext): Promise<void> {
 		const confirmationOffers = offers;
 		const chosen = requireChosen(context, confirmationChoices, confirmationOffers, intent);
 		if (!chosen || !confirmationChoices) return;
+		const reviewedProjectIds = new Set(chosen.map(({ projectId }) => projectId));
 		// Confirmed by name before anything is read, let alone posted - and
 		// counted over what can actually cross. A ticked row this page cannot
 		// move is still listed below with its reason, but it is not one of the
@@ -112,18 +113,22 @@ export async function mountSender(context: TransferPageContext): Promise<void> {
 				confirmLabel: `Yes, send ${sending === 1 ? 'it' : 'these'}`,
 				cancelLabel: 'Cancel',
 				cancel: finish,
-				// Read back a second time, at the moment consent is actually given.
-				// The confirmation is a panel on the page, not a modal that takes the
-				// boxes away, so the set ticked when Send was clicked is not
-				// necessarily the set the visitor means now - and the set they mean
-				// now is the only one this page is entitled to read. Still
-				// synchronous, because the popup below has to open inside this click.
+				// Projects can be unticked while the panel is open. Any unreviewed
+				// selection needs a new prompt before opening the popup.
 				confirm: async () => {
 					try {
+						if (choices !== confirmationChoices) {
+							view.status('The project list changed. Please choose Send again to review it.', 'error');
+							return;
+						}
 						const confirmed = requireChosen(
 							context, confirmationChoices, confirmationOffers, intent,
 						);
 						if (!confirmed) return;
+						if (confirmed.some(({ projectId }) => !reviewedProjectIds.has(projectId))) {
+							view.status('The selection changed. Please choose Send again to review it.', 'error');
+							return;
+						}
 						await runSenderHandshake(context, confirmed, confirmationChoices);
 					} finally {
 						finish();
