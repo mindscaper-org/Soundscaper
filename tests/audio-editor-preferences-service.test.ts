@@ -191,6 +191,19 @@ test('preferences mutations cover toolbar, panel, shortcut, and workspace operat
 	assert.equal(fixture.persisted.some(([key]) => key === 'audio-editor-preferences-v1'), true);
 });
 
+test('a failed factory reset retains the newer-schema write fence after storage recovers', async () => {
+	let fail = true;
+	const fixture = createFixture({ persistSettingRequired: async () => { if (fail) throw new Error('quota'); } });
+	fixture.setReadOnly(true);
+	const service = createEditorPreferencesService(fixture.dependencies);
+	await assert.rejects(service.revertFactorySettings(), /quota/u);
+	assert.equal(fixture.readOnly(), true);
+	fail = false;
+	assert.throws(() => service.update({ workspace: { activeId: 'other' } }), /newer schema/u);
+	await service.revertFactorySettings();
+	assert.equal(fixture.readOnly(), false);
+});
+
 test('panel preference mutations place, activate, and hide tabs atomically', async () => {
 	const fixture = createFixture();
 	const service = createEditorPreferencesService(fixture.dependencies);

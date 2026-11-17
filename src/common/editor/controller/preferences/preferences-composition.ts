@@ -6,6 +6,7 @@ import {
 	normalizeAudioEditorShortcut, updateAudioEditorPreferencesV1, updateCustomAudioEditorWorkspace,
 } from '../../preferences.js';
 import { createStableId } from '../../project.js';
+import { mergeManagedPreferencePreset } from '../../preference-merge.ts';
 import { createEditorPreferenceActionOwner } from './preference-action-group.ts';
 import type { AudioEditorOptimizationMode } from '../../performance-preferences.ts';
 import { createEditorPreferenceActionDelegates, createEditorPreferencesService } from './internal/preferences-service.ts';
@@ -80,7 +81,9 @@ export function createPreferencesComposition(d: {
 				&& Object.keys(preset.preferences).length && !d.state.preferencesReadOnly) {
 				const key = `${d.productId}:managed-preference-launch`;
 				if (await d.lifetime.guard(d.loadSetting(key, null), token) !== preset.launchId) {
-					loaded = await d.lifetime.guard(service.update(preset.preferences), token);
+					loaded = await d.lifetime.guard(service.update(mergeManagedPreferencePreset(
+						loaded, preset.preferences as Readonly<Record<string, unknown>>,
+					)), token);
 					await d.lifetime.guard(d.persistSetting(key, preset.launchId, { policy: 'required' }), token);
 				}
 			}

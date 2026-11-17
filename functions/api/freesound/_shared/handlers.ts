@@ -6,6 +6,7 @@ import {
 	normalizeFreesoundSound,
 } from './contracts.ts';
 import { freesoundDownloadMaximumBytes } from './download-size-warning.ts';
+import { isFreesoundPagesHost } from './pages-host.ts';
 import {
 	createBoundedPreviewStream,
 	createUpstreamDeadline,
@@ -452,7 +453,7 @@ function byteRange(value: string | null): string | null {
 function assertAllowedHost(url: URL, env: Readonly<Record<string, string | undefined>>): void {
 	const production = url.protocol === 'https:' && url.hostname === 'soundscaper.org' && url.port === '';
 	const preview = url.protocol === 'https:'
-		&& (url.hostname === 'soundscaper.pages.dev' || url.hostname.endsWith('.soundscaper.pages.dev'))
+		&& isFreesoundPagesHost(url.hostname)
 		&& url.port === '';
 	const local = env.FREESOUND_LOCAL_DEVELOPMENT === '1'
 		&& url.protocol === 'http:'
