@@ -10,7 +10,9 @@ import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
 test('the Vamp footer refuses an empty numeric parameter instead of analyzing with zero', async () => {
 	const dom = installReactTestDom();
-	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const actGlobal = globalThis as typeof globalThis & { React?: typeof React; IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const previousReact = actGlobal.React;
+	actGlobal.React = React;
 	const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
 	actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 	const { createRoot } = await import('react-dom/client');
@@ -41,6 +43,7 @@ test('the Vamp footer refuses an empty numeric parameter instead of analyzing wi
 	} finally {
 		await act(async () => root.unmount());
 		actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
+		actGlobal.React = previousReact;
 		dom.restore();
 	}
 });

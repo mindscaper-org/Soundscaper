@@ -18,7 +18,9 @@ const analyzer = { analyzerId: 'installed-onsets', stableId: 'example:onsets', b
 
 test('a menu-selected Vamp program retains its parameter values until the user overrides them', async () => {
 	const dom = installReactTestDom();
-	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const actGlobal = globalThis as typeof globalThis & { React?: typeof React; IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const previousReact = actGlobal.React;
+	actGlobal.React = React;
 	const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
 	actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 	const { createRoot } = await import('react-dom/client');
@@ -48,6 +50,7 @@ test('a menu-selected Vamp program retains its parameter values until the user o
 	} finally {
 		await act(async () => root.unmount());
 		actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
+		actGlobal.React = previousReact;
 		dom.restore();
 	}
 });

@@ -168,6 +168,8 @@
 		,
 		{ "path": "src/common/editor/assistance/kokoro-voices-v1.ts", "kind": "upstream-contract", "justification": "Kokoro v1.0 publishes a fixed language and voice inventory that binds persisted speech script choices." }
 		,
+		{ "path": "src/common/editor/assistance/music-transcription-v1.ts", "kind": "persisted-contract", "justification": "Music transcription v1 is the bounded semantic note result shared by the native model adapter and editor review." }
+		,
 		{ "path": "src/common/editor/assistance/nomic-tokenizer-v1.ts", "kind": "persisted-contract", "justification": "nomic-tokenizer-v1.ts is a persisted assistance asset, workflow, model-adapter, or result format revision." }
 		,
 		{ "path": "src/common/editor/assistance/owned-audio-cut-transform-registry-v1.ts", "kind": "persisted-contract", "justification": "owned-audio-cut-transform-registry-v1.ts is a persisted assistance asset, workflow, model-adapter, or result format revision." }
@@ -247,6 +249,8 @@
 		{ "path": "src/common/editor/assistance/visual-semantic-results-v1.ts", "kind": "persisted-contract", "justification": "visual-semantic-results-v1.ts is a persisted assistance asset, workflow, model-adapter, or result format revision." }
 		,
 		{ "path": "src/common/editor/assistance/visual-tag-classification-v1.ts", "kind": "persisted-contract", "justification": "visual-tag-classification-v1.ts is a persisted assistance asset, workflow, model-adapter, or result format revision." }
+		,
+		{ "path": "src/common/editor/assistance/voicefixer-signal-v1.ts", "kind": "upstream-contract", "justification": "VoiceFixer v1 binds the pinned NumPy filterbank and model signal geometry used by the native restoration adapter." }
 		,
 		{ "path": "src/common/editor/assistance/wav2vec2-english-tokenizer-v1.ts", "kind": "persisted-contract", "justification": "wav2vec2-english-tokenizer-v1.ts is a persisted assistance asset, workflow, model-adapter, or result format revision." }
 		,

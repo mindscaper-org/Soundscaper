@@ -1,14 +1,23 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { addRackEffect, bootEditor, closeEffectsPanel, collectClientErrors, importFiles,
-	openEffectsForTrack, registerAudioEditorHooks } from './audio-editor-test-helpers.js';
+	openEffectsForTrack, openRackPicker, registerAudioEditorHooks } from './audio-editor-test-helpers.js';
 import { installMilestone7LocalAssistanceFixture } from './helpers/milestone-7-local-assistance.js';
 
 // The fixture models the native PCM endpoint; the production AudioWorklet and graph run in Chromium.
 test.use({ browserCoverage: false });
 test.describe('real-time AI denoising rack', () => {
 	registerAudioEditorHooks();
-	for (const rate of [44100, 96000]) test(`opts in with ${rate} Hz playback, resamples mixed-rate tracks, and closes on stop`, async ({ page }) => {
+	test('ordinary browsers do not offer the native denoising processor', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+		const panel = await openEffectsForTrack(editor, 0);
+		await openRackPicker(panel, 'track');
+		const picker = page.getByRole('menu', { name: 'Choose an effect', exact: true });
+		await expect(picker.getByRole('menuitem', { name: 'Delay', exact: true })).toBeVisible();
+		await expect(picker.getByRole('menuitem', { name: 'AI denoising (DPDFNet2)', exact: true })).toHaveCount(0);
+	});
+	for (const rate of [44100, 96000]) test(`opts in with ${rate} Hz playback, resamples mixed-rate tracks, and closes on stop`, async ({ page, browserName }) => {
+		test.skip(browserName !== 'chromium', 'The native real-time PCM transport runs in Electron (Chromium).');
 		await installMilestone7LocalAssistanceFixture(page, [['dpdfnet2-48khz', '1.0.0', 'speech-enhancement']]);
 		await page.addInitScript(rate => {
 			const Native = globalThis.AudioContext;

@@ -8,8 +8,17 @@ export function dawprojectImportedFinishing(build: Build, trackWidths: ReadonlyM
 		id: strip.id, name: strip.name, color: 'auto', gain: strip.gain, pan: strip.pan, mute: strip.mute, solo: strip.solo,
 		channelCount: strip.channelCount ?? 2, collapsed: false, effectsActive: true, effects: strip.effects ?? [],
 	});
-	const groups = build.groups.map(normalizeStrip), sends = build.sends.map(normalizeStrip);
-	for (const folder of build.folders) if (!groups.some(bus => bus.id === folder.id)) groups.push(normalizeStrip({ id: String(folder.id), name: String(folder.name), gain: 1, pan: 0, mute: false, solo: false, envelope: [] }));
+	const owningFolders = new Set<string>();
+	for (const track of build.tracks) {
+		let parent = build.parentFolderIds.get(track.id);
+		while (parent && !owningFolders.has(parent)) {
+			owningFolders.add(parent);
+			parent = build.parentFolderIds.get(parent);
+		}
+	}
+	const folderIds = new Set(build.folders.map(folder => String(folder.id)));
+	const groups = build.groups.filter(bus => !folderIds.has(bus.id) || owningFolders.has(bus.id)).map(normalizeStrip), sends = build.sends.map(normalizeStrip);
+	for (const folder of build.folders) if (owningFolders.has(String(folder.id)) && !groups.some(bus => bus.id === folder.id)) groups.push(normalizeStrip({ id: String(folder.id), name: String(folder.name), gain: 1, pan: 0, mute: false, solo: false, envelope: [] }));
 	const widths = new Map([...trackWidths, ...[...groups, ...sends].map(bus => [bus.id, bus.channelCount] as const)]);
 	const base = createDefaultMixerGraphV21(build.tracks.map(track => ({ id: track.id, channelCount: widths.get(track.id) ?? 2 })), build.masterChannels);
 	const edges: MixerEdgeV21[] = [...base.edges.filter(edge => edge.source.kind === 'master')];

@@ -170,6 +170,7 @@ export const DESKTOP_RUNTIME_BUNDLED_LEAF_FILES = Object.freeze([
 	'src/common/editor/pffft.js',
 	'src/common/editor/scape-archive-media.js',
 	'src/common/editor/scape-archive-reader.js',
+	'src/common/editor/subprojects.js',
 	'src/common/media/bytes.js',
 	'src/common/media/content-digest.js',
 	'src/common/editor/video-caption-imsc-v27.js',

@@ -43,7 +43,7 @@ export function applyAutomation(events: readonly DawprojectAutomationEvent[], bu
 		if (target.parameter === 'volume' && address.kind === 'strip') {
 			const owner = target.kind === 'master' ? build.master : target.kind === 'track' ? build.tracks.find(track => track.id === target.id)
 				: [...build.groups, ...build.sends].find(strip => strip.id === target.id);
-			if (owner) { owner.gain = 1; owner.envelope = dawprojectImportedVolumeCurve(points.filter(point => point.frame >= 0), unit, 4); }
+			if (owner) { owner.gain = 1; owner.envelope = dawprojectImportedVolumeCurve(points, unit, 4); }
 		}
 		addDeliveryReportItem(build.draft, { code: 'dawproject.automation-preserved', disposition: 'preserved', severity: 'info',
 			data: { parameterId: event.parameterId, points: lane.points.length }, message: 'Automation is retained as an editable lane, including held segments.' });

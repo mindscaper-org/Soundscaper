@@ -39,5 +39,6 @@ test('reopening an ordinary DAWproject retains its group bus and audible routed 
 	await chooseNestedCommandAction(page, editor, 'Window', ['Mixer']);
 	mixer = editor.locator('[data-mixer-panel]');
 	await expect(mixer.locator('.kw-audio-editor__mixer-channel--group')).toHaveCount(1);
-	await expect(mixer.getByRole('combobox', { name: /^Output:/u }).last().locator('option:checked')).toHaveText('Group bus 1');
+	await mixer.getByRole('button', { name: 'Routing graph', exact: true }).click();
+	await expect(mixer.getByRole('button', { name: /^assignment connection from Track: browser-mono-tone to Group: Group bus 1,/u })).toBeVisible();
 });
