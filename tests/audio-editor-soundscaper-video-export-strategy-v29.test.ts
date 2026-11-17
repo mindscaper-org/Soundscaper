@@ -103,6 +103,18 @@ test('Soundscaper V29 keyed strategy refuses a stale export projection after can
 	}), /diverge|stale|snapshot/iu);
 });
 
+test('video export accepts a reopened project containing portable binary extension payloads', () => {
+	const runtime = createSoundscaperProjectRuntimeSelection();
+	const payload = Uint8Array.of(7, 12, 18);
+	const project = createSoundscaperProject({ ...framescaperV20Options(), opaqueExtensions: { provenance: { payload } } });
+	const strategy = createSoundscaperVideoExportStrategy(runtime, dependencies());
+	const exportProject = strategy.createExportProject({ canonicalProject: project, delivery: fallbackFreeDelivery(project) });
+	const plan = strategy.createPlan({ canonicalProject: project, exportProject, format: 'mp4', range: 'project',
+		includeAudio: false, canvas: undefined });
+	assert.deepEqual(plan?.activeClipIds, ['video-clip']);
+	assert.deepEqual((exportProject.opaqueExtensions as typeof project.opaqueExtensions).provenance, { payload });
+});
+
 test('Soundscaper V29 keyed strategy renders the delivery effect-bypass projection', () => {
 	const options = framescaperV20Options();
 	const audioTrack = (options.tracks as Record<string, unknown>[])[1]!;

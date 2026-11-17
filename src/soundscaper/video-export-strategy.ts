@@ -210,6 +210,8 @@ function freezeExportProject(value: Readonly<Record<string, unknown>>): Readonly
 	while (stack.length > 0) {
 		const current = stack.pop()!;
 		if (seen.has(current)) continue;
+		// Binary leaves already belong to this detached snapshot. Indexed views cannot be frozen.
+		if (ArrayBuffer.isView(current)) continue;
 		if (order.length >= 2_000_000) throw new RangeError('Soundscaper baseline export projection exceeds its freeze budget.');
 		seen.add(current); order.push(current);
 		for (const key of Reflect.ownKeys(current)) {
