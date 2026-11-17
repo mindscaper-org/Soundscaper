@@ -9,7 +9,7 @@ import {
 import { normalizeAutomationLaneV21 } from '../common/editor/automation-lane-v21.ts';
 import { clipNeedsTimePitchRender } from '../common/editor/clip-time-pitch-cache.js';
 import { createStoredChunkProvider, SOURCE_CHUNK_FRAMES } from '../common/editor/controller/source/source-audio.ts';
-import { rackTailFrames } from '../common/editor/effects.js';
+import { soundscaperFreezeTailFrames } from './editor-audio-track-freeze-tail.ts';
 import { audioBufferChannels, type PlanarPcm } from '../common/editor/engine/buffer-math.ts';
 import { compileProjectPathPdcPlanV21 } from '../common/editor/engine/project-path-pdc-plan-v21.ts';
 import type { EnginePublicApi } from '../common/editor/engine/public-api.ts';
@@ -79,7 +79,7 @@ export function planFreezeRange(project: SoundscaperProject, trackId: string) {
 		'clip range',
 	)));
 	const sampleRate = positiveInteger(project.sampleRate, 'project sample rate');
-	const tailFrames = track.effectsActive === false ? 0 : rackTailFrames(track.effects, sampleRate, 10, runtime.automationLanes);
+	const tailFrames = soundscaperFreezeTailFrames(track, clips, sampleRate, runtime.automationLanes);
 	return Object.freeze({
 		renderStartFrame,
 		renderFrameCount: safeAdd(laneEndFrame - renderStartFrame, tailFrames, 'freeze render range'),
@@ -124,7 +124,7 @@ export async function renderFreezeBody(
 		const latency = compileProjectPathPdcPlanV21(request.project, { sampleRate: request.sampleRate })
 			.freezeLatencyFramesByTrack.get(request.trackId) ?? 0;
 		const laneEndFrame = request.renderStartFrame + request.renderFrameCount
-			- (track.effectsActive === false ? 0 : rackTailFrames(track.effects, request.sampleRate, 10, runtime.automationLanes));
+			- soundscaperFreezeTailFrames(track, clips, request.sampleRate, runtime.automationLanes);
 		const renderProject = freezeRenderProject(runtime, track, clips, sources);
 		if (options.prepareTimePitchCaches) {
 			await options.prepareTimePitchCaches(renderProject, request.signal);
