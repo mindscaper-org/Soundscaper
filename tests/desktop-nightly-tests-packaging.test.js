@@ -232,7 +232,7 @@ test('desktop test artifacts build on main pushes and manual target selections w
 	assert.ok(testGuard.startsWith('if: >-'));
 	assert.doesNotMatch(testGuard, /github\.event_name|workflow_run/u);
 	assert.doesNotMatch(testGuard, /inputs\.artifact_variant/u);
-	assert.match(testJob, /needs: \[nightly-test-targets, browser-sites\]/u);
+	assert.match(testJob, /needs: \[nightly-test-targets, browser-sites, professional-native-build\]/u);
 	assert.match(testGuard, /needs\.nightly-test-targets\.result == 'success'/u);
 	// The package still names the selected commit while reusing an older runtime handoff.
 	const sourceRevision = String.raw`\$\{\{ github\.sha \}\}`;
