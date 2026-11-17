@@ -75,6 +75,11 @@ use continuous synthesis from frame zero. Consequently a live chased attack can
 never replace canonical export samples. Deterministic built-in oscillator windows
 retain absolute source phase and can be evaluated independently at any offset.
 
+Imported MIDI ports retain separate channel/controller namespaces for every
+instrument engine. Library and native instruments use one isolated synth per
+note-bearing destination and sum their output. Native event preparation stays
+on the worker, including destination separation and seek state.
+
 ## Engines and opt-in routes
 
 Open **Window → Piano roll (beta)**. Its existing Instrument menu offers the four

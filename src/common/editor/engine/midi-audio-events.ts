@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { MidiClipData } from '../midi-model.ts';
 import type { MidiBlockEvent } from './midi-audio-renderer.ts';
+import { splitMidiInstrumentPorts } from './midi-instrument-ports.ts';
 
 /** DAW-style cold seek: restore channel state and sounding keys, without running past DSP. */
 export function chaseMidiAudioEvents(events: readonly MidiBlockEvent[], start: number): MidiBlockEvent[] {
@@ -48,8 +49,16 @@ export function chaseMidiAudioEvents(events: readonly MidiBlockEvent[], start: n
 	return state;
 }
 
-export interface MidiAudioEventTimeline { readonly frames: Float64Array<ArrayBuffer>; readonly messages: Uint32Array<ArrayBuffer> }
+export interface MidiAudioEventTimeline {
+	readonly frames: Float64Array<ArrayBuffer>;
+	readonly messages: Uint32Array<ArrayBuffer>;
+	readonly ports?: readonly MidiAudioEventTimeline[];
+}
 export function compileMidiAudioTimeline(data: MidiClipData, start = 0): MidiAudioEventTimeline {
+	const parts = splitMidiInstrumentPorts(data);
+	if (parts.length !== 1 || parts[0] !== data) {
+		return { frames: new Float64Array(), messages: new Uint32Array(), ports: parts.map(part => compileMidiAudioTimeline(part, start)) };
+	}
 	const all = midiAudioEvents(data);
 	const events = start ? [...chaseMidiAudioEvents(all, start), ...all.filter(event => event.frame >= start).map(event => ({ ...event, frame: event.frame - start }))] : all;
 	return { frames: Float64Array.from(events.map(event => event.frame)), messages: Uint32Array.from(events.map(event =>
