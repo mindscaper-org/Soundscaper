@@ -36,7 +36,7 @@ function TranscriptEditingSurface({ controller, snapshot, copy, locale, fileServ
 	const [refresh, setRefresh] = useState(0);
 	const [generation, setGeneration] = useState<{ document: TranscriptEditingDocument; cancellation: AbortController } | null>(null);
 	const [progress, setProgress] = useState({ completed: 0, total: 0 });
-	const root = useRef<HTMLDivElement>(null);
+	const panel = useRef<HTMLDivElement>(null), root = useRef<HTMLDivElement>(null);
 	const pendingCaret = useRef<{ frame: number; trackId: string; direction: 'forward' | 'backward' } | null>(null);
 	const deleteInput = useRef<((direction: 'forward' | 'backward') => void) | null>(null);
 	const generationRef = useRef(generation);
@@ -60,7 +60,10 @@ function TranscriptEditingSurface({ controller, snapshot, copy, locale, fileServ
 		if (!projectId) { setDocument(null); setLoading(false); return undefined; }
 		setLoading(true);
 		void controller.actions.transcript.read(projectId).then(value => {
-			if (active) setDocument(value);
+			if (active) {
+				if (!value.words.length && root.current?.contains(root.current.ownerDocument.activeElement)) panel.current?.focus({ preventScroll: true });
+				setDocument(value);
+			}
 		}).catch((cause: unknown) => { if (active) { setDocument(null); setError(feedbackFailure(cause)); } })
 			.finally(() => { if (active) setLoading(false); });
 		return () => { active = false; };
@@ -104,6 +107,7 @@ function TranscriptEditingSurface({ controller, snapshot, copy, locale, fileServ
 		const target = request.direction === 'backward'
 			? [...onTrack].reverse().find(word => word.endFrame <= request.frame) ?? onTrack[0]
 			: onTrack.find(word => word.startFrame >= request.frame) ?? onTrack.at(-1);
+		if (!target) { panel.current?.focus({ preventScroll: true }); return; }
 		const span = [...element.querySelectorAll<HTMLElement>('[data-transcript-word]')].find(node => node.dataset.transcriptWord === target?.id);
 		if (!span?.firstChild) return;
 		const range = element.ownerDocument.createRange();
@@ -158,7 +162,7 @@ function TranscriptEditingSurface({ controller, snapshot, copy, locale, fileServ
 	}, []);
 	const onProgress = useCallback((completed: number, total: number) => setProgress({ completed, total }), []);
 
-	return <div className="kw-audio-editor__transcript-panel">
+	return <div ref={panel} tabIndex={-1} className="kw-audio-editor__transcript-panel">
 		{error && <p role="alert">{error}</p>}
 		{generation ? <div role="status"><p>{labels.generating.replace('{completed}', String(progress.completed)).replace('{total}', String(progress.total))}</p>
 			<Button onClick={cancelGeneration}>{labels.cancel}</Button>

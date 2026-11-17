@@ -145,4 +145,29 @@ test.describe('Transcript-based editing', () => {
 		expect(errors).toEqual([]);
 	});
 
+	test('keyboard Undo remains available after deleting the final transcript words', async ({ page }) => {
+		test.setTimeout(120_000);
+		await installMilestone7LocalAssistanceFixture(page, [], { transcriptWordTiming: true });
+		const editor = await bootEditor(page, '/en/');
+		await importFiles(editor, [createWavFixture({ name: 'Final sentence.wav', duration: .5, channelCount: 1 })]);
+		await chooseCommandAction(page, editor, 'Edit', 'Transcript-based editing');
+		const panel = editor.locator('[data-workspace-panel="transcript-editing"]');
+		page.on('dialog', dialog => { void dialog.accept(); });
+		await panel.getByRole('button', { name: 'Generate transcript', exact: true }).click();
+		await expect.poll(async () => (await milestone7FixtureSnapshot(page)).progressEvents).toBe(1);
+		await completeMilestone7Run(page);
+		const transcript = panel.getByRole('textbox', { name: 'Transcript', exact: true });
+		await expect(transcript.locator('[data-transcript-word]')).toHaveCount(5);
+		await transcript.press('ControlOrMeta+a');
+		await transcript.press('Backspace');
+		await expect(clipByName(editor, 'Final sentence.wav')).toHaveCount(0);
+		await page.keyboard.press('ControlOrMeta+z');
+		await expect(transcript.locator('[data-transcript-word]')).toHaveCount(5);
+		await expect(clipByName(editor, 'Final sentence.wav')).toHaveCount(1);
+		await transcript.press('ControlOrMeta+Shift+z');
+		await expect(clipByName(editor, 'Final sentence.wav')).toHaveCount(0);
+		await page.keyboard.press('ControlOrMeta+z');
+		await expect(transcript.locator('[data-transcript-word]')).toHaveCount(5);
+		await expect(panel.getByRole('alert')).toHaveCount(0);
+	});
 });
