@@ -2,7 +2,7 @@
 
 import { effectLatencyFrames } from './effect-rack.ts';
 import { activeRackEffects } from './project-effects.ts';
-import type { EngineEffect, EngineProject } from './types.ts';
+import type { EngineEffect, EngineProject, EngineTrack } from './types.ts';
 
 export interface ClipEffectLatency {
 	readonly latencyFrames: number;
@@ -15,10 +15,16 @@ const EMPTY_LATENCY: ClipEffectLatency = { latencyFrames: 0, inputDelays: new Ma
 /** Detector taps precede final mix compensation. Resolve their processing dependencies first. */
 export function compileClipEffectLatencyPlan(project: EngineProject, sampleRate: number) {
 	const clips = new Map(project.clips?.map(clip => [clip.id, clip]));
-	const tracks = new Map((project.tracks ?? []).filter(track => track.type !== 'video' && track.type !== 'label')
-		.map((track, index) => [String(track.id ?? index), track]));
+	const tracks = new Map<string, EngineTrack>();
+	let audioTrackIndex = 0;
+	for (const track of project.tracks ?? []) {
+		if (track.type === 'video' || track.type === 'label') continue;
+		tracks.set(String(track.id ?? audioTrackIndex), track);
+		audioTrackIndex++;
+	}
 	const dependencies = new Map<string, Set<string>>(), dependents = new Map<string, string[]>(), controlTracks = new Set<string>();
 	const trackLatencyFrames = new Map<string, number>(), clipPlans = new Map<string, ClipEffectLatency>();
+	const pending: string[] = [];
 	for (const [id, track] of tracks) {
 		const controls = new Set<string>();
 		for (const clipId of track.clipIds ?? []) for (const effect of activeRackEffects(clips.get(clipId))) {
@@ -26,9 +32,10 @@ export function compileClipEffectLatencyPlan(project: EngineProject, sampleRate:
 			if (control && tracks.has(control)) { controls.add(control); controlTracks.add(control); }
 		}
 		dependencies.set(id, controls);
+		if (!controls.size) pending.push(id);
 		for (const control of controls) { const targets = dependents.get(control) ?? []; targets.push(id); dependents.set(control, targets); }
 	}
-	const pending = [...tracks.keys()].filter(id => !dependencies.get(id)!.size);
+	let maximumLatencyFrames = 0;
 	for (let index = 0; index < pending.length; index++) {
 		const id = pending[index]!, track = tracks.get(id)!;
 		let maximum = 0;
@@ -53,13 +60,14 @@ export function compileClipEffectLatencyPlan(project: EngineProject, sampleRate:
 			maximum = Math.max(maximum, latency);
 		}
 		trackLatencyFrames.set(id, maximum);
+		maximumLatencyFrames = Math.max(maximumLatencyFrames, maximum);
 		for (const target of dependents.get(id) ?? []) {
 			const remaining = dependencies.get(target)!; remaining.delete(id);
 			if (!remaining.size) pending.push(target);
 		}
 	}
 	if (trackLatencyFrames.size !== tracks.size) throw new RangeError('Clip detector feedback cycle.');
-	return { maximumLatencyFrames: Math.max(0, ...trackLatencyFrames.values()), trackLatencyFrames, clipPlans, controlTracks, clips };
+	return { maximumLatencyFrames, trackLatencyFrames, clipPlans, controlTracks, clips };
 }
 
 function detector(effect: EngineEffect): string | null {
