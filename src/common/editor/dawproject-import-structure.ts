@@ -317,7 +317,14 @@ export function trackForEvent(event: Readonly<{ trackId: string | null }>, build
 		// Its channel state belongs to that bus, never to this synthetic leaf too.
 		const built = createAudioTrack(declared?.name ?? event.trackId, folderId ? null : declared?.channel ?? null, build, declared?.color, !folderId && declared?.loaded === false);
 		build.trackByDawId.set(event.trackId, built);
-		build.trackNodes.push({ kind: 'track', id: built.id, parentFolderId: folderId });
+		const node = { kind: 'track', id: built.id, parentFolderId: folderId };
+		if (folderId) {
+			const index = build.trackNodes.findIndex(node => node.id === folderId) + 1;
+			const trackIndex = build.trackNodes.slice(0, index).filter(node => node.kind === 'track').length;
+			build.trackNodes.splice(index, 0, node);
+			build.tracks.pop();
+			build.tracks.splice(trackIndex, 0, built);
+		} else build.trackNodes.push(node);
 		build.parentFolderIds.set(built.id, folderId);
 		return built;
 	}

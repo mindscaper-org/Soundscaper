@@ -21,7 +21,7 @@ export function appendDawprojectDevices(document: DawprojectDocument, build: Bui
 		for (const child of track.children) visit(child);
 		const channel = track.channel;
 		if (!channel) return;
-		const leaf = track.id ? build.trackByDawId.get(track.id) : undefined;
+		const leaf = track.id && !build.folderByDawId.has(track.id) ? build.trackByDawId.get(track.id) : undefined;
 		const busId = channel.id ? build.busByChannelId.get(channel.id) : undefined;
 		const owner = channel.role === 'master' ? build.master : leaf ?? [...build.groups, ...build.sends].find(bus => bus.id === busId);
 		if (!owner) return;
