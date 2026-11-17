@@ -21,6 +21,10 @@ export async function midiRecordingPendingFixture(context: TestContext, options:
 	const actual = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
 	const entered = deferred<void>(), release = deferred<void>(); let held = false;
 	const store = new Proxy(actual, { get(target, key, receiver) {
+		if (key === 'writeMidiSource') return async (...args: Parameters<typeof actual.writeMidiSource>) => {
+			if (held) { entered.resolve(); await release.promise; }
+			return target.writeMidiSource(...args);
+		};
 		if (key === 'beginSourceWrite') return async (...args: Parameters<typeof actual.beginSourceWrite>) => {
 			const writer = await target.beginSourceWrite(...args);
 			return new Proxy(writer, { get(writeTarget, writeKey, writeReceiver) {
