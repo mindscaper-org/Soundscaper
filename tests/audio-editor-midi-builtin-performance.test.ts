@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { openMidiAudioRenderer } from '../src/common/editor/engine/midi-audio-renderer.ts';
 import { createMidiExpressionIndex } from '../src/common/editor/engine/midi-expression.ts';
-import { renderMidiFrames } from '../src/common/editor/engine/midi-synthesis.ts';
+import { createMidiPlaneRenderer, renderMidiFrames } from '../src/common/editor/engine/midi-synthesis.ts';
 import { publishMidiRecipe } from '../src/common/editor/storage/midi-source.ts';
 import { createMidiRenderWorker } from '../src/common/editor/engine/midi-render-worker.ts';
 import type { MidiFileEvent } from '../src/common/editor/midi-file-types.ts';
@@ -107,4 +107,17 @@ test('mid-note pan changes and reset controllers retain port-local pan and absol
 		assert.deepEqual(planes[0], planes[1]);
 		assert.ok(audible(planes[0]!));
 	} finally { await isolated.close(); }
+});
+
+test('stereo synthesis shares pan calculations across voices, controller spans and windows', t => {
+	const cosine = t.mock.method(Math, 'cos');
+	const notes = Array.from({ length: 24 }, (_, index) => note(36 + index, index * 3, 8000));
+	const events = [cc(0, 10, 36), cc(500, 11, 83), cc(900, 10, 83), cc(1700, 10, 36)];
+	const render = createMidiPlaneRenderer(notes, 'triangle', 48000, events, 2);
+	const whole = render(0, 2400);
+	for (const [start, frames] of [[1700, 700], [300, 1024], [1300, 1024]] as const) {
+		assert.deepEqual(render(start, frames), whole.map(plane => plane.slice(start, start + frames)));
+	}
+	assert.ok(audible(whole[0]!) && audible(whole[1]!));
+	assert.equal(cosine.mock.callCount(), 2, 'only the two distinct pan values require trigonometry');
 });

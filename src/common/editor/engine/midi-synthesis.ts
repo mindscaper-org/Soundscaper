@@ -58,9 +58,11 @@ export function createMidiPlaneRenderer(
 	for (let index = capacity - 1; index > 0; index -= 1) ends[index] = Math.max(ends[index * 2]!, ends[index * 2 + 1]!);
 	const attack = Math.max(1, Math.round(sampleRate * 0.003));
 	const release = Math.max(1, Math.round(sampleRate * 0.008));
+	const panGains: (readonly [number, number] | undefined)[] = [];
 	return (startFrame, frameCount) => {
 		assertWindow(sampleRate, startFrame, frameCount);
-		const output = Array.from({ length: channelCount }, () => new Float32Array(frameCount));
+		const left = new Float32Array(frameCount);
+		const right = channelCount === 2 ? new Float32Array(frameCount) : undefined;
 		const visible: PreparedNote[] = [];
 		const endFrame = startFrame + frameCount;
 		const visit = (node: number, left: number, right: number): void => {
@@ -78,26 +80,33 @@ export function createMidiPlaneRenderer(
 			const from = Math.max(startFrame, note.startFrame);
 			const to = Math.min(endFrame, soundEnd);
 			let stateIndex = midiExpressionStateIndex(timeline.states, from);
-			for (let fromState = from; fromState < to;) {
-				const state = timeline.states[stateIndex]!;
-				const stateEnd = Math.min(to, timeline.states[stateIndex + 1]?.frame ?? to);
-				const gains = channelCount === 1 ? [1] : midiPanGains(state.pan);
-				if (frequency * state.bendRatio < sampleRate / 2) {
-					let winner = state.mono ? mono.winner(timeline, fromState) : null;
-					for (let frame = fromState; frame < stateEnd; frame += 1) {
-						if (winner && frame >= winner.end) winner = mono.winner(timeline, frame);
-						if (winner && winner.index !== note.index) continue;
+			for (let stateEnd = from; stateEnd < to;) {
+				const state = timeline.states[stateIndex++]!;
+				const stateStart = stateEnd;
+				stateEnd = Math.min(to, timeline.states[stateIndex]?.frame ?? to);
+				if (!(frequency * state.bendRatio < sampleRate / 2)) continue;
+				const gains = right ? (panGains[state.pan] ??= midiPanGains(state.pan)) : undefined;
+				const leftGain = gains?.[0] ?? 1;
+				const rightGain = gains?.[1] ?? 0;
+				// The latest held key owns the entire span up to the next winner change.
+				for (let rangeEnd = stateStart; rangeEnd < stateEnd;) {
+					const rangeStart = rangeEnd;
+					const winner = state.mono ? mono.winner(timeline, rangeStart) : undefined;
+					rangeEnd = winner ? Math.min(stateEnd, winner.end) : stateEnd;
+					if (winner && winner.index !== note.index) continue;
+					for (let frame = rangeStart; frame < rangeEnd; frame += 1) {
 						const age = frame - note.startFrame;
 						const phase = (midiExpressionPhaseArea(state, frame) - onsetPhaseArea) * frequency / sampleRate;
 						const envelope = Math.min(1, age / attack, (soundEnd - frame) / release);
 						const sample = wave(instrument, phase) * amplitude * envelope * state.volume * state.expression;
-						for (let channel = 0; channel < channelCount; channel++) output[channel]![frame - startFrame]! += sample * gains[channel]!;
+						const offset = frame - startFrame;
+						left[offset]! += sample * leftGain;
+						if (right) right[offset]! += sample * rightGain;
 					}
 				}
-				fromState = stateEnd;
-				stateIndex += 1;
 			}
 		}
+		const output = right ? [left, right] : [left];
 		for (const plane of output) for (let frame = 0; frame < frameCount; frame += 1) {
 			if (plane[frame] !== 0) plane[frame] = Math.tanh(plane[frame]!);
 		}
