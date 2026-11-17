@@ -91,13 +91,26 @@ test('project deletion fences mutation, save, and activation admission before dr
 	}
 	assert.ok(fixture.calls.indexOf('cancel-save') < fixture.calls.indexOf('drain-save:start'));
 	assert.ok(fixture.calls.indexOf('drain-save:done') < fixture.calls.indexOf('release'));
-	assert.ok(fixture.calls.indexOf('release') < fixture.calls.indexOf('delete:project-a'));
+	assert.ok(fixture.calls.indexOf('delete:project-a') < fixture.calls.indexOf('release'),
+		'the origin writer lease must protect the destructive storage operation');
 	assert.equal(fixture.reservationActive(), false);
 	assert.equal(fixture.saveSuspended(), false);
 	assert.ok(fixture.calls.indexOf('release-history:project-a') < fixture.calls.indexOf('close:project-a'));
 	assert.ok(fixture.calls.indexOf('close:project-a') < fixture.calls.indexOf('new-project'));
 	assert.ok(fixture.calls.indexOf('new-project') < fixture.calls.indexOf('competing-after-close'));
 	assert.equal(fixture.runtime.projectSaveService.scheduleAutosave(), true);
+});
+
+test('deleting an active tab takes the user to its surviving neighbor', async () => {
+	const fixture = createFixture();
+	const neighbor = { id: 'project-b', title: 'Surviving edit', revision: 2 };
+	fixture.tabs.set(neighbor.id, { projectId: neighbor.id, history: { present: neighbor }, readOnly: false, dirty: false });
+	fixture.closeResult({ closed: true, activeProjectId: neighbor.id });
+
+	await createProjectAdminService(fixture.runtime).deleteProject();
+
+	assert.equal(fixture.project()?.id, neighbor.id);
+	assert.equal(fixture.calls.includes('new-project'), false);
 });
 
 test('project deletion failures still retire the torn-down session without a zombie tab', async () => {

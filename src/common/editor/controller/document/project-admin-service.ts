@@ -33,12 +33,12 @@ export function createProjectAdminService<
 	let sourceGarbageCollectionGeneration = 0;
 	let projectListRequest = 0;
 
-	async function listProjects() {
+	async function listProjects({ flush = true } = {}) {
 		const request = ++projectListRequest;
 		const projectAtStart = getProject();
-		await saveNow();
+		if (flush) await saveNow();
 		const projects = await store.listProjects();
-		if (request !== projectListRequest || getProject() !== projectAtStart) return state.projects;
+		if (state.disposed || request !== projectListRequest || getProject() !== projectAtStart) return state.projects;
 		state.projects = Object.freeze(projects);
 		publishDocumentSnapshot();
 		return state.projects;
@@ -70,13 +70,16 @@ export function createProjectAdminService<
 
 	async function prepareProjectHandoff(expected?: Readonly<ProjectHandoffExpectation>) {
 		const { project, featureRequirementReadOnly } = projectHandoffPreflight(expected);
+		const generation = projectGeneration.capture?.(project.id);
 		const interlock = beginCaptureInterlockedAdminOperation?.({ kind: 'handoff', projectId: project.id });
 		try {
 			if (!featureRequirementReadOnly) await flushProject();
 			if (getProject() !== project) throw createLocalizedError(Error, copy, 'projectNotFound');
+			if (generation) projectGeneration.assertCurrent?.(generation);
 			assertExpectedHandoffProject(project, expected);
 			await store.prepareProjectHandoff?.(project);
 			if (getProject() !== project) throw createLocalizedError(Error, copy, 'projectNotFound');
+			if (generation) projectGeneration.assertCurrent?.(generation);
 			assertExpectedHandoffProject(project, expected);
 			interlock?.assertCurrent();
 			await releaseProjectLock();
@@ -212,8 +215,12 @@ export function createProjectAdminService<
 			projectSaveService.getPersistedSnapshot?.(project.id), project,
 		)) return null;
 		const title = String(requestedTitle || `${project.title} ${publishedCopyFor(copy).projectCopySuffix}`).trim();
+		const assertOrigin = () => {
+			if (state.disposed || getProject() !== project) throw new DOMException('The project changed during duplication.', 'AbortError');
+			if (generation) projectGeneration.assertCurrent?.(generation);
+		};
 		const duplicated = await store.duplicateProject(project.id, { title, confirmFileSizeWarning: runtime.confirmFileSizeWarning,
-			assertCurrent: () => { if (getProject() !== project) throw new DOMException('The project changed during duplication.', 'AbortError'); } });
+			assertCurrent: assertOrigin });
 		try {
 			await persistSetting(recordingRoutingSettingKey(duplicated.id), recordingRouting, { policy: 'required' });
 		} catch (error) {
@@ -224,9 +231,9 @@ export function createProjectAdminService<
 			}
 			throw error;
 		}
-		if (getProject() !== project) {
-			state.projects = Object.freeze(await store.listProjects());
-			publishDocumentSnapshot();
+		try { assertOrigin(); }
+		catch {
+			await listProjects({ flush: false });
 			return duplicated;
 		}
 		await openProject(duplicated);
@@ -249,6 +256,7 @@ export function createProjectAdminService<
 		if (getProject() !== project) return null;
 		interlock?.assertCurrent();
 		const id = project.id;
+		const deletionLock = state.projectLock;
 		const historyCapture = sessionController.captureProjectHistory(id);
 		const activation = sessionController.beginProjectActivation(id, {
 			expectedHistoryToken: historyCapture.token,
@@ -286,7 +294,6 @@ export function createProjectAdminService<
 			setProject(null);
 			try {
 				await projectSaveService.drain();
-				await releaseProjectLock();
 				await revokeVideoVisuals();
 				engine.stop();
 				await stopProjectBinPreview({ dispose: true });
@@ -294,11 +301,19 @@ export function createProjectAdminService<
 				sourceChunkProviders.clear();
 				await sourceChunkProviders.drain?.();
 				interlock?.assertCurrent();
+				if (deletionLock && (state.projectLock !== deletionLock || deletionLock.projectId !== id || deletionLock.readOnly)) {
+					throw createLocalizedError(Error, copy, 'projectReadOnly');
+				}
 				deleteAttempted = true;
-				await store.deleteProject(id);
+				const expected = projectSaveService.getPersistedSnapshot?.(id);
+				if (expected && store.deleteProjectSnapshot) {
+					if (!await store.deleteProjectSnapshot(expected)) throw createLocalizedError(Error, copy, 'projectReadOnly');
+				} else await store.deleteProject(id);
 				deleteResolved = true;
 			} catch (error) {
 				failures.push(error);
+			} finally {
+				await attempt(() => releaseProjectLock());
 			}
 			if (deleteResolved) {
 				await attempt(() => persistSetting(recordingRoutingSettingKey(id), null, { policy: 'required' }));
@@ -307,9 +322,11 @@ export function createProjectAdminService<
 			// Queue the replacement synchronously after releasing and closing the
 			// old tab, so later activation requests serialize behind this one.
 			activation.release();
+			let successor: Project | undefined;
 			try {
 				const result = sessionController.closeProject(id, { force: true });
 				if (result?.closed === false) throw new Error('The deleted project session could not be closed.');
+				if (result.activeProjectId) successor = sessionTab(result.activeProjectId)?.history.present;
 				projectSaveService.forgetPersistedSnapshot?.(id);
 			} catch (error) {
 				failures.push(error);
@@ -322,7 +339,7 @@ export function createProjectAdminService<
 			let nextProject: unknown;
 			let nextProjectStarted = false;
 			try {
-				nextProject = newProject({ skipFlush: true });
+				nextProject = successor ? switchProject(successor, { skipFlush: true }) : newProject({ skipFlush: true });
 				nextProjectStarted = true;
 			} catch (error) {
 				failures.push(error);
