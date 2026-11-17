@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { createMidiExpressionIndex, midiNoteSoundEnd } from './engine/midi-expression.ts';
+import { createMidiSostenutoProjectionAdmission } from './midi-sostenuto-projection-admission.ts';
 import type { MidiFileDocument, MidiFileEvent } from './midi-file-types.ts';
 import type { MidiNote } from './midi-model.ts';
 
@@ -17,6 +18,8 @@ export function assertMidiClipTailBoundaries(document: MidiFileDocument, boundar
 	const indexes = new Map<readonly MidiFileEvent[], ReturnType<typeof createMidiExpressionIndex>>();
 	for (const boundary of boundaries) {
 		if (boundary.endFrame >= end) continue;
+		createMidiSostenutoProjectionAdmission({ version: 1, notes: boundary.notes,
+			interchange: { tempos: [], signatures: [], events: boundary.events } })(boundary.endFrame, 1, false);
 		let expression = indexes.get(boundary.events);
 		if (!expression) {
 			expression = createMidiExpressionIndex(boundary.events);

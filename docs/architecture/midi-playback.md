@@ -73,6 +73,12 @@ Each sounding key retains the bank and program latched at its onset. After
 restarting those voices, chase restores the current channel program and pending
 bank selectors for subsequent notes.
 
+MIDI and Allegro delivery refuse trims beginning inside a released
+sostenuto-held voice, earlier clip boundaries that cut those held tails,
+and reversed ranges containing them.
+Sending the saved pedal before a reconstructed Note On would lose the capture.
+Audio export and native project saving preserve the authored result.
+
 Cache keys include the origin. Export readers and derived audio sources always
 use continuous synthesis from frame zero. Consequently a live chased attack can
 never replace canonical export samples. Deterministic built-in oscillator windows
