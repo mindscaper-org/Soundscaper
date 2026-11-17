@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { midiPlaylistSourceClips, type MidiPlaylistSourceReplacement } from '../../midi-playlist-sources.ts';
 import { createMidiClip, createMidiTrack } from '../../midi-factory.ts';
 import { EditorProjectChangedError } from '../shared/lifecycle.ts';
 import {
@@ -108,19 +109,24 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 			if (track.locked) throw new RangeError('The MIDI track is locked.');
 			const next = normalizeMidiTrackData({ ...oldData, instrument });
 			const sources: AudioSourceLeaf[] = [];
-			const commands: AudioEditorCommand[] = [{ type: 'midi/track-set', trackId, data: next }];
+			const commands: AudioEditorCommand[] = [], playlistSources: MidiPlaylistSourceReplacement[] = [];
+			const clips = [...project.clips.filter(candidate => Array.isArray(track.clipIds) && track.clipIds.includes(candidate.id))
+				.map(clip => ({ clip, playlistId: null })), ...midiPlaylistSourceClips(project, trackId)];
 			try {
-				for (const clip of project.clips.filter(candidate => Array.isArray(track.clipIds) && track.clipIds.includes(candidate.id))) {
+				for (const { clip, playlistId } of clips) {
 					const data = readMidiClip(clip);
 					if (!data) continue;
 					const source = await publishMidiSource(dependencies, data, next.instrument, sourceSampleRate(project, clip),
 						retainedMidiSourceFrames(project.sources?.find(source => source.id === clip.sourceId),
 							Number(clip.sourceStartFrame) + Number(clip.sourceDurationFrames)), () => assertCurrent(project));
 					sources.push(source);
-					commands.push(createAddSourceCommand({ ...source }), { type: 'midi/clip-set', clipId: String(clip.id), data,
+					commands.push(createAddSourceCommand({ ...source }));
+					if (playlistId !== null) playlistSources.push({ playlistId, clipId: String(clip.id), previousSourceId: String(clip.sourceId), sourceId: source.id });
+					else commands.push({ type: 'midi/clip-set', clipId: String(clip.id), data,
 						sourceId: source.id, sourceDurationFrames: Number(clip.sourceDurationFrames) });
 				}
 				assertCurrent(project);
+				commands.push({ type: 'midi/track-set', trackId, data: next, playlistSources });
 				commitOwned({ type: 'batch', commands });
 			} catch (error) { await rollbackSources(sources, error); }
 		}),
