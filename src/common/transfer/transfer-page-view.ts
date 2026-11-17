@@ -48,7 +48,7 @@ export interface TransferView {
 	note(text: string): void;
 	status(text: string, tone?: 'info' | 'error'): void;
 	action(label: string, run: () => Promise<void>): HTMLButtonElement;
-	files(label: string, accept: string, run: (files: readonly TransferArchiveSource[]) => Promise<void>): void;
+	files(label: string, accept: string, run: (files: readonly TransferArchiveSource[]) => Promise<void>): HTMLInputElement;
 	choices(rows: readonly TransferChoiceRow[]): TransferChoiceHandle;
 	confirm(confirmation: TransferConfirmation | null): void;
 	list(rows: readonly TransferResultRow[]): void;
@@ -161,6 +161,7 @@ export function createTransferView(document: Document, title: string, summary: s
 			caption.append(input);
 			wrapper.append(caption);
 			root.insertBefore(wrapper, chooser);
+			return input;
 		},
 		choices(rows) {
 			const boxes: HTMLInputElement[] = [];
