@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { clipTimePitchPlaybackProjection } from '../../../clip-time-pitch-playback-projection.ts';
+import { rackEffectChannelCount } from '../../../rack-effect-channel-width.ts';
 import { createAudioPreviewProject } from '../../../engine/audio-preview-project.ts';
 import type { EnginePublicApi } from '../../../engine/public-api.ts';
 import { clipSourcePreviewWarpMap, type ClipSourceTimingProject } from '../../../clip-source-timing.ts';
@@ -24,7 +25,8 @@ export async function renderClipNormalizationAudio(
 	if (!Number.isSafeInteger(channelCount) || channelCount < 1 || channelCount > 32) throw new RangeError('Clip normalization requires a supported source channel count.');
 	await resources.prepare(project, signal, { clipIds: [clip.id] });
 	signal.throwIfAborted();
-	const preview = { ...createAudioPreviewProject({ sampleRate: project.sampleRate, masterChannels: channelCount,
+	const outputChannels = rackEffectChannelCount(project, 'clip', clip.id);
+	const preview = { ...createAudioPreviewProject({ sampleRate: project.sampleRate, masterChannels: outputChannels,
 		sources: [source], tracks: [{ id: 'clip-normalization', type: 'audio', name: 'Clip', channelCount, clipIds: [clip.id] }],
 		clips: [{ ...playbackClip, anchor: 'sample', musicalStartBeat: null, musicalDurationBeats: null, musicalExtent: 'fixedSamples',
 			timelineStartFrame: 0, gain: 1, groupId: null, avLinkId: null, binItemId: null,
