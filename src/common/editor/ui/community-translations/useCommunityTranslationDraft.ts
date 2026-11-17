@@ -66,7 +66,7 @@ export function useCommunityTranslationDraft(port: CommunityTranslationPresentat
 		}).catch((failure: unknown) => {
 			if (active) setError(feedbackFailure(failure));
 		});
-		return () => { active = false; };
+		return () => { active = false; activeLoad.current += 1; };
 	}, [locale, store, publishLoaded]);
 	useEffect(() => loaded ? port.registerPreviewInventory?.(loaded.inventory.english) : undefined, [port, loaded?.inventory]);
 	useEffect(() => {
@@ -88,7 +88,8 @@ export function useCommunityTranslationDraft(port: CommunityTranslationPresentat
 	const importContributionFile = useCallback(async (file: { text(): Promise<string> }): Promise<boolean> => {
 		const started = currentLoaded.current;
 		if (!started || started.snapshot.locale !== currentLocale.current) return false;
-		const ownsImport = () => currentLoaded.current?.snapshot === started.snapshot
+		const sequence = activeLoad.current;
+		const ownsImport = () => activeLoad.current === sequence && currentLoaded.current?.snapshot === started.snapshot
 			&& currentLocale.current === started.snapshot.locale;
 		try {
 			const text = await file.text();

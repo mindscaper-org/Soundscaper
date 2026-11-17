@@ -323,3 +323,32 @@ test('an asynchronous file import retains draft edits saved while the file is re
 	expect(json.entries.map(({ key }) => key).sort()).toEqual(['ready', 'stop']);
 	expect(json.entries.find(({ key }) => key === 'stop').translation).toBe('Stop from my newer draft');
 });
+
+test('closing the translation panel cancels an import that is still reading', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	const surface = await openTranslator(page, editor);
+	const kitDownload = page.waitForEvent('download');
+	await surface.getByRole('button', { name: en.po, exact: true }).click();
+	const files = unzipSync(await downloadBytes(await kitDownload));
+	const manifest = JSON.parse(strFromU8(files['manifest.json']));
+	const contribution = { version: 1, locale: 'de', snapshotId: manifest.snapshotId,
+		entries: [{ ...manifest.entries.ready, translation: 'Bereit nach Dateiimport.' }] };
+	await page.evaluate(() => {
+		const original = File.prototype.text;
+		File.prototype.text = function () {
+			if (this.name !== 'abandoned-translations.json') return original.call(this);
+			return new Promise((resolve, reject) => {
+				globalThis.releaseTranslationImport = () => original.call(this).then(resolve, reject);
+			});
+		};
+	});
+	await surface.getByLabel(en.import, { exact: true }).setInputFiles({
+		name: 'abandoned-translations.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(contribution)),
+	});
+	await page.waitForFunction(() => typeof globalThis.releaseTranslationImport === 'function');
+	await surface.getByRole('button', { name: en.close, exact: true }).click();
+	await expect(surface).toBeHidden();
+	await page.evaluate(async () => { await globalThis.releaseTranslationImport(); });
+	await openTranslator(page, editor);
+	await expect(surface.getByRole('status').filter({ hasText: '0 changes; 0 need review.' })).toBeVisible();
+});
