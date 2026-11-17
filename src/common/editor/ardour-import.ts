@@ -49,7 +49,8 @@ export function parseArdourDocument(text: string): TimelineInterchangeDocument {
 		if (routeIds.has(id)) throw new SyntaxError('Duplicate Ardour route ID.');
 		routeIds.add(id);
 		if (ardourRouteHasFlag(route, 'MonitorOut')) { omit('monitor-processing-omitted', 'Monitor processing is not imported.'); continue; }
-		const mix = ardourMixStrip(route, root, sampleRate, issues);
+		const { mainMuteBus, ...mix } = ardourMixStrip(route, root, sampleRate, issues);
+		if (mainMuteBus) buses.push(mainMuteBus);
 		if (ardourRouteHasFlag(route, 'MasterOut')) { master = mix; continue; }
 		if (route.attributes['default-type'] === 'midi') {
 			tracks.push({ ...readArdourMidiTrack(root, route, playlists, sourceNodes, media, selectedPlaylists, issues), ...mix }); continue;

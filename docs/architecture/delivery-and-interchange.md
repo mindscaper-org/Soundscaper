@@ -366,6 +366,10 @@ SoundCraft sends retain their pre/post-fader taps and mute.
 Ardour pre-fader sends retain upstream active input trim. Their trim and send
 automation curves are multiplied on the sample clock with bounded interpolation
 error, while bypassed trim contributes unity.
+Saved Ardour track and auxiliary-bus mute points gate main, pre-fader and
+post-fader deliveries independently, including mute automation. A separate main gate becomes an
+auxiliary strip when post-fader sends must stay audible. Inactive routes gate
+every delivery.
 Disconnected or unresolved strip outputs use silent main assignments to retain a valid editable
 graph while preserving the absence of programme audio.
 SoundCraft aux/master strips and arrangement folders retain their identities;

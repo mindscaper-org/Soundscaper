@@ -8,6 +8,7 @@ import { createInterchangeMidiClock } from './interchange-midi-clock.ts';
 import type { InterchangeAutomationPoint } from './interchange-automation.ts';
 import { ardourRouteHasFlag } from './ardour-route-flags.ts';
 import { composeArdourGainCurves } from './ardour-import-gain-curves.ts';
+import { ardourSendMuteFactor, projectArdourMuteRouting, type ArdourMixStrip } from './ardour-import-mute-routing.ts';
 
 export function ardourAutomationPoints(list: XmlElement, root: XmlElement, sampleRate: number): readonly InterchangeAutomationPoint[] {
 	const interpolation = list.attributes['interpolation-style'] ?? 'Linear';
@@ -35,10 +36,12 @@ export function ardourRegionEnvelope(region: XmlElement, root: XmlElement, durat
 }
 
 export function ardourMixStrip(route: XmlElement, root: XmlElement, sampleRate: number,
-	issues: TimelineInterchangeDocument['issues'][number][]): TimelineInterchangeStrip {
+	issues: TimelineInterchangeDocument['issues'][number][]): ArdourMixStrip {
 	const automation: TimelineInterchangeAutomation[] = [], effects: Readonly<Record<string, unknown>>[] = [], sends: NonNullable<TimelineInterchangeStrip['sends']>[number][] = [];
 	const routeId = route.attributes.id ?? childElement(route, 'IO')?.attributes.id ?? '';
 	const routeInactive = ['0', 'no', 'false'].includes(route.attributes.active ?? childElement(route, 'IO')?.attributes.active ?? '');
+	const muteMaster = childElement(route, 'MuteMaster'), mutePoint = muteMaster?.attributes['mute-point'];
+	const nativeMute = control(route, 'mute', 0) !== 0 || flag(route.attributes.muted) || flag(muteMaster?.attributes.muted);
 	const processors = childElements(route, 'Processor');
 	const curves = (node: XmlElement, parameter: TimelineInterchangeAutomation['parameter'], convert: (value: number) => number = value => value) => {
 		const result: TimelineInterchangeAutomation[] = [];
@@ -81,6 +84,7 @@ export function ardourMixStrip(route: XmlElement, root: XmlElement, sampleRate: 
 		}
 		if (!routeInactive && child.name === 'Controllable' && child.attributes.name === 'mute') add(child, 'mute');
 	}
+	const muteAutomation = automation.filter(lane => lane.parameter === 'mute');
 	let position: 'pre-fader' | 'post-fader' = 'pre-fader';
 	for (const [index, processor] of processors.entries()) {
 		const type = processor.attributes.type ?? '';
@@ -91,11 +95,11 @@ export function ardourMixStrip(route: XmlElement, root: XmlElement, sampleRate: 
 			const id = `${routeId}:send:${index}`;
 			const amp = childElement(processor, 'Amplifier') ?? processor;
 			const prefix = position === 'pre-fader' ? gainProcessors.filter(node => processors.indexOf(node) < index) : [];
-			const factors = [amp, ...prefix].map(node => {
+			const factors = [...[amp, ...prefix].map(node => {
 				const lanes = curves(node, { sendId: id });
 				if (lanes.length > 1) throw new RangeError('An Ardour gain processor has ambiguous automation.');
 				return { gain: control(node, 'gaincontrol', 1), points: lanes[0]?.points ?? [] };
-			});
+			}), ...ardourSendMuteFactor(mutePoint, position, nativeMute, muteAutomation, routeInactive)];
 			sends.push({ id, target, level: factors.reduce((gain, factor) => gain * factor.gain, 1), enabled: processor.attributes.active !== '0', position });
 			const points = composeArdourGainCurves(factors);
 			if (points) automation.push({ parameter: { sendId: id }, points });
@@ -114,11 +118,14 @@ export function ardourMixStrip(route: XmlElement, root: XmlElement, sampleRate: 
 		if (target && !ardourRouteHasFlag(target, 'MasterOut')) output = target.attributes.id;
 		else if (!target && !name.startsWith('system:')) issues.push(timelineImportIssue('ardour', 'output-routing-converted', 'An external output is routed to the main output.', 'converted'));
 	} else if (destinations.size > 1) issues.push(timelineImportIssue('ardour', 'output-fanout-converted', 'Several output destinations are replaced by main output.', 'converted'));
-	return { gain: gainProcessors.reduce((gain, node) => gain * control(node, 'gaincontrol', 1), legacyGain),
+	const strip = { gain: gainProcessors.reduce((gain, node) => gain * control(node, 'gaincontrol', 1), legacyGain),
 		pan: panBypassed ? 0 : control(pannable ?? route, 'pan-azimuth', oldPanners.length === 1 ? finite(oldPanners[0]!.attributes.x ?? '.5') : .5) * 2 - 1,
-		mute: control(route, 'mute', 0) !== 0 || flag(route.attributes.muted) || flag(childElement(route, 'MuteMaster')?.attributes.muted) || routeInactive,
+		mute: nativeMute || routeInactive,
 		solo: control(route, 'solo', 0) !== 0 || flag(route.attributes['self-solo'] ?? route.attributes.soloed),
 		effects, automation, sends, opaqueExtensions: { 'soundscaper.interchange-mix': { format: 'ardour', route } }, ...(output === undefined ? {} : { output }) };
+	if (mutePoint !== undefined && (nativeMute || muteAutomation.length)) issues.push(timelineImportIssue('ardour', 'mute-points-converted',
+		'The saved main and send mute points become destination gates; an independent main gate uses an auxiliary strip when needed.', 'converted'));
+	return projectArdourMuteRouting(strip, routeId, route.attributes.name ?? '', mutePoint, nativeMute, muteAutomation, routeInactive, ardourRouteHasFlag(route, 'MasterOut'));
 }
 
 function flag(value: string | undefined): boolean { return ['1', 'yes', 'true'].includes(value ?? ''); }
