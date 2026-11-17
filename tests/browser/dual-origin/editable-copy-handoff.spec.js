@@ -123,10 +123,12 @@ test('a blocked editable-copy popup recovers through downloaded archive and repo
 		expect(sidecar.archiveSha256).toBe(createHash('sha256').update(archiveBytes).digest('hex'));
 		await expect(source.getByRole('listitem').filter({ hasText: sidecarName })).toBeVisible();
 
+		const repeatedArchiveName = archiveName.replace(/\.fscape$/u, ' (1).fscape');
+		const repeatedSidecarName = sidecarName.replace(/\.json$/u, ' (1).json');
 		await receiver.getByLabel('Import downloaded project archives and conversion-report sidecars')
 			.setInputFiles([
-				{ name: archiveName, mimeType: 'application/octet-stream', buffer: archiveBytes },
-				{ name: sidecarName, mimeType: 'application/json', buffer: sidecarBytes },
+				{ name: repeatedArchiveName, mimeType: 'application/octet-stream', buffer: archiveBytes },
+				{ name: repeatedSidecarName, mimeType: 'application/json', buffer: sidecarBytes },
 			]);
 		await expect(receiver.getByText(/Imported 1 of 1 archive\. Conversion ledger: 1 invocation, \d+ classified roots\./u))
 			.toBeVisible();
