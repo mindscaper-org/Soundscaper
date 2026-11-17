@@ -106,20 +106,14 @@ export function parseArdourDocument(text: string): TimelineInterchangeDocument {
 			if (distinctPaths.size > 1) issues.push(timelineImportIssue('ardour', 'split-stereo-converted', 'Split stereo sources become parallel left and right audio tracks.', 'converted'));
 			if (childElement(region, 'FadeIn') || childElement(region, 'FadeOut')) issues.push(timelineImportIssue('ardour', 'fade-curve-converted', 'Explicit fade lengths use the editor default curve; implicit Ardour fades are omitted.', 'converted'));
 		}
-		const gainNodes = childElements(route, 'Processor').filter(node => ['amp', 'trim'].includes(node.attributes.type ?? ''));
 		if ([clips, ...splitTracks.values()].some(hasOverlaps)) omit('layering-omitted', 'Region layer priorities and crossfades are omitted; overlapping cuts play additively.');
-		const gain = gainNodes.reduce((gain, node) => gain * control(node, 'gaincontrol', 1), numeric(io?.attributes.gain, 1));
+		const { gain = 1, pan = 0 } = mix;
 		const oldPanners = io ? childElements(childElement(io, 'Panner') ?? io, 'StreamPanner') : [];
-		const pan = control(childElement(route, 'Pannable') ?? route, 'pan-azimuth',
-			oldPanners.length === 1 ? numeric(oldPanners[0]!.attributes.x, 0.5) : 0.5) * 2 - 1;
 		if (oldPanners.length > 1) omit('channel-pan-omitted', 'Independent legacy channel panners are replaced by centered stereo balance.');
 		if (pan < -1 || pan > 1 || gain < 0) throw new RangeError('Ardour track gain or pan is invalid.');
-		const controls = { gain, pan, mute: flag(route.attributes.muted) || control(route, 'mute', 0) !== 0
-			|| flag(childElement(route, 'MuteMaster')?.attributes.muted) || route.attributes.active === 'no',
-			solo: flag(route.attributes['self-solo'] ?? route.attributes.soloed) || control(route, 'solo', 0) !== 0 };
 		const name = route.attributes.name ?? io?.attributes.name ?? playlist.attributes.name ?? '';
-		if (splitTracks.size) buses.push({ id, name, channelCount: 2, ...mix, ...controls });
-		const leafMix = splitTracks.size ? { gain: 1, pan: 0, mute: false, solo: false, output: id } : { ...mix, ...controls };
+		if (splitTracks.size) buses.push({ id, name, channelCount: 2, ...mix });
+		const leafMix = splitTracks.size ? { gain: 1, pan: 0, mute: false, solo: false, output: id } : mix;
 		if (clips.length || !splitTracks.size) tracks.push({ id: splitTracks.size ? `${id}:mono` : id, name, kind: 'audio', clips, ...leafMix });
 		for (const [index, clips] of splitTracks) tracks.push({ id: `${id}:${index}`, name: `${name} (${index === 0 ? 'L' : 'R'})`,
 			kind: 'audio', clips, ...leafMix, pan: index === 0 ? -1 : 1 });
@@ -153,9 +147,6 @@ function required(node: XmlElement, name: string): string {
 	return value;
 }
 function flag(value: string | undefined): boolean { return value === '1' || value === 'yes' || value === 'true'; }
-function control(node: XmlElement, name: string, fallback: number): number {
-	return numeric(childElements(node, 'Controllable').find(child => child.attributes.name === name)?.attributes.value, fallback);
-}
 function mediaPath(path: string, title: string): string {
 	return /[\\/]/u.test(path) ? path : `interchange/${title}/audiofiles/${path}`;
 }
