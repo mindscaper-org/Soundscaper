@@ -20,6 +20,8 @@ import { bindNativePluginPresetBridge } from '../../controller/effects/native-pl
 import { soundscaperPluginScanRuntimeFor } from '../soundscaper-plugin-scan-runtime.ts';
 import { captureNativeProcessingReturnFocus } from './native-processing-return-focus.ts';
 import { juceEffectById } from '../../juce-effects/catalog.ts';
+import { readMidiTrack } from '../../midi-model.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { useParallelStackMenuRefresh } from './parallel-stack-menu-runtime.ts';
 import React, { useEffect, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -142,7 +144,14 @@ export function createSoundscaperNativeServicesSurfaceHost(
 		? createSoundscaperAudioHostRuntime({ controller: options.controller, bridge, engine: options.engine }) : null;
 	void audioHost?.refresh();
 	const dialogRuntime = createSoundscaperNativeServicesDialogRuntime(bridge);
-	const instrumentDialogRuntime = createSoundscaperNativeServicesDialogRuntime(bridge);
+	let instrumentDialogRuntime = createSoundscaperNativeServicesDialogRuntime(bridge);
+	let instrumentOwnerKey: string | null = null;
+	const currentInstrumentOwnerKey = (): string => {
+		const project = options.controller?.project as { id?: unknown; tracks?: readonly { id: string }[] } | undefined;
+		const trackId = options.controller?.getSnapshot().selectedTrackId;
+		return JSON.stringify([editorProjectEditSessionKey(options.controller, project?.id), trackId,
+			readMidiTrack(project?.tracks?.find(track => track.id === trackId))?.instrument ?? null]);
+	};
 	let effectDialogRuntime = dialogRuntime;
 	let activeDialogRuntime = dialogRuntime;
 	let requestedJuceEffectId: string | undefined;
@@ -153,6 +162,7 @@ export function createSoundscaperNativeServicesSurfaceHost(
 	let restorationResult: Promise<readonly unknown[]> | null = null;
 	let disposal: Promise<void> | null = null;
 	const close = (): void => {
+		if (openSurface === 'native-instrument-manage') instrumentOwnerKey = currentInstrumentOwnerKey();
 		openSurface = null;
 		root?.render(null);
 		const restore = returnFocus;
@@ -215,7 +225,16 @@ export function createSoundscaperNativeServicesSurfaceHost(
 			if (!documentValue) return;
 			requestedJuceEffectId = surface === 'native-effect-manage' ? juceEffectById(stablePluginId)?.stablePluginId : undefined;
 			// Each menu insertion gets fresh controls; authored instances stay owned by the renderer.
-			if (surface === 'native-instrument-manage') activeDialogRuntime = instrumentDialogRuntime;
+			if (surface === 'native-instrument-manage') {
+				const nextOwner = currentInstrumentOwnerKey();
+				if (instrumentOwnerKey !== nextOwner) {
+					const previous = instrumentDialogRuntime, instanceId = previous.getState().pluginInstance?.instanceId;
+					instrumentDialogRuntime = createSoundscaperNativeServicesDialogRuntime(bridge);
+					instrumentOwnerKey = nextOwner;
+					if (instanceId) void previous.perform({ type: 'close-plugin', instanceId }).catch(reportRuntimeReleaseFailure);
+				}
+				activeDialogRuntime = instrumentDialogRuntime;
+			}
 			else {
 				if (requestedJuceEffectId) effectDialogRuntime = createSoundscaperNativeServicesDialogRuntime(bridge);
 				activeDialogRuntime = effectDialogRuntime;

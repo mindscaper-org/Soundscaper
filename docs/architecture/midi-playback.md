@@ -89,6 +89,8 @@ Desktop packages also include Surge XT 1.3.4 and Dexed 1.1.0 as VST3 instruments
 They appear in the same Instrument selector and its **Instrument settings** entry,
 only for MIDI tracks. Instruments never appear in the effects manager. Surge XT
 supplies wavetable and other synthesis types; Dexed supplies six-operator FM.
+Instrument settings retain their editor for the selected track and instrument;
+changing that owner closes the previous editor while preserving its saved MIDI state.
 Authenticated app-provided plug-ins are discovered and enabled automatically;
 explicit disabling and quarantine remain effective across application updates.
 External instruments still require scanning and allowance in preferences.
