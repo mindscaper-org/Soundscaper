@@ -50,8 +50,12 @@ test('right resizing selected notes shares the shortest-note limit without movin
 	await expect(panel.locator('.note-rect--selected')).toHaveCount(2);
 	const bounds = await later.boundingBox();
 	if (!bounds) throw new Error('Later selected note is unavailable');
-	const x = bounds.x + bounds.width - 1, y = bounds.y + bounds.height / 2;
-	await page.mouse.move(x, y); await page.mouse.down();
+	await later.hover({ position: { x: bounds.width - 2, y: bounds.height / 2 } });
+	await expect(later).toHaveCSS('cursor', 'ew-resize');
+	const edge = await later.boundingBox();
+	if (!edge) throw new Error('Later selected note moved out of view');
+	const x = edge.x + edge.width - 2, y = edge.y + edge.height / 2;
+	await page.mouse.down();
 	await page.mouse.move(x - 25, y, { steps: 3 }); await page.mouse.up();
 	await expect(later).toHaveCSS('left', '100px');
 	await expect(panel.locator('.note-rect--selected')).toHaveCount(2);
