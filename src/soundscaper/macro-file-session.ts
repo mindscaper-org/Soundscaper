@@ -57,6 +57,7 @@ export async function createSoundscaperMacroFileSession(input: MacroBatchInput, 
 				const target = await options.fileService.prepareBatchSaveTarget(destination.batchId, destination.index);
 				if (!target) throw new Error('The batch output destination is unavailable.');
 				try {
+					signal.throwIfAborted();
 					const result: unknown = await controller.actions.export.start({ format, mode: 'mix', range: 'project', bitDepth: 24,
 						includeTail: false, saveToFile: true, saveTarget: target });
 					signal.throwIfAborted();
