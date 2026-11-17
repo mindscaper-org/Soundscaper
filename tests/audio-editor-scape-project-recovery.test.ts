@@ -5,7 +5,8 @@ import test from 'node:test';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { BlobReader, BlobWriter, Uint8ArrayReader, Uint8ArrayWriter, ZipReader, ZipWriter } from '@zip.js/zip.js';
 import { digestBytes } from '../src/common/media/bytes.ts';
-import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
+import type { ProjectRecoveryChange } from '../src/common/editor/project-recovery-reason.ts';
+import { createSoundscaperProject, validateSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectStore } from '../src/soundscaper/editor-project-store.ts';
 import { createSoundscaperScapeNativeRuntime, type SoundscaperScapeNativeStore } from '../src/soundscaper/editor-scape-native.ts';
 import { createAudioClip, createAudioSource, createAudioTrack, createVideoSource } from '../src/common/editor/project-media-factory.ts';
@@ -128,7 +129,7 @@ test('Open Scape recovery retains healthy arrangements on a track with one unava
 	assert.deepEqual(readTrackPlaylists(result.project)[0]?.playlists.map(entry => entry.id), ['original', 'active']);
 	const recalled = applySoundscaperProjectCommand(result.project, { type: 'track/playlist-activate', trackId, id: 'original' });
 	assert.equal(recalled.clips[0]?.id, 'spoken');
-	assert.ok(result.recoveryChanges?.some(change => change.path === 'metadata.trackPlaylists[0].playlists[1]'));
+	assert.ok(result.recoveryChanges?.some((change: ProjectRecoveryChange) => change.path === 'metadata.trackPlaylists[0].playlists[1]'));
 });
 
 test('Open Scape recovery retires extension assets owned only by a discarded snapshot', async context => {
@@ -170,9 +171,11 @@ test('Open Scape recovery retires extension assets owned only by a discarded sna
 		entries.delete(exported.manifest.assets.find(asset => asset.sourceId === 'unavailable')!.entry);
 	});
 	const recovered = await runtime.importScapeProject(archive, store, { recover: true });
-	assert.deepEqual(readSessionSnapshots(recovered.project), []);
-	assert.deepEqual(recovered.project.clips.map(clip => clip.id), ['healthy-clip']);
-	assert.ok(recovered.recoveryChanges?.some(change => change.path === 'metadata.sessionSnapshots[0]'));
+	const document: unknown = recovered.project;
+	assert.ok(validateSoundscaperProject(document));
+	assert.deepEqual(readSessionSnapshots(document), []);
+	assert.deepEqual(document.clips.map(clip => clip.id), ['healthy-clip']);
+	assert.ok(recovered.recoveryChanges?.some((change: ProjectRecoveryChange) => change.path === 'metadata.sessionSnapshots[0]'));
 });
 
 test('Scape recovery keeps invalid archive integrity closed', async (context) => {

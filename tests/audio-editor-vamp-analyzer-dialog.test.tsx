@@ -126,7 +126,7 @@ test('the Vamp dialog cannot select Track scope when opened without a selected a
 	const mounted = await mountDialog({ scope: 'master', analyze: async request => { requests.push(request); return resultFor(request); } });
 	try {
 		const control = select(mounted.dom.container, 'Scope');
-		const track = control.querySelectorAll('option').find(option => reactProps(option).value === 'track');
+		const track = control.querySelectorAll('option').find(option => String(reactProps(option).value) === 'track');
 		assert.equal(reactProps(track!).disabled, true);
 		await submit(mounted.dom.container);
 		assert.equal(requests[0]?.scope, 'master');

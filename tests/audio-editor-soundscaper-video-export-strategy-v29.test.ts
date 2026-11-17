@@ -117,7 +117,9 @@ test('video export accepts a reopened project containing portable binary extensi
 	const plan = strategy.createPlan({ canonicalProject: project, exportProject, format: 'mp4', range: 'project',
 		includeAudio: false, canvas: undefined });
 	assert.deepEqual(plan?.activeClipIds, ['video-clip']);
-	assert.deepEqual((exportProject.opaqueExtensions as typeof project.opaqueExtensions).provenance, { payload });
+	const opaqueExtensions = exportProject.opaqueExtensions;
+	assert.ok(opaqueExtensions && typeof opaqueExtensions === 'object' && 'provenance' in opaqueExtensions);
+	assert.deepEqual(opaqueExtensions.provenance, { payload });
 });
 
 test('Soundscaper V29 keyed strategy renders the delivery effect-bypass projection', () => {
