@@ -172,6 +172,17 @@ test('a playhead inside a frame is floored to the frame that encloses it', async
 	assert.equal(imports[0]?.sequenceStartFrame, 29);
 });
 
+test('an image import uses the primary sequence when the selection has no track IDs', async () => {
+	const controller = controllerStub();
+	controller.project = { ...PROJECT, selection: { startFrame: 0, endFrame: 0 } };
+	const { imports } = harness({ controller });
+
+	await still(controller);
+
+	assert.equal(imports[0]?.sequenceId, PROJECT.primarySequenceId);
+	assert.equal(imports[0]?.preferredTrackId, undefined);
+});
+
 test('an empty selection imports nothing and records no result on the controller', async () => {
 	const { controller, imports } = harness({ selectFiles: async () => [] });
 
@@ -291,14 +302,14 @@ test('a playhead that is not an exact non-negative sample is refused', async () 
 	}
 });
 
-test('a project whose primary sequence is missing cannot place the import', async () => {
+test('an image import without a destination sequence fails before placing media', async () => {
 	const controller = controllerStub();
 	controller.project = { ...PROJECT, primarySequenceId: 'absent-sequence' };
 	const { imports } = harness({ controller });
 
 	await assert.rejects(() => still(controller), (error: Error) => {
 		assert.ok(error instanceof ReferenceError);
-		assert.match(error.message, /requires the primary Framescaper sequence/u);
+		assert.match(error.message, /requires a destination sequence/u);
 		return true;
 	});
 	assert.equal(imports.length, 0);

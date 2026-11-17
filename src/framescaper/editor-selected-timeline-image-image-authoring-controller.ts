@@ -136,7 +136,7 @@ export function bindFramescaperSelectedImageAuthoringControllerTimelineImage(
 		const project = exactProject(controller.project);
 		const playhead = playheadSample(controller.getTelemetrySnapshot().positionFrame);
 		const focusedTrackId = controller.getSnapshot?.().selectedTrackId;
-		const pictureTrack = [focusedTrackId, ...project.selection.trackIds]
+		const pictureTrack = [focusedTrackId, ...(project.selection.trackIds ?? [])]
 			.find(id => project.tracks.some(track => track.id === id && track.type === 'video'));
 		const sequence = (pictureTrack ? project.sequences.find(item => item.trackIds.includes(pictureTrack)) : undefined)
 			?? project.sequences.find(({ id }) => id === project.primarySequenceId);
