@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createMasteringSequenceRuntimeHandlers } from '../common/editor/commands/mastering-sequence-runtime.ts';
+import { hasTrackPlaylistCommand, applyTrackPlaylistCommandTree } from './editor-track-playlist-commands.ts';
 import { applySessionSnapshotCommand } from '../common/editor/commands/session-snapshot-runtime.ts';
 import { SESSION_SNAPSHOT_COMMAND_TYPES, type SessionSnapshotCommand } from '../common/editor/commands/session-snapshot.ts';
 import {
@@ -93,6 +94,10 @@ export function applySoundscaperProjectCommand(
 		let result = project;
 		for (const child of command.commands) result = applySoundscaperProjectCommand(result, child, options);
 		return finalize(structuredClone(result) as Record<string, unknown>, project, options);
+	}
+	if (hasTrackPlaylistCommand(command)) {
+		return finalize(applyTrackPlaylistCommandTree(project, command,
+			(current, child) => applySoundscaperProjectCommand(current, child, options)), project, options);
 	}
 	if (SESSION_SNAPSHOT_COMMAND_TYPES.some(type => type === command.type)) {
 		const draft = structuredClone(project) as Record<string, unknown>;

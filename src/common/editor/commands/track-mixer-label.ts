@@ -5,8 +5,10 @@ import {
 	type DomainCommandHandlerRegistry,
 } from './domain-registry.ts';
 import type { AudioEditorCommand, AudioEditorCommandType } from './protocol.ts';
+import { TRACK_PLAYLIST_COMMAND_TYPES } from './track-playlist.ts';
 
 export const TRACK_MIXER_LABEL_COMMAND_TYPES = [
+	...TRACK_PLAYLIST_COMMAND_TYPES,
 	'track/add',
 	'track/remove',
 	'track/update',

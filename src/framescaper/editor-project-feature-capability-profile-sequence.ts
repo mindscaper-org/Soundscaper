@@ -34,6 +34,7 @@ export const FRAMESCAPER_SEQUENCE_PROJECT_FEATURE_CAPABILITY_PROFILE =
 			{ key: 'projectBin', featureId: 'org.soundscaper.capability.project-bin', available: true },
 			{ key: 'sequenceTiming', featureId: 'org.soundscaper.capability.sequence-timing', available: true },
 			{ key: 'sourceCharacteristics', featureId: 'org.soundscaper.capability.source-characteristics', available: true },
+			{ key: 'subprojects', featureId: 'org.soundscaper.capability.subprojects', available: false },
 			{ key: 'takeComp', featureId: 'org.soundscaper.capability.take-comp', available: false },
 			{ key: 'timelineAnnotations', featureId: 'org.soundscaper.capability.timeline-annotations', available: false },
 			{ key: 'trackFolders', featureId: 'org.soundscaper.capability.track-folders', available: false },

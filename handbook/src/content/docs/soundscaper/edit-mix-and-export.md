@@ -14,6 +14,24 @@ whether later material stays in place or moves to close the removed region.
 Use track folders, clip groups, and the Project Bin to keep larger projects
 organized.
 
+### Keep alternate track playlists {#track-playlists}
+
+Select an audio or MIDI track and choose **Tracks → Track playlists**. Enter a
+name and choose **Duplicate current playlist** to try another edit, or **Create
+empty playlist** to start a fresh arrangement. The first alternative preserves
+your existing clips and take comps in a playlist named **Original**.
+
+Select a playlist and choose **Activate playlist** to switch. Switching keeps
+your edits in the outgoing playlist automatically. The track's volume, pan,
+effects, automation and routing, and the other tracks stay as they are. Only the
+active playlist appears on the timeline and contributes to playback and export.
+
+The same dialog renames and deletes playlists. Activate another playlist before
+deleting the current one. Changes are undoable; playlists share their source
+audio and are saved in the project library and `.sscape` file. A locked or frozen
+track must be unlocked or unfrozen before its playlists can change. Session
+snapshots preserve the whole session, including its track playlists.
+
 ### Edit a collapsed folder {#folder-editing}
 
 Open a folder's context menu and choose **Edit folder contents → Select folder

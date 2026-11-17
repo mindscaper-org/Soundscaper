@@ -88,7 +88,7 @@ Hover for limits. Include any referenced media when sharing projects.
 | Loop recording into takes | + | + — Playlist / Edison |
 | Take comping | + — :: Audition, promote, edit comp regions, flatten as one undoable edit | / — :: Takes can be assembled and consolidated manually; no dedicated comp lanes in the reviewed manual. |
 | Input monitoring and metering | + | + |
-| Alternate track playlists | / | / |
+| Alternate track playlists | + — :: Tracks → Track playlists creates empty or duplicate arrangements, recalls each track independently, and preserves the current mix. | / |
 | Punch-and-roll narration | + — :: Adjustable playback lead-in and Punch again restart recording at the previous punch point. | / |
 
 [Recording, monitoring, and recovery](/soundscaper/recording/)

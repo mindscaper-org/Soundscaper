@@ -39,6 +39,7 @@ export const SOUNDSCAPER_PROFILE = {
 		multicamera: false,
 		musicalTimeline: true,
 		nestedSequences: false,
+		subprojects: true,
 		ofxEffects: false,
 		timelineAnnotations: true,
 		trackFolders: true,
@@ -108,6 +109,7 @@ export const FRAMESCAPER_PROFILE = {
 		multicamera: true,
 		musicalTimeline: false,
 		nestedSequences: true,
+		subprojects: false,
 		// V28 owns OFX authoring/state; execution remains a default-off desktop service gate.
 		ofxEffects: true,
 		timelineAnnotations: true,

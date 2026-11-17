@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { AutomationLaneV21 } from '../common/editor/automation-lane-v21.ts';
+import { validateTrackPlaylists } from '../common/editor/track-playlists.ts';
+import { validateSubprojectLinks } from '../common/editor/subprojects.ts';
 import { validateSessionSnapshots } from '../common/editor/session-snapshots.ts';
 import {
 	normalizeAssistanceAssetReferencesV1,
@@ -109,6 +111,8 @@ function validateAdditions(project: Record<string, unknown>): void {
 		readClosedDomainField(project, 'assistanceAssets', 'Soundscaper project'),
 	);
 	validateAssistanceAssetSourceBindingsV1(assets, project.sources);
+	validateTrackPlaylists(project, validateSoundscaperProject);
+	validateSubprojectLinks(project);
 	validateSessionSnapshots(project, validateSoundscaperProject);
 }
 

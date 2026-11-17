@@ -5,9 +5,11 @@ import {
 	type DomainCommandHandlerRegistry,
 } from './domain-registry.ts';
 import type { AudioEditorCommand, AudioEditorCommandType } from './protocol.ts';
+import { SUBPROJECT_COMMAND_TYPES } from './subproject.ts';
 import { SESSION_SNAPSHOT_COMMAND_TYPES } from './session-snapshot.ts';
 
 export const PROJECT_SOURCE_BIN_COMMAND_TYPES = [
+	...SUBPROJECT_COMMAND_TYPES,
 	...SESSION_SNAPSHOT_COMMAND_TYPES,
 	'batch',
 	'project/rename',

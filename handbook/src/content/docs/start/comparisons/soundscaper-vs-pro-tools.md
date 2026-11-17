@@ -88,7 +88,7 @@ Hover for limits. Include any referenced media when sharing projects.
 | Loop recording into takes | + | + |
 | Take comping | + — :: Audition, promote, edit comp regions, flatten as one undoable edit | + |
 | Input monitoring and metering | + | + |
-| Alternate track playlists | / | + — Playlists |
+| Alternate track playlists | + — :: Tracks → Track playlists creates empty or duplicate arrangements, recalls each track independently, and preserves the current mix. | + — Playlists |
 | Punch-and-roll narration | + — :: Adjustable playback lead-in and Punch again restart recording at the previous punch point. | ~ — :: QuickPunch / pre-roll. Supports punch recording with context; not Audition's dedicated narration mode. |
 
 [Recording, monitoring, and recovery](/soundscaper/recording/)

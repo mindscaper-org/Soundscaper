@@ -537,6 +537,7 @@ Product availability follows each product profile’s command filters and each l
 | Stop recording | `action://record/stop` | — | Record; Transport | Soundscaper | Audacity |
 | Stretch with tempo changes | `stretch-clip-to-match-tempo` | — | Clip context | Soundscaper, Framescaper | Audacity |
 | Studio Fade Out | `nyquist:studiofadeout` | — | Nyquist | Soundscaper | Audacity |
+| Subprojects | `subprojects` | — | File | Soundscaper | Soundscaper local |
 | Support | `local://support` | — | Help | Soundscaper, Framescaper | Soundscaper local |
 | Swap stereo channels | `track-swap-channels` | — | Track context | Soundscaper, Framescaper | Audacity |
 | Switch camera | `multicamera-switch` | — | Tracks > Multicamera | Framescaper | Soundscaper local |
@@ -548,6 +549,7 @@ Product availability follows each product profile’s command filters and each l
 | Toggle track selection | `track-view-toggle-selection` | Ctrl+Enter; Ctrl+Return; Return; NUMPAD_ENTER | Keyboard navigation | Soundscaper, Framescaper | Audacity |
 | Tone | `generator://tone` | — | Generate | Soundscaper | Audacity |
 | Track headers | `local://track-header-drawer` | — | View | Soundscaper, Framescaper | Soundscaper local |
+| Track playlists | `track-playlists` | — | Tracks | Soundscaper | Soundscaper local |
 | Track sample rate | `action://trackedit/track/change-rate?rate=%1` | — | Clip properties | Soundscaper, Framescaper | Audacity |
 | Track start to cursor | `select-track-start-to-cursor` | Shift+J | Select > Region | Soundscaper, Framescaper | Audacity |
 | Track start to end | `select-track-start-to-end` | — | Select > Region | Soundscaper, Framescaper | Audacity |

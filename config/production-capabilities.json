@@ -324,6 +324,7 @@
 				"videoTransitions": false,
 				"sourceCharacteristics": true,
 				"immersiveAdm": true,
+				"subprojects": true,
 				"masteringSequences": true
 			},
 			"projectSchemaIdentity": {
@@ -725,6 +726,7 @@
 				"videoTransitions": true,
 				"sourceCharacteristics": true,
 				"immersiveAdm": false,
+				"subprojects": false,
 				"masteringSequences": false
 			},
 			"projectSchemaIdentity": {
