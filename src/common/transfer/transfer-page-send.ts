@@ -81,14 +81,27 @@ export async function mountSender(context: TransferPageContext): Promise<void> {
 	let offers: readonly TransferProjectOffer[] = [];
 	let choices: TransferChoiceHandle | null = null;
 	let activeSend: Promise<void> | null = null;
+	let transportActive = false;
 	const archiveSaver = createArchiveSaver(context.scope);
+	const transportBusy = (): boolean => {
+		if (!transportActive) return false;
+		view.status('Wait for the current project transfer to finish.', 'error');
+		return true;
+	};
 
 	const download = view.action('Download the ticked archives', async () => {
+		if (transportBusy()) return;
 		const chosen = requireChosen(context, choices, offers, intent);
 		if (!chosen) return;
-		await runSenderDownload(context, chosen, archiveSaver);
+		transportActive = true;
+		try {
+			await runSenderDownload(context, chosen, archiveSaver);
+		} finally {
+			transportActive = false;
+		}
 	});
 	const send = view.action(`Send the ticked projects to ${configuration.peerOrigin}`, async () => {
+		if (transportBusy()) return;
 		if (activeSend !== null) {
 			view.status('A project transfer is already awaiting confirmation or in progress.', 'error');
 			return;
@@ -117,6 +130,7 @@ export async function mountSender(context: TransferPageContext): Promise<void> {
 				// selection needs a new prompt before opening the popup.
 				confirm: async () => {
 					try {
+					if (transportBusy()) return;
 						if (choices !== confirmationChoices) {
 							view.status('The project list changed. Please choose Send again to review it.', 'error');
 							return;
@@ -129,7 +143,12 @@ export async function mountSender(context: TransferPageContext): Promise<void> {
 							view.status('The selection changed. Please choose Send again to review it.', 'error');
 							return;
 						}
+					transportActive = true;
+					try {
 						await runSenderHandshake(context, confirmed, confirmationChoices);
+					} finally {
+						transportActive = false;
+					}
 					} finally {
 						finish();
 					}
@@ -184,8 +203,14 @@ export async function mountSender(context: TransferPageContext): Promise<void> {
 		download.disabled = offers.length === 0;
 		send.disabled = offers.length === 0;
 	};
-	view.action('Find my projects', findProjects);
-	if (intent) await findProjects();
+	const find = view.action('Find my projects', findProjects);
+	if (!intent) return;
+	find.disabled = true;
+	try {
+		await findProjects();
+	} finally {
+		find.disabled = false;
+	}
 }
 
 function bindOffersToIntent(
