@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { profileEffectBoundary } from './cpu-profile-instrumentation.ts';
+import { delayAudioNodeFrames } from './frame-delay.ts';
 import {
 	audacityLiveEffectCapability,
 	isAudacityLiveEffect,
@@ -82,6 +83,8 @@ export interface EffectRackOptions {
 	readonly sidechainInputByEffectId?: ReadonlyMap<string, AudioNode>;
 	readonly baseSidechainDelayFrames?: unknown;
 	readonly sidechainDelayFrames?: unknown;
+	readonly inputDelayFramesByEffectId?: ReadonlyMap<string, number>;
+	readonly detectorDelayFramesByEffectId?: ReadonlyMap<string, number>;
 	readonly scope?: string;
 	readonly targetId?: unknown;
 	readonly effectAnalysis?: boolean;
@@ -151,10 +154,14 @@ export function applyEffectRack(
 	let upstreamLatencyFrames = 0;
 	for (const effect of Array.isArray(effects) ? effects : []) {
 		if (!effect || effect.enabled === false || effect.bypassed === true) continue;
+		const inputDelay = options.inputDelayFramesByEffectId?.get(String(effect.id)) ?? 0;
+		output = delayAudioNodeFrames(context, output, inputDelay, nodes);
+		upstreamLatencyFrames += inputDelay;
 		output = profileEffectBoundary(context, output, effect, nodes, options, 'begin');
 		output = applyEffect(context, output, effect, nodes, {
 			...options,
-			sidechainDelayFrames: nonNegativeInteger(options.baseSidechainDelayFrames, 0) + upstreamLatencyFrames,
+			sidechainDelayFrames: options.detectorDelayFramesByEffectId?.get(String(effect.id))
+				?? nonNegativeInteger(options.baseSidechainDelayFrames, 0) + upstreamLatencyFrames,
 			parameterLatencyFrames: nonNegativeInteger(options.baseParameterLatencyFrames, 0) + upstreamLatencyFrames,
 		});
 		output = profileEffectBoundary(context, output, effect, nodes, options, 'end');

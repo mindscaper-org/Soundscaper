@@ -103,6 +103,10 @@ tails include the clip and downstream insert path. Dry processing and mixes
 with effects disabled bypass clip racks. Parallel stack execution falls back to
 the conventional graph while an active clip rack is present.
 
+Clip Auto Duck reads its detector before final mix compensation. Its input and
+detector align after resolving upstream clip-rack dependencies; processed detector
+tracks contribute their latency before the final common clip delay is chosen.
+
 Scape retains clip rack state and declares the separate audio-clip-effects
 capability so earlier readers can report the unsupported processing. AUP4
 export reports the omitted clip racks.
