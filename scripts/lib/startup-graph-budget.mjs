@@ -3,6 +3,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { brotliCompressSync } from 'node:zlib';
+import { EDITOR_MIDI_FILE_CODECS_CHUNK_TEST } from './build-chunk-tests.mjs';
 
 /**
  * The ceilings and the paragraphs that justify them live in
@@ -272,6 +273,10 @@ export function assertProductGraphOwnership(product, graph) {
 	));
 	if (synthModule) {
 		throw new Error(`${product} product-ready graph loads the on-demand MIDI synthesizer module ${synthModule}.`);
+	}
+	const midiFileCodec = moduleIds.find((moduleId) => EDITOR_MIDI_FILE_CODECS_CHUNK_TEST.test(moduleId));
+	if (midiFileCodec) {
+		throw new Error(`${product} product-ready graph loads on-demand MIDI file codec ${midiFileCodec}.`);
 	}
 	if (moduleIds.some((moduleId) => moduleId.endsWith('/src/common/offline/application-shell.ts'))) {
 		throw new Error(`${product} product-ready graph loads deferred offline shell registration.`);

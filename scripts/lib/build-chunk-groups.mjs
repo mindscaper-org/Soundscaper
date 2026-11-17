@@ -37,6 +37,7 @@ import {
 	EDITOR_FREQUENCY_WAVEFORM_CHUNK_TEST,
 	EDITOR_IMPORT_ADMISSION_CHUNK_TEST,
 	EDITOR_MACRO_DEFAULTS_CHUNK_TEST,
+	EDITOR_MIDI_FILE_CODECS_CHUNK_TEST,
 	EDITOR_OPTIONAL_ASSISTANCE_CHUNK_TEST,
 	EDITOR_OPTIONAL_CAPTURE_CHUNK_TEST,
 	EDITOR_OPTIONAL_EXECUTION_CHUNK_TEST,
@@ -177,6 +178,14 @@ export const chunkGroups = [
 		priority: 98,
 		minSize: 0,
 		maxSize: 400_000,
+		includeDependenciesRecursively: false,
+	},
+	{
+		// Import, export and interchange reach these codecs only on file use.
+		name: 'editor-midi-file-codecs',
+		test: EDITOR_MIDI_FILE_CODECS_CHUNK_TEST,
+		priority: 108,
+		maxSize: 120_000,
 		includeDependenciesRecursively: false,
 	},
 	{

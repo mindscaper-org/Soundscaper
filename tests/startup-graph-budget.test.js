@@ -136,6 +136,23 @@ test('the product-ready graph excludes registration work deferred until applicat
 	);
 });
 
+test('neither product-ready graph includes MIDI or Allegro file codecs', () => {
+	for (const product of ['soundscaper', 'framescaper']) {
+		const bundle = fixtureBundle();
+		const bootstrap = addProductBootstrap(bundle, product);
+		const path = 'assets/midi-file-codecs.js';
+		bundle[path] = chunk({
+			fileName: path,
+			code: 'midi codecs',
+			modules: { '/workspace/src/common/editor/midi-file.ts': {}, '/workspace/src/common/editor/allegro-file-events.ts': {} },
+		});
+		bootstrap.dynamicImports = [path];
+		assert.doesNotThrow(() => assertProductionStartupGraphs(bundle, product));
+		bootstrap.imports.push(path);
+		assert.throws(() => assertProductionStartupGraphs(bundle, product), /product-ready graph loads on-demand MIDI file codec/u);
+	}
+});
+
 test('the emitted Framescaper project-command chunk cannot reciprocally import a feature chunk', () => {
 	const bundle = fixtureBundle();
 	bundle['assets/framescaper-project-commands.js'] = chunk({
