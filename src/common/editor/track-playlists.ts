@@ -104,7 +104,8 @@ export function installTrackPlaylistState(project: Data, trackId: string, state:
 }
 
 /** Validate stored alternatives with the same project validators used by live edits. */
-export function validateTrackPlaylists(projectValue: unknown, validate: (project: unknown) => unknown): void {
+export function validateTrackPlaylists(projectValue: unknown, validate: (project: unknown) => unknown,
+	prepareDraft?: (project: Data, trackId: string) => void): void {
 	const project = dataRecord(projectValue);
 	const metadata = { ...dataRecord(project.metadata) };
 	delete metadata.trackPlaylists;
@@ -112,6 +113,7 @@ export function validateTrackPlaylists(projectValue: unknown, validate: (project
 	for (const collection of readTrackPlaylists(project)) for (const playlist of collection.playlists) {
 		if (!playlist.state) continue;
 		const draft: Data = structuredClone({ ...project, metadata });
+		prepareDraft?.(draft, collection.trackId);
 		installTrackPlaylistState(draft, collection.trackId, playlist.state);
 		draft.featureRequirements = reconcileProjectOwnedFeatureRequirements(draft,
 			draft.featureRequirements as ProjectFeatureRequirementsManifest);

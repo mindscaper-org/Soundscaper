@@ -2,6 +2,7 @@
 
 import type { AutomationLaneV21 } from '../common/editor/automation-lane-v21.ts';
 import { validateTrackPlaylists } from '../common/editor/track-playlists.ts';
+import { prepareSoundscaperPlaylistValidation } from './editor-track-playlist-validation.ts';
 import { validateSubprojectLinks } from '../common/editor/subprojects.ts';
 import { validateSessionSnapshots } from '../common/editor/session-snapshots.ts';
 import {
@@ -111,7 +112,7 @@ function validateAdditions(project: Record<string, unknown>): void {
 		readClosedDomainField(project, 'assistanceAssets', 'Soundscaper project'),
 	);
 	validateAssistanceAssetSourceBindingsV1(assets, project.sources);
-	validateTrackPlaylists(project, validateSoundscaperProject);
+	validateTrackPlaylists(project, validateSoundscaperProject, prepareSoundscaperPlaylistValidation);
 	validateSubprojectLinks(project);
 	validateSessionSnapshots(project, validateSoundscaperProject);
 }
