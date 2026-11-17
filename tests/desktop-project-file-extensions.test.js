@@ -51,9 +51,11 @@ test('File Open admits every existing media import suffix through the project ch
 	for (const extension of mediaExtensions) {
 		assert.equal(choice.extensions.includes(extension), true, `missing ${extension} from project allowlist`);
 		assert.equal(filterExtensions.includes(extension), true, `missing ${extension} from project filter`);
-		assert.equal(acceptsFile('project', `/tmp/recording.${extension}`), true, extension);
-		assert.equal(acceptsFile('project', `/tmp/recording.${extension.toUpperCase()}`), true, extension);
+		const filename = extension === 'zip' ? 'recording.adl.zip' : `recording.${extension}`;
+		assert.equal(acceptsFile('project', `/tmp/${filename}`), true, extension);
+		assert.equal(acceptsFile('project', `/tmp/${filename.toUpperCase()}`), true, extension);
 	}
+	assert.equal(acceptsFile('project', '/tmp/recording.zip'), false, 'only named ADL bundles are admitted');
 	assert.equal(new Set(choice.extensions).size, choice.extensions.length, 'project allowlist must not repeat extensions');
 	assert.equal(new Set(filterExtensions).size, filterExtensions.length, 'project filter must not repeat extensions');
 	assert.equal(choice.extensions.includes('sesx'), true, 'desktop SESX import remains available');
@@ -90,7 +92,7 @@ test('every project suffix takes the Scape range profile, disguised ones do not'
 });
 
 test('positional and open-with routing admits every project suffix plus Audacity projects', () => {
-	assert.deepEqual([...OPENABLE_PROJECT_EXTENSIONS], [...ACCEPTED_PROJECT_FILE_EXTENSIONS, '.aup3', '.aup4']);
+	assert.deepEqual([...OPENABLE_PROJECT_EXTENSIONS], [...ACCEPTED_PROJECT_FILE_EXTENSIONS, '.aup3', '.aup4', '.aup4unsaved']);
 	assert.deepEqual(
 		extractProjectPaths([
 			'--flag',
@@ -99,9 +101,10 @@ test('positional and open-with routing admits every project suffix plus Audacity
 			'/tmp/c.liscape',
 			'/tmp/d.scape',
 			'/tmp/e.aup4',
+			'/tmp/recovery.AUP4UNSAVED',
 			'/tmp/f.sscape.zip',
 			'/tmp/g.wav',
 		], '/tmp'),
-		['/tmp/a.sscape', '/tmp/b.FSCAPE', '/tmp/c.liscape', '/tmp/d.scape', '/tmp/e.aup4'],
+		['/tmp/a.sscape', '/tmp/b.FSCAPE', '/tmp/c.liscape', '/tmp/d.scape', '/tmp/e.aup4', '/tmp/recovery.AUP4UNSAVED'],
 	);
 });
