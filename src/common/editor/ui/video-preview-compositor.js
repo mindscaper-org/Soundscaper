@@ -4,6 +4,7 @@ import {
 	EFFECT_PROGRAM_COUNT,
 	GAUSSIAN_BLUR_RENDER_SCALE,
 	createProgram,
+	createVideoPreviewVertexShader,
 	finiteNumber,
 	programLocations,
 	videoEffectPasses,
@@ -130,7 +131,8 @@ export class VideoPreviewCompositor {
 		this.effectResultCache.clear();
 		this.programs = new Array(EFFECT_PROGRAM_COUNT);
 		this.programLocations = new Array(EFFECT_PROGRAM_COUNT);
-		this.compositionBlend = createVideoPreviewCompositionBlendRuntime(this.gl);
+		this.vertexShader = createVideoPreviewVertexShader(this.gl);
+		this.compositionBlend = createVideoPreviewCompositionBlendRuntime(this.gl, this.vertexShader);
 		this.positionBuffer = this.gl.createBuffer();
 		if (!this.positionBuffer) throw new Error('Unable to allocate the video preview geometry.');
 		this.boundBlurKernel = null;
@@ -167,7 +169,7 @@ export class VideoPreviewCompositor {
 
 	prepareEffectProgram(effectCode) {
 		const gl = this.gl;
-		const program = createProgram(gl, effectCode);
+		const program = createProgram(gl, effectCode, this.vertexShader);
 		const locations = programLocations(gl, program);
 		gl.useProgram(program);
 		gl.uniform1i(locations.texture, 0);
@@ -513,6 +515,7 @@ export class VideoPreviewCompositor {
 		this.gl.deleteBuffer(this.positionBuffer);
 		this.programs.forEach((program) => this.gl.deleteProgram(program));
 		disposeVideoPreviewCompositionBlendRuntime(this.gl, this.compositionBlend);
+		this.gl.deleteShader(this.vertexShader);
 		this.gl.getExtension?.('WEBGL_lose_context')?.loseContext?.();
 	}
 }

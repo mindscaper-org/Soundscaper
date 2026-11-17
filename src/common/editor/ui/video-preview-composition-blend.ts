@@ -5,8 +5,6 @@ import {
 	type VideoClipCompositionBlendMode,
 } from '../video-clip-composition.ts';
 
-import { VIDEO_PREVIEW_GEOMETRY_VERTEX_SHADER_SOURCE } from './video-preview-geometry-shader.ts';
-
 const MODE_CODES = new Map<VideoClipCompositionBlendMode, number>(
 	VIDEO_CLIP_COMPOSITION_BLEND_MODES.map((mode, index) => [mode, index]),
 );
@@ -81,8 +79,9 @@ export function videoPreviewBlendModeCode(value: unknown): number {
 
 export function createVideoPreviewCompositionBlendRuntime(
 	gl: WebGL2RenderingContext,
+	vertexShader: WebGLShader,
 ): VideoPreviewCompositionBlendRuntime {
-	const program = createProgram(gl);
+	const program = createProgram(gl, vertexShader);
 	const buffer = gl.createBuffer();
 	if (!buffer) {
 		gl.deleteProgram(program);
@@ -169,15 +168,16 @@ export function videoPreviewBlendPixel(
 const IDENTITY_POSITION = new Float32Array([2, 0, 0, 0, 2, 0, -1, -1, 1]);
 const IDENTITY_TEXTURE = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
 
-function createProgram(gl: WebGL2RenderingContext): WebGLProgram {
-	const vertex = compileShader(gl, gl.VERTEX_SHADER, VIDEO_PREVIEW_GEOMETRY_VERTEX_SHADER_SOURCE);
+function createProgram(gl: WebGL2RenderingContext, vertex: WebGLShader): WebGLProgram {
 	const fragment = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE);
 	const program = gl.createProgram();
-	if (!program) throw new Error('Unable to allocate video preview blend program.');
+	if (!program) {
+		gl.deleteShader(fragment);
+		throw new Error('Unable to allocate video preview blend program.');
+	}
 	gl.attachShader(program, vertex);
 	gl.attachShader(program, fragment);
 	gl.linkProgram(program);
-	gl.deleteShader(vertex);
 	gl.deleteShader(fragment);
 	if (gl.getProgramParameter(program, gl.LINK_STATUS) === true) return program;
 	const message = gl.getProgramInfoLog(program) ?? 'Unknown video preview blend link failure.';

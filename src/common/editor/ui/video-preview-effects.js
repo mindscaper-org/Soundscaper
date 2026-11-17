@@ -244,19 +244,24 @@ function compileShader(gl, type, source) {
 	throw new Error(message);
 }
 
-export function createProgram(gl, effectCode) {
-	const vertexShader = compileShader(gl, gl.VERTEX_SHADER, VIDEO_PREVIEW_GEOMETRY_VERTEX_SHADER_SOURCE);
+export function createVideoPreviewVertexShader(gl) {
+	return compileShader(gl, gl.VERTEX_SHADER, VIDEO_PREVIEW_GEOMETRY_VERTEX_SHADER_SOURCE);
+}
+
+export function createProgram(gl, effectCode, vertexShader) {
 	const fragmentSource = FRAGMENT_SHADER_SOURCE.replace(
 		'uniform int u_effect;',
 		`const int u_effect = ${effectCode};`,
 	);
 	const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
 	const program = gl.createProgram();
-	if (!program) throw new Error('Unable to allocate a WebGL program.');
+	if (!program) {
+		gl.deleteShader(fragmentShader);
+		throw new Error('Unable to allocate a WebGL program.');
+	}
 	gl.attachShader(program, vertexShader);
 	gl.attachShader(program, fragmentShader);
 	gl.linkProgram(program);
-	gl.deleteShader(vertexShader);
 	gl.deleteShader(fragmentShader);
 	if (gl.getProgramParameter(program, gl.LINK_STATUS)) return program;
 	const message = gl.getProgramInfoLog(program) || 'Unknown WebGL program link failure.';
