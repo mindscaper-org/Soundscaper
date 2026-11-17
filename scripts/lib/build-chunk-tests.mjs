@@ -133,7 +133,7 @@ export const EDITOR_SOURCE_ACTIVATION_CHUNK_TEST = new RegExp(
 
 /** Checkpoint capture and finalization run only after a recording gesture. */
 export const EDITOR_RECORDING_RUNTIME_CHUNK_TEST = new RegExp(
-	String.raw`${editorPath}controller[\\/]recording[\\/]internal[\\/](?:(?:legacy|routed)-recording-finalization\.ts|recording-(?:checkpoint-writer|finalization-cleanup|finalization-segments|source-metadata)\.ts|recording-punch-sequence\.js)$`,
+	String.raw`${editorPath}controller[\\/]recording[\\/]internal[\\/](?:(?:legacy|routed)-recording-finalization\.ts|recording-(?:checkpoint-writer|finalization-cleanup|finalization-segments|source-metadata)\.ts|recording-punch-sequence\.ts)$`,
 );
 
 /** First-run library migration must not load unrelated effect or codec execution. */
