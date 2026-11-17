@@ -3,6 +3,8 @@
 import type { AudioEditorCommand, BatchAudioEditorCommand } from '../common/editor/commands/protocol.ts';
 import { applyTrackPlaylistCommand } from '../common/editor/commands/track-playlist-runtime.ts';
 import { TRACK_PLAYLIST_COMMAND_TYPES, type TrackPlaylistCommand } from '../common/editor/commands/track-playlist.ts';
+import { createRackWidthTopologyAdmission } from '../common/editor/commands/rack-width-topology-admission.ts';
+import { createClipControlTopologyAdmission } from '../common/editor/commands/clip-control-topology-admission.ts';
 import type { SoundscaperProject } from './editor-project-validation.ts';
 
 /** Capture persisted timing, before the inherited command adapter resolves sample coordinates. */
@@ -18,7 +20,10 @@ export function applyTrackPlaylistCommandTree(project: SoundscaperProject, comma
 		for (const child of command.commands) current = applyChild(current, child);
 		return structuredClone(current) as Record<string, unknown>;
 	}
+	const admissions = [createRackWidthTopologyAdmission(project), createClipControlTopologyAdmission(project)];
+	for (const admission of admissions) admission.beforeCommand(project, command);
 	const draft = structuredClone(project) as Record<string, unknown>;
 	applyTrackPlaylistCommand(draft, command as TrackPlaylistCommand);
+	for (const admission of admissions) admission.assertPersistedResult(draft);
 	return draft;
 }
