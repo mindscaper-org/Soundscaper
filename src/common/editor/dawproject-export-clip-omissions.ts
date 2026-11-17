@@ -23,6 +23,7 @@ export function reportOmittedClipFeatures(
 	if (finite(clip.pitchCents, 0) !== 0) features.push('pitchCents');
 	if (clip.reversed === true) features.push('reversed');
 	if (clip.inverted === true) features.push('inverted');
+	if (clip.effectsActive !== false && records(clip.effects).some(effect => effect.enabled !== false && effect.bypassed !== true)) features.push('effects');
 	if (clip.preserveFormants === true && stretched) features.push('preserveFormants');
 	if (features.length === 0) return;
 	addDeliveryReportItem(context.draft, {
@@ -31,6 +32,6 @@ export function reportOmittedClipFeatures(
 		severity: 'warning',
 		scope: { kind: 'clip', id: clipId },
 		data: { features },
-		message: 'A DAWproject clip carries fade durations and warping but no fade curve shape, gain, envelope, pitch shift, reverse, polarity inversion, or formant setting; the clip is written without them.',
+		message: 'A DAWproject clip carries fade durations and warping but no fade curve shape, gain, envelope, pitch shift, reverse, polarity inversion, insert rack, or formant setting; the clip is written without them.',
 	});
 }

@@ -84,6 +84,7 @@ export function soundcraftAuxiliaryStrips(root: Readonly<Record<string, unknown>
 		const track = dawRecord(value);
 		if (!['Aux', 'Master', 'Folder'].includes(dawText(track.kind))) continue;
 		const mixer = dawRecord(track.mixer), pans = dawArray(mixer.pan);
+		if (pans.length > 1 && !(pans.length === 2 && pans[0] === -1 && pans[1] === 1)) issues.push(timelineImportIssue('soundcraft', 'pan-omitted', 'Independent channel panners are replaced by centered stereo balance.'));
 		const strip = { ...soundcraftMixStrip(track, issues), gain: 10 ** ((dawNumber(mixer.volume_db, 0) + dawNumber(mixer.trim_db, 0)) / 20),
 			pan: pans.length === 1 ? dawNumber(pans[0], 0) : 0, mute: mixer.mute === true || track.inactive === true, solo: mixer.solo === true };
 		if (track.kind === 'Master') { master = strip; continue; }

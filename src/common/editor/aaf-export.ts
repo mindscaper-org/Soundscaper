@@ -10,6 +10,7 @@ import { readMidiClip, readMidiTrack } from './midi-model.ts';
 import { AafObjectWriter, AafWriteObject } from './aaf-object-writer.ts';
 import { aafUnhex, aafUtf16 } from './aaf-object-table.ts';
 import { aafWaveSummary, inspectAafWave } from './aaf-wave.ts';
+import { reportInterchangeMixOmissions } from './interchange-mix-omissions.ts';
 
 type Data = Readonly<Record<string, unknown>>;
 export interface AafExportRequest {
@@ -115,7 +116,7 @@ export function createAafExport(request: AafExportRequest): AafExportResult {
 	}
 	composition.refs(0x4403, slots); writer.content.refs(0x1901, mobs, 0x4401); writer.content.refs(0x1902, essenceObjects, 0x2701);
 	if (interchangeAnnotationOmission(project) || interchangeCaptionTrackOmission(project, request.sequenceId)) report('annotations-omitted', 'Timeline annotations, label tracks and captions are omitted from this AAF audio profile.', 'omitted');
-	if (records(project.automationLanes).length || records(project.buses).length || records(project.masterEffects).length || project.masterGain !== undefined && project.masterGain !== 1) report('mix-processing-omitted', 'Mixer routing, master processing and project automation remain in the native project.', 'omitted');
+	reportInterchangeMixOmissions(draft, project);
 	report('timeline-preserved', 'Audio cuts, source offsets, gaps and track names are represented in AAF.', 'preserved', {}, { tracks: audioTracks, sources: sourceMobs.size });
 	return { bytes: writer.finish(), fileName: `${portableFileStem(title, 'timeline')}.aaf`, mimeType: 'application/octet-stream', report: sealDeliveryReport(draft) };
 }

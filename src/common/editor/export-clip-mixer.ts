@@ -5,7 +5,7 @@ import { createMixerRoutingClosureIndex } from './mixer-routing-closure.ts';
 import type { StripRef } from './parameter-address.ts';
 
 /** Retain programme routing and its detector feeds without admitting detector outputs. */
-export function exportClipMixer(graph: MixerGraphV21, trackId: string): Readonly<{
+export function exportClipMixer(graph: MixerGraphV21, trackId: string, implicitControls: readonly string[] = []): Readonly<{
 	graph: MixerGraphV21;
 	detectorStrips: ReadonlySet<string>;
 	retainedEdges: ReadonlySet<string>;
@@ -13,7 +13,7 @@ export function exportClipMixer(graph: MixerGraphV21, trackId: string): Readonly
 	const routes = createMixerRoutingClosureIndex(graph);
 	const closure = routes.programme([mixerEndpointKeyV21({ kind: 'track', id: trackId })]);
 	const programme = closure.strips, retainedEdges = new Set(closure.edgeIds);
-	const detectorSources: StripRef[] = [];
+	const detectorSources: StripRef[] = implicitControls.map(id => ({ kind: 'track', id }));
 	for (const edge of graph.edges) {
 		if (!edge.enabled || edge.destination.kind !== 'effect-sidechain'
 			|| !programme.has(mixerEndpointKeyV21(edge.destination.strip))) continue;

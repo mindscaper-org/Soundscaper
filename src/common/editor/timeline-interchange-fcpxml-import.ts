@@ -5,6 +5,8 @@ import { addRationals, subtractRationals, divideRationals, multiplyRationals, no
 import { timelineImportIssue, timelineInterchangeMediaName, TIMELINE_INTERCHANGE_MAXIMUM_DEPTH, TIMELINE_INTERCHANGE_MAXIMUM_ITEMS,
 	type TimelineInterchangeDocument, type TimelineInterchangeMedia, type TimelineInterchangeTrack, type TimelineInterchangeClip } from './timeline-interchange-types.ts';
 import { fcpxmlChildWindows, fcpxmlVisibleMediaRange, type FcpxmlImportRanges, type FcpxmlImportWindows } from './fcpxml-import-ranges.ts';
+import { nativeInterchangePictureOrder } from './interchange-painter-order.ts';
+import { fcpxmlAudioComponentState, type FcpxmlAudioComponentState } from './fcpxml-import-audio-components.ts';
 
 const ZERO = Object.freeze({ num: 0, den: 1 });
 const TIMED_ELEMENTS = new Set(['asset-clip', 'clip', 'video', 'audio', 'gap', 'ref-clip', 'sync-clip', 'mc-clip', 'title', 'transition']);
@@ -29,12 +31,22 @@ export function parseFcpxmlTimeline(text: string): TimelineInterchangeDocument {
 	const media = new Map<string, TimelineInterchangeMedia>();
 	const tracks = new Map<string, { id: string; name: string; kind: 'audio' | 'video'; clips: TimelineInterchangeClip[] }>();
 	let visited = 0;
-	const walk = (container: XmlElement, parentSourceStart: Rational, depth: number, inheritedLane: string, parentRanges: FcpxmlImportRanges, ancestorWindows: FcpxmlImportWindows): void => {
+	const walk = (container: XmlElement, parentSourceStart: Rational, depth: number, inheritedLane: string, parentRanges: FcpxmlImportRanges, ancestorWindows: FcpxmlImportWindows, inheritedAudio: FcpxmlAudioComponentState = null): void => {
 		if (depth > TIMELINE_INTERCHANGE_MAXIMUM_DEPTH) throw new RangeError('FCPXML nesting depth limit exceeded.');
 		let cursor = parentSourceStart;
 		for (const node of container.children) {
 			if (++visited > TIMELINE_INTERCHANGE_MAXIMUM_ITEMS) throw new RangeError('FCPXML item limit exceeded.');
+			if (node.name === 'spine') {
+				const start = addRationals(parentRanges.video.start, subtractRationals(xmlTime(node.attributes.offset ?? '0s'), parentSourceStart));
+				walk(node, ZERO, depth + 1, node.attributes.lane ?? inheritedLane, { audio: { start }, video: { start } },
+					fcpxmlChildWindows(ancestorWindows, parentRanges, !node.attributes.lane || node.attributes.lane === '0'),
+					!node.attributes.lane || node.attributes.lane === '0' ? inheritedAudio : null);
+				continue;
+			}
 			if (!TIMED_ELEMENTS.has(node.name)) continue;
+			const ownAudio = fcpxmlAudioComponentState(node);
+			const audioState = ownAudio ?? (!node.attributes.lane || node.attributes.lane === '0' ? inheritedAudio : null);
+			if (ownAudio === 'omitted') issues.push(timelineImportIssue('fcpxml', 'audio-components-omitted', 'FCPXML audio component channel mixes, ranges and processing are unsupported; their audio is omitted.'));
 			const offset = node.attributes.offset ? xmlTime(node.attributes.offset) : cursor;
 			const asset = resources.get(node.attributes.ref ?? '');
 			const implicitDuration = node.name === 'asset-clip' ? asset?.attributes.duration : undefined;
@@ -58,6 +70,7 @@ export function parseFcpxmlTimeline(text: string): TimelineInterchangeDocument {
 				if (!kinds.length) kinds.push(Number(lane) < 0 ? 'audio' : 'video');
 				const assetStart = xmlTime(asset.attributes.start ?? '0s');
 				for (const kind of kinds) {
+					if (kind === 'audio' && audioState === 'omitted') continue;
 					const relativeSourceStart = subtractRationals(kind === 'audio' ? audioSourceStart : sourceStart, assetStart);
 					const visible = fcpxmlVisibleMediaRange(ranges[kind].start, ranges[kind].duration, relativeSourceStart, windows[kind]);
 					if (!visible) continue;
@@ -77,7 +90,8 @@ export function parseFcpxmlTimeline(text: string): TimelineInterchangeDocument {
 					let track = tracks.get(trackKey);
 					if (!track) { track = { id: trackKey, name: `${kind === 'video' ? 'Video' : 'Audio'} ${lane}`, kind, clips: [] }; tracks.set(trackKey, track); }
 					if (node.attributes.enabled === '0') issues.push(timelineImportIssue('fcpxml', 'disabled-clip-omitted', 'A disabled FCPXML clip is omitted.'));
-					else track.clips.push({ id: `clip-${visited}-${kind}`, name: node.attributes.name ?? asset.attributes.name ?? '', mediaId, ...visible });
+					else track.clips.push({ id: `clip-${visited}-${kind}`, name: node.attributes.name ?? asset.attributes.name ?? '', mediaId, ...visible,
+						...(kind === 'audio' && audioState === 'muted' ? { muted: true } : {}) });
 				}
 			} else if (node.attributes.enabled === '0') {
 				issues.push(timelineImportIssue('fcpxml', 'disabled-clip-omitted', 'A disabled FCPXML container is omitted; its duration remains a gap.'));
@@ -87,7 +101,7 @@ export function parseFcpxmlTimeline(text: string): TimelineInterchangeDocument {
 			for (const child of node.children) if (['timeMap', 'marker', 'chapter-marker', 'fadeIn', 'fadeOut'].includes(child.name) || child.name.startsWith('adjust-') || child.name.startsWith('filter-')) {
 				issues.push(timelineImportIssue('fcpxml', child.name === 'timeMap' ? 'time-map-omitted' : 'effect-omitted', `FCPXML ${child.name} is omitted; clips use unity playback and default presentation.`));
 			}
-			if (node.attributes.enabled !== '0') walk(node, sourceStart, depth + 1, lane, ranges, windows);
+			if (node.attributes.enabled !== '0') walk(node, sourceStart, depth + 1, lane, ranges, windows, audioState);
 		}
 	};
 	const spine = childElement(sequence, 'spine');
@@ -95,7 +109,8 @@ export function parseFcpxmlTimeline(text: string): TimelineInterchangeDocument {
 	const sequenceWindow = { start: ZERO, ...(sequence.attributes.duration ? { end: xmlTime(sequence.attributes.duration) } : {}) };
 	walk(spine, origin, 0, '0', { audio: { start: ZERO }, video: { start: ZERO } }, { audio: sequenceWindow, video: sequenceWindow });
 	return { format: 'fcpxml', title: project?.attributes.name ?? 'FCPXML timeline', sampleRate, rate,
-		dropFrame: sequence.attributes.tcFormat === 'DF', startFrameCount, tracks: [...tracks.values()] as TimelineInterchangeTrack[], media: [...media.values()], issues };
+		dropFrame: sequence.attributes.tcFormat === 'DF', startFrameCount,
+		tracks: nativeInterchangePictureOrder([...tracks.values()], (a, b) => Number(b.id.split(':')[1]) - Number(a.id.split(':')[1])) as TimelineInterchangeTrack[], media: [...media.values()], issues };
 }
 
 function xmlTime(value: string): Rational {

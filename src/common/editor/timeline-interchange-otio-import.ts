@@ -2,6 +2,7 @@
 
 import { addRationals, subtractRationals, divideRationals, compareRationals, normalizeRational, roundRational, multiplyRationals, type Rational } from './timeline-time.ts';
 import { rationalFromDouble } from './dawproject-format.ts';
+import { nativeInterchangePictureOrder } from './interchange-painter-order.ts';
 import { timelineImportIssue, timelineInterchangeMediaName, TIMELINE_INTERCHANGE_MAXIMUM_DEPTH, TIMELINE_INTERCHANGE_MAXIMUM_ITEMS,
 	type TimelineInterchangeDocument, type TimelineInterchangeMedia, type TimelineInterchangeTrack, type TimelineInterchangeClip } from './timeline-interchange-types.ts';
 
@@ -101,7 +102,7 @@ export function parseOtioTimeline(text: string): TimelineInterchangeDocument {
 	const startFrameCount = roundRational(origin.num, origin.den, 'point');
 	const sampleRate = metadata.sampleRate === undefined ? 48000 : Number(metadata.sampleRate);
 	if (!Number.isSafeInteger(sampleRate) || sampleRate < 1) throw new RangeError('OTIO sample rate must be positive.');
-	return { format: 'otio', title: String(root.name ?? 'OTIO timeline'), sampleRate, rate, dropFrame: Boolean(metadata.dropFrame), startFrameCount, tracks: segment.tracks, media: [...media.values()], issues };
+	return { format: 'otio', title: String(root.name ?? 'OTIO timeline'), sampleRate, rate, dropFrame: Boolean(metadata.dropFrame), startFrameCount, tracks: nativeInterchangePictureOrder(segment.tracks), media: [...media.values()], issues };
 }
 
 function trimSegment(segment: Segment, start: Rational, duration: Rational): Segment {
