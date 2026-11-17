@@ -104,8 +104,19 @@ export async function recoverSoundscaperScape<Result>(
 		const projectBytes = encoder.encode(serializeScapeProjectDocument(project));
 		const retained = new Set(repaired.project.sources.map(({ id }) => id));
 		const timingKeys = new Set(repaired.project.sources.map(videoTimingKey).filter((key) => key !== null));
+		const extension = options.projectAssetExtension;
+		const verifiedBodies = new Map(envelope.manifest.assets.filter(asset => extension?.assetKinds.includes(asset.kind))
+			.map(asset => [asset.sourceId, asset]));
+		const store = {
+			getMediaAssetMetadata: (id: string) => verifiedBodies.get(id) ?? null,
+			getNativePluginStateBodyMetadata: (id: string) => {
+				const asset = verifiedBodies.get(id);
+				return asset ? { byteLength: asset.size, sha256: asset.sha256 } : null;
+			},
+		};
+		const extensionEntries = new Set((await extension?.planExportAssets({ project, store, signal }))?.map(asset => asset.entry));
 		const assets = envelope.manifest.assets.filter((asset) => asset.kind === 'video-timing'
-			? timingKeys.has(asset.sourceId) : !mediaKinds.has(asset.kind) || retained.has(asset.sourceId));
+			? timingKeys.has(asset.sourceId) : mediaKinds.has(asset.kind) ? retained.has(asset.sourceId) : extensionEntries.has(asset.entry));
 		const manifest = { ...envelope.manifest, assets,
 			project: { ...envelope.manifest.project, size: projectBytes.byteLength, sha256: digestBytes(projectBytes) } };
 		const names = new Set(assets.map(({ entry }) => entry));

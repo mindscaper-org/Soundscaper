@@ -7,10 +7,11 @@ import { BlobReader, BlobWriter, Uint8ArrayReader, Uint8ArrayWriter, ZipReader, 
 import { digestBytes } from '../src/common/media/bytes.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectStore } from '../src/soundscaper/editor-project-store.ts';
-import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
+import { createSoundscaperScapeNativeRuntime, type SoundscaperScapeNativeStore } from '../src/soundscaper/editor-scape-native.ts';
 import { createAudioClip, createAudioSource, createAudioTrack, createVideoSource } from '../src/common/editor/project-media-factory.ts';
 import { createVideoTimingAssetPublication } from '../src/common/editor/video-timing-asset.ts';
 import { readTrackPlaylists } from '../src/common/editor/track-playlists.ts';
+import { readSessionSnapshots } from '../src/common/editor/session-snapshots.ts';
 import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts';
 
 const encoder = new TextEncoder();
@@ -128,6 +129,50 @@ test('Open Scape recovery retains healthy arrangements on a track with one unava
 	const recalled = applySoundscaperProjectCommand(result.project, { type: 'track/playlist-activate', trackId, id: 'original' });
 	assert.equal(recalled.clips[0]?.id, 'spoken');
 	assert.ok(result.recoveryChanges?.some(change => change.path === 'metadata.trackPlaylists[0].playlists[1]'));
+});
+
+test('Open Scape recovery retires extension assets owned only by a discarded snapshot', async context => {
+	const store = createSoundscaperProjectStore({ indexedDB: createInstrumentedIndexedDB(), preferOpfs: false });
+	context.after(async () => { await store.close(); });
+	const sources = ['unavailable', 'surviving'].map(id => createAudioSource({ id, sampleRate: 48000, channelCount: 1, frameCount: 2 }));
+	for (const source of sources) {
+		const writer = await store.beginSourceWrite(source.id, source);
+		await writer.write([Float32Array.of(0.125, -0.25)]);
+		await writer.commit();
+	}
+	const bytes = Uint8Array.of(1, 7, 255), sha256 = digestBytes(bytes), bodyId = `native-plugin-state:${sha256}`;
+	const native: SoundscaperScapeNativeStore = {
+		getNativePluginStateBodyMetadata: (id: string) => id === bodyId ? { byteLength: bytes.byteLength, sha256 } : null,
+		loadNativePluginStateBody: (id: string) => id === bodyId ? bytes : null,
+	};
+	const sender = new Proxy(store as typeof store & SoundscaperScapeNativeStore, { get(target, key) {
+		const owner = Object.hasOwn(native, key) ? native : target;
+		const value: unknown = Reflect.get(owner, key, owner);
+		return typeof value === 'function' ? value.bind(owner) : value;
+	} });
+	const trackId = 'track';
+	let project = createSoundscaperProject({ id: 'snapshot-bodies', sources,
+		tracks: [createAudioTrack({ id: trackId, clipIds: ['lost-clip', 'healthy-clip'] })],
+		clips: [createAudioClip({ id: 'lost-clip', sourceId: 'unavailable', durationFrames: 2 }),
+			createAudioClip({ id: 'healthy-clip', sourceId: 'surviving', durationFrames: 2, timelineStartFrame: 2 })],
+		nativePluginStates: [{ instanceId: 'plugin', format: 'vst3', stablePluginId: 'test.plugin', binarySha256: 'ab'.repeat(32),
+			stateBody: { kind: 'native-plugin-state', bodyId, sha256, byteLength: bytes.byteLength },
+			enabled: true, bypassed: false, continuity: 'live', latencySamples: 0 }],
+	});
+	project = applySoundscaperProjectCommand(project, { type: 'project/snapshot-create', id: 'snapshot', name: 'Original mix', createdAt: '2026-11-17T10:00:00Z' });
+	project = applySoundscaperProjectCommand(project, { type: 'native-plugin-state/remove', instanceId: 'plugin' });
+	project = applySoundscaperProjectCommand(project, { type: 'clip/remove', clipId: 'lost-clip' });
+	const runtime = createSoundscaperScapeNativeRuntime();
+	const exported = await runtime.exportScapeProject(project, sender);
+	assert.ok(exported.blob);
+	assert.ok(exported.manifest.assets.some(asset => asset.sourceId === bodyId));
+	const archive = await rewriteArchive(exported.blob, entries => {
+		entries.delete(exported.manifest.assets.find(asset => asset.sourceId === 'unavailable')!.entry);
+	});
+	const recovered = await runtime.importScapeProject(archive, store, { recover: true });
+	assert.deepEqual(readSessionSnapshots(recovered.project), []);
+	assert.deepEqual(recovered.project.clips.map(clip => clip.id), ['healthy-clip']);
+	assert.ok(recovered.recoveryChanges?.some(change => change.path === 'metadata.sessionSnapshots[0]'));
 });
 
 test('Scape recovery keeps invalid archive integrity closed', async (context) => {
