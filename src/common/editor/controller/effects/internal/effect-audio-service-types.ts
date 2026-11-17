@@ -184,6 +184,7 @@ export interface EffectAudioServiceRuntime<Buffer = EffectAudioBuffer> {
 	readonly prepareCommittedTimePitchCaches: (project: EffectAudioProject) => Promise<unknown>;
 	readonly createRenderEngine: () => EffectAudioRenderEngine<Buffer>;
 	readonly sourceBuffers: EngineSourceBufferInput;
+	readonly sourceChunkProviders?: import('../../../engine/public-api.ts').EngineChunkSourceInput;
 	readonly audioBufferChannels: (buffer: Buffer) => readonly Float32Array[];
 	readonly matchAudacitySelectionChannels: (
 		channels: readonly Float32Array[],

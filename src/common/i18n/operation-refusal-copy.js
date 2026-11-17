@@ -45,7 +45,7 @@ export const OPERATION_REFUSAL_COPY_BY_LOCALE = Object.freeze({
 			effectTrackLengthsMismatch: 'The selected tracks produced different effect lengths and cannot be rippled together.',
 			effectChannelLayoutChanged: 'The effect changed the selection channel layout.',
 			effectProcessingFailed: 'Audacity effect processing failed.',
-			effectMemoryTooLarge: 'The effect’s estimated peak memory use is too large to process safely in this browser.',
+			effectMemoryTooLarge: 'The effect’s estimated peak memory use exceeds the processing memory limit.',
 			analysisCached: 'Loaded cached analysis.',
 			analysisRendering: 'Rendering audio for analysis',
 			analysisSummary: '{channelCount} channels · {duration} s · {sampleRate} Hz',

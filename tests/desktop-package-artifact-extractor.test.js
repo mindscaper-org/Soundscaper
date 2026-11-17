@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
 	mkdir, mkdtemp, rm, symlink, writeFile,
 } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -16,6 +17,55 @@ import {
 
 const DMG_VOLUME = 'Soundscaper 1.0.0-rc.1-arm64';
 const DMG_APPLICATIONS_LINK = `${DMG_VOLUME}/Applications`;
+
+test('calendar DMG volume titles match the foreign-platform extractor for both products', async (context) => {
+	const require = createRequire(import.meta.url);
+	const { DmgTarget } = require('dmg-builder/out/dmg.js');
+	const { Arch } = require('builder-util');
+	const configPath = require.resolve('../electron-builder.config.cjs');
+	const originalProduct = process.env.SCAPE_PRODUCT;
+	try {
+		for (const productId of ['soundscaper', 'framescaper']) {
+			await context.test(productId, async (subtest) => {
+				process.env.SCAPE_PRODUCT = productId;
+				delete require.cache[configPath];
+				const config = require(configPath);
+				const releaseName = config.extraMetadata.releaseVersion;
+				const volumeName = DmgTarget.prototype.computeVolumeName.call({
+					packager: {
+						appInfo: { version: config.extraMetadata.version },
+						platformSpecificBuildOptions: {},
+					},
+				}, Arch.arm64, config.dmg.title);
+				assert.equal(volumeName, `${releaseName}-arm64`);
+
+				const root = await mkdtemp(join(tmpdir(), 'scape-calendar-dmg-'));
+				subtest.after(() => rm(root, { recursive: true, force: true }));
+				const extractedRoot = join(root, 'content');
+				const execute = async (_command, args) => {
+					if (args[0] === 'l' || args[0] === 'e') {
+						assert.equal(args.at(-1), `${volumeName}/Applications`);
+						return {
+							stdout: args[0] === 'l'
+								? dmgListing({ path: `${volumeName}/Applications` }) : '/Applications',
+							stderr: '',
+						};
+					}
+					await mkdir(join(extractedRoot, volumeName), { recursive: true });
+					return { stdout: dmgExtractionOutput(), stderr: '' };
+				};
+				assert.equal(await extractDmgWithSevenZip({
+					artifact: join(root, `${releaseName}-mac-arm64.dmg`),
+					extractedRoot, productId, sevenZip: '/fixture/7z', targetId: 'mac-arm64',
+				}, { execute }), join(extractedRoot, volumeName));
+			});
+		}
+	} finally {
+		if (originalProduct === undefined) delete process.env.SCAPE_PRODUCT;
+		else process.env.SCAPE_PRODUCT = originalProduct;
+		delete require.cache[configPath];
+	}
+});
 
 test('DMG cleanup retains both the package-audit and detach failures', async () => {
 	const auditError = new Error('package content mismatch');

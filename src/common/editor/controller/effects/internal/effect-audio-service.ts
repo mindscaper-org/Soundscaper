@@ -45,7 +45,7 @@ export function createEffectAudioService<Buffer = EffectAudioBuffer>(runtime: Ef
 		channelCount: number, clipIds?: readonly string[] | null): Promise<Float32Array[] | null> {
 		const token = runtime.captureProject();
 		const channels = await renderSimpleDryTrackPcm(runtime.getProject(), runtime.sourceBuffers,
-			trackId, startFrame, endFrame, channelCount, clipIds);
+			trackId, startFrame, endFrame, channelCount, clipIds, null, runtime.sourceChunkProviders);
 		runtime.assertProject(token);
 		return channels;
 	}
@@ -73,7 +73,7 @@ export function createEffectAudioService<Buffer = EffectAudioBuffer>(runtime: Ef
 			?? (runtime.audacitySelectionChannelCount(project, trackId, startFrame, endFrame) || 1);
 		if (processing === 'dry') {
 			const direct = await renderSimpleDryTrackPcm(project, runtime.sourceBuffers,
-				trackId, startFrame, endFrame, channelCount, requestedClipIds, signal);
+				trackId, startFrame, endFrame, channelCount, requestedClipIds, signal, runtime.sourceChunkProviders);
 			runtime.assertProject(token);
 			if (direct) return direct;
 		}

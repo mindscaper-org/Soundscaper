@@ -129,3 +129,12 @@ test('an overlapping beat-anchored clip is retained by the dry effect render', a
 	assert.ok(await renderSimpleDryTrackPcm(musicalProject, sources, 'track', 101, 221, 2, ['clip']),
 		'an explicit ordinary-clip scope can still use exact direct PCM');
 });
+
+test('neutral stored stereo clips use bounded chunk reads without materializing an AudioBuffer', async () => {
+	const { project, channels } = fixture();
+	let reads = 0;
+	const providers = new Map([['source', { sampleRate: 44100, channelCount: 2, frameCount: 2003, chunkFrames: 512,
+		readStorageChunk: async (index: number) => { reads++; return channels.map(channel => channel.subarray(index * 512, (index + 1) * 512)); } }]]);
+	const output = await renderSimpleDryTrackPcm(project, new Map(), 'track', 103, 1601, 2, null, null, providers);
+	assert.ok(output); assert.deepEqual(output[0], channels[0].subarray(19, 1517)); assert.equal(reads, 3);
+});

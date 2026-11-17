@@ -2,7 +2,7 @@
 
 import type { DeferredNyquistClient } from './deferred-effect-runtime.ts';
 import type { AudioEditorCommand } from '../../commands/protocol.ts';
-import type { EnginePublicApi, EngineSourceBufferInput } from '../../engine/public-api.ts';
+import type { EnginePublicApi, EngineSourceBufferInput, EngineChunkSourceInput } from '../../engine/public-api.ts';
 import type { AssistanceDerivativeRepositoryPort } from '../../storage/deferred-assistance-derivative-repository.ts';
 import type { AbsentSubsystemContext } from '../shared/absent-subsystem.ts';
 import type { EffectAudioProject, EffectAudioServiceRuntime } from './internal/effect-audio-service.ts';
@@ -33,6 +33,7 @@ import type { generateWaveformPeaks } from '../source/waveform-analysis.ts';
 import type { MacroTransaction } from '../document/project-mutation-service.ts';
 import type { AraClipEditingDependencies } from './internal/ara-clip-editing.ts';
 import type { MicrophoneBleedCopy } from './internal/microphone-bleed-service.ts';
+import type { WaveformPeakPyramid } from '../../waveform-peak-builder.ts';
 
 /** The document shape every effect service reads; the controller supplies its current project. */
 export type EffectsCompositionProject =
@@ -55,7 +56,7 @@ export type EffectsCompositionState =
 	& RackEffectServiceRuntime['state']
 	& SelectionEffectResultRuntime['state']
 	& {
-		preferences?: Readonly<{ performance?: Readonly<{ optimizeFor?: string }> }>;
+		preferences?: Readonly<{ performance?: Readonly<{ optimizeFor?: string }>; advanced?: Readonly<{ effectMemoryLimitGiB?: number }> }>;
 		audacityEffectProcessing: boolean;
 		audacityPreviewGeneration: number;
 		readSourceSelectionFrames?: (() => number | null) | null;
@@ -94,6 +95,7 @@ export type EffectsCompositionEngine = Pick<EnginePublicApi,
 
 export interface EffectsCompositionDependencies {
 	readonly importMidiDocument?: import('../../assistance/music-transcription-v1.ts').MusicMidiImporter;
+	readonly isDesktop?: boolean;
 	readonly beginResultTransaction: () => Pick<MacroTransaction<unknown>, 'commit' | 'rollback'>;
 	readonly pauseSourcePreview?: () => void;
 	readonly state: EffectsCompositionState;
@@ -116,6 +118,7 @@ export interface EffectsCompositionDependencies {
 	readonly store: EffectsCompositionStore;
 	readonly engine: EffectsCompositionEngine;
 	readonly sourceBuffers: EngineSourceBufferInput & NyquistGeneratedAudioServiceRuntime['sourceBuffers'];
+	readonly sourceChunkProviders?: EngineChunkSourceInput;
 	readonly sourcePeaks: NyquistGeneratedAudioServiceRuntime['sourcePeaks'];
 	readonly taskProgress: Pick<EditorTaskProgressCoordinator, 'run' | 'updateActive'>;
 	readonly nyquistEvaluator: DeferredNyquistClient['evaluate'];
@@ -146,8 +149,9 @@ export interface EffectsCompositionDependencies {
 		options?: RackEffectCommitOptions,
 	) => EffectsCompositionProject;
 	readonly cacheSourceBuffer: (sourceId: string, buffer: AudioBuffer) => unknown;
-	readonly activateAraSource: AraClipEditingDependencies['activateSource'];
-	readonly releaseAraSource: AraClipEditingDependencies['releaseSource'];
+	readonly activateStoredSource: (source: Parameters<AraClipEditingDependencies['activateSource']>[0], signal: AbortSignal,
+		peaks?: WaveformPeakPyramid) => ReturnType<AraClipEditingDependencies['activateSource']>;
+	readonly releaseStoredSource: AraClipEditingDependencies['releaseSource'];
 	readonly snapTimelineFrame: (frame: unknown) => number;
 	readonly projectDurationFrames: (project: EffectsCompositionProject | null) => number;
 	readonly projectSampleRate: () => number;

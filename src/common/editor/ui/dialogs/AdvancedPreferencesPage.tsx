@@ -11,6 +11,8 @@ import type { AudioEditorPerformancePreferences } from '../../performance-prefer
 import type { WaveformDisplayPreferences } from '../../waveform-display-preferences.ts';
 import PreferenceDropdownField from './PreferenceDropdownField.jsx';
 import PreferenceCheckbox from '../EditorPreferenceCheckbox.tsx';
+import PreferenceNumberInput from './PreferenceNumberInput.tsx';
+import { MAXIMUM_EFFECT_MEMORY_LIMIT_GIB } from '../../effect-memory-budget.ts';
 import {
 	AUDIO_COM_DEFAULT_SERVER_URL, normalizeAudioComServerUrl,
 	type AudioEditorAdvancedPreferences,
@@ -18,6 +20,9 @@ import {
 import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface AdvancedPreferencesCopy {
+	readonly advancedEffectMemory: string;
+	readonly advancedEffectMemoryLimit: string;
+	readonly advancedEffectMemoryDescription: string;
 	readonly advancedAudioServer: string;
 	readonly advancedAudioServerDescription: string;
 	readonly advancedAudioServerInvalid: string;
@@ -76,6 +81,18 @@ export default function AdvancedPreferencesPage({ controller, preferences, copy,
 	return <>
 		<TemporaryDataPreferencesPanel controller={controller} preferences={preferences.temporaryData} copy={copy as unknown as Record<string, unknown>} fileService={fileService} run={run} />
 		<Separator />
+		{fileService?.isDesktop === true && <>
+			<PreferencePanel title={copy.advancedEffectMemory}>
+				<div className="kw-audio-editor-preferences__field">
+					<span>{copy.advancedEffectMemoryLimit}</span>
+					<PreferenceNumberInput label={copy.advancedEffectMemoryLimit} value={preferences.advanced.effectMemoryLimitGiB}
+						minimum={1} maximum={MAXIMUM_EFFECT_MEMORY_LIMIT_GIB} integer
+						onCommit={effectMemoryLimitGiB => run(() => controller.actions.preferences.update({ advanced: { effectMemoryLimitGiB } }))} />
+				</div>
+				<p className="kw-audio-editor-preferences__note">{copy.advancedEffectMemoryDescription}</p>
+			</PreferencePanel>
+			<Separator />
+		</>}
 		<PreferencePanel title={copy.optimizeFor}>
 			<div className="kw-audio-editor-preferences__grid">
 				<PreferenceDropdownField label={copy.optimizeFor} value={preferences.performance?.optimizeFor ?? 'memory'}

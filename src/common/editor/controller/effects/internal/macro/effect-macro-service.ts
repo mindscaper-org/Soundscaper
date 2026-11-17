@@ -32,6 +32,8 @@ import { bindNativeAutoDuckControls, macroNeedsSilentTargets } from './macro-tar
 import { runMacroTargetPlans } from './macro-linked-truncation.ts';
 import { macroRackHistoryFrames, macroRackHistoryScratchBytes } from './macro-rack-history.ts';
 import { macroPlanPeakBytes } from './macro-plan-memory.ts';
+import type { RunStreamedEffects } from '../streamed/streamed-effect-service.ts';
+import { canStreamEffectMacro } from '../../../../streamed-effects/admission.ts';
 
 const EFFECT_MACRO_TASK = 'selection-effect-macro';
 
@@ -117,6 +119,7 @@ export interface EffectMacroServiceRuntime<Buffer = MacroRenderBuffer> {
 	readonly copy: MacroCopy;
 	readonly memoryLimitBytes: number;
 	readonly runSelectionEffectChain?: RunOfflineSelectionChain;
+	readonly runStreamedEffects?: RunStreamedEffects;
 	readonly getProject: () => MacroProject;
 	readonly audacityEffectTarget: (trackId?: string | null) => EffectTarget | null;
 	readonly audacityEffectTargets?: (options?: Readonly<{ includeSilentTracks?: boolean }>) => readonly EffectTarget[];
@@ -231,7 +234,8 @@ export function createEffectMacroService<Buffer = MacroRenderBuffer>(runtime: Ef
 		});
 		const outputBytes = plans.reduce((sum, plan) => sum + plan.outputBytes, 0);
 		const estimatedPeakBytes = macroPlanPeakBytes(plans);
-		if (estimatedPeakBytes > runtime.memoryLimitBytes) throw runtime.audacityEffectMemoryError();
+		const streamed = runtime.runStreamedEffects && plans.every(plan => !plan.spectralSelection && canStreamEffectMacro(plan.effects));
+		if (estimatedPeakBytes > runtime.memoryLimitBytes && !streamed) throw runtime.audacityEffectMemoryError();
 		if (targets.length > 1 && !runtime.persistAudacityEffectResults) throw new Error('The macro result adapter cannot commit multiple targets.');
 		const selectionDetails = runtime.effectSelectionDetails?.(targets)
 			?? { trackIds: targets.map(({ track }) => track.id), clipIds: [] };
@@ -246,25 +250,28 @@ export function createEffectMacroService<Buffer = MacroRenderBuffer>(runtime: Ef
 		try {
 			await runtime.preflightStorage(outputBytes, 'effect');
 			assertOwnership(runtime, ownership);
-			const results = await runMacroTargetPlans(plans, {
-				runEffects: (plan, effects, initial) => runChain(effects, plan.target, project, sampleRate,
-					plan.preRollFrames, ownership, contextCacheBytes, plan.spectralSelection, initial),
-				runLinked: async (effect, channels) => {
-					const result = await runtime.runSelectionEffectWorker({ operation: 'apply', effectType: effect.type,
-						channels, sampleRate, params: effect.params, context: {} });
-					assertOwnership(runtime, ownership);
-					return result.channels;
-				},
-				invalidChannels: () => createLocalizedError(Error, runtime.copy, 'effectInvalidAudio'),
-			});
 			const effectName = String(request.name || publishedCopyFor(runtime.copy).untitledMacro || publishedCopyFor(runtime.copy).macrosPalette).trim()
-				|| publishedCopyFor(runtime.copy).untitledMacro
-				|| publishedCopyFor(runtime.copy).macrosPalette;
-			const options = { assertCurrent: () => assertOwnership(runtime, ownership), effectName, selectionDetails,
-				allowIndependentLengths: plans.some(plan => plan.effects.some(effect =>
-					effect.type === 'audacity-truncate-silence' && effect.params.independent === true)) };
-			if (results.length > 1) await runtime.persistAudacityEffectResults!(results, null, options);
-			else await runtime.persistAudacityEffectResult(results[0]!.target, null, results[0]!.channels, options);
+				|| publishedCopyFor(runtime.copy).untitledMacro || publishedCopyFor(runtime.copy).macrosPalette;
+			if (streamed) await runtime.runStreamedEffects!(plans, { effectName, sampleRate, selectionDetails,
+				signal: ownership.task.signal, assertCurrent: () => assertOwnership(runtime, ownership) });
+			else {
+				const results = await runMacroTargetPlans(plans, {
+					runEffects: (plan, effects, initial) => runChain(effects, plan.target, project, sampleRate,
+						plan.preRollFrames, ownership, contextCacheBytes, plan.spectralSelection, initial),
+					runLinked: async (effect, channels) => {
+						const result = await runtime.runSelectionEffectWorker({ operation: 'apply', effectType: effect.type,
+							channels, sampleRate, params: effect.params, context: {} });
+						assertOwnership(runtime, ownership);
+						return result.channels;
+					},
+					invalidChannels: () => createLocalizedError(Error, runtime.copy, 'effectInvalidAudio'),
+				});
+				const options = { assertCurrent: () => assertOwnership(runtime, ownership), effectName, selectionDetails,
+					allowIndependentLengths: plans.some(plan => plan.effects.some(effect =>
+						effect.type === 'audacity-truncate-silence' && effect.params.independent === true)) };
+				if (results.length > 1) await runtime.persistAudacityEffectResults!(results, null, options);
+				else await runtime.persistAudacityEffectResult(results[0]!.target, null, results[0]!.channels, options);
+			}
 			assertOwnership(runtime, ownership);
 			setLocalizedStatus(runtime.setStatus, runtime.copy, (runtime.copy.macroApplied ? "macroApplied" : "audacityApplied"), undefined, 'success');
 			return true;

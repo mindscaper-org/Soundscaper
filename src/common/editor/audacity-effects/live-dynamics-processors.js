@@ -205,6 +205,7 @@ export class AutoDuckLiveProcessor extends LiveProcessor {
 		this.thresholdPower = basicDbToLinear(this.params.thresholdDb) ** 2 * RMS_WINDOW_SIZE;
 	}
 	reset() {
+		this.selectionEnded = false;
 		this.programRings = [];
 		this.rmsWindow = new Float64Array(RMS_WINDOW_SIZE);
 		this.rmsPosition = 0;
@@ -213,6 +214,13 @@ export class AutoDuckLiveProcessor extends LiveProcessor {
 		this.openRegion = null;
 		this.completedRegions = [];
 		this.pauseFrames = 0;
+	}
+	/** Close the detector at the authored end before draining delayed programme PCM. */
+	finishSelection() {
+		if (this.openRegion) this.completedRegions.push({ start: this.openRegion.start,
+			end: this.frame - this.pauseFrames + this.outerUp });
+		this.openRegion = null;
+		this.selectionEnded = true;
 	}
 	process(input, output, sidechain = []) {
 		const frames = validateBlock(input, output);
@@ -224,13 +232,15 @@ export class AutoDuckLiveProcessor extends LiveProcessor {
 			const absoluteFrame = this.frame;
 			const writePosition = absoluteFrame % ringLength;
 			for (let channel = 0; channel < output.length; channel += 1) this.programRings[channel][writePosition] = channelAt(input, channel)?.[blockFrame] || 0;
-			this.rmsSum -= this.rmsWindow[this.rmsPosition];
-			const controlSample = control?.[blockFrame] || 0;
-			const square = controlSample * controlSample;
-			this.rmsWindow[this.rmsPosition] = square;
-			this.rmsSum += square;
-			this.rmsPosition = (this.rmsPosition + 1) % RMS_WINDOW_SIZE;
-			this.#updateRegion(this.rmsSum > this.thresholdPower, absoluteFrame);
+			if (!this.selectionEnded) {
+				this.rmsSum -= this.rmsWindow[this.rmsPosition];
+				const controlSample = control?.[blockFrame] || 0;
+				const square = controlSample * controlSample;
+				this.rmsWindow[this.rmsPosition] = square;
+				this.rmsSum += square;
+				this.rmsPosition = (this.rmsPosition + 1) % RMS_WINDOW_SIZE;
+				this.#updateRegion(this.rmsSum > this.thresholdPower, absoluteFrame);
+			}
 
 			const logicalFrame = absoluteFrame - this.delayFrames;
 			if (logicalFrame < 0) {
