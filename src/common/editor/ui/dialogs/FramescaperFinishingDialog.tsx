@@ -114,12 +114,14 @@ export default function FramescaperFinishingDialog({
 
 	useEffect(() => {
 		setDocumentText(model.documentText);
-	}, [model.documentText]);
+	}, [model.documentText, operationScope]);
 
 	useEffect(() => {
 		setPending(false);
 		setStatus('');
 		setError('');
+		setCaptionFormat('srt');
+		setCaptionSidecar('');
 	}, [operationScope, setError, setStatus]);
 	useEffect(() => {
 		setMotionStackId(motionTarget?.stackId ?? '');
