@@ -12,7 +12,7 @@ import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescap
 import { createFramescaperBaselineImageFixture } from './helpers/framescaper-baseline-image-fixture.ts';
 import { installReactTestDom } from './helpers/react-test-dom.ts';
 
-async function dropImage(context: TestContext, trackId: string | null, locked = false) {
+async function dropImage(context: TestContext, trackId: string | null, locked = false, timelineStartFrame = 48_000) {
 	const dom = installReactTestDom();
 	context.after(() => dom.restore());
 	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
@@ -37,7 +37,8 @@ async function dropImage(context: TestContext, trackId: string | null, locked = 
 	const start = project;
 	const root = createRoot(dom.container as unknown as Element);
 	let handlers: ReturnType<typeof useTimelineProjectBinDnd> | null = null;
-	let preview: Readonly<{ createTrack?: boolean; trackId?: string }> | null = null;
+	type DropPreview = Readonly<{ createTrack?: boolean; trackId?: string; timelineStartFrame?: number }>;
+	let preview: DropPreview | null = null;
 	function Harness() {
 		handlers = useTimelineProjectBinDnd({
 			controller: { actions: { projectBin: actions } }, mutationsBlocked: false,
@@ -45,7 +46,7 @@ async function dropImage(context: TestContext, trackId: string | null, locked = 
 				preview = typeof change === 'function' ? change(preview) as typeof preview : change as typeof preview;
 			} },
 			model: { project }, hitTesting: {
-				clearProjectBinDragState() {}, timelineDropTargetAt: () => ({ trackId, createTrack: trackId === null, timelineStartFrame: 48_000 }),
+				clearProjectBinDragState() {}, timelineDropTargetAt: () => ({ trackId, createTrack: trackId === null, timelineStartFrame }),
 			},
 			menuActions: { run: (operation: () => unknown) => operation() },
 		} as never);
@@ -60,7 +61,7 @@ async function dropImage(context: TestContext, trackId: string | null, locked = 
 		};
 		await act(async () => handlers!.onTimelineDragOver(event));
 		await act(async () => handlers!.onTimelineDrop(event));
-		return { start, project, preview: preview as Readonly<{ createTrack?: boolean; trackId?: string }> | null, dropEffect: event.dataTransfer.dropEffect };
+		return { start, project, preview: preview as DropPreview | null, dropEffect: event.dataTransfer.dropEffect };
 	} finally {
 		await act(async () => root.unmount());
 		for (const [index, key] of listeners.entries()) {
@@ -92,4 +93,11 @@ test('dropping a Bin image on a locked picture track never places it on a differ
 	const result = await dropImage(context, 'video-track', true);
 	assert.equal(result.dropEffect, 'none');
 	assert.equal(result.project, result.start);
+});
+
+test('the Project Bin image ghost lands on the same frame boundary as the committed drop', async context => {
+	const result = await dropImage(context, 'video-track', false, 50_000);
+	const image = result.project.clips.find(item => item.kind === 'image');
+	assert.equal(image?.sequenceStartFrame, 10);
+	assert.equal(result.preview?.timelineStartFrame, 48_000);
 });

@@ -6,6 +6,8 @@ import {
 	parseFreesoundResultDragPayload,
 } from '../../project-bin-dnd.js';
 import { isProductVisualClip } from '../../video-timeline-internals.js';
+import { resolveSequenceTimingView } from '../../sequence-timing-model.ts';
+import { sampleFrameToVideoFrame, videoFrameToSampleFrame } from '../../timeline-time.ts';
 import { compatibleMediaTrack } from './geometry.ts';
 import { withWebFileLoadLimitContext } from '../../web-file-limit-failure.ts';
 import { NEW_AUDIO_TRACK_DROP_TARGET } from './constants.ts';
@@ -77,7 +79,9 @@ export function useTimelineProjectBinDnd({
 				trackId: previewCreatesTrack
 					? `${NEW_AUDIO_TRACK_DROP_TARGET}-${index}`
 					: previewTrack?.id || target.trackId,
-				timelineStartFrame: target.timelineStartFrame,
+				timelineStartFrame: isProductVisualClip(itemClip)
+					? pictureDropSample(project, previewTrack?.id ?? target.trackId, target.timelineStartFrame)
+					: target.timelineStartFrame,
 			};
 		});
 		const activePreview = previews.find((preview) => preview.clipId === clip.id) || previews[0];
@@ -171,6 +175,13 @@ export function useTimelineProjectBinDnd({
 
 function projectBinTrackKind(clip) {
 	return isProductVisualClip(clip) ? 'video' : clip.kind;
+}
+
+function pictureDropSample(project, trackId, sample) {
+	const sequenceId = project.sequences.find(sequence => sequence.trackIds.includes(trackId))?.id;
+	const { rate } = resolveSequenceTimingView(project, sequenceId);
+	const frame = sampleFrameToVideoFrame(sample, rate, project.sampleRate, 'point');
+	return videoFrameToSampleFrame(frame, rate, project.sampleRate, 'point');
 }
 
 function lockedTrack(project, trackId) {
