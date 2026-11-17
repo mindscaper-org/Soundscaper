@@ -88,7 +88,7 @@ export default function TimedRecordingDialogFields({
 				<EditorMusicalTimeCodeProvider controller={controller} originFrame={originFrame}>
 					<AudioEditorTimeCodeInput label={copy.timedRecordingDuration}
 					className="kw-audio-editor-timed-recording__control" variant="light"
-					value={model.durationSeconds} unit="seconds" minimum={1}
+					value={model.durationSeconds} unit="seconds" minimum={0.001}
 					sampleRate={audioEditorProjectSampleRate(project)} frameRate={audioEditorProjectFrameRate(project)}
 					disabled={model.endMode !== 'duration'} onChange={(duration) => onValueChange(
 						updateTimedRecordingDialogDuration(model, duration),
