@@ -179,6 +179,7 @@ export function createProjectSwitchService<
 		let activeLock: ProjectLifecycleLock | null = null, switchFailure: unknown | typeof NO_PROJECT_SWITCH_FAILURE = NO_PROJECT_SWITCH_FAILURE;
 		let stagedLock: ProjectLifecycleLock | null = null;
 		const previousProject = runtime.getProject();
+		const leavingReadOnly = previousProject !== null && previousProject.id !== projectId && runtime.state.readOnly;
 		try {
 			// Cancellation is a registry query, not an inventory: everything the
 			// open project owns carries the project scope, so a subsystem joins
@@ -359,8 +360,8 @@ export function createProjectSwitchService<
 			}
 			if (lockReadOnly) setLocalizedStatus(runtime.setStatus, runtime.copy, "projectOpenOtherTab", undefined, 'error');
 			else if (runtime.state.readOnly) {
-				publishProjectReadOnlyStatus(runtime.copy, runtime.setStatus, options.readOnlyReason);
-			}
+				publishProjectReadOnlyStatus(runtime.copy, runtime.setStatus, intrinsicReadOnlyReason);
+			} else if (leavingReadOnly && !openRecovery.blocked) setLocalizedStatus(runtime.setStatus, runtime.copy, 'ready', undefined, 'success');
 			runtime.scheduleProjectLockRecovery(projectId, activationLock);
 		} catch (error) {
 			let failure = error;

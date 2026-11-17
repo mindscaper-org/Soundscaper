@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createFixture, project } from './helpers/audio-editor-project-switch-fixture.ts';
 import { createProjectSwitchService } from '../src/common/editor/controller/document/project-switch-service.ts';
+import { PROJECT_SCHEMA_VERSION } from '../src/common/editor/project-schema-identity.ts';
 
 test('a failed origin save restores project ownership for later actions and same-project selection', async () => {
 	const fixture = createFixture();
@@ -79,4 +80,24 @@ test('a second window taking write ownership during a target load opens the tab 
 	assert.equal(fixture.getProject()?.id, target.id);
 	assert.equal(fixture.getTab(target.id)?.readOnly, true);
 	assert.equal(fixture.state.readOnly, true);
+});
+
+test('a writable project no longer shows the previous tab’s read-only error', async () => {
+	const fixture = createFixture();
+	fixture.setLoadReadOnly(true);
+	await fixture.service.openProject({ ...project('readonly-tab'), schemaVersion: PROJECT_SCHEMA_VERSION + 1 });
+	assert.deepEqual(fixture.statuses.at(-1), ['Future project', 'error']);
+	await fixture.service.switchProject(project('writable-tab'));
+	assert.deepEqual(fixture.statuses.at(-1), ['Ready', 'success']);
+});
+
+test('returning to a future-version tab still shows why it cannot be edited', async () => {
+	const fixture = createFixture();
+	const future = { ...project('future-tab'), schemaVersion: PROJECT_SCHEMA_VERSION + 1 };
+	fixture.setLoadReadOnly(true);
+	await fixture.service.openProject(future);
+	await fixture.service.switchProject(project('writable-tab'));
+	await fixture.service.switchProject(future);
+	assert.equal(fixture.getTab(future.id)?.readOnly, true);
+	assert.deepEqual(fixture.statuses.at(-1), ['Future project', 'error']);
 });
