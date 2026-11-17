@@ -3,7 +3,6 @@
 import { setLocalizedStatus } from '../../../../../i18n/presentation-message.ts';
 import { desktopReadCapabilityIdFor } from '../../../../desktop-read-capability-registry.ts';
 import { isTimelineInterchangeFile } from '../../../../timeline-interchange-file.ts';
-import { parseTimelineInterchange } from '../../../../timeline-interchange-import.ts';
 import { buildTimelineInterchangeProject } from '../../../../timeline-interchange-project.ts';
 import { createCurrentAudioEditorProject } from '../../../../project-current.ts';
 import type { NativeProjectServiceRuntime, NativeProjectDocument, NativeProjectFile } from '../../../document/native-project-types.ts';
@@ -29,7 +28,7 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 	return Object.freeze({ openInterchange });
 
 	async function openInterchange(file: NativeProjectFile, options: TimelineInterchangeOpenOptions = {}) {
-		if (!file || !isTimelineInterchangeFile(file.name)) throw new TypeError('Choose an EDL, OTIO, FCPXML, OMF, AAF, ADL, Ardour, SoundCraft, Pro Tools, or Hindenburg file.');
+		if (!file || !isTimelineInterchangeFile(file.name)) throw new TypeError('Choose an EDL, OTIO, FCPXML, OMF, AAF, ADL, Ardour, SoundCraft, Pro Tools, Hindenburg or REAPER file.');
 		if (runtime.editingBlocked()) return undefined;
 		const operation = helpers.beginProjectTask('timeline-interchange-open');
 		const signal = operation.task.signal;
@@ -53,7 +52,7 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 				? (await import('../../../../aaf-import.ts')).parseAafDocument(new Uint8Array(await file.arrayBuffer()))
 				: protools ? (await import('../../../../protools-import.ts')).parseProToolsDocument(new Uint8Array(await file.arrayBuffer()), { fileName: file.name })
 				: binary ? (await import('../../../../omf-import.ts')).parseOmfDocument(new Uint8Array(await file.arrayBuffer()))
-				: parseTimelineInterchange(file.name, await readTimelineText(file), { edlRate: options.edlRate });
+				: (await import('../../../../timeline-interchange-import.ts')).parseTimelineInterchange(file.name, await readTimelineText(file), { edlRate: options.edlRate });
 			assertCurrent();
 			const media = new Map<string, Readonly<Record<string, unknown>>>();
 			const stagedSourceIds = new Map<string, string>();
@@ -85,7 +84,7 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 				else if (embedded) await consume(embedded);
 				else if (selected) await consume(selected, selected.name);
 				else if (sessionReadId && runtime.fileService.resolveSesxMedia && runtime.fileService.withReadDescriptors) {
-					const path = lookupPath(reference);
+					const path = lookupPath(reference, document.format === 'reaper');
 					if (!path) continue;
 					const resolve = async () => {
 						let result = await runtime.fileService.resolveSesxMedia!({ sessionReadId, relativePath: path, ...(mediaRootId ? { mediaRootId } : {}) });
@@ -165,13 +164,13 @@ function companionFor(reference: TimelineInterchangeMedia, files: readonly File[
 	return matches.length === 1 ? matches[0]! : null;
 }
 
-function lookupPath(reference: TimelineInterchangeMedia): string | null {
+function lookupPath(reference: TimelineInterchangeMedia, nativePath = false): string | null {
 	let path = reference.path.replaceAll('\\', '/');
 	try { if (path.startsWith('file:')) path = decodeURIComponent(new URL(path).pathname); } catch { return null; }
 	const parts = path.split('/').filter(part => part !== '.');
 	if (path.length <= 4096 && !path.startsWith('/') && !/^[a-z]:/iu.test(path) && !path.includes('://') && parts.length <= 32
 		&& parts.every(safeBasename)) return parts.join('/');
-	const basename = timelineInterchangeMediaName(path);
+	const basename = nativePath ? reference.name : timelineInterchangeMediaName(path);
 	return safeBasename(basename) ? basename : safeBasename(reference.name) ? reference.name : null;
 }
 
