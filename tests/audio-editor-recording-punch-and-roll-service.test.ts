@@ -93,3 +93,13 @@ test('a multi-track retry explicitly retains every target even when none are arm
 	assert.deepEqual(f.events.at(-1), { multitrack: true,
 		punch: { startFrame: 48_000, selection: null, trackIds: ['voice', 'backup'] } });
 });
+
+test('cancelling capture after a project switch retires the remembered punch', async () => {
+	const f = fixture();
+	f.service.rememberPunch(48_000, null, ['voice']);
+	f.switchProject();
+	f.service.cancelPendingRetry();
+	assert.equal(f.state.lastRecordingPunch, null);
+	assert.equal(await f.service.punchAgain(), false);
+	assert.deepEqual(f.events, []);
+});

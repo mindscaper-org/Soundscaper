@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { assertNoSeriousAxeViolations, bootEditor, collectClientErrors, waitForEditor } from './audio-editor-test-helpers.js';
+import { assertNoSeriousAxeViolations, bootEditor, chooseNestedCommandAction, collectClientErrors, commitInput, waitForEditor } from './audio-editor-test-helpers.js';
 import { installOscillatorMicrophone } from './helpers/complex-editing-workflows.js';
 
 test('Record options edits lead-in with the standard time formats and retries a take', async ({ page }) => {
@@ -58,5 +58,13 @@ test('Record options edits lead-in with the standard time formats and retries a 
 	await expect(record).toHaveAttribute('aria-label', 'Pause recording');
 	await editor.getByRole('button', { name: 'Stop', exact: true }).click();
 	await expect(record).toHaveAttribute('aria-pressed', 'false');
+	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Rename project']);
+	const rename = page.getByRole('dialog', { name: 'Rename project', exact: true });
+	await commitInput(rename.locator('[data-project-name-input] input'), 'Recorded narration');
+	await rename.getByRole('button', { name: 'Save name', exact: true }).click();
+	await editor.getByRole('button', { name: 'New project', exact: true }).click();
+	await editor.getByRole('tab', { name: 'Recorded narration', exact: true }).click();
+	options = await openOptions();
+	await expect(options.getByRole('button', { name: 'Punch again', exact: true })).toBeDisabled();
 	expect(errors).toEqual([]);
 });

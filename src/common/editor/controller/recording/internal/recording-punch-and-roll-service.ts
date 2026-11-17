@@ -75,6 +75,13 @@ export function createRecordingPunchAndRollService<Token>(runtime: PunchAndRollR
 		runtime.publish();
 		return true;
 	}
+	function cancelPendingRetry(): void {
+		retryGeneration++;
+		if (!remembered) return;
+		// Project switching invalidates its generation before cancelling capture.
+		try { runtime.assertCurrent(remembered.token); }
+		catch { remembered = null; state.lastRecordingPunch = null; }
+	}
 	return Object.freeze({ rememberPunch, punchAgain, setLeadInDurationSeconds,
-		cancelPendingRetry: () => { retryGeneration++; } });
+		cancelPendingRetry });
 }
