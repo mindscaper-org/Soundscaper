@@ -2,6 +2,7 @@
 
 import type { MidiFileDocument, MidiFileEvent } from './midi-file-types.ts';
 import type { MidiNote } from './midi-model.ts';
+import { createMidiProjectProgramDefaults, isMidiProgramStateEvent } from './midi-project-program-defaults.ts';
 
 /** These are the performance controls interpreted by the beta PCM fallback. */
 export function isMidiPerformanceStateEvent(event: MidiFileEvent): boolean {
@@ -63,11 +64,11 @@ type PerformanceBoundary = Readonly<{ frame: number; kind: 0 | 1; occurrence: Mi
 type PerformanceEvent = Readonly<{ frame: number; kind: 2; track: number; order: number; event: MidiFileEvent }>;
 type PerformanceMarker = PerformanceBoundary | PerformanceEvent;
 
-/** An independent full clip can restart known beta state only while its global channel is quiet. */
+/** An independent full clip can restart known channel state only while its global channel is quiet. */
 export function quietMidiClipPerformanceEvents(document: MidiFileDocument, occurrences: readonly MidiPerformanceOccurrence[], reserve: (count: number) => void): ReadonlyMap<number, readonly MidiFileEvent[]> {
 	const added = new Map<number, MidiFileEvent[]>();
 	if (!occurrences.some(occurrence => occurrence.eligible)
-		|| !document.tracks.some(track => track.events?.some(isMidiPerformanceStateEvent))) return added;
+		|| !document.tracks.some(track => track.program !== undefined || track.events?.some(event => isMidiPerformanceStateEvent(event) || isMidiProgramStateEvent(event)))) return added;
 	if (document.tracks.some(track => track.notes.some(note => (note.midiPort ?? 0) !== 0)
 		|| track.events?.some(event => event.status === 240 || event.status === 247
 			|| event.status === 255 && (event.metaType === 9 || event.metaType === 0x20
@@ -77,12 +78,19 @@ export function quietMidiClipPerformanceEvents(document: MidiFileDocument, occur
 		const channels = new Set([...occurrence.notes.map(note => note.channel), ...occurrence.events.filter(event => event.status < 240).map(event => event.status & 15)]);
 		markers.push({ frame: occurrence.start, kind: 1, occurrence, channels }, { frame: occurrence.end, kind: 0, occurrence, channels });
 	}
-	for (const [track, data] of document.tracks.entries()) for (const [order, event] of (data.events ?? []).entries()) {
-		if (changes(event).length) markers.push({ frame: event.frame, kind: 2, track, order, event });
+	for (const [track, data] of document.tracks.entries()) {
+		if (data.program !== undefined && !data.events?.some(event => (event.status & 240) === 192)) {
+			markers.push({ frame: 0, kind: 2, track, order: -1, event: { frame: 0, status: 192, data: [data.program] } });
+		}
+		for (const [order, event] of (data.events ?? []).entries()) if (changes(event).length || isMidiProgramStateEvent(event)) markers.push({ frame: event.frame, kind: 2, track, order, event });
 	}
 	markers.sort((a, b) => a.frame - b.frame || a.kind - b.kind || (a.kind === 2 && b.kind === 2 ? a.track - b.track || a.order - b.order : 0));
 	const active = new Int32Array(16);
 	const state = new Map<string, Readonly<{ track: number; event: MidiFileEvent }>>();
+	const programs = createMidiProjectProgramDefaults();
+	const append = (track: number, event: MidiFileEvent): void => {
+		reserve(1); const trackAdded = added.get(track) ?? []; trackAdded.push(event); added.set(track, trackAdded);
+	};
 	for (let index = 0; index < markers.length;) {
 		const frame = markers[index]!.frame;
 		const from = index;
@@ -105,17 +113,19 @@ export function quietMidiClipPerformanceEvents(document: MidiFileDocument, occur
 					if (!previous || previous.track !== occurrence.track || own.has(identity)) continue;
 					const reset = defaultState(previous.event);
 					if (equivalentPerformanceState(previous.event, reset)) continue;
-					reserve(1);
 					const event = { ...reset, frame };
-					const trackAdded = added.get(occurrence.track) ?? [];
-					trackAdded.push(event); added.set(occurrence.track, trackAdded);
+					append(occurrence.track, event);
 					state.set(identity, { track: occurrence.track, event });
 				}
+				for (const event of programs.restart(channel, occurrence.track, frame)) append(occurrence.track, event);
 			}
 		}
 		for (let cursor = from; cursor < index; cursor += 1) {
 			const marker = markers[cursor]!;
-			if (marker.kind === 2) for (const event of changes(marker.event)) state.set(key(event), { track: marker.track, event });
+			if (marker.kind === 2) {
+				for (const event of changes(marker.event)) state.set(key(event), { track: marker.track, event });
+				programs.observe(marker.event, marker.track);
+			}
 		}
 	}
 	return added;

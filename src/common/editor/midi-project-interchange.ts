@@ -5,6 +5,7 @@ import { midiProjectTiming } from './midi-project-timing.ts';
 import { midiInitialTimingEvent } from './midi-initial-timing.ts';
 import { midiClipOccurrences } from './midi-project-source-projection.ts';
 import { quietMidiClipPerformanceEvents, type MidiPerformanceOccurrence } from './midi-project-performance-state.ts';
+import { isMidiProgramStateEvent } from './midi-project-program-defaults.ts';
 import { createMidiClipEventProjection } from './midi-project-event-projection.ts';
 import { createMidiClipNoteProjection } from './midi-project-note-projection.ts';
 import { assertMidiClipTailBoundaries, type MidiClipTailBoundary } from './midi-project-clip-tail-boundaries.ts';
@@ -102,8 +103,12 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 	assertMidiClipTailBoundaries(document, boundaries);
 	for (const [index, additions] of quietMidiClipPerformanceEvents(document, occurrences, reserveEvents)) {
 		const events = tracks[index]!.events;
-		for (const event of additions) events.push(event);
-		events.sort(byFrame);
+		// Establish source defaults before its own bank/program setup at the same onset.
+		const setup = additions.filter(isMidiProgramStateEvent);
+		if (tracks[index]!.program !== undefined && !events.some(event => (event.status & 240) === 192) && setup.some(event => (event.status & 240) === 192)) {
+			reserveEvents(1); setup.unshift({ frame: 0, status: 192, data: [tracks[index]!.program!] });
+		}
+		tracks[index]!.events = [...setup, ...events, ...additions.filter(event => !isMidiProgramStateEvent(event))].sort(byFrame);
 	}
 	return document;
 }
