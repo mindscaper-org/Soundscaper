@@ -8,7 +8,7 @@ export function ardourPrefaderTrimSession(trimAutomated: boolean, sendAutomated:
 <Processor type="trim" active="${trimEnabled ? 1 : 0}"><Controllable name="gaincontrol" value="0.5"/>${curve(trimAutomated, 'trim')}</Processor>
 <Processor type="intsend" active="1" send-to="99"><Amplifier><Controllable name="gaincontrol" value="0.5"/>${curve(sendAutomated, 'send')}</Amplifier></Processor>
 <Processor type="amp" active="1"><Controllable name="gaincontrol" value="0.25"/></Processor>
-</Route><Route id="99" name="Cue"><Pannable><Controllable name="pan-azimuth" value="0"/></Pannable><Processor type="amp"><Controllable name="gaincontrol" value="1"/></Processor></Route></Routes>
+</Route><Route id="99" name="Cue"><Processor type="amp"><Controllable name="gaincontrol" value="1"/></Processor></Route></Routes>
 <Playlists><Playlist id="30" name="Dialogue" type="audio" orig-track-id="20"><Region id="40" name="Phrase" type="audio" source-0="10" channels="1" position="0" start="0" length="48000" scale-amplitude="1" muted="0"/></Playlist></Playlists>
 </Session>`;
 }

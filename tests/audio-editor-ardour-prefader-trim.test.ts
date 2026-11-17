@@ -9,6 +9,8 @@ import { projectForRuntimeConsumers } from '../src/common/editor/project-current
 import { audioBufferChannels } from '../src/common/editor/rendered-audio-channels.ts';
 import { createNodeWebAudioEngineFactory } from './helpers/node-web-audio-engine.ts';
 import { ardourPrefaderTrimSession } from './helpers/ardour-prefader-trim-fixture.ts';
+import { controllerSession } from './helpers/soundscaper-controller-session.ts';
+import { encodeWav } from '../src/common/editor/wav.js';
 
 const profiles = [
 	...[false, true].flatMap(trim => [false, true].flatMap(send => [false, true].map(enabled => ({ trim, send, enabled, discrete: null as 'trim' | 'send' | null })))),
@@ -36,3 +38,20 @@ for (const { trim, send, enabled, discrete } of profiles) {
 		}
 	});
 }
+
+test('Ardour File Import retains pre-fader trim and send automation on decoded mono media', async context => {
+	const native = createNodeWebAudioEngineFactory(context), engine = native.createEngine();
+	const { controller } = await controllerSession(context, { engine, engineFactory: native.createEngine });
+	try {
+		await controller.actions.project.importFiles([
+			new File([ardourPrefaderTrimSession(true, true)], 'Trimmed cue.ardour', { type: 'application/xml' }),
+			new File([Uint8Array.from(encodeWav([new Float32Array(48000).fill(.25)], { sampleRate: 48000, float: true }))], 'voice.wav', { type: 'audio/wav' }),
+		]);
+		assert.equal(controller.project?.sources[0]?.channelCount, 1);
+		const pcm = audioBufferChannels(await engine.renderMix({ startFrame: 0, endFrame: 48000, includeTail: false }))[0]!;
+		for (const frame of [12000, 24000, 36000]) {
+			const gain = .5 + .5 * frame / 48000;
+			assert.ok(Math.abs(pcm[frame]! - .25 * gain * gain) < .00001, `decoded mono cue sample ${String(frame)}: ${String(pcm[frame])}`);
+		}
+	} finally { await controller.dispose(); await native.dispose(); }
+});
