@@ -91,8 +91,8 @@ export class SourceBufferCache extends Map {
 	}
 
 	get(key) {
-		if (!super.has(key)) return undefined;
 		const value = super.get(key);
+		if (value === undefined && !super.has(key)) return undefined;
 		super.delete(key);
 		super.set(key, value);
 		return value;
@@ -127,20 +127,22 @@ export class SourceBufferCache extends Map {
 	delete(key) {
 		if (!super.has(key)) return false;
 		const event = this.#remove(key, 'delete');
-		this.#notify([event]);
+		if (event) this.#notify(event);
 		return true;
 	}
 
 	clear() {
 		if (super.size === 0) return;
-		const events = [];
-		for (const [key, value] of super.entries()) {
-			events.push(removalEvent(key, value, this.#entryBytes.get(key), 'clear'));
+		const events = this.#onRemove ? [] : null;
+		if (events) {
+			for (const [key, value] of super.entries()) {
+				events.push(removalEvent(key, value, this.#entryBytes.get(key), 'clear'));
+			}
 		}
 		super.clear();
 		this.#entryBytes.clear();
 		this.#byteLength = 0;
-		this.#notify(events);
+		if (events) for (const event of events) this.#notify(event);
 	}
 
 	setMaxBytes(value) {
@@ -148,48 +150,48 @@ export class SourceBufferCache extends Map {
 		if (maxBytes === this.#maxBytes) return this;
 		this.#maxBytes = maxBytes;
 		const events = this.#trim('resize');
-		this.#notify(events);
+		if (events) for (const event of events) this.#notify(event);
 		return this;
 	}
 
 	#setMeasured(key, value, bytes) {
-		const events = [];
-		if (super.has(key)) events.push(this.#remove(key, 'replace'));
+		const replaced = super.has(key) ? this.#remove(key, 'replace') : null;
 		super.set(key, value);
 		this.#entryBytes.set(key, bytes);
 		this.#byteLength += bytes;
-		events.push(...this.#trim('capacity'));
-		this.#notify(events);
+		const evicted = this.#trim('capacity');
+		if (replaced) this.#notify(replaced);
+		if (evicted) for (const event of evicted) this.#notify(event);
 	}
 
 	#trim(reason) {
-		const events = [];
-		while (this.#byteLength > this.#maxBytes && super.size > 0) {
-			if (this.#oversize === 'allow' && super.size === 1) break;
-			const oldestKey = super.keys().next().value;
-			events.push(this.#remove(oldestKey, reason));
+		if (this.#byteLength <= this.#maxBytes) return null;
+		let events = null;
+		for (const key of super.keys()) {
+			if (this.#byteLength <= this.#maxBytes || (this.#oversize === 'allow' && super.size === 1)) break;
+			const event = this.#remove(key, reason);
+			if (event) (events ??= []).push(event);
 		}
 		return events;
 	}
 
 	#remove(key, reason) {
-		const value = super.get(key);
 		const bytes = this.#entryBytes.get(key);
+		const tracked = this.#onRemove || ((reason === 'capacity' || reason === 'resize') && this.#onEvict);
+		const event = tracked ? removalEvent(key, super.get(key), bytes, reason) : null;
 		super.delete(key);
 		this.#entryBytes.delete(key);
 		this.#byteLength -= bytes;
-		return removalEvent(key, value, bytes, reason);
+		return event;
 	}
 
 	#measure(value) {
 		return validByteLimit(this.#estimateBytes(value), 'estimateBytes result');
 	}
 
-	#notify(events) {
-		for (const event of events) {
-			this.#onRemove?.(event);
-			if (event.reason === 'capacity' || event.reason === 'resize') this.#onEvict?.(event);
-		}
+	#notify(event) {
+		this.#onRemove?.(event);
+		if (event.reason === 'capacity' || event.reason === 'resize') this.#onEvict?.(event);
 	}
 }
 
