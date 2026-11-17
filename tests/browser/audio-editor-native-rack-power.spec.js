@@ -16,14 +16,16 @@ test('a native effect header can re-enable an effect disabled in its rack', asyn
 	const slot = panel.locator('.effect-slot').first();
 	await slot.getByRole('button', { name: 'Disable effect', exact: true }).click();
 	await expect(slot.getByRole('button', { name: 'Enable effect', exact: true })).toBeVisible();
+	await expect.poll(async () => (await persistedProject(page, id)).tracks[index].effects[0].bypassed).toBe(true);
 	await slot.locator('.effect-slot__name-field').click();
 	const settings = page.locator('.audio-editor-effect-settings-dialog');
 	await expect(settings.getByRole('button', { name: 'Enable effect', exact: true })).toBeVisible();
 	await settings.getByRole('button', { name: 'Enable effect', exact: true }).click();
 	await expect(slot.getByRole('button', { name: 'Disable effect', exact: true })).toBeVisible();
-	await expect.poll(async () => (await persistedProject(page, id)).tracks[index].effects[0].enabled).toBe(true);
+	await expect.poll(async () => (await persistedProject(page, id)).tracks[index].effects[0].bypassed).toBe(false);
 	await settings.getByRole('button', { name: 'Disable effect', exact: true }).click();
 	await expect(slot.getByRole('button', { name: 'Enable effect', exact: true })).toBeVisible();
+	await expect.poll(async () => (await persistedProject(page, id)).tracks[index].effects[0].bypassed).toBe(true);
 	await settings.getByRole('button', { name: 'Close', exact: true }).click();
 	await slot.getByRole('button', { name: 'Enable effect', exact: true }).click();
 	await expect.poll(() => page.evaluate(() => globalThis.__nativePluginParameterHost.bypassed)).toBe(false);
