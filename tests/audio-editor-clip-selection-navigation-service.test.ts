@@ -217,6 +217,18 @@ test('clip boundary navigation is inert when no qualifying boundary exists', () 
 	assert.deepEqual(fixture.commands, []);
 });
 
+test('native clip navigation visits the nearest same-start region on a single track', () => {
+	const clips = [sampleClip('current', 20, 20), sampleClip('long', 20, 40), sampleClip('short', 20, 10),
+		sampleClip('near-next', 20, 25), sampleClip('near-previous', 20, 15), sampleClip('later', 50, 10)];
+	const fixture = createFixture(projectFixture({ clips,
+		tracks: [{ id: 'audio', type: 'audio', clipIds: clips.map(({ id }) => id) }],
+		selection: { startFrame: 20, endFrame: 40, trackIds: ['audio'], clipIds: [] },
+	}));
+	fixture.service.selectNextClip({ nativeRegion: true });
+	fixture.service.selectPreviousClip({ nativeRegion: true });
+	assert.deepEqual(fixture.commands.map(({ startFrame, endFrame }) => [startFrame, endFrame]), [[20, 45], [20, 35]]);
+});
+
 test('next clip selects projected timing and resolves equal-time ties by track order', () => {
 	const current = musicalClip('current', 2, 1);
 	const firstTrackNext = musicalClip('first-track-next', 4, 2);
