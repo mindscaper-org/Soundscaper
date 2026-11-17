@@ -3,7 +3,7 @@
 import { EDITOR_PROJECT_TASK_SCOPE, type EditorLifetimeToken } from '../shared/lifecycle.ts'; import { publishedCopyFor } from '../shared/presentation-localization.ts'; import { setLocalizedStatus } from '../../../i18n/presentation-message.ts'; import { publishProjectReadOnlyStatus } from './project-read-only-status.ts'; import { createProjectActivationEditFence } from './project-activation-edit-fence.ts';
 import { inputId, isActiveProjectSwitchInput, prepareProjectSwitchHistory, projectSwitchPlayhead } from './internal/project/project-switch-input.ts'; import { verifyProjectSwitchStorageCurrent } from './internal/project/project-switch-storage-currentness.ts'; import { resetDesktopOriginal } from '../../desktop-overwrite-original.ts';
 import { createPlaybackProjectService } from '../source/playback-project-service.ts';
-import { beginProjectSwitchInspectionFence } from './internal/project/project-switch-inspection-fence.ts';
+import { beginProjectSwitchInspectionFence, projectSwitchCleanupError } from './internal/project/project-switch-inspection-fence.ts';
 import type { ProjectLifecycleHistory, ProjectLifecycleLock, ProjectLifecycleProject } from './project-lifecycle-types.ts';
 import type {
 	NewProjectOptions,
@@ -531,12 +531,4 @@ export function createProjectSwitchService<
 		lock.release();
 		await Promise.resolve(lock.finished).catch(() => undefined);
 	}
-}
-
-function projectSwitchCleanupError(
-	primary: unknown,
-	cleanup: unknown,
-	message: string,
-): AggregateError {
-	return new AggregateError([primary, cleanup], message, { cause: primary });
 }

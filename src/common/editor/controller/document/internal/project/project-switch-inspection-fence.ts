@@ -18,9 +18,13 @@ export function beginProjectSwitchInspectionFence(
 	} catch (error) {
 		try { fence.release(); }
 		catch (cleanupError) {
-			throw new AggregateError([error, cleanupError], 'Scape cancellation and activation-fence cleanup both failed.', { cause: error });
+			throw projectSwitchCleanupError(error, cleanupError, 'Scape cancellation and activation-fence cleanup both failed.');
 		}
 		throw error;
 	}
 	return fence;
+}
+
+export function projectSwitchCleanupError(primary: unknown, cleanup: unknown, message: string): AggregateError {
+	return new AggregateError([primary, cleanup], message, { cause: primary });
 }
