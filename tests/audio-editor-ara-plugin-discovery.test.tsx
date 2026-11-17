@@ -22,7 +22,10 @@ for (const accepted of [false, true]) test(`ARA folder picker scans ${accepted ?
 		setNativePluginConsent: async request => request.action === 'add-custom-root'
 			? accepted ? { status: 'admitted', root: customRoot } : { status: 'declined' }
 			: { status: 'granted' },
-		scanNativePlugins: async request => { scanned.push(request.rootId); },
+		scanNativePlugins: async request => {
+			scanned.push(request.rootId);
+			return { status: 'described', scan: { format: 'vst3', status: 'ok', detail: '', entries: [] } };
+		},
 	});
 	await view.click('Add VST3 folder…');
 	assert.deepEqual(scanned, accepted ? [customRoot.rootId] : []);
@@ -48,6 +51,31 @@ test('ARA disables Open clip when a refresh removes the selected installation', 
 	await view.click('Refresh plug-ins');
 	assert.equal(view.button('Open clip').hasAttribute('disabled'), true);
 	assert.equal(reactProps(view.select).value, '');
+});
+
+test('ARA reports the desktop scan failure with its native diagnostic', async context => {
+	const view = await mount(context, {
+		nativePluginAvailability: async () => availability([existingRoot]),
+		setNativePluginConsent: async () => true,
+		scanNativePlugins: async () => ({ status: 'failed', code: 'scan-exit', message: 'The scan helper exited unexpectedly.' }),
+	});
+	await view.click('Enable and scan VST3 folders');
+	assert.match(view.text, /ARA plug-ins could not be refreshed or scanned/u);
+	assert.match(view.text, /The scan helper exited unexpectedly/u);
+});
+
+test('closing the ARA dialog while discovery is enabled retires the pending custom folder picker', async context => {
+	const enabling = deferred<unknown>();
+	const consent: string[] = [];
+	const view = await mount(context, {
+		applyNativeTierControl: () => enabling.promise,
+		setNativePluginConsent: async request => { consent.push(request.action); return { status: 'declined' }; },
+		scanNativePlugins: async () => assert.fail('A closed dialog must not initiate a scan.'),
+	});
+	await view.click('Add VST3 folder…');
+	await view.click('Cancel');
+	await act(async () => { enabling.resolve(true); await enabling.promise; });
+	assert.deepEqual(consent, []);
 });
 
 function availability(roots: NativePluginAvailability['consent']['formats'][number]['roots']): NativePluginAvailability {
@@ -91,6 +119,6 @@ async function mount(context: TestContext, overrides: Partial<Bridge>) {
 		assert.ok(element);
 		return element;
 	};
-	return { button, get select() { return dom.one('select'); },
+	return { button, get select() { return dom.one('select'); }, get text() { return dom.container.textContent; },
 		async click(name: string) { await act(async () => { reactProps(button(name)).onClick(); }); } };
 }
