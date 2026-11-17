@@ -6,8 +6,10 @@ import { MidiPreviewContext, midiPreviewEngine } from './helpers/midi-preview-co
 import { deferred, settle, waitFor } from './helpers/async-test-control.ts';
 import { MockNode } from './helpers/mock-audio-context.js';
 import { createMockAudioWorkletNodeClass } from './helpers/mock-audio-worklet-node.js';
+import { installNodeEditorWorkers } from './helpers/node-editor-workers.ts';
 
 async function fixture(t: TestContext) {
+	installNodeEditorWorkers(t);
 	const previousWorklet = Object.getOwnPropertyDescriptor(globalThis, 'AudioWorkletNode');
 	Object.defineProperty(globalThis, 'AudioWorkletNode', { configurable: true, value: createMockAudioWorkletNodeClass(MockNode) });
 	t.after(() => {

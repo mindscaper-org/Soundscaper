@@ -20,7 +20,8 @@ const scope = {
 };
 globalThis.self = globalThis;
 Object.defineProperties(globalThis, Object.getOwnPropertyDescriptors(scope));
-void import(workerData.entry).catch(error => { throw error; });`;
+void import('tsx/esm/api').then(({ register }) => { register(); return import(workerData.entry); })
+	.catch(error => { throw error; });`;
 
 /** Real editor workers, with browser messaging adapted to Node and owned cleanup. */
 export function installNodeEditorWorkers(context: TestContext): void {
