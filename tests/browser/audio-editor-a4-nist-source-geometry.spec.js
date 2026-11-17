@@ -7,6 +7,33 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseDropdown, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes,
 	importFiles, openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
 
+async function nativePcmReference(bytes) {
+	let timeout;
+	try {
+		// Unsupported native formats can leave WebKit's decode promise pending.
+		// Capability probing must settle before deciding whether to run the import.
+		return await Promise.race([
+			new OfflineAudioContext(2, 1, 48_000).decodeAudioData(Uint8Array.from(bytes).buffer)
+				.then(buffer => [0, 1].map(channel => [...buffer.getChannelData(channel)])),
+			new Promise(resolve => { timeout = setTimeout(() => resolve(null), 10_000); }),
+		]);
+	} catch { return null; }
+	finally { clearTimeout(timeout); }
+}
+
+test('native PCM capability probing settles when a decoder never replies', async ({ page }) => {
+	await page.evaluate(() => {
+		globalThis.__nistProbeCalls = 0;
+		OfflineAudioContext.prototype.decodeAudioData = () => {
+			globalThis.__nistProbeCalls++;
+			return new Promise(() => {});
+		};
+	});
+	const { file } = nativeNistFixture();
+	expect(await page.evaluate(nativePcmReference, [...new Uint8Array(await file.arrayBuffer())])).toBeNull();
+	expect(await page.evaluate(() => globalThis.__nistProbeCalls)).toBe(1);
+});
+
 for (const format of ['sph', 'wav']) test(`native ${format} retains authored48k PCM and extent through File Import, Save and WAV export`, async ({ page }) => {
 	test.setTimeout(60_000);
 	await page.addInitScript(() => {
@@ -22,16 +49,13 @@ for (const format of ['sph', 'wav']) test(`native ${format} retains authored48k 
 	const { file: original, channels } = nativeNistFixture();
 	const file = format === 'sph' ? original : new File([Uint8Array.from(encodeWav(channels, { sampleRate: 48_000, bitDepth: 32, float: true }))], 'Control.wav', { type: 'audio/wav' });
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
-	const native = await page.evaluate(async bytes => {
-		try { const buffer = await new OfflineAudioContext(2, 1, 48_000).decodeAudioData(Uint8Array.from(bytes).buffer);
-			return [0, 1].map(channel => [...buffer.getChannelData(channel)]); } catch { return null; }
-	}, [...new Uint8Array(await file.arrayBuffer())]);
+	const native = await page.evaluate(nativePcmReference, [...new Uint8Array(await file.arrayBuffer())]);
 	if (format === 'wav') {
 		expect(native).not.toBeNull();
 		expect(native[0]).toHaveLength(4800);
 		expect(native[1]).toHaveLength(4800);
 	}
-	test.skip(format === 'sph' && native === null, 'This native platform does not decode NIST/SPHERE; no decoder is added.');
+	test.skip(format === 'sph' && native === null, 'This native platform did not complete a NIST/SPHERE decode; no decoder is added.');
 	expect(native[0].length).toBeGreaterThanOrEqual(4800); expect(native[0].length).toBeLessThan(5824);
 	let error = 0;
 	for (let channel = 0; channel < 2; channel++) {
