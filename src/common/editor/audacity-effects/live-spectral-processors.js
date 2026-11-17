@@ -231,6 +231,7 @@ export class NoiseReductionLiveProcessor extends LiveProcessor {
 	}
 	reset() {
 		this.data = [];
+		this.contextChannels = [];
 		this.outputQueues = [];
 		this.totalFrames = 0;
 		this.nextChunkStart = 0;
@@ -241,6 +242,7 @@ export class NoiseReductionLiveProcessor extends LiveProcessor {
 			// One complete context window bounds retained PCM independently of stream duration.
 			const capacity = this.leftContext + NOISE_CHUNK_SIZE + this.rightContext;
 			this.data = Array.from({ length: output.length }, () => new Float32Array(capacity));
+			this.contextChannels = [];
 			this.outputQueues = Array.from({ length: output.length }, () => new SampleQueue());
 			this.totalFrames = 0;
 			this.nextChunkStart = 0;
@@ -256,21 +258,24 @@ export class NoiseReductionLiveProcessor extends LiveProcessor {
 	}
 	#renderChunk() {
 		const contextStart = this.nextChunkStart - this.leftContext;
-		const contextLength = this.leftContext + NOISE_CHUNK_SIZE + this.rightContext;
-		const channels = this.data.map((values) => {
-			const channel = new Float32Array(contextLength);
-			for (let frame = 0; frame < contextLength; frame += 1) {
-				const sourceFrame = contextStart + frame;
-				if (sourceFrame >= Math.max(0, this.totalFrames - values.length) && sourceFrame < this.totalFrames) {
-					channel[frame] = values[sourceFrame % values.length];
-				}
-			}
-			return channel;
-		});
+		const contextLength = this.data[0].length;
+		const from = Math.max(0, contextStart);
+		const padding = from - contextStart;
+		const cursor = from % contextLength;
+		const first = Math.min(contextLength - cursor, contextLength - padding);
+		const remaining = contextLength - padding - first;
+		ensureArrayLength(this.contextChannels, this.data.length, () => new Float32Array(contextLength));
+		for (let index = 0; index < this.data.length; index += 1) {
+			const channel = this.contextChannels[index];
+			const values = this.data[index];
+			if (padding > 0) channel.fill(0, 0, padding);
+			channel.set(values.subarray(cursor, cursor + first), padding);
+			if (remaining > 0) channel.set(values.subarray(0, remaining), padding + first);
+		}
 		this.preparedNoise ??= createPreparedLiveNoiseReduction(this.profile, this.sampleRate, contextLength);
-		const reduced = this.preparedNoise.process(channels, this.params, this.leftContext, this.leftContext + NOISE_CHUNK_SIZE);
+		const reduced = this.preparedNoise.process(this.contextChannels, this.params, this.leftContext, this.leftContext + NOISE_CHUNK_SIZE);
 		for (let channel = 0; channel < reduced.length; channel += 1) {
-			this.outputQueues[channel].push(reduced[channel]);
+			this.outputQueues[channel].pushOwned(reduced[channel]);
 		}
 		this.nextChunkStart += NOISE_CHUNK_SIZE;
 	}
