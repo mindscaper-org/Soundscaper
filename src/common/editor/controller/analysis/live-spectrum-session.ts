@@ -2,6 +2,7 @@
 
 import type { PlaybackSpectrumSession } from '../../engine/playback-spectrum.ts';
 import type { EffectSpectrumMetadata } from '../../engine/effect-spectrum.ts';
+import { createSpectrumPlotProjector } from '../../spectrum-plot-geometry.ts';
 
 export interface LiveSpectrumTrack {
 	readonly id: string;
@@ -9,12 +10,19 @@ export interface LiveSpectrumTrack {
 	readonly color: string;
 }
 
-export interface SpectrumCurveReport {
-	readonly bins: readonly Readonly<{ frequency: number; db: number }>[];
+interface SpectrumCurveDetails {
 	readonly peak: Readonly<{ frequency: number; db: number }> | null;
 	readonly trackId?: string;
 	readonly name?: string;
 	readonly color?: string;
+}
+
+export interface SpectrumCurveReport extends SpectrumCurveDetails {
+	readonly bins: readonly Readonly<{ frequency: number; db: number }>[];
+}
+
+interface LiveSpectrumCurveReport extends SpectrumCurveDetails {
+	readonly columns: readonly number[];
 }
 
 export interface SpectrumPlotReport extends SpectrumCurveReport {
@@ -23,14 +31,14 @@ export interface SpectrumPlotReport extends SpectrumCurveReport {
 	readonly tracks?: readonly SpectrumCurveReport[];
 }
 
-export interface LivePlaybackSpectrumReport extends SpectrumPlotReport {
+export interface LivePlaybackSpectrumReport extends LiveSpectrumCurveReport {
 	readonly type: 'spectrum';
 	readonly scope: 'master';
 	readonly live: true;
 	readonly size: number;
 	readonly sampleRate: number;
 	readonly positionFrame: number;
-	readonly tracks: readonly SpectrumCurveReport[];
+	readonly tracks: readonly LiveSpectrumCurveReport[];
 }
 
 /** Debounce range edits and suppress replies after the range or visible owner changes. */
@@ -65,6 +73,7 @@ interface LiveSpectrumDependencies {
 export function observeLivePlaybackSpectrum(dependencies: LiveSpectrumDependencies): () => void {
 	const session = dependencies.acquire();
 	const values = new Float32Array(session.fftSize / 2);
+	const projectColumns = createSpectrumPlotProjector(values.length);
 	let disposed = false;
 	let cancel = () => {};
 	const dispose = () => {
@@ -78,10 +87,10 @@ export function observeLivePlaybackSpectrum(dependencies: LiveSpectrumDependenci
 		try {
 			const metadata = session.read(null, values);
 			if (!metadata) { dependencies.publish(null); return; }
-			const master = spectrumCurve(values, metadata);
+			const master = spectrumCurve(values, metadata, projectColumns);
 			const tracks = dependencies.tracks.map(track => {
 				const reading = session.read(track.id, values);
-				return Object.freeze({ ...spectrumCurve(values, reading ?? metadata), trackId: track.id, name: track.name, color: track.color });
+				return Object.freeze({ ...spectrumCurve(values, reading ?? metadata, projectColumns), trackId: track.id, name: track.name, color: track.color });
 			});
 			dependencies.publish(Object.freeze({ ...master, type: 'spectrum', scope: 'master', live: true,
 				size: metadata.fftSize, sampleRate: metadata.sampleRate, positionFrame: dependencies.position(), tracks: Object.freeze(tracks) }));
@@ -92,9 +101,14 @@ export function observeLivePlaybackSpectrum(dependencies: LiveSpectrumDependenci
 	return dispose;
 }
 
-function spectrumCurve(values: Float32Array, metadata: EffectSpectrumMetadata): SpectrumCurveReport {
-	const bins = Array.from(values, (value, bin) => Object.freeze({ frequency: bin * metadata.sampleRate / metadata.fftSize,
-		db: Number.isFinite(value) ? Math.max(-120, Math.min(0, value)) : -120 }));
-	const peak = bins.reduce<SpectrumCurveReport['peak']>((best, bin) => bin.db > (best?.db ?? -120) ? bin : best, null);
-	return Object.freeze({ bins: Object.freeze(bins), peak });
+function spectrumCurve(values: Float32Array, metadata: EffectSpectrumMetadata,
+	projectColumns: ReturnType<typeof createSpectrumPlotProjector>): LiveSpectrumCurveReport {
+	let peakDb = -120, peakBin = -1;
+	for (let bin = 0; bin < values.length; bin++) {
+		const value = values[bin]!;
+		const db = Number.isFinite(value) ? Math.min(0, value) : -120;
+		if (db > peakDb) { peakDb = db; peakBin = bin; }
+	}
+	const peak = peakBin < 0 ? null : Object.freeze({ frequency: peakBin * metadata.sampleRate / metadata.fftSize, db: peakDb });
+	return Object.freeze({ columns: Object.freeze(projectColumns(bin => values[bin]!)), peak });
 }

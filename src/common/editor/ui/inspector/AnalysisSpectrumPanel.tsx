@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { observeLivePlaybackSpectrum, observeSelectedSpectrum, type SpectrumPlotReport } from '../../controller/analysis/live-spectrum-session.ts';
+import { observeLivePlaybackSpectrum, observeSelectedSpectrum, type LivePlaybackSpectrumReport, type SpectrumPlotReport } from '../../controller/analysis/live-spectrum-session.ts';
 import type { EnginePublicApi } from '../../engine/public-api.ts';
 import { resolveSelectionRange } from '../../selection-range.ts';
-import { spectrumPlotPoints } from '../dialogs/spectrum-plot-points.ts';
+import { SPECTRUM_PLOT_COLUMN_WIDTH, SPECTRUM_PLOT_HEIGHT, SPECTRUM_PLOT_WIDTH } from '../../spectrum-plot-geometry.ts';
+import { spectrumPlotColumns } from '../dialogs/spectrum-plot-points.ts';
 import { resolveAudioEditorColor } from '../timeline/TimelineOverlayComponents.jsx';
 import SpectrumResult from './SpectrumResult.tsx';
 
@@ -42,7 +43,7 @@ function SpectrumContent({ controller, snapshot, copy, selected }: Props & { rea
 	const project = snapshot?.project;
 	const tracks = useMemo(() => project?.tracks.filter(track => track.type === 'audio' && track.clipIds?.length)
 		.map(track => ({ id: track.id, name: track.name ?? track.id, color: track.color ?? 'blue' })) ?? [], [project?.tracks]);
-	const [report, setReport] = useState<SpectrumPlotReport | null>(null);
+	const [report, setReport] = useState<SpectrumPlotReport | LivePlaybackSpectrumReport | null>(null);
 	const [error, setError] = useState('');
 	const ready = Boolean(snapshot?.ready && project?.clips.length && !snapshot.importing && !snapshot.recording
 		&& !snapshot.exporting && !snapshot.missingSourceIds?.length);
@@ -71,7 +72,7 @@ function SpectrumContent({ controller, snapshot, copy, selected }: Props & { rea
 	</div>;
 }
 
-function SpectrumCanvas({ report, live, label }: { readonly report: SpectrumPlotReport; readonly live: boolean; readonly label: string }) {
+function SpectrumCanvas({ report, live, label }: { readonly report: SpectrumPlotReport | LivePlaybackSpectrumReport; readonly live: boolean; readonly label: string }) {
 	const ref = useRef<HTMLCanvasElement>(null);
 	useEffect(() => {
 		const frame = requestAnimationFrame(() => {
@@ -83,10 +84,12 @@ function SpectrumCanvas({ report, live, label }: { readonly report: SpectrumPlot
 			for (const curve of [...(report.tracks ?? []), report]) {
 				context.strokeStyle = curve.color ? style.getPropertyValue(`--clip-${resolveAudioEditorColor(curve.color)}-header`).trim() || '#66d3c5' : '#66d3c5';
 				context.lineWidth = 1.5; context.beginPath();
-				spectrumPlotPoints(curve.bins).split(' ').forEach((point, index) => {
-					const [x, y] = point.split(',').map(Number);
-					if (index) context.lineTo(x! / 635 * canvas.width, y! / 150 * canvas.height);
-					else context.moveTo(x! / 635 * canvas.width, y! / 150 * canvas.height);
+				const columns = 'columns' in curve ? curve.columns : spectrumPlotColumns(curve.bins);
+				columns.forEach((y, index) => {
+					const x = index * SPECTRUM_PLOT_COLUMN_WIDTH / SPECTRUM_PLOT_WIDTH * canvas.width;
+					const yPosition = y / SPECTRUM_PLOT_HEIGHT * canvas.height;
+					if (index) context.lineTo(x, yPosition);
+					else context.moveTo(x, yPosition);
 				});
 				context.stroke();
 			}

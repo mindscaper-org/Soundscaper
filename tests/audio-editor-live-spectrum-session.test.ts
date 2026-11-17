@@ -41,6 +41,30 @@ test('live spectrum publishes independent track peaks, updates playback and rele
 	assert.equal(reports.length, 3);
 });
 
+test('live spectrum publishes bounded numeric columns and keeps the exact first peak', () => {
+	const reports: LivePlaybackSpectrumReport[] = [];
+	const dispose = observeLivePlaybackSpectrum({
+		acquire: () => ({ fftSize: 4096, release: () => {}, read: (_id, target) => {
+			target.fill(-Infinity);
+			target[10] = NaN; target[64] = -6; target[512] = -6; target[2047] = -25;
+			return { fftSize: 4096, frequencyBinCount: 2048, sampleRate: 48_000, minDecibels: -120, maxDecibels: 0 };
+		} }),
+		tracks: [], position: () => 0,
+		publish: value => { if (value) reports.push(value); },
+		schedule: () => () => {},
+		onError: error => assert.fail(String(error)),
+	});
+	dispose();
+	const report = reports[0];
+	assert.ok(report);
+	const expected = new Array<number>(128).fill(150);
+	expected[69] = 8; expected[104] = 8; expected[127] = 31;
+	assert.deepEqual(report.columns, expected);
+	assert.ok(Object.isFrozen(report.columns));
+	assert.equal('bins' in report, false);
+	assert.deepEqual(report.peak, { frequency: 750, db: -6 });
+});
+
 test('live spectrum sampling failure releases its resources and reports the error once', () => {
 	let released = 0;
 	let canceled = 0;
