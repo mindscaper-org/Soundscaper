@@ -30,6 +30,7 @@ function prepareTexts(texts: readonly string[]): readonly PreparedText[] {
 			retained = { text, advances: characters.map(character => {
 				const point = character.codePointAt(0)!;
 				// Preserve conservative non-ASCII metrics and per-character ceil rounding.
+				if (point === 0xa0) return ASCII_ADVANCES[0]! / 2048;
 				return point >= 0x20 && point <= 0x7e ? ASCII_ADVANCES[point - 0x20]! / 2048 : 2.75;
 			}) };
 			graphemes.set(text, retained);
@@ -37,7 +38,7 @@ function prepareTexts(texts: readonly string[]): readonly PreparedText[] {
 		return retained;
 	};
 	return texts.map(text => text.split('\n').map(paragraph => ({ emptyText: paragraph.trim(),
-		words: paragraph.split(/\s+/u).filter(Boolean).map(word => {
+		words: paragraph.split(/(?:(?![\u00a0\u2007\u202f])\s)+/u).filter(Boolean).map(word => {
 			let retained = words.get(word);
 			if (!retained) {
 				retained = Array.from(segmenter.segment(word), part => prepareGrapheme(part.segment));
