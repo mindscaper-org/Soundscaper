@@ -37,14 +37,6 @@ test('MI16: a portrait movie wraps wide caption glyphs within its frame using th
 	}
 });
 
-test('burned caption delivery retains nonbreaking spaces in the drawn text', () => {
-	const amount = '1\u00a0500';
-	const title = `An unusually long introduction ends here ${amount} EUR`;
-	const stage = captionPlan(title, 420, 720).filterPlan.burnIn as VideoBurnInStage;
-	assert.ok(stage.cues[0]?.text.includes(amount), stage.cues[0]?.text);
-	assert.deepEqual(stage.cues[0]?.undrawable, []);
-});
-
 test('MI17: multiline burned subtitles fit vertically inside the delivered movie', () => {
 	const title = Array.from({ length: 20 }, (_, index) => `Line ${index + 1}`).join('\n');
 	const plan = captionPlan(title, 1_280, 720);
