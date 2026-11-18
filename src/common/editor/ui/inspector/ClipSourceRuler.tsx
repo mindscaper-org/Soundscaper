@@ -54,6 +54,7 @@ export default function ClipSourceRuler(props: Props) {
 	const set = (changes: Partial<SourceRulerOptions>) => onOptions({ ...options, ...changes });
 	const ticks = useMemo(() => createClipSourceRulerTicks({ tempoMap: props.tempoMap, signatureMap: props.signatureMap, sampleRate: props.sampleRate, startFrame, endFrame, clipStartFrame: props.clipStartFrame, projectStartFrame: props.projectStartFrame, width, global: options.global, beats: options.beats }), [props.tempoMap, props.signatureMap, props.sampleRate, startFrame, endFrame, props.clipStartFrame, props.projectStartFrame, width, options.global, options.beats]);
 	const x = (frame: number) => (frame - startFrame) / (endFrame - startFrame) * width;
+	const position = Math.max(startFrame, Math.min(endFrame, props.positionFrame));
 	const loopRange = props.loopRange ?? props.selection ?? { startFrame, endFrame };
 	const item = (label: string, checked: boolean, action: () => void, disabled = false) => <ContextMenuItem
 		label={label} checked={checked} disabled={disabled} onClick={action} onClose={close} />;
@@ -64,7 +65,7 @@ export default function ClipSourceRuler(props: Props) {
 			<button type="button" aria-label={copy.loop} aria-pressed={props.loop} onClick={props.onLoop}><Icon name="loop" size={16} /></button>
 		</div>
 		<svg className="audio-editor-source-ruler__scale" role="slider" tabIndex={props.disabled ? -1 : 0} aria-disabled={props.disabled} aria-label={copy.clipSourceTimeline}
-			aria-valuenow={props.positionFrame / props.sampleRate} aria-valuemin={startFrame / props.sampleRate} aria-valuemax={endFrame / props.sampleRate}
+			aria-valuenow={position / props.sampleRate} aria-valuemin={startFrame / props.sampleRate} aria-valuemax={endFrame / props.sampleRate}
 			data-time-origin={options.global ? 'global' : 'local'} width={width} height={40}
 			onPointerDown={props.onSeek} onContextMenu={event => { event.preventDefault(); setMenu({ x: event.clientX, y: event.clientY }); }}
 			onKeyDown={event => {

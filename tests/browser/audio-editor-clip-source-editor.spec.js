@@ -6,6 +6,19 @@ test.describe('clip source editor', () => {
 	registerAudioEditorHooks();
 	test.use({ viewport: { width: 1440, height: 1000 } });
 
+	test('source zoom keeps the ruler’s accessible position within its visible bounds', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+		await importFiles(editor, [longTone]);
+		const panel = await openSourceMonitor(page, editor, clipByName(editor, longTone.name));
+		const ruler = panel.getByRole('slider', { name: 'Source timeline', exact: true });
+		await ruler.press('End');
+		const cursor = Number(await ruler.getAttribute('aria-valuenow'));
+		await zoomInSource(page, panel.getByRole('region', { name: 'Source waveform', exact: true }));
+		await expect.poll(async () => Number(await ruler.getAttribute('aria-valuemax'))).toBeLessThan(cursor);
+		const maximum = await ruler.getAttribute('aria-valuemax');
+		await expect(ruler).toHaveAttribute('aria-valuenow', maximum);
+	});
+
 	test('shows all media, trims without moving the project anchor, and keeps moved markers attached to samples', async ({ page }) => {
 		const errors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
@@ -266,3 +279,12 @@ test.describe('clip source editor', () => {
 		expect(errors).toEqual([]);
 	});
 });
+
+async function zoomInSource(page, waveform) {
+	await waveform.hover({ position: { x: 10, y: 40 } });
+	await page.keyboard.down('Control');
+	try {
+		await page.mouse.wheel(0, -100);
+		await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+	} finally { await page.keyboard.up('Control'); }
+}
