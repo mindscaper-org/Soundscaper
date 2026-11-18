@@ -83,7 +83,9 @@ export function assertBrowserNativeImageMetadata(bytes: Uint8Array, format: Revi
 			} else break;
 		}
 	} else if (format === 'bmp' && bytes.length >= 122 && view.getUint32(14, true) >= 108) {
-		unsupportedColor ||= view.getUint32(14 + 56, true) !== 0x73524742;
+		const colorSpace = view.getUint32(14 + 56, true);
+		// LCS_sRGB and LCS_WINDOWS_COLOR_SPACE both describe sRGB pixels.
+		unsupportedColor ||= colorSpace !== 0x73524742 && colorSpace !== 0x57696e20;
 		if (bytes.length >= 138 && view.getUint32(14, true) >= 124) {
 			const length = view.getUint32(14 + 116, true);
 			if (length) { metadata(length); profile(length); }
