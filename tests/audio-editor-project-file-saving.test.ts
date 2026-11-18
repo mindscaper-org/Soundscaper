@@ -107,6 +107,20 @@ test('closing with file autosaving enabled flushes the last edit even when close
 	assert.equal(await f.service.hasChanges(f.getProject()), false);
 });
 
+test('a failed automatic file save still offers the desktop close decision', async () => {
+	const f = fixture();
+	await f.service.opened(f.getProject(), { fileHandle: { createWritable() {} } });
+	f.setAuto(true);
+	f.edit();
+	f.setFail();
+	f.decisions.push('cancel', 'discard');
+
+	assert.equal(await f.service.prepareClose(), false);
+	assert.equal(await f.service.hasChanges(f.getProject()), true);
+	assert.equal(await f.service.prepareClose(), true);
+	assert.deepEqual(f.discarded, ['a']);
+});
+
 test('closing a different tab preserves a pending save for a background file', async () => {
 	const f = fixture(false);
 	const handle = { createWritable() {} };

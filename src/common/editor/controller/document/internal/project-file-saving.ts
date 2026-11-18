@@ -186,12 +186,19 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 			}
 			await tail.catch(() => undefined);
 			if (!projectId || projectId === d.getProject()?.id) await d.flushInternal();
-			if (d.getPreferences().autoSaving) {
+			const { autoSaving, askBeforeClosing } = d.getPreferences();
+			const promptForChanges = d.desktop && askBeforeClosing;
+			if (autoSaving) {
 				for (const { project, readOnly } of d.getProjects()) {
-					if ((!projectId || project.id === projectId) && !readOnly) await enqueue(() => write(project, false));
+					if ((projectId && project.id !== projectId) || readOnly) continue;
+					try { await enqueue(() => write(project, false)); }
+					catch (error) {
+						if (!promptForChanges) throw error;
+						d.handleError(error);
+					}
 				}
 			}
-			if (d.desktop && d.getPreferences().askBeforeClosing) {
+			if (promptForChanges) {
 				const discard: string[] = [];
 				for (const { project, readOnly } of d.getProjects()) {
 					if ((projectId && project.id !== projectId) || readOnly || !await hasChanges(project)) continue;
