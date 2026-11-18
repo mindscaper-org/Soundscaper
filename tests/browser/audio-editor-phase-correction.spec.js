@@ -6,22 +6,43 @@ import { bootEditor, chooseCommandAction, chooseDropdown, chooseNestedCommandAct
 	openExportDialog, readDownloadBytes, registerAudioEditorHooks } from './audio-editor-test-helpers.js';
 import { readWavePcm } from '../helpers/read-wave-pcm.ts';
 
-function stereoOffsetFixture() {
-	const fixture = createWavFixture({ name: 'stereo timing error.wav', frequency: 440, duration: 3 });
+function stereoOffsetFixture(lag = 12, frames = 144_000) {
+	const fixture = createWavFixture({ name: 'stereo timing error.wav', frequency: 440, duration: frames / 48_000 });
 	let seed = 37;
-	const samples = Array.from({ length: 144000 }, () => {
+	const samples = Array.from({ length: frames }, () => {
 		seed = (Math.imul(seed, 1664525) + 1013904223) | 0;
 		return Math.round(seed / 2 ** 32 * 24000);
 	});
 	for (let frame = 0; frame < samples.length; frame++) {
 		fixture.buffer.writeInt16LE(samples[frame], 44 + frame * 4);
-		fixture.buffer.writeInt16LE(Math.round((samples[frame - 12] ?? 0) / 2), 46 + frame * 4);
+		fixture.buffer.writeInt16LE(Math.round((samples[frame - lag] ?? 0) / 2), 46 + frame * 4);
 	}
 	return fixture;
 }
 
 test.describe('Automatic phase correction', () => {
 	registerAudioEditorHooks();
+
+	test('Analyze admits a reliable offset exactly at the selected correction maximum', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+		await importFiles(editor, [stereoOffsetFixture(96)]);
+		await chooseCommandAction(page, editor, 'Select', 'Select all');
+		await chooseNestedCommandAction(page, editor, 'Effect', ['Noise removal and repair', 'Automatic phase correction']);
+		const dialog = page.getByRole('dialog', { name: 'Apply effect', exact: true });
+		await commitInput(dialog.getByRole('spinbutton', { name: 'Maximum correction (ms)', exact: true }), '2');
+		await dialog.getByRole('button', { name: 'Analyze', exact: true }).click();
+		await expect(dialog.getByRole('status', { name: 'Phase analysis results', exact: true })).toContainText('Right channel lags by 96 samples (2 ms)');
+	});
+
+	test('Analyze detects a correctable lag in a 256-sample selection', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+		await importFiles(editor, [stereoOffsetFixture(72, 256)]);
+		await chooseCommandAction(page, editor, 'Select', 'Select all');
+		await chooseNestedCommandAction(page, editor, 'Effect', ['Noise removal and repair', 'Automatic phase correction']);
+		const dialog = page.getByRole('dialog', { name: 'Apply effect', exact: true });
+		await dialog.getByRole('button', { name: 'Analyze', exact: true }).click();
+		await expect(dialog.getByRole('status', { name: 'Phase analysis results', exact: true })).toContainText('Right channel lags by 72 samples (1.5 ms)');
+	});
 
 	test('analyzes stereo, auditions original/corrected and mono, applies, and supports undo/redo', async ({ page }) => {
 		const errors = collectClientErrors(page);

@@ -124,6 +124,29 @@ test('conflicting timing across the selection and offsets outside the limit are 
 	assert.deepEqual(await applyPhaseCorrection([left, right], RATE, { maximumShiftMs: 0 }), [left, right]);
 });
 
+test('a stable delay exactly at the maximum correction can be applied in either direction', async () => {
+	const left = noise(RATE);
+	const options = { maximumShiftMs: 2 };
+	for (const lag of [-96, 96]) {
+		const right = delayed(left, lag);
+		const analysis = await analyzePhaseCorrection([left, right], RATE, options);
+		assert.equal(analysis.status, 'correctable');
+		assert.equal(analysis.lagSamples, lag);
+		const output = await applyPhaseCorrection([left, right], RATE, options);
+		assert.deepEqual(output[1]!.subarray(200, RATE - 200), left.subarray(200, RATE - 200));
+	}
+	const outside = delayed(left, 97);
+	assert.deepEqual(await applyPhaseCorrection([left, outside], RATE, options), [left, outside]);
+});
+
+test('a short 8 kHz selection can align a unique delay within the configured ten milliseconds', async () => {
+	const left = noise(256);
+	const right = delayed(left, 72);
+	const analysis = await analyzePhaseCorrection([left, right], 8_000, { maximumShiftMs: 10 });
+	assert.equal(analysis.status, 'correctable');
+	assert.equal(analysis.lagSamples, 72);
+});
+
 test('phase processing validates PCM and honors cancellation before publishing output', async () => {
 	for (const pair of [[noise(512)], [noise(512), noise(511)], [noise(512), noise(512), noise(512)],
 		[new Float32Array([NaN]), new Float32Array([0])]]) {

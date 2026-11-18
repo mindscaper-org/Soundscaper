@@ -15,10 +15,11 @@ export function createPhaseWindowEstimator(frames: number, maximumLag: number) {
 	const lr = new Float64Array(size), li = new Float64Array(size);
 	const rr = new Float64Array(size), ri = new Float64Array(size);
 	const lp = new Float64Array(frames + 1), rp = new Float64Array(frames + 1);
-	const limit = Math.min(maximumLag, Math.floor(frames / 4));
+	const halfWindow = frames / 2;
+	// Use one guard sample so a peak at the requested limit has a neighbor.
+	const limit = Math.min(maximumLag + 1, Math.floor(halfWindow) - 1);
 	const offset = limit + 16;
 	const correlations = new Float64Array(offset * 2 + 1);
-	const halfWindow = frames / 2;
 	return function estimate(left: Float32Array, right: Float32Array, start: number): PhaseWindowEstimate | null {
 		let lm = 0, rm = 0;
 		for (let frame = 0; frame < frames; frame++) { lm += left[start + frame]!; rm += right[start + frame]!; }
