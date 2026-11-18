@@ -61,7 +61,7 @@ test('Detect keeps manual settings when raw PCM is silent', async ({ page }) => 
 	await expect(editor).toHaveAttribute('data-clip-count', '0');
 });
 
-test('Detect and Import retain floating-point peaks above full scale', async ({ page }) => {
+for (const [description, peak] of [['above-full-scale', 1.5], ['quiet', 1e-7]]) test(`Detect and Import retain ${description} floating-point samples`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Tools', 'Import raw data');
@@ -69,7 +69,7 @@ test('Detect and Import retain floating-point peaks above full scale', async ({ 
 	const frames = 8_192;
 	const buffer = Buffer.alloc(frames * 4);
 	for (let frame = 0; frame < frames; frame++) {
-		buffer.writeFloatLE(1.5 * Math.sin(frame * 2 * Math.PI * 440 / 48_000), frame * 4);
+		buffer.writeFloatLE(peak * Math.sin(frame * 2 * Math.PI * 311 / 48_000), frame * 4);
 	}
 	await dialog.getByLabel('Raw PCM file').setInputFiles({ name: 'float-peaks.raw', mimeType: 'application/octet-stream', buffer });
 	await dialog.getByRole('spinbutton', { name: 'Sample rate', exact: true }).fill('48000');
@@ -85,4 +85,21 @@ test('Detect and Import retain floating-point peaks above full scale', async ({ 
 	expect(source).toMatchObject({ sampleRate: 48_000, frameCount: frames, channelCount: 1 });
 	const pcm = Buffer.from(archive[`audio/${source.id}.f32c`]);
 	expect(pcm.subarray(4)).toEqual(buffer);
+});
+
+test('Detect fills both channels of a stereo file when only one channel is smooth', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await chooseCommandAction(page, editor, 'Tools', 'Import raw data');
+	const dialog = page.getByRole('dialog', { name: 'Import raw data', exact: true });
+	const frames = 18_000;
+	const buffer = Buffer.alloc(frames * 4);
+	for (let frame = 0; frame < frames; frame++) {
+		buffer.writeInt16LE(Math.round(19_000 * Math.sin(2 * Math.PI * frame * 311 / 48_000)), frame * 4);
+		buffer.writeInt16LE(Math.round(12_000 * Math.sin(2 * Math.PI * frame * 8_000 / 48_000)), frame * 4 + 2);
+	}
+	await dialog.getByLabel('Raw PCM file').setInputFiles({ name: 'stereo-tones.raw', mimeType: 'application/octet-stream', buffer });
+	await dialog.getByRole('button', { name: 'Detect', exact: true }).click();
+	await expect(dialog.getByRole('status')).toHaveText('Estimated format applied. Review the settings before importing.');
+	await expect(dialog.getByRole('combobox', { name: 'Sample format', exact: true })).toHaveValue('int16');
+	await expect(dialog.getByRole('spinbutton', { name: 'Channels', exact: true })).toHaveValue('2');
 });

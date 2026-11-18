@@ -46,6 +46,27 @@ test('detects floating-point PCM with peaks above integer full scale', async () 
 		{ sampleFormat: 'float32', byteOrder: 'little', channelCount: 1 });
 });
 
+test('detects quiet float PCM by its sample relationships without treating it as integer audio', async () => {
+	const body = new ArrayBuffer(18_000 * 4);
+	const view = new DataView(body);
+	for (let frame = 0; frame < 18_000; frame += 1) {
+		view.setFloat32(frame * 4, 1e-7 * Math.sin(2 * Math.PI * frame * 311 / 48_000), true);
+	}
+	assert.deepEqual(await detectRawPcmFormat(new File([body], 'quiet-float.raw')),
+		{ sampleFormat: 'float32', byteOrder: 'little', channelCount: 1 });
+});
+
+test('detects interleaved stereo with very different spectra on the two channels', async () => {
+	const body = new ArrayBuffer(18_000 * 4);
+	const view = new DataView(body);
+	for (let frame = 0; frame < 18_000; frame += 1) {
+		view.setInt16(frame * 4, Math.round(19_000 * Math.sin(2 * Math.PI * frame * 311 / 48_000)), true);
+		view.setInt16(frame * 4 + 2, Math.round(12_000 * Math.sin(2 * Math.PI * frame * 8_000 / 48_000)), true);
+	}
+	assert.deepEqual(await detectRawPcmFormat(new File([body], 'stereo-tones.raw')),
+		{ sampleFormat: 'int16', byteOrder: 'little', channelCount: 2 });
+});
+
 test('empty, short, silent and unclassifiable data leave the settings undetected', async () => {
 	let seed = 12345;
 	const noise = Uint8Array.from({ length: 16_384 }, () => {

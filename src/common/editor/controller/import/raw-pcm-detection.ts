@@ -31,6 +31,12 @@ export async function detectRawPcmFormat(file: Pick<File, 'size' | 'slice'>,
 		options.signal?.throwIfAborted();
 		windows.push(new DataView(bytes));
 	}
+	// Prefer candidates with evidence on all non-silent channels. A mono 32-bit
+	// word can look like one smooth and one noisy 16-bit stereo channel.
+	return selectCandidate(windows, length, false) ?? selectCandidate(windows, length, true);
+}
+
+function selectCandidate(windows: readonly DataView[], length: number, allowDiscontinuousChannel: boolean): RawPcmDetection | null {
 	let best: RawPcmDetection | null = null;
 	let bestScore = .25;
 	for (const sampleFormat of Object.keys(WIDTHS) as RawPcmSampleFormat[]) {
@@ -39,7 +45,7 @@ export async function detectRawPcmFormat(file: Pick<File, 'size' | 'slice'>,
 			for (const channelCount of [1, 2] as const) {
 				if (length % (WIDTHS[sampleFormat] * channelCount)) continue;
 				const candidate = { sampleFormat, byteOrder, channelCount };
-				const scores = windows.map(window => continuityScore(window, candidate)).filter(Number.isFinite);
+				const scores = windows.map(window => continuityScore(window, candidate, allowDiscontinuousChannel)).filter(Number.isFinite);
 				if (!scores.length) continue;
 				const score = scores.reduce((sum, value) => sum + value, 0) / scores.length;
 				// Similar scores favour narrower samples and mono: wider integer
@@ -51,7 +57,7 @@ export async function detectRawPcmFormat(file: Pick<File, 'size' | 'slice'>,
 	return best;
 }
 
-function continuityScore(view: DataView, format: RawPcmDetection): number {
+function continuityScore(view: DataView, format: RawPcmDetection, allowDiscontinuousChannel: boolean): number {
 	const width = WIDTHS[format.sampleFormat];
 	const frames = Math.min(4096, Math.floor(view.byteLength / (width * format.channelCount)));
 	if (frames < 64) return Infinity;
@@ -67,9 +73,12 @@ function continuityScore(view: DataView, format: RawPcmDetection): number {
 			previous = value;
 		}
 		const variance = power - sum * sum / frames;
-		if (variance <= frames * 1e-12) continue;
+		if (variance <= 0 || difference === 0) continue;
 		const continuity = difference / variance;
-		if (continuity > .5) return Infinity;
+		if (continuity > .5) {
+			if (!allowDiscontinuousChannel) return Infinity;
+			continue;
+		}
 		// Stereo channels can have different spectra or one can be silent.
 		// Let the channel with the clearest continuity supply the evidence.
 		score = Math.min(score, continuity);
