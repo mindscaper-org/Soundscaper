@@ -10,6 +10,7 @@ import type {
 import type { EditorTaskProgressCoordinator } from '../shared/task-progress.ts';
 import type { LocalizedPresentationMessage } from '../../../i18n/presentation-message.ts';
 import type { BlobLike } from '../../storage/media-records.ts';
+import type { ProjectRecoveryChange } from '../../project-recovery-reason.ts';
 import type { PreparedStreamedAudioImport } from '../../browser-streamed-audio-import.ts';
 import type { ScapeProjectInput } from '../../scape-project-input.ts';
 import type { ScapeManifest } from '../../scape-archive-envelope.ts';
@@ -350,6 +351,7 @@ export interface ScapeImportResult extends Readonly<Record<string, unknown>> {
 	/** The project publication already committed; late cancellation cannot undo it. */
 	readonly publicationCommitted?: boolean;
 	readonly collision?: string | null;
+	readonly recoveryChanges?: readonly ProjectRecoveryChange[];
 	readonly reason?: string | null;
 	readonly manifest: NativeScapeManifest;
 }

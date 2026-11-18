@@ -218,7 +218,11 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 				operation.task.assertCurrent();
 			}
 			runtime.projectGeneration.capture(imported.project.id);
-			if (!imported.readOnly) await runtime.onScapeOpened?.(imported.collision !== 'reuse' && runtime.getProject()?.id === imported.project.id ? runtime.getProject()! : imported.project, file);
+			if (!imported.readOnly && imported.collision !== 'copy' && !imported.recoveryChanges?.length) {
+				const active = runtime.getProject();
+				const project = imported.collision !== 'reuse' && active?.id === imported.project.id ? active : imported.project;
+				await runtime.onScapeOpened?.(project, file);
+			}
 			if (runtime.state.readOnly) publishProjectReadOnlyStatus(runtime.copy, runtime.setStatus, readOnlyReason);
 			else setLocalizedStatus(runtime.setStatus, runtime.copy, 'projectSaved', undefined, 'success');
 			return imported;

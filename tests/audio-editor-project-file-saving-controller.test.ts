@@ -38,7 +38,7 @@ test('desktop controller saves an opened Scape to its original and asks only abo
 			importScapeProject: async () => {
 				const project = { ...structuredClone(controller.project!), id: 'imported-project', title: 'Imported project' };
 				await store.saveProject(project);
-				return { project, manifest: {}, readOnly: false, collision: 'copy' };
+				return { project, manifest: {}, readOnly: false, collision: null };
 			},
 			exportScapeProject: async (_project: unknown, _store: unknown, options: { createWritable?: (size: number) => Promise<WritableStream<Uint8Array>> }) => {
 				if (options.createWritable) { const writable = await options.createWritable(4); const writer = writable.getWriter(); await writer.write(new Uint8Array(4)); await writer.close(); return { blob: null, manifest: {}, byteLength: 4 }; }

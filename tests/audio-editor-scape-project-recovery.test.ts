@@ -2,20 +2,30 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { AtomicSaveManager, SaveTargetStore } from '../desktop/save-targets.js';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { BlobReader, BlobWriter, Uint8ArrayReader, Uint8ArrayWriter, ZipReader, ZipWriter } from '@zip.js/zip.js';
 import { digestBytes } from '../src/common/media/bytes.ts';
 import type { ProjectRecoveryChange } from '../src/common/editor/project-recovery-reason.ts';
 import { createSoundscaperProject, validateSoundscaperProject } from '../src/soundscaper/editor-project.ts';
-import { createSoundscaperProjectStore } from '../src/soundscaper/editor-project-store.ts';
+import { createSoundscaperEphemeralProjectStore, createSoundscaperProjectStore } from '../src/soundscaper/editor-project-store.ts';
 import { createSoundscaperScapeNativeRuntime, type SoundscaperScapeNativeStore } from '../src/soundscaper/editor-scape-native.ts';
 import { createAudioClip, createAudioSource, createAudioTrack, createVideoSource } from '../src/common/editor/project-media-factory.ts';
 import { createVideoTimingAssetPublication } from '../src/common/editor/video-timing-asset.ts';
 import { readTrackPlaylists } from '../src/common/editor/track-playlists.ts';
 import { readSessionSnapshots } from '../src/common/editor/session-snapshots.ts';
 import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts';
+import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
+import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
+import { registerDesktopOriginalFile } from '../src/common/editor/desktop-original-file-port.ts';
+import { COPY, createAudioEditorController, createMemoryEngine } from './helpers/audio-editor-controller-harness.js';
+import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 
 const encoder = new TextEncoder();
+type ControllerOptions = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 
 async function rewriteArchive(input: Blob, damage: (entries: Map<string, Uint8Array>) => void): Promise<Blob> {
 	const reader = new ZipReader(new BlobReader(input));
@@ -29,6 +39,69 @@ async function rewriteArchive(input: Blob, damage: (entries: Map<string, Uint8Ar
 	const writer = new ZipWriter(new BlobWriter(), { level: 0 });
 	for (const [name, bytes] of entries) await writer.add(name, new Uint8ArrayReader(bytes));
 	return writer.close();
+}
+
+for (const decision of ['collision', 'recovery'] as const) {
+	test(`saving a ${decision} copy of a selected Scape prompts for a new file`, async context => {
+		const folder = await mkdtemp(join(tmpdir(), 'scape-copy-original-'));
+		const sender = createSoundscaperEphemeralProjectStore(), recipient = createSoundscaperEphemeralProjectStore();
+		context.after(async () => { await sender.close(); await rm(folder, { recursive: true, force: true }); });
+		const source = createAudioSource({ id: 'voice', frameCount: 2, sampleRate: 48_000, channelCount: 1 });
+		const clip = createAudioClip({ id: 'spoken', sourceId: source.id, durationFrames: 2 });
+		const project = createSoundscaperProject({ id: 'original', sources: [source], clips: [clip],
+			tracks: [createAudioTrack({ id: 'dialogue', clipIds: [clip.id] })] });
+		const writer = await sender.beginSourceWrite(source.id, source);
+		await writer.write([Float32Array.of(.25, -.5)]);
+		await writer.commit();
+		const scapeProjectRuntime = createSoundscaperScapeNativeRuntime();
+		const exported = await scapeProjectRuntime.exportScapeProject(project, sender);
+		assert.ok(exported.blob);
+		const archive = decision === 'collision' ? exported.blob : await rewriteArchive(exported.blob, entries => {
+			const audio = exported.manifest.assets.find(asset => asset.sourceId === source.id);
+			assert.ok(audio);
+			entries.delete(audio.entry);
+		});
+		const original = { id: 'a'.repeat(48), name: 'original.sscape' };
+		const path = join(folder, original.name), destination = join(folder, 'exported-copy.sscape');
+		const bytes = Buffer.from(await archive.arrayBuffer());
+		await writeFile(path, bytes);
+		const file = new File([await readFile(path)], original.name);
+		registerDesktopOriginalFile(file, original);
+		let overwrites = 0, newDestinations = 0;
+		const targets = new SaveTargetStore(), owner = {};
+		const saves = new AtomicSaveManager({ targets } as never);
+		context.after(async () => { await saves.dispose(); });
+		const targetFor = (filePath: string) => targets.registerPath(filePath, { owner, purpose: 'project' });
+		const fileService = createAudioEditorFileService({ bridge: {
+			prepareOriginalOverwrite: async () => { overwrites++; return targetFor(path); },
+			chooseSaveTarget: async () => { newDestinations++; return targetFor(destination); },
+			beginWrite: (request: { targetId: string; maximumSize?: number; size?: number }) => saves.begin({ ...request, owner }),
+			writeChunk: (request: { writeId: string; offset: number; bytes: Uint8Array }) => saves.writeChunk({ ...request, owner }),
+			finishWrite: (writeId: string) => saves.finish(writeId, { owner }),
+			abortWrite: (writeId: string) => saves.abort(writeId, { owner }),
+		} });
+		const runtime = createSoundscaperProjectRuntimeSelection();
+		const controller = createAudioEditorController(null, { headless: true, productId: 'soundscaper', locale: 'en',
+			copy: COPY, store: recipient, projectRuntime: runtime, sessionController: runtime.createSessionController(),
+			fileService, scapeProjectRuntime, engine: createMemoryEngine() as unknown as ControllerOptions['engine'],
+			ffmpeg: createMemoryFfmpeg() as unknown as ControllerOptions['ffmpeg'] });
+		context.after(async () => { await controller.dispose(); });
+		await controller.ready;
+		if (decision === 'collision') await recipient.saveProject(createSoundscaperProject({ id: project.id, title: 'Other working copy' }));
+		const opened = await controller.actions.project.openScapeFile(file, request => {
+			assert.equal(request.kind, decision);
+			return 'copy';
+		});
+		assert.ok(typeof opened === 'object' && opened !== null && 'project' in opened);
+		assert.notEqual(controller.project?.id, project.id);
+		assert.equal(await controller.actions.project.saveFile(), true);
+		assert.equal(newDestinations, 1);
+		assert.equal(overwrites, 0);
+		assert.deepEqual(await readFile(path), bytes);
+		const checked = await scapeProjectRuntime.inspectScapeProject(new Blob([await readFile(destination)]), recipient,
+			{ signal: new AbortController().signal }, { retain() {} });
+		assert.equal(checked.id, controller.project?.id);
+	});
 }
 
 for (const damage of ['document', 'audio', 'missing-audio', 'pcm-geometry'] as const) {

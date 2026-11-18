@@ -235,6 +235,7 @@ restores permission only if the exact original remains current. File writes
 use the existing atomic publisher and refresh permission after commit. Browser
 file handles require granted write permission; download-only contexts retain
 internal saves and offer an explicit export.
+Collision and recovery copies choose their own destination when first saved.
 
 Desktop close prompts default on and enumerate every open writable project.
 Save and canceled/failed picker results are awaited before allowing shutdown;
