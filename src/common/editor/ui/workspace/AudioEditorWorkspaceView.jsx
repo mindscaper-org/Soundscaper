@@ -278,7 +278,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 				onChange={(event) => {
 					const files = [...event.currentTarget.files];
 					event.currentTarget.value = '';
-					run(() => legacyProjectSelection.complete(files));
+					legacyProjectSelection.complete(files);
 				}}
 			/>
 

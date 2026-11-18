@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, waitForProjectActivation } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createSoundscaperScapeNativeRuntime } from '../../src/soundscaper/editor-scape-native.ts';
 import { legacyAupFiles } from '../helpers/more200-legacy-aup-file.ts';
@@ -25,6 +25,30 @@ async function completeDirectoryChooser(chooser, dataFile) {
 		base64: Buffer.from(await dataFile.arrayBuffer()).toString('base64'),
 	});
 }
+
+test('mixed project Import finishes the legacy folder before opening the following archive', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	const { projectFile, dataFile } = legacyAupFiles('utf-8');
+	const later = await createSoundscaperScapeNativeRuntime().exportScapeProject(createSoundscaperProject({ id: 'after-legacy', title: 'Following archive' }), {
+		async getMediaAssetMetadata() { return null; }, async loadMediaAsset() { return null; }, async *readSourceChunks() {},
+	});
+	const choosing = page.waitForEvent('filechooser');
+	await chooseCommandAction(page, editor, 'File', 'Import');
+	const input = await choosing;
+	const directory = page.waitForEvent('filechooser');
+	await input.setFiles([
+		{ name: projectFile.name, mimeType: projectFile.type, buffer: Buffer.from(await projectFile.arrayBuffer()) },
+		{ name: 'Following.sscape', mimeType: 'application/zip', buffer: Buffer.from(await later.blob.arrayBuffer()) },
+	]);
+	await completeDirectoryChooser(await directory, dataFile);
+	const laterTab = editor.getByRole('tab', { name: 'Following archive', exact: true });
+	await expect(laterTab).toHaveAttribute('aria-selected', 'true');
+	const legacy = editor.getByRole('tab', { name: /^Été 演奏/u });
+	await expect(legacy).toHaveCount(1);
+	await legacy.click();
+	await waitForProjectActivation(editor);
+	await expect(editor.getByText('Voix 日本語 🎙', { exact: true }).first()).toBeVisible();
+});
 
 for (const handoff of [false, true]) test(`legacy directory completion preserves the selected activation, OS handoff=${String(handoff)}`, async ({ page }) => {
 	// Two document imports and an intervening OS handoff each perform activation.

@@ -45,7 +45,7 @@ import { supportsDisplayAudioCapture } from '../../recording-display-input.ts';
 import { focusedRecordingTrackId, hasLockedRecordingTarget } from '../../recording-target-admission.ts';
 import { importWorkspaceRoutedFiles } from './import-workspace-routed-files.ts';
 import { openWorkspaceProjectFile } from './open-workspace-project-file.ts';
-import { createLegacyAupDirectorySelection } from './legacy-aup-directory-selection.ts';
+import { useLegacyAupDirectorySelection } from './legacy-aup-directory-selection.ts';
 import { desktopExternalDestination } from '../workspace-runtime.js'; import { createTimedRecordingDialogValue } from '../dialogs/timed-recording-dialog-model.ts';
 import { useTrackHeaderDrawerFlag, useWorkspaceCompactLayout } from './useWorkspaceCompactLayout.js';
 import { useWorkspaceEffectsPanel } from './useWorkspaceEffectsPanel.js';
@@ -94,12 +94,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	const [recordingMeterSettings, setRecordingMeterSettings] = useState(() => loadRecordingMeterSettings(productId));
 	const { cueImportDialog, importInputRef, requestCueImport } = useCueImportWorkspace(controller, snapshot.project?.id);
 	const aup4InputRef = useRef(null);
-	const legacyDataInputRef = useRef(null);
-	const legacyProjectSelection = useMemo(() => createLegacyAupDirectorySelection({
-		getProjectSessionKey: () => editorProjectEditSessionKey(controller, controller.getSnapshot().project?.id),
-		chooseDirectory: () => legacyDataInputRef.current?.click(),
-		importFiles: files => controller.actions.project.importFiles(files),
-	}), [controller]);
+	const { legacyDataInputRef, legacyProjectSelection } = useLegacyAupDirectorySelection(controller);
 	const editorRef = useRef(null);
 	const workspaceRef = useRef(null);
 	const {
