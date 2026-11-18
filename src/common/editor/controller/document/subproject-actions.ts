@@ -3,7 +3,7 @@ import { createAddTrackCommand, createAddClipCommand } from '../../commands/fact
 import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import { readSubprojectLinks, type SubprojectLink } from '../../subprojects.ts';
 import { assertSubprojectGraphAcyclic, cacheSubprojectDigests, cacheSubprojectDocumentReads, MissingSubprojectError, resolveSubprojectGraph, type ResolvedSubprojectNode } from './internal/subprojects/subproject-graph.ts';
-import { createSubprojectRenderer, type SubprojectRendererRuntime } from './internal/subprojects/subproject-renderer.ts';
+import { createSubprojectRenderer, SubprojectRenderUnavailableError, type SubprojectRendererRuntime } from './internal/subprojects/subproject-renderer.ts';
 import { EditorProjectChangedError, type EditorProjectToken } from '../shared/lifecycle.ts';
 
 export function createStoredSubprojectActions(runtime: Omit<SubprojectRuntime, 'plan' | 'render'> & {
@@ -130,7 +130,13 @@ export function createSubprojectActions(runtime: SubprojectRuntime) {
 			}
 			assertCurrent(project);
 			if (!options.force && (node.digest === link.contentDigest || installed.get(`${project.id}:${link.id}`) === node.digest)) continue;
-			await publish(project, link, node, link, libraryId, assertCurrent, options.signal);
+			try {
+				await publish(project, link, node, link, libraryId, assertCurrent, options.signal);
+			} catch (error) {
+				if (options.force || !(error instanceof SubprojectRenderUnavailableError)) throw error;
+				assertCurrent(project);
+				continue;
+			}
 			load = cacheSubprojectDocumentReads(runtime.loadProject);
 			digestProject = cacheSubprojectDigests();
 		}

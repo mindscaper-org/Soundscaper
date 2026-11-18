@@ -9,6 +9,7 @@ import { EditorProjectGeneration } from '../src/common/editor/controller/shared/
 import { CLIP_SOURCE_STRETCH_EXTENSION } from '../src/common/editor/clip-source-stretch-memory.ts';
 import { createAudioWarpClipAuthority } from '../src/common/editor/audio-warp-clip-authority.ts';
 import type { AudioEditorCommand } from '../src/common/editor/commands/protocol.ts';
+import { SubprojectRenderUnavailableError } from '../src/common/editor/controller/document/internal/subprojects/subproject-renderer.ts';
 
 function fixture(frameCount = 4) {
 	let project: SubprojectDocument = createSoundscaperProject({ id: 'parent' }) as SubprojectDocument;
@@ -17,7 +18,7 @@ function fixture(frameCount = 4) {
 	let serial = 0, discarded = 0, renders = 0, blocked = false;
 	const generation = new EditorProjectGeneration();
 	generation.activate(project.id);
-	let beforeRender: () => Promise<void> = () => Promise.resolve();
+	let beforeRender: (id: string) => Promise<void> = () => Promise.resolve();
 	const runtime: SubprojectRuntime = {
 		getProject: () => project,
 		assertWritable: () => { if (blocked) throw new Error('read-only'); },
@@ -30,19 +31,37 @@ function fixture(frameCount = 4) {
 		createId: prefix => `${prefix}-${String(++serial)}`,
 		openProject: id => Promise.resolve(id), prepare: () => Promise.resolve(),
 		plan: () => ({ sampleRate: 48000, channelCount: 2, frameCount }),
-		render: async (_node, geometry) => {
-			renders++; await beforeRender(); const id = `audio-${String(++serial)}`;
+		render: async (node, geometry) => {
+			renders++; await beforeRender(node.project.id); const id = `audio-${String(++serial)}`;
 			return { source: { id, kind: 'audio', name: 'Scene', storageKey: id, ...geometry }, discard: () => { discarded++; return Promise.resolve(); } };
 		},
 		reportError: error => { throw error; }, wait: () => Promise.resolve(),
 	};
 	return { actions: createSubprojectActions(runtime), documents, reads, get project() { return project; },
 		get discarded() { return discarded; }, get renders() { return renders; },
-		beforeRender(callback: () => Promise<void>) { beforeRender = callback; },
+		beforeRender(callback: (id: string) => Promise<void>) { beforeRender = callback; },
 		edit(command: AudioEditorCommand) { runtime.commit(command); },
 		selectProject(value: SubprojectDocument) { project = value; generation.activate(value.id); },
 		setProject(value: SubprojectDocument) { project = value; }, block() { blocked = true; } };
 }
+
+test('an unsupported saved child keeps its installed mix and lets another followed child refresh', async () => {
+	const state = fixture();
+	state.documents.set('sibling', createSoundscaperProject({ id: 'sibling', title: 'Other scene' }) as SubprojectDocument);
+	await state.actions.add('child');
+	await state.actions.add('sibling');
+	const [first, second] = readSubprojectLinks(state.project);
+	for (const id of ['child', 'sibling']) {
+		state.documents.set(id, { ...state.documents.get(id)!, master: { gain: 0.25 }, revision: 2 });
+	}
+	const error = new SubprojectRenderUnavailableError('Render or commit the updated native plug-in first.');
+	state.beforeRender(id => id === 'child' ? Promise.reject(error) : Promise.resolve());
+	await state.actions.refresh();
+	const refreshed = readSubprojectLinks(state.project);
+	assert.equal(refreshed[0]!.sourceId, first!.sourceId);
+	assert.notEqual(refreshed[1]!.sourceId, second!.sourceId);
+	await assert.rejects(state.actions.refresh({ force: true, id: first!.id }), cause => cause === error);
+});
 
 test('switching back to a saved track playlist plays the refreshed subproject source', async () => {
 	const state = fixture();

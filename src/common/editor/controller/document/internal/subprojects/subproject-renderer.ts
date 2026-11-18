@@ -18,6 +18,8 @@ import type { SubprojectDocument, SubprojectGeometry, SubprojectRenderedSource }
 import type { ResolvedSubprojectNode } from './subproject-graph.ts';
 import { prepareSubprojectTimePitchSources } from './subproject-time-pitch.ts';
 
+export class SubprojectRenderUnavailableError extends RangeError {}
+
 export interface SubprojectRenderStore extends StoredSourceReader {
 	getSourceMetadata(id: string): Promise<StoredSourceMetadata | null>;
 	beginSourceWrite(id: string, metadata: Record<string, unknown>): Promise<OwnedAudioSourceWriter>;
@@ -221,7 +223,7 @@ function assertBackgroundRackSupport(project: Readonly<Record<string, unknown>>)
 		const owner = value as { effects?: readonly { type?: string; enabled?: boolean; bypassed?: boolean }[]; effectsActive?: boolean };
 		if (owner?.effectsActive === false) continue;
 		if (owner?.effects?.some(effect => effect.type === 'native-plugin' && effect.enabled !== false && !effect.bypassed)) {
-			throw new RangeError('Render or commit native plug-in tracks before using this project as an audio subproject.');
+			throw new SubprojectRenderUnavailableError('Render or commit native plug-in tracks before using this project as an audio subproject.');
 		}
 	}
 }
