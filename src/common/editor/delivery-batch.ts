@@ -110,12 +110,14 @@ export function createDeliveryBatch(
 				throw new DeliveryBatchError('A BW64 / ADM programme cannot be delivered as stems.');
 			}
 			const presetOptions = { ...resolveDeliveryPresetPlanOptions(preset) };
-			// A saved mix target cannot normalize stems independently; the batch's
-			// chosen output has the same meaning as the export dialog's choice.
+			// Apply the same output constraints as the interactive export dialog.
 			if (mode === 'stems') {
 				delete presetOptions.loudnessNormalization;
-				delete presetOptions.embedLabelChapters;
+				delete presetOptions.binaural;
+				delete presetOptions.earLayout;
 			}
+			if (mode === 'stems' || resolved.target.kind === 'mastering-sequence') delete presetOptions.embedLabelChapters;
+			if (mode !== 'mix' || resolved.target.kind !== 'loop') delete presetOptions.renderAsLoop;
 			members.push(Object.freeze({
 				memberId: createMemberId(members.length),
 				label: `${resolved.label} — ${preset.label}`,
