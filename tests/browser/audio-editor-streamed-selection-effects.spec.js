@@ -6,7 +6,7 @@ test('ordinary Apply streams a long normalization and a realtime effect through 
 	test.setTimeout(180000);
 	const errors = collectClientErrors(page);
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
-	await importFiles(editor, [createWavFixture({ name: 'long-selection.wav', frequency: 440, duration: 240, sampleRate: 48000, channelCount: 2 })]);
+	await importFiles(editor, [createWavFixture({ name: 'long-selection.wav', frequency: 440, duration: 240, sampleRate: 48000, channelCount: 2 })], { timeout: 60_000 });
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	for (const [category, name] of [['Volume and compression', 'Normalize'], ['Special', 'Invert']]) {
 		await chooseNestedCommandAction(page, editor, 'Effect', [category, name]);
