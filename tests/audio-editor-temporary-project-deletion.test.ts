@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createControllerFileSavingRuntime, pruneTemporaryProjects } from '../src/common/editor/controller/document/project-file-saving-composition.ts';
+import { bindProjectFileSaving, createControllerFileSavingRuntime, pruneTemporaryProjects } from '../src/common/editor/controller/document/project-file-saving-composition.ts';
 import { createSoundscaperEphemeralProjectStore } from '../src/soundscaper/editor-project-store.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts';
+import { deferred, settle } from './helpers/async-test-control.ts';
 
 test('temporary cleanup removes older closed copies from the actual selected store', async context => {
 	const store = createSoundscaperEphemeralProjectStore();
@@ -78,6 +79,60 @@ test('temporary cleanup keeps a project reopened while its stored snapshot is lo
 	}, preferences: { limitProjects: true, maximumProjects: 1 }, openIds: new Set([current.id]),
 	isOpen: id => id === old.id && reopened, acquire: async () => ({ readOnly: false, release() {} }) });
 	assert.ok(await store.loadProject(old.id), 'the newly open tab must retain its working copy');
+});
+
+test('disabling the temporary project limit retires an in-flight cleanup before it deletes anything', async context => {
+	const store = createSoundscaperEphemeralProjectStore();
+	context.after(async () => { await store.close(); });
+	const old = createSoundscaperProject({ id: 'old-before-disabling', now: '2026-11-17T12:00:00Z' });
+	const current = createSoundscaperProject({ id: 'current-before-disabling', now: '2026-11-17T12:01:00Z' });
+	await store.saveProject(old);
+	await store.saveProject(current);
+	const reading = deferred<void>(), resume = deferred<void>();
+	let limitProjects = true;
+	const runtime = createControllerFileSavingRuntime({
+		session: { getSnapshot: () => ({ tabs: [{ projectId: current.id, history: { present: current } }] }) },
+		store: {
+			listProjects: () => store.listProjects(),
+			async loadProject(id) { const result = await store.loadProject(id); reading.resolve(); await resume.promise; return result; },
+			deleteProjectSnapshot: expected => store.deleteProjectSnapshot(expected),
+		},
+		preferences: () => ({ saving: { autoSaving: false, askBeforeClosing: true }, temporaryData: { limitProjects, maximumProjects: 1 } }),
+		switchProject: () => undefined, closeProject: () => undefined,
+		acquire: async () => ({ readOnly: false, release() {} }), subscribe: () => () => undefined,
+		signal: new AbortController().signal, handleError: error => { throw error; },
+	});
+	const pruning = runtime.prune!();
+	await reading.promise;
+	limitProjects = false;
+	resume.resolve();
+	await pruning;
+	assert.ok(await store.loadProject(old.id));
+});
+
+test('a transient temporary data read error can recover while the same projects remain open', async () => {
+	const project = createSoundscaperProject({ id: 'open-retry-workspace' });
+	const failure = new Error('Could not list the temporary projects');
+	const errors: unknown[] = [];
+	let attempts = 0;
+	let publish = (): void => undefined;
+	bindProjectFileSaving({
+		runtime: {
+			getProjects: () => [{ project, readOnly: false }],
+			getPreferences: () => ({ autoSaving: false, askBeforeClosing: true }),
+			activate: () => undefined, discard: () => undefined, subscribe(listener) { publish = listener; return () => undefined; },
+			signal: new AbortController().signal, handleError(error) { errors.push(error); },
+			async prune() { attempts++; if (attempts === 1) throw failure; },
+		},
+		fileService: { isDesktop: true }, copy: {}, getProject: () => project, flush: () => undefined,
+		write: () => Promise.resolve({}),
+	});
+	publish();
+	await settle();
+	assert.deepEqual(errors, [failure]);
+	publish();
+	await settle();
+	assert.equal(attempts, 2);
 });
 
 test('the desktop catalog summary identifies an eligible closed working copy', async context => {

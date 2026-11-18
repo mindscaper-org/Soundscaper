@@ -59,16 +59,20 @@ export function bindProjectFileSaving(d: Readonly<{
 			if (target.originalFile) await d.fileService.rememberProjectFile?.({ projectId: id, originalId: target.originalFile.id, baseline });
 		}, release: async original => { await releaseDesktopOriginalFile(original); await d.fileService.releaseOriginalFile?.(original.id); }, handleError: error => runtime?.handleError(error),
 	});
-	let retainedKey = '', maintenance: Promise<unknown> = Promise.resolve();
+	let retentionRequest: Readonly<{ key: string }> | null = null, maintenance: Promise<unknown> = Promise.resolve();
 	const unsubscribe = runtime?.subscribe(() => {
 		if (runtime.isReady?.() === false) return;
 		service.observe();
 		const ids = runtime.getProjects().map(entry => entry.project.id).join('\0');
 		const key = `${ids}:${runtime.getRetentionKey?.() ?? ''}`;
-		if (!runtime.prune || key === retainedKey || !d.getProject()) return;
-		retainedKey = key;
+		if (!runtime.prune || key === retentionRequest?.key || !d.getProject()) return;
+		const request = { key };
+		retentionRequest = request;
 		maintenance = maintenance.catch(() => undefined).then(() => runtime.prune?.());
-		void maintenance.catch(runtime.handleError);
+		void maintenance.catch(error => {
+			if (retentionRequest === request) retentionRequest = null;
+			runtime.handleError(error);
+		});
 	});
 	runtime?.signal.addEventListener('abort', () => { unsubscribe?.(); void service.dispose().catch(error => runtime.handleError(error)); }, { once: true });
 	return Object.freeze({
@@ -96,6 +100,7 @@ export async function pruneTemporaryProjects(d: Readonly<{
 	preferences?: TemporaryDataPreferences;
 	openIds: ReadonlySet<string>;
 	isOpen?(id: string): boolean;
+	isCurrent?(): boolean;
 	acquire(id: string): PromiseLike<Readonly<{ readOnly: boolean; release(): PromiseLike<unknown> | unknown }>>;
 }>): Promise<boolean> {
 	const preferences = normalizeTemporaryDataPreferences(d.preferences);
@@ -105,10 +110,12 @@ export async function pruneTemporaryProjects(d: Readonly<{
 	const closed = projects.filter(project => !d.openIds.has(project.id));
 	let changed = false;
 	for (const project of closed.slice(keepClosed)) {
+		if (d.isCurrent?.() === false) break;
 		const lock = await d.acquire(project.id);
 		try {
 			if (lock.readOnly || d.openIds.has(project.id) || d.isOpen?.(project.id)) continue;
 			const expected = await d.store.loadProject(project.id);
+			if (d.isCurrent?.() === false) break;
 			if (d.openIds.has(project.id) || d.isOpen?.(project.id)) continue;
 			if (matchesTemporaryProject(expected, project) && await d.store.deleteProjectSnapshot(expected)) changed = true;
 		} finally { await lock.release(); }
@@ -163,8 +170,14 @@ export function createControllerFileSavingRuntime<Project extends NativeProjectD
 			await d.refreshCatalog?.();
 		},
 		prune: async () => {
-			const changed = await pruneTemporaryProjects({ store: d.store, preferences: d.preferences().temporaryData,
-				openIds: new Set(d.session.getSnapshot().tabs.map(tab => tab.projectId)), isOpen, acquire: d.acquire });
+			const preferences = normalizeTemporaryDataPreferences(d.preferences().temporaryData);
+			const changed = await pruneTemporaryProjects({ store: d.store, preferences,
+				openIds: new Set(d.session.getSnapshot().tabs.map(tab => tab.projectId)), isOpen, acquire: d.acquire,
+				isCurrent: () => {
+					const current = normalizeTemporaryDataPreferences(d.preferences().temporaryData);
+					return !d.signal.aborted && current.limitProjects && current.maximumProjects === preferences.maximumProjects;
+				},
+			});
 			if (changed) await d.refreshCatalog?.();
 		},
 	};
