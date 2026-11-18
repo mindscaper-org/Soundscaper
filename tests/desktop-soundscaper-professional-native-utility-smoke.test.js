@@ -68,6 +68,18 @@ test('professional utility audio canary refuses unknown backend and open statuse
 		/backend status/iu);
 });
 
+test('the macOS audio canary requires the compiled-in Core Audio backend', () => {
+	const addon = {
+		enumerateAudioBackends: () => [{
+			backend: 'coreaudio', status: 'backend-unavailable', detail: 'backend-unavailable', devices: [],
+		}],
+		openAudioDevice: () => { throw new Error('must not open'); },
+		closeAudioDevice: () => true,
+	};
+	assert.throws(() => runSoundscaperProfessionalNativeAudioCanary(addon, 'mac-arm64'),
+		/Core Audio inventory must complete/iu);
+});
+
 test('professional utility smoke accepts only exact Electron utility-process evidence', async () => {
 	const logs = [];
 	const { child, running } = utilitySmoke(logs);
