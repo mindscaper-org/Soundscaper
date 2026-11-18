@@ -202,18 +202,22 @@ export function createProjectSwitchService<
 				await guard(runtime.saveNow());
 			}
 			const previousLock = runtime.state.projectLock;
-			const knownStale = Boolean(existingCapture && previousProject?.id !== projectId && options.adoptSessionRevision !== true
+			let stale = Boolean(existingCapture && previousProject?.id !== projectId && options.adoptSessionRevision !== true
 				&& runtime.isPersistedSnapshotCurrent && !await guard(runtime.isPersistedSnapshotCurrent(projectId)));
-			if (!previousLock || previousLock.projectId !== projectId || previousLock.readOnly) {
-				stagedLock = knownStale ? { projectId, readOnly: true, method: 'stale-project', release() {} }
-					: await runtime.acquireProjectLock(projectId, { force: true });
+			if (!stale && (!previousLock || previousLock.projectId !== projectId || previousLock.readOnly)) {
+				stagedLock = await runtime.acquireProjectLock(projectId, { force: true });
 				runtime.lifetime.assertActive(token);
+			}
+			const acquiredLock = stagedLock ?? previousLock;
+			stale ||= Boolean(acquiredLock && !acquiredLock.readOnly && !await guard(verifyProjectSwitchStorageCurrent(
+				runtime, projectId, activationProject, Boolean(existingCapture), options,
+			)));
+			if (stale) {
+				if (stagedLock) await guard(discardLock(stagedLock));
+				stagedLock = { projectId, readOnly: true, method: 'stale-project', release() {} };
 			}
 			const activationLock = stagedLock ?? previousLock;
 			if (!activationLock) throw new Error('Project activation requires an acquired project lock.');
-			const storageCurrent = !activationLock.readOnly && await guard(verifyProjectSwitchStorageCurrent(
-				runtime, projectId, activationProject, Boolean(existingCapture), options,
-			));
 			runtime.cancelScheduledSave();
 			readyProjectId = null;
 			runtime.stopEngine();
@@ -227,7 +231,7 @@ export function createProjectSwitchService<
 				stagedLock = null;
 			}
 			activeLock = activationLock;
-			const lockReadOnly = activationLock.readOnly || !storageCurrent;
+			const lockReadOnly = activationLock.readOnly;
 			const existingMetadata = existingCapture ? runtime.sessionTab(projectId)?.metadata || {} : {};
 			const retainStoredReadOnly = existingCapture != null || options.readOnly == null;
 			const declaredReadOnly = retainStoredReadOnly
@@ -361,11 +365,11 @@ export function createProjectSwitchService<
 				await guard(openRecovery.deferMaintenance(async () => { try { await runtime.maintainOpenedProject(projectId, isCurrentWritable); } catch { /* Report-only. */ } }));
 				runtime.lifetime.assertActive(token);
 			}
-			if (lockReadOnly) setLocalizedStatus(runtime.setStatus, runtime.copy, knownStale ? 'projectReadOnly' : 'projectOpenOtherTab', undefined, 'error');
+			if (lockReadOnly) setLocalizedStatus(runtime.setStatus, runtime.copy, stale ? 'projectReadOnly' : 'projectOpenOtherTab', undefined, 'error');
 			else if (runtime.state.readOnly) {
 				publishProjectReadOnlyStatus(runtime.copy, runtime.setStatus, intrinsicReadOnlyReason);
 			} else if (leavingReadOnly && !openRecovery.blocked) setLocalizedStatus(runtime.setStatus, runtime.copy, 'ready', undefined, 'success');
-			if (!knownStale) runtime.scheduleProjectLockRecovery(projectId, activationLock);
+			if (!stale) runtime.scheduleProjectLockRecovery(projectId, activationLock);
 		} catch (error) {
 			let failure = error;
 			const cleanup = async (

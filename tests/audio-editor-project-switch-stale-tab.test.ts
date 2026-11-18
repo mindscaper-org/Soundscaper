@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { sameProjectSnapshot } from '../src/common/editor/storage/project-snapshot-equality.ts';
-import { createFixture, project } from './helpers/audio-editor-project-switch-fixture.ts';
+import { createFixture, lock, project } from './helpers/audio-editor-project-switch-fixture.ts';
 
 test('reopening an inactive stale tab leaves the current window’s writer alone', async () => {
 	const fixture = createFixture();
@@ -39,4 +39,19 @@ test('first activation stays read-only when its loaded document changed before l
 	assert.equal(fixture.getTab('stale-project')?.readOnly, true);
 	assert.equal(fixture.getTab('stale-project')?.readOnlyReason, 'project-lock');
 	assert.equal(fixture.events.includes('maintain-opened:stale-project'), false);
+});
+
+test('opening a recent project frees the writer when another window saved during activation', async () => {
+	const fixture = createFixture();
+	const recent = project('recent-project');
+	const writer = lock(recent.id);
+	fixture.setAcquire(async () => writer);
+	Object.assign(fixture.runtime, { isActivatedProjectCurrent: async () => false });
+
+	await fixture.service.switchProject(recent);
+
+	assert.equal(fixture.state.readOnly, true);
+	assert.equal(writer.releases, 1, 'another window can acquire the current revision');
+	assert.equal(fixture.state.projectLock?.readOnly, true);
+	assert.equal(fixture.events.includes('schedule-lock:recent-project'), false);
 });
