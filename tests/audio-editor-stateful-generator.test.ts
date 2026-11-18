@@ -57,6 +57,7 @@ test('whole generator outputs retain pinned current-main phase and channel RNG f
 });
 
 // Independently bundled generators.js at main 9c6d928634b2f20f40d3ad145a0991099db1e26a.
+// The two shortest DTMF fixtures include tones sampled at their one-frame midpoint.
 const mainFixtures = [
 	['noise', {'sampleRate': 8000, 'durationSeconds': 0.000125, 'channelCount': 32, 'color': 'pink', 'seed': 0, 'amplitude': 0.37}, '2bad24f6e3eef633c08b304d65a2e98ddaba00e2521fbf5db05a35fdc54b9774'],
 	['noise', {'sampleRate': 8000, 'durationSeconds': 0.255875, 'channelCount': 3, 'color': 'pink', 'seed': 1, 'amplitude': 0.37}, 'b074783cdc529b99626dd71bc7c6db235480e0698c9d62bb60a4d960ad3ea287'],
@@ -74,15 +75,15 @@ const mainFixtures = [
 	['noise', {'sampleRate': 96000, 'durationSeconds': 0.34132291666666664, 'channelCount': 3, 'color': 'pink', 'seed': 1, 'amplitude': 0.37}, '87ccb2727060578ee9ef1522868942bc2a737c94351242ea72e85a8ecd649177'],
 	['noise', {'sampleRate': 96000, 'durationSeconds': 0.3413333333333333, 'channelCount': 3, 'color': 'pink', 'seed': 2147483648, 'amplitude': 0.37}, 'ecaad3017be430b622598428b170d6dadbbfdcde1ecc63b8331ae2ebf0552aac'],
 	['noise', {'sampleRate': 96000, 'durationSeconds': 0.34134375, 'channelCount': 3, 'color': 'pink', 'seed': 4294967295, 'amplitude': 0.37}, '335b8a2166643ef4f3894b4f831a5d730045831e616374c277c709122299e16a'],
-	['dtmf', {'sampleRate': 8000, 'durationSeconds': 0.000125, 'sequence': '11AB1#D', 'toneSeconds': 0.031125, 'silenceSeconds': 0.009375, 'channelCount': 3, 'amplitude': 0.37}, '15ec7bf0b50732b49f8228e07d24365338f9e3ab994b00af08e5a3bffe55fd8b'],
-	['dtmf', {'sampleRate': 8000, 'durationSeconds': 0.002125, 'sequence': '11AB1#D', 'toneSeconds': 0.031125, 'silenceSeconds': 0.009375, 'channelCount': 3, 'amplitude': 0.37}, '7231e20c646b0dc5d93c75ca633a0c9676f59f153fb3416f5e7e02221f9f32b5'],
+	['dtmf', {'sampleRate': 8000, 'durationSeconds': 0.000125, 'sequence': '11AB1#D', 'toneSeconds': 0.031125, 'silenceSeconds': 0.009375, 'channelCount': 3, 'amplitude': 0.37}, '7a226124eb55dd16c033521274e1c5a51fa32ef781bd58f5941155d6b5c708c4'],
+	['dtmf', {'sampleRate': 8000, 'durationSeconds': 0.002125, 'sequence': '11AB1#D', 'toneSeconds': 0.031125, 'silenceSeconds': 0.009375, 'channelCount': 3, 'amplitude': 0.37}, '411014d29891ca07a13cabd1b6480cf2166e32de4e8a2fef540c5a601808d947'],
 	['dtmf', {'sampleRate': 8000, 'durationSeconds': 0.031375, 'sequence': '11AB1#D', 'toneSeconds': 0.031125, 'silenceSeconds': 0.009375, 'channelCount': 3, 'amplitude': 0.37}, 'a420a5e21e7668689b45956559529964c99ab47fb01603b74a1bb9fc14c8e787'],
 	['dtmf', {'sampleRate': 8000, 'durationSeconds': 0.514625, 'sequence': '11AB1#D', 'toneSeconds': 0.031125, 'silenceSeconds': 0.009375, 'channelCount': 3, 'amplitude': 0.37}, '2ac4a84cb18fa3c0f6795374e3afe2eb2ae1fe2bfdc255a703dc208fdca7b497'],
 	['dtmf', {'sampleRate': 8000, 'durationSeconds': 4.137625, 'sequence': '11AB1#D', 'toneSeconds': 0.031125, 'silenceSeconds': 0.009375, 'channelCount': 3, 'amplitude': 0.37}, '9c3e1807b6f2a2471d9307a8eeb74b59111622aa607faa7b8f38dc7d813a4305'],
 	['dtmf', {'sampleRate': 48000, 'durationSeconds': 2.037, 'sequence': '11111111111111111', 'toneSeconds': 0.001, 'silenceSeconds': 0.003, 'channelCount': 2, 'amplitude': 0.8}, '54ba9c418d79014abf1223afd8b037c4d3fea9596971e50be5fa5ad0459020e0'],
 ] as const;
 
-test('streaming preserves current-main pink row draws and duration-scaled DTMF samples', () => {
+test('streaming preserves pink row draws and duration-scaled DTMF samples', () => {
 	for (const [type, options, expected] of mainFixtures) {
 		const renderer = createAudioEditorSignalRenderer(type, options);
 		assert.equal(renderer.frameCount, Math.round(options.sampleRate * options.durationSeconds));

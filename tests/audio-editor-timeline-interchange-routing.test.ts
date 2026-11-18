@@ -32,6 +32,7 @@ test('shared Import supplies selected media to the timeline importer without add
 			importFiles: unexpected,
 			openInterchange: (input: File, options: { mediaFiles?: readonly File[] }) => {
 				assert.equal(input, document); assert.deepEqual(options.mediaFiles, [audio]); opened = true;
+				return { companionFiles: [audio] };
 			},
 		}, labels: { importFile: unexpected } } },
 		files: [document, audio], importOptions: {}, openProjectFile: unexpected,

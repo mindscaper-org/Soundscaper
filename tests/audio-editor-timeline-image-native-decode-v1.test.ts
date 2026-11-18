@@ -103,7 +103,9 @@ test('browser-native decode closes a failing decoder session', async () => {
 
 test('an accepted native image input warning survives all repeated byte admission and frame-pack assembly checks', async () => {
 	const bytes = new Uint8Array(IMAGE_IMPORT_LIMITS.maximumFileInputBytes + 1);
-	bytes.set(PNG);
+	bytes.set(PNG.subarray(0, 8));
+	new DataView(bytes.buffer).setUint32(8, bytes.length - 20);
+	bytes.set(new TextEncoder().encode('IDAT'), 12);
 	const events: string[] = [];
 	const decoded = await decodeFramescaperBrowserNativeImageV1({
 		bytes, fileName: 'large.png', mimeTypeHint: 'image/png',

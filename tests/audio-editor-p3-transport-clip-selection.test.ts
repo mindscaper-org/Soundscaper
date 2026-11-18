@@ -77,7 +77,7 @@ for (const action of ['selection', 'cut'] as const) for (const anchor of ['sampl
 		if (action === 'selection') await controller.actions.transport.playSelection();
 		else await controller.actions.transport.playCutPreview();
 		assert.equal(calls.length, 1);
-		assert.deepEqual(calls[0], { startFrame: 24_000, endFrame: 72_000, ...(action === 'cut' ? { trackIds: ['voice'] } : {}) });
+		assert.deepEqual(calls[0], { startFrame: 24_000, endFrame: 72_000, ...(action === 'cut' ? { trackIds: ['voice'] } : { overrideLoop: true }) });
 		assert.deepEqual(controller.project, before, 'audition leaves selection, loop and history document unchanged');
 		await controller.actions.project.flush({ forceCurrentSnapshot: true });
 		assert.deepEqual(await store.loadProject(project.id), controller.project);

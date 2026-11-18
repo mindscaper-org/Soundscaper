@@ -39,7 +39,8 @@ test('owned search entries normalize fields once and preserve every ranking tier
 			searchAudioEditorEntries(owned, query).map(entry => entry.key), expected[index],
 		));
 	}
-	assert.equal(calls - firstPassCalls, queries.length * 3, 'only the query is normalized after preparation');
+	assert.equal(calls - firstPassCalls, (queries.length + 1) * 3,
+		'only queries are normalized after preparation, including the emoji query’s literal fallback');
 	assert.equal(owned[1]!.handler, entries[1]!.handler);
 	assert.equal(owned[0]!.disabled, true);
 });
