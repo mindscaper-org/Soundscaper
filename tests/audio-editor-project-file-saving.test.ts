@@ -2,14 +2,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createProjectFileSaving } from '../src/common/editor/controller/document/internal/project-file-saving.ts';
+import type { ProjectFileReference } from '../src/common/editor/file-save-stream.ts';
+import { deferred, settle } from './helpers/async-test-control.ts';
 
 type Project = { id: string; title: string; revision: number; tracks: unknown[]; clips?: unknown[] };
-function fixture(desktop = true) {
+function fixture(desktop = true, restore?: (id: string) => Promise<Readonly<{ originalFile: ProjectFileReference; baseline: string }> | null>) {
 	let current: Project = { id: 'a', title: 'A', revision: 1, tracks: [] };
 	let settings = { autoSaving: !desktop, askBeforeClosing: true };
 	const tabs = new Map([[current.id, current]]);
 	const readOnlyIds = new Set<string>();
 	const writes: unknown[] = [], discarded: string[] = [], decisions: string[] = [];
+	const releasedOriginals: string[] = [];
 	const timers: Array<() => void> = [];
 	const clearedTimers = new Set<number>();
 	let flushes = 0;
@@ -30,9 +33,10 @@ function fixture(desktop = true) {
 		prepareOriginal: async original => ({ id: original.id, name: original.name }),
 		ask: async () => decisions.shift() as 'save' | 'discard' | 'cancel',
 		discard: async id => { discarded.push(id); tabs.delete(id); }, handleError: () => undefined,
+		restore, release: original => { releasedOriginals.push(original.id); },
 		schedule: callback => { timers.push(callback); return timers.length; }, clear: timer => { clearedTimers.add(timer); },
 	});
-	return { service, tabs, writes, discarded, decisions, timers, readOnlyIds,
+	return { service, tabs, writes, discarded, decisions, timers, readOnlyIds, releasedOriginals,
 		select: (id: string) => { current = tabs.get(id)!; service.observe(); },
 		runPendingTimers: async () => {
 			for (const [index, callback] of timers.entries()) {
@@ -121,6 +125,36 @@ test('closing an inactive read-only tab does not flush the active project', asyn
 
 	assert.equal(await f.service.prepareClose('b'), true);
 	assert.equal(f.getFlushes(), 0);
+	assert.deepEqual(f.writes, []);
+});
+
+test('closing a project while its desktop file association restores releases the late original', async () => {
+	const pending = deferred<Readonly<{ originalFile: ProjectFileReference; baseline: string }>>();
+	const requested = deferred<void>();
+	const f = fixture(true, id => {
+		if (id !== 'a') return Promise.resolve(null);
+		requested.resolve();
+		return pending.promise;
+	});
+	f.setAsk(false);
+	f.service.observe();
+	await requested.promise;
+	f.tabs.set('b', { id: 'b', title: 'Another project', revision: 0, tracks: [] });
+	assert.equal(await f.service.prepareClose('a'), true);
+	f.tabs.delete('a');
+	f.select('b');
+	pending.resolve({ originalFile: { id: 'late-original', name: 'First.sscape' }, baseline: 'saved' });
+	await settle();
+	assert.deepEqual(f.releasedOriginals, ['late-original']);
+});
+
+test('closing a reopened track template without an original file still prompts to save', async () => {
+	const f = fixture();
+	f.tabs.set('b', { id: 'b', title: 'Dialogue and music template', revision: 3,
+		tracks: [{ type: 'audio', name: 'Dialogue' }, { type: 'audio', name: 'Music' }] });
+	f.select('b');
+	f.decisions.push('cancel');
+	assert.equal(await f.service.prepareClose('b'), false);
 	assert.deepEqual(f.writes, []);
 });
 

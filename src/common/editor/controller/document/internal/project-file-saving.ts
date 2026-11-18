@@ -50,7 +50,10 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 		if (!operation) {
 			operation = (async () => {
 				const restored = await d.restore?.(project.id);
-				if (entries.has(project.id) || disposed) return;
+				if (entries.has(project.id) || disposed || !d.getProjects().some(tab => tab.project.id === project.id)) {
+					if (restored) await releaseCopyTarget(restored);
+					return;
+				}
 				entries.set(project.id, restored ? { ...restored, baseline: Promise.resolve(restored.baseline) }
 					: { baseline: emptyProject(project) ? fingerprint(project) : null });
 			})();
@@ -96,7 +99,8 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 	}
 	async function write(project: Project, explicit: boolean): Promise<boolean> {
 		await load(project);
-		const entry = entries.get(project.id)!;
+		const entry = entries.get(project.id);
+		if (!entry) return false;
 		if (!explicit && !await hasChanges(project)) return true;
 		const hasTarget = Boolean(entry.originalFile || entry.fileHandle);
 		if (!hasTarget && !explicit) return true;
@@ -220,9 +224,10 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 }
 
 function emptyProject(project: FileSavingProject): boolean {
-	const value = project as FileSavingProject & { tracks?: readonly { labels?: readonly unknown[] }[]; clips?: readonly unknown[]; sources?: readonly unknown[]; timelineAnnotations?: readonly unknown[] };
+	const value = project as FileSavingProject & { tracks?: readonly { type?: unknown; labels?: readonly unknown[] }[]; clips?: readonly unknown[]; sources?: readonly unknown[]; timelineAnnotations?: readonly unknown[] };
 	return !value.clips?.length && !value.sources?.length && !value.timelineAnnotations?.length
-		&& !value.tracks?.some(track => track.labels?.length) && !authoredTiming(project);
+		&& (value.tracks?.length ?? 0) <= 1 && !value.tracks?.some(track => track.labels?.length || track.type === 'label' || track.type === 'video')
+		&& !authoredTiming(project);
 }
 function authoredTiming(project: FileSavingProject): boolean {
 	const value = project as FileSavingProject & {
