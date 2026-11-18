@@ -27,7 +27,7 @@ void test('timeline label title retains native text context actions without sele
 			selected={true} editing={true} blocked={false} copy={ENGLISH_COPY} run={(operation: () => unknown) => operation()}
 			onSelect={() => { selected += 1; }} onEdit={noop} onFinishEdit={noop} onRemove={noop} />));
 		const marker = dom.one('[data-label-id]');
-		const input = dom.one('input');
+		const input = dom.one('textarea');
 		input.value = 'Draft intro';
 		let prevented = 0;
 		await act(async () => {

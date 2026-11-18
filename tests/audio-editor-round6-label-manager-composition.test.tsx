@@ -22,8 +22,7 @@ for (const key of ['Enter', 'Escape'] as const) test(`Manage labels releases com
 			title: 'Original', startFrame: 0, endFrame: 0 }} sampleRate={48000} copy={ENGLISH_COPY}
 			controller={{ actions: { labels: { update: (...args: unknown[]) => { commits.push(args); } } } }}
 			disabled={false} run={(operation: () => unknown) => operation()} />); });
-		const input = dom.container.querySelectorAll('input').find(field => field.getAttribute('aria-label')?.startsWith('Label title:'));
-		assert.ok(input);
+		const input = dom.one('[aria-label="Label title: Labels"]');
 		input.focus();
 		Object.defineProperty(input, 'blur', { configurable: true, value: () => {
 			input.ownerDocument.activeElement = input.ownerDocument.body;

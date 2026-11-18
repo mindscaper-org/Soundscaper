@@ -41,7 +41,7 @@ for (const blocked of [false, true]) test(`Manage labels honors host locks and w
 		await fixture.render(<Manager controller={controller} fixture={fixture} blocked={blocked} />);
 		for (const id of ['keep', 'edit']) {
 			const row = fixture.dom.one(`[data-label-id="${id}"]`);
-			const title = row.querySelector('input'); assert.ok(title);
+			const title = row.querySelector('textarea'); assert.ok(title);
 			assert.equal(reactProps(title).disabled, blocked || id === 'keep', 'protected labels must not offer an uncommittable draft');
 			const remove = row.querySelector('.kw-audio-editor__workspace-panel-close'); assert.ok(remove);
 			assert.equal(reactProps(remove).disabled, blocked || id === 'keep');
@@ -55,7 +55,7 @@ for (const blocked of [false, true]) test(`Manage labels honors host locks and w
 			assert.equal(controller.getSnapshot().history.undoEntries.length, entries);
 			return;
 		}
-		const peer = fixture.dom.one('[data-label-id="edit"]').querySelector('input'); assert.ok(peer);
+		const peer = fixture.dom.one('[data-label-id="edit"]').querySelector('textarea'); assert.ok(peer);
 		await act(async () => { reactProps(peer).onChange({ currentTarget: { value: 'Changed cue' } }); });
 		assert.equal(peer.value, 'Changed cue');
 		assert.deepEqual(clipboardDocument(clipboardProject(controller.project)), clipboardDocument(before), 'a draft is not yet committed');

@@ -31,7 +31,8 @@ for (const interaction of ['draft', 'removal-focus'] as const) {
 		try {
 			await act(async () => { render(); });
 			if (interaction === 'draft') {
-				await act(async () => { reactProps(control('first', 'input')).onChange({ currentTarget: { value: 'First-track draft' } }); });
+				await act(async () => { reactProps(control('first', 'textarea')).onChange({ currentTarget: { value: 'First-track draft' } }); });
+				assert.equal(control('first', 'textarea').value, 'First-track draft');
 				labels = labels.filter(label => label.trackId !== 'first');
 			} else {
 				const remove = control('first', '.kw-audio-editor__workspace-panel-close'); remove.focus();
@@ -39,9 +40,9 @@ for (const interaction of ['draft', 'removal-focus'] as const) {
 			}
 			await act(async () => { render(); });
 			if (interaction === 'draft') {
-				await act(async () => { reactProps(control('second', 'input')).onBlur({}); });
+				await act(async () => { reactProps(control('second', 'textarea')).onBlur({}); });
 				assert.deepEqual(updates, [], 'a removed track draft cannot be committed into a different label with the same local ID');
-				assert.equal(control('second', 'input').value, 'Original');
+				assert.equal(control('second', 'textarea').value, 'Original');
 			} else assert.strictEqual(dom.container.ownerDocument.activeElement,
 				control('second', '.kw-audio-editor__workspace-panel-close'), 'the surviving track label receives deletion focus');
 		} finally {

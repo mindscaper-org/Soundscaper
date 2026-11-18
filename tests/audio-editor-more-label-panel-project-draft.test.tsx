@@ -37,7 +37,7 @@ for (const replaceSameId of [false, true]) test(`MI23: a Labels panel title draf
 		fileService={null} playbackMeterSettings={null} showArmControls={false} displayAudioSupported={false}
 		onOpenEffects={() => undefined} effectsPanelTarget={null} onEffectWindowChange={() => undefined} blocked={false} />);
 	const input = () => {
-		const node = dom.one('[data-label-id="intro"]').querySelector('input'); assert.ok(node); return node;
+		const node = dom.one('[data-label-id="intro"]').querySelector('textarea'); assert.ok(node); return node;
 	};
 	try {
 		await controller.ready;
@@ -60,7 +60,7 @@ for (const replaceSameId of [false, true]) test(`MI23: a Labels panel title draf
 		const labels: unknown = Reflect.get(track, 'labels'); assert.ok(Array.isArray(labels));
 		const label: unknown = labels[0]; assert.ok(label && typeof label === 'object' && 'title' in label);
 		assert.equal(label.title, 'Original', 'the native second project must not receive a stale first-project edit');
-		assert.equal(input().value, 'Original');
+		assert.equal(reactProps(input()).value, 'Original');
 	} finally {
 		await act(async () => root.unmount());
 		dom.restore(); globals.React = previousReact; globals.IS_REACT_ACT_ENVIRONMENT = previousAct;
