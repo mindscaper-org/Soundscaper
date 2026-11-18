@@ -101,3 +101,33 @@ test('nested subprojects follow grandchild saves without rewriting inactive pare
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
 	expect(errors).toEqual([]);
 });
+
+test('a parent still exports its installed audio after its editable child is deleted', async ({ page }) => {
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	await renameProject(page, editor, 'Child scene');
+	await importFiles(editor, [toneA]);
+	await chooseFileAction(page, editor, 'New');
+	await waitForProjectActivation(editor);
+	await renameProject(page, editor, 'Parent mix');
+
+	const dialog = await openSubprojects(page, editor);
+	await dialog.getByRole('combobox', { name: 'Project to insert or relink', exact: true }).selectOption({ label: 'Child scene' });
+	await dialog.getByRole('button', { name: 'Insert subproject', exact: true }).click();
+	await expect(dialog.getByRole('option', { name: 'Child scene — Automatic updates', exact: true })).toHaveCount(1);
+	await dialog.getByRole('button', { name: 'Close', exact: true }).last().click();
+	const before = await exportSamples(page, editor, { includeTail: false });
+	expect(Math.max(...before.slice(0, 4096).map(Math.abs))).toBeGreaterThan(0.1);
+
+	await editor.getByRole('tab', { name: 'Child scene', exact: true }).click();
+	await waitForProjectActivation(editor);
+	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Delete project']);
+	const confirmation = page.getByRole('dialog', { name: 'Delete this project?', exact: true });
+	await confirmation.getByRole('button', { name: 'Delete permanently', exact: true }).click();
+	await expect(confirmation).toBeHidden();
+	await expect(editor.getByRole('tab', { name: 'Parent mix', exact: true })).toHaveAttribute('aria-selected', 'true');
+	await waitForProjectActivation(editor);
+
+	const after = await exportSamples(page, editor, { includeTail: false });
+	expect(after).toEqual(before);
+});

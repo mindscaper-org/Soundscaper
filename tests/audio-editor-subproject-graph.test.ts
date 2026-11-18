@@ -52,3 +52,18 @@ test('a pinned dependency cannot hide an indirect cycle during link admission', 
 	const documents = new Map([['child', child], ['grandchild', nest(fixture('grandchild'), 'parent')]]);
 	await assert.rejects(assertSubprojectGraphAcyclic('child', 'library', id => Promise.resolve(documents.get(id) ?? null), ['parent']), /cycle/iu);
 });
+
+test('a deleted nested edit falls back to its saved proxy so a sibling’s new mix can publish', async () => {
+	const middle = nest(nest(fixture('middle'), 'removed'), 'sibling');
+	const documents = new Map([['middle', middle], ['removed', fixture('removed')], ['sibling', fixture('sibling')]]);
+	const load = (id: string) => Promise.resolve(documents.get(id) ?? null);
+	const before = await resolveSubprojectGraph('middle', 'library', load);
+	documents.delete('removed');
+	documents.set('sibling', { ...fixture('sibling'), master: { gain: 0.25 } });
+
+	const after = await resolveSubprojectGraph('middle', 'library', load);
+
+	assert.equal(after.children[0]?.node, null);
+	assert.equal(after.children[0]?.link.sourceId, 'proxy-removed');
+	assert.notEqual(after.children[1]?.node?.digest, before.children[1]?.node?.digest);
+});

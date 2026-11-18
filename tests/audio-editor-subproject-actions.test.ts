@@ -125,3 +125,60 @@ test('pinned audio and missing children remain playable, with explicit relinking
 	assert.equal(readSubprojectLinks(state.project)[0]!.projectId, 'replacement');
 	assert.equal(state.project.clips[0]!.durationFrames, 4);
 });
+
+test('automatic refresh keeps a missing child’s installed audio and still updates other children', async () => {
+	const state = fixture();
+	const second = createSoundscaperProject({ id: 'second', title: 'Second scene' }) as SubprojectDocument;
+	state.documents.set(second.id, second);
+	await state.actions.add('child');
+	await state.actions.add(second.id);
+	const [missing, other] = readSubprojectLinks(state.project);
+	assert.ok(missing && other);
+	state.documents.delete('child');
+	state.documents.set(second.id, { ...second, master: { gain: 0.5 }, revision: 2 });
+
+	await state.actions.refresh();
+
+	const links = readSubprojectLinks(state.project);
+	assert.equal(links.find(link => link.id === missing.id)?.sourceId, missing.sourceId);
+	assert.equal(links.find(link => link.id === other.id)?.revision, 2);
+	assert.equal(state.renders, 3);
+	await assert.rejects(state.actions.refresh({ id: missing.id, force: true }), /missing/iu);
+});
+
+test('following a deleted child leaves the installed proxy pinned', async () => {
+	const state = fixture();
+	await state.actions.add('child');
+	const link = readSubprojectLinks(state.project)[0]!;
+	await state.actions.follow(link.id, false);
+	state.documents.delete('child');
+
+	await assert.rejects(state.actions.follow(link.id, true), /missing/iu);
+	assert.equal(readSubprojectLinks(state.project)[0]!.followLatest, false);
+});
+
+test('manual Refresh can recreate an installed proxy even if the child revision is unchanged', async () => {
+	const state = fixture();
+	await state.actions.add('child');
+	const original = readSubprojectLinks(state.project)[0]!;
+
+	await state.actions.refresh({ id: original.id, force: true });
+
+	assert.equal(state.renders, 2);
+	assert.notEqual(readSubprojectLinks(state.project)[0]!.sourceId, original.sourceId);
+	assert.equal(state.project.clips[0]!.sourceId, readSubprojectLinks(state.project)[0]!.sourceId);
+});
+
+test('refreshing the first linked subproject preserves the arrangement’s link order', async () => {
+	const state = fixture();
+	const second = createSoundscaperProject({ id: 'second', title: 'Second scene' }) as SubprojectDocument;
+	state.documents.set(second.id, second);
+	await state.actions.add('child');
+	await state.actions.add(second.id);
+	const before = readSubprojectLinks(state.project).map(link => link.id);
+	state.documents.set('child', { ...state.documents.get('child')!, revision: 2, master: { gain: 0.25 } });
+
+	await state.actions.refresh();
+
+	assert.deepEqual(readSubprojectLinks(state.project).map(link => link.id), before);
+});

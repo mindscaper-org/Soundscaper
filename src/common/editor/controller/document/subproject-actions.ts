@@ -2,7 +2,7 @@
 import { createAddTrackCommand, createAddClipCommand } from '../../commands/factories.ts';
 import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import { readSubprojectLinks, type SubprojectLink } from '../../subprojects.ts';
-import { assertSubprojectGraphAcyclic, cacheSubprojectDigests, cacheSubprojectDocumentReads, resolveSubprojectGraph, type ResolvedSubprojectNode } from './internal/subprojects/subproject-graph.ts';
+import { assertSubprojectGraphAcyclic, cacheSubprojectDigests, cacheSubprojectDocumentReads, MissingSubprojectError, resolveSubprojectGraph, type ResolvedSubprojectNode } from './internal/subprojects/subproject-graph.ts';
 import { createSubprojectRenderer, type SubprojectRendererRuntime } from './internal/subprojects/subproject-renderer.ts';
 
 export function createStoredSubprojectActions(runtime: Omit<SubprojectRuntime, 'plan' | 'render'> & {
@@ -109,9 +109,15 @@ export function createSubprojectActions(runtime: SubprojectRuntime) {
 				if (options.force) throw new RangeError('This subproject belongs to another library. Relink it explicitly to resume updates.');
 				continue;
 			}
-			const node = await resolveSubprojectGraph(link.projectId, libraryId, load, [project.id], options.signal, digestProject);
+			let node: ResolvedSubprojectNode;
+			try {
+				node = await resolveSubprojectGraph(link.projectId, libraryId, load, [project.id], options.signal, digestProject);
+			} catch (error) {
+				if (!options.force && error instanceof MissingSubprojectError) continue;
+				throw error;
+			}
 			assertCurrent(project, options.signal);
-			if (node.digest === link.contentDigest || (!options.force && installed.get(`${project.id}:${link.id}`) === node.digest)) continue;
+			if (!options.force && (node.digest === link.contentDigest || installed.get(`${project.id}:${link.id}`) === node.digest)) continue;
 			await publish(project, link, node, link, libraryId, options.signal);
 			load = cacheSubprojectDocumentReads(runtime.loadProject);
 			digestProject = cacheSubprojectDigests();
@@ -151,7 +157,7 @@ export function createSubprojectActions(runtime: SubprojectRuntime) {
 			if (followLatest) {
 				const libraryId = await runtime.getLibraryId();
 				if (link.libraryId !== libraryId) throw new RangeError('Relink this subproject to the current library before following changes.');
-				await assertSubprojectGraphAcyclic(link.projectId, libraryId, runtime.loadProject, [project.id]);
+				await admitGraph(link.projectId, libraryId, project.id);
 				assertCurrent(project);
 			}
 			installed.delete(`${requireProject().id}:${id}`);

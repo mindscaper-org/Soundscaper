@@ -31,7 +31,9 @@ export function applySubprojectCommand(value: object, command: SubprojectCommand
 	const existing = sources.find(candidate => candidate.id === link.sourceId);
 	if (existing && (current || Object.entries(source).some(([key, entry]) => JSON.stringify(existing[key]) !== JSON.stringify(entry)))) throw new RangeError('The proxy source already exists.');
 	if (!existing) addSource(project, source);
-	metadata.subprojects = [...links.filter(candidate => candidate.id !== id), { ...link }];
+	metadata.subprojects = current
+		? links.map(candidate => candidate.id === id ? { ...link } : candidate)
+		: [...links, { ...link }];
 	validateSubprojectLinks(project);
 	if (current) {
 		const bin = project.projectBin as { clips?: Record<string, unknown>[] } | undefined;

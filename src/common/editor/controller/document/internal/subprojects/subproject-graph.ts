@@ -13,6 +13,10 @@ type DigestProject = (project: SubprojectDocument, descendants: readonly string[
 const MAX_VISITED_NODES = 256;
 const MAX_CACHED_DOCUMENTS = 32;
 
+export class MissingSubprojectError extends ReferenceError {
+	constructor() { super('A linked subproject is missing from this library.'); }
+}
+
 /** Share committed reads within one inspection. Publication starts a fresh inspection. */
 export function cacheSubprojectDocumentReads(load: LoadProject): LoadProject {
 	const reads = new Map<string, ReturnType<LoadProject>>();
@@ -63,14 +67,15 @@ export async function resolveSubprojectGraph(
 	digestProject: DigestProject = subprojectContentDigest,
 ): Promise<ResolvedSubprojectNode> {
 	let count = 0;
-	async function visit(id: string, path: readonly string[]): Promise<ResolvedSubprojectNode> {
+	async function visit(id: string, path: readonly string[]): Promise<ResolvedSubprojectNode | null> {
 		signal?.throwIfAborted();
 		if (path.includes(id)) throw new RangeError('Subproject dependency cycle detected.');
 		if (path.length >= SUBPROJECT_DEPTH_LIMIT) throw new RangeError('Subproject nesting exceeds the supported depth.');
 		if (++count > MAX_VISITED_NODES) throw new RangeError('Subproject dependency graph exceeds its limit.');
 		const project = await load(id);
 		signal?.throwIfAborted();
-		if (!project || project.id !== id) throw new ReferenceError('A linked subproject is missing from this library.');
+		if (!project) return null;
+		if (project.id !== id) throw new ReferenceError('The project library returned the wrong subproject.');
 		if (project.schemaFamily !== 'soundscaper' || project.schemaVersion !== 1) throw new RangeError('Only current Soundscaper projects may be linked.');
 		const children: ResolvedSubprojectNode['children'][number][] = [];
 		for (const link of readSubprojectLinks(project)) {
@@ -80,5 +85,7 @@ export async function resolveSubprojectGraph(
 		}
 		return { project, children, digest: digestProject(project, children.map(({ link, node }) => node?.digest ?? link.contentDigest)) };
 	}
-	return visit(projectId, ancestors);
+	const root = await visit(projectId, ancestors);
+	if (!root) throw new MissingSubprojectError();
+	return root;
 }
