@@ -267,7 +267,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 
 			<input
 				ref={legacyDataInputRef}
-				className="kw-audio-editor__file-input"
+				hidden
 				data-legacy-data-input
 				aria-label={copy.chooseLegacyData}
 				type="file"

@@ -5,6 +5,11 @@ import { createSoundscaperProject } from '../../src/soundscaper/editor-project.t
 import { createSoundscaperScapeNativeRuntime } from '../../src/soundscaper/editor-scape-native.ts';
 import { legacyAupFiles } from '../helpers/more200-legacy-aup-file.ts';
 
+test('the legacy directory continuation is absent from the workspace accessibility tree', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	await expect(editor.getByRole('button', { name: 'Next, choose the matching _data directory.', exact: true })).toHaveCount(0);
+});
+
 async function completeDirectoryChooser(chooser, dataFile) {
 	await chooser.element().evaluate((input, fixture) => {
 		if (!input.isConnected || input.type !== 'file' || !input.webkitdirectory) {
