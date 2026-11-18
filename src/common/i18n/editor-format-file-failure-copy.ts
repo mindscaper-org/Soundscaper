@@ -44,6 +44,7 @@ export const FORMAT_FILE_FAILURE_COPY = Object.freeze({
 	edlDropFrame: 'This sequence frame rate does not support drop-frame EDL timecode.',
 	edlTimecode: 'An EDL source or record position cannot be represented as a valid CMX3600 timecode.',
 	labelInvalid: 'The label file is invalid or unsupported. Check its times and cue text.',
+	labelSubRipLiteral: 'SubRip cannot preserve literal markup in a plain label. Export WebVTT or TXT instead.',
 	labelEncoding: 'The label file is not valid UTF-8 text. Save it as UTF-8 and try again.',
 	labelCharacter: 'Label files cannot contain NUL characters.',
 	labelLimit: 'The label file exceeds the supported text, title, or cue-count limit.',
