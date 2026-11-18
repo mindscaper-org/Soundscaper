@@ -29,11 +29,13 @@ export class MtcDecoder {
 			this.quarter = false;
 			this.sysex = null;
 		}
-		this.lastTime = timestamp;
 		const readings: TimecodeReading[] = [];
 		for (let index = 0; index < bytes.length; index += 1) {
 			const byte = bytes[index];
 			if (!Number.isInteger(byte) || byte < 0 || byte > 255 || byte >= 0xf8) continue;
+			if (byte === 0xf0 || byte === 0xf1 || this.sysex !== null || (this.quarter && byte < 128)) {
+				this.lastTime = timestamp;
+			}
 			if (byte === 0xf0) { this.sysex = [byte]; this.quarter = false; this.count = 0; continue; }
 			if (this.sysex) {
 				if (byte === 0xf7) {

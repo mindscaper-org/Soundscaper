@@ -79,6 +79,19 @@ test('MTC discards a partial cycle across a signal gap and recovers on a fresh c
 	assert.equal(decoder.push(bytes.flatMap(value => [241, value]), 501)[0].frame, 2);
 });
 
+test('MIDI Clock cannot keep an abandoned timecode cycle alive', () => {
+	const decoder = new MtcDecoder();
+	const first = encodeMtcQuarterFrames(52, '25');
+	const later = encodeMtcQuarterFrames(200, '25');
+	const wire = (pieces: readonly number[]) => pieces.flatMap(value => [0xf1, value]);
+	assert.deepEqual(decoder.push(wire(first.slice(0, 4)), 1), []);
+	for (let timestamp = 20; timestamp < 500; timestamp += 20) {
+		assert.deepEqual(decoder.push([0xf8], timestamp), []);
+	}
+	assert.deepEqual(decoder.push(wire(later.slice(4)), 500), []);
+	assert.deepEqual(decoder.push(wire(later), 501), [{ frame: 202, rate: '25', direction: 1 }]);
+});
+
 test('MTC discards stale incomplete full-frame and quarter-frame messages across a signal gap', () => {
 	const decoder = new MtcDecoder();
 	const full = encodeMtcFullFrame(93079, '25');
