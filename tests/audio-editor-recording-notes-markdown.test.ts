@@ -57,6 +57,25 @@ test('line formatting replaces previous block markers and toggles matching block
 	assert.equal(formatRecordingNotes('\nsecond', 0, 0, 'heading', 'Heading').value, '# Heading\nsecond');
 });
 
+test('single-line inline formatting preserves the selected block prefix', () => {
+	assert.deepEqual(formatRecordingNotes('## Field session', 0, 16, 'bold', 'Bold'), {
+		value: '## **Field session**', selectionStart: 5, selectionEnd: 18,
+	});
+	assert.equal(formatRecordingNotes('- checklist', 0, 11, 'code', 'Code').value, '- `checklist`');
+	assert.equal(formatRecordingNotes('## Field session', 0, 3, 'italic', 'Italic').value, '## Field session');
+});
+
+test('block formatting keeps output indentation within the preview syntax', () => {
+	const text = '\tMic check\n    Room tone';
+	const formatted = formatRecordingNotes(text, 0, text.length, 'bullets', 'Bullets');
+	assert.deepEqual(formatted, { value: '- Mic check\n   - Room tone', selectionStart: 2, selectionEnd: 26 });
+	assert.deepEqual(parseRecordingNotesMarkdown(formatted.value), [
+		{ kind: 'list', ordered: false, start: 1, items: [
+			[{ kind: 'text', text: 'Mic check' }], [{ kind: 'text', text: 'Room tone' }],
+		] },
+	]);
+});
+
 test('formatting clamps a selection retained from longer notes', () => {
 	assert.equal(formatRecordingNotes('take', 0, 99, 'bold', 'Bold').value, '**take**');
 });
