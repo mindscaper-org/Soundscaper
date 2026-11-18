@@ -8,6 +8,7 @@ import {
 	type AudiocomApiClient,
 	type AudiocomUploadDraft,
 } from '../src/common/editor/controller/import/audiocom-panel-session.ts';
+import { deferred, settle } from './helpers/async-test-control.ts';
 
 const DRAFT: AudiocomUploadDraft = {
 	title: 'Forest', description: '', category: 'recording', license: 'arr',
@@ -96,6 +97,52 @@ test('a hidden panel releases previews and disposal is idempotent', async () => 
 	assert.ok(calls.includes('pause'));
 	session.dispose();
 	session.dispose();
+});
+
+test('audio.com preview survives an old device failure when the listener chooses a working device', async () => {
+	const oldRoute = deferred<void>();
+	const oldStarted = deferred<void>();
+	const playSinks: string[] = [];
+	let sink = '';
+	const session = createAudiocomPanelSession({ client: client(), createAudio: () => ({
+		src: '', volume: 1, pause() {}, load() {}, addEventListener() {}, removeEventListener() {},
+		async setSinkId(device) {
+			if (device === 'retired') { oldStarted.resolve(); await oldRoute.promise; }
+			sink = device;
+		},
+		async play() { playSinks.push(sink); },
+	}) });
+	try {
+		await session.initialize(); await session.search({ query: 'forest', page: 1 });
+		session.setListeningPreferences(0.4, 'retired');
+		const previewing = session.preview(RESULT.id);
+		await oldStarted.promise;
+		session.setListeningPreferences(0.4, 'working');
+		oldRoute.reject(new Error('Speaker unavailable'));
+		await previewing;
+		assert.deepEqual(playSinks, ['working']);
+		assert.equal(session.getSnapshot().previewingId, RESULT.id);
+		assert.equal(session.getSnapshot().previewError, undefined);
+	} finally { session.dispose(); }
+});
+
+test('audio.com listening gain changes keep the current device request and preview', async () => {
+	const outputRequests: string[] = [];
+	const audio = {
+		src: '', volume: 1, async play() {}, pause() {}, load() {}, addEventListener() {}, removeEventListener() {},
+		async setSinkId(device: string) { outputRequests.push(device); },
+	};
+	const session = createAudiocomPanelSession({ client: client(), createAudio: () => audio });
+	try {
+		await session.initialize(); await session.search({ query: 'forest', page: 1 });
+		session.setListeningPreferences(1, 'speakers');
+		await session.preview(RESULT.id);
+		session.setListeningPreferences(0, 'speakers');
+		await settle();
+		assert.equal(audio.volume, 0);
+		assert.equal(session.getSnapshot().previewingId, RESULT.id);
+		assert.deepEqual(outputRequests, ['speakers']);
+	} finally { session.dispose(); }
 });
 
 test('hiding a panel aborts original decoding and disposes a late prepared preview without playing it', async () => {

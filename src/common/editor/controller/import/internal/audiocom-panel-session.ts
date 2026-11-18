@@ -27,6 +27,7 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 	let accountAbort: AbortController | null = null;
 	let searchAbort: AbortController | null = null;
 	let previewAudio: AudiocomPreviewAudio | null = null;
+	let previewOutput = Promise.resolve();
 	let previewCleanup: (() => void) | null = null;
 	let previewAbort: AbortController | null = null;
 	let previewSourceCleanup: (() => void) | null = null;
@@ -44,10 +45,18 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 		previewAbort?.abort(); previewAbort = null;
 		const audio = previewAudio;
 		previewAudio = null;
+		previewOutput = Promise.resolve();
 		previewCleanup?.(); previewCleanup = null;
 		if (audio) { audio.pause(); audio.src = ''; audio.load(); }
 		previewSourceCleanup?.(); previewSourceCleanup = null;
 		if (snapshot.previewingId !== null) emit({ previewingId: null });
+	};
+	const routePreviewOutput = (audio: AudiocomPreviewAudio, deviceId: string): Promise<void> => {
+		const output = previewOutput.catch(() => undefined).then(async () => {
+			if (previewAudio === audio && previewOutput === output) await audio.setSinkId?.(deviceId);
+		});
+		previewOutput = output;
+		return output;
 	};
 	function expire(error: unknown): void {
 		if (!(error instanceof AudiocomApiError) || error.status !== 401 || disposed) return;
@@ -162,7 +171,13 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 				};
 				audio.addEventListener('ended', ended); audio.addEventListener('error', failed);
 				previewCleanup = () => { audio?.removeEventListener('ended', ended); audio?.removeEventListener('error', failed); };
-				if (audio.setSinkId) await audio.setSinkId(outputDeviceId);
+				let output = routePreviewOutput(audio, outputDeviceId);
+				while (previewAudio === audio) {
+					try { await output; }
+					catch (error) { if (previewOutput === output) throw error; }
+					if (previewOutput === output) break;
+					output = previewOutput;
+				}
 				if (previewAudio !== audio || disposed || !active) return;
 				await audio.play();
 				if (previewAudio !== audio) { audio.pause(); audio.src = ''; audio.load(); }
@@ -185,11 +200,16 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 		},
 		setListeningPreferences(value, deviceId): void {
 			gain = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 1;
-			outputDeviceId = deviceId.startsWith('native:') ? '' : deviceId;
+			const requestedDeviceId = deviceId.startsWith('native:') ? '' : deviceId;
+			const outputChanged = requestedDeviceId !== outputDeviceId;
+			outputDeviceId = requestedDeviceId;
 			if (previewAudio) {
 				previewAudio.volume = gain;
-				const audio = previewAudio;
-				void audio.setSinkId?.(outputDeviceId).catch(() => { if (previewAudio === audio) stopPreview(); });
+				if (outputChanged) {
+					const audio = previewAudio;
+					const output = routePreviewOutput(audio, outputDeviceId);
+					void output.catch(() => { if (previewAudio === audio && previewOutput === output) stopPreview(); });
+				}
 			}
 		},
 		dispose(): void {
