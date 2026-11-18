@@ -131,7 +131,7 @@ test('a short exported selection still respects the requested true-peak ceiling'
 	const channels = [tone(1, 0.1)];
 	const measured = measureBextLoudness(channels, SAMPLE_RATE);
 	assert.equal(measured.loudnessValue, null);
-	assert.ok(measured.maxTruePeakLevel !== null && measured.maxTruePeakLevel > R128.truePeakCeilingDb);
+	assert.ok(measured.maxTruePeakLevel != null && measured.maxTruePeakLevel > R128.truePeakCeilingDb);
 	const normalized = normalizeRenderedLoudness({
 		channels, sampleRate: SAMPLE_RATE, target: R128, captureLoudness: true,
 	});

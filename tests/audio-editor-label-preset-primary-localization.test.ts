@@ -47,7 +47,7 @@ test('a refused plain SubRip export explains how to deliver the literal title', 
 		{ id: 'label', title: '<b>Literal</b>', startFrame: 0, endFrame: 8000 },
 	], { sampleRate: 8000 }));
 	assert.equal(formatFileFailure(error)?.reason, 'UNREPRESENTABLE_TEXT');
-	assert.match(workspaceErrorMessage(error, { genericError: 'Error: {message}' }), /SubRip.*literal.*Export WebVTT or TXT/u);
+	assert.match(workspaceErrorMessage(error, { genericError: 'Error: {message}', unknownError: 'Unknown error' }), /SubRip.*literal.*Export WebVTT or TXT/u);
 });
 
 test('Audacity TXT macro and delegated preset errors expose translated line and parameter identities', () => {
