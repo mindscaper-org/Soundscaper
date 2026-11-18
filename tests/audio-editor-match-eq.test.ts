@@ -54,6 +54,15 @@ test('analysis cancellation rejects before a partial profile can escape', async 
 		onProgress() { cancelled = true; } }), { name: 'AbortError' });
 });
 
+test('a normalized immutable reference keeps its identity for subsequent Match EQ control updates', () => {
+	const bands = Array<number>(128).fill(-12);
+	const profile = normalizeMatchEqProfile({ version: 1, sampleRate: 48_000, activeSeconds: 1, bands });
+	bands[1] = -4;
+	assert.equal(profile.bands[1], -12);
+	assert.equal(normalizeMatchEqParams({ reference: profile, amount: 20 }).reference, profile);
+	assert.ok(Object.isFrozen(profile.bands));
+});
+
 test('a profile yields a fresh, smoothed, bounded correction and never boosts missing bandwidth', async () => {
 	const wide = await learnMatchEqProfile([noise()], 48000);
 	const telephone = await learnMatchEqProfile([noise(8000)], 8000);

@@ -12,6 +12,8 @@ export interface MatchEqProfile {
 	readonly bands: readonly number[];
 }
 
+const ownedProfiles = new WeakSet<MatchEqProfile>();
+
 export interface MatchEqParams extends Readonly<Record<string, unknown>> {
 	readonly reference: MatchEqProfile | null;
 	readonly amount: number;
@@ -37,15 +39,22 @@ export const MATCH_EQ_EFFECT_DEFINITION = Object.freeze({
 
 export function normalizeMatchEqProfile(value: unknown): MatchEqProfile {
 	if (!value || typeof value !== 'object') throw new TypeError('Invalid Match EQ reference profile.');
+	if (ownedProfiles.has(value as MatchEqProfile)) return value as MatchEqProfile;
 	const profile = value as Partial<MatchEqProfile>;
-	if (profile.version !== 1 || !Number.isInteger(profile.sampleRate) || Number(profile.sampleRate) < 8000
-		|| Number(profile.sampleRate) > 384000 || !Number.isFinite(profile.activeSeconds) || Number(profile.activeSeconds) <= 0
-		|| !Array.isArray(profile.bands) || profile.bands.length !== MATCH_EQ_FREQUENCIES.length
-		|| Array.from(profile.bands).some((db: unknown) => typeof db !== 'number' || !Number.isFinite(db) || db < -120 || db > 0)) {
+	const { version, sampleRate, activeSeconds, bands: input } = profile;
+	if (version !== 1 || !Number.isInteger(sampleRate) || Number(sampleRate) < 8000
+		|| Number(sampleRate) > 384000 || !Number.isFinite(activeSeconds) || Number(activeSeconds) <= 0
+		|| !Array.isArray(input) || input.length !== MATCH_EQ_FREQUENCIES.length) {
 		throw new RangeError('Invalid Match EQ reference profile.');
 	}
-	return Object.freeze({ version: 1, sampleRate: profile.sampleRate!, activeSeconds: profile.activeSeconds!,
-		bands: Object.freeze([...profile.bands]) });
+	const bands = Array.from(input);
+	if (bands.length !== MATCH_EQ_FREQUENCIES.length
+		|| bands.some((db: unknown) => typeof db !== 'number' || !Number.isFinite(db) || db < -120 || db > 0)) {
+		throw new RangeError('Invalid Match EQ reference profile.');
+	}
+	const normalized = Object.freeze({ version, sampleRate: sampleRate!, activeSeconds: activeSeconds!, bands: Object.freeze(bands) });
+	ownedProfiles.add(normalized);
+	return normalized;
 }
 
 export function normalizeMatchEqParams(params: Readonly<Record<string, unknown>> = {}): MatchEqParams {

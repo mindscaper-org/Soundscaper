@@ -6,10 +6,12 @@ import {
 } from './selection-effects-worker-context.ts';
 import { runSelectionEffectChain } from './selection-effect-chain.ts';
 import { initializePffft } from './pffft.js';
+import { registerSelectionWorkerPcm } from './selection-effect-pcm-ownership.ts';
 
 globalThis.onmessage = async ({ data }) => {
 	try {
 		const channels = (data.channels || []).map(asFloat32Array);
+		if (data.effectType === 'match-eq') registerSelectionWorkerPcm(channels);
 		if (data.operation === 'capture-noise-profile') {
 			await initializePffft();
 			const profile = captureAudacityNoiseProfile(channels, data.sampleRate, data.params || {});
