@@ -1,4 +1,5 @@
 import { AxeBuilder, expect, test, toneA } from './audio-editor-test-fixtures.js';
+import { encodeWav } from '../../src/common/editor/wav.js';
 import {
 	bootEditor,
 	chooseNestedCommandAction,
@@ -153,6 +154,32 @@ test.describe('project tab close controls', () => {
 		await expect(editor).toHaveAttribute('data-clip-count', '0');
 		expect(errors).toEqual([]);
 	});
+
+	test('a refused keyboard close returns focus to the surviving close button', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await renameProject(page, editor, 'Unavailable neighbor');
+		const neighborId = await editor.getAttribute('data-project-id');
+		await editor.getByRole('button', { name: 'New project', exact: true }).click();
+		await waitForProjectActivation(editor);
+		await renameProject(page, editor, 'Remains open');
+		await page.evaluate(id => {
+			const read = IDBObjectStore.prototype.get;
+			IDBObjectStore.prototype.get = function (key) {
+				if (this.name === 'projects' && key === id) {
+					IDBObjectStore.prototype.get = read;
+					throw new DOMException('The next tab could not be read.', 'UnknownError');
+				}
+				return read.call(this, key);
+			};
+		}, neighborId);
+		const close = editor.getByRole('button', { name: 'Close project: Remains open', exact: true });
+		await close.focus();
+		await page.keyboard.press('Enter');
+		await expect(editor.getByRole('alert')).toContainText('The next tab could not be read.');
+		await expect(editor.getByRole('tab', { name: 'Remains open', exact: true })).toHaveAttribute('aria-selected', 'true');
+		await expect(close).toBeEnabled();
+		await expect(close).toBeFocused();
+	});
 });
 
 test('switching projects restores the playhead and zoom of each tab', async ({ page }) => {
@@ -224,4 +251,33 @@ test('switching to a clipped project from the Window menu scrolls its tab into v
 	await expect(last).toHaveAttribute('aria-selected', 'true');
 	await waitForProjectActivation(editor);
 	await expect(last).toBeInViewport({ ratio: 0.75 });
+});
+
+test('each open tab retains its own timeline scroll position', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	const recording = { name: 'Long session.wav', mimeType: 'audio/wav',
+		buffer: Buffer.from(encodeWav([new Float32Array(48_000 * 20)], { sampleRate: 48_000, bitDepth: 16 })) };
+	const timeline = editor.locator('[data-timeline]');
+	const position = () => timeline.evaluate(element => element.scrollLeft);
+	const scroll = async (left) => {
+		await timeline.evaluate((element, requested) => { element.scrollLeft = requested; }, left);
+		await expect.poll(position).toBe(left);
+	};
+	await renameProject(page, editor, 'First timeline');
+	await importFiles(editor, [recording]);
+	await expect(clipByName(editor, recording.name)).toHaveCount(1);
+	await scroll(420);
+	await editor.getByRole('button', { name: 'New project', exact: true }).click();
+	await waitForProjectActivation(editor);
+	await renameProject(page, editor, 'Second timeline');
+	await importFiles(editor, [recording]);
+	await expect(clipByName(editor, recording.name)).toHaveCount(1);
+	await expect.poll(position).toBe(0);
+	await scroll(170);
+	await editor.getByRole('tab', { name: 'First timeline', exact: true }).click();
+	await waitForProjectActivation(editor);
+	await expect.poll(position).toBe(420);
+	await editor.getByRole('tab', { name: 'Second timeline', exact: true }).click();
+	await waitForProjectActivation(editor);
+	await expect.poll(position).toBe(170);
 });
