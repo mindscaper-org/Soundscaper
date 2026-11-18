@@ -27,6 +27,7 @@ const ELEMENT = Object.freeze({
 	trackEntry: 0xae,
 	trackNumber: 0xd7,
 	trackType: 0x83,
+	defaultDuration: 0x23_e383,
 	cluster: 0x1f43_b675,
 	clusterTimecode: 0xe7,
 	simpleBlock: 0xa3,
@@ -60,11 +61,17 @@ interface Block {
 interface ScanState {
 	timecodeScale: bigint;
 	videoTrackNumber: bigint | null;
+	videoDefaultDurationNs: bigint | null;
 	pendingTrackNumber: bigint | null;
 	pendingTrackType: bigint | null;
+	pendingDefaultDurationNs: bigint | null;
 	clusterTimecode: bigint;
 	pendingBlockDuration: bigint | null;
 	readonly blocks: Block[];
+}
+
+interface MatroskaVideoTiming extends VideoTimingDemuxTrack {
+	readonly ticksPerTimecode: bigint;
 }
 
 /**
@@ -74,12 +81,14 @@ interface ScanState {
 export async function demuxMatroskaVideoTiming(
 	reader: VideoTimingDemuxReader,
 	options: Readonly<{ signal?: AbortSignal }> = {},
-): Promise<VideoTimingDemuxTrack | null> {
+): Promise<MatroskaVideoTiming | null> {
 	const state: ScanState = {
 		timecodeScale: 1_000_000n,
 		videoTrackNumber: null,
+		videoDefaultDurationNs: null,
 		pendingTrackNumber: null,
 		pendingTrackType: null,
+		pendingDefaultDurationNs: null,
 		clusterTimecode: 0n,
 		pendingBlockDuration: null,
 		blocks: [],
@@ -87,29 +96,29 @@ export async function demuxMatroskaVideoTiming(
 	const complete = await scan(reader, 0, reader.byteLength, state, options.signal);
 	if (!complete || state.blocks.length === 0) return null;
 	if (state.timecodeScale <= 0n || NANOSECONDS_PER_SECOND % state.timecodeScale !== 0n) return null;
-	const timescale = Number(NANOSECONDS_PER_SECOND / state.timecodeScale);
-	if (!Number.isSafeInteger(timescale) || timescale <= 0) return null;
 
 	const ordered = [...state.blocks].sort((left, right) => (
 		left.ticks < right.ticks ? -1 : left.ticks > right.ticks ? 1 : 0
 	));
 	const origin = ordered[0]!.ticks;
-	const presentationTicks = ordered.map((block) => block.ticks - origin);
+	const last = ordered.at(-1)!;
+	const finalDurationNs = last.durationTicks !== null
+		? last.durationTicks * state.timecodeScale
+		: state.videoDefaultDurationNs
+			?? (last.ticks - (ordered.at(-2)?.ticks ?? last.ticks)) * state.timecodeScale;
+	if (finalDurationNs <= 0n) return null;
+	// Track default durations are in nanoseconds, even when block timestamps use milliseconds.
+	const tickNs = finalDurationNs % state.timecodeScale === 0n ? state.timecodeScale : 1n;
+	const ticksPerTimecode = state.timecodeScale / tickNs;
+	const presentationTicks = ordered.map((block) => (block.ticks - origin) * ticksPerTimecode);
 	for (let index = 1; index < presentationTicks.length; index += 1) {
 		if (presentationTicks[index]! <= presentationTicks[index - 1]!) return null;
 	}
-	// Matroska blocks usually state no duration at all. The frame presented last
-	// then inherits the interval before it, which is what the timing asset means
-	// by a final duration: how long the last frame stays on screen.
-	const finalFrameDurationTicks = ordered.at(-1)!.durationTicks
-		?? (presentationTicks.length > 1
-			? presentationTicks.at(-1)! - presentationTicks.at(-2)!
-			: null);
-	if (finalFrameDurationTicks === null || finalFrameDurationTicks <= 0n) return null;
 	return Object.freeze({
-		timescale,
+		timescale: Number(NANOSECONDS_PER_SECOND / tickNs),
+		ticksPerTimecode,
 		presentationTicks: Object.freeze(presentationTicks),
-		finalFrameDurationTicks,
+		finalFrameDurationTicks: finalDurationNs / tickNs,
 	});
 }
 
@@ -149,6 +158,7 @@ async function readElement(
 		if (element.id === ELEMENT.trackEntry) {
 			state.pendingTrackNumber = null;
 			state.pendingTrackType = null;
+			state.pendingDefaultDurationNs = null;
 		}
 		if (element.id === ELEMENT.blockGroup) state.pendingBlockDuration = null;
 		if (element.unknownSize) return true;
@@ -163,6 +173,7 @@ async function readElement(
 		if (element.id === ELEMENT.trackEntry && state.videoTrackNumber === null
 			&& state.pendingTrackType === TRACK_TYPE_VIDEO && state.pendingTrackNumber !== null) {
 			state.videoTrackNumber = state.pendingTrackNumber;
+			state.videoDefaultDurationNs = state.pendingDefaultDurationNs;
 		}
 		return true;
 	}
@@ -177,6 +188,7 @@ async function readElement(
 	if (element.id === ELEMENT.timecodeScale) state.timecodeScale = value;
 	else if (element.id === ELEMENT.trackNumber) state.pendingTrackNumber = value;
 	else if (element.id === ELEMENT.trackType) state.pendingTrackType = value;
+	else if (element.id === ELEMENT.defaultDuration) state.pendingDefaultDurationNs = value;
 	else if (element.id === ELEMENT.clusterTimecode) state.clusterTimecode = value;
 	else if (element.id === ELEMENT.blockDuration) state.pendingBlockDuration = value;
 	return true;

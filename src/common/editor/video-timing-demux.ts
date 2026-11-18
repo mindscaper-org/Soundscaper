@@ -11,6 +11,7 @@
  */
 
 import { normalizeRational, type RationalRate } from './timeline-time.ts';
+import { approximatePositiveRational } from './rational-approximation.ts';
 import { readContainerVideoSourceCharacteristics } from './video-container-characteristics.ts';
 import { demuxIsobmffVideoTiming, type VideoTimingDemuxTrack } from './video-timing-demux-isobmff.ts';
 import { demuxMatroskaVideoTiming } from './video-timing-demux-matroska.ts';
@@ -143,16 +144,11 @@ function nominalRate(track: VideoTimingDemuxTrack): RationalRate {
 	const divisor = greatestCommonDivisor(numerator, spanTicks);
 	const num = numerator / divisor;
 	const den = spanTicks / divisor;
-	if (num > BigInt(Number.MAX_SAFE_INTEGER) || den > BigInt(Number.MAX_SAFE_INTEGER)) {
-		throw new VideoTimingDemuxError('The container states a video rate that cannot be expressed exactly.');
-	}
 	try {
 		return normalizeRational({ num: Number(num), den: Number(den) });
-	} catch (error) {
-		throw new VideoTimingDemuxError(
-			`The container states a video rate that cannot be expressed exactly: ${
-				error instanceof Error ? error.message : String(error)}`,
-		);
+	} catch {
+		// The nominal rate has a bounded denominator. The presentation index remains exact.
+		return approximatePositiveRational(Number(num) / Number(den));
 	}
 }
 

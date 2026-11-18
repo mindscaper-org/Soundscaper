@@ -124,6 +124,40 @@ test('Matroska BlockDuration belongs to its enclosing block group and never leak
 		'a later SimpleBlock derives its own duration instead of inheriting the group duration');
 });
 
+test('one-frame VP9 WebM retains the duration declared by its video track', async () => {
+	// A 32×24 JPEG converted with FFmpeg: -framerate 25 -f image2pipe -c:v mjpeg -i frame.jpg -an -c:v libvpx-vp9 -f webm
+	const webm = Buffer.from([
+		'GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAAH1EU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZ',
+		'UrmtTrIHWTbuMU6uEElTDZ1OsggEnTbuMU6uEHFO7a1OsggHf7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+		'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsCrXsYMPQkBNg',
+		'IxMYXZmNjEuMS4xMDBXQYxMYXZmNjEuMS4xMDBEiYhARAAAAAAAABZUrmvMrgEAAAAAAABD14EBc8WITUdYYm6fakmcgQAitZyD',
+		'dW5kiIEAhoVWX1ZQOYOBASPjg4QCYloA4JSwgSC6gRiagQJVsIhVt4ECVbiBAhJUw2f+c3OfY8CAZ8iZRaOHRU5DT0RFUkSHjEx',
+		'hdmY2MS4xLjEwMHNz2WPAi2PFiE1HWGJun2pJZ8ikRaOHRU5DT0RFUkSHl0xhdmM2MS4zLjEwMCBsaWJ2cHgtdnA5Z8ihRaOIRF',
+		'VSQVRJT05Eh5MwMDowMDowMC4wNDAwMDAwMDAAH0O2dbDngQCjq4EAAICiSYNCAAA+AC7ABwSDgwlAAAZgAAAQ3//9FWL/////U',
+		'dh////V8AAcU7trkbuPs4EAt4r3gQHxggGq8IED',
+	].join(''), 'base64');
+	const timing = await demuxVideoTiming(new Blob([Uint8Array.from(webm)], { type: 'video/webm' }));
+	assert.equal(timing.timescale, 1000);
+	assert.deepEqual(timing.presentationTicks, [0n]);
+	assert.equal(timing.finalFrameDurationTicks, 40n);
+	assert.deepEqual({ ...timing.nominalRate }, { num: 25, den: 1 });
+});
+
+test('Matroska uses the video track default duration at nanosecond precision for an irregular tail', async () => {
+	const defaultDuration = element([0x23, 0xe3, 0x83], Uint8Array.of(1, 253, 34, 75)); // 33,366,603 ns
+	const timing = await demuxMatroskaVideoTiming(createVideoTimingDemuxReader(fixtureBlob(
+		matroskaTimingFixture([block(0, 'simple'), block(24, 'simple')], [defaultDuration]),
+	)));
+	assert.equal(timing?.timescale, 1_000_000_000);
+	assert.deepEqual(timing?.presentationTicks, [0n, 24_000_000n]);
+	assert.equal(timing?.finalFrameDurationTicks, 33_366_603n);
+	const explicit = await demuxMatroskaVideoTiming(createVideoTimingDemuxReader(fixtureBlob(
+		matroskaTimingFixture([block(0, 'simple'), block(24, 'group', 19)], [defaultDuration]),
+	)));
+	assert.equal(explicit?.timescale, 1000);
+	assert.equal(explicit?.finalFrameDurationTicks, 19n);
+});
+
 function fixtureBlob(bytes: Uint8Array): Blob {
 	const copy = new Uint8Array(bytes.byteLength);
 	copy.set(bytes);
@@ -209,11 +243,12 @@ function exactTiming(
 	return decision;
 }
 
-function matroskaTimingFixture(blocks: readonly Uint8Array[]): Uint8Array {
+function matroskaTimingFixture(blocks: readonly Uint8Array[], trackFields: readonly Uint8Array[] = []): Uint8Array {
 	return bytes(
 		element([0x16, 0x54, 0xae, 0x6b], element([0xae],
 			element([0xd7], Uint8Array.of(1)),
 			element([0x83], Uint8Array.of(1)),
+			...trackFields,
 		)),
 		element([0x1f, 0x43, 0xb6, 0x75],
 			element([0xe7], Uint8Array.of(0)),

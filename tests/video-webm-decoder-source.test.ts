@@ -148,6 +148,24 @@ test('a nonzero first video timestamp contributes to the declared absolute end',
 	assert.equal(await durationValue(output),871);
 });
 
+test('a one-frame live WebM writes its fractional track duration in container timecodes', async () => {
+	const bytes = new Uint8Array(await recording().arrayBuffer());
+	// Extend TrackEntry and Tracks with DefaultDuration = 33,366,667 ns.
+	const defaultDuration = Uint8Array.of(0x23, 0xe3, 0x83, 0x84, 0x01, 0xfd, 0x22, 0x8b);
+	bytes[82] = 0xa9 + defaultDuration.length;
+	bytes[84] = 0xa7 + defaultDuration.length;
+	bytes[138] = 100;
+	const input = new File([bytes.subarray(0, 124), defaultDuration, bytes.subarray(124, 320)],
+		'One-frame recording.webm', { type: 'video/webm' });
+	const output = await prepareVideoWebmDecoderSource(input);
+	assert.equal(await durationValue(output), 133.366667);
+	const timing = await demuxVideoTiming(input);
+	assert.deepEqual(timing.presentationTicks, [0n]);
+	assert.equal(timing.timescale, 1_000_000_000);
+	assert.equal(timing.finalFrameDurationTicks, 33_366_667n);
+	assert.ok(Math.abs(timing.nominalRate.num / timing.nominalRate.den - 30_000 / 1_001) < 0.000001);
+});
+
 test('reordered video presentation uses the minimum absolute timestamp as its origin', async () => {
 	const bytes=new Uint8Array(await recording().arrayBuffer());bytes[138]=100;
 	// The second block precedes the first in presentation order, but stays at a positive absolute time.

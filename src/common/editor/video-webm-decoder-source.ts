@@ -37,10 +37,11 @@ export async function prepareVideoWebmDecoderSource(
 	const timing = await demuxMatroskaVideoTiming(reader, options);
 	throwIfAborted(options.signal);
 	if (!timing) return input;
-	const end = profile.origin + timing.presentationTicks.at(-1)! + timing.finalFrameDurationTicks;
-	if (end <= 0n || end > BigInt(Number.MAX_SAFE_INTEGER)) return input;
-	// The strict demux timescale is the inverse of the container's TimecodeScale.
-	const duration = Number(end);
+	const end = profile.origin * timing.ticksPerTimecode + timing.presentationTicks.at(-1)!
+		+ timing.finalFrameDurationTicks;
+	if (end <= 0n || end > BigInt(Number.MAX_SAFE_INTEGER) * timing.ticksPerTimecode) return input;
+	// The WebM Duration field is in container timecodes, including fractional values.
+	const duration = Number(end) / Number(timing.ticksPerTimecode);
 	const encodedDuration = new Uint8Array(11);
 	encodedDuration.set([0x44, 0x89, 0x88]);
 	new DataView(encodedDuration.buffer).setFloat64(3, duration);
