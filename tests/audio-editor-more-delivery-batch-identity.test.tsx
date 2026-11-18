@@ -35,7 +35,7 @@ test('queueing another batch during destination preflight keeps separate batch a
 	try {
 		await act(async () => root.render(<DeliveryQueueDialog isOpen
 			controller={{ actions: { export: { queue: queueActions, presets: { list: () => [preset] } } } }}
-			snapshot={{ selection: null, project: { loop: { enabled: false } } }}
+			snapshot={{ selection: null, project: { clips: [{ id: 'clip' }], loop: { enabled: false } } }}
 			copy={ENGLISH_COPY} onClose={() => undefined} />));
 		const checkbox = dom.one('[data-delivery-batch-preset="wav"]').querySelector('[role="checkbox"]');
 		assert.ok(checkbox);
