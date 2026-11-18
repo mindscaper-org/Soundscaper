@@ -4215,7 +4215,7 @@
 		"ui.freesoundAttribution.taxonomyMusicMultipleInstruments": ["machine","Music — Multiple instruments","Musik — Mehrere Instrumente"],
 		"ui.freesoundAttribution.taxonomyMusicOther": ["machine","Music — Other","Musik — Sonstiges"],
 		"ui.freesoundAttribution.taxonomyMusicSoloInstrument": ["machine","Music — Solo instrument","Musik — Soloinstrument"],
-		"ui.freesoundAttribution.taxonomyMusicSoloPercussion": ["machine","Music — Solo percussion","Musik — Solo-Schlagzeug"],
+		"ui.freesoundAttribution.taxonomyMusicSoloPercussion": ["human","Music — Solo percussion","Musik — Solo-Perkussion"],
 		"ui.freesoundAttribution.taxonomySamplesElectronic": ["machine","Instrument samples — Synths / Electronic","Instrument-Samples — Synthesizer / Elektronisch"],
 		"ui.freesoundAttribution.taxonomySamplesKeyboard": ["machine","Instrument samples — Piano / Keyboard","Instrument-Samples — Klavier / Keyboard"],
 		"ui.freesoundAttribution.taxonomySamplesOther": ["machine","Instrument samples — Other","Instrument-Samples — Sonstiges"],
