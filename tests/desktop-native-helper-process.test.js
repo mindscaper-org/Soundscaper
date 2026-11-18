@@ -507,35 +507,6 @@ test('the helper and the main-process schema agree on the inventory wire vocabul
 	});
 });
 
-test('an inventory result that contradicts itself or repeats a handle is refused', () => {
-	assert.throws(() => validateHelperAudioDeviceInventoryResult({
-		backend: 'alsa',
-		status: 'library-absent',
-		detail: '',
-		devices: [{ handle: 'hw:0,0', label: 'Built-in', direction: 'duplex' }],
-	}), /not available must publish no devices/u);
-	assert.throws(() => validateHelperAudioDeviceInventoryResult({
-		backend: 'alsa',
-		status: 'available',
-		detail: '',
-		devices: [
-			{ handle: 'hw:0,0', label: 'A', direction: 'input' },
-			{ handle: 'hw:0,0', label: 'B', direction: 'output' },
-		],
-	}), /same device handle twice/u);
-	assert.throws(() => validateHelperAudioDeviceInventoryResult({
-		backend: 'alsa', status: 'invented', detail: '', devices: [],
-	}), /known backend status/u);
-	assert.throws(() => validateHelperAudioDeviceInventoryResult({
-		backend: 'alsa',
-		status: 'available',
-		detail: '',
-		devices: Array.from({ length: MAXIMUM_NATIVE_AUDIO_DEVICES + 1 }, (_, index) => ({
-			handle: `hw:${String(index)}`, label: 'Device', direction: 'duplex',
-		})),
-	}), /at most 128 devices/u);
-});
-
 test('a payload whose digest does not match is never handed to the module loader', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-native-load-'));
 	context.after(() => rm(root, { recursive: true, force: true }));

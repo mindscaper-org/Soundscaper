@@ -90,7 +90,7 @@ export function validateHelperAudioDeviceOpenResult(value: unknown): HelperAudio
  * tell a user why a device they expect is missing.
  */
 export const NATIVE_AUDIO_BACKEND_STATUSES = Object.freeze([
-	'available', 'library-absent', 'symbols-absent', 'unsupported-platform', 'server-absent',
+	'available', 'backend-absent', 'library-absent', 'symbols-absent', 'unsupported-platform', 'server-absent',
 ] as const);
 
 export type NativeAudioBackendStatus = (typeof NATIVE_AUDIO_BACKEND_STATUSES)[number];
@@ -155,7 +155,8 @@ export function validateHelperAudioDeviceInventoryResult(value: unknown): Helper
 		throw new HelperContractViolationError('malformed',
 			'A native audio backend that is not available must publish no devices.');
 	}
-	const handles = new Set<string>();
+	const inputHandles = new Set<string>();
+	const outputHandles = new Set<string>();
 	const admitted = devices.map((device) => {
 		const entry = plainRecord(device, 'A native audio device');
 		exactKeys(entry, DEVICE_KEYS, 'A native audio device', DEVICE_OPTIONAL_KEYS);
@@ -164,11 +165,14 @@ export function validateHelperAudioDeviceInventoryResult(value: unknown): Helper
 			throw new HelperContractViolationError('malformed', 'A native audio device must name a known direction.');
 		}
 		const handle = boundedText(entry.handle, MAXIMUM_NATIVE_AUDIO_DEVICE_TEXT_BYTES, 'audio device handle');
-		if (handles.has(handle)) {
+		// JUCE device names are unique within each direction. A duplex row covers both.
+		if ((direction !== 'output' && inputHandles.has(handle))
+			|| (direction !== 'input' && outputHandles.has(handle))) {
 			throw new HelperContractViolationError('malformed',
-				'A native audio backend must not report the same device handle twice.');
+				'A native audio backend must not report the same device handle twice in one direction.');
 		}
-		handles.add(handle);
+		if (direction !== 'output') inputHandles.add(handle);
+		if (direction !== 'input') outputHandles.add(handle);
 		const described = {
 			handle,
 			label: boundedText(entry.label, MAXIMUM_NATIVE_AUDIO_DEVICE_TEXT_BYTES, 'audio device label'),

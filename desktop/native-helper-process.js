@@ -56,6 +56,14 @@ export const NATIVE_AUDIO_INVENTORY_BOUNDS = Object.freeze({
 	detailBytes: 1_024,
 });
 
+// The professional addon's native status names differ from the inventory wire contract.
+const PROFESSIONAL_AUDIO_INVENTORY_STATUSES = new Map([
+	['ok', 'available'],
+	['backend-unavailable', 'backend-absent'],
+	['server-unavailable', 'server-absent'],
+	['unsupported', 'unsupported-platform'],
+]);
+
 export const SYNTHETIC_ENGINE_MODES = Object.freeze({
 	passthrough: 0,
 	gain: 1,
@@ -244,7 +252,7 @@ function describeBackendInventory(addon, backend) {
 	}
 	return {
 		backend,
-		status: entry.status,
+		status: PROFESSIONAL_AUDIO_INVENTORY_STATUSES.get(entry.status) ?? entry.status,
 		detail: devices.length === offered.length
 			? clampWireText(entry.detail ?? '', NATIVE_AUDIO_INVENTORY_BOUNDS.detailBytes)
 			: `Only ${String(devices.length)} of ${String(offered.length)} devices fit one inventory answer.`,
