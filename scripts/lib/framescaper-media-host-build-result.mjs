@@ -76,7 +76,7 @@ export const FRAMESCAPER_MEDIA_HOST_SOURCE_IDENTITY = deepFreeze({
 		'9c0e596e8baa8281d7728c8d27d3ae98624de30254bf9767f07b4d76a1a9869a',
 		'BSD-3-Clause'),
 	zlib: externalIdentity('1.3.1', '51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf',
-		'https://zlib.net/fossils/zlib-1.3.1.tar.gz',
+		'https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz',
 		1_512_791, '9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23',
 		'85dd44f5108708f967d0d5aba1205eb54c20347a4b8417c4d1b87921822acae9',
 		'Zlib'),

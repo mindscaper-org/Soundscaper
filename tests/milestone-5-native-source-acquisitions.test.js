@@ -292,6 +292,17 @@ test('x264 uses the byte-identical GitHub mirror for unattended downloads', () =
 	assert.equal(source.archive.url, `https://codeload.github.com/mirror/x264/tar.gz/${source.git.commit}`);
 });
 
+test('both zlib provisioners use the official release asset', () => {
+	const register = readMilestone5NativeSourceAcquisitions(repositoryRoot);
+	const source = requireMilestone5NativeSource(register, 'zlib');
+	const delegated = JSON.parse(readFileSync(
+		resolve(repositoryRoot, 'native/framescaper-media-host/build/ffmpeg-9.0.1-external-sources.json'),
+		'utf8',
+	));
+	assert.equal(source.archive.url, `https://github.com/madler/zlib/releases/download/${source.git.tag}/${source.archive.fileName}`);
+	assert.equal(delegated.libraries.find(({ id }) => id === 'zlib').url, source.archive.url);
+});
+
 function sha256(bytes) {
 	return createHash('sha256').update(bytes).digest('hex');
 }
