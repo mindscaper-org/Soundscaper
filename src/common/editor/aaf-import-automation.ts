@@ -73,11 +73,13 @@ export function aafApplyClipGain(clip: TimelineInterchangeClip, curve: AafImport
 		if (curve.hold && frame > 0 && frame <= frames) positions.add(frame - 1);
 	}
 	let clamped = false;
+	const envelope = clip.envelope?.length
+		? { points: clip.envelope.map(point => ({ time: point.frame, value: point.value })), hold: false }
+		: null;
 	const valueAt = (frame: number) => {
 		const local = (frame + offset) / extent;
 		const gain = local < 0 || local > 1 ? 1 : evaluate(curve, local);
-		const envelope = clip.envelope?.length ? evaluate({ points: clip.envelope.map(point => ({ time: point.frame, value: point.value })), hold: false }, frame) : 1;
-		const product = gain * envelope, bounded = Math.max(0, Math.min(16, product));
+		const product = gain * (envelope ? evaluate(envelope, frame) : 1), bounded = Math.max(0, Math.min(16, product));
 		if (bounded !== product) clamped = true; return bounded;
 	};
 	const sorted = [...positions].sort((a, b) => a - b), output = new Map(sorted.map(frame => [frame, valueAt(frame)]));

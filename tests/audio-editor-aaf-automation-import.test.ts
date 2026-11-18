@@ -9,7 +9,7 @@ import type { AudioClipLeaf } from '../src/common/editor/project-media-types.ts'
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { evaluateAutomationLaneAtFrameV21 } from '../src/common/editor/automation-lane-v21.ts';
 
-function fixture(scenario: 'gain' | 'pan' | 'dissolve' | 'constant' | 'held' | 'two' | 'nested-pan' | 'nonlinear-gain' | 'mixed-clock-gain') {
+function fixture(scenario: 'gain' | 'pan' | 'dissolve' | 'constant' | 'held' | 'two' | 'nested-pan' | 'nonlinear-gain' | 'mixed-clock-gain' | 'nested-gain') {
 	return withAafReference(`
 import os, wave
 from aaf2.rational import AAFRational
@@ -28,7 +28,7 @@ with aaf2.open(sys.argv[1], 'w', extensions=False) as f:
       'pan': ('9d2ea893-0968-11d3-8a38-0050040ef7d2', 'MonoAudioPan', 'e4962322-2267-11d3-8a4c-0050040ef7d2', 'Pan'),
       'two': ('2311bd90-b5da-4285-aa3a-8552848779b3', 'TwoParameterMonoAudioDissolve', '9e610007-1be2-41e1-bb11-c95de9964d03', 'OutgoingLevel'),
       'dissolve': ('0c3bea41-fc05-11d2-8a29-0050040ef7d2', 'MonoAudioDissolve', 'e4962320-2267-11d3-8a4c-0050040ef7d2', 'Level')}
-    kind = 'gain' if scenario in ['constant', 'held', 'nonlinear-gain', 'mixed-clock-gain'] else ('pan' if scenario == 'nested-pan' else scenario)
+    kind = 'gain' if scenario in ['constant', 'held', 'nonlinear-gain', 'mixed-clock-gain', 'nested-gain'] else ('pan' if scenario == 'nested-pan' else scenario)
     opid, opname, paramid, paramname = definitions[kind]
     op = f.create.OperationDef(opid, opname); op.media_kind = 'sound'; op.number_inputs = 2 if scenario in ['dissolve', 'two'] else 1
     param = f.create.ParameterDef(paramid, paramname, typedef='Rational'); f.dictionary.register_def(param)
@@ -59,6 +59,10 @@ with aaf2.open(sys.argv[1], 'w', extensions=False) as f:
         seq.components.append(f.create.Filler('sound', 5)); seq.components.append(group); seq.length = 10
     else:
         group.segments.append(clip()); slot.segment = group
+        if scenario == 'nested-gain':
+            outer = f.create.OperationGroup(op, length=48000, media_kind='sound')
+            outer.parameters.append(f.create.ConstantValue(param, AAFRational('0.5')))
+            slot.segment = outer; outer.segments.append(group)
     for mob in f.content.mobs:
         for obj, streams in mob.walk_references(): obj.validate()
 `, path => new Uint8Array(readFileSync(path)));
@@ -104,4 +108,11 @@ test('AAF gain starts and finishes on the imported clip boundaries across edit r
 	assert.equal(clip.durationFrames, 6);
 	assert.deepEqual(clip.envelope[0], { frame: 0, value: 0 });
 	assert.deepEqual(clip.envelope.at(-1), { frame: 6, value: 1 });
+});
+
+test('AAF multiplies an inner gain envelope by its outer operation', () => {
+	const document = parseAafDocument(fixture('nested-gain'));
+	assert.deepEqual(document.tracks[0]?.clips[0]?.envelope, [
+		{ frame: 0, value: 0 }, { frame: 48_000, value: 0.5 },
+	]);
 });
