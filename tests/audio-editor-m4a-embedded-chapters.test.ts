@@ -7,6 +7,7 @@ import { BlobSource, BufferTarget, EncodedAudioPacketSource, EncodedPacketSink, 
 
 import { aacSourceMetadata, readAacSourceMetadata } from '../src/common/editor/aac-source-geometry.ts';
 import { embedM4aChapters } from '../src/common/editor/m4a-embedded-chapters.ts';
+import { isFileBackedAudioExport, registerRangeBackedAudioExport } from '../src/common/editor/file-backed-audio-export.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
 import { createDesktopAudioCodecRuntime } from '../src/common/editor/desktop-audio-codec-runtime.ts';
 import { createDesktopAudioCodecResult } from '../desktop/desktop-audio-codec-operation-contract.ts';
@@ -61,6 +62,45 @@ test('M4A metadata changes read box headers and metadata while retaining encoded
 	assert.ok(source.readRanges.length >= 4);
 });
 
+test('M4A chapters retain the encoded audio in a streamed desktop scratch file', async () => {
+	const mediaAtom = atom('mdat', Uint8Array.from({ length: 4096 }, (_, index) => index & 255));
+	const start = atom('ftyp');
+	const movie = atom('moov');
+	const raw = new Blob([start, movie, mediaAtom], { type: 'audio/mp4' });
+	const source = virtualAudio(raw);
+	const output = await embedM4aChapters(source, chapters, 48_000);
+	assert.ok(output.size > source.size, 'the result keeps every existing box plus chapters');
+	assert.equal(isFileBackedAudioExport(output), true);
+	assert.deepEqual(new Uint8Array(await output.slice(0, start.length).arrayBuffer()), start);
+	assert.deepEqual(new Uint8Array(await output.slice(-mediaAtom.length).arrayBuffer()), mediaAtom);
+	assert.deepEqual(new Uint8Array(await new Response(output.stream()).arrayBuffer()),
+		new Uint8Array(await (await embedM4aChapters(raw, chapters, 48_000)).arrayBuffer()));
+});
+
+test('a long streamed desktop M4A admits movie metadata larger than one bridge packet', async () => {
+	const movie = atom('moov', atom('free', new Uint8Array(1024 ** 2 + 32)));
+	const source = virtualAudio(new Blob([atom('ftyp'), movie, atom('mdat', Uint8Array.of(1, 2, 3))]));
+	const output = await embedM4aChapters(source, chapters, 48_000);
+	assert.ok(output.size > source.size);
+	assert.deepEqual(new Uint8Array(await output.slice(-3).arrayBuffer()), Uint8Array.of(1, 2, 3));
+});
+
+function virtualAudio(source: Blob): Blob {
+	class DesktopScratchSlice extends Blob {
+		constructor(private readonly range: Blob) { super(); }
+		override get size(): number { return this.range.size; }
+		override get type(): string { return this.range.type; }
+		override slice(start?: number, end?: number, type?: string): Blob {
+			return new DesktopScratchSlice(this.range.slice(start, end, type));
+		}
+		override async arrayBuffer(): Promise<ArrayBuffer> {
+			if (this.size > 1024 ** 2) throw new RangeError('Desktop encoded audio requires bounded 1 MiB reads.');
+			return await this.range.arrayBuffer();
+		}
+	}
+	return registerRangeBackedAudioExport(new DesktopScratchSlice(source));
+}
+
 interface Core {
 	FS: { writeFile(path: string, data: Uint8Array): void; readFile(path: string): Uint8Array; unlink(path: string): void };
 	exec(...args: string[]): number;
@@ -114,6 +154,9 @@ test('the shipped FFmpeg reader decodes browser and desktop M4A chapters without
 				original = new Blob([bytes], { type: 'audio/mp4' });
 			}
 			const output = await embedM4aChapters(original, chapters, 48_000);
+			const scratchOutput = await embedM4aChapters(virtualAudio(original), chapters, 48_000);
+			assert.deepEqual(new Uint8Array(await new Response(scratchOutput.stream()).arrayBuffer()),
+				new Uint8Array(await output.arrayBuffer()), 'the native scratch path retains the same opened M4A');
 			const nativeBytes = new Uint8Array(await original.arrayBuffer());
 			const desktop = createDesktopAudioCodecRuntime({
 				capabilities: query => ({ schemaVersion: 2, capabilities: query.operations.map(tuple => ({ ...tuple, available: true, provider: 'external-ffmpeg', reason: null })) }),
