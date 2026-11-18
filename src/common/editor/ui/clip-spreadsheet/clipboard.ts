@@ -60,59 +60,49 @@ export function parseSpreadsheetTsv(text: string): string[][] {
 	assertTextLength(text.length);
 	const rows: string[][] = [];
 	let row: string[] = [];
-	let field = '';
-	let state: 'unquoted' | 'quoted' | 'closed' = 'unquoted';
 	let cellCount = 0;
-	let endedRecord = false;
-	const finishCell = () => {
+	let index = 0;
+	const separators = /[\t\r\n"]/gu;
+	for (;;) {
+		let field: string;
+		if (text[index] === '"') {
+			let start = index + 1;
+			let parts: string[] | undefined;
+			for (;;) {
+				const quote = text.indexOf('"', start);
+				if (quote < 0) throw new Error('Unclosed quote in a spreadsheet cell.');
+				if (text[quote + 1] !== '"') {
+					const tail = text.slice(start, quote);
+					field = parts ? parts.join('') + tail : tail;
+					index = quote + 1;
+					break;
+				}
+				(parts ??= []).push(text.slice(start, quote + 1));
+				start = quote + 2;
+			}
+			if (index < text.length && text[index] !== '\t' && text[index] !== '\r' && text[index] !== '\n') {
+				throw new Error('Invalid text after a quoted spreadsheet cell.');
+			}
+		} else {
+			separators.lastIndex = index;
+			const match = separators.exec(text);
+			if (match?.[0] === '"') throw new Error('Invalid quote in a spreadsheet cell.');
+			const end = match?.index ?? text.length;
+			field = text.slice(index, end);
+			index = end;
+		}
 		assertCellCount(++cellCount);
 		row.push(field);
-		field = '';
-		state = 'unquoted';
-	};
-	const finishRow = () => {
-		finishCell();
+		if (text[index] === '\t') { index++; continue; }
 		if (rows.length && row.length !== rows[0].length) {
 			throw new Error('Spreadsheet data must be rectangular.');
 		}
 		rows.push(row);
+		if (index >= text.length) return rows;
+		index += text[index] === '\r' && text[index + 1] === '\n' ? 2 : 1;
+		if (index >= text.length) return rows;
 		row = [];
-	};
-	for (let index = 0; index < text.length; index += 1) {
-		const character = text[index];
-		endedRecord = false;
-		if (state === 'quoted') {
-			if (character === '"') {
-				if (text[index + 1] === '"') {
-					field += '"';
-					index += 1;
-				} else {
-					state = 'closed';
-				}
-			} else {
-				field += character;
-			}
-			continue;
-		}
-		if (character === '\t') {
-			finishCell();
-		} else if (character === '\r' || character === '\n') {
-			finishRow();
-			endedRecord = true;
-			if (character === '\r' && text[index + 1] === '\n') index += 1;
-		} else if (state === 'closed') {
-			throw new Error('Invalid text after a quoted spreadsheet cell.');
-		} else if (character === '"') {
-			if (field.length) throw new Error('Invalid quote in a spreadsheet cell.');
-			state = 'quoted';
-		} else {
-			field += character;
-		}
 	}
-	if (state === 'quoted') throw new Error('Unclosed quote in a spreadsheet cell.');
-	// Spreadsheet applications append one record separator to copied rows.
-	if (!endedRecord) finishRow();
-	return rows;
 }
 
 export function serializeSpreadsheetTsv(matrix: SpreadsheetMatrix): string {
@@ -134,6 +124,14 @@ export function planSpreadsheetPaste(
 	rowCount: number,
 	columnCount: number,
 ): SpreadsheetPasteCell[] {
+	const cells: SpreadsheetPasteCell[] = [];
+	forEachSpreadsheetPasteCell(matrix, range, rowCount, columnCount, (row, column, value) => cells.push({ row, column, value }));
+	return cells;
+}
+
+/** Admit dimensions before emitting any cell, then visit the tiled values in row order. */
+export function forEachSpreadsheetPasteCell(matrix: SpreadsheetMatrix, range: SpreadsheetRange, rowCount: number,
+	columnCount: number, visit: (row: number, column: number, value: string) => void): void {
 	const sourceWidth = matrixWidth(matrix);
 	if (![rowCount, columnCount].every(isCoordinate)) throw new Error('Invalid spreadsheet dimensions.');
 	if (![range.top, range.left, range.bottom, range.right].every(isCoordinate)
@@ -150,15 +148,15 @@ export function planSpreadsheetPaste(
 		throw new Error('Pasted data dimensions do not fit the selected range.');
 	}
 	assertCellCount(height * width);
-	const cells: SpreadsheetPasteCell[] = [];
-	for (let row = 0; row < height; row += 1) {
-		for (let column = 0; column < width; column += 1) {
-			cells.push({
-				row: range.top + row,
-				column: range.left + column,
-				value: matrix[row % matrix.length][column % sourceWidth],
-			});
+	const endRow = range.top + height, endColumn = range.left + width;
+	let sourceRow = 0;
+	for (let row = range.top; row < endRow; row += 1) {
+		const values = matrix[sourceRow]!;
+		let sourceColumn = 0;
+		for (let column = range.left; column < endColumn; column += 1) {
+			visit(row, column, values[sourceColumn]!);
+			if (++sourceColumn === sourceWidth) sourceColumn = 0;
 		}
+		if (++sourceRow === matrix.length) sourceRow = 0;
 	}
-	return cells;
 }

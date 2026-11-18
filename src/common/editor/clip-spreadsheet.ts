@@ -26,6 +26,9 @@ export const CLIP_SPREADSHEET_COLUMNS = [
 ] as const;
 
 export type ClipSpreadsheetColumnId = typeof CLIP_SPREADSHEET_COLUMNS[number]['id'];
+const SPREADSHEET_COLUMNS = new Set<string>(CLIP_SPREADSHEET_COLUMNS.map(column => column.id));
+const WARP_READ_ONLY_COLUMNS = new Set<string>(['source', 'offset', 'duration', 'speed', 'reversed']);
+const NON_NUMERIC_COLUMNS = new Set<string>(['name', 'track', 'source', 'reversed', 'inverted']);
 export interface ClipSpreadsheetRow {
 	readonly id: string;
 	readonly kind: string;
@@ -79,6 +82,8 @@ interface SpreadsheetProject {
 	readonly sources: readonly SpreadsheetSource[];
 	readonly tracks: readonly Readonly<{ id: string; name: string; type?: string; clipIds?: readonly string[]; locked?: boolean }>[];
 }
+type SpreadsheetTrack = SpreadsheetProject['tracks'][number];
+type SpreadsheetEditability = Pick<ClipSpreadsheetRow, 'editable' | 'pitchLinked' | 'warpMapped'>;
 
 export interface ClipSpreadsheetEditOptions {
 	readonly additionalSources?: readonly SpreadsheetSource[];
@@ -93,45 +98,88 @@ export function getClipSpreadsheetRows(projectValue: unknown): readonly ClipSpre
 }
 
 function rowsForProject(project: SpreadsheetProject, sources: ReadonlyMap<string, SpreadsheetSource>): readonly ClipSpreadsheetRow[] {
-	const clipsByTrack = new Map(project.tracks.map(track => [track.id, [] as SpreadsheetClip[]]));
-	const owners = new Map(project.tracks.flatMap(track => (track.clipIds ?? []).map(id => [id, track.id] as const)));
+	const clipsByTrack = new Map<string, SpreadsheetClip[]>();
+	const owners = spreadsheetOwners(project.tracks);
 	// Track clipIds are re-sorted after moves; the clip array preserves identity order.
 	for (const clip of project.clips) {
 		const owner = owners.get(clip.id);
-		if (owner) clipsByTrack.get(owner)?.push(clip);
+		if (!owner) continue;
+		const clips = clipsByTrack.get(owner);
+		if (clips) clips.push(clip);
+		else clipsByTrack.set(owner, [clip]);
 	}
-	return project.tracks.flatMap(track => {
-		return (clipsByTrack.get(track.id) ?? []).map(clip => {
+	const rows: ClipSpreadsheetRow[] = [];
+	for (const track of project.tracks) {
+		const clips = clipsByTrack.get(track.id);
+		if (!clips) continue;
+		for (const clip of clips) {
 			const source = sources.get(clip.sourceId);
 			const audio = clip.kind === 'audio' || clip.kind == null;
-			const sourceRate = !audio && source?.frameRate
-				? source.frameRate.num / source.frameRate.den : source?.sampleRate || project.sampleRate;
-			return {
+			rows.push({
 				id: clip.id, kind: clip.kind ?? 'audio', editable: audio && !track.locked, pitchLinked: Boolean(clip.linkPitchAndTempo), warpMapped: clip.warpMap != null,
 				cells: {
 					name: clip.title || source?.name || '', track: track.id,
 					position: numberText(clip.timelineStartFrame / project.sampleRate), source: clip.sourceId,
-					offset: numberText(clip.kind === 'video' && source
-						? mapVideoTimelineFrameToSource(clip, clip.timelineStartFrame, {
-							source, sourceSampleRate: sourceRate,
-						}).sourceTimeSeconds ?? clip.sourceStartFrame / sourceRate
-						: clip.sourceStartFrame / sourceRate),
+					offset: spreadsheetOffsetText(clip, source, audio, project.sampleRate),
 					duration: numberText(clip.durationFrames / project.sampleRate),
-					pitch: audio ? numberText(clip.linkPitchAndTempo ? 12 * Math.log2(clip.speedRatio) : clip.pitchCents / 100) : '',
-					speed: numberText(clip.speedRatio), gain: audio ? (clip.gain === 0 ? '-Infinity' : numberText(Number((20 * Math.log10(clip.gain)).toPrecision(12)))) : '',
+					pitch: audio ? spreadsheetPitchText(clip) : '',
+					speed: numberText(clip.speedRatio), gain: audio ? spreadsheetGainText(clip.gain) : '',
 					fadeIn: audio ? numberText(clip.fadeInFrames / project.sampleRate) : '',
 					fadeOut: audio ? numberText(clip.fadeOutFrames / project.sampleRate) : '',
 					reversed: audio ? String(clip.reversed) : '', inverted: audio ? String(clip.inverted) : '',
 				},
-			};
-		});
-	});
+			});
+		}
+	}
+	return rows;
 }
 
-export function isClipSpreadsheetCellEditable(row: ClipSpreadsheetRow, column: ClipSpreadsheetColumnId): boolean {
+function spreadsheetOwners(tracks: readonly SpreadsheetTrack[], requested?: ReadonlySet<string>): Map<string, string> {
+	const owners = new Map<string, string>();
+	for (const track of tracks) {
+		for (const id of track.clipIds ?? []) if (!requested || requested.has(id)) owners.set(id, track.id);
+	}
+	return owners;
+}
+
+function spreadsheetOffsetText(clip: SpreadsheetClip, source: SpreadsheetSource | undefined, audio: boolean, sampleRate: number): string {
+	const sourceRate = !audio && source?.frameRate ? source.frameRate.num / source.frameRate.den : source?.sampleRate || sampleRate;
+	const fallback = clip.sourceStartFrame / sourceRate;
+	return numberText(clip.kind === 'video' && source
+		? mapVideoTimelineFrameToSource(clip, clip.timelineStartFrame, { source, sourceSampleRate: sourceRate }).sourceTimeSeconds ?? fallback
+		: fallback);
+}
+
+function spreadsheetPitchText(clip: SpreadsheetClip): string {
+	return numberText(clip.linkPitchAndTempo ? 12 * Math.log2(clip.speedRatio) : clip.pitchCents / 100);
+}
+
+function spreadsheetGainText(gain: number): string {
+	return gain === 0 ? '-Infinity' : numberText(Number((20 * Math.log10(gain)).toPrecision(12)));
+}
+
+function editedCellText(clip: SpreadsheetClip, track: SpreadsheetTrack, source: SpreadsheetSource | undefined,
+	audio: boolean, sampleRate: number, column: ClipSpreadsheetColumnId): string {
+	switch (column) {
+		case 'name': return clip.title || source?.name || '';
+		case 'track': return track.id;
+		case 'position': return numberText(clip.timelineStartFrame / sampleRate);
+		case 'source': return clip.sourceId;
+		case 'offset': return spreadsheetOffsetText(clip, source, audio, sampleRate);
+		case 'duration': return numberText(clip.durationFrames / sampleRate);
+		case 'pitch': return audio ? spreadsheetPitchText(clip) : '';
+		case 'speed': return numberText(clip.speedRatio);
+		case 'gain': return audio ? spreadsheetGainText(clip.gain) : '';
+		case 'fadeIn': return audio ? numberText(clip.fadeInFrames / sampleRate) : '';
+		case 'fadeOut': return audio ? numberText(clip.fadeOutFrames / sampleRate) : '';
+		case 'reversed': return audio ? String(clip.reversed) : '';
+		case 'inverted': return audio ? String(clip.inverted) : '';
+	}
+}
+
+export function isClipSpreadsheetCellEditable(row: SpreadsheetEditability, column: ClipSpreadsheetColumnId): boolean {
 	return row.editable && !(column === 'pitch' && row.pitchLinked)
-		&& !(row.warpMapped && ['source', 'offset', 'duration', 'speed', 'reversed'].includes(column))
-		&& Boolean(CLIP_SPREADSHEET_COLUMNS.find(candidate => candidate.id === column)?.editable);
+		&& !(row.warpMapped && WARP_READ_ONLY_COLUMNS.has(column)) && SPREADSHEET_COLUMNS.has(column);
 }
 
 /** Validate the entire paste before producing one undoable command. */
@@ -148,33 +196,40 @@ export function findMissingClipSpreadsheetEditSources(projectValue: unknown, edi
 
 function planEdits(projectValue: unknown, edits: readonly ClipSpreadsheetEdit[], options: ClipSpreadsheetEditOptions, missing?: Set<string>): AudioEditorCommand | null {
 	const project = runtimeProject(projectValue);
-	const sources = new Map([...project.sources, ...options.additionalSources ?? []].map(source => [source.id, source]));
+	if (!edits.length) return null;
+	const sources = new Map<string, SpreadsheetSource>();
+	for (const source of project.sources) sources.set(source.id, source);
+	for (const source of options.additionalSources ?? []) sources.set(source.id, source);
 	const sourceForReference = createSourceReferenceReader(sources);
 	const tracks = new Map(project.tracks.map(track => [track.id, track]));
-	const rows = new Map(rowsForProject(project, sources).map(row => [row.id, row]));
+	const requested = new Set<string>();
+	for (const edit of edits) requested.add(edit.clipId);
+	const owners = spreadsheetOwners(project.tracks, requested);
+	const editedClips = new Map<string, SpreadsheetClip>();
+	for (const clip of project.clips) if (owners.has(clip.id)) editedClips.set(clip.id, clip);
 	const values = new Map<string, Map<ClipSpreadsheetColumnId, string>>();
 	for (const edit of edits) {
-		const row = rows.get(edit.clipId);
-		if (!row) throw new RangeError('The clip is no longer in this project.');
-		if (!CLIP_SPREADSHEET_COLUMNS.some(column => column.id === edit.column)) throw new RangeError('Unknown spreadsheet column.');
-		const sameNumericValue = !['name', 'track', 'source', 'reversed', 'inverted'].includes(edit.column)
-			&& edit.value.trim() !== '' && row.cells[edit.column] !== ''
-			&& Number(edit.value) === Number(row.cells[edit.column]);
-		const sameIdentifier = edit.column === 'track' && edit.value.trim() === row.cells.track
-			|| edit.column === 'source' && sourceForReference(edit.value)?.id === row.cells.source;
-		if (row.cells[edit.column] === edit.value || sameNumericValue || sameIdentifier) {
+		const clip = editedClips.get(edit.clipId);
+		const owner = owners.get(edit.clipId);
+		const track = owner ? tracks.get(owner) : undefined;
+		if (!clip || !track) throw new RangeError('The clip is no longer in this project.');
+		if (!SPREADSHEET_COLUMNS.has(edit.column)) throw new RangeError('Unknown spreadsheet column.');
+		const audio = clip.kind === 'audio' || clip.kind == null;
+		const editable = audio && !track.locked;
+		const current = editedCellText(clip, track, sources.get(clip.sourceId), audio, project.sampleRate, edit.column);
+		const sameNumericValue = !NON_NUMERIC_COLUMNS.has(edit.column)
+			&& edit.value.trim() !== '' && current !== '' && Number(edit.value) === Number(current);
+		const sameIdentifier = edit.column === 'track' && edit.value.trim() === current
+			|| edit.column === 'source' && sourceForReference(edit.value)?.id === current;
+		const existing = values.get(edit.clipId);
+		if (current === edit.value || sameNumericValue || sameIdentifier) {
 			// An explicitly pasted duration stays authoritative when speed changes too.
-			if (edit.column === 'duration' && row.editable) {
-				const clipValues = values.get(edit.clipId) ?? new Map<ClipSpreadsheetColumnId, string>();
-				clipValues.set(edit.column, edit.value);
-				values.set(edit.clipId, clipValues);
-			} else values.get(edit.clipId)?.delete(edit.column);
-			continue;
+			if (edit.column !== 'duration' || !editable) { existing?.delete(edit.column); continue; }
+		} else if (!isClipSpreadsheetCellEditable({ editable, pitchLinked: Boolean(clip.linkPitchAndTempo), warpMapped: clip.warpMap != null }, edit.column)) {
+			throw new RangeError('This spreadsheet cell is read-only.');
 		}
-		if (!isClipSpreadsheetCellEditable(row, edit.column)) throw new RangeError('This spreadsheet cell is read-only.');
-		const clipValues = values.get(edit.clipId) ?? new Map<ClipSpreadsheetColumnId, string>();
-		clipValues.set(edit.column, edit.value);
-		values.set(edit.clipId, clipValues);
+		if (existing) existing.set(edit.column, edit.value);
+		else values.set(edit.clipId, new Map([[edit.column, edit.value]]));
 	}
 	const transforms: { clipId: string; trackId?: string; changes: CommandObject }[] = [];
 	const updates: AudioEditorCommand[] = [];
@@ -206,13 +261,12 @@ function planEdits(projectValue: unknown, edits: readonly ClipSpreadsheetEdit[],
 			if (clip.groupId || clip.avLinkId) throw new RangeError('Ungroup or unlink this clip before moving it in the spreadsheet.');
 		}
 		const { transform, update } = planClip(project, clip, source, originalSource.sampleRate, fields);
+		if (missing) continue;
 		if (Object.keys(transform).length || trackId) transforms.push({ clipId: clip.id, ...(trackId ? { trackId } : {}), changes: transform });
 		if (Object.keys(update).length) updates.push({ type: 'clip/update', clipId: clip.id, changes: update });
 	}
-	const commands: AudioEditorCommand[] = [
-		...(transforms.length ? [{ type: 'clip/transform-many' as const, transforms }] : []), ...updates,
-	];
-	return commands.length > 1 ? { type: 'batch', commands } : commands[0] ?? null;
+	if (transforms.length) updates.unshift({ type: 'clip/transform-many', transforms });
+	return updates.length > 1 ? { type: 'batch', commands: updates } : updates[0] ?? null;
 }
 
 function planClip(project: SpreadsheetProject, clip: SpreadsheetClip, source: SpreadsheetSource, originalSourceRate: number, fields: ReadonlyMap<ClipSpreadsheetColumnId, string>) {
