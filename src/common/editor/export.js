@@ -230,13 +230,6 @@ export function createExportPlan(project, options = {}) {
 		masteringSequenceCues: masteringSequence !== null,
 	}, spans);
 	let markers = masteringSequence ? masteringSequence.cues : markerExport.markers;
-	const ixmlChannels = ixmlForDeliveryChannels(preservedRiffChunks?.ixml ? null : runtimeProject.metadata?.ixml, encoding.channelMapping);
-	const ixmlDelivery = ixmlForDeliveryFileIdentity(ixmlChannels.metadata, options.preserveIxmlFileIdentity === true);
-	const ixmlMetadata = (deliveryRange) => ixmlForDeliveryRange(
-		ixmlDelivery.metadata, deliveryRange, runtimeProject.sampleRate, sampleRate, encoding.bitDepth, masteringSequence?.plan,
-	);
-	const ixml = ixmlMetadata(range);
-	const spanIxml = spans?.map((span) => ixmlMetadata(span));
 	const cartMetadata = (deliveryRange) => cartForDeliveryRange(
 		runtimeProject.metadata?.cart, deliveryRange, runtimeProject.sampleRate, sampleRate, encoding.bitDepth,
 	);
@@ -267,6 +260,13 @@ export function createExportPlan(project, options = {}) {
 	}
 	if (preservedRiffChunks?.cart) cart = null;
 	if (bext) encoding = Object.freeze({ ...encoding, bext });
+	const spanBext = bext ? spans?.map(span => bwfMetadata(span.startFrame)) : undefined;
+	const ixmlChannels = ixmlForDeliveryChannels(preservedRiffChunks?.ixml ? null : runtimeProject.metadata?.ixml, encoding.channelMapping);
+	const ixmlDelivery = ixmlForDeliveryFileIdentity(ixmlChannels.metadata, options.preserveIxmlFileIdentity === true);
+	const ixmlMetadata = (deliveryRange, timeReference) => ixmlForDeliveryRange(ixmlDelivery.metadata, deliveryRange,
+		runtimeProject.sampleRate, sampleRate, encoding.bitDepth, masteringSequence?.plan, timeReference);
+	const ixml = ixmlMetadata(range, bext?.timeReference);
+	const spanIxml = spans?.map((span, index) => ixmlMetadata(span, spanBext?.[index]?.timeReference));
 	// Sequences, chapters and clips deliver their authored extents without tails.
 	const tailFrames = masteringSequence || spans
 		? 0
@@ -337,7 +337,7 @@ export function createExportPlan(project, options = {}) {
 			metadata: spanMetadata[spanIndex],
 			...markerExport.outputs[spanIndex],
 			// Where this file, rather than the whole delivery, sits on the timeline.
-			...(bext ? { bext: bwfMetadata(span.startFrame) } : {}),
+			...(spanBext ? { bext: spanBext[spanIndex] } : {}),
 			...(cart ? { cart: cartMetadata(span) } : {}),
 			...(ixml ? { ixml: spanIxml[spanIndex] } : {}),
 		}))
