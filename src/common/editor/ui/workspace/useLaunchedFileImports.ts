@@ -31,16 +31,11 @@ import {
 } from '../../../offline/file-handler-launch.ts';
 import { collectSharedFiles } from '../../../offline/share-target-launch.ts';
 import { markWebFileLoadLimitFailure } from '../../web-file-limit-failure.ts';
-import { selectAudioEditorBusyBlock, type AudioEditorEditBlockingSnapshot } from '../../edit-blocking.ts';
-import { raceAbortablePromise } from '../../../foundation/abort-race.ts';
+import { waitForWorkspaceFileAdmission, type WorkspaceFileAdmissionController } from './workspace-file-admission.ts';
 
 export interface LaunchedFileImportsInput {
 	/** Waited on before the files are routed, because a launch beats the controller to readiness. */
-	readonly controller: {
-		readonly ready?: PromiseLike<unknown> | null;
-		getSnapshot?(): AudioEditorEditBlockingSnapshot;
-		subscribe?(listener: () => void): () => void;
-	} | null;
+	readonly controller: WorkspaceFileAdmissionController | null;
 	/** The workspace's own routed import, which a dropped batch also goes through. */
 	readonly importFiles: (files: readonly File[]) => unknown;
 	readonly onError: (error: unknown) => void;
@@ -95,8 +90,7 @@ export function useLaunchedFileImports({
 				// The launch is delivered while the editor is still booting, so the
 				// files wait for the controller rather than being routed at an
 				// engine that cannot open them yet.
-				await raceAbortablePromise(Promise.resolve(controller?.ready), signal);
-				await waitForLaunchAdmission(controller, signal);
+				await waitForWorkspaceFileAdmission(controller, signal);
 				signal.throwIfAborted();
 				await importRef.current(files);
 			}).catch((error: unknown) => { if (!signal.aborted) report(error); });
@@ -107,25 +101,4 @@ export function useLaunchedFileImports({
 		// buffer, so tearing this down between renders costs nothing but delay.
 		return () => { unsubscribe(); lifetime.abort(); };
 	}, [claim, collect, controller, desktop, subscribe]);
-}
-
-function waitForLaunchAdmission(controller: LaunchedFileImportsInput['controller'], signal: AbortSignal): Promise<void> {
-	if (!controller?.getSnapshot || !controller.subscribe || !selectAudioEditorBusyBlock(controller.getSnapshot()).blocked) return Promise.resolve();
-	const subscribe = controller.subscribe.bind(controller);
-	const getSnapshot = controller.getSnapshot.bind(controller);
-	return new Promise<void>((resolve, reject) => {
-		const settle = (): void => { unsubscribe(); signal.removeEventListener('abort', abort); };
-		const abort = (): void => { settle(); reject(signal.reason); };
-		const check = (): void => {
-			if (selectAudioEditorBusyBlock(getSnapshot()).blocked) return;
-			settle();
-			resolve();
-		};
-		const unsubscribe = subscribe(check);
-		if (signal.aborted) abort();
-		else {
-			signal.addEventListener('abort', abort, { once: true });
-			check();
-		}
-	});
 }

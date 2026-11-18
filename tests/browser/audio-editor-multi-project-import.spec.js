@@ -101,6 +101,41 @@ test('cancelling a CUE destination skips the following sheet and releases the la
 
 test('an OS project launch waits for a manual audio import to finish', async ({ page }) => {
 	await installLaunchQueue(page);
+	await holdManualRecording(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	const origin = await editor.getAttribute('data-project-id');
+	const audio = { ...toneA, name: 'Held manual recording.wav' };
+	await editor.locator('[data-import-input]').setInputFiles(audio);
+	await expect.poll(() => page.evaluate(() => globalThis.manualMediaPending)).toBe(true);
+	const incoming = await archiveFile('launch-during-import', 'Waiting file launch');
+	await launchBatches(page, [[incoming]]);
+	await expect(editor).toHaveAttribute('data-project-id', origin);
+	await page.evaluate(() => globalThis.releaseManualMedia());
+	await expect(editor.getByRole('tab', { name: 'Waiting file launch', exact: true })).toHaveAttribute('aria-selected', 'true');
+	await waitForProjectActivation(editor);
+	await editor.getByRole('tab', { name: 'Untitled project', exact: true }).click();
+	await waitForProjectActivation(editor);
+	await expect(clipByName(editor, audio.name)).toBeVisible();
+});
+
+test('a desktop file association waits until an ongoing recording import has published', async ({ page }) => {
+	const incoming = await archiveFile('desktop-launch-during-import', 'Waiting desktop file');
+	await installDesktopArchiveLaunch(page, incoming);
+	await holdManualRecording(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	await editor.locator('[data-import-input]').setInputFiles({ ...toneA, name: 'Held manual recording.wav' });
+	await expect.poll(() => page.evaluate(() => globalThis.manualMediaPending)).toBe(true);
+	await page.evaluate(async () => {
+		globalThis.launchNativeArchive();
+		await new Promise(resolve => { requestAnimationFrame(() => { requestAnimationFrame(resolve); }); });
+	});
+	expect(await page.evaluate(() => globalThis.nativeArchiveReleased)).toBe(false);
+	await page.evaluate(() => globalThis.releaseManualMedia());
+	await expect(editor.getByRole('tab', { name: 'Waiting desktop file', exact: true })).toHaveAttribute('aria-selected', 'true');
+	await expect.poll(() => page.evaluate(() => globalThis.nativeArchiveReleased)).toBe(true);
+});
+
+async function holdManualRecording(page) {
 	await page.addInitScript(() => {
 		const held = new WeakSet();
 		const slice = File.prototype.slice;
@@ -119,21 +154,31 @@ test('an OS project launch waits for a manual audio import to finish', async ({ 
 			return read.call(this);
 		};
 	});
-	const editor = await bootEditor(page, '/embed/en/');
-	const origin = await editor.getAttribute('data-project-id');
-	const audio = { ...toneA, name: 'Held manual recording.wav' };
-	await editor.locator('[data-import-input]').setInputFiles(audio);
-	await expect.poll(() => page.evaluate(() => globalThis.manualMediaPending)).toBe(true);
-	const incoming = await archiveFile('launch-during-import', 'Waiting file launch');
-	await launchBatches(page, [[incoming]]);
-	await expect(editor).toHaveAttribute('data-project-id', origin);
-	await page.evaluate(() => globalThis.releaseManualMedia());
-	await expect(editor.getByRole('tab', { name: 'Waiting file launch', exact: true })).toHaveAttribute('aria-selected', 'true');
-	await waitForProjectActivation(editor);
-	await editor.getByRole('tab', { name: 'Untitled project', exact: true }).click();
-	await waitForProjectActivation(editor);
-	await expect(clipByName(editor, audio.name)).toBeVisible();
-});
+}
+
+async function installDesktopArchiveLaunch(page, archive) {
+	await page.addInitScript(({ base64, name }) => {
+		const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+		const id = 'd'.repeat(40);
+		const descriptor = { id, name, mimeType: 'application/vnd.soundscaper.scape+zip', readProfile: 'scape-range-v1',
+			size: bytes.length, url: `soundscaper-app://bundle/_desktop/read/scape-range-v1/${id}/${name}` };
+		const fetch = globalThis.fetch;
+		globalThis.fetch = (input, init) => {
+			if (String(input) !== descriptor.url) return fetch(input, init);
+			const [, start, end] = /^bytes=(\d+)-(\d+)$/u.exec(new Headers(init.headers).get('Range'));
+			const body = bytes.slice(Number(start), Number(end) + 1);
+			return Promise.resolve(new Response(body, { status: 206, headers: {
+				'Content-Type': descriptor.mimeType, 'Content-Length': String(body.length),
+				'Content-Range': `bytes ${start}-${end}/${bytes.length}`,
+			} }));
+		};
+		globalThis.nativeArchiveReleased = false;
+		globalThis.soundscaperDesktop = { v1: {
+			onOpenProject(listener) { globalThis.launchNativeArchive = () => listener(descriptor); return () => {}; },
+			async releaseRead(readId) { if (readId === id) globalThis.nativeArchiveReleased = true; },
+		} };
+	}, { base64: archive.buffer.toString('base64'), name: archive.name });
+}
 
 async function installLaunchQueue(page) {
 	await page.addInitScript(() => {

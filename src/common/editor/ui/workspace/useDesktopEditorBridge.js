@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 
 import { isDesktopTextEditingElement } from '../workspace-runtime.js';
 import { editorCloseHasActiveWork, sealEditorCaptureForClose } from './desktop-editor-close-work.ts';
+import { discardDesktopProjectReadDescriptor } from './desktop-project-file-routing.ts';
+import { waitForWorkspaceFileAdmission } from './workspace-file-admission.ts';
 
 export function useDesktopEditorBridge({
 	copy,
@@ -19,8 +21,30 @@ export function useDesktopEditorBridge({
 	toggleFullscreen,
 }) {
 	const desktopReadySignalledRef = useRef(false);
-	const desktopOpenQueueRef = useRef(Promise.resolve());
+	const openProjectRef = useRef({ openDesktopProjectDescriptor, onError });
 	const [maximized, setMaximized] = useState(false);
+	useEffect(() => { openProjectRef.current = { openDesktopProjectDescriptor, onError }; }, [openDesktopProjectDescriptor, onError]);
+	useEffect(() => {
+		if (!fileService.isDesktop) return undefined;
+		const lifetime = new AbortController();
+		const { signal } = lifetime;
+		let queue = Promise.resolve();
+		const unsubscribe = fileService.onOpenProject(descriptor => {
+			queue = queue.then(async () => {
+				try {
+					await waitForWorkspaceFileAdmission(controller, signal);
+					signal.throwIfAborted();
+				} catch (error) {
+					await discardDesktopProjectReadDescriptor(fileService, descriptor);
+					if (signal.aborted) return;
+					throw error;
+				}
+				const { openDesktopProjectDescriptor } = openProjectRef.current;
+				await openDesktopProjectDescriptor(descriptor);
+			}).catch(error => { openProjectRef.current.onError(error); });
+		});
+		return () => { unsubscribe(); lifetime.abort(); };
+	}, [controller, fileService]);
 	useEffect(() => {
 		if (typeof __SCAPE_DESKTOP_RENDERER__ === 'undefined' || !__SCAPE_DESKTOP_RENDERER__
 			|| !fileService.isDesktop || controller.getSnapshot().productId !== 'soundscaper'
@@ -35,13 +59,6 @@ export function useDesktopEditorBridge({
 	useEffect(() => {
 		if (!fileService.isDesktop) return undefined;
 		let active = true;
-		const openDescriptor = (descriptor) => {
-			const operation = desktopOpenQueueRef.current
-				.catch(() => undefined)
-				.then(() => openDesktopProjectDescriptor(descriptor));
-			desktopOpenQueueRef.current = operation;
-			void operation.catch(onError);
-		};
 		const handleMenuCommand = ({ command } = {}) => {
 			const edit = (action) => isDesktopTextEditingElement(document.activeElement, action)
 				? fileService.editText(action)
@@ -94,7 +111,6 @@ export function useDesktopEditorBridge({
 			}
 		};
 		const unsubscribers = [
-			fileService.onOpenProject(openDescriptor),
 			fileService.onMenuCommand(handleMenuCommand),
 			fileService.onCloseRequested((request) => { void handleClose(request).catch(onError); }),
 			fileService.onWindowStateChanged(({ fullscreen, maximized: nextMaximized } = {}) => {
@@ -113,7 +129,7 @@ export function useDesktopEditorBridge({
 			active = false;
 			for (const unsubscribe of unsubscribers) unsubscribe();
 		};
-	}, [controller, copy, fileService, onError, openDesktopFiles, openDesktopProjectDescriptor, openSurface, run, snapshot.readOnly, toggleFullscreen]);
+	}, [controller, copy, fileService, onError, openDesktopFiles, openSurface, run, snapshot.readOnly, toggleFullscreen]);
 	if (!fileService.isDesktop) return null;
 	return {
 		platform: desktopEnvironment?.platform,

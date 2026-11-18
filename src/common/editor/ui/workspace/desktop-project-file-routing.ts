@@ -3,6 +3,7 @@
 import type { ScapeArchiveByteSource } from '../../../scape/archive-byte-source.ts';
 import { SESX_XML_MAXIMUM_BYTES } from '../../sesx-format.ts';
 import { SES_BINARY_MAXIMUM_BYTES } from '../../ses-format.ts';
+import { withDesktopOriginalReadCleanup } from '../../desktop-original-file-port.ts';
 import {
 	DESKTOP_READ_PROFILE_MATERIALIZED,
 	DESKTOP_READ_PROFILE_SCAPE_RANGE,
@@ -37,6 +38,19 @@ export interface DesktopProjectReadService<Value> {
 export interface DesktopProjectConsumers<Value> {
 	readonly openMaterialized: (file: Blob) => Awaitable<Value>;
 	readonly openScape: (source: ScapeArchiveByteSource) => Awaitable<Value>;
+}
+
+export async function discardDesktopProjectReadDescriptor(
+	fileService: Pick<DesktopProjectReadService<unknown>, 'releaseRead' | 'releaseSesxSession'> & {
+		readonly releaseOriginalFile?: (id: string) => Awaitable<unknown>;
+	},
+	descriptor: DesktopProjectReadDescriptor,
+): Promise<void> {
+	await withDesktopOriginalReadCleanup([descriptor], fileService.releaseOriginalFile, async () => {
+		if (typeof descriptor?.id !== 'string') return;
+		try { await fileService.releaseRead?.(descriptor.id); }
+		finally { await releaseDesktopProjectSession(fileService, descriptor); }
+	});
 }
 
 export async function withDesktopProjectReadDescriptor<Value>(
@@ -80,8 +94,12 @@ export async function withDesktopProjectReadDescriptor<Value>(
 			return consumers.openMaterialized(files[0]);
 		});
 	} finally {
-		if (/\.(?:sesx?|edl|otio|fcpxml|omfi?|aaf|nhsx|rpp)$/iu.test(String(descriptor?.name || '')) && typeof descriptor?.id === 'string') {
-			await fileService.releaseSesxSession?.(descriptor.id);
-		}
+		await releaseDesktopProjectSession(fileService, descriptor);
+	}
+}
+
+async function releaseDesktopProjectSession(fileService: Pick<DesktopProjectReadService<unknown>, 'releaseSesxSession'>, descriptor: DesktopProjectReadDescriptor): Promise<void> {
+	if (/\.(?:sesx?|edl|otio|fcpxml|omfi?|aaf|nhsx|rpp)$/iu.test(String(descriptor?.name || '')) && typeof descriptor?.id === 'string') {
+		await fileService.releaseSesxSession?.(descriptor.id);
 	}
 }
