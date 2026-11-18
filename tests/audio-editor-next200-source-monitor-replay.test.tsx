@@ -4,6 +4,7 @@ import test from 'node:test';
 import React, { act } from 'react';
 import SourceMonitorPanel from '../src/common/editor/ui/workspace/SourceMonitorPanel.jsx';
 import { createSourceMonitorService } from '../src/common/editor/controller/clip-video/internal/source-monitor-service.ts';
+import { deferred } from './helpers/async-test-control.ts';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
 Reflect.set(globalThis, 'React', React);
@@ -39,7 +40,7 @@ test('manual stopped source positioning includes the last frame without claiming
 test('an interrupted Play rejection leaves the newer Source Monitor playback running', async () => {
 	const f = await fixture(22);
 	try {
-		const first = Promise.withResolvers<void>();
+		const first = deferred<void>();
 		let playCount = 0;
 		let pauseCount = 0;
 		Reflect.set(f.video, 'play', () => ++playCount === 1 ? first.promise : Promise.resolve());
