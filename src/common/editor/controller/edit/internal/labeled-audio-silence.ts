@@ -75,15 +75,15 @@ export function createLabeledAudioSilence<Context, Target extends AudioGenerator
 				.filter((entry) => entry.spans.length > 0);
 			if (plan.length === 0) return false;
 			const sampleRate = normalizeProjectSampleRate(project.sampleRate);
-			let longestRegionFrames = 0;
-			for (const entry of plan) for (const region of entry.spans) {
-				longestRegionFrames = Math.max(longestRegionFrames, region.endFrame - region.startFrame);
+			const framesByWidth = new Map<number, number>();
+			for (const { channelCount, spans } of plan) for (const span of spans) {
+				// One frame of headroom keeps every clip inside the rounded source bounds.
+				const frames = span.endFrame - span.startFrame + 1;
+				framesByWidth.set(channelCount, Math.max(framesByWidth.get(channelCount) ?? 0, frames));
 			}
-			// One frame of headroom keeps every clip inside the source bounds
-			// however the requested duration rounds.
-			const widths = [...new Set(plan.map(entry => entry.channelCount))];
+			const widths = [...framesByWidth];
 			await dependencies.preflightStorage(
-				widths.reduce((bytes, width) => bytes + (longestRegionFrames + 1) * width * Float32Array.BYTES_PER_ELEMENT, 0),
+				widths.reduce((bytes, [width, frames]) => bytes + frames * width * Float32Array.BYTES_PER_ELEMENT, 0),
 				'effect',
 			);
 			ownership.assert(owned);
@@ -95,9 +95,10 @@ export function createLabeledAudioSilence<Context, Target extends AudioGenerator
 			return await publishWidth(0);
 
 			async function publishWidth(index: number): Promise<boolean> {
-				const channelCount = widths[index];
-				if (channelCount === undefined) return commitSilence();
-				const options = { durationSeconds: (longestRegionFrames + 1) / sampleRate, sampleRate, channelCount };
+				const width = widths[index];
+				if (width === undefined) return commitSilence();
+				const [channelCount, frames] = width;
+				const options = { durationSeconds: frames / sampleRate, sampleRate, channelCount };
 				const generated = dependencies.generateStream
 					? await dependencies.generateStream('silence', options, owned.task.signal)
 					: generateAudioEditorSignal('silence', options) as GeneratedSignal;
