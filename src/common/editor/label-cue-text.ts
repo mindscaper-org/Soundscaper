@@ -12,9 +12,9 @@ export function decodeSubRipLabelText(value: string): string {
 	}
 }
 
-/** Detect literal emphasis wrappers that the maintained SubRip reader would consume. */
+/** SubRip players interpret these tags even when they occur inside otherwise plain text. */
 export function containsSubRipLabelMarkup(value: string): boolean {
-	return decodeSubRipLabelText(value) !== value;
+	return /<\/?(?:[bisu]|font|br)(?:[ \t]+[^<>\r\n]*)?\/?>/iu.test(value);
 }
 
 /** Labels are plain text; WebVTT cue payloads give punctuation markup meaning. */
