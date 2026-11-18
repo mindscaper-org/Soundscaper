@@ -204,3 +204,24 @@ test('keyboard navigation brings a clipped destination project tab into view', a
 	await expect(last).toBeFocused();
 	await expect(last).toBeInViewport({ ratio: 0.75 });
 });
+
+test('switching to a clipped project from the Window menu scrolls its tab into view', async ({ page }) => {
+	await page.setViewportSize({ width: 1024, height: 800 });
+	const editor = await bootEditor(page, '/embed/en/');
+	const titles = ['First', 'Second', 'Third', 'Fourth'].map(ordinal => `${ordinal} recording project with a long title`);
+	await renameProject(page, editor, titles[0]);
+	for (const title of titles.slice(1)) {
+		await editor.getByRole('button', { name: 'New project', exact: true }).click();
+		await waitForProjectActivation(editor);
+		await renameProject(page, editor, title);
+	}
+	const first = editor.getByRole('tab', { name: titles[0], exact: true });
+	const last = editor.getByRole('tab', { name: titles.at(-1), exact: true });
+	await first.click();
+	await waitForProjectActivation(editor);
+	await expect(last).not.toBeInViewport();
+	await chooseNestedCommandAction(page, editor, 'Window', [titles.at(-1)]);
+	await expect(last).toHaveAttribute('aria-selected', 'true');
+	await waitForProjectActivation(editor);
+	await expect(last).toBeInViewport({ ratio: 0.75 });
+});

@@ -15,12 +15,13 @@ export default function ProjectTabs({ projects, activeProjectId, copy, disabled,
 		}
 	}, [disabled, projects]);
 	useEffect(() => {
-		if (disabled || !activationFocusRef.current) return;
-		activationFocusRef.current = false;
+		if (disabled) return;
 		const activeTab = tabListRef.current?.querySelector('[aria-selected="true"]');
-		if (activeTab?.ownerDocument.activeElement === activeTab.ownerDocument.body) {
-			focusProjectTab(activeTab);
+		if (activationFocusRef.current && activeTab?.ownerDocument.activeElement === activeTab.ownerDocument.body) {
+			activeTab.focus({ preventScroll: true });
 		}
+		activationFocusRef.current = false;
+		scrollToProjectTab(activeTab);
 	}, [activeProjectId, disabled]);
 	const unique = [];
 	const tabIds = [];
@@ -97,5 +98,9 @@ export default function ProjectTabs({ projects, activeProjectId, copy, disabled,
 
 function focusProjectTab(tab) {
 	tab?.focus({ preventScroll: true });
+	scrollToProjectTab(tab);
+}
+
+function scrollToProjectTab(tab) {
 	tab?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
 }
