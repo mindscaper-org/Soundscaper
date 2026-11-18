@@ -66,7 +66,7 @@ function prepareFixed(type: string, options: Options, sampleRate: number, channe
 		const amplitude = finiteInRange(options.amplitude ?? 0.8, 0, 1, 'amplitude');
 		const frequency = finiteInRange(options.frequency ?? 440, 0.01, sampleRate / 2, 'frequency');
 		const waveform = enumValue(options.waveform ?? 'sine', WAVEFORMS, 'waveform');
-		const oscillate = waveformOscillator(waveform);
+		const oscillate = waveformOscillator(waveform, frequency === sampleRate / 2);
 		let phase = 0;
 		const step = frequency / sampleRate;
 		return monoSignal(frameCount, channelCount, (frames) => {
@@ -88,7 +88,7 @@ function prepareFixed(type: string, options: Options, sampleRate: number, channe
 		const endAmplitude = finiteInRange(options.endAmplitude ?? options.amplitude ?? 0.8, 0, 1, 'endAmplitude');
 		const interpolation = enumValue(options.interpolation ?? 'logarithmic', ['linear', 'logarithmic'], 'interpolation');
 		const waveform = enumValue(options.waveform ?? 'sine', WAVEFORMS, 'waveform');
-		const oscillate = waveformOscillator(waveform);
+		const oscillate = waveformOscillator(waveform, startFrequency === sampleRate / 2 && endFrequency === startFrequency);
 		const frequencyDifference = endFrequency - startFrequency;
 		const frequencyRatio = endFrequency / startFrequency;
 		const frequencyAt = interpolation === 'linear'
@@ -221,6 +221,7 @@ function prepareMorse(options: Options, sampleRate: number, channelCount: number
 	const wordsPerMinute = finiteInRange(options.wordsPerMinute ?? 20, 1, 120, 'wordsPerMinute');
 	const frequency = finiteInRange(options.frequency ?? 700, 0.01, sampleRate / 2, 'frequency');
 	const angularFrequency = 2 * Math.PI * frequency;
+	const carrier = sineCarrier(frequency === sampleRate / 2);
 	const amplitude = finiteInRange(options.amplitude ?? 0.8, 0, 1, 'amplitude');
 	const segments = morseCodeKeying(words);
 	const dotSeconds = morseCodeDotSeconds(wordsPerMinute);
@@ -244,7 +245,7 @@ function prepareMorse(options: Options, sampleRate: number, channelCount: number
 			const frame = localStart + index;
 			const ramp = edgeFrames ? Math.min(1, (frame + 1) / edgeFrames, (length - frame) / edgeFrames) : 1;
 			output[destination + index] = amplitude * (ramp === 1 ? 1 : 0.5 - 0.5 * Math.cos(Math.PI * ramp))
-				* Math.sin(angularFrequency * frame / sampleRate);
+				* carrier(angularFrequency * frame / sampleRate);
 		}
 	}
 	return monoSignal(frameCount, channelCount, (frames, start) => {
@@ -282,10 +283,16 @@ function monoSignal(frameCount: number, channelCount: number, monoBlock: MonoBlo
 	} };
 }
 
-function waveformOscillator(waveform: Waveform): (phase: number) => number {
+function waveformOscillator(waveform: Waveform, atNyquist: boolean): (phase: number) => number {
 	if (waveform === 'square') return (phase) => phase < 0.5 ? 1 : -1;
 	if (waveform === 'sawtooth') return (phase) => phase * 2 - 1;
-	return (phase) => Math.sin(phase * Math.PI * 2);
+	const carrier = sineCarrier(atNyquist);
+	return (phase) => carrier(phase * Math.PI * 2);
+}
+
+function sineCarrier(atNyquist: boolean): (angle: number) => number {
+	// A zero-phase sine lands only on zero crossings at exactly half the sample rate.
+	return atNyquist ? Math.cos : Math.sin;
 }
 
 function boundedFrameCount(seconds: number, sampleRate: number): number {
