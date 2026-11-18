@@ -93,21 +93,18 @@ export async function generateSpectrogramPcmTiles(
 	const columnCache = alignedSpectrogramFramesPerPixel(clip, width, pixelSkip) === null ? null : options.columnCache;
 	const analyze = options.analyze ?? analyzePffft;
 	const useWorker = !options.analyze && typeof Worker === 'function';
-	if (!options.analyze && !useWorker) await preparePffftSpectrogram(fftWindowSize);
+	let mainPrepared = Boolean(options.analyze);
 	const pixelCount = Math.ceil(width / pixelSkip);
 	const pixelAt = (index: number): number => index * pixelSkip;
 	const localStartAt = (pixel: number): number => clip.waveformStartFrame
 		+ Math.floor(pixel * frameCount / width);
 	const leftContext = Math.floor(fftWindowSize / 2);
 	const rightContext = fftWindowSize - leftContext;
-	const contextStartAt = (pixel: number): number => Math.max(0, localStartAt(pixel) - leftContext);
-	const contextEndAt = (pixel: number): number => Math.min(
-		clip.durationFrames, localStartAt(pixel) + rightContext,
-	);
 	const sourceLimit = maximumSourceFrames - SOURCE_REQUEST_PADDING_FRAMES;
 	const loop = readClipLoop(clip);
 	const fragmentedLoop = loop && (clip.sourceDurationFrames ?? clip.durationFrames) > sourceLimit;
 	let unwarpedGeometry: Parameters<typeof projectUnwarpedClipSourceRange>[0] | null = null;
+	let warpedGeometry: AudioWarpRuntimeClip | null = null;
 	const sourceSpan = (startFrame: number, endFrame: number): number => {
 		if (fragmentedLoop && loop) return Math.max(endFrame - startFrame,
 			Math.ceil((endFrame - startFrame) * (clip.sourceDurationFrames ?? clip.durationFrames) / loop.periodFrames) + 2);
@@ -120,7 +117,7 @@ export async function generateSpectrogramPcmTiles(
 				reversed: Boolean(clip.reversed),
 			}, startFrame, endFrame)
 			: project
-				? audioWarpSourceRange(project, {
+				? audioWarpSourceRange(project, warpedGeometry ??= {
 					...clip,
 					sourceDurationFrames: clip.sourceDurationFrames ?? clip.durationFrames,
 				} as AudioWarpRuntimeClip, { startFrame, endFrame })
@@ -136,18 +133,26 @@ export async function generateSpectrogramPcmTiles(
 	};
 	for (let first = 0; first < pixelCount;) {
 		signal?.throwIfAborted();
-		const cached = columnCache?.read(localStartAt(pixelAt(first)));
+		const firstCenter = localStartAt(pixelAt(first));
+		const cached = columnCache?.read(firstCenter);
 		if (cached) { appendColumn(cached); first += 1; continue; }
+		if (!useWorker && !mainPrepared) {
+			await preparePffftSpectrogram(fftWindowSize);
+			signal?.throwIfAborted();
+			mainPrepared = true;
+		}
 		unwarpedGeometry = null;
-		const startFrame = contextStartAt(pixelAt(first));
+		warpedGeometry = null;
+		const startFrame = Math.max(0, firstCenter - leftContext);
 		let last = first;
-		let endFrame = contextEndAt(pixelAt(first));
+		let endFrame = Math.min(clip.durationFrames, firstCenter + rightContext);
 		if (sourceSpan(startFrame, endFrame) > sourceLimit) {
 			throw new RangeError('One spectrogram FFT window exceeds the bounded PCM request limit.');
 		}
 		while (last + 1 < pixelCount) {
-			if (columnCache?.read(localStartAt(pixelAt(last + 1)))) break;
-			const candidateEnd = contextEndAt(pixelAt(last + 1));
+			const center = localStartAt(pixelAt(last + 1));
+			if (columnCache?.read(center)) break;
+			const candidateEnd = Math.min(clip.durationFrames, center + rightContext);
 			if (sourceSpan(startFrame, candidateEnd) > sourceLimit) break;
 			last += 1;
 			endFrame = candidateEnd;
@@ -162,44 +167,52 @@ export async function generateSpectrogramPcmTiles(
 
 		const pixelStart = pixelAt(first);
 		const pixelEnd = Math.min(width, pixelAt(last) + pixelSkip);
-		const tileChannels: Array<readonly (readonly number[])[]> = [];
+		const frameOffset = startFrame - clip.waveformStartFrame;
+		const analysisOptions = { fftWindowSize, frequencyBands: options.frequencyBands, windowType: options.windowType, pixelSkip, pixelStart, pixelEnd };
+		let tileChannels: readonly (readonly (readonly number[])[])[];
 		if (useWorker && pcm.channels.length <= 8) {
-			tileChannels.push(...await analyzeTimelineSpectrogramTileInWorker({
+			tileChannels = await analyzeTimelineSpectrogramTileInWorker({
 				channels: pcm.channels, clip: tileClip, project: project ? { sampleRate: project.sampleRate, tempoMap: project.tempoMap } : null,
-				sourceFrameOffset: pcm.startFrame, frameCount, offset: startFrame - clip.waveformStartFrame, width,
-				options: { fftWindowSize, frequencyBands: options.frequencyBands, windowType: options.windowType, pixelSkip, pixelStart, pixelEnd },
-			}, { signal }));
+				sourceFrameOffset: pcm.startFrame, frameCount, offset: frameOffset, width, options: analysisOptions,
+			}, { signal });
 			signal?.throwIfAborted();
 		} else {
-			if (useWorker) await preparePffftSpectrogram(fftWindowSize);
+			if (!mainPrepared) {
+				await preparePffftSpectrogram(fftWindowSize);
+				signal?.throwIfAborted();
+				mainPrepared = true;
+			}
 			const views = createSpectrogramSampleViews(pcm.channels, tileClip, { project, sourceFrameOffset: pcm.startFrame });
+			const analyzed: Array<readonly (readonly number[])[]> = [];
 			for (const view of views) {
-				const offset = startFrame - clip.waveformStartFrame;
 				const globalView: SpectrogramSampleView = {
 					length: frameCount,
-					sampleAt: (index) => view.sampleAt(index - offset),
+					sampleAt: (index) => view.sampleAt(index - frameOffset),
 				};
-				const columns = analyze(globalView, width, {
-					fftWindowSize,
-					frequencyBands: options.frequencyBands,
-					windowType: options.windowType,
-					pixelSkip,
-					pixelStart,
-					pixelEnd,
-				});
+				const columns = analyze(globalView, width, options.analyze ? { ...analysisOptions } : analysisOptions);
 				if (columns === null) return null;
-				tileChannels.push(columns);
+				analyzed.push(columns);
 			}
+			tileChannels = analyzed;
 		}
 		const expectedColumns = last - first + 1;
 		if (tileChannels.some((columns) => columns.length !== expectedColumns)) {
 			throw new Error('Spectrogram PCM tile analysis returned incomplete columns.');
 		}
 		signal?.throwIfAborted();
-		for (let offset = 0; offset < expectedColumns; offset += 1) {
-			const column = tileChannels.map((channel) => channel[offset]!);
-			appendColumn(column);
-			columnCache?.write(localStartAt(pixelAt(first + offset)), column);
+		if (columnCache) {
+			for (let offset = 0; offset < expectedColumns; offset += 1) {
+				const column = tileChannels.map((channel) => channel[offset]!);
+				appendColumn(column);
+				columnCache.write(localStartAt(pixelAt(first + offset)), column);
+			}
+		} else {
+			const output = columnsByChannel ??= tileChannels.map(() => []);
+			if (output.length !== tileChannels.length) throw new Error('Spectrogram PCM channel count changed between tiles.');
+			for (const [channel, columns] of tileChannels.entries()) {
+				const destination = output[channel]!;
+				for (const column of columns) destination.push(column);
+			}
 		}
 		first = last + 1;
 	}
