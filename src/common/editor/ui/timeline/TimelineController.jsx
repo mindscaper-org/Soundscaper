@@ -6,7 +6,7 @@ import { useTimelineInteractionState } from './useTimelineInteractionState.js';
 import { useTimelineMenuActions } from './useTimelineMenuActions.js';
 import { useTimelineNavigation } from './useTimelineNavigation.js';
 import { useMacroTimelineViewport } from './useMacroTimelineViewport.ts';
-import { useProjectTimelineScroll } from './useProjectTimelineScroll.ts';
+import { useProjectTimelineScroll, useProjectTimelineWaveformRulers } from './useProjectTimelineScroll.ts';
 import { useTimelinePointerFinish } from './useTimelinePointerFinish.js';
 import { useTimelinePointerMove } from './useTimelinePointerMove.js';
 import { useTrackHeaderDrawerDismissal } from './useTrackHeaderDrawerDismissal.js';
@@ -22,7 +22,7 @@ export default function TimelineController({
 	runtimeProject,
 	locale,
 	copy,
-	scrollPositions,
+	projectViews,
 	geometry: geometryInput,
 	selection: selectionInput,
 	preview: previewInput,
@@ -56,7 +56,8 @@ export default function TimelineController({
 	} = actionInput;
 	const editBlock = selectAudioEditorEditBlock(snapshot);
 	const mutationsBlocked = editBlock.blocked;
-	const state = useTimelineInteractionState();
+	const waveformRulers = useProjectTimelineWaveformRulers(projectViews, snapshot.project?.id);
+	const state = useTimelineInteractionState(waveformRulers);
 	const automationControls = useTrackAutomationControls(
 		runtimeProject ?? snapshot.project,
 		productId === 'soundscaper' && capabilities?.audioAutomation === true,
@@ -82,7 +83,7 @@ export default function TimelineController({
 		model,
 	});
 	useMacroTimelineViewport(controller, model.project?.id, state.scrollRef);
-	useProjectTimelineScroll(scrollPositions, model.project?.id, state.scrollRef);
+	useProjectTimelineScroll(projectViews, model.project?.id, state.scrollRef);
 	const menuActions = useTimelineMenuActions({
 		controller,
 		copy,

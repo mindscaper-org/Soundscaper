@@ -7,7 +7,7 @@ import type { FileSizeWarningConfirmation } from '../../controller/shared/file-s
 import TimelineController from './TimelineController.jsx';
 import EditorSurfaceBoundary from '../EditorSurfaceBoundary.jsx';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
-import type { ProjectTimelineScrollPositions } from './useProjectTimelineScroll.ts';
+import type { ProjectTimelineViews } from './useProjectTimelineScroll.ts';
 
 export interface TrackHeaderDrawer {
 	readonly isOpen: boolean;
@@ -84,13 +84,13 @@ export default function AudioEditorTimeline({
 	searchRevealRequest = null,
 	overlayTarget = null,
 }: AudioEditorTimelineProps) {
-	const [scrollPositions] = useState<ProjectTimelineScrollPositions>(() => new Map());
+	const [projectViews] = useState<ProjectTimelineViews>(() => new Map());
 	const openTabs: unknown = snapshot.projectTabs;
 	useEffect(() => {
 		if (!Array.isArray(openTabs)) return;
 		const openIds = new Set((openTabs as readonly { id: string }[]).map(tab => tab.id));
-		for (const id of scrollPositions.keys()) if (!openIds.has(id)) scrollPositions.delete(id);
-	}, [openTabs, scrollPositions]);
+		for (const id of projectViews.keys()) if (!openIds.has(id)) projectViews.delete(id);
+	}, [openTabs, projectViews]);
 	const geometry = { mobile, showArmControls, displayAudioSupported, trackHeaderDrawer };
 	const selection = { searchRevealRequest };
 	const preview = { overlayTarget };
@@ -129,7 +129,7 @@ export default function AudioEditorTimeline({
 				runtimeProject={runtimeProject}
 				locale={locale}
 				copy={copy}
-				scrollPositions={scrollPositions}
+				projectViews={projectViews}
 				geometry={geometry}
 				selection={selection}
 				preview={preview}
