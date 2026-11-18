@@ -6,6 +6,7 @@ import { normalizeSavingPreferences, normalizeTemporaryDataPreferences, type Sav
 import { createProjectFileSaving, releaseProjectFileWriteLease, type ProjectFileWriteLease } from './internal/project-file-saving.ts';
 import type { NativeProjectDocument, NativeSavedFile } from './native-project-types.ts';
 import { sameProjectSnapshot } from '../../storage/project-snapshot-equality.ts';
+import { formatPresentationMessage } from '../../../i18n/presentation-message.ts';
 
 export interface ProjectFileSavingRuntime {
 	getProjects(): readonly Readonly<{ project: NativeProjectDocument; readOnly: boolean }>[];
@@ -47,8 +48,16 @@ export function bindProjectFileSaving(d: Readonly<{
 		prepareOriginal: original => d.fileService.prepareOriginalOverwrite?.(original.id),
 		ask: async project => {
 			const copy = d.copy as Readonly<Record<string, string>>;
-			const result = await d.fileService.confirmProjectSave?.({ title: copy.savingCloseTitle ?? 'Save project changes?',
-				message: (copy.savingCloseMessage ?? 'Save changes to “{project}” before closing?').replace('{project}', String(project.title ?? '')), save: copy.savingSave ?? 'Save', discard: copy.savingDiscard ?? 'Discard', cancel: copy.savingCancel ?? 'Cancel' });
+			const title = String(project.title ?? '');
+			const displayTitle = title.length > 256 ? `${title.slice(0, 255)}…` : title;
+			const message = formatPresentationMessage(copy, {
+				key: 'savingCloseMessage', fallback: 'Save changes to “{project}” before closing?',
+				parameters: { project: displayTitle.toWellFormed().replaceAll('\0', '\uFFFD') },
+			});
+			const result = await d.fileService.confirmProjectSave?.({
+				title: copy.savingCloseTitle ?? 'Save project changes?', message,
+				save: copy.savingSave ?? 'Save', discard: copy.savingDiscard ?? 'Discard', cancel: copy.savingCancel ?? 'Cancel',
+			});
 			return result === 'save' || result === 'discard' ? result : 'cancel';
 		},
 		restore: async id => {
