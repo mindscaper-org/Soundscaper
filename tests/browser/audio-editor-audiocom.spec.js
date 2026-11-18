@@ -31,6 +31,30 @@ test.describe('audio.com panel', () => {
 		expect(requests).toBe(1);
 	});
 
+	test('search resumes on reconnect after a system clock correction', async ({ page }) => {
+		const requests = await mockAudiocom(page, { connected: true });
+		const editor = await bootEditor(page, '/embed/en/');
+		await chooseNestedCommandAction(page, editor, 'Window', ['audio.com']);
+		const panel = editor.locator('[data-workspace-panel="audiocom"]');
+		await expect(panel.getByText('Connected to audio.com', { exact: true })).toBeVisible();
+		await page.evaluate(() => {
+			const now = Date.now.bind(Date);
+			const connection = { online: false, clockCorrection: 0, polls: 0 };
+			Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => { connection.polls++; return connection.online; } });
+			Date.now = () => now() + connection.clockCorrection;
+			globalThis.__offlineSearch = connection;
+		});
+		await panel.getByRole('searchbox', { name: 'Search audio.com', exact: true }).fill('rain');
+		await panel.getByRole('button', { name: 'Search', exact: true }).click();
+		await expect.poll(() => page.evaluate(() => globalThis.__offlineSearch.polls)).toBeGreaterThanOrEqual(2);
+		await page.evaluate(() => { globalThis.__offlineSearch.clockCorrection = 3_600_000; });
+		await expect.poll(() => page.evaluate(() => globalThis.__offlineSearch.polls)).toBeGreaterThanOrEqual(4);
+		expect(requests.searches).toHaveLength(0);
+		await page.evaluate(() => { globalThis.__offlineSearch.online = true; });
+		await expect(panel.getByRole('link', { name: AUDIO.title, exact: true })).toBeVisible();
+		expect(requests.searches).toHaveLength(1);
+	});
+
 	for (const provider of ['audiocom', 'audiocity']) test(`${provider}: bottom actions publish the current mix and save successive project revisions`, async ({ page }) => {
 		test.setTimeout(120_000);
 		const requests = await mockAudiocom(page, { connected: true, projects: true, provider });

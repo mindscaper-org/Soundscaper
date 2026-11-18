@@ -73,6 +73,24 @@ test('offline recovery has a bounded window', async () => {
 	await assert.rejects(request('https://example.test'), { name: 'TimeoutError' });
 });
 
+test('an offline upload still waits for reconnect after the system clock jumps forward', async context => {
+	let wallTime = 100_000, elapsed = 0, calls = 0;
+	context.mock.method(Date, 'now', () => wallTime);
+	context.mock.method(performance, 'now', () => elapsed);
+	const request = createRecoveringOnlineFetch(async () => {
+		calls += 1;
+		return new Response(null, { status: 204 });
+	}, {
+		isOnline: () => elapsed >= 500, log: () => undefined,
+		wait: async milliseconds => {
+			elapsed += milliseconds;
+			wallTime += 3_600_000;
+		},
+	});
+	assert.equal((await request('https://example.test', { method: 'POST', body: 'audio' })).status, 204);
+	assert.equal(calls, 1);
+});
+
 test('authentication and validation responses are returned without retries', async () => {
 	let calls = 0;
 	const request = createRecoveringOnlineFetch(async () => { calls += 1; return new Response('denied', { status: 401 }); });

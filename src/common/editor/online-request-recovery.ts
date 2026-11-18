@@ -117,10 +117,10 @@ async function waitUntilOnline(signal: AbortSignal | undefined, options: OnlineR
 	const isOnline = options.isOnline ?? (() => globalThis.navigator?.onLine !== false);
 	if (isOnline()) return;
 	log(options, 'Connection unavailable; waiting to reconnect.');
-	const expires = Date.now() + (options.offlineWaitMs ?? 30_000);
+	const expires = performance.now() + (options.offlineWaitMs ?? 30_000);
 	while (!isOnline()) {
 		signal?.throwIfAborted();
-		const remaining = expires - Date.now();
+		const remaining = expires - performance.now();
 		if (remaining <= 0) throw new OfflineWaitExpired();
 		await (options.wait ?? wait)(Math.min(250, remaining), signal);
 	}
