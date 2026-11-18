@@ -85,9 +85,11 @@ for (const outcome of ['replacement', 'failure']) {
 			const panel = editor.locator('[data-workspace-panel="freesound"]');
 			const query = panel.getByRole('searchbox', { name: 'Search Freesound', exact: true });
 			await query.fill('rain');
+			await expect(query).toHaveValue('rain');
 			await panel.getByRole('button', { name: 'Search', exact: true }).click();
 			await expect(panel.getByRole('button', { name: `Play preview: ${SOUND.name}`, exact: true })).toBeVisible();
 			await query.fill('wind');
+			await expect(query).toHaveValue('wind');
 			await panel.getByRole('button', { name: 'Search', exact: true }).click();
 			await expect.poll(() => searches).toBe(2);
 			await panel.getByRole('button', { name: `Play preview: ${SOUND.name}`, exact: true }).click();

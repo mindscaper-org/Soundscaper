@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { onlineMediaFailureText } from './online-media-failure-presentation.ts';
-import { useEffect, useState } from 'react';
+import { useSearchQueryDraft } from './useSearchQueryDraft.ts';
 import { Button } from '@soundscaper/design-system/Button';
 import { Icon } from '@soundscaper/design-system/Icon';
 
@@ -46,8 +46,7 @@ export default function AudiocomPanel({
 	onConnect, onDisconnect, onUploadFiles, onPublish, onRetry, onCancel, onRemove, archives,
 	onUploadAudio, onSaveProject, projectActionsDisabled = false, saveProjectDisabled = false, projectActionError, publishItemId,
 }: AudiocomPanelProps) {
-	const [query, setQuery] = useState(state.search.query);
-	useEffect(() => setQuery(state.search.query), [state.search.query]);
+	const [query, setQuery] = useSearchQueryDraft(state.search.query);
 	const loading = state.search.status === 'loading';
 	const connected = state.auth.status === 'connected';
 	const searchDisabled = loading || !connected;

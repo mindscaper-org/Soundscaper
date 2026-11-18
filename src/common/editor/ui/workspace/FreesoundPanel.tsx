@@ -6,7 +6,7 @@ import { Button } from '@soundscaper/design-system/Button';
 import { EditorErrorToast } from '../EditorToast.tsx';
 
 import '../audio-editor-design-system/06a-panels-freesound.css';
-import { useEffect, useState } from 'react';
+import { useSearchQueryDraft } from './useSearchQueryDraft.ts';
 
 import { FreesoundResultRow } from './FreesoundResultRow.tsx';
 import type { FreesoundUser } from './freesound-auth-upload-client.ts';
@@ -146,8 +146,7 @@ export function FreesoundPanel({
 	onCancelUpload,
 	onRemoveUpload,
 }: FreesoundPanelProps) {
-	const [query, setQuery] = useState(state.query);
-	useEffect(() => setQuery(state.query), [state.query]);
+	const [query, setQuery] = useSearchQueryDraft(state.query);
 	const loading = state.status === 'loading';
 	const search = (request: Partial<FreesoundSearchRequest> = {}) => onSearch({
 		query: request.query ?? query.trim(),
