@@ -70,8 +70,9 @@ export async function recoverOnlineRead<Value>(
 
 /** Classify an authoritative HTTP response without retrying validation or authentication errors. */
 export function onlineReadResponseError(response: Response, failure: Error): Error {
-	if (![408, 429, 500, 502, 503, 504].includes(response.status)) return failure;
-	const error = new OnlineReadFailure(failure, retryAfter(response), failure);
+	const delay = responseRetryDelay(response);
+	if (delay === null) return failure;
+	const error = new OnlineReadFailure(failure, delay, failure);
 	error.message = failure.message;
 	return error;
 }
@@ -90,9 +91,12 @@ export function createRecoveringOnlineFetch(
 			sent += 1;
 			const response = await fetchAttempt(fetchRequest, input, init, signal, options, method);
 			receivedStatus = response.status;
-			if (sent < (options.maximumAttempts ?? 3) && ['GET', 'HEAD'].includes(method) && [408, 429, 500, 502, 503, 504].includes(response.status)) {
-				void response.body?.cancel().catch(() => undefined);
-				throw new OnlineReadFailure(new Error(`HTTP ${response.status}`), retryAfter(response));
+			if (sent < (options.maximumAttempts ?? 3) && ['GET', 'HEAD'].includes(method)) {
+				const delay = responseRetryDelay(response);
+				if (delay !== null) {
+					void response.body?.cancel().catch(() => undefined);
+					throw new OnlineReadFailure(new Error(`HTTP ${response.status}`), delay);
+				}
 			}
 			const read = () => options.bufferResponses === false ? Promise.resolve(response) : bufferControlResponse(response, options.maximumBufferedBytes ?? 1_048_576);
 			return ['GET', 'HEAD'].includes(method) ? read() : readOnlineMutationAcknowledgment(response, read);
@@ -210,11 +214,15 @@ async function bufferControlResponse(response: Response, maximum: number): Promi
 function retryable(error: unknown): boolean {
 	return !(error instanceof OfflineWaitExpired) && (error instanceof OnlineReadFailure || error instanceof Error && error.name === 'TimeoutError');
 }
-function retryAfter(response: Response): number | undefined {
+/** Undefined uses normal backoff. Null returns the provider’s response immediately. */
+function responseRetryDelay(response: Response): number | undefined | null {
+	if (![408, 429, 500, 502, 503, 504].includes(response.status)) return null;
 	const value = response.headers.get('Retry-After');
 	if (value === null) return undefined;
 	const milliseconds = /^\d+$/u.test(value) ? Number(value) * 1000 : Date.parse(value) - Date.now();
-	return Number.isFinite(milliseconds) ? Math.max(0, Math.min(30_000, milliseconds)) : undefined;
+	if (Number.isNaN(milliseconds)) return undefined;
+	// A server's wait can exceed the automatic retry window.
+	return milliseconds > 30_000 ? null : Math.max(0, milliseconds);
 }
 function timeout(message: string): Error { const error = new Error(message); error.name = 'TimeoutError'; return error; }
 function log(options: OnlineRequestRecoveryOptions, message: string): void {

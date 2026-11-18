@@ -14,6 +14,23 @@ const AUDIO = {
 test.describe('audio.com panel', () => {
 	registerAudioEditorHooks();
 
+	test('shows a provider rate limit that exceeds the automatic wait without replaying search', async ({ page }) => {
+		await mockAudiocom(page, { connected: true });
+		let requests = 0;
+		await page.route('**/api/audiocom/search?*', async route => {
+			requests += 1;
+			await route.fulfill({ status: 429, headers: { 'Retry-After': '60' },
+				json: { error: { code: 'rate_limited', message: 'The audio provider is temporarily rate limited.' } } });
+		});
+		const editor = await bootEditor(page, '/embed/en/');
+		await chooseNestedCommandAction(page, editor, 'Window', ['audio.com']);
+		const panel = editor.locator('[data-workspace-panel="audiocom"]');
+		await panel.getByRole('searchbox', { name: 'Search audio.com', exact: true }).fill('rain');
+		await panel.getByRole('button', { name: 'Search', exact: true }).click();
+		await expect(panel.getByRole('alert')).toBeVisible();
+		expect(requests).toBe(1);
+	});
+
 	for (const provider of ['audiocom', 'audiocity']) test(`${provider}: bottom actions publish the current mix and save successive project revisions`, async ({ page }) => {
 		test.setTimeout(120_000);
 		const requests = await mockAudiocom(page, { connected: true, projects: true, provider });
