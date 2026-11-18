@@ -2,7 +2,7 @@
 
 import { readTrackPlaylists } from './track-playlists.ts';
 import { collectTakeGroupSourceIds, remapTakeGroupSourceIds } from './take-group-source-references.ts';
-import { CLIP_SOURCE_STRETCH_EXTENSION } from './clip-source-stretch-memory.ts';
+import { remapClipSourceReference } from './clip-source-stretch-memory.ts';
 
 export function collectTrackPlaylistSourceIds(project: unknown, target = new Set<string>()): Set<string> {
 	for (const collection of readTrackPlaylists(project)) for (const { state } of collection.playlists) {
@@ -20,14 +20,7 @@ export function trackPlaylistUsesSource(project: unknown, sourceId: string): boo
 export function remapTrackPlaylistSourceIds(project: unknown, map: ReadonlyMap<string, string>): void {
 	for (const collection of readTrackPlaylists(project)) for (const { state } of collection.playlists) {
 		if (!state) continue;
-		for (const clip of state.clips) {
-			const id = String(clip.sourceId), replacement = map.get(id);
-			if (replacement === undefined) continue;
-			clip.sourceId = replacement;
-			const extensions = clip.opaqueExtensions as Record<string, Record<string, unknown>> | undefined;
-			const memory = extensions?.[CLIP_SOURCE_STRETCH_EXTENSION];
-			if (memory?.sourceId === id) memory.sourceId = replacement;
-		}
+		for (const clip of state.clips) remapClipSourceReference(clip, map);
 		remapTakeGroupSourceIds(state, map);
 	}
 }

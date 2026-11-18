@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { readSubprojectLinks, validateSubprojectLinks } from '../subprojects.ts';
+import { remapClipSourceReference } from '../clip-source-stretch-memory.ts';
+import { remapTrackPlaylistSourceIds } from '../track-playlist-media.ts';
 import { addSource } from './project-source-record-runtime.js';
 import type { SubprojectCommand } from './subproject.ts';
 
@@ -37,9 +39,11 @@ export function applySubprojectCommand(value: object, command: SubprojectCommand
 	validateSubprojectLinks(project);
 	if (current) {
 		const bin = project.projectBin as { clips?: Record<string, unknown>[] } | undefined;
+		const replaced = new Map([[current.sourceId, link.sourceId]]);
 		for (const clip of [...project.clips as Record<string, unknown>[], ...bin?.clips ?? []]) {
-			if (clip.sourceId === current.sourceId) clip.sourceId = link.sourceId;
+			remapClipSourceReference(clip, replaced);
 		}
+		remapTrackPlaylistSourceIds(project, replaced);
 	}
 }
 

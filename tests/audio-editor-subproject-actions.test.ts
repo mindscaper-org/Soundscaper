@@ -6,8 +6,11 @@ import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts';
 import { readSubprojectLinks } from '../src/common/editor/subprojects.ts';
 import { EditorProjectGeneration } from '../src/common/editor/controller/shared/lifecycle.ts';
+import { CLIP_SOURCE_STRETCH_EXTENSION } from '../src/common/editor/clip-source-stretch-memory.ts';
+import { createAudioWarpClipAuthority } from '../src/common/editor/audio-warp-clip-authority.ts';
+import type { AudioEditorCommand } from '../src/common/editor/commands/protocol.ts';
 
-function fixture() {
+function fixture(frameCount = 4) {
 	let project: SubprojectDocument = createSoundscaperProject({ id: 'parent' }) as SubprojectDocument;
 	const documents = new Map<string, SubprojectDocument>([['child', createSoundscaperProject({ id: 'child', title: 'Scene' }) as SubprojectDocument]]);
 	const reads = new Map<string, number>();
@@ -26,7 +29,7 @@ function fixture() {
 		commit: command => { project = applySoundscaperProjectCommand(project, command) as SubprojectDocument; },
 		createId: prefix => `${prefix}-${String(++serial)}`,
 		openProject: id => Promise.resolve(id), prepare: () => Promise.resolve(),
-		plan: () => ({ sampleRate: 48000, channelCount: 2, frameCount: 4 }),
+		plan: () => ({ sampleRate: 48000, channelCount: 2, frameCount }),
 		render: async (_node, geometry) => {
 			renders++; await beforeRender(); const id = `audio-${String(++serial)}`;
 			return { source: { id, kind: 'audio', name: 'Scene', storageKey: id, ...geometry }, discard: () => { discarded++; return Promise.resolve(); } };
@@ -36,9 +39,53 @@ function fixture() {
 	return { actions: createSubprojectActions(runtime), documents, reads, get project() { return project; },
 		get discarded() { return discarded; }, get renders() { return renders; },
 		beforeRender(callback: () => Promise<void>) { beforeRender = callback; },
+		edit(command: AudioEditorCommand) { runtime.commit(command); },
 		selectProject(value: SubprojectDocument) { project = value; generation.activate(value.id); },
 		setProject(value: SubprojectDocument) { project = value; }, block() { blocked = true; } };
 }
+
+test('switching back to a saved track playlist plays the refreshed subproject source', async () => {
+	const state = fixture();
+	await state.actions.add('child');
+	const [original] = readSubprojectLinks(state.project);
+	const trackId = (state.project.tracks as readonly { id: string }[])[0]!.id;
+	state.edit({ type: 'track/playlist-create', trackId, id: 'alternate', name: 'Alternate',
+		originalId: 'original', originalName: 'Original', mode: 'empty' });
+	assert.equal(state.project.clips.length, 0);
+	state.documents.set('child', { ...state.documents.get('child')!, master: { gain: 0.25 }, revision: 2 });
+	await state.actions.refresh();
+	const [refreshed] = readSubprojectLinks(state.project);
+	assert.notEqual(refreshed!.sourceId, original!.sourceId);
+	state.edit({ type: 'track/playlist-activate', trackId, id: 'original' });
+	assert.equal(state.project.clips[0]?.sourceId, refreshed!.sourceId);
+});
+
+test('refreshing linked audio preserves a trimmed clip’s hidden stretch anchors', async () => {
+	const state = fixture(400);
+	await state.actions.add('child');
+	const [clip] = state.project.clips;
+	const clipId = String(clip!.id);
+	const map = { feature: 'audio-warp', points: [
+		{ source: { num: 0, den: 1 }, outer: { num: 0, den: 1 }, mode: 'forward' },
+		{ source: { num: 100, den: 1 }, outer: { num: 200, den: 1 }, mode: 'forward' },
+		{ source: { num: 400, den: 1 }, outer: { num: 400, den: 1 }, mode: 'forward' },
+	] };
+	state.edit({ type: 'audio-warp/set', clipId,
+		expectedClipAuthority: { ...createAudioWarpClipAuthority(state.project as never, clipId) }, warpMap: map });
+	state.edit({ type: 'clip/trim', clipId, sourceRange: true, sourceStartFrame: 220, sourceDurationFrames: 180, durationFrames: 120 });
+	const before = state.project.clips[0]!.opaqueExtensions as Record<string, unknown>;
+	const memory = before[CLIP_SOURCE_STRETCH_EXTENSION] as Record<string, unknown>;
+	assert.ok(memory);
+	state.documents.set('child', { ...state.documents.get('child')!, master: { gain: 0.25 }, revision: 2 });
+	await state.actions.refresh();
+	const refreshed = state.project.clips[0]!;
+	const extensions = refreshed.opaqueExtensions as Record<string, unknown>;
+	assert.notEqual(refreshed.sourceId, clip!.sourceId);
+	assert.deepEqual(extensions[CLIP_SOURCE_STRETCH_EXTENSION], { ...memory, sourceId: refreshed.sourceId });
+	state.edit({ type: 'clip/trim', clipId, sourceRange: true, sourceStartFrame: 0, sourceDurationFrames: 400, durationFrames: 400 });
+	const reopened = state.project.clips[0]!.warpMap as typeof map;
+	assert.ok(reopened.points.some(point => point.source.num === 100 && point.source.den === 1));
+});
 
 test('inserting creates ordinary playable audio and refresh follows only committed child changes', async () => {
 	const state = fixture();
