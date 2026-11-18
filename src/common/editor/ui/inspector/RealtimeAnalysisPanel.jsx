@@ -39,7 +39,7 @@ export default function RealtimeAnalysisPanel({ controller, copy, settings, acti
 			</VisualAnalysisLease>
 		</AnalysisSection>
 		<AnalysisSection id="acx" title={acxCopy.title} active={active}>
-			<AcxCompliancePanel controller={controller} snapshot={snapshot} copy={acxCopy} commonCopy={copy} fileService={fileService} />
+			<AcxCompliancePanel controller={controller} snapshot={snapshot} copy={acxCopy} commonCopy={copy} locale={locale} fileService={fileService} />
 		</AnalysisSection>
 	</div>;
 }

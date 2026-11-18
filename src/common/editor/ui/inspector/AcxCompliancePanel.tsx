@@ -24,6 +24,7 @@ interface Props {
 	};
 	readonly copy: Copy;
 	readonly commonCopy: Readonly<Record<string, string>>;
+	readonly locale?: string;
 	readonly fileService?: InspectorFileService;
 }
 
@@ -36,7 +37,7 @@ export default function AcxCompliancePanel(props: Props) {
 	return <AcxComplianceContent key={key} {...props} range={range} />;
 }
 
-function AcxComplianceContent({ controller, snapshot, copy, commonCopy, fileService, range }: Props & {
+function AcxComplianceContent({ controller, snapshot, copy, commonCopy, locale, fileService, range }: Props & {
 	readonly range: ReturnType<typeof resolveSelectionRange>;
 }) {
 	const [payload, setPayload] = useState<{ measurement: unknown; report: ReturnType<typeof createAcxComplianceReport> } | null>(null);
@@ -82,7 +83,7 @@ function AcxComplianceContent({ controller, snapshot, copy, commonCopy, fileServ
 				<thead><tr><th scope="col">{copy.requirement}</th><th scope="col">{copy.measured}</th><th scope="col">{copy.result}</th></tr></thead>
 				<tbody>{payload.report.checks.map(check => <tr key={check.id}>
 					<th scope="row">{copy[check.id]}<small>{copy[`${check.id}Limit`]}</small></th>
-					<td>{formatMeasurement(check)}</td><td>{copy[check.status]}</td>
+					<td>{formatMeasurement(check, locale)}</td><td>{copy[check.status]}</td>
 				</tr>)}</tbody>
 			</table>
 		</> : <p>{copy.empty}</p>}
@@ -96,10 +97,10 @@ function AcxComplianceContent({ controller, snapshot, copy, commonCopy, fileServ
 	</div>;
 }
 
-function formatMeasurement({ id, value }: AcxComplianceCheck): string {
+function formatMeasurement({ id, value }: AcxComplianceCheck, locale: string | undefined): string {
 	if (value === null) return '—';
-	if (id === 'sampleRate') return `${value.toLocaleString()} Hz`;
-	if (id === 'channels') return String(value);
-	if (id === 'duration') return `${value.toFixed(2)} s`;
-	return `${value.toFixed(2)} dBFS`;
+	if (id === 'sampleRate') return `${value.toLocaleString(locale)} Hz`;
+	if (id === 'channels') return value.toLocaleString(locale);
+	const decimal = value.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false });
+	return id === 'duration' ? `${decimal} s` : `${decimal} dBFS`;
 }
