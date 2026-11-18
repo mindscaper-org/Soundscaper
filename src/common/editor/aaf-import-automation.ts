@@ -117,9 +117,14 @@ function seconds(value: Rational): number { return value.num / value.den; }
 function evaluate(curve: AafImportCurve, time: number): number {
 	const first = curve.points[0]!;
 	if (time <= first.time) return first.value;
-	for (let index = 1; index < curve.points.length; index++) {
-		const a = curve.points[index - 1]!, b = curve.points[index]!;
-		if (time < b.time) return curve.hold ? a.value : a.value + (b.value - a.value) * (time - a.time) / (b.time - a.time);
+	const last = curve.points.at(-1)!;
+	if (time >= last.time) return last.value;
+	let lower = 0, upper = curve.points.length - 1;
+	while (upper - lower > 1) {
+		const middle = lower + Math.floor((upper - lower) / 2);
+		if (time < curve.points[middle]!.time) upper = middle;
+		else lower = middle;
 	}
-	return curve.points.at(-1)!.value;
+	const a = curve.points[lower]!, b = curve.points[upper]!;
+	return curve.hold ? a.value : a.value + (b.value - a.value) * (time - a.time) / (b.time - a.time);
 }
