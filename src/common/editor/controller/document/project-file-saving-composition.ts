@@ -3,7 +3,7 @@
 import { desktopOriginalFileFor, retainDesktopOriginalFile, releaseDesktopOriginalFile } from '../../desktop-original-file-port.ts';
 import { browserProjectHandle, type ProjectFileTarget } from '../../file-save-stream.ts';
 import { normalizeSavingPreferences, normalizeTemporaryDataPreferences, type SavingPreferences, type TemporaryDataPreferences } from '../../saving-preferences.ts';
-import { createProjectFileSaving } from './internal/project-file-saving.ts';
+import { createProjectFileSaving, releaseProjectFileWriteLease, type ProjectFileWriteLease } from './internal/project-file-saving.ts';
 import type { NativeProjectDocument, NativeSavedFile } from './native-project-types.ts';
 import { sameProjectSnapshot } from '../../storage/project-snapshot-equality.ts';
 
@@ -12,6 +12,7 @@ export interface ProjectFileSavingRuntime {
 	getPreferences(): SavingPreferences;
 	getRetentionKey?(): string;
 	isReady?(): boolean;
+	acquireInactiveWrite?(id: string): Promise<ProjectFileWriteLease | null>;
 	activate(id: string): PromiseLike<unknown> | unknown;
 	discard(id: string): PromiseLike<unknown> | unknown;
 	subscribe(listener: () => void): () => void;
@@ -41,6 +42,7 @@ export function bindProjectFileSaving(d: Readonly<{
 		desktop: d.fileService.isDesktop, getProject: d.getProject,
 		getProjects: runtime?.getProjects ?? (() => { const project = d.getProject(); return project ? [{ project, readOnly: false }] : []; }),
 		getPreferences: runtime?.getPreferences ?? (() => normalizeSavingPreferences(undefined, d.fileService.isDesktop)),
+		acquireInactiveWrite: runtime?.acquireInactiveWrite,
 		activate: id => runtime?.activate(id), discard: id => runtime?.discard(id), flushInternal: d.flush, write: d.write,
 		prepareOriginal: original => d.fileService.prepareOriginalOverwrite?.(original.id),
 		ask: async project => {
@@ -101,7 +103,7 @@ export async function pruneTemporaryProjects(d: Readonly<{
 	openIds: ReadonlySet<string>;
 	isOpen?(id: string): boolean;
 	isCurrent?(): boolean;
-	acquire(id: string): PromiseLike<Readonly<{ readOnly: boolean; release(): PromiseLike<unknown> | unknown }>>;
+	acquire(id: string): PromiseLike<ProjectFileWriteLease>;
 }>): Promise<boolean> {
 	const preferences = normalizeTemporaryDataPreferences(d.preferences);
 	if (!preferences.limitProjects) return false;
@@ -149,6 +151,18 @@ export function createControllerFileSavingRuntime<Project extends NativeProjectD
 	const isOpen = (id: string): boolean => d.session.getSnapshot().tabs.some(tab => tab.projectId === id);
 	return {
 		getProjects, isReady: d.ready, getPreferences: () => d.preferences().saving, getRetentionKey: () => JSON.stringify(d.preferences().temporaryData), subscribe: d.subscribe, signal: d.signal, handleError: d.handleError,
+		acquireInactiveWrite: async id => {
+			const lock = await d.acquire(id);
+			let retained = false;
+			try {
+				const expected = d.getPersistedProject?.(id);
+				if (!lock.readOnly && expected && sameProjectSnapshot(await d.store.loadProject(id), expected) && !lock.readOnly) {
+					retained = true;
+					return lock;
+				}
+				return null;
+			} finally { if (!retained) await releaseProjectFileWriteLease(lock); }
+		},
 		activate: id => {
 			const tab = d.session.getSnapshot().tabs.find(tab => tab.projectId === id);
 			if (!tab) throw new Error('The project is no longer open.');

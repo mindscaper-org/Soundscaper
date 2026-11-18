@@ -192,6 +192,26 @@ test('Discard preserves a newer revision saved before it acquired the closed tab
 	assert.deepEqual(await store.loadProject(project.id), updated);
 });
 
+test('an idle writer lease does not authorize saving an inactive tab over its newer stored revision', async context => {
+	const store = createSoundscaperEphemeralProjectStore();
+	context.after(() => store.close());
+	const local = createSoundscaperProject({ id: 'inactive-save-fence' });
+	const savedByAnotherWindow = applySoundscaperProjectCommand(local, { type: 'project/rename', title: 'Saved in the other window' });
+	await store.saveProject(savedByAnotherWindow);
+	let releases = 0;
+	const runtime = createControllerFileSavingRuntime({
+		session: { getSnapshot: () => ({ tabs: [{ projectId: local.id, history: { present: local } }] }) },
+		store, getPersistedProject: () => local, preferences: () => ({
+			saving: { autoSaving: true, askBeforeClosing: true }, temporaryData: { limitProjects: false, maximumProjects: 10 },
+		}),
+		switchProject: () => undefined, closeProject: () => undefined,
+		acquire: async () => ({ readOnly: false, release() { releases++; } }), subscribe: () => () => undefined,
+		signal: new AbortController().signal, handleError: error => { throw error; },
+	});
+	assert.equal(await runtime.acquireInactiveWrite!(local.id), null);
+	assert.equal(releases, 1);
+});
+
 test('Discard leaves the stored copy alone when the tab could not close', async context => {
 	const store = createSoundscaperEphemeralProjectStore();
 	context.after(async () => { await store.close(); });

@@ -6,6 +6,11 @@ import type { ProjectFileReference, ProjectFileTarget } from '../../../file-save
 type Awaitable<T> = PromiseLike<T> | T;
 export type SaveDecision = 'save' | 'discard' | 'cancel';
 export interface FileSavingProject { readonly id: string; readonly title?: unknown }
+export interface ProjectFileWriteLease {
+	readonly readOnly: boolean;
+	readonly finished?: PromiseLike<unknown> | null;
+	release(): Awaitable<unknown>;
+}
 interface Entry extends ProjectFileTarget { baseline: Promise<string> | null }
 interface Dependencies<Project extends FileSavingProject> {
 	readonly desktop: boolean;
@@ -21,6 +26,7 @@ interface Dependencies<Project extends FileSavingProject> {
 	readonly restore?: (id: string) => Promise<(ProjectFileTarget & { baseline: string }) | null>;
 	readonly remember?: (id: string, target: ProjectFileTarget, baseline: string) => Awaitable<unknown>;
 	readonly release?: (reference: ProjectFileReference) => Awaitable<unknown>;
+	readonly acquireInactiveWrite?: (id: string) => Awaitable<ProjectFileWriteLease | null>;
 	readonly canSave?: () => boolean;
 	readonly handleError: (error: unknown) => void;
 	readonly schedule?: (callback: () => void, milliseconds: number) => number;
@@ -106,21 +112,27 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 		if (!explicit && !await hasChanges(project)) return true;
 		const hasTarget = Boolean(entry.originalFile || entry.fileHandle);
 		if (!hasTarget && !explicit) return true;
-		const target = entry.originalFile ? await d.prepareOriginal(entry.originalFile) : entry.fileHandle;
-		if (hasTarget && !target) throw new Error('The original project file is unavailable. Export a project file to choose a new destination.');
+		const lease = d.getProject()?.id === project.id ? undefined : await d.acquireInactiveWrite?.(project.id);
+		if (lease === null) return false;
 		const ownsDestination = () => !disposed && entries.get(project.id) === entry;
 		const assertWritable = () => {
-			if (!ownsDestination() || !d.getProjects().some(tab => tab.project.id === project.id && !tab.readOnly)) {
+			const ownsWriter = lease ? !lease.readOnly : !d.acquireInactiveWrite || d.getProject()?.id === project.id;
+			if (!ownsWriter || !ownsDestination() || !d.getProjects().some(tab => tab.project.id === project.id && !tab.readOnly)) {
 				throw new DOMException('The project lost write access before the file could be saved.', 'AbortError');
 			}
 		};
-		assertWritable();
-		const result = await d.write(project, target, assertWritable);
-		if (result.cancelled === true) return false;
-		if (ownsDestination() && d.getProjects().some(tab => tab.project.id === project.id)) {
-			await saved(project, result as ProjectFileTarget);
-		} else await releaseCopyTarget(result);
-		return true;
+		try {
+			assertWritable();
+			const target = entry.originalFile ? await d.prepareOriginal(entry.originalFile) : entry.fileHandle;
+			if (hasTarget && !target) throw new Error('The original project file is unavailable. Export a project file to choose a new destination.');
+			assertWritable();
+			const result = await d.write(project, target, assertWritable);
+			if (result.cancelled === true) return false;
+			if (ownsDestination() && d.getProjects().some(tab => tab.project.id === project.id)) {
+				await saved(project, result as ProjectFileTarget);
+			} else await releaseCopyTarget(result);
+			return true;
+		} finally { if (lease) await releaseProjectFileWriteLease(lease); }
 	}
 	function observe(): void {
 		if (disposed || closing) return;
@@ -223,6 +235,11 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 		await Promise.all([...entries.values()].map(async entry => { if (entry.originalFile) await d.release?.(entry.originalFile); }));
 		entries.clear();
 	}
+}
+
+export async function releaseProjectFileWriteLease(lease: ProjectFileWriteLease): Promise<void> {
+	try { await lease.release(); }
+	finally { await Promise.resolve(lease.finished).catch(() => undefined); }
 }
 
 function emptyProject(project: FileSavingProject): boolean {

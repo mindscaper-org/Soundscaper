@@ -10,6 +10,7 @@ function fixture(
 	desktop = true,
 	restore?: (id: string) => Promise<Readonly<{ originalFile: ProjectFileReference; baseline: string }> | null>,
 	remember?: (id: string, target: Readonly<{ originalFile?: ProjectFileReference }>, baseline: string) => Promise<void> | void,
+	acquireInactiveWrite?: (id: string) => Promise<Readonly<{ readOnly: boolean; release(): void }> | null>,
 ) {
 	let current: Project = { id: 'a', title: 'A', revision: 1, tracks: [] };
 	let settings = { autoSaving: !desktop, askBeforeClosing: true };
@@ -37,7 +38,7 @@ function fixture(
 		prepareOriginal: async original => ({ id: original.id, name: original.name }),
 		ask: async () => decisions.shift() as 'save' | 'discard' | 'cancel',
 		discard: async id => { discarded.push(id); tabs.delete(id); }, handleError: () => undefined,
-		restore, remember, release: original => { releasedOriginals.push(original.id); },
+		restore, remember, acquireInactiveWrite, release: original => { releasedOriginals.push(original.id); },
 		schedule: callback => { timers.push(callback); return timers.length; }, clear: timer => { clearedTimers.add(timer); },
 	});
 	return { service, tabs, writes, discarded, decisions, timers, readOnlyIds, releasedOriginals,
@@ -120,6 +121,21 @@ test('closing a different tab preserves a pending save for a background file', a
 
 	assert.deepEqual(f.writes, [handle], 'the pending write for A still runs while C is active');
 	assert.equal(await f.service.hasChanges(f.tabs.get('a')!), false);
+});
+
+test('a pending automatic save cannot overwrite the original of a tab another window is editing', async () => {
+	const claims: string[] = [];
+	const f = fixture(false, undefined, undefined, async id => { claims.push(id); return null; });
+	await f.service.opened(f.getProject(), { fileHandle: { createWritable() {} } });
+	f.edit();
+	f.tabs.set('b', { id: 'b', title: 'Other project', revision: 0, tracks: [] });
+	f.select('b');
+
+	await f.runPendingTimers();
+
+	assert.deepEqual(claims, ['a']);
+	assert.deepEqual(f.writes, []);
+	assert.equal(await f.service.hasChanges(f.tabs.get('a')!), true);
 });
 
 test('closing an inactive read-only tab does not flush the active project', async () => {
