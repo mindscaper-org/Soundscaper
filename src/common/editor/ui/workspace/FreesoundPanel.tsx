@@ -6,7 +6,7 @@ import { Button } from '@soundscaper/design-system/Button';
 import { EditorErrorToast } from '../EditorToast.tsx';
 
 import '../audio-editor-design-system/06a-panels-freesound.css';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { FreesoundResultRow } from './FreesoundResultRow.tsx';
 import type { FreesoundUser } from './freesound-auth-upload-client.ts';
@@ -144,7 +144,13 @@ export function FreesoundPanel({
 	onRemoveUpload,
 }: FreesoundPanelProps) {
 	const [query, setQuery] = useState(state.query);
-	useEffect(() => setQuery(state.query), [state.query]);
+	const committedQuery = useRef(state.query);
+	useEffect(() => {
+		// A delayed mount effect must preserve the first typed search draft.
+		if (committedQuery.current === state.query) return;
+		committedQuery.current = state.query;
+		setQuery(state.query);
+	}, [state.query]);
 	const loading = state.status === 'loading';
 	const search = (request: Partial<FreesoundSearchRequest> = {}) => onSearch({
 		query: request.query ?? query.trim(),
