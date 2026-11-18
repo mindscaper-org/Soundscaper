@@ -13,8 +13,27 @@ extern "C" {
 #include <cstdint>
 #include <vector>
 
+namespace {
+
+void verify_chromium_vp8_alpha(const std::filesystem::path& path) {
+	auto decoder = framescaper::media::ffmpeg_decode_session::open(path, "native-cpu");
+	int frame_count = 0;
+	// A Chromium canvas recording with opaque, translucent and transparent regions.
+	decoder.decode_all([&](AVFrame* frame) {
+		assert(frame->width == 64 && frame->height == 32);
+		assert(frame->format == AV_PIX_FMT_YUVA420P && frame->data[3] != nullptr);
+		const auto* alpha = frame->data[3] + 16 * frame->linesize[3];
+		assert(alpha[8] == 255 && alpha[28] >= 126 && alpha[28] <= 130 && alpha[52] == 0);
+		++frame_count;
+	});
+	assert(frame_count == 4);
+}
+
+} // namespace
+
 int main(const int argc, char** argv) {
-	assert(argc == 2);
+	assert(argc == 3);
+	verify_chromium_vp8_alpha(argv[2]);
 	auto decoder = framescaper::media::ffmpeg_decode_session::open(argv[1], "native-cpu");
 	constexpr int width = 1280;
 	constexpr int height = 720;

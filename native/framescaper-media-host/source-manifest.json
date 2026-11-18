@@ -57,8 +57,8 @@
 	"sourceFiles": [
 		{
 			"path": "CMakeLists.txt",
-			"byteLength": 8214,
-			"sha256": "273a40b9849edf2b180050fc2e25b971ff326b5a794fbeddbb0645db711bb3fd"
+			"byteLength": 8296,
+			"sha256": "9f32f5438e8a810218e254fde2886f1e63243002e7d86f528af06c6d39eb1020"
 		},
 		{
 			"path": "CMakePresets.json",
@@ -77,8 +77,8 @@
 		},
 		{
 			"path": "build/ffmpeg-9.0.1-configure.json",
-			"byteLength": 3177,
-			"sha256": "f0639b9af085f5defb511c6fd42785eece687c8f9ad87c1c59ae3e64dad7f294"
+			"byteLength": 3223,
+			"sha256": "940f71199f9ee29e0017269ec1fd18a3c9ba3cef0612331a5f2603c6471ac72f"
 		},
 		{
 			"path": "build/ffmpeg-9.0.1-external-sources.json",
@@ -87,8 +87,8 @@
 		},
 		{
 			"path": "build/media-build-commands.mjs",
-			"byteLength": 20244,
-			"sha256": "5f41e94394b717f7571325d92a6d7e7125a2513c33ab2c2a67a1199db09d90ff"
+			"byteLength": 20290,
+			"sha256": "7ba3f134cd3d1a9f8bee2e208e138f8d337a06e93b3d39250a37aec0d9a70137"
 		},
 		{
 			"path": "build/recipe-cli.mjs",
@@ -152,8 +152,8 @@
 		},
 		{
 			"path": "src/ffmpeg_decode_session.cpp",
-			"byteLength": 9217,
-			"sha256": "a8f73723fe3f5b02ea85a81d7cc7057a708e4a2d5b474a96a1e28b8b0db2857b"
+			"byteLength": 9325,
+			"sha256": "04d74ac6612e28678b231800b2e2bfa8a98c7a1c7ad64f8f5ee7b9f0551bc8af"
 		},
 		{
 			"path": "src/ffmpeg_decode_session.hpp",
@@ -457,13 +457,13 @@
 		},
 		{
 			"path": "tests/codec_closure_canary.cpp",
-			"byteLength": 4413,
-			"sha256": "e228dee648b22cccba1aeb2d9f03b5e9fd957b108f50172d9793e2d9c02d5b56"
+			"byteLength": 4423,
+			"sha256": "9f66e168bbc20887373a1ff05d53f706a7212c1dfbc718b944da8047d49c027b"
 		},
 		{
 			"path": "tests/decoded_frame_alpha_fixture.cpp",
-			"byteLength": 1893,
-			"sha256": "78398f78671c00a8ef635d43c85bf1763eb2c0cfe17587ac92ea2247577380c6"
+			"byteLength": 2589,
+			"sha256": "413fd31c0952431172e70ec361359d0bea48cbde22f67e2a4b9549c090823605"
 		},
 		{
 			"path": "tests/exact_retime_ordinal_fixture.cpp",
@@ -477,8 +477,13 @@
 		},
 		{
 			"path": "tests/fixtures/README.md",
-			"byteLength": 948,
-			"sha256": "f092022b57391eefb59aeabb77039b1d0736e4389991caf582e4d27f00962d85"
+			"byteLength": 1324,
+			"sha256": "901f6a1291035f384816a6a54537a25bcd86b7ebe7fedc674dc82e230761fb71"
+		},
+		{
+			"path": "tests/fixtures/chrome-vp8-alpha-64x32-4frames.webm",
+			"byteLength": 683,
+			"sha256": "d19582e4725a9237052b816fe7928ca5b7eaf4941f24f12b139907ba7ba3c5c0"
 		},
 		{
 			"path": "tests/fixtures/keyed-alpha-1280x720-4fps-4frames.webm",

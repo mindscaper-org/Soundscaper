@@ -187,6 +187,7 @@ if(BUILD_TESTING)
 		NAME framescaper-decoded-frame-alpha-test
 		COMMAND framescaper-decoded-frame-alpha-test
 			${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/keyed-alpha-1280x720-4fps-4frames.webm
+			${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/chrome-vp8-alpha-64x32-4frames.webm
 	)
 	add_executable(framescaper-codec-closure-canary
 		tests/codec_closure_canary.cpp
