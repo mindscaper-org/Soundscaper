@@ -125,7 +125,13 @@ export async function applyPhaseCorrection(channels: unknown, sampleRate: number
 		for (; frame < limit && frame < solidStart; frame++) writeFade(frame);
 		if (weights) {
 			const stop = Math.min(limit, solidEnd);
-			for (; frame < stop; frame++) destination[frame] = readFractionalSample(target, frame + tapOffset, weights) / weightSum;
+			const taps = weights.length;
+			for (; frame < stop; frame++) {
+				const start = frame + tapOffset;
+				let wet = 0;
+				for (let tap = 0; tap < taps; tap++) wet += target[start + tap]! * weights[tap]!;
+				destination[frame] = wet / weightSum;
+			}
 		} else {
 			const stop = Math.min(limit, solidEnd);
 			for (; frame < stop; frame++) destination[frame] = 0 + target[frame + tapOffset]!;
