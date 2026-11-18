@@ -14,6 +14,7 @@ import EditorControlLabel from '../EditorControlLabel.tsx';
 export default function SourceMonitorPanel({ controller, snapshot, copy, run, blocked, panelActive = true }) {
 	const videoRef = useRef(null);
 	const playingRef = useRef(false);
+	const playRequest = useRef(0);
 	const [playing, setPlaying] = useState(false);
 	const view = controller.actions.video.sourceMonitor.view();
 	const visual = view.sourceId ? controller.actions.video.getSourceVisualData(view.sourceId) : null;
@@ -24,6 +25,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 	// controller's frame authoritative again.
 	const stop = useCallback(() => {
 		// pause() can dispatch a final timeupdate before React commits the state.
+		playRequest.current += 1;
 		playingRef.current = false;
 		videoRef.current?.pause?.();
 		setPlaying(false);
@@ -61,7 +63,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 			controller.actions.video.sourceMonitor.seekMediaTime(Number(videoRef.current.currentTime) || 0);
 		}
 	};
-	const mark = (operation) => run(() => {
+	const withCurrentFrame = (operation) => run(() => {
 		capturePlayback();
 		return operation();
 	});
@@ -75,14 +77,15 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 	const togglePlay = () => {
 		const media = videoRef.current;
 		if (!media || !panelActive) return;
-		if (playing) {
+		if (playingRef.current) {
 			stop();
 			run(() => controller.actions.video.sourceMonitor.seekMediaTime(Number(media.currentTime) || 0));
 			return;
 		}
 		playingRef.current = true;
 		setPlaying(true);
-		void media.play?.().catch(() => stop());
+		const request = ++playRequest.current;
+		void media.play?.().catch(() => { if (playRequest.current === request) stop(); });
 	};
 
 	return <div
@@ -159,12 +162,12 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 			<button
 				type="button"
 				data-source-monitor-action="mark-in"
-				onClick={() => mark(() => controller.actions.video.sourceMonitor.markIn())}
+				onClick={() => withCurrentFrame(() => controller.actions.video.sourceMonitor.markIn())}
 			>{copy.sourceMarkIn}</button>
 			<button
 				type="button"
 				data-source-monitor-action="mark-out"
-				onClick={() => mark(() => controller.actions.video.sourceMonitor.markOut())}
+				onClick={() => withCurrentFrame(() => controller.actions.video.sourceMonitor.markOut())}
 			>{copy.sourceMarkOut}</button>
 			<button
 				type="button"
@@ -183,7 +186,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 				type="button"
 				data-source-monitor-action="replace"
 				disabled={disabled}
-				onClick={() => run(() => controller.actions.video.replace())}
+				onClick={() => withCurrentFrame(() => controller.actions.video.replace())}
 			>{copy.editReplace}</button>
 		</div>
 	</div>;

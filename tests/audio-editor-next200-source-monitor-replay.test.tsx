@@ -36,6 +36,24 @@ test('manual stopped source positioning includes the last frame without claiming
 	} finally { await f.close(); }
 });
 
+test('an interrupted Play rejection leaves the newer Source Monitor playback running', async () => {
+	const f = await fixture(22);
+	try {
+		const first = Promise.withResolvers<void>();
+		let playCount = 0;
+		let pauseCount = 0;
+		Reflect.set(f.video, 'play', () => ++playCount === 1 ? first.promise : Promise.resolve());
+		Reflect.set(f.video, 'pause', () => { pauseCount++; });
+		await act(async () => { reactProps(f.play()).onClick(); });
+		await act(async () => { reactProps(f.play()).onClick(); });
+		await act(async () => { reactProps(f.play()).onClick(); });
+		await act(async () => { first.reject(new DOMException('Interrupted by pause', 'AbortError')); });
+		assert.equal(playCount, 2);
+		assert.equal(pauseCount, 1);
+		assert.equal(reactProps(f.play())['aria-pressed'], true);
+	} finally { await f.close(); }
+});
+
 async function fixture(frames: number) {
 	const dom = installReactTestDom();
 	const global = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
