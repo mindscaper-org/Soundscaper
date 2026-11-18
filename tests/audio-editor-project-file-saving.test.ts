@@ -166,7 +166,7 @@ test('an older Save As cannot restore its destination after a newer Save As comp
 	const hashing = deferred<void>();
 	const resume = deferred<void>();
 	const digest = crypto.subtle.digest.bind(crypto.subtle);
-	context.mock.method(crypto.subtle, 'digest', async (algorithm: AlgorithmIdentifier, bytes: Uint8Array) => {
+	context.mock.method(crypto.subtle, 'digest', async (algorithm: AlgorithmIdentifier, bytes: Uint8Array<ArrayBuffer>) => {
 		if (new TextDecoder().decode(bytes).includes('First archive write')) {
 			hashing.resolve();
 			await resume.promise;
