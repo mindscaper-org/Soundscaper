@@ -31,6 +31,10 @@ interface Dependencies {
 }
 
 const SIGNAL_TIMEOUT_MS = 500;
+interface ReceivedTimecode {
+	readonly reading: TimecodeReading;
+	readonly timestamp: number;
+}
 
 /** Own one opt-in sync session; permissions, timers and asynchronous chase share a generation. */
 export function createTimecodeSyncSession(d: Dependencies) {
@@ -49,7 +53,7 @@ export function createTimecodeSyncSession(d: Dependencies) {
 	let projectId: string | null = null;
 	let lastReceive = -Infinity;
 	let chasing = false;
-	let pending: { reading: TimecodeReading; timestamp: number; lost?: boolean } | null = null;
+	let pending: (ReceivedTimecode & { lost?: boolean }) | null = null;
 	let processing: Promise<void> = Promise.resolve();
 	let pumping = false;
 	let lastSend: { seconds: number; time: number; playing: boolean; speed: number } | null = null;
@@ -103,9 +107,11 @@ export function createTimecodeSyncSession(d: Dependencies) {
 			if (settings.receive !== 'off' && position.receiveBlocked) throw new Error('Receiving timecode requires normal playback with loop playback and recording disabled.');
 			projectId = position.projectId; lastReceive = -Infinity;
 			const opening = new AbortController(); admission = opening;
+			const openingInput: { latest: ReceivedTimecode | null } = { latest: null };
 			const session = await d.io.open(settings, (reading, timestamp) => {
-				if (ownGeneration !== generation || !snapshot.active || settings.receive === 'off') return;
+				if (ownGeneration !== generation || settings.receive === 'off') return;
 				if (reading.direction !== 0 && now() - timestamp >= SIGNAL_TIMEOUT_MS) return;
+				if (!snapshot.active) { openingInput.latest = { reading, timestamp }; return; }
 				lastReceive = timestamp;
 				pending = { reading, timestamp };
 				pump();
@@ -113,7 +119,14 @@ export function createTimecodeSyncSession(d: Dependencies) {
 			if (admission === opening) admission = null;
 			if (ownGeneration !== generation || disposed) { await session.close(); return; }
 			devices = session;
+			const first = openingInput.latest;
+			openingInput.latest = null;
+			if (first && (first.reading.direction === 0 || now() - first.timestamp < SIGNAL_TIMEOUT_MS)) {
+				lastReceive = first.timestamp;
+				pending = first;
+			}
 			publish({ active: true });
+			if (pending) pump();
 			cancelTimer = schedule(tick);
 			tick();
 		} catch (error) {

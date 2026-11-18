@@ -147,6 +147,28 @@ test('disabling during device admission closes late devices and ignores stale me
 	await f.session.dispose();
 });
 
+test('MTC retains a full-frame locate received while its devices are opening', async () => {
+	const f = fixture();
+	const opened = deferred<void>(), admitted = deferred<void>();
+	const open = f.io.open;
+	f.io.open = async (settings, receive, fail, signal) => {
+		receive({ frame: 50, rate: '25', direction: 0 }, 1_000);
+		opened.resolve();
+		await admitted.promise;
+		return open(settings, receive, fail, signal);
+	};
+	const configure = f.session.configure({ ...DEFAULT_TIMECODE_SYNC_SETTINGS, receive: 'mtc', midiInput: 'in', sendMtc: true, midiOutput: 'out' });
+	try {
+		await opened.promise;
+		assert.deepEqual(f.seeks, [], 'the opening session does not own transport yet');
+		admitted.resolve();
+		await configure;
+		await f.session.settled();
+		assert.deepEqual(f.seeks, [96_000]);
+		assert.equal(f.playing(), false);
+	} finally { admitted.resolve(); await configure; await f.session.dispose(); }
+});
+
 test('LTC audio activation runs synchronously in the initiating gesture and always releases unused preparation', async () => {
 	const f = fixture();
 	let prepared = 0, released = 0;
