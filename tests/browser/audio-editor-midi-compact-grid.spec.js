@@ -15,11 +15,13 @@ test('piano-roll note editing surface remains reachable in a narrow editor', asy
 	await expect(grid).toBeInViewport({ ratio: 0.9 });
 	const note = panel.locator('.note-rect[data-note-id="1"]');
 	await expect(note).toBeInViewport({ ratio: 0.9 });
+	await note.hover();
 	const bounds = await note.boundingBox();
 	if (!bounds) throw new Error('Note drawing surface is unavailable');
-	await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
 	await page.mouse.down();
-	await page.mouse.move(bounds.x + bounds.width / 2 + 25, bounds.y + bounds.height / 2, { steps: 3 });
+	await expect(grid).toHaveCSS('cursor', 'grabbing');
+	await page.mouse.move(bounds.x + bounds.width / 2 + 26, bounds.y + bounds.height / 2, { steps: 2 });
+	await expect(note).toHaveCSS('left', '25px');
 	await page.mouse.up();
 	await expect(panel.getByRole('spinbutton', { name: 'Note start (seconds)', exact: true })).toHaveValue('0.25');
 });

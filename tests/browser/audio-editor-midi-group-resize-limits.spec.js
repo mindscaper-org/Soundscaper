@@ -18,10 +18,13 @@ test('left resizing selected notes at source zero preserves their onset offsets'
 	await laterNote.click({ position: { x: 20, y: 5 } });
 	await page.keyboard.press('ControlOrMeta+a');
 	await expect(panel.locator('.note-rect--selected')).toHaveCount(2);
+	await laterNote.hover({ position: { x: 1, y: 5 } });
 	const bounds = await laterNote.boundingBox(); if (!bounds) throw new Error('Later selected note is not visible');
-	const x = bounds.x + 1, y = bounds.y + bounds.height / 2;
-	await page.mouse.move(x, y); await page.mouse.down();
-	await page.mouse.move(x - 50, y, { steps: 3 }); await page.mouse.up();
+	await page.mouse.down();
+	const grid = panel.locator('.kw-audio-editor__piano-roll-notes > [tabindex="0"]');
+	await expect(grid).toHaveCSS('cursor', 'ew-resize');
+	await page.mouse.move(bounds.x - 49, bounds.y + 5);
+	await page.mouse.up();
 	await expect(panel.locator('.note-rect[data-note-id="1"]')).toHaveCSS('left', '0px');
 	await expect(laterNote).toHaveCSS('left', '87.5px');
 	await expect(panel.locator('.note-rect[data-note-id="1"]')).toHaveCSS('width', '62.5px');
