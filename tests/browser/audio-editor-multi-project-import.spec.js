@@ -113,6 +113,45 @@ test('File Open places a recording in a new project without asking to overwrite 
 	expect(await page.evaluate(() => globalThis.browserFileWriteRequests)).toBe(0);
 });
 
+test('File Open leaves the active tab alone when the selected subtitle file is malformed', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	const outgoing = await editor.getAttribute('data-project-id');
+	await editor.locator('[data-aup4-input]').setInputFiles({
+		name: 'broken-subtitles.vtt', mimeType: 'text/vtt', buffer: Buffer.from('Malformed subtitle file'),
+	});
+	await expect(page.getByRole('alert').filter({ hasText: /WebVTT|subtitle|header/iu }).last()).toBeVisible();
+	await expect(editor).toHaveAttribute('data-project-id', outgoing);
+	await expect(editor.getByRole('tab', { name: 'broken-subtitles', exact: true })).toHaveCount(0);
+});
+
+test('File Open validates a CUE sheet before opening its accepted destination as a new tab', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	const outgoing = await editor.getAttribute('data-project-id');
+	await editor.locator('[data-aup4-input]').setInputFiles({
+		name: 'broken-sheet.cue', mimeType: 'application/x-cue', buffer: Buffer.from('TRACK 01 AUDIO\n'),
+	});
+	await page.locator('[data-cue-import-choice]').getByRole('button', { name: 'Labels', exact: true }).click();
+	await expect(page.getByRole('alert').filter({ hasText: /CUE|INDEX/iu }).last()).toBeVisible();
+	await expect(editor).toHaveAttribute('data-project-id', outgoing);
+	await expect(editor.getByRole('tab', { name: 'broken-sheet', exact: true })).toHaveCount(0);
+});
+
+test('File Open retires its unused tab when a nonempty recording cannot be decoded', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	const outgoing = await editor.getAttribute('data-project-id');
+	await chooseFileAction(page, editor, 'New');
+	await waitForProjectActivation(editor);
+	await editor.getByRole('tab', { name: 'Untitled project', exact: true }).first().click();
+	await waitForProjectActivation(editor);
+	await expect(editor).toHaveAttribute('data-project-id', outgoing);
+	await editor.locator('[data-aup4-input]').setInputFiles({
+		name: 'undecodable.wav', mimeType: 'audio/wav', buffer: Buffer.from('This recording cannot be decoded'),
+	});
+	await expect(page.getByRole('alert').filter({ hasText: /undecodable\.wav|decode|import failed/iu }).last()).toBeVisible({ timeout: 20_000 });
+	await expect(editor.getByRole('tab', { name: 'undecodable', exact: true })).toHaveCount(0);
+	await expect(editor).toHaveAttribute('data-project-id', outgoing);
+});
+
 test('cancelling a project conflict ends that OS launch batch', async ({ page }) => {
 	await installLaunchQueue(page);
 	const editor = await bootEditor(page, '/embed/en/');
@@ -204,6 +243,25 @@ test('a desktop file association waits until an ongoing recording import has pub
 	await expect.poll(() => page.evaluate(() => globalThis.nativeArchiveReleased)).toBe(true);
 });
 
+test('a desktop File Open choice waits for work that began while the native chooser was open', async ({ page }) => {
+	const incoming = await archiveFile('desktop-choice-during-import', 'Waiting desktop choice');
+	await installDesktopArchiveLaunch(page, incoming);
+	await holdManualRecording(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	await page.evaluate(() => globalThis.openNativeProjectChoice());
+	await expect.poll(() => page.evaluate(() => globalThis.nativeProjectChoicePending)).toBe(true);
+	await editor.locator('[data-import-input]').setInputFiles({ ...toneA, name: 'Held manual recording.wav' });
+	await expect.poll(() => page.evaluate(() => globalThis.manualMediaPending)).toBe(true);
+	await page.evaluate(async () => {
+		globalThis.completeNativeProjectChoice();
+		await new Promise(resolve => { requestAnimationFrame(() => { requestAnimationFrame(resolve); }); });
+	});
+	expect(await page.evaluate(() => globalThis.nativeArchiveReleased)).toBe(false);
+	await page.evaluate(() => globalThis.releaseManualMedia());
+	await expect(editor.getByRole('tab', { name: 'Waiting desktop choice', exact: true })).toHaveAttribute('aria-selected', 'true');
+	await expect.poll(() => page.evaluate(() => globalThis.nativeArchiveReleased)).toBe(true);
+});
+
 async function holdManualRecording(page) {
 	await page.addInitScript(() => {
 		const held = new WeakSet();
@@ -244,6 +302,11 @@ async function installDesktopArchiveLaunch(page, archive) {
 		globalThis.nativeArchiveReleased = false;
 		globalThis.soundscaperDesktop = { v1: {
 			onOpenProject(listener) { globalThis.launchNativeArchive = () => listener(descriptor); return () => {}; },
+			onMenuCommand(listener) { globalThis.openNativeProjectChoice = () => listener({ command: 'project:open' }); return () => {}; },
+			chooseFiles() {
+				globalThis.nativeProjectChoicePending = true;
+				return new Promise(resolve => { globalThis.completeNativeProjectChoice = () => resolve([descriptor]); });
+			},
 			async releaseRead(readId) { if (readId === id) globalThis.nativeArchiveReleased = true; },
 		} };
 	}, { base64: archive.buffer.toString('base64'), name: archive.name });

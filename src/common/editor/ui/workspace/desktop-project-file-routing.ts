@@ -32,6 +32,7 @@ export interface DesktopProjectReadService<Value> {
 		consume: (source: ScapeArchiveByteSource) => Awaitable<Value>,
 	): PromiseLike<Value>;
 	releaseRead?(id: string): Awaitable<unknown>;
+	releaseOriginalFile?(id: string): Awaitable<unknown>;
 	releaseSesxSession?(sessionReadId: string): Awaitable<unknown>;
 }
 
@@ -57,6 +58,7 @@ export async function withDesktopProjectReadDescriptor<Value>(
 	fileService: DesktopProjectReadService<Value>,
 	descriptor: DesktopProjectReadDescriptor,
 	consumers: DesktopProjectConsumers<Value>,
+	admit?: () => Awaitable<void>,
 ): Promise<Value> {
 	if (!fileService || typeof fileService !== 'object') {
 		throw new TypeError('A desktop project file service is required.');
@@ -64,6 +66,13 @@ export async function withDesktopProjectReadDescriptor<Value>(
 	if (!consumers || typeof consumers.openMaterialized !== 'function'
 		|| typeof consumers.openScape !== 'function') {
 		throw new TypeError('Desktop project consumers are required.');
+	}
+	if (admit) {
+		try { await admit(); }
+		catch (error) {
+			await discardDesktopProjectReadDescriptor(fileService, descriptor);
+			throw error;
+		}
 	}
 	try {
 		if (descriptor?.readProfile === DESKTOP_READ_PROFILE_SCAPE_RANGE) {

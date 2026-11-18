@@ -5,6 +5,7 @@ import type { AdminProject, AdminHistory, AdminSessionTab, AdminCloseOptions, Pr
 import { sameProjectSnapshot } from '../../storage/project-snapshot-equality.ts';
 import { EditorStoreClearInUseError } from '../../storage/status.ts';
 import { preserveDeletedProjectClipboardMedia } from './internal/project/deleted-project-clipboard-media.ts';
+import { publishProjectView } from './document-snapshot.ts';
 export type { ProjectAdminServiceRuntime } from './internal/project/project-admin-runtime.ts';
 
 export interface ProjectHandoffExpectation {
@@ -241,17 +242,19 @@ export function createProjectAdminService<
 		return duplicated;
 	}
 
-	async function deleteProject() {
+	async function deleteProject(projectId?: string, unused?: Readonly<{ project: object; restoreProjectId?: string }>) {
 		const project = getProject();
 		if (!project || state.readOnly || recoveryBlocked()) return;
+		if ((projectId && project.id !== projectId) || (unused && publishProjectView(project) !== unused.project)) return;
 		const interlock = beginCaptureInterlockedAdminOperation?.({ kind: 'delete', projectId: project.id });
-		try { return await deleteProjectReserved(project, interlock); }
+		try { return await deleteProjectReserved(project, interlock, unused?.restoreProjectId); }
 		finally { interlock?.release(); }
 	}
 
 	async function deleteProjectReserved(
 		project: Project,
 		interlock: Readonly<FramescaperCaptureAdminInterlockLease> | undefined,
+		restoreProjectId?: string,
 	) {
 		await stopRecording();
 		if (getProject() !== project) return null;
@@ -327,7 +330,8 @@ export function createProjectAdminService<
 			try {
 				const result = sessionController.closeProject(id, { force: true });
 				if (result?.closed === false) throw new Error('The deleted project session could not be closed.');
-				if (result.activeProjectId) successor = sessionTab(result.activeProjectId)?.history.present;
+				const restore = restoreProjectId ? sessionTab(restoreProjectId) : null;
+				successor = restore?.history.present ?? (result.activeProjectId ? sessionTab(result.activeProjectId)?.history.present : undefined);
 				projectSaveService.forgetPersistedSnapshot?.(id);
 			} catch (error) {
 				failures.push(error);

@@ -2,6 +2,7 @@
 
 import { raceAbortablePromise } from '../../../foundation/abort-race.ts';
 import { selectAudioEditorBusyBlock, type AudioEditorEditBlockingSnapshot } from '../../edit-blocking.ts';
+import { useCallback, useEffect, useRef } from 'react';
 
 export interface WorkspaceFileAdmissionController {
 	readonly ready?: PromiseLike<unknown> | null;
@@ -9,7 +10,21 @@ export interface WorkspaceFileAdmissionController {
 	subscribe?(listener: () => void): () => void;
 }
 
-/** Keep OS-delivered files until the editor can admit a new open operation. */
+export function useWorkspaceFileAdmission(controller: WorkspaceFileAdmissionController) {
+	const scope = useRef<AbortController | null>(null);
+	useEffect(() => {
+		const owner = new AbortController();
+		scope.current = owner;
+		return () => { scope.current = null; owner.abort(); };
+	}, [controller]);
+	return useCallback(async () => {
+		const owner = scope.current;
+		if (!owner) throw new DOMException('The workspace was closed before opening the file.', 'AbortError');
+		await waitForWorkspaceFileAdmission(controller, owner.signal);
+	}, [controller]);
+}
+
+/** Keep selected files until the editor can admit a new open operation. */
 export async function waitForWorkspaceFileAdmission(controller: WorkspaceFileAdmissionController | null, signal: AbortSignal): Promise<void> {
 	await raceAbortablePromise(Promise.resolve(controller?.ready), signal);
 	signal.throwIfAborted();

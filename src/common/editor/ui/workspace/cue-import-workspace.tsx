@@ -5,18 +5,19 @@ import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 
 import type { CueImportDestination } from '../../cue-import.ts';
+import type { OpenLabelProject } from '../../controller/edit/edit-composition.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 
 interface CueImportController {
 	readonly actions: Readonly<{ readonly labels: Readonly<{
-		importCueFile(file: File, destination: CueImportDestination): unknown;
+		importCueFile(file: File, destination: CueImportDestination, openProject?: OpenLabelProject): unknown;
 	}> }>;
 }
 
 interface PendingCueImport {
 	readonly file: File;
 	readonly projectIdentity: unknown;
-	readonly beforeImport?: () => unknown;
+	readonly beforeImport?: OpenLabelProject;
 	readonly resolve: (value: unknown) => void;
 	readonly reject: (reason: unknown) => void;
 }
@@ -31,7 +32,7 @@ export function useCueImportWorkspace(controller: CueImportController, projectId
 	const pendingRef = useRef<PendingCueImport | null>(null);
 	const [fileName, setFileName] = useState<string | null>(null);
 	// File Open defers its new project until the destination is accepted.
-	const requestCueImport = useCallback((file: File, expectedProjectIdentity: unknown = projectIdentity, beforeImport?: () => unknown) => new Promise<unknown>((resolve, reject) => {
+	const requestCueImport = useCallback((file: File, expectedProjectIdentity: unknown = projectIdentity, beforeImport?: OpenLabelProject) => new Promise<unknown>((resolve, reject) => {
 		if (pendingRef.current) {
 			reject(new Error('Finish choosing a destination for the current CUE sheet first.'));
 			return;
@@ -48,10 +49,8 @@ export function useCueImportWorkspace(controller: CueImportController, projectId
 			pending.resolve(null);
 			return;
 		}
-		void (async () => {
-			await pending.beforeImport?.();
-			return controller.actions.labels.importCueFile(pending.file, destination);
-		})().then(pending.resolve, pending.reject);
+		void Promise.resolve().then(() => controller.actions.labels.importCueFile(pending.file, destination, pending.beforeImport))
+			.then(pending.resolve, pending.reject);
 	}, [controller]);
 	useEffect(() => {
 		const pending = pendingRef.current;

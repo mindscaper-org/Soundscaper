@@ -59,7 +59,7 @@ test('a project-open quota refusal retains its cause and marks only the load for
 
 for (const [name, type] of [['recording.wav', 'audio/wav'], ['movie.mp4', 'video/mp4']] as const) {
 	test(`File Open creates a new project before importing ${name} on its timeline`, async () => {
-		const created = deferred<void>();
+		const created = deferred<string>();
 		const calls: string[] = [];
 		const file = new File(['media'], name, { type });
 		const unexpected = () => assert.fail('media must not reach a project importer');
@@ -80,7 +80,7 @@ for (const [name, type] of [['recording.wav', 'audio/wav'], ['movie.mp4', 'video
 		}, file, unexpected);
 		await Promise.resolve();
 		assert.deepEqual(calls, [`create:${name.replace(/\.[^.]+$/u, '')}`]);
-		created.resolve();
+		created.resolve('new-project');
 		await opening;
 		assert.deepEqual(calls, [`create:${name.replace(/\.[^.]+$/u, '')}`, 'import:timeline']);
 	});
@@ -97,10 +97,10 @@ test('File Open creates a new project before opening labels or CUE sheets', asyn
 				project: {
 					openAudacityProject: unexpected,
 					openDawproject: unexpected,
-					create: () => { calls.push('create'); },
+					create: () => { calls.push('create'); return 'new-project'; },
 					importFiles: unexpected,
 				},
-				labels: { importFile: (input: File) => { assert.equal(input, file); calls.push('labels'); } },
+				labels: { importFile: async (input, options) => { assert.equal(input, file); await options.openProject(); calls.push('labels'); } },
 			},
 		}, file, unexpected, undefined, false, async (input, prepare) => { assert.equal(input, file); await prepare(); calls.push('cue'); });
 		assert.deepEqual(calls, ['create', expected]);

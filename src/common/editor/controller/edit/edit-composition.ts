@@ -21,6 +21,7 @@ import type { EditCompositionDependencies, EditCompositionProject } from './edit
 import { createEditorEditService } from './internal/edit-service.ts';
 import { createAudioGeneratorService, type AudioGeneratorService } from './generator-service.ts';
 import { createLabelService } from './internal/label-service.ts';
+export type { OpenLabelProject } from './internal/label-service.ts';
 import { bindControllerEditClipboardRuntime, type ControllerRuntimeHistory } from '../document/project-runtime.ts';
 import { bufferFromChannels, createAudioBuffer, writeBuffer } from '../source/source-audio.ts';
 import { generateWaveformPeaks, peakCacheKey } from '../source/waveform-analysis.ts';

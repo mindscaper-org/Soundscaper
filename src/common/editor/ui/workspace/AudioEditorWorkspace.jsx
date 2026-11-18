@@ -14,7 +14,7 @@ import { resolveMeterPanelSettingsChange } from './meter-panel-settings.ts';
 import AudioEditorWorkspaceView from './AudioEditorWorkspaceView.jsx';
 import { resolveWorkspaceRuntimeProjection } from './workspace-runtime-projection.ts';
 import { workspaceStatusPresentation } from './workspace-status-presentation.ts';
-import { withDesktopProjectReadDescriptor } from './desktop-project-file-routing.ts';
+import { withDesktopProjectReadDescriptor } from './desktop-project-file-routing.ts'; import { useWorkspaceFileAdmission } from './workspace-file-admission.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { openDesktopWorkspaceFiles } from './desktop-workspace-file-choice.ts';
 import { workspacePreferencesPage } from './workspace-preferences-routing.ts';
@@ -226,10 +226,12 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	const openProjectFile = useCallback((file, desktopSesx = false) => openWorkspaceProjectFile(
 		controller, file, openScapeProjectFile, legacyProjectSelection.choose,
 		desktopSesx, (cueFile, prepareProject) => requestCueImport(cueFile, currentProjectSession(), prepareProject)), [controller, currentProjectSession, legacyProjectSelection, openScapeProjectFile, requestCueImport]);
-	const openDesktopProjectDescriptor = useCallback((descriptor) => withDesktopProjectReadDescriptor(
+	const admitDesktopFileChoice = useWorkspaceFileAdmission(controller);
+	const openDesktopProjectDescriptor = useCallback((descriptor, admit) => withDesktopProjectReadDescriptor(
 		fileService,
 		descriptor,
 		{ openMaterialized: (file) => openProjectFile(file, true), openScape: openScapeProjectFile },
+		admit,
 	), [fileService, openProjectFile, openScapeProjectFile]);
 	const importRoutedFiles = useCallback((files, importOptions = {}) => importWorkspaceRoutedFiles({
 		controller, files, importOptions, openProjectFile,
@@ -241,8 +243,8 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	const openDesktopFiles = useCallback((purpose, multiple = false, importOptions = {}) => openDesktopWorkspaceFiles({
 		getProjectId: () => controller.getSnapshot().project?.id ?? null,
 		getProjectSessionKey: currentProjectSession,
-		fileService, importFiles: importRoutedFiles, openProjectDescriptor: openDesktopProjectDescriptor,
-	}, purpose, multiple, importOptions), [controller, currentProjectSession, fileService, importRoutedFiles, openDesktopProjectDescriptor]);
+		fileService, importFiles: importRoutedFiles, openProjectDescriptor: descriptor => openDesktopProjectDescriptor(descriptor, admitDesktopFileChoice),
+	}, purpose, multiple, importOptions), [admitDesktopFileChoice, controller, currentProjectSession, fileService, importRoutedFiles, openDesktopProjectDescriptor]);
 	const { clipPropertiesFocusRequest, openClipPropertiesSurface } = useWorkspaceClipPropertiesPanel({
 		controller, run, setActiveSurface, selectedClipId: snapshot.selectedClipId ?? null,
 		projectId: project?.id ?? null, panelVisible: Boolean(preferences?.workspace?.panels?.['clip-properties']?.visible),
