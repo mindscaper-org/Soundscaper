@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { expect, test, longTone } from './audio-editor-test-fixtures.js';
-import { bootEditor, clipByName, collectClientErrors, importFiles, openSourceMonitor, registerAudioEditorHooks, chooseNestedCommandAction, chooseCommandAction, projectTimelineSourceNames } from './audio-editor-test-helpers.js';
+import { expect, test, createWavFixture, longTone } from './audio-editor-test-fixtures.js';
+import { bootEditor, clipByName, collectClientErrors, closeWorkspacePanel, importFiles, openClipProperties, openSourceMonitor, registerAudioEditorHooks, chooseNestedCommandAction, chooseCommandAction, projectTimelineSourceNames, showClipTimingFields } from './audio-editor-test-helpers.js';
+import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 
 test.describe('clip source editor', () => {
 	registerAudioEditorHooks();
@@ -17,6 +18,23 @@ test.describe('clip source editor', () => {
 		await expect.poll(async () => Number(await ruler.getAttribute('aria-valuemax'))).toBeLessThan(cursor);
 		const maximum = await ruler.getAttribute('aria-valuemax');
 		await expect(ruler).toHaveAttribute('aria-valuenow', maximum);
+	});
+
+	test('the global source ruler labels a clip starting on its first tick', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+		const tone = createWavFixture({ name: 'Short tone.wav', sampleRate: 48_000, duration: 0.11 });
+		await importFiles(editor, [tone]);
+		const clip = clipByName(editor, tone.name);
+		const properties = await openClipProperties(page, editor, clip);
+		await showClipTimingFields(properties);
+		await setClipTimeFrames(properties, 'startFrame', 3_360);
+		await closeWorkspacePanel(editor, 'clip-properties');
+		const panel = await openSourceMonitor(page, editor, clip);
+		const ruler = panel.getByRole('slider', { name: 'Source timeline', exact: true });
+		await ruler.click({ button: 'right' });
+		await page.getByRole('menuitem', { name: 'Global time', exact: true }).click();
+		await expect(ruler).toHaveAttribute('aria-valuemin', '0.07');
+		await expect(ruler.locator('text').first()).toHaveText('0:00.07');
 	});
 
 	test('shows all media, trims without moving the project anchor, and keeps moved markers attached to samples', async ({ page }) => {
