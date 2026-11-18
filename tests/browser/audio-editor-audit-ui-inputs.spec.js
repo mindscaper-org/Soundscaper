@@ -184,8 +184,12 @@ test('Freesound waveform seeking is operable from the keyboard', async ({ page }
 	const editor = await bootEditor(page, '/embed/en/');
 	await chooseCommandAction(page, editor, 'Window', 'Freesound');
 	const panel = editor.locator('[data-workspace-panel="freesound"]');
-	await panel.getByRole('searchbox', { name: 'Search Freesound', exact: true }).fill('harbor');
-	await panel.getByRole('button', { name: 'Search', exact: true }).click();
+	const query = panel.getByRole('searchbox', { name: 'Search Freesound', exact: true });
+	await expect(query).toBeEditable();
+	await query.pressSequentially('harbor');
+	await expect(query).toHaveValue('harbor');
+	await expect(panel.getByRole('button', { name: 'Search', exact: true })).toBeEnabled();
+	await query.press('Enter');
 	const waveform = panel.getByRole('slider', { name: 'Seek and play preview: Harbor ambience', exact: true });
 	await expect(waveform).toBeVisible();
 	await waveform.focus();
