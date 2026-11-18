@@ -175,8 +175,8 @@ export function timedRecordingLocalDateTimeValid(value: string): boolean {
 }
 
 function positiveDuration(value: unknown): number | null {
-	const duration = Number(value);
-	return Number.isFinite(duration) && duration > 0 ? duration : null;
+	const milliseconds = Math.round(Number(value) * 1_000);
+	return Number.isSafeInteger(milliseconds) && milliseconds > 0 ? milliseconds / 1_000 : null;
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
