@@ -462,10 +462,10 @@ export class AudioEditorProjectStore {
 		}
 	}
 
-	clear() {
+	clear(/** @type {import('./storage/linked-original-clear-admission.ts').LocalStoreClearOptions} */ options = {}) {
 		this.#assertOpen();
 		if (!this.clearPromise) {
-			const admission = admitLocalStoreClear(this.retentionRepository);
+			const admission = admitLocalStoreClear(this.retentionRepository, options);
 			const operation = Promise.resolve(this.sourceRepository.releaseReadSessions?.())
 				.then(() => this.linkedOriginalStoreService.clear(admission));
 			this.clearPromise = operation;

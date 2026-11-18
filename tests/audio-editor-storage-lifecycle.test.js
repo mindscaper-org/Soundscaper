@@ -4,6 +4,18 @@ import assert from 'node:assert/strict';
 import { createProjectStore } from '../src/common/editor/storage.js';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 
+for (const backend of ['memory', 'indexeddb']) test(`local reset retains only requested settings in ${backend}`, async context => {
+	const store = createProjectStore({ indexedDB: backend === 'memory' ? null : createInstrumentedIndexedDB(),
+		preferOpfs: false, databaseName: `clear-retained-settings-${backend}` });
+	context.after(async () => { await store.close(); });
+	await store.saveSetting('library', 'original-library');
+	await store.saveSetting('user-preference', true);
+	await store.clear({ preserveSettings: ['library', 'missing'] });
+	assert.equal(await store.loadSetting('library'), 'original-library');
+	assert.equal(await store.loadSetting('missing'), null);
+	assert.equal(await store.loadSetting('user-preference'), null);
+});
+
 test('memory storage reports that it is ephemeral and close is terminal', async () => {
 	const store = createProjectStore({
 		indexedDB: null,

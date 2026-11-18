@@ -3,6 +3,7 @@
 import { createLocalizedError } from '../../../i18n/presentation-message.ts'; import type { FramescaperCaptureAdminInterlockLease } from '../capture/framescaper-capture-admin-interlock.ts'; import { publishedCopyFor } from '../shared/presentation-localization.ts';
 import type { AdminProject, AdminHistory, AdminSessionTab, AdminCloseOptions, ProjectAdminServiceRuntime } from './internal/project/project-admin-runtime.ts';
 import { sameProjectSnapshot } from '../../storage/project-snapshot-equality.ts';
+import { EditorStoreClearInUseError } from '../../storage/status.ts';
 import { preserveDeletedProjectClipboardMedia } from './internal/project/deleted-project-clipboard-media.ts';
 export type { ProjectAdminServiceRuntime } from './internal/project/project-admin-runtime.ts';
 
@@ -472,7 +473,7 @@ export function createProjectAdminService<
 			state.projects = Object.freeze(store.preservesProjectsOnClear?.() ? await store.listProjects() : []);
 			publishDocumentSnapshot();
 		} catch (error) {
-			if (!storageClearStarted && !originRestorable && originProject && !getProject()) {
+			if ((!storageClearStarted || error instanceof EditorStoreClearInUseError) && !originRestorable && originProject && !getProject()) {
 				const failures = [error];
 				try { await switchProject(originProject, { skipFlush: true }); }
 				catch (recoveryError) { failures.push(recoveryError); }

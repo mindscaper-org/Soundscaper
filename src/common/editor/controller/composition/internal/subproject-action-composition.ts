@@ -5,6 +5,7 @@ import type { createSubprojectActions, SubprojectDocument } from '../../document
 import type { EnginePublicApi } from '../../../engine/public-api.ts';
 import { selectAudioEditorEditBlock } from '../../../edit-blocking.ts';
 import { EditorProjectChangedError } from '../../shared/lifecycle.ts';
+import { SUBPROJECT_LIBRARY_SETTING } from '../../../subproject-library-setting.ts';
 
 type SubprojectActions = ReturnType<typeof createSubprojectActions>;
 type Bindings = ReturnType<typeof createControllerBindings>;
@@ -36,12 +37,15 @@ export function createSubprojectActionComposition(runtime: EditorActionRuntime, 
 				loadProject: async id => await runtime.store.loadProject(id) as SubprojectDocument | null,
 				listProjects: () => runtime.store.listProjects(),
 				getLibraryId: () => library ??= (async () => {
-					const repository = runtime.store.settingsRepository, key = 'soundscaper.subproject-library-id.v1';
-					await repository.putIfAbsent(key, runtime.createStableId('library'));
-					const id: unknown = await repository.get(key);
+					const repository = runtime.store.settingsRepository;
+					let id: unknown = await repository.get(SUBPROJECT_LIBRARY_SETTING);
+					if (id === undefined) {
+						await repository.putIfAbsent(SUBPROJECT_LIBRARY_SETTING, runtime.createStableId('library'));
+						id = await repository.get(SUBPROJECT_LIBRARY_SETTING);
+					}
 					if (typeof id !== 'string' || !id) throw new Error('The project library identity is unavailable.');
 					return id;
-				})().catch((error: unknown) => { library = null; throw error; }),
+				})().finally(() => { library = null; }),
 				commit: runtime.commit,
 				createId: runtime.createStableId,
 				openProject: id => actions.project.openById(id),

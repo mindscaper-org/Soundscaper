@@ -23,6 +23,15 @@ test('subproject commands retry a transient read of the library identity', async
 	assert.match(await controller.actions.subprojects.libraryId(), /^library-/u);
 });
 
+test('clearing local data gives newly linked projects the new library identity', async context => {
+	const { controller, store } = await controllerSession(context);
+	const previous = await controller.actions.subprojects.libraryId();
+	await controller.actions.project.clear();
+	const current = await controller.actions.subprojects.libraryId();
+	assert.notEqual(current, previous);
+	assert.equal(await store.settingsRepository.get('soundscaper.subproject-library-id.v1'), current);
+});
+
 test('canceling Export while a subproject is being checked never opens the export destination', async context => {
 	type Options = NonNullable<Parameters<typeof controllerSession>[1]>;
 	const destinations: unknown[] = [];

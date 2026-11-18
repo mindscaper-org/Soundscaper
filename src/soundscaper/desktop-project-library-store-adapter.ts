@@ -12,6 +12,8 @@ import {
 	reportDesktopProjectLocalCleanupError,
 } from '../common/editor/storage/project-store-defaults.ts';
 import type { LinkedOriginalStoreService } from '../common/editor/storage/linked-original-store-service.ts';
+import type { LocalStoreClearOptions } from '../common/editor/storage/linked-original-clear-admission.ts';
+import { SUBPROJECT_LIBRARY_SETTING } from '../common/editor/subproject-library-setting.ts';
 import type { EditorProjectRuntimeProfile } from '../common/editor/project-runtime-profile.ts';
 import {
 	assertSoundscaperProjectProfile,
@@ -48,6 +50,7 @@ export interface SoundscaperDesktopProjectStoreLocal {
 	loadProject(projectId: string, options?: Readonly<{ revision?: number; signal?: AbortSignal }> | unknown):
 		PromiseLike<unknown> | unknown;
 	listProjects(): PromiseLike<readonly unknown[]> | readonly unknown[];
+	clear(options?: LocalStoreClearOptions): Promise<void>;
 	readonly linkedOriginalStoreService: Pick<LinkedOriginalStoreService, 'deleteProject' | 'duplicateProject'>;
 }
 
@@ -297,6 +300,7 @@ function proxyHandler<Store extends SoundscaperDesktopProjectStoreLocal>(
 				timestamp,
 			});
 		},
+		clear: () => localStore.clear({ preserveSettings: [SUBPROJECT_LIBRARY_SETTING] }),
 		preservesProjectsOnClear: () => true,
 	});
 	return {
