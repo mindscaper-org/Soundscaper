@@ -180,7 +180,7 @@ test.describe('clip source editor', () => {
 		}, 0));
 		await expect.poll(paintedSamples).toBeGreaterThan(100);
 		await wheel(0, -1000000);
-		await expect(ruler).toHaveAttribute('aria-valuemin', '0');
+		await expect(ruler).toHaveAttribute('aria-valuemin', '-0.1');
 		await expect(waveform.locator('[data-source-active="false"] canvas')).toHaveCount(1);
 		await expect.poll(paintedSamples).toBeGreaterThan(100);
 		await wheel(0, 1000000);

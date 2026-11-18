@@ -26,10 +26,14 @@ interface SignatureSection {
 	readonly upper: number;
 }
 
+export function clipSourceClockOrigin(global: boolean, clipStartFrame: number, projectStartFrame: number): number {
+	return (global ? projectStartFrame : 0) - clipStartFrame;
+}
+
 /** Musical labels change origin; the project's tempo still determines every tick's sample. */
 export function createClipSourceRulerTicks(options: ClipSourceRulerTickOptions): readonly ClipSourceRulerTick[] {
 	const offset = options.projectStartFrame - options.clipStartFrame;
-	if (!options.beats || !options.signatureMap) return sourceRulerTicks({ ...options, originFrame: (options.global ? options.projectStartFrame : 0) - options.clipStartFrame });
+	if (!options.beats || !options.signatureMap) return sourceRulerTicks({ ...options, originFrame: clipSourceClockOrigin(options.global, options.clipStartFrame, options.projectStartFrame) });
 	const origin = options.global ? { num: 0, den: 1 } : projectBeat(options.projectStartFrame, options);
 	const start = subtractRationals(projectBeat(options.startFrame + offset, options), origin);
 	const end = subtractRationals(projectBeat(options.endFrame + offset, options), origin);
