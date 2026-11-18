@@ -281,6 +281,12 @@ test('every pinned archive URL can actually satisfy its byte-exact pin', () => {
 	}
 });
 
+test('x264 uses the byte-identical GitHub mirror for unattended downloads', () => {
+	const register = readMilestone5NativeSourceAcquisitions(repositoryRoot);
+	const source = requireMilestone5NativeSource(register, 'x264');
+	assert.equal(source.archive.url, `https://codeload.github.com/mirror/x264/tar.gz/${source.git.commit}`);
+});
+
 function sha256(bytes) {
 	return createHash('sha256').update(bytes).digest('hex');
 }
