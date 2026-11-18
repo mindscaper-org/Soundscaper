@@ -155,6 +155,10 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 		for (const listener of listeners) listener();
 	}
 	function assertActive(): void { if (disposed) throw new AudioHostError('closed', 'The audio host workspace has closed.'); }
+	function assertCanReplaceDevices(): void {
+		assertActive();
+		if (busy()) throw new AudioHostError('recording-active', 'Stop recording or cancel scheduled recording before changing audio devices.');
+	}
 	function enqueue(operation: () => Promise<void>): Promise<void> {
 		if (disposed) return Promise.resolve();
 		const request = ++requestGeneration;
@@ -202,25 +206,39 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 		if (failed?.status === 'rejected') throw failed.reason;
 	}
 	async function activate(host: string, enumerate: boolean): Promise<void> {
-		assertActive();
-		if (busy()) throw new AudioHostError('recording-active', 'Stop recording or cancel scheduled recording before changing audio devices.');
+		assertCanReplaceDevices();
 		if (host === 'electron' && connectedKey === preferenceKey() && !enumerate) return;
 		const previousHost = snapshot.host;
+		let nextInventory: NativeAudioInventoryReport | null = null;
 		if (host !== 'electron') {
 			if (!isNativeAudioStreamingBackend(host)) throw new AudioHostError('unavailable', 'Choose an available audio host in audio settings.');
 			if (!availability) await readAvailability();
 			if (!snapshot.hosts.some((candidate) => candidate.id === host)) {
 				throw new AudioHostError('unavailable', availability?.payload.detail || 'This native audio host is unavailable. Choose Electron or refresh audio devices.');
 			}
-			inputReplacement = controller.actions.recording?.prepareInputReplacement?.() ?? inputReplacement;
-			const context = await audioHostOperation('rate-mismatch', () => options.engine.getAudioContext({ resume: true, sampleRate: preferences().recordingSampleRate }));
+			if (!await audioHostOperation('startup', () => bridge.setNativeAudioHelperEnabled(true))) throw new AudioHostError('startup', 'The native audio host could not start. Choose Electron or clear the audio helper quarantine in Audio settings.');
 			assertActive();
+			if (!enumerate && inventory?.backend === host) nextInventory = inventory;
+			else {
+				const outcome = await audioHostOperation('inventory', () => bridge.describeNativeAudioBackend({ backend: host }));
+				assertActive();
+				if (outcome.status !== 'described') throw new AudioHostError('inventory', outcome.message);
+				nextInventory = outcome.inventory as NativeAudioInventoryReport;
+			}
+			if (!nextInventory.devices.length) {
+				throw new AudioHostError('inventory', nextInventory.detail || 'No audio devices are available for the selected host.');
+			}
+		}
+		assertCanReplaceDevices();
+		inputReplacement = controller.actions.recording?.prepareInputReplacement?.() ?? inputReplacement;
+		if (nextInventory) {
+			const context = await audioHostOperation('rate-mismatch', () => options.engine.getAudioContext({ resume: true, sampleRate: preferences().recordingSampleRate }));
+			assertCanReplaceDevices();
 			if (context.sampleRate !== preferences().recordingSampleRate) throw new AudioHostError('rate-mismatch', 'The audio host could not use the selected recording sample rate. Choose another sample rate.');
 		}
-		if (host === 'electron') inputReplacement = controller.actions.recording?.prepareInputReplacement?.() ?? inputReplacement;
 		await closeSessions();
 		assertActive();
-		if (host === 'electron') {
+		if (!nextInventory) {
 			await audioHostOperation('startup', () => bridge.setNativeAudioHelperEnabled(false));
 			assertActive();
 			await setInventory(host, null);
@@ -229,19 +247,10 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 			connectedKey = preferenceKey();
 			return;
 		}
-		if (!await audioHostOperation('startup', () => bridge.setNativeAudioHelperEnabled(true))) throw new AudioHostError('startup', 'The native audio host could not start. Choose Electron or clear the audio helper quarantine in Audio settings.');
-		assertActive();
-		if (enumerate || inventory?.backend !== host) {
-			const outcome = await audioHostOperation('inventory', () => bridge.describeNativeAudioBackend({ backend: host }));
-			assertActive();
-			if (outcome.status !== 'described') throw new AudioHostError('inventory', outcome.message);
-			inventory = outcome.inventory as NativeAudioInventoryReport;
-		}
-		if (!inventory) throw new AudioHostError('inventory', 'The selected host did not provide an audio device inventory.');
-		await setInventory(host, inventory);
+		await setInventory(host, nextInventory);
 		const settings = preferences(), routeKey = preferenceKey();
 		try {
-			for (const request of routeRequests(host, inventory, settings, inputChannelCount(settings))) {
+			for (const request of routeRequests(host, nextInventory, settings, inputChannelCount(settings))) {
 				const opened = await audioHostOperation('session-open', () => bridge.openNativeAudioSession(request));
 				if (opened.status !== 'opened') throw new AudioHostError('session-open', opened.message);
 				sessions.add(opened.sessionId);

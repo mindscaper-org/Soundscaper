@@ -7,11 +7,11 @@ import {
 	type SoundscaperAudioHostController,
 } from '../src/common/editor/ui/soundscaper-audio-host-runtime.ts';
 import type { NativeAudioDeviceReport, NativeAudioInventoryReport } from '../src/common/editor/controller/recording/native-audio-inventory.ts';
-import type { NativeAudioSessionOpenRequestV1, SoundscaperNativeServicesBridge } from '../src/common/editor/ui/soundscaper-native-services-bridge.ts';
+import type { NativeAudioInventoryOutcome, NativeAudioSessionOpenRequestV1, SoundscaperNativeServicesBridge } from '../src/common/editor/ui/soundscaper-native-services-bridge.ts';
 import { createMicrophoneMeterService, type MeterMediaStream, type MicrophoneMeterState, type MicrophoneMeterInputReplacement } from '../src/common/editor/controller/recording/microphone-meter-service.ts';
 import { createOwnedStateAccess } from '../src/common/editor/controller/shared/owned-state.ts';
 import { MockAudioContext } from './helpers/mock-audio-context.js';
-import { deferred } from './helpers/async-test-control.ts';
+import { deferred, waitFor } from './helpers/async-test-control.ts';
 import type { RecordingRoute } from '../src/common/editor/recording-routing.js';
 
 test('native host selection replaces the inventory and connects the selected devices at the recording rate', async () => {
@@ -128,6 +128,46 @@ test('a refused context-rate change preserves the working native devices', async
 	assert.match(fixture.runtime.getSnapshot().error, /planned rate refusal/u);
 	assert.deepEqual(fixture.closed, []);
 	await fixture.runtime.dispose();
+});
+
+for (const unavailable of ['failed-refresh', 'no-devices'] as const) test(`a native ${unavailable} preserves the currently working audio host`, async () => {
+	const fixture = hostFixture('wasapi');
+	try {
+		await fixture.runtime.refresh();
+		const original = fixture.inventory();
+		if (unavailable === 'failed-refresh') {
+			fixture.overrideInventory({ status: 'failed', code: 'helper-failed', message: 'Device discovery failed' });
+			await fixture.runtime.refresh();
+		} else {
+			fixture.overrideInventory({ status: 'described', inventory: { backend: 'asio', status: 'available', detail: '', devices: [] } });
+			await fixture.runtime.setHost('asio');
+		}
+		assert.equal(fixture.runtime.getSnapshot().failureCode, 'inventory');
+		assert.deepEqual(fixture.closed, []);
+		assert.equal(fixture.settings().host, 'wasapi');
+		assert.equal(fixture.inventory(), original);
+	} finally { await fixture.runtime.dispose(); }
+});
+
+test('scheduling a recording during native discovery keeps the existing sessions attached', async () => {
+	const fixture = hostFixture('wasapi');
+	const discovery = deferred<NativeAudioInventoryOutcome>();
+	try {
+		await fixture.runtime.refresh();
+		const inventory = fixture.inventory();
+		assert.ok(inventory);
+		fixture.overrideInventory(discovery.promise);
+		const refreshing = fixture.runtime.refresh();
+		await waitFor(() => fixture.described.length === 2, 'refresh reaches native enumeration');
+		fixture.schedule(true);
+		discovery.resolve({ status: 'described', inventory });
+		await refreshing;
+		assert.equal(fixture.runtime.getSnapshot().failureCode, 'recording-active');
+		assert.deepEqual(fixture.closed, []);
+	} finally {
+		discovery.resolve({ status: 'failed', code: 'cancelled', message: '' });
+		await fixture.runtime.dispose();
+	}
 });
 
 for (const mode of ['ready', 'failed', 'superseded', 'disposed'] as const) test(`native input replacement owns meter retirement until its ${mode} attachment`, async () => {
@@ -361,6 +401,7 @@ function hostFixture(host = 'electron', failOutput = false, devices?: readonly N
 	let settings = { host, recordingSampleRate: 96_000, preferredInputDeviceId: '',
 		preferredOutputDeviceId: '', preferredInputChannelCount: 1 };
 	let inventory: NativeAudioInventoryReport | null = null;
+	let inventoryOutcome: NativeAudioInventoryOutcome | Promise<NativeAudioInventoryOutcome> | null = null;
 	let routes = meter.routes ?? {};
 	let requests = 0;
 	let enabled = false;
@@ -391,6 +432,7 @@ function hostFixture(host = 'electron', failOutput = false, devices?: readonly N
 		setNativeAudioHelperEnabled: async (value: boolean) => { enabled = value; return value; },
 		describeNativeAudioBackend: async ({ backend }: { backend: string }) => {
 			described.push(backend);
+			if (inventoryOutcome) return inventoryOutcome;
 			return { status: 'described', inventory: { backend, status: 'ready', detail: '', devices: devices ?? [
 				{ handle: `input-${backend}`, label: 'Microphone', direction: 'input', channelCount: 2, isDefault: true },
 				{ handle: `output-${backend}`, label: 'Speakers', direction: 'output', channelCount: 2, isDefault: true },
@@ -422,6 +464,7 @@ function hostFixture(host = 'electron', failOutput = false, devices?: readonly N
 		failAvailability: (value: boolean) => { failAvailability = value; },
 		failRate: (value: boolean) => { failRate = value; },
 		inventory: () => inventory, accessRequests: () => requests,
+		overrideInventory: (value: NativeAudioInventoryOutcome | Promise<NativeAudioInventoryOutcome>) => { inventoryOutcome = value; },
 		changeRoutes: (next: Readonly<Record<string, RecordingRoute>>) => { routes = next; for (const listener of listeners) listener(); },
 		change: (patch: Partial<typeof settings>) => { settings = { ...settings, ...patch }; for (const listener of listeners) listener(); },
 	};
