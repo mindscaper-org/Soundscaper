@@ -15,7 +15,7 @@ async function savingOpaqueCopy() {
 		fileService: {
 			isDesktop: false,
 			chooseSaveTarget: async () => ({ browserDownload: true }),
-			prepareSave: async () => ({ mode: 'blob', target: { browserDownload: true } }),
+			prepareSave: async request => ({ mode: 'blob', fileName: request.suggestedName, target: { browserDownload: true } }),
 			async saveFile(request) { entered.resolve(); await resume.promise; return { fileName: request.suggestedName, size: request.blob.size }; },
 		},
 	});
