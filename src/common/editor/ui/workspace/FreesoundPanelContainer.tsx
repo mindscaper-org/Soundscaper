@@ -166,10 +166,13 @@ export function FreesoundPanelContainer({
 	}, []);
 	const routePreviewOutput = useCallback((active: ActiveFreesoundPreview, deviceId: string) => {
 		if (typeof active.audio.setSinkId !== 'function') return;
-		active.outputReady = active.outputReady.then(async () => {
-			if (preview.current === active && active.audio.sinkId !== deviceId) await active.audio.setSinkId(deviceId);
+		const output = active.outputReady.catch(() => undefined).then(async () => {
+			if (preview.current === active && active.outputReady === output && active.audio.sinkId !== deviceId) {
+				await active.audio.setSinkId(deviceId);
+			}
 		});
-		void active.outputReady.catch(() => { if (preview.current === active) stopPreview(); });
+		active.outputReady = output;
+		void output.catch(() => { if (preview.current === active && active.outputReady === output) stopPreview(); });
 	}, [stopPreview]);
 	useEffect(() => {
 		if (preview.current) routePreviewOutput(preview.current, outputDeviceId);
@@ -177,11 +180,17 @@ export function FreesoundPanelContainer({
 
 	const playPreview = useCallback((active: ActiveFreesoundPreview) => {
 		const request = ++active.playRequest;
-		void active.outputReady.then(() => {
-			if (preview.current === active && active.playRequest === request) return active.audio.play();
-		}).catch(() => {
-			if (preview.current === active && active.playRequest === request) stopPreview();
-		});
+		const current = () => preview.current === active && active.playRequest === request;
+		void Promise.resolve().then(async () => {
+			while (current()) {
+				const output = active.outputReady;
+				try { await output; }
+				catch (error) { if (active.outputReady === output) throw error; }
+				if (active.outputReady !== output) continue;
+				if (current()) await active.audio.play();
+				return;
+			}
+		}).catch(() => { if (current()) stopPreview(); });
 	}, [stopPreview]);
 
 	useEffect(() => {

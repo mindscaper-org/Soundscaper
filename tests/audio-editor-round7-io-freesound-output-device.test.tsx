@@ -21,7 +21,9 @@ const SOUND = {
 	waveform: { available: true, url: '/api/freesound/sounds/42/waveform?asset=789' },
 };
 
-for (const [initialOutput, delayed] of [['', false], ['speakers-a', false], ['speakers-a', true]] as const) test(`Freesound preview inherits ${initialOutput || 'default'} output and follows device choices, delayed=${String(delayed)}`, async () => {
+for (const [initialOutput, delayed, replaceRejectedOutput] of [
+	['', false, false], ['speakers-a', false, false], ['speakers-a', true, false], ['retired-device', true, true],
+] as const) test(`Freesound preview follows ${initialOutput || 'default'} output, delayed=${String(delayed)}, replaced=${String(replaceRejectedOutput)}`, async () => {
 	const dom = installReactTestDom();
 	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const priorAct = globals.IS_REACT_ACT_ENVIRONMENT;
@@ -29,7 +31,8 @@ for (const [initialOutput, delayed] of [['', false], ['speakers-a', false], ['sp
 	globals.IS_REACT_ACT_ENVIRONMENT = true;
 	const audios: PreviewAudio[] = [];
 	let releaseOutput: (() => void) | undefined;
-	const outputGate = delayed ? new Promise<void>(resolve => { releaseOutput = resolve; }) : Promise.resolve();
+	let rejectOutput: ((error: Error) => void) | undefined;
+	const outputGate = delayed ? new Promise<void>((resolve, reject) => { releaseOutput = resolve; rejectOutput = reject; }) : Promise.resolve();
 	globalThis.Audio = class extends PreviewAudio {
 		constructor(source = '') { super(source); this.outputGate = outputGate; audios.push(this); }
 	} as unknown as typeof Audio;
@@ -58,11 +61,16 @@ for (const [initialOutput, delayed] of [['', false], ['speakers-a', false], ['sp
 		const audio = audios[0]!;
 		if (delayed) {
 			assert.equal(audio.playCount, 0, 'native device routing must finish before preview starts');
-			await act(async () => { releaseOutput?.(); });
+			if (replaceRejectedOutput) {
+				await render('replacement');
+				audio.outputGate = Promise.resolve();
+				await act(async () => { rejectOutput?.(new Error('The previous device was disconnected.')); });
+			} else await act(async () => { releaseOutput?.(); });
 		}
-		assert.equal(audio.sinkId, initialOutput, 'the actual new preview inherits the chosen speaker output');
+		const expectedOutput = replaceRejectedOutput ? 'replacement' : initialOutput;
+		assert.equal(audio.sinkId, expectedOutput, 'the actual new preview inherits the chosen speaker output');
 		assert.equal(audio.playCount, 1);
-		assert.deepEqual(audio.playSinks, [initialOutput], 'routing completes before playback starts');
+		assert.deepEqual(audio.playSinks, [expectedOutput], 'routing completes before playback starts');
 		await render('speakers-b');
 		assert.equal(audio.sinkId, 'speakers-b');
 		assert.equal(audio.playCount, 1, 'changing speaker output retains the preview transport');
@@ -72,7 +80,7 @@ for (const [initialOutput, delayed] of [['', false], ['speakers-a', false], ['sp
 		await clickPreview('Play preview');
 		assert.equal(audios.length, 1);
 		assert.equal(audio.playCount, 2);
-		assert.deepEqual(audio.playSinks, [initialOutput, ''], 'resume follows a device choice made while paused');
+		assert.deepEqual(audio.playSinks, [expectedOutput, ''], 'resume follows a device choice made while paused');
 
 	} finally {
 		await act(async () => root.unmount());
