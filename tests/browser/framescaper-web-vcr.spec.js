@@ -24,7 +24,7 @@ test.describe('Framescaper Web VCR', () => {
 			browserName !== 'chromium',
 			'The packaged Web VCR capture adapter requires Chromium MediaStreamTrackProcessor support.',
 		);
-		await installWebVcrHost(page);
+		await installWebVcrHost(page, { redirectTo: 'https://media.example.test/playback' });
 		const editor = await bootEditor(page, '/framescaper/en/');
 
 		const panels = await openNestedCommandMenu(page, editor, 'Window', []);
@@ -46,8 +46,9 @@ test.describe('Framescaper Web VCR', () => {
 
 		const address = panel.getByRole('textbox', { name: 'HTTPS address', exact: true });
 		await address.fill('https://media.example.test/watch');
-		await panel.getByRole('button', { name: 'Go', exact: true }).click();
-		await expect(address).toHaveValue('https://media.example.test/watch');
+		await address.press('Enter');
+		await expect(address).toBeFocused();
+		await expect(address).toHaveValue('https://media.example.test/playback');
 		await expect(panel.getByRole('button', { name: 'Back', exact: true })).toBeEnabled();
 		await panel.getByRole('button', { name: 'Back', exact: true }).click();
 		await expect(panel.getByRole('button', { name: 'Forward', exact: true })).toBeEnabled();

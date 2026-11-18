@@ -52,6 +52,7 @@ export default function WebVcrPanel({ controller, snapshot, copy, blocked, run }
 	const navigationUrl = webVcr?.navigation.url ?? 'https://';
 	const navigationGeneration = webVcr?.navigation.generation;
 	const addressRef = useRef<HTMLInputElement>(null);
+	const addressEdited = useRef(false);
 	const [address, setAddress] = useState(() => navigationUrl);
 	const [confirmClear, setConfirmClear] = useState(false);
 	useEffect(() => {
@@ -59,7 +60,8 @@ export default function WebVcrPanel({ controller, snapshot, copy, blocked, run }
 		// pushes included, and the field stays editable while a page is loading.
 		// Adopting one of those while the operator is typing the next destination
 		// would replace what they had entered.
-		if (addressRef.current !== null && addressRef.current === globalThis.document?.activeElement) return;
+		if (addressEdited.current && addressRef.current === globalThis.document?.activeElement) return;
+		addressEdited.current = false;
 		setAddress(navigationUrl);
 	}, [navigationGeneration, navigationUrl]);
 	if (!webVcr || !webVcrCapabilityAvailable(webVcr)) return null;
@@ -74,12 +76,14 @@ export default function WebVcrPanel({ controller, snapshot, copy, blocked, run }
 		event.preventDefault();
 		const next = address.trim();
 		if (!next || controlsLocked) return;
+		addressEdited.current = false;
 		invoke(() => actions?.navigate?.(next));
 	};
 	const record = (): void => invoke(actions?.record);
 	const stop = (): void => invoke(actions?.stopAndImport);
 	const canRecord = webVcr.phase === 'ready' && !webVcr.navigation.loading && Boolean(actions?.record) && !recordingBlocked;
 	const canStop = ['preparing', 'recording'].includes(webVcr.phase) && Boolean(actions?.stopAndImport);
+	const canClearBrowserData = webVcr.phase === 'ready' && Boolean(actions?.clearBrowserData);
 	const recovery = webVcr.phase === 'recovery' || snapshot.capture?.phase === 'recovery';
 
 	return <section
@@ -113,7 +117,7 @@ export default function WebVcrPanel({ controller, snapshot, copy, blocked, run }
 				<EditorControlLabel className="kw-audio-editor-sr-only">{copy.webVcrAddress}</EditorControlLabel>
 					<input ref={addressRef} type="url" inputMode="url" required pattern="[hH][tT][tT][pP][sS]://.*"
 					aria-label={copy.webVcrAddress} value={address} disabled={controlsLocked}
-					onChange={(event) => setAddress(event.currentTarget.value)} />
+					onChange={(event) => { addressEdited.current = true; setAddress(event.currentTarget.value); }} />
 			</label>
 			<button type="submit" disabled={controlsLocked || !actions?.navigate}>{copy.webVcrGo}</button>
 		</form>
@@ -186,12 +190,13 @@ export default function WebVcrPanel({ controller, snapshot, copy, blocked, run }
 					onClick={() => invoke(controller.actions.capture?.discard)}>{copy.captureDelete}</button>
 			</>}
 			{!confirmClear
-				? <button type="button" disabled={webVcr.phase !== 'ready' || !actions?.clearBrowserData}
+				? <button type="button" disabled={!canClearBrowserData}
 					onClick={() => setConfirmClear(true)}>{copy.webVcrClearData}</button>
 				: <span className="kw-web-vcr__clear-confirm" role="group" aria-label={copy.webVcrClearData}>
 					<span role="alert">{copy.webVcrClearDataWarning}</span>
 					<button type="button" onClick={() => setConfirmClear(false)}>{copy.webVcrCancelClearData}</button>
-					<button type="button" onClick={() => {
+					<button type="button" disabled={!canClearBrowserData} onClick={() => {
+						if (!canClearBrowserData) return;
 						setConfirmClear(false);
 						invoke(actions?.clearBrowserData);
 					}}>{copy.webVcrClearDataConfirm}</button>
