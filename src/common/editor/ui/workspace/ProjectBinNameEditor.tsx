@@ -19,7 +19,7 @@ export default function ProjectBinNameEditor({ clip, name, copy, disabled, onCom
 	const blurCommitGuard = useRef(createDraftBlurCommitGuard()).current;
 	useEffect(() => setDraft(name), [clip.id, name]);
 	const commit = () => {
-		if (!draftBlurShouldCommit(blurCommitGuard)) return;
+		if (!draftBlurShouldCommit(blurCommitGuard) || draft === name) return;
 		const nextName = draft.trim();
 		if (!nextName) {
 			setDraft(name);
