@@ -118,7 +118,8 @@ for (const source of ['video clip', 'still image']) test(`Framescaper burns the 
 	await captions.getByRole('textbox', { name: 'Track name', exact: true }).fill('English dialogue');
 	await captions.locator('[data-framescaper-caption-file]').setInputFiles({
 		name: 'dialogue.vtt', mimeType: 'text/vtt',
-		buffer: Buffer.from('WEBVTT\n\n00:00.200 --> 00:00.900\nA visible caption\n'),
+		buffer: Buffer.from('WEBVTT\n\n00:00.200 --> 00:00.900\nA visible caption\n\n'
+			+ '00:00.400 --> 00:00.750\nOverlapping caption\n'),
 	});
 	await expect(captions.getByRole('status')).toContainText('No interchange losses');
 	await closeFinishing(captions);
@@ -140,7 +141,7 @@ for (const source of ['video clip', 'still image']) test(`Framescaper burns the 
 	await expect(link).toBeVisible({ timeout: 60_000 });
 	await expect(link).not.toHaveAttribute('href', previousDownload);
 	const captioned = await readDownloadBytes(page, link);
-	const [before, during, after] = await page.evaluate(async ([plainBytes, captionBytes]) => {
+	const { lower, upper } = await page.evaluate(async ([plainBytes, captionBytes]) => {
 		async function pictureBands(data) {
 			const url = URL.createObjectURL(new Blob([Uint8Array.from(data)], { type: 'video/webm' }));
 			const video = document.createElement('video');
@@ -157,7 +158,10 @@ for (const source of ['video clip', 'still image']) test(`Framescaper burns the 
 				async function pixelsAt(time) {
 					await new Promise(resolve => { video.onseeked = resolve; video.currentTime = time; });
 					context.drawImage(video, 0, 0);
-					return context.getImageData(100, 140, 120, 22).data;
+					return {
+						lower: context.getImageData(100, 144, 120, 18).data,
+						upper: context.getImageData(100, 124, 120, 20).data,
+					};
 				}
 				return [await pixelsAt(.1), await pixelsAt(.5), await pixelsAt(1.15)];
 			} finally {
@@ -165,16 +169,18 @@ for (const source of ['video clip', 'still image']) test(`Framescaper burns the 
 			}
 		}
 		const [plain, burned] = await Promise.all([pictureBands(plainBytes), pictureBands(captionBytes)]);
-		return burned.map((pixels, index) => {
+		return Object.fromEntries(['lower', 'upper'].map(band => [band, burned.map((pixels, index) => {
 			let changed = 0;
-			for (let offset = 0; offset < pixels.length; offset += 4) {
-				const delta = Math.max(...[0, 1, 2].map(channel => Math.abs(pixels[offset + channel] - plain[index][offset + channel])));
+			for (let offset = 0; offset < pixels[band].length; offset += 4) {
+				const delta = Math.max(...[0, 1, 2].map(channel => Math.abs(pixels[band][offset + channel] - plain[index][band][offset + channel])));
 				if (delta > 60) changed++;
 			}
 			return changed;
-		});
+		})]));
 	}, [[...uncaptioned], [...captioned]]);
-	expect(during).toBeGreaterThan(Math.max(before, after) + 60);
+	for (const [before, during, after] of [lower, upper]) {
+		expect(during).toBeGreaterThan(Math.max(before, after) + 60);
+	}
 });
 
 async function openFinishing(page, editor, owner, itemName, title) {
