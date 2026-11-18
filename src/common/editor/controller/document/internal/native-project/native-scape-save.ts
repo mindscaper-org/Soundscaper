@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { SCAPE_MIME_TYPE } from '../../../../scape-project-format.ts'; import { setLocalizedStatus } from '../../../../../i18n/presentation-message.ts';
+import { SCAPE_MIME_TYPE } from '../../../../scape-project-format.ts';
 import type { ProjectFileExtension } from '../../../../../project-file-extensions.ts';
 import type { ScapeArchiveByteSource } from '../../../../../scape/archive-byte-source.ts';
 import { recordScapeArchiveManifest } from '../scape/scape-archive-manifest-action.ts';
@@ -118,10 +118,11 @@ export interface NativeRetainedScapeArchive {
 /** Orchestrate the unchanged-copy save of a retained future-schema archive. */
 export async function saveNativeScapeArchiveCopy(
 	runtime: Pick<NativeProjectServiceRuntime,
-	'copy' | 'copyFutureScapeArchive' | 'ensureProjectFileName' | 'fileService'
-	| 'projectFileExtension' | 'publishDocumentSnapshot' | 'scapeMimeType' | 'setStatus' | 'state'>,
+	'copyFutureScapeArchive' | 'ensureProjectFileName' | 'fileService'
+	| 'projectFileExtension' | 'publishDocumentSnapshot' | 'scapeMimeType' | 'state'>,
 	request: Readonly<{
 		assertReady(): void;
+		beginWriting(): void;
 		fallbackFileName: unknown;
 		options: SaveScapeOptions;
 		retained: NativeRetainedScapeArchive;
@@ -135,13 +136,13 @@ export async function saveNativeScapeArchiveCopy(
 	});
 	if (prepared.mode === 'cancelled') return { cancelled: true };
 	request.assertReady();
+	request.beginWriting();
 	const { saved } = await publishNativeScapeArchiveCopy(runtime, {
 		archive: request.retained.archive,
 		copySource: request.retained.copySource,
 		assertReadyToCommit: request.assertReady,
 		fileName, prepared, signal: request.signal,
 	});
-	setLocalizedStatus(runtime.setStatus, runtime.copy, "projectSaved", undefined, 'success');
 	return { ...saved, manifest: request.retained.manifest };
 }
 

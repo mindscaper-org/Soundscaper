@@ -390,6 +390,7 @@ export interface NativeProjectServiceRuntime {
 		adoptSessionRevision?: boolean;
 		replaceSessionHistory?: boolean;
 		save?: boolean;
+		transient?: boolean;
 		preserveScapeOpenRequest?: boolean;
 	}>) => PromiseLike<unknown> | unknown;
 	readonly editingBlocked: (allowReadOnly?: boolean) => boolean;

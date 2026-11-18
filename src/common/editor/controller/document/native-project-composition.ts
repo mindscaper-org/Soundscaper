@@ -70,6 +70,11 @@ export function createNativeProjectComposition(dependencies: NativeProjectCompos
 			} finally { task.finish(); }
 		},
 	});
+	const fileSaving = dependencies.fileSaving;
+	if (fileSaving) {
+		const unsubscribeArchives = fileSaving.subscribe(() => { void service.retireClosedScapeArchives().catch(fileSaving.handleError); });
+		fileSaving.signal.addEventListener('abort', unsubscribeArchives, { once: true });
+	}
 	const { taskProgress, copy } = dependencies;
 	const openAudacityProject = (...args: Parameters<typeof service.openAudacityProject>) => (
 		taskProgress.run('project-io', copy.importing, () => service.openAudacityProject(...args), undefined, { key: "importing" })

@@ -104,7 +104,7 @@ export function createNativeProjectOwnership(runtime: NativeProjectServiceRuntim
 	 * A save whose project moved on wrote a document nobody is looking at any more, so the
 	 * live document goes back to dirty instead of inheriting the finished save's state.
 	 */
-	function finishSave(task: EditorTaskScope, token: EditorProjectToken, state: 'saved'): boolean {
+	function finishSave(task: EditorTaskScope, token: EditorProjectToken, state: 'saved' | 'dirty'): boolean {
 		if (saveOwner !== task) return false;
 		saveOwner = null;
 		if (!ownershipIsCurrent(task, token) || runtime.getProject()?.revision !== saveRevision) {
@@ -121,7 +121,7 @@ export function createNativeProjectOwnership(runtime: NativeProjectServiceRuntim
 		return true;
 	}
 
-	function failSave(task: EditorTaskScope, token: EditorProjectToken): void {
+	function failSave(task: EditorTaskScope, token: EditorProjectToken, state: 'saved' | 'dirty' = 'dirty'): void {
 		if (saveOwner !== task) return;
 		saveOwner = null;
 		try {
@@ -129,7 +129,7 @@ export function createNativeProjectOwnership(runtime: NativeProjectServiceRuntim
 		} catch {
 			return;
 		}
-		runtime.state.saveState = 'dirty';
+		runtime.state.saveState = state;
 		runtime.publishDocumentSnapshot();
 	}
 

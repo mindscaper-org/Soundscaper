@@ -34,6 +34,7 @@ export interface ProjectLifecycleLock {
 }
 
 export interface ProjectLifecycleTabMetadata {
+	readonly transient?: boolean;
 	readonly selectedTrackId?: string | null;
 	readonly selectedClipId?: string | null;
 	readonly selectedAnnotationId?: string | null;

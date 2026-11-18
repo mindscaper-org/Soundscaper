@@ -34,6 +34,7 @@ export interface ProjectSwitchOptions<History> {
 	readonly replaceSessionHistory?: boolean;
 	readonly readOnly?: boolean;
 	readonly readOnlyReason?: string | null;
+	readonly transient?: boolean;
 	readonly history?: History;
 	/** The native Scape owner is committing this request into its final activation. */
 	readonly preserveScapeOpenRequest?: boolean;

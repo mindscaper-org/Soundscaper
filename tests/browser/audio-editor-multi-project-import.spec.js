@@ -2,6 +2,7 @@
 
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createSoundscaperScapeNativeRuntime } from '../../src/soundscaper/editor-scape-native.ts';
+import { rewriteScapeProjectDocument } from '../helpers/scape-archive-rewrite.js';
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseFileAction, clipByName, fileDataTransfer, importFiles, waitForProjectActivation } from './audio-editor-test-helpers.js';
 
@@ -288,6 +289,27 @@ test('a desktop File Open choice waits for work that began while the native choo
 	await page.evaluate(() => globalThis.releaseManualMedia());
 	await expect(editor.getByRole('tab', { name: 'Waiting desktop choice', exact: true })).toHaveAttribute('aria-selected', 'true');
 	await expect.poll(() => page.evaluate(() => globalThis.nativeArchiveReleased)).toBe(true);
+});
+
+test('closing a desktop future-version project releases its temporary archive copy', async ({ page }) => {
+	const current = await archiveFile('future-with-temporary-copy', 'Future viewing tab');
+	const future = await rewriteScapeProjectDocument(new Blob([current.buffer]), document => { document.schemaVersion = 2; });
+	await installDesktopArchiveLaunch(page, { ...current, buffer: Buffer.from(await future.arrayBuffer()) });
+	const editor = await bootEditor(page, '/embed/en/');
+	const retainedArchives = () => page.evaluate(async () => {
+		const root = await navigator.storage.getDirectory();
+		const directory = await root.getDirectoryHandle('audio-editor-exports', { create: true });
+		const names = [];
+		for await (const name of directory.keys()) if (name.endsWith('-opaque-project.scape')) names.push(name);
+		return names;
+	});
+	await page.evaluate(() => globalThis.launchNativeArchive());
+	const close = editor.getByRole('button', { name: 'Close project: Future viewing tab', exact: true });
+	await expect(close).toBeVisible();
+	await expect.poll(retainedArchives).toHaveLength(1);
+	await close.click();
+	await expect(close).toHaveCount(0);
+	await expect.poll(retainedArchives).toHaveLength(0);
 });
 
 async function holdManualRecording(page) {
