@@ -324,11 +324,12 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	);
 	const uploadClipToFreesound = useFreesoundClipUploadCommand({ controller, project, missingSourceIds: snapshot.missingSourceIds, onError, openPanel: openWorkspacePanel });
 	useEffect(() => {
-		const binItemId = projectBinSearchReveal?.binItemId;
+		const { binItemId, projectIdentity } = projectBinSearchReveal || {};
 		if (!binItemId) return undefined;
 		let frame = 0;
 		let attempts = 0;
 		const revealItem = () => {
+			if (currentProjectSession() !== projectIdentity) return;
 			attempts += 1;
 			const item = [...(editorRef.current?.querySelectorAll('[data-project-bin-item]') || [])]
 				.find((candidate) => String(candidate.dataset.projectBinItem) === String(binItemId));
@@ -341,7 +342,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		};
 		frame = requestAnimationFrame(revealItem);
 		return () => cancelAnimationFrame(frame);
-	}, [projectBinSearchReveal]);
+	}, [currentProjectSession, projectBinSearchReveal]);
 	const openExternal = useCallback((url) => {
 		if (fileService.isDesktop) return fileService.openExternal(desktopExternalDestination(url));
 		const opened = globalThis.open?.(url, '_blank', 'noopener,noreferrer');
