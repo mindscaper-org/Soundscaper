@@ -5,6 +5,7 @@ import { createSoundscaperScapeNativeRuntime } from '../../src/soundscaper/edito
 import { rewriteScapeProjectDocument } from '../helpers/scape-archive-rewrite.js';
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseFileAction, clipByName, fileDataTransfer, importFiles, waitForProjectActivation } from './audio-editor-test-helpers.js';
+import { originPrivateFileSystemAvailable } from './helpers/storage-capabilities.js';
 
 async function archiveFile(id, title) {
 	const exported = await createSoundscaperScapeNativeRuntime().exportScapeProject(createSoundscaperProject({ id, title }), {
@@ -296,6 +297,7 @@ test('closing a desktop future-version project releases its temporary archive co
 	const future = await rewriteScapeProjectDocument(new Blob([current.buffer]), document => { document.schemaVersion = 2; });
 	await installDesktopArchiveLaunch(page, { ...current, buffer: Buffer.from(await future.arrayBuffer()) });
 	const editor = await bootEditor(page, '/embed/en/');
+	const persistentStorage = await originPrivateFileSystemAvailable(page);
 	const retainedArchives = () => page.evaluate(async () => {
 		const root = await navigator.storage.getDirectory();
 		const directory = await root.getDirectoryHandle('audio-editor-exports', { create: true });
@@ -306,10 +308,11 @@ test('closing a desktop future-version project releases its temporary archive co
 	await page.evaluate(() => globalThis.launchNativeArchive());
 	const close = editor.getByRole('button', { name: 'Close project: Future viewing tab', exact: true });
 	await expect(close).toBeVisible();
-	await expect.poll(retainedArchives).toHaveLength(1);
+	await expect.poll(() => page.evaluate(() => globalThis.nativeArchiveReleased)).toBe(true);
+	if (persistentStorage) await expect.poll(retainedArchives).toHaveLength(1);
 	await close.click();
 	await expect(close).toHaveCount(0);
-	await expect.poll(retainedArchives).toHaveLength(0);
+	if (persistentStorage) await expect.poll(retainedArchives).toHaveLength(0);
 });
 
 async function holdManualRecording(page) {
