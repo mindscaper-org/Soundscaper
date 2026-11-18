@@ -285,6 +285,16 @@ test('a point label inside a region stops where the region does, so no audio is 
 	]);
 });
 
+test('point chapters use the earliest enclosing end and skip expired regions', () => {
+	const labels = [[0, 90], [10, 50], [10, 35], [10, 10], [36, 36], [50, 50], [90, 90]];
+	const chapters = resolveExportChapters(labelledProject(labels.map(([startFrame, endFrame], index) => ({
+		id: String(index), title: `Label ${index}`, startFrame, endFrame,
+	}))), { startFrame: 0, endFrame: 100 });
+	assert.deepEqual(chapters.map(({ startFrame, endFrame }) => [startFrame, endFrame]), [
+		[0, 90], [10, 35], [10, 35], [10, 50], [36, 50], [50, 90], [90, 100],
+	]);
+});
+
 test('every chapter file states its own place on the timeline in its BWF TimeReference', () => {
 	const project = labelledProject([
 		{ id: 'a', title: 'Intro', startFrame: 0, endFrame: 2 * SAMPLE_RATE },
