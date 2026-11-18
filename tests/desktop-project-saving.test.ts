@@ -28,11 +28,14 @@ test('temporary folder changes move the closed library on restart and preserve c
 	assert.equal(await readFile(join(selected, 'Soundscaper', 'project-library', 'v1', 'library.sqlite'), 'utf8'), 'project data');
 	assert.equal(restarted.status().restartRequired, false);
 	const conflicting = join(root, 'conflicting');
-	await mkdir(join(conflicting, 'Soundscaper', 'project-library', 'v1'), { recursive: true });
-	await writeFile(join(conflicting, 'Soundscaper', 'project-library', 'v1', 'library.sqlite'), 'other data');
-	await restarted.select(conflicting);
-	await assert.rejects(new TemporaryProjectStorage(config, original, 'Soundscaper').prepare(), /conflict|different|identical/iu);
+	const conflictingLibrary = join(conflicting, 'Soundscaper', 'project-library', 'v1');
+	await mkdir(conflictingLibrary, { recursive: true });
+	await writeFile(join(conflictingLibrary, 'library.sqlite'), 'other data');
+	await assert.rejects(restarted.select(conflicting), /conflict|different|identical/iu);
+	assert.deepEqual(restarted.status(), { folder: selected, selectedFolder: selected, restartRequired: false });
+	assert.equal(await new TemporaryProjectStorage(config, original, 'Soundscaper').prepare(), selected);
 	assert.equal(await readFile(join(selected, 'Soundscaper', 'project-library', 'v1', 'library.sqlite'), 'utf8'), 'project data');
+	assert.equal(await readFile(join(conflictingLibrary, 'library.sqlite'), 'utf8'), 'other data');
 });
 
 test('a picked project destination becomes repeatable only after commit and survives restart', async t => {

@@ -31,6 +31,22 @@ export async function migrateDesktopStorageEntries(
 	entries: readonly StorageEntry[],
 	operations: Partial<MigrationOperations> = {},
 ): Promise<void> {
+	const pending = await preflightEntries(entries, 'migration');
+	const io = { ...OPERATIONS, ...operations };
+	for (const entry of pending) {
+		try { await migrate(entry.source, entry.destination, io); }
+		catch (error) { throw migrationFailure(entry, error, 'migration'); }
+	}
+}
+
+/** Check for conflicts before accepting a new destination from the folder picker. */
+export async function checkDesktopStorageMigrationDestination(entry: StorageEntry): Promise<void> {
+	await preflightEntries([entry], 'selection');
+}
+
+type PreflightPurpose = 'migration' | 'selection';
+
+async function preflightEntries(entries: readonly StorageEntry[], purpose: PreflightPurpose): Promise<StorageEntry[]> {
 	const pending: StorageEntry[] = [];
 	for (const entry of entries) {
 		if (!validPath(entry.source) || !validPath(entry.destination)) {
@@ -46,17 +62,13 @@ export async function migrateDesktopStorageEntries(
 			await assertSafeAncestors(normalized.source);
 			if (await optionalStat(normalized.source) === null) continue;
 			await assertSafeAncestors(normalized.destination);
-			await preflight(normalized.source, normalized.destination);
+			await preflight(normalized.source, normalized.destination, purpose);
 			pending.push(normalized);
 		} catch (error) {
-			throw migrationFailure(normalized, error);
+			throw migrationFailure(normalized, error, purpose);
 		}
 	}
-	const io = { ...OPERATIONS, ...operations };
-	for (const entry of pending) {
-		try { await migrate(entry.source, entry.destination, io); }
-		catch (error) { throw migrationFailure(entry, error); }
-	}
+	return pending;
 }
 
 function validPath(value: string): boolean {
@@ -68,11 +80,13 @@ function nested(parent: string, child: string): boolean {
 	return path !== '' && !isAbsolute(path) && path !== '..' && !path.startsWith(`..${sep}`);
 }
 
-function migrationFailure(entry: StorageEntry, cause: unknown): Error {
+function migrationFailure(entry: StorageEntry, cause: unknown, purpose: PreflightPurpose): Error {
 	const reason = cause instanceof Error ? cause.message : String(cause);
+	const recovery = purpose === 'selection' ? 'Choose a different temporary data folder.'
+		: 'Resolve the conflicting or unsupported paths and restart.';
 	return new Error(
 		`Could not migrate desktop storage: source "${entry.source}", destination "${entry.destination}": ${reason} `
-		+ 'Resolve the conflicting or unsupported paths and restart. Existing destination data is preserved.',
+		+ `${recovery} Existing destination data is preserved.`,
 		{ cause },
 	);
 }
@@ -110,10 +124,11 @@ async function assertSafeAncestors(path: string): Promise<void> {
 	}
 }
 
-async function preflight(source: string, destination: string): Promise<void> {
+async function preflight(source: string, destination: string, purpose: PreflightPurpose): Promise<void> {
+	const destinationMetadata = await optionalStat(destination);
+	if (destinationMetadata === null && purpose === 'selection') return;
 	const sourceMetadata = await lstat(source);
 	assertRegularEntry(source, sourceMetadata);
-	const destinationMetadata = await optionalStat(destination);
 	if (destinationMetadata !== null) {
 		assertRegularEntry(destination, destinationMetadata);
 		if (sourceMetadata.isDirectory() !== destinationMetadata.isDirectory()) {
@@ -122,7 +137,7 @@ async function preflight(source: string, destination: string): Promise<void> {
 	}
 	if (sourceMetadata.isDirectory()) {
 		for (const child of await readdir(source)) {
-			await preflight(join(source, child), join(destination, child));
+			await preflight(join(source, child), join(destination, child), purpose);
 		}
 	} else if (destinationMetadata !== null) {
 		await verifyIdentical(source, destination);
