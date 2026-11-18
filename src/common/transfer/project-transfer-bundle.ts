@@ -39,6 +39,7 @@ import {
 } from './cross-product-handoff-provenance.ts';
 import { confirmFileSizeWarning } from '../editor/controller/shared/file-size-warning.ts';
 import { raceAbortableRead } from '../foundation/abort-race.ts';
+import { isManualTransferReadFailure } from './transfer-manual-refusal.ts';
 import {
 	admitProjectTransferBytes,
 	admitProjectTransferEntry,
@@ -238,6 +239,13 @@ export async function importProjectTransferBundle(
 		for await (const raw of admitted.entries) {
 			throwIfScapeAborted(signal);
 			if (index >= maximumEntries) throw projectTransferEntryLimitRefusal(maximumEntries);
+			if (isManualTransferReadFailure(raw)) {
+				onProgress?.(Object.freeze({ stage: 'import', completed: index, total: null, projectId: null, title: raw.title }));
+				records.push(transferRecord({ index, outcome: 'failed', projectId: null, title: raw.title, byteLength: 0,
+					reasonCode: 'archive-unreadable', reason: raw.reason, residue: 'none' }));
+				index += 1;
+				continue;
+			}
 			const entry = admitProjectTransferEntry(raw, admitted.confirmFileSizeWarning ? Number.MAX_SAFE_INTEGER : admitted.maximumEntryBytes, index);
 			if (admitted.confirmFileSizeWarning) await confirmFileSizeWarning(entry.bytes.byteLength, admitted.maximumEntryBytes, 'Project transfer archive', admitted);
 			onProgress?.(Object.freeze({

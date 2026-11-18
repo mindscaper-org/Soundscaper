@@ -18,7 +18,7 @@ import {
 	transferArchiveTitle,
 	type TransferRuntime,
 } from './transfer-archive-stream.ts';
-import { TransferManualImportRefusalError } from './transfer-manual-refusal.ts';
+import { manualTransferReadFailure, TransferManualImportRefusalError } from './transfer-manual-refusal.ts';
 import { confirmFileSizeWarning, type FileSizeWarningConfirmation } from '../editor/controller/shared/file-size-warning.ts';
 import { raceAbortableRead } from '../foundation/abort-race.ts';
 
@@ -60,13 +60,22 @@ export async function importTransferArchiveFiles(
 		for (const source of selected.archives) {
 			options.signal?.throwIfAborted();
 			await confirmFileSizeWarning(source.byteLength, maximumEntryBytes, source.name, options);
+			const title = transferArchiveTitle(source.name);
 			const bytes = await readManualFile(source, 'archive', options.signal);
+			if (typeof bytes === 'string') {
+				yield manualTransferReadFailure(title, bytes);
+				continue;
+			}
 			const sidecarSource = sidecars.get(source.name);
 			let conversionReportSidecar = null;
 			if (sidecarSource !== undefined) {
 				const sidecarBytes = await readManualFile(
 					sidecarSource, 'conversion report sidecar', options.signal,
 				);
+				if (typeof sidecarBytes === 'string') {
+					yield manualTransferReadFailure(title, sidecarBytes);
+					continue;
+				}
 				try {
 					conversionReportSidecar = decodeCrossProductHandoffReportSidecarFile(
 						sidecarBytes, bytes,
@@ -78,7 +87,7 @@ export async function importTransferArchiveFiles(
 			}
 			yield {
 				projectId: conversionReportSidecar?.entryId,
-				title: transferArchiveTitle(source.name),
+				title,
 				bytes,
 				conversionReportSidecar,
 			};
@@ -206,7 +215,7 @@ async function readManualFile(
 	source: TransferArchiveSource,
 	label: string,
 	signal: AbortSignal | undefined,
-): Promise<Uint8Array> {
+): Promise<Uint8Array | string> {
 	let bytes: unknown;
 	try {
 		signal?.throwIfAborted();
@@ -214,8 +223,7 @@ async function readManualFile(
 		signal?.throwIfAborted();
 	} catch (error) {
 		if (signal?.aborted) throw error;
-		throw new TransferManualImportRefusalError('malformed-entry',
-			`Manual ${label} ${source.name} could not be read: ${describe(error)}`);
+		return `Manual ${label} ${source.name} could not be read: ${describe(error)}`;
 	}
 	if (!(bytes instanceof Uint8Array)) {
 		throw new TransferManualImportRefusalError('malformed-entry',

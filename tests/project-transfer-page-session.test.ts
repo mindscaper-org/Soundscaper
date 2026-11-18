@@ -381,6 +381,27 @@ test('the manual fallback imports downloaded archives file by file', async () =>
 	assert.match(described.summary, /Imported 1 of 2 archives, skipped 1\./u);
 });
 
+test('an unreadable selected file does not discard the next project in the manual transfer batch', async () => {
+	const store = new FakeStore();
+	const healthy = archiveBytes({ id: 'surviving-project', title: 'Healthy project' });
+	const result = await importTransferArchiveFiles({
+		runtime: runtimeFor(createFakeArchive()), store,
+		files: [
+			{ name: 'Unavailable recording.sscape', byteLength: 4, read: async () => {
+				throw new DOMException('The removable drive is offline.', 'NotReadableError');
+			} },
+			{ name: 'Healthy project.sscape', byteLength: healthy.byteLength, read: async () => healthy },
+		],
+	});
+	assert.equal(result.completed, true);
+	assert.equal(result.stopped, null);
+	assert.deepEqual(result.entries.map(({ index, outcome, title }) => [index, outcome, title]), [
+		[0, 'failed', 'Unavailable recording'], [1, 'imported', 'Healthy project'],
+	]);
+	assert.match(result.entries[0]?.reason ?? '', /removable drive/u);
+	assert.deepEqual([...store.projects.keys()], ['surviving-project']);
+});
+
 test('the page bound mirrors the protocol bound, and titles come off file names', () => {
 	assert.equal(TRANSFER_MAX_ARCHIVE_BYTES, PROJECT_TRANSFER_MAX_ENTRY_BYTES);
 	assert.equal(transferArchiveTitle('Field recording.scape'), 'Field recording');

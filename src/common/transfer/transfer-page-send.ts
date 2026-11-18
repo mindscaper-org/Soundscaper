@@ -13,7 +13,7 @@
  *
  * **Nothing is read that the visitor did not tick**, and the ticked set is read
  * back at the moment consent is given rather than at the moment the button was
- * pressed. `selectionPredicate()` is the only thing an exporter is ever handed.
+ * pressed. `trackTransferSelection()` admits only those selected projects.
  *
  * **Every ticked row is accounted for.** The page deliberately offers rows it
  * knows cannot cross, so it must also report them: `refusedChoices()` carries
@@ -53,12 +53,12 @@ import {
 import {
 	describeTransferProduct,
 	listTransferProjects,
+	trackTransferSelection,
 	transferProductForOrigin,
 	type TransferProjectOffer,
 } from './transfer-project-selection.ts';
 import type { TransferChoiceHandle } from './transfer-page-view.ts';
 import type { TransferPageContext } from './transfer-page-context.ts';
-import { readProjectSchemaIdentity } from '../editor/project-schema-identity.ts';
 import {
 	parseCrossProductHandoffLaunchIntent,
 	type CrossProductHandoffLaunchIntentV1,
@@ -262,25 +262,6 @@ function requireChosen(
 	return chosen;
 }
 
-/** The exporter never sees a project the visitor did not tick. */
-function selectionPredicate(chosen: readonly TransferProjectOffer[]): (project: { id: string }) => boolean {
-	const ticked = new Set(chosen
-		.filter((offer) => offer.storeProjectId !== null)
-		.map((offer) => offer.schemaFamily === null
-			? offer.storeProjectId as string
-			: `${offer.schemaFamily}:${offer.storeProjectId as string}`));
-	return (project) => {
-		let key = project.id;
-		try {
-			key = `${readProjectSchemaIdentity(project).schemaFamily}:${project.id}`;
-		} catch {
-			// A malformed identity was never preselected, but remains visible for
-			// explicit custody. Its raw id is the only selection handle available.
-		}
-		return ticked.has(key);
-	};
-}
-
 /**
  * The ticked rows a transport can actually be given.
  *
@@ -319,20 +300,21 @@ async function runSenderDownload(
 	const runtime = await context.dependencies.loadRuntime();
 	const exportingRuntime = editableRuntime(runtime, context);
 	const source = await context.dependencies.openStore();
+	const selection = trackTransferSelection(transferable);
 	try {
 		const report = await downloadTransferArchives({
 			archives: streamTransferArchives({
 				confirmFileSizeWarning: context.confirmFileSizeWarning,
 				runtime: exportingRuntime,
 				store: source.store as ExportStore,
-				select: selectionPredicate(transferable),
+				select: selection.select,
 				maximumTotalBytes: null,
 				onProgress: (progress) => view.status(exportProgressText(progress)),
 			}),
 			save: (entry) => saver.saveArchive(entry.bytes, entry.fileName, entry.mimeType),
 			saveSidecar: (file) => saver.saveCompanion(file.bytes, file.fileName, file.mimeType),
 		});
-		view.report(withRefusedTransferChoices(describeTransferDownload(report), refused));
+		view.report(withRefusedTransferChoices(describeTransferDownload(report, [...report.exportFailures, ...selection.missing()]), refused));
 	} finally {
 		await source.close().catch(() => undefined);
 	}
@@ -387,6 +369,7 @@ async function runSenderHandshake(
 		const exportingRuntime = editableRuntime(runtime, context);
 		source = await context.dependencies.openStore();
 		const exportStore = source.store as ExportStore;
+		const selection = trackTransferSelection(transferable);
 		const report = await sendTransferArchives({
 			confirmFileSizeWarning: context.confirmFileSizeWarning,
 			runtime: exportingRuntime,
@@ -397,14 +380,16 @@ async function runSenderHandshake(
 				signal,
 				runtime: exportingRuntime,
 				store: exportStore,
-				select: selectionPredicate(transferable),
+				select: selection.select,
 				onProgress: (progress) => view.status(exportProgressText(progress)),
 			}),
 			port,
 			targetOrigin: configuration.peerOrigin,
 			allowedOrigins: configuration.allowedOrigins,
 		});
-		view.report(withRefusedTransferChoices(describeTransferSend(report), refused));
+		const missing = report.completed ? selection.missing() : [];
+		view.report(withRefusedTransferChoices(describeTransferSend({ ...report, total: report.total + missing.length,
+			failed: report.failed + missing.length, exportFailures: [...report.exportFailures, ...missing] }), refused));
 	} catch (error) {
 		notifyTransferPeerOfSenderFailure(port, configuration.peerOrigin, error);
 		view.status(
