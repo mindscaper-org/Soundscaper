@@ -17,6 +17,14 @@ export class MissingSubprojectError extends ReferenceError {
 	constructor() { super('A linked subproject is missing from this library.'); }
 }
 
+export function assertFollowingSubprojectsAvailable(node: ResolvedSubprojectNode, libraryId: string): void {
+	for (const { link, node: child } of node.children) {
+		if (!link.followLatest || link.libraryId !== libraryId) continue;
+		if (!child) throw new MissingSubprojectError();
+		assertFollowingSubprojectsAvailable(child, libraryId);
+	}
+}
+
 /** Share committed reads within one inspection. Publication starts a fresh inspection. */
 export function cacheSubprojectDocumentReads(load: LoadProject): LoadProject {
 	const reads = new Map<string, ReturnType<LoadProject>>();

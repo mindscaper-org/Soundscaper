@@ -241,6 +241,25 @@ test('manual Refresh can recreate an installed proxy even if the child revision 
 	assert.equal(state.project.clips[0]!.sourceId, readSubprojectLinks(state.project)[0]!.sourceId);
 });
 
+test('manual Refresh reports a missing followed grandchild even when its installed proxy is available', async () => {
+	const state = fixture();
+	const grandchild = createSoundscaperProject({ id: 'grandchild', title: 'Nested scene' }) as SubprojectDocument;
+	state.documents.set(grandchild.id, grandchild);
+	const parent = state.project;
+	state.selectProject(state.documents.get('child')!);
+	await state.actions.add(grandchild.id);
+	state.documents.set('child', state.project);
+	state.selectProject(parent);
+	await state.actions.add('child');
+	const saved = state.project;
+	state.documents.delete(grandchild.id);
+
+	await assert.rejects(state.actions.refresh({ force: true }), /missing/iu);
+	assert.equal(state.project, saved);
+	await state.actions.refresh();
+	assert.equal(state.project, saved);
+});
+
 test('refreshing the first linked subproject preserves the arrangement’s link order', async () => {
 	const state = fixture();
 	const second = createSoundscaperProject({ id: 'second', title: 'Second scene' }) as SubprojectDocument;

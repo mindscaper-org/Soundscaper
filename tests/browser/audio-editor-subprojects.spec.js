@@ -65,6 +65,7 @@ test('nested subprojects follow grandchild saves without rewriting inactive pare
 	await dialog.getByRole('button', { name: 'Close', exact: true }).last().click();
 	await expect.poll(async () => (await storedLink(page, seriesId))?.sourceId).toMatch(/^subproject-audio-/u);
 	const originalSeries = await storedLink(page, seriesId);
+	const soundingSeries = await exportSamples(page, editor, { includeTail: false });
 	dialog = await openSubprojects(page, editor);
 	await dialog.getByRole('listbox', { name: 'Linked subprojects', exact: true }).selectOption({ label: 'Episode — Automatic updates' });
 	await dialog.getByRole('button', { name: 'Open subproject', exact: true }).click();
@@ -87,6 +88,16 @@ test('nested subprojects follow grandchild saves without rewriting inactive pare
 	const muted = await exportSamples(page, editor, { includeTail: false });
 	expect(muted.length).toBe(sounding.length);
 	expect(Math.max(...muted.map(Math.abs))).toBeLessThan(0.00001);
+
+	const mutedProxy = await storedLink(page, seriesId);
+	await editor.getByRole('tab', { name: 'Dialogue scene', exact: true }).click();
+	await waitForProjectActivation(editor);
+	await track.getByRole('button', { name: 'Mute', exact: true, pressed: true }).click();
+	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+	await editor.getByRole('tab', { name: 'Series', exact: true }).click();
+	await waitForProjectActivation(editor);
+	await expect.poll(async () => (await storedLink(page, seriesId))?.sourceId, { timeout: 15_000 }).not.toBe(mutedProxy.sourceId);
+	expect(await exportSamples(page, editor, { includeTail: false })).toEqual(soundingSeries);
 
 	dialog = await openSubprojects(page, editor);
 	await dialog.getByRole('listbox', { name: 'Linked subprojects', exact: true }).selectOption({ label: 'Episode — Automatic updates' });

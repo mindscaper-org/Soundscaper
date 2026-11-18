@@ -4,7 +4,7 @@ import test, { type TestContext } from 'node:test';
 import { createSubprojectRenderer } from '../src/common/editor/controller/document/internal/subprojects/subproject-renderer.ts';
 import { resolveSubprojectGraph } from '../src/common/editor/controller/document/internal/subprojects/subproject-graph.ts';
 import { createSubprojectActions, type SubprojectDocument } from '../src/common/editor/controller/document/subproject-actions.ts';
-import { readSubprojectLinks } from '../src/common/editor/subprojects.ts';
+import { readSubprojectLinks, subprojectContentDigest } from '../src/common/editor/subprojects.ts';
 import { createSoundscaperProject, validateSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts';
 import { createSoundscaperEphemeralProjectStore } from '../src/soundscaper/editor-project-store.ts';
@@ -45,17 +45,22 @@ async function fixture(context: TestContext, hooks: {
 		preflight: () => Promise.resolve(), projectForRuntimeConsumers: project => { validateSoundscaperProject(project); return projectForRuntimeConsumers(project); },
 		createEngine: () => {
 			let inputs: EngineLoadProjectOptions | undefined;
-			let sourceId = '';
-			return { loadProject(project, _buffers, options) { inputs = options; sourceId = String(project?.clips?.[0]?.sourceId); },
+			let sourceIds: string[] = [];
+			return { loadProject(project, _buffers, options) { inputs = options; sourceIds = project?.clips?.map(clip => String(clip.sourceId)) ?? []; },
 				async renderMixToSink(options = {}) {
 					assert.equal(options.includeMaster, true); assert.equal(options.respectMuteSolo, true);
 					assert.ok(options.chunkFrames && options.chunkFrames >= 128 && options.chunkFrames <= 16384);
 					const providers = inputs?.chunkSources as ReadonlyMap<string, EngineChunkSource>;
-					const chunk = await providers.get(sourceId)!.readStorageChunk(0);
-					const channels = Array.isArray(chunk) ? chunk as readonly Float32Array[] : (chunk as { channels: readonly Float32Array[] }).channels;
+					const channels = await Promise.all(sourceIds.map(async sourceId => {
+						const chunk = await providers.get(sourceId)!.readStorageChunk(0);
+						return Array.isArray(chunk) ? chunk as readonly Float32Array[] : (chunk as { channels: readonly Float32Array[] }).channels;
+					}));
 					assert.equal(typeof options.sink, 'function');
-					const packet = channels.map(channel => {
+					const packet = channels[0]!.map((channel, index) => {
 						const copy = new Float32Array(channel);
+						for (const other of channels.slice(1)) {
+							for (let frame = 0; frame < copy.length; frame += 1) copy[frame] += other[index]![frame]!;
+						}
 						const slice = copy.slice.bind(copy);
 						copy.slice = (start, end) => { pcmCopies++; return slice(start, end); };
 						return copy;
@@ -120,6 +125,91 @@ test('an unavailable new child recording leaves the saved parent mix usable unti
 	await writer.write([new Float32Array([0.5, 0.75])]); await writer.commit();
 	await actions.refresh();
 	assert.notEqual(readSubprojectLinks(parent)[0]?.sourceId, installed.sourceId);
+});
+
+test('an unavailable grandchild recording keeps its own proxy without delaying a sibling’s saved audio', async context => {
+	const f = await fixture(context);
+	let parent = createSoundscaperProject({ id: 'parent', sampleRate: 48000 }) as SubprojectDocument;
+	let middle = { ...f.child, id: 'middle' };
+	const sibling = { ...f.child, id: 'sibling' };
+	const documents = new Map([[f.child.id, f.child], [sibling.id, sibling]]);
+	const original = f.child.sources[0]!;
+	for (const [document, sourceId] of [[f.child, 'original'], [sibling, 'sibling-proxy']] as const) {
+		middle = applySoundscaperProjectCommand(middle, { type: 'subproject/install', expected: null,
+			source: { ...original, id: sourceId },
+			link: { id: `link-${sourceId}`, projectId: document.id, libraryId: 'library', title: document.title, sourceId,
+				followLatest: true, revision: document.revision, contentDigest: subprojectContentDigest(document, []),
+				sampleRate: 48000, channelCount: 1, frameCount: 2 },
+		}) as SubprojectDocument;
+	}
+	middle = applySoundscaperProjectCommand(middle, { type: 'clip/add', trackId: 'track',
+		clip: { ...middle.clips[0]!, id: 'sibling-clip', sourceId: 'sibling-proxy' },
+	}) as SubprojectDocument;
+	documents.set('middle', middle);
+	let serial = 0;
+	const actions = createSubprojectActions({ ...f.renderer, getProject: () => parent, assertWritable() {},
+		loadProject: id => Promise.resolve(documents.get(id) ?? null),
+		listProjects: () => Promise.resolve([...documents.values(), parent]), getLibraryId: () => Promise.resolve('library'),
+		commit: command => { parent = applySoundscaperProjectCommand(parent, command) as SubprojectDocument; },
+		createId: prefix => `${prefix}-${String(++serial)}`, openProject: id => Promise.resolve(id),
+		prepare: () => Promise.resolve(), reportError: error => { throw error; }, wait: () => Promise.resolve(),
+	});
+	function changeRecording(document: SubprojectDocument, id: string) {
+		documents.set(document.id, applySoundscaperProjectCommand(document, { type: 'batch', commands: [
+			{ type: 'source/add', source: { ...original, id, storageKey: id } },
+			{ type: 'clip/replace-source', clipId: 'clip', sourceId: id },
+		] }) as SubprojectDocument);
+	}
+	async function publishRecording(id: string, samples: number[]) {
+		const writer = await f.store.beginSourceWrite(id, { sampleRate: 48000, channelCount: 1 });
+		await writer.write([new Float32Array(samples)]);
+		await writer.commit();
+	}
+	async function parentSamples() {
+		const [link] = readSubprojectLinks(parent);
+		const source = parent.sources.find(source => source.id === link?.sourceId);
+		const chunks: Float32Array[] = [];
+		for await (const chunk of f.store.readSourceChunks(String(source?.storageKey))) chunks.push(chunk.channels[0]!);
+		return Array.from(chunks[0]!);
+	}
+	await actions.add('middle');
+	assert.deepEqual(await parentSamples(), [0.5, -1]);
+	changeRecording(f.child, 'unavailable');
+	changeRecording(sibling, 'new-sibling');
+	await publishRecording('new-sibling', [0.25, 0.25]);
+	await actions.refresh();
+	assert.deepEqual(await parentSamples(), [0.5, -0.25]);
+	const partial = parent;
+	const renders = f.disposed();
+	await actions.refresh();
+	assert.equal(parent, partial);
+	assert.equal(f.disposed(), renders);
+	await publishRecording('unavailable', [-0.25, 0.5]);
+	await actions.refresh();
+	assert.deepEqual(await parentSamples(), [0, 0.75]);
+});
+
+test('a parent plays a new immutable proxy for the second consecutive child update', async context => {
+	const f = await fixture(context);
+	let parent = createSoundscaperProject({ id: 'parent', sampleRate: 48000 }) as SubprojectDocument;
+	let child = f.child;
+	let serial = 0;
+	const actions = createSubprojectActions({ ...f.renderer, getProject: () => parent, assertWritable() {},
+		loadProject: id => Promise.resolve(id === child.id ? child : null),
+		listProjects: () => Promise.resolve([parent, child]), getLibraryId: () => Promise.resolve('library'),
+		commit: command => { parent = applySoundscaperProjectCommand(parent, command) as SubprojectDocument; },
+		createId: prefix => `${prefix}-${String(++serial)}`, openProject: id => Promise.resolve(id),
+		prepare: () => Promise.resolve(), reportError: error => { throw error; }, wait: () => Promise.resolve(),
+	});
+	await actions.add(child.id);
+	const generations = [readSubprojectLinks(parent)[0]!.sourceId];
+	for (const gain of [0.5, 0.25]) {
+		child = applySoundscaperProjectCommand(child, { type: 'track/update', trackId: 'track', changes: { gain } }) as SubprojectDocument;
+		await actions.refresh();
+		generations.push(readSubprojectLinks(parent)[0]!.sourceId);
+	}
+	assert.equal(new Set(generations).size, 3);
+	assert.equal(parent.clips[0]?.sourceId, generations.at(-1));
 });
 
 test('a failed PCM abort still releases the subproject engine and retains the render error', async context => {

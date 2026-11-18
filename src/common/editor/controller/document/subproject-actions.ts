@@ -2,7 +2,7 @@
 import { createAddTrackCommand, createAddClipCommand } from '../../commands/factories.ts';
 import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import { readSubprojectLinks, type SubprojectLink } from '../../subprojects.ts';
-import { assertSubprojectGraphAcyclic, cacheSubprojectDigests, cacheSubprojectDocumentReads, MissingSubprojectError, resolveSubprojectGraph, type ResolvedSubprojectNode } from './internal/subprojects/subproject-graph.ts';
+import { assertFollowingSubprojectsAvailable, assertSubprojectGraphAcyclic, cacheSubprojectDigests, cacheSubprojectDocumentReads, MissingSubprojectError, resolveSubprojectGraph, type ResolvedSubprojectNode } from './internal/subprojects/subproject-graph.ts';
 import { createSubprojectRenderer, SubprojectRenderUnavailableError, type SubprojectRendererRuntime } from './internal/subprojects/subproject-renderer.ts';
 import { EditorProjectChangedError, type EditorProjectToken } from '../shared/lifecycle.ts';
 
@@ -42,6 +42,7 @@ export interface SubprojectRuntime {
 	prepare(): Promise<unknown>;
 	plan(project: SubprojectDocument, sampleRate: number): SubprojectGeometry;
 	render(node: ResolvedSubprojectNode, geometry: SubprojectGeometry, signal?: AbortSignal): Promise<SubprojectRenderedSource>;
+	retainUnavailableDescendants?(node: ResolvedSubprojectNode, signal?: AbortSignal): Promise<ResolvedSubprojectNode>;
 	reportError(error: unknown): void;
 	wait(signal: AbortSignal): Promise<void>;
 }
@@ -78,14 +79,16 @@ export function createSubprojectActions(runtime: SubprojectRuntime) {
 	}
 	async function publish(project: SubprojectDocument, expected: SubprojectLink | null,
 		node: ResolvedSubprojectNode, geometry: SubprojectGeometry, libraryId: string, assertCurrent: ReturnType<typeof captureFence>,
-		signal?: AbortSignal, relink = false): Promise<void> {
+		options: Readonly<{ signal?: AbortSignal; relink?: boolean; force?: boolean; observedDigest?: string }> = {}): Promise<void> {
+		const { signal, relink, force, observedDigest = node.digest } = options;
 		const rendered = await runtime.render(node, geometry, signal);
 		let committed = false;
 		try {
 			assertCurrent(project);
 			const current = await admitGraph(node.project.id, libraryId, project.id, signal);
 			assertCurrent(project);
-			if (current.digest !== node.digest) throw new DOMException('The saved subproject changed before publication.', 'AbortError');
+			if (force) assertFollowingSubprojectsAvailable(current, libraryId);
+			if (current.digest !== observedDigest) throw new DOMException('The saved subproject changed before publication.', 'AbortError');
 			const link: SubprojectLink = { ...geometry, id: expected?.id ?? runtime.createId('subproject'),
 				projectId: node.project.id, libraryId, title: node.project.title.slice(0, 256),
 				sourceId: String(rendered.source.id), revision: node.project.revision, contentDigest: node.digest,
@@ -129,9 +132,18 @@ export function createSubprojectActions(runtime: SubprojectRuntime) {
 				throw error;
 			}
 			assertCurrent(project);
-			if (!options.force && (node.digest === link.contentDigest || installed.get(`${project.id}:${link.id}`) === node.digest)) continue;
+			if (options.force) assertFollowingSubprojectsAvailable(node, libraryId);
+			const alreadyPublished = (digest: string): boolean => digest === link.contentDigest
+				|| installed.get(`${project.id}:${link.id}`) === digest;
+			if (!options.force && alreadyPublished(node.digest)) continue;
 			try {
-				await publish(project, link, node, link, libraryId, assertCurrent, options.signal);
+				const observedDigest = node.digest;
+				if (!options.force && node.children.length && runtime.retainUnavailableDescendants) {
+					node = await runtime.retainUnavailableDescendants(node, options.signal);
+					assertCurrent(project);
+					if (alreadyPublished(node.digest)) continue;
+				}
+				await publish(project, link, node, link, libraryId, assertCurrent, { ...options, observedDigest });
 			} catch (error) {
 				if (options.force || !(error instanceof SubprojectRenderUnavailableError)) throw error;
 				assertCurrent(project);
@@ -175,7 +187,7 @@ export function createSubprojectActions(runtime: SubprojectRuntime) {
 				const libraryId = await runtime.getLibraryId();
 				const node = await admitGraph(projectId, libraryId, project.id);
 				assertCurrent(project);
-				await publish(project, expected, node, expected, libraryId, assertCurrent, undefined, true);
+				await publish(project, expected, node, expected, libraryId, assertCurrent, { relink: true });
 			});
 		},
 		async follow(id: string, followLatest: boolean): Promise<void> {

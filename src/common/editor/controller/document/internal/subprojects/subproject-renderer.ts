@@ -12,6 +12,7 @@ import { resampleChannelsWindowedSinc } from '../../../source/source-audio.ts';
 import { SOURCE_CHUNK_FRAMES } from '../../../../source-pcm-contract.ts';
 import { createAudioSource } from '../../../../project-media-factory.ts';
 import { isAudioMediaKind } from '../../../../audio-media-kind.ts';
+import { subprojectContentDigest } from '../../../../subprojects.ts';
 import { applyMediaChannelMapping } from '../../../../media-export.js';
 import { defaultMixerChannelMapV21 } from '../../../../mixer-graph-v21.ts';
 import type { SubprojectDocument, SubprojectGeometry, SubprojectRenderedSource } from '../../subproject-actions.ts';
@@ -51,6 +52,43 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 		const channelCount = Number(project.masterChannels ?? 2);
 		if (!Number.isSafeInteger(frameCount) || frameCount < 1 || channelCount < 1 || channelCount > 64) throw new RangeError('Invalid subproject publication range.');
 		return { sampleRate, channelCount, frameCount };
+	}
+	async function retainUnavailableDescendants(node: ResolvedSubprojectNode, signal?: AbortSignal): Promise<ResolvedSubprojectNode> {
+		const children: ResolvedSubprojectNode['children'][number][] = [];
+		for (const entry of node.children) {
+			signal?.throwIfAborted();
+			if (!entry.node || entry.node.digest === entry.link.contentDigest) {
+				children.push(entry);
+				continue;
+			}
+			try {
+				const child = await retainUnavailableDescendants(entry.node, signal);
+				if (child.digest !== entry.link.contentDigest) {
+					const projected = projectTrackFolderMediaStateV12(runtime.projectForRuntimeConsumers(child.project));
+					assertBackgroundRackSupport(projected);
+					const replacements = new Set(child.children.filter(({ link, node }) => node && node.digest !== link.contentDigest)
+						.map(({ link }) => link.sourceId));
+					for (const source of subprojectRenderSources(child.project, projected, replacements)) {
+						signal?.throwIfAborted();
+						await requireSourceMetadata(source);
+					}
+				}
+				children.push({ link: entry.link, node: child });
+			} catch (error) {
+				if (!(error instanceof SubprojectRenderUnavailableError)) throw error;
+				children.push({ link: entry.link, node: null });
+			}
+		}
+		if (children.every(({ node: child }, index) => child?.digest === node.children[index]?.node?.digest)) return node;
+		const digests = children.map(({ link, node }) => node?.digest ?? link.contentDigest);
+		return { ...node, children, digest: subprojectContentDigest(node.project, digests) };
+	}
+	async function requireSourceMetadata(source: SubprojectRenderSource): Promise<StoredSourceMetadata> {
+		const metadata = await runtime.store.getSourceMetadata(source.storageKey);
+		if (!metadata || metadata.frameCount !== source.frameCount || metadata.channelCount !== source.channelCount || metadata.sampleRate !== source.sampleRate) {
+			throw new SubprojectRenderUnavailableError('Subproject source media is missing or has changed.');
+		}
+		return metadata;
 	}
 	async function render(node: ResolvedSubprojectNode, geometry: SubprojectGeometry, signal?: AbortSignal): Promise<SubprojectRenderedSource> {
 		const temporary = new Map<string, SubprojectRenderedSource>();
@@ -98,18 +136,8 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 		let rendered: SubprojectRenderedSource | undefined;
 		let failure: RenderFailure | undefined;
 		try {
-			const used = new Set((projected.clips as readonly { kind?: string; sourceId: string }[])
-				.filter(clip => clip.kind === 'audio').map(clip => clip.sourceId));
-			for (const value of project.sources) {
-				if (!used.has(String(value.id))) continue;
-				if (value.kind !== 'audio') throw new RangeError('Audio subprojects require rendered audio sources.');
-				const source = { id: String(value.id), storageKey: String(value.storageKey || value.id),
-					frameCount: Number(value.frameCount), channelCount: Number(value.channelCount), sampleRate: Number(value.sampleRate) };
-				const metadata = await runtime.store.getSourceMetadata(source.storageKey);
-				if (!metadata || metadata.frameCount !== source.frameCount || metadata.channelCount !== source.channelCount || metadata.sampleRate !== source.sampleRate) {
-					throw new SubprojectRenderUnavailableError('Subproject source media is missing or has changed.');
-				}
-				providers.set(source.id, createStoredChunkProvider(runtime.store, source, metadata));
+			for (const source of subprojectRenderSources(project, projected)) {
+				providers.set(source.id, createStoredChunkProvider(runtime.store, source, await requireSourceMetadata(source)));
 			}
 			const id = runtime.createId('subproject-audio');
 			writer = await runtime.store.beginSourceWrite(id, { sampleRate: geometry.sampleRate, channelCount: geometry.channelCount, chunkFrames: SOURCE_CHUNK_FRAMES });
@@ -163,7 +191,8 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 			}
 			signal?.throwIfAborted();
 			const stored = await output.commit();
-			rendered = { source: { id, kind: 'audio', name: project.title, storageKey: id, ...geometry },
+			rendered = { source: { id, kind: 'audio', name: project.title, storageKey: id,
+				frameCount: geometry.frameCount, channelCount: geometry.channelCount, sampleRate: geometry.sampleRate },
 				discard: async () => {
 					try { await runtime.store.sourceRepository.discardIfCurrent(stored); }
 					catch (error) {
@@ -185,10 +214,24 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 			]);
 		}
 	}
-	return Object.freeze({ plan, render });
+	return Object.freeze({ plan, render, retainUnavailableDescendants });
 }
 
 interface RenderFailure { readonly error: unknown }
+interface SubprojectRenderSource extends SubprojectGeometry { readonly id: string; readonly storageKey: string }
+
+function* subprojectRenderSources(project: SubprojectDocument, projected: Readonly<Record<string, unknown>>,
+	replacements?: ReadonlySet<string>): Generator<SubprojectRenderSource> {
+	const used = new Set((projected.clips as readonly { kind?: string; sourceId: string }[])
+		.filter(clip => clip.kind === 'audio').map(clip => clip.sourceId));
+	for (const value of project.sources) {
+		const id = String(value.id);
+		if (!used.has(id) || replacements?.has(id)) continue;
+		if (value.kind !== 'audio') throw new RangeError('Audio subprojects require rendered audio sources.');
+		yield { id, storageKey: String(value.storageKey || id), frameCount: Number(value.frameCount),
+			channelCount: Number(value.channelCount), sampleRate: Number(value.sampleRate) };
+	}
+}
 
 async function settleSubprojectRender(
 	output: SubprojectRenderedSource | undefined,
