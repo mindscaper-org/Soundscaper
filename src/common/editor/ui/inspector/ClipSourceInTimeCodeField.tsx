@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { useMemo, useState } from 'react';
+import type { TimeCodeFormat } from '@soundscaper/design-system/TimeCode';
 import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
-import { normalizeSourceFrameRate } from '../../sequence-timecode.ts';
-import { mediaSecondsToSourceFrame } from '../../source-monitor-model.ts';
-import { videoBoundaryTime, videoSourceTimingView } from '../../video-source-timing-view.ts';
-import { resolveVideoSourceTimingViews } from '../../video-source-timing-views.ts';
 import EditorControlLabel from '../EditorControlLabel.tsx';
+import { isNativeSourceFrameFormat, sourceFrameTimeCodeClock } from '../source-frame-timecode-clock.ts';
 
 interface ClipSourceInTimeCodeFieldProps {
 	readonly label: string;
@@ -22,22 +21,20 @@ export default function ClipSourceInTimeCodeField({
 	label, value, source, sampleRate, frameRate, disabled, onCommit,
 }: ClipSourceInTimeCodeFieldProps) {
 	const video = isNativeVideoSource(source) ? source : null;
-	const rate = video ? normalizeSourceFrameRate(video.frameRate) : null;
-	const seconds = video ? sourceBoundarySeconds(video, value) : value / sampleRate;
+	const clock = useMemo(() => video ? sourceFrameTimeCodeClock(video) : null, [video]);
+	const [format, setFormat] = useState<TimeCodeFormat>('hh:mm:ss+milliseconds');
+	const nativeFrames = clock !== null && isNativeSourceFrameFormat(format);
+	const lastFrame = video ? Number(video.sourceFrameCount) - 1 : undefined;
 	return <label className="audio-editor-field" data-clip-field="sourceInFrame"><EditorControlLabel>{label}</EditorControlLabel>
-		<AudioEditorTimeCodeInput label={label} value={video ? seconds : value}
-			unit={video ? 'seconds' : 'samples'} rate={sampleRate} sampleRate={sampleRate}
-			frameRate={rate ? rate.num / rate.den : frameRate} format="hh:mm:ss+milliseconds"
-			disabled={disabled} onCommit={(position) => onCommit(video && rate
-				? mediaSecondsToSourceFrame(position, rate, Number(video.sourceFrameCount), video)
+		<AudioEditorTimeCodeInput label={label} value={clock && !nativeFrames ? clock.secondsAt(value) : value}
+			unit={nativeFrames ? 'frames' : clock ? 'seconds' : 'samples'}
+			rate={nativeFrames ? clock.rate : sampleRate} sampleRate={sampleRate}
+			frameRate={clock?.rate ?? frameRate} format={format} onFormatChange={setFormat}
+			maximum={nativeFrames ? lastFrame : undefined}
+			disabled={disabled} onCommit={(position) => onCommit(clock && !nativeFrames && lastFrame !== undefined
+				? Math.min(lastFrame, clock.frameAt(position))
 				: position)} />
 	</label>;
-}
-
-function sourceBoundarySeconds(source: Readonly<Record<string, unknown>>, ordinal: number): number {
-	const timing = videoSourceTimingView(resolveVideoSourceTimingViews({ sources: [source] }), source);
-	const boundary = videoBoundaryTime(timing, ordinal);
-	return Number(boundary.numerator) / Number(boundary.denominator);
 }
 
 function isNativeVideoSource(value: unknown): value is Readonly<Record<string, unknown>> {
