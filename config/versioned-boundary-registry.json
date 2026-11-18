@@ -477,6 +477,8 @@
 		,
 		{ "path": "src/common/editor/video-motion-processing-v27.ts", "kind": "persisted-contract", "justification": "video-motion-processing-v27.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
+		{ "path": "src/common/editor/video-motion-shi-tomasi-v27.ts", "kind": "persisted-contract", "justification": "Preserves the feature scores and candidate order consumed by the V27 motion analysis that produces persisted tracks." }
+		,
 		{ "path": "src/common/editor/video-motion-webgl2-v27.ts", "kind": "persisted-contract", "justification": "video-motion-webgl2-v27.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/common/editor/video-proxy-attachment-v18.ts", "kind": "persisted-contract", "justification": "video-proxy-attachment-v18.ts is a persisted domain-component or render-contract revision independent of product schema." }
