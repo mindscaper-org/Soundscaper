@@ -4,7 +4,7 @@ import { nativeSdsFixture } from '../helpers/native-sds-fixture.ts';
 import { encodeWav } from '../../src/common/editor/wav.js';
 import { inspectWavBlobPcm } from '../../src/common/editor/wav-import.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseDropdown, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes,
+import { bootEditor, chooseDropdown, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes, waitForProjectActivation,
 	openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
 
 async function exportFloatWave(page, editor) {
@@ -35,6 +35,7 @@ for (const format of ['sds', 'sds-open', 'opaque']) test(`native SDS ${format} r
 	const { file: original, channels } = nativeSdsFixture();
 	const file = format === 'opaque' ? new File([original], 'Reference.bin', { type: 'application/octet-stream' }) : original;
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
+	const originalProjectId = await editor.getAttribute('data-project-id');
 	const native = await page.evaluate(async bytes => {
 		try { const buffer = await new OfflineAudioContext(1, 1, 32_000).decodeAudioData(Uint8Array.from(bytes).buffer);
 			return [0].map(channel => [...buffer.getChannelData(channel)]); } catch { return null; }
@@ -43,6 +44,8 @@ for (const format of ['sds', 'sds-open', 'opaque']) test(`native SDS ${format} r
 		await editor.locator(format === 'sds-open' ? '[data-aup4-input]' : '[data-import-input]').setInputFiles({ name: file.name, mimeType: format === 'sds-open' ? 'application/octet-stream' : file.type, buffer: Buffer.from(await file.arrayBuffer()) });
 		await expect(editor.locator('[data-editor-toast="workspace-status-error"]')).toContainText('0 file(s) imported, 1 failed', { timeout: 20_000 });
 		await expect(editor).toHaveAttribute('data-clip-count', '0');
+		await expect(editor).toHaveAttribute('data-project-id', originalProjectId);
+		await waitForProjectActivation(editor);
 		const fresh = encodeWav(channels, { sampleRate: 32_000, bitDepth: 32, float: true });
 		await editor.locator('[data-import-input]').setInputFiles({ name: 'Fresh.wav', mimeType: 'audio/wav', buffer: Buffer.from(fresh) });
 		await expect(editor).toHaveAttribute('data-clip-count', '1'); return;
