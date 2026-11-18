@@ -332,7 +332,7 @@ export default function GeneratorDialog({ type, controller, snapshot = {}, copy,
 												label={copy.generatorDuration}
 												value={dtmfTiming.totalSeconds}
 												sampleRate={sampleRate}
-												minimum={0.001}
+													minimum={0}
 												maximum={86_400}
 												onChange={(value) => updateDtmfTiming({ totalSeconds: value })}
 											/>
@@ -382,7 +382,7 @@ function generatorDtmfTiming(params) {
 	const dutyPercent = params.dutyPercent ?? (toneSeconds + silenceSeconds > 0
 		? toneSeconds / (toneSeconds + silenceSeconds) * 100
 		: 100);
-	const totalSeconds = Number(params.durationSeconds) > 0 ? Number(params.durationSeconds) : 30;
+	const totalSeconds = params.durationSeconds ?? 30;
 	const durations = generatorDtmfDurations(totalSeconds, dutyPercent, symbolCount);
 	return {
 		symbolCount,
