@@ -4,6 +4,7 @@ import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import { readSubprojectLinks, type SubprojectLink } from '../../subprojects.ts';
 import { assertSubprojectGraphAcyclic, cacheSubprojectDigests, cacheSubprojectDocumentReads, MissingSubprojectError, resolveSubprojectGraph, type ResolvedSubprojectNode } from './internal/subprojects/subproject-graph.ts';
 import { createSubprojectRenderer, type SubprojectRendererRuntime } from './internal/subprojects/subproject-renderer.ts';
+import { EditorProjectChangedError, type EditorProjectToken } from '../shared/lifecycle.ts';
 
 export function createStoredSubprojectActions(runtime: Omit<SubprojectRuntime, 'plan' | 'render'> & {
 	readonly renderer: SubprojectRendererRuntime;
@@ -30,6 +31,8 @@ export interface SubprojectRenderedSource {
 export interface SubprojectRuntime {
 	getProject(): SubprojectDocument | null;
 	assertWritable(): void;
+	captureGeneration?(): EditorProjectToken;
+	assertGeneration?(token: EditorProjectToken): void;
 	loadProject(id: string): Promise<SubprojectDocument | null>;
 	listProjects(): Promise<readonly { readonly id: string; readonly title?: unknown; readonly schemaFamily?: unknown }[]>;
 	getLibraryId(): Promise<string>;
@@ -56,9 +59,17 @@ export function createSubprojectActions(runtime: SubprojectRuntime) {
 		if (project?.schemaFamily !== 'soundscaper') throw new RangeError('Subprojects require an editable Soundscaper project.');
 		return project;
 	}
-	function assertCurrent(project: SubprojectDocument, signal?: AbortSignal): void {
-		signal?.throwIfAborted();
-		if (requireProject() !== project) throw new DOMException('The parent project changed while rendering its subproject.', 'AbortError');
+	function captureFence(signal?: AbortSignal) {
+		const projectId = requireProject().id;
+		const generation = runtime.captureGeneration?.();
+		return (expected?: SubprojectDocument): SubprojectDocument => {
+			signal?.throwIfAborted();
+			if (generation) runtime.assertGeneration?.(generation);
+			const current = requireProject();
+			if (current.id !== projectId) throw new EditorProjectChangedError();
+			if (expected && expected !== current) throw new DOMException('The parent project changed while rendering its subproject.', 'AbortError');
+			return current;
+		};
 	}
 	async function admitGraph(id: string, libraryId: string, parentId: string, signal?: AbortSignal): Promise<ResolvedSubprojectNode> {
 		const load = cacheSubprojectDocumentReads(runtime.loadProject);
@@ -66,13 +77,14 @@ export function createSubprojectActions(runtime: SubprojectRuntime) {
 		return resolveSubprojectGraph(id, libraryId, load, [parentId], signal);
 	}
 	async function publish(project: SubprojectDocument, expected: SubprojectLink | null,
-		node: ResolvedSubprojectNode, geometry: SubprojectGeometry, libraryId: string, signal?: AbortSignal, relink = false): Promise<void> {
+		node: ResolvedSubprojectNode, geometry: SubprojectGeometry, libraryId: string, assertCurrent: ReturnType<typeof captureFence>,
+		signal?: AbortSignal, relink = false): Promise<void> {
 		const rendered = await runtime.render(node, geometry, signal);
 		let committed = false;
 		try {
-			assertCurrent(project, signal);
+			assertCurrent(project);
 			const current = await admitGraph(node.project.id, libraryId, project.id, signal);
-			assertCurrent(project, signal);
+			assertCurrent(project);
 			if (current.digest !== node.digest) throw new DOMException('The saved subproject changed before publication.', 'AbortError');
 			const link: SubprojectLink = { ...geometry, id: expected?.id ?? runtime.createId('subproject'),
 				projectId: node.project.id, libraryId, title: node.project.title.slice(0, 256),
@@ -94,15 +106,15 @@ export function createSubprojectActions(runtime: SubprojectRuntime) {
 			installed.set(`${project.id}:${link.id}`, node.digest);
 		} finally { if (!committed) await rendered.discard(); }
 	}
-	async function refresh(options: { readonly id?: string; readonly force?: boolean; readonly signal?: AbortSignal } = {}): Promise<void> {
-		const original = requireProject(), libraryId = await runtime.getLibraryId();
-		assertCurrent(original, options.signal);
+	async function refresh(options: { readonly id?: string; readonly force?: boolean; readonly signal?: AbortSignal },
+		assertCurrent: ReturnType<typeof captureFence>): Promise<void> {
+		const original = assertCurrent(), libraryId = await runtime.getLibraryId();
+		assertCurrent(original);
 		let load = cacheSubprojectDocumentReads(runtime.loadProject);
 		let digestProject = cacheSubprojectDigests();
 		for (const initial of readSubprojectLinks(original)) {
 			if (options.id && initial.id !== options.id) continue;
-			const project = requireProject();
-			if (project.id !== original.id) throw new DOMException('The active project changed.', 'AbortError');
+			const project = assertCurrent();
 			const link = readSubprojectLinks(project).find(candidate => candidate.id === initial.id);
 			if (!link || (!link.followLatest && !options.force)) continue;
 			if (link.libraryId !== libraryId) {
@@ -116,9 +128,9 @@ export function createSubprojectActions(runtime: SubprojectRuntime) {
 				if (!options.force && error instanceof MissingSubprojectError) continue;
 				throw error;
 			}
-			assertCurrent(project, options.signal);
+			assertCurrent(project);
 			if (!options.force && (node.digest === link.contentDigest || installed.get(`${project.id}:${link.id}`) === node.digest)) continue;
-			await publish(project, link, node, link, libraryId, options.signal);
+			await publish(project, link, node, link, libraryId, assertCurrent, options.signal);
 			load = cacheSubprojectDocumentReads(runtime.loadProject);
 			digestProject = cacheSubprojectDigests();
 		}
@@ -126,32 +138,43 @@ export function createSubprojectActions(runtime: SubprojectRuntime) {
 	return Object.freeze({
 		libraryId: () => runtime.getLibraryId(),
 		async candidates() {
-			const id = requireProject().id;
-			return (await runtime.listProjects()).filter(project => project.id !== id && project.schemaFamily === 'soundscaper')
+			const assertCurrent = captureFence();
+			const projects = await runtime.listProjects();
+			const id = assertCurrent().id;
+			return projects.filter(project => project.id !== id && project.schemaFamily === 'soundscaper')
 				.map(project => ({ id: project.id, title: String(project.title ?? project.id) }));
 		},
-		add: (projectId: string) => enqueue(async () => {
-			const id = requireProject().id;
-			await runtime.prepare();
-			const project = requireProject();
-			if (project.id !== id) throw new DOMException('The active project changed.', 'AbortError');
-			const libraryId = await runtime.getLibraryId();
-			const node = await admitGraph(projectId, libraryId, project.id);
-			assertCurrent(project);
-			await publish(project, null, node, runtime.plan(node.project, project.sampleRate), libraryId);
-		}),
-		refresh: (options?: Parameters<typeof refresh>[0]) => enqueue(() => refresh(options)),
-		relink: (id: string, projectId: string) => enqueue(async () => {
-			const project = requireProject();
-			const expected = readSubprojectLinks(project).find(link => link.id === id);
-			if (!expected) throw new ReferenceError('Unknown subproject.');
-			const libraryId = await runtime.getLibraryId();
-			const node = await admitGraph(projectId, libraryId, project.id);
-			assertCurrent(project);
-			await publish(project, expected, node, expected, libraryId, undefined, true);
-		}),
+		async add(projectId: string) {
+			const assertCurrent = captureFence();
+			await enqueue(async () => {
+				assertCurrent();
+				await runtime.prepare();
+				const project = assertCurrent();
+				const libraryId = await runtime.getLibraryId();
+				const node = await admitGraph(projectId, libraryId, project.id);
+				assertCurrent(project);
+				await publish(project, null, node, runtime.plan(node.project, project.sampleRate), libraryId, assertCurrent);
+			});
+		},
+		async refresh(options: Parameters<typeof refresh>[0] = {}) {
+			const assertCurrent = captureFence(options.signal);
+			await enqueue(() => refresh(options, assertCurrent));
+		},
+		async relink(id: string, projectId: string) {
+			const assertCurrent = captureFence();
+			await enqueue(async () => {
+				const project = assertCurrent();
+				const expected = readSubprojectLinks(project).find(link => link.id === id);
+				if (!expected) throw new ReferenceError('Unknown subproject.');
+				const libraryId = await runtime.getLibraryId();
+				const node = await admitGraph(projectId, libraryId, project.id);
+				assertCurrent(project);
+				await publish(project, expected, node, expected, libraryId, assertCurrent, undefined, true);
+			});
+		},
 		async follow(id: string, followLatest: boolean): Promise<void> {
-			const project = requireProject();
+			const assertCurrent = captureFence();
+			const project = assertCurrent();
 			const link = readSubprojectLinks(project).find(candidate => candidate.id === id);
 			if (!link) throw new ReferenceError('Unknown subproject.');
 			if (followLatest) {
@@ -169,7 +192,8 @@ export function createSubprojectActions(runtime: SubprojectRuntime) {
 			runtime.commit({ type: 'subproject/detach', expected: link });
 		},
 		async open(id: string): Promise<unknown> {
-			const project = requireProject();
+			const assertCurrent = captureFence();
+			const project = assertCurrent();
 			const link = readSubprojectLinks(project).find(candidate => candidate.id === id);
 			if (!link) throw new ReferenceError('Unknown subproject.');
 			if (link.libraryId !== await runtime.getLibraryId()) throw new RangeError('The editable subproject belongs to another library.');
@@ -178,11 +202,12 @@ export function createSubprojectActions(runtime: SubprojectRuntime) {
 		},
 		async watch(signal: AbortSignal): Promise<void> {
 			const projectId = requireProject().id;
+			const assertCurrent = captureFence(signal);
 			let lastError = '';
 			while (!signal.aborted && runtime.getProject()?.id === projectId) {
-				try { await enqueue(() => refresh({ signal })); lastError = ''; }
+				try { await enqueue(() => refresh({ signal }, assertCurrent)); lastError = ''; }
 				catch (error) {
-					if (signal.aborted) return;
+					if (signal.aborted || error instanceof EditorProjectChangedError) return;
 					if (error instanceof DOMException && error.name === 'AbortError') { /* Retry the next saved generation. */ }
 					else if (String(error) !== lastError) { lastError = String(error); runtime.reportError(error); }
 				}

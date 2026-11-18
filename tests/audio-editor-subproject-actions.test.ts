@@ -5,16 +5,21 @@ import { createSubprojectActions, type SubprojectDocument, type SubprojectRuntim
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts';
 import { readSubprojectLinks } from '../src/common/editor/subprojects.ts';
+import { EditorProjectGeneration } from '../src/common/editor/controller/shared/lifecycle.ts';
 
 function fixture() {
 	let project: SubprojectDocument = createSoundscaperProject({ id: 'parent' }) as SubprojectDocument;
 	const documents = new Map<string, SubprojectDocument>([['child', createSoundscaperProject({ id: 'child', title: 'Scene' }) as SubprojectDocument]]);
 	const reads = new Map<string, number>();
 	let serial = 0, discarded = 0, renders = 0, blocked = false;
+	const generation = new EditorProjectGeneration();
+	generation.activate(project.id);
 	let beforeRender: () => Promise<void> = () => Promise.resolve();
 	const runtime: SubprojectRuntime = {
 		getProject: () => project,
 		assertWritable: () => { if (blocked) throw new Error('read-only'); },
+		captureGeneration: () => generation.capture(),
+		assertGeneration: token => generation.assertCurrent(token),
 		loadProject: id => { reads.set(id, (reads.get(id) ?? 0) + 1); return Promise.resolve(documents.get(id) ?? null); },
 		listProjects: () => Promise.resolve([...documents.values(), project]),
 		getLibraryId: () => Promise.resolve('library'),
@@ -31,6 +36,7 @@ function fixture() {
 	return { actions: createSubprojectActions(runtime), documents, reads, get project() { return project; },
 		get discarded() { return discarded; }, get renders() { return renders; },
 		beforeRender(callback: () => Promise<void>) { beforeRender = callback; },
+		selectProject(value: SubprojectDocument) { project = value; generation.activate(value.id); },
 		setProject(value: SubprojectDocument) { project = value; }, block() { blocked = true; } };
 }
 
@@ -181,4 +187,26 @@ test('refreshing the first linked subproject preserves the arrangement’s link 
 	await state.actions.refresh();
 
 	assert.deepEqual(readSubprojectLinks(state.project).map(link => link.id), before);
+});
+
+for (const returnToOrigin of [false, true]) test(`queued inserts keep their original tab generation, return=${returnToOrigin}`, async () => {
+	const state = fixture();
+	const origin = state.project;
+	let markStarted = (): void => undefined;
+	let unblock = (): void => undefined;
+	const started = new Promise<void>(resolve => { markStarted = resolve; });
+	const release = new Promise<void>(resolve => { unblock = resolve; });
+	state.beforeRender(async () => { markStarted(); await release; });
+	const first = state.actions.add('child');
+	await started;
+	const queued = state.actions.add('child');
+	const both = Promise.allSettled([first, queued]);
+	state.selectProject(createSoundscaperProject({ id: 'different-parent' }) as SubprojectDocument);
+	if (returnToOrigin) state.selectProject(origin);
+	unblock();
+
+	assert.deepEqual((await both).map(result => result.status), ['rejected', 'rejected']);
+	assert.equal(state.renders, 1);
+	assert.equal(state.discarded, 1);
+	assert.deepEqual(readSubprojectLinks(state.project), []);
 });
