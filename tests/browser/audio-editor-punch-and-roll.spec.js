@@ -58,6 +58,7 @@ test('Record options edits lead-in with the standard time formats and retries a 
 	await expect(record).toHaveAttribute('aria-label', 'Pause recording');
 	await editor.getByRole('button', { name: 'Stop', exact: true }).click();
 	await expect(record).toHaveAttribute('aria-pressed', 'false');
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', /.+/u);
 	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Rename project']);
 	const rename = page.getByRole('dialog', { name: 'Rename project', exact: true });
 	await commitInput(rename.locator('[data-project-name-input] input'), 'Recorded narration');

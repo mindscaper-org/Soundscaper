@@ -37,6 +37,7 @@ for (const mode of ['independent tempo', 'surround channel']) {
 		const display = page.locator('.audio-editor-track-menu').getByRole('menuitem', { name: /^Track visualization(?:\s|$)/u });
 		await display.focus(); await page.keyboard.press('ArrowRight');
 		await display.getByRole('menu').getByRole('menuitem', { name: 'Spectrogram', exact: true }).click();
+		await expect(clip.locator('canvas.clip-body__waveform')).toHaveAttribute('data-spectrogram-renderer', 'pffft-wasm', { timeout: 45_000 });
 		await clip.focus(); await clip.press('Control+a');
 		await editor.getByRole('button', { name: 'Spectrogram options', exact: true }).click();
 		await page.getByRole('menuitem', { name: 'Select spectral frequency range', exact: true }).click();
@@ -44,7 +45,6 @@ for (const mode of ['independent tempo', 'surround channel']) {
 		await dialog.getByRole('textbox', { name: /^Minimum frequency \(Hz\)/u }).fill('100');
 		await dialog.getByRole('textbox', { name: /^Maximum frequency \(Hz\)/u }).fill('300');
 		await dialog.getByRole('button', { name: 'Select range', exact: true }).click();
-		await expect(clip.locator('canvas.clip-body__waveform')).toHaveAttribute('data-spectrogram-renderer', 'pffft-wasm', { timeout: 45_000 });
 		const center = track.getByRole('slider', { name: 'Spectral selection center-frequency handle', exact: true });
 		const box = await center.boundingBox();
 		const lane = await track.locator('[data-track-lane]').boundingBox();
