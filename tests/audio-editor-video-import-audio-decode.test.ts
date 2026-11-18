@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { decodeImportedVideoAudio } from '../src/common/editor/controller/import/internal/video-import-audio-decode.ts';
 import { videoRetimePreviewMedia } from './browser/fixtures/video-retime-preview-media.js';
+import { deferred, remainsPending } from './helpers/async-test-control.ts';
 
 function fixture(hasAudio?: boolean) {
 	const calls: string[] = [];
@@ -32,6 +33,37 @@ for (const hasAudio of [true, undefined]) {
 		assert.deepEqual(calls, ['inspect', 'native']);
 	});
 }
+
+test('a stalled whole-file native decode yields to the container decoder', { timeout: 3_000 }, async (context) => {
+	const { options, calls, decoded } = fixture(true);
+	const started = deferred<void>();
+	const native = deferred<typeof decoded>();
+	context.mock.timers.enable({ apis: ['setTimeout'] });
+	const importing = decodeImportedVideoAudio({ ...options, decodeNative() {
+		calls.push('native'); started.resolve(); return native.promise;
+	} });
+	await started.promise;
+	context.mock.timers.tick(14_999);
+	assert.ok(await remainsPending(importing));
+	assert.deepEqual(calls, ['inspect', 'native']);
+	context.mock.timers.tick(1);
+	assert.equal((await importing).decodedAudio, decoded);
+	assert.deepEqual(calls, ['inspect', 'native', 'container']);
+	native.reject(new Error('Native decoder rejected after the deadline.'));
+});
+
+test('cancelling a stalled native decode stops before fallback', { timeout: 3_000 }, async () => {
+	const { options, calls } = fixture(true);
+	const started = deferred<void>();
+	const abort = new AbortController();
+	const importing = decodeImportedVideoAudio({ ...options, signal: abort.signal, decodeNative() {
+		calls.push('native'); started.resolve(); return new Promise(() => {});
+	} });
+	await started.promise;
+	abort.abort();
+	await assert.rejects(importing, { name: 'AbortError' });
+	assert.deepEqual(calls, ['inspect', 'native']);
+});
 
 test('an already cancelled silent import does not report success', async () => {
 	const { options, calls } = fixture(false);

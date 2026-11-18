@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
 import {
 	decodeBrowserContainerAudio,
 	type BrowserContainerAudioDecodeOptions,
@@ -8,6 +9,8 @@ import { secondsToSampleFrame } from '../../../timeline-time.ts';
 import { throwIfAborted } from '../../../video-timing-demux-reader.ts';
 import { readContainerVideoSourceCharacteristics } from '../../../video-container-characteristics.ts';
 import { placeImportedVideoAudio, readVideoContainerAudioTiming } from './video-import-audio-timing.ts';
+
+const NATIVE_VIDEO_AUDIO_DECODE_TIMEOUT_MS = 15_000;
 
 export type ImportedVideoDecodedAudio = ImportedVideoPlanarAudio | ImportedVideoAudioBuffer;
 
@@ -121,7 +124,7 @@ export async function decodeImportedVideoAudio(
 			if (options.file.size > 32 * 1024 * 1024) throw new RangeError('Use bounded container audio decoding.');
 			const encoded = await options.file.arrayBuffer();
 			declaredAudioSampleRate = audioTrackCount > 1 ? null : options.inspectEncodedSampleRate(encoded);
-			const decodedAudio = await options.decodeNative(encoded);
+			const decodedAudio = await decodeNativeVideoAudio(options, encoded);
 			throwIfAborted(options.signal);
 			assertDecodedVideoAudioWorkload(decodedAudio, budgetDurationSeconds, options.projectSampleRate, audioOffsetSeconds);
 			return Object.freeze({
@@ -174,4 +177,17 @@ export async function decodeImportedVideoAudio(
 			}
 		}
 	} finally { workloadReader.dispose(); }
+}
+
+async function decodeNativeVideoAudio(
+	{ decodeNative, signal }: ImportedVideoAudioDecodeOptions,
+	encoded: ArrayBuffer,
+): Promise<ImportedVideoDecodedAudio> {
+	// Web Audio may never settle. Retire this attempt so the existing fallback can run.
+	const deadline = new AbortController();
+	const timer = setTimeout(() => { deadline.abort(); }, NATIVE_VIDEO_AUDIO_DECODE_TIMEOUT_MS);
+	const scope = signal ? AbortSignal.any([signal, deadline.signal]) : deadline.signal;
+	try {
+		return await raceAbortableRead(() => decodeNative(encoded), scope);
+	} finally { clearTimeout(timer); }
 }
