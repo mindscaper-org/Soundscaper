@@ -54,6 +54,22 @@ test('a repeated radio delivery refuses more timer occurrences than CART can rep
 	assert.throws(() => createExportPlan(project, { format: 'bwf', masteringSequenceId: 'order' }), /at most eight post timers/u);
 });
 
+test('a shared boundary between adjoining regions uses one CART timer slot in the delivered BWF', () => {
+	const timers = [4_000, 8_000, 12_000, 20_000, 24_000, 28_000, 32_000, 40_000]
+		.map((value, index) => ({ usage: `SEC${index + 1}`, value }));
+	const base = radioProject([{ id: 'first', annotationId: 'middle' }], timers);
+	const first = { ...base.timelineAnnotations[0]!, startFrame: 0, endFrame: 24_000 };
+	const project = createSoundscaperProject({ ...base,
+		timelineAnnotations: [first, { ...first, id: 'right', name: 'Right', startFrame: 24_000, endFrame: 48_000 }],
+		masteringSequences: [{ ...base.masteringSequences[0]!, entries: [
+			{ id: 'one', annotationId: 'middle' }, { id: 'two', annotationId: 'right' },
+		] }],
+	});
+	const plan = createExportPlan(project, { format: 'bwf', masteringSequenceId: 'order' });
+	assert.equal(plan.outputFrames, 48_000);
+	assert.deepEqual(plan.cart?.postTimers, timers);
+});
+
 test('source-end radio cues follow the independently rounded delivered region boundary', () => {
 	const project = radioProject([{ id: 'entry', annotationId: 'middle', gapBeforeFrames: 4_800 }], [{ usage: 'EOD ', value: 36_000 }]);
 	const plan = createExportPlan(project, { format: 'bwf', masteringSequenceId: 'order', sampleRate: 44_100 });
