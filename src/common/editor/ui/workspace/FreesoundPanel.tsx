@@ -70,6 +70,7 @@ export interface FreesoundPanelAuthState {
 export interface FreesoundPanelProps {
 	readonly copy: Readonly<Record<string, string>>;
 	readonly state: FreesoundPanelState;
+	readonly importError?: string | null;
 	readonly disabled: boolean;
 	readonly projectBinVisible?: boolean;
 	readonly onSearch: (request: FreesoundSearchRequest) => void;
@@ -123,6 +124,7 @@ function sortLabel(copy: Readonly<Record<string, string>>, sort: FreesoundSort):
 export function FreesoundPanel({
 	copy,
 	state,
+	importError,
 	disabled,
 	projectBinVisible = true,
 	onSearch,
@@ -217,10 +219,13 @@ export function FreesoundPanel({
 				{state.status === 'ready' && state.results.length > 0 ? <p>{resultSummary}</p> : null}
 				{auth?.errorMessage ? <p className="kw-audio-editor__freesound-auth-error">{auth.errorMessage}</p> : null}
 			</div>
-			{state.status === 'error' && <div className="kw-audio-editor__toasts kw-audio-editor__freesound-toasts">
-				<EditorErrorToast key={state.errorMessage || copy.searchError} id="freesound-search-error"
+			{(state.status === 'error' || importError) && <div className="kw-audio-editor__toasts kw-audio-editor__freesound-toasts">
+				{state.status === 'error' && <EditorErrorToast key={state.errorMessage || copy.searchError} id="freesound-search-error"
 					title={copy.searchError} description={state.searchFailure ? onlineMediaFailureText(state.searchFailure, copy) : state.errorMessage}
-					dismissLabel={copy.close} />
+					dismissLabel={copy.close} />}
+				{importError && <EditorErrorToast key={importError} id="freesound-import-error"
+					title={copy.importError} description={importError === copy.importError ? undefined : importError}
+					dismissLabel={copy.close} />}
 			</div>}
 
 			{state.status === 'idle' ? <p className="kw-audio-editor__panel-empty">{copy.searchPrompt}</p> : null}
