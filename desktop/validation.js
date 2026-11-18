@@ -16,8 +16,8 @@ const PROJECT_EXTENSIONS = Object.freeze(
 );
 const NATIVE_PROJECT_EXTENSION = PROJECT_FILE_EXTENSION.slice(1);
 const MEDIA_IMPORT_EXTENSIONS = Object.freeze([
-	'aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'cue', 'edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf', 'adl', 'zip', 'flac', 'gro', 'm4a', 'm4v', 'mid', 'midi', 'mka', 'mov', 'mp2', 'mp3', 'mp4',
-	'oga', 'ogg', 'opus', 'rf64', 'srt', 'txt', 'vtt', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv',
+	'aac', 'aif', 'aifc', 'aiff', 'au', 'bw64', 'bwf', 'cue', 'edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf', 'adl', 'zip', 'flac', 'gro', 'm4a', 'm4v', 'mid', 'midi', 'mka', 'mov', 'mp2', 'mp3', 'mp4',
+	'oga', 'ogg', 'opus', 'rf64', 'snd', 'srt', 'txt', 'vtt', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv',
 	'ardour', 'scraft', 'scraftz',
 	'ptx', 'ptf', 'pts', 'nhsx', 'rpp',
 ]);
@@ -38,8 +38,8 @@ const FILE_PURPOSES = Object.freeze({
 		}]),
 	}),
 	audio: Object.freeze({
-		extensions: Object.freeze(['aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'flac', 'm4a', 'mka', 'mp2', 'mp3', 'oga', 'ogg', 'opus', 'rf64', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv']),
-		filters: Object.freeze([{ name: 'Audio', extensions: ['aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'flac', 'm4a', 'mka', 'mp2', 'mp3', 'oga', 'ogg', 'opus', 'rf64', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv'] }]),
+		extensions: Object.freeze(['aac', 'aif', 'aifc', 'aiff', 'au', 'bw64', 'bwf', 'flac', 'm4a', 'mka', 'mp2', 'mp3', 'oga', 'ogg', 'opus', 'rf64', 'snd', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv']),
+		filters: Object.freeze([{ name: 'Audio', extensions: ['aac', 'aif', 'aifc', 'aiff', 'au', 'bw64', 'bwf', 'flac', 'm4a', 'mka', 'mp2', 'mp3', 'oga', 'ogg', 'opus', 'rf64', 'snd', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv'] }]),
 	}),
 	video: Object.freeze({
 		extensions: Object.freeze(['m4v', 'mov', 'mp4', 'webm']),
@@ -141,6 +141,7 @@ const MIME_TYPES = Object.freeze({
 	'.aif': 'audio/aiff',
 	'.aifc': 'audio/aiff',
 	'.aiff': 'audio/aiff',
+	'.au': 'audio/basic',
 	'.apng': 'image/png',
 	'.aup3': 'application/x-audacity-project',
 	'.aup4': 'application/vnd.audacity.aup4',
@@ -180,6 +181,7 @@ const MIME_TYPES = Object.freeze({
 	'.ardour': 'application/xml', '.nhsx': 'application/xml',
 	'.scraft': 'application/json',
 	'.scraftz': 'application/zip',
+	'.snd': 'audio/basic',
 	'.srt': 'application/x-subrip',
 	'.txt': 'text/plain',
 	'.vtt': 'text/vtt',
