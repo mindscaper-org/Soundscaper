@@ -130,8 +130,9 @@ export function RawPcmImportDialog({ controller, snapshot, copy, run, onClose, f
 				const result = await controller.actions.project.importFiles([wav], {
 					signal: cancellation.signal, sourceProvenance: createRawPcmSourceProvenance(file), fileIndexOffset: 0,
 				});
-				if (!projectIsCurrent() || !result || typeof result !== 'object'
-					|| !('importedFileCount' in result) || result.importedFileCount !== 1) return;
+				if (!projectIsCurrent() || !result || typeof result !== 'object') return;
+				const cancelled = 'cancelled' in result && result.cancelled === true;
+				if (!cancelled && (!('importedFileCount' in result) || result.importedFileCount !== 1)) return;
 			} catch (error) {
 				if (!cancellation.signal.aborted) throw error;
 			} finally {

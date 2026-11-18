@@ -59,8 +59,8 @@ export function useLegacyAupDirectorySelection(controller: Readonly<{
 		chooseDirectory: () => {
 			const input = legacyDataInputRef.current;
 			if (!input) throw new DOMException('The project directory picker is unavailable.', 'AbortError');
-			if (typeof input.showPicker === 'function') input.showPicker();
-			else input.click();
+			// WebKit does not open the directory chooser through showPicker on file-input continuation.
+			input.click();
 		},
 		importFiles: files => controller.actions.project.importFiles(files),
 	}), [controller]);
