@@ -271,6 +271,7 @@ export function createProjectAdminService<
 		};
 		let deleteAttempted = false;
 		let deleteResolved = false;
+		let revisionRefused = false;
 		let saveSuspended = false;
 		try {
 			const clipboard = sessionController.clipboardForProject?.(id);
@@ -288,6 +289,7 @@ export function createProjectAdminService<
 			};
 			await preserveDeletedProjectClipboardMedia(id, clipboard, store, assertCurrent);
 			assertCurrent();
+			projectSessionService.persistActiveSessionUiState?.();
 			// These synchronous operations close mutation, project-token, and save
 			// admission before the first drain await. The exact-history reservation
 			// prevents a competing tab activation from replacing that ownership.
@@ -311,13 +313,22 @@ export function createProjectAdminService<
 				deleteAttempted = true;
 				const expected = projectSaveService.getPersistedSnapshot?.(id);
 				if (expected && store.deleteProjectSnapshot) {
-					if (!await store.deleteProjectSnapshot(expected)) throw createLocalizedError(Error, copy, 'projectReadOnly');
+					if (!await store.deleteProjectSnapshot(expected)) {
+						revisionRefused = true;
+						throw createLocalizedError(Error, copy, 'projectReadOnly');
+					}
 				} else await store.deleteProject(id);
 				deleteResolved = true;
 			} catch (error) {
 				failures.push(error);
 			} finally {
 				await attempt(() => releaseProjectLock());
+			}
+			if (revisionRefused) {
+				activation.release();
+				await attempt(() => switchProject(project, { skipFlush: true }));
+				throwProjectDeletionFailures(failures);
+				return;
 			}
 			if (deleteResolved) {
 				await attempt(() => persistSetting(recordingRoutingSettingKey(id), null, { policy: 'required' }));
@@ -363,6 +374,7 @@ export function createProjectAdminService<
 		} finally {
 			activation.release();
 			if (saveSuspended) projectSaveService.resume();
+			if (revisionRefused && getProject() === project && !state.readOnly && sessionTab(id)?.dirty) projectSaveService.scheduleAutosave?.();
 		}
 		throwProjectDeletionFailures(failures);
 	}

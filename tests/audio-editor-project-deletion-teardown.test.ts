@@ -113,6 +113,31 @@ test('deleting an active tab takes the user to its surviving neighbor', async ()
 	assert.equal(fixture.calls.includes('new-project'), false);
 });
 
+test('a storage revision refusal restores the live project tab with its unsaved history', async () => {
+	const fixture = createFixture();
+	const project = fixture.project()!;
+	const history = { present: project, past: [{ ...project, revision: 2 }] };
+	fixture.state.history = history;
+	fixture.tabs.set(project.id, { projectId: project.id, history, dirty: true, readOnly: false });
+	const runtime = {
+		...fixture.runtime,
+		projectSaveService: { ...fixture.runtime.projectSaveService, getPersistedSnapshot: () => ({ ...project, revision: 2 }) },
+		store: { ...fixture.runtime.store, deleteProjectSnapshot: async () => false },
+		switchProject(value: typeof project) {
+			assert.equal(value, project);
+			fixture.setProject(value);
+			fixture.state.history = fixture.tabs.get(value.id)!.history;
+		},
+	} satisfies ProjectAdminServiceRuntime;
+
+	await assert.rejects(createProjectAdminService(runtime).deleteProject(), /read-only/iu);
+	assert.equal(fixture.project(), project);
+	assert.equal(fixture.state.history, history);
+	assert.equal(fixture.tabs.get(project.id)?.dirty, true);
+	assert.equal(fixture.calls.includes('close:project-a'), false);
+	assert.equal(fixture.saveSuspended(), false);
+});
+
 test('project deletion failures still retire the torn-down session without a zombie tab', async () => {
 	for (const committed of [false, true]) {
 		const fixture = createFixture();

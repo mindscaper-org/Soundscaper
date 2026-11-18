@@ -96,6 +96,7 @@ export interface ProjectAdminServiceRuntime<
 	persistSetting(key: string, value: unknown, options: Readonly<{ policy: 'required' }>): Awaitable<unknown>;
 	readonly projectSaveService: Readonly<{
 		suspend(): void; resume(): void;
+		scheduleAutosave?(): unknown;
 		suspendProject(projectId: string): void; resumeProject(projectId: string): void;
 		retireProjectSaves(projectId: string): void;
 		drain(): Awaitable<unknown>;
@@ -115,7 +116,7 @@ export interface ProjectAdminServiceRuntime<
 		}>): PromiseLike<Readonly<{ storageRoots: readonly string[] }>>;
 	}>;
 	clearStorage?(): Awaitable<unknown>;
-	readonly projectSessionService: Readonly<{ clearRecentProjects(): Awaitable<unknown> }>;
+	readonly projectSessionService: Readonly<{ clearRecentProjects(): Awaitable<unknown>; persistActiveSessionUiState?(): void }>;
 	publishDocumentSnapshot(): void;
 	recordingRoutingSettingKey(projectId: string): string;
 	releaseProjectLock(): Awaitable<unknown>;
