@@ -245,6 +245,10 @@ add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../soundscaper-juce-effects"
 if(BUILD_TESTING)
 	include(cmake/vst2-self-test.cmake)
 	include(cmake/midi-self-test.cmake)
+	add_executable(soundscaper_audio_frame_ring_self_test tests/audio_frame_ring_self_test.cpp)
+	target_compile_features(soundscaper_audio_frame_ring_self_test PRIVATE cxx_std_20)
+	target_include_directories(soundscaper_audio_frame_ring_self_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+	add_test(NAME soundscaper_audio_frame_ring_self_test COMMAND soundscaper_audio_frame_ring_self_test)
 endif()
 if(BUILD_TESTING)
 	add_executable(soundscaper_os_mp3_profile_self_test

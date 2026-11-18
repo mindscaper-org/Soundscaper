@@ -154,6 +154,11 @@ Main participates in setup and revocation, not per-block relay. Generation,
 sequence, and absolute frame identity fence every packet; returning a buffer is
 the credit for another send.
 
+In WASAPI shared mode the driver sets the callback period. The native bridge
+regroups frames between that period and the negotiated transport packet size
+at the requested sample rate. Playback primes the ring before consuming the
+first packet so the two block sizes can run on their own schedules.
+
 Input loss during recording commits only the already captured prefix through
 the normal recording publication path. It never invents recorded silence.
 Output loss stops monitoring; playback may use an explicitly compatible Web

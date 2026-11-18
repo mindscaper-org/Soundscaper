@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 #include "juce_audio_adapter.h"
+#include "audio_frame_ring.h"
 
 #include <juce_audio_devices/juce_audio_devices.h>
 
@@ -11,7 +12,6 @@
 #include <cstring>
 #include <mutex>
 #include <sstream>
-#include <vector>
 
 namespace soundscaper {
 namespace {
@@ -34,62 +34,17 @@ void text(char *destination, const std::string &value)
 	destination[length] = '\0';
 }
 
-class PeriodRing {
-public:
-	PeriodRing(uint32_t channels, uint32_t frames, uint32_t periods = 16u)
-		: channelCount(channels), frameCount(frames), capacity(periods),
-		storage(static_cast<size_t>(channels) * frames * periods, 0.0f) {}
-
-	bool push(const float *const *planes, uint32_t availableChannels)
-	{
-		const uint64_t write = writeSequence.load(std::memory_order_relaxed);
-		if (write - readSequence.load(std::memory_order_acquire) >= capacity) return false;
-		float *slot = storage.data() + static_cast<size_t>(write % capacity) * channelCount * frameCount;
-		for (uint32_t channel = 0; channel < channelCount; ++channel) {
-			float *target = slot + static_cast<size_t>(channel) * frameCount;
-			if (channel < availableChannels && planes != nullptr && planes[channel] != nullptr) {
-				std::memcpy(target, planes[channel], static_cast<size_t>(frameCount) * sizeof(float));
-			} else std::fill(target, target + frameCount, 0.0f);
-		}
-		writeSequence.store(write + 1u, std::memory_order_release);
-		return true;
-	}
-
-	bool pop(float *const *planes, uint32_t availableChannels)
-	{
-		const uint64_t read = readSequence.load(std::memory_order_relaxed);
-		if (read == writeSequence.load(std::memory_order_acquire)) return false;
-		const float *slot = storage.data() + static_cast<size_t>(read % capacity) * channelCount * frameCount;
-		for (uint32_t channel = 0; channel < availableChannels; ++channel) {
-			if (planes == nullptr || planes[channel] == nullptr) continue;
-			const float *source = slot + static_cast<size_t>(std::min(channel, channelCount - 1u)) * frameCount;
-			std::memcpy(planes[channel], source, static_cast<size_t>(frameCount) * sizeof(float));
-		}
-		readSequence.store(read + 1u, std::memory_order_release);
-		return true;
-	}
-
-	bool empty() const
-	{
-		return readSequence.load(std::memory_order_acquire) == writeSequence.load(std::memory_order_acquire);
-	}
-
-private:
-	const uint32_t channelCount;
-	const uint32_t frameCount;
-	const uint32_t capacity;
-	std::vector<float> storage;
-	std::atomic<uint64_t> readSequence{0u};
-	std::atomic<uint64_t> writeSequence{0u};
-};
-
 class Session final : public JuceAudioSession, private juce::AudioIODeviceCallback {
 public:
-	Session(std::unique_ptr<juce::AudioIODevice> opened, uint32_t channels, uint32_t frames, uint32_t direction)
-		: device(std::move(opened)), channelCount(channels), frameCount(frames),
-		captureEnabled(direction == 0u || direction == 2u),
-		playbackEnabled(direction == 1u || direction == 2u),
-		input(channels, frames), output(channels, frames) {}
+	Session(std::unique_ptr<juce::AudioIODevice> opened,
+		const soundscaper_pro_audio_request &request, uint32_t callbackFrames, bool useSharedWasapi)
+		: device(std::move(opened)), channelCount(request.channel_count), frameCount(request.period_frames),
+		deviceFrames(callbackFrames), sampleRate(request.sample_rate), sharedWasapi(useSharedWasapi),
+		playbackStartFrames(useSharedWasapi ? 2u * callbackFrames + request.period_frames : request.period_frames),
+		captureEnabled(request.direction == 0u || request.direction == 2u),
+		playbackEnabled(request.direction == 1u || request.direction == 2u),
+		input(captureEnabled ? channelCount : 0u, queueFrames()),
+		output(playbackEnabled ? channelCount : 0u, queueFrames()) {}
 
 	~Session() override
 	{
@@ -103,11 +58,12 @@ public:
 		start();
 		std::unique_lock<std::mutex> lock(waitMutex);
 		const bool ready = captureReady.wait_for(lock, timeout(), [this] {
-			return !input.empty() || failed.load(std::memory_order_acquire)
+			return input.availableFrames() >= frameCount || failed.load(std::memory_order_acquire)
 				|| stopped.load(std::memory_order_acquire);
 		});
 		if (!ready || failed.load(std::memory_order_acquire) || stopped.load(std::memory_order_acquire)
-			|| !input.pop(planes, channels)) return SOUNDSCAPER_PRO_DEVICE_UNAVAILABLE;
+			|| !input.pop(planes, channels, frames)) return SOUNDSCAPER_PRO_DEVICE_UNAVAILABLE;
+		captureStarted = true;
 		return SOUNDSCAPER_PRO_OK;
 	}
 
@@ -115,8 +71,7 @@ public:
 		const float *const *planes, uint32_t channels, uint32_t frames) override
 	{
 		if (!playbackEnabled || !shape(planes, channels, frames)) return SOUNDSCAPER_PRO_FORMAT_REFUSED;
-		if (!output.push(planes, channels)) return fail();
-		playbackStarted.store(true, std::memory_order_release);
+		if (!output.push(planes, channels, frames)) return fail();
 		start();
 		if (failed.load(std::memory_order_acquire) || stopped.load(std::memory_order_acquire)) {
 			return SOUNDSCAPER_PRO_DEVICE_UNAVAILABLE;
@@ -136,17 +91,19 @@ private:
 		const float *const *inputs, int inputChannels, float *const *outputs,
 		int outputChannels, int frames, const juce::AudioIODeviceCallbackContext &) override
 	{
-		if (frames != static_cast<int>(frameCount)) return audioFault(outputs, outputChannels, frames);
-		if (captureEnabled && !input.push(inputs, static_cast<uint32_t>(std::max(0, inputChannels)))) {
+		if (frames != static_cast<int>(deviceFrames)) return audioFault(outputs, outputChannels, frames);
+		if (captureEnabled && !input.push(inputs, static_cast<uint32_t>(inputChannels), deviceFrames)) {
 			audioFault(outputs, outputChannels, frames);
 			return;
 		}
 		if (captureEnabled) captureReady.notify_one();
-		if (!playbackEnabled || !output.pop(outputs, static_cast<uint32_t>(std::max(0, outputChannels)))) {
-			for (int channel = 0; channel < outputChannels; ++channel) {
-				if (outputs[channel] != nullptr) std::fill(outputs[channel], outputs[channel] + frames, 0.0f);
-			}
-			if (playbackEnabled && playbackStarted.load(std::memory_order_acquire)) failed.store(true, std::memory_order_release);
+		if (playbackEnabled) {
+			playbackStarted = playbackStarted || output.availableFrames() >= playbackStartFrames;
+			if (playbackStarted && output.pop(outputs, static_cast<uint32_t>(outputChannels), deviceFrames)) return;
+			if (playbackStarted) failed.store(true, std::memory_order_release);
+		}
+		for (int channel = 0; channel < outputChannels; ++channel) {
+			if (outputs[channel] != nullptr) std::fill_n(outputs[channel], frames, 0.0f);
 		}
 	}
 
@@ -180,25 +137,37 @@ private:
 
 	std::chrono::milliseconds timeout() const
 	{
-		const double milliseconds = 2000.0 * static_cast<double>(frameCount)
-			/ std::max(1.0, device->getCurrentSampleRate());
+		if (sharedWasapi && !captureStarted) return std::chrono::milliseconds(500);
+		const double milliseconds = (sharedWasapi ? 3000.0 : 2000.0)
+			* static_cast<double>(std::max(frameCount, deviceFrames)) / sampleRate;
 		return std::chrono::milliseconds(static_cast<int>(std::clamp(milliseconds, 10.0, 500.0)));
+	}
+
+	uint32_t queueFrames() const
+	{
+		// Leave room for one callback beyond the playback priming threshold.
+		return std::max(16u * frameCount, playbackStartFrames + deviceFrames);
 	}
 
 	std::unique_ptr<juce::AudioIODevice> device;
 	const uint32_t channelCount;
 	const uint32_t frameCount;
+	const uint32_t deviceFrames;
+	const uint32_t sampleRate;
+	const bool sharedWasapi;
+	const uint32_t playbackStartFrames;
 	const bool captureEnabled;
 	const bool playbackEnabled;
-	PeriodRing input;
-	PeriodRing output;
+	AudioFrameRing input;
+	AudioFrameRing output;
 	std::atomic<bool> failed{false};
 	std::atomic<bool> stopped{false};
-	std::atomic<bool> playbackStarted{false};
 	std::mutex startMutex;
 	std::mutex waitMutex;
 	std::condition_variable captureReady;
 	bool started = false;
+	bool playbackStarted = false; // Audio callback thread only.
+	bool captureStarted = false; // Helper consumer only.
 };
 
 /**
@@ -300,15 +269,19 @@ soundscaper_pro_audio_result openJuceAudio(
 		text(result.detail, error.toStdString());
 		return result;
 	}
-	if (static_cast<uint32_t>(device->getCurrentSampleRate()) != request.sample_rate
-		|| static_cast<uint32_t>(device->getCurrentBufferSizeSamples()) != request.period_frames) {
+	const auto callbackFrames = device->getCurrentBufferSizeSamples();
+	// WASAPI shared mode uses the driver's period. Preserve the helper's exact
+	// packet size by regrouping frames locally, with no change to the sample rate.
+	const bool sharedWasapi = backend == "wasapi" && request.exclusive == 0u;
+	if (device->getCurrentSampleRate() != request.sample_rate || callbackFrames < 1 || callbackFrames > 16384
+		|| (!sharedWasapi && static_cast<uint32_t>(callbackFrames) != request.period_frames)) {
 		device->close();
 		result.status = SOUNDSCAPER_PRO_FORMAT_REFUSED;
 		text(result.detail, "The device substituted a sample rate or period.");
 		return result;
 	}
 	session = std::make_unique<Session>(
-		std::move(device), request.channel_count, request.period_frames, request.direction);
+		std::move(device), request, static_cast<uint32_t>(callbackFrames), sharedWasapi);
 	result.status = SOUNDSCAPER_PRO_OK;
 	result.sample_rate = request.sample_rate;
 	result.period_frames = request.period_frames;
