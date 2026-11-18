@@ -21,9 +21,15 @@ export interface DialogueTarget {
 /** The same admission drives the menu, dialog choices and processing boundary. */
 export function dialogueAlignmentTargets(project: DialogueTargetProject | null): readonly DialogueTarget[] {
 	if (!project || !Number.isSafeInteger(project.sampleRate) || project.sampleRate < 8000 || project.sampleRate > 192000) return [];
+	const sourceById = new Map(project.sources.map(source => [source.id, source]));
+	const trackByClipId = new Map<string, DialogueTargetProject['tracks'][number]>();
+	for (const track of project.tracks) {
+		if (track.type !== 'audio') continue;
+		for (const id of track.clipIds ?? []) if (!trackByClipId.has(id)) trackByClipId.set(id, track);
+	}
 	return project.clips.flatMap(clip => {
-		const track = project.tracks.find(candidate => candidate.type === 'audio' && candidate.clipIds?.includes(clip.id));
-		const source = project.sources.find(candidate => candidate.id === clip.sourceId);
+		const track = trackByClipId.get(clip.id);
+		const source = typeof clip.sourceId === 'string' ? sourceById.get(clip.sourceId) : undefined;
 		const start = Number(clip.timelineStartFrame), length = Number(clip.durationFrames), channels = Number(source?.channelCount);
 		if (!track || track.locked || track.audioFreeze || !source || source.missing || source.kind && source.kind !== 'audio'
 			|| clip.kind && clip.kind !== 'audio' || clip.avLinkId || clip.anchor === 'musical'

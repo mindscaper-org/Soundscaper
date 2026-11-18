@@ -31,3 +31,18 @@ test('dialogue admission excludes frozen, locked, linked, missing and oversized 
 	}
 	assert.equal(dialogueAlignmentTargets({ ...project, sources: [{ ...project.sources[0]!, missing: true }] }).length, 0);
 });
+
+test('the dialogue menu indexes sources and track membership for densely edited sessions', () => {
+	const count = 400;
+	let sourceReads = 0, membershipReads = 0;
+	const clips = Array.from({ length: count }, (_, index) => ({ id: `cut-${index}`, sourceId: `recording-${index}`,
+		timelineStartFrame: index * 4_000, durationFrames: 4_000 }));
+	const clipIds = clips.map(({ id }) => id);
+	const sources = clips.map(({ sourceId }) => ({ get id() { sourceReads++; return sourceId; }, channelCount: 1 }));
+	const tracks = [{ id: 'dialogue', type: 'audio', get clipIds() { membershipReads++; return clipIds; } }];
+	const largeEdit = { sampleRate: 8_000, clips, sources, tracks };
+	assert.equal(dialogueAlignmentMenuItem({ productId: 'soundscaper', project: largeEdit, editBlocked: false,
+		copy: ENGLISH_COPY, open: () => undefined })[0]?.disabled, false);
+	assert.ok(sourceReads <= count * 2, `the menu revisited source identity ${sourceReads} times`);
+	assert.equal(membershipReads, 1);
+});
