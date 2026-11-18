@@ -8,7 +8,7 @@ import { surroundAvWebmFixture } from '../helpers/ordinary-ogg-opus-fixture.ts';
 
 test('File Import and native Save retain all six channels extracted from an ordinary video', async ({ page }, testInfo) => {
 	// Decode, import publication and native Save each need their own bounded wait.
-	test.setTimeout(90_000);
+	test.setTimeout(120_000);
 	const file = await surroundAvWebmFixture(); const bytes = new Uint8Array(await file.arrayBuffer());
 	await page.addInitScript(() => {
 		// Observe the import's own native decode. A second context can have a
@@ -28,7 +28,8 @@ test('File Import and native Save retain all six channels extracted from an ordi
 	const filePath = testInfo.outputPath(file.name);
 	await writeFile(filePath, bytes);
 	await editor.locator('[data-import-input]').setInputFiles(filePath);
-	await expect.poll(() => page.evaluate(() => Boolean(globalThis.__surroundNativeDecode)), { timeout: 30_000 }).toBe(true);
+	// WebKit can still be probing the video when the 30-second wait ends.
+	await expect.poll(() => page.evaluate(() => Boolean(globalThis.__surroundNativeDecode)), { timeout: 60_000 }).toBe(true);
 	const expected = await page.evaluate(() => globalThis.__surroundNativeDecode);
 	if (expected.supported) { expect(expected).toMatchObject({ sampleRate: 48_000, frames: 3840 }); expect(expected.channels).toHaveLength(6); }
 	await expect(editor).toHaveAttribute('data-clip-count', expected.supported ? '2' : '1', { timeout: 30_000 });
