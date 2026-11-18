@@ -244,6 +244,24 @@ test('blocked clip-target silence returns before allocating or persisting work',
 	assert.equal(fixture.publishes(), 0);
 });
 
+test('clip-target silence admits storage before materializing the PCM', async () => {
+	const quotaFailure = new Error('Insufficient storage');
+	let widthReads = 0;
+	const fixture = createFixture({
+		getProject: () => project('project-a', { startFrame: 0, endFrame: 0, trackIds: ['track-a'], clipIds: ['existing-clip'] }),
+		effectTargets: () => [{ durationFrames: 48_000, get channelCount() { widthReads++; return 8; } }],
+		preflightStorage: async bytes => {
+			assert.equal(bytes, 48_000 * 8 * Float32Array.BYTES_PER_ELEMENT);
+			assert.equal(widthReads, 1, 'storage must be checked before zero PCM channel construction');
+			throw quotaFailure;
+		},
+		persistEffectResults: async () => assert.fail('storage refused publication'),
+	});
+	await assert.rejects(createAudioGeneratorService(fixture.dependencies).generateSelectionSilence(), error => error === quotaFailure);
+	assert.equal(fixture.commits.length, 0);
+	assert.equal(fixture.state.audacityEffectProcessing, false);
+});
+
 test('selection silence accepts the project document committed by its own persistence transaction', async () => {
 	let activeProject = project('project-a', null);
 	const fixture = createFixture({

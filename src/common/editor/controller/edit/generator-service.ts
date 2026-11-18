@@ -215,6 +215,12 @@ export function createAudioGeneratorService<Context, Target extends AudioGenerat
 		try {
 			const targets = dependencies.effectTargets();
 			if (!targets.length) throw createLocalizedError(Error, dependencies.copy, 'timeSelectionRequired');
+			const bytes = targets.reduce((sum, target) => (
+				sum + target.durationFrames * target.channelCount * Float32Array.BYTES_PER_ELEMENT
+			), 0);
+			await raceAbortableRead(() => dependencies.preflightStorage(bytes, 'effect'), ownership.task.signal, 'immediate');
+			assertOwnership(ownership);
+			processing = markProcessing();
 			const results = targets.map((target) => ({
 				target,
 				channels: Object.freeze(Array.from(
@@ -222,13 +228,6 @@ export function createAudioGeneratorService<Context, Target extends AudioGenerat
 					() => new Float32Array(target.durationFrames),
 				)),
 			}));
-			await raceAbortableRead(() => dependencies.preflightStorage(results.reduce((sum, result) => (
-				sum + result.target.durationFrames
-					* result.target.channelCount
-					* Float32Array.BYTES_PER_ELEMENT
-			), 0), 'effect'), ownership.task.signal, 'immediate');
-			assertOwnership(ownership);
-			processing = markProcessing();
 			await dependencies.persistEffectResults(results, null, {
 				effectName: publishedCopyFor(dependencies.copy).silenceAudio,
 				signal: ownership.task.signal,
