@@ -23,7 +23,7 @@ function fixture() {
 		seek: frame => { position = frame; seeks.push(frame); },
 		play: async () => { playing = true; }, pause: async () => { playing = false; paused++; },
 	});
-	return { session, io, midi, seeks, receive: (reading: TimecodeReading) => receive(reading, now),
+	return { session, io, midi, seeks, receive: (reading: TimecodeReading, timestamp = now) => receive(reading, timestamp),
 		advance: (ms: number) => { if (playing) position += ms * 48; now += ms; session.tick(); },
 		playing: () => playing, closed: () => closed, paused: () => paused,
 		setPlaying: (value: boolean) => { playing = value; },
@@ -112,6 +112,21 @@ test('MTC receive locates without autoplay, chases moving timecode with offset, 
 	f.advance(501); await f.session.settled();
 	assert.equal(f.playing(), false); assert.equal(f.session.getSnapshot().locked, false);
 	await f.session.dispose();
+});
+
+test('expired moving timecode cannot locate or pause a fresh chase', async () => {
+	const f = fixture();
+	try {
+		await f.session.configure({ ...DEFAULT_TIMECODE_SYNC_SETTINGS, receive: 'mtc', midiInput: 'in' });
+		f.receive({ frame: 250, rate: '25', direction: 1 });
+		await f.session.settled();
+		assert.equal(f.playing(), true);
+		f.receive({ frame: 50, rate: '25', direction: 1 }, 400);
+		await f.session.settled();
+		assert.deepEqual(f.seeks, [480_000]);
+		assert.equal(f.playing(), true);
+		assert.equal(f.paused(), 0);
+	} finally { await f.session.dispose(); }
 });
 
 test('disabling during device admission closes late devices and ignores stale messages', async () => {

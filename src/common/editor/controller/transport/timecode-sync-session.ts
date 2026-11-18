@@ -30,6 +30,8 @@ interface Dependencies {
 	readonly schedule?: (tick: () => void) => () => void;
 }
 
+const SIGNAL_TIMEOUT_MS = 500;
+
 /** Own one opt-in sync session; permissions, timers and asynchronous chase share a generation. */
 export function createTimecodeSyncSession(d: Dependencies) {
 	const now = d.now ?? (() => performance.now());
@@ -103,6 +105,7 @@ export function createTimecodeSyncSession(d: Dependencies) {
 			const opening = new AbortController(); admission = opening;
 			const session = await d.io.open(settings, (reading, timestamp) => {
 				if (ownGeneration !== generation || !snapshot.active || settings.receive === 'off') return;
+				if (reading.direction !== 0 && now() - timestamp >= SIGNAL_TIMEOUT_MS) return;
 				lastReceive = timestamp;
 				pending = { reading, timestamp };
 				pump();
@@ -131,9 +134,11 @@ export function createTimecodeSyncSession(d: Dependencies) {
 				const position = d.read();
 				if (position.projectId !== projectId || position.blocked || position.receiveBlocked) return;
 				if (next.lost) { if (position.playing) await d.pause(); chasing = false; continue; }
-				const moving = next.reading.direction === 1 && now() - next.timestamp < 500;
+				const age = now() - next.timestamp;
+				if (next.reading.direction !== 0 && age >= SIGNAL_TIMEOUT_MS) continue;
+				const moving = next.reading.direction === 1;
 				let seconds = next.reading.frame / timecodeRate(next.reading.rate) - snapshot.settings.offsetSeconds;
-				if (moving) seconds += Math.max(0, now() - next.timestamp) / 1000;
+				if (moving) seconds += Math.max(0, age) / 1000;
 				const day = timecodeDayFrames(next.reading.rate) / timecodeRate(next.reading.rate);
 				const unwrapped = seconds + Math.round((position.positionFrame / position.sampleRate - seconds) / day) * day;
 				// Wire labels have no day field. Retain the nearest timeline day,
@@ -166,7 +171,7 @@ export function createTimecodeSyncSession(d: Dependencies) {
 			if (position.projectId !== projectId || position.blocked || (snapshot.settings.receive !== 'off' && position.receiveBlocked)) {
 				void configure(DEFAULT_TIMECODE_SYNC_SETTINGS).catch(fail); return;
 			}
-			if (snapshot.locked && time - lastReceive > 500) {
+			if (snapshot.locked && time - lastReceive > SIGNAL_TIMEOUT_MS) {
 				publish({ locked: false });
 				if (chasing) {
 					chasing = false;
