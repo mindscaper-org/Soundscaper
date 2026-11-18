@@ -127,6 +127,32 @@ test('silence is reported unmeasurable rather than given an invented gain', () =
 	assert.ok(channels[0].every((sample) => sample === 0), 'silence stays silent');
 });
 
+test('a short exported selection still respects the requested true-peak ceiling', () => {
+	const channels = [tone(1, 0.1)];
+	const measured = measureBextLoudness(channels, SAMPLE_RATE);
+	assert.equal(measured.loudnessValue, null);
+	assert.ok(measured.maxTruePeakLevel !== null && measured.maxTruePeakLevel > R128.truePeakCeilingDb);
+	const normalized = normalizeRenderedLoudness({
+		channels, sampleRate: SAMPLE_RATE, target: R128, captureLoudness: true,
+	});
+	assert.equal(normalized.decision?.outcome, 'unmeasurable');
+	assert.ok(normalized.decision.gainDb < 0);
+	const deliveredPeak = normalized.delivered?.maxTruePeakLevel;
+	assert.ok(deliveredPeak != null && deliveredPeak <= R128.truePeakCeilingDb + 1e-4);
+});
+
+test('a finite float source above the BEXT field range can still be normalized', () => {
+	const channels = [tone(200_000, 0.5)];
+	assert.equal(measureBextLoudness(channels, SAMPLE_RATE).maxTruePeakLevel, null);
+	const normalized = normalizeRenderedLoudness({
+		channels, sampleRate: SAMPLE_RATE, target: R128, captureLoudness: true,
+	});
+	const measuredPeak = normalized.decision?.measuredTruePeakDb;
+	const deliveredPeak = normalized.delivered?.maxTruePeakLevel;
+	assert.ok(measuredPeak != null && measuredPeak > 100);
+	assert.ok(deliveredPeak != null && deliveredPeak <= R128.truePeakCeilingDb + 1e-4);
+});
+
 test('the gain is applied to the same arrays rather than to copies', () => {
 	// A one-hour master is over a gigabyte of float samples; copying it to apply
 	// a constant would double peak memory exactly where a delivery is tightest.

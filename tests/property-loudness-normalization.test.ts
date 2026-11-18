@@ -126,7 +126,7 @@ test('a quieter measurement never earns less gain than a louder one', () => {
 	);
 });
 
-test('a delivery without a target, or without a measurement, is left alone', () => {
+test('a delivery without integrated loudness is attenuated only to enforce a requested peak ceiling', () => {
 	fc.assert(
 		fc.property(
 			fc.option(loudnessArbitrary, { nil: null }),
@@ -145,15 +145,11 @@ test('a delivery without a target, or without a measurement, is left alone', () 
 				const decision = computeLoudnessNormalization(measurement, target);
 				if (loudness === null) {
 					assert.equal(decision.outcome, 'unmeasurable');
-					assert.equal(decision.gainDb, 0);
+					assert.equal(decision.gainDb, truePeak === null ? 0 : Math.min(0, target.truePeakCeilingDb - truePeak));
 					assert.equal(decision.projectedLoudnessLufs, null);
-					assert.equal(decision.projectedTruePeakDb, truePeak);
 				}
-				// Whatever the outcome, the decision cannot make an unmeasured or
-				// already-over-ceiling peak worse than it was.
-				const ceiling = Math.max(target.truePeakCeilingDb, truePeak ?? Number.NEGATIVE_INFINITY);
 				if (decision.projectedTruePeakDb !== null) {
-					assert.ok(decision.projectedTruePeakDb <= ceiling + ARITHMETIC_SLACK);
+					assert.ok(decision.projectedTruePeakDb <= target.truePeakCeilingDb + ARITHMETIC_SLACK);
 				}
 			},
 		),
