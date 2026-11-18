@@ -139,3 +139,22 @@ test('phase processing validates PCM and honors cancellation before publishing o
 		onProgress: value => { progress = value; }, isCancelled: () => progress > .1,
 	}), { name: 'AbortError' });
 });
+
+test('long phase analysis reuses its four FFT planes across all nine windows', async () => {
+	const source = noise(RATE * 2), shifted = delayed(source, 12);
+	await analyzePhaseCorrection([source, shifted], RATE);
+	const native = globalThis.Float64Array;
+	let fftPlanes = 0;
+	globalThis.Float64Array = new Proxy(native, { construct(target, args, receiver) {
+		if (args[0] === 8_192) fftPlanes++;
+		return Reflect.construct(target, args, receiver);
+	} });
+	try {
+		const result = await analyzePhaseCorrection([source, shifted], RATE);
+		assert.equal(result.windowsAnalyzed, 9);
+		assert.equal(result.lagSamples, 12);
+		assert.equal(fftPlanes, 4);
+	} finally {
+		globalThis.Float64Array = native;
+	}
+});
