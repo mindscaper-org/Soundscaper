@@ -3,7 +3,7 @@ import { aafHex, type AafObject, type AafObjectTable } from './aaf-object-table.
 import { timelineImportIssue, type TimelineInterchangeClip, type TimelineInterchangeAutomation } from './timeline-interchange-types.ts';
 import type { DeliveryReportItem } from './delivery-report.ts';
 import { interchangeMissingEffect } from './interchange-effect-state.ts';
-import { type Rational } from './timeline-time.ts';
+import { addRationals, multiplyRationals, roundRational, type Rational } from './timeline-time.ts';
 
 const GAIN = new Set(['94a82e9d6809d3118a380050040ef7d2', '95a82e9d6809d3118a380050040ef7d2']);
 const PAN = '93a82e9d6809d3118a380050040ef7d2';
@@ -56,7 +56,15 @@ export function aafPanAutomation(curve: AafImportCurve, start: Rational, duratio
 /** Multiply clip envelopes with operation/fade curves, retaining breakpoints and bounded product error. */
 export function aafApplyClipGain(clip: TimelineInterchangeClip, curve: AafImportCurve, start: Rational, duration: Rational,
 	sampleRate: number, issues?: DeliveryReportItem[]): TimelineInterchangeClip {
-	const frames = Math.round(seconds(clip.duration) * sampleRate), offset = Math.round((seconds(clip.start) - seconds(start)) * sampleRate), extent = seconds(duration) * sampleRate;
+	const toFrame = (time: Rational) => {
+		const frame = multiplyRationals(time, sampleRate);
+		return roundRational(frame.num, frame.den, 'point');
+	};
+	const clipStart = toFrame(clip.start);
+	const operationStart = toFrame(start);
+	const frames = toFrame(addRationals(clip.start, clip.duration)) - clipStart;
+	const offset = clipStart - operationStart;
+	const extent = toFrame(addRationals(start, duration)) - operationStart;
 	if (extent <= 0) return clip;
 	const positions = new Set([0, frames, ...(clip.envelope ?? []).map(point => point.frame)]);
 	for (const point of curve.points) {
