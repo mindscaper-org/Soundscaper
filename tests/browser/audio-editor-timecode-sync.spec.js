@@ -126,14 +126,30 @@ test('disabling MTC pauses playback while the input port is still closing', asyn
 	await dialog.getByLabel('MTC MIDI input', { exact: true }).selectOption('tc-in');
 	await dialog.getByRole('button', { name: 'Apply synchronization' }).click();
 	await expect(dialog.getByRole('status')).toHaveText('Waiting for timecode.');
-	await page.evaluate(() => { for (const byte of [0, 16, 34, 48, 64, 80, 96, 114]) globalThis.__timecode.emit([241, byte]); });
-	await expect(editor.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
+	// Keep sending 25 fps timecode so signal loss cannot pause playback before Disable does.
+	const stream = await page.evaluate(() => {
+		const start = performance.now();
+		return setInterval(() => {
+			const elapsedFrames = 50 + Math.floor((performance.now() - start) / 40);
+			const frame = elapsedFrames % 25;
+			const seconds = Math.floor(elapsedFrames / 25) % 60;
+			for (const byte of [frame & 15, 16 | (frame >> 4), 32 | (seconds & 15), 48 | (seconds >> 4), 64, 80, 96, 114]) {
+				globalThis.__timecode.emit([241, byte]);
+			}
+		}, 100);
+	});
 	try {
+		await expect(editor.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 		await dialog.getByRole('button', { name: 'Disable synchronization' }).click();
 		await expect.poll(() => page.evaluate(() => globalThis.__timecode.probe.closingInput)).toBe(true);
 		await expect(editor.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
 		expect(await page.evaluate(() => globalThis.__timecode.probe.closed)).toBe(0);
-	} finally { await page.evaluate(() => globalThis.__timecode.releaseInput()); }
+	} finally {
+		await page.evaluate(timer => {
+			clearInterval(timer);
+			globalThis.__timecode.releaseInput();
+		}, stream);
+	}
 	await expect.poll(() => page.evaluate(() => globalThis.__timecode.probe.closed)).toBe(1);
 });
 
