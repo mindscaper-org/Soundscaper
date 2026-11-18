@@ -54,7 +54,6 @@ export function importWorkspaceRoutedFiles({
 				failures.push(error);
 			}
 		}
-		if (failures.length && failures.length === routed.projects.length) throwImportFailures(failures);
 		let session = activeSession();
 		const looseMedia = routed.media.filter(file => !companionMedia.has(file));
 		if (looseMedia.length) {

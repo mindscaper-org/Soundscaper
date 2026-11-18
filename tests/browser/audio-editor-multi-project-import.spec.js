@@ -26,6 +26,17 @@ test('the Import picker opens healthy projects on both sides of a damaged archiv
 	await expect(editor).toHaveAttribute('data-project-id', 'batch-last');
 });
 
+test('the Import picker retains a valid recording alongside a damaged archive', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	const outgoing = await editor.getAttribute('data-project-id');
+	await importFiles(editor, [
+		{ name: 'broken.sscape', mimeType: 'application/zip', buffer: Buffer.from('Damaged archive') },
+		toneA,
+	]);
+	await expect(clipByName(editor, toneA.name)).toHaveCount(1);
+	await expect(editor).toHaveAttribute('data-project-id', outgoing);
+});
+
 test('dropping a Scape file and a recording opens the archive before placing the recording', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	const outgoing = await editor.getAttribute('data-project-id');

@@ -24,6 +24,21 @@ test('an unreadable project leaves later projects in the same file batch availab
 	assert.deepEqual(attempted, ['first.sscape', 'broken.sscape', 'last.sscape']);
 });
 
+test('an unreadable archive does not prevent importing its accompanying recording', async () => {
+	const recording = new File(['media'], 'interview.wav');
+	const attempted: File[] = [];
+	const corrupted = new Error('Malformed project');
+	await assert.rejects(importWorkspaceRoutedFiles({
+		controller: { actions: {
+			project: { importFiles(files) { attempted.push(...files); } }, labels: { importFile() {} },
+		} },
+		files: [new File(['broken'], 'unreadable.sscape'), recording],
+		importOptions: {}, projectBinVisible: false, requestCueImport() {},
+		openProjectFile() { throw corrupted; },
+	}), (error: unknown) => error === corrupted);
+	assert.deepEqual(attempted, [recording]);
+});
+
 test('media accompanying an opened archive keeps its drop time without inheriting the outgoing track', async () => {
 	let project = { id: 'outgoing', sampleRate: 48_000 };
 	const placements: Readonly<Record<string, unknown>>[] = [];
