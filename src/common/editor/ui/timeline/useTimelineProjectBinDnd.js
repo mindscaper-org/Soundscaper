@@ -20,7 +20,7 @@ import {
 export function useTimelineProjectBinDnd({
 	controller,
 	confirmFileSizeWarning = /** @type {import('../../controller/shared/file-size-warning.ts').FileSizeWarningConfirmation | undefined} */ (undefined),
-	importRoutedFiles,
+	importRoutedFiles = /** @type {((files: readonly File[], options: Readonly<Record<string, unknown>>) => unknown) | undefined} */ (undefined),
 	mutationsBlocked,
 	state,
 	model,
