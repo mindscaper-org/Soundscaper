@@ -7,6 +7,27 @@ import {
 test.describe('audio editor timed recording', () => {
 	registerAudioEditorHooks();
 
+	test('marks the entered start time expired when the dialog stays open past it', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await page.clock.install({ time: new Date('2030-02-01T12:00:00Z') });
+		await editor.getByRole('button', { name: 'Record options', exact: true }).click();
+		await page.getByRole('dialog', { name: 'Record options', exact: true })
+			.getByRole('button', { name: 'Timed recording', exact: true }).click();
+		const dialog = page.getByRole('dialog', { name: 'Set up timed recording', exact: true });
+		const start = dialog.locator('input[type="datetime-local"]').first();
+		const entered = await page.evaluate(() => {
+			const date = new Date(Date.now() + 30_000);
+			return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 19);
+		});
+		await start.fill(entered);
+		const schedule = dialog.getByRole('button', { name: 'Schedule recording', exact: true });
+		await expect(schedule).toBeEnabled();
+		await page.clock.fastForward(31_000);
+		await expect(schedule).toBeDisabled();
+		await expect(start).toHaveAttribute('aria-invalid', 'true');
+		await expect(dialog.getByRole('alert')).toHaveText('Choose a recording time in the future.');
+	});
+
 	test('keeps a countdown toast through the scheduled and active recording phases', async ({ page }) => {
 		test.setTimeout(40_000);
 		await page.addInitScript(() => {

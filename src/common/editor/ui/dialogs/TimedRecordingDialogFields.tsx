@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useId, type ComponentProps } from 'react';
+import { useEffect, useId, useState, type ComponentProps } from 'react';
 import AudioEditorTimeCodeInput, { audioEditorProjectFrameRate, audioEditorProjectSampleRate } from '../AudioEditorTimeCodeInput.tsx';
 import EditorMusicalTimeCodeProvider from '../EditorMusicalTimeCodeProvider.tsx';
 import {
@@ -35,9 +35,28 @@ interface TimedRecordingDialogFieldsProps {
 	readonly value: unknown;
 	readonly onValueChange: (value: TimedRecordingDialogValue) => void;
 	readonly onSubmit: () => void;
+	readonly startExpired?: boolean;
 	readonly scheduledRecording?: ScheduledRecording | null;
 	readonly copy: TimedRecordingDialogCopy;
 	readonly locale: string;
+}
+
+/** Refresh the form and footer together when the selected wall-clock start passes. */
+export function useTimedRecordingStartExpired(startTimeMs: number | undefined): boolean {
+	const [, setExpiredAt] = useState(0);
+	useEffect(() => {
+		if (startTimeMs === undefined || !Number.isFinite(startTimeMs) || startTimeMs <= Date.now()) return;
+		let timer: ReturnType<typeof setTimeout>;
+		const refreshAtDeadline = (): void => {
+			const now = Date.now();
+			const remaining = startTimeMs - now;
+			if (remaining <= 0) setExpiredAt(now);
+			else timer = setTimeout(refreshAtDeadline, Math.min(remaining, 2_147_000_000));
+		};
+		refreshAtDeadline();
+		return () => clearTimeout(timer);
+	}, [startTimeMs]);
+	return startTimeMs !== undefined && Number.isFinite(startTimeMs) && startTimeMs <= Date.now();
 }
 
 export default function TimedRecordingDialogFields({
@@ -47,12 +66,14 @@ export default function TimedRecordingDialogFields({
 	value,
 	onValueChange,
 	onSubmit,
+	startExpired = false,
 	scheduledRecording,
 	copy,
 	locale,
 }: TimedRecordingDialogFieldsProps) {
 	const model = normalizeTimedRecordingDialogValue(value);
 	const invalidDateId = useId();
+	const expiredStartId = useId();
 	const startInvalid = model.startTime !== '' && !timedRecordingLocalDateTimeValid(model.startTime);
 	const endInvalid = model.endMode === 'end' && model.endTime !== ''
 		&& !timedRecordingLocalDateTimeValid(model.endTime);
@@ -67,8 +88,8 @@ export default function TimedRecordingDialogFields({
 				type="datetime-local"
 				step="0.001"
 				value={model.startTime}
-				aria-invalid={startInvalid || undefined}
-				aria-describedby={startInvalid ? invalidDateId : undefined}
+				aria-invalid={startInvalid || startExpired || undefined}
+				aria-describedby={startInvalid ? invalidDateId : startExpired ? expiredStartId : undefined}
 				onChange={(event) => onValueChange(updateTimedRecordingDialogStart(
 					model,
 					event.currentTarget.value,
@@ -116,6 +137,7 @@ export default function TimedRecordingDialogFields({
 		{(startInvalid || endInvalid) && <p id={invalidDateId} role="alert">
 			{copy.timedRecordingInvalidLocalDateTime}
 		</p>}
+		{startExpired && <p id={expiredStartId} role="alert">{copy.timedRecordingPast}</p>}
 		{scheduledRecording && <p>{scheduledRecordingText(scheduledRecording, copy, locale)}</p>}
 	</form>;
 }
