@@ -71,6 +71,13 @@ for (const [initialOutput, delayed, replaceRejectedOutput] of [
 		assert.equal(audio.sinkId, expectedOutput, 'the actual new preview inherits the chosen speaker output');
 		assert.equal(audio.playCount, 1);
 		assert.deepEqual(audio.playSinks, [expectedOutput], 'routing completes before playback starts');
+		if (!initialOutput) {
+			audio.currentTime = SOUND.durationSeconds + 0.125;
+			await act(async () => { audio.dispatchEvent(new Event('timeupdate')); });
+			const slider = dom.one('[role="slider"]');
+			assert.equal(slider.getAttribute('aria-valuenow'), slider.getAttribute('aria-valuemax'),
+				'preview padding must stay inside the accessible waveform range');
+		}
 		await render('speakers-b');
 		assert.equal(audio.sinkId, 'speakers-b');
 		assert.equal(audio.playCount, 1, 'changing speaker output retains the preview transport');
@@ -90,6 +97,7 @@ for (const [initialOutput, delayed, replaceRejectedOutput] of [
 });
 
 class PreviewAudio extends EventTarget {
+	currentTime = 0;
 	volume = 1;
 	preload = '';
 	playCount = 0;
