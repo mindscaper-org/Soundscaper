@@ -241,7 +241,6 @@ export function AudacityLabelMarker({
 	const dragCancellation = useLabelMarkerDragCancellation(markerRef, pendingRef, clearPreview, label);
 	const cancelPointerDrag = dragCancellation.cancelDrag;
 	const displayed = preview || externalPreview || label;
-	const TitleField = label.title?.includes('\n') ? 'textarea' : 'input';
 	const point = displayed.startFrame === displayed.endFrame;
 	const displayedLeft = left + (displayed.startFrame - label.startFrame) / sampleRate * pixelsPerSecond;
 	const displayedWidth = point ? layout?.width || metrics.minPointWidth
@@ -395,14 +394,15 @@ export function AudacityLabelMarker({
 				metrics={metrics} trackColor={trackColor} selected={selected} editing={editing}
 				leftNeighbor={layout?.leftNeighbor} rightNeighbor={layout?.rightNeighbor} leftNeighborSelected={leftNeighborSelected}
 				onSelect={select} onGesture={beginGesture} onPointerGesture={beginPointerGesture} onEdit={() => { if (!blocked) { onSelect(); onEdit(); } }}>
-			{editing && <TitleField
+			{editing && <textarea
 				ref={inputRef}
 				className="audio-editor-label-title-input"
-				rows={TitleField === 'textarea' ? Math.min(4, label.title.split('\n').length) : undefined}
+				rows={Math.min(4, (label.title ?? '').split('\n').length)}
 				defaultValue={label.title}
 				disabled={blocked}
 				aria-label={`${copy.editLabels}: ${label.title || copy.newLabel}`}
 				onClick={(event) => event.stopPropagation()}
+				onInput={(event) => { event.currentTarget.rows = Math.min(4, event.currentTarget.value.split('\n').length); }}
 				onBlur={(event) => {
 					const title = event.currentTarget.value;
 					if (!blocked && !labelTrackEditBlocked(controller, trackId) && title !== label.title) {
@@ -413,8 +413,8 @@ export function AudacityLabelMarker({
 				onKeyDown={(event) => {
 					if (event.nativeEvent?.isComposing) return;
 					event.stopPropagation();
-					if (event.key === 'Enter' && (TitleField === 'input' || !event.shiftKey)) {
-						if (TitleField === 'textarea') event.preventDefault();
+					if (event.key === 'Enter' && !event.shiftKey) {
+						event.preventDefault();
 						event.currentTarget.blur();
 						markerRef.current?.focus();
 					} else if (event.key === 'Escape') {
