@@ -37,6 +37,17 @@ test('the Import picker retains a valid recording alongside a damaged archive', 
 	await expect(editor).toHaveAttribute('data-project-id', outgoing);
 });
 
+test('a malformed MIDI file does not suppress later labels from the same Import picker selection', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	const outgoing = await editor.getAttribute('data-project-id');
+	await importFiles(editor, [
+		{ name: 'broken.mid', mimeType: 'audio/midi', buffer: Buffer.from('Malformed MIDI') },
+		{ name: 'chapters.txt', mimeType: 'text/plain', buffer: Buffer.from('0\t1\tChapter starts here\n') },
+	]);
+	await expect(editor.locator('[data-label-id]').filter({ hasText: 'Chapter starts here' })).toHaveCount(1);
+	await expect(editor).toHaveAttribute('data-project-id', outgoing);
+});
+
 test('dropping a Scape file and a recording opens the archive before placing the recording', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	const outgoing = await editor.getAttribute('data-project-id');
@@ -111,6 +122,23 @@ test('File Open places a recording in a new project without asking to overwrite 
 	await expect(editor.getByRole('tab', { name: 'Read-only recording', exact: true })).toHaveAttribute('aria-selected', 'true');
 	await expect(clipByName(editor, recording.name)).toBeVisible();
 	expect(await page.evaluate(() => globalThis.browserFileWriteRequests)).toBe(0);
+});
+
+test('a browser File Open choice waits for work that began while the picker was open', async ({ page }) => {
+	const archive = await archiveFile('browser-choice-during-import', 'Waiting browser choice');
+	await installBrowserFilePicker(page, archive, false, true);
+	await holdManualRecording(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	await chooseFileAction(page, editor, 'Open');
+	await expect.poll(() => page.evaluate(() => globalThis.browserChoicePending)).toBe(true);
+	await editor.locator('[data-import-input]').setInputFiles({ ...toneA, name: 'Held manual recording.wav' });
+	await expect.poll(() => page.evaluate(() => globalThis.manualMediaPending)).toBe(true);
+	await page.evaluate(async () => {
+		globalThis.completeBrowserChoice();
+		await new Promise(resolve => { requestAnimationFrame(() => { requestAnimationFrame(resolve); }); });
+		globalThis.releaseManualMedia();
+	});
+	await expect(editor.getByRole('tab', { name: 'Waiting browser choice', exact: true })).toHaveAttribute('aria-selected', 'true');
 });
 
 test('File Open leaves the active tab alone when the selected subtitle file is malformed', async ({ page }) => {
@@ -319,20 +347,26 @@ async function installLaunchQueue(page) {
 	});
 }
 
-async function installBrowserFilePicker(page, file, refuseWrite) {
-	await page.addInitScript(({ base64, name, mimeType, refuseWrite }) => {
+async function installBrowserFilePicker(page, file, refuseWrite, holdChoice = false) {
+	await page.addInitScript(({ base64, name, mimeType, refuseWrite, holdChoice }) => {
 		globalThis.browserFileWriteRequests = 0;
 		const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
-		Object.defineProperty(globalThis, 'showOpenFilePicker', { configurable: true, value: async () => [{
-			getFile: async () => new File([bytes], name, { type: mimeType }),
-			createWritable() { throw new Error('These tests do not save over the selected file.'); },
-			async requestPermission() {
-				globalThis.browserFileWriteRequests += 1;
-				if (refuseWrite) throw new DOMException('Write access is unavailable.', 'NotAllowedError');
-				return 'granted';
-			},
-		}] });
-	}, { base64: file.buffer.toString('base64'), name: file.name, mimeType: file.mimeType, refuseWrite });
+		Object.defineProperty(globalThis, 'showOpenFilePicker', { configurable: true, value: async () => {
+			if (holdChoice) {
+				globalThis.browserChoicePending = true;
+				await new Promise(resolve => { globalThis.completeBrowserChoice = resolve; });
+			}
+			return [{
+				getFile: async () => new File([bytes], name, { type: mimeType }),
+				createWritable() { throw new Error('These tests do not save over the selected file.'); },
+				async requestPermission() {
+					globalThis.browserFileWriteRequests += 1;
+					if (refuseWrite) throw new DOMException('Write access is unavailable.', 'NotAllowedError');
+					return 'granted';
+				},
+			}];
+		} });
+	}, { base64: file.buffer.toString('base64'), name: file.name, mimeType: file.mimeType, refuseWrite, holdChoice });
 }
 
 async function launchBatches(page, batches) {

@@ -58,10 +58,15 @@ export function importWorkspaceRoutedFiles({
 		const looseMedia = routed.media.filter(file => !companionMedia.has(file));
 		if (looseMedia.length) {
 			const placement = session === outgoing ? importOptions : rebaseImportPlacement(importOptions, outgoingRate, controller.project?.sampleRate);
-			const result = await controller.actions.project.importFiles(looseMedia, {
-				destination: 'auto', projectBinVisible, ...placement,
-			});
-			if (importWasCancelled(result)) return 0;
+			try {
+				const result = await controller.actions.project.importFiles(looseMedia, {
+					destination: 'auto', projectBinVisible, ...placement,
+				});
+				if (importWasCancelled(result)) return 0;
+			} catch (error) {
+				if (isExpectedWorkspaceCancellation(error)) throw error;
+				failures.push(error);
+			}
 			// A legacy project and its selected audio blocks open through the media importer.
 			if (looseMedia.some(isLegacyAupFile)) session = activeSession();
 		}

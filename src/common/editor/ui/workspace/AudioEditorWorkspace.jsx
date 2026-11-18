@@ -226,7 +226,8 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	const openProjectFile = useCallback((file, desktopSesx = false) => openWorkspaceProjectFile(
 		controller, file, openScapeProjectFile, legacyProjectSelection.choose,
 		desktopSesx, (cueFile, prepareProject) => requestCueImport(cueFile, currentProjectSession(), prepareProject)), [controller, currentProjectSession, legacyProjectSelection, openScapeProjectFile, requestCueImport]);
-	const admitDesktopFileChoice = useWorkspaceFileAdmission(controller);
+	const admitFileChoice = useWorkspaceFileAdmission(controller);
+	const openChosenProjectFile = useCallback(async file => { await admitFileChoice(); return openProjectFile(file); }, [admitFileChoice, openProjectFile]);
 	const openDesktopProjectDescriptor = useCallback((descriptor, admit) => withDesktopProjectReadDescriptor(
 		fileService,
 		descriptor,
@@ -243,8 +244,8 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	const openDesktopFiles = useCallback((purpose, multiple = false, importOptions = {}) => openDesktopWorkspaceFiles({
 		getProjectId: () => controller.getSnapshot().project?.id ?? null,
 		getProjectSessionKey: currentProjectSession,
-		fileService, importFiles: importRoutedFiles, openProjectDescriptor: descriptor => openDesktopProjectDescriptor(descriptor, admitDesktopFileChoice),
-	}, purpose, multiple, importOptions), [admitDesktopFileChoice, controller, currentProjectSession, fileService, importRoutedFiles, openDesktopProjectDescriptor]);
+		fileService, importFiles: importRoutedFiles, openProjectDescriptor: descriptor => openDesktopProjectDescriptor(descriptor, admitFileChoice),
+	}, purpose, multiple, importOptions), [admitFileChoice, controller, currentProjectSession, fileService, importRoutedFiles, openDesktopProjectDescriptor]);
 	const { clipPropertiesFocusRequest, openClipPropertiesSurface } = useWorkspaceClipPropertiesPanel({
 		controller, run, setActiveSurface, selectedClipId: snapshot.selectedClipId ?? null,
 		projectId: project?.id ?? null, panelVisible: Boolean(preferences?.workspace?.panels?.['clip-properties']?.visible),
@@ -388,7 +389,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		importInputRef,
 		installAvailable,
 		locale,
-		openDesktopFiles, openProjectFile,
+		openDesktopFiles, openProjectFile: openChosenProjectFile,
 		openEffects, openAssistanceSearch: assistanceSearchRuntime.openAssistanceSearch,
 		openExternal,
 		openGenerator,
@@ -441,7 +442,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		fileService,
 		isFullscreen,
 		onError,
-		openDesktopFiles, openProjectFile,
+		openDesktopFiles,
 		openDesktopProjectDescriptor,
 		openSurface,
 		run,
@@ -503,7 +504,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		moveWorkspacePanel,
 		onError,
 		openEffects,
-		openProjectFile,
+		openProjectFile: openChosenProjectFile,
 		openSurface,
 		parityRuntime,
 		legacyProjectSelection,
