@@ -51,7 +51,7 @@ export const FRAMESCAPER_MEDIA_HOST_SOURCE_IDENTITY = deepFreeze({
 		license: 'BSL-1.0',
 	}),
 	x264: externalIdentity('stable-b35605ac', 'b35605ace3ddf7c1a5d67a2eb553f034aef41d55',
-		'https://code.videolan.org/videolan/x264/-/archive/b35605ace3ddf7c1a5d67a2eb553f034aef41d55/x264-b35605ace3ddf7c1a5d67a2eb553f034aef41d55.tar.gz',
+		'https://codeload.github.com/mirror/x264/tar.gz/b35605ace3ddf7c1a5d67a2eb553f034aef41d55',
 		1_040_327, 'cd71a7515b0e9a012e1ac9b1f8415bebcaf6fc97d4db32286642ac4c0fbe24f9',
 		'076152c7f1d5923ec47da253de0d13e9881c3818dc53b4c1dfb0ea8505e0c4ad',
 		'GPL-2.0-or-later'),
