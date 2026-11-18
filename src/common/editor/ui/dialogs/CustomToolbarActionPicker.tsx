@@ -25,24 +25,31 @@ export default function CustomToolbarActionPicker({ actions, actionId, copy, dis
 	const findActions = useMemo(() => prepareCustomToolbarActionSearch(actions), [actions]);
 	const matches = findActions(query ?? '');
 	const selected = actions.find((action) => action.actionId === actionId);
-	const choose = (action: CustomToolbarButtonAction) => {
-		actionBeforeSearch.current = null;
-		onSelect(action.actionId);
+	const closeSearch = () => {
 		setQuery(null);
 		setOpen(false);
 		setActive(-1);
+	};
+	const cancelSearch = () => {
+		const previous = actionBeforeSearch.current;
+		actionBeforeSearch.current = null;
+		closeSearch();
+		if (previous !== null) onSelect(previous);
+	};
+	const choose = (action: CustomToolbarButtonAction) => {
+		actionBeforeSearch.current = null;
+		closeSearch();
+		onSelect(action.actionId);
 	};
 	useEffect(() => {
 		if (expanded && active >= 0) listRef.current?.children[active]?.scrollIntoView({ block: 'nearest' });
 	}, [active, expanded]);
 	return <div className="kw-audio-editor-custom-button-dialog__action-picker" onBlur={(event) => {
-		if (!event.currentTarget.contains(event.relatedTarget)) { actionBeforeSearch.current = null; setOpen(false); setQuery(null); }
+		if (!event.currentTarget.contains(event.relatedTarget)) cancelSearch();
 	}} onKeyDown={(event) => {
 		if (disabled || event.nativeEvent.isComposing) return;
 		if (event.key === 'Escape' && (open || query !== null)) {
-			event.preventDefault(); event.stopPropagation(); setOpen(false); setQuery(null); setActive(-1);
-			if (actionBeforeSearch.current !== null) onSelect(actionBeforeSearch.current);
-			actionBeforeSearch.current = null;
+			event.preventDefault(); event.stopPropagation(); cancelSearch();
 		} else if (event.target !== inputRef.current) return;
 		else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
 			event.preventDefault(); setOpen(true);
@@ -72,7 +79,11 @@ export default function CustomToolbarActionPicker({ actions, actionId, copy, dis
 		<button type="button" className="kw-audio-editor-custom-button-dialog__action-toggle"
 			aria-label={copy.customToolbarButtonShowActions} aria-expanded={expanded} aria-controls={listId} disabled={disabled}
 			onMouseDown={(event) => event.preventDefault()}
-			onClick={() => { setQuery(''); setActive(-1); setOpen(!open); inputRef.current?.focus(); }}>
+			onClick={() => {
+				if (open) cancelSearch();
+				else { setQuery(''); setActive(-1); setOpen(true); }
+				inputRef.current?.focus();
+			}}>
 			<span className="musescore-icon" aria-hidden="true">{iconNameToChar('ARROW_DOWN')}</span>
 		</button>
 		{expanded && <div className="kw-audio-editor-custom-button-dialog__action-results">

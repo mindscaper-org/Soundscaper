@@ -99,6 +99,20 @@ test.describe('custom toolbar buttons', () => {
 		await expect(dialog.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
 	});
 
+	test('leaving an unfinished action search preserves the existing custom-button action', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		let dialog = await openCustomButtonDialog(page, editor);
+		await configureButton(dialog, { name: 'Keep action', action: UNDO_ACTION });
+		await saveButton(dialog);
+		dialog = await openCustomButtonDialog(page, editor, 'Keep action');
+		const search = dialog.getByRole('combobox', { name: 'Search actions', exact: true });
+		await search.fill('redo');
+		await dialog.getByLabel('Name', { exact: true }).fill('Keep undo');
+		await expect(search).toHaveValue(/Undo/u);
+		await saveButton(dialog);
+		await expect(editor.getByRole('button', { name: 'Keep undo', exact: true })).toBeVisible();
+	});
+
 	for (const theme of ['light', 'dark']) test(`saves, cancels, and resets font symbol colors in ${theme} mode`, async ({ page }) => {
 		const errors = collectClientErrors(page);
 		let editor = await bootEditor(page, '/embed/en/');
