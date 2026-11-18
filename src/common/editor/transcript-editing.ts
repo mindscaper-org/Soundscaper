@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { AssistanceTranscript } from './assistance/transcript.ts';
+import { hasAssistanceIdentityTiming } from './assistance/selected-media-identity-timing.ts';
 import { resolveRuntimeProjectProjection, type RuntimeClipProject, type RuntimeClipProjection } from './runtime-clip-projection.ts';
 import { evaluateAudioWarpMapAtSource } from './audio-warp-domain.ts';
 import { addRationals, beatToSampleFrame, roundRational, scaleSampleFrame, type RationalInput } from './timeline-time.ts';
@@ -9,6 +10,7 @@ import { readClipLoop } from './audio-clip-loop.ts';
 export interface TranscriptEditingBody {
 	readonly assetId: string;
 	readonly transcript: AssistanceTranscript;
+	readonly sourceRange?: Readonly<TranscriptCoverageRange>;
 }
 
 export interface TranscriptEditingWord {
@@ -74,9 +76,22 @@ export function projectTranscriptContents(project: EditingProject, bodies: reado
 	missingSources: ReadonlySet<string> = new Set()) {
 	const sources = new Map(project.sources.map(source => [source.id, source]));
 	const audioClipsByTrack = indexAudioOccurrences(project);
+	const bySource = new Map<string, TranscriptCoverageRange[]>();
+	for (const { transcript, sourceRange } of bodies) {
+		if (!sourceRange || sources.get(transcript.sourceId)?.sampleRate !== transcript.sampleRate) continue;
+		const ranges = bySource.get(transcript.sourceId);
+		if (ranges) ranges.push({ ...sourceRange });
+		else bySource.set(transcript.sourceId, [{ ...sourceRange }]);
+	}
+	const coverage = new Map<string, readonly TranscriptCoverageRange[]>();
+	for (const [id, ranges] of bySource) {
+		const merged: TranscriptCoverageRange[] = [];
+		for (const range of ranges.sort((a, b) => a.start - b.start)) appendTranscriptCoverage(merged, range);
+		coverage.set(id, merged);
+	}
 	return {
 		words: projectWords(project, sources, audioClipsByTrack, bodies),
-		targets: generationTargets(sources, audioClipsByTrack, missingSources),
+		targets: generationTargets(project.sampleRate, sources, audioClipsByTrack, missingSources, coverage),
 	};
 }
 
@@ -152,6 +167,11 @@ function projectWords(project: EditingProject, sources: ReadonlyMap<unknown, Rec
 }
 
 function overlapsTranscriptCoverage(covered: readonly TranscriptCoverageRange[], start: number, end: number): boolean {
+	const range = firstTranscriptCoverageAfter(covered, start);
+	return range !== undefined && range.start < end;
+}
+
+function firstTranscriptCoverageAfter(covered: readonly TranscriptCoverageRange[], start: number): TranscriptCoverageRange | undefined {
 	let low = 0;
 	let high = covered.length;
 	while (low < high) {
@@ -159,7 +179,7 @@ function overlapsTranscriptCoverage(covered: readonly TranscriptCoverageRange[],
 		if (covered[middle]!.end <= start) low = middle + 1;
 		else high = middle;
 	}
-	return low < covered.length && covered[low]!.start < end;
+	return covered[low];
 }
 
 function mergeTranscriptCoverage(previous: readonly TranscriptCoverageRange[], current: readonly TranscriptCoverageRange[]): readonly TranscriptCoverageRange[] {
@@ -172,11 +192,15 @@ function mergeTranscriptCoverage(previous: readonly TranscriptCoverageRange[], c
 		const takePrevious = currentIndex === current.length
 			|| (previousIndex < previous.length && previous[previousIndex]!.start <= current[currentIndex]!.start);
 		const range = takePrevious ? previous[previousIndex++]! : current[currentIndex++]!;
-		const last = merged.at(-1);
-		if (last && last.end >= range.start) last.end = Math.max(last.end, range.end);
-		else merged.push({ ...range });
+		appendTranscriptCoverage(merged, range);
 	}
 	return merged;
+}
+
+function appendTranscriptCoverage(ranges: TranscriptCoverageRange[], range: TranscriptCoverageRange): void {
+	const last = ranges.at(-1);
+	if (last && last.end >= range.start) last.end = Math.max(last.end, range.end);
+	else ranges.push({ ...range });
 }
 
 export function transcriptTextSelection(words: readonly TranscriptEditingWord[]) {
@@ -204,21 +228,24 @@ export function transcriptAudioSelection(words: readonly TranscriptEditingWord[]
 export function transcriptGenerationTargets(value: unknown, missingSources: ReadonlySet<string> = new Set()): readonly TranscriptGenerationTarget[] {
 	const project = transcriptEditingProject(value);
 	const sources = new Map(project.sources.map(source => [source.id, source]));
-	return generationTargets(sources, indexAudioOccurrences(project), missingSources);
+	return generationTargets(project.sampleRate, sources, indexAudioOccurrences(project), missingSources);
 }
 
-function generationTargets(sources: ReadonlyMap<unknown, RecordValue>,
+function generationTargets(sampleRate: number, sources: ReadonlyMap<unknown, RecordValue>,
 	audioClipsByTrack: ReadonlyMap<RecordValue, readonly RuntimeClipProjection[]>,
-	missingSources: ReadonlySet<string>): readonly TranscriptGenerationTarget[] {
+	missingSources: ReadonlySet<string>, covered: ReadonlyMap<string, readonly TranscriptCoverageRange[]> = new Map()): readonly TranscriptGenerationTarget[] {
 	const targets: TranscriptGenerationTarget[] = [];
 	for (const [track, clips] of audioClipsByTrack) {
 		if (track.locked === true) continue;
 		const trackId = String(track.id);
 		for (const clip of clips) {
 			const source = sources.get(clip.sourceId);
-			if (source && (source.kind ?? 'audio') === 'audio' && !missingSources.has(String(clip.sourceId))) {
-				targets.push({ clipId: String(clip.id), trackId, startFrame: clip.timelineStartFrame, endFrame: clip.timelineEndFrame });
-			}
+			if (!source || (source.kind ?? 'audio') !== 'audio' || missingSources.has(String(clip.sourceId))
+				|| !hasAssistanceIdentityTiming(clip, sampleRate, Number(source.sampleRate))) continue;
+			const coverage = covered.get(String(clip.sourceId));
+			const range = coverage && firstTranscriptCoverageAfter(coverage, clip.sourceStartFrame);
+			if (range && range.start <= clip.sourceStartFrame && range.end >= clip.sourceEndFrame) continue;
+			targets.push({ clipId: String(clip.id), trackId, startFrame: clip.timelineStartFrame, endFrame: clip.timelineEndFrame });
 		}
 	}
 	return targets;

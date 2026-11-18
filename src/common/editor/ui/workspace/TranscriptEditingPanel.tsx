@@ -54,6 +54,7 @@ function TranscriptEditingSurface({ controller, snapshot, copy, locale, fileServ
 	}, [words]);
 	const wordPositions = useMemo(() => indexTranscriptWordPositions(words), [words]);
 	const hasSegmentTiming = useMemo(() => words.some(word => word.granularity === 'segment'), [words]);
+	const hasGenerationTargets = Boolean(document?.targets.length);
 	const projectId = snapshot.project?.id;
 	const geometry = useMemo(() => transcriptEditingGeometryKey(snapshot.project), [snapshot.project]);
 	const disabled = blocked || snapshot.readOnly === true || removing || generation !== null;
@@ -191,9 +192,9 @@ function TranscriptEditingSurface({ controller, snapshot, copy, locale, fileServ
 				onDone={finishGeneration} onClose={cancelGeneration} />
 		</div> : null}
 		{loading && !words.length ? <p role="status">{labels.loading}</p> : null}
-		{!loading && !words.length && !generation ? <div className="kw-audio-editor__transcript-empty">
-			<p>{document?.targets.length ? labels.empty : labels.noAudio}</p>
-			<Button disabled={disabled || !fileService.isDesktop || !document?.targets.length} onClick={() => {
+		{!loading && !generation && (!words.length || (fileService.isDesktop && hasGenerationTargets)) ? <div className="kw-audio-editor__transcript-empty">
+			{!words.length ? <p>{hasGenerationTargets ? labels.empty : labels.noAudio}</p> : null}
+			<Button disabled={disabled || !fileService.isDesktop || !hasGenerationTargets} onClick={() => {
 				if (!document) return;
 				setError(''); setProgress({ completed: 0, total: document.targets.length });
 				setGeneration({ document, cancellation: new AbortController() });

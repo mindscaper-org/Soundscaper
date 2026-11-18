@@ -66,7 +66,8 @@ export function createTranscriptEditingActions(dependencies: TranscriptEditingDe
 				segment.startFrame < reference.sourceStartFrame || segment.endFrame > reference.sourceEndFrame)) {
 				throw new Error('The stored transcript does not match its audio source.');
 			}
-			bodies.push({ assetId: reference.id, transcript });
+			bodies.push({ assetId: reference.id, transcript,
+				sourceRange: { start: reference.sourceStartFrame, end: reference.sourceEndFrame } });
 		}
 		const revision = assertGeometry();
 		return { projectId, revision, ...projectTranscriptContents(project, bodies, dependencies.state.missingSourceIds) };
@@ -87,15 +88,17 @@ export function createTranscriptEditingActions(dependencies: TranscriptEditingDe
 		const working = structuredClone(projectForCommandConsumers(project));
 		const transaction = createEditorCommandMutationTransaction(project, working);
 		const commands: AudioEditorCommand[] = [];
-		const byTrack = new Map<string, typeof selected>();
+		const byTrack = new Map<string, Map<string, typeof selected>>();
 		for (const word of selected) {
-			const group = byTrack.get(word.trackId);
+			let passages = byTrack.get(word.trackId);
+			if (!passages) byTrack.set(word.trackId, passages = new Map());
+			const group = passages.get(word.clipId);
 			if (group) group.push(word);
-			else byTrack.set(word.trackId, [word]);
+			else passages.set(word.clipId, [word]);
 		}
-		for (const [trackId, words] of byTrack) {
-			const range = transcriptTextSelection(words)!;
-			const command = prepareDisjointRangeDeleteCommand(working, { ranges: [range],
+		for (const [trackId, passages] of byTrack) {
+			const ranges = Array.from(passages.values(), words => transcriptTextSelection(words)!);
+			const command = prepareDisjointRangeDeleteCommand(working, { ranges,
 				trackIds: [trackId], rippleMode: 'track' }) as AudioEditorCommand;
 			transaction.mutate(working, command);
 			commands.push(command);

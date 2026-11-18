@@ -19,7 +19,8 @@ const body: TranscriptEditingBody = { assetId: 'transcript-a', transcript: {
 
 function project(clips = [{ id: 'clip-a', kind: 'audio', sourceId: 'source-a', timelineStartFrame: 1_000,
 	durationFrames: 3_000, sourceStartFrame: 0, sourceDurationFrames: 3_000 }]) {
-	return { id: 'project-a', revision: 0, schemaVersion: 2, sampleRate: 1_000, clips,
+	return { id: 'project-a', revision: 0, schemaVersion: 2, sampleRate: 1_000,
+		clips: clips.map(clip => ({ reversed: false, speedRatio: 1, pitchCents: 0, stretchToTempo: false, anchor: 'sample', warpMap: null, ...clip })),
 		sources: [{ id: 'source-a', sampleRate: 1_000, frameCount: 3_000 }],
 		tracks: [{ id: 'track-a', type: 'audio', clipIds: clips.map(clip => clip.id) }] };
 }

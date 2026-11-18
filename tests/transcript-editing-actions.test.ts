@@ -91,6 +91,26 @@ test('a text selection across overlapping tracks deletes only the selected passa
 	assert.equal(f.commands.length, 1);
 });
 
+test('deleting displayed passages preserves untranscribed audio between them on the same track', async () => {
+	const f = fixture();
+	const original = f.history.present, source = original.sources[0]!;
+	const updated = createSoundscaperProject({ ...original,
+		sources: [...original.sources, { ...source, id: 'music', storageKey: 'music' }],
+		clips: [original.clips[0]!, createAudioClip({ id: 'bed', sourceId: 'music', timelineStartFrame: 144_000,
+			durationFrames: 144_000 }), { ...original.clips[0]!, id: 'second-passage', timelineStartFrame: 288_000 }],
+		tracks: original.tracks.map(track => track.id === 'track' ? { ...track, clipIds: ['clip', 'bed', 'second-passage'] } : track),
+	});
+	f.history = createEditorHistory(updated);
+	const before = await f.actions.read('project');
+	assert.equal(before.words.length, 6);
+	await f.actions.remove('project', before.revision, before.words.map(word => word.id));
+	assert.deepEqual(resolveRuntimeProjectProjection(f.history.present).clips.map(clip =>
+		[clip.id, clip.timelineStartFrame, clip.durationFrames]), [['bed', 0, 144_000]]);
+	assert.equal((await f.actions.read('project')).words.length, 0);
+	f.history = undoEditorCommand(f.history);
+	assert.equal((await f.actions.read('project')).words.length, 6);
+});
+
 test('an asynchronous read tolerates selection changes and refuses changed transcript geometry', async () => {
 	const f = fixture(), release = f.deferBody();
 	const reading = f.actions.read('project');

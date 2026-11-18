@@ -25,6 +25,7 @@ import {
 } from './audio/local-assistance-audio-preparation.ts';
 import { localAssistanceAudioWaveGeometry } from './audio/local-assistance-audio-geometry.ts';
 import { localAssistanceAudioEffectTargets } from './audio/local-assistance-audio-effect-targets.ts';
+import { hasAssistanceIdentityTiming } from '../../../assistance/selected-media-identity-timing.ts';
 
 const MAXIMUM_OUTPUT_BYTES = 64 * 1024 * 1024;
 const TEXT_ENCODER = new TextEncoder();
@@ -393,10 +394,7 @@ function selectedProject(value: unknown): SelectedMediaProject {
 
 function assertIdentityTiming(clip: DataRecord, source: DataRecord, sampleRate: number): void {
 	const sourceRate = integer(source.sampleRate, 1, 'source sample rate');
-	if (clip.reversed !== false || clip.speedRatio !== 1 || clip.pitchCents !== 0
-		|| clip.stretchToTempo !== false || clip.anchor !== 'sample' || clip.warpMap !== null
-		|| clip.sourceDurationFrames !== Number(scaleSampleFrame(
-			integer(clip.durationFrames, 1, 'clip duration'), sampleRate, sourceRate, 'point'))) {
+	if (!hasAssistanceIdentityTiming(clip, sampleRate, sourceRate)) {
 		throw new Error('Selected-media preparation currently requires forward identity timing.');
 	}
 }
