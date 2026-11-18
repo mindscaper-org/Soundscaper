@@ -441,7 +441,7 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 					if (menuItem) setRemoveConfirmation({
 						clipId: menuItem.primaryClip.id,
 						name: menuItem.primaryClip.title || copy.clip,
-						count: controller.actions.projectBin.instanceCount(menuItem.primaryClip.id),
+						count: controller.actions.projectBin.instanceCount(menuItem.primaryClip.id, { forRemoval: true }),
 					});
 				}}
 				onClose={closeItemMenu}

@@ -65,7 +65,8 @@ export function createEditorProjectBinActionGroup(
 		removeFromBin: (id: string) => resolve(productActions?.removeFromBin?.(id), () => actions.removeProjectBinClip(id)),
 		removeFromProject: (id: string) => resolve(productActions?.removeFromProject?.(id), () => actions.removeProjectBinSource(id)),
 		selectInstances: (id: string) => resolve(productActions?.selectInstances?.(id), () => actions.selectProjectBinInstances(id)),
-		instanceCount: (id: string) => resolve(productActions?.instanceCount?.(id), () => actions.projectBinInstanceCount(id)),
+		instanceCount: (id: string, options?: Readonly<{ forRemoval?: boolean }>) =>
+			resolve(productActions?.instanceCount?.(id), () => actions.projectBinInstanceCount(id, options)),
 		prepareReplacement: asynchronous.prepareProjectBinReplacement,
 		applyReplacement: actions.applyProjectBinReplacement,
 		cancelReplacement: asynchronous.cancelProjectBinReplacement,
