@@ -226,14 +226,16 @@ test('temporary snapshot verification failure retries before restoring write acc
 	assert.equal(next.releases, 0);
 });
 
-test('recovery keeps a stale in-memory project read-only after claiming a new lock', async () => {
+test('a stale read-only view releases a recovered writer lock for a current project window', async () => {
 	const previous = createLock('project-a', { readOnly: true });
 	const next = createLock('project-a', { writeFence: 'next-writer' });
 	const fixture = createFixture(previous, async () => false);
 
 	await fixture.service.recoverProjectLock('project-a', previous, next);
 
-	assert.equal(fixture.state.projectLock, next);
+	assert.equal(next.releases, 1);
+	assert.equal(fixture.state.projectLock?.readOnly, true);
+	assert.equal(fixture.state.projectLock?.writeFence, undefined);
 	assert.equal(fixture.state.readOnly, true);
 	assert.deepEqual(fixture.updates.at(-1), {
 		projectId: 'project-a', readOnly: true, reason: 'project-lock', lockMethod: 'test',

@@ -332,12 +332,16 @@ export function createProjectLockService(runtime: ProjectLockServiceRuntime) {
 			return ownsLock(projectId, lock) && !lock.readOnly;
 		}
 		if (!ownsLock(projectId, lock)) return false;
-		enterReadOnly(new DOMException('The stored project changed while write access was unavailable.', 'AbortError'));
-		runtime.setProjectReadOnly(projectId, {
-			readOnly: true, reason: 'project-lock', lockMethod: lock.method,
-		});
-		runtime.publishProjectState();
-		setLocalizedStatus(runtime.setStatus, runtime.copy, 'projectReadOnly', undefined, 'error');
+		// This view can retain its history, but it cannot use the acquired writer.
+		runtime.state.projectLock = { projectId, readOnly: true, method: lock.method, release() {} };
+		try {
+			enterReadOnly(new DOMException('The stored project changed while write access was unavailable.', 'AbortError'));
+			runtime.setProjectReadOnly(projectId, {
+				readOnly: true, reason: 'project-lock', lockMethod: lock.method,
+			});
+			runtime.publishProjectState();
+			setLocalizedStatus(runtime.setStatus, runtime.copy, 'projectReadOnly', undefined, 'error');
+		} finally { await discardLock(lock); }
 		return false;
 	}
 
