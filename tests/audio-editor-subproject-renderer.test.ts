@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
 import { createSubprojectRenderer } from '../src/common/editor/controller/document/internal/subprojects/subproject-renderer.ts';
 import { resolveSubprojectGraph } from '../src/common/editor/controller/document/internal/subprojects/subproject-graph.ts';
-import type { SubprojectDocument } from '../src/common/editor/controller/document/subproject-actions.ts';
+import { createSubprojectActions, type SubprojectDocument } from '../src/common/editor/controller/document/subproject-actions.ts';
+import { readSubprojectLinks } from '../src/common/editor/subprojects.ts';
 import { createSoundscaperProject, validateSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts';
 import { createSoundscaperEphemeralProjectStore } from '../src/soundscaper/editor-project-store.ts';
@@ -90,6 +91,35 @@ test('render failures abort partial PCM without publishing a proxy or deleting o
 	await assert.rejects(f.renderer.render(node, { sampleRate: 48000, channelCount: 1, frameCount: 4 }), /render failed/u);
 	assert.equal(f.disposed(), 1);
 	assert.deepEqual((await f.store.listSources()).map(source => source.id), ['original']);
+});
+
+test('an unavailable new child recording leaves the saved parent mix usable until it is restored', async context => {
+	const f = await fixture(context);
+	let parent = createSoundscaperProject({ id: 'parent', sampleRate: 48000 }) as SubprojectDocument;
+	let child = f.child;
+	let serial = 0;
+	const actions = createSubprojectActions({ ...f.renderer, getProject: () => parent, assertWritable() {},
+		loadProject: id => Promise.resolve(id === child.id ? child : null),
+		listProjects: () => Promise.resolve([parent, child]), getLibraryId: () => Promise.resolve('library'),
+		commit: command => { parent = applySoundscaperProjectCommand(parent, command) as SubprojectDocument; },
+		createId: prefix => `${prefix}-${String(++serial)}`, openProject: id => Promise.resolve(id),
+		prepare: () => Promise.resolve(), reportError: error => { throw error; }, wait: () => Promise.resolve(),
+	});
+	await actions.add(child.id);
+	const [installed] = readSubprojectLinks(parent);
+	assert.ok(installed);
+	child = applySoundscaperProjectCommand(child, { type: 'batch', commands: [
+		{ type: 'source/add', source: { ...child.sources[0]!, id: 'new-recording', storageKey: 'new-recording' } },
+		{ type: 'clip/replace-source', clipId: 'clip', sourceId: 'new-recording' },
+	] }) as SubprojectDocument;
+	await actions.refresh();
+	assert.deepEqual(readSubprojectLinks(parent)[0], installed);
+	assert.ok(await f.store.getSourceMetadata(installed.sourceId));
+	await assert.rejects(actions.refresh({ force: true }), /source media is missing/u);
+	const writer = await f.store.beginSourceWrite('new-recording', { sampleRate: 48000, channelCount: 1 });
+	await writer.write([new Float32Array([0.5, 0.75])]); await writer.commit();
+	await actions.refresh();
+	assert.notEqual(readSubprojectLinks(parent)[0]?.sourceId, installed.sourceId);
 });
 
 test('a failed PCM abort still releases the subproject engine and retains the render error', async context => {

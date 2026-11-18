@@ -6,8 +6,7 @@ import { createEnvelopeValueEvaluator } from '../automation.js';
 import { setProjectRecordingNotes } from '../recording-notes.ts';
 import { createSubprojectCommandHandlers } from './subproject-runtime.ts';
 import { createSessionSnapshotCommandHandlers } from './session-snapshot-runtime.ts';
-import { sessionSnapshotUsesSource } from '../session-snapshot-media.ts';
-import { trackPlaylistUsesSource } from '../track-playlist-media.ts';
+import { collectAlternativeSourceIds } from '../alternative-source-references.ts';
 import { processSourceAudio } from './source-process-audio-runtime.ts';
 import {
 	assertFrame,
@@ -307,10 +306,10 @@ function removeProjectBinSourceFromProject(project, clipId) {
 	for (const candidate of project.clips) if (removedIds.has(candidate.id)) candidate.groupId = null;
 	if (timelineIds.length) removeClips(project, timelineIds);
 	projectBin.clips = projectBin.clips.filter((candidate) => !sourceIds.has(candidate.sourceId));
-	const takeSourceIds = collectTakeGroupSourceIds(project);
+	const retainedSourceIds = collectAlternativeSourceIds(project, collectTakeGroupSourceIds(project));
 	for (const sourceId of sourceIds) {
-		const inUse = takeSourceIds.has(sourceId) || [...project.clips, ...projectBin.clips].some((candidate) => candidate.sourceId === sourceId);
-		if (!inUse && !sessionSnapshotUsesSource(project, sourceId) && !trackPlaylistUsesSource(project, sourceId)) project.sources = project.sources.filter((source) => source.id !== sourceId);
+		const inUse = retainedSourceIds.has(sourceId) || [...project.clips, ...projectBin.clips].some((candidate) => candidate.sourceId === sourceId);
+		if (!inUse) project.sources = project.sources.filter((source) => source.id !== sourceId);
 	}
 }
 
@@ -430,10 +429,10 @@ function replaceProjectBinMedia(project, command) {
 		}
 	}
 
-	const takeSourceIds = collectTakeGroupSourceIds(project);
+	const retainedSourceIds = collectAlternativeSourceIds(project, collectTakeGroupSourceIds(project));
 	for (const { oldSource } of replacementBySourceId.values()) {
-		const inUse = takeSourceIds.has(oldSource.id) || [...project.clips, ...projectBin.clips].some((clip) => clip.sourceId === oldSource.id);
-		if (!inUse && !sessionSnapshotUsesSource(project, oldSource.id) && !trackPlaylistUsesSource(project, oldSource.id)) project.sources = project.sources.filter((source) => source.id !== oldSource.id);
+		const inUse = retainedSourceIds.has(oldSource.id) || [...project.clips, ...projectBin.clips].some((clip) => clip.sourceId === oldSource.id);
+		if (!inUse) project.sources = project.sources.filter((source) => source.id !== oldSource.id);
 	}
 }
 

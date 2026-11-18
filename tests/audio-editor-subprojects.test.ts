@@ -60,6 +60,16 @@ test('follow mode and detach use exact current links and leave the rendered clip
 	assert.equal(project.sources[0]!.storageKey, 'proxy-1');
 });
 
+test('removing a linked audio item from the Project Bin preserves its independent link', () => {
+	let project = applySoundscaperProjectCommand(fixture(), install);
+	project = applySoundscaperProjectCommand(project, { type: 'project-bin/move-from-timeline', clipIds: ['clip'] });
+	project = applySoundscaperProjectCommand(project, { type: 'project-bin/remove-from-project', clipId: 'clip' });
+	assert.deepEqual(project.projectBin.clips, []);
+	assert.deepEqual(project.clips, []);
+	assert.equal(readSubprojectLinks(project)[0]?.sourceId, 'proxy-1');
+	assert.equal(project.sources[0]?.storageKey, 'proxy-1');
+});
+
 test('link validation rejects self links, duplicate proxy ownership, missing media and invalid provenance', () => {
 	const project = applySoundscaperProjectCommand(fixture(), install);
 	for (const changes of [{ projectId: 'parent' }, { contentDigest: 'broken' }, { revision: -1 }, { frameCount: 5 }]) {

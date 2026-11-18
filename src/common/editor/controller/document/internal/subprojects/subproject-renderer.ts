@@ -107,7 +107,7 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 					frameCount: Number(value.frameCount), channelCount: Number(value.channelCount), sampleRate: Number(value.sampleRate) };
 				const metadata = await runtime.store.getSourceMetadata(source.storageKey);
 				if (!metadata || metadata.frameCount !== source.frameCount || metadata.channelCount !== source.channelCount || metadata.sampleRate !== source.sampleRate) {
-					throw new ReferenceError('Subproject source media is missing or has changed.');
+					throw new SubprojectRenderUnavailableError('Subproject source media is missing or has changed.');
 				}
 				providers.set(source.id, createStoredChunkProvider(runtime.store, source, metadata));
 			}
