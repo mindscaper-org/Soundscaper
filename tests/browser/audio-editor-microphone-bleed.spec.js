@@ -5,11 +5,11 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, collectClie
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/common/editor/project-media-factory.ts';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
-import { createSoundscaperProjectStore } from '../../src/soundscaper/editor-project-store.ts';
+import { createSoundscaperEphemeralProjectStore } from '../../src/soundscaper/editor-project-store.ts';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 import { createEnvelopeValueEvaluator } from '../../src/common/editor/automation.js';
 
-async function podcastArchive() {
+async function podcastArchive({ splitCleanPickup = false, wideOverlay = false } = {}) {
 	const rate = 48000, length = rate * 8;
 	const voice = seed => {
 		let state = seed, smooth = 0;
@@ -28,22 +28,74 @@ async function podcastArchive() {
 		Float32Array.from(b, (value, frame) => value + .2 * (a[frame - 192] ?? 0))];
 	const sources = ['Alice', 'Bob'].map((name, index) => createAudioSource({ id: `source-${index}`, name,
 		storageKey: `microphone-${index}`, sampleRate: rate, frameCount: length, channelCount: 1 }));
-	const clips = sources.map((source, index) => createAudioClip({ id: `clip-${index}`, title: source.name,
-		sourceId: source.id, timelineStartFrame: 0, durationFrames: length, sourceStartFrame: 0, sourceDurationFrames: length,
-		envelope: [{ frame: 0, value: index ? .6 : .8 }, { frame: length, value: index ? .6 : .8 }] }));
+	const pickupFrame = rate * 4.5;
+	const clips = sources.map((source, index) => {
+		const durationFrames = splitCleanPickup && index === 1 ? pickupFrame : length;
+		return createAudioClip({ id: `clip-${index}`, title: source.name, sourceId: source.id,
+			timelineStartFrame: 0, durationFrames, sourceStartFrame: 0, sourceDurationFrames: durationFrames,
+			envelope: [{ frame: 0, value: index ? .6 : .8 }, { frame: durationFrames, value: index ? .6 : .8 }] });
+	});
 	const tracks = clips.map((clip, index) => createAudioTrack({ id: `track-${index}`, name: sources[index].name, clipIds: [clip.id] }));
-	const project = createSoundscaperProject({ id: 'microphone-bleed-podcast', sampleRate: rate, sources, clips, tracks });
-	const store = createSoundscaperProjectStore({ indexedDB: null, preferOpfs: false });
+	if (splitCleanPickup) {
+		clips.push(createAudioClip({ id: 'clean-pickup', title: 'Bob clean pickup', sourceId: sources[1].id,
+			timelineStartFrame: pickupFrame, durationFrames: length - pickupFrame,
+			sourceStartFrame: pickupFrame, sourceDurationFrames: length - pickupFrame }));
+		tracks[1] = createAudioTrack({ id: 'track-1', name: 'Bob', clipIds: ['clip-1', 'clean-pickup'] });
+	}
+	if (wideOverlay) {
+		const frames = rate / 2;
+		const source = createAudioSource({ id: 'wide-source', storageKey: 'wide-source', name: 'Surround overlay',
+			sampleRate: rate, frameCount: frames, channelCount: 6 });
+		sources.push(source);
+		samples.push(new Float32Array(frames));
+		clips.push(createAudioClip({ id: 'wide-overlay', title: source.name, sourceId: source.id,
+			timelineStartFrame: rate * 3, durationFrames: frames, sourceStartFrame: 0, sourceDurationFrames: frames }));
+		tracks[0] = createAudioTrack({ id: 'track-0', name: 'Alice', clipIds: ['clip-0', 'wide-overlay'] });
+	}
+	const project = createSoundscaperProject({ id: 'microphone-bleed-podcast', sampleRate: rate, sources, clips, tracks,
+		...(wideOverlay ? { selection: { startFrame: 0, endFrame: length, trackIds: ['track-0', 'track-1'], clipIds: ['clip-0', 'clip-1'] } } : {}) });
+	const store = createSoundscaperEphemeralProjectStore();
 	try {
 		for (let index = 0; index < sources.length; index++) {
 			const writer = await store.beginSourceWrite(sources[index].storageKey, sources[index]);
-			for (let start = 0; start < length; start += 65536) await writer.write([samples[index].subarray(start, start + 65536)]);
+			for (let start = 0; start < samples[index].length; start += 65536) {
+				const pcm = samples[index].subarray(start, start + 65536);
+				await writer.write(Array.from({ length: sources[index].channelCount }, () => pcm));
+			}
 			await writer.commit();
 		}
 		const archive = await exportScapeProject(project, store);
 		return { project, buffer: Buffer.from(await archive.blob.arrayBuffer()) };
 	} finally { await store.close(); }
 }
+
+test('bleed reduction leaves a separate clean clip on the same microphone unchanged', async ({ page }) => {
+	const { project, buffer } = await podcastArchive({ splitCleanPickup: true });
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Podcast.sscape', mimeType: 'application/zip', buffer });
+	await expect(editor).toHaveAttribute('data-project-id', project.id);
+	await chooseCommandAction(page, editor, 'Select', 'Select all');
+	await chooseNestedCommandAction(page, editor, 'Effect', ['Noise removal and repair', 'Automatic microphone-bleed reduction']);
+	const dialog = page.getByRole('dialog', { name: 'Automatic microphone-bleed reduction', exact: true });
+	await dialog.getByRole('button', { name: 'Create gain envelopes', exact: true }).click();
+	await expect(dialog).toBeHidden();
+	await expect.poll(async () => (await persistedProject(page, project.id)).clips.find(clip => clip.id === 'clip-1').envelope.length).toBeGreaterThan(2);
+	const processed = await persistedProject(page, project.id);
+	expect(processed.clips.find(clip => clip.id === 'clean-pickup').envelope).toEqual([]);
+});
+
+test('bleed reduction ignores overlapping surround audio outside the explicit clip selection', async ({ page }) => {
+	const { project, buffer } = await podcastArchive({ wideOverlay: true });
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Podcast.sscape', mimeType: 'application/zip', buffer });
+	await expect(editor).toHaveAttribute('data-project-id', project.id);
+	await chooseNestedCommandAction(page, editor, 'Effect', ['Noise removal and repair', 'Automatic microphone-bleed reduction']);
+	const dialog = page.getByRole('dialog', { name: 'Automatic microphone-bleed reduction', exact: true });
+	await dialog.getByRole('button', { name: 'Create gain envelopes', exact: true }).click();
+	await expect(dialog).toBeHidden();
+	await expect.poll(async () => (await persistedProject(page, project.id)).clips.find(clip => clip.id === 'clip-1').envelope.length).toBeGreaterThan(2);
+	expect((await persistedProject(page, project.id)).clips.find(clip => clip.id === 'wide-overlay').envelope).toEqual([]);
+});
 
 test('microphone bleed creates editable gain envelopes, preserves overlap and sources, and supports undo and reopening', async ({ page }) => {
 	const errors = collectClientErrors(page);

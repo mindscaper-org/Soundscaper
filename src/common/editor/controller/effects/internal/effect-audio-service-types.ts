@@ -174,6 +174,7 @@ export interface EffectAudioServiceRuntime<Buffer = EffectAudioBuffer> {
 		trackId: string,
 		startFrame: number,
 		endFrame: number,
+		requestedClipIds?: readonly string[] | null,
 	) => number;
 	readonly renderSnapshot: (
 		project: EffectAudioProject,

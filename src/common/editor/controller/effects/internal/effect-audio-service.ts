@@ -70,7 +70,7 @@ export function createEffectAudioService<Buffer = EffectAudioBuffer>(runtime: Ef
 		const track = findTrack(project, trackId);
 		if (!track) throw createLocalizedError(Error, runtime.copy, 'audioTrackNotFound');
 		const channelCount = requestedChannelCount
-			?? (runtime.audacitySelectionChannelCount(project, trackId, startFrame, endFrame) || 1);
+			?? (runtime.audacitySelectionChannelCount(project, trackId, startFrame, endFrame, requestedClipIds) || 1);
 		if (processing === 'dry') {
 			const direct = await renderSimpleDryTrackPcm(project, runtime.sourceBuffers,
 				trackId, startFrame, endFrame, channelCount, requestedClipIds, signal, runtime.sourceChunkProviders);

@@ -12,8 +12,12 @@ export function composeMicrophoneBleedEnvelope(existing: readonly MicrophoneBlee
 	const reduction = createEnvelopeValueEvaluator(curve, curveDuration);
 	const start = Math.max(0, offsetFrames), end = Math.min(durationFrames, offsetFrames + curveDuration);
 	if (end <= start) return existing.map(point => ({ ...point }));
+	const inside = curve.filter(point => point.frame + offsetFrames >= start && point.frame + offsetFrames <= end);
+	if (reduction(start - offsetFrames) === 1 && reduction(end - offsetFrames) === 1 && inside.every(point => point.value === 1)) {
+		return existing.map(point => ({ ...point }));
+	}
 	const knots = new Set([0, durationFrames, start, end, ...existing.map(point => point.frame),
-		...curve.map(point => point.frame + offsetFrames).filter(frame => frame >= start && frame <= end)]);
+		...inside.map(point => point.frame + offsetFrames)]);
 	const evaluate = (frame: number): number => original(frame) * (frame >= start && frame <= end ? reduction(frame - offsetFrames) : 1);
 	const frames = [...knots].sort((a, b) => a - b), points: MicrophoneBleedPoint[] = [];
 	const push = (frame: number, value: number): void => {

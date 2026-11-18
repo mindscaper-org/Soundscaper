@@ -74,6 +74,16 @@ test('envelope composition preserves existing edits outside the selection and ap
 	assert.deepEqual(existing, [{ frame: 0, value: .3 }, { frame: 200, value: .8 }, { frame: 1000, value: .2 }]);
 });
 
+test('a clip outside every attenuation on its track keeps its authored envelope', () => {
+	const curve = [{ frame: 0, value: 1 }, { frame: 120, value: .25 }, { frame: 800, value: .25 },
+		{ frame: 1_000, value: 1 }, { frame: 2_000, value: 1 }];
+	assert.deepEqual(composeMicrophoneBleedEnvelope([], 400, curve, -1_200), []);
+	const authored = [{ frame: 175, value: .4 }];
+	assert.deepEqual(composeMicrophoneBleedEnvelope(authored, 400, curve, -1_200), authored);
+	const overlap = createEnvelopeValueEvaluator(composeMicrophoneBleedEnvelope([], 50, curve, -900), 50);
+	assert.ok(overlap(0) < 1 && overlap(50) < 1, 'attenuation crossing the clip is retained even with no internal curve knots');
+});
+
 test('invalid settings and oversized input are refused', () => {
 	assert.throws(() => normalizeMicrophoneBleedOptions({ maximumReductionDb: NaN }));
 	assert.throws(() => normalizeMicrophoneBleedOptions({ minimumSimilarity: 1.1 }));
