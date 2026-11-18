@@ -86,7 +86,8 @@ function validateBackendRow(row) {
 	assert(row.backend !== 'coreaudio' || row.status === 'ok',
 		'The Core Audio inventory must complete on macOS, including when no devices are present.');
 	for (const device of row.devices) {
-		assert(exactKeys(device, ['handle', 'label', 'direction'])
+		assert((exactKeys(device, ['handle', 'label', 'direction'])
+			|| (exactKeys(device, ['handle', 'label', 'direction', 'isDefault']) && typeof device.isDefault === 'boolean'))
 			&& typeof device.handle === 'string' && device.handle.length > 0
 			&& typeof device.label === 'string'
 			&& ['input', 'output', 'duplex'].includes(device.direction),

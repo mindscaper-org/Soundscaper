@@ -245,6 +245,7 @@ function describeBackendInventory(addon, backend) {
 			handle,
 			label: clampWireText(label, NATIVE_AUDIO_INVENTORY_BOUNDS.textBytes),
 			direction: device.direction,
+			...(typeof device.isDefault === 'boolean' ? { isDefault: device.isDefault } : {}),
 		};
 		devices.push(Number.isSafeInteger(device.channelCount) && device.channelCount > 0
 			? { ...described, channelCount: device.channelCount }

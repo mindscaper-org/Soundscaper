@@ -211,12 +211,16 @@ soundscaper_pro_status enumerateJuceAudio(const std::string &backend, std::strin
 	output << "[";
 	bool first = true;
 	for (const bool input : { false, true }) {
-		for (const auto &name : type->getDeviceNames(input)) {
+		const auto names = type->getDeviceNames(input);
+		const auto defaultIndex = type->getDefaultDeviceIndex(input);
+		for (int index = 0; index < names.size(); ++index) {
+			const auto name = escaped(names[index].toStdString());
 			if (!first) output << ",";
 			first = false;
-			output << "{\"handle\":\"" << escaped(name.toStdString())
-				<< "\",\"label\":\"" << escaped(name.toStdString())
-				<< "\",\"direction\":\"" << (input ? "input" : "output") << "\"}";
+			output << "{\"handle\":\"" << name << "\",\"label\":\"" << name
+				<< "\",\"direction\":\"" << (input ? "input" : "output") << "\"";
+			if (index == defaultIndex) output << ",\"isDefault\":true";
+			output << "}";
 		}
 	}
 	output << "]";

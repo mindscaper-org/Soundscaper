@@ -100,6 +100,7 @@ export interface HelperNativeAudioDevice {
 	readonly handle: string;
 	readonly label: string;
 	readonly direction: NativeAudioDeviceDirection;
+	readonly isDefault?: boolean;
 	/**
 	 * How many channels the backend says this device carries. Absent when the
 	 * backend reports no topology at all: routing that would pair channels needs
@@ -132,7 +133,7 @@ export const MAXIMUM_NATIVE_AUDIO_DEVICE_CHANNELS = 32;
 
 const INVENTORY_KEYS = Object.freeze(['backend', 'status', 'detail', 'devices']);
 const DEVICE_KEYS = Object.freeze(['handle', 'label', 'direction']);
-const DEVICE_OPTIONAL_KEYS = Object.freeze(['channelCount']);
+const DEVICE_OPTIONAL_KEYS = Object.freeze(['channelCount', 'isDefault']);
 const DIRECTIONS = Object.freeze(['input', 'output', 'duplex'] as const);
 
 export function validateHelperAudioDeviceInventoryResult(value: unknown): HelperAudioDeviceInventoryResult {
@@ -173,10 +174,15 @@ export function validateHelperAudioDeviceInventoryResult(value: unknown): Helper
 		}
 		if (direction !== 'output') inputHandles.add(handle);
 		if (direction !== 'input') outputHandles.add(handle);
+		const isDefault = entry.isDefault;
+		if (isDefault !== undefined && typeof isDefault !== 'boolean') {
+			throw new HelperContractViolationError('malformed', 'A native audio default flag must be boolean.');
+		}
 		const described = {
 			handle,
 			label: boundedText(entry.label, MAXIMUM_NATIVE_AUDIO_DEVICE_TEXT_BYTES, 'audio device label'),
 			direction: direction as NativeAudioDeviceDirection,
+			...(isDefault === undefined ? {} : { isDefault }),
 		};
 		return Object.freeze(entry.channelCount === undefined ? described : {
 			...described,

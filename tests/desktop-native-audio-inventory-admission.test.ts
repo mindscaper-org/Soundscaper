@@ -42,6 +42,24 @@ test('a WASAPI input and output can share the endpoint name used to open them', 
 	assert.deepEqual(validateHelperAudioDeviceInventoryResult({ backend: 'wasapi', status: 'available', detail: '', devices }).devices, devices);
 });
 
+test('the backend default endpoint survives inventory admission with a different alphabetic first choice', async () => {
+	const devices = [
+		{ handle: 'DELL Display Audio', label: 'DELL Display Audio', direction: 'output' },
+		{ handle: 'Focusrite USB Audio', label: 'Focusrite USB Audio', direction: 'output', isDefault: true },
+	];
+	const runner = createNativeDeviceJobRunner({
+		addonPath: '/unused', addonSha256: 'f'.repeat(64), hash: () => createHash('sha256'),
+		loadAddon: async () => ({
+			enumerateAudioBackends: () => [{ backend: 'wasapi', status: 'ok', detail: '', devices }],
+		}),
+	});
+	const answer = await runner({
+		grant: { backend: 'wasapi', direction: 'duplex', mode: 'shared', deviceHandle: NATIVE_AUDIO_INVENTORY_DEVICE_HANDLE },
+		onProgress: () => {},
+	}).completion;
+	assert.deepEqual(validateHelperAudioDeviceInventoryResult(answer).devices, devices);
+});
+
 test('an inventory result that contradicts itself or repeats a handle in the same direction is refused', () => {
 	assert.throws(() => validateHelperAudioDeviceInventoryResult({
 		backend: 'alsa',
