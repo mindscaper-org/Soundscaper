@@ -83,6 +83,8 @@ function validateBackendRow(row) {
 		&& typeof row.backend === 'string' && INVENTORY_STATUSES.includes(row.status)
 		&& typeof row.detail === 'string' && Array.isArray(row.devices),
 	'The packaged professional backend status is invalid.');
+	assert(row.backend !== 'coreaudio' || row.status === 'ok',
+		'The Core Audio inventory must complete on macOS, including when no devices are present.');
 	for (const device of row.devices) {
 		assert(exactKeys(device, ['handle', 'label', 'direction'])
 			&& typeof device.handle === 'string' && device.handle.length > 0

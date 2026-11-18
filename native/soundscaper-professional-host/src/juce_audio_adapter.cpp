@@ -6,7 +6,6 @@
 
 #include <algorithm>
 #include <atomic>
-#include <cctype>
 #include <chrono>
 #include <condition_variable>
 #include <cstring>
@@ -16,28 +15,6 @@
 
 namespace soundscaper {
 namespace {
-
-std::string lower(std::string value)
-{
-	std::transform(value.begin(), value.end(), value.begin(),
-		[](unsigned char character) { return static_cast<char>(std::tolower(character)); });
-	return value;
-}
-
-bool typeMatches(const juce::String &name, const std::string &backend, bool exclusive)
-{
-	const std::string value = lower(name.toStdString());
-	if (backend == "coreaudio") return value.find("core audio") != std::string::npos;
-	if (backend == "asio") return value.find("asio") != std::string::npos;
-	if (backend == "alsa") return value.find("alsa") != std::string::npos;
-	if (backend == "wasapi") {
-		const bool isWasapi = value.find("windows audio") != std::string::npos
-			|| value.find("wasapi") != std::string::npos;
-		const bool isExclusive = value.find("exclusive") != std::string::npos;
-		return isWasapi && isExclusive == exclusive;
-	}
-	return false;
-}
 
 std::string escaped(const std::string &value)
 {
@@ -232,7 +209,7 @@ private:
  * every other backend's device type as a side effect, which on Linux meant an
  * ALSA query could not be answered without JACK being brought up first.
  */
-std::unique_ptr<juce::AudioIODeviceType> selectedType(const std::string &backend, bool exclusive)
+std::unique_ptr<juce::AudioIODeviceType> selectedType(const std::string &backend, [[maybe_unused]] bool exclusive)
 {
 	std::unique_ptr<juce::AudioIODeviceType> candidate;
 #if JUCE_MAC
@@ -249,7 +226,6 @@ std::unique_ptr<juce::AudioIODeviceType> selectedType(const std::string &backend
 #elif JUCE_LINUX
 	if (backend == "alsa") candidate.reset(juce::AudioIODeviceType::createAudioIODeviceType_ALSA());
 #endif
-	if (candidate == nullptr || !typeMatches(candidate->getTypeName(), backend, exclusive)) return nullptr;
 	return candidate;
 }
 
