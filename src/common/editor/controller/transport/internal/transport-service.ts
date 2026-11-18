@@ -313,6 +313,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 				...(hasCoreEditingProjectAuthority(project) ? {
 					trackIds: selection.trackIds || [],
 					clipIds: selection.clipIds || [],
+					...(selection.annotationIds?.length ? { annotationIds: [] } : {}),
 					frequencyRange: selection.frequencyRange || null,
 				} : {}),
 			}],
