@@ -154,15 +154,16 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 					: importTracks(project, prepared, offset, minimumFrames, options.signal);
 			});
 		},
-		exportFile: async format => {
+		exportFile: async (format, isOriginCurrent = () => true) => {
 			const requested = requireProject();
 			await pending;
 			const project = requireProject();
-			if (project.id !== requested.id) throw new EditorProjectChangedError();
+			if (project.id !== requested.id || !isOriginCurrent()) throw new EditorProjectChangedError();
 			const document = midiDocumentFromProject(project);
 			const name = project.title.replace(/[\\/:*?"<>|]/gu, '_') || 'MIDI';
 			const waiter = { expected: project }; deliveries.add(waiter);
-			try { return await deliverMidiFile(dependencies, document, format, name, () => dependencies.getProject() === waiter.expected, project); }
+			const isCurrent = () => isOriginCurrent() && dependencies.getProject() === waiter.expected;
+			try { return await deliverMidiFile(dependencies, document, format, name, isCurrent, project); }
 			finally { deliveries.delete(waiter); }
 		},
 	};

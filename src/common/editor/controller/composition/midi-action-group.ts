@@ -9,7 +9,7 @@ import type { MidiInstrument, MidiNote, MidiPreviewTarget } from '../../midi-mod
 import type { MidiClipResize, MidiNoteUpdate } from '../track-audio/midi-service-types.ts';
 import { createMidiImportFiles } from './internal/midi-import-files.ts';
 import { resolveMidiCopy } from '../../../i18n/editor-midi-copy.ts';
-import { EditorProjectChangedError } from '../shared/lifecycle.ts';
+import { EditorProjectChangedError, isCurrentAssertion } from '../shared/lifecycle.ts';
 import { raceAbortableRead } from '../../../foundation/abort-race.ts';
 
 /** Keep the beta synthesizer and file codecs outside the initial editor graph. */
@@ -66,7 +66,15 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 			} catch (error) { if (!task.signal.aborted) throw error; }
 			finally { task.finish(); }
 		},
-		exportFile: async (format: 'midi' | 'allegro') => (await service()).exportFile(format),
+		exportFile: async (format: 'midi' | 'allegro') => {
+			const id = scope.getProject()?.id;
+			const token = id ? scope.captureProjectGeneration?.() : undefined;
+			const isOriginCurrent = () => scope.getProject()?.id === id
+				&& (!token || isCurrentAssertion(() => scope.assertProjectGeneration?.(token)));
+			const loaded = await service();
+			if (!isOriginCurrent()) throw new EditorProjectChangedError();
+			return loaded.exportFile(format, isOriginCurrent);
+		},
 	});
 	const commitTransfer = (command: AudioEditorCommand, preview: (command: AudioEditorCommand) => MidiTransferSnapshot,
 		selection?: MidiTransferSelection, options?: ProjectChangedOptions): unknown => {
