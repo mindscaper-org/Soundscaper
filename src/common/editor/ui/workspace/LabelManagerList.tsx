@@ -51,8 +51,12 @@ export default function LabelManagerList({ projectId, labels, sampleRate, copy, 
 		removal.current = null;
 		const document = request.control.ownerDocument;
 		if (document.activeElement !== request.control && document.activeElement !== document.body) return;
-		const controls = list.current?.querySelectorAll<HTMLElement>('.kw-audio-editor__workspace-panel-close');
-		(controls?.[Math.min(request.index, labels.length - 1)] ?? add.current)?.focus();
+		const controls = Array.from(list.current?.querySelectorAll<HTMLButtonElement>('.kw-audio-editor__workspace-panel-close') ?? []);
+		const enabled = (control: HTMLButtonElement) => !control.hasAttribute('disabled');
+		const next = controls.slice(request.index).find(enabled) ?? controls.slice(0, request.index).findLast(enabled);
+		const fallback = add.current && enabled(add.current) ? add.current
+			: Array.from(list.current?.querySelectorAll<HTMLButtonElement>('button') ?? []).find(enabled);
+		(next ?? fallback)?.focus();
 	}, [disabled, labels, projectId]);
 	return <>
 		<div className="kw-audio-editor__panel-actions-inline">
