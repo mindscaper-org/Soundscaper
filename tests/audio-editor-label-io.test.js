@@ -261,6 +261,28 @@ test('WebVTT serialization emits a valid header and preserves cue identifiers', 
 	], { sampleRate: 1_000, includeCueIdentifiers: false }), /^1\n/);
 });
 
+test('combined WebVTT label tracks keep exported cue identifiers unique', () => {
+	const input = (identifier, title) => `WEBVTT\n\n${identifier}\n00:00.000 --> 00:01.000\n${title}\n`;
+	const labels = [
+		...parseWebVttLabels(input('same-id', 'Track one')).labels,
+		...parseWebVttLabels(input('same-id', 'Track two')).labels,
+		...parseWebVttLabels(input('2', 'Track three')).labels,
+	];
+	const exported = parseWebVttLabels(serializeWebVttLabels(labels)).labels;
+	const identifiers = exported.map((label) => label.opaqueExtensions.cueIdentifier);
+	assert.equal(new Set(identifiers).size, 3);
+	assert.equal(identifiers[0], 'same-id');
+	assert.equal(identifiers[2], '2');
+	assert.deepEqual(exported.map((label) => label.title), ['Track one', 'Track two', 'Track three']);
+});
+
+test('WebVTT label import and export retain a nonbreaking-space cue line', () => {
+	const title = 'First\n\u00a0\nSecond';
+	const original = parseWebVttLabels(`WEBVTT\n\n00:00.000 --> 00:01.000\n${title}\n`);
+	assert.equal(original.labels[0].title, title);
+	assert.equal(parseWebVttLabels(serializeWebVttLabels(original.labels)).labels[0].title, title);
+});
+
 test('label I/O enforces encoding, count, title, range, and input limits', () => {
 	assert.throws(
 		() => parseAudioEditorLabels(new Uint8Array([0xC3, 0x28]), { format: 'txt' }),
