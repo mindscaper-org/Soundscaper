@@ -168,6 +168,11 @@ function prepareDtmf(options: Options, sampleRate: number, channelCount: number)
 		const [low, high] = DTMF[symbol]!;
 		const lowAngular = 2 * Math.PI * low;
 		const highAngular = 2 * Math.PI * high;
+		// A one-frame symbol samples the middle of its interval; both sine waves are zero at its onset.
+		if (symbolFrames === 1) {
+			output[destination] = amplitude * 0.5 * (Math.sin(lowAngular / (2 * sampleRate)) + Math.sin(highAngular / (2 * sampleRate)));
+			return;
+		}
 		const fadeFrames = Math.min(Math.round(sampleRate * 0.005), Math.floor(symbolFrames / 2));
 		for (let index = 0; index < frames; index += 1) {
 			const frame = start + index;

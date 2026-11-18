@@ -387,7 +387,7 @@ function generatorDtmfTiming(params) {
 	return {
 		symbolCount,
 		...durations,
-		dutyPercent: roundGeneratorNumber(dutyPercent),
+		dutyPercent,
 	};
 }
 
@@ -406,15 +406,7 @@ export function generatorDtmfDurations(totalSeconds, dutyPercent, symbolCount) {
 	// duty cycle has nothing to divide; deriving a gap anyway reports a length
 	// that is never rendered and grows without bound as the duty cycle falls.
 	const silenceSeconds = duty === 1 || gaps === 0 ? 0 : toneSeconds * (1 - duty) / duty;
-	return {
-		totalSeconds: roundGeneratorNumber(total),
-		toneSeconds: roundGeneratorNumber(toneSeconds),
-		silenceSeconds: roundGeneratorNumber(silenceSeconds),
-	};
-}
-
-function roundGeneratorNumber(value) {
-	return Number(Number(value).toFixed(6));
+	return { totalSeconds: total, toneSeconds, silenceSeconds };
 }
 
 function generatorLayoutLabels(copy) {
