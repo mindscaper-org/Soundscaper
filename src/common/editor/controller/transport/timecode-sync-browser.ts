@@ -33,6 +33,7 @@ export function createBrowserTimecodeSyncIo(resources?: TimecodeBrowserResources
 	const r = resources ?? browserResources();
 	let midi: MIDIAccess | null = null;
 	let midiRequest: Promise<MIDIAccess> | null = null;
+	const releasingPorts = new WeakMap<MIDIPort, Promise<MIDIPort>>();
 	let prepared: { context: EngineAudioContext; resumed: Promise<void>; claimed: boolean } | null = null;
 	async function requestMidi(): Promise<MIDIAccess> {
 		if (!r.navigator.requestMIDIAccess) throw new Error('MIDI Time Code requires Web MIDI with SysEx permission.');
@@ -69,7 +70,7 @@ export function createBrowserTimecodeSyncIo(resources?: TimecodeBrowserResources
 			let context: EngineAudioContext | null = null, node: AudioWorkletNode | null = null;
 			let stream: MediaStream | null = null, source: MediaStreamAudioSourceNode | null = null;
 			let input: MIDIInput | null = null, output: ScheduledMidiOutput | null = null, access: MIDIAccess | null = null;
-			const ownedPorts: MIDIPort[] = [];
+			const ownedPorts = new Map<MIDIPort, Promise<MIDIPort>>();
 			let closed = false;
 			let anchor: (TimecodeTransportPosition & { time: number }) | null = null;
 			const decoder = new MtcDecoder();
@@ -84,6 +85,22 @@ export function createBrowserTimecodeSyncIo(resources?: TimecodeBrowserResources
 			const contextLost = (): void => { if (!closed && context?.state !== 'running') fail(new Error('The LTC audio clock stopped.')); };
 			const assertCurrent = (): void => { if (closed || signal?.aborted) throw new DOMException('Timecode connection canceled.', 'AbortError'); };
 			const abort = (): void => { void close().catch(() => {}); };
+			async function acquirePort(port: MIDIPort): Promise<void> {
+				const releasing = releasingPorts.get(port);
+				if (releasing) await releasing.catch(() => {});
+				assertCurrent();
+				if (port.connection === 'open') return;
+				const opening = port.open();
+				ownedPorts.set(port, opening);
+				await opening;
+				assertCurrent();
+			}
+			function releasePort(port: MIDIPort, opening: Promise<MIDIPort>): Promise<MIDIPort> {
+				// Closing a port before its open settles can leave it open again.
+				const releasing = opening.catch(() => undefined).then(() => port.close());
+				releasingPorts.set(port, releasing);
+				return releasing.finally(() => { if (releasingPorts.get(port) === releasing) releasingPorts.delete(port); });
+			}
 			async function close(): Promise<void> {
 				if (closed) return;
 				closed = true;
@@ -94,7 +111,8 @@ export function createBrowserTimecodeSyncIo(resources?: TimecodeBrowserResources
 				source?.disconnect(); node?.disconnect(); node?.port.close();
 				for (const track of stream?.getTracks() ?? []) { track.removeEventListener('ended', inputLost); track.stop(); }
 				context?.removeEventListener('statechange', contextLost);
-				await Promise.all([...ownedPorts.map(port => port.close()), ...(context && context.state !== 'closed' ? [context.close()] : [])]);
+				await Promise.all([...Array.from(ownedPorts, ([port, opening]) => releasePort(port, opening)),
+					...(context && context.state !== 'closed' ? [context.close()] : [])]);
 			}
 			signal?.addEventListener('abort', abort, { once: true });
 			try {
@@ -147,13 +165,15 @@ export function createBrowserTimecodeSyncIo(resources?: TimecodeBrowserResources
 					if (settings.receive === 'mtc') {
 						input = access.inputs.get(settings.midiInput) ?? null;
 						if (!input || input.state !== 'connected') throw new Error('Select an available MTC MIDI input.');
-						if (input.connection !== 'open') { ownedPorts.push(input); await input.open(); if (closed || signal?.aborted) { await input.close(); assertCurrent(); } }
+						await acquirePort(input);
+						assertCurrent();
 						input.addEventListener('midimessage', message);
 					}
 					if (settings.sendMtc) {
 						output = access.outputs.get(settings.midiOutput) as ScheduledMidiOutput | undefined ?? null;
 						if (!output || output.state !== 'connected') throw new Error('Select an available MTC MIDI output.');
-						if (output.connection !== 'open') { ownedPorts.push(output); await output.open(); if (closed || signal?.aborted) { await output.close(); assertCurrent(); } }
+						await acquirePort(output);
+						assertCurrent();
 					}
 					if (midiPortDisconnected()) throw new Error('The timecode MIDI port disconnected.');
 					access.addEventListener('statechange', disconnect);

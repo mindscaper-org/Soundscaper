@@ -35,7 +35,12 @@ async function installMidi(page, { holdOutput = false, holdInputClose = false } 
 		const access = Object.assign(new EventTarget(), { sysexEnabled: true, inputs: new Map([[input.id, input]]), outputs: new Map([[output.id, output]]) });
 		Object.defineProperty(navigator, 'requestMIDIAccess', { configurable: true, value: async options => { probe.requests.push(options); return access; } });
 		globalThis.__timecode = { probe, admitOutput, releaseInput,
-			emit: bytes => { const event = new Event('midimessage'); Object.assign(event, { data: Uint8Array.from(bytes) }); input.dispatchEvent(event); } };
+			emit: bytes => {
+				if (input.connection !== 'open') return;
+				const event = new Event('midimessage');
+				Object.assign(event, { data: Uint8Array.from(bytes) });
+				input.dispatchEvent(event);
+			} };
 	}, { holdOutput, holdInputClose });
 }
 
@@ -130,6 +135,60 @@ test('disabling MTC pauses playback while the input port is still closing', asyn
 		expect(await page.evaluate(() => globalThis.__timecode.probe.closed)).toBe(0);
 	} finally { await page.evaluate(() => globalThis.__timecode.releaseInput()); }
 	await expect.poll(() => page.evaluate(() => globalThis.__timecode.probe.closed)).toBe(1);
+});
+
+test('reusing an MTC input waits for a canceled admission to release that port', async ({ page }) => {
+	await installMidi(page, { holdOutput: true, holdInputClose: true });
+	const editor = await bootEditor(page, '/embed/en/');
+	await importFiles(editor, [audio]);
+	const dialog = await openSync(page, editor);
+	const receive = dialog.getByLabel('Receive timecode', { exact: true });
+	const input = dialog.getByLabel('MTC MIDI input', { exact: true });
+	const apply = dialog.getByRole('button', { name: 'Apply synchronization' });
+	await receive.selectOption('mtc');
+	await dialog.getByRole('checkbox', { name: 'Send MTC', exact: true }).check();
+	await dialog.getByRole('button', { name: 'Connect MIDI devices' }).click();
+	await input.selectOption('tc-in');
+	await dialog.getByLabel('MTC MIDI output', { exact: true }).selectOption('tc-out');
+	await apply.click();
+	await expect.poll(() => page.evaluate(() => globalThis.__timecode.probe.openingOutput)).toBe(true);
+	await dialog.getByRole('button', { name: 'Disable synchronization' }).click();
+	await expect.poll(() => page.evaluate(() => globalThis.__timecode.probe.closingInput)).toBe(true);
+	await receive.selectOption('mtc');
+	await input.selectOption('tc-in');
+	await apply.click();
+	try {
+		await page.evaluate(() => globalThis.__timecode.releaseInput());
+		await expect.poll(() => page.evaluate(() => globalThis.__timecode.probe.closed)).toBeGreaterThan(0);
+		await expect(dialog.getByRole('status')).toHaveText('Waiting for timecode.');
+		await page.evaluate(() => globalThis.__timecode.emit([240, 127, 127, 1, 1, 32, 0, 2, 0, 247]));
+		await expect(editor.getByRole('slider', { name: 'Playhead', exact: true })).toHaveAttribute('aria-valuenow', '96000');
+	} finally { await page.evaluate(() => globalThis.__timecode.admitOutput()); }
+});
+
+test('disabling synchronization dismisses a pending MIDI permission result', async ({ page }) => {
+	await page.addInitScript(() => {
+		const permission = { requested: false, deny: () => {} };
+		Object.defineProperty(navigator, 'requestMIDIAccess', { configurable: true, value: () => new Promise((_resolve, reject) => {
+			permission.requested = true;
+			permission.deny = () => reject(new DOMException('MIDI permission was denied.', 'NotAllowedError'));
+		}) });
+		globalThis.__midiPermission = permission;
+	});
+	const editor = await bootEditor(page, '/embed/en/');
+	await importFiles(editor, [audio]);
+	const dialog = await openSync(page, editor);
+	await dialog.getByLabel('Receive timecode', { exact: true }).selectOption('mtc');
+	await dialog.getByRole('button', { name: 'Connect MIDI devices' }).click();
+	await expect.poll(() => page.evaluate(() => globalThis.__midiPermission.requested)).toBe(true);
+	await dialog.getByRole('button', { name: 'Disable synchronization' }).click();
+	await expect(dialog.getByLabel('Receive timecode', { exact: true })).toHaveValue('off');
+	await page.evaluate(async () => {
+		globalThis.__midiPermission.deny();
+		await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+	});
+	await expect(dialog.getByRole('status')).toHaveText('Synchronization is off.');
+	await expect(dialog.getByRole('alert')).toHaveCount(0);
 });
 
 test('MTC receive locates timeline zero with a negative offset across midnight', async ({ page }) => {

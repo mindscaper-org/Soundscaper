@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
@@ -37,15 +37,27 @@ export default function TimecodeSyncDialog({ controller, copy: copyInput, onClos
 	const [devices, setDevices] = useState(EMPTY_DEVICES);
 	const [error, setError] = useState('');
 	const [busy, setBusy] = useState(false);
+	const operations = useRef({ id: 0 });
 	useEffect(() => {
-		let current = true;
-		void runtime.io.devices(false).then(value => { if (current) setDevices(value); }, (failure: unknown) => { if (current) setError(String(failure)); });
-		return () => { current = false; };
+		const requests = operations.current;
+		const initialId = requests.id;
+		void runtime.io.devices(false).then(value => { if (requests.id === initialId) setDevices(value); },
+			(failure: unknown) => { if (requests.id === initialId) setError(String(failure)); });
+		return () => { requests.id++; };
 	}, [runtime]);
-	const run = (operation: () => Promise<unknown>): void => {
+	const run = (operation: (isCurrent: () => boolean) => Promise<unknown>): void => {
+		const requests = operations.current;
+		const id = ++requests.id;
+		const isCurrent = (): boolean => requests.id === id;
 		setBusy(true); setError('');
-		void operation().catch((failure: unknown) => { setError(failure instanceof Error ? failure.message : String(failure)); }).finally(() => { setBusy(false); });
+		void operation(isCurrent).catch((failure: unknown) => {
+			if (isCurrent()) setError(failure instanceof Error ? failure.message : String(failure));
+		}).finally(() => { if (isCurrent()) setBusy(false); });
 	};
+	const refreshDevices = (requestAccess: boolean): void => run(async isCurrent => {
+		const listed = await runtime.io.devices(requestAccess);
+		if (isCurrent()) setDevices(listed);
+	});
 	const update = <Key extends keyof TimecodeSyncSettings>(key: Key, value: TimecodeSyncSettings[Key]): void => { setDraft(current => ({ ...current, [key]: value })); };
 	const port = (key: 'midiInput' | 'midiOutput' | 'audioInput' | 'audioOutput', label: string, choices: readonly { id: string; name: string }[]) => <label>
 		<EditorControlLabel>{label}</EditorControlLabel><select aria-label={label} value={draft[key]} onChange={event => update(key, event.currentTarget.value)}>
@@ -55,7 +67,10 @@ export default function TimecodeSyncDialog({ controller, copy: copyInput, onClos
 	</label>;
 	return <AudioEditorDialogShell title={copy.title} onClose={onClose} width={620} footer={<DialogFooter
 		className="audio-editor-dialog-footer"
-		leftContent={<Button onClick={() => run(async () => { await runtime.session.configure(DEFAULT_TIMECODE_SYNC_SETTINGS); setDraft(DEFAULT_TIMECODE_SYNC_SETTINGS); })}>{copy.disable}</Button>}
+		leftContent={<Button onClick={() => run(async isCurrent => {
+			await runtime.session.configure(DEFAULT_TIMECODE_SYNC_SETTINGS);
+			if (isCurrent()) setDraft(DEFAULT_TIMECODE_SYNC_SETTINGS);
+		})}>{copy.disable}</Button>}
 		rightContent={<><Button onClick={onClose}>{copy.close}</Button><Button variant="primary" disabled={busy} onClick={() => run(() => runtime.session.configure(draft))}>{copy.apply}</Button></>}
 	/>}>
 		<p>{copy.hint}</p>
@@ -70,13 +85,13 @@ export default function TimecodeSyncDialog({ controller, copy: copyInput, onClos
 			</select></label>
 			<label><EditorControlLabel>{copy.offset}</EditorControlLabel><input aria-label={copy.offset} type="number" min={-86400} max={86400} step="any" value={Number.isFinite(draft.offsetSeconds) ? draft.offsetSeconds : ''} onChange={event => update('offsetSeconds', event.currentTarget.valueAsNumber)} /></label>
 			{(draft.sendMtc || draft.receive === 'mtc') && <>
-				<Button onClick={() => run(async () => { setDevices(await runtime.io.devices(true)); })}>{copy.midiAccess}</Button>
+				<Button onClick={() => refreshDevices(true)}>{copy.midiAccess}</Button>
 				{draft.receive === 'mtc' && port('midiInput', copy.midiInput, devices.midiInputs)}
 				{draft.sendMtc && port('midiOutput', copy.midiOutput, devices.midiOutputs)}
 			</>}
 			{(draft.sendLtc || draft.receive === 'ltc') && <>
 				<p>{copy.routingHint}</p>
-				<Button onClick={() => run(async () => { setDevices(await runtime.io.devices(false)); })}>{copy.refresh}</Button>
+				<Button onClick={() => refreshDevices(false)}>{copy.refresh}</Button>
 				{draft.receive === 'ltc' && port('audioInput', copy.audioInput, devices.audioInputs)}
 				{draft.sendLtc && port('audioOutput', copy.audioOutput, devices.audioOutputs)}
 				{(['inputChannel', 'outputChannel'] as const).filter(key => key === 'inputChannel' ? draft.receive === 'ltc' : draft.sendLtc).map(key => <label key={key}>
