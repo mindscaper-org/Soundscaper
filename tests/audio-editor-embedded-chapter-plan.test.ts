@@ -58,6 +58,15 @@ test('explicit requests reject unsupported formats, split exports, sequences, an
 	}), /label.*range/iu);
 });
 
+test('MP3 delivery refuses a region that would have empty ID3 chapter timing', () => {
+	const project = createCurrentAudioEditorProject({ sampleRate: 48_000, tracks: [{
+		id: 'labels', type: 'label', labels: [{ id: 'short', title: 'Short region', startFrame: 48, endFrame: 60 }],
+	}] });
+	const options = { range: { startFrame: 0, endFrame: 48_000 }, embedLabelChapters: true };
+	assert.throws(() => createExportPlan(project, { ...options, format: 'mp3' }), /MP3.*chapter.*same millisecond/u);
+	assert.deepEqual(createExportPlan(project, { ...options, format: 'mp3', embedLabelChapters: false }).encoding.embeddedChapters, undefined);
+});
+
 test('encoding settings preserve and validate chapter data without changing ordinary settings', () => {
 	const chapters = [{ startFrame: 0, endFrame: 48_000, title: 'One' }];
 	const normalized = normalizeMediaExportSettings('mp3', { embeddedChapters: chapters });

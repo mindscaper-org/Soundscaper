@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { normalizeEmbeddedExportChapters, type EmbeddedExportChapter } from './export-embedded-chapters.ts';
+import { mp3ChapterMilliseconds, normalizeEmbeddedExportChapters, type EmbeddedExportChapter } from './export-embedded-chapters.ts';
 import { createAudioMetadataId3Tag } from './id3-metadata.js';
 import { prependAudioExportBytes } from './audio-export-prefix-blob.ts';
 
@@ -39,8 +39,9 @@ export function createEmbeddedMp3ChapterTag(
 	for (const [index, chapter] of chapters.entries()) {
 		const times = new Uint8Array(16);
 		const view = new DataView(times.buffer);
-		view.setUint32(0, milliseconds(chapter.startFrame, sampleRate));
-		view.setUint32(4, milliseconds(chapter.endFrame, sampleRate));
+		const [start, end] = mp3ChapterMilliseconds(chapter, sampleRate);
+		view.setUint32(0, start);
+		view.setUint32(4, end);
 		view.setUint32(8, 0xffff_ffff);
 		view.setUint32(12, 0xffff_ffff);
 		frames.push(frame('CHAP', concatenate([
@@ -82,13 +83,6 @@ function frame(id: string, payload: Uint8Array): Uint8Array<ArrayBuffer> {
 
 function terminated(value: string): Uint8Array<ArrayBuffer> {
 	return concatenate([textEncoder.encode(value), Uint8Array.of(0)]);
-}
-
-function milliseconds(frames: number, sampleRate: number): number {
-	const denominator = BigInt(sampleRate);
-	const value = (BigInt(frames) * 1_000n + denominator / 2n) / denominator;
-	if (value >= 0xffff_ffffn) throw new RangeError('The MP3 chapter timestamp exceeds the ID3 limit.');
-	return Number(value);
 }
 
 function synchsafe(value: number): Uint8Array<ArrayBuffer> {
