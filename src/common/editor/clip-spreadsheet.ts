@@ -276,9 +276,14 @@ function planClip(project: SpreadsheetProject, clip: SpreadsheetClip, source: Sp
 	const sourceChanged = source.id !== clip.sourceId;
 	const loop = sourceChanged ? null : readClipLoop(clip);
 	const repeats = loop ? clip.durationFrames / loop.periodFrames : 1;
+	const preserveResampledSpan = sourceChanged && sourceRate !== originalSourceRate
+		&& !fields.has('offset') && !fields.has('duration') && !readClipLoop(clip);
 	let durationFrames = clip.durationFrames;
-	let sourceDurationFrames = sourceChanged ? scaleSampleFrame(clip.sourceDurationFrames, originalSourceRate, sourceRate, 'point') : clip.sourceDurationFrames;
 	let sourceStartFrame = sourceChanged ? scaleSampleFrame(clip.sourceStartFrame, originalSourceRate, sourceRate, 'point') : clip.sourceStartFrame;
+	const previousSourceDuration = preserveResampledSpan
+		? scaleSampleFrame(clip.sourceStartFrame + clip.sourceDurationFrames, originalSourceRate, sourceRate, 'point') - sourceStartFrame
+		: scaleSampleFrame(clip.sourceDurationFrames, originalSourceRate, sourceRate, 'point');
+	let sourceDurationFrames = previousSourceDuration;
 	let speedRatio = clip.speedRatio;
 	const set = (target: Record<string, unknown>, key: keyof SpreadsheetClip, value: unknown) => {
 		if (value !== clip[key]) target[key] = value;
@@ -303,7 +308,7 @@ function planClip(project: SpreadsheetProject, clip: SpreadsheetClip, source: Sp
 	}
 	const speedChanged = speedRatio !== clip.speedRatio;
 	const durationRequested = fields.has('duration');
-	if (sourceChanged && !speedChanged || durationRequested && (durationFrames !== clip.durationFrames || speedChanged)) {
+	if (sourceChanged && !speedChanged && !preserveResampledSpan || durationRequested && (durationFrames !== clip.durationFrames || speedChanged)) {
 		sourceDurationFrames = spreadsheetSourceDurationFrames(durationFrames, project.sampleRate, sourceRate, speedRatio, repeats);
 	} else if (speedChanged) durationFrames = spreadsheetDurationFrames(sourceDurationFrames, sourceRate, project.sampleRate, speedRatio, repeats);
 	if (!Number.isSafeInteger(durationFrames) || durationFrames < 1 || !Number.isSafeInteger(sourceDurationFrames) || sourceDurationFrames < 1) throw new RangeError('Clip duration must contain at least one sample.');
@@ -328,7 +333,6 @@ function planClip(project: SpreadsheetProject, clip: SpreadsheetClip, source: Sp
 	if (timingChanged && (clip.groupId || clip.avLinkId)) throw new RangeError('Ungroup or unlink this clip before editing its timing in the spreadsheet.');
 	if (clip.warpMap != null && ['sourceId', 'sourceStartFrame', 'sourceDurationFrames', 'durationFrames', 'speedRatio'].some(key => Object.hasOwn(transform, key))) throw new RangeError('Edit warped clip timing in the source editor.');
 	if (durationFrames !== clip.durationFrames || speedChanged) {
-		const previousSourceDuration = sourceChanged ? scaleSampleFrame(clip.sourceDurationFrames, originalSourceRate, sourceRate, 'point') : clip.sourceDurationFrames;
 		const stretchedDuration = speedChanged
 			? Math.max(1, spreadsheetDurationFrames(previousSourceDuration, sourceRate, project.sampleRate, speedRatio, repeats))
 			: clip.durationFrames;

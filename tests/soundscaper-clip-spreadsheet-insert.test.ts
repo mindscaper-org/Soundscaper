@@ -60,3 +60,24 @@ test('spreadsheet media replacement and track moves preserve production coordina
 	assert.equal(history.undoStack.length, 1);
 	assert.deepEqual(getClipSpreadsheetRows(undoSoundscaperProjectCommand(history).present), getClipSpreadsheetRows(project));
 });
+
+test('spreadsheet source replacement preserves the endpoint of a trim after resampling', () => {
+	const original = createAudioSource({ id: 'original', storageKey: 'original', name: 'Original.wav', sampleRate: 48_000, frameCount: 8, channelCount: 1 });
+	const replacement = createAudioSource({ id: 'replacement', storageKey: 'replacement', name: 'Replacement.wav', sampleRate: 44_100, frameCount: 7, channelCount: 1 });
+	const initial = createSoundscaperProject({ id: 'spreadsheet-replace-tail', sampleRate: 48_000, sources: [original, replacement] });
+	let sequence = 0;
+	const insertion = planClipSpreadsheetInsert(initial, [{ source: 'original', offset: String(4 / 48_000) }], {
+		createId: prefix => `${prefix}-${String(++sequence)}`,
+	});
+	assert.ok(insertion);
+	const project = executeSoundscaperProjectCommand(createSoundscaperProjectHistory(initial), insertion).present;
+	const row = getClipSpreadsheetRows(project)[0]!;
+	const command = planClipSpreadsheetEdits(project, [{ clipId: row.id, column: 'source', value: 'replacement' }]);
+	assert.ok(command);
+	const history = executeSoundscaperProjectCommand(createSoundscaperProjectHistory(project), command);
+	assert.equal(validateSoundscaperProject(history.present), true);
+	const clip = history.present.clips[0]!;
+	assert.equal(clip.sourceStartFrame, 4);
+	assert.equal(clip.sourceDurationFrames, 3);
+	assert.equal(clip.durationFrames, 4);
+});
