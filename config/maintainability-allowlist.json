@@ -75,7 +75,7 @@
 		"src/common/editor/storage/raw-pcm-spool-repository.ts": 554,
 		"src/common/editor/storage/video-derivative-repository.ts": 552,
 		"src/common/editor/take-cycle-recovery-envelope.ts": 586,
-		"src/common/editor/timeline-annotation-riff-interchange.ts": 583,
+		"src/common/editor/timeline-annotation-riff-interchange.ts": 575,
 		"src/common/editor/timeline-time.ts": 598,
 		"src/common/editor/track-hierarchy-v12.ts": 551,
 		"src/common/editor/ui/audio-editor-design-system/08-timeline-clips-effects.css": 564,
