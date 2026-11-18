@@ -202,8 +202,11 @@ export function createProjectSwitchService<
 				await guard(runtime.saveNow());
 			}
 			const previousLock = runtime.state.projectLock;
+			const knownStale = Boolean(existingCapture && previousProject?.id !== projectId && options.adoptSessionRevision !== true
+				&& runtime.isPersistedSnapshotCurrent && !await guard(runtime.isPersistedSnapshotCurrent(projectId)));
 			if (!previousLock || previousLock.projectId !== projectId || previousLock.readOnly) {
-				stagedLock = await runtime.acquireProjectLock(projectId, { force: true });
+				stagedLock = knownStale ? { projectId, readOnly: true, method: 'stale-project', release() {} }
+					: await runtime.acquireProjectLock(projectId, { force: true });
 				runtime.lifetime.assertActive(token);
 			}
 			const activationLock = stagedLock ?? previousLock;
@@ -358,11 +361,11 @@ export function createProjectSwitchService<
 				await guard(openRecovery.deferMaintenance(async () => { try { await runtime.maintainOpenedProject(projectId, isCurrentWritable); } catch { /* Report-only. */ } }));
 				runtime.lifetime.assertActive(token);
 			}
-			if (lockReadOnly) setLocalizedStatus(runtime.setStatus, runtime.copy, "projectOpenOtherTab", undefined, 'error');
+			if (lockReadOnly) setLocalizedStatus(runtime.setStatus, runtime.copy, knownStale ? 'projectReadOnly' : 'projectOpenOtherTab', undefined, 'error');
 			else if (runtime.state.readOnly) {
 				publishProjectReadOnlyStatus(runtime.copy, runtime.setStatus, intrinsicReadOnlyReason);
 			} else if (leavingReadOnly && !openRecovery.blocked) setLocalizedStatus(runtime.setStatus, runtime.copy, 'ready', undefined, 'success');
-			runtime.scheduleProjectLockRecovery(projectId, activationLock);
+			if (!knownStale) runtime.scheduleProjectLockRecovery(projectId, activationLock);
 		} catch (error) {
 			let failure = error;
 			const cleanup = async (

@@ -6,7 +6,7 @@ import test from 'node:test';
 import { sameProjectSnapshot } from '../src/common/editor/storage/project-snapshot-equality.ts';
 import { createFixture, project } from './helpers/audio-editor-project-switch-fixture.ts';
 
-test('reopening an inactive tab stays read-only when its stored project changed', async () => {
+test('reopening an inactive stale tab leaves the current window’s writer alone', async () => {
 	const fixture = createFixture();
 	await fixture.service.switchProject(project('next-project'));
 	Object.assign(fixture.runtime, {
@@ -19,6 +19,7 @@ test('reopening an inactive tab stays read-only when its stored project changed'
 	assert.equal(fixture.getTab('old-project')?.readOnly, true);
 	assert.equal(fixture.getTab('old-project')?.readOnlyReason, 'project-lock');
 	assert.equal(fixture.events.includes('maintain-opened:old-project'), false);
+	assert.equal(fixture.events.includes('acquire-lock:old-project'), false);
 });
 
 test('first activation stays read-only when its loaded document changed before lock acquisition', async () => {

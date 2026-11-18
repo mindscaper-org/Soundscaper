@@ -214,6 +214,17 @@ export function createProjectLockService(runtime: ProjectLockServiceRuntime) {
 		const previousLock = runtime.state.projectLock;
 		const metadata = projectId ? runtime.getProjectMetadata(projectId) : {};
 		if (!projectId || !previousLock?.readOnly || previousLock === claimingLock || metadata.intrinsicReadOnly) return false;
+		if (runtime.isPersistedSnapshotCurrent) {
+			claimingLock = previousLock;
+			try {
+				const current = await runtime.isPersistedSnapshotCurrent(projectId);
+				if (!ownsLock(projectId, previousLock) || !previousLock.readOnly) return false;
+				if (!current) {
+					setLocalizedStatus(runtime.setStatus, runtime.copy, 'projectReadOnly', undefined, 'error');
+					return false;
+				}
+			} finally { if (claimingLock === previousLock) claimingLock = null; }
+		}
 		const releasing = releaseProjectLock(previousLock);
 		const pending: ProjectLifecycleLock = {
 			projectId, readOnly: true, method: previousLock.method, release() {},

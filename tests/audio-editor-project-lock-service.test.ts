@@ -190,6 +190,18 @@ test('a successful forced claim publishes writable session ownership', async () 
 	assert.deepEqual(fixture.statuses.at(-1), ['Ready', 'success']);
 });
 
+test('Edit here from a stale read-only document leaves the current writer uninterrupted', async () => {
+	const previous = createLock('project-a', { readOnly: true });
+	const fixture = createFixture(previous, async () => false);
+	let forced = 0;
+	fixture.setAcquisition(async (id, force) => { if (force) forced++; return createLock(id); });
+
+	assert.equal(await fixture.service.claimProjectLock(), false);
+	assert.equal(forced, 0);
+	assert.equal(fixture.state.readOnly, true);
+	assert.deepEqual(fixture.statuses.at(-1), ['Read-only', 'error']);
+});
+
 test('a second Edit here click cannot supersede its own pending forced lock claim', async () => {
 	const previous = createLock('project-a', { readOnly: true });
 	const next = createLock('project-a');
