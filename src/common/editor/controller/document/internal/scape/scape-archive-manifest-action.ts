@@ -37,6 +37,8 @@ export interface ArchiveManifestSessionRecord {
 	readonly fileName: string;
 }
 
+const pendingReadbacks = new WeakMap<object, symbol>();
+
 /** Record the manifest of a saved archive, or why one could not be made. */
 export async function recordScapeArchiveManifest(
 	runtime: ScapeArchiveManifestRuntime,
@@ -47,9 +49,13 @@ export async function recordScapeArchiveManifest(
 		signal: AbortSignal;
 	}>,
 ): Promise<ArchiveManifestSessionRecord> {
+	const requestToken = Symbol();
+	pendingReadbacks.set(runtime.state, requestToken);
 	const record = await manifestRecord(request);
-	(runtime.state as Record<string, unknown>).archiveManifest = record;
-	runtime.publishDocumentSnapshot?.();
+	if (pendingReadbacks.get(runtime.state) === requestToken) {
+		(runtime.state as Record<string, unknown>).archiveManifest = record;
+		runtime.publishDocumentSnapshot?.();
+	}
 	return record;
 }
 

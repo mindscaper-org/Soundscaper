@@ -11,6 +11,8 @@ import {
 
 import { createScapeArchiveManifest } from '../src/common/editor/scape-archive-manifest.ts';
 import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
+import { recordScapeArchiveManifest, type ArchiveManifestSessionRecord } from '../src/common/editor/controller/document/internal/scape/scape-archive-manifest-action.ts';
+import { deferred } from './helpers/async-test-control.ts';
 
 const PROJECT = new TextEncoder().encode('{"schemaVersion":9}');
 const MEDIA = Uint8Array.from({ length: 5_000 }, (_value, index) => index % 253);
@@ -45,6 +47,30 @@ test('manifest creation obeys cancellation before opening an archive', async () 
 	await assert.rejects(createScapeArchiveManifest(await archive(), {
 		signal: controller.signal,
 	}), { name: 'AbortError' });
+});
+
+test('a slow readback from the previous tab cannot replace a newer saved archive’s checksums', async context => {
+	const slow = await archive();
+	const second = await archive();
+	const entered = deferred<void>(), resume = deferred<void>();
+	const read = Blob.prototype.arrayBuffer;
+	let held = false;
+	context.mock.method(Blob.prototype, 'arrayBuffer', async function (this: Blob) {
+		if (!held) { held = true; entered.resolve(); await resume.promise; }
+		return read.call(this);
+	});
+	const state: { archiveManifest?: ArchiveManifestSessionRecord } = {};
+	const signal = new AbortController().signal;
+	const first = recordScapeArchiveManifest({ state }, { archive: slow, fileName: 'First.sscape', signal });
+	await entered.promise;
+	try {
+		await recordScapeArchiveManifest({ state }, { archive: second, fileName: 'Second.sscape', signal });
+	} finally {
+		resume.resolve();
+		await first;
+	}
+	assert.equal(state.archiveManifest?.fileName, 'Second.sscape');
+	assert.ok(state.archiveManifest?.manifest);
 });
 
 async function archive(withDirectory = false): Promise<Blob> {
