@@ -53,14 +53,15 @@ export const openFramescaperBrowserNativeImageV1: OpenFramescaperBrowserNativeIm
 	cancelled(request.signal);
 	assertBrowserNativeImageResources(request.bytes, request.format);
 	const Decoder = imageDecoderConstructor();
+	const animation = encodedImageAnimationInfo(request.bytes, request.format);
 	if (Decoder && await nativeImageOperation(() => supported(Decoder, request.mimeType), request.signal, () => {})) {
-		return openImageDecoder(Decoder, request.bytes, request.mimeType, request.format, request.signal,
-			encodedImageAnimationInfo(request.bytes, request.format));
+		return openImageDecoder(Decoder, request.bytes, request.mimeType, request.format, request.signal, animation);
 	}
-	if (encodedImageIsAnimated(request.bytes, request.format)) {
+	const singleGif = request.format === 'gif' && animation?.frameCount === 1 ? animation : null;
+	if (!singleGif && encodedImageIsAnimated(request.bytes, request.format)) {
 		throw new Error('This animated image requires an available browser animation decoder.');
 	}
-	return openStaticBitmap(request.bytes, request.mimeType, request.signal);
+	return openStaticBitmap(request.bytes, request.mimeType, request.signal, singleGif?.firstFrameDurationMicroseconds ?? null);
 };
 
 async function openImageDecoder(
@@ -142,6 +143,7 @@ async function openStaticBitmap(
 	bytes: Uint8Array,
 	mimeType: string,
 	signal: AbortSignal | undefined,
+	durationMicroseconds: number | null,
 ): Promise<FramescaperBrowserNativeImageDecodeSessionV1> {
 	if (typeof globalThis.createImageBitmap !== 'function') {
 		throw new Error('This browser has no supported native image decoder.');
@@ -174,7 +176,7 @@ async function openStaticBitmap(
 			if (closed) throw new Error('The browser image bitmap is closed.');
 			if (index !== 0) throw new RangeError('A static browser image has one frame.');
 			cancelled(frameSignal ?? signal);
-			return Object.freeze({ rgba: drawRgba(bitmap, width, height), durationMicroseconds: null });
+			return Object.freeze({ rgba: drawRgba(bitmap, width, height), durationMicroseconds });
 		},
 		close() { if (!closed) { closed = true; bitmap.close(); } },
 	});
