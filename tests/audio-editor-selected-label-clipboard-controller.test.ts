@@ -88,6 +88,30 @@ test('media, range and track selections take clipboard ownership back from label
 	assert.deepEqual(controller.getSnapshot().selectedLabels, []);
 });
 
+test('changing tabs retains an explicitly cleared label selection and keeps Copy with the active clip', async context => {
+	const controller = await fixture(context);
+	const originId = controller.project!.id;
+	const audioClipId = controller.getSnapshot().selectedClipId!;
+	const cueId = controller.actions.labels.add(null, { title: 'Editorial cue', startFrame: 1200, endFrame: 1200 });
+	assert.ok(cueId);
+	const track = labelTrack(controller);
+	controller.actions.labels.select(track.id, cueId);
+	await controller.actions.project.create();
+	const secondId = controller.project!.id;
+	await controller.actions.project.openById(originId);
+	assert.deepEqual(controller.getSnapshot().selectedLabels, [{ trackId: track.id, labelId: cueId }]);
+	controller.actions.timeline.selectClip(audioClipId);
+	assert.deepEqual(controller.getSnapshot().selectedLabels, []);
+	await controller.actions.project.openById(secondId);
+	await controller.actions.project.openById(originId);
+	assert.deepEqual(controller.getSnapshot().selectedLabels, []);
+	assert.equal(controller.getSnapshot().selectedClipId, audioClipId);
+	await controller.actions.edit.copy();
+	controller.actions.transport.seek(12_000);
+	await controller.actions.edit.paste();
+	assert.equal(controller.project!.clips.length, 2);
+});
+
 test('locked label Cut preserves the old media clipboard and a successful Cut publishes only after native admission', async context => {
 	const controller = await fixture(context);
 	await controller.actions.edit.copy();

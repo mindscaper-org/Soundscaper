@@ -33,7 +33,7 @@ export interface CapturedProjectSessionSelection {
 	readonly selectedTrackId: string | null;
 	readonly selectedClipId: string | null;
 	readonly selectedAnnotationId: string | null;
-	readonly selectedLabels?: readonly SelectedLabelRef[];
+	readonly selectedLabels: readonly SelectedLabelRef[];
 }
 
 export interface ProjectSessionSelectionServiceDependencies<
@@ -56,12 +56,11 @@ export function createProjectSessionSelectionService<
 	return Object.freeze({ capture, restore });
 
 	function capture(project?: Project | null): Readonly<CapturedProjectSessionSelection> {
-		const labels = selectedLabelsForProject(project, dependencies.state);
 		return Object.freeze({
 			selectedTrackId: dependencies.state.selectedTrackId,
 			selectedClipId: dependencies.state.selectedClipId,
 			selectedAnnotationId: dependencies.state.selectedAnnotationId,
-			...(labels.length ? { selectedLabels: labels } : {}),
+			selectedLabels: selectedLabelsForProject(project, dependencies.state),
 		});
 	}
 
