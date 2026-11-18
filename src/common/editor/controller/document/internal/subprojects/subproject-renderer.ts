@@ -52,6 +52,8 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 	}
 	async function render(node: ResolvedSubprojectNode, geometry: SubprojectGeometry, signal?: AbortSignal): Promise<SubprojectRenderedSource> {
 		const temporary = new Map<string, SubprojectRenderedSource>();
+		let result: SubprojectRenderedSource | undefined;
+		let failure: RenderFailure | undefined;
 		try {
 			async function visit(current: ResolvedSubprojectNode, output: SubprojectGeometry): Promise<SubprojectRenderedSource> {
 				signal?.throwIfAborted();
@@ -71,8 +73,14 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 				}
 				return await renderOne(project as unknown as SubprojectDocument, output, signal);
 			}
-			return await visit(node, geometry);
-		} finally { for (const source of [...temporary.values()].reverse()) await source.discard(); }
+			result = await visit(node, geometry);
+			return result;
+		} catch (error) {
+			failure = { error };
+			throw error;
+		} finally {
+			await settleSubprojectRender(result, failure, [...temporary.values()].reverse().map(source => () => source.discard()));
+		}
 	}
 	async function renderOne(project: SubprojectDocument, geometry: SubprojectGeometry, signal?: AbortSignal): Promise<SubprojectRenderedSource> {
 		signal?.throwIfAborted();
@@ -85,7 +93,8 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 		let engine: ReturnType<SubprojectRendererRuntime['createEngine']> | null = null;
 		let pitch: Awaited<ReturnType<typeof prepareSubprojectTimePitchSources>> | null = null;
 		let writer: OwnedAudioSourceWriter | null = null;
-		let published = false;
+		let rendered: SubprojectRenderedSource | undefined;
+		let failure: RenderFailure | undefined;
 		try {
 			const used = new Set((projected.clips as readonly { kind?: string; sourceId: string }[])
 				.filter(clip => clip.kind === 'audio').map(clip => clip.sourceId));
@@ -151,8 +160,8 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 				await output.write(Array.from({ length: geometry.channelCount }, () => new Float32Array(count))); frames += count;
 			}
 			signal?.throwIfAborted();
-			const stored = await output.commit(); published = true;
-			return { source: { id, kind: 'audio', name: project.title, storageKey: id, ...geometry },
+			const stored = await output.commit();
+			rendered = { source: { id, kind: 'audio', name: project.title, storageKey: id, ...geometry },
 				discard: async () => {
 					try { await runtime.store.sourceRepository.discardIfCurrent(stored); }
 					catch (error) {
@@ -161,16 +170,40 @@ export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 						if (!(error instanceof Error) || !error.message.includes('retained by another open editor session')) throw error;
 					}
 				} };
+			return rendered;
+		} catch (error) {
+			failure = { error };
+			throw error;
 		} finally {
-			if (writer && !published) await writer.abort();
-			try { await engine?.dispose(); }
-			finally {
-				try { for (const provider of providers.values()) await provider.dispose(); }
-				finally { await pitch?.close(); }
-			}
+			await settleSubprojectRender(rendered, failure, [
+				() => rendered ? undefined : writer?.abort(),
+				() => engine?.dispose(),
+				...[...providers.values()].map(provider => () => provider.dispose()),
+				() => pitch?.close(),
+			]);
 		}
 	}
 	return Object.freeze({ plan, render });
+}
+
+interface RenderFailure { readonly error: unknown }
+
+async function settleSubprojectRender(
+	output: SubprojectRenderedSource | undefined,
+	failure: RenderFailure | undefined,
+	cleanup: readonly (() => PromiseLike<void> | void)[],
+): Promise<void> {
+	const errors: unknown[] = [];
+	for (const operation of cleanup) {
+		try { await operation(); }
+		catch (error) { errors.push(error); }
+	}
+	if (!errors.length) return;
+	try { await output?.discard(); }
+	catch (error) { errors.push(error); }
+	if (failure) errors.unshift(failure.error);
+	if (errors.length === 1) throw errors[0];
+	throw new AggregateError(errors, 'Subproject render cleanup failed.', { cause: errors[0] });
 }
 
 function subprojectOutputChannels(channels: readonly Float32Array[], width: number): readonly Float32Array[] {

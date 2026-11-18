@@ -10,8 +10,13 @@ import { createSoundscaperEphemeralProjectStore } from '../src/soundscaper/edito
 import { projectForRuntimeConsumers } from '../src/common/editor/project-current-runtime.ts';
 import type { EngineLoadProjectOptions } from '../src/common/editor/engine/public-api.ts';
 import type { EngineChunkSource } from '../src/common/editor/engine/types.ts';
+import type { StorageRecord } from '../src/common/editor/storage/media-records.ts';
 
-async function fixture(context: TestContext) {
+async function fixture(context: TestContext, hooks: {
+	discard?: (source: StorageRecord) => void;
+	abort?: () => void;
+	dispose?: () => void;
+} = {}) {
 	const store = createSoundscaperEphemeralProjectStore();
 	context.after(async () => { await store.close(); });
 	const writer = await store.beginSourceWrite('original', { sampleRate: 48000, channelCount: 1 });
@@ -22,7 +27,20 @@ async function fixture(context: TestContext) {
 		clips: [{ id: 'clip', sourceId: 'original', timelineStartFrame: 0, sourceStartFrame: 0, durationFrames: 2 }],
 	}) as SubprojectDocument;
 	let serial = 0, disposed = 0, failed = false, pcmCopies = 0;
-	const renderer = createSubprojectRenderer({ store, createId: prefix => `${prefix}-${String(++serial)}`,
+	const renderStore = {
+		readSourceChunk: store.readSourceChunk.bind(store),
+		getSourceMetadata: store.getSourceMetadata.bind(store),
+		openSourceReadSession: store.openSourceReadSession.bind(store),
+		async beginSourceWrite(id: string, metadata: Record<string, unknown>) {
+			const writer = await store.beginSourceWrite(id, metadata);
+			return { ...writer, async abort() { await writer.abort(); hooks.abort?.(); } };
+		},
+		sourceRepository: { discardIfCurrent(source: StorageRecord) {
+			hooks.discard?.(source);
+			return store.sourceRepository.discardIfCurrent(source);
+		} },
+	};
+	const renderer = createSubprojectRenderer({ store: renderStore, createId: prefix => `${prefix}-${String(++serial)}`,
 		preflight: () => Promise.resolve(), projectForRuntimeConsumers: project => { validateSoundscaperProject(project); return projectForRuntimeConsumers(project); },
 		createEngine: () => {
 			let inputs: EngineLoadProjectOptions | undefined;
@@ -45,7 +63,7 @@ async function fixture(context: TestContext) {
 					for (const channel of packet) channel.fill(0);
 					if (failed) throw new Error('render failed');
 					return { sampleRate: 48000, channelCount: 1, frameCount: 2, chunkCount: 1 };
-				}, dispose() { disposed++; },
+				}, dispose() { disposed++; hooks.dispose?.(); },
 			};
 		},
 	});
@@ -71,6 +89,25 @@ test('render failures abort partial PCM without publishing a proxy or deleting o
 	const node = await resolveSubprojectGraph('child', 'library', () => Promise.resolve(f.child));
 	await assert.rejects(f.renderer.render(node, { sampleRate: 48000, channelCount: 1, frameCount: 4 }), /render failed/u);
 	assert.equal(f.disposed(), 1);
+	assert.deepEqual((await f.store.listSources()).map(source => source.id), ['original']);
+});
+
+test('a failed PCM abort still releases the subproject engine and retains the render error', async context => {
+	const abortFailure = new Error('proxy writer abort failed');
+	const f = await fixture(context, { abort() { throw abortFailure; } }); f.fail();
+	const node = await resolveSubprojectGraph('child', 'library', () => Promise.resolve(f.child));
+	await assert.rejects(f.renderer.render(node, { sampleRate: 48000, channelCount: 1, frameCount: 4 }),
+		(error: unknown) => error instanceof AggregateError && error.errors.some(cause => cause === abortFailure)
+			&& error.errors.some(cause => cause instanceof Error && cause.message === 'render failed'));
+	assert.equal(f.disposed(), 1);
+});
+
+test('a failed engine teardown retires its already written but unpublished proxy', async context => {
+	const teardown = new Error('subproject engine disposal failed');
+	const f = await fixture(context, { dispose() { throw teardown; } });
+	const node = await resolveSubprojectGraph('child', 'library', () => Promise.resolve(f.child));
+	await assert.rejects(f.renderer.render(node, { sampleRate: 48000, channelCount: 1, frameCount: 2 }),
+		(error: unknown) => error === teardown);
 	assert.deepEqual((await f.store.listSources()).map(source => source.id), ['original']);
 });
 
@@ -113,4 +150,26 @@ test('nested links share identical child output while other geometries render in
 	assert.deepEqual(pcm, [new Float32Array([0.25, -0.5])]);
 	assert.equal(f.disposed(), 3);
 	assert.deepEqual((await f.store.listSources()).map(source => source.id).sort(), ['original', output.source.id].sort());
+});
+
+test('failed retirement of one child proxy still retires its sibling and their unpublished parent', async context => {
+	const failed = new Error('one child proxy could not be removed');
+	const attempted: unknown[] = [];
+	const f = await fixture(context, { discard(source) {
+		attempted.push(source.id);
+		if (source.id === 'subproject-audio-2') throw failed;
+	} });
+	let parent = { ...f.child, id: 'parent' };
+	for (const [sourceId, frameCount] of [['original', 2], ['longer', 4]] as const) {
+		const source = { ...f.child.sources[0]!, id: sourceId, storageKey: sourceId, frameCount };
+		parent = applySoundscaperProjectCommand(parent, { type: 'subproject/install', expected: null, source,
+			link: { id: `link-${sourceId}`, projectId: f.child.id, libraryId: 'library', title: f.child.title, sourceId,
+				followLatest: true, revision: 0, contentDigest: 'a'.repeat(64), sampleRate: 48000, channelCount: 1, frameCount },
+		}) as SubprojectDocument;
+	}
+	const node = await resolveSubprojectGraph(parent.id, 'library', id => Promise.resolve(id === parent.id ? parent : f.child));
+	await assert.rejects(f.renderer.render(node, { sampleRate: 48000, channelCount: 1, frameCount: 2 }),
+		(error: unknown) => error === failed);
+	assert.deepEqual(attempted, ['subproject-audio-2', 'subproject-audio-1', 'subproject-audio-3']);
+	assert.deepEqual((await f.store.listSources()).map(source => source.id).sort(), ['original', 'subproject-audio-2']);
 });
