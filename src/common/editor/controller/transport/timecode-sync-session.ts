@@ -81,8 +81,10 @@ export function createTimecodeSyncSession(d: Dependencies) {
 		finally { if (retirement === closing) retirement = null; }
 
 		async function retire(): Promise<void> {
-			try { await session?.close(); }
-			finally { if (stopChase && wasChasing && canChase(ownedProjectId)) await d.pause(); }
+			const releasing = session?.close();
+			const pausing = stopChase && wasChasing && canChase(ownedProjectId) ? d.pause() : undefined;
+			const results = await Promise.allSettled([releasing, pausing]);
+			for (const result of results) if (result.status === 'rejected') throw result.reason;
 		}
 	}
 	function canChase(ownedProjectId: string | null): boolean {

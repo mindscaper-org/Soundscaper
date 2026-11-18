@@ -77,6 +77,27 @@ test('negative received positions stay at timeline zero; disabling chase stops i
 	await f.session.dispose();
 });
 
+test('disabling synchronization pauses its chase while the device is still closing', async () => {
+	const f = fixture();
+	const closing = deferred<void>(), releasing = deferred<void>();
+	const open = f.io.open;
+	f.io.open = async (...args) => ({ ...await open(...args), close: async () => {
+		closing.resolve();
+		await releasing.promise;
+	} });
+	await f.session.configure({ ...DEFAULT_TIMECODE_SYNC_SETTINGS, receive: 'mtc', midiInput: 'in' });
+	f.receive({ frame: 250, rate: '25', direction: 1 });
+	await f.session.settled();
+	assert.equal(f.playing(), true);
+	const disable = f.session.configure(DEFAULT_TIMECODE_SYNC_SETTINGS);
+	try {
+		await closing.promise;
+		await settle();
+		assert.equal(f.session.getSnapshot().active, false);
+		assert.equal(f.playing(), false);
+	} finally { releasing.resolve(); await disable; await f.session.dispose(); }
+});
+
 test('project switch retires sync without touching the new project transport', async () => {
 	const f = fixture();
 	await f.session.configure({ ...DEFAULT_TIMECODE_SYNC_SETTINGS, receive: 'ltc' });

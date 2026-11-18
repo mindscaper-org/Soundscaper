@@ -8,15 +8,22 @@ async function openSync(page, editor) {
 	await chooseNestedCommandAction(page, editor, 'Tools', ['Timecode synchronization']);
 	return page.getByRole('dialog', { name: 'Timecode synchronization', exact: true });
 }
-async function installMidi(page, holdOutput = false) {
-	await page.addInitScript(holdOutput => {
+async function installMidi(page, { holdOutput = false, holdInputClose = false } = {}) {
+	await page.addInitScript(({ holdOutput, holdInputClose }) => {
 		const input = new EventTarget(), output = new EventTarget();
-		const probe = { messages: [], requests: [], closed: 0, openingOutput: false };
+		const probe = { messages: [], requests: [], closed: 0, openingOutput: false, closingInput: false };
 		let admitOutput = () => {};
 		const outputAdmission = new Promise(resolve => { admitOutput = resolve; });
 		if (!holdOutput) admitOutput();
+		let releaseInput = () => {};
+		const inputRetirement = new Promise(resolve => { releaseInput = resolve; });
+		if (!holdInputClose) releaseInput();
 		Object.assign(input, { id: 'tc-in', name: 'Timecode input', state: 'connected', connection: 'closed',
-			open: async () => { input.connection = 'open'; return input; }, close: async () => { input.connection = 'closed'; probe.closed++; return input; } });
+			open: async () => { input.connection = 'open'; return input; }, close: async () => {
+				probe.closingInput = true;
+				await inputRetirement;
+				input.connection = 'closed'; probe.closed++; return input;
+			} });
 		Object.assign(output, { id: 'tc-out', name: 'Timecode output', state: 'connected', connection: 'closed',
 			open: async () => {
 				probe.openingOutput = true;
@@ -27,9 +34,9 @@ async function installMidi(page, holdOutput = false) {
 			send: (bytes, timestamp) => { probe.messages.push({ bytes, timestamp }); }, clear: () => {} });
 		const access = Object.assign(new EventTarget(), { sysexEnabled: true, inputs: new Map([[input.id, input]]), outputs: new Map([[output.id, output]]) });
 		Object.defineProperty(navigator, 'requestMIDIAccess', { configurable: true, value: async options => { probe.requests.push(options); return access; } });
-		globalThis.__timecode = { probe, admitOutput,
+		globalThis.__timecode = { probe, admitOutput, releaseInput,
 			emit: bytes => { const event = new Event('midimessage'); Object.assign(event, { data: Uint8Array.from(bytes) }); input.dispatchEvent(event); } };
-	}, holdOutput);
+	}, { holdOutput, holdInputClose });
 }
 
 test('menu opt-in sends MTC through the selected port, survives closing its dialog, and releases on disable', async ({ page }) => {
@@ -85,7 +92,7 @@ test('MTC input locates, chases quarter frames, and pauses on signal loss', asyn
 });
 
 test('MTC receives a one-shot locate while the selected send port opens', async ({ page }) => {
-	await installMidi(page, true);
+	await installMidi(page, { holdOutput: true });
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [audio]);
 	const dialog = await openSync(page, editor);
@@ -102,6 +109,27 @@ test('MTC receives a one-shot locate while the selected send port opens', async 
 	await page.evaluate(() => globalThis.__timecode.admitOutput());
 	await expect(playhead).toHaveAttribute('aria-valuenow', '96000');
 	await expect(editor.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+});
+
+test('disabling MTC pauses playback while the input port is still closing', async ({ page }) => {
+	await installMidi(page, { holdInputClose: true });
+	const editor = await bootEditor(page, '/embed/en/');
+	await importFiles(editor, [audio]);
+	const dialog = await openSync(page, editor);
+	await dialog.getByLabel('Receive timecode', { exact: true }).selectOption('mtc');
+	await dialog.getByRole('button', { name: 'Connect MIDI devices' }).click();
+	await dialog.getByLabel('MTC MIDI input', { exact: true }).selectOption('tc-in');
+	await dialog.getByRole('button', { name: 'Apply synchronization' }).click();
+	await expect(dialog.getByRole('status')).toHaveText('Waiting for timecode.');
+	await page.evaluate(() => { for (const byte of [0, 16, 34, 48, 64, 80, 96, 114]) globalThis.__timecode.emit([241, byte]); });
+	await expect(editor.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
+	try {
+		await dialog.getByRole('button', { name: 'Disable synchronization' }).click();
+		await expect.poll(() => page.evaluate(() => globalThis.__timecode.probe.closingInput)).toBe(true);
+		await expect(editor.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+		expect(await page.evaluate(() => globalThis.__timecode.probe.closed)).toBe(0);
+	} finally { await page.evaluate(() => globalThis.__timecode.releaseInput()); }
+	await expect.poll(() => page.evaluate(() => globalThis.__timecode.probe.closed)).toBe(1);
 });
 
 test('MTC receive locates timeline zero with a negative offset across midnight', async ({ page }) => {
