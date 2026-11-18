@@ -49,12 +49,13 @@ test('desktop controller saves an opened Scape to its original and asks only abo
 	const file = new File(['archive'], original.name); registerDesktopOriginalFile(file, original);
 	await controller.actions.project.openScape(file);
 	assert.equal(await controller.actions.project.prepareClose(), true);
-	const title = `Edited $& ${'🎙️'.repeat(400)}`;
+	const title = `Edited $&: ${'🎙️'.repeat(400)}`;
 	await controller.actions.project.rename(title);
 	await controller.actions.project.flush();
 	decisions.push('cancel'); assert.equal(await controller.actions.project.prepareClose(), false);
 	assert.equal(prompts.length, 1);
-	assert.match(prompts[0]?.message ?? '', /Edited \$& 🎙️/u);
+	assert.match(prompts[0]?.message ?? '', /Edited \$&: 🎙️/u);
+	assert.doesNotMatch(prompts[0]?.message ?? '', /\p{Surrogate}/u);
 	assert.match(prompts[0]?.message ?? '', /…” before closing\?$/u);
 	assert.equal(controller.project?.title, title);
 	await controller.actions.project.save(); assert.deepEqual(targets, [], 'internal publication does not write a project file');

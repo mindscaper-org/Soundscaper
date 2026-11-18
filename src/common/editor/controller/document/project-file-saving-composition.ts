@@ -49,10 +49,10 @@ export function bindProjectFileSaving(d: Readonly<{
 		ask: async project => {
 			const copy = d.copy as Readonly<Record<string, string>>;
 			const title = String(project.title ?? '');
-			const displayTitle = title.length > 256 ? `${title.slice(0, 255)}…` : title;
+			const displayTitle = title.length > 256 ? `${title.slice(0, 255).replace(/[\uD800-\uDBFF]$/u, '')}…` : title;
 			const message = formatPresentationMessage(copy, {
 				key: 'savingCloseMessage', fallback: 'Save changes to “{project}” before closing?',
-				parameters: { project: displayTitle.toWellFormed().replaceAll('\0', '\uFFFD') },
+				parameters: { project: displayTitle.replaceAll('\0', '\uFFFD') },
 			});
 			const result = await d.fileService.confirmProjectSave?.({
 				title: copy.savingCloseTitle ?? 'Save project changes?', message,
