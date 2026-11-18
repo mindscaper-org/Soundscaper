@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { mkdir, readFile, rename, writeFile, access } from 'node:fs/promises';
+import { mkdir, readFile, rename, writeFile, access, stat } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { checkDesktopStorageMigrationDestination, migrateDesktopStorageEntries } from './desktop-storage-migration.ts';
@@ -21,8 +21,9 @@ export class TemporaryProjectStorage {
 			}
 		} catch (error) { if (!(error instanceof SyntaxError) && (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
 		const active = assertLocalDesktopStorage(this.#active);
-		const selected = assertLocalDesktopStorage(this.#selected);
 		if (this.#active !== this.#selected) {
+			const selected = await availableMigrationFolder(this.#selected);
+			if (selected === null) return this.#active;
 			await migrateDesktopStorageEntries([{
 				source: join(active, this.appName, 'project-library', 'v1'),
 				destination: join(selected, this.appName, 'project-library', 'v1'),
@@ -56,6 +57,16 @@ export class TemporaryProjectStorage {
 		const temporary = `${this.configurationPath}.tmp`;
 		await writeFile(temporary, JSON.stringify({ active, selected }), { mode: 0o600 });
 		await rename(temporary, this.configurationPath);
+	}
+}
+async function availableMigrationFolder(path: string): Promise<string | null> {
+	try {
+		const selected = assertLocalDesktopStorage(path);
+		return (await stat(selected)).isDirectory() ? selected : null;
+	} catch (error) {
+		const code = (error as NodeJS.ErrnoException).code;
+		if (code === 'ENOENT' || code === 'ENOTDIR') return null;
+		throw error;
 	}
 }
 function folder(value: unknown): string {

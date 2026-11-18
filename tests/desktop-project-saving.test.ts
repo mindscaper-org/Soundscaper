@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, mkdir, readFile, writeFile, rm, rename } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, rm, rename, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { TemporaryProjectStorage } from '../desktop/temporary-project-storage.ts';
@@ -36,6 +36,28 @@ test('temporary folder changes move the closed library on restart and preserve c
 	assert.equal(await new TemporaryProjectStorage(config, original, 'Soundscaper').prepare(), selected);
 	assert.equal(await readFile(join(selected, 'Soundscaper', 'project-library', 'v1', 'library.sqlite'), 'utf8'), 'project data');
 	assert.equal(await readFile(join(conflictingLibrary, 'library.sqlite'), 'utf8'), 'other data');
+});
+
+test('a missing pending temporary folder leaves the active library in place until it returns', async t => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-temporary-folder-missing-'));
+	t.after(() => rm(root, { recursive: true, force: true }));
+	const config = join(root, 'settings.json'), original = join(root, 'default'), selected = join(root, 'chosen');
+	const libraryPath = join('Soundscaper', 'project-library', 'v1');
+	await mkdir(join(original, libraryPath), { recursive: true });
+	await writeFile(join(original, libraryPath, 'library.sqlite'), 'working project data');
+	await new TemporaryProjectStorage(config, original, 'Soundscaper').select(selected);
+	const unavailable = join(root, 'unavailable');
+	await rename(selected, unavailable);
+
+	const restarted = new TemporaryProjectStorage(config, original, 'Soundscaper');
+	assert.equal(await restarted.prepare(), original);
+	assert.deepEqual(restarted.status(), { folder: original, selectedFolder: selected, restartRequired: true });
+	assert.equal(await readFile(join(original, libraryPath, 'library.sqlite'), 'utf8'), 'working project data');
+	await assert.rejects(stat(selected), { code: 'ENOENT' });
+
+	await rename(unavailable, selected);
+	assert.equal(await new TemporaryProjectStorage(config, original, 'Soundscaper').prepare(), selected);
+	assert.equal(await readFile(join(selected, libraryPath, 'library.sqlite'), 'utf8'), 'working project data');
 });
 
 test('a picked project destination becomes repeatable only after commit and survives restart', async t => {
