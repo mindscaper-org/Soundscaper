@@ -28,7 +28,7 @@ test('Discard closes and removes the selected stored working copy', async contex
 	await store.saveProject(project);
 	let closed = false;
 	const runtime = createControllerFileSavingRuntime({
-		session: { getSnapshot: () => ({ tabs: closed ? [] : [{ projectId: project.id, history: { present: project } }] }) }, store,
+		session: { getSnapshot: () => ({ tabs: closed ? [] : [{ projectId: project.id }] }), getProject: () => project }, store,
 		preferences: () => ({ saving: { autoSaving: false, askBeforeClosing: true },
 			temporaryData: { limitProjects: true, maximumProjects: 10 } }),
 		switchProject: async () => undefined, closeProject: async () => { closed = true; },
@@ -91,7 +91,7 @@ test('disabling the temporary project limit retires an in-flight cleanup before 
 	const reading = deferred<void>(), resume = deferred<void>();
 	let limitProjects = true;
 	const runtime = createControllerFileSavingRuntime({
-		session: { getSnapshot: () => ({ tabs: [{ projectId: current.id, history: { present: current } }] }) },
+		session: { getSnapshot: () => ({ tabs: [{ projectId: current.id }] }), getProject: () => current },
 		store: {
 			listProjects: () => store.listProjects(),
 			async loadProject(id) { const result = await store.loadProject(id); reading.resolve(); await resume.promise; return result; },
@@ -118,6 +118,7 @@ test('a transient temporary data read error can recover while the same projects 
 	let publish = (): void => undefined;
 	bindProjectFileSaving({
 		runtime: {
+			getOpenProjectIds: () => [project.id],
 			getProjects: () => [{ project, readOnly: false }],
 			getPreferences: () => ({ autoSaving: false, askBeforeClosing: true }),
 			activate: () => undefined, discard: () => undefined, subscribe(listener) { publish = listener; return () => undefined; },
@@ -182,7 +183,7 @@ test('Discard preserves a newer revision saved before it acquired the closed tab
 	await store.saveProject(project);
 	let open = true;
 	const runtime = createControllerFileSavingRuntime({
-		session: { getSnapshot: () => ({ tabs: open ? [{ projectId: project.id, history: { present: project } }] : [] }) }, store,
+		session: { getSnapshot: () => ({ tabs: open ? [{ projectId: project.id }] : [] }), getProject: () => project }, store,
 		preferences: () => ({ saving: { autoSaving: false, askBeforeClosing: true }, temporaryData: { limitProjects: true, maximumProjects: 10 } }),
 		switchProject: async () => undefined, closeProject: async () => { open = false; },
 		acquire: async () => { await store.saveProject(updated); return { readOnly: false, release() {} }; },
@@ -200,7 +201,7 @@ test('an idle writer lease does not authorize saving an inactive tab over its ne
 	await store.saveProject(savedByAnotherWindow);
 	let releases = 0;
 	const runtime = createControllerFileSavingRuntime({
-		session: { getSnapshot: () => ({ tabs: [{ projectId: local.id, history: { present: local } }] }) },
+		session: { getSnapshot: () => ({ tabs: [{ projectId: local.id }] }), getProject: () => local },
 		store, getPersistedProject: () => local, preferences: () => ({
 			saving: { autoSaving: true, askBeforeClosing: true }, temporaryData: { limitProjects: false, maximumProjects: 10 },
 		}),
@@ -218,7 +219,7 @@ test('Discard leaves the stored copy alone when the tab could not close', async 
 	const project = createSoundscaperProject({ id: 'discard-still-open' });
 	await store.saveProject(project);
 	const runtime = createControllerFileSavingRuntime({
-		session: { getSnapshot: () => ({ tabs: [{ projectId: project.id, history: { present: project } }] }) }, store,
+		session: { getSnapshot: () => ({ tabs: [{ projectId: project.id }] }), getProject: () => project }, store,
 		preferences: () => ({ saving: { autoSaving: false, askBeforeClosing: true }, temporaryData: { limitProjects: true, maximumProjects: 10 } }),
 		switchProject: async () => undefined, closeProject: async () => ({ closed: false }),
 		acquire: async () => ({ readOnly: false, release() {} }), subscribe: () => () => undefined,
@@ -236,7 +237,7 @@ test('Discard cannot delete changes already saved from another editor while the 
 	await store.saveProject(theirs);
 	let open = true;
 	const runtime = createControllerFileSavingRuntime({
-		session: { getSnapshot: () => ({ tabs: open ? [{ projectId: ours.id, history: { present: ours } }] : [] }) }, store,
+		session: { getSnapshot: () => ({ tabs: open ? [{ projectId: ours.id }] : [] }), getProject: () => ours }, store,
 		getPersistedProject: () => ours,
 		preferences: () => ({ saving: { autoSaving: false, askBeforeClosing: true }, temporaryData: { limitProjects: true, maximumProjects: 10 } }),
 		switchProject: async () => undefined, closeProject: async () => { open = false; },

@@ -7,6 +7,10 @@ import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.j
 import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
 import { registerDesktopOriginalFile } from '../src/common/editor/desktop-original-file-port.ts';
 import { createProjectSavingPreload } from '../desktop/project-saving-preload.ts';
+import { bindProjectFileSaving, createControllerFileSavingRuntime } from '../src/common/editor/controller/document/project-file-saving-composition.ts';
+import { createAudioEditorSessionController } from '../src/common/editor/session.js';
+import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
+import { settle } from './helpers/async-test-control.ts';
 const { createAudioEditorController } = await import('../src/common/editor/app.js');
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 
@@ -68,4 +72,45 @@ test('desktop controller saves an opened Scape to its original and asks only abo
 	assert.equal(await controller.actions.project.prepareClose(), true);
 	assert.equal(store.projects.has('imported-project'), false);
 	assert.deepEqual(targets, [original.id], 'discard leaves the original file untouched');
+});
+
+test('file-saving observations and close checks do not clone session undo histories', async t => {
+	const project = createSoundscaperProject({ id: 'edit-with-history', title: 'Present' });
+	const prior = { ...project, title: 'Previous' };
+	const session = createAudioEditorSessionController({
+		currentSchemaVersion: project.schemaVersion,
+		projects: [{ project, history: {
+			limit: 200, present: project, undoStack: [{ project: prior, command: { type: 'project/rename' } }], redoStack: [],
+		} }],
+	});
+	let observe = () => {};
+	const signal = new AbortController();
+	t.after(() => { signal.abort(); session.dispose(); });
+	const runtime = createControllerFileSavingRuntime({
+		session, signal: signal.signal,
+		store: { listProjects: async () => [], loadProject: async () => null, deleteProjectSnapshot: async () => false },
+		preferences: () => ({ saving: { autoSaving: false, askBeforeClosing: true },
+			temporaryData: { limitProjects: false, maximumProjects: 10 } }),
+		switchProject: () => undefined, closeProject: () => undefined,
+		acquire: async () => ({ readOnly: false, release() {} }),
+		subscribe(listener) { observe = listener; return () => {}; }, handleError: error => { throw error; },
+	});
+	bindProjectFileSaving({ runtime, fileService: { isDesktop: true }, copy: {}, getProject: () => project,
+		flush: () => undefined, write: async () => ({}) });
+	const clone = structuredClone;
+	const cloneHistory = t.mock.method(globalThis, 'structuredClone', (value: unknown) => clone(value));
+	const materialized = (key: string) => cloneHistory.mock.calls.some(({ arguments: [value] }) => (
+		typeof value === 'object' && value !== null && Object.hasOwn(value, key)
+	));
+
+	observe();
+	await settle();
+	assert.equal(materialized('undoStack'), false, 'an ordinary document publication only uses open tab IDs');
+	assert.equal(materialized('schemaFamily'), false, 'an ordinary document publication does not copy the present either');
+	const views = runtime.getProjects();
+	assert.equal(views[0]?.project.title, 'Present');
+	assert.equal(runtime.getProjects(), views);
+	session.setProjectReadOnly(project.id, true);
+	assert.equal(runtime.getProjects()[0]?.readOnly, true);
+	assert.equal(materialized('undoStack'), false, 'close checks can read present documents independently');
 });

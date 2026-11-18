@@ -9,6 +9,7 @@ import { sameProjectSnapshot } from '../../storage/project-snapshot-equality.ts'
 import { formatPresentationMessage } from '../../../i18n/presentation-message.ts';
 
 export interface ProjectFileSavingRuntime {
+	getOpenProjectIds(): readonly string[];
 	getProjects(): readonly Readonly<{ project: NativeProjectDocument; readOnly: boolean }>[];
 	getPreferences(): SavingPreferences;
 	getRetentionKey?(): string;
@@ -41,6 +42,7 @@ export function bindProjectFileSaving(d: Readonly<{
 	const runtime = d.runtime;
 	const service = createProjectFileSaving({
 		desktop: d.fileService.isDesktop, getProject: d.getProject,
+		getOpenProjectIds: runtime?.getOpenProjectIds ?? (() => { const project = d.getProject(); return project ? [project.id] : []; }),
 		getProjects: runtime?.getProjects ?? (() => { const project = d.getProject(); return project ? [{ project, readOnly: false }] : []; }),
 		getPreferences: runtime?.getPreferences ?? (() => normalizeSavingPreferences(undefined, d.fileService.isDesktop)),
 		acquireInactiveWrite: runtime?.acquireInactiveWrite,
@@ -74,7 +76,7 @@ export function bindProjectFileSaving(d: Readonly<{
 	const unsubscribe = runtime?.subscribe(() => {
 		if (runtime.isReady?.() === false) return;
 		service.observe();
-		const ids = runtime.getProjects().map(entry => entry.project.id).join('\0');
+		const ids = runtime.getOpenProjectIds().join('\0');
 		const key = `${ids}:${runtime.getRetentionKey?.() ?? ''}`;
 		if (!runtime.prune || key === retentionRequest?.key || !d.getProject()) return;
 		const request = { key };
@@ -143,7 +145,10 @@ function matchesTemporaryProject(value: unknown, row: TemporaryProjectRow): bool
 }
 
 export function createControllerFileSavingRuntime<Project extends NativeProjectDocument>(d: Readonly<{
-	session: Readonly<{ getSnapshot(): Readonly<{ tabs: readonly Readonly<{ projectId: string; readOnly?: boolean; history: Readonly<{ present: Project }> }>[] }> }>;
+	session: Readonly<{
+		getSnapshot(): Readonly<{ tabs: readonly Readonly<{ projectId: string; readOnly?: boolean }>[] }>;
+		getProject(id: string): Project;
+	}>;
 	store: TemporaryProjectStore;
 	ready?(): boolean;
 	preferences(): Readonly<{ saving: SavingPreferences; temporaryData: TemporaryDataPreferences }>;
@@ -156,10 +161,19 @@ export function createControllerFileSavingRuntime<Project extends NativeProjectD
 	signal: AbortSignal;
 	handleError: ProjectFileSavingRuntime['handleError'];
 }>): ProjectFileSavingRuntime {
-	const getProjects = () => d.session.getSnapshot().tabs.map(tab => ({ project: tab.history.present, readOnly: Boolean(tab.readOnly) }));
+	const projectViews = new WeakMap<ReturnType<typeof d.session.getSnapshot>, ReturnType<ProjectFileSavingRuntime['getProjects']>>();
+	const getProjects = () => {
+		const snapshot = d.session.getSnapshot();
+		const cached = projectViews.get(snapshot);
+		if (cached) return cached;
+		const projects = snapshot.tabs.map(tab => ({ project: d.session.getProject(tab.projectId), readOnly: Boolean(tab.readOnly) }));
+		projectViews.set(snapshot, projects);
+		return projects;
+	};
+	const getOpenProjectIds = () => d.session.getSnapshot().tabs.map(tab => tab.projectId);
 	const isOpen = (id: string): boolean => d.session.getSnapshot().tabs.some(tab => tab.projectId === id);
 	return {
-		getProjects, isReady: d.ready, getPreferences: () => d.preferences().saving, getRetentionKey: () => JSON.stringify(d.preferences().temporaryData), subscribe: d.subscribe, signal: d.signal, handleError: d.handleError,
+		getProjects, getOpenProjectIds, isReady: d.ready, getPreferences: () => d.preferences().saving, getRetentionKey: () => JSON.stringify(d.preferences().temporaryData), subscribe: d.subscribe, signal: d.signal, handleError: d.handleError,
 		acquireInactiveWrite: async id => {
 			const lock = await d.acquire(id);
 			let retained = false;
@@ -173,9 +187,8 @@ export function createControllerFileSavingRuntime<Project extends NativeProjectD
 			} finally { if (!retained) await releaseProjectFileWriteLease(lock); }
 		},
 		activate: id => {
-			const tab = d.session.getSnapshot().tabs.find(tab => tab.projectId === id);
-			if (!tab) throw new Error('The project is no longer open.');
-			return d.switchProject(tab.history.present);
+			if (!isOpen(id)) throw new Error('The project is no longer open.');
+			return d.switchProject(d.session.getProject(id));
 		},
 		discard: async id => {
 			const expected = d.getPersistedProject ? d.getPersistedProject(id) : await d.store.loadProject(id);
@@ -195,7 +208,7 @@ export function createControllerFileSavingRuntime<Project extends NativeProjectD
 		prune: async () => {
 			const preferences = normalizeTemporaryDataPreferences(d.preferences().temporaryData);
 			const changed = await pruneTemporaryProjects({ store: d.store, preferences,
-				openIds: new Set(d.session.getSnapshot().tabs.map(tab => tab.projectId)), isOpen, acquire: d.acquire,
+				openIds: new Set(getOpenProjectIds()), isOpen, acquire: d.acquire,
 				isCurrent: () => {
 					const current = normalizeTemporaryDataPreferences(d.preferences().temporaryData);
 					return !d.signal.aborted && current.limitProjects && current.maximumProjects === preferences.maximumProjects;

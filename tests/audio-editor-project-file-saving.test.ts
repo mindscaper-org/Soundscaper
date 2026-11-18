@@ -26,6 +26,7 @@ function fixture(
 	let fail = false, cancelSave = false;
 	const service = createProjectFileSaving<Project>({
 		desktop, getProject: () => current, getPreferences: () => settings,
+		getOpenProjectIds: () => [...tabs.keys()],
 		getProjects: () => [...tabs.values()].map(project => ({ project, readOnly: readOnlyIds.has(project.id) })),
 		activate: async id => { current = tabs.get(id)!; }, flushInternal: async () => { flushes += 1; await flush(); },
 		write: async (_project, target, assertWritable?: () => void) => {

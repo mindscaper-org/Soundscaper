@@ -15,6 +15,7 @@ interface Entry extends ProjectFileTarget { baseline: Promise<string> | null }
 interface Dependencies<Project extends FileSavingProject> {
 	readonly desktop: boolean;
 	readonly getProject: () => Project | null;
+	readonly getOpenProjectIds: () => readonly string[];
 	readonly getProjects: () => readonly Readonly<{ project: Project; readOnly: boolean }>[];
 	readonly getPreferences: () => SavingPreferences;
 	readonly activate: (id: string) => Awaitable<unknown>;
@@ -56,7 +57,7 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 		if (!operation) {
 			operation = (async () => {
 				const restored = await d.restore?.(project.id);
-				if (entries.has(project.id) || disposed || !d.getProjects().some(tab => tab.project.id === project.id)) {
+				if (entries.has(project.id) || disposed || !d.getOpenProjectIds().includes(project.id)) {
 					if (restored) await releaseCopyTarget(restored);
 					return;
 				}
@@ -128,7 +129,7 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 			assertWritable();
 			const result = await d.write(project, target, assertWritable);
 			if (result.cancelled === true) return false;
-			if (ownsDestination() && d.getProjects().some(tab => tab.project.id === project.id)) {
+			if (ownsDestination() && d.getOpenProjectIds().includes(project.id)) {
 				await saved(project, result as ProjectFileTarget);
 			} else await releaseCopyTarget(result);
 			return true;
@@ -136,7 +137,7 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 	}
 	function observe(): void {
 		if (disposed || closing) return;
-		const openIds = new Set(d.getProjects().map(entry => entry.project.id));
+		const openIds = new Set(d.getOpenProjectIds());
 		for (const [id, entry] of entries) {
 			if (openIds.has(id) || !entry.originalFile) continue;
 			entries.delete(id);
@@ -230,7 +231,7 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 				observed = null;
 				observe();
 				if (!prepared && !disposed && d.getPreferences().autoSaving) {
-					const openIds = new Set(d.getProjects().map(entry => entry.project.id));
+					const openIds = new Set(d.getOpenProjectIds());
 					for (const id of paused) if (openIds.has(id) && !timers.has(id)) scheduleFileSave(id);
 				}
 			}

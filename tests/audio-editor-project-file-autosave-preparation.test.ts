@@ -9,6 +9,7 @@ for (const lostWriteAuthority of [false, true]) test(`automatic project file sav
 	const saved: typeof project[] = [], target = { createWritable() {} };
 	const saving = createProjectFileSaving({
 		desktop: true, getProject: () => project,
+		getOpenProjectIds: () => [project.id],
 		getProjects: () => [{ project, readOnly }], getPreferences: () => ({ autoSaving: true, askBeforeClosing: true }),
 		activate() {}, discard() {}, ask: async () => 'cancel',
 		flushInternal: async () => {
