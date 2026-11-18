@@ -117,7 +117,8 @@ test('a project deleted after finding projects still gets an individual download
 	const projects = [{ id: 'deleted-edit', title: 'Deleted edit', schemaFamily: 'soundscaper', schemaVersion: 1 }];
 	await mountTransferPage({ scope: sender as never, role: 'send', configuration: SENDING as never,
 		dependencies: { loadRuntime: async () => runtimeFor(createFakeArchive()), openStore: async () => ({
-			id: 'soundscaper-v1', label: 'Soundscaper', store: listingStore(projects), close: async () => undefined,
+			id: 'soundscaper-v1', label: 'Soundscaper', store: listingStore(projects),
+			sources: [], unreadable: [], close: async () => undefined,
 		}) },
 	});
 	await settle();
