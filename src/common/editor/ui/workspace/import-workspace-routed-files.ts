@@ -3,13 +3,14 @@
 import { withWebFileLoadLimitContext } from '../../web-file-limit-failure.ts';
 import { partitionWorkspaceFiles } from './workspace-file-routing.js';
 import { isTimelineInterchangeFile } from '../../timeline-interchange-file.ts';
+import { scaleSampleFrame } from '../../timeline-time.ts';
 import { isLegacyAupFile } from '../../controller/shared/app-helpers.ts';
 import type { EditorProjectToken } from '../../controller/shared/lifecycle.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { isExpectedWorkspaceCancellation } from './scape-open-decision-continuation.ts';
 
 interface RoutedImportController {
-	readonly project?: Readonly<{ id?: unknown }> | null;
+	readonly project?: Readonly<{ id?: unknown; sampleRate?: unknown }> | null;
 	captureProjectGeneration?(projectId: string | null): EditorProjectToken;
 	readonly actions: Readonly<{
 		readonly project: Readonly<{
@@ -33,6 +34,9 @@ export function importWorkspaceRoutedFiles({
 }>): Promise<number> {
 	return withWebFileLoadLimitContext(async () => {
 		const routed = partitionWorkspaceFiles(files);
+		const activeSession = () => editorProjectEditSessionKey(controller, controller.project?.id);
+		const outgoing = activeSession();
+		const outgoingRate = controller.project?.sampleRate;
 		const failures: unknown[] = [];
 		let companionMedia = false;
 		for (const file of routed.projects) {
@@ -48,11 +52,11 @@ export function importWorkspaceRoutedFiles({
 			}
 		}
 		if (failures.length && failures.length === routed.projects.length) throwImportFailures(failures);
-		const activeSession = () => editorProjectEditSessionKey(controller, controller.project?.id);
 		let session = activeSession();
 		if (routed.media.length && !companionMedia) {
+			const placement = session === outgoing ? importOptions : rebaseImportPlacement(importOptions, outgoingRate, controller.project?.sampleRate);
 			const result = await controller.actions.project.importFiles(routed.media, {
-				destination: 'auto', projectBinVisible, ...importOptions,
+				destination: 'auto', projectBinVisible, ...placement,
 			});
 			if (importWasCancelled(result)) return 0;
 			// A legacy project and its selected audio blocks open through the media importer.
@@ -67,7 +71,11 @@ export function importWorkspaceRoutedFiles({
 		] as const) {
 			for (const file of group) {
 				assertCurrent();
-				try { await consume(file); assertCurrent(); }
+				try {
+					const result = await consume(file);
+					assertCurrent();
+					if (group === routed.cues && result === null) return 0;
+				}
 				catch (error) {
 					assertCurrent();
 					if (isExpectedWorkspaceCancellation(error)) throw error;
@@ -78,6 +86,20 @@ export function importWorkspaceRoutedFiles({
 		throwImportFailures(failures);
 		return files.length;
 	});
+}
+
+function rebaseImportPlacement(options: Readonly<Record<string, unknown>>, fromRate: unknown, toRate: unknown) {
+	const placement = { ...options };
+	delete placement.trackId;
+	delete placement.trackIndex;
+	delete placement.trackPlacement;
+	const frame = placement.timelineStartFrame;
+	if (typeof frame === 'number' && Number.isSafeInteger(frame) && frame >= 0
+		&& typeof fromRate === 'number' && fromRate > 0 && Number.isSafeInteger(fromRate)
+		&& typeof toRate === 'number' && toRate > 0 && Number.isSafeInteger(toRate)) {
+		placement.timelineStartFrame = scaleSampleFrame(frame, fromRate, toRate, 'point');
+	}
+	return placement;
 }
 
 function importWasCancelled(result: unknown): boolean {

@@ -32,6 +32,7 @@ interface AudioEditorTimelineProps {
 	readonly trackHeaderDrawer?: TrackHeaderDrawer | null;
 	readonly showArmControls: boolean;
 	readonly displayAudioSupported: boolean;
+	readonly importRoutedFiles?: (files: readonly File[], options: Readonly<Record<string, unknown>>) => unknown;
 	readonly productId: string;
 	readonly capabilities: Readonly<Record<string, unknown>>;
 	readonly splitToolEnabled?: boolean;
@@ -63,6 +64,7 @@ export default function AudioEditorTimeline({
 	trackHeaderDrawer = null,
 	showArmControls,
 	displayAudioSupported,
+	importRoutedFiles,
 	productId,
 	capabilities,
 	splitToolEnabled = false,
@@ -100,6 +102,7 @@ export default function AudioEditorTimeline({
 	};
 	const actions = {
 		confirmFileSizeWarning,
+		importRoutedFiles,
 		onError,
 		onOpenEffects,
 		onOpenClipProperties,

@@ -368,6 +368,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 						productId={productId}
 						capabilities={capabilities}
 						showArmControls={showArmControls}
+						importRoutedFiles={importRoutedFiles}
 						displayAudioSupported={displayAudioSupported}
 						splitToolEnabled={uiFlags.splitTool}
 						splitToolMomentary={splitToolShortcut.momentaryEnabled}

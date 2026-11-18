@@ -24,6 +24,21 @@ test('an unreadable project leaves later projects in the same file batch availab
 	assert.deepEqual(attempted, ['first.sscape', 'broken.sscape', 'last.sscape']);
 });
 
+test('media accompanying an opened archive keeps its drop time without inheriting the outgoing track', async () => {
+	let project = { id: 'outgoing', sampleRate: 48_000 };
+	const placements: Readonly<Record<string, unknown>>[] = [];
+	await importWorkspaceRoutedFiles({
+		controller: { get project() { return project; }, actions: {
+			project: { importFiles(_files, options) { placements.push(options); } }, labels: { importFile() {} },
+		} },
+		files: [new File(['archive'], 'open.sscape'), new File(['recording'], 'take.wav')],
+		importOptions: { destination: 'timeline', trackId: 'outgoing-track', trackIndex: 3, timelineStartFrame: 48_000 },
+		projectBinVisible: false, requestCueImport() {},
+		openProjectFile() { project = { id: 'incoming', sampleRate: 44_100 }; },
+	});
+	assert.deepEqual(placements, [{ destination: 'timeline', projectBinVisible: false, timelineStartFrame: 44_100 }]);
+});
+
 test('cancelling a Scape conflict stops the batch before it opens another tab or imports sidecars', async () => {
 	const attempted: string[] = [];
 	const count = await importWorkspaceRoutedFiles({
@@ -99,6 +114,18 @@ test('batch import still stops on cancellation before attempting another file', 
 	importOptions: {}, openProjectFile() {}, projectBinVisible: false, requestCueImport() {},
 	}), { name: 'AbortError' });
 	assert.deepEqual(attempted, ['cancel.txt']);
+});
+
+test('cancelling the first CUE destination stops the other prompts in the same project import', async () => {
+	const prompted: string[] = [];
+	const count = await importWorkspaceRoutedFiles({
+		controller: { actions: { project: { importFiles() {} }, labels: { importFile() {} } } },
+		files: ['project.sscape', 'first.cue', 'second.cue'].map(name => new File(['file'], name)),
+		importOptions: {}, openProjectFile() {}, projectBinVisible: false,
+		requestCueImport(file) { prompted.push(file.name); return null; },
+	});
+	assert.deepEqual(prompted, ['first.cue']);
+	assert.equal(count, 0);
 });
 
 test('a project switch during a failed file stops the gesture before importing into another document', async () => {

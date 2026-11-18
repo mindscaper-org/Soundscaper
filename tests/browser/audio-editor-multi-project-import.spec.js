@@ -2,8 +2,8 @@
 
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createSoundscaperScapeNativeRuntime } from '../../src/soundscaper/editor-scape-native.ts';
-import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, importFiles, waitForProjectActivation } from './audio-editor-test-helpers.js';
+import { expect, test, toneA } from './audio-editor-test-fixtures.js';
+import { bootEditor, clipByName, fileDataTransfer, importFiles, waitForProjectActivation } from './audio-editor-test-helpers.js';
 
 async function archiveFile(id, title) {
 	const exported = await createSoundscaperScapeNativeRuntime().exportScapeProject(createSoundscaperProject({ id, title }), {
@@ -26,11 +26,46 @@ test('the Import picker opens healthy projects on both sides of a damaged archiv
 	await expect(editor).toHaveAttribute('data-project-id', 'batch-last');
 });
 
+test('dropping a Scape file and a recording opens the archive before placing the recording', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	const outgoing = await editor.getAttribute('data-project-id');
+	const incoming = await archiveFile('drop-incoming', 'Dropped edit');
+	const target = editor.locator('[data-timeline]');
+	const box = await target.boundingBox();
+	expect(box).not.toBeNull();
+	const transfer = await fileDataTransfer(page, [incoming, toneA]);
+	await target.dispatchEvent('drop', { dataTransfer: transfer, clientX: box.x + box.width / 2, clientY: box.y + box.height / 2 });
+	await transfer.dispose();
+	await expect(editor.getByRole('tab', { name: 'Dropped edit', exact: true })).toHaveAttribute('aria-selected', 'true');
+	await waitForProjectActivation(editor);
+	await expect(clipByName(editor, toneA.name)).toHaveCount(1);
+	await expect(editor).toHaveAttribute('data-project-id', 'drop-incoming');
+	await editor.getByRole('tab', { name: 'Untitled project', exact: true }).click();
+	await waitForProjectActivation(editor);
+	await expect(editor).toHaveAttribute('data-project-id', outgoing);
+	await expect(clipByName(editor, toneA.name)).toHaveCount(0);
+});
+
+test('File Open can leave a read-only version of another window’s project', async ({ page, context }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	const original = await editor.getAttribute('data-project-id');
+	const other = await context.newPage();
+	try {
+		const otherEditor = await bootEditor(other, '/embed/en/');
+		await expect(otherEditor).toHaveAttribute('data-project-id', original);
+		await expect(editor).toHaveAttribute('data-edit-block-reason', 'read-only');
+		const next = await archiveFile('leaving-read-only', 'Newly opened edit');
+		await page.bringToFront();
+		await editor.locator('[data-aup4-input]').setInputFiles(next);
+		await expect(editor.getByRole('tab', { name: 'Newly opened edit', exact: true })).toHaveAttribute('aria-selected', 'true');
+		await waitForProjectActivation(editor);
+		await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'read-only');
+		await expect(otherEditor).toHaveAttribute('data-project-id', original);
+	} finally { await other.close(); }
+});
+
 test('cancelling a project conflict ends that OS launch batch', async ({ page }) => {
-	await page.addInitScript(() => {
-		Object.defineProperty(globalThis, 'launchQueue', { configurable: true,
-			value: { setConsumer(consumer) { globalThis.acceptTestLaunch = consumer; } } });
-	});
+	await installLaunchQueue(page);
 	const editor = await bootEditor(page, '/embed/en/');
 	const first = await archiveFile('batch-conflict', 'Local edit');
 	await importFiles(editor, [first]);
@@ -39,13 +74,7 @@ test('cancelling a project conflict ends that OS launch batch', async ({ page })
 	const conflict = await archiveFile('batch-conflict', 'Conflicting edit');
 	const later = await archiveFile('batch-cancel-later', 'Unopened batch edit');
 	const nextLaunch = await archiveFile('batch-next-launch', 'Next launch edit');
-	await page.evaluate(batches => {
-		for (const batch of batches) {
-			globalThis.acceptTestLaunch({ files: batch.map(({ name, mimeType, bytes }) => ({
-				kind: 'file', getFile: () => Promise.resolve(new File([Uint8Array.from(bytes)], name, { type: mimeType })),
-			})) });
-		}
-	}, [[conflict, later], [nextLaunch]].map(batch => batch.map(({ name, mimeType, buffer }) => ({ name, mimeType, bytes: [...buffer] }))));
+	await launchBatches(page, [[conflict, later], [nextLaunch]]);
 	const dialog = page.locator('[data-scape-open-decision="collision"]');
 	await expect(dialog).toBeVisible();
 	await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -54,3 +83,71 @@ test('cancelling a project conflict ends that OS launch batch', async ({ page })
 	await expect(editor.getByRole('tab', { name: 'Local edit', exact: true })).toBeVisible();
 	await expect(editor.getByRole('tab', { name: 'Unopened batch edit', exact: true })).toHaveCount(0);
 });
+
+test('cancelling a CUE destination skips the following sheet and releases the launch queue', async ({ page }) => {
+	await installLaunchQueue(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	const project = await archiveFile('cue-sheet-project', 'Edit with CUE sheets');
+	const nextLaunch = await archiveFile('after-cue-cancel', 'Launched after CUE');
+	const cueFiles = ['first.cue', 'second.cue'].map(name => ({ name, mimeType: 'application/x-cue',
+		buffer: Buffer.from('FILE "take.wav" WAVE\n TRACK 01 AUDIO\n INDEX 01 00:00:00\n') }));
+	await launchBatches(page, [[project, ...cueFiles], [nextLaunch]]);
+	const destination = page.getByRole('dialog', { name: 'Import', exact: true });
+	await expect(destination).toContainText('first.cue');
+	await destination.getByRole('button', { name: 'Cancel', exact: true }).click();
+	await expect(editor.getByRole('tab', { name: 'Launched after CUE', exact: true })).toHaveAttribute('aria-selected', 'true');
+	await expect(destination).toHaveCount(0);
+});
+
+test('an OS project launch waits for a manual audio import to finish', async ({ page }) => {
+	await installLaunchQueue(page);
+	await page.addInitScript(() => {
+		const held = new WeakSet();
+		const slice = File.prototype.slice;
+		File.prototype.slice = function (...args) {
+			const blob = slice.apply(this, args);
+			if (this.name === 'Held manual recording.wav') held.add(blob);
+			return blob;
+		};
+		const read = Blob.prototype.arrayBuffer;
+		const released = new Promise(resolve => { globalThis.releaseManualMedia = resolve; });
+		Blob.prototype.arrayBuffer = async function () {
+			if (held.has(this)) {
+				globalThis.manualMediaPending = true;
+				await released;
+			}
+			return read.call(this);
+		};
+	});
+	const editor = await bootEditor(page, '/embed/en/');
+	const origin = await editor.getAttribute('data-project-id');
+	const audio = { ...toneA, name: 'Held manual recording.wav' };
+	await editor.locator('[data-import-input]').setInputFiles(audio);
+	await expect.poll(() => page.evaluate(() => globalThis.manualMediaPending)).toBe(true);
+	const incoming = await archiveFile('launch-during-import', 'Waiting file launch');
+	await launchBatches(page, [[incoming]]);
+	await expect(editor).toHaveAttribute('data-project-id', origin);
+	await page.evaluate(() => globalThis.releaseManualMedia());
+	await expect(editor.getByRole('tab', { name: 'Waiting file launch', exact: true })).toHaveAttribute('aria-selected', 'true');
+	await waitForProjectActivation(editor);
+	await editor.getByRole('tab', { name: 'Untitled project', exact: true }).click();
+	await waitForProjectActivation(editor);
+	await expect(clipByName(editor, audio.name)).toBeVisible();
+});
+
+async function installLaunchQueue(page) {
+	await page.addInitScript(() => {
+		Object.defineProperty(globalThis, 'launchQueue', { configurable: true,
+			value: { setConsumer(consumer) { globalThis.acceptTestLaunch = consumer; } } });
+	});
+}
+
+async function launchBatches(page, batches) {
+	await page.evaluate(input => {
+		for (const batch of input) {
+			globalThis.acceptTestLaunch({ files: batch.map(({ name, mimeType, bytes }) => ({
+				kind: 'file', getFile: () => Promise.resolve(new File([Uint8Array.from(bytes)], name, { type: mimeType })),
+			})) });
+		}
+	}, batches.map(batch => batch.map(({ name, mimeType, buffer }) => ({ name, mimeType, bytes: [...buffer] }))));
+}

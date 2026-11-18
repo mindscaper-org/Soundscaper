@@ -98,7 +98,7 @@ export function createDawprojectService(runtime: NativeProjectServiceRuntime, he
 		if (!file || !isDawprojectFileName(String(file.name || ''))) {
 			throw new TypeError(runtime.copy.chooseDawprojectFile ?? 'Choose a DAWproject file (.dawproject).');
 		}
-		if (runtime.editingBlocked()) return undefined;
+		if (runtime.editingBlocked(true)) return undefined;
 		const operation = helpers.beginProjectTask('native-project-open');
 		const signal = operation.task.signal;
 		const assertReady = (): void => { helpers.assertOwnership(operation.task, operation.projectToken); };

@@ -41,6 +41,7 @@ export default function TimelineController({
 	const {
 		onError,
 		confirmFileSizeWarning,
+		importRoutedFiles,
 		onOpenEffects,
 		onOpenClipProperties,
 		onExportClip,
@@ -135,7 +136,7 @@ export default function TimelineController({
 		menuActions,
 	});
 	const projectBinDnd = useTimelineProjectBinDnd({
-		controller, confirmFileSizeWarning,
+		controller, confirmFileSizeWarning, importRoutedFiles,
 		mutationsBlocked,
 		state,
 		model,

@@ -29,7 +29,7 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 
 	async function openInterchange(file: NativeProjectFile, options: TimelineInterchangeOpenOptions = {}) {
 		if (!file || !isTimelineInterchangeFile(file.name)) throw new TypeError('Choose an EDL, OTIO, FCPXML, OMF, AAF, ADL, Ardour, SoundCraft, Pro Tools, Hindenburg or REAPER file.');
-		if (runtime.editingBlocked()) return undefined;
+		if (runtime.editingBlocked(true)) return undefined;
 		const operation = helpers.beginProjectTask('timeline-interchange-open');
 		const signal = operation.task.signal;
 		const assertCurrent = () => helpers.assertOwnership(operation.task, operation.projectToken);

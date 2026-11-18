@@ -148,7 +148,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 		if (!file || (file instanceof Blob && 'name' in file && !isScapeProjectFile(file))) {
 			throw new TypeError('Choose a Scape project file.');
 		}
-		if (runtime.editingBlocked()) return null;
+		if (runtime.editingBlocked(true)) return null;
 		const operation = beginProjectTask('native-project-open');
 		const signal = options.signal ? AbortSignal.any([operation.task.signal, options.signal]) : operation.task.signal;
 		try {
@@ -268,7 +268,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 		if (!file || !/\.aup(?:[34]|4unsaved)$/i.test(String(file.name || ''))) {
 			throw new TypeError('Choose an Audacity project file (.aup3 or .aup4).');
 		}
-		if (runtime.editingBlocked()) return undefined;
+		if (runtime.editingBlocked(true)) return undefined;
 		const operation = beginProjectTask('native-project-open');
 		const sourceGeneration = /\.aup3$/i.test(file.name) ? 'aup3' : 'aup4';
 		const nativeId = sanitizeNativeId(runtime.createStableId('audacity-project'));

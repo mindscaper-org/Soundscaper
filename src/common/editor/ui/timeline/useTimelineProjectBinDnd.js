@@ -20,6 +20,7 @@ import {
 export function useTimelineProjectBinDnd({
 	controller,
 	confirmFileSizeWarning = /** @type {import('../../controller/shared/file-size-warning.ts').FileSizeWarningConfirmation | undefined} */ (undefined),
+	importRoutedFiles,
 	mutationsBlocked,
 	state,
 	model,
@@ -159,13 +160,15 @@ export function useTimelineProjectBinDnd({
 			return;
 		}
 		if (files.length) {
-			run(() => withWebFileLoadLimitContext(() => controller.actions.project.importFiles(files, {
+			const placement = {
 				destination: 'timeline',
 				...(target.trackId ? { trackId: target.trackId } : {}),
 				timelineStartFrame: target.timelineStartFrame,
-			})));
+			};
+			run(() => importRoutedFiles ? importRoutedFiles(files, placement)
+				: withWebFileLoadLimitContext(() => controller.actions.project.importFiles(files, placement)));
 		}
-	}, [clearProjectBinDragState, controller, confirmFileSizeWarning, importFreesoundSound, mutationsBlocked, project, run, timelineDropTargetAt]);
+	}, [clearProjectBinDragState, controller, confirmFileSizeWarning, importFreesoundSound, importRoutedFiles, mutationsBlocked, project, run, timelineDropTargetAt]);
 
 	useEffect(() => {
 		const finishHtmlDrag = () => clearProjectBinDragState(true);

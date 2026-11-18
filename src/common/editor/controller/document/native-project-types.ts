@@ -392,7 +392,7 @@ export interface NativeProjectServiceRuntime {
 		save?: boolean;
 		preserveScapeOpenRequest?: boolean;
 	}>) => PromiseLike<unknown> | unknown;
-	readonly editingBlocked: () => boolean;
+	readonly editingBlocked: (allowReadOnly?: boolean) => boolean;
 	readonly acquireReplaceProjectWriteAuthority?: (projectId: string) => Promise<ScapeReplaceWriteAuthority>;
 	readonly flushProject: (options?: ProjectFlushOptions) => PromiseLike<unknown> | unknown;
 	readonly hasMissingTimelineSources: (
