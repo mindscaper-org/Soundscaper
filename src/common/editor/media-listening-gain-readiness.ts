@@ -6,7 +6,7 @@ interface ListeningMedia {
 	removeEventListener(type: 'loadedmetadata', listener: () => void): void;
 }
 
-/** Native media loading can replace the gain assigned before its player exists. */
+/** Restore the chosen gain once when native media loading initializes its player. */
 export function restoreMediaListeningGainOnMetadata(
 	media: ListeningMedia,
 	currentGain: () => number,

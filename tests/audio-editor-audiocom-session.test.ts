@@ -130,7 +130,10 @@ test('audio.com listening gain changes keep the current device request and previ
 	const outputRequests: string[] = [];
 	const audio = {
 		src: '', volume: 1, async play() {}, pause() {}, load() {}, addEventListener() {}, removeEventListener() {},
-		async setSinkId(device: string) { outputRequests.push(device); },
+		async setSinkId(device: string) {
+			outputRequests.push(device);
+			if (outputRequests.length > 1) throw new Error('Reopening the output device was refused.');
+		},
 	};
 	const session = createAudiocomPanelSession({ client: client(), createAudio: () => audio });
 	try {
@@ -142,6 +145,32 @@ test('audio.com listening gain changes keep the current device request and previ
 		assert.equal(audio.volume, 0);
 		assert.equal(session.getSnapshot().previewingId, RESULT.id);
 		assert.deepEqual(outputRequests, ['speakers']);
+	} finally { session.dispose(); }
+});
+
+test('audio.com preview keeps the current listening gain when native media finishes loading', async () => {
+	class PreviewAudio extends EventTarget {
+		src = '';
+		volume = 1;
+		async play() {}
+		pause() {}
+		load() {}
+	}
+	const audio = new PreviewAudio();
+	const session = createAudiocomPanelSession({ client: client(), createAudio: () => audio });
+	try {
+		await session.initialize(); await session.search({ query: 'forest', page: 1 });
+		session.setListeningPreferences(0.3, '');
+		await session.preview(RESULT.id);
+		assert.equal(audio.volume, 0.3);
+		session.setListeningPreferences(0, '');
+		audio.volume = 1;
+		audio.dispatchEvent(new Event('loadedmetadata'));
+		assert.equal(audio.volume, 0, 'the app remains muted when the decoder resets its volume');
+		session.stopPreview();
+		audio.volume = 1;
+		audio.dispatchEvent(new Event('loadedmetadata'));
+		assert.equal(audio.volume, 1);
 	} finally { session.dispose(); }
 });
 

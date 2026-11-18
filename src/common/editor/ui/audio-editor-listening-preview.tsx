@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createContext, useContext, useLayoutEffect, useRef, useState, type AudioHTMLAttributes, type RefObject } from 'react';
-import { restoreMediaListeningGainOnMetadata } from './media-listening-gain-readiness.ts';
+import { restoreMediaListeningGainOnMetadata } from '../media-listening-gain-readiness.ts';
 
 /** Menu-owned auditions share the editor's listening output without changing media transport. */
 export const AudioEditorListeningGainContext = createContext(1);

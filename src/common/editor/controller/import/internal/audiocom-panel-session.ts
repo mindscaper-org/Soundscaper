@@ -5,6 +5,7 @@ import type {
 	AudiocomPanelSnapshot, AudiocomPreviewAudio,
 } from '../audiocom-panel-session.ts';
 import { onlineMediaFailure } from '../../../online-media-failure.ts';
+import { restoreMediaListeningGainOnMetadata } from '../../../media-listening-gain-readiness.ts';
 import { AudiocomApiError, createAudiocomApiClient } from './audiocom-api-client.ts';
 import { createAudiocomUploadQueue } from './audiocom-upload-queue.ts';
 import { prepareAudiocomPreview } from './audiocom-original-preview.ts';
@@ -163,14 +164,20 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 					emit({ search: { ...snapshot.search, results: snapshot.search.results.map(value => value.id === id ? { ...value, durationSeconds: prepared.durationSeconds! } : value) } });
 				}
 				audio = options.createAudio?.() ?? new Audio();
-				previewAudio = audio; audio.src = prepared.url; audio.volume = gain;
+				previewAudio = audio; audio.volume = gain;
+				const releaseListeningGain = restoreMediaListeningGainOnMetadata(audio, () => gain);
 				const ended = (): void => { if (previewAudio === audio) stopPreview(); };
 				const failed = (): void => {
 					if (previewAudio !== audio) return;
 					stopPreview(); emit({ previewFailure: onlineMediaFailure('preview'), previewError: 'The audio.com preview could not be played.' });
 				};
 				audio.addEventListener('ended', ended); audio.addEventListener('error', failed);
-				previewCleanup = () => { audio?.removeEventListener('ended', ended); audio?.removeEventListener('error', failed); };
+				previewCleanup = () => {
+					releaseListeningGain();
+					audio?.removeEventListener('ended', ended);
+					audio?.removeEventListener('error', failed);
+				};
+				audio.src = prepared.url;
 				let output = routePreviewOutput(audio, outputDeviceId);
 				while (previewAudio === audio) {
 					try { await output; }

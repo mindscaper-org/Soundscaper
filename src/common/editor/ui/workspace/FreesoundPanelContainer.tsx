@@ -6,7 +6,7 @@ import { isCurrentAssertion, type EditorProjectToken } from '../../controller/sh
 
 import { FREESOUND_ATTRIBUTION_ENGLISH_COPY } from '../../../i18n/freesound-attribution-copy.js';
 import { useTranslationScope } from '../use-translation-scope.ts';
-import { restoreMediaListeningGainOnMetadata } from '../media-listening-gain-readiness.ts';
+import { restoreMediaListeningGainOnMetadata } from '../../media-listening-gain-readiness.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import FreesoundPanel, {
 	type FreesoundPanelState,
