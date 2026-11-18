@@ -64,7 +64,9 @@ test('a blank WAV cue label cannot erase its region description when metadata fo
 	new DataView(label.buffer).setUint32(0, 7, true);
 	for (const parts of [[chunk('ltxt', region), chunk('labl', label)], [chunk('labl', label), chunk('ltxt', region)]]) {
 		const associated = new Uint8Array(Buffer.concat([Buffer.from('adtl'), ...parts]));
-		const file = new Blob([encodeWav([new Float32Array(64)], { preDataChunks: [cue, chunk('LIST', associated)] })]);
+		const file = new Blob([Uint8Array.from(encodeWav([new Float32Array(64)], {
+			preDataChunks: [cue, chunk('LIST', associated)],
+		}))]);
 		const expected = [{ id: 7, sampleOffset: 8, sampleLength: 32, label: 'Chorus', note: '' }];
 		assert.deepEqual((await inspectWavBlobPcm(file)).markers, expected);
 		assert.deepEqual((await scanEncodedAudioMarkers(file))?.markers, expected);
