@@ -11,6 +11,7 @@ import { audioBufferChannels } from '../../../../rendered-audio-channels.ts';
 import { resampleChannelsWindowedSinc } from '../../../source/source-audio.ts';
 import { SOURCE_CHUNK_FRAMES } from '../../../../source-pcm-contract.ts';
 import { createAudioSource } from '../../../../project-media-factory.ts';
+import { isAudioMediaKind } from '../../../../audio-media-kind.ts';
 import { applyMediaChannelMapping } from '../../../../media-export.js';
 import { defaultMixerChannelMapV21 } from '../../../../mixer-graph-v21.ts';
 import type { SubprojectDocument, SubprojectGeometry, SubprojectRenderedSource } from '../../subproject-actions.ts';
@@ -39,8 +40,9 @@ export interface SubprojectRendererRuntime {
 export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
 	function plan(project: SubprojectDocument, sampleRate: number): SubprojectGeometry {
 		const projected = projectTrackFolderMediaStateV12(runtime.projectForRuntimeConsumers(project));
-		const clips = projected.clips as readonly { timelineStartFrame: number; durationFrames: number }[];
-		const end = clips.reduce((maximum, clip) => Math.max(maximum, clip.timelineStartFrame + clip.durationFrames), 0);
+		const clips = projected.clips as readonly { kind?: string; timelineStartFrame: number; durationFrames: number }[];
+		const end = clips.filter(clip => isAudioMediaKind(clip.kind))
+			.reduce((maximum, clip) => Math.max(maximum, clip.timelineStartFrame + clip.durationFrames), 0);
 		if (!end) throw new RangeError('The subproject has no audio to publish.');
 		const tail = projectEffectTailFrames(projected, { includeMaster: true });
 		const frameCount = scaleSampleFrame(end + tail, project.sampleRate, sampleRate, 'enclosingEnd');
