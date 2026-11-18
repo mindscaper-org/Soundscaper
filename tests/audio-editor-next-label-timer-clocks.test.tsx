@@ -21,7 +21,8 @@ for (const format of ['frames', 'samples'] as const) test(`timed recording uses 
 			sequences: [{ id: 'main', rate: { num: 60, den: 1 } }], primarySequenceId: 'main' }} value={value}
 			onValueChange={next => { value = next; }} onSubmit={() => undefined} copy={RECORDING_COPY_BY_LOCALE.en} locale="en" />));
 		await enter(dom, dom.one('.timecode'), format, format === 'frames' ? '00:00:02:01' : '88200');
-		assert.equal(value.durationSeconds, format === 'frames' ? 2 + 1 / 60 : 2);
+		assert.equal(value.durationSeconds, format === 'frames' ? 2.017 : 2);
+		assert.equal(value.endTime, format === 'frames' ? '2030-10-22T12:00:02.017' : '2030-10-22T12:00:02');
 	});
 });
 
