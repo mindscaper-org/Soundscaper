@@ -152,6 +152,7 @@ export function parseAafDocument(bytes: Uint8Array): TimelineInterchangeDocument
 		function walk(object: AafObject, start: Rational, depth: number): Rational {
 			visit(depth);
 			const duration = divideRationals(length(object), rate);
+			const operation = object.classCode === 0x0a ? aafOperationCurve(file, object, issues) : null;
 			if (object.classCode === 0x0f) {
 				let cursor = start, previousFirst = clips.length;
 				let pending: { curve: Parameters<typeof aafApplyClipGain>[1]; start: Rational; duration: Rational } | null = null;
@@ -174,17 +175,21 @@ export function parseAafDocument(bytes: Uint8Array): TimelineInterchangeDocument
 				if (resolved) clips.push({ id: `aaf-clip-${visits}`, name: clipName(object) || resolved.name || 'Audio', mediaId: resolved.mediaId, start, duration, sourceStart: resolved.start });
 				else issue('source-span-omitted', 'A source segment cannot be represented as a single audio cut.');
 				if (file.integer(object, 0x1202) || file.integer(object, 0x1204)) issue('fades-omitted', 'AAF source-clip fades are omitted.');
-			} else if (object.classCode === 0x0a && aafOperationCurve(file, object, issues)) {
-    const operation = aafOperationCurve(file, object, issues)!, inputs = file.refs(object, 0x0b02);
-    if (inputs.length !== 1) issue('effect-inputs-omitted', 'An audio gain or pan operation requires exactly one input.');
-    else {
-     const first = clips.length; walk(inputs[0]!, start, depth + 1);
-     if (operation.kind === 'gain') for (let index = first; index < clips.length; index++) clips[index] = aafApplyClipGain(clips[index]!, operation.curve, start, duration, sampleRate, issues);
-     else if (object === segment) automation.push(aafPanAutomation(operation.curve, start, duration, sampleRate));
-					else issue('nested-pan-omitted', 'AAF pan is supported only as a track operation; a local pan cannot own the entire track parameter.');
-     issue('automation-preserved', 'Standard AAF gain or pan control points are retained.', 'preserved');
-    }
-   } else if (object.classCode !== 0x09) {
+			} else if (operation) {
+				const inputs = file.refs(object, 0x0b02);
+				if (inputs.length !== 1) issue('effect-inputs-omitted', 'An audio gain or pan operation requires exactly one input.');
+				else {
+					const first = clips.length;
+					walk(inputs[0]!, start, depth + 1);
+					if (operation.kind === 'pan' && object !== segment) {
+						issue('nested-pan-omitted', 'AAF pan is supported only as a track operation; a local pan cannot own the entire track parameter.');
+					} else {
+						if (operation.kind === 'pan') automation.push(aafPanAutomation(operation.curve, start, duration, sampleRate));
+						else for (let index = first; index < clips.length; index++) clips[index] = aafApplyClipGain(clips[index]!, operation.curve, start, duration, sampleRate, issues);
+						issue('automation-preserved', 'Standard AAF gain or pan control points are retained.', 'preserved');
+					}
+				}
+			} else if (object.classCode !== 0x09) {
     const input = unprocessed(object);
 				if (input) walk(input, start, depth + 1);
 				else issue('component-omitted', 'An unsupported AAF component retains its timeline duration as a gap.', 'omitted', { classCode: object.classCode });
