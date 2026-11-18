@@ -35,39 +35,61 @@ export async function readWaveformPeakWindow(
 	if (bucketCount * retainedChannelCount > MAXIMUM_WAVEFORM_PEAK_WINDOW_CHANNEL_BUCKETS) {
 		throw new RangeError('The waveform peak window exceeds its memory budget.');
 	}
-	const minimums = Array.from({ length: retainedChannelCount }, () => (
-		new Float32Array(bucketCount).fill(Number.POSITIVE_INFINITY)
-	));
-	const maximums = Array.from({ length: retainedChannelCount }, () => (
-		new Float32Array(bucketCount).fill(Number.NEGATIVE_INFINITY)
-	));
-	const squareSums = Array.from({ length: retainedChannelCount }, () => new Float64Array(bucketCount));
-	const counts = new Uint32Array(bucketCount);
-	const firstChunk = Math.floor(range.startFrame / provider.chunkFrames);
-	const lastChunk = Math.ceil(range.endFrame / provider.chunkFrames) - 1;
+	const summaries = Array.from({ length: retainedChannelCount }, () => ({
+		minimums: new Float32Array(bucketCount), maximums: new Float32Array(bucketCount), rms: new Float32Array(bucketCount),
+	}));
+	const accumulators = summaries.map(() => ({ minimum: Infinity, maximum: -Infinity, squares: 0 }));
+	const { chunkFrames, channelCount } = provider;
+	const { startFrame, endFrame } = range;
+	const { signal } = options;
+	const readOptions = signal ? { signal } : null;
+	const firstChunk = Math.floor(startFrame / chunkFrames);
+	const lastChunk = Math.ceil(endFrame / chunkFrames) - 1;
 	let framesRead = 0;
+	let bucket = 0, fill = 0;
 	for (let chunkIndex = firstChunk; chunkIndex <= lastChunk; chunkIndex += 1) {
-		throwIfAborted(options.signal);
-		const value = await provider.readStorageChunk(chunkIndex);
-		throwIfAborted(options.signal);
+		throwIfAborted(signal);
+		const value = await (readOptions ? provider.readStorageChunk(chunkIndex, readOptions) : provider.readStorageChunk(chunkIndex));
+		throwIfAborted(signal);
 		const channels = 'channels' in value ? value.channels : value;
-		if (channels.length !== provider.channelCount || channels.some((channel) => !(channel instanceof Float32Array))
-			|| channels.some((channel) => channel.length !== channels[0]?.length)) {
+		const chunkLength = channels[0]?.length;
+		if (channels.length !== channelCount || channels.some(channel => !(channel instanceof Float32Array) || channel.length !== chunkLength)) {
 			throw new Error('The waveform peak window received invalid PCM channels.');
 		}
-		const chunkStart = chunkIndex * provider.chunkFrames;
-		const from = Math.max(range.startFrame, chunkStart) - chunkStart;
-		const to = Math.min(range.endFrame, chunkStart + (channels[0]?.length || 0)) - chunkStart;
-		for (let frame = from; frame < to; frame += 1) {
-			const bucket = Math.floor(framesRead / blockSize);
-			counts[bucket]! += 1;
+		const chunkStart = chunkIndex * chunkFrames;
+		const from = Math.max(startFrame, chunkStart) - chunkStart;
+		const to = Math.min(endFrame, chunkStart + (chunkLength || 0)) - chunkStart;
+		for (let offset = from; offset < to;) {
+			const count = Math.min(blockSize - fill, to - offset);
+			const end = offset + count;
+			framesRead += count;
+			fill += count;
+			const complete = fill === blockSize || framesRead === frameCount;
 			for (let channel = 0; channel < retainedChannelCount; channel += 1) {
-				const sample = channels[channel]![frame]!;
-				minimums[channel]![bucket] = Math.min(minimums[channel]![bucket]!, sample);
-				maximums[channel]![bucket] = Math.max(maximums[channel]![bucket]!, sample);
-				squareSums[channel]![bucket] += sample * sample;
+				const samples = channels[channel]!, accumulator = accumulators[channel]!;
+				let { minimum, maximum, squares } = accumulator;
+				for (let frame = offset; frame < end; frame += 1) {
+					const sample = samples[frame]!;
+					minimum = Math.min(minimum, sample);
+					maximum = Math.max(maximum, sample);
+					squares += sample * sample;
+				}
+				if (complete) {
+					const summary = summaries[channel]!;
+					summary.minimums[bucket] = minimum;
+					summary.maximums[bucket] = maximum;
+					summary.rms[bucket] = Math.sqrt(squares / fill);
+					accumulator.minimum = Infinity;
+					accumulator.maximum = -Infinity;
+					accumulator.squares = 0;
+				} else {
+					accumulator.minimum = minimum;
+					accumulator.maximum = maximum;
+					accumulator.squares = squares;
+				}
 			}
-			framesRead += 1;
+			if (complete) { bucket += 1; fill = 0; }
+			offset = end;
 		}
 	}
 	if (framesRead !== frameCount) throw new Error('The waveform peak window is incomplete.');
@@ -75,11 +97,7 @@ export async function readWaveformPeakWindow(
 		...range,
 		blockSize,
 		pixelsPerSample: options.pixelWidth / frameCount,
-		channels: minimums.map((minimum, channel) => ({
-			minimums: minimum,
-			maximums: maximums[channel]!,
-			rms: Float32Array.from(squareSums[channel]!, (sum, bucket) => Math.sqrt(sum / counts[bucket]!)),
-		})),
+		channels: summaries,
 	};
 }
 
