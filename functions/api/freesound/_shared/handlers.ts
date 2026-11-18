@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { safeUpstreamRetryAfter } from '../../_shared/upstream-retry-after.ts';
 import {
 	FreesoundContractError,
 	normalizeFreesoundSearch,
@@ -387,7 +388,7 @@ function previewHeaders(source: Headers, admission: RequestAdmission, id: number
 function upstreamStatus(status: number, notFound: boolean, headers: Headers): HttpError {
 	if (notFound && status === 404) return new HttpError(404, 'sound_not_found', 'The Freesound sound was not found.');
 	if (status === 429) {
-		const retryAfter = safeRetryAfter(headers.get('retry-after'));
+		const retryAfter = safeUpstreamRetryAfter(headers.get('retry-after'), 3_600);
 		return new HttpError(503, 'upstream_rate_limited', 'Freesound is temporarily rate limited.',
 			retryAfter === null ? undefined : { 'Retry-After': retryAfter });
 	}
@@ -524,12 +525,6 @@ function publicError(error: unknown): HttpError {
 		return new HttpError(502, 'invalid_upstream_response', 'Freesound returned an invalid response.');
 	}
 	return new HttpError(500, 'internal_error', 'The Freesound request could not be completed.');
-}
-
-function safeRetryAfter(value: string | null): string | null {
-	if (value === null || !/^\d{1,4}$/u.test(value)) return null;
-	const seconds = Number(value);
-	return seconds <= 3_600 ? String(seconds) : null;
 }
 
 function appendVary(current: string | null, value: string): string {

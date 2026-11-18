@@ -82,6 +82,24 @@ test('Audiocity uses the shared native project protocol without archive discover
 	const { data } = await response.json() as { data: { projectFormats: string[]; projectStorageSupported: boolean; maximumUploadBytes: number } };
 	assert.deepEqual(data.projectFormats, ['aup3']); assert.equal(data.projectStorageSupported, true); assert.equal(data.maximumUploadBytes, 100000000);
 });
+
+test('audio provider search relays valid upstream retry instructions', async () => {
+	const { repository, token } = await connected();
+	for (const [upstream, expected] of [
+		['7', '7'],
+		['Thu, 15 Oct 2026 00:02:00 GMT', 'Thu, 15 Oct 2026 00:02:00 GMT'],
+		['unavailable', '60'],
+		[null, '60'],
+	] as const) {
+		const response = await handleAudiocomSearchRequest(context(request('search?q=rain', token)), {
+			repository, now: () => NOW,
+			fetchImpl: async () => new Response(null, { status: 429, headers: upstream === null ? {} : { 'Retry-After': upstream } }),
+		});
+		assert.equal(response.status, 429);
+		assert.equal(response.headers.get('Retry-After'), expected);
+		assert.match(await response.text(), /temporarily rate limited/u);
+	}
+});
 test('Audiocity transfers signed raw audio and previews on one origin without forwarding OAuth credentials', async () => {
 	const { repository, token } = await connected();
 	const uploaded = request('uploads?title=Rain&category=recording&license=arr&listed=1&downloadable=0', token, { method: 'POST', headers: { 'Content-Type': 'audio/wav', 'X-Audiocom-Filename': 'rain.wav', 'X-Audiocom-Content-Length': '4' }, body: new Uint8Array([1, 2, 3, 4]) });
