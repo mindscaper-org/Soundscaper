@@ -67,6 +67,22 @@ async function expectYellowGuide(editor) {
 	await expect(guide).toHaveCSS('background-color', 'rgb(245, 211, 79)');
 }
 
+async function setupCompetingBoundaries(page) {
+	const { editor, anchor, moving } = await setupBoundaryClips(page);
+	const before = await anchor.boundingBox();
+	await page.mouse.click(before.x + before.width / 2, before.y + before.height * .75);
+	await page.keyboard.press('Control+i');
+	await expect(anchor).toHaveCount(2);
+	const right = anchor.last();
+	const sharedFrame = await startFrame(page, editor, right);
+	const competingFrame = sharedFrame + Math.round(1.5 * 38_400 / before.width);
+	const properties = await openClipProperties(page, editor, moving);
+	await showClipTimingFields(properties);
+	await setClipTimeFrames(properties, 'startFrame', competingFrame);
+	await closeClipProperties(properties);
+	return { editor, right, moving, sharedFrame, competingFrame };
+}
+
 test.describe('Audacity 3 boundary snapping', () => {
 	registerAudioEditorHooks();
 
@@ -188,6 +204,31 @@ test.describe('Audacity 3 boundary snapping', () => {
 			const box = await editor.locator('[data-time-selection-overlay]').first().boundingBox();
 			return box ? Math.abs(box.x + box.width - anchorBox.x) : Infinity;
 		}).toBeLessThan(1);
+	});
+
+	test('a shared boundary on the selected track wins over a nearby boundary on another track', async ({ page }) => {
+		const { editor, right, sharedFrame } = await setupCompetingBoundaries(page);
+		const boundary = await right.boundingBox();
+		const y = boundary.y + boundary.height * .75;
+		await page.mouse.move(boundary.x - 25, y);
+		await page.mouse.down();
+		try {
+			await page.mouse.move(boundary.x + 1, y, { steps: 5 });
+			await expect(editor.locator(`[data-smart-snap-guide][data-smart-snap-frame="${sharedFrame}"]`)).toBeVisible();
+		} finally { await page.mouse.up(); }
+	});
+
+	test('a clip moving between tracks shows the nearby guide on the destination track', async ({ page }) => {
+		const { editor, right, moving, competingFrame } = await setupCompetingBoundaries(page);
+		const source = await right.boundingBox();
+		const destination = await moving.boundingBox();
+		const x = source.x + 20;
+		await page.mouse.move(x, source.y + 10);
+		await page.mouse.down();
+		try {
+			await page.mouse.move(x + 0.75, destination.y + 10, { steps: 5 });
+			await expect(editor.locator(`[data-smart-snap-guide][data-smart-snap-frame="${competingFrame}"]`)).toBeVisible();
+		} finally { await page.mouse.up(); }
 	});
 
 	test('selection start aligns to another clip end', async ({ page }) => {
