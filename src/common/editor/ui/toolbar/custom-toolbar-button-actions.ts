@@ -5,7 +5,7 @@ import {
 	AUDACITY_ACTION_MANIFEST,
 	AUDACITY_ACTION_STATUS,
 	audacityActionDefinition,
-	evaluateAudacityActionEnablement,
+	createAudacityActionEnablementEvaluator,
 	isAudacityShortcutCommandDisabled,
 	resolveAudacityActionHandler,
 	resolveAudacityActionId,
@@ -65,6 +65,7 @@ export function collectCustomToolbarButtonActions(
 ): readonly CustomToolbarButtonAction[] {
 	const { actionRuntime, disabledActionIds = [], locale = 'en', copy } = options;
 	const actionContext = options.actionContext ?? currentActionContext(actionRuntime);
+	const isActionEnabled = createAudacityActionEnablementEvaluator(actionContext);
 	const localization = copy || locale;
 	const actions = new Map<string, CustomToolbarButtonAction>();
 	const visit = (
@@ -91,7 +92,7 @@ export function collectCustomToolbarButtonActions(
 					&& !isAudacityShortcutCommandDisabled(actionId, disabledActionIds)) {
 					const stateDisabled = disabled || typeof item.onClick !== 'function'
 						|| (definition !== null && actionContext !== undefined
-							&& !evaluateAudacityActionEnablement(actionId, actionContext));
+							&& !isActionEnabled(actionId));
 					actions.set(actionId, Object.freeze({
 						actionId, label: item.label, path: Object.freeze([...path]), disabled: stateDisabled,
 						...(stateDisabled && reason ? { disabledReason: reason } : {}),
@@ -115,7 +116,7 @@ export function collectCustomToolbarButtonActions(
 			|| isAudacityShortcutCommandDisabled(actionId, disabledActionIds)) continue;
 		const handler: unknown = resolveAudacityActionHandler(actionId, actionRuntime);
 		if (typeof handler !== 'function') continue;
-		const disabled = !evaluateAudacityActionEnablement(actionId, actionContext);
+		const disabled = !isActionEnabled(actionId);
 		const label = localizedLabel(definition.label, localization);
 		const location = definition.locations[0]?.split(' > ') ?? [];
 		actions.set(actionId, Object.freeze({
