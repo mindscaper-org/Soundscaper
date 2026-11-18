@@ -6,7 +6,11 @@ import type { ProjectFileReference } from '../src/common/editor/file-save-stream
 import { deferred, settle } from './helpers/async-test-control.ts';
 
 type Project = { id: string; title: string; revision: number; tracks: unknown[]; clips?: unknown[] };
-function fixture(desktop = true, restore?: (id: string) => Promise<Readonly<{ originalFile: ProjectFileReference; baseline: string }> | null>) {
+function fixture(
+	desktop = true,
+	restore?: (id: string) => Promise<Readonly<{ originalFile: ProjectFileReference; baseline: string }> | null>,
+	remember?: (id: string, target: Readonly<{ originalFile?: ProjectFileReference }>, baseline: string) => Promise<void> | void,
+) {
 	let current: Project = { id: 'a', title: 'A', revision: 1, tracks: [] };
 	let settings = { autoSaving: !desktop, askBeforeClosing: true };
 	const tabs = new Map([[current.id, current]]);
@@ -33,7 +37,7 @@ function fixture(desktop = true, restore?: (id: string) => Promise<Readonly<{ or
 		prepareOriginal: async original => ({ id: original.id, name: original.name }),
 		ask: async () => decisions.shift() as 'save' | 'discard' | 'cancel',
 		discard: async id => { discarded.push(id); tabs.delete(id); }, handleError: () => undefined,
-		restore, release: original => { releasedOriginals.push(original.id); },
+		restore, remember, release: original => { releasedOriginals.push(original.id); },
 		schedule: callback => { timers.push(callback); return timers.length; }, clear: timer => { clearedTimers.add(timer); },
 	});
 	return { service, tabs, writes, discarded, decisions, timers, readOnlyIds, releasedOriginals,
@@ -156,6 +160,32 @@ test('closing a reopened track template without an original file still prompts t
 	f.decisions.push('cancel');
 	assert.equal(await f.service.prepareClose('b'), false);
 	assert.deepEqual(f.writes, []);
+});
+
+test('an older Save As cannot restore its destination after a newer Save As completes', async (context) => {
+	const hashing = deferred<void>();
+	const resume = deferred<void>();
+	const digest = crypto.subtle.digest.bind(crypto.subtle);
+	context.mock.method(crypto.subtle, 'digest', async (algorithm: AlgorithmIdentifier, bytes: Uint8Array) => {
+		if (new TextDecoder().decode(bytes).includes('First archive write')) {
+			hashing.resolve();
+			await resume.promise;
+		}
+		return digest(algorithm, bytes);
+	});
+	const associations: string[] = [];
+	const f = fixture(true, undefined, (_id, target) => { associations.push(target.originalFile!.id); });
+	const first = f.service.saved({ ...f.getProject(), title: 'First archive write' }, {
+		originalFile: { id: 'first', name: 'First.sscape' },
+	});
+	await hashing.promise;
+	try {
+		await f.service.saved(f.getProject(), { originalFile: { id: 'second', name: 'Second.sscape' } });
+	} finally {
+		resume.resolve();
+		await first;
+	}
+	assert.deepEqual(associations, ['second']);
 });
 
 test('canceling a close does not undo an unrelated project switch during its flush', async () => {

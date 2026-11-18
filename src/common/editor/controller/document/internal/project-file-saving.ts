@@ -75,7 +75,9 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 	}
 	async function remember(id: string): Promise<void> {
 		const entry = entries.get(id);
-		if (entry?.baseline) await d.remember?.(id, entry, await entry.baseline);
+		if (!entry?.baseline) return;
+		const baseline = await entry.baseline;
+		if (!disposed && entries.get(id) === entry) await d.remember?.(id, entry, baseline);
 	}
 	async function hasChanges(project: Project): Promise<boolean> {
 		await load(project);
