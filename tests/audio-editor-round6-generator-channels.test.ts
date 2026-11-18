@@ -36,7 +36,6 @@ for (const { widths, streamed, requestedWidth } of [
 		let ids = 0;
 		let closedStreams = 0;
 		const fixture = createFixture({ getProject: () => project as unknown as AudioGeneratorDocument,
-			trackChannelCount: audioTrackChannelCount,
 			createId: prefix => `generated-${prefix}-${++ids}`,
 			...(streamed ? {
 				generateStream: async (_type, options) => {
@@ -82,7 +81,6 @@ test('a later generator width failure rolls every unpublished source back withou
 		selection: { startFrame: 0, endFrame: 100, trackIds: ['track-1', 'track-2'], clipIds: [] } });
 	let ids = 0;
 	const fixture = createFixture({ getProject: () => project as unknown as AudioGeneratorDocument,
-		trackChannelCount: audioTrackChannelCount,
 		createId: prefix => `generated-${prefix}-${++ids}` });
 	fixture.state.selectedTrackId = 'track-1';
 	let writes = 0;

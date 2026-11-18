@@ -20,7 +20,6 @@ test('Edit Silence streams a multichannel selected minute without constructing a
 	let starts = 0;
 	const fixture = createFixture({
 		getProject: () => selected,
-		trackChannelCount: () => 8,
 		getAudioContext: () => { throw new Error('Long silence must not allocate a whole-source AudioBuffer.'); },
 		generateStream: async (type, options) => {
 			starts++;

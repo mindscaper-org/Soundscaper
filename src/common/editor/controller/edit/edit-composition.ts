@@ -13,7 +13,6 @@ import {
 } from '../../commands.js';
 import { createLabeledAudioClipboardPort } from '../../labeled-audio-clipboard.ts';
 import { createStableId, findClip, findClipTrack, findTrack } from '../../project.js';
-import { audioTrackChannelCount } from '../../project-audio-factory.js';
 import { createAbsentAudioGeneratorService } from './internal/absent-audio-generator-service.ts';
 import { saveLabelExport } from '../shared/app-helpers.ts';
 import { createClipboardEditService } from './internal/clipboard-edit-service.ts';
@@ -121,7 +120,6 @@ export function createEditComposition<History extends ControllerRuntimeHistory>(
 			editingBlocked: dependencies.editingBlocked,
 			getPositionFrames: () => engine.getPositionFrames(),
 			snapFrame: dependencies.snapTimelineFrame,
-			trackChannelCount: audioTrackChannelCount,
 			effectTargets: dependencies.effectTargets,
 			persistEffectResults: dependencies.persistEffectResults,
 			preflightStorage: dependencies.preflightStorage,

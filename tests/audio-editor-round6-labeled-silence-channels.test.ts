@@ -22,7 +22,6 @@ for (const widths of [[1, 2], [2, 1], [0, 1, 2], [2, 2, 6]]) {
 		const before = project;
 		let commits = 0;
 		const fixture = createFixture({ getProject: () => project as unknown as AudioGeneratorDocument,
-			trackChannelCount: audioTrackChannelCount,
 			commit: command => { project = applySoundscaperProjectCommand(project, command); commits++; } });
 		await createAudioGeneratorService(fixture.dependencies).generateLabeledSilence(
 			[{ startFrame: 0, endFrame: 100 }], project.tracks.map(({ id }) => id));
@@ -51,8 +50,7 @@ test('a later silence source failure rolls every earlier prepared width back bef
 		clips: [1, 2].map(channelCount => createAudioClip({ id: `clip-${channelCount}`, sourceId: `source-${channelCount}`,
 			sourceStartFrame: 0, sourceDurationFrames: 100, durationFrames: 100, timelineStartFrame: 0 })),
 		tracks: [1, 2].map(channelCount => createAudioTrack({ id: `track-${channelCount}`, clipIds: [`clip-${channelCount}`] })) });
-	const fixture = createFixture({ getProject: () => project as unknown as AudioGeneratorDocument,
-		trackChannelCount: audioTrackChannelCount });
+	const fixture = createFixture({ getProject: () => project as unknown as AudioGeneratorDocument });
 	let writes = 0;
 	fixture.dependencies.store.beginSourceWrite = async () => {
 		if (++writes === 2) throw new Error('storage unavailable');
