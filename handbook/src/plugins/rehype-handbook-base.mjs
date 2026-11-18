@@ -58,6 +58,9 @@ function rebaseLink(value, productId, prefix, base) {
 	}
 	if (!value.startsWith('/') || value.startsWith('//')) return value;
 	if (value === base || value.startsWith(`${base}/`)) return value;
+	// Astro's Markdown slug removes periods from model IDs such as v1.0.
+	value = value.replace(/^(\/reference\/local-models\/)([\w.-]+)(?=\/|[?#]|$)/u,
+		(_match, prefix, modelId) => `${prefix}${modelId.replaceAll('.', '')}`);
 	const framesPath = framescaperPath(value);
 	if (productId === 'soundscaper') {
 		return framesPath === null

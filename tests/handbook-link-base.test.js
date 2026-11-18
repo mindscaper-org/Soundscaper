@@ -59,6 +59,12 @@ test('a translated page keeps its reader in the language they are reading', () =
 	assert.equal(page('/docs/reference/', FRENCH), '/docs/reference/');
 });
 
+test('links with dotted model IDs follow the generated detail-page slugs', () => {
+	assert.equal(page('/reference/local-models/kokoro-82m-v1.0/', ENGLISH), '/docs/reference/local-models/kokoro-82m-v10/');
+	assert.equal(page('/reference/local-models/parakeet-tdt-0.6b-v3/#use-this-model', FRENCH), '/docs/fr/reference/local-models/parakeet-tdt-06b-v3/#use-this-model');
+	assert.equal(page('/reference/local-models/nomic-embed-text-v1.5/', FRENCH, 'framescaper'), 'https://soundscaper.org/docs/fr/reference/local-models/nomic-embed-text-v15/');
+});
+
 test('a Soundscaper page sends Framescaper documentation to its own origin', () => {
 	assert.equal(
 		page('/framescaper/first-project/', ENGLISH),
