@@ -15,6 +15,8 @@ export interface StreamedAudioImportSession {
 	readonly channelCount: number;
 	readonly durationSeconds: number;
 	readonly timelineOrigin: number;
+	/** The format verified by the decoder, when it owns that evidence. */
+	readonly mimeType?: string;
 	/** Encoded packet metadata proved there are no internal gaps. */
 	readonly continuousTimeline?: boolean;
 	/** First encoded timestamp, independent of native decoder startup latency. */
@@ -127,7 +129,7 @@ function admittedDescriptor(session: StreamedAudioImportSession, mimeType: strin
 		throw new RangeError('The compressed audio source frame count is unsupported.');
 	}
 	return Object.freeze({ container: 'compressed-audio', sampleRate: session.sampleRate,
-		channelCount: session.channelCount, frameCount, mimeType: mimeType || 'audio/mpeg' });
+		channelCount: session.channelCount, frameCount, mimeType: session.mimeType ?? (mimeType || 'audio/mpeg') });
 }
 
 async function streamSession(
