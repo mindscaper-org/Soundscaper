@@ -35,6 +35,24 @@ test('an ordinary non-wrapping selection still excludes unselected source conten
 	assert.equal(f.windows.length, 1);
 });
 
+test('a short, quiet float selection still snaps its spectral center to the recorded frequency', () => {
+	const sampleRate = 48_000, frequency = 1_500, durationFrames = 480;
+	const samples = Float32Array.from({ length: durationFrames }, (_, frame) =>
+		1e-5 * Math.sin(2 * Math.PI * frequency * frame / sampleRate));
+	const source = createAudioSource({ id: 'quiet', sampleRate, frameCount: durationFrames, channelCount: 1 });
+	const clip = createAudioClip({ id: 'clip', sourceId: source.id, durationFrames, sourceDurationFrames: durationFrames });
+	const track = createAudioTrack({ id: 'track', clipIds: [clip.id] }, sampleRate);
+	const project = createSoundscaperProject({ sampleRate, sources: [source], tracks: [track], clips: [clip] });
+	const projected = projectClipsToViewport([resolveRuntimeClipProjection(project, clip)], {
+		sampleRate, viewportDurationFrames: durationFrames,
+	}).clips;
+	const controller = { project, getClipVisualData: () => ({
+		source, buffer: { numberOfChannels: 1, getChannelData: () => samples },
+	}) };
+	const peaks = selectedTrackSpectralPeaks(controller, projected, { startFrame: 0, endFrame: durationFrames }, sampleRate);
+	assert.ok(Math.abs(snapSpectralCenterToPeak(1_510, peaks) - frequency) < 1);
+});
+
 for (const repeats of [1, 128]) test(`${repeats} complete selected periods sample the entire source once`, () => {
 	const f = fixture({ repeats: Math.max(2, repeats) });
 	const peaks = f.peaks({ startFrame: 0, endFrame: Math.round(f.projectRate * f.periodSeconds * repeats) });
