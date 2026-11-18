@@ -6,6 +6,7 @@ import {
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { NIGHTLY_BROWSER_MEDIA_INPUTS } from '../../scripts/lib/desktop-nightly-tests-browser-media-inputs.mjs';
 import nativeFixtureSources from '../../scripts/lib/desktop-nightly-tests-native-fixture-inputs.cjs';
 
 const BURN_IN_FONT_FILES = [
@@ -194,20 +195,9 @@ export async function createFixture(context) {
 		['tests/helpers/framescaper-native-sidecar-fixture.ts', await readFile(new URL('./framescaper-native-sidecar-fixture.ts', import.meta.url), 'utf8')],
 		['tests/helpers/libsndfile-rifx-fixture.ts', await readFile(new URL('./libsndfile-rifx-fixture.ts', import.meta.url), 'utf8')],
 		['tests/fixtures/aup4-native-rich.js', 'export const fixture = true;\n'],
-		['tests/fixtures/bwfmetaedit-cp1252-info.wav.base64', 'ordinary BWF MetaEdit fixture\n'],
-		['tests/fixtures/bwfmetaedit-ixml-clock.wav.base64', await readFile(new URL('../fixtures/bwfmetaedit-ixml-clock.wav.base64', import.meta.url), 'utf8')],
-		['tests/fixtures/bwfmetaedit-mid-side.wav.base64', await readFile(new URL('../fixtures/bwfmetaedit-mid-side.wav.base64', import.meta.url), 'utf8')],
-		['tests/fixtures/bwfmetaedit-file-uid.wav.base64', await readFile(new URL('../fixtures/bwfmetaedit-file-uid.wav.base64', import.meta.url), 'utf8')],
-		['tests/fixtures/ffmpeg-libmp3lame-one-second.mp3.base64', await readFile(new URL('../fixtures/ffmpeg-libmp3lame-one-second.mp3.base64', import.meta.url), 'utf8')],
-		...await Promise.all([
-			'ffmpeg-aac-lc-600s-silence.m4a.gz.base64',
-			'ffmpeg-ima-info.wav.base64',
-			'ffmpeg-long-info.wav.gz.base64', 'ffmpeg-short-info.wav.gz.base64',
-			'ffmpeg-mp3-info.wav.base64', 'ffmpeg-pcm-info.wav.base64',
-			'chromium-audio-only.webm.base64', 'libsndfile-float32.aifc.base64',
-			'libsndfile-comment-whitespace.aiff.base64', 'libsndfile-utf8-text.aiff.base64',
-			'libsndfile-zero-based-cues.wav.base64', 'python-uncompressed.aif.base64', 'sox-comt-comment.aiff.base64',
-		].map(async (file) => [`tests/fixtures/${file}`, await readFile(new URL(`../fixtures/${file}`, import.meta.url), 'utf8')])),
+		...await Promise.all(NIGHTLY_BROWSER_MEDIA_INPUTS.map(async ({ source }) => [
+			source, await readFile(new URL(`../../${source}`, import.meta.url)),
+		])),
 		['src/common/editor/example.ts', 'export const source = true;\n'],
 	]) await writeFixtureFile(repositoryRoot, path, body);
 

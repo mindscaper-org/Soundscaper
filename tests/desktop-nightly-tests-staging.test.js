@@ -100,6 +100,7 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 	for (const file of [
 		'ffmpeg-ima-info.wav.base64', 'ffmpeg-long-info.wav.gz.base64', 'ffmpeg-mp3-info.wav.base64',
 		'ffmpeg-pcm-info.wav.base64', 'ffmpeg-short-info.wav.gz.base64',
+		'twolame-0.4.0-sine.mp2.base64',
 		'chromium-audio-only.webm.base64', 'libsndfile-float32.aifc.base64',
 		'libsndfile-utf8-text.aiff.base64', 'libsndfile-zero-based-cues.wav.base64', 'python-uncompressed.aif.base64',
 	]) {
