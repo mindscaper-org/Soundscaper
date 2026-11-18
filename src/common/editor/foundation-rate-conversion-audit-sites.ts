@@ -5,6 +5,18 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
 /** Focused WP-0.1 inventory for integer sample-rate changes of basis. */
 export const FOUNDATION_RATE_CONVERSION_AUDIT_SITES: readonly FoundationTimeConversionSite[] = [
 	{
+		id: 'aaf-import-automation-clock',
+		file: 'src/common/editor/aaf-import-automation.ts',
+		behavior: 'Imported AAF automation retains rational clip-local offsets until rounding onto the project sample grid.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
+		id: 'workspace-import-placement-rate',
+		file: 'src/common/editor/ui/workspace/import-workspace-routed-files.ts',
+		behavior: 'Loose-media placement retains its requested time by scaling to the nearest sample on the newly opened project clock.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
 		id: 'generator-inspector-authored-source-duration',
 		file: 'src/common/editor/ui/inspector/GeneratorClipPropertiesBody.tsx',
 		behavior: 'Generator duration entry uses the authored source EOF on its sequence grid; both absolute sequence edges round to their nearest project sample before their displayed duration is subtracted.',

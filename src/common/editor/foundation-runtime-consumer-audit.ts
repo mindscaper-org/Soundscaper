@@ -192,6 +192,10 @@ export const FOUNDATION_RUNTIME_SHIELDED_OWNERS: readonly FoundationRuntimeShiel
 /** Exact non-consumer readers co-located with a shield owner. No wildcard exclusions are admitted. */
 export const FOUNDATION_RUNTIME_TIMING_READER_EXCLUSIONS: readonly FoundationRuntimeTimingReaderExclusion[] = deepFreeze([
 	{
+		file: 'src/common/editor/transcript-editing.ts', entryPoint: 'projectWords',
+		reason: 'This downstream helper receives the resolved project and indexed runtime clips from transcriptEditingProject before mapping source words through warp, reversal and loop timing.',
+	},
+	{
 		file: 'src/common/editor/midi-file-delivery-report.ts', entryPoint: 'midiFileDeliveryReport',
 		reason: 'The delivery report reads only the supplied MIDI document event extents directly; authored project clip timing is resolved by the separately registered addClipPitchOmissions helper.',
 	},

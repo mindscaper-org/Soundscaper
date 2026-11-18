@@ -61,8 +61,8 @@ const FOUNDATION_TIME_CONVERSION_EDITOR_SITES: readonly FoundationTimeConversion
 	{
 		id: 'export-dialog-delivered-chapter-span',
 		file: 'src/common/editor/ui/export-dialog-embedded-chapters.ts',
-		behavior: 'Embedded-chapter availability resolves the delivered range length to its nearest output sample once, preserving the chapter writer\'s exclusive endpoint and minimum output frame.',
-		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+		behavior: 'Embedded-chapter availability encloses the delivered range on the output sample grid, preserving the chapter writer\'s exclusive endpoint and minimum output frame.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['enclosingEnd'] }],
 	},
 	{
 		id: 'mastering-sequence-cart-delivery-points',
