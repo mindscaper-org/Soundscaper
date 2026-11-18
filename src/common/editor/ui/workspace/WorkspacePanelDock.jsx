@@ -25,6 +25,7 @@ export default function WorkspacePanelDock({
 	copy,
 	locale,
 	fileService, confirmFileSizeWarning,
+	importRoutedFiles = /** @type {import('./import-workspace-routed-files.ts').ImportFilesToProjectBin | undefined} */ (undefined),
 	playbackMeterSettings,
 	recordingMeterSettings = /** @type {import('../meter-settings.ts').MeterSettings | undefined} */ (undefined),
 	onPlaybackMeterSettingsChange = /** @type {((update: import('./meter-panel-settings.ts').MeterSettingsUpdate) => void) | undefined} */ (undefined),
@@ -353,7 +354,7 @@ export default function WorkspacePanelDock({
 		copy={copy}
 		contentProps={{
 			runtimeProject,
-			controller, snapshot, productId, capabilities, copy, locale, fileService, confirmFileSizeWarning, clipPropertiesFocusRequest,
+			controller, snapshot, productId, capabilities, copy, locale, fileService, confirmFileSizeWarning, importRoutedFiles, clipPropertiesFocusRequest,
 			playbackMeterSettings, recordingMeterSettings,
 			onPlaybackMeterSettingsChange, onRecordingMeterSettingsChange,
 			clippingEnabled,

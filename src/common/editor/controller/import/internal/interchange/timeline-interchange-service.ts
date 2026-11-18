@@ -55,6 +55,7 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 				: (await import('../../../../timeline-interchange-import.ts')).parseTimelineInterchange(file.name, await readTimelineText(file), { edlRate: options.edlRate });
 			assertCurrent();
 			const media = new Map<string, Readonly<Record<string, unknown>>>();
+			const companionFiles = new Set<File>();
 			const stagedSourceIds = new Map<string, string>();
 			const midiFiles = new Map<string, Uint8Array>();
 			let midiBytes = 0;
@@ -82,7 +83,10 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 				const embedded = bundle ? await bundle.readMedia(reference.path) : null;
 				if (reference.blob) await consume(reference.blob);
 				else if (embedded) await consume(embedded);
-				else if (selected) await consume(selected, selected.name);
+				else if (selected) {
+					await consume(selected, selected.name);
+					companionFiles.add(selected);
+				}
 				else if (sessionReadId && runtime.fileService.resolveSesxMedia && runtime.fileService.withReadDescriptors) {
 					const path = lookupPath(reference, document.format === 'reaper');
 					if (!path) continue;
@@ -136,7 +140,7 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 				fallback: 'Timeline imported. Review File > Delivery Report for conversions and missing media.',
 			});
 			runtime.publishDocumentSnapshot();
-			return Object.freeze({ project: imported, report: plan.report });
+			return Object.freeze({ project: imported, report: plan.report, companionFiles: Object.freeze([...companionFiles]) });
 		} catch (error) {
 			if (!activated && (!imported || runtime.getProject()?.id !== imported.id)) {
 				for (const id of persisted) await Promise.resolve(runtime.store.deleteSource(id)).catch(() => undefined);

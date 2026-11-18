@@ -15,11 +15,14 @@ interface RoutedImportController {
 	readonly actions: Readonly<{
 		readonly project: Readonly<{
 			importFiles(files: readonly File[], options: Readonly<Record<string, unknown>>): PromiseLike<unknown> | unknown;
-			openInterchange?(file: File, options: Readonly<{ mediaFiles: readonly File[] }>): PromiseLike<unknown> | unknown;
+			openInterchange?(file: File, options: Readonly<{ mediaFiles: readonly File[] }>): RoutedInterchangeResult | PromiseLike<RoutedInterchangeResult>;
 		}>;
 		readonly labels: Readonly<{ importFile(file: File): PromiseLike<unknown> | unknown }>;
 	}>;
 }
+
+type RoutedInterchangeResult = Readonly<{ companionFiles?: readonly File[]; cancelled?: boolean }> | null | undefined;
+export type ImportFilesToProjectBin = (files: readonly File[], options: Readonly<{ destination: 'project-bin' }>) => unknown;
 
 /** One load boundary for picker, drop, launch, and desktop file handoff routes. */
 export function importWorkspaceRoutedFiles({
@@ -38,13 +41,13 @@ export function importWorkspaceRoutedFiles({
 		const outgoing = activeSession();
 		const outgoingRate = controller.project?.sampleRate;
 		const failures: unknown[] = [];
-		let companionMedia = false;
+		const companionMedia = new Set<File>();
 		for (const file of routed.projects) {
 			try {
 				if (isTimelineInterchangeFile(file.name) && controller.actions.project.openInterchange) {
 					const result = await controller.actions.project.openInterchange(file, { mediaFiles: routed.media });
 					if (importWasCancelled(result)) return 0;
-					companionMedia = true;
+					for (const companion of result?.companionFiles ?? []) companionMedia.add(companion);
 				} else if (importWasCancelled(await openProjectFile(file))) return 0;
 			} catch (error) {
 				if (isExpectedWorkspaceCancellation(error)) throw error;
@@ -53,14 +56,15 @@ export function importWorkspaceRoutedFiles({
 		}
 		if (failures.length && failures.length === routed.projects.length) throwImportFailures(failures);
 		let session = activeSession();
-		if (routed.media.length && !companionMedia) {
+		const looseMedia = routed.media.filter(file => !companionMedia.has(file));
+		if (looseMedia.length) {
 			const placement = session === outgoing ? importOptions : rebaseImportPlacement(importOptions, outgoingRate, controller.project?.sampleRate);
-			const result = await controller.actions.project.importFiles(routed.media, {
+			const result = await controller.actions.project.importFiles(looseMedia, {
 				destination: 'auto', projectBinVisible, ...placement,
 			});
 			if (importWasCancelled(result)) return 0;
 			// A legacy project and its selected audio blocks open through the media importer.
-			if (routed.media.some(isLegacyAupFile)) session = activeSession();
+			if (looseMedia.some(isLegacyAupFile)) session = activeSession();
 		}
 		const assertCurrent = (): void => {
 			if (activeSession() !== session) throw new DOMException('The project changed during file import.', 'AbortError');

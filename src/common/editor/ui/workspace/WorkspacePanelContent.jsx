@@ -90,6 +90,7 @@ export default function WorkspacePanelContent({
 	copy,
 	locale,
 	fileService, confirmFileSizeWarning = /** @type {import('../../controller/shared/file-size-warning.ts').FileSizeWarningConfirmation | undefined} */ (undefined),
+	importRoutedFiles = /** @type {import('./import-workspace-routed-files.ts').ImportFilesToProjectBin | undefined} */ (undefined),
 	playbackMeterSettings,
 	recordingMeterSettings = /** @type {import('../meter-settings.ts').MeterSettings | undefined} */ (undefined),
 	onPlaybackMeterSettingsChange = /** @type {((update: import('./meter-panel-settings.ts').MeterSettingsUpdate) => void) | undefined} */ (undefined),
@@ -179,7 +180,7 @@ export default function WorkspacePanelContent({
 				snapshot={snapshot}
 				copy={copy}
 				locale={locale}
-				fileService={fileService} confirmFileSizeWarning={confirmFileSizeWarning}
+				fileService={fileService} confirmFileSizeWarning={confirmFileSizeWarning} importRoutedFiles={importRoutedFiles}
 				run={run}
 				blocked={blocked}
 			/>

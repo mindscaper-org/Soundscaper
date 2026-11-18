@@ -142,7 +142,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 		capabilities,
 		copy,
 		locale,
-		fileService, confirmFileSizeWarning,
+		fileService, confirmFileSizeWarning, importRoutedFiles,
 		playbackMeterSettings, recordingMeterSettings,
 		onPlaybackMeterSettingsChange: setPlaybackMeterSettings, onRecordingMeterSettingsChange: setRecordingMeterSettings,
 		clippingEnabled: uiFlags.clipping, run,

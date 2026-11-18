@@ -3,7 +3,7 @@
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createSoundscaperScapeNativeRuntime } from '../../src/soundscaper/editor-scape-native.ts';
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
-import { bootEditor, clipByName, fileDataTransfer, importFiles, waitForProjectActivation } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseFileAction, clipByName, fileDataTransfer, importFiles, waitForProjectActivation } from './audio-editor-test-helpers.js';
 
 async function archiveFile(id, title) {
 	const exported = await createSoundscaperScapeNativeRuntime().exportScapeProject(createSoundscaperProject({ id, title }), {
@@ -46,6 +46,25 @@ test('dropping a Scape file and a recording opens the archive before placing the
 	await expect(clipByName(editor, toneA.name)).toHaveCount(0);
 });
 
+test('the Project Bin opens a dropped project and files the accompanying recording in that bin', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: true });
+	const original = await editor.getAttribute('data-project-id');
+	const next = await archiveFile('bin-dropped-project', 'New bin project');
+	const bin = editor.locator('[data-project-bin-drop-target]');
+	const files = await fileDataTransfer(page, [next, toneA]);
+	await bin.dispatchEvent('drop', { dataTransfer: files });
+	await files.dispose();
+	await expect(editor).toHaveAttribute('data-project-id', 'bin-dropped-project');
+	await waitForProjectActivation(editor);
+	const card = editor.getByRole('listitem', { name: `Project bin: ${toneA.name.replace(/\.wav$/u, '')}`, exact: true });
+	await expect(card).toHaveCount(1);
+	await expect(clipByName(editor, toneA.name)).toHaveCount(0);
+	await editor.getByRole('tab', { name: 'Untitled project', exact: true }).click();
+	await waitForProjectActivation(editor);
+	await expect(editor).toHaveAttribute('data-project-id', original);
+	await expect(card).toHaveCount(0);
+});
+
 test('File Open can leave a read-only version of another window’s project', async ({ page, context }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	const original = await editor.getAttribute('data-project-id');
@@ -62,6 +81,25 @@ test('File Open can leave a read-only version of another window’s project', as
 		await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'read-only');
 		await expect(otherEditor).toHaveAttribute('data-project-id', original);
 	} finally { await other.close(); }
+});
+
+test('the browser picker opens the archive even when an optional write grant is unavailable', async ({ page }) => {
+	const archive = await archiveFile('no-write-grant', 'Readable project');
+	await installBrowserFilePicker(page, archive, true);
+	const editor = await bootEditor(page, '/embed/en/');
+	await chooseFileAction(page, editor, 'Open');
+	await expect(editor.getByRole('tab', { name: 'Readable project', exact: true })).toHaveAttribute('aria-selected', 'true');
+	expect(await page.evaluate(() => globalThis.browserFileWriteRequests)).toBe(1);
+});
+
+test('File Open places a recording in a new project without asking to overwrite it', async ({ page }) => {
+	const recording = { ...toneA, name: 'Read-only recording.wav' };
+	await installBrowserFilePicker(page, recording, false);
+	const editor = await bootEditor(page, '/embed/en/');
+	await chooseFileAction(page, editor, 'Open');
+	await expect(editor.getByRole('tab', { name: 'Read-only recording', exact: true })).toHaveAttribute('aria-selected', 'true');
+	await expect(clipByName(editor, recording.name)).toBeVisible();
+	expect(await page.evaluate(() => globalThis.browserFileWriteRequests)).toBe(0);
 });
 
 test('cancelling a project conflict ends that OS launch batch', async ({ page }) => {
@@ -97,6 +135,26 @@ test('cancelling a CUE destination skips the following sheet and releases the la
 	await destination.getByRole('button', { name: 'Cancel', exact: true }).click();
 	await expect(editor.getByRole('tab', { name: 'Launched after CUE', exact: true })).toHaveAttribute('aria-selected', 'true');
 	await expect(destination).toHaveCount(0);
+});
+
+test('a mixed import retires its CUE chooser when a desktop launch reopens the outgoing tab', async ({ page }) => {
+	const original = await archiveFile('cue-origin-project', 'Original tab before CUE');
+	await installDesktopArchiveLaunch(page, original);
+	const editor = await bootEditor(page, '/embed/en/');
+	await importFiles(editor, [original]);
+	await expect(editor).toHaveAttribute('data-project-id', 'cue-origin-project');
+	await waitForProjectActivation(editor);
+	const project = await archiveFile('cue-target-project', 'Project for new CUE');
+	await editor.locator('[data-import-input]').setInputFiles([project, { name: 'target.cue', mimeType: 'application/x-cue',
+		buffer: Buffer.from('TRACK 01 AUDIO\n TITLE "Target cue"\n INDEX 01 00:00:00\n') }]);
+	const chooser = page.locator('[data-cue-import-choice]');
+	await expect(chooser).toBeVisible();
+	await expect(editor).toHaveAttribute('data-project-id', 'cue-target-project');
+	await page.evaluate(() => globalThis.launchNativeArchive());
+	await expect(editor).toHaveAttribute('data-project-id', 'cue-origin-project');
+	await waitForProjectActivation(editor);
+	await expect(chooser).toHaveCount(0);
+	await expect(editor.locator('[data-label-id]')).toHaveCount(0);
 });
 
 test('an OS project launch waits for a manual audio import to finish', async ({ page }) => {
@@ -185,6 +243,22 @@ async function installLaunchQueue(page) {
 		Object.defineProperty(globalThis, 'launchQueue', { configurable: true,
 			value: { setConsumer(consumer) { globalThis.acceptTestLaunch = consumer; } } });
 	});
+}
+
+async function installBrowserFilePicker(page, file, refuseWrite) {
+	await page.addInitScript(({ base64, name, mimeType, refuseWrite }) => {
+		globalThis.browserFileWriteRequests = 0;
+		const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+		Object.defineProperty(globalThis, 'showOpenFilePicker', { configurable: true, value: async () => [{
+			getFile: async () => new File([bytes], name, { type: mimeType }),
+			createWritable() { throw new Error('These tests do not save over the selected file.'); },
+			async requestPermission() {
+				globalThis.browserFileWriteRequests += 1;
+				if (refuseWrite) throw new DOMException('Write access is unavailable.', 'NotAllowedError');
+				return 'granted';
+			},
+		}] });
+	}, { base64: file.buffer.toString('base64'), name: file.name, mimeType: file.mimeType, refuseWrite });
 }
 
 async function launchBatches(page, batches) {

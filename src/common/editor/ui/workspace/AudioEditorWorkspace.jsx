@@ -92,7 +92,8 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	const [editorOverlayTarget, setEditorOverlayTarget] = useState(null);
 	const [playbackMeterSettings, setPlaybackMeterSettings] = useState(() => loadPlaybackMeterSettings(productId));
 	const [recordingMeterSettings, setRecordingMeterSettings] = useState(() => loadRecordingMeterSettings(productId));
-	const { cueImportDialog, importInputRef, requestCueImport } = useCueImportWorkspace(controller, snapshot.project?.id);
+	const currentProjectSession = useCallback(() => editorProjectEditSessionKey(controller, controller.getSnapshot().project?.id), [controller]);
+	const { cueImportDialog, importInputRef, requestCueImport } = useCueImportWorkspace(controller, currentProjectSession());
 	const aup4InputRef = useRef(null);
 	const { legacyDataInputRef, legacyProjectSelection } = useLegacyAupDirectorySelection(controller);
 	const editorRef = useRef(null);
@@ -224,7 +225,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	), [controller, requestScapeOpenDecision]);
 	const openProjectFile = useCallback((file, desktopSesx = false) => openWorkspaceProjectFile(
 		controller, file, openScapeProjectFile, legacyProjectSelection.choose,
-		desktopSesx, (cueFile, prepareProject) => requestCueImport(cueFile, controller.getSnapshot().project?.id, prepareProject)), [controller, legacyProjectSelection, openScapeProjectFile, requestCueImport]);
+		desktopSesx, (cueFile, prepareProject) => requestCueImport(cueFile, currentProjectSession(), prepareProject)), [controller, currentProjectSession, legacyProjectSelection, openScapeProjectFile, requestCueImport]);
 	const openDesktopProjectDescriptor = useCallback((descriptor) => withDesktopProjectReadDescriptor(
 		fileService,
 		descriptor,
@@ -232,16 +233,16 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	), [fileService, openProjectFile, openScapeProjectFile]);
 	const importRoutedFiles = useCallback((files, importOptions = {}) => importWorkspaceRoutedFiles({
 		controller, files, importOptions, openProjectFile,
-		projectBinVisible: projectBinEffectivelyOpen, requestCueImport,
-	}), [controller, openProjectFile, projectBinEffectivelyOpen, requestCueImport]);
+		projectBinVisible: projectBinEffectivelyOpen, requestCueImport: file => requestCueImport(file, currentProjectSession()),
+	}), [controller, currentProjectSession, openProjectFile, projectBinEffectivelyOpen, requestCueImport]);
 	useLaunchedFileImports({
 		controller, importFiles: importRoutedFiles, onError, desktop: fileService.isDesktop,
 	});
 	const openDesktopFiles = useCallback((purpose, multiple = false, importOptions = {}) => openDesktopWorkspaceFiles({
 		getProjectId: () => controller.getSnapshot().project?.id ?? null,
-		getProjectSessionKey: () => editorProjectEditSessionKey(controller, controller.getSnapshot().project?.id),
+		getProjectSessionKey: currentProjectSession,
 		fileService, importFiles: importRoutedFiles, openProjectDescriptor: openDesktopProjectDescriptor,
-	}, purpose, multiple, importOptions), [controller, fileService, importRoutedFiles, openDesktopProjectDescriptor]);
+	}, purpose, multiple, importOptions), [controller, currentProjectSession, fileService, importRoutedFiles, openDesktopProjectDescriptor]);
 	const { clipPropertiesFocusRequest, openClipPropertiesSurface } = useWorkspaceClipPropertiesPanel({
 		controller, run, setActiveSurface, selectedClipId: snapshot.selectedClipId ?? null,
 		projectId: project?.id ?? null, panelVisible: Boolean(preferences?.workspace?.panels?.['clip-properties']?.visible),

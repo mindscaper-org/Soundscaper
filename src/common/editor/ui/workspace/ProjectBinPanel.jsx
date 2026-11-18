@@ -29,7 +29,7 @@ import { importLinkedProjectBinChoice } from './linked-project-bin-import.ts';
 import { openDesktopWorkspaceFiles } from './desktop-workspace-file-choice.ts';
 
 const AUDIO_EDITOR_AUDIO_FILE_ACCEPT = 'audio/*,video/mp4,video/webm,application/ogg,application/x-ogg,.aac,.aif,.aifc,.aiff,.bw64,.bwf,.flac,.m4a,.m4v,.mka,.mp2,.mp3,.mp4,.oga,.ogg,.opus,.rf64,.wav,.wave,.wavpack,.webm,.wma,.wv';
-export default function ProjectBinPanel({ controller, snapshot, copy: providedCopy, locale, fileService, run, blocked, confirmFileSizeWarning = /** @type {import('../../controller/shared/file-size-warning.ts').FileSizeWarningConfirmation | undefined} */ (undefined) }) {
+export default function ProjectBinPanel({ controller, snapshot, copy: providedCopy, locale, fileService, run, blocked, confirmFileSizeWarning = /** @type {import('../../controller/shared/file-size-warning.ts').FileSizeWarningConfirmation | undefined} */ (undefined), importRoutedFiles = /** @type {import('./import-workspace-routed-files.ts').ImportFilesToProjectBin | undefined} */ (undefined) }) {
 	const copy = useMemo(() => snapshot.productId === 'framescaper' ? { ...providedCopy, projectBinImport: providedCopy['ui.framescaperInputs.addMedia'] ?? FRAMESCAPER_INPUTS_COPY.addMedia, projectBinDropTitle: providedCopy['ui.framescaperInputs.dropFiles'] ?? FRAMESCAPER_INPUTS_COPY.dropFiles } : providedCopy, [providedCopy, snapshot.productId]);
 	const inputRef = useRef(null);
 	const replacementInputRef = useRef(null);
@@ -132,6 +132,7 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 
 	const importFiles = (files) => withWebFileLoadLimitContext(async () => {
 		if (mutationBlocked || !files.length) return undefined;
+		if (importRoutedFiles) return importRoutedFiles(files, { destination: 'project-bin' });
 		const projects = [], media = [];
 		for (const file of files) (/\.aup[34]$/iu.test(file?.name || '') ? projects : media).push(file);
 		for (const projectFile of projects) await controller.actions.project.openAudacityProject(projectFile);
