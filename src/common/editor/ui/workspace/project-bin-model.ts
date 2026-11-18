@@ -149,8 +149,7 @@ export function formatProjectBinSource(source: ProjectBinSource | null | undefin
 	if (!source) return copy.projectBinUnknownFormat || '';
 	const mimeSubtype = String(source.mimeType || '')
 		.replace(/^(?:audio|video|image)\//i, '')
-		.replace(/^x-/i, '')
-		.replace('mpeg', 'mp3');
+		.replace(/^x-/i, '');
 	const subtype = source.kind === 'image' ? source.original?.recognizedFormat : mimeSubtype;
 	const format = subtype ? subtype.toUpperCase() : copy.projectBinUnknownFormat || '';
 	if (['video', 'image', 'still', 'generator'].includes(source.kind || '')) {

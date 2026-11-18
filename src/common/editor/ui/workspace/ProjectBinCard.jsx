@@ -138,8 +138,13 @@ const ProjectBinCardContent = memo(function ProjectBinCardContent({
 			media.currentTime = videoStartSeconds;
 		}
 		media.playbackRate = videoPlaybackRate;
-		if (previewPlaying) void media.play().catch(() => controller.actions.projectBin.stopPreview());
-		else media.pause();
+		if (!previewPlaying) {
+			media.pause();
+			return;
+		}
+		let active = true;
+		void media.play().catch(() => { if (active) previewCompletionRef.current(); });
+		return () => { active = false; };
 	}, [controller, previewActive, previewPlaying, previewState, retimeIdentity, retimeUnavailable, videoEndSeconds, videoStartSeconds, videoPlaybackRate, videoEmbeddedAudio, mediaUrl]);
 	const keepVideoAudioBinding = (event) => {
 		// Native decoder initialization can report stale mute state after the first render.
