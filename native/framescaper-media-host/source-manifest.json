@@ -82,8 +82,8 @@
 		},
 		{
 			"path": "build/ffmpeg-9.0.1-external-sources.json",
-			"byteLength": 3446,
-			"sha256": "43adc71385708195d8c8aa8cc40a927c39543946fe04f0a9d6ef24d7ebf040d1"
+			"byteLength": 3477,
+			"sha256": "2ea98c720c3cb8946bc5102ecd1d808cfe1de43f5c3ff1d3122a1bbbb9fba825"
 		},
 		{
 			"path": "build/media-build-commands.mjs",
