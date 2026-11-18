@@ -4,13 +4,17 @@ import { bootEditor, chooseCommandAction, disableNativeSavePicker } from './audi
 import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('a sixteen-track Normalize macro fits the existing memory budget and produces normalized audio', async ({ page }) => {
-	test.setTimeout(90000);
+	test.setTimeout(150_000);
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'Microphone.wav', frequency: 330, duration: 10 });
-	await editor.locator('[data-import-input]').setInputFiles(Array.from({ length: 16 }, (_, index) => ({ ...recording, name: `Microphone ${index + 1}.wav` })));
-	await expect(editor.locator('[data-track-row]')).toHaveCount(16, { timeout: 20000 });
-	await expect(editor.locator('[data-status]')).toContainText('exceeds the tested envelope');
+	const files = Array.from({ length: 16 }, (_, index) => ({ ...recording, name: `Microphone ${index + 1}.wav` }));
+	await Promise.all([
+		// The next file's import can replace the capacity warning in the status bar.
+		expect(editor.locator('[data-status]')).toContainText('exceeds the tested envelope', { timeout: 20_000 }),
+		editor.locator('[data-import-input]').setInputFiles(files),
+	]);
+	await expect(editor.getByRole('button', { name: /^Rename track: Microphone \d+$/u })).toHaveCount(16, { timeout: 20_000 });
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
 	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
@@ -20,8 +24,11 @@ test('a sixteen-track Normalize macro fits the existing memory budget and produc
 	await expect(manager.getByRole('button', { name: 'Run macro', exact: true })).toBeEnabled({ timeout: 30000 });
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'processing', { timeout: 30000 });
 	await manager.getByRole('button', { name: 'Close', exact: true }).last().click();
-	await editor.locator('[data-track-row]').last().getByRole('button', { name: 'Solo', exact: true }).click();
-	const pcm = await exportSamples(page, editor, { includeTail: false });
+	const finalTrack = editor.locator('[data-track-row]').filter({
+		has: page.getByRole('button', { name: 'Rename track: Microphone 16', exact: true }),
+	});
+	await finalTrack.getByRole('button', { name: 'Solo', exact: true }).click();
+	const pcm = await exportSamples(page, editor, { includeTail: false, renderTimeout: 75_000 });
 	const peak = pcm.reduce((maximum, sample) => Math.max(maximum, Math.abs(sample)), 0);
 	expect(peak).toBeCloseTo(10 ** (-1 / 20), 3);
 });

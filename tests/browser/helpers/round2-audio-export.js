@@ -4,15 +4,18 @@ import { expect } from '../audio-editor-test-fixtures.js';
 import { commitInput, openExportDialog, readDownloadBytes } from '../audio-editor-test-helpers.js';
 import { readWavePcm } from '../../helpers/read-wave-pcm.ts';
 
-export async function exportSamples(page, editor, { sampleRate, includeTail } = {}) {
+export async function exportSamples(page, editor, { sampleRate, includeTail, renderTimeout = 20_000 } = {}) {
 	const dialog = await openExportDialog(page, editor);
 	if (sampleRate !== undefined) await commitInput(dialog.locator('[data-export-field="sampleRate"] input'), String(sampleRate));
 	if (includeTail !== undefined) await dialog.getByRole('checkbox', { name: /^Include effect tails/u }).setChecked(includeTail);
 	const link = dialog.locator('[data-export-download]');
-	const previousDownload = await link.count() ? await link.getAttribute('href') : null;
+	const previousDownload = await link.getAttribute('href');
 	await dialog.getByRole('button', { name: 'Export', exact: true }).click();
-	await expect(link).toBeVisible({ timeout: 20_000 });
-	await expect.poll(() => link.getAttribute('href')).not.toBe(previousDownload);
+	await expect.poll(async () => {
+		if (!await link.isVisible()) return false;
+		const href = await link.getAttribute('href');
+		return Boolean(href && href !== '#' && href !== previousDownload);
+	}, { timeout: renderTimeout }).toBe(true);
 	const bytes = await readDownloadBytes(page, link);
 	await dialog.getByRole('button', { name: 'Close', exact: true }).click();
 	await expect(dialog).toBeHidden();

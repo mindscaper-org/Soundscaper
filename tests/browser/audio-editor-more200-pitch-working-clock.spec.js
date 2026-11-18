@@ -42,8 +42,11 @@ for (const variant of variants) test(`pitched native audio retains its audible p
 	expect(peak.frequency).toBeCloseTo(expected, -1); expect(peak.amplitude).toBeGreaterThan(.02);
 	if (variant.render) {
 		const clip = editor.locator('[data-clip-id="clip"]').first();
+		const pitchBadge = clip.getByRole('button', { name: 'Clip pitch', exact: true });
+		await expect(pitchBadge).toBeVisible();
 		await clip.getByRole('button', { name: 'Clip menu', exact: true }).click();
 		await page.locator('.audio-editor-clip-context-menu').getByRole('menuitem', { name: 'Render pitch and speed', exact: true }).click();
+		await expect(pitchBadge).toHaveCount(0);
 		const properties = await openClipProperties(page, editor, clip, { additional: false });
 		await expect(properties.getByRole('textbox', { name: 'Pitch', exact: true })).toHaveValue('0');
 		await closeClipProperties(properties);

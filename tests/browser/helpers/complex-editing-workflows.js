@@ -8,7 +8,7 @@ import {
 	chooseNestedCommandAction,
 	clickClipInterior,
 	clipField,
-	closeClipProperties, closeDialog,
+	closeClipProperties,
 	commitInput,
 	openClipProperties,
 	showClipTimingFields,
@@ -524,7 +524,7 @@ export async function addTrackRackEffect(page, editor, row, effectName = 'Invert
 	if (await host.count()) {
 		const dialog = host.getByRole('dialog', { name: effectName, exact: true });
 		await expect(dialog).toBeVisible();
-		await closeDialog(dialog);
+		await dialog.getByRole('button', { name: 'Close', exact: true }).press('Enter');
 		await expect(host).toHaveCount(0);
 	}
 	return panel;
