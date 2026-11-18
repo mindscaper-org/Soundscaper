@@ -169,6 +169,37 @@ test('spectral center snapping keeps the audible frequency when a clip is looped
 	expect(errors).toEqual([]);
 });
 
+test('spectral frequency handles advertise valid limits for a sub-hertz selection', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await importFiles(editor, [spectralTone]);
+	const clip = clipByName(editor, spectralTone.name);
+	const track = clip.locator('xpath=ancestor::div[@data-track-row]');
+	await track.getByRole('button', { name: 'Track menu', exact: true }).click();
+	const display = page.locator('.audio-editor-track-menu').getByRole('menuitem', { name: /^Track visualization(?:\s|$)/u });
+	await display.focus();
+	await page.keyboard.press('ArrowRight');
+	await display.getByRole('menu').getByRole('menuitem', { name: 'Spectrogram', exact: true }).click();
+	await clip.focus();
+	await page.keyboard.press('Control+a');
+	await openSpectralDialog(page, editor);
+	const dialog = page.getByRole('dialog', { name: 'Spectral selection', exact: true });
+	await dialog.getByRole('textbox', { name: /^Minimum frequency \(Hz\)/u }).fill('100.25');
+	await dialog.getByRole('textbox', { name: /^Maximum frequency \(Hz\)/u }).fill('100.75');
+	await dialog.getByRole('button', { name: 'Select range', exact: true }).click();
+	const minimum = track.getByRole('slider', { name: 'Spectral selection minimum-frequency handle', exact: true });
+	const maximum = track.getByRole('slider', { name: 'Spectral selection maximum-frequency handle', exact: true });
+	await expect(minimum).toHaveAttribute('aria-valuenow', '100.25');
+	await expect(minimum).toHaveAttribute('aria-valuemax', '100.25');
+	await expect(maximum).toHaveAttribute('aria-valuemin', '100.75');
+	await expect(maximum).toHaveAttribute('aria-valuenow', '100.75');
+	await expect(minimum).toHaveAttribute('aria-valuetext', '100.25 Hz');
+	await expect(maximum).toHaveAttribute('aria-valuetext', '100.75 Hz');
+	await minimum.press('End');
+	await maximum.press('Home');
+	await expect(minimum).toHaveAttribute('aria-valuenow', '100.25');
+	await expect(maximum).toHaveAttribute('aria-valuenow', '100.75');
+});
+
 async function openSpectralDialog(page, editor) {
 	await editor.getByRole('button', { name: 'Spectrogram options', exact: true }).click();
 	await page.getByRole('menuitem', { name: 'Select spectral frequency range', exact: true }).click();

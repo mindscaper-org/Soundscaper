@@ -10,7 +10,7 @@ import {
 	spectrogramFrequencyFraction,
 } from './geometry.ts';
 import { clamp } from './track-row-helpers.jsx';
-import { moveSpectralBandCenter, spectralBandCenter, snapSpectralCenterToPeak } from './spectral-center-gesture.ts';
+import { moveSpectralBandCenter, spectralBandCenter, spectralBandEdgeLimits, snapSpectralCenterToPeak } from './spectral-center-gesture.ts';
 import { useSpectralBandCancellation } from './useSpectralBandCancellation.ts';
 import { spectralChannelBands } from './spectral-channel-geometry.ts';
 
@@ -36,6 +36,7 @@ export function SpectralSelectionOverlay({
 	const initial = spectralSelectionState(selection);
 	const previewRef = useRef(initial);
 	const [preview, setPreview] = useState(initial);
+	const { highestMinimum, lowestMaximum } = spectralBandEdgeLimits(preview);
 	const displayMinimum = Math.max(0, Number(track.spectrogram?.minimumFrequency) || 0);
 	const displayMaximum = Math.max(
 		displayMinimum + 1,
@@ -75,6 +76,7 @@ export function SpectralSelectionOverlay({
 		dragRef.current = {
 			kind,
 			band: previewRef.current,
+			limits: spectralBandEdgeLimits(previewRef.current),
 			peaks: kind === 'center-frequency' ? onFindPeaks?.() || [] : [],
 			pointerId: event.pointerId,
 			target: event.currentTarget,
@@ -107,8 +109,8 @@ export function SpectralSelectionOverlay({
 				setPreviewState(moveSpectralBandCenter(drag.band, peak, scale, displayMinimum, displayMaximum));
 				return;
 			} else if (drag.kind === 'minimum-frequency') {
-				next.minimumFrequency = clamp(frequency, 0, next.maximumFrequency - 1);
-			} else next.maximumFrequency = clamp(frequency, next.minimumFrequency + 1, sampleRate / 2);
+				next.minimumFrequency = clamp(frequency, 0, drag.limits.highestMinimum);
+			} else next.maximumFrequency = clamp(frequency, drag.limits.lowestMaximum, sampleRate / 2);
 		}
 		setPreviewState(next);
 	};
@@ -152,8 +154,8 @@ export function SpectralSelectionOverlay({
 		else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') requested = current + amount;
 		else if (event.key === 'PageDown') requested = current - 1_000;
 		else if (event.key === 'PageUp') requested = current + 1_000;
-		else if (event.key === 'Home') requested = edge === 'center' ? displayMinimum : edge === 'minimum' ? 0 : preview.minimumFrequency + 1;
-		else if (event.key === 'End') requested = edge === 'center' ? displayMaximum : edge === 'minimum' ? preview.maximumFrequency - 1 : sampleRate / 2;
+		else if (event.key === 'Home') requested = edge === 'center' ? displayMinimum : edge === 'minimum' ? 0 : lowestMaximum;
+		else if (event.key === 'End') requested = edge === 'center' ? displayMaximum : edge === 'minimum' ? highestMinimum : sampleRate / 2;
 		if (requested == null) return;
 		stopClick(event);
 		if (edge === 'center') {
@@ -163,8 +165,8 @@ export function SpectralSelectionOverlay({
 		publish({
 			...preview,
 			[name]: edge === 'minimum'
-				? clamp(requested, 0, preview.maximumFrequency - 1)
-				: clamp(requested, preview.minimumFrequency + 1, sampleRate / 2),
+				? clamp(requested, 0, highestMinimum)
+				: clamp(requested, lowestMaximum, sampleRate / 2),
 		});
 	};
 
@@ -244,10 +246,10 @@ export function SpectralSelectionOverlay({
 				role="slider"
 				aria-orientation="vertical"
 				aria-label={copy.spectralMaximumHandle}
-				aria-valuemin={preview.minimumFrequency + 1}
+				aria-valuemin={lowestMaximum}
 				aria-valuemax={sampleRate / 2}
 				aria-valuenow={preview.maximumFrequency}
-				aria-valuetext={`${Math.round(preview.maximumFrequency)} Hz`}
+				aria-valuetext={`${Number(preview.maximumFrequency.toPrecision(10))} Hz`}
 				onKeyDown={(event) => adjustFrequency('maximum', event)}
 			/>
 			<button
@@ -257,9 +259,9 @@ export function SpectralSelectionOverlay({
 				aria-orientation="vertical"
 				aria-label={copy.spectralMinimumHandle}
 				aria-valuemin={0}
-				aria-valuemax={preview.maximumFrequency - 1}
+				aria-valuemax={highestMinimum}
 				aria-valuenow={preview.minimumFrequency}
-				aria-valuetext={`${Math.round(preview.minimumFrequency)} Hz`}
+				aria-valuetext={`${Number(preview.minimumFrequency.toPrecision(10))} Hz`}
 				onKeyDown={(event) => adjustFrequency('minimum', event)}
 			/>
 		</div>
