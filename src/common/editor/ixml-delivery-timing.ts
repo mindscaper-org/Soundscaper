@@ -46,7 +46,8 @@ export function ixmlForDeliveryChannels(
 ): Readonly<{ metadata: IxmlMetadata | null; omittedTrackCount: number }> {
 	if (input == null) return { metadata: null, omittedTrackCount: 0 };
 	const sameRouting = mapping.inputChannelCount === mapping.outputChannelCount
-		&& mapping.channels.every((output, index) => output.inputs.every(value => value.gain === 0 || value.channel === index));
+		&& mapping.channels.every((output, index) => output.inputs.every(value => value.gain === 0 || value.channel === index)
+			&& output.inputs.reduce((gain, value) => gain + value.gain, 0) !== 0);
 	if (sameRouting) return { metadata: normalizeIxmlMetadata(input), omittedTrackCount: 0 };
 	const metadata = parseIxmlPayload(encodeIxmlPayload(input));
 	const lists = xmlTree(metadata.rawXml).children.filter(node => node.name === 'TRACK_LIST');
