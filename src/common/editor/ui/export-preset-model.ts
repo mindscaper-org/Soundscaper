@@ -242,9 +242,11 @@ export function dialogSettingsFromDeliveryTarget(
  */
 export function statedVideoCaptions(
 	settings: Readonly<Record<string, unknown>> | undefined,
+	burnInOnly = false,
 ): Readonly<Record<string, unknown>> | null {
 	const trackId = settings?.captionTrackId;
 	if (typeof trackId !== 'string' || !trackId) return null;
+	if (burnInOnly) return Object.freeze({ trackId, mux: false, sidecar: null, burnIn: true });
 	const delivery = String(settings?.captionDelivery ?? 'mux');
 	const mux = delivery === 'mux' || delivery.startsWith('mux+');
 	const sidecar = delivery.startsWith('mux+') ? delivery.slice(4) : (mux ? null : delivery);

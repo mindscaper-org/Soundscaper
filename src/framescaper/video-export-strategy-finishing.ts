@@ -32,6 +32,7 @@ import {
 } from '../common/editor/video-keyframe-export-plan-v7.ts';
 import { framescaperProjectRetimeFoundationFinishing } from './editor-project-finishing-runtime.ts';
 import { runFramescaperFinishingEncode } from './video-export-encode-cleanup.ts';
+import { planFramescaperVideoExportCaptions } from './video-export-caption-plan.ts';
 import { hasVisibleFramescaperExportPicture } from './video-export-picture-availability-finishing.ts';
 import { assertFramescaperProjectFinishingProfile } from './editor-domain-runtime-profile.ts';
 import {
@@ -173,9 +174,7 @@ export function createFramescaperVideoExportStrategyFinishing(
 		},
 		createPlan(request: ProductVideoExportStrategyPlanRequest) {
 			const authority = currentAuthority(profile, request, exports);
-			if (request.captions != null) {
-				throw new RangeError('Selected finishing caption delivery is sidecar-only through Caption Tracks; video export mux and burn-in are unavailable.');
-			}
+			const project = authority.canonicalProject as unknown as FramescaperProjectFinishing;
 			const selectedRange = request.range === undefined || request.range === 'project'
 				? undefined : exportRange(authority.retimeExportProject, request.range);
 			const plan = hasVisibleFramescaperExportPicture(authority.canonicalProject, ['video'], selectedRange)
@@ -183,14 +182,11 @@ export function createFramescaperVideoExportStrategyFinishing(
 					...request,
 					canonicalProject: authority.retimeProject,
 					exportProject: authority.retimeExportProject,
-					// finishing captions are accounted and delivered as explicit sidecars;
-					// they are not a keyed picture mux/burn request for the retime core.
 					captions: undefined,
 				})
-				: createFramescaperVideoVisualPlanFinishing(
-					authority.canonicalProject as unknown as FramescaperProjectFinishing, request,
-				);
+				: createFramescaperVideoVisualPlanFinishing(project, request);
 			if (!plan) throw new Error('Selected finishing browser export requires an exact RGBA route.');
+			planFramescaperVideoExportCaptions(project, plan, request.captions);
 			plans.set(plan, authority);
 			timingSources.set(plan, allVideoSourceIds(authority.canonicalProject));
 			return plan;
@@ -310,11 +306,6 @@ async function createVisualExecution(
 		'../common/editor/ui/video-keyframe-offline-video-export-encoder.ts'
 	);
 	request.assertCurrent();
-	const exact = await createFramescaperVideoExportExactExecutionFinishing({
-		profile, project: authority.canonicalProject as unknown as FramescaperProjectFinishing,
-		request, ...(assetStore === undefined ? {} : { store: assetStore }),
-		...exactDependencies,
-	});
 	const frameSource = createVideoExactPictureExportFrameSource({
 		sampleRate: request.plan.sampleRate,
 		startFrame: request.plan.range.startFrame,
@@ -324,6 +315,23 @@ async function createVisualExecution(
 			frameRate: request.plan.canvas.frameRate, fit: request.plan.canvas.fit,
 			backgroundColor: request.plan.canvas.backgroundColor,
 		},
+	});
+	const encoderOptions: Readonly<Record<string, number>> = request.maximumOutputBytes === undefined
+		? Object.freeze({}) : Object.freeze({ maximumOutputBytes: request.maximumOutputBytes as number });
+	const options: VideoKeyframeOfflineEncoderOptions = Object.freeze({
+		format: request.plan.format,
+		quality: request.plan.quality,
+		...(request.webCodecs ? { webCodecs: request.webCodecs } : {}),
+		...(request.audioMix instanceof Blob ? { audioMix: request.audioMix } : {}),
+		encoderOptions,
+		signal: request.signal, assertCurrent: request.assertCurrent, confirmFileSizeWarning: request.confirmFileSizeWarning,
+	});
+	await preflightVideoKeyframeOfflineEncoder(options, frameSource);
+	request.assertCurrent();
+	const exact = await createFramescaperVideoExportExactExecutionFinishing({
+		profile, project: authority.canonicalProject as unknown as FramescaperProjectFinishing,
+		request, ...(assetStore === undefined ? {} : { store: assetStore }),
+		...exactDependencies,
 	});
 	const renderer: VideoKeyframeOfflineRgbaRenderer = Object.freeze({
 		width: visualPlan.canvas.width, height: visualPlan.canvas.height,
@@ -337,17 +345,6 @@ async function createVisualExecution(
 		},
 		async dispose() { await exact.dispose(); },
 	});
-	const encoderOptions: Readonly<Record<string, number>> = request.maximumOutputBytes === undefined
-		? Object.freeze({}) : Object.freeze({ maximumOutputBytes: request.maximumOutputBytes as number });
-	const options: VideoKeyframeOfflineEncoderOptions = Object.freeze({
-		format: request.plan.format,
-		quality: request.plan.quality,
-		...(request.webCodecs ? { webCodecs: request.webCodecs } : {}),
-		...(request.audioMix instanceof Blob ? { audioMix: request.audioMix } : {}),
-		encoderOptions,
-		signal: request.signal, assertCurrent: request.assertCurrent, confirmFileSizeWarning: request.confirmFileSizeWarning,
-	});
-	await preflightVideoKeyframeOfflineEncoder(options, frameSource);
 	return Object.freeze({ exact, encoderRequest: createVideoKeyframeOfflineEncoderRequest(
 		options, frameSource, renderer,
 	) });

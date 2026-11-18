@@ -74,10 +74,10 @@ const CAPTION_DELIVERIES = Object.freeze([
  * @param {{ copy: Readonly<Record<string, string>>, disabled: boolean,
  * labelTracks?: readonly { id: string, name?: string }[], settings: Readonly<Record<string, unknown>>,
  * onChange: (name: string, value: unknown) => void, captionDeliveryUnavailable?: boolean,
- * productId?: string | null }} props
+ * captionBurnInOnly?: boolean }} props
  */
 export default function VideoDeliveryFields({
-	copy, disabled, labelTracks = [], settings, onChange, captionDeliveryUnavailable = false, productId = null,
+	copy, disabled, labelTracks = [], settings, onChange, captionDeliveryUnavailable = false, captionBurnInOnly = false,
 }) {
 	const target = findPlatformDeliveryPreset(settings.deliveryTarget);
 	// The fallback named here has to be the one the delivery actually reaches,
@@ -215,14 +215,12 @@ export default function VideoDeliveryFields({
 			/>
 			{captionDeliveryUnavailable ? (
 				<p className="audio-editor-panel-hint" data-export-field="captionDeliveryUnavailable">
-					{productId === 'soundscaper'
-						? copy.soundscaperVideoCaptionDeliveryUnavailable
-						: copy.videoCaptionDeliveryUnavailable || 'Caption burn-in and mux are unavailable for Framescaper 1.0. Export SRT, WebVTT, or IMSC 1.1 sidecars from Tracks > Caption Tracks.'}
+					{copy.soundscaperVideoCaptionDeliveryUnavailable}
 				</p>
 			) : (
 				<>
 					<LabeledDropdown
-						label={copy.videoCaptionTrack}
+						label={captionBurnInOnly ? copy.videoCaptionBurnIn : copy.videoCaptionTrack}
 						hook="captionTrack"
 						value={settings.captionTrackId}
 						onChange={(value) => onChange('captionTrackId', value)}
@@ -232,7 +230,7 @@ export default function VideoDeliveryFields({
 							...labelTracks.map((track) => ({ value: track.id, label: track.name || track.id })),
 						]}
 					/>
-					{settings.captionTrackId && (
+					{!captionBurnInOnly && settings.captionTrackId && (
 						<>
 							<LabeledDropdown
 								label={copy.videoCaptionDelivery}

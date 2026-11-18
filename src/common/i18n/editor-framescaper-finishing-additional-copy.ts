@@ -7,7 +7,7 @@ export const FRAMESCAPER_FINISHING_ADDITIONAL_COPY = Object.freeze({
 	apply: "Apply",
 	applyDialogueChain: "Apply dialogue chain",
 	captionChooseSidecarFile: "Choose sidecar file",
-	captionDeliveryUnavailable: "Caption burn-in and mux are intentionally unavailable in Milestones 1–4.",
+	captionBurnInExport: "Choose a caption track in File > Export video to burn it into the picture in a fixed style.",
 	captionExportSelectedTrack: "Export selected track",
 	captionFileSelectionCancelled: "No sidecar file selected.",
 	captionFileSaveCancelled: "Caption export cancelled.",

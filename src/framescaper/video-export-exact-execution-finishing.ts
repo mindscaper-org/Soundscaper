@@ -7,6 +7,8 @@ import type { VideoKeyframeOfflineRgbaCompositor } from '../common/editor/video-
 import type { UnifiedExactRenderPlanV13 } from '../common/editor/unified-exact-render-plan.ts';
 import { outputAtSequencePosition } from '../common/editor/unified-exact-render-output-timing.ts';
 import type { VideoSourceTimingView } from '../common/editor/video-source-timing-view.ts';
+import { videoPictureCaptionStage } from '../common/editor/video-picture-caption-stage.ts';
+import type { FramescaperCaptionRaster } from './video-export-caption-raster.ts';
 import type { FramescaperProjectFinishing } from './editor-project-finishing.ts';
 import {
 	createFramescaperSelectedExactFrameExecutionFinishing,
@@ -102,6 +104,8 @@ export async function createFramescaperVideoExportExactExecutionFinishing(option
 	}
 	let supplemental: FramescaperVideoExportSupplementalPictureExecutionFinishing | null = null;
 	let supplementalCandidate: unknown = null;
+	let captionRaster: FramescaperCaptionRaster | null = null;
+	const caption = videoPictureCaptionStage(options.request.plan);
 	try {
 		supplementalCandidate = await options.createSupplementalPictureExecution?.({
 			canonicalProject: options.request.canonicalProject,
@@ -111,11 +115,18 @@ export async function createFramescaperVideoExportExactExecutionFinishing(option
 		}) ?? null;
 		assertSupplementalExecution(supplementalCandidate);
 		supplemental = supplementalCandidate;
+		if (caption) {
+			const { createFramescaperCaptionRaster } = await import('./video-export-caption-raster.ts');
+			const { width, height } = visual.exactPlan.output.canvas;
+			captionRaster = await createFramescaperCaptionRaster(caption.stage, width, height, options.request.signal);
+			options.request.assertCurrent();
+		}
 	} catch (error) {
 		const failures: unknown[] = [error];
 		try { await disposeSupplementalCandidate(supplementalCandidate); } catch (cleanupError) {
 			failures.push(cleanupError);
 		}
+		try { captionRaster?.dispose(); } catch (cleanupError) { failures.push(cleanupError); }
 		try { await exact.dispose(); } catch (cleanupError) { failures.push(cleanupError); }
 		try { await sourceFrames.dispose(); } catch (cleanupError) { failures.push(cleanupError); }
 		try { visual.dispose(); } catch (cleanupError) { failures.push(cleanupError); }
@@ -146,6 +157,8 @@ export async function createFramescaperVideoExportExactExecutionFinishing(option
 			layers, supplementalPictures,
 			width, height, target: rgba, signal,
 		});
+		captionRaster?.draw(rgba, (frame.timelineSample - visual.exactPlan.timebase.sampleStart)
+			/ visual.exactPlan.timebase.sampleRate);
 		visual.accountFrame(frame, result.consumedNodeIds);
 		openFxDispositions.push(...result.openFxDispositions);
 		reportsOpenFxDegradation ||= result.reportsOpenFxDegradation;
@@ -157,12 +170,14 @@ export async function createFramescaperVideoExportExactExecutionFinishing(option
 		}
 		return Object.freeze({
 			...visual.disposition(),
+			...(caption ? { captionDisposition: 'burn-in' as const, captionTrackIds: Object.freeze([caption.trackId]) } : {}),
 			openFxDispositions: Object.freeze([...openFxDispositions]),
 			reportsOpenFxDegradation,
 		});
 	}
 	async function dispose(): Promise<void> {
 		const failures: unknown[] = [];
+		try { captionRaster?.dispose(); } catch (error) { failures.push(error); }
 		try { await supplemental?.dispose(); } catch (error) { failures.push(error); }
 		try { await exact.dispose(); } catch (error) { failures.push(error); }
 		try { await sourceFrames.dispose(); } catch (error) { failures.push(error); }

@@ -29,7 +29,7 @@ import { useExportDialogOutput } from '../use-export-dialog-output.ts';
 import { createExportPresetActions } from '../export-preset-actions.js';
 import { projectHasTimelineVideo } from '../timeline-media-presence.ts';
 import { exportSurfaceDialogTitle } from '../export-surface-copy.ts';
-import { videoCaptionDeliveryUnavailable } from '../video-caption-delivery-surface.ts';
+import { framescaperVideoCaptionBurnInAvailable, videoCaptionDeliveryUnavailable } from '../video-caption-delivery-surface.ts';
 import { LabeledDropdown } from './inspector-controls.jsx';
 import ExportChannelMappingDialog from './ExportChannelMappingDialog.tsx';
 import ExportChannelsField from './ExportChannelsField.jsx';
@@ -107,9 +107,10 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 	const captionDeliveryUnavailable = videoCaptionDeliveryUnavailable(
 		productId, snapshot.project,
 	);
-	// Generic video delivery captions from label tracks. Selected Framescaper owns its
-	// explicit caption tracks and sidecar export through the gated menu surface.
-	const labelTracks = (snapshot.project?.tracks || []).filter((track) => track?.type === 'label');
+	const captionBurnInOnly = framescaperVideoCaptionBurnInAvailable(productId, snapshot.project);
+	const captionTracks = captionBurnInOnly
+		? (snapshot.project.videoCaptionTracks ?? []).filter(track => track.sequenceId === snapshot.project.primarySequenceId)
+		: (snapshot.project?.tracks || []).filter(track => track?.type === 'label');
 	const admRequired = settings.format === 'bw64' && settings.adm == null;
 	const admPassthrough = settings.format === 'bw64' && settings.adm?.mode === 'passthrough';
 	// Only an authored programme carries the positions a binaural render places
@@ -241,7 +242,8 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 			: {};
 		const metadata = compactFields(exportDialogMetadataFields(settings, customMetadata));
 		const request = createExportDialogRequest(admittedSettings, {
-			metadata: exportDialogMetadata(admittedSettings.format, desktop, metadata), desktop, captionDeliveryUnavailable, project: snapshot.project,
+			metadata: exportDialogMetadata(admittedSettings.format, desktop, metadata), desktop,
+			captionDeliveryUnavailable, captionBurnInOnly, project: snapshot.project,
 			bext: admittedSettings.bext,
 			adm: admittedSettings.adm,
 			channelMapping: videoFormat
@@ -412,10 +414,10 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 						<VideoDeliveryFields
 							copy={copy}
 							disabled={settingsDisabled}
-							labelTracks={labelTracks}
+							labelTracks={captionTracks}
 							settings={settings}
 							onChange={setVideoDeliverySetting}
-							captionDeliveryUnavailable={captionDeliveryUnavailable} productId={productId}
+							captionDeliveryUnavailable={captionDeliveryUnavailable} captionBurnInOnly={captionBurnInOnly}
 						/>
 					)}
 				</section>

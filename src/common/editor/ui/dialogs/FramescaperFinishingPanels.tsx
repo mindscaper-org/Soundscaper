@@ -115,8 +115,7 @@ export function CaptionSidecarEditor(props: Readonly<{
 				event.currentTarget.value = '';
 				if (file) props.onChooseFile(file);
 			}} /></div>
-		<p>{text(props.copy, 'captionDeliveryUnavailable',
-			FRAMESCAPER_FINISHING_ADDITIONAL_COPY.captionDeliveryUnavailable)}</p>
+		<p>{text(props.copy, 'captionBurnInExport', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.captionBurnInExport)}</p>
 	</fieldset>;
 }
 
