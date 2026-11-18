@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { MIDI_INSTRUMENTS, type MidiInstrument } from '../../midi-model.ts';
 import { midiNativeInstallationId } from '../../midi-native-installation-id.ts';
 import { nativePluginPresetBridge } from '../../controller/effects/native-plugin-preset-runtime.ts';
@@ -10,8 +10,8 @@ import { openSoundscaperMidiInstrumentSettings } from './SoundscaperNativeServic
 import { subscribeNativePluginRegistryChanges } from '../native-plugin-registry-events.ts';
 
 interface Props {
-	readonly controller: object;
-	readonly track: unknown;
+	readonly controller: { getSnapshot?(): { readonly selectedTrackId?: string | null } };
+	readonly track: { readonly id: string };
 	readonly instrument: MidiInstrument;
 	readonly sampleRate: number;
 	readonly disabled: boolean;
@@ -23,6 +23,8 @@ interface Props {
 /** Instrument availability lives inside the existing MIDI selector, independently of effect menus. */
 export function MidiInstrumentSelect({ controller, track, instrument, sampleRate, disabled, copy, setInstrument, run }: Props) {
 	const [choices, setChoices] = useState<readonly MidiNativeInstrumentChoice[]>([]);
+	const selectionRevision = useRef(0);
+	useLayoutEffect(() => () => { selectionRevision.current += 1; }, [controller, disabled, track.id]);
 	const bridge = resolveSoundscaperNativeServicesBridge();
 	const refresh = useCallback(async () => bridge ? midiNativeInstrumentChoices(await bridge.listNativePlugins(), track) : [], [bridge, track]);
 	useEffect(() => {
@@ -39,13 +41,16 @@ export function MidiInstrumentSelect({ controller, track, instrument, sampleRate
 	}, [refresh]);
 	const selected = typeof instrument === 'string' ? instrument : `native:${midiNativeInstallationId(instrument)}`;
 	const assign = (value: string) => {
+		const revision = ++selectionRevision.current;
 		if (value === 'native:settings') { openSoundscaperMidiInstrumentSettings(controller); return; }
 		if (!value.startsWith('native:')) { setInstrument(value as MidiInstrument); return; }
 		const installationId = value.slice('native:'.length);
+		const selectedTrackId = controller.getSnapshot?.().selectedTrackId;
 		run(async () => {
 			const native = nativePluginPresetBridge(controller);
 			if (!native) throw new Error('The desktop MIDI instrument runtime is unavailable.');
 			await native.selectNativePluginInstallation({ installationId });
+			if (revision !== selectionRevision.current || selectedTrackId !== controller.getSnapshot?.().selectedTrackId) return;
 			const instance = await native.instantiateNativePlugin({ installationId, instanceId: null, sampleRate });
 			await native.closeNativePluginInstance({ instanceId: instance.instanceId });
 		});

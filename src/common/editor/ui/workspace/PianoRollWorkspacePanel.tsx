@@ -37,6 +37,7 @@ interface ClipChanges {
 
 interface PianoRollController {
 	readonly actions: { readonly midi: MidiActions };
+	getSnapshot?(): { readonly selectedTrackId?: string | null };
 	subscribeTelemetry(listener: () => void): () => void;
 	getTelemetrySnapshot(): { readonly positionFrame: number };
 }
