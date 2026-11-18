@@ -47,7 +47,9 @@ for (const product of ['soundscaper', 'framescaper'] as const) for (const name o
 			file => controller.actions.project.openScapeFile(file, () => 'copy'));
 		const opened: unknown = controller.project;
 		assert.ok(opened && typeof opened === 'object');
-		assert.equal(Reflect.get(opened, 'id'), project.id); assert.equal(Reflect.get(opened, 'title'), 'Suffix custody');
+		if (product === 'framescaper') assert.match(String(Reflect.get(opened, 'id')), /^opaque-project-/u);
+		else assert.equal(Reflect.get(opened, 'id'), project.id);
+		assert.equal(Reflect.get(opened, 'title'), 'Suffix custody');
 		assert.equal(Reflect.get(opened, 'schemaFamily'), 'soundscaper');
 		if (product === 'soundscaper') assert.ok(validateSoundscaperProject(opened));
 		assert.equal(controller.getSnapshot().readOnly, product === 'framescaper');
@@ -59,6 +61,7 @@ for (const product of ['soundscaper', 'framescaper'] as const) for (const name o
 		context.after(async () => { await recipient.close(); });
 		const returned = await runtime.importScapeProject(copied, recipient); assert.equal(returned.readOnly, false);
 		const returnedProject: unknown = returned.project; assert.ok(validateSoundscaperProject(returnedProject));
+		assert.equal(returnedProject.id, project.id);
 		assert.equal(returnedProject.title, 'Suffix custody'); assert.equal(returnedProject.sources.length, 1);
 		const restored = returnedProject.sources[0]; assert.ok(restored?.kind === 'audio');
 		assert.equal(restored.sampleRate, 48_000); assert.equal(restored.frameCount, 4800); assert.equal(restored.channelCount, 1);

@@ -59,7 +59,7 @@ test.describe('exact selected-schema cross-product Scape handoffs', () => {
 			await openScapeArchive(recipient.editor, outboundArchive, 'soundscaper-v30-outbound.sscape');
 			await expect(recipient.page.locator('[data-editor-toast="workspace-status-error"]'))
 				.toContainText('This project is read-only.', { timeout: 20_000 });
-			await expect(recipient.editor).toHaveAttribute('data-project-id', projectId);
+			await expect(recipient.editor).toHaveAttribute('data-project-id', /^opaque-project-/u);
 			await expect(recipient.editor).toHaveAttribute('data-edit-block-reason', 'read-only');
 			await expect(clipByName(recipient.editor, toneA.name)).toHaveCount(0);
 			await expect(recipient.page.getByRole('dialog', { name: 'Project features unavailable' }))
@@ -110,7 +110,7 @@ test.describe('exact selected-schema cross-product Scape handoffs', () => {
 			await openScapeArchive(recipient.editor, outboundArchive, 'framescaper-v1-outbound.fscape');
 			await expect(recipient.page.locator('[data-editor-toast="workspace-status-error"]'))
 				.toContainText('This project is read-only.', { timeout: 20_000 });
-			await expect(recipient.editor).toHaveAttribute('data-project-id', projectId);
+			await expect(recipient.editor).toHaveAttribute('data-project-id', /^opaque-project-/u);
 			await expect(recipient.editor).toHaveAttribute('data-edit-block-reason', 'read-only');
 			await expect(clipByName(recipient.editor, toneA.name)).toHaveCount(0);
 			await expect(recipient.page.getByRole('dialog', { name: 'Project features unavailable' }))

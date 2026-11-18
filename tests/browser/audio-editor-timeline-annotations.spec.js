@@ -330,7 +330,7 @@ test.describe('native timeline annotations', () => {
 			await expect(framesPage.locator('[data-editor-toast="workspace-status-error"]'))
 				.toContainText('This project is read-only.', { timeout: 20_000 });
 			await expect(framescaper).toHaveAttribute('data-product', 'framescaper');
-			await expect(framescaper).toHaveAttribute('data-project-id', projectId);
+			await expect(framescaper).toHaveAttribute('data-project-id', /^opaque-project-/u);
 			await expect(framescaper).toHaveAttribute('data-edit-block-reason', 'read-only');
 			await expect(framescaper.getByRole('region', { name: 'Markers and named regions' })).toHaveCount(0);
 			await expect(framescaper.getByRole('listbox', { name: 'Markers and named regions' })).toHaveCount(0);

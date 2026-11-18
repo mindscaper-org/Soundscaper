@@ -246,7 +246,7 @@ async function foreignProjectCustody(page, target, outputDirectory, variant, res
 		name: `framescaper-custody-${String(variant >>> 0)}.fscape`,
 		mimeType: 'application/vnd.soundscaper.scape+zip', buffer: foreign.archive,
 	});
-	await waitForAttribute(editor, 'data-project-id', foreign.projectId, 30_000);
+	await page.locator('[data-audio-editor][data-project-id^="opaque-project-"]').waitFor({ timeout: 30_000 });
 	await waitForAttribute(editor, 'data-edit-block-reason', 'read-only', 30_000);
 	if (Number(await editor.getAttribute('data-clip-count')) !== 0) {
 		throw new Error('The foreign project was not held opaquely.');
