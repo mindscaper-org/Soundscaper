@@ -53,7 +53,7 @@ export default function LabelManagerList({ projectId, labels, sampleRate, copy, 
 		if (document.activeElement !== request.control && document.activeElement !== document.body) return;
 		const controls = Array.from(list.current?.querySelectorAll<HTMLButtonElement>('.kw-audio-editor__workspace-panel-close') ?? []);
 		const enabled = (control: HTMLButtonElement) => !control.hasAttribute('disabled');
-		const next = controls.slice(request.index).find(enabled) ?? controls.slice(0, request.index).findLast(enabled);
+		const next = controls.slice(request.index).find(enabled) ?? controls.slice(0, request.index).reverse().find(enabled);
 		const fallback = add.current && enabled(add.current) ? add.current
 			: Array.from(list.current?.querySelectorAll<HTMLButtonElement>('button') ?? []).find(enabled);
 		(next ?? fallback)?.focus();
