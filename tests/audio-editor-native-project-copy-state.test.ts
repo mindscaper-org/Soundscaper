@@ -14,6 +14,7 @@ async function savingOpaqueCopy() {
 		importScapeProject: async () => ({ project: { ...project('future'), schemaVersion: 16 }, readOnly: true, manifest: {} }),
 		fileService: {
 			isDesktop: false,
+			chooseSaveTarget: async () => ({ browserDownload: true }),
 			prepareSave: async () => ({ mode: 'blob', target: { browserDownload: true } }),
 			async saveFile(request) { entered.resolve(); await resume.promise; return { fileName: request.suggestedName, size: request.blob.size }; },
 		},
