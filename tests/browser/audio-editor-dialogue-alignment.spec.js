@@ -52,6 +52,73 @@ test('Create aligned copy retains the audible replacement clip delay', async ({ 
 	expect(samples.slice(57600, 67200).some(sample => Math.abs(sample) > .01)).toBe(true);
 });
 
+test('Stop preview cancels an aligned audition while its audio context is opening', async ({ page }) => {
+	await page.addInitScript(() => {
+		const resume = AudioContext.prototype.resume;
+		const start = AudioBufferSourceNode.prototype.start;
+		const probe = { hold: false, context: null, starts: 0, release: () => {} };
+		AudioContext.prototype.resume = async function () {
+			if (probe.hold) {
+				probe.hold = false;
+				probe.context = this;
+				await new Promise(resolve => { probe.release = resolve; });
+			}
+			if (this.state !== 'closed') await resume.call(this);
+		};
+		AudioBufferSourceNode.prototype.start = function (...args) {
+			if (this.context === probe.context) probe.starts++;
+			return start.apply(this, args);
+		};
+		globalThis.__dialoguePreview = probe;
+	});
+	const { project, buffer } = await dialogueArchive();
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'ADR.sscape', mimeType: 'application/zip', buffer });
+	await expect(editor).toHaveAttribute('data-project-id', project.id);
+	await chooseNestedCommandAction(page, editor, 'Edit', ['Audio clips', 'Align dialogue']);
+	const dialog = page.getByRole('dialog', { name: 'Align dialogue', exact: true });
+	await dialog.getByRole('button', { name: 'Analyze and align', exact: true }).click();
+	const play = dialog.getByRole('button', { name: 'Play aligned', exact: true });
+	await expect(play).toBeEnabled();
+	await page.evaluate(() => { globalThis.__dialoguePreview.hold = true; });
+	await play.click();
+	await expect.poll(() => page.evaluate(() => Boolean(globalThis.__dialoguePreview.context))).toBe(true);
+	await dialog.getByRole('button', { name: 'Stop preview', exact: true }).click();
+	await page.evaluate(() => globalThis.__dialoguePreview.release());
+	await expect(play).toBeEnabled();
+	expect(await page.evaluate(() => globalThis.__dialoguePreview.starts)).toBe(0);
+	await expect(dialog.getByRole('alert')).toHaveCount(0);
+});
+
+test('a failed second dialogue analysis retires the first review controls', async ({ page }) => {
+	await page.addInitScript(() => {
+		const NativeWorker = globalThis.Worker;
+		globalThis.Worker = class extends NativeWorker {
+			constructor(url, options) {
+				if (options?.name === 'dialogue-alignment' && globalThis.__failDialogueAnalysis) {
+					throw new Error('Dialogue analysis worker unavailable.');
+				}
+				super(url, options);
+			}
+		};
+	});
+	const { project, buffer } = await dialogueArchive();
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'ADR.sscape', mimeType: 'application/zip', buffer });
+	await expect(editor).toHaveAttribute('data-project-id', project.id);
+	await chooseNestedCommandAction(page, editor, 'Edit', ['Audio clips', 'Align dialogue']);
+	const dialog = page.getByRole('dialog', { name: 'Align dialogue', exact: true });
+	const analyze = dialog.getByRole('button', { name: 'Analyze and align', exact: true });
+	const create = dialog.getByRole('button', { name: 'Create aligned copy', exact: true });
+	await analyze.click();
+	await expect(create).toBeEnabled();
+	await page.evaluate(() => { globalThis.__failDialogueAnalysis = true; });
+	await analyze.click();
+	await expect(dialog.getByRole('alert')).toContainText('Dialogue analysis worker unavailable.');
+	await expect(create).toBeDisabled();
+	await expect(dialog.getByRole('button', { name: 'Play aligned', exact: true })).toHaveCount(0);
+});
+
 test('Edit > Audio clips aligns and previews dialogue, publishes one undoable copy, and reopens it', async ({ page }) => {
 	const errors = collectClientErrors(page), { project, buffer } = await dialogueArchive();
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });

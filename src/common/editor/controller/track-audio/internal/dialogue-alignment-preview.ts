@@ -17,8 +17,11 @@ export function createDialogueAlignmentPreview(lifetime: EditorControllerLifetim
 		await previous?.dispose?.();
 	}
 	async function play(audio: { sampleRate: number; channels: Float32Array[] }, assertCurrent: () => void): Promise<void> {
-		await stop();
-		const request = ++generation;
+		const stopping = stop();
+		const request = generation;
+		await stopping;
+		if (generation !== request) throw new DOMException('Preview cancelled.', 'AbortError');
+		assertCurrent();
 		const task = lifetime.startTask('dialogue-alignment-preview', { scope: EDITOR_PROJECT_TASK_SCOPE });
 		const abort = (): void => { if (generation === request) engine?.stop?.(); };
 		task.signal.addEventListener('abort', abort, { once: true });
@@ -27,19 +30,20 @@ export function createDialogueAlignmentPreview(lifetime: EditorControllerLifetim
 			await stopPlayback(); task.assertCurrent(); assertCurrent();
 			if (generation !== request) throw new DOMException('Preview cancelled.', 'AbortError');
 			let started = false;
-			engine = createEngine({ onState: state => {
+			const owned = createEngine({ onState: state => {
 				if (state === 'playing') started = true;
 				if (state === 'stopped' && started && generation === request) release?.();
 			} });
+			engine = owned;
 			const length = audio.channels[0]!.length;
 			const project = createAudioPreviewProject({ sampleRate: audio.sampleRate, sources: [{ id: 'preview-source', storageKey: 'preview-source',
 				name: 'Dialogue preview', sampleRate: audio.sampleRate, channelCount: audio.channels.length, frameCount: length }],
 				clips: [{ id: 'preview-clip', sourceId: 'preview-source', timelineStartFrame: 0, durationFrames: length, sourceStartFrame: 0, sourceDurationFrames: length }],
 				tracks: [{ id: 'preview-track', clipIds: ['preview-clip'] }] });
 			const buffer = await createBuffer(audio); task.assertCurrent(); assertCurrent();
-			engine.loadProject(project, new Map([['preview-source', buffer]]));
-			engine.setPlayRange?.({ startFrame: 0, endFrame: length });
-			await engine.play(); task.assertCurrent(); assertCurrent();
+			owned.loadProject(project, new Map([['preview-source', buffer]]));
+			owned.setPlayRange?.({ startFrame: 0, endFrame: length });
+			await owned.play(); task.assertCurrent(); assertCurrent();
 		} catch (cause) { if (generation === request) await stop(); throw cause; }
 	}
 }

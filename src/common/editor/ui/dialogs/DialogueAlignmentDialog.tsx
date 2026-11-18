@@ -42,6 +42,10 @@ export default function DialogueAlignmentDialog({ controller, snapshot, copy, on
 	}, [actions, stale, busy]);
 	const close = (): void => { pending.current?.abort(); onClose(); };
 	const reset = (): void => { setReview(null); setError(''); void actions.discard().catch(() => undefined); };
+	const stopPreview = (): void => {
+		if (pendingKind.current === 'preview') pending.current?.abort();
+		void actions.stopPreview().catch((cause: unknown) => { if (mounted.current) setError(feedbackFailure(cause)); });
+	};
 	const run = <Result,>(operation: (signal: AbortSignal) => Promise<Result>, success: (result: Result) => void,
 		kind: 'prepare' | 'preview' | 'apply' = 'preview'): void => {
 		if (pending.current || session !== openedSession || stale) return;
@@ -62,7 +66,9 @@ export default function DialogueAlignmentDialog({ controller, snapshot, copy, on
 		</>} />}>
 		<form className="kw-audio-editor-dialog__form" aria-busy={busy} onSubmit={event => {
 			event.preventDefault();
-			if (ready) run(signal => actions.prepare({ referenceClipId: reference, replacementClipId: replacement, strength: Number(strength) / 100 }, signal), setReview, 'prepare');
+			if (!ready) return;
+			setReview(null);
+			run(signal => actions.prepare({ referenceClipId: reference, replacementClipId: replacement, strength: Number(strength) / 100 }, signal), setReview, 'prepare');
 		}}>
 			<p className="audio-editor-panel-hint">{copy.dialogueAlignmentInstructions}</p>
 			<p className="audio-editor-panel-hint">{copy.dialogueAlignmentPreservation}</p>
@@ -86,8 +92,8 @@ export default function DialogueAlignmentDialog({ controller, snapshot, copy, on
 				<p role="status">{review.mismatch > .25 ? copy.dialogueAlignmentUncertain : copy.dialogueAlignmentReady}</p>
 				<div className="audio-editor-dialog-footer">
 					{(['reference', 'replacement', 'aligned'] as const).map((kind, index) => <Button key={kind} variant="secondary" disabled={!ready}
-						onClick={() => run(() => actions.preview(review.id, kind), () => {})}>{[copy.dialogueAlignmentPreviewReference, copy.dialogueAlignmentPreviewReplacement, copy.dialogueAlignmentPreviewAligned][index]}</Button>)}
-					<Button variant="secondary" onClick={() => run(() => actions.stopPreview(), () => {})}>{copy.dialogueAlignmentStop}</Button>
+						onClick={() => run(signal => actions.preview(review.id, kind, signal), () => {})}>{[copy.dialogueAlignmentPreviewReference, copy.dialogueAlignmentPreviewReplacement, copy.dialogueAlignmentPreviewAligned][index]}</Button>)}
+					<Button variant="secondary" onClick={stopPreview}>{copy.dialogueAlignmentStop}</Button>
 				</div>
 			</>}
 			{busy && <p role="status">{copy.dialogueAlignmentWorking}</p>}

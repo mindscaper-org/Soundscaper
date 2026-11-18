@@ -28,16 +28,21 @@ export function createDialogueAlignmentComposition(deps: TrackAudioCompositionDe
 			return runtime.prepare(options, signal);
 		},
 		async apply(id: string, signal?: AbortSignal) { await stopPreview(); return (await load()).apply(id, signal); },
-		async preview(id: string, kind: 'reference' | 'replacement' | 'aligned') {
+		async preview(id: string, kind: 'reference' | 'replacement' | 'aligned', signal?: AbortSignal) {
+			signal?.throwIfAborted();
 			const runtime = await load();
 			const { createDialogueAlignmentPreview } = await import('./internal/dialogue-alignment-preview.ts');
+			signal?.throwIfAborted();
 			preview ??= createDialogueAlignmentPreview(deps.lifetime, deps.createPreviewEngine, async () => { deps.engine.stop(); await deps.stopProjectBinPreview(); }, async audio => {
 				const context = await deps.engine.getAudioContext({ resume: false });
 				const buffer = context.createBuffer(audio.channels.length, audio.channels[0]!.length, audio.sampleRate);
 				for (let channel = 0; channel < audio.channels.length; channel++) buffer.getChannelData(channel).set(audio.channels[channel]!);
 				return buffer;
 			});
-			await preview.play(runtime.previewAudio(id, kind), () => { runtime.previewAudio(id, kind); });
+			await preview.play(runtime.previewAudio(id, kind), () => {
+				signal?.throwIfAborted();
+				runtime.previewAudio(id, kind);
+			});
 		}, stopPreview, discard,
 	});
 }
