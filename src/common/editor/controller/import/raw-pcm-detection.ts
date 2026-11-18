@@ -60,7 +60,8 @@ function continuityScore(view: DataView, format: RawPcmDetection): number {
 		let sum = 0, power = 0, difference = 0, previous = 0;
 		for (let frame = 0; frame < frames; frame += 1) {
 			const value = readSample(view, (frame * format.channelCount + channel) * width, format);
-			if (!Number.isFinite(value) || Math.abs(value) > 1) return Infinity;
+			// Float PCM can retain peaks above full scale. Continuity is independent of their amplitude.
+			if (!Number.isFinite(value)) return Infinity;
 			sum += value; power += value * value;
 			if (frame) difference += (value - previous) ** 2;
 			previous = value;

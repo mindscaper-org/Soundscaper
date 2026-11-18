@@ -36,6 +36,16 @@ test('detection respects the supplied byte offset and bounds reads of large file
 	assert.ok(reads.every(size => size <= 32_768));
 });
 
+test('detects floating-point PCM with peaks above integer full scale', async () => {
+	const body = new ArrayBuffer(8_192 * 4);
+	const floats = new DataView(body);
+	for (let frame = 0; frame < 8_192; frame += 1) {
+		floats.setFloat32(frame * 4, 1.5 * Math.sin(2 * Math.PI * frame * 440 / 48_000), true);
+	}
+	assert.deepEqual(await detectRawPcmFormat(new File([body], 'float-peaks.raw')),
+		{ sampleFormat: 'float32', byteOrder: 'little', channelCount: 1 });
+});
+
 test('empty, short, silent and unclassifiable data leave the settings undetected', async () => {
 	let seed = 12345;
 	const noise = Uint8Array.from({ length: 16_384 }, () => {
