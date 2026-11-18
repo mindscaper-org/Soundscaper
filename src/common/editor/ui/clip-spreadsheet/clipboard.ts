@@ -55,6 +55,13 @@ export function normalizeSpreadsheetRange(anchor: SpreadsheetCell, focus: Spread
 	};
 }
 
+/** Plain clipboard text can contain literal quotes inside a single cell. */
+export function parseSpreadsheetClipboard(text: string): string[][] {
+	assertTextLength(text.length);
+	if (!text.startsWith('"') && !/[\t\r\n]/u.test(text)) return [[text]];
+	return parseSpreadsheetTsv(text);
+}
+
 /** Parse the quoted tab-separated format used by spreadsheet clipboard exports. */
 export function parseSpreadsheetTsv(text: string): string[][] {
 	assertTextLength(text.length);

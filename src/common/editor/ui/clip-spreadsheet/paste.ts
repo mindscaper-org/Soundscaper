@@ -9,7 +9,7 @@ import {
 import type { ClipSpreadsheetNewRow } from '../../clip-spreadsheet-insert.ts';
 import {
 	MAX_SPREADSHEET_CELLS,
-	parseSpreadsheetTsv,
+	parseSpreadsheetClipboard,
 	forEachSpreadsheetPasteCell,
 	type SpreadsheetRange,
 } from './clipboard.ts';
@@ -26,7 +26,7 @@ export function planClipSpreadsheetPaste(
 	range: SpreadsheetRange | null,
 	rows: readonly ClipSpreadsheetRow[],
 ): ClipSpreadsheetPastePlan {
-	const matrix = parseSpreadsheetTsv(text);
+	const matrix = parseSpreadsheetClipboard(text);
 	if (range && (![range.top, range.left, range.bottom, range.right].every(value => Number.isSafeInteger(value) && value >= 0)
 		|| range.top > range.bottom || range.left > range.right
 		|| range.bottom >= rows.length)) {

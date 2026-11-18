@@ -270,6 +270,22 @@ test.describe('clip spreadsheet', () => {
 		expect(errors).toEqual([]);
 	});
 
+	test('pastes a plain-text clip name with embedded quotation marks', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [toneA]);
+		const grid = (await openSpreadsheet(page, editor)).getByRole('grid');
+		const name = cell(grid, 0, 'name');
+		await name.click();
+		const title = 'Interview with "Station B"';
+		await pasteText(page, title);
+		await expect(name).toHaveText(title);
+		const copied = await copiedText(page);
+		await pasteText(page, 'Different title');
+		await expect(name).toHaveText('Different title');
+		await pasteText(page, copied);
+		await expect(name).toHaveText(title);
+	});
+
 	test('copies and pastes cells, rectangular ranges, columns and full rows as spreadsheet text', async ({ page }) => {
 		const errors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/embed/en/');
