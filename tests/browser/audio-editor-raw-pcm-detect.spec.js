@@ -60,3 +60,29 @@ test('Detect keeps manual settings when raw PCM is silent', async ({ page }) => 
 	await expect(dialog).toBeHidden();
 	await expect(editor).toHaveAttribute('data-clip-count', '0');
 });
+
+test('Detect and Import retain floating-point peaks above full scale', async ({ page }) => {
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await chooseCommandAction(page, editor, 'Tools', 'Import raw data');
+	const dialog = page.getByRole('dialog', { name: 'Import raw data', exact: true });
+	const frames = 8_192;
+	const buffer = Buffer.alloc(frames * 4);
+	for (let frame = 0; frame < frames; frame++) {
+		buffer.writeFloatLE(1.5 * Math.sin(frame * 2 * Math.PI * 440 / 48_000), frame * 4);
+	}
+	await dialog.getByLabel('Raw PCM file').setInputFiles({ name: 'float-peaks.raw', mimeType: 'application/octet-stream', buffer });
+	await dialog.getByRole('spinbutton', { name: 'Sample rate', exact: true }).fill('48000');
+	await dialog.getByRole('button', { name: 'Detect', exact: true }).click();
+	await expect(dialog.getByRole('combobox', { name: 'Sample format', exact: true })).toHaveValue('float32');
+	await dialog.getByRole('button', { name: 'Import', exact: true }).click();
+	await expect(dialog).toBeHidden();
+	const pending = page.waitForEvent('download');
+	await chooseExportProjectFileAction(page, editor);
+	const archive = unzipSync(await downloadBytes(await pending));
+	const project = JSON.parse(strFromU8(archive['project.json']));
+	const source = project.sources[0];
+	expect(source).toMatchObject({ sampleRate: 48_000, frameCount: frames, channelCount: 1 });
+	const pcm = Buffer.from(archive[`audio/${source.id}.f32c`]);
+	expect(pcm.subarray(4)).toEqual(buffer);
+});
