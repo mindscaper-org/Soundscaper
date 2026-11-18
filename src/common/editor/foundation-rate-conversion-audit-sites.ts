@@ -159,6 +159,12 @@ export const FOUNDATION_RATE_CONVERSION_AUDIT_SITES: readonly FoundationTimeConv
 		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
 	},
 	{
+		id: 'riff-cue-delivery-clock',
+		file: 'src/common/editor/riff-cue-delivery-clock.ts',
+		behavior: 'RIFF delivery encloses the rendered PCM extent at the output rate and maps authored cue positions to the nearest sample from the same origin. A region ending with the delivery uses its exclusive PCM endpoint.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['enclosingEnd', 'point'] }],
+	},
+	{
 		id: 'recording-preview-rate-conform',
 		file: 'src/common/editor/controller/recording/recording-model.ts',
 		behavior: 'Captured frame counts change from the input device rate to the project output rate once under point rounding without unsafe floating multiplication. A timed recording converts its wall-clock duration to an enclosing-end frame offset, so it never stops before the requested instant.',

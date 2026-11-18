@@ -34,6 +34,12 @@ const ASSISTANCE_SITES: readonly FoundationTimeConversionSite[] = [
 		conversions: [{ helper: 'scaleSampleFrame', policies: ['enclosingStart', 'enclosingEnd'] }],
 	},
 	{
+		id: 'selected-media-identity-timing',
+		file: 'src/common/editor/assistance/selected-media-identity-timing.ts',
+		behavior: 'Selected media compares the authored source duration with the nearest source sample count for the visible project extent before accepting a forward identity read.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
 		id: 'local-assistance-audio-geometry-conversion',
 		file: 'src/common/editor/controller/assistance/internal/audio/local-assistance-audio-geometry.ts',
 		behavior: 'Prepared assistance audio resolves its complete project-rate frame count once to the nearest model-rate output length before bounded streaming resampling.',
