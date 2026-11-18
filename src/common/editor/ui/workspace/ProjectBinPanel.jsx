@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { useProjectBinFileDrop } from './use-project-bin-file-drop.js';
 import { FRAMESCAPER_INPUTS_COPY } from '../../../i18n/editor-framescaper-inputs-copy.ts';
@@ -37,6 +37,8 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 	const linkedAudioRelinkProjectRef = useRef(null);
 	const relinkChangedChoiceRef = useRef(null);
 	const proxyProjectSessionRef = useRef(null);
+	const openItemMenuRef = useRef(null);
+	const openCardMenu = useCallback((event, item) => openItemMenuRef.current?.(event, item), []);
 	const [itemMenu, setItemMenu] = useState(null);
 	const [replacementClipId, setReplacementClipId] = useState(null);
 	const [replacementChoice, setReplacementChoice] = useState(null);
@@ -87,7 +89,8 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 	const clips = project?.projectBin?.clips;
 	const items = useProjectBinItems(clips);
 	const { sourceById, itemSources } = useProjectBinSources(items, project?.sources);
-	const missingSourceIds = new Set(snapshot.missingSourceIds || []);
+	const missingSources = snapshot.missingSourceIds;
+	const missingSourceIds = useMemo(() => (missingSources?.length || missingSources?.size) ? new Set(missingSources) : null, [missingSources]);
 	const mutationBlocked = selectAudioEditorEditBlock(snapshot).blocked;
 	const overlayTarget = inputRef.current?.closest('#kw-audio-editor-design-system')
 		?.querySelector('[data-editor-overlay-layer]');
@@ -96,15 +99,16 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 		blocked: mutationBlocked,
 		onFiles: (files) => run(() => importFiles(files)), onFreesoundSound: (soundId) => run(() => import('./freesound-workspace-service.ts').then(({ importFreesoundSound }) => importFreesoundSound(controller, { soundId, destination: 'project-bin' }, { confirmFileSizeWarning }))),
 	});
-	const selectedMediaTrack = project?.tracks.find((track) => (
-		track.id === snapshot.selectedTrackId && ['audio', 'video'].includes(track.type)
-	)) || null;
+	const tracks = project?.tracks, selectedTrackId = snapshot.selectedTrackId;
+	const selectedMediaTrack = useMemo(() => tracks?.find((track) => (
+		track.id === selectedTrackId && (track.type === 'audio' || track.type === 'video')
+	)) ?? null, [tracks, selectedTrackId]);
 	const menuProjectCurrent = Boolean(itemMenu
 		&& itemMenu.projectId === projectId
 		&& itemMenu.projectRevision === projectRevision);
-	const menuItem = menuProjectCurrent
-		? items.find((item) => item.id === itemMenu.itemId) || null
-		: null;
+	const menuItemId = itemMenu?.itemId;
+	const menuItem = useMemo(() => menuProjectCurrent
+		? items.find((item) => item.id === menuItemId) ?? null : null, [items, menuItemId, menuProjectCurrent]);
 	const menuAudioClip = menuItem?.clips.find((clip) => clip.kind === 'audio' || clip.kind == null) || null;
 	const menuUploadClip = menuItem?.clips.find((clip) => clip.kind === 'audio') || null;
 	const menuAudioRelinkEligible = Boolean(menuAudioClip
@@ -128,8 +132,8 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 
 	const importFiles = (files) => withWebFileLoadLimitContext(async () => {
 		if (mutationBlocked || !files.length) return undefined;
-		const projects = files.filter((file) => /\.aup[34]$/iu.test(file?.name || ''));
-		const media = files.filter((file) => !/\.aup[34]$/iu.test(file?.name || ''));
+		const projects = [], media = [];
+		for (const file of files) (/\.aup[34]$/iu.test(file?.name || '') ? projects : media).push(file);
 		for (const projectFile of projects) await controller.actions.project.openAudacityProject(projectFile);
 		if (media.length) return controller.actions.project.importFiles(media, { destination: 'project-bin' });
 		return projects.length;
@@ -269,6 +273,7 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 			});
 		}
 	};
+	useLayoutEffect(() => { openItemMenuRef.current = openItemMenu; });
 	const openReplacementPicker = (clipId) => {
 		closeItemMenu();
 		setReplacementClipId(clipId);
@@ -361,6 +366,7 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 					{items.map((item) => (
 						<ProjectBinCard
 							key={`${projectSession}:${item.id}`}
+							item={item}
 							clip={item.primaryClip}
 							itemClips={item.clips}
 							source={sourceById.get(item.primaryClip.sourceId) || null}
@@ -371,13 +377,13 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 							locale={locale}
 							mutationBlocked={mutationBlocked}
 							previewBlocked={blocked}
-							missing={item.clips.some((clip) => missingSourceIds.has(clip.sourceId))}
+							missing={missingSourceIds !== null && item.clips.some((clip) => missingSourceIds.has(clip.sourceId))}
 							selectedMediaTrack={selectedMediaTrack}
 							preview={snapshot.projectBinPreview}
 							playbackGain={snapshot.audioDevices?.playbackGain}
 							run={run}
-							onOpenMenu={(event) => openItemMenu(event, item)}
-							onDragEnd={(element) => resetDropState(element)}
+							onOpenMenu={openCardMenu}
+							onDragEnd={resetDropState}
 						/>
 					))}
 				</ul>
@@ -414,7 +420,7 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 			{snapshot.productId === 'soundscaper' && menuUploadClip && <ContextMenuItem
 				label={copy.uploadClipToFreesound}
 				disabled={mutationBlocked || !sourceById.has(menuUploadClip.sourceId)
-					|| missingSourceIds.has(menuUploadClip.sourceId)}
+					|| missingSourceIds?.has(menuUploadClip.sourceId)}
 				onClick={() => queueFreesoundClipUploadCommand({ controller, project,
 					missingSourceIds: snapshot.missingSourceIds,
 					openPanel: () => run(() => controller.actions.preferences.setPanelVisibility('freesound', true)),
@@ -441,7 +447,7 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 			/>
 			<ContextMenuItem
 				label={copy.projectBinReplace}
-				disabled={mutationBlocked || !menuItem || menuItem.clips.some((clip) => missingSourceIds.has(clip.sourceId) || ['image', 'still', 'generator'].includes(clip.kind))}
+				disabled={mutationBlocked || !menuItem || menuItem.clips.some((clip) => missingSourceIds?.has(clip.sourceId) || ['image', 'still', 'generator'].includes(clip.kind))}
 				onClick={() => menuItem && openReplacementPicker(menuItem.primaryClip.id)}
 				onClose={closeItemMenu}
 			/>

@@ -75,18 +75,22 @@ export interface ProjectBinRange {
 }
 
 export function projectBinItems(clips: readonly ProjectBinClip[] = []): ProjectBinItem[] {
-	const grouped = new Map<string, ProjectBinClip[]>();
+	const grouped = new Map<string, { clips: ProjectBinClip[]; firstVideo?: ProjectBinClip }>();
 	for (const clip of clips) {
 		const id = clip.binItemId || clip.id;
-		const item = grouped.get(id) || [];
-		item.push(clip);
-		grouped.set(id, item);
+		const item = grouped.get(id);
+		if (item) {
+			item.clips.push(clip);
+			if (!item.firstVideo && clip.kind === 'video') item.firstVideo = clip;
+		} else {
+			grouped.set(id, { clips: [clip], ...(clip.kind === 'video' ? { firstVideo: clip } : {}) });
+		}
 	}
-	return [...grouped].map(([id, itemClips]) => Object.freeze({
-		id,
-		clips: Object.freeze(itemClips),
-		primaryClip: itemClips.find((clip) => clip.kind === 'video') || itemClips[0],
-	}));
+	const items: ProjectBinItem[] = [];
+	for (const [id, item] of grouped) {
+		items.push(Object.freeze({ id, clips: Object.freeze(item.clips), primaryClip: item.firstVideo ?? item.clips[0]! }));
+	}
+	return items;
 }
 
 export function projectBinColorName(copy: ProjectBinCopy, color: string): string {
@@ -122,17 +126,23 @@ export function projectBinTransformBadges(
 	return badges;
 }
 
+let durationLocale: string | undefined;
+let integerSeconds: Intl.NumberFormat | undefined, decimalSeconds: Intl.NumberFormat | undefined;
+
 export function formatProjectBinDuration(durationFrames: number, sampleRate: number, locale: string): string {
 	const seconds = Math.max(0, Number(durationFrames) || 0) / Math.max(1, Number(sampleRate) || 48_000);
 	const roundedSeconds = Math.round(seconds * 10) / 10;
 	const wholeMinutes = Math.floor(roundedSeconds / 60);
 	const remaining = roundedSeconds - wholeMinutes * 60;
-	const number = new Intl.NumberFormat(locale, {
-		minimumIntegerDigits: 2,
-		minimumFractionDigits: remaining < 10 ? 1 : 0,
-		maximumFractionDigits: 1,
-	}).format(remaining);
-	return `${wholeMinutes}:${number}`;
+	if (locale !== durationLocale) {
+		durationLocale = locale;
+		integerSeconds = undefined;
+		decimalSeconds = undefined;
+	}
+	const formatter = remaining < 10
+		? (decimalSeconds ??= new Intl.NumberFormat(locale, { minimumIntegerDigits: 2, minimumFractionDigits: 1, maximumFractionDigits: 1 }))
+		: (integerSeconds ??= new Intl.NumberFormat(locale, { minimumIntegerDigits: 2, minimumFractionDigits: 0, maximumFractionDigits: 1 }));
+	return `${wholeMinutes}:${formatter.format(remaining)}`;
 }
 
 export function formatProjectBinSource(source: ProjectBinSource | null | undefined, copy: ProjectBinCopy): string {

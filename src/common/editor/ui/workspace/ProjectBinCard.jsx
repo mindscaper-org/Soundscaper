@@ -1,5 +1,5 @@
 import { projectBinThumbnailInputs } from './project-bin-thumbnail-inputs.ts';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@soundscaper/design-system/Icon';
 
 import {
@@ -12,8 +12,29 @@ import { formatProjectBinSource } from './project-bin-model.ts';
 import { useProjectBinWaveformPath, useProjectBinTransformBadges, useProjectBinMediaTiming, useProjectBinDuration, useProjectBinAudioDuration, useProjectBinInstanceCount } from './useProjectBinPresentation.ts';
 import { productVideoVisualPreviewRuntimeFor } from './product-video-visual-preview-runtime.ts';
 import { createProjectBinRetimePlayback } from '../../controller/import/project-bin-video-playback.ts';
+import { videoTimingRegistryToken } from '../../video-source-time.ts';
 
-export default function ProjectBinCard({
+const EMPTY_THUMBNAIL = Object.freeze({ pending: false, value: null, error: null });
+const EMPTY_THUMBNAIL_INPUTS = Object.freeze([]);
+
+export default function ProjectBinCard({ preview, ...properties }) {
+	const { controller, clip } = properties;
+	let visual = null;
+	try {
+		visual = controller.actions.projectBin.getVisualData(clip.id);
+	} catch {
+		// A source may still be activating after its document becomes visible.
+	}
+	const previewActive = preview?.clipId === clip.id;
+	return <ProjectBinCardContent {...properties}
+		available={visual?.available} buffer={visual?.buffer} peaks={visual?.peaks}
+		posterUrl={visual?.posterUrl || visual?.thumbnails?.[0]?.url || null} mediaUrl={visual?.mediaUrl}
+		previewActive={previewActive} previewState={previewActive ? preview.state : null}
+		previewAudioSourceId={previewActive ? preview.audioSourceId : null} timingToken={videoTimingRegistryToken()} />;
+}
+
+const ProjectBinCardContent = memo(function ProjectBinCardContent({
+	item,
 	clip,
 	itemClips,
 	source,
@@ -26,7 +47,8 @@ export default function ProjectBinCard({
 	previewBlocked = false,
 	missing,
 	selectedMediaTrack,
-	preview,
+	available, buffer, peaks, posterUrl, mediaUrl, timingToken,
+	previewActive, previewState, previewAudioSourceId,
 	playbackGain = 1,
 	run,
 	onOpenMenu,
@@ -34,40 +56,38 @@ export default function ProjectBinCard({
 }) {
 	const videoRef = useRef(null);
 	const retimePlaybackRef = useRef(null);
-	let visual = null;
-	try {
-		visual = controller.actions.projectBin.getVisualData(clip.id);
-	} catch {
-		// The source can still be activating while the project document is already visible.
-	}
-	const unavailable = Boolean(missing || !source || visual?.available === false);
+	const unavailable = Boolean(missing || !source || available === false);
 	const disabled = mutationBlocked || unavailable;
 	const name = clip.title || source?.name || copy.clip;
-	const waveformPath = useProjectBinWaveformPath(visual, clip, project);
 	const transformBadges = useProjectBinTransformBadges(itemClips, sources, copy);
-	const format = formatProjectBinSource(source, copy);
-	const videoClip = itemClips.find((itemClip) => itemClip.kind === 'video') || null;
-	const visualClip = itemClips.find((itemClip) => (
-		itemClip.kind === 'still' || itemClip.kind === 'generator' || itemClip.kind === 'image'
-	)) || null;
+	const format = useMemo(() => formatProjectBinSource(source, copy), [source, copy]);
+	const { videoIndex, visualIndex, videoHasAudio } = useMemo(() => {
+		let videoIndex = -1, visualIndex = -1, videoHasAudio = false;
+		for (const [index, { kind }] of itemClips.entries()) {
+			if (videoIndex < 0 && kind === 'video') videoIndex = index;
+			if (visualIndex < 0 && (kind === 'still' || kind === 'generator' || kind === 'image')) visualIndex = index;
+			if (kind === 'audio') videoHasAudio = true;
+		}
+		return { videoIndex, visualIndex, videoHasAudio };
+	}, [itemClips]);
+	const videoClip = itemClips[videoIndex] ?? null;
+	const visualClip = itemClips[visualIndex] ?? null;
+	const waveformPath = useProjectBinWaveformPath(!videoClip && !visualClip && (buffer || peaks) ? { buffer, peaks } : null, clip, project);
 	const visualThumbnail = useProductVisualThumbnail({
-		controller, project, clip: visualClip, source: visualClip ? sources[itemClips.indexOf(visualClip)] ?? null : null,
+		controller, project, clip: visualClip, source: sources[visualIndex] ?? null,
 	});
-	const posterUrl = visual?.posterUrl || visual?.thumbnails?.[0]?.url || null;
-	const previewActive = preview?.clipId === clip.id;
-	const previewPlaying = previewActive && preview.state === 'playing';
+	const previewPlaying = previewActive && previewState === 'playing';
 	const instanceCount = useProjectBinInstanceCount(controller.actions.projectBin.instanceCount, clip.id, project?.clips, project?.projectBin?.clips);
 	const videoSource = videoClip
-		? sources[itemClips.indexOf(videoClip)] || project?.sources?.find((candidate) => candidate.id === videoClip.sourceId)
+		? sources[videoIndex] || project?.sources?.find((candidate) => candidate.id === videoClip.sourceId)
 		: null;
-	const { videoPreview, visualDuration } = useProjectBinMediaTiming(project, videoClip, videoSource, visualClip);
+	const { videoPreview, visualDuration } = useProjectBinMediaTiming(project, videoClip, videoSource, visualClip, timingToken);
 	const audioDuration = useProjectBinAudioDuration(project, clip);
 	const duration = useProjectBinDuration(videoPreview?.durationFrames ?? visualDuration ?? audioDuration ?? clip.durationFrames, project?.sampleRate, locale);
 	const videoStartSeconds = videoPreview?.startSeconds ?? 0;
 	const videoEndSeconds = videoPreview?.endSeconds ?? 0;
 	const videoPlaybackRate = videoPreview?.playbackRate ?? 1;
-	const videoHasAudio = itemClips.some((itemClip) => itemClip.kind === 'audio');
-	const videoEmbeddedAudio = videoHasAudio && !preview?.audioSourceId;
+	const videoEmbeddedAudio = videoHasAudio && !previewAudioSourceId;
 	const retimeIdentity = videoPreview?.retimeIdentity;
 	const retimeDuration = videoPreview?.durationFrames;
 	const retimeSampleRate = project?.sampleRate;
@@ -93,11 +113,11 @@ export default function ProjectBinCard({
 			playback.dispose();
 			if (retimePlaybackRef.current === playback) retimePlaybackRef.current = null;
 		};
-	}, [controller, previewActive, retimeIdentity, retimeSampleRate, retimeDuration, visual?.mediaUrl]);
+	}, [controller, previewActive, retimeIdentity, retimeSampleRate, retimeDuration, mediaUrl]);
 
 	useEffect(() => {
 		if (videoRef.current) videoRef.current.volume = Math.max(0, Math.min(1, playbackGain));
-	}, [playbackGain, previewActive, visual?.mediaUrl]);
+	}, [playbackGain, previewActive, mediaUrl]);
 
 	useEffect(() => {
 		const media = videoRef.current;
@@ -114,13 +134,13 @@ export default function ProjectBinCard({
 			media.pause();
 			return;
 		}
-		if (preview.state === 'stopped' || media.currentTime < videoStartSeconds || media.currentTime >= videoEndSeconds) {
+		if (previewState === 'stopped' || media.currentTime < videoStartSeconds || media.currentTime >= videoEndSeconds) {
 			media.currentTime = videoStartSeconds;
 		}
 		media.playbackRate = videoPlaybackRate;
 		if (previewPlaying) void media.play().catch(() => controller.actions.projectBin.stopPreview());
 		else media.pause();
-	}, [controller, previewActive, previewPlaying, preview?.state, retimeIdentity, retimeUnavailable, videoEndSeconds, videoStartSeconds, videoPlaybackRate, videoEmbeddedAudio, visual?.mediaUrl]);
+	}, [controller, previewActive, previewPlaying, previewState, retimeIdentity, retimeUnavailable, videoEndSeconds, videoStartSeconds, videoPlaybackRate, videoEmbeddedAudio, mediaUrl]);
 	const keepVideoAudioBinding = (event) => {
 		// Native decoder initialization can report stale mute state after the first render.
 		if (!videoEmbeddedAudio && !event.currentTarget.muted) event.currentTarget.muted = true;
@@ -177,10 +197,10 @@ export default function ProjectBinCard({
 					aria-label={`${copy.videoClip}: ${name}`}
 					role="img"
 				>
-					{previewActive && visual?.mediaUrl ? (
+					{previewActive && mediaUrl ? (
 						<video
 							ref={videoRef}
-							src={visual.mediaUrl}
+							src={mediaUrl}
 							poster={posterUrl || undefined}
 							muted={!videoEmbeddedAudio}
 							playsInline
@@ -242,7 +262,7 @@ export default function ProjectBinCard({
 						type="button"
 						className="kw-audio-editor__project-bin-icon-button kw-audio-editor__project-bin-overflow"
 						aria-label={`${copy.projectBinMoreActions}: ${name}`}
-						onClick={onOpenMenu}
+						onClick={(event) => onOpenMenu(event, item)}
 					>
 						<Icon name="menu" size={15} />
 					</button>
@@ -312,22 +332,22 @@ export default function ProjectBinCard({
 			</div>
 		</li>
 	);
-}
+});
 
 function useProductVisualThumbnail({ controller, project, clip, source }) {
 	const clipId = clip?.id ?? null;
 	const latestProject = useRef(project);
 	useLayoutEffect(() => { latestProject.current = project; }, [project]);
-	const inputs = projectBinThumbnailInputs(project, clip, source);
+	const inputs = clipId ? projectBinThumbnailInputs(project, clip, source) : EMPTY_THUMBNAIL_INPUTS;
 	const retained = useRef(inputs);
 	if (inputs.length !== retained.current.length || inputs.some((value, index) => value !== retained.current[index])) retained.current = inputs;
 	const thumbnailInputs = retained.current;
-	const runtime = productVideoVisualPreviewRuntimeFor(controller);
-	const [state, setState] = useState(() => ({ pending: false, value: null, error: null }));
+	const runtime = clipId ? productVideoVisualPreviewRuntimeFor(controller) : null;
+	const [state, setState] = useState(EMPTY_THUMBNAIL);
 	useEffect(() => {
 		const create = runtime?.createProjectBinThumbnail;
 		if (!clipId || typeof create !== 'function') {
-			setState({ pending: false, value: null, error: null });
+			setState(EMPTY_THUMBNAIL);
 			return undefined;
 		}
 		const abort = new AbortController();
