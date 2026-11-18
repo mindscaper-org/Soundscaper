@@ -72,6 +72,12 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+	add_test(NAME framescaper-probe-unicode-source
+		COMMAND ${CMAKE_COMMAND}
+			-DHOST=$<TARGET_FILE:framescaper-media-host>
+			-DFIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/keyed-alpha-1280x720-4fps-4frames.webm
+			-P ${CMAKE_CURRENT_SOURCE_DIR}/tests/probe_unicode_source.cmake
+	)
 	add_executable(framescaper-webm-encode-test
 		tests/webm_encode_fixture.cpp src/ffmpeg_hardware_encode.cpp src/ffmpeg_decode_session.cpp
 		src/keyed_webm_verifier.cpp src/sha256.cpp ${SCAPE_NATIVE_COMMON_ROOT}/sha256.cpp

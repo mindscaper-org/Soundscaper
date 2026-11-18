@@ -57,8 +57,8 @@
 	"sourceFiles": [
 		{
 			"path": "CMakeLists.txt",
-			"byteLength": 8296,
-			"sha256": "9f32f5438e8a810218e254fde2886f1e63243002e7d86f528af06c6d39eb1020"
+			"byteLength": 8584,
+			"sha256": "e49c776404dfb1038457e17f7843dd38c2f225e10b30c0d322b6f5afe0d4ec6c"
 		},
 		{
 			"path": "CMakePresets.json",
@@ -152,8 +152,8 @@
 		},
 		{
 			"path": "src/ffmpeg_decode_session.cpp",
-			"byteLength": 9325,
-			"sha256": "04d74ac6612e28678b231800b2e2bfa8a98c7a1c7ad64f8f5ee7b9f0551bc8af"
+			"byteLength": 9364,
+			"sha256": "db2345070503fd8707b45d958ed0385bce7e71c9580b49189a8f36cc1421c97d"
 		},
 		{
 			"path": "src/ffmpeg_decode_session.hpp",
@@ -212,8 +212,8 @@
 		},
 		{
 			"path": "src/ffmpeg_selected_v20_adapter.cpp",
-			"byteLength": 26958,
-			"sha256": "6e07a646e04c9211751efb93000700bb39ebd62b871e13cc0fc2f8d2f5096977"
+			"byteLength": 26965,
+			"sha256": "160a3dd9c48b5523b3c8af0e7c5d929d1a9f2749ded03d01b33f3d9768da73ce"
 		},
 		{
 			"path": "src/ffmpeg_selected_v20_adapter.hpp",
@@ -307,23 +307,28 @@
 		},
 		{
 			"path": "src/media_host.cpp",
-			"byteLength": 20281,
-			"sha256": "b2385546948f4b3c236f1c46ffa85751160ea043eb6d440b4d73b7a9a68b25c7"
+			"byteLength": 20358,
+			"sha256": "4255383d6503204c6b93654317531fd975eda55b33cf7bcd3ef45e23e222344d"
 		},
 		{
 			"path": "src/media_host_arguments.cpp",
-			"byteLength": 8165,
-			"sha256": "0aa7ac310b7a65c01cb01eb253b953cbcee0dbc714d67048064340334f785690"
+			"byteLength": 9122,
+			"sha256": "a0a2c2a65454552df3dbef3dfb1241efceb32a4fc47e9b4159812307313561ef"
 		},
 		{
 			"path": "src/media_host_arguments.hpp",
-			"byteLength": 1763,
-			"sha256": "86c1784a9b88ba2643dac78e4be0b7b8f23a4b28c9fd5f157730cffcc16c5b2c"
+			"byteLength": 1804,
+			"sha256": "f6f1b276a344735f6cc03bbcc1f68d9a0af9a770e8c7de147387bf75252380b4"
 		},
 		{
 			"path": "src/media_host_contract.hpp",
 			"byteLength": 1163,
 			"sha256": "ab191659b0e69751160842a7a8f095a640513cc1ad4b1a09027ba093e9b2d259"
+		},
+		{
+			"path": "src/media_path_utf8.hpp",
+			"byteLength": 325,
+			"sha256": "6acbaa7ecdab29df1ebc633cf4f6c112ae0c82388be30f3d59c432c27243368e"
 		},
 		{
 			"path": "src/media_plan.cpp",
@@ -494,6 +499,11 @@
 			"path": "tests/fixtures/prores-proxy-64x36-24fps-4frames.mov.b64",
 			"byteLength": 2181,
 			"sha256": "69b15e5754c400c495d3a554a91723dbec0b22508c4a39f726c111c829733a5c"
+		},
+		{
+			"path": "tests/probe_unicode_source.cmake",
+			"byteLength": 722,
+			"sha256": "dab565ef42f4abe78dcc2cf40c6dde1860db0868628c6e77c472dfed8be4d481"
 		},
 		{
 			"path": "tests/professional_source_probe_fixture.cpp",

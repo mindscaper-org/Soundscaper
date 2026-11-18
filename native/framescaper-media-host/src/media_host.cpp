@@ -389,7 +389,11 @@ engine_result execute_ffmpeg_job(const invocation& job) {
 } // namespace framescaper::media
 #endif
 
+#if defined(_WIN32)
+int wmain(const int argc, wchar_t** argv) {
+#else
 int main(const int argc, char** argv) {
+#endif
 	using namespace framescaper::media;
 	try {
 		const auto parsed = parse_arguments(argc, argv);

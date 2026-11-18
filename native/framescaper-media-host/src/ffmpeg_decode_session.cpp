@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "ffmpeg_decode_session.hpp"
+#include "media_path_utf8.hpp"
 
 extern "C" {
 #include <libavutil/error.h>
@@ -99,7 +100,7 @@ ffmpeg_decode_session ffmpeg_decode_session::open(
 	av_dict_set(&options, "protocol_whitelist", "file", 0);
 	av_dict_set(&options, "format_whitelist",
 		"mov,matroska,webm,avi,mpegts,mpeg,ogg,wav,flac,png_pipe,tiff_pipe,exr_pipe,mjpeg,jpeg_pipe,mxf", 0);
-	const auto path_text = path.string();
+	const auto path_text = media_path_utf8(path);
 	auto status = avformat_open_input(&session.format, path_text.c_str(), nullptr, &options);
 	av_dict_free(&options);
 	require(status, "Open the authenticated source");

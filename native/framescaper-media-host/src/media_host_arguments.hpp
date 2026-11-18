@@ -50,6 +50,6 @@ struct parsed_arguments final {
 	std::optional<std::uint64_t> sequence_rate_den;
 };
 
-[[nodiscard]] parsed_arguments parse_arguments(int argc, char** argv);
+[[nodiscard]] parsed_arguments parse_arguments(int argc, const std::filesystem::path::value_type* const* argv);
 
 } // namespace framescaper::media
