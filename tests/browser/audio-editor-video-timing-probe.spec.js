@@ -1,8 +1,9 @@
 import { expect } from '@playwright/test';
+import { writeFile } from 'node:fs/promises';
 import { test } from './audio-editor-test-fixtures.js';
 
 import { validateVideoTimingAssetBytes } from '../../src/common/editor/video-timing-asset.ts';
-import { videoTimingProbeMedia } from './fixtures/video-timing-probe-media.js';
+import { fragmentedMp4TimingProbeMedia, videoTimingProbeMedia } from './fixtures/video-timing-probe-media.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 import { openFramescaperSourcePropertiesFromBin } from './helpers/framescaper-source-properties.js';
 import {
@@ -15,11 +16,12 @@ import {
 } from './helpers/durable-media-storage-capability.js';
 
 const DATABASE_NAME = FRAMESCAPER_DATABASE_NAME;
+const TIMING_MEDIA = [...videoTimingProbeMedia, fragmentedMp4TimingProbeMedia];
 
 test.describe('WP-0.3 browser timing-probe qualification', () => {
-	test('extracts and persists exact CFR and irregular VFR timing with the production container probe', async ({
+	test('imports and persists exact CFR, irregular WebM and fragmented MP4 timings', async ({
 		page,
-	}) => {
+	}, testInfo) => {
 		test.setTimeout(60_000);
 
 		await page.goto(resolveBrowserProductTestUrl('/framescaper/en/'));
@@ -34,14 +36,19 @@ test.describe('WP-0.3 browser timing-probe qualification', () => {
 			DURABLE_MEDIA_STORAGE_REQUIRED,
 		);
 
-		await editor.locator('[data-project-bin-input]').setInputFiles(videoTimingProbeMedia.map(({ file }) => file));
+		const localFiles = await Promise.all(TIMING_MEDIA.map(async ({ file }) => {
+			const path = testInfo.outputPath(file.name);
+			await writeFile(path, file.buffer);
+			return path;
+		}));
+		await editor.locator('[data-project-bin-input]').setInputFiles(localFiles);
 		await expect.poll(async () => (await persistedTimingEvidence(page)).length, {
 			timeout: 30_000,
-		}).toBe(videoTimingProbeMedia.length);
+		}).toBe(TIMING_MEDIA.length);
 		await expect(editor.locator('[data-status]')).toHaveAttribute('data-state', 'success');
 
 		const evidence = await persistedTimingEvidence(page);
-		for (const fixture of videoTimingProbeMedia) {
+		for (const fixture of TIMING_MEDIA) {
 			const actual = evidence.find(({ source }) => source.name === fixture.file.name);
 			expect(actual, `${fixture.id} must publish a persisted source and timing body`).toBeTruthy();
 			const { source, timingBytes } = actual;
@@ -68,10 +75,11 @@ test.describe('WP-0.3 browser timing-probe qualification', () => {
 			expect(source.characteristics.codedWidth).toBe(fixture.coded.width);
 			expect(source.characteristics.codedHeight).toBe(fixture.coded.height);
 			expect(source.characteristics.fieldOrder).toBeNull();
-			expect(source.characteristics.hasAlpha).toBe(fixture.kind === 'vfr');
-			expect(source.characteristics.videoCodec).toBe(fixture.kind === 'cfr' ? 'h264' : 'vp8');
+			const isWebm = fixture.file.mimeType === 'video/webm';
+			expect(source.characteristics.hasAlpha).toBe(isWebm);
+			expect(source.characteristics.videoCodec).toBe(isWebm ? 'vp8' : 'h264');
 			expect(source.videoCodec).toBe(source.characteristics.videoCodec);
-			// Both containers report no audio tracks; this is known, not unreported.
+			// These files report no audio tracks.
 			expect(source.characteristics.audioStreams).toEqual([]);
 			expect(source.characteristics.extractedAudioStreamIndex).toBeNull();
 			expect(source.characteristics.startTimecode).toBeNull();
@@ -163,6 +171,6 @@ async function persistedTimingEvidence(page) {
 	}, {
 		databaseName: DATABASE_NAME,
 		opfsDirectoryName: FRAMESCAPER_OPFS_DIRECTORY_NAME,
-		sourceNames: videoTimingProbeMedia.map(({ file }) => file.name),
+		sourceNames: TIMING_MEDIA.map(({ file }) => file.name),
 	});
 }

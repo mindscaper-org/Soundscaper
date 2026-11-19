@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
-import { videoTimingProbeMedia } from './browser/fixtures/video-timing-probe-media.js';
+import { fragmentedMp4TimingProbeMedia, videoTimingProbeMedia } from './browser/fixtures/video-timing-probe-media.js';
 import { videoSourceGeometryMedia } from './browser/fixtures/video-source-geometry-media.js';
 import {
 	encodeVideoTimingAsset,
@@ -22,6 +22,16 @@ import { normalizeVideoSourceCharacteristics } from '../src/common/editor/video-
 
 const CFR = videoTimingProbeMedia.find(({ id }) => id === 'cfr-25fps-mp4-v1')!;
 const VFR = videoTimingProbeMedia.find(({ id }) => id === 'vfr-irregular-webm-v1')!;
+
+test('the container probe reads exact fragmented MP4 timing from a Chromium recording', async () => {
+	const fixture = fragmentedMp4TimingProbeMedia;
+	const result = exactTiming(await probeVideoTiming(blobFor(fixture), { probes: [createContainerVideoTimingProbe()] }));
+	assert.equal(result.timing.timescale, fixture.timescale);
+	assert.deepEqual(result.timing.presentationTicks, fixture.presentationTicks);
+	assert.equal(result.timing.finalFrameDurationTicks, fixture.finalFrameDurationTicks);
+	assert.deepEqual(result.nominalRate, fixture.nominalRate);
+	assert.equal(result.characteristics.videoCodec, 'h264');
+});
 
 test('Matroska header reads include their short timing fields without separate body I/O', async () => {
 	const reader = createVideoTimingDemuxReader(fixtureBlob(matroskaTimingFixture([
