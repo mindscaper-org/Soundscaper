@@ -17,6 +17,7 @@ import {
 } from './fixtures/deterministic-av-media.js';
 import { classicAvcCaptureMedia } from './fixtures/video-native-capture-media.js';
 import { videoOnlyFragmentedAvcFixture } from './fixtures/video-only-fragmented-avc.js';
+import { seekFramescaperTimecode } from './helpers/framescaper-standard-timecode.js';
 import {
 	completeMilestone7Run,
 	installMilestone7LocalAssistanceFixture,
@@ -37,13 +38,24 @@ test.describe('Milestone 7 Guided workflow qualification', () => {
 			await expectAccurateAvcPictures(page, makeFile());
 		});
 
-	async function expectAccurateAvcPictures(page, file) {
+	test('Accurate Mark Cuts stages trimmed reordered AVC pictures in WebKit', async ({ page, browserName }) => {
+		test.skip(browserName !== 'webkit', 'The paused WebKit presentation can precede seek completion.');
+		test.setTimeout(60_000);
+		await expectAccurateAvcPictures(page, videoOnlyFragmentedAvcFixture(), 5);
+	});
+
+	async function expectAccurateAvcPictures(page, file, trimStart = 0) {
 		await stubStorageEstimate(page, { usage: 1024 ** 2, quota: 2 * 1024 ** 3 });
 		await installMilestone7LocalAssistanceFixture(page, [['transnetv2', '1.0.0', 'shot-detection']]);
 		const editor = await bootEditor(page, '/framescaper/en/');
 		await editor.locator('[data-project-bin-input]').setInputFiles(file);
 		await editor.getByRole('button', { name: `Add to timeline: ${file.name.replace(/\.mp4$/u, '')}`, exact: true }).click();
 		await editor.getByRole('group', { name: /^Video clip:/u }).first().press('Enter');
+		if (trimStart > 0) {
+			await seekFramescaperTimecode(page, editor, '00:00:00:07');
+			await chooseNestedCommandAction(page, editor, 'Edit', ['Audio clips', 'Trim left edge to playhead']);
+			await expect(editor.locator('[data-status]')).toContainText('Trimmed left edge to 00:00:00:07.');
+		}
 		const dialog = await openAssistanceTask(page, editor, 'Mark Cuts');
 		await dialog.getByRole('radio', { name: 'Accurate · TransNetV2', exact: true }).click();
 		page.once('dialog', event => { void event.dismiss(); });
@@ -56,8 +68,9 @@ test.describe('Milestone 7 Guided workflow qualification', () => {
 			return Array.from(new Uint8Array(await input.arrayBuffer()));
 		});
 		const pack = reviewAssistanceFramePackV1(Uint8Array.from(bytes));
-		expect([pack.timescale, pack.frameCount]).toEqual([90_000, 22]);
-		expect(pack.frameTiming(21)).toEqual({ sourceFrame: 21, presentationTick: '84000' });
+		expect([pack.timescale, pack.frameCount]).toEqual([90_000, 22 - trimStart]);
+		expect(pack.frameTiming(0).sourceFrame).toBe(trimStart);
+		expect(pack.frameTiming(pack.frameCount - 1)).toEqual({ sourceFrame: 21, presentationTick: '84000' });
 		const labels = Array.from({ length: pack.frameCount }, (_, index) => {
 			const { rgba } = pack.frame(index);
 			const cells = [.25, .75].flatMap(y => [.125, .375, .625, .875].map(x => rgba[
@@ -67,7 +80,7 @@ test.describe('Milestone 7 Guided workflow qualification', () => {
 				? cells.slice(2, 7).reduce((label, value, bit) => label | (value > 127 ? 1 << bit : 0), 0)
 				: null;
 		});
-		expect(labels).toEqual([0, 2, 3, 4, 5, 7, 8, 9, 10, 12, 13, 14, 15, 17, 18, 19, 20, 22, 23, 24, 25, 28]);
+		expect(labels).toEqual([0, 2, 3, 4, 5, 7, 8, 9, 10, 12, 13, 14, 15, 17, 18, 19, 20, 22, 23, 24, 25, 28].slice(trimStart));
 	}
 
 	test('reviews transcript audition and independent beat publication choices', async ({ page }) => {

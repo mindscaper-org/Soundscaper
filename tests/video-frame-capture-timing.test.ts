@@ -22,6 +22,9 @@ test('capture matches frame PTS and interior times across variable source interv
 	assert.equal(seekTime(0), .01675);
 	assert.equal(seekTime(.13), .08525);
 	assert.equal(seekTime(.18), null);
+	const retry = seekTime(.13, 'retry');
+	assert.ok(retry !== null && retry > .067 && retry < .08525);
+	assert.equal(seekTime(.18, 'retry'), null);
 	assert.equal(matches(.0335, 0), true);
 	assert.equal(matches(.0335, .0335), true);
 	assert.equal(matches(.0335, .067), false);

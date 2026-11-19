@@ -174,6 +174,7 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 			await seekVideoFrameForCapture(video, seekTimestamp, {
 				signal,
 				timeoutMs,
+				retryTimestamp: seekTime(timestamp, 'retry'),
 				isRequestedFrame: mediaTime => matches(seekTimestamp, mediaTime),
 			});
 		}

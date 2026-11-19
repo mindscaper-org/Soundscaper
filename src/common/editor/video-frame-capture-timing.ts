@@ -8,7 +8,7 @@ type CaptureTiming = Pick<VideoTimingProbeResult, 'timescale' | 'presentationTic
 type FrameMatcher = (timestamp: number, mediaTime: number) => boolean;
 interface VideoFrameCaptureTiming {
 	readonly matches: FrameMatcher;
-	readonly seekTime: (timestamp: number) => number | null;
+	readonly seekTime: (timestamp: number, phase?: 'retry') => number | null;
 	readonly clampTime: (timestamp: number, duration: number) => number;
 }
 interface CaptureTimingOptions {
@@ -53,10 +53,14 @@ export async function createVideoFrameCaptureTiming(
 		return mediaTime >= starts[frame]! - ROUNDING_SECONDS
 			&& mediaTime < (starts[frame + 1] ?? end);
 	};
-	const seekTime = (timestamp: number): number | null => {
+	const seekTime: VideoFrameCaptureTiming['seekTime'] = (timestamp, phase) => {
 		const frame = frameAt(timestamp);
 		if (frame === null) return null;
-		return browserVideoFrameSeekSeconds(starts[frame]!, starts[frame + 1] ?? end);
+		const start = starts[frame]!;
+		const target = browserVideoFrameSeekSeconds(start, starts[frame + 1] ?? end);
+		if (phase !== 'retry') return target;
+		const retry = target - Math.min(0.001, (target - start) / 2);
+		return retry < target ? retry : null;
 	};
 	const clampTime = (timestamp: number, duration: number): number => {
 		const last = starts.at(-1);
