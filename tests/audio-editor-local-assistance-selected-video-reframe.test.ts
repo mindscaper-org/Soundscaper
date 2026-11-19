@@ -18,6 +18,7 @@ import {
 	reviewLocalAssistanceSelectedVideoSourceTimeDescriptorV1,
 } from '../src/common/editor/controller/assistance/local-assistance-selected-video-source-time.ts';
 import { sequenceFrameBoundarySample } from '../src/common/editor/sequence-frame-navigation.ts';
+import { normalizeVideoSourceCharacteristics } from '../src/common/editor/video-source-characteristics.ts';
 import {
 	registerVideoTimingIndex,
 	unregisterVideoTimingIndex,
@@ -75,6 +76,29 @@ test('selected-video Reframe stages share deterministic 2 fps and accepted shot-
 			'20', '25', '32', '44', '56', '68', '80', '92', '104', '116',
 		]);
 	}
+});
+
+test('selected-video analysis and Highlight custody use authored rotated anamorphic geometry', async () => {
+	const base = baseProject();
+	const source = { ...base.sources[0]!, width: 144, height: 192,
+		characteristics: normalizeVideoSourceCharacteristics({ codedWidth: 192, codedHeight: 144,
+			rotationDegrees: 270, pixelAspectRatio: { num: 2, den: 1 } }) };
+	const project = { ...base, sources: [source] };
+	const requests: VisualRequest[] = [];
+	const preparation = fixture(project, requests);
+	for (const operation of ['subject-detection', 'saliency-detection'] as const) {
+		await preparation.prepareSelectedMedia({ sourceId: source.id, operation });
+	}
+	assert.equal(requests.length, 2);
+	for (const { sourceWidth, sourceHeight, rasterWidth, rasterHeight } of requests) {
+		assert.deepEqual([sourceWidth, sourceHeight, rasterWidth, rasterHeight], [144, 384, 120, 320]);
+	}
+	const authority = resolveLocalAssistanceSelectedVideoAuthority({
+		getProject: () => project, getSelectedClipId: () => 'video-clip',
+	});
+	const descriptor = createLocalAssistanceSelectedVideoSourceTimeDescriptorV1(authority);
+	assert.deepEqual([descriptor.sourceWidth, descriptor.sourceHeight], [144, 384]);
+	assert.deepEqual([descriptor.sourceStartFrame, descriptor.sourceEndFrame, descriptor.timescale], [20, 120, 24]);
 });
 
 test('selected-video visual model preparation returns every bounded long-media pack in order', async () => {

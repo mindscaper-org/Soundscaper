@@ -3,6 +3,7 @@
 /** Frozen selected-video source/timeline authority for deterministic materializers. */
 
 import { sequenceFrameBoundarySample } from '../../sequence-frame-navigation.ts';
+import { resolveVideoSourceDisplaySize } from '../../video-source-presentation.ts';
 import {
 	createAssistanceSourceTimeRowChunksV1,
 	reviewAssistanceSourceTimeRowsV1,
@@ -104,8 +105,9 @@ export function createLocalAssistanceSelectedVideoSourceTimeDescriptorV1(
 	if (sourceEndFrame <= sourceStartFrame) {
 		throw new RangeError('Selected-video source-time authority has empty geometry.');
 	}
-	const sourceWidth = integer(authority.source.width, 1, 'source width');
-	const sourceHeight = integer(authority.source.height, 1, 'source height');
+	const display = resolveVideoSourceDisplaySize(authority.source);
+	const sourceWidth = integer(display?.width, 1, 'source width');
+	const sourceHeight = integer(display?.height, 1, 'source height');
 	const sampleRate = integer(authority.project.sampleRate, 1, 'project sample rate');
 	const rate = rational(authority.sequence.rate, 'sequence frame rate');
 	const rows = canonicalRows(authority, sourceStartFrame, sourceEndFrame, rate, sampleRate);

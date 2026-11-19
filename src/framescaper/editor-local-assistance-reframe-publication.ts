@@ -33,6 +33,7 @@ import {
 import { mapVideoKeyframeVisiblePosition } from
 	'../common/editor/video-keyframe-time-domain.ts';
 import { compareRationals, type Rational } from '../common/editor/timeline-time.ts';
+import { resolveVideoSourceDisplaySize } from '../common/editor/video-source-presentation.ts';
 import {
 	applyFramescaperProjectCommandAssistance,
 	type FramescaperProjectCommandAssistance,
@@ -179,8 +180,8 @@ function assertPathAuthority(
 	source: DataRecord,
 	result: AssistanceOwnedReframePathV1,
 ): void {
-	if (result.authority.width !== integer(source.width, 1, 'video source width')
-		|| result.authority.height !== integer(source.height, 1, 'video source height')) {
+	const display = resolveVideoSourceDisplaySize(source);
+	if (!display || result.authority.width !== display.width || result.authority.height !== display.height) {
 		throw new RangeError('The reviewed Reframe geometry disagrees with its selected video source.');
 	}
 	for (const frame of result.authority.frames) {

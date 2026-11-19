@@ -17,6 +17,7 @@ import {
 } from './fixtures/deterministic-av-media.js';
 import { classicAvcCaptureMedia } from './fixtures/video-native-capture-media.js';
 import { videoOnlyFragmentedAvcFixture } from './fixtures/video-only-fragmented-avc.js';
+import { videoSourceGeometryMedia } from './fixtures/video-source-geometry-media.js';
 import { seekFramescaperTimecode } from './helpers/framescaper-standard-timecode.js';
 import {
 	completeMilestone7Run,
@@ -24,6 +25,7 @@ import {
 	milestone7FixtureSnapshot,
 } from './helpers/milestone-7-local-assistance.js';
 import { reviewAssistanceFramePackV1 } from '../../src/common/editor/assistance/binary-formats-v1.ts';
+import { reviewAssistanceVisualFramePackV2 } from '../../src/common/editor/assistance/visual-frame-pack-v2.ts';
 
 const VIDEO = createDeterministicSilentVideoFixture('milestone-7-workflows.webm');
 const LINKED_AV = createDeterministicAvFixture('milestone-7-linked-workflows.webm');
@@ -42,6 +44,38 @@ test.describe('Milestone 7 Guided workflow qualification', () => {
 		test.skip(browserName !== 'webkit', 'The paused WebKit presentation can precede seek completion.');
 		test.setTimeout(60_000);
 		await expectAccurateAvcPictures(page, videoOnlyFragmentedAvcFixture(), 5);
+	});
+
+	test('Reframe stages authored geometry and orientation for rotated anamorphic AVC', async ({ page }) => {
+		const { file } = videoSourceGeometryMedia.find(({ id }) => id === 'geometry-rotated-anamorphic-mp4-v1');
+		await stubStorageEstimate(page, { usage: 1024 ** 2, quota: 2 * 1024 ** 3 });
+		await installMilestone7LocalAssistanceFixture(page);
+		const editor = await bootEditor(page, '/framescaper/en/');
+		await editor.locator('[data-project-bin-input]').setInputFiles(file);
+		await editor.getByRole('button', { name: `Add to timeline: ${file.name.replace(/\.mp4$/u, '')}`, exact: true }).click();
+		await reselectTimelineVideo(editor, page);
+		const dialog = await openAssistanceTask(page, editor, 'Reframe');
+		acceptConsentDialogs(page);
+		await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+		await expect.poll(async () => (await milestone7FixtureSnapshot(page)).stagedSlots, { timeout: 20_000 })
+			.toContain('detect-subjects:frame-pack');
+		const bytes = await page.evaluate(async () => {
+			const input = [...globalThis.__milestone7Fixture.stagedInputBodies.entries()]
+				.find(([key]) => key.endsWith(':detect-subjects:frame-pack'))?.[1];
+			return Array.from(new Uint8Array(await input.arrayBuffer()));
+		});
+		const pack = reviewAssistanceVisualFramePackV2(Uint8Array.from(bytes));
+		expect([pack.sourceWidth, pack.sourceHeight, pack.rasterWidth, pack.rasterHeight]).toEqual([144, 384, 120, 320]);
+		expect([pack.frameCount, pack.timescale]).toEqual([2, 12_800]);
+		for (const [index, sourceFrame, presentationTick] of [[0, 0, '0'], [1, 12, '6144']]) {
+			const frame = pack.frame(index);
+			expect([frame.sourceFrame, frame.presentationTick]).toEqual([sourceFrame, presentationTick]);
+			const colors = [.25, .75].flatMap(y => [.25, .75].map(x => {
+				const offset = (Math.floor(y * pack.rasterHeight) * pack.rasterWidth + Math.floor(x * pack.rasterWidth)) * 4;
+				return Array.from(frame.rgba.subarray(offset, offset + 3), value => Number(value > 90));
+			}));
+			expect(colors).toEqual([[0, 1, 0], [1, 1, 1], [1, 0, 0], [0, 0, 1]]);
+		}
 	});
 
 	async function expectAccurateAvcPictures(page, file, trimStart = 0) {
