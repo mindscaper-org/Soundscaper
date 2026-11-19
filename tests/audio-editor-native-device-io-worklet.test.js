@@ -29,7 +29,7 @@ test('native device worklet closes on device loss and every short transfer', asy
 		if (fault.direction === 'output') {
 			processor.process([[new Float32Array(128), new Float32Array(128)]], [[]]);
 		}
-		const outbound = peer.posted.find((message) => ['capture-credit', 'audio'].includes(message.kind));
+		const outbound = peer.posted.find((message) => ['capture-credit', 'audio'].includes(message?.kind));
 		assert.ok(outbound);
 		peer.onmessage({ data: {
 			...outbound,
@@ -298,6 +298,10 @@ test('calibration is duplex-only, cancellable and bounded by captured frames', a
 function messagePort() {
 	return {
 		posted: [], onmessage: null, onmessageerror: null, closed: false,
-		postMessage(value) { this.posted.push(value); }, start() {}, close() { this.closed = true; },
+		postMessage(value, transfer = []) {
+			// Electron's utility MessagePortMain cannot deserialize the worklet's transferred buffers.
+			this.posted.push(transfer.length ? null : structuredClone(value));
+		},
+		start() {}, close() { this.closed = true; },
 	};
 }

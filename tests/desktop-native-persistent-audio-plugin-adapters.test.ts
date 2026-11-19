@@ -42,6 +42,13 @@ function channel(): Readonly<{ port1: FakePort; port2: FakePort }> {
 	return Object.freeze({ port1, port2 })
 }
 
+class ElectronAudioPort extends FakePort {
+	override postMessage(message: unknown, transfer: readonly unknown[] = []): void {
+		if (transfer.length) throw new TypeError('Port at index 0 is not a valid port')
+		super.postMessage(structuredClone(message))
+	}
+}
+
 function nextMessage(port: FakePort): Promise<Record<string, unknown>> {
 	return new Promise((resolve) => {
 		const listener = (event: FakeMessageEvent) => {
@@ -81,7 +88,9 @@ const AUDIO_GRANT = Object.freeze({
 })
 
 test('persistent audio runner opens exact format and moves blocks over only the admitted port', async () => {
-	const link = channel()
+	const link = { port1: new ElectronAudioPort(), port2: new FakePort() }
+	link.port1.peer = link.port2
+	link.port2.peer = link.port1
 	const writes: unknown[][] = []
 	const runner = createNativePersistentAudioJobRunner({
 		addonPath: '/addon.node',
@@ -105,13 +114,16 @@ test('persistent audio runner opens exact format and moves blocks over only the 
 		protocolVersion: 1, kind: 'configured', status: 'opened', backend: 'pipewire',
 		format: { direction: 'output', mode: 'shared', sampleRate: 48_000, periodFrames: 1_024, channelCount: 2 },
 	})
-	const planes = [new Float32Array(4), new Float32Array(4)]
+	const planes = [Float32Array.of(0.25, 0, 0, 0), Float32Array.of(-0.25, 0, 0, 0)]
 	response = nextMessage(link.port2)
 	link.port2.postMessage({
 		protocolVersion: 1, kind: 'audio', generation: 3, packetId: 0, sequence: 0,
 		startFrame: 0, frameCount: 4, channels: planes,
 	})
-	assert.equal((await response).kind, 'return')
+	const returned = await response
+	assert.equal(returned.kind, 'return')
+	assert.deepEqual(returned.channels, planes)
+	assert.notEqual((returned.channels as Float32Array[])[0]?.buffer, planes[0]?.buffer)
 	assert.equal(writes.length, 1)
 	link.port2.postMessage({ protocolVersion: 1, kind: 'close', reason: 'editor-shutdown' })
 	assert.equal((await handle.completion).reason, 'editor-shutdown')

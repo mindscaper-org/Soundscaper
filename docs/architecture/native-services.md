@@ -149,10 +149,10 @@ candidate. An absent backend may advance the list; refusal of a requested format
 or mode does not silently turn into a different request.
 
 Real-time audio uses a directly transferred `MessagePort` between the helper and
-the `AudioWorklet`, with a fixed pool of transferable `ArrayBuffer` packets.
-Main participates in setup and revocation, not per-block relay. Generation,
-sequence, and absolute frame identity fence every packet; returning a buffer is
-the credit for another send.
+the `AudioWorklet`. Electron's utility port copies PCM typed arrays through
+structured clone. The fixed credit count bounds the packets in flight, and each
+returned packet releases one credit. Generation, sequence, and absolute frame
+identity fence every packet. Main participates in setup and revocation.
 
 In WASAPI shared mode the driver sets the callback period. The native bridge
 regroups frames between that period and the negotiated transport packet size

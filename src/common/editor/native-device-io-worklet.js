@@ -16,7 +16,7 @@ export const NATIVE_DEVICE_IO_CONTROL = Object.freeze({
 	transfer: 'native-device-transfer',
 });
 
-/** Fixed-pool Web Audio <-> native device bridge; main never observes an audio block. */
+/** Credit-bounded Web Audio <-> native device bridge. */
 export class NativeDeviceIoProcessor extends ProcessorBase {
 	constructor(options = {}) {
 		super();
@@ -119,7 +119,7 @@ export class NativeDeviceIoProcessor extends ProcessorBase {
 				protocolVersion: 1, kind: 'audio', generation: this.generation, packetId: block.id,
 				sequence: this.outputSequence, startFrame: this.outputFrame,
 				frameCount: this.periodFrames, channels: block.channels,
-			}, transfer(block.channels));
+			});
 			this.outputSequence += 1;
 			this.outputFrame += this.periodFrames;
 		}
@@ -194,13 +194,14 @@ export class NativeDeviceIoProcessor extends ProcessorBase {
 			protocolVersion: 1, kind: 'capture-credit', generation: this.generation,
 			packetId: block.id, sequence: this.captureSequence, startFrame: this.captureFrame,
 			frameCount: this.periodFrames, channels: block.channels,
-		}, transfer(block.channels));
+		});
 		this.captureSequence += 1;
 		this.captureFrame += this.periodFrames;
 	}
 
-	#send(message, buffers = []) {
-		try { this.portPeer?.postMessage(message, buffers); } catch { this.#close('peer-loss'); }
+	#send(message) {
+		// Electron's utility MessagePortMain receives cloned PCM typed arrays.
+		try { this.portPeer?.postMessage(message); } catch { this.#close('peer-loss'); }
 	}
 
 	#close(reason) {
@@ -345,7 +346,6 @@ function planes(value, channelCount, frames) {
 		&& new Set(value.map((plane) => plane.buffer)).size === value.length;
 }
 
-function transfer(value) { return value.map((plane) => plane.buffer); }
 function listenForClose(port, listener) {
 	if (typeof port.addEventListener === 'function') port.addEventListener('close', listener);
 	else port.onclose = listener;

@@ -106,7 +106,7 @@ export function createNativePersistentAudioJobRunner({ loadAddon, addonPath, add
 					channels: block.channels,
 					framesTransferred: transferred.framesTransferred ?? 0,
 					status: transferred.status,
-				}, block.channels.map(({ buffer }) => buffer));
+				});
 				if (transferred.status !== 'ok' || transferred.framesTransferred !== block.frameCount) {
 					finish(transferred.status === 'device-unavailable' ? 'device-loss' : 'transfer-failed');
 				}
@@ -126,7 +126,7 @@ export function createNativePersistentAudioJobRunner({ loadAddon, addonPath, add
 					channels: block.channels,
 					framesTransferred: transferred.framesTransferred ?? 0,
 					status: transferred.status,
-				}, block.channels.map(({ buffer }) => buffer));
+				});
 				if (transferred.status !== 'ok' || transferred.framesTransferred !== block.frameCount) {
 					finish(transferred.status === 'device-unavailable' ? 'device-loss' : 'transfer-failed');
 				}
@@ -200,8 +200,9 @@ function listen(port, listener) {
 	else port.onmessage = (event) => listener(event?.data);
 }
 
-function post(port, message, transfer = []) {
-	port.postMessage(message, transfer);
+function post(port, message) {
+	// MessagePortMain's transfer list accepts ports. PCM uses structured clone.
+	port.postMessage(message);
 }
 
 function boundedText(value) {
