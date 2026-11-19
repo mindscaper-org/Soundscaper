@@ -401,9 +401,9 @@ async function scheduleOfflineChunkPlan({
 	}
 	const sourceEndFrame = Math.min(
 		provider.frameCount,
-		plan.offsetFrame + requestedInputFrames,
+		roundedStart + roundedInputFrames,
 	);
-	const firstChunk = Math.floor(plan.offsetFrame / provider.chunkFrames);
+	const firstChunk = Math.floor(roundedStart / provider.chunkFrames);
 	const lastChunk = Math.max(firstChunk, Math.ceil(sourceEndFrame / provider.chunkFrames) - 1);
 	for (let chunkIndex = firstChunk; chunkIndex <= lastChunk; chunkIndex += 1) {
 		throwIfAborted(signal);
@@ -411,37 +411,35 @@ async function scheduleOfflineChunkPlan({
 		const channels = chunkChannels(value);
 		const chunkStart = chunkIndex * provider.chunkFrames;
 		const chunkFrames = channels[0]?.length || 0;
-		const rangeStart = Math.max(plan.offsetFrame, chunkStart);
+		const rangeStart = Math.max(roundedStart, chunkStart);
 		const rangeEnd = Math.min(sourceEndFrame, chunkStart + chunkFrames);
 		if (rangeEnd <= rangeStart) continue;
-		// This branch already has exactly one input sample per output frame.
-		const buffer = context.createBuffer(provider.channelCount, chunkFrames, context.sampleRate);
+		const retainedFrames = rangeEnd - rangeStart;
+		// Keep only the samples this source node will play at the output clock.
+		const buffer = context.createBuffer(provider.channelCount, retainedFrames, context.sampleRate);
 		for (let channel = 0; channel < provider.channelCount; channel += 1) {
 			const values = channels[channel];
 			if (!values) throw new Error('A long-source storage chunk has missing channels.');
+			const crop = values.subarray(rangeStart - chunkStart, rangeEnd - chunkStart);
 			if (typeof buffer.copyToChannel === 'function') {
-				const copyValues = values.buffer instanceof ArrayBuffer
-					? values as Float32Array<ArrayBuffer>
-					: new Float32Array(values);
+				const copyValues = crop.buffer instanceof ArrayBuffer
+					? crop as Float32Array<ArrayBuffer>
+					: new Float32Array(crop);
 				buffer.copyToChannel(copyValues, channel);
 			}
-			else buffer.getChannelData(channel).set(values);
+			else buffer.getChannelData(channel).set(crop);
 		}
 		const source = addNode(allNodes, context.createBufferSource());
 		source.buffer = buffer;
 		connect(source, chain.input);
-		const when = clipStartTime + (rangeStart - plan.offsetFrame) / context.sampleRate;
+		const when = clipStartTime + (rangeStart - roundedStart) / context.sampleRate;
 		setParam(source.playbackRate, 1, when);
 		try {
-			source.start(
-				when,
-				(rangeStart - chunkStart) / context.sampleRate,
-				(rangeEnd - rangeStart) / context.sampleRate,
-			);
+			source.start(when);
 			activeSources.add(source);
 		} catch {
 			// Provider errors report corrupt chunks; Web Audio range errors skip only this segment.
 		}
-		onChunkLoaded?.(rangeEnd - rangeStart);
+		onChunkLoaded?.(retainedFrames);
 	}
 }
