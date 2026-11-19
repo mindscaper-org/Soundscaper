@@ -70,11 +70,12 @@ async function present(value) {
 	const digest = hex(await crypto.subtle.digest('SHA-256', value.rgba));
 	if (digest !== value.rgbaSha256) throw new Error('The external-display sink frame digest is invalid.');
 	if (!(canvas instanceof HTMLCanvasElement)) throw new Error('The external-display sink canvas is unavailable.');
-	canvas.width = width;
-	canvas.height = height;
+	if (canvas.width !== width) canvas.width = width;
+	if (canvas.height !== height) canvas.height = height;
 	const context = canvas.getContext('2d', { alpha: false, colorSpace: 'srgb' });
 	if (context === null) throw new Error('The external-display sink canvas context is unavailable.');
-	context.putImageData(new ImageData(new Uint8ClampedArray(value.rgba), width, height), 0, 0);
+	const pixels = new Uint8ClampedArray(value.rgba.buffer, value.rgba.byteOffset, byteLength);
+	context.putImageData(new ImageData(pixels, width, height), 0, 0);
 	lastSequence = value.sequence;
 	port.postMessage(Object.freeze({
 		version: 1, type: 'presented', sequence: value.sequence, sha256: value.rgbaSha256,

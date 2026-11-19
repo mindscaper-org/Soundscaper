@@ -14,9 +14,14 @@ test('the dedicated sandbox sink verifies and presents one exact SDR RGBA frame'
 	const sends = [];
 	const events = new Map();
 	const draws = [];
+	const resizes = [];
 	class Canvas {
-		width = 0;
-		height = 0;
+		#width = 0;
+		#height = 0;
+		get width() { return this.#width; }
+		get height() { return this.#height; }
+		set width(width) { this.#width = width; resizes.push(['width', width]); }
+		set height(height) { this.#height = height; resizes.push(['height', height]); }
 		getContext() { return { putImageData: (image, x, y) => draws.push({ image, x, y }) }; }
 	}
 	class FrameImageData {
@@ -47,21 +52,25 @@ test('the dedicated sandbox sink verifies and presents one exact SDR RGBA frame'
 		{ ports: [port] }, { version: 1, pixelFormat: 'rgba8', colorSpace: 'srgb' },
 	);
 	const rgba = Uint8Array.of(1, 2, 3, 255, 4, 5, 6, 255);
-	const sha256 = createHash('sha256').update(rgba).digest('hex');
-	port.onmessage({ data: {
-		version: 1, type: 'frame', sequence: 1, evaluationFingerprint: 'ab'.repeat(32),
-		width: 2, height: 1, dynamicRange: 'sdr', rgbaSha256: sha256, rgba,
-	} });
-	await waitFor(() => draws.length > 0, 'the presented frame to be drawn', {
+	const cropped = Uint8Array.of(99, 7, 8, 9, 255, 10, 11, 12, 255, 99).subarray(1, 9);
+	const send = (sequence, width, height, pixels) => {
+		const sha256 = createHash('sha256').update(pixels).digest('hex');
+		port.onmessage({ data: {
+			version: 1, type: 'frame', sequence, evaluationFingerprint: 'ab'.repeat(32),
+			width, height, dynamicRange: 'sdr', rgbaSha256: sha256, rgba: pixels,
+		} });
+		return { version: 1, type: 'presented', sequence, sha256 };
+	};
+	const expected = [send(1, 2, 1, rgba), send(2, 2, 1, cropped), send(3, 1, 2, cropped)];
+	await waitFor(() => acknowledgements.length === expected.length, 'the presented frames to be acknowledged', {
 		turns: 20, delayMs: 5,
 	});
-	assert.equal(draws.length, 1);
-	assert.equal(draws[0].image.width, 2);
-	assert.equal(draws[0].image.height, 1);
-	assert.deepEqual([...draws[0].image.bytes], [...rgba], 'the sink presents the exact two RGBA pixels');
-	assert.deepEqual(JSON.parse(JSON.stringify(acknowledgements)), [
-		{ version: 1, type: 'presented', sequence: 1, sha256 },
-	]);
+	assert.deepEqual(draws.map(({ image }) => [image.width, image.height]), [[2, 1], [2, 1], [1, 2]]);
+	assert.deepEqual([...draws[0].image.bytes], [...rgba]);
+	assert.deepEqual([...draws[1].image.bytes], [...cropped]);
+	assert.equal(draws[1].image.bytes.buffer, cropped.buffer);
+	assert.deepEqual(resizes, [['width', 2], ['height', 1], ['width', 1], ['height', 2]]);
+	assert.deepEqual(JSON.parse(JSON.stringify(acknowledgements)), expected);
 	events.get('keydown')({ key: 'Escape', preventDefault: () => undefined });
 	assert.deepEqual(JSON.parse(JSON.stringify(sends)), [{
 		channel: 'framescaper:external-display:v1:close', value: { reason: 'escape-key' },
