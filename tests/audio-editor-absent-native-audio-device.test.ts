@@ -55,7 +55,7 @@ test('a completely empty native inventory protects the saved speakers and accept
 		await fixture.runtime.refresh();
 		assert.equal(fixture.runtime.getSnapshot().failureCode, 'device-loss');
 		assert.notEqual(fixture.destination(), fixture.context.destination);
-		assert.deepEqual(fixture.opened, []);
+		assert.equal(fixture.opened.length, 0);
 		fixture.inventory([system]);
 		await fixture.runtime.refresh();
 		await fixture.selectSystemDefault();
