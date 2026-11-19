@@ -156,10 +156,18 @@ test('first-time ASIO selects a connected driver and honors a later explicit sel
 		const after = await window.__nativeOutput.fence();
 		return after.sessionId === sessionId && after.packet.startFrame > packet.endFrame && Math.max(...after.packet.peaks) > .05;
 	}, before)).toBe(true);
+	const beforeRefresh = await page.evaluate(() => window.__nativeOutput.fence());
+	await setup.getByRole('button', { name: 'Refresh devices', exact: true }).click();
+	await expect.poll(() => page.evaluate(() => [...window.__asioOpenHandles])).toEqual([...first, 'Focusrite Thunderbolt ASIO', 'Focusrite Thunderbolt ASIO']);
+	await expect(setup.getByRole('alert')).toContainText('The selected audio device could not be opened');
+	await expect.poll(() => page.evaluate(async ({ packet, sessionId }) => {
+		const after = await window.__nativeOutput.fence();
+		return after.sessionId === sessionId && after.packet.startFrame > packet.endFrame && Math.max(...after.packet.peaks) > .05;
+	}, beforeRefresh)).toBe(true);
 	await microphone.selectOption('native:asio:in:Focusrite USB ASIO');
 	await expect(microphone).toBeEnabled();
 	await expect(setup.getByRole('alert')).toHaveCount(0);
-	await expect.poll(() => page.evaluate(() => [...window.__asioOpenHandles])).toEqual([...first, 'Focusrite Thunderbolt ASIO', 'Focusrite USB ASIO']);
+	await expect.poll(() => page.evaluate(() => [...window.__asioOpenHandles])).toEqual([...first, 'Focusrite Thunderbolt ASIO', 'Focusrite Thunderbolt ASIO', 'Focusrite USB ASIO']);
 	expect(await page.evaluate(() => window.__nativeOutput.sessionId)).toBe(before.sessionId);
 	await page.keyboard.press('Escape');
 	await editor.getByRole('button', { name: 'Stop', exact: true }).click();

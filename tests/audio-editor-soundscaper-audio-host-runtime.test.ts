@@ -148,7 +148,12 @@ for (const refused of [false, true]) test(`choosing another input retains the op
 		assert.deepEqual(fixture.bound, refused ? ['session-1', 'session-2'] : ['session-1', 'session-2', 'session-3']);
 		assert.equal(fixture.settings().preferredInputDeviceId, 'native:wasapi:in:second');
 		assert.equal(fixture.runtime.getSnapshot().failureCode, refused ? 'session-open' : null);
+		await fixture.runtime.refresh();
+		assert.deepEqual(fixture.described, ['wasapi', 'wasapi']);
+		assert.deepEqual(fixture.closed, refused ? ['session-1'] : ['session-1', 'session-2', 'session-3']);
 		if (refused) {
+			assert.equal(fixture.opened.at(-1)?.candidates[0]?.deviceHandle, 'second');
+			assert.equal(fixture.runtime.getSnapshot().failureCode, 'session-open');
 			fixture.change({ preferredInputDeviceId: '', preferredOutputDeviceId: '' });
 			await fixture.runtime.settle();
 			assert.equal(fixture.opened.at(-1)?.candidates[0]?.deviceHandle, 'first');

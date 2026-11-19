@@ -239,12 +239,14 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 		}
 		assertCanReplaceDevices();
 		const settings = preferences();
-		const routeKey = preferenceKey();
-		const requests = nextInventory && nextInventory === inventory && !enumerate
-			&& !automaticAsioDefaults(host, nextInventory, settings).length
-			? routeRequests(host, nextInventory, settings, inputChannelCount(settings)) : null;
+		let routeKey = preferenceKey();
+		const proposed = nextInventory && !automaticAsioDefaults(host, nextInventory, settings).length
+			? routeRequests(host, nextInventory, settings, inputChannelCount(settings, nextInventory)) : null;
+		let requests = nextInventory === inventory && !enumerate ? proposed : null;
 		const retained = new Map([...sessions].filter(([, session]) => session.state === 'bound'
-			&& requests?.some(request => sameRoute(session.request, request))));
+			&& proposed?.some(request => sameRoute(session.request, request))));
+		// Refresh reopens a complete set of routes. When repairing one route, keep its matching sibling.
+		if (!requests && proposed?.length === retained.size) retained.clear();
 		const keepsInput = () => [...retained.values()].some(({ request }) => request.direction !== 'output');
 		const inputWasRetained = keepsInput();
 		if (!inputWasRetained) {
@@ -254,8 +256,18 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 			const sampleRate = settings.recordingSampleRate;
 			const context = await audioHostOperation('rate-mismatch', () => options.engine.getAudioContext({ resume: true, sampleRate }));
 			assertCanReplaceDevices();
-			if (requests && routeKey !== preferenceKey()) return;
+			if ((requests || retained.size) && routeKey !== preferenceKey()) return;
 			if (context.sampleRate !== sampleRate) throw new AudioHostError('rate-mismatch', 'The audio host could not use the selected recording sample rate. Choose another sample rate.');
+			if (!requests && retained.size) {
+				await setInventory(host, nextInventory);
+				assertCanReplaceDevices();
+				const current = preferences();
+				routeKey = preferenceKey();
+				requests = routeRequests(host, nextInventory, current, inputChannelCount(current));
+				for (const [id, session] of retained) {
+					if (!requests.some(request => sameRoute(session.request, request))) retained.delete(id);
+				}
+			}
 		}
 		for (const [id, session] of retained) if (session.state !== 'bound') retained.delete(id);
 		if (inputWasRetained && !keepsInput()) inputReplacement = controller.actions.recording?.prepareInputReplacement?.() ?? inputReplacement;
