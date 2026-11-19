@@ -119,7 +119,21 @@ test('capture reuses the current frame interval and seeks adjacent millisecond f
 		for (const timestamp of [0.0005, 0.00075, 0.0015, 0.0025, 0.0035]) {
 			await fixture.extractor.capturePixels(timestamp, { maximumWidth: 64, maximumHeight: 36 });
 		}
-		assert.deepEqual(fixture.seeks, [0.0005, 0.0015, 0.0025, 0.003]);
+		assert.deepEqual(fixture.seeks.map(time => Math.round(time * 1e6)), [250, 1250, 2250, 3250]);
+	} finally { fixture.extractor.dispose(); }
+});
+
+test('an indexed capture seeks early enough to avoid the next decoded frame', async () => {
+	const fixture = await videoExtractorFixture({
+		duration: 0.16,
+		timing: { timescale: 25, presentationTicks: [0n, 1n, 2n, 3n], finalFrameDurationTicks: 1n },
+	});
+	try {
+		for (const timestamp of [0.02, 0.06, 0.10, 0.14]) {
+			const frame = await fixture.extractor.capturePixels(timestamp);
+			assert.equal(frame.timestampSeconds, timestamp);
+		}
+		assert.deepEqual(fixture.seeks.map(time => Math.round(time * 1000)), [10, 50, 90, 130]);
 	} finally { fixture.extractor.dispose(); }
 });
 
@@ -131,7 +145,7 @@ test('the initial poster seeks inside the first admitted source frame', async ()
 	try {
 		const poster = await fixture.extractor.capture(0, { maximumWidth: 64, maximumHeight: 36 });
 		assert.equal(poster.timestampSeconds, 0);
-		assert.deepEqual(fixture.seeks, [0.0005]);
+		assert.deepEqual(fixture.seeks, [0.00025]);
 	} finally { fixture.extractor.dispose(); }
 });
 

@@ -7,7 +7,7 @@ type CaptureTiming = Pick<VideoTimingProbeResult, 'timescale' | 'presentationTic
 type FrameMatcher = (timestamp: number, mediaTime: number) => boolean;
 interface VideoFrameCaptureTiming {
 	readonly matches: FrameMatcher;
-	readonly firstFrameEndSeconds: number | null;
+	readonly seekTime: (timestamp: number) => number | null;
 }
 interface CaptureTimingOptions {
 	readonly signal?: AbortSignal;
@@ -29,25 +29,37 @@ export async function createVideoFrameCaptureTiming(
 	} catch {
 		options.signal?.throwIfAborted();
 		// A native decoder may support a container the timing reader does not.
-		return Object.freeze({ matches: exactTimestamp, firstFrameEndSeconds: null });
+		return Object.freeze({ matches: exactTimestamp, seekTime: () => null });
 	}
 	options.signal?.throwIfAborted();
 	const starts = timing.presentationTicks.map(ticks => Number(ticks) / timing.timescale);
 	const end = Number(timing.presentationTicks.at(-1)! + timing.finalFrameDurationTicks) / timing.timescale;
-	const matches: FrameMatcher = (timestamp, mediaTime) => {
-		if (!Number.isFinite(timestamp) || !Number.isFinite(mediaTime)) return false;
-		if (!starts.length || timestamp < starts[0]! || timestamp >= end) return exactTimestamp(timestamp, mediaTime);
+	const frameAt = (timestamp: number): number | null => {
+		if (!Number.isFinite(timestamp) || !starts.length || timestamp < starts[0]! || timestamp >= end) return null;
 		let low = 0, high = starts.length;
 		while (low + 1 < high) {
 			const middle = (low + high) >>> 1;
 			if (starts[middle]! <= timestamp) low = middle; else high = middle;
 		}
+		return low;
+	};
+	const matches: FrameMatcher = (timestamp, mediaTime) => {
+		const frame = frameAt(timestamp);
+		if (frame === null) return exactTimestamp(timestamp, mediaTime);
 		// A preceding frame can still be queued when currentTime is assigned.
 		// The following frame's PTS is excluded even while seeking is true.
-		return mediaTime >= starts[low]! - ROUNDING_SECONDS
-			&& mediaTime < (starts[low + 1] ?? end);
+		return mediaTime >= starts[frame]! - ROUNDING_SECONDS
+			&& mediaTime < (starts[frame + 1] ?? end);
 	};
-	return Object.freeze({ matches, firstFrameEndSeconds: starts[0] === 0 ? starts[1] ?? end : null });
+	const seekTime = (timestamp: number): number | null => {
+		const frame = frameAt(timestamp);
+		if (frame === null) return null;
+		const start = starts[frame]!;
+		// Chromium can present the nearest decoded picture on a seek. Bias the
+		// target toward this frame's PTS while remaining inside its interval.
+		return start + ((starts[frame + 1] ?? end) - start) / 4;
+	};
+	return Object.freeze({ matches, seekTime });
 }
 
 function exactTimestamp(timestamp: number, mediaTime: number): boolean {

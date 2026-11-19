@@ -18,8 +18,10 @@ test('capture reuses admitted import timing without scanning the container again
 });
 
 test('capture matches frame PTS and interior times across variable source intervals', async () => {
-	const { matches, firstFrameEndSeconds } = await createVideoFrameCaptureTiming(file, { readTiming });
-	assert.equal(firstFrameEndSeconds, .067);
+	const { matches, seekTime } = await createVideoFrameCaptureTiming(file, { readTiming });
+	assert.equal(seekTime(0), .01675);
+	assert.equal(seekTime(.13), .08525);
+	assert.equal(seekTime(.18), null);
 	assert.equal(matches(.0335, 0), true);
 	assert.equal(matches(.0335, .0335), true);
 	assert.equal(matches(.0335, .067), false);
@@ -34,10 +36,10 @@ test('capture matches frame PTS and interior times across variable source interv
 });
 
 test('unknown containers retain exact-time matching and cancellation is never swallowed', async () => {
-	const { matches, firstFrameEndSeconds } = await createVideoFrameCaptureTiming(file, {
+	const { matches, seekTime } = await createVideoFrameCaptureTiming(file, {
 		readTiming: () => Promise.reject(new Error('Unsupported timing.')),
 	});
-	assert.equal(firstFrameEndSeconds, null);
+	assert.equal(seekTime(0), null);
 	assert.equal(matches(.1, .1), true);
 	assert.equal(matches(.1, 0), false);
 	const controller = new AbortController();

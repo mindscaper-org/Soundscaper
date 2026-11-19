@@ -168,11 +168,10 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		// frame. Seeking to a nearby time forces the browser to populate the
 		// video frame before canvas capture, including for the timestamp-zero
 		// poster.
-		const { matches, firstFrameEndSeconds } = captureTiming;
-		const seekTimestamp = timestamp === 0 && !hasPresentedFrame
-			? Math.min(Math.max(0.001, durationSeconds / 2_000), Math.max(0, durationSeconds - 0.001),
-				firstFrameEndSeconds === null ? Infinity : firstFrameEndSeconds / 2)
-			: timestamp;
+		const { matches, seekTime } = captureTiming;
+		const seekTimestamp = seekTime(timestamp) ?? (timestamp === 0 && !hasPresentedFrame
+			? Math.min(Math.max(0.001, durationSeconds / 2_000), Math.max(0, durationSeconds - 0.001))
+			: timestamp);
 		const currentTime = Number(video.currentTime);
 		if (hasPresentedFrame ? !matches(seekTimestamp, currentTime) : currentTime !== seekTimestamp) {
 			await seekVideoFrameForCapture(video, seekTimestamp, {
