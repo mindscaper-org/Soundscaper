@@ -47,7 +47,7 @@ class PausedVideo extends EventTarget {
 	}
 }
 
-function fixture(context: TestContext) {
+function fixture(context: TestContext, intervalStartSeconds = .04, intervalEndSeconds = .13, targetSeconds = .085) {
 	for (const name of ['HTMLVideoElement', 'HTMLMediaElement']) {
 		const original = Object.getOwnPropertyDescriptor(globalThis, name);
 		Object.defineProperty(globalThis, name, { configurable: true, value: PausedVideo });
@@ -63,11 +63,28 @@ function fixture(context: TestContext) {
 	});
 	context.after(() => { controller.abort(); video.drain(); });
 	const result = Promise.resolve(port.present({ drawableSourceFrame: 1,
-		intervalStartSeconds: 0.04, intervalEndSeconds: 0.13, targetSeconds: 0.085,
+		intervalStartSeconds, intervalEndSeconds, targetSeconds,
 		signal: controller.signal,
 	})).then((value) => ({ value }), (error: unknown) => ({ error }));
 	return { video, controller, result };
 }
+
+test('a compositor timestamp rounded down to microseconds still authenticates its own picture', async (context) => {
+	const { video, result } = fixture(context, 7 / 30, 8 / 30, .25);
+	video.presentFrame(.233333);
+	video.drain();
+	assert.deepEqual(await result, { value: { mediaTime: 7 / 30 } });
+});
+
+test('the same rounded timestamp cannot authenticate the previous picture', async (context) => {
+	const { video, result } = fixture(context, .2, 7 / 30, .21);
+	video.presentFrame(.233333);
+	video.drain();
+	assert.deepEqual(video.seeks, [.21, .2]);
+	video.presentFrame(.2);
+	video.drain();
+	assert.deepEqual(await result, { value: { mediaTime: .2 } });
+});
 
 test('a forward-snapped paused frame retries only after the initial seek drains', async (context) => {
 	const { video, result } = fixture(context);

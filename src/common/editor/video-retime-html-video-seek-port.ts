@@ -159,7 +159,7 @@ export function createVideoRetimeHtmlVideoSeekPort(
 				const mayPrecedeTargetAssignment = !seek.seekIssued;
 				const frameCallbackId = requestFrame((_now, metadata) => {
 					if (seek.settled || seek.failure !== null) return;
-					const mediaTime = metadata.mediaTime;
+					const mediaTime = authoredCallbackTime(metadata.mediaTime, request);
 					if (!mediaTimeInRequestedInterval(mediaTime, request)) {
 						// WebKit can snap an interior seek forward to the following
 						// frame. Retry once at the interval start after the seek drains;
@@ -364,6 +364,18 @@ function mediaTimeInRequestedInterval(mediaTime: number, request: ActiveSeek['re
 	return Number.isFinite(mediaTime)
 		&& mediaTime >= request.intervalStartSeconds
 		&& mediaTime < request.intervalEndSeconds;
+}
+
+function authoredCallbackTime(mediaTime: number, request: ActiveSeek['request']): number {
+	// Browsers can report a microsecond-rounded decoder PTS. Map either exact
+	// reporting boundary back to its authored value before the half-open check.
+	const start = Math.round(request.intervalStartSeconds * 1_000_000) / 1_000_000;
+	const end = Math.round(request.intervalEndSeconds * 1_000_000) / 1_000_000;
+	if (start < end) {
+		if (mediaTime === start) return request.intervalStartSeconds;
+		if (mediaTime === end) return request.intervalEndSeconds;
+	}
+	return mediaTime;
 }
 
 function samePresentationRequest(left: ActiveSeek['request'], right: ActiveSeek['request']): boolean {

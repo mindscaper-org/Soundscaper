@@ -1,15 +1,45 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test } from './audio-editor-test-fixtures.js';
+import { BufferSource, EncodedPacketSink, Input, WEBM } from 'mediabunny';
 import {
 	bootEditor, chooseDropdown, collectClientErrors, disableNativeSavePicker,
 	importFiles, openExportDialog, readDownloadBytes, registerAudioEditorHooks,
 } from './audio-editor-test-helpers.js';
 import { videoRetimePreviewMedia } from './fixtures/video-retime-preview-media.js';
 import { createDeterministicSilentVideoFixture } from './fixtures/deterministic-av-media.js';
+import { sourceMonitorFragmentedMedia } from './fixtures/video-timing-probe-media.js';
 
 test.describe('video container exporters', () => {
 	registerAudioEditorHooks();
+	test('classic VFR AVC with fractional frame timestamps delivers every picture cell', async ({ page, browserName }) => {
+		test.skip(browserName !== 'chromium', 'The fractional rVFC boundary witness is qualified on Chromium.');
+		await disableNativeSavePicker(page);
+		const editor = await bootEditor(page, '/framescaper/embed/en/');
+		const [file] = sourceMonitorFragmentedMedia();
+		await importFiles(editor, [file]);
+		await expect(editor).toHaveAttribute('data-clip-count', '2');
+		const dialog = await openExportDialog(page, editor, { label: 'Export video' });
+		await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'WebM video');
+		await dialog.getByRole('button', { name: 'Export', exact: true }).click();
+		const link = dialog.locator('[data-export-download]');
+		const error = page.locator('[data-editor-toast="workspace-error"], [data-editor-toast="workspace-status-error"]');
+		await expect(link.or(error).first()).toBeVisible({ timeout: 25_000 });
+		await expect(link).toBeVisible();
+		const input = new Input({ source: new BufferSource(await readDownloadBytes(page, link)), formats: [WEBM] });
+		try {
+			const track = await input.getPrimaryVideoTrack();
+			expect(track).not.toBeNull();
+			let pictures = 0;
+			for await (const packet of new EncodedPacketSink(track).packets(undefined, undefined, { metadataOnly: true })) {
+				expect(packet.timestamp).toBeCloseTo(pictures * 29 / 660, 3);
+				pictures++;
+			}
+			expect(pictures).toBe(22);
+			expect(await input.getAudioTracks()).toHaveLength(1);
+		} finally { input.dispose(); }
+	});
+
 	for (const [label, extension, mimeType, source, dimensions] of [
 		['MP4 video', 'mp4', 'video/mp4', videoRetimePreviewMedia.file,
 			{ width: videoRetimePreviewMedia.width, height: videoRetimePreviewMedia.height }],
