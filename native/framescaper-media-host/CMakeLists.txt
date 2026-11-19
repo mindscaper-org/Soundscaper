@@ -161,6 +161,7 @@ if(BUILD_TESTING)
 	)
 	add_executable(framescaper-professional-source-probe-test
 		tests/professional_source_probe_fixture.cpp
+		src/ffmpeg_decode_session.cpp
 		src/professional_source_probe.cpp
 	)
 	target_include_directories(framescaper-professional-source-probe-test PRIVATE src)
@@ -175,6 +176,8 @@ if(BUILD_TESTING)
 	add_test(
 		NAME framescaper-professional-source-probe-test
 		COMMAND framescaper-professional-source-probe-test
+			${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/keyed-alpha-1280x720-4fps-4frames.webm
+			${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/chrome-vp8-alpha-64x32-4frames.webm
 	)
 	add_executable(framescaper-decoded-frame-alpha-test
 		tests/decoded_frame_alpha_fixture.cpp

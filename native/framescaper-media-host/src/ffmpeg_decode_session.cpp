@@ -2,6 +2,7 @@
 
 #include "ffmpeg_decode_session.hpp"
 #include "media_path_utf8.hpp"
+#include "webm_alpha.hpp"
 
 extern "C" {
 #include <libavutil/error.h>
@@ -10,7 +11,6 @@ extern "C" {
 
 #include <algorithm>
 #include <array>
-#include <string_view>
 #include <utility>
 
 namespace framescaper::media {
@@ -115,16 +115,13 @@ ffmpeg_decode_session ffmpeg_decode_session::open(
 		);
 	}
 	const auto* stream = session.format->streams[session.stream_index];
-	const auto* alpha = av_dict_get(stream->metadata, "alpha_mode", nullptr, 0);
-	const auto codec_id = stream->codecpar->codec_id;
-	if ((codec_id == AV_CODEC_ID_VP8 || codec_id == AV_CODEC_ID_VP9)
-		&& alpha != nullptr && std::string_view{alpha->value} == "1") {
+	if (webm_vpx_declares_alpha(*session.format, *stream)) {
 		// The built-in/hardware VPx decoders discard Matroska BlockAdditional alpha.
 		if (backend != "native-cpu") {
 			throw ffmpeg_decode_failure("hardware-backend-unavailable",
 				"WebM alpha requires the authenticated libvpx CPU decoder.", 78);
 		}
-		decoder = avcodec_find_decoder_by_name(codec_id == AV_CODEC_ID_VP8 ? "libvpx" : "libvpx-vp9");
+		decoder = avcodec_find_decoder_by_name(stream->codecpar->codec_id == AV_CODEC_ID_VP8 ? "libvpx" : "libvpx-vp9");
 		if (decoder == nullptr) {
 			throw ffmpeg_decode_failure("alpha-decoder-missing",
 				"The authenticated media runtime has no alpha-capable WebM decoder.", 78);

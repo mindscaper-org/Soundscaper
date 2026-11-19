@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "professional_source_probe.hpp"
+#include "webm_alpha.hpp"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -312,8 +313,14 @@ std::string professional_source_characteristics_json(
 	if (video_stream_index < 0 || static_cast<unsigned>(video_stream_index) >= format.nb_streams
 		|| format.streams[video_stream_index] == nullptr
 		|| format.streams[video_stream_index]->codecpar == nullptr) return "null";
-	const AVCodecParameters& parameters = *format.streams[video_stream_index]->codecpar;
-	const auto pixels = inspect_pixel_format(parameters);
+	const auto& stream = *format.streams[video_stream_index];
+	const AVCodecParameters& parameters = *stream.codecpar;
+	auto pixels = inspect_pixel_format(parameters);
+	if (webm_vpx_declares_alpha(format, stream) && pixels.has_alpha != true) {
+		// FFmpeg's default probe decoder sees only the color packet, without the alpha block.
+		pixels.has_alpha = true;
+		pixels.pixel_format.reset();
+	}
 	const bool bounded_geometry = parameters.width > 0 && parameters.width <= maximum_dimension
 		&& parameters.height > 0 && parameters.height <= maximum_dimension;
 	const auto codec = admitted_base_name(avcodec_get_name(parameters.codec_id));

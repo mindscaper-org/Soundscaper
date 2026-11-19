@@ -57,8 +57,8 @@
 	"sourceFiles": [
 		{
 			"path": "CMakeLists.txt",
-			"byteLength": 8584,
-			"sha256": "e49c776404dfb1038457e17f7843dd38c2f225e10b30c0d322b6f5afe0d4ec6c"
+			"byteLength": 8783,
+			"sha256": "ae44aa1bc0b5605eb2a4ca4d920a836d311804e60b395b95c6356d7fb94d4f79"
 		},
 		{
 			"path": "CMakePresets.json",
@@ -152,8 +152,8 @@
 		},
 		{
 			"path": "src/ffmpeg_decode_session.cpp",
-			"byteLength": 9364,
-			"sha256": "db2345070503fd8707b45d958ed0385bce7e71c9580b49189a8f36cc1421c97d"
+			"byteLength": 9182,
+			"sha256": "d648983715ab00651f8e93f4041ff553a2c5eac3509e271b98fd9b08e5bdf597"
 		},
 		{
 			"path": "src/ffmpeg_decode_session.hpp",
@@ -347,8 +347,8 @@
 		},
 		{
 			"path": "src/professional_source_probe.cpp",
-			"byteLength": 18815,
-			"sha256": "069ba6afffb60df70e8523a26546255502cfd176dc040adfbf59edfea6f2f494"
+			"byteLength": 19091,
+			"sha256": "08e47a43d2d5397e785b134042e92c2fcc87caa78c618bc2eced8f48f54b25e1"
 		},
 		{
 			"path": "src/professional_source_probe.hpp",
@@ -456,6 +456,11 @@
 			"sha256": "b636d9357bbceedd7aa8aca88e6cce1b4f989d5c91323a05a266fd94eab3ac72"
 		},
 		{
+			"path": "src/webm_alpha.hpp",
+			"byteLength": 706,
+			"sha256": "192973f96868ba65f40685dc66664ca5ea0beb9b803ddd74622757e15b15551d"
+		},
+		{
 			"path": "src/webm_encode_settings.hpp",
 			"byteLength": 1053,
 			"sha256": "95ac8e342eb49284b4326a5579c096bfa14c6885098c7d35bbe75a8678612bcb"
@@ -507,8 +512,8 @@
 		},
 		{
 			"path": "tests/professional_source_probe_fixture.cpp",
-			"byteLength": 185,
-			"sha256": "114d80514efa52301b5e31113215471421a1d9bbe931c508b62eb1bedbb96599"
+			"byteLength": 718,
+			"sha256": "59eb84a9b7664eb3d5697bf1d449ac15e98e57c41d5a1616c89aa653f1387c07"
 		},
 		{
 			"path": "tests/selected_v20_frame_executor_fixture.cpp",
