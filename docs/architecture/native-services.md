@@ -158,6 +158,10 @@ separate routes independently. A working route stays bound through Refresh
 while the failed route reports its own error and is retried. The selected
 native playback route owns the output during startup, including when the first
 attempt to open that route is refused.
+If the native inventory temporarily omits a saved device, Audio Setup keeps its
+selection and reports it unavailable. The other device can stay bound. Refresh
+reconnects the saved device when it returns, and choosing System default allows
+use of the current default device.
 While an already selected native output is being replaced, playback keeps
 its timeline position and uses silence until a native output is bound again.
 A replacement refusal leaves the browser output muted until the user

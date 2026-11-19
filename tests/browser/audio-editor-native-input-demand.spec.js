@@ -86,6 +86,7 @@ test('Record waits for the alternate WASAPI microphone assigned to its track', a
 		const admitted = new Promise(resolve => { window.__allowWASAPIPin = resolve; });
 		api.describeNativeAudioBackend = async request => {
 			const result = await describe(request);
+			if (window.__hideDefaultWASAPIInput) result.inventory.devices = result.inventory.devices.filter(device => device.handle !== 'microphone');
 			result.inventory.devices.push({ handle: 'alternate', label: 'Alternate WASAPI microphone', direction: 'input', channelCount: 2 });
 			return result;
 		};
@@ -125,6 +126,21 @@ test('Record waits for the alternate WASAPI microphone assigned to its track', a
 	await expect(source).toHaveValue('device:native:wasapi:in:alternate');
 	await expect.poll(() => page.evaluate(() => window.__nativeInputPeer.requests.filter(request => request.direction === 'input')
 		.map(request => request.candidates[0].deviceHandle))).toEqual(['microphone', 'alternate', 'microphone']);
+	expect(await page.evaluate(async () => (await window.__nativeOutput.fence()).sessionId)).toBe(speaker);
+	await settings.click();
+	await expect(microphone).toHaveValue('native:wasapi:in:microphone');
+	await page.evaluate(() => { window.__hideDefaultWASAPIInput = true; });
+	await setup.getByRole('button', { name: 'Refresh devices', exact: true }).click();
+	await expect(setup.getByRole('alert')).toBeVisible();
+	await expect(microphone).toHaveValue('native:wasapi:in:microphone');
+	await page.keyboard.press('Escape');
+	await record.click();
+	await expect(record).toHaveAttribute('aria-pressed', 'true');
+	await expect(editor.locator('[data-clip-id^="recording-preview-"]').first()).toBeVisible();
+	await editor.getByRole('button', { name: 'Stop', exact: true }).click();
+	await expect(record).toHaveAttribute('aria-pressed', 'false');
+	await expect.poll(() => page.evaluate(() => window.__nativeInputPeer.requests.filter(request => request.direction === 'input')
+		.map(request => request.candidates[0].deviceHandle))).toEqual(['microphone', 'alternate', 'microphone', 'alternate']);
 	expect(await page.evaluate(async () => (await window.__nativeOutput.fence()).sessionId)).toBe(speaker);
 	await settings.click();
 	await expect(microphone).toHaveValue('native:wasapi:in:microphone');

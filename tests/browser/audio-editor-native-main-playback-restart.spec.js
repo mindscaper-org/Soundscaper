@@ -5,6 +5,57 @@ import { bootEditor, importFiles } from './audio-editor-test-helpers.js';
 import { installNativeInputPeer } from './helpers/native-input-peer.js';
 import { installNativeOutputPeer, NATIVE_OUTPUT_PEER_WEBKIT_REASON } from './helpers/native-output-peer.js';
 
+test('an absent saved speaker stays selected and reconnects without routing audio to the fallback', async ({ page, browserName }) => {
+	test.skip(browserName !== 'chromium', 'The output meter uses Chromium’s silent AudioContext sink.');
+	await installNativeInputPeer(page);
+	await installSilentBrowserOutputMeter(page);
+	await page.addInitScript(() => {
+		const api = window.soundscaperDesktop.v1, describe = api.describeNativeAudioBackend;
+		api.describeNativeAudioBackend = async request => {
+			const result = await describe(request);
+			if (sessionStorage.getItem('native-speaker-absent')) {
+				result.inventory.devices = result.inventory.devices.filter(device => device.handle !== 'speakers');
+				result.inventory.devices.push({ handle: 'fallback', label: 'Fallback speakers', direction: 'output', channelCount: 2, isDefault: true });
+			}
+			return result;
+		};
+	});
+	const editor = await bootEditor(page, '/embed/en/');
+	const settings = editor.getByRole('button', { name: 'Audio setup', exact: true });
+	const setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
+	const host = setup.getByRole('combobox', { name: 'Host', exact: true });
+	const speakers = setup.getByRole('combobox', { name: 'Speakers', exact: true });
+	await settings.click();
+	await host.selectOption('alsa');
+	await expect(speakers).toHaveValue('native:alsa:out:speakers');
+	await expect(speakers).toBeEnabled();
+	await page.evaluate(() => sessionStorage.setItem('native-speaker-absent', 'true'));
+	await bootEditor(page, '/embed/en/');
+	await settings.click();
+	await expect(speakers).toBeEnabled();
+	await expect(speakers).toHaveValue('native:alsa:out:speakers');
+	await expect(speakers.getByRole('option', { name: 'Fallback speakers' })).toHaveCount(1);
+	await expect(setup.getByRole('alert')).toBeVisible();
+	const directions = () => page.evaluate(() => window.__nativeInputPeer.requests.map(request => request.direction));
+	await expect.poll(directions).toEqual(['input']);
+	await page.keyboard.press('Escape');
+	await importFiles(editor, [createWavFixture({ name: 'Unavailable speakers.wav', frequency: 440, duration: 12 })]);
+	await editor.getByRole('button', { name: 'Play', exact: true }).click();
+	try {
+		const playhead = editor.getByRole('slider', { name: 'Playhead', exact: true });
+		await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(12_000);
+		expect(await page.evaluate(() => window.__browserOutputPeak())).toBeLessThan(.001);
+		await settings.click();
+		await page.evaluate(() => sessionStorage.removeItem('native-speaker-absent'));
+		await setup.getByRole('button', { name: 'Refresh devices', exact: true }).click();
+		await expect(setup.getByRole('alert')).toHaveCount(0);
+		await expect(speakers).toHaveValue('native:alsa:out:speakers');
+		await expect.poll(directions).toEqual(['input', 'output']);
+		await page.keyboard.press('Escape');
+		await expect.poll(() => page.evaluate(() => Math.max(0, ...window.__nativeOutput.channelRms))).toBeGreaterThan(.05);
+	} finally { await editor.getByRole('button', { name: 'Stop', exact: true }).click(); }
+});
+
 test('Electron playback returns to the project clock after leaving a low-rate WASAPI route', async ({ page, browserName }) => {
 	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
 	await installNativeInputPeer(page, { backend: 'wasapi' });

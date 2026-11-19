@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { NativeAudioSessionOpenRequestV1 } from './soundscaper-native-services-bridge.ts';
-import { nativeAudioDeviceId, type NativeAudioDeviceDefaults, type NativeAudioDeviceReport, type NativeAudioInventoryReport } from '../controller/recording/native-audio-inventory.ts';
+import { isNativeAudioDeviceSelection, nativeAudioDeviceId, type NativeAudioDeviceDefaults, type NativeAudioDeviceReport, type NativeAudioInventoryReport } from '../controller/recording/native-audio-inventory.ts';
+import { AudioHostError } from './audio-host-failure.ts';
 
 export type NativeAudioStreamingUiBackend = Exclude<
 	NativeAudioSessionOpenRequestV1['candidates'][number]['backend'], 'jack'
@@ -72,8 +73,21 @@ export function routeRequests(host: string, inventory: NativeAudioInventoryRepor
 export function selectedDevice(inventory: NativeAudioInventoryReport, direction: 'input' | 'output', deviceId: string): NativeAudioDeviceReport | undefined {
 	const kind = direction === 'input' ? 'audio-input' : 'audio-output';
 	const devices = inventory.devices.filter((device) => device.direction === direction || device.direction === 'duplex');
-	return devices.find((device) => nativeAudioDeviceId(inventory.backend, kind, device.handle) === deviceId)
-		?? devices.find((device) => device.isDefault) ?? devices[0];
+	if (isNativeAudioDeviceSelection(deviceId, inventory.backend, kind)) {
+		return devices.find((device) => nativeAudioDeviceId(inventory.backend, kind, device.handle) === deviceId);
+	}
+	return devices.find((device) => device.isDefault) ?? devices[0];
+}
+
+export function unavailableNativeAudioRoutes(inventory: NativeAudioInventoryReport | null, settings: NativeAudioDeviceDefaults) {
+	const input = Boolean(inventory && isNativeAudioDeviceSelection(settings.preferredInputDeviceId, inventory.backend, 'audio-input')
+		&& !selectedDevice(inventory, 'input', settings.preferredInputDeviceId));
+	const output = Boolean(inventory && isNativeAudioDeviceSelection(settings.preferredOutputDeviceId, inventory.backend, 'audio-output')
+		&& !selectedDevice(inventory, 'output', settings.preferredOutputDeviceId));
+	const error = input || output ? new AudioHostError('device-loss', input && output
+		? 'The saved native microphone and speakers are unavailable.'
+		: input ? 'The saved native microphone is unavailable.' : 'The saved native speakers are unavailable.') : null;
+	return { output, error };
 }
 
 export function sameRoute(left: NativeAudioSessionOpenRequestV1, right: NativeAudioSessionOpenRequestV1): boolean {

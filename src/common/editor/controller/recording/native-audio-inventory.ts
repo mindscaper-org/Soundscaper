@@ -46,6 +46,11 @@ export function nativeAudioDeviceId(backend: string, kind: AudioDeviceKind, hand
 	return `${NATIVE_AUDIO_DEVICE_ID_PREFIX}:${backend}:${kind === 'audio-input' ? 'in' : 'out'}:${handle}`;
 }
 
+export function isNativeAudioDeviceSelection(deviceId: string, backend: string, kind: AudioDeviceKind): boolean {
+	const prefix = nativeAudioDeviceId(backend, kind, '');
+	return deviceId.startsWith(prefix) && deviceId.length > prefix.length && isOpaqueNativeAudioHandle(deviceId.slice(prefix.length));
+}
+
 export function nativeAudioDeviceGroupId(backend: string, handle: string): string {
 	return `${NATIVE_AUDIO_DEVICE_ID_PREFIX}:${backend}:${handle}`;
 }

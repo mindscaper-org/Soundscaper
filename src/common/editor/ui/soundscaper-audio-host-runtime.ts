@@ -2,7 +2,7 @@
 
 import { AudioHostError, audioHostOperation, type AudioHostFailureCode } from './audio-host-failure.ts';
 import { nativeAudioDeviceId, type NativeAudioDeviceDefaults, type NativeAudioInventoryReport } from '../controller/recording/native-audio-inventory.ts';
-import { automaticAsioDefaults, isNativeAudioStreamingBackend, nativeAudioInputChannelDemand, routeRequests, sameRoute, selectedDevice } from './soundscaper-native-audio-route.ts';
+import { automaticAsioDefaults, isNativeAudioStreamingBackend, nativeAudioInputChannelDemand, routeRequests, sameRoute, selectedDevice, unavailableNativeAudioRoutes } from './soundscaper-native-audio-route.ts';
 import type { NativeAudioAvailability, NativeAudioSessionOpenRequestV1, SoundscaperNativeServicesBridge } from './soundscaper-native-services-bridge.ts';
 import type { MicrophoneMeterInputReplacement } from '../controller/recording/microphone-meter-service.ts';
 import { normalizeRecordingSampleRate } from '../controller/recording/recording-model.ts';
@@ -261,8 +261,9 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 			.find(candidate => candidate.direction === 'input');
 		if (!pending || previous?.request.direction === 'duplex') throw new AudioHostError('session-open', 'The assigned WASAPI microphone cannot replace a duplex session.');
 		const retained = new Set([...sessions].filter(([, session]) => session.request.direction === 'output').map(([id]) => id));
-		const primary = selectedDevice(report, 'input', settings.preferredInputDeviceId) ?? device;
-		releaseRecordingInputOverride ??= guardSoundscaperDefaultRecordingInput(nativeAudioDeviceId('wasapi', 'audio-input', primary.handle));
+		const primary = selectedDevice(report, 'input', settings.preferredInputDeviceId);
+		releaseRecordingInputOverride ??= guardSoundscaperDefaultRecordingInput(primary
+			? nativeAudioDeviceId('wasapi', 'audio-input', primary.handle) : settings.preferredInputDeviceId);
 		connectedKey = '';
 		inputReplacement = controller.actions.recording?.prepareInputReplacement?.() ?? inputReplacement;
 		await closeSessions(retained);
@@ -285,6 +286,8 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 		if (sampleRate !== normalizeRecordingSampleRate(sampleRate)) throw new AudioHostError('rate-mismatch', 'Choose a valid recording sample rate.');
 		if (inventory?.backend !== previous.host) throw new AudioHostError('inventory', 'Refresh audio devices before changing the recording sample rate.');
 		const next = { ...previous, recordingSampleRate: sampleRate };
+		const { error: unavailable } = unavailableNativeAudioRoutes(inventory, next);
+		if (unavailable) throw unavailable;
 		const plan = routeRequests(previous.host, inventory, next, inputChannelCount(next));
 		if (!plan.length) throw new AudioHostError('inventory', 'No audio devices are available for the selected host.');
 		const before = preferenceKey(), after = preferenceKey(next), previousConnection = connectedKey;
@@ -372,12 +375,13 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 				if (outcome.status !== 'described') throw new AudioHostError('inventory', outcome.message);
 				nextInventory = outcome.inventory as NativeAudioInventoryReport;
 			}
-			if (!nextInventory.devices.length) {
-				throw new AudioHostError('inventory', nextInventory.detail || 'No audio devices are available for the selected host.');
-			}
 		}
 		assertCanReplaceDevices();
 		const settings = preferences();
+		const unavailable = unavailableNativeAudioRoutes(nextInventory, settings);
+		if (nextInventory && !nextInventory.devices.length && !unavailable.error) {
+			throw new AudioHostError('inventory', nextInventory.detail || 'No audio devices are available for the selected host.');
+		}
 		let routeKey = preferenceKey();
 		const proposed = nextInventory && !automaticAsioDefaults(host, nextInventory, settings).length
 			? routeRequests(host, nextInventory, settings, inputChannelCount(settings, nextInventory)) : null;
@@ -385,7 +389,7 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 		const retained = new Map([...sessions].filter(([, session]) => session.state === 'bound'
 			&& proposed?.some(request => sameRoute(session.request, request))));
 		// Refresh reopens a complete set of routes. When repairing one route, keep its matching sibling.
-		if (!requests && proposed?.length === retained.size) retained.clear();
+		if (!requests && !unavailable.error && proposed?.length === retained.size) retained.clear();
 		const keepsInput = () => [...retained.values()].some(({ request }) => request.direction !== 'output');
 		const inputWasRetained = keepsInput();
 		if (!inputWasRetained) {
@@ -446,8 +450,10 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 				plan = routeRequests(host, nextInventory, current, inputChannelCount(current));
 			}
 			const pending = plan.filter(request => ![...retained.values()].some(session => sameRoute(session.request, request)));
-			if (replacementContext && pending.some(({ direction }) => direction !== 'input')) guardSoundscaperNativeAudioOutput(replacementContext);
-			partialFailure = await openSelectedRoutes(pending);
+			if (replacementContext && (unavailable.output || pending.some(({ direction }) => direction !== 'input'))) {
+				guardSoundscaperNativeAudioOutput(replacementContext);
+			}
+			partialFailure = await openSelectedRoutes(pending, unavailable.error);
 			const defaultInput = plan.find(request => request.direction !== 'output');
 			inputReady = Boolean(defaultInput && [...sessions.values()].some(session => session.state === 'bound' && sameRoute(session.request, defaultInput)));
 			if (!partialFailure && releaseRecordingInputOverride && !inputReady) {
@@ -461,8 +467,8 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 			publishFailure(partialFailure);
 		}
 	}
-	async function openSelectedRoutes(requests: readonly NativeAudioSessionOpenRequestV1[]): Promise<AudioHostError | null> {
-		const failures: string[] = [];
+	async function openSelectedRoutes(requests: readonly NativeAudioSessionOpenRequestV1[], unavailable: AudioHostError | null): Promise<AudioHostError | null> {
+		const failures = unavailable ? [unavailable.message] : [];
 		for (const request of requests) {
 			const retained = new Set(sessions.keys());
 			try { await openBoundRequests([request]); }
@@ -472,7 +478,7 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 				failures.push(errorMessage(error).trim());
 			}
 		}
-		return failures.length ? new AudioHostError('session-open', failures.join('\n')) : null;
+		return failures.length > (unavailable ? 1 : 0) ? new AudioHostError('session-open', failures.join('\n')) : unavailable;
 	}
 	async function openBoundRequests(requests: readonly NativeAudioSessionOpenRequestV1[]): Promise<void> {
 		const refused = await openRequests(requests, true);

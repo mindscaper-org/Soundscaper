@@ -7,7 +7,7 @@ import type {
 	RecordingRoutingRefreshOptions,
 	RecordingRoutingServiceRuntime,
 } from './recording-routing-service-types.d.ts';
-import { adaptNativeAudioInventory, type NativeAudioDeviceDefaults, type NativeAudioInventoryReport } from '../native-audio-inventory.ts';
+import { adaptNativeAudioInventory, isNativeAudioDeviceSelection, type NativeAudioDeviceDefaults, type NativeAudioInventoryReport } from '../native-audio-inventory.ts';
 import { createRecordingRateSetting } from './recording-rate-setting.ts';
 import { recordingTrackRoute } from '../../../recording-routing.js';
 import { preferredRecordingRoutes } from './preferred-recording-routes.ts';
@@ -291,11 +291,13 @@ export function createRecordingRoutingService<
 		const webHost = normalized === 'browser' || normalized === 'electron';
 		const displayInputAvailable = webHost && state.preferredInputDeviceId === RECORDING_DISPLAY_SOURCE_KEY
 			&& supportsDisplayAudioCapture(mediaDevices);
-		if (!displayInputAvailable && !state.audioInputDevices.some(device => device.deviceId === state.preferredInputDeviceId)) {
+		if (!displayInputAvailable && (webHost || !isNativeAudioDeviceSelection(state.preferredInputDeviceId, normalized, 'audio-input'))
+			&& !state.audioInputDevices.some(device => device.deviceId === state.preferredInputDeviceId)) {
 			state.preferredInputDeviceId = webHost ? RECORDING_DEFAULT_DEVICE_ID
 				: defaultDeviceId(state.audioInputDevices, defaults?.preferredInputDeviceId) ?? RECORDING_DEFAULT_DEVICE_ID;
 		}
-		if (!state.audioOutputDevices.some(device => device.deviceId === state.preferredOutputDeviceId)) {
+		if ((webHost || !isNativeAudioDeviceSelection(state.preferredOutputDeviceId, normalized, 'audio-output'))
+			&& !state.audioOutputDevices.some(device => device.deviceId === state.preferredOutputDeviceId)) {
 			state.preferredOutputDeviceId = webHost ? ''
 				: defaultDeviceId(state.audioOutputDevices, defaults?.preferredOutputDeviceId) ?? '';
 		}

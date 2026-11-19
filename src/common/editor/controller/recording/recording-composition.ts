@@ -47,6 +47,7 @@ import type {
 	RecordingSelection,
 } from './recording-transaction-types.ts';
 import { createRoutedRecordingCaptureService } from './internal/routed-recording-capture-service.ts';
+import { hasOnlyExplicitNativeRecordingRoutes } from './internal/routed-recording-source-plan.ts';
 import { SOURCE_CHUNK_FRAMES } from '../source/source-audio.ts';
 import { createOrdinaryRecordingRecoveryComposition } from './internal/ordinary-recording-recovery-composition.ts';
 import { createTakeCycleAppComposition } from './internal/take-cycle/take-cycle-app-composition.ts';
@@ -349,7 +350,8 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		cancelTimedRecording: () => timed.cancelTimedRecording(),
 		beginRecording: async (options, scope) => {
 			if (state.audioHost !== 'browser' && state.audioHost !== 'electron'
-				&& !state.audioInputDevices.some(device => device.deviceId === state.preferredInputDeviceId)) {
+				&& !state.audioInputDevices.some(device => device.deviceId === state.preferredInputDeviceId)
+				&& !hasOnlyExplicitNativeRecordingRoutes(requireProject(), options, state.recordingRouting.routes)) {
 				throw new Error('The selected native audio input is unavailable.');
 			}
 			try {
