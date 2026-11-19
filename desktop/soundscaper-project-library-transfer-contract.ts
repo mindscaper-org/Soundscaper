@@ -193,16 +193,15 @@ export function createSoundscaperDesktopProjectLibraryTransferBodies(
 	projectValue: unknown,
 	projectSha256Value: unknown,
 ): readonly Readonly<SoundscaperDesktopProjectLibraryTransferBody>[] {
-	return createTransferBodies(projectValue, projectSha256Value, false);
+	const project = validateSoundscaperDesktopCurrentProject(projectValue);
+	return createTransferBodies(project, digest(projectSha256Value, 'project'), false);
 }
 
 function createTransferBodies(
-	projectValue: unknown,
-	projectSha256Value: unknown,
+	project: ReturnType<typeof validateSoundscaperDesktopCurrentProject>,
+	projectSha256: string,
 	legacy: boolean,
 ): readonly Readonly<SoundscaperDesktopProjectLibraryTransferBody>[] {
-	const project = validateSoundscaperDesktopCurrentProject(projectValue);
-	const projectSha256 = digest(projectSha256Value, 'project');
 	const bodies = [project, ...sessionSnapshotProjects(project)].flatMap(view => {
 		const sources = view.sources as readonly Readonly<Record<string, unknown>>[];
 		return view.tracks.flatMap((trackValue) => {
@@ -267,7 +266,7 @@ function validatedBundle(
 		|| current.schemaVersion !== SOUNDSCAPER_DESKTOP_LIBRARY_PROJECT_SCHEMA_VERSION) {
 		throw new Error('Soundscaper desktop baseline project document disagrees with its metadata');
 	}
-	const expected = createSoundscaperDesktopProjectLibraryTransferBodies(current, project.sha256);
+	const expected = createTransferBodies(current, project.sha256, false);
 	const legacy = createTransferBodies(current, project.sha256, true);
 	const bodies = denseArray(bodiesValue, 'Soundscaper desktop baseline freeze bodies', MAXIMUM_BODY_DESCRIPTORS)
 		.map(validateSoundscaperDesktopProjectLibraryTransferBody);

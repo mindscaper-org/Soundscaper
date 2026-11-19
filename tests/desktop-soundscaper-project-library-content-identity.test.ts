@@ -125,7 +125,7 @@ test('startup retires only uncommitted freeze stages after an interrupted render
 	} finally { await restarted.close(); }
 });
 
-test('content-addressed readers retain compatibility with revision-addressed freeze bodies', () => {
+test('content-addressed readers retain legacy freeze bodies with one authenticated project clone', context => {
 	const project = frozenProject();
 	const document = JSON.stringify(project);
 	const projectSha256 = documentDigest(project);
@@ -167,9 +167,13 @@ test('content-addressed readers retain compatibility with revision-addressed fre
 	assert.equal(validateSoundscaperDesktopProjectLibraryHostBundle({
 		metadata, document, bodies: [legacyBody],
 	}, String(project.id)).bodies[0]?.bindingId, legacyBinding.id);
+	const cloning = context.mock.method(globalThis, 'structuredClone', structuredClone);
 	assert.equal(validateSoundscaperDesktopBundle(SOUNDSCAPER_PROJECT_RUNTIME_PROFILE, {
 		metadataRevision: 1, project: projectRow, document, bodies: [legacyBody],
 	}, String(project.id)).bundle.bodies[0]?.bindingId, legacyBinding.id);
+	assert.equal(cloning.mock.calls.filter(({ arguments: [value] }) => (
+		typeof value === 'object' && value !== null && 'id' in value && value.id === project.id
+	)).length, 1, 'the validated bundle provides the project for both descriptor versions');
 });
 
 test('a metadata save negotiates existing frozen PCM without upload or a temporary copy', async (context) => {

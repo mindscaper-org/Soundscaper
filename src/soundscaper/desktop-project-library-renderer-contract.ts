@@ -272,8 +272,8 @@ export function validateSoundscaperDesktopBundle(
 		|| project.schemaVersion !== row.schemaVersion) {
 		throw new Error('The Soundscaper desktop  project disagrees with its metadata.');
 	}
-	const expectedBodies = soundscaperDesktopBodiesForProject(profile, project, row.sha256).bodies;
-	const legacyBodies = bodiesForProject(profile, project, row.sha256, true);
+	const expectedBodies = bodiesForProject(project, row.sha256, false);
+	const legacyBodies = bodiesForProject(project, row.sha256, true);
 	const bodies = denseArray(bundle.bodies, 'Soundscaper desktop  freeze bodies', MAXIMUM_BODIES)
 		.map(bodyDescriptor);
 	if (bodies.length !== expectedBodies.length || bodies.some((body, index) => (
@@ -308,17 +308,15 @@ export function soundscaperDesktopBodiesForProject(
 	projectValue: SoundscaperProject,
 	projectSha256: string,
 ): Readonly<{ readonly bodies: readonly Readonly<SoundscaperDesktopBody>[] }> {
-	return Object.freeze({ bodies: bodiesForProject(profile, projectValue, projectSha256, false) });
+	const project = soundscaperProjectClone(profile, projectValue);
+	return Object.freeze({ bodies: bodiesForProject(project, digest(projectSha256, 'project'), false) });
 }
 
 function bodiesForProject(
-	profile: EditorProjectRuntimeProfile,
-	projectValue: SoundscaperProject,
-	projectSha256: string,
+	project: SoundscaperProject,
+	projectDigest: string,
 	legacy: boolean,
 ): readonly Readonly<SoundscaperDesktopBody>[] {
-	const project = soundscaperProjectClone(profile, projectValue);
-	const projectDigest = digest(projectSha256, 'project');
 	const bodies = [project, ...sessionSnapshotProjects(project)].flatMap(view => {
 		const sources = view.sources as readonly Readonly<Record<string, unknown>>[];
 		return view.tracks.flatMap((trackValue) => {
