@@ -5,7 +5,7 @@ import { verifySignedMacPackage } from './lib/desktop-mac-signing-stage.mjs';
 import { lstat, readFile, readdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 import { hardenDesktopElectronFusesCurrentV1 } from './lib/desktop-electron-fuses-current-v1.ts';
 import { extractFile, listPackage } from '@electron/asar';
@@ -19,6 +19,7 @@ import {
 	assertDesktopCodecPolicy,
 	auditDesktopFfmpegAbsence,
 } from './lib/desktop-codec-policy.mjs';
+import { assertDesktopFdkAacFiles } from './lib/desktop-fdk-aac-staging.mjs';
 import { verifyDesktopOsAudioCodecNativePackageTree } from './lib/desktop-os-audio-codec-native-package-verification.mjs';
 import { verifyPackagedElectronAlternateFfmpeg } from './lib/electron-alternate-ffmpeg.mjs';
 import { OS_AUDIO_CODEC_NATIVE_RUNTIME_PREFIX } from '../desktop/os-audio-codec-native-payload.mjs';
@@ -219,6 +220,10 @@ export async function auditPackagedDesktopCodecPolicy(context, dependencies = {}
 	if (typeof resourcesRoot !== 'string' || resourcesRoot.length === 0) {
 		throw new TypeError('Electron packaged resources directory is unavailable.');
 	}
+	await assertDesktopFdkAacFiles({
+		receipt: stage.fdkAac, runtimeRoot: resolve(resourcesRoot, 'runtime'), licenseRoot: resolve(resourcesRoot, 'licenses'),
+		manifestBytes: stage.fdkAac && extractFile(resolve(resourcesRoot, 'app.asar'), 'desktop/fdk-aac-manifest.json'),
+	});
 	return auditDesktopFfmpegAbsence({
 		root: resolve(resourcesRoot),
 		label: 'Packaged desktop resources',

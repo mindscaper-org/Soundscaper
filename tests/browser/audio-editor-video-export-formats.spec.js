@@ -33,7 +33,7 @@ test.describe('video container exporters', () => {
 		expect(pictures).toEqual([0, 0, 2, 3, 5, 5, 7, 9, 10, 10, 13, 14, 15, 15, 18, 19, 20, 22, 23, 24, 25, 25, 28]);
 	});
 
-	test('a forward VFR seek retry delivers the requested picture rather than its predecessor', async ({ page }) => {
+	test('a forward VFR seek retry delivers the requested picture rather than its predecessor', async ({ page, browserName }) => {
 		await disableNativeSavePicker(page);
 		const editor = await bootEditor(page, '/framescaper/embed/en/');
 		await importFiles(editor, [zeroOriginVideoWebmFixture()]);
@@ -42,7 +42,9 @@ test.describe('video container exporters', () => {
 		await dialog.getByRole('button', { name: 'Export', exact: true }).click();
 		const link = dialog.locator('[data-export-download]');
 		await expect(link).toBeVisible({ timeout: 25_000 });
-		const labels = await readDeliveredPictureLabels(page, await readDownloadBytes(page, link));
+		const bytes = await readDownloadBytes(page, link);
+		const labels = browserName === 'webkit' ? await readWebKitDeliveredPictureLabels(page, bytes)
+			: await readDeliveredPictureLabels(page, bytes);
 		expect(labels).toEqual([0, 0, 2, 3, 5, 5, 7, 9, 10, 10, 13, 14, 15, 15, 18, 19, 20, 22, 23, 24, 25, 25, 28]);
 	});
 
@@ -268,6 +270,46 @@ test.describe('video container exporters', () => {
 });
 
 async function readDeliveredPictureLabels(page, bytes) {
+	const input = new Input({ source: new BufferSource(bytes), formats: [WEBM] });
+	try {
+		const track = await input.getPrimaryVideoTrack();
+		if (!track) throw new Error('The delivered picture track is missing.');
+		const { description, ...config } = await track.getDecoderConfig();
+		const packets = [];
+		for await (const packet of new EncodedPacketSink(track).packets()) {
+			packets.push({ type: packet.type, timestamp: Math.round(packet.timestamp * 1_000_000), data: [...packet.data] });
+		}
+		return await page.evaluate(async ({ config, description, packets }) => {
+			const context = new OffscreenCanvas(64, 48).getContext('2d', { willReadFrequently: true });
+			const frames = [];
+			let failure;
+			const decoder = new VideoDecoder({
+				output(frame) {
+					try {
+						context.drawImage(frame, 0, 0, 64, 48);
+						const cells = [12, 36].flatMap(y => [8, 24, 40, 56].map(x => context.getImageData(x, y, 1, 1).data[0]));
+						const label = cells.slice(2, 7).reduce((value, pixel, bit) => value | (pixel > 128 ? 1 << bit : 0), 0);
+						frames.push({ timestamp: frame.timestamp, label: cells[0] < 35 && cells[1] > 215 ? label : null });
+					} catch (error) { failure ??= error; }
+					finally { frame.close(); }
+				},
+				error(error) { failure ??= error; },
+			});
+			try {
+				decoder.configure({ ...config, ...(description ? { description: Uint8Array.from(description) } : {}) });
+				for (const packet of packets) decoder.decode(new EncodedVideoChunk({ ...packet, data: Uint8Array.from(packet.data) }));
+				await decoder.flush();
+				if (failure) throw failure;
+				return frames.sort((left, right) => left.timestamp - right.timestamp).map(({ label }) => label);
+			} finally {
+				if (decoder.state !== 'closed') decoder.close();
+			}
+		}, { config, description: description ? [...description] : null, packets });
+	} finally { input.dispose(); }
+}
+
+// The native media pipeline can read WebM output that WebKit WebCodecs rejects.
+async function readWebKitDeliveredPictureLabels(page, bytes) {
 	const input = new Input({ source: new BufferSource(bytes), formats: [WEBM] });
 	try {
 		const track = await input.getPrimaryVideoTrack();

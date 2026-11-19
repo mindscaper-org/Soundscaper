@@ -2,6 +2,7 @@
 
 /** Stable-release notices and corresponding-source archives for the five verified targets. */
 
+import { SOUNDSCAPER_MILESTONE_5_SOURCE_IDS } from './milestone-5-product-scope.mjs';
 import { constants } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { lstat, open, readFile, readdir, writeFile } from 'node:fs/promises';
@@ -20,12 +21,10 @@ import {
 export const SOUNDSCAPER_PROFESSIONAL_NATIVE_COMPLIANCE_NAME =
 	'Soundscaper-professional-native-compliance.json';
 
-const SOURCE_IDS = Object.freeze([
-	'surge-xt', 'dexed', 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
-	'asio-sdk', 'ladspa-sdk', 'lv2',
-]);
+const SOURCE_IDS = SOUNDSCAPER_MILESTONE_5_SOURCE_IDS;
 const FORBIDDEN_SOURCE_IDS = new Set(['x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib']);
 const MAXIMUM_ARCHIVE_BYTES = 64 * 1024 * 1024;
+const LARGE_SOURCE_ARCHIVE_LIMITS = Object.freeze({ 'surge-xt': 319_327_963, 'orbit-amp': 100_652_664 });
 
 export async function stageSoundscaperProfessionalNativeReleaseCompliance(options, dependencies = {}) {
 	const productId = options?.productId ?? 'soundscaper';
@@ -219,7 +218,7 @@ async function assertExactSourceRoot(root) {
 async function regularArchiveBytes(path, source) {
 	const before = await lstat(path).catch(() => null);
 	if (!before?.isFile() || before.isSymbolicLink() || before.size < 1
-		|| before.size > (source.id === 'surge-xt' ? 319_327_963 : MAXIMUM_ARCHIVE_BYTES) || before.size !== source.archive.byteLength) {
+		|| before.size > (LARGE_SOURCE_ARCHIVE_LIMITS[source.id] ?? MAXIMUM_ARCHIVE_BYTES) || before.size !== source.archive.byteLength) {
 		throw new Error(`Professional-native ${source.id} corresponding-source archive is not a regular file.`);
 	}
 	let handle;

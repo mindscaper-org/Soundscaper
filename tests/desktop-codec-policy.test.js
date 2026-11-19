@@ -29,6 +29,7 @@ test('macOS development signing ignores bundled native files but not optional AI
 	assert.equal(typeof configuration.mac.signIgnore, 'string');
 	const ignored = new RegExp(configuration.mac.signIgnore, 'u');
 	for (const path of [
+		'/tmp/Soundscaper.app/Contents/Resources/runtime/fdk-aac/fdk-aac-tool',
 		'/tmp/Soundscaper.app/Contents/Resources/runtime/native/soundscaper-os-audio-codec/mac-arm64/soundscaper_os_audio_codec.node',
 		`${professionalRoot}/mac-arm64/${professional.addon.payloadName}`,
 		`${professionalRoot}/mac-arm64/soundscaper_os_audio_codec.node`,
@@ -54,6 +55,11 @@ test('macOS development signing ignores bundled native files but not optional AI
 		`${assistanceRoot}/sherpa-onnx/1.13.5/node_modules/sherpa-onnx-node/sherpa-onnx.js`,
 		'/tmp/Soundscaper.app/Contents/Frameworks/Electron Framework.framework/Electron Framework',
 	]) assert.equal(ignored.test(path), false, path);
+});
+
+test('Windows packaging preserves the authenticated AAC helper bytes', () => {
+	const configuration = require('../electron-builder.config.cjs');
+	assert.deepEqual(configuration.win.signExts, ['!fdk-aac-tool.exe']);
 });
 
 test('desktop codec policy is immutable and fixes provider priority without bundled FFmpeg', () => {

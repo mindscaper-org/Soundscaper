@@ -6,10 +6,7 @@ import { createHash } from 'node:crypto';
 import { lstat, open, readFile, readdir, readlink, realpath, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 
-import {
-	assertDesktopCodecPolicy,
-	isForbiddenDesktopFfmpegPath,
-} from './desktop-codec-policy.mjs';
+import { assertDesktopPackageCodecPayload } from './desktop-codec-policy.mjs';
 import { assertAssistanceNativeRuntimeClosure } from './desktop-package-assistance-closure.mjs';
 import { assertDesktopPackageAssistanceFamilies } from './desktop-package-assistance-families.mjs';
 import { assertDesktopPackageOsAudioCodecClosure } from './desktop-package-os-audio-codec-closure.mjs';
@@ -223,17 +220,8 @@ async function assertRuntimePayloadClosure(runtime, files, dependencies, resourc
 			expectedByPrefix.set(prefix, names);
 		}
 	};
-	if (Object.hasOwn(runtime, 'ffmpeg')) {
-		throw new Error('The desktop runtime manifest retains a legacy bundled FFmpeg runtime summary.');
-	}
-	assertDesktopCodecPolicy(runtime.desktopCodecPolicy, 'The desktop runtime manifest codec policy');
-	const forbiddenCodecPayloads = files
-		.map(({ path }) => path)
-		.filter(isForbiddenDesktopFfmpegPath);
-	if (forbiddenCodecPayloads.length > 0) {
-		throw new Error(`The installed desktop resource closure contains forbidden bundled FFmpeg/libav content: ${forbiddenCodecPayloads.join(', ')}.`);
-	}
 	const nativeTarget = `${runtime.target.platform}-${runtime.target.arch}`;
+	assertDesktopPackageCodecPayload(runtime, files, nativeTarget, requireFile);
 	const nativePrefix = `runtime/native/${nativeTarget}/`;
 	const native = runtime.nativeAddons;
 	if (stableSoundscaperRuntime(runtime)) {

@@ -16,7 +16,7 @@ import {
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const installed = 'All system dependencies are installed.\n';
-// Captured from this lockfile's Playwright 1.62.1 Linux CLI, not a shell command.
+// Captured from this lockfile's Playwright 1.64.1 Linux CLI.
 const actualPinnedInventory = `Missing system dependencies (10):
   gir1.2-glib-2.0
   gir1.2-glib-2.0-dev
@@ -94,15 +94,15 @@ test('a different installed or locked Playwright version refuses the dependency 
 		for (const name of ['@playwright/test', 'playwright', 'playwright-core']) {
 			const path = join(fixture, 'node_modules', name);
 			mkdirSync(path, { recursive: true });
-			writeFileSync(join(path, 'package.json'), JSON.stringify({ version: '1.62.1' }));
-			packages[`node_modules/${name}`] = { version: '1.62.1' };
+			writeFileSync(join(path, 'package.json'), JSON.stringify({ version: '1.64.1' }));
+			packages[`node_modules/${name}`] = { version: '1.64.1' };
 		}
 		writeFileSync(join(fixture, 'package-lock.json'), JSON.stringify({ packages }));
 		assert.match(resolvePinnedFirefoxCli(fixture), /cli\.js$/u);
-		writeFileSync(join(fixture, 'node_modules/playwright-core/package.json'), '{"version":"1.62.0"}');
+		writeFileSync(join(fixture, 'node_modules/playwright-core/package.json'), '{"version":"1.64.0"}');
 		assert.throws(() => resolvePinnedFirefoxCli(fixture), /must match locked/u);
-		writeFileSync(join(fixture, 'node_modules/playwright-core/package.json'), '{"version":"1.62.1"}');
-		packages['node_modules/playwright-core'] = { version: '1.62.0' };
+		writeFileSync(join(fixture, 'node_modules/playwright-core/package.json'), '{"version":"1.64.1"}');
+		packages['node_modules/playwright-core'] = { version: '1.64.0' };
 		writeFileSync(join(fixture, 'package-lock.json'), JSON.stringify({ packages }));
 		assert.throws(() => resolvePinnedFirefoxCli(fixture), /must match locked/u);
 	} finally {

@@ -17,6 +17,12 @@ Install a plug-in build compatible with your operating system and the supported 
 3. Add an effect through **Effect > Audio Plugins** or a realtime rack. Select native instruments through the MIDI track’s instrument controls.
 4. Audition playback, save a preset if useful, and save the project.
 
+## Play through a guitar amp
+
+Add **OrbitAmp** from **Effect > Audio Plugins** or a track's realtime effects
+rack. Open the plug-in editor and choose an amp in the **AMP** section and a
+cabinet in the **CAB** section. The desktop bundle includes the factory sounds.
+
 ## Check the result
 
 The intended plug-in should process sound and reload with its saved settings when the same compatible binary is available. Bypass it to compare and check export before delivery.

@@ -384,6 +384,8 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 		});
 		const runtimeCalls = [];
 		globalThis.__nativeHostOpenRequests = [];
+		const nativeSessions = new Map();
+		let nextNativeSession = 0;
 		let probeCount = 0;
 		const unavailablePayload = Object.freeze({
 			status: 'unavailable', reason: 'not-built', detail: 'Fixture professional payload is unavailable',
@@ -529,14 +531,38 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 			nativePluginScanProgress: async () => ({ enabled: plugins.enabled, scanProgress: plugins.scanProgress }),
 			openNativeAudioSession: async (request) => {
 				globalThis.__nativeHostOpenRequests.push(request);
-				return { status: 'refused', message: 'Fixture audio device is unavailable' };
+				const { backend, deviceHandle } = request.candidates[0];
+				if (backend !== 'alsa') return { status: 'refused', message: 'Fixture audio device is unavailable' };
+				const sessionId = `fixture-audio-${++nextNativeSession}`;
+				nativeSessions.set(sessionId, { request, port: null });
+				return { status: 'opened', sessionId, backend, deviceHandle };
 			},
-			bindNativeAudioSession: () => refused('bindNativeAudioSession'),
+			bindNativeAudioSession: async ({ sessionId, queueCapacity }) => {
+				const session = nativeSessions.get(sessionId);
+				if (!session) return refused('bindNativeAudioSession');
+				const { sampleRate, channelCount, periodFrames } = session.request;
+				const { port1, port2 } = new MessageChannel();
+				session.port = port1;
+				port1.onmessage = ({ data }) => {
+					if (data.kind !== 'capture-credit' && data.kind !== 'audio') return;
+					const kind = data.kind === 'capture-credit' ? 'audio' : 'return';
+					port1.postMessage({ ...data, kind, status: 'ok', framesTransferred: data.frameCount },
+						data.channels.map(channel => channel.buffer));
+				};
+				window.postMessage({ type: 'soundscaper-native-realtime-port-v1', offer: {
+					sessionId, protocolVersion: 1, generation: 1, sampleFormat: 'f32-planar',
+					sampleRate, channelCount, frameCount: periodFrames, queueCapacity, startFrame: 0,
+				} }, location.origin, [port2]);
+				return { status: 'bound' };
+			},
 			nativeAudioSessionStatus: () => refused('nativeAudioSessionStatus'),
 			calibrateNativeAudioSession: () => refused('calibrateNativeAudioSession'),
-			reportNativeAudioSessionTransfer: () => refused('reportNativeAudioSessionTransfer'),
-			reportNativeAudioSessionLoss: () => refused('reportNativeAudioSessionLoss'),
-			closeNativeAudioSession: () => refused('closeNativeAudioSession'),
+			reportNativeAudioSessionTransfer: async () => {},
+			reportNativeAudioSessionLoss: async () => {},
+			closeNativeAudioSession: async ({ sessionId }) => {
+				nativeSessions.get(sessionId)?.port?.close();
+				return nativeSessions.delete(sessionId);
+			},
 			setNativePluginInstallationAllowed: async ({ installationId, allowed }) => {
 				runtimeCalls.push(`allowance:${installationId}:${String(allowed)}`);
 				registry = { entries: registry.entries.map((entry) => ({ ...entry,

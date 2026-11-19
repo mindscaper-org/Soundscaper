@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto';
 import { basename, dirname, relative, resolve, sep } from 'node:path';
 import { readdir } from 'node:fs/promises';
-import { bundledNativePlugins } from './bundled-native-plugins.ts';
+import { bundledNativePlugins, isSoundscaperOnlyBundledPluginArtifactPath } from './bundled-native-plugins.ts';
 import type { VerifiedBundledPlugin } from './bundled-plugin-defaults.ts';
 
 interface Artifact { readonly path: string; readonly byteLength: number; readonly sha256: string }
@@ -19,7 +19,8 @@ export async function verifyBundledPluginCandidates(payload: Payload,
 	authenticate: (path: string) => Promise<Candidate>,
 ): Promise<readonly VerifiedBundledPlugin[]> {
 	const runtimeRoot = resolve(dirname(payload.pluginPeer.path), 'runtime');
-	const plugins = bundledNativePlugins(payload.target).filter(plugin => !payload.pluginOnly || plugin.classification === 'effect');
+	const plugins = bundledNativePlugins(payload.target).filter(plugin => !payload.pluginOnly
+		|| !isSoundscaperOnlyBundledPluginArtifactPath(`runtime/${plugin.binaryPath}`));
 	const artifacts = [...payload.isolation.runtimeClosure, ...payload.isolation.pluginResources];
 	for (const directory of new Set(plugins.map(plugin => dirname(plugin.bundlePath)))) {
 		const expected = plugins.filter(plugin => dirname(plugin.bundlePath) === directory);

@@ -80,7 +80,11 @@ const SOUNDSCAPER_REPLACED_SOURCE_FILES = new Set([
 	'soundscaper-delivery-restart-smoke.mjs',
 	'soundscaper-professional-native-utility-smoke.mjs',
 ]);
-const SOUNDSCAPER_RUNTIME_PACKAGE_IMPORTS = new Set(['#desktop-runtime/helper-contract']);
+const SOUNDSCAPER_RUNTIME_PACKAGE_IMPORTS = new Set([
+	'#desktop-runtime/bundled-native-plugins', '#desktop-runtime/bundled-plugin-resources',
+	'#desktop-runtime/bundled-plugin-factory-data', '#desktop-runtime/plugin-midi-events',
+	'#desktop-runtime/helper-contract',
+]);
 
 export function desktopProductConfigFiles(productIdValue, metadata = null) {
 	const productId = desktopPackageProduct(productIdValue);

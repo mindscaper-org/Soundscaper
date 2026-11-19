@@ -7,7 +7,7 @@ import { dirname, join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 
-const pinnedPlaywrightVersion = '1.62.1';
+const pinnedPlaywrightVersion = '1.64.1';
 const outputLimit = 65_536;
 const pulsePackages = ['pulseaudio', 'pulseaudio-utils'];
 const packagePattern = /^[a-z0-9][a-z0-9+.-]*(?::[a-z][a-z0-9-]*)?$/u;

@@ -28,6 +28,7 @@ export interface DesktopAudioStreamService<Owner extends object> {
 /** Main owns all scratch paths, file handles, session identities and cancellation. */
 export function createDesktopAudioStreamService<Owner extends object>(options: Readonly<{
 	readonly scratchRoot: string;
+	readonly authorizeAac?: (tuple: DesktopAudioStreamPlan['tuple']) => Promise<boolean>;
 	readonly capabilities: (query: DesktopAudioCodecCapabilityQuery) => Promise<unknown>;
 	readonly execute: (job: DesktopAudioStreamJob, signal: AbortSignal, onProgress?: (frames: number) => void) => Promise<number>;
 	readonly availableScratchBytes?: () => Promise<bigint>;
@@ -55,7 +56,7 @@ export function createDesktopAudioStreamService<Owner extends object>(options: R
 				removed = true;
 			} catch (error) { failures.push(error); }
 			if (removed && !session.input && !session.output && sessions.get(id) === session) {
-				sessions.delete(id); chargedScratchBytes -= session.plan.frameCount * session.plan.tuple.channelCount * 4 + session.plan.maximumOutputBytes;
+				sessions.delete(id); chargedScratchBytes -= streamScratchBytes(session.plan);
 			}
 			if (failures.length) throw new AggregateError(failures, 'Desktop audio scratch cleanup failed.', { cause: failures[0] });
 		})();
@@ -75,7 +76,7 @@ export function createDesktopAudioStreamService<Owner extends object>(options: R
 			if (command.type === 'begin') {
 				if (sessions.size + reserved >= 2) throw new Error('The desktop audio stream session limit was reached.');
 				reserved += 1;
-				const scratchBytes = command.plan.frameCount * command.plan.tuple.channelCount * 4 + command.plan.maximumOutputBytes;
+				const scratchBytes = streamScratchBytes(command.plan);
 				chargedScratchBytes += scratchBytes;
 				let published = false;
 				let directory: string | null = null; let input: FileHandle | null = null;
@@ -85,7 +86,10 @@ export function createDesktopAudioStreamService<Owner extends object>(options: R
 					if (typeof available !== 'bigint' || available < BigInt(chargedScratchBytes)) throw new RangeError('Desktop streaming audio requires more free scratch storage.');
 					const query: DesktopAudioCodecCapabilityQuery = { schemaVersion: 2, operations: [command.plan.tuple] };
 					const capability = normalizeDesktopAudioCodecCapabilityResult(await options.capabilities(query), query).capabilities[0]!;
-					if (!capability.available || capability.provider !== 'bundled') {
+					const authorized = command.plan.tuple.format === 'aac-m4a'
+						? await options.authorizeAac?.(command.plan.tuple) === true
+						: capability.available && capability.provider === 'bundled';
+					if (!authorized) {
 						throw new Error('Large desktop audio export requires its execution-verified bundled encoder.');
 					}
 					if (disposed || revokedOwners.has(owner)) throw new Error('The desktop audio stream service or owner stopped.');
@@ -176,4 +180,10 @@ export function createDesktopAudioStreamService<Owner extends object>(options: R
 			return disposal;
 		},
 	});
+}
+
+function streamScratchBytes(plan: DesktopAudioStreamPlan): number {
+	// The native AAC helper first writes an elementary stream, then muxes it.
+	const codecBytes = plan.tuple.format === 'aac-m4a' ? Math.min(plan.maximumOutputBytes, 1_000_000_000) * 2 : plan.maximumOutputBytes;
+	return plan.frameCount * plan.tuple.channelCount * 4 + codecBytes;
 }

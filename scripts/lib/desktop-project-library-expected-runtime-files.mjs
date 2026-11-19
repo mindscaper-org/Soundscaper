@@ -24,6 +24,7 @@ export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	'src/common/scape/asset-bytes.js',
 	'src/common/editor/scape-expanded-byte-budget.js',
 	...DESKTOP_5B_TRANSITIVE_RUNTIME_FILES,
+	'desktop/fdk-aac-container.js', 'desktop/fdk-aac-geometry.js', 'desktop/fdk-aac-process.js', 'desktop/fdk-aac-runtime.js',
 	'desktop/desktop-storage-paths.js', 'desktop/desktop-storage-migration.js', 'desktop/desktop-storage-migration-sync.js',
 	'desktop/desktop-storage-copy-stage.js',
 	'desktop/desktop-database.js', 'desktop/desktop-database-contention.js', 'desktop/local-storage-safety.js', 'desktop/local-storage-volume.js',

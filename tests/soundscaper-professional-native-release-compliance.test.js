@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { ORBITAMP_SOURCE_IDS } from '../desktop/bundled-native-plugins.ts';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
@@ -31,14 +32,14 @@ test('Stable assembly embeds authenticated native texts in one third-party licen
 	}, fixture.dependencies);
 	assert.equal(result.status, 'authenticated');
 	assert.deepEqual(result.sources.map(({ id }) => id).sort(),
-		['ara-api', 'ara-library', 'asio-sdk', 'clap', 'dexed', 'electron-node-api-headers', 'fst', 'juce', 'ladspa-sdk', 'lv2', 'surge-xt',
+		['ara-api', 'ara-library', 'asio-sdk', 'clap', 'dexed', 'electron-node-api-headers', 'fst', 'juce', 'ladspa-sdk', 'lv2', ...ORBITAMP_SOURCE_IDS.slice().sort(), 'surge-xt',
 			'vamp-plugin-sdk', 'vst3-sdk']);
 	assert.equal(result.sources.some(({ id }) => FORBIDDEN.includes(id)), false);
 	assert.equal(result.targetBindings.length, 5);
 	const outputNames = (await readdir(fixture.outputRoot)).sort();
-	assert.equal(outputNames.filter((name) => name.includes('-source-')).length, 13);
+	assert.equal(outputNames.filter((name) => name.includes('-source-')).length, 13 + ORBITAMP_SOURCE_IDS.length);
 	assert.equal(outputNames.some((name) => name.includes('-native-notice-')), false);
-	assert.equal(outputNames.length, 15);
+	assert.equal(outputNames.length, 15 + ORBITAMP_SOURCE_IDS.length);
 	assert.equal(outputNames.some((name) => /x264|x265|libvpx|svt-av1|libopus/iu.test(name)), false);
 	assert.equal(outputNames.includes('Soundscaper-professional-native-compliance.json'), true);
 	for (const name of outputNames) assert.equal((await lstat(join(fixture.outputRoot, name))).isSymbolicLink(), false);
@@ -77,7 +78,7 @@ test('Framescaper release assembly publishes the same pinned audio-host sources 
 		outputRoot: fixture.outputRoot, runtimeManifests: fixture.runtimeManifests, productId: 'framescaper',
 	}, fixture.dependencies);
 	assert.equal(result.kind, 'framescaper-professional-native-release-compliance');
-	assert.equal(result.sources.length, 13);
+	assert.equal(result.sources.length, 13 + ORBITAMP_SOURCE_IDS.length);
 	assert.equal((await readdir(fixture.outputRoot)).every((name) =>
 		name.startsWith('Framescaper-') || name === 'THIRD_PARTY_LICENSES.md'), true);
 });
@@ -93,7 +94,7 @@ test('release assembly stages SDK archives and compliance outside the public dow
 		evidenceRoot, sourceOutputRoot,
 	}, fixture.dependencies);
 	assert.deepEqual(await readdir(fixture.outputRoot), ['THIRD_PARTY_LICENSES.md']);
-	assert.equal((await readdir(sourceOutputRoot)).length, 13);
+	assert.equal((await readdir(sourceOutputRoot)).length, 13 + ORBITAMP_SOURCE_IDS.length);
 	for (const source of result.sources) {
 		assert.equal(source.archive.bundlePath, `sdk/${source.id}/${source.id}.tar.gz`);
 		assert.deepEqual(descriptor(await readFile(join(sourceOutputRoot, source.archive.name))),
@@ -124,7 +125,7 @@ test('suite assembly shares one native license document across both product rece
 	assert.deepEqual(framescaper.noticeDocument, soundscaper.noticeDocument);
 	assert.deepEqual(framescaper.notices, soundscaper.notices);
 	assert.deepEqual(await readFile(join(fixture.outputRoot, 'THIRD_PARTY_LICENSES.md')), originalDocument);
-	assert.equal((await readdir(fixture.outputRoot)).length, 29);
+	assert.equal((await readdir(fixture.outputRoot)).length, 29 + 2 * ORBITAMP_SOURCE_IDS.length);
 });
 
 test('release assembly refuses a changed or symbolic consolidated notice document', async (context) => {
@@ -225,7 +226,7 @@ async function releaseFixture(context) {
 
 function fixtureRegisters() {
 	const ids = [
-		'surge-xt', 'dexed', 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+		'surge-xt', 'dexed', ...ORBITAMP_SOURCE_IDS, 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 		'asio-sdk', 'ladspa-sdk', 'lv2',
 	];
 	const sources = ids.map((id, index) => {

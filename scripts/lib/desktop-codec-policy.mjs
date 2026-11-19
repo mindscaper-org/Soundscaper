@@ -84,3 +84,26 @@ function resolveRequiredRoot(value) {
 	}
 	return resolve(value);
 }
+
+export function assertDesktopPackageCodecPayload(runtime, files, nativeTarget, requireFile) {
+	if (Object.hasOwn(runtime, 'ffmpeg')) {
+		throw new Error('The desktop runtime manifest retains a legacy bundled FFmpeg runtime summary.');
+	}
+	assertDesktopCodecPolicy(runtime.desktopCodecPolicy, 'The desktop runtime manifest codec policy');
+	const forbiddenCodecPayloads = files
+		.map(({ path }) => path)
+		.filter(isForbiddenDesktopFfmpegPath);
+	if (forbiddenCodecPayloads.length > 0) {
+		throw new Error(`The installed desktop resource closure contains forbidden bundled FFmpeg/libav content: ${forbiddenCodecPayloads.join(', ')}.`);
+	}
+	const fdk = runtime.fdkAac;
+	if (fdk) {
+		const prefix = 'runtime/fdk-aac/';
+		const name = nativeTarget.startsWith('win-') ? 'fdk-aac-tool.exe' : 'fdk-aac-tool';
+		if (fdk.target !== nativeTarget || fdk.executableName !== name) throw new Error('The FDK AAC runtime target changed.');
+		requireFile(`${prefix}${name}`, fdk.binary, 'FDK AAC executable', prefix);
+		for (const name of ['fdk-aac-free-2.0.3.tar.gz', 'NOTICE', 'LICENSE', 'README.md', 'CMakeLists.txt', 'main.cpp', 'reject-sbr.cmake']) {
+			requireFile(`licenses/fdk-aac/${name}`, fdk.sources?.[name], 'FDK AAC corresponding source', 'licenses/fdk-aac/');
+		}
+	}
+}

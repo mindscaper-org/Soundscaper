@@ -69,7 +69,9 @@ test('staging refuses bare package imports excluded from the desktop asar', asyn
 	const temporaryRoot = await mkdtemp(join(tmpdir(), 'scape-asar-package-import-'));
 	context.after(() => rm(temporaryRoot, { recursive: true, force: true }));
 	const applicationRoot = join(temporaryRoot, 'desktop');
-	await mkdir(applicationRoot, { recursive: true });
+	await mkdir(join(applicationRoot, 'project-library-runtime', 'desktop'), { recursive: true });
+	await writeFile(join(applicationRoot, 'project-library-runtime', 'desktop', 'helper-contract.js'),
+		'export const helper = true;\n');
 	await writeFile(join(applicationRoot, 'main.mjs'), [
 		"import { app } from 'electron';",
 		"import { createHash } from 'node:crypto';",
@@ -77,7 +79,12 @@ test('staging refuses bare package imports excluded from the desktop asar', asyn
 		'export const admitted = { app, createHash, helper };',
 		'',
 	].join('\n'));
-	await assertStagedDesktopImportsResolve(applicationRoot);
+	await assert.rejects(() => assertStagedDesktopImportsResolve(applicationRoot), /#desktop-runtime\/helper-contract/u);
+	const imports = { '#desktop-runtime/helper-contract': './desktop/project-library-runtime/desktop/helper-contract.js' };
+	await assertStagedDesktopImportsResolve(applicationRoot, imports);
+	await assert.rejects(() => assertStagedDesktopImportsResolve(applicationRoot, {
+		'#desktop-runtime/helper-contract': './desktop/project-library-runtime/desktop/absent.js',
+	}), /#desktop-runtime\/helper-contract/u);
 
 	await writeFile(join(applicationRoot, 'main.mjs'), [
 		"import { sha256 } from '@noble/hashes/sha2.js';",

@@ -7,9 +7,10 @@ import {
 	getDesktopAudioFormatDescriptor,
 	type DesktopAudioCodecFormat,
 	type DesktopAudioEncodeRequest,
+	type DesktopAudioDecodeRequest,
 	type DesktopAudioMp3EncodeSettings,
 } from './desktop-audio-codec-operation-contract.ts';
-import type { DesktopAudioDecodeFormat } from './desktop-audio-decode-formats.ts';
+import { hasAdtsAudioSync, type DesktopAudioDecodeFormat } from './desktop-audio-decode-formats.ts';
 
 export const DESKTOP_AUDIO_FFMPEG_INPUT_NAME = 'soundscaper-codec-input.media';
 export const DESKTOP_AUDIO_FFMPEG_OUTPUT_BASENAME = 'soundscaper-codec-output';
@@ -80,18 +81,24 @@ const BASE_ARGUMENTS = Object.freeze([
 const AUDIO_MAP_ARGUMENTS = Object.freeze([
 	'-map', '0:a:0', '-map_metadata', '-1', '-map_chapters', '-1', '-vn', '-sn', '-dn',
 ] as const);
+const ADTS_DECODE = decodeFormat(['aac'], ['aac']);
 const PCM_DEMUXERS = Object.freeze(['f32le']);
 const PCM_DECODERS = Object.freeze(['pcm_f32le']);
 const PCM_ENCODERS = Object.freeze(['pcm_f32le']);
 const PCM_WAVE_MUXERS = Object.freeze(['wav']);
 const REQUIRED_ENCODE_FILTERS = Object.freeze(['aresample']);
 
+function compressedInputFormat(request: DesktopAudioDecodeRequest) {
+	return request.format === 'aac-m4a' && hasAdtsAudioSync(request.input)
+		? ADTS_DECODE : DECODE_FORMATS[request.format];
+}
+
 export function deriveDesktopAudioFfmpegCapabilityTuple(
 	request: unknown,
 ): Readonly<DesktopAudioFfmpegCapabilityTuple> {
 	assertDesktopAudioCodecRequest(request);
 	if (request.operation === 'audio-decode') {
-		const format = DECODE_FORMATS[request.format];
+		const format = compressedInputFormat(request);
 		return Object.freeze({
 			direction: 'decode', demuxerAnyOf: format.demuxerAnyOf,
 			decoderAnyOf: format.decoderAnyOf, encoderAnyOf: PCM_ENCODERS,
@@ -131,11 +138,11 @@ export function buildDesktopAudioFfmpegPlan(
 		: getDesktopAudioFormatDescriptor(request.format).fileExtension;
 	const outputName = `${DESKTOP_AUDIO_FFMPEG_OUTPUT_BASENAME}${outputExtension}`;
 	const inputFormat = request.operation === 'audio-decode'
-		? DECODE_FORMATS[request.format].demuxerAnyOf[0]
+		? compressedInputFormat(request).demuxerAnyOf[0]
 		: 'f32le';
 	if (inputFormat === undefined) throw new TypeError('The desktop audio FFmpeg input format is unavailable.');
 	const inputDecoder = request.operation === 'audio-decode'
-		? DECODE_FORMATS[request.format].decoderAnyOf[0]
+		? compressedInputFormat(request).decoderAnyOf[0]
 		: null;
 	if (request.operation === 'audio-decode' && inputDecoder === undefined) {
 		throw new TypeError('The desktop audio FFmpeg input decoder is unavailable.');

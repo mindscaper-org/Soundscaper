@@ -16,18 +16,13 @@ import {
 	authenticateMilestone5SourceArchive as authenticateArchive,
 	canonicalMilestone5SourceDirectory as canonicalDirectory,
 } from './milestone-5-source-filesystem-authority.mjs';
-import { milestone5EngineeringScope } from './milestone-5-product-scope.mjs';
+import { milestone5EngineeringScope, SOUNDSCAPER_MILESTONE_5_SOURCE_IDS } from './milestone-5-product-scope.mjs';
 
 export const MILESTONE_5_NATIVE_SOURCE_ACQUISITIONS =
 	'config/milestone-5-native-source-acquisitions.json';
 
 export const MILESTONE_5_NATIVE_SOURCE_IDS = Object.freeze([
-	'surge-xt', 'dexed', 'electron-node-api-headers',
-	'juce',
-	'clap',
-	'vst3-sdk', 'fst',
-	'vamp-plugin-sdk', 'ara-api', 'ara-library', 'asio-sdk',
-	'ladspa-sdk', 'lv2',
+	...SOUNDSCAPER_MILESTONE_5_SOURCE_IDS,
 	'x264',
 	'x265',
 	'libvpx', 'svt-av1',

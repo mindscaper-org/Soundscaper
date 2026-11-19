@@ -6,12 +6,17 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
 import { ReadCapabilityStore } from '../../desktop/file-capabilities.js';
+import { MAX_READ_CAPABILITIES_PER_OWNER } from '../../desktop/constants.js';
 import { registerFileCapabilityIpc } from '../../desktop/main-file-capability-ipc.mjs';
+import { OriginalFileOverwriteStore } from '../../desktop/original-file-overwrite.ts';
 import { createProtocolHandler } from '../../desktop/protocol.js';
+import { cleanReadCapabilityDisplayName } from '../../desktop/read-capability-support.js';
 import { AtomicSaveManager, SaveTargetStore } from '../../desktop/save-targets.js';
+import { acceptsFile } from '../../desktop/validation.js';
 
 const CHANNELS = Object.freeze({
 	chooseFiles: 'files:choose', releaseRead: 'files:release', chooseSaveTarget: 'save:choose',
+	prepareOriginalOverwrite: 'files:prepare-original-overwrite', releaseOriginalFile: 'files:release-original',
 	beginWrite: 'save:begin', writeChunk: 'save:chunk', patchFinalPrefix: 'save:prefix',
 	finishWrite: 'save:finish', abortWrite: 'save:abort',
 });
@@ -23,6 +28,10 @@ export async function nativeSidecarFixture(name: string, text: string | Uint8Arr
 	const owner = {};
 	const reads = new ReadCapabilityStore({ openImpl: options.openSelectedFile ?? open });
 	const targets = new SaveTargetStore();
+	const originalFiles = new OriginalFileOverwriteStore({
+		reads, targets, acceptsFile, cleanDisplayName: cleanReadCapabilityDisplayName,
+		maximumCount: MAX_READ_CAPABILITIES_PER_OWNER,
+	});
 	const saveOptions = { targets, openImpl: open };
 	const saves = new AtomicSaveManager(saveOptions);
 	let savePath = options.saveName ? join(directory, options.saveName) : null;
@@ -53,7 +62,7 @@ export async function nativeSidecarFixture(name: string, text: string | Uint8Arr
 		},
 		opaqueId: (value: unknown) => String(value ?? ''), ownerFor: () => owner,
 		pendingOpenProjects: { dispatch: async () => undefined }, readCapabilities: reads, saves,
-		saveTargets: targets, windowFor: () => null,
+		saveTargets: targets, originalFiles, windowFor: () => null,
 	});
 	const choose = handlers.get(CHANNELS.chooseFiles);
 	const release = handlers.get(CHANNELS.releaseRead);
@@ -89,7 +98,7 @@ export async function nativeSidecarFixture(name: string, text: string | Uint8Arr
 			await protocol(new Request(url, options)),
 		close: async (): Promise<void> => {
 			await reads.dispose();
-			await saves.dispose(); targets.dispose();
+			await saves.dispose(); targets.dispose(); originalFiles.dispose();
 			await rm(directory, { recursive: true, force: true });
 		},
 	};

@@ -147,7 +147,7 @@ test('both product sandbox preloads bundle ARA validation without an ESM runtime
 
 test('desktop preview builds real ARA peers and retains the same authenticated overlay for package re-audits', async () => {
 	const workflow = await readWorkflow('desktop-preview.yml');
-	assert.match(extractJob(workflow, 'professional-native-source'), /--source ara-api --source ara-library/u);
+	assert.match(extractJob(workflow, 'professional-native-source'), /--soundscaper-professional/u);
 	assert.match(extractJob(workflow, 'professional-native-build'), /uses: \.\/\.github\/workflows\/soundscaper-professional-native-build\.yml/u);
 	const packageJob = extractJob(workflow, 'package');
 	assert.match(packageJob, /needs: \[[^\]]*professional-native-build/u);

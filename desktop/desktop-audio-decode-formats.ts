@@ -43,3 +43,8 @@ export function inspectDesktopCompandedWaveFormat(bytes: Uint8Array): DesktopAud
 function text(bytes: Uint8Array, offset: number, count: number): string {
 	return String.fromCharCode(...bytes.subarray(offset, offset + count));
 }
+
+/** The ADTS sync word with a zero MPEG layer field. */
+export function hasAdtsAudioSync(bytes: Uint8Array): boolean {
+	return bytes.length >= 7 && bytes[0] === 0xff && (bytes[1]! & 0xf6) === 0xf0;
+}

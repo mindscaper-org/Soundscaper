@@ -71,6 +71,7 @@
 		"desktop/desktop-audio-codec-lazy-service.ts",
 		"desktop/desktop-audio-stream-service.ts",
 		"desktop/desktop-audio-stream-job-runner.ts",
+		"desktop/fdk-aac-runtime.ts",
 		"desktop/audio-codec-stream-helper.ts",
 		"desktop/desktop-audio-stream-contract.ts",
 		"desktop/bundled-audio-codec-helper-configuration.ts",

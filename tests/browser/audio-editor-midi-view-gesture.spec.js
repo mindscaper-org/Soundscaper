@@ -29,9 +29,13 @@ test('moving a MIDI note after panning during the held drag follows the source t
 	const bounds = await note.boundingBox();
 	if (!bounds) throw new Error('Note is not visible.');
 	const x = bounds.x + bounds.width / 2, y = bounds.y + bounds.height / 2;
+	await page.mouse.move(x, y);
 	await page.mouse.down();
-	await panHeldGesture(page, note, '50px');
+	const grid = panel.locator('.kw-audio-editor__piano-roll-notes > [tabindex="0"]');
+	await grid.dispatchEvent('wheel', { deltaX: 50 });
+	await expect(note).toHaveCSS('left', '50px');
 	await page.mouse.move(x + 25, y);
+	await expect(note).toHaveCSS('left', '125px');
 	await page.mouse.up();
 	await expect(start).toHaveValue('1.75');
 });

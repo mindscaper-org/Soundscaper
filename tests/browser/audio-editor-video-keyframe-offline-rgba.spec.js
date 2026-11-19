@@ -2,7 +2,7 @@
 
 import { expect } from '@playwright/test';
 import { test } from './audio-editor-test-fixtures.js';
-import { transpileSourceModuleRoutes } from './helpers/source-module-routes.ts';
+import { bundleSourceModuleRoutes } from './helpers/source-module-routes.ts';
 test.use({ browserCoverage: false });
 const ROUTE_ROOT = '/__video-keyframe-offline-rgba__';
 
@@ -15,9 +15,9 @@ test('renders one exact keyed RGBA frame through the real compositor with top-do
 	await page.goto(`${ROUTE_ROOT}/index.html`);
 	const result = await page.evaluate(async (root) => {
 		const [{ resolveRuntimeProjectProjection }, frameSourceModule, rendererModule] = await Promise.all([
-			import(`${root}/src/common/editor/runtime-clip-projection.ts`),
-			import(`${root}/src/common/editor/video-keyframe-export-frame-source.ts`),
-			import(`${root}/src/common/editor/ui/video-keyframe-offline-rgba-renderer.ts`),
+			import(`${root}/src/common/editor/runtime-clip-projection.js`),
+			import(`${root}/src/common/editor/video-keyframe-export-frame-source.js`),
+			import(`${root}/src/common/editor/ui/video-keyframe-offline-rgba-renderer.js`),
 		]);
 		const project = resolveRuntimeProjectProjection(createProject());
 		const frameSource = frameSourceModule.createVideoKeyframeExportFrameSource({
@@ -170,7 +170,7 @@ async function installModuleRoutes(page) {
 		'editor/video-keyframe-export-frame-source.ts',
 		'editor/ui/video-keyframe-offline-rgba-renderer.ts',
 	].map(name => new URL(name, sourceRoot));
-	const modules = await transpileSourceModuleRoutes(sourceRoot, `${ROUTE_ROOT}/src/common`, entries);
+	const modules = await bundleSourceModuleRoutes(sourceRoot, `${ROUTE_ROOT}/src/common`, entries);
 	await page.route(`**${ROUTE_ROOT}/src/common/**`, async (route) => {
 		const pathname = new URL(route.request().url()).pathname;
 		const descriptor = modules.get(pathname);

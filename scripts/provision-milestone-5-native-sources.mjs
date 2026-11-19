@@ -15,6 +15,7 @@ import {
 	readMilestone5NativeSourceAcquisitions,
 } from './lib/milestone-5-native-source-acquisitions.mjs';
 import { materializeMilestone5SourceArchive } from './lib/milestone-5-source-archive-extraction.mjs';
+import { SOUNDSCAPER_MILESTONE_5_SOURCE_IDS } from './lib/milestone-5-product-scope.mjs';
 import { downloadCiBytes } from './lib/ci-download-retry.mjs';
 import { githubReleaseDownload } from './lib/ci-github-release-fetch.mjs';
 
@@ -39,6 +40,7 @@ import { githubReleaseDownload } from './lib/ci-github-release-fetch.mjs';
  *   node scripts/provision-milestone-5-native-sources.mjs
  *   node scripts/provision-milestone-5-native-sources.mjs --check
  *   node scripts/provision-milestone-5-native-sources.mjs --source juce --source lv2
+ *   node scripts/provision-milestone-5-native-sources.mjs --soundscaper-professional
  *   node scripts/provision-milestone-5-native-sources.mjs --archive-directory ~/m5-archives
  *
  * `--archive-directory` is the offline/repeatable path for any pinned archive.
@@ -244,7 +246,9 @@ function parseArguments(argv) {
 		if (argument === '--check') parsed.check = true;
 		else if (argument === '--force') parsed.force = true;
 		else if (argument === '--source') parsed.sources.add(requireValue(argv, (index += 1), '--source'));
-		else if (argument === '--root') parsed.root = requireValue(argv, (index += 1), '--root');
+		else if (argument === '--soundscaper-professional') {
+			for (const id of SOUNDSCAPER_MILESTONE_5_SOURCE_IDS) parsed.sources.add(id);
+		} else if (argument === '--root') parsed.root = requireValue(argv, (index += 1), '--root');
 		else if (argument === '--archive-directory') {
 			parsed.archiveDirectory = requireValue(argv, (index += 1), '--archive-directory');
 		} else throw new Error(`Unknown argument ${argument}.`);

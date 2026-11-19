@@ -47,6 +47,8 @@ export type DesktopAudioCodecProviderExecutionResult =
 
 export interface DesktopAudioCodecProviderRuntime {
 	readonly provider: DesktopCodecProvider;
+	/** This decoder can measure its own PCM size against the broker's clipped output bound. */
+	readonly measureDecodeOutput?: true;
 	/** Resolve an aggregate bundled tier to the exact runtime bound to this request. */
 	selectRequestRuntime?(
 		request: DesktopAudioCodecRequest,
@@ -187,6 +189,7 @@ export function createDesktopAudioCodecBroker(options: Readonly<{
 			);
 			const coordinator = createDesktopCodecCoordinator({
 				providers: bindings.map(({ provider }) => provider),
+				preferOperatingSystem: request.operation === 'audio-encode' && request.format === 'aac-m4a',
 			});
 			const runtimesByProvider = new Map(bindings.map(({ provider, runtime }) => (
 				[provider, runtime] as const
@@ -236,7 +239,8 @@ export async function bindDesktopAudioCodecRuntimeToRequest(
 }>> {
 	if (runtime.provider.kind !== 'external-ffmpeg') {
 		if (request.input.byteLength > DESKTOP_AUDIO_CODEC_INPUT_LIMIT_BYTES
-			|| (request.maximumOutputBytes > DESKTOP_AUDIO_CODEC_OUTPUT_LIMIT_BYTES && request.maximumOutputBytes !== Number.MAX_SAFE_INTEGER)) {
+			|| (request.maximumOutputBytes > DESKTOP_AUDIO_CODEC_OUTPUT_LIMIT_BYTES && request.maximumOutputBytes !== Number.MAX_SAFE_INTEGER
+				&& !(request.operation === 'audio-decode' && runtime.measureDecodeOutput))) {
 			return Object.freeze({ runtime, provider: Object.freeze({ ...runtime.provider,
 				preflight: () => Promise.resolve({ disposition: 'unsupported' as const,
 					reason: 'This audio file requires the external FFmpeg provider.' }),

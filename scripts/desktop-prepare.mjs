@@ -21,6 +21,7 @@ import { prepareDesktopAssistanceRuntimeSet } from './lib/desktop-assistance-run
 import { generateProductWindowIcon } from './lib/offline-application-shell.mjs';
 import { listTranslationCatalogLocales, readTranslationCatalog } from './i18n-ai/catalog.mjs';
 import { buildSourceMapsRequested } from './lib/build-source-map-relocation.mjs';
+import { stageDesktopFdkAac } from './lib/desktop-fdk-aac-staging.mjs';
 import { stageDesktopBundledCodecNotices } from './lib/desktop-bundled-codec-notices.mjs';
 import {
 	prepareDesktopOsAudioCodecNativeRelease,
@@ -206,6 +207,8 @@ async function main() {
 		kokoroG2pRuntime, assistanceDistribution,
 	);
 
+	const fdkAac = await stageDesktopFdkAac({ repositoryRoot: ROOT, runtimeRoot: RUNTIME_ROOT,
+		desktopRoot: resolve(APP_ROOT, 'desktop'), licenseRoot: DESKTOP_LICENSE_ROOT, target: nativeTarget.id });
 	const stageManifest = {
 		schemaVersion: 1,
 		nativeHarnessPreparation,
@@ -231,6 +234,7 @@ async function main() {
 		desktopNotices,
 		nativeAddons,
 		osAudioCodecNative,
+		fdkAac,
 		soundscaperProfessionalNative,
 		framescaperNativeHosts,
 		yabridge,

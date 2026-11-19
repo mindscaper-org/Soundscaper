@@ -54,8 +54,10 @@ for (const surface of ['placement', 'grid-boundary', 'strip-boundary', 'marquee'
 		await act(async () => { reactProps(target).onMouseDown?.({ currentTarget: target, button: 0, ctrlKey: marquee, clientX, clientY: marquee ? 43 : 100,
 			preventDefault() {}, stopPropagation() {} }); });
 		await act(async () => { changeView(marquee ? 128 : 50, marquee ? 260 : 100); });
-		await act(async () => { for (const listener of listeners.get('mousemove') ?? []) listener({ clientX: marquee ? 110 : clientX + 25, clientY: marquee ? 68 : 100 } as MouseEvent); });
-		await act(async () => { for (const listener of [...listeners.get('mouseup') ?? []]) listener({ button: 0 } as MouseEvent); });
+		await act(async () => {
+			for (const listener of listeners.get('mousemove') ?? []) listener({ clientX: marquee ? 110 : clientX + 25, clientY: marquee ? 68 : 100 } as MouseEvent);
+			for (const listener of [...listeners.get('mouseup') ?? []]) listener({ button: 0 } as MouseEvent);
+		});
 		if (marquee) assert.deepEqual(selected, []);
 		else if (surface === 'placement') assert.equal(added[0]?.startTime, 2.25);
 		else assert.equal(durations.at(-1), 2.75);

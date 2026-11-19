@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { isDeepStrictEqual } from 'node:util';
+import { ORBITAMP_SOURCE_IDS } from '../../desktop/bundled-native-plugins.ts';
 
 export const MILESTONE_5_PRODUCTS = Object.freeze(['soundscaper', 'framescaper']);
 export const MILESTONE_5_TARGETS = Object.freeze([
 	'linux-x64', 'linux-arm64', 'mac-arm64', 'win-x64', 'win-arm64',
 ]);
 export const SOUNDSCAPER_MILESTONE_5_SOURCE_IDS = Object.freeze([
-	'surge-xt', 'dexed', 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+	'surge-xt', 'dexed', ...ORBITAMP_SOURCE_IDS, 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 	'asio-sdk', 'ladspa-sdk', 'lv2',
 ]);
 export const SOUNDSCAPER_MILESTONE_5_PAYLOAD_PRODUCTS = Object.freeze([
