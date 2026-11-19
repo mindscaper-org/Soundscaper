@@ -6,7 +6,7 @@ import { constants } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { clearDesktopStorageCopyStage } from './desktop-storage-copy-stage.ts';
 import { checkDesktopStorageMigrationDestination, DesktopStorageMigrationPreflightError, migrateDesktopStorageEntries, sameDesktopStorageDirectory } from './desktop-storage-migration.ts';
-import { projectLibraryLocationDirectory, withProjectLibraryRelocation } from './project-library-directory-lock.ts';
+import { ProjectLibraryDirectoryInUseError, projectLibraryLocationDirectory, withProjectLibraryRelocation } from './project-library-directory-lock.ts';
 import { fixedProjectLibraryPaths } from './project-library-path-layout.ts';
 import { assertLocalDesktopStorage, UnsupportedDesktopStorageLocationError } from './local-storage-safety.ts';
 
@@ -94,7 +94,9 @@ export class TemporaryProjectStorage {
 			await this.#persist({ active: state.selected, selected: state.selected, moveStarted: false, activeId: selectedId, selectedId });
 			return this.#state.active;
 		}).catch((error: unknown) => {
-			if (state.moveStarted || !(error instanceof DesktopStorageMigrationPreflightError)) throw error;
+			if (state.moveStarted) throw error;
+			if (error instanceof ProjectLibraryDirectoryInUseError && error.root === selectedRoot) return state.active;
+			if (!(error instanceof DesktopStorageMigrationPreflightError)) throw error;
 			return this.#refuseFolderSelection(error, onSelectionRefused);
 		});
 	}

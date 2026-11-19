@@ -247,10 +247,10 @@ a temporary root selection. The closed library moves on the next startup, with
 another conflict check before migration. If preflight refuses a fresh
 selection or its location becomes unsupported, startup cancels that choice,
 reports the cause, and opens the current library.
-If the selected directory disappears
-before migration starts, startup continues with the current library. Startup
-requires a disconnected destination to return once the move may have started,
-because the old location may contain only part of the library.
+If the selected directory is missing or its library lock is held before
+migration starts, startup continues with the current library and keeps the
+pending move. Once the move may have started, startup requires the destination
+to be available because the old location may contain only part of the library.
 
 Desktop working storage is admitted before database open, profile startup, and
 temporary-folder selection or migration. The database opener also checks storage

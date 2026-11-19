@@ -4,9 +4,11 @@ import { join } from 'node:path';
 import { openLocalDesktopDatabase } from './desktop-database.ts';
 
 export class ProjectLibraryDirectoryInUseError extends Error {
-	constructor(cause: unknown) {
+	readonly root: string;
+	constructor(root: string, cause: unknown) {
 		super('The project library is in use. Close the other editor or let its library move finish, then restart.', { cause });
 		this.name = 'ProjectLibraryDirectoryInUseError';
+		this.root = root;
 	}
 }
 
@@ -29,7 +31,7 @@ export function openProjectLibraryDirectoryLock(root: string, appName: string, m
 	} catch (error) {
 		database.close();
 		const code = (error as { errcode?: unknown })?.errcode;
-		if (typeof code === 'number' && [5, 6].includes(code & 0xff)) throw new ProjectLibraryDirectoryInUseError(error);
+		if (typeof code === 'number' && [5, 6].includes(code & 0xff)) throw new ProjectLibraryDirectoryInUseError(root, error);
 		throw error;
 	}
 }

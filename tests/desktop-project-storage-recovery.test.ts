@@ -7,7 +7,7 @@ import test from 'node:test';
 import { OriginalFileOverwriteStore } from '../desktop/original-file-overwrite.ts';
 import { exactOriginalFileIdentity } from '../desktop/original-file-identity.ts';
 import { ProjectFileAssociations } from '../desktop/project-file-associations.ts';
-import { projectLibraryLocationDirectory } from '../desktop/project-library-directory-lock.ts';
+import { openProjectLibraryDirectoryLock, projectLibraryLocationDirectory } from '../desktop/project-library-directory-lock.ts';
 import { TemporaryProjectStorage } from '../desktop/temporary-project-storage.ts';
 
 test('failed association persistence does not poison restoration of committed entries', async context => {
@@ -159,6 +159,49 @@ for (const moveStarted of [false, true]) test(`startup preserves both libraries 
 	}
 	assert.equal(await readFile(source, 'utf8'), 'original catalog');
 	assert.equal(await readFile(destination, 'utf8'), 'independent catalog');
+});
+
+for (const selectedFirst of [false, true]) test(`startup defers an unstarted move while the selected folder is in use (selected sorted ${selectedFirst ? 'first' : 'last'})`, async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-storage-busy-destination-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const configuration = join(root, 'settings.json');
+	const active = join(root, selectedFirst ? 'z-active' : 'a-active');
+	const selected = join(root, selectedFirst ? 'a-selected' : 'z-selected');
+	const library = join('Soundscaper', 'project-library', 'v1');
+	const source = join(active, library, 'library.sqlite3'), destination = join(selected, library, 'library.sqlite3');
+	await mkdir(join(active, library), { recursive: true });
+	await writeFile(source, 'current working catalog');
+	await new TemporaryProjectStorage(configuration, active, 'Soundscaper').select(selected);
+	const pending = await readFile(configuration, 'utf8');
+
+	const release = openProjectLibraryDirectoryLock(selected, 'Soundscaper', 'open');
+	try {
+		const restarted = new TemporaryProjectStorage(configuration, active, 'Soundscaper');
+		assert.equal(await restarted.prepare(), active);
+		assert.deepEqual(restarted.status(), { folder: active, selectedFolder: selected, restartRequired: true });
+		assert.equal(await readFile(configuration, 'utf8'), pending);
+		assert.equal(await readFile(source, 'utf8'), 'current working catalog');
+		await assert.rejects(lstat(destination), { code: 'ENOENT' });
+	} finally { release(); }
+
+	assert.equal(await new TemporaryProjectStorage(configuration, active, 'Soundscaper').prepare(), selected);
+	assert.equal(await readFile(destination, 'utf8'), 'current working catalog');
+	await assert.rejects(lstat(source), { code: 'ENOENT' });
+});
+
+test('a recorded library move cannot defer startup while the selected folder is in use', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-storage-busy-move-recovery-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const configuration = join(root, 'settings.json'), active = join(root, 'active'), selected = join(root, 'selected');
+	await new TemporaryProjectStorage(configuration, active, 'Soundscaper').select(selected);
+	const pending = JSON.parse(await readFile(configuration, 'utf8')) as object;
+	const started = JSON.stringify({ ...pending, moveStarted: true });
+	await writeFile(configuration, started);
+	const release = openProjectLibraryDirectoryLock(selected, 'Soundscaper', 'open');
+	try {
+		await assert.rejects(new TemporaryProjectStorage(configuration, active, 'Soundscaper').prepare(), /project library is in use/iu);
+		assert.equal(await readFile(configuration, 'utf8'), started);
+	} finally { release(); }
 });
 
 test('overlapping folder choices persist the last selection through a single writer', async context => {
