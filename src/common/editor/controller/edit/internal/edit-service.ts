@@ -36,7 +36,7 @@ export function createEditorEditService(runtime: EditServiceRuntime): HandleEdit
 		commitPreparedPaste,
 		copy, createAddTrackCommand, createClipboardDescriptor, createStableId,
 		editingBlocked, engine, findClip, findClipTrack,
-		findTrack, garbageCollectSources, handleError, normalizeTimelineFrame,
+		garbageCollectSources, handleError, normalizeTimelineFrame,
 		prepareControllerPaste, prepareDisjointRangeDeleteCommand, prepareGroupClipsCommand, prepareKeepRangeCommand,
 		prepareLinkedSplitCommand, prepareRangeDeleteCommand, preserveTrackRouting, getProject, projectChanged,
 		publishDocumentSnapshot, redoEditorCommand, resolveEditingSelection, setSessionClipboard,
@@ -75,16 +75,8 @@ export function createEditorEditService(runtime: EditServiceRuntime): HandleEdit
 	 */
 	function discardedRanges(
 		kept: readonly RuntimeValue[],
-		trackIds: readonly string[],
+		endFrame: number,
 	): RuntimeValue[] {
-		const trackIdSet = new Set(trackIds);
-		const clipIds = getProject().tracks
-			.filter((track: RuntimeValue) => trackIdSet.has(track.id) && Array.isArray(track.clipIds))
-			.flatMap((track: RuntimeValue) => track.clipIds as string[]);
-		const endFrame = clipIds.reduce((furthest: number, clipId: string) => {
-			const clip = findClip(getProject(), clipId);
-			return clip ? Math.max(furthest, clip.timelineStartFrame + clip.durationFrames) : furthest;
-		}, 0);
 		const ranges: RuntimeValue[] = [];
 		let cursor = 0;
 		for (const range of kept) {
@@ -316,19 +308,23 @@ export function createEditorEditService(runtime: EditServiceRuntime): HandleEdit
 				// what falls between two selected clips was not selected.
 				if (!editingSelection || editingSelection.kind !== 'clips') return;
 				const keptTrackIds = selectedClipTrackIds.length ? selectedClipTrackIds : trackIds;
-				const groups = new Map<string, { ranges: readonly RuntimeValue[]; trackIds: string[] }>();
+				const groups = new Map<string, { ranges: readonly RuntimeValue[]; trackIds: string[]; endFrame: number }>();
 				for (const trackId of keptTrackIds) {
-					const ids = new Set(findTrack(getProject(), trackId)?.clipIds || []);
+					const ids = new Set<string>(tracks.get(trackId)?.clipIds ?? []);
 					const ranges = mergeEditingRanges(selectedClips.filter((clip: RuntimeValue) => ids.has(clip.id))
 						.map((clip: RuntimeValue) => ({ startFrame: clip.timelineStartFrame,
 							endFrame: clip.timelineStartFrame + clip.durationFrames })));
 					const key = JSON.stringify(ranges);
-					const group = groups.get(key) ?? { ranges, trackIds: [] };
+					const group = groups.get(key) ?? { ranges, trackIds: [], endFrame: 0 };
 					group.trackIds.push(trackId);
+					for (const id of ids) {
+						const clip = clips.get(id);
+						if (clip) group.endFrame = Math.max(group.endFrame, clip.timelineStartFrame + clip.durationFrames);
+					}
 					groups.set(key, group);
 				}
 				const commands = [...groups.values()].flatMap((group) => {
-					const discarded = discardedRanges(group.ranges, group.trackIds);
+					const discarded = discardedRanges(group.ranges, group.endFrame);
 					return discarded.length ? [prepareDisjointRangeDeleteCommand(getProject(), {
 						ranges: discarded, trackIds: group.trackIds, rippleMode: 'none',
 					})] : [];
