@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { NoteGrid } from '@soundscaper/design-system/PianoRoll/NoteGrid';
 import { PianoKeyboard } from '@soundscaper/design-system/PianoRoll/PianoKeyboard';
 import { PianoRollRuler } from '@soundscaper/design-system/PianoRoll/PianoRollRuler';
@@ -12,6 +12,7 @@ import { resolveMidiCopy } from '../../../i18n/editor-midi-copy.ts';
 import { useElementSize } from '../use-element-size.ts';
 import { createMidiPanelPlayheadProjector, designSystemMidiClip, midiBeatsPerMeasure, midiNoteChanges, midiPanelClipResize, midiPanelSelection, midiPanelDraftNotes, midiPanelNoteDraft, discardMidiPanelDraftNotes, resolveMidiPanelClip, type MidiPanelNoteDrafts, type MidiPanelProject } from './midi-panel-projection.ts';
 import { MidiNoteNumberField } from './MidiNoteNumberField.tsx';
+import { MidiNotePicker } from './MidiNotePicker.tsx';
 import { MidiInstrumentSelect } from './MidiInstrumentSelect.tsx';
 import { createMidiPanelMusicalClock } from './midi-panel-musical-clock.ts';
 import { pianoRollGridMath } from '@soundscaper/design-system/PianoRoll/musical-clock';
@@ -78,7 +79,7 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 }) {
 	const copy = resolveMidiCopy(inputCopy);
 	const sampleRate = project.sources?.find(source => source.id === clip.sourceId)?.sampleRate ?? project.sampleRate;
-	const instrument = readMidiTrack(track)?.instrument ?? 'sine';
+	const instrument = useMemo(() => readMidiTrack(track)?.instrument ?? 'sine', [track]);
 	const disabled = blocked || snapshot.readOnly === true || track.locked === true;
 	const [panelRef, panelSize] = useElementSize();
 	const [controlsRef, controlsSize] = useElementSize();
@@ -114,7 +115,6 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 	const gridWidth = Math.max(0, panelSize.width - 104);
 	const gridHeight = Math.max(100, panelSize.height - controlsSize.height - 52);
 	const selectedNotes = useMemo(() => notes.filter(note => selectedIds.has(note.id)), [notes, selectedIds]);
-	const noteOptions = useMemo(() => notes.map(note => <MidiNoteOption key={note.id} note={note} format={copy.noteOption} sampleRate={sampleRate} />), [copy.noteOption, notes, sampleRate]);
 	const activeNote = selectedNotes[0];
 	const retireNoteGesture = useCallback(() => {
 		if (!gesture.current) return;
@@ -178,8 +178,9 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 	}, [clip.id, controller, disabled, run]);
 
 	const edit = (operation: () => unknown) => { if (!disabled) run(operation); };
-	const preview = (pitch: number) => { run(() => controller.actions.midi.previewNote(pitch, instrument,
-		{ clipId: clip.id, noteId: gesture.current ? gesturePreviewNote.current : activeNote?.id })); };
+	const preview = useCallback((pitch: number) => { run(() => controller.actions.midi.previewNote(pitch, instrument,
+		{ clipId: clip.id, noteId: gesture.current ? gesturePreviewNote.current : activeNote?.id })); },
+	[activeNote?.id, clip.id, controller, instrument, run]);
 	const select = (numericIds: readonly number[], additive = false) => {
 		setSelectedIds(previous => new Set([
 			...(additive ? previous : []),
@@ -267,10 +268,8 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 			<button type="button" disabled={disabled} onClick={addNote}>{copy.addNote}</button>
 			<button type="button" disabled={disabled || !selectedNotes.length} onClick={deleteSelected}>{copy.deleteNotes}</button>
 			<div className="kw-audio-editor__piano-roll-note-editor" role="group" aria-label={copy.noteEditor}>
-				<label><EditorControlLabel>{copy.selectedNote}</EditorControlLabel><select value={activeNote?.id ?? ''} onChange={event => setSelectedIds(new Set(event.currentTarget.value ? [event.currentTarget.value] : []))}>
-					<option value="">{copy.noSelection}</option>
-					{noteOptions}
-				</select></label>
+				<MidiNotePicker notes={notes} activeNote={activeNote} sampleRate={sampleRate} copy={copy}
+					select={id => setSelectedIds(new Set(id ? [id] : []))} />
 				<label><EditorControlLabel>{copy.pitch}</EditorControlLabel><MidiNoteNumberField key={`pitch:${activeNote?.id}`} min={0} max={127} step={1} disabled={disabled || !activeNote} value={activeNote?.pitch ?? ''}
 					onCommit={value => editSelected({ pitch: value })} /></label>
 				<label><EditorControlLabel>{copy.start}</EditorControlLabel><MidiNoteNumberField key={`start:${activeNote?.id}`} min={0} step={0.001} disabled={disabled || !activeNote} value={activeNote ? activeNote.startFrame / sampleRate : ''}
@@ -313,12 +312,6 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 		</div>
 	</div>;
 }
-
-const MidiNoteOption = memo(function MidiNoteOption({ note, format, sampleRate }: {
-	readonly note: MidiNote; readonly format: string; readonly sampleRate: number;
-}) {
-	return <option value={note.id}>{format.replace('{pitch}', String(note.pitch)).replace('{time}', (note.startFrame / sampleRate).toFixed(3))}</option>;
-});
 
 /** Transport ticks move only the cursor; the note editor keeps its render cadence. */
 function PianoRollPlayhead({ controller, project, clip, sampleRate, pixelsPerSecond, scrollX, width }: {
