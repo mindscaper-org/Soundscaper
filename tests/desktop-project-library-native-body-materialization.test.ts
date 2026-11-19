@@ -2,9 +2,9 @@
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rename, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, readlink, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import test from 'node:test';
 
 import {
@@ -67,6 +67,48 @@ test('verified range reads authenticate once and retain the opened body identity
 	await reader.close();
 	await assert.rejects(verifyProjectLibraryNativeBody(source, identity), /digest/iu);
 });
+
+test('completed project body transfers release file handles before the library session closes', {
+	skip: process.platform !== 'linux',
+}, async (context) => {
+	const root = await mkdtemp(join(tmpdir(), 'framescaper-transferred-bodies-'));
+	const reader = new ProjectLibraryVerifiedBodyReader();
+	context.after(async () => { await reader.close(); await rm(root, { recursive: true, force: true }); });
+	const bytes = Uint8Array.of(1, 2, 3, 4);
+	const identity = { byteLength: bytes.byteLength, sha256: digest(bytes) };
+	const paths = Array.from({ length: 96 }, (_, index) => join(root, `body-${index}`));
+	for (const path of paths) await writeFile(path, bytes);
+	for (const path of paths) {
+		assert.deepEqual(await reader.read(path, identity, 0, 2, 2), bytes.slice(0, 2));
+		assert.deepEqual(await reader.read(path, identity, 2, 2, 2), bytes.slice(2));
+	}
+	assert.equal(await openBodyHandles(root), 0);
+});
+
+test('concurrent first ranges share one authenticated file handle', {
+	skip: process.platform !== 'linux',
+}, async (context) => {
+	const root = await mkdtemp(join(tmpdir(), 'framescaper-same-body-ranges-'));
+	const reader = new ProjectLibraryVerifiedBodyReader();
+	context.after(async () => { await reader.close(); await rm(root, { recursive: true, force: true }); });
+	const path = join(root, 'source.media');
+	const bytes = Uint8Array.of(1, 2, 3, 4);
+	const identity = { byteLength: bytes.byteLength, sha256: digest(bytes) };
+	await writeFile(path, bytes);
+	const parts = await Promise.all(Array.from({ length: 24 }, () => reader.read(path, identity, 0, 2, 2)));
+	for (const part of parts) assert.deepEqual(part, bytes.slice(0, 2));
+	assert.equal(await openBodyHandles(root), 1);
+	assert.deepEqual(await Promise.all([reader.read(path, identity, 2, 2, 2), reader.read(path, identity, 0, 2, 2)]),
+		[bytes.slice(2), bytes.slice(0, 2)]);
+	assert.equal(await openBodyHandles(root), 0);
+});
+
+async function openBodyHandles(root: string): Promise<number> {
+	const fdDirectory = '/proc/self/fd';
+	const fds = await readdir(fdDirectory);
+	const paths = await Promise.all(fds.map(fd => readlink(join(fdDirectory, fd)).catch(() => '')));
+	return paths.filter(path => path.startsWith(`${root}${sep}`)).length;
+}
 
 function digest(bytes: Uint8Array): string {
 	return createHash('sha256').update(bytes).digest('hex');
