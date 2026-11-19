@@ -1,4 +1,5 @@
-import { extname, isAbsolute, resolve } from 'node:path';
+import { realpath } from 'node:fs/promises';
+import { basename, dirname, extname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ACCEPTED_PROJECT_FILE_EXTENSIONS } from './constants.js';
@@ -63,7 +64,10 @@ export function createPendingProjectDelivery({
 		let owner = null;
 		try {
 			owner = currentOwner();
-			descriptor = await register(filePath, owner);
+			const selectedPath = hasPosixParentSegment(filePath)
+				? join(await realpath(dirname(filePath)), basename(filePath))
+				: filePath;
+			descriptor = await register(selectedPath, owner);
 			if (!isOwnerCurrent(owner)) {
 				const staleDescriptor = descriptor;
 				descriptor = null;
@@ -118,13 +122,25 @@ export function extractProjectPaths(argv, workingDirectory = process.cwd()) {
 			}
 		}
 		if (!OPENABLE_PROJECT_EXTENSIONS.includes(extname(candidate).toLowerCase())) continue;
-		const absolutePath = isAbsolute(candidate) ? candidate : resolve(workingDirectory, candidate);
+		const absolutePath = absoluteProjectPath(candidate, workingDirectory);
 		if (!paths.includes(absolutePath)) paths.push(absolutePath);
 	}
 	return paths;
 }
 
 export const extractAup4Paths = extractProjectPaths;
+
+function absoluteProjectPath(candidate, workingDirectory) {
+	if (isAbsolute(candidate)) return candidate;
+	if (!hasPosixParentSegment(candidate)) return resolve(workingDirectory, candidate);
+	// POSIX follows directory symlinks before interpreting parent segments.
+	const directory = resolve(workingDirectory);
+	return `${directory === '/' ? '' : directory}/${candidate}`;
+}
+
+function hasPosixParentSegment(path) {
+	return process.platform !== 'win32' && path.split('/').includes('..');
+}
 
 async function releaseDescriptor(release, descriptor, owner) {
 	if (!await release(descriptor.id, owner)) {

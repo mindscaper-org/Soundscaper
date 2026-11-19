@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readDesktopPreloadSource } from './helpers/desktop-preload-source.mjs';
 import test from 'node:test';
 import vm from 'node:vm';
 
-import { PendingProjectQueue, extractAup4Paths, extractProjectPaths } from '../desktop/file-associations.js';
+import { PendingProjectQueue, createPendingProjectDelivery, extractAup4Paths, extractProjectPaths } from '../desktop/file-associations.js';
 import {
 	acceptsFile,
 	mimeTypeForPath,
@@ -33,6 +33,41 @@ test('desktop launch opens a relative project whose name starts with a dash afte
 	const paths = extractProjectPaths(['soundscaper', '--switch.sscape', '--', filename], directory);
 	assert.deepEqual(paths, [project]);
 	assert.equal(await readFile(paths[0], 'utf8'), 'project bytes');
+});
+
+test('desktop launch follows symlink traversal when a relative project path contains a parent segment', {
+	skip: process.platform === 'win32',
+}, async t => {
+	const directory = await mkdtemp(join(tmpdir(), 'scape-launch-symlink-parent-'));
+	t.after(() => rm(directory, { recursive: true, force: true }));
+	const working = join(directory, 'working');
+	const media = join(directory, 'media');
+	await mkdir(working);
+	await mkdir(join(media, 'clips'), { recursive: true });
+	await symlink(join(media, 'clips'), join(working, 'shared'), 'dir');
+	await writeFile(join(working, 'edit.sscape'), 'unrelated project');
+	await writeFile(join(media, 'edit.sscape'), 'selected project');
+	await symlink('edit.sscape', join(media, 'alias.sscape'), 'file');
+	assert.deepEqual(extractProjectPaths(['soundscaper', 'edit.sscape', './edit.sscape'], working), [join(working, 'edit.sscape')]);
+
+	const paths = extractProjectPaths(['soundscaper', 'shared/../edit.sscape'], working);
+	assert.equal(paths.length, 1);
+	assert.equal(await readFile(paths[0], 'utf8'), 'selected project');
+	const [alias] = extractProjectPaths(['soundscaper', 'shared/../alias.sscape'], working);
+	const [unreachable] = extractProjectPaths(['soundscaper', 'missing/../edit.sscape'], working);
+	const delivered = [], errors = [];
+	const delivery = createPendingProjectDelivery({
+		isReady: () => true, currentOwner: () => ({}), isOwnerCurrent: () => true,
+		async register(path) { return { path, content: await readFile(path, 'utf8') }; },
+		send: descriptor => { delivered.push(descriptor); return true; },
+		reportError: error => { errors.push(error); },
+	});
+	assert.equal(await delivery(unreachable), true);
+	assert.equal(await delivery(paths[0]), true);
+	assert.equal(await delivery(alias), true);
+	assert.deepEqual(errors.map(error => error.code), ['ENOENT']);
+	const physicalDirectory = await realpath(media);
+	assert.deepEqual(delivered, ['edit.sscape', 'alias.sscape'].map(name => ({ path: join(physicalDirectory, name), content: 'selected project' })));
 });
 
 test('pending project dispatch stays serial and retries its visible head for a replacement renderer', async () => {
