@@ -15,11 +15,12 @@ test('video color exact-value editing preserves native composition before comple
 	await rack.locator('[data-video-effect-picker]').getByRole('button').click();
 	await page.getByRole('option', { name: 'Chroma Key', exact: true }).click();
 	await rack.getByRole('button', { name: 'Add effect', exact: true }).click();
-	const color = rack.locator('[data-video-effect-param="keyColor"] input[type="text"]');
-	await color.fill('#123456');
+	const color = rack.getByRole('textbox', { name: 'Exact value: Key color', exact: true });
+	await typeColor(color, '#123456');
 	await color.press('Enter');
+	await expect(color).not.toBeFocused();
 	await expect(color).toHaveValue('#123456');
-	await color.fill('#１２');
+	await typeColor(color, '#１２');
 	const prevented = await color.evaluate(element => {
 		const event = new KeyboardEvent('keydown', { key: 'Enter', isComposing: true,
 			bubbles: true, cancelable: true });
@@ -30,10 +31,17 @@ test('video color exact-value editing preserves native composition before comple
 	await expect(color).toBeFocused();
 	await expect(color).toHaveValue('#１２');
 	await expect(panel.getByRole('alert')).toHaveCount(0);
-	await color.fill('#ABCDEF');
+	await typeColor(color, '#ABCDEF');
 	await color.press('Enter');
+	await expect(color).not.toBeFocused();
 	await expect(color).toHaveValue('#ABCDEF');
-	await color.fill('#654321');
+	await typeColor(color, '#654321');
 	await color.press('Escape');
 	await expect(color).toHaveValue('#ABCDEF');
 });
+
+async function typeColor(color, value) {
+	await color.selectText();
+	await color.pressSequentially(value);
+	await expect(color).toHaveValue(value);
+}

@@ -28,8 +28,13 @@ for (const toggle of [false, true]) test(`a selected recording spectral band lea
 	await display.getByRole('menu').getByRole('menuitem', { name: 'Spectrogram', exact: true }).click();
 	await clip.focus(); await clip.press('Enter');
 	const spectral = await openSpectralDialog(page, editor);
-	await spectral.getByRole('textbox', { name: /^Minimum frequency \(Hz\)/u }).fill('100');
-	await spectral.getByRole('textbox', { name: /^Maximum frequency \(Hz\)/u }).fill('1000');
+	const minimum = spectral.getByRole('textbox', { name: /^Minimum frequency \(Hz\)/u });
+	const maximum = spectral.getByRole('textbox', { name: /^Maximum frequency \(Hz\)/u });
+	for (const [field, value] of [[minimum, '100'], [maximum, '1000']]) {
+		await field.selectText();
+		await field.pressSequentially(value);
+		await expect(field).toHaveValue(value);
+	}
 	await spectral.getByRole('button', { name: 'Select range', exact: true }).click();
 	await expect(spectral).toBeHidden();
 	const band = editor.getByRole('slider', { name: 'Spectral selection center-frequency handle', exact: true });
@@ -41,8 +46,8 @@ for (const toggle of [false, true]) test(`a selected recording spectral band lea
 		await expect(band).toBeVisible();
 	}
 	const amplify = await openSpectralDialog(page, editor);
-	await expect(amplify.getByRole('textbox', { name: /^Minimum frequency \(Hz\)/u })).toHaveValue('100');
-	await expect(amplify.getByRole('textbox', { name: /^Maximum frequency \(Hz\)/u })).toHaveValue('1000');
+	await expect(minimum).toHaveValue('100');
+	await expect(maximum).toHaveValue('1000');
 	await amplify.getByRole('button', { name: 'Spectral Amplify', exact: true }).click();
 	await expect(amplify).toBeHidden({ timeout: 30_000 });
 	const after = await exportSamples(page, editor);
