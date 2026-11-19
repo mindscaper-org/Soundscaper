@@ -28,8 +28,8 @@
 			"toolchainIdentity": "GNU 13.3.0 (Unix Makefiles; Linux x86_64)",
 			"payload": {
 				"path": "native/soundscaper-helper-addon/prebuilt/linux-x64/soundscaper_helper.node",
-				"byteLength": 89624,
-				"sha256": "b908713db224780c94ac5d13656a7fb5420c8ace2a91cd612ace3eb08bd95461"
+				"byteLength": 89672,
+				"sha256": "7fa5af80d4b730dcbc2a2c34ea286d792acd6c8bec528646211a4011c0e13592"
 			},
 			"buildResult": null
 		},

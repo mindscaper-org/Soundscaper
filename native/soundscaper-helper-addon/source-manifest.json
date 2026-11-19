@@ -123,9 +123,14 @@
 			"sha256": "3ef91efd2277e0f7eb44b5befce5eff3b810a026887ee2541a1a3688ec4f4bd9"
 		},
 		{
+			"path": "pipewire_api.h",
+			"byteLength": 3129,
+			"sha256": "076dab6aa2e63c6c3bc3e17bf009694176ff346cb008ffce68c1f0d7c3762cd2"
+		},
+		{
 			"path": "pipewire_session.c",
-			"byteLength": 22841,
-			"sha256": "7ab554c4d95410905ebea18bc608368967a5a3150b516e826cc95bad9a14c116"
+			"byteLength": 20986,
+			"sha256": "3209036a6853c6b14efd5e00b420efbc7f3655cc42ef3d5f69005aa6aeb993cc"
 		},
 		{
 			"path": "pipewire_session.h",
@@ -177,8 +182,8 @@
 			"toolchainIdentity": "GNU 13.3.0 (Unix Makefiles; Linux x86_64)",
 			"payload": {
 				"name": "soundscaper_helper.node",
-				"byteLength": 89624,
-				"sha256": "b908713db224780c94ac5d13656a7fb5420c8ace2a91cd612ace3eb08bd95461"
+				"byteLength": 89672,
+				"sha256": "7fa5af80d4b730dcbc2a2c34ea286d792acd6c8bec528646211a4011c0e13592"
 			},
 			"buildResult": null
 		},

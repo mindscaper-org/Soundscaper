@@ -123,10 +123,14 @@ const char *snd_strerror(int code) { (void)code; return "the stub card refused t
  * request is queued: `silent` never answers, `error` fails the node, and
  * `negotiated` completes with the requested format unless
  * `SOUNDSCAPER_STUB_PIPEWIRE_RATE` or `_CHANNELS` says otherwise.
+ * `capture-delayed`, `capture-stalled` and `capture-lost` send half an input
+ * packet before delivering the rest, stalling, or disconnecting.
  */
 export const PIPEWIRE_STUB_SOURCE = `
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include <pipewire/pipewire.h>
 #include <spa/param/audio/format-utils.h>
@@ -139,6 +143,9 @@ static char stub_loop_object;
 static char stub_stream_object;
 static char stub_context_object;
 static char stub_core_object;
+static pthread_t stub_capture_thread;
+static int stub_capture_started;
+static struct pw_buffer *stub_capture;
 
 static const char *stub_mode(void)
 {
@@ -163,7 +170,14 @@ struct pw_thread_loop *pw_thread_loop_new(const char *name, const struct spa_dic
 }
 
 void pw_thread_loop_destroy(struct pw_thread_loop *loop) { (void)loop; }
-void pw_thread_loop_stop(struct pw_thread_loop *loop) { (void)loop; }
+void pw_thread_loop_stop(struct pw_thread_loop *loop)
+{
+	(void)loop;
+	if (stub_capture_started) {
+		pthread_join(stub_capture_thread, NULL);
+		stub_capture_started = 0;
+	}
+}
 void pw_thread_loop_lock(struct pw_thread_loop *loop) { (void)loop; }
 void pw_thread_loop_unlock(struct pw_thread_loop *loop) { (void)loop; }
 
@@ -221,6 +235,31 @@ int pw_stream_connect(
 	return 0;
 }
 
+static void stub_capture_pair(float first)
+{
+	float samples[] = { first, first + 0.25f, first + 0.5f, first + 0.75f };
+	struct spa_chunk chunk = { .size = sizeof(samples), .stride = 2 * sizeof(float) };
+	struct spa_data data = { .maxsize = sizeof(samples), .data = samples, .chunk = &chunk };
+	struct spa_buffer buffer = { .n_datas = 1, .datas = &data };
+	struct pw_buffer wrapped = { .buffer = &buffer };
+	stub_capture = &wrapped;
+	stub_events->process(stub_data);
+	stub_capture = NULL;
+}
+
+static void *stub_finish_capture(void *data)
+{
+	const char *mode = data;
+	const struct timespec delay = { .tv_nsec = 50000000L };
+	nanosleep(&delay, NULL);
+	if (strcmp(mode, "capture-lost") == 0) {
+		stub_events->state_changed(stub_data, PW_STREAM_STATE_STREAMING, PW_STREAM_STATE_UNCONNECTED, NULL);
+	} else {
+		stub_capture_pair(1.25f);
+	}
+	return NULL;
+}
+
 int pw_thread_loop_start(struct pw_thread_loop *loop)
 {
 	(void)loop;
@@ -254,10 +293,17 @@ int pw_thread_loop_start(struct pw_thread_loop *loop)
 	if (stub_events->state_changed != NULL) {
 		stub_events->state_changed(stub_data, PW_STREAM_STATE_CONNECTING, PW_STREAM_STATE_STREAMING, NULL);
 	}
+	if (strncmp(mode, "capture-", 8u) == 0) {
+		stub_capture_pair(0.25f);
+		if (strcmp(mode, "capture-stalled") != 0) {
+			if (pthread_create(&stub_capture_thread, NULL, stub_finish_capture, (void *)mode) != 0) return -1;
+			stub_capture_started = 1;
+		}
+	}
 	return 0;
 }
 
-struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream) { (void)stream; return NULL; }
+struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream) { (void)stream; return stub_capture; }
 int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer) { (void)stream; (void)buffer; return 0; }
 
 struct pw_context *pw_context_new(struct pw_loop *loop, struct pw_properties *props, size_t user_data_size)
@@ -295,6 +341,7 @@ export function buildBackendStubs(names) {
 				source: PIPEWIRE_STUB_SOURCE,
 				outputPath: join(root, 'libpipewire-0.3.so.0'),
 				includes: VENDORED_INCLUDES,
+				flags: ['-pthread'],
 			});
 		}
 	}

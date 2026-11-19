@@ -3,6 +3,7 @@
 #include "pipewire_session.h"
 
 #include "audio_ring.h"
+#include "pipewire_api.h"
 
 #include <stdatomic.h>
 #include <stdio.h>
@@ -10,83 +11,12 @@
 #include <string.h>
 #include <time.h>
 
-#if defined(__linux__)
-#define SOUNDSCAPER_HAS_PIPEWIRE 1
-#include <dlfcn.h>
-#include <pipewire/pipewire.h>
-#include <spa/param/audio/format-utils.h>
-#else
-#define SOUNDSCAPER_HAS_PIPEWIRE 0
-#endif
-
 #define SOUNDSCAPER_PIPEWIRE_MAX_QUANTUM 8192u
 /* How long an open waits for the graph to answer the connect it queued. Past
  * this the answer is that there was none, which is a refusal and not a session. */
 #define SOUNDSCAPER_PIPEWIRE_NEGOTIATION_MS 2000u
 #define SOUNDSCAPER_PIPEWIRE_POLL_MS 2u
-
-#if SOUNDSCAPER_HAS_PIPEWIRE
-
-typedef struct {
-	void *library;
-	void (*init)(int *, char ***);
-	void (*deinit)(void);
-	struct pw_thread_loop *(*thread_loop_new)(const char *, const struct spa_dict *);
-	void (*thread_loop_destroy)(struct pw_thread_loop *);
-	int (*thread_loop_start)(struct pw_thread_loop *);
-	void (*thread_loop_stop)(struct pw_thread_loop *);
-	void (*thread_loop_lock)(struct pw_thread_loop *);
-	void (*thread_loop_unlock)(struct pw_thread_loop *);
-	struct pw_loop *(*thread_loop_get_loop)(struct pw_thread_loop *);
-	struct pw_stream *(*stream_new_simple)(struct pw_loop *, const char *, struct pw_properties *,
-		const struct pw_stream_events *, void *);
-	void (*stream_destroy)(struct pw_stream *);
-	int (*stream_connect)(struct pw_stream *, enum pw_direction, uint32_t, enum pw_stream_flags,
-		const struct spa_pod **, uint32_t);
-	struct pw_buffer *(*stream_dequeue_buffer)(struct pw_stream *);
-	int (*stream_queue_buffer)(struct pw_stream *, struct pw_buffer *);
-	struct pw_properties *(*properties_new)(const char *, ...);
-	struct pw_context *(*context_new)(struct pw_loop *, struct pw_properties *, size_t);
-	void (*context_destroy)(struct pw_context *);
-	struct pw_core *(*context_connect)(struct pw_context *, struct pw_properties *, size_t);
-	int (*core_disconnect)(struct pw_core *);
-} pipewire_api;
-
-static int load_pipewire(pipewire_api *api)
-{
-	memset(api, 0, sizeof(*api));
-	api->library = dlopen("libpipewire-0.3.so.0", RTLD_LAZY | RTLD_LOCAL);
-	if (api->library == NULL) api->library = dlopen("libpipewire-0.3.so", RTLD_LAZY | RTLD_LOCAL);
-	if (api->library == NULL) return 0;
-	#define BIND(field, symbol) \
-		do { \
-			*(void **)(&api->field) = dlsym(api->library, symbol); \
-			if (api->field == NULL) { dlclose(api->library); api->library = NULL; return 0; } \
-		} while (0)
-	BIND(init, "pw_init");
-	BIND(deinit, "pw_deinit");
-	BIND(thread_loop_new, "pw_thread_loop_new");
-	BIND(thread_loop_destroy, "pw_thread_loop_destroy");
-	BIND(thread_loop_start, "pw_thread_loop_start");
-	BIND(thread_loop_stop, "pw_thread_loop_stop");
-	BIND(thread_loop_lock, "pw_thread_loop_lock");
-	BIND(thread_loop_unlock, "pw_thread_loop_unlock");
-	BIND(thread_loop_get_loop, "pw_thread_loop_get_loop");
-	BIND(stream_new_simple, "pw_stream_new_simple");
-	BIND(stream_destroy, "pw_stream_destroy");
-	BIND(stream_connect, "pw_stream_connect");
-	BIND(stream_dequeue_buffer, "pw_stream_dequeue_buffer");
-	BIND(stream_queue_buffer, "pw_stream_queue_buffer");
-	BIND(properties_new, "pw_properties_new");
-	BIND(context_new, "pw_context_new");
-	BIND(context_destroy, "pw_context_destroy");
-	BIND(context_connect, "pw_context_connect");
-	BIND(core_disconnect, "pw_core_disconnect");
-	#undef BIND
-	return 1;
-}
-
-#endif /* SOUNDSCAPER_HAS_PIPEWIRE */
+#define SOUNDSCAPER_PIPEWIRE_CAPTURE_GRACE_MS 100u
 
 struct soundscaper_pipewire_session {
 #if SOUNDSCAPER_HAS_PIPEWIRE
@@ -98,7 +28,7 @@ struct soundscaper_pipewire_session {
 	soundscaper_sample_ring ring;
 	soundscaper_device_direction direction;
 	uint32_t channel_count;
-	uint32_t quantum;
+	uint32_t capture_wait_ms;
 	atomic_uint_least64_t frames;
 	atomic_uint_least64_t lost_frames;
 	atomic_int lost_device;
@@ -122,6 +52,13 @@ static void set_text(char *destination, const char *source)
 }
 
 #if SOUNDSCAPER_HAS_PIPEWIRE
+
+static uint64_t monotonic_ms(void)
+{
+	struct timespec now;
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	return (uint64_t)now.tv_sec * 1000u + (uint64_t)now.tv_nsec / 1000000u;
+}
 
 /*
  * PipeWire's realtime thread. No allocation, no locks, no syscalls: it moves
@@ -310,7 +247,6 @@ soundscaper_audio_open_status soundscaper_pipewire_open(
 	}
 	session->direction = direction;
 	session->channel_count = channel_count;
-	session->quantum = period_frames;
 	atomic_init(&session->frames, 0u);
 	atomic_init(&session->lost_frames, 0u);
 	atomic_init(&session->lost_device, 0);
@@ -419,6 +355,9 @@ soundscaper_audio_open_status soundscaper_pipewire_open(
 		set_text(granted->detail, detail);
 		return SOUNDSCAPER_AUDIO_OPEN_FORMAT_REFUSED;
 	}
+	/* The graph can run with a larger quantum than the transport packet. */
+	session->capture_wait_ms = SOUNDSCAPER_PIPEWIRE_CAPTURE_GRACE_MS
+		+ (SOUNDSCAPER_PIPEWIRE_MAX_QUANTUM * 1000u + negotiated_rate - 1u) / negotiated_rate;
 	granted->sample_rate = negotiated_rate;
 	granted->period_frames = period_frames;
 	granted->channel_count = negotiated_channels;
@@ -513,22 +452,32 @@ soundscaper_audio_io_status soundscaper_pipewire_read(
 	if (channels == NULL || frame_count == 0u || frame_count > SOUNDSCAPER_PIPEWIRE_MAX_QUANTUM) {
 		return SOUNDSCAPER_AUDIO_IO_INVALID_BLOCK;
 	}
+	for (uint32_t channel = 0u; channel < session->channel_count; channel += 1u) {
+		if (channels[channel] == NULL) return SOUNDSCAPER_AUDIO_IO_INVALID_BLOCK;
+	}
 	const uint32_t wanted = frame_count * session->channel_count;
-	uint32_t moved = 0u;
+#if SOUNDSCAPER_HAS_PIPEWIRE
+	/* A burst of capture credits can arrive between graph callbacks. Wait on
+	 * the job thread for a full block before consuming any of its samples. */
+	if (soundscaper_ring_available(&session->ring) < wanted && wanted <= session->ring.capacity) {
+		const uint64_t deadline = monotonic_ms() + session->capture_wait_ms;
+		const struct timespec delay = { .tv_nsec = SOUNDSCAPER_PIPEWIRE_POLL_MS * 1000000L };
+		while (!atomic_load_explicit(&session->lost_device, memory_order_acquire)
+			&& soundscaper_ring_available(&session->ring) < wanted && monotonic_ms() < deadline) {
+			nanosleep(&delay, NULL);
+		}
+	}
+#endif
+	if (atomic_load_explicit(&session->lost_device, memory_order_acquire)) return SOUNDSCAPER_AUDIO_IO_DEVICE_LOST;
+	if (soundscaper_ring_available(&session->ring) < wanted) return transfer_status(session, wanted, 0u, out_lost_frames);
 	for (uint32_t frame = 0u; frame < frame_count; frame += 1u) {
 		float interleaved[SOUNDSCAPER_AUDIO_MAX_CHANNELS];
-		const uint32_t popped = soundscaper_ring_pop(&session->ring, interleaved, session->channel_count);
-		if (popped < session->channel_count) break;
+		soundscaper_ring_pop(&session->ring, interleaved, session->channel_count);
 		for (uint32_t channel = 0u; channel < session->channel_count; channel += 1u) {
-			if (channels[channel] == NULL) return SOUNDSCAPER_AUDIO_IO_INVALID_BLOCK;
-			/* Frames the graph never delivered are left untouched rather than
-			 * zero-filled: fabricated silence is indistinguishable from
-			 * recorded silence, and the caller is given the count instead. */
 			channels[channel][frame] = interleaved[channel];
 		}
-		moved += popped;
 	}
-	return transfer_status(session, wanted, moved, out_lost_frames);
+	return transfer_status(session, wanted, wanted, out_lost_frames);
 }
 
 uint64_t soundscaper_pipewire_frames(const soundscaper_pipewire_session *session)
