@@ -50,7 +50,7 @@ test('Delete retires a held note drag and its unpublished host updates', async (
 	await act(async () => { render(); });
 	const note = dom.one('[data-note-id="1"]'); note.getBoundingClientRect = () => ({ left: 0, width: 50 });
 	await act(async () => {
-	reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({});
+	reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({ button: 0 });
 	reactProps(note).onMouseDown?.({ currentTarget: note, button: 0, clientX: 20, clientY: 20, preventDefault() {}, stopPropagation() {} });
 	});
 	await act(async () => { for (const listener of listeners.get('mousemove') ?? []) listener({ clientX: 45, clientY: 20 } as MouseEvent); });

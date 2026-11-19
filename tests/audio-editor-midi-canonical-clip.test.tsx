@@ -96,7 +96,7 @@ async function mount(placement: Placement) {
 			assert.ok(name?.parentNode instanceof ReactTestElement);
 			const handle = name.parentNode.childNodes[edge === 'left' ? 1 : 2]; assert.ok(handle instanceof ReactTestElement);
 			await act(async () => {
-				reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({ target: handle });
+				reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({ target: handle, button: 0 });
 				reactProps(handle).onMouseDown?.({ button: 0, clientX: 0, preventDefault() {}, stopPropagation() {} });
 			});
 			await dispatch('mousemove', { clientX: delta });

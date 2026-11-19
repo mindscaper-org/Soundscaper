@@ -57,7 +57,7 @@ async function resizeSourceEdge(overrides: Partial<EditorAudioClip>, edge: 'left
 		});
 		assert.ok(handle, `${edge} source trim handle`);
 		await act(async () => {
-			reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({});
+			reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({ button: 0 });
 			reactProps(handle).onMouseDown?.({ button: 0, clientX: 100, preventDefault() {}, stopPropagation() {} });
 		});
 		await act(async () => { for (const listener of listeners.get('mousemove') ?? []) listener({ clientX: 100 + deltaX } as MouseEvent); });

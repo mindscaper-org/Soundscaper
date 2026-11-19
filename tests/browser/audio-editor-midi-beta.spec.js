@@ -151,6 +151,33 @@ test.describe('beta MIDI editing and shared transport', () => {
 		await expect(pitch).toHaveValue('67');
 	});
 
+	test('an auxiliary mouse button leaves the active MIDI note drag in control', async ({ page }) => {
+		await disableNativeSavePicker(page);
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [noteFile]);
+		const noteEditor = await openPianoRoll(page, editor);
+		const start = noteEditor.getByRole('spinbutton', { name: 'Note start (seconds)', exact: true });
+		const panel = editor.getByLabel('Piano roll (beta)', { exact: true });
+		const note = panel.locator('[data-note-id="1"]');
+		await expect(note).toBeVisible();
+		const bounds = await note.boundingBox();
+		if (!bounds) throw new Error('The imported MIDI note is outside the grid.');
+		const x = bounds.x + bounds.width / 2, y = bounds.y + bounds.height / 2;
+		await page.mouse.move(x, y);
+		await page.mouse.down();
+		await page.mouse.move(x + 50, y);
+		await expect(start).toHaveValue('0.5');
+		await page.mouse.down({ button: 'right' });
+		await page.mouse.up({ button: 'right' });
+		await page.mouse.move(x + 75, y);
+		await expect(start).toHaveValue('0.75');
+		await page.mouse.up();
+		const downloading = page.waitForEvent('download');
+		await chooseNestedCommandAction(page, editor, 'File', ['Export other', 'Export MIDI (beta)']);
+		await (await downloading).delete();
+		await expect(start).toHaveValue('0.75');
+	});
+
 	test('select all notes also works with Caps Lock active', async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [noteFile]);

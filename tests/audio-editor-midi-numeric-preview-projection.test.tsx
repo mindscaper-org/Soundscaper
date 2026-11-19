@@ -150,7 +150,7 @@ async function mount(context: TestContext) {
 		editDuration: (value: number) => editField('Note duration (seconds)', value),
 		async beginDrag() { await act(async () => {
 			const target = dom.one('[data-note-id="1"]'); target.getBoundingClientRect = () => ({ left: 0, width: 60 });
-			reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({ target });
+			reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({ target, button: 0 });
 			reactProps(target).onMouseDown?.({ currentTarget: target, button: 0, clientX: 10, clientY: 56, preventDefault() {}, stopPropagation() {} });
 		}); },
 		moveDrag: () => dispatch('mousemove', { button: 0, buttons: 1, clientX: 10, clientY: 40 }),

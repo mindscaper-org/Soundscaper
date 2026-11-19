@@ -32,6 +32,24 @@ test('an earlier MIDI publication cannot erase a newer held note preview', async
 	} finally { await panel.dispose(); }
 });
 
+test('a secondary mouse press during a note drag cannot leave an old preview behind', async () => {
+	const panel = await mountPanel();
+	try {
+		await panel.begin(10);
+		await panel.move(60);
+		assert.equal(panel.left(), '50px');
+		await panel.begin(60, 1, 2);
+		await panel.release(2);
+		await panel.move(85);
+		assert.equal(panel.left(), '75px');
+		await panel.release();
+		assert.equal(panel.updates.length, 1);
+		assert.equal(panel.updates[0]?.[0]?.changes.startFrame, 36_000);
+		await panel.completeFirst();
+		assert.equal(panel.left(), '75px');
+	} finally { await panel.dispose(); }
+});
+
 for (const moveFirst of [false, true]) test(`undoing a held MIDI note retires ${moveFirst ? 'its preview' : 'its unstarted movement'}`, async () => {
 	const panel = await mountPanel();
 	try {
@@ -114,14 +132,14 @@ async function mountPanel(extraNote = false) {
 	return {
 		updates, previews,
 		left: () => String(Reflect.get(dom.one('[data-note-id="1"]').style, 'left')),
-		begin: async (x: number, noteId = 1) => { await act(async () => {
+		begin: async (x: number, noteId = 1, button = 0) => { await act(async () => {
 			const target = dom.one(`[data-note-id="${String(noteId)}"]`);
 			target.getBoundingClientRect = () => ({ left: Number.parseFloat(String(Reflect.get(target.style, 'left'))), width: 50 });
-			reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({ target });
-			reactProps(target).onMouseDown?.({ target, currentTarget: target, button: 0, clientX: x, clientY: 10, preventDefault() {}, stopPropagation() {} });
+			reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({ target, button });
+			reactProps(target).onMouseDown?.({ target, currentTarget: target, button, clientX: x, clientY: 10, preventDefault() {}, stopPropagation() {} });
 		}); },
 		move: (x: number) => dispatch('mousemove', { clientX: x, clientY: 10, buttons: 1 }),
-		release: () => dispatch('mouseup', { button: 0 }),
+		release: (button = 0) => dispatch('mouseup', { button }),
 		completeFirst: async () => { await act(async () => { first.resolve(); await first.promise; }); },
 		removeNote: async () => { await act(async () => { notes = []; publish(notes); }); },
 		dispose: async () => {

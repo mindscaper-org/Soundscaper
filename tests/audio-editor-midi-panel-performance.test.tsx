@@ -59,7 +59,7 @@ test('piano-roll view and drag updates retain unchanged note options while edite
 		assert.ok(initialProps === reactProps(option), 'changing the note grid should reuse unchanged note-option work');
 		assert.equal(dom.container.querySelectorAll('select')[2]?.options.length, notes.length + 1);
 		await act(async () => {
-			reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({});
+			reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({ button: 0 });
 			reactProps(dom.one('[data-note-id="1"]')).onMouseDown?.({ currentTarget: dom.one('[data-note-id="1"]'), button: 0, clientX: 10, clientY: 10, preventDefault() {}, stopPropagation() {} });
 		});
 		await act(async () => {

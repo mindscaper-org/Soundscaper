@@ -133,7 +133,7 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 		if ([...gestureNotes.current].some(id => !remaining.has(id))) retireNoteGesture();
 	}, [persistedNotes, retireNoteGesture]);
 	const beginGesture = (event: ReactMouseEvent<HTMLDivElement>) => {
-		if (disabled) return;
+		if (disabled || event.button !== 0) return;
 		gesture.current = true;
 		gestureDraft.current = Symbol();
 		const target = event.target instanceof Element ? event.target.closest('[data-note-id]') : null;
