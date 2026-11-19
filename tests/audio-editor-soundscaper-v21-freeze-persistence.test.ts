@@ -181,8 +181,9 @@ test('legacy model PCM verification rejects replacement and cancellation during 
 
 	const abort = new AbortController();
 	store.afterLiveRead = () => { abort.abort(new Error('cancel legacy source verification')); };
-	await assert.rejects(playback.prepareProjectForActivation!(project, { signal: abort.signal }),
-		/cancel legacy source verification/u);
+	await assert.rejects(async () => {
+		await playback.prepareProjectForActivation!(project, { signal: abort.signal });
+	}, /cancel legacy source verification/u);
 	assert.equal(playback.getFreezeStatus(project, 'voice'), 'unknown');
 	playback.dispose();
 });
