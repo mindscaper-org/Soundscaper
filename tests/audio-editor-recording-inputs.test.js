@@ -63,7 +63,8 @@ test('display input requests audio with browser surface and system audio hints',
 	assert.equal(stream, expectedStream);
 	assert.deepEqual(received, {
 		video: true,
-		audio: { suppressLocalAudioPlayback: false },
+		audio: { channelCount: { ideal: 2 }, echoCancellation: false, noiseSuppression: false,
+			autoGainControl: false, suppressLocalAudioPlayback: false },
 		selfBrowserSurface: 'exclude',
 		systemAudio: 'include',
 		windowAudio: 'system',
