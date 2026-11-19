@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { chmod, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import fileSystem, { chmod, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -11,6 +12,7 @@ import { framescaperDesktopExactMediaPath } from '../desktop/project-library-exa
 import { validateFramescaperDesktopBodyDescriptor } from '../src/framescaper/desktop-project-library-body-contract.ts';
 import { startFramescaperDesktopProjectSession } from './helpers/framescaper-desktop-project-session.ts';
 import { framescaperPortableTimelineImage, openFramescaperImageFixtureLibrary, saveFramescaperImageFixtureArchive } from './helpers/framescaper-portable-timeline-image.ts';
+import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 
 test('desktop Delete project removes its document and last managed image reference while preserving the saved archive', async context => {
 	const { directory, fixture, input } = await authoredArchive(context);
@@ -80,6 +82,96 @@ test('a committed desktop deletion retries its exact file when a blocked directo
 	try {
 		await assert.rejects(stat(bodyPath), { code: 'ENOENT' });
 		assert.equal(pendingFiles(paths.databasePath), 0);
+	} finally { await restarted.close(); }
+});
+
+test('Framescaper Save retires superseded native document generations and retains saved editor history', async context => {
+	const { directory, fixture, input } = await authoredArchive(context);
+	const archiveBytes = await input.arrayBuffer();
+	const paths = createFramescaperDesktopProjectLibraryPaths(directory);
+	const indexedDB = createInstrumentedIndexedDB();
+	const open = () => startFramescaperDesktopProjectSession(directory, { openEnvironment: () => openFramescaperImageFixtureLibrary(indexedDB) });
+	const desktop = await open();
+	const projectId = fixture.project.id;
+	const superseded = new Set<string>();
+	let preserved: string;
+	let revisions: readonly unknown[];
+	try {
+		const { controller } = desktop;
+		await controller.actions.project.openScapeFile(input, () => assert.fail('Expected a fresh working copy.'));
+		preserved = join(dirname(readManagedFiles(paths, projectId).document), `333-${'c'.repeat(64)}.json`);
+		await writeFile(preserved, 'Unregistered native-area file.');
+		for (const title of ['First cut', 'Second cut', 'Final cut']) {
+			superseded.add(readManagedFiles(paths, projectId).document);
+			await controller.actions.project.rename(title);
+			await controller.actions.project.save();
+		}
+		assert.equal(superseded.size, 3);
+		revisions = await desktop.environment.store.listProjectRevisions(projectId);
+		assert.equal(revisions.length, 4);
+	} finally { await desktop.close(); }
+
+	const restarted = await open();
+	try {
+		await restarted.controller.actions.project.openById(projectId);
+		assert.equal(restarted.controller.project?.title, 'Final cut');
+		assert.deepEqual(restarted.controller.project?.clips, fixture.project.clips);
+		assert.deepEqual(await restarted.environment.store.listProjectRevisions(projectId), revisions);
+		const current = readManagedFiles(paths, projectId);
+		assert.deepEqual(Uint8Array.from(await readFile(current.body)), fixture.bytes);
+		assert.equal(await readFile(preserved, 'utf8'), 'Unregistered native-area file.');
+		assert.deepEqual(await input.arrayBuffer(), archiveBytes);
+		for (const obsolete of superseded) await assert.rejects(stat(obsolete), { code: 'ENOENT' });
+		assert.equal(pendingFiles(paths.databasePath), 0);
+	} finally { await restarted.close(); }
+});
+
+test('Framescaper Save defers retirement while an admitted native document read is in flight', async context => {
+	const { directory, fixture, input } = await authoredArchive(context);
+	const paths = createFramescaperDesktopProjectLibraryPaths(directory);
+	const projectId = fixture.project.id;
+	const desktop = await startFramescaperDesktopProjectSession(directory);
+	let previousDocument: string;
+	try {
+		await desktop.controller.actions.project.openScapeFile(input, () => assert.fail('Expected a fresh working copy.'));
+		previousDocument = readManagedFiles(paths, projectId).document;
+		const expected = await readFile(previousDocument, 'utf8');
+		const observedRead = Promise.withResolvers<void>();
+		const allowRead = Promise.withResolvers<void>();
+		const nativeReadFile = fileSystem.readFile;
+		let armed = true;
+		const gate = context.mock.method(fileSystem, 'readFile', async (...args: Parameters<typeof nativeReadFile>) => {
+			if (armed && args[0] === previousDocument) {
+				armed = false;
+				observedRead.resolve();
+				await allowRead.promise;
+			}
+			return nativeReadFile(...args);
+		});
+		syncBuiltinESMExports();
+		const reading = desktop.session.readProjectBundle(projectId);
+		void reading.catch(() => undefined);
+		try {
+			await Promise.race([observedRead.promise, reading.then(() => assert.fail('Expected the native document read to pause.'))]);
+			await desktop.controller.actions.project.rename('Updated cut');
+			await desktop.controller.actions.project.save();
+			assert.equal(pendingFiles(paths.databasePath), 1);
+			assert.equal(await readFile(previousDocument, 'utf8'), expected);
+		} finally {
+			allowRead.resolve();
+			gate.mock.restore();
+			syncBuiltinESMExports();
+			const bundle = await reading;
+			assert.ok(bundle && typeof bundle === 'object' && 'document' in bundle);
+			assert.equal(bundle.document, expected);
+		}
+	} finally { await desktop.close(); }
+	const restarted = await startFramescaperDesktopProjectSession(directory);
+	try {
+		await restarted.controller.actions.project.openById(projectId);
+		assert.equal(restarted.controller.project?.title, 'Updated cut');
+		assert.equal(pendingFiles(paths.databasePath), 0);
+		await assert.rejects(stat(previousDocument), { code: 'ENOENT' });
 	} finally { await restarted.close(); }
 });
 

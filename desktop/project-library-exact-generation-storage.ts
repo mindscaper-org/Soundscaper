@@ -38,6 +38,7 @@ const BODY_FIELDS = ['kind', 'encoding', 'sourceId', 'storageKey', 'mimeType', '
 const PROXY_BODY_FIELDS = ['kind', 'encoding', 'bindingId', 'sourceId', 'storageKey', 'mimeType', 'byteLength', 'sha256'] as const;
 const MAXIMUM_BODIES = 4_094;
 const DELETED_FILE_BATCH = 64;
+const activeDocumentReads = new WeakMap<DatabaseSync, Map<string, number>>();
 
 interface FramescaperDesktopExactProjectRow {
 	readonly id: string;
@@ -94,6 +95,8 @@ export interface FramescaperDesktopExactStoredProjectRow {
 	readonly bodies_json: unknown;
 }
 
+type StoredDocumentRow = Pick<FramescaperDesktopExactStoredProjectRow, 'project_revision' | 'sha256' | 'document_file'>;
+
 export function readFramescaperDesktopExactProjectRow(database: DatabaseSync, projectId: string): FramescaperDesktopExactStoredProjectRow | null {
 	return (database.prepare(`
 		SELECT entry_id, project_id, title, updated_at_ms, project_revision,
@@ -111,7 +114,7 @@ export async function readFramescaperDesktopExactProjectBundle(
 		project: unknown, projectSha256: string, value: unknown, stored: boolean) => readonly Readonly<FramescaperDesktopExactBodyDescriptor>[],
 ): Promise<unknown> {
 	const project = framescaperDesktopExactProjectRow(row, configuration.schemaFamily ?? 'framescaper', configuration.schemaVersion);
-	const document = await readFile(join(paths.projectsRoot, text(row.document_file, 'document file')), 'utf8');
+	const document = await readCataloguedDocument(database, paths.projectsRoot, project.metadataFile);
 	if (new TextEncoder().encode(document).byteLength !== project.byteLength || sha256(document) !== project.sha256) {
 		throw new Error(`${configuration.label} project document failed integrity validation`);
 	}
@@ -121,6 +124,21 @@ export async function readFramescaperDesktopExactProjectBundle(
 		metadataRevision: metadataRevision(database), project, document,
 		bodies: configuredBodies(configuration, parsed, project.sha256, JSON.parse(text(row.bodies_json, 'body inventory')) as unknown, true),
 	});
+}
+
+async function readCataloguedDocument(database: DatabaseSync, root: string, file: string): Promise<string> {
+	let reads = activeDocumentReads.get(database);
+	if (!reads) {
+		reads = new Map();
+		activeDocumentReads.set(database, reads);
+	}
+	reads.set(file, (reads.get(file) ?? 0) + 1);
+	try { return await readFile(join(root, file), 'utf8'); }
+	finally {
+		const remaining = reads.get(file)! - 1;
+		if (remaining) reads.set(file, remaining);
+		else reads.delete(file);
+	}
 }
 
 export function deleteFramescaperDesktopExactProject(
@@ -140,10 +158,8 @@ export function deleteFramescaperDesktopExactProject(
 		const row = readFramescaperDesktopExactProjectRow(database, projectId);
 		assertFramescaperDesktopExactExpectedProject(row, expected, configuration.label);
 		if (row && lifecycle) {
-			const docFile = `${sha256(projectId).slice(0, 48)}/${nonNegative(row.project_revision, 'project revision')}-${digest(row.sha256, 'document')}.json`;
-			if (row.document_file !== docFile) throw new Error(`${configuration.label} deleted document path changed`);
 			const insert = database.prepare('INSERT OR IGNORE INTO deleted_project_files (root, file) VALUES (?, ?)');
-			insert.run('document', docFile);
+			insert.run('document', retiredDocumentFile(projectId, row, configuration.label));
 			for (const file of storedBodyFiles(configuration, paths, row.bodies_json)) insert.run('body', file);
 		}
 		database.prepare('DELETE FROM projects WHERE project_id = ?').run(projectId);
@@ -152,7 +168,14 @@ export function deleteFramescaperDesktopExactProject(
 	return Object.freeze({ projectId, metadataRevision: revision + 1, deleted: true });
 }
 
-/** Retry exact committed deletions in short batches while the writer still owns the library. */
+function retiredDocumentFile(projectId: string, row: StoredDocumentRow, label: string): string {
+	const entry = sha256(projectId).slice(0, 48);
+	const file = `${entry}/${nonNegative(row.project_revision, 'project revision')}-${digest(row.sha256, 'document')}.json`;
+	if (row.document_file !== file) throw new Error(`${label} retired document path changed`);
+	return file;
+}
+
+/** Retry exact committed file retirements in short batches while the writer owns the library. */
 export async function reclaimDeletedFramescaperDesktopProjectFiles(
 	configuration: FramescaperDesktopProjectLibraryExactGenerationConfiguration,
 	database: DatabaseSync,
@@ -181,6 +204,7 @@ export async function reclaimDeletedFramescaperDesktopProjectFiles(
 				cursor = nonNegative(row.id, 'deleted file id');
 				const root = text(row.root, 'deleted file root');
 				const file = text(row.file, 'deleted file name');
+				if (root === 'document' && activeDocumentReads.get(database)?.has(file)) continue;
 				if (referenced.has(`${root}:${file}`) || removeDeletedFile(paths, root, file)) remove.run(cursor);
 			}
 		}, { rollbackWhenInactive: true });
@@ -312,15 +336,19 @@ export async function persistFramescaperDesktopExactPublication(
 		try {
 			assertCurrent();
 			lifecycle?.assertCanCommit(database, declaration);
+			const previous = database.prepare('SELECT project_revision, sha256, document_file FROM projects WHERE project_id = ?')
+				.get(declaration.projectId) as StoredDocumentRow | undefined;
 			if (publication.expectedDocument !== null) {
-				const row = database.prepare(`SELECT project_revision, sha256, document_file FROM projects WHERE project_id = ?`)
-					.get(String(publication.project.id)) as FramescaperDesktopExactStoredProjectRow | undefined;
-				try { assertFramescaperDesktopExactExpectedProject(row ?? null, publication.expectedProject, configuration.label); }
+				try { assertFramescaperDesktopExactExpectedProject(previous ?? null, publication.expectedProject, configuration.label); }
 				catch { throw new DesktopProjectWriteFenceConflict(); }
-				assertFramescaperDesktopExactCurrentDocument(paths, row!, publication.expectedDocument);
+				assertFramescaperDesktopExactCurrentDocument(paths, previous ?? null, publication.expectedDocument);
 			}
 			if (metadataRevision(database) !== publication.expectedMetadataRevision) {
 				throw new Error(`${configuration.label} metadata changed before publication`);
+			}
+			if (previous && lifecycle) {
+				database.prepare('INSERT OR IGNORE INTO deleted_project_files (root, file) VALUES (?, ?)')
+					.run('document', retiredDocumentFile(declaration.projectId, previous, configuration.label));
 			}
 			database.prepare(`
 				INSERT INTO projects (
@@ -440,7 +468,7 @@ export function framescaperDesktopExactMediaPath(
 }
 
 export function assertFramescaperDesktopExactExpectedProject(
-	row: FramescaperDesktopExactStoredProjectRow | null,
+	row: StoredDocumentRow | null,
 	expected: Readonly<{ projectRevision: number; projectSha256: string }> | null,
 	label: string,
 ): void {
@@ -455,7 +483,7 @@ export function assertFramescaperDesktopExactExpectedProject(
 
 export function assertFramescaperDesktopExactCurrentDocument(
 	paths: Readonly<FramescaperDesktopProjectLibraryPaths>,
-	row: FramescaperDesktopExactStoredProjectRow | null,
+	row: StoredDocumentRow | null,
 	expected: unknown,
 ): void {
 	if (!row) throw new DesktopProjectWriteFenceConflict();
