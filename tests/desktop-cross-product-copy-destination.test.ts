@@ -97,7 +97,7 @@ test('desktop Edit in Soundscaper preserves an independently revised destination
 			const [descriptor] = await fileService.chooseFiles({ purpose: 'project' });
 			assert.ok(descriptor);
 			await fileService.withScapeReadDescriptor(descriptor, {}, (source: ScapeArchiveByteSource) => (
-				controller.actions.project.openScapeFile(source)
+				controller.actions.project.openScapeFile(source, () => { throw new Error('The fresh source must open directly.'); })
 			));
 			assert.equal(controller.project?.title, 'Framescaper edit');
 			const intent = createCrossProductHandoffLaunchIntent({ sourceProject: controller.project,
