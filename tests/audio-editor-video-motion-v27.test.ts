@@ -387,3 +387,21 @@ test('motion processing observes cancellation', async () => {
 	}), /cancel accelerated motion/iu);
 	assert.equal(fallbackObserved, false);
 });
+
+test('CPU temporal denoise yields to task-queued cancellation', async () => {
+	const width = 192;
+	const height = 256;
+	const current = createGrayVideoFrameV1({ width, height, samples: new Array<number>(width * height).fill(0.25) });
+	const neighbors = [{ frame: current, transformToCurrent: {
+		scale: 1, rotationRadians: 0, translateX: 2, translateY: 3, inlierCount: 4, meanError: 0,
+	} }];
+	const controller = new AbortController();
+	const reason = new Error('stop temporal denoise');
+	const pendingAbort = setImmediate(() => { controller.abort(reason); });
+	try {
+		await assert.rejects(processTemporalDenoiseV1({ current, neighbors, strength: 0.5, signal: controller.signal }),
+			(error: unknown) => error === reason);
+	} finally {
+		clearImmediate(pendingAbort);
+	}
+});

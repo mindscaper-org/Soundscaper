@@ -42,7 +42,10 @@ export async function processTemporalDenoiseV1(request: Readonly<{
 		neighbor, current, `temporal denoise neighbor ${String(index)}`,
 	));
 	const strength = bounded(request?.strength, 0, 1, 'temporal denoise strength');
-	if (!request.accelerator) return temporalDenoiseCpu(current, neighbors, strength, request.signal);
+	const processCpu = () => finishDenoiseRowsCooperatively(
+		temporalDenoiseRows(current, neighbors, strength, request.signal), request.signal,
+	);
+	if (!request.accelerator) return processCpu();
 	if (request.accelerator.kind !== 'webgl2') throw new TypeError('The motion accelerator must be WebGL2.');
 	try {
 		const accelerated = frameValue(await request.accelerator.temporalDenoise({
@@ -57,7 +60,7 @@ export async function processTemporalDenoiseV1(request: Readonly<{
 		throwIfAborted(request.signal);
 		request.onAcceleratorFallback?.(`WebGL2 temporal denoise was unavailable; deterministic CPU fallback was used: ${errorMessage(error)}`);
 	}
-	return temporalDenoiseCpu(current, neighbors, strength, request.signal);
+	return processCpu();
 }
 
 interface SpatialDenoiseOptions {
@@ -80,23 +83,33 @@ export function processSpatialDenoiseV1(
 export async function processSpatialDenoiseCooperativeV1(
 	frameValueInput: GrayVideoFrameV1, options: Readonly<SpatialDenoiseOptions>,
 ): Promise<GrayVideoFrameV1> {
-	throwIfAborted(options.signal);
-	const work = spatialDenoiseRows(frameValueInput, options);
+	return finishDenoiseRowsCooperatively(spatialDenoiseRows(frameValueInput, options), options.signal);
+}
+
+async function finishDenoiseRowsCooperatively(
+	work: Generator<void, GrayVideoFrameV1>, signal: AbortSignal | undefined,
+): Promise<GrayVideoFrameV1> {
+	throwIfAborted(signal);
 	let result = work.next();
 	if (result.done) return result.value;
-	const tasks = typeof MessageChannel === 'function' ? new MessageChannel() : null;
+	const setImmediate = (globalThis as typeof globalThis & {
+		readonly setImmediate?: (callback: () => void) => void;
+	}).setImmediate;
+	// Node drains recursive messages from one port before servicing other tasks.
+	const tasks = !setImmediate && typeof MessageChannel === 'function' ? new MessageChannel() : null;
+	const scheduleTask = setImmediate ?? ((callback: () => void) => { globalThis.setTimeout(callback, 0); });
 	try {
 		while (!result.done) {
 			await new Promise<void>((resolve) => {
 				// Ordinary tasks admit queued cancellation without nested timer clamping.
 				if (!tasks) {
-					globalThis.setTimeout(resolve, 0);
+					scheduleTask(resolve);
 					return;
 				}
 				tasks.port1.onmessage = () => resolve();
 				tasks.port2.postMessage(null);
 			});
-			throwIfAborted(options.signal);
+			throwIfAborted(signal);
 			result = work.next();
 		}
 		return result.value;
@@ -167,17 +180,18 @@ function spatialDenoiseHorizontalRow(
 	}
 }
 
-function temporalDenoiseCpu(
+function* temporalDenoiseRows(
 	current: GrayVideoFrameV1,
 	neighbors: readonly VideoTemporalNeighborV1[],
 	strength: number,
 	signal?: AbortSignal,
-): GrayVideoFrameV1 {
+): Generator<void, GrayVideoFrameV1> {
 	const samples: number[] = [];
 	const resolvedNeighbors = neighbors.map((neighbor) => ({
 		frame: neighbor.frame,
 		...prepareSimilarityAffineCoefficientsV1(resolveStabilizationTransformV1(neighbor.transformToCurrent, 1)),
 	}));
+	const rowsPerTask = Math.max(1, Math.min(16, Math.floor(131_072 / (current.width * (neighbors.length + 1)))));
 	for (let y = 0; y < current.height; y += 1) {
 		throwIfAborted(signal);
 		for (let x = 0; x < current.width; x += 1) {
@@ -193,6 +207,7 @@ function temporalDenoiseCpu(
 			}
 			samples.push(original + (total / count - original) * strength);
 		}
+		if ((y + 1) % rowsPerTask === 0 && y + 1 < current.height) yield;
 	}
 	return createGrayVideoFrameV1({ width: current.width, height: current.height, samples });
 }
