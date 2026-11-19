@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { AudioHostError, audioHostOperation, type AudioHostFailureCode } from './audio-host-failure.ts';
-import { nativeAudioDeviceId, type NativeAudioDeviceReport, type NativeAudioInventoryReport } from '../controller/recording/native-audio-inventory.ts';
+import { nativeAudioDeviceId, type NativeAudioDeviceDefaults, type NativeAudioDeviceReport, type NativeAudioInventoryReport } from '../controller/recording/native-audio-inventory.ts';
 import { createNativeAudioRouteOpenRequest, isNativeAudioStreamingBackend, nativeAudioInputChannelDemand } from './soundscaper-native-audio-route.ts';
 import type { NativeAudioAvailability, NativeAudioSessionOpenRequestV1, SoundscaperNativeServicesBridge } from './soundscaper-native-services-bridge.ts';
 import type { MicrophoneMeterInputReplacement } from '../controller/recording/microphone-meter-service.ts';
@@ -21,7 +21,7 @@ export interface SoundscaperAudioHostController {
 		recordingInputs?: Readonly<{ routes: unknown }> }>;
 	subscribe(listener: () => void): () => void;
 	readonly actions: Readonly<{ audioDevices: Readonly<{
-		setHostInventory(host: string, inventory: NativeAudioInventoryReport | null): Promise<unknown>;
+		setHostInventory(host: string, inventory: NativeAudioInventoryReport | null, defaults?: NativeAudioDeviceDefaults): Promise<unknown>;
 		requestAccess(): Promise<unknown>;
 	}>; recording?: Readonly<{ prepareInputReplacement?(): MicrophoneMeterInputReplacement }> }>;
 }
@@ -138,8 +138,8 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 			value.preferredInputChannelCount, value.recordingSampleRate,
 			isNativeAudioStreamingBackend(value.host) ? inputChannelCount(value) : 0].join('|');
 	}
-	function inputChannelCount(value: AudioHostPreferences): number {
-		const input = inventory?.backend === value.host ? selectedDevice(inventory, 'input', value.preferredInputDeviceId) : null;
+	function inputChannelCount(value: AudioHostPreferences, report = inventory): number {
+		const input = report?.backend === value.host ? selectedDevice(report, 'input', value.preferredInputDeviceId) : null;
 		const deviceId = input ? nativeAudioDeviceId(value.host, 'audio-input', input.handle) : value.preferredInputDeviceId;
 		return Math.min(nativeAudioInputChannelDemand(value.preferredInputChannelCount, deviceId,
 			controller.getSnapshot().recordingInputs?.routes), input?.channelCount || 2);
@@ -247,28 +247,91 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 			connectedKey = preferenceKey();
 			return;
 		}
-		await setInventory(host, nextInventory);
-		const settings = preferences(), routeKey = preferenceKey();
 		try {
-			for (const request of routeRequests(host, nextInventory, settings, inputChannelCount(settings))) {
-				const opened = await audioHostOperation('session-open', () => bridge.openNativeAudioSession(request));
-				if (opened.status !== 'opened') throw new AudioHostError('session-open', opened.message);
-				sessions.add(opened.sessionId);
-				assertActive();
-				await audioHostOperation('session-open', () => bridge.bindNativeAudioSession({ sessionId: opened.sessionId, queueCapacity: 8 }));
-				assertActive();
+			const alternatives = automaticAsioDefaults(host, nextInventory, preferences());
+			if (alternatives.length) {
+				await connectAutomaticAsio(nextInventory, alternatives);
+				return;
 			}
+			await setInventory(host, nextInventory);
+			const settings = preferences(), routeKey = preferenceKey();
+			const refused = await openRequests(routeRequests(host, nextInventory, settings, inputChannelCount(settings)), true);
+			if (refused) throw new AudioHostError('session-open', refused.message);
 			connectedKey = routeKey;
 		} catch (error) { await closeSessions(); throw error; }
 	}
-	async function setInventory(host: string, value: NativeAudioInventoryReport | null): Promise<void> {
+	async function openRequests(requests: readonly NativeAudioSessionOpenRequestV1[], bindImmediately: boolean) {
+		for (const request of requests) {
+			const opened = await audioHostOperation('session-open', () => bridge.openNativeAudioSession(request));
+			if (opened.status !== 'opened') return opened;
+			sessions.add(opened.sessionId);
+			assertActive();
+			if (bindImmediately) await bindSession(opened.sessionId);
+		}
+		return null;
+	}
+	async function bindSession(sessionId: string): Promise<void> {
+		await audioHostOperation('session-open', () => bridge.bindNativeAudioSession({ sessionId, queueCapacity: 8 }));
+		assertActive();
+	}
+	async function connectAutomaticAsio(report: NativeAudioInventoryReport, alternatives: readonly NativeAudioDeviceDefaults[]): Promise<void> {
+		const settings = preferences(), originalKey = preferenceKey();
+		const assertCurrent = () => {
+			assertCanReplaceDevices();
+			if (preferenceKey() !== originalKey) throw new AudioHostError('session-open', 'The audio device choice changed while opening ASIO.');
+		};
+		let failure = '';
+		for (const defaults of alternatives) {
+			assertCurrent();
+			const candidate = { ...settings, ...defaults, host: 'asio' };
+			const refused = await openRequests(routeRequests('asio', report, candidate, inputChannelCount(candidate, report)), false);
+			assertCurrent();
+			if (!refused) {
+				await setInventory('asio', report, defaults);
+				const chosen = preferences();
+				if (chosen.preferredInputDeviceId !== defaults.preferredInputDeviceId || chosen.preferredOutputDeviceId !== defaults.preferredOutputDeviceId) {
+					throw new AudioHostError('session-open', 'The audio device choice changed while opening ASIO.');
+				}
+				const routeKey = preferenceKey();
+				for (const sessionId of sessions) await bindSession(sessionId);
+				connectedKey = routeKey;
+				return;
+			}
+			await closeSessions();
+			failure ||= refused.message;
+			if (refused.code !== 'device-unavailable' && refused.code !== 'format-refused') {
+				failure = refused.message;
+				break;
+			}
+		}
+		assertCurrent();
+		await setInventory('asio', report, { preferredInputDeviceId: '', preferredOutputDeviceId: '' });
+		throw new AudioHostError('session-open', failure);
+	}
+	async function setInventory(host: string, value: NativeAudioInventoryReport | null, defaults?: NativeAudioDeviceDefaults): Promise<void> {
 		suppressChanges = true;
-		try { await controller.actions.audioDevices.setHostInventory(host, value); }
+		try { await controller.actions.audioDevices.setHostInventory(host, value, defaults); }
 		finally { suppressChanges = false; }
 		assertActive();
 		inventory = value;
 		publish({ host });
 	}
+}
+
+/** ASIO's inventory includes registered drivers even when their hardware is disconnected. */
+function automaticAsioDefaults(host: string, inventory: NativeAudioInventoryReport, settings: AudioHostPreferences): readonly NativeAudioDeviceDefaults[] {
+	if (host !== 'asio' || settings.preferredInputDeviceId.startsWith('native:asio:in:')
+		|| settings.preferredOutputDeviceId.startsWith('native:asio:out:')) return [];
+	const input = selectedDevice(inventory, 'input', settings.preferredInputDeviceId);
+	const output = selectedDevice(inventory, 'output', settings.preferredOutputDeviceId);
+	if (!input || input.handle !== output?.handle) return [];
+	const outputHandles = new Set(inventory.devices.filter(device => device.direction !== 'input').map(device => device.handle));
+	const handles = new Set([input.handle, ...inventory.devices.filter(device => device.direction !== 'output' && outputHandles.has(device.handle))
+		.map(device => device.handle)]);
+	return [...handles].slice(0, 4).map(handle => ({
+		preferredInputDeviceId: nativeAudioDeviceId(host, 'audio-input', handle),
+		preferredOutputDeviceId: nativeAudioDeviceId(host, 'audio-output', handle),
+	}));
 }
 
 function routeRequests(host: string, inventory: NativeAudioInventoryReport, settings: AudioHostPreferences, inputChannels: number): readonly NativeAudioSessionOpenRequestV1[] {

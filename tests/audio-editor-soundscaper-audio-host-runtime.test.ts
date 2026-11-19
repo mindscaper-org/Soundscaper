@@ -59,6 +59,56 @@ test('a failed native open closes partial routes and leaves an actionable audio 
 	await fixture.runtime.dispose();
 });
 
+const asioDrivers = ['Focusrite Thunderbolt ASIO', 'Focusrite USB ASIO', 'ReaRoute ASIO (x64)']
+	.flatMap((handle, index) => (['input', 'output'] as const).map(direction => ({ handle, label: handle, direction, isDefault: index === 0 })));
+
+for (const direction of ['input', 'output'] as const) test(`first-time ASIO skips a driver whose ${direction} cannot open`, async () => {
+	const fixture = hostFixture('electron', false, asioDrivers, {
+		refuseOpen: request => request.direction === direction && request.candidates[0]?.deviceHandle === 'Focusrite Thunderbolt ASIO',
+	});
+	try {
+		await fixture.runtime.setHost('asio');
+		const handles = fixture.opened.map(request => request.candidates[0]?.deviceHandle);
+		assert.deepEqual(handles, [...Array.from({ length: direction === 'input' ? 1 : 2 }, () => 'Focusrite Thunderbolt ASIO'),
+			'Focusrite USB ASIO', 'Focusrite USB ASIO']);
+		assert.deepEqual(fixture.closed, direction === 'input' ? [] : ['session-1']);
+		assert.equal(fixture.bound.length, 2);
+		assert.equal(fixture.settings().preferredInputDeviceId, 'native:asio:in:Focusrite USB ASIO');
+		assert.equal(fixture.settings().preferredOutputDeviceId, 'native:asio:out:Focusrite USB ASIO');
+		assert.equal(fixture.runtime.getSnapshot().error, '');
+		await fixture.runtime.refresh();
+		assert.deepEqual(fixture.opened.slice(handles.length).map(request => request.candidates[0]?.deviceHandle),
+			['Focusrite USB ASIO', 'Focusrite USB ASIO']);
+	} finally { await fixture.runtime.dispose(); }
+});
+
+test('a saved ASIO device refuses its own failed request without choosing a different driver', async () => {
+	const fixture = hostFixture('asio', false, asioDrivers, {
+		initialDeviceIds: { preferredInputDeviceId: 'native:asio:in:Focusrite Thunderbolt ASIO' },
+		refuseOpen: () => true,
+	});
+	try {
+		await fixture.runtime.refresh();
+		assert.deepEqual(fixture.opened.map(request => request.candidates[0]?.deviceHandle), ['Focusrite Thunderbolt ASIO']);
+		assert.equal(fixture.settings().preferredInputDeviceId, 'native:asio:in:Focusrite Thunderbolt ASIO');
+		assert.match(fixture.runtime.getSnapshot().error, /Cannot open Focusrite Thunderbolt ASIO/u);
+	} finally { await fixture.runtime.dispose(); }
+});
+
+test('a first-time ASIO refusal leaves a sole automatic driver eligible for refresh', async () => {
+	let disconnected = true;
+	const fixture = hostFixture('electron', false, asioDrivers.slice(0, 2), { refuseOpen: () => disconnected });
+	try {
+		await fixture.runtime.setHost('asio');
+		assert.match(fixture.runtime.getSnapshot().error, /Cannot open Focusrite Thunderbolt ASIO/u);
+		assert.equal(fixture.settings().preferredInputDeviceId, '');
+		disconnected = false;
+		await fixture.runtime.refresh();
+		assert.equal(fixture.settings().preferredInputDeviceId, 'native:asio:in:Focusrite Thunderbolt ASIO');
+		assert.equal(fixture.runtime.getSnapshot().error, '');
+	} finally { await fixture.runtime.dispose(); }
+});
+
 test('a disposed host never publishes an inventory returned by a late enumeration', async () => {
 	const fixture = hostFixture();
 	await fixture.runtime.refresh();
@@ -397,9 +447,11 @@ function hostFixture(host = 'electron', failOutput = false, devices?: readonly N
 	close?: () => void;
 	context?: () => void;
 	routes?: Readonly<Record<string, RecordingRoute>>;
+	initialDeviceIds?: Partial<Pick<ReturnType<SoundscaperAudioHostController['getSnapshot']>['audioDevices'], 'preferredInputDeviceId' | 'preferredOutputDeviceId'>>;
+	refuseOpen?: (request: NativeAudioSessionOpenRequestV1) => boolean;
 }> = {}) {
 	let settings = { host, recordingSampleRate: 96_000, preferredInputDeviceId: '',
-		preferredOutputDeviceId: '', preferredInputChannelCount: 1 };
+		preferredOutputDeviceId: '', preferredInputChannelCount: 1, ...meter.initialDeviceIds };
 	let inventory: NativeAudioInventoryReport | null = null;
 	let inventoryOutcome: NativeAudioInventoryOutcome | Promise<NativeAudioInventoryOutcome> | null = null;
 	let routes = meter.routes ?? {};
@@ -420,7 +472,7 @@ function hostFixture(host = 'electron', failOutput = false, devices?: readonly N
 			scheduledRecording: scheduled && !preparingSchedule ? { startTimeMs: 100 } : null }),
 		subscribe: (listener) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
 		actions: { audioDevices: {
-			setHostInventory: async (next, value) => { settings = { ...settings, host: next }; inventory = value; },
+			setHostInventory: async (next, value, defaults?) => { settings = { ...settings, host: next, ...defaults }; inventory = value; },
 			requestAccess: async () => { requests += 1; },
 		}, recording: { prepareInputReplacement: meter.prepareInputReplacement } },
 	};
@@ -440,6 +492,8 @@ function hostFixture(host = 'electron', failOutput = false, devices?: readonly N
 		},
 		openNativeAudioSession: async (request: NativeAudioSessionOpenRequestV1) => {
 			opened.push(request);
+			if (meter.refuseOpen?.(request)) return { status: 'refused', code: 'format-refused',
+				message: `Cannot open ${String(request.candidates[0]?.deviceHandle)}. (Error code: 0x0)`, attempts: [] };
 			if (failOutput && request.direction === 'output') return { status: 'refused', message: 'The audio device is busy.' };
 			return { status: 'opened', sessionId: `session-${String(++sequence)}`, backend: request.candidates[0]?.backend,
 				deviceHandle: request.candidates[0]?.deviceHandle, format: request, attempts: [] };

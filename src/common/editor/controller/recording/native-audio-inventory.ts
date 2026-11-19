@@ -25,6 +25,7 @@ export type NativeAudioDirection = 'input' | 'output';
 /** What main publishes per device. The handle is opaque and stays opaque. */
 export type NativeAudioDeviceReport = Readonly<{ handle: string; label: string; direction: NativeAudioDirection | 'duplex'; channelCount?: number; isDefault?: boolean }>;
 export type NativeAudioInventoryReport = Readonly<{ backend: string; status: string; detail: string; devices: readonly NativeAudioDeviceReport[] }>;
+export type NativeAudioDeviceDefaults = Readonly<{ preferredInputDeviceId: string; preferredOutputDeviceId: string }>;
 /** Deterministic per-device map: the index, and the even index of its pair. */
 export type NativeAudioChannel = Readonly<{ index: number; pairStart: number | null }>;
 /** The `state.recordingDevices` row shape, plus the native group and channel map. */
