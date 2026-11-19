@@ -148,7 +148,7 @@ export interface ClipboardEditService {
 	setSessionClipboard(descriptor: AudioEditorClipboard): AudioEditorClipboard;
 	prepareSessionClipboard(descriptor: AudioEditorClipboard): () => AudioEditorClipboard;
 	splitAtFrame(frame: unknown, trackIds?: string | readonly string[] | null): unknown;
-	commitSplitAtFrames(frames: readonly unknown[], trackIds?: string | readonly string[] | null): unknown;
+	commitSplitAtFrames(frames: readonly unknown[], trackIds?: string | readonly string[] | null, clipIds?: readonly string[]): unknown;
 	prepareControllerPaste(mode: ClipboardPasteMode, atFrame?: number, pasteAsNewClip?: boolean, scope?: Readonly<{ trackIds: readonly string[] }>): AudioEditorCommand;
 	disjoinSelectedClip(options?: Readonly<{ nativeSilence?: boolean }>): Promise<void>;
 	disjoinLabeledRegions(
@@ -222,10 +222,11 @@ export function createClipboardEditService(
 	function commitSplitAtFrames(
 		requestedFrames: readonly unknown[],
 		trackIds: string | readonly string[] | null = null,
+		clipIds?: readonly string[],
 	): unknown {
 		dependencies.lifetime.assertActive();
 		const project = dependencies.getProject();
-		const targetClipIds = collectSplitTargetClipIds(project, trackIds);
+		const targetClipIds = clipIds ?? collectSplitTargetClipIds(project, trackIds);
 		const frames = [...new Set(requestedFrames.map((frame) => dependencies.normalizeFrame(frame)))].sort((left, right) => right - left);
 		const commands: AudioEditorCommand[] = [];
 		const handledLinks = new Set<string>();

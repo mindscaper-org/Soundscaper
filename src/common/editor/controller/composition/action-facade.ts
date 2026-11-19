@@ -221,7 +221,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			pasteOverlap: () => handleEdit('paste-overlap'),
 			pasteInsert: () => handleEdit('paste-insert'),
 			pasteAllTracksRipple: () => handleEdit('paste-all-tracks-ripple'),
-			split: () => handleEdit('split'),
+			split: (clipId?: string) => handleEdit('split', { clipId }),
 			splitAt: splitAtFrame,
 			splitIntoNewTrack: () => handleEdit('split-new-track'),
 			join: () => handleEdit('join'),

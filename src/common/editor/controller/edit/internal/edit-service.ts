@@ -14,7 +14,7 @@ import {
 	resolveAudioEditorDefaultDelete,
 	resolveAudioEditorDefaultPaste,
 } from '../../../editing-preferences.ts';
-import { mergeEditingRanges, resolveEditingActionAvailability, resolveEditingSelectionAuthority, type EditingAuthorityProject } from '../../../commands/editing-selection-authority.ts';
+import { collectRelatedClipIds, mergeEditingRanges, resolveEditingActionAvailability, resolveEditingSelectionAuthority, type EditingAuthorityProject } from '../../../commands/editing-selection-authority.ts';
 import { firstById } from '../../../commands/editing-work-index.ts';
 import { mediaClipOwnerIndex } from '../../../commands/clip-edit-index.ts';
 
@@ -26,7 +26,8 @@ export interface EditServiceRuntime {
 }
 
 type RuntimeValue = EditServiceRuntime[string];
-export type HandleEditorEdit = (action: string, options?: Readonly<{ propagateErrors?: boolean; folderId?: string }>) => RuntimeValue;
+type EditOptions = Readonly<{ propagateErrors?: boolean; folderId?: string; clipId?: string }>;
+export type HandleEditorEdit = (action: string, options?: EditOptions) => RuntimeValue;
 
 // foundation-edit-matrix: duplicate
 
@@ -103,7 +104,7 @@ export function createEditorEditService(runtime: EditServiceRuntime): HandleEdit
 		return ranges;
 	}
 
-	function handleEdit(action: string, options: Readonly<{ propagateErrors?: boolean }> = {}) {
+	function handleEdit(action: string, options: EditOptions = {}) {
 		if (!state.history || editingBlocked(action === 'copy')) return;
 		if (isLabeledAudioEditAction(action)) return executeLabeledAudioEdit(action);
 		try {
@@ -111,6 +112,10 @@ export function createEditorEditService(runtime: EditServiceRuntime): HandleEdit
 			if (action === 'redo') return travel(redoEditorCommand);
 			if (runtime.handleSelectedLabelClipboard?.(action)) return;
 			const project = getProject();
+			if (action === 'split' && options.clipId !== undefined) {
+				const clipIds = collectRelatedClipIds(project, options.clipId);
+				return commitSplitAtFrames([normalizeTimelineFrame(engine.getPositionFrames())], null, clipIds);
+			}
 			const tracks = firstById<RuntimeValue>(project.tracks), clips = firstById<RuntimeValue>(project.clips);
 			const owners = mediaClipOwnerIndex<RuntimeValue>(project.tracks);
 			const audioTrackIds = project.tracks.filter((track: RuntimeValue) => Array.isArray(track.clipIds)).map((track: RuntimeValue) => track.id);

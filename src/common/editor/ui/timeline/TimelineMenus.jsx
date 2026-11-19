@@ -304,7 +304,7 @@ export function TimelineMenus({
 					locale={contextLocale}
 					onClick={() => menuClip && run(() => {
 						if (!project.selection?.clipIds?.includes(menuClip.id)) controller.actions.timeline.selectClip(menuClip.id);
-						controller.actions.edit.split();
+						controller.actions.edit.split(menuClip.id);
 					})}
 					onClose={() => setClipMenu(null)}
 				/>

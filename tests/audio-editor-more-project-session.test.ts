@@ -101,6 +101,37 @@ test('Undo and Redo focus a clip belonging to their restored selection', async c
 	assert.equal(redone.selectedTrackId, 'second-track');
 });
 
+test('Split for a context clip uses the cursor and its group while Edit Split uses the range', async context => {
+	const { controller, store } = await openTabFixture(context);
+	const source = (id: string) => createAudioSource({ id, frameCount: 24_000, channelCount: 1, sampleRate: 48_000 });
+	const clip = (id: string, groupId: string | null) => createAudioClip({ id, sourceId: `${id}-source`, durationFrames: 24_000, groupId });
+	const project = createCurrentAudioEditorProject({ id: 'context-split',
+		sources: ['target', 'unrelated', 'companion'].map(id => source(`${id}-source`)),
+		clips: [clip('target', 'group'), clip('unrelated', null), clip('companion', 'group')],
+		tracks: [createAudioTrack({ id: 'target-lane', clipIds: ['target', 'unrelated'] }),
+			createAudioTrack({ id: 'companion-lane', clipIds: ['companion'] })],
+	});
+	await store.saveProject(project);
+	await controller.actions.project.openById(project.id);
+	controller.actions.timeline.selectClip('target');
+	controller.actions.transport.toggleSelectionFollowsLoop();
+	controller.actions.transport.setLoopRegion(2_000, 8_000);
+	await controller.actions.transport.seek(4_800);
+	const starts = (id: string) => controller.project!.clips.filter(item => item.sourceId === `${id}-source`)
+		.map(item => item.timelineStartFrame).sort((left, right) => left - right);
+
+	controller.actions.edit.split('target');
+	assert.deepEqual(starts('target'), [0, 4_800]);
+	assert.deepEqual(starts('companion'), [0, 4_800]);
+	assert.deepEqual(starts('unrelated'), [0]);
+	controller.actions.edit.undo();
+	assert.equal(controller.project!.clips.length, 3);
+	controller.actions.edit.split();
+	assert.deepEqual(starts('target'), [0, 2_000, 8_000]);
+	assert.deepEqual(starts('companion'), [0, 2_000, 8_000]);
+	assert.deepEqual(starts('unrelated'), [0, 2_000, 8_000]);
+});
+
 test('whole-track spectral displays follow the active tab and its undo history', async context => {
 	const { controller, firstId } = await openTabFixture(context);
 	const view = () => controller.getSnapshot().timeline.view;

@@ -280,6 +280,54 @@ test('Split into new track uses the clip highlighted after Undo in a reopened pr
 	}
 });
 
+test('the clip menu splits at the playhead when a loop also selects the whole clip', async ({ page }, result) => {
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await renameProject(page, editor, 'Interview edit');
+	await importFiles(editor, [toneA, toneB]);
+	const downloading = page.waitForEvent('download');
+	await chooseExportProjectFileAction(page, editor);
+	const download = await downloading;
+	const archivePath = result.outputPath(download.suggestedFilename());
+	try {
+		await download.saveAs(archivePath);
+		await download.delete();
+		await editor.getByRole('button', { name: 'Close project: Interview edit', exact: true }).click();
+		await expect(editor.getByRole('tab', { name: 'Interview edit', exact: true })).toHaveCount(0);
+		await waitForProjectActivation(editor);
+		const choosing = page.waitForEvent('filechooser');
+		await chooseFileAction(page, editor, 'Open');
+		await (await choosing).setFiles(archivePath);
+		await expect(editor.getByRole('tab', { name: 'Interview edit', exact: true })).toHaveAttribute('aria-selected', 'true');
+		await waitForProjectActivation(editor);
+
+		const clip = clipByName(editor, toneA.name);
+		await clip.locator('.clip-header').click();
+		await chooseNestedCommandAction(page, editor, 'Select', ['Loop region', 'Creating a loop also selects audio']);
+		await chooseNestedCommandAction(page, editor, 'Select', ['Loop region', 'Set loop to selection']);
+		await expect(editor.getByRole('group', { name: 'Selection end', exact: true }).locator('.timecode__display')).toHaveText('00h00m00.800s');
+		const playhead = editor.getByRole('slider', { name: 'Playhead', exact: true });
+		await playhead.press('ArrowRight');
+		await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(0);
+		const splitFrame = Number(await playhead.getAttribute('aria-valuenow'));
+		expect(splitFrame).toBeLessThan(38_400);
+		await clip.getByRole('button', { name: 'Clip menu', exact: true }).click();
+		await page.getByRole('menuitem', { name: /^Split at playhead(?:\s|$)/u }).click();
+		await expect(editor).toHaveAttribute('data-clip-count', '3', { timeout: 3_000 });
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		const saved = await persistedProject(page, await editor.getAttribute('data-project-id'));
+		const first = saved.sources.find(source => source.name === toneA.name);
+		const second = saved.sources.find(source => source.name === toneB.name);
+		const starts = source => saved.clips.filter(item => item.sourceId === source.id).map(item => item.timelineStartFrame).sort((a, b) => a - b);
+		expect(starts(first)).toEqual([0, splitFrame]);
+		expect(starts(second)).toEqual([0]);
+		await chooseCommandAction(page, editor, 'Edit', 'Undo');
+		await expect(editor).toHaveAttribute('data-clip-count', '2');
+	} finally {
+		await rm(archivePath, { force: true });
+	}
+});
+
 test('a project deletion refused by another editor preserves the active tab and live Undo', async ({ page, context }, result) => {
 	test.setTimeout(45_000);
 	await disableNativeSavePicker(page);
