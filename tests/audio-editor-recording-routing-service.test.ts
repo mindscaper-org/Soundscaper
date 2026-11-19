@@ -38,6 +38,10 @@ test('host changes replace device lists and incompatible preferred devices', asy
 	assert.deepEqual(fixture.state.audioOutputDevices.map(device => device.deviceId), ['native:wasapi:out:alphabetically-first', 'native:wasapi:out:studio']);
 	assert.equal(fixture.state.preferredInputDeviceId, 'native:wasapi:in:studio');
 	assert.equal(fixture.state.preferredOutputDeviceId, 'native:wasapi:out:studio');
+	await fixture.service.setPreferredInputDevice('native:wasapi:in:alphabetically-first');
+	assert.equal(await fixture.service.setPreferredInputDevice('default'), 'native:wasapi:in:studio');
+	assert.equal(fixture.state.preferredInputDeviceId, 'native:wasapi:in:studio');
+	assert.deepEqual(fixture.hardwareRequests, [], 'native default selection cannot open a browser microphone');
 	await fixture.service.refreshAudioDevices({ probe: false });
 	assert.deepEqual(fixture.state.audioInputDevices.map(device => device.deviceId), ['native:wasapi:in:alphabetically-first', 'native:wasapi:in:studio']);
 	await fixture.service.setHostInventory('electron', null);

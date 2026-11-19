@@ -194,7 +194,9 @@ export function createRecordingRoutingService<
 	}
 
 	async function setPreferredInputDevice(deviceId: string) {
-		const normalized = normalizePreferredInputDeviceId(deviceId);
+		const requested = normalizePreferredInputDeviceId(deviceId);
+		const normalized = requested === RECORDING_DEFAULT_DEVICE_ID && state.audioHost !== 'browser' && state.audioHost !== 'electron'
+			? defaultDeviceId(state.audioInputDevices) ?? requested : requested;
 		if (normalized !== RECORDING_DEFAULT_DEVICE_ID
 			&& normalized !== RECORDING_DISPLAY_SOURCE_KEY
 			&& !state.audioInputDevices.some((device) => device.deviceId === normalized)) {

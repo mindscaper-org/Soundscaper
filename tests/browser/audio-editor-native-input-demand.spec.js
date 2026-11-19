@@ -5,6 +5,28 @@ import { bootEditor, chooseCommandAction, importFiles } from './audio-editor-tes
 import { installNativeInputPeer } from './helpers/native-input-peer.js';
 import { NATIVE_OUTPUT_PEER_WEBKIT_REASON } from './helpers/native-output-peer.js';
 
+test('selecting the WASAPI system default microphone can record again', async ({ page, browserName }) => {
+	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
+	await installNativeInputPeer(page, { backend: 'wasapi' });
+	const editor = await bootEditor(page, '/embed/en/');
+	await editor.getByRole('button', { name: 'Audio setup', exact: true }).click();
+	const setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
+	await setup.getByRole('combobox', { name: 'Host', exact: true }).selectOption('wasapi');
+	const microphone = setup.getByRole('combobox', { name: 'Microphone', exact: true });
+	await expect(microphone).toHaveValue('native:wasapi:in:microphone');
+	await expect(microphone).toBeEnabled();
+	await microphone.selectOption('default');
+	await expect(microphone).toBeEnabled();
+	await page.keyboard.press('Escape');
+	const record = editor.locator('[data-transport="record"] .kw-audio-editor__split-button-main button');
+	await record.click();
+	await expect(record).toHaveAttribute('aria-pressed', 'true');
+	const playhead = editor.getByRole('slider', { name: 'Playhead', exact: true });
+	await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(12_000);
+	await editor.getByRole('button', { name: 'Stop', exact: true }).click();
+	await expect(editor).toHaveAttribute('data-clip-count', '1');
+});
+
 test('a busy renderer still saves only captured audio when the native microphone disconnects', async ({ page, browserName }) => {
 	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
 	await installNativeInputPeer(page);
