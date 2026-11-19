@@ -153,6 +153,11 @@ Audio Setup saves a native sample rate after the selected routes open and
 bind at that rate. If opening fails, it restores the previous Web Audio rate
 and reopens the previously connected routes. A separately opened route can
 recover even if another device has disconnected.
+When starting with saved input and output devices, Audio Setup attempts their
+separate routes independently. A working route stays bound through Refresh
+while the failed route reports its own error and is retried. The selected
+native playback route owns the output during startup, including when the first
+attempt to open that route is refused.
 While an already selected native output is being replaced, playback keeps
 its timeline position and uses silence until a native output is bound again.
 A replacement refusal leaves the browser output muted until the user

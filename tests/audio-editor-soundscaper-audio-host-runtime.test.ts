@@ -8,9 +8,8 @@ import {
 } from '../src/common/editor/ui/soundscaper-audio-host-runtime.ts';
 import type { NativeAudioDeviceReport, NativeAudioInventoryReport } from '../src/common/editor/controller/recording/native-audio-inventory.ts';
 import type { NativeAudioInventoryOutcome, NativeAudioSessionOpenRequestV1, SoundscaperNativeServicesBridge } from '../src/common/editor/ui/soundscaper-native-services-bridge.ts';
-import { createMicrophoneMeterService, type MeterMediaStream, type MicrophoneMeterState, type MicrophoneMeterInputReplacement } from '../src/common/editor/controller/recording/microphone-meter-service.ts';
-import { createOwnedStateAccess } from '../src/common/editor/controller/shared/owned-state.ts';
-import { MockAudioContext } from './helpers/mock-audio-context.js';
+import type { MicrophoneMeterInputReplacement } from '../src/common/editor/controller/recording/microphone-meter-service.ts';
+import { activeMeterFixture } from './helpers/audio-host-meter-fixture.ts';
 import { deferred, waitFor } from './helpers/async-test-control.ts';
 import type { RecordingRoute } from '../src/common/editor/recording-routing.js';
 
@@ -50,13 +49,24 @@ test('restoring a native host connects it before any device dialog opens and pre
 	await fixture.runtime.dispose();
 });
 
-test('a failed native open closes partial routes and leaves an actionable audio settings error', async () => {
-	const fixture = hostFixture('electron', true);
-	await fixture.runtime.setHost('wasapi');
-	assert.match(fixture.runtime.getSnapshot().error, /device is busy/u);
-	assert.equal(fixture.runtime.getSnapshot().pending, false);
-	assert.deepEqual(fixture.closed, ['session-1']);
-	await fixture.runtime.dispose();
+test('a refused native output preserves capture and leaves an actionable audio settings error', async () => {
+	const meterOutcomes: string[] = [];
+	const fixture = hostFixture('electron', true, undefined, {
+		prepareInputReplacement: () => ({ finish: async outcome => { meterOutcomes.push(outcome); } }),
+	});
+	try {
+		await fixture.runtime.setHost('wasapi');
+		assert.match(fixture.runtime.getSnapshot().error, /device is busy/u);
+		assert.equal(fixture.runtime.getSnapshot().pending, false);
+		assert.deepEqual(meterOutcomes, ['ready']);
+		assert.deepEqual(fixture.bound, ['session-1']);
+		assert.deepEqual(fixture.closed, []);
+		fixture.failOutput(false);
+		await fixture.runtime.refresh();
+		assert.equal(fixture.runtime.getSnapshot().error, '');
+		assert.deepEqual(fixture.bound, ['session-1', 'session-2']);
+		assert.deepEqual(fixture.closed, []);
+	} finally { await fixture.runtime.dispose(); }
 });
 
 const asioDrivers = ['Focusrite Thunderbolt ASIO', 'Focusrite USB ASIO', 'ReaRoute ASIO (x64)']
@@ -89,9 +99,40 @@ test('a saved ASIO device refuses its own failed request without choosing a diff
 	});
 	try {
 		await fixture.runtime.refresh();
-		assert.deepEqual(fixture.opened.map(request => request.candidates[0]?.deviceHandle), ['Focusrite Thunderbolt ASIO']);
+		assert.deepEqual(fixture.opened.map(request => request.candidates[0]?.deviceHandle), Array(2).fill('Focusrite Thunderbolt ASIO'));
 		assert.equal(fixture.settings().preferredInputDeviceId, 'native:asio:in:Focusrite Thunderbolt ASIO');
 		assert.match(fixture.runtime.getSnapshot().error, /Cannot open Focusrite Thunderbolt ASIO/u);
+	} finally { await fixture.runtime.dispose(); }
+});
+
+test('cold ASIO restores the saved speakers even if their sibling microphone refuses', async () => {
+	const fixture = hostFixture('asio', false, asioDrivers, {
+		initialDeviceIds: { preferredInputDeviceId: 'native:asio:in:Focusrite Thunderbolt ASIO',
+			preferredOutputDeviceId: 'native:asio:out:Focusrite USB ASIO' },
+		refuseOpen: request => request.candidates[0]?.deviceHandle === 'Focusrite Thunderbolt ASIO',
+	});
+	try {
+		await fixture.runtime.refresh();
+		assert.deepEqual(fixture.opened.map(request => request.direction), ['input', 'output']);
+		assert.match(fixture.runtime.getSnapshot().error, /Cannot open Focusrite Thunderbolt ASIO/u);
+		assert.deepEqual(fixture.bound, ['session-1']);
+		await fixture.runtime.refresh();
+		assert.equal(fixture.opened.at(-1)?.direction, 'input');
+		assert.equal(fixture.settings().preferredInputDeviceId, 'native:asio:in:Focusrite Thunderbolt ASIO');
+		assert.deepEqual(fixture.closed, []);
+	} finally { await fixture.runtime.dispose(); }
+});
+
+test('native attachment failure closes that session and opens its independent sibling', async () => {
+	const fixture = hostFixture('wasapi', false, undefined, { bind: async id => {
+		if (id === 'session-1') throw new Error('Microphone transport failed during attachment.');
+	} });
+	try {
+		await fixture.runtime.refresh();
+		assert.deepEqual(fixture.opened.map(request => request.direction), ['input', 'output']);
+		assert.deepEqual(fixture.bound, ['session-1', 'session-2']);
+		assert.deepEqual(fixture.closed, ['session-1']);
+		assert.match(fixture.runtime.getSnapshot().error, /Microphone transport failed/u);
 	} finally { await fixture.runtime.dispose(); }
 });
 
@@ -246,11 +287,11 @@ for (const mode of ['ready', 'failed', 'superseded', 'disposed'] as const) test(
 	const fixture = hostFixture('wasapi', false, undefined, {
 		prepareInputReplacement: () => { const id = ++prepared; return { finish: async outcome => { outcomes.push(`${String(id)}:${outcome}`); } }; },
 		bind: async id => { if (id === 'session-4' && mode !== 'failed') { entered.resolve(); await release.promise; } },
+		refuseOpen: request => mode === 'failed' && request.sampleRate === 44_100 && request.direction === 'input',
 	});
 	try {
 		await fixture.runtime.refresh();
 		assert.deepEqual(outcomes, ['1:ready']); outcomes.length = 0;
-		if (mode === 'failed') fixture.failOutput(true);
 		fixture.change({ recordingSampleRate: 44_100 });
 		if (mode === 'failed') await fixture.runtime.settle();
 		else {
@@ -266,7 +307,7 @@ for (const mode of ['ready', 'failed', 'superseded', 'disposed'] as const) test(
 		const expected = mode === 'superseded' ? ['2:superseded', '3:ready'] : [`2:${mode}`];
 		if (mode === 'disposed') expected.push('1:disposed');
 		assert.deepEqual(outcomes, expected);
-		if (mode === 'failed') assert.match(fixture.runtime.getSnapshot().error, /device is busy/u);
+		if (mode === 'failed') assert.match(fixture.runtime.getSnapshot().error, /Cannot open input-wasapi/u);
 	} finally { release.resolve(); await fixture.runtime.dispose(); }
 });
 
@@ -417,48 +458,6 @@ test('a failed refresh releases an Enable waiting behind a superseded native att
 		assert.equal(meter.intervals.size, 0);
 	} finally { release.resolve(); await host.runtime.dispose(); meter.service.dispose(); }
 });
-
-function activeMeterFixture() {
-	type Mutable<Value> = { -readonly [Key in keyof Value]: Value[Key] };
-	const state: Mutable<MicrophoneMeterState> = {
-		disposed: false, microphoneMetering: false, recorder: null, recordingStarting: false,
-		recordingAdmissionPending: false, timedRecordingPreparing: false, timedRecording: null,
-		preferences: { recording: { retainInputs: false } }, recordingInputGain: 1, transportState: 'stopped',
-		inputLoudnessMeasurementManuallyPaused: false, inputLoudnessMeasurementExplicitlyRunning: false,
-		inputMeterDb: -60, inputMeter: null, selectedTrackId: null, recordingRouting: { routes: {} },
-	};
-	let input: Readonly<{ end(): void }> | null = null, held: MeterMediaStream | null = null, nextInterval = 0;
-	const intervals = new Set<number>(), persisted: Array<readonly [string, unknown]> = [];
-	const context = new class extends MockAudioContext {
-		createMediaStreamSource() { return this.createGain(); }
-		override createAnalyser() {
-			return Object.assign(super.createAnalyser(), { fftSize: 256, smoothingTimeConstant: 0,
-				getFloatTimeDomainData: (values: Float32Array) => { values.fill(.25); } });
-		}
-	}({ sampleRate: 96_000 });
-	const service = createMicrophoneMeterService({
-		state: createOwnedStateAccess(state, state), defaultDeviceId: 'default',
-		getPreferredInput: () => ({ deviceId: 'default', channelCount: 1 }),
-		recordingCapturePool: {
-			getHardware: () => held,
-			acquireHardware: async () => {
-				const track = Object.assign(new EventTarget(), { getSettings: () => ({ channelCount: 1 }) });
-				const stream = { getAudioTracks: () => [track], end: () => { track.dispatchEvent(new Event('ended')); } };
-				input = stream; held = stream; return stream;
-			},
-			releaseHardware: () => { held = null; },
-		},
-		getAudioContext: async () => context,
-		createLoudnessMeterNode: async () => ({ node: context.createGain(), setRunning() {}, setInputGain() {}, reset() {} }),
-		streamAudioChannelCount: () => 1, projectSampleRate: () => 96_000,
-		persistSetting: async (key, value) => { persisted.push([key, value]); },
-		publishDocumentSnapshot() {}, publishTelemetrySnapshot() {}, syncRecordingPoolSnapshot() {},
-		handleError: error => { throw error; },
-		scheduleInterval: () => { const id = ++nextInterval; intervals.add(id); return id; },
-		clearInterval: id => { if (typeof id === 'number') intervals.delete(id); },
-	});
-	return { service, persisted, intervals, endInput: () => { input?.end(); } };
-}
 
 function hostFixture(host = 'electron', failOutput = false, devices?: readonly NativeAudioDeviceReport[], meter: Readonly<{
 	prepareInputReplacement?: () => MicrophoneMeterInputReplacement;

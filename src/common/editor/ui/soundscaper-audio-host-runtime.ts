@@ -2,7 +2,7 @@
 
 import { AudioHostError, audioHostOperation, type AudioHostFailureCode } from './audio-host-failure.ts';
 import { nativeAudioDeviceId, type NativeAudioDeviceDefaults, type NativeAudioInventoryReport } from '../controller/recording/native-audio-inventory.ts';
-import { isNativeAudioStreamingBackend, nativeAudioInputChannelDemand, routeRequests, selectedDevice } from './soundscaper-native-audio-route.ts';
+import { automaticAsioDefaults, isNativeAudioStreamingBackend, nativeAudioInputChannelDemand, routeRequests, sameRoute, selectedDevice } from './soundscaper-native-audio-route.ts';
 import type { NativeAudioAvailability, NativeAudioSessionOpenRequestV1, SoundscaperNativeServicesBridge } from './soundscaper-native-services-bridge.ts';
 import type { MicrophoneMeterInputReplacement } from '../controller/recording/microphone-meter-service.ts';
 import { normalizeRecordingSampleRate } from '../controller/recording/recording-model.ts';
@@ -429,6 +429,8 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 			connectedKey = preferenceKey();
 			return;
 		}
+		let partialFailure: AudioHostError | null;
+		let inputReady: boolean;
 		try {
 			let plan = requests, key = routeKey;
 			if (!plan) {
@@ -444,15 +446,33 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 				plan = routeRequests(host, nextInventory, current, inputChannelCount(current));
 			}
 			const pending = plan.filter(request => ![...retained.values()].some(session => sameRoute(session.request, request)));
-			await openBoundRequests(pending);
+			if (replacementContext && pending.some(({ direction }) => direction !== 'input')) guardSoundscaperNativeAudioOutput(replacementContext);
+			partialFailure = await openSelectedRoutes(pending);
 			const defaultInput = plan.find(request => request.direction !== 'output');
-			if (releaseRecordingInputOverride && (!defaultInput || ![...sessions.values()]
-				.some(session => session.state === 'bound' && sameRoute(session.request, defaultInput)))) {
+			inputReady = Boolean(defaultInput && [...sessions.values()].some(session => session.state === 'bound' && sameRoute(session.request, defaultInput)));
+			if (!partialFailure && releaseRecordingInputOverride && !inputReady) {
 				throw new AudioHostError('device-loss', 'The default microphone disconnected before it was restored.');
 			}
-			connectedKey = key;
-			clearRecordingInputOverride();
+			connectedKey = partialFailure ? '' : key;
+			if (!partialFailure || inputReady) clearRecordingInputOverride();
 		} catch (error) { await closeSessions(retainedIds, replacementContext); throw error; }
+		if (partialFailure) {
+			if (!inputReady) throw partialFailure;
+			publishFailure(partialFailure);
+		}
+	}
+	async function openSelectedRoutes(requests: readonly NativeAudioSessionOpenRequestV1[]): Promise<AudioHostError | null> {
+		const failures: string[] = [];
+		for (const request of requests) {
+			const retained = new Set(sessions.keys());
+			try { await openBoundRequests([request]); }
+			catch (error) {
+				assertActive();
+				await closeSessions(retained);
+				failures.push(errorMessage(error).trim());
+			}
+		}
+		return failures.length ? new AudioHostError('session-open', failures.join('\n')) : null;
 	}
 	async function openBoundRequests(requests: readonly NativeAudioSessionOpenRequestV1[]): Promise<void> {
 		const refused = await openRequests(requests, true);
@@ -519,25 +539,3 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 }
 
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
-
-function sameRoute(left: NativeAudioSessionOpenRequestV1, right: NativeAudioSessionOpenRequestV1): boolean {
-	return left.direction === right.direction && left.mode === right.mode && left.sampleRate === right.sampleRate
-		&& left.periodFrames === right.periodFrames && left.channelCount === right.channelCount
-		&& left.candidates[0]?.backend === right.candidates[0]?.backend && left.candidates[0]?.deviceHandle === right.candidates[0]?.deviceHandle;
-}
-
-/** ASIO's inventory includes registered drivers even when their hardware is disconnected. */
-function automaticAsioDefaults(host: string, inventory: NativeAudioInventoryReport, settings: AudioHostPreferences): readonly NativeAudioDeviceDefaults[] {
-	if (host !== 'asio' || settings.preferredInputDeviceId.startsWith('native:asio:in:')
-		|| settings.preferredOutputDeviceId.startsWith('native:asio:out:')) return [];
-	const input = selectedDevice(inventory, 'input', settings.preferredInputDeviceId);
-	const output = selectedDevice(inventory, 'output', settings.preferredOutputDeviceId);
-	if (!input || input.handle !== output?.handle) return [];
-	const outputHandles = new Set(inventory.devices.filter(device => device.direction !== 'input').map(device => device.handle));
-	const handles = new Set([input.handle, ...inventory.devices.filter(device => device.direction !== 'output' && outputHandles.has(device.handle))
-		.map(device => device.handle)]);
-	return [...handles].slice(0, 4).map(handle => ({
-		preferredInputDeviceId: nativeAudioDeviceId(host, 'audio-input', handle),
-		preferredOutputDeviceId: nativeAudioDeviceId(host, 'audio-output', handle),
-	}));
-}

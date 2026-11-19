@@ -27,6 +27,57 @@ test('selecting the WASAPI system default microphone can record again', async ({
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
 });
 
+for (const missing of ['input', 'output']) {
+	test(`cold native Audio Setup retains the working route when the saved ${missing} refuses`, async ({ page, browserName }) => {
+		test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
+		await installNativeInputPeer(page, { backend: 'asio' });
+		await page.addInitScript(direction => {
+			const api = window.soundscaperDesktop.v1, open = api.openNativeAudioSession;
+			api.openNativeAudioSession = request => request.direction === direction && sessionStorage.getItem('refuse-saved-native-route')
+				? Promise.resolve({ status: 'refused', code: 'device-unavailable', message: 'The saved device disconnected.', attempts: [] })
+				: open(request);
+		}, missing);
+		const editor = await bootEditor(page, '/embed/en/');
+		const settings = editor.getByRole('button', { name: 'Audio setup', exact: true });
+		const setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
+		const host = setup.getByRole('combobox', { name: 'Host', exact: true });
+		await settings.click();
+		await host.selectOption('asio');
+		await expect(host).toBeEnabled();
+		await expect(setup.getByRole('alert')).toHaveCount(0);
+		await page.evaluate(() => sessionStorage.setItem('refuse-saved-native-route', 'true'));
+		await bootEditor(page, '/embed/en/');
+		await settings.click();
+		await expect(host).toHaveValue('asio');
+		await expect(setup.getByRole('alert')).toContainText('The selected audio device could not be opened');
+		const working = missing === 'input' ? 'output' : 'input';
+		const opened = () => page.evaluate(direction => window.__nativeInputPeer.requests
+			.filter(request => request.direction === direction).map(request => request.sessionId), working);
+		await expect.poll(opened).toHaveLength(1);
+		const [session] = await opened();
+		await setup.getByRole('button', { name: 'Refresh devices', exact: true }).click();
+		await expect(setup.getByRole('alert')).toContainText('The selected audio device could not be opened');
+		await expect(host).toBeEnabled();
+		expect(await opened()).toEqual([session]);
+		await page.keyboard.press('Escape');
+		const stop = editor.getByRole('button', { name: 'Stop', exact: true });
+		if (missing === 'input') {
+			await importFiles(editor, [createWavFixture({ name: 'Cold native playback.wav', frequency: 440, duration: 4 })]);
+			await editor.getByRole('button', { name: 'Play', exact: true }).click();
+			try {
+				await expect.poll(() => page.evaluate(id => window.__nativeOutput.packetHistory.some(packet =>
+					packet.sessionId === id && Math.max(...packet.peaks) > .05), session)).toBe(true);
+			} finally { await stop.click(); }
+		} else {
+			await editor.getByRole('button', { name: 'Record onto the active track', exact: true }).click();
+			await expect.poll(async () => Number(await editor.getByRole('slider', { name: 'Playhead', exact: true })
+				.getAttribute('aria-valuenow'))).toBeGreaterThan(12_000);
+			await stop.click();
+			await expect(editor).toHaveAttribute('data-clip-count', '1');
+		}
+	});
+}
+
 test('Record waits for the alternate WASAPI microphone assigned to its track', async ({ page, browserName }) => {
 	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
 	await installNativeInputPeer(page, { backend: 'wasapi' });

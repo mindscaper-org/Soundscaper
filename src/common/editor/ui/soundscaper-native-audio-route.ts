@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { NativeAudioSessionOpenRequestV1 } from './soundscaper-native-services-bridge.ts';
-import { nativeAudioDeviceId, type NativeAudioDeviceReport, type NativeAudioInventoryReport } from '../controller/recording/native-audio-inventory.ts';
+import { nativeAudioDeviceId, type NativeAudioDeviceDefaults, type NativeAudioDeviceReport, type NativeAudioInventoryReport } from '../controller/recording/native-audio-inventory.ts';
 
 export type NativeAudioStreamingUiBackend = Exclude<
 	NativeAudioSessionOpenRequestV1['candidates'][number]['backend'], 'jack'
@@ -74,4 +74,26 @@ export function selectedDevice(inventory: NativeAudioInventoryReport, direction:
 	const devices = inventory.devices.filter((device) => device.direction === direction || device.direction === 'duplex');
 	return devices.find((device) => nativeAudioDeviceId(inventory.backend, kind, device.handle) === deviceId)
 		?? devices.find((device) => device.isDefault) ?? devices[0];
+}
+
+export function sameRoute(left: NativeAudioSessionOpenRequestV1, right: NativeAudioSessionOpenRequestV1): boolean {
+	return left.direction === right.direction && left.mode === right.mode && left.sampleRate === right.sampleRate
+		&& left.periodFrames === right.periodFrames && left.channelCount === right.channelCount
+		&& left.candidates[0]?.backend === right.candidates[0]?.backend && left.candidates[0]?.deviceHandle === right.candidates[0]?.deviceHandle;
+}
+
+/** ASIO's inventory includes registered drivers even when their hardware is disconnected. */
+export function automaticAsioDefaults(host: string, inventory: NativeAudioInventoryReport, settings: NativeAudioDeviceDefaults): readonly NativeAudioDeviceDefaults[] {
+	if (host !== 'asio' || settings.preferredInputDeviceId.startsWith('native:asio:in:')
+		|| settings.preferredOutputDeviceId.startsWith('native:asio:out:')) return [];
+	const input = selectedDevice(inventory, 'input', settings.preferredInputDeviceId);
+	const output = selectedDevice(inventory, 'output', settings.preferredOutputDeviceId);
+	if (!input || input.handle !== output?.handle) return [];
+	const outputHandles = new Set(inventory.devices.filter(device => device.direction !== 'input').map(device => device.handle));
+	const handles = new Set([input.handle, ...inventory.devices.filter(device => device.direction !== 'output' && outputHandles.has(device.handle))
+		.map(device => device.handle)]);
+	return [...handles].slice(0, 4).map(handle => ({
+		preferredInputDeviceId: nativeAudioDeviceId(host, 'audio-input', handle),
+		preferredOutputDeviceId: nativeAudioDeviceId(host, 'audio-output', handle),
+	}));
 }
