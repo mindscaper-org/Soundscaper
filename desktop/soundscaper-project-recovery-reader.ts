@@ -22,11 +22,8 @@ export function readSoundscaperDesktopProjectRecoveryCandidates(
 		const key = `desktop:${projectId}:${String(revision)}`;
 		const kind = revision === currentRevision ? 'current' as const : 'revision' as const;
 		try {
-			if (typeof row.document_json !== 'string' || Buffer.byteLength(row.document_json, 'utf8') > MAXIMUM_DOCUMENT_BYTES) {
-				throw new Error('The desktop recovery document exceeds its supported size.');
-			}
-			const project = parseScapeProjectDocument(row.document_json, { currentProjectSchemaFamily: 'soundscaper' });
-			const digest = createHash('sha256').update(row.document_json, 'utf8').digest('hex');
+			const { json, project } = readRecoveryDocument(row.document_json);
+			const digest = createHash('sha256').update(json, 'utf8').digest('hex');
 			return { key, kind, revision, project,
 				...(digest === row.project_sha256 ? {} : { diagnostic: 'The stored document checksum changed; review the repaired copy.' }) };
 		} catch (error) {
@@ -39,11 +36,23 @@ export function readSoundscaperDesktopProjectRecoveryCandidates(
 export function listSoundscaperDesktopProjectRecoverySummaries(database: DatabaseSync): readonly ProjectRecoverySummary[] {
 	const rows = database.prepare(`SELECT project_id, MAX(project_revision) AS revision
 		FROM project_revisions GROUP BY project_id LIMIT 4096`).all();
+	const latest = database.prepare('SELECT document_json FROM project_revisions WHERE project_id = ? AND project_revision = ?');
 	return rows.map((row) => {
-		const id = String(row.project_id);
-		const latest = readSoundscaperDesktopProjectRecoveryCandidates(database, id)[0];
-		const project = latest?.project as Record<string, unknown> | null;
-		return { id, title: typeof project?.title === 'string' && project.title.trim() ? project.title : 'Damaged project',
-			revision: Number(row.revision) };
+		const id = validateSoundscaperDesktopProjectLibraryProjectId(String(row.project_id));
+		const revision = Number(row.revision);
+		const saved = latest.get(id, revision);
+		let title = 'Damaged project';
+		try {
+			const project = readRecoveryDocument(saved?.document_json).project as Record<string, unknown> | null;
+			if (typeof project?.title === 'string' && project.title.trim()) title = project.title;
+		} catch { /* An unreadable latest document still has an inspectable recovery entry. */ }
+		return { id, title, revision };
 	});
+}
+
+function readRecoveryDocument(json: unknown) {
+	if (typeof json !== 'string' || Buffer.byteLength(json, 'utf8') > MAXIMUM_DOCUMENT_BYTES) {
+		throw new Error('The desktop recovery document exceeds its supported size.');
+	}
+	return { json, project: parseScapeProjectDocument(json, { currentProjectSchemaFamily: 'soundscaper' }) };
 }
