@@ -338,10 +338,12 @@ function routeRequests(host: string, inventory: NativeAudioInventoryReport, sett
 	if (!isNativeAudioStreamingBackend(host)) return [];
 	const input = selectedDevice(inventory, 'input', settings.preferredInputDeviceId);
 	const output = selectedDevice(inventory, 'output', settings.preferredOutputDeviceId);
+	const sampleRate = settings.recordingSampleRate;
+	// Keep the bounded WASAPI credit window at least as long as at 48 kHz.
+	const periodFrames = host === 'wasapi' ? 256 * Math.ceil(sampleRate / 48_000) : 256;
 	const request = (device: NativeAudioDeviceReport, direction: 'input' | 'output' | 'duplex', channelCount: number) => createNativeAudioRouteOpenRequest({
 		candidates: [{ backend: host, deviceHandle: device.handle }], direction,
-		mode: host === 'asio' ? 'exclusive' : 'shared', sampleRate: settings.recordingSampleRate,
-		periodFrames: 256, channelCount,
+		mode: host === 'asio' ? 'exclusive' : 'shared', sampleRate, periodFrames, channelCount,
 	});
 	const outputChannels = Math.min(2, output?.channelCount || 2);
 	if (input && output && input.handle === output.handle && inputChannels === outputChannels) return [request(input, 'duplex', inputChannels)];

@@ -3,8 +3,8 @@
 import { installNativeOutputPeer } from './native-output-peer.js';
 
 /** A real native input worklet exchanges owned microphone packets with a helper thread. */
-export async function installNativeInputPeer(page) {
-	await installNativeOutputPeer(page);
+export async function installNativeInputPeer(page, options) {
+	await installNativeOutputPeer(page, options);
 	await page.addInitScript(() => {
 		const api = window.soundscaperDesktop.v1, requests = new Map(), peers = new Map();
 		window.__nativeInputPeer = { requests: [], contexts: [],

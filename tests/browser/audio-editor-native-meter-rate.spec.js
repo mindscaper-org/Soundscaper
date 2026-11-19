@@ -3,6 +3,29 @@
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, waitForEditor } from './audio-editor-test-helpers.js';
 import { installNativeInputPeer } from './helpers/native-input-peer.js';
+import { NATIVE_OUTPUT_PEER_WEBKIT_REASON } from './helpers/native-output-peer.js';
+
+test('WASAPI keeps enough transport frames in flight at higher sample rates', async ({ page, browserName }) => {
+	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
+	await installNativeInputPeer(page, { backend: 'wasapi' });
+	const editor = await bootEditor(page, '/embed/en/');
+	await editor.getByRole('button', { name: 'Audio setup', exact: true }).click();
+	const setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
+	await setup.getByRole('combobox', { name: 'Host', exact: true }).selectOption('wasapi');
+	const rate = setup.getByRole('combobox', { name: 'Recording sample rate', exact: true });
+	const requestedPeriods = sampleRate => page.evaluate(sampleRate => window.__nativeInputPeer.requests
+		.filter(request => request.mode === 'shared' && request.sampleRate === sampleRate)
+		.map(request => [request.direction, request.periodFrames]), sampleRate);
+	await expect.poll(() => requestedPeriods(48_000)).toEqual([['input', 256], ['output', 256]]);
+	await expect(rate).toBeEnabled();
+	await rate.selectOption('96000');
+	await expect.poll(() => requestedPeriods(96_000)).toEqual([['input', 512], ['output', 512]]);
+	await expect(rate).toBeEnabled();
+	await rate.selectOption('192000');
+	await expect.poll(() => requestedPeriods(192_000)).toEqual([['input', 1024], ['output', 1024]]);
+	await expect(rate).toBeEnabled();
+	await expect(editor.getByRole('alert')).toHaveCount(0);
+});
 
 test('idle microphone metering retains its preference and adopts the reconnected native input rate', async ({ page }) => {
 	await installNativeInputPeer(page);
