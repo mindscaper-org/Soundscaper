@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { randomBytes } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { lstatSync, readFileSync, unlinkSync } from 'node:fs';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
+import { setImmediate } from 'node:timers/promises';
 
 import {
 	framescaperDesktopProjectLibraryExactGenerationMetadataRevision as metadataRevision,
@@ -19,6 +20,7 @@ import type {
 import type { ExactGenerationProject } from './project-library-exact-generation-body-configuration.ts';
 import type { FramescaperDesktopProjectLibraryExactGenerationConfiguration } from './project-library-exact-generation-main.ts';
 import { assertDesktopExpectedProjectDocument, DesktopProjectWriteFenceConflict } from './project-library-write-fence.ts';
+import { withProjectLibraryImmediateTransaction } from './project-library-immediate-transaction.ts';
 import {
 	concatenateFramescaperDesktopProjectLibraryChunks as concatenate,
 	framescaperDesktopProjectLibraryClosedRecord as closedRecord,
@@ -35,6 +37,7 @@ const EXPECTED_FIELDS = ['projectRevision', 'projectSha256'] as const;
 const BODY_FIELDS = ['kind', 'encoding', 'sourceId', 'storageKey', 'mimeType', 'byteLength', 'sha256'] as const;
 const PROXY_BODY_FIELDS = ['kind', 'encoding', 'bindingId', 'sourceId', 'storageKey', 'mimeType', 'byteLength', 'sha256'] as const;
 const MAXIMUM_BODIES = 4_094;
+const DELETED_FILE_BATCH = 64;
 
 interface FramescaperDesktopExactProjectRow {
 	readonly id: string;
@@ -118,6 +121,123 @@ export async function readFramescaperDesktopExactProjectBundle(
 		metadataRevision: metadataRevision(database), project, document,
 		bodies: configuredBodies(configuration, parsed, project.sha256, JSON.parse(text(row.bodies_json, 'body inventory')) as unknown, true),
 	});
+}
+
+export function deleteFramescaperDesktopExactProject(
+	configuration: FramescaperDesktopProjectLibraryExactGenerationConfiguration,
+	database: DatabaseSync,
+	paths: Readonly<FramescaperDesktopProjectLibraryPaths>,
+	lifecycle: FramescaperDesktopProjectLibraryExactGenerationLifecycle | null,
+	value: unknown,
+) {
+	const request = value as Record<string, unknown>;
+	const projectId = text(request?.projectId, 'project id');
+	const revision = nonNegative(request?.expectedMetadataRevision, 'metadata revision');
+	const expected = framescaperDesktopExactStoredExpectedProject(request?.expectedProject, configuration.label);
+	withProjectLibraryImmediateTransaction(database, () => {
+		lifecycle?.assertLeaseInTransaction(database);
+		if (revision !== metadataRevision(database)) throw new Error(`${configuration.label} metadata CAS failed`);
+		const row = readFramescaperDesktopExactProjectRow(database, projectId);
+		assertFramescaperDesktopExactExpectedProject(row, expected, configuration.label);
+		if (row && lifecycle) {
+			const docFile = `${sha256(projectId).slice(0, 48)}/${nonNegative(row.project_revision, 'project revision')}-${digest(row.sha256, 'document')}.json`;
+			if (row.document_file !== docFile) throw new Error(`${configuration.label} deleted document path changed`);
+			const insert = database.prepare('INSERT OR IGNORE INTO deleted_project_files (root, file) VALUES (?, ?)');
+			insert.run('document', docFile);
+			for (const file of storedBodyFiles(configuration, paths, row.bodies_json)) insert.run('body', file);
+		}
+		database.prepare('DELETE FROM projects WHERE project_id = ?').run(projectId);
+		setMetadataRevision(database, revision + 1, configuration.label);
+	}, { rollbackWhenInactive: true });
+	return Object.freeze({ projectId, metadataRevision: revision + 1, deleted: true });
+}
+
+/** Retry exact committed deletions in short batches while the writer still owns the library. */
+export async function reclaimDeletedFramescaperDesktopProjectFiles(
+	configuration: FramescaperDesktopProjectLibraryExactGenerationConfiguration,
+	database: DatabaseSync,
+	paths: Readonly<FramescaperDesktopProjectLibraryPaths>,
+	lifecycle: FramescaperDesktopProjectLibraryExactGenerationLifecycle | null,
+): Promise<void> {
+	if (!lifecycle) return;
+	const upper = nonNegative(database.prepare('SELECT coalesce(max(id), 0) AS id FROM deleted_project_files').get()?.id, 'deleted file id');
+	let cursor = 0;
+	let referencedRevision = -1;
+	let referenced: ReadonlySet<string> = new Set();
+	while (cursor < upper) {
+		withProjectLibraryImmediateTransaction(database, () => {
+			lifecycle.assertLeaseInTransaction(database);
+			if (database.prepare('SELECT 1 FROM publication_journal LIMIT 1').get()) { cursor = upper; return; }
+			const batch = database.prepare('SELECT id, root, file FROM deleted_project_files WHERE id > ? AND id <= ? ORDER BY id LIMIT ?')
+				.all(cursor, upper, DELETED_FILE_BATCH);
+			if (batch.length === 0) { cursor = upper; return; }
+			const revision = metadataRevision(database);
+			if (revision !== referencedRevision) {
+				referenced = referencedDeletionFiles(configuration, database, paths, cursor, upper);
+				referencedRevision = revision;
+			}
+			const remove = database.prepare('DELETE FROM deleted_project_files WHERE id = ?');
+			for (const row of batch) {
+				cursor = nonNegative(row.id, 'deleted file id');
+				const root = text(row.root, 'deleted file root');
+				const file = text(row.file, 'deleted file name');
+				if (referenced.has(`${root}:${file}`) || removeDeletedFile(paths, root, file)) remove.run(cursor);
+			}
+		}, { rollbackWhenInactive: true });
+		if (cursor < upper) await setImmediate();
+	}
+}
+
+function referencedDeletionFiles(
+	configuration: FramescaperDesktopProjectLibraryExactGenerationConfiguration,
+	database: DatabaseSync,
+	paths: Readonly<FramescaperDesktopProjectLibraryPaths>,
+	cursor: number,
+	upper: number,
+): Set<string> {
+	const candidates = new Set<string>();
+	let includeBodies = false;
+	for (const row of database.prepare('SELECT root, file FROM deleted_project_files WHERE id > ? AND id <= ?').iterate(cursor, upper)) {
+		const root = text(row.root, 'deleted file root');
+		candidates.add(`${root}:${text(row.file, 'deleted file name')}`);
+		includeBodies ||= root === 'body';
+	}
+	const referenced = new Set<string>();
+	const fields = includeBodies ? 'document_file, bodies_json' : 'document_file';
+	for (const row of database.prepare(`SELECT ${fields} FROM projects`).iterate()) {
+		const document = `document:${text(row.document_file, 'document file')}`;
+		if (candidates.has(document)) referenced.add(document);
+		if (includeBodies) for (const file of storedBodyFiles(configuration, paths, row.bodies_json)) {
+			const body = `body:${file}`;
+			if (candidates.has(body)) referenced.add(body);
+		}
+	}
+	return referenced;
+}
+
+function storedBodyFiles(configuration: FramescaperDesktopProjectLibraryExactGenerationConfiguration,
+	paths: Readonly<FramescaperDesktopProjectLibraryPaths>, inventory: unknown): readonly string[] {
+	return parseFramescaperDesktopExactBodies(inventory, configuration.label,
+		configuration.validateBodyDescriptor ?? validateFramescaperDesktopExactBody, configuration.maximumBodies)
+		.map(body => relative(paths.managedMediaRoot, framescaperDesktopExactMediaPath(paths, body)).split(sep).join('/'));
+}
+
+function removeDeletedFile(paths: Readonly<FramescaperDesktopProjectLibraryPaths>, root: string, file: string): boolean {
+	const document = root === 'document';
+	if (!document && root !== 'body') return false;
+	const parts = file.split('/');
+	const name = parts.pop();
+	if (!name || parts.length !== (document ? 1 : 2) || [...parts, name].some(part => !/^[a-z0-9][a-z0-9.-]*$/u.test(part))) return false;
+	let directory = document ? paths.projectsRoot : paths.managedMediaRoot;
+	try {
+		if (!lstatSync(directory).isDirectory()) return false;
+		for (const part of parts) {
+			directory = join(directory, part);
+			if (!lstatSync(directory).isDirectory()) return false;
+		}
+		unlinkSync(join(directory, name));
+		return true;
+	} catch (error) { return (error as NodeJS.ErrnoException).code === 'ENOENT'; }
 }
 
 export async function persistFramescaperDesktopExactPublication(
@@ -235,6 +355,7 @@ export async function persistFramescaperDesktopExactPublication(
 		});
 		await lifecycle?.publicationCommitted(declaration, result);
 		await lifecycle?.publicationComplete(declaration);
+		await reclaimDeletedFramescaperDesktopProjectFiles(configuration, database, paths, lifecycle).catch(() => undefined);
 		return result;
 	} catch (error) {
 		await rm(temporaryDocument, { force: true }).catch(() => undefined);

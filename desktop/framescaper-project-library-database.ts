@@ -44,6 +44,12 @@ export function initializeFramescaperDesktopProjectLibraryLifecycleDatabase(
 			storage_key TEXT NOT NULL,
 			PRIMARY KEY (publication_id, body_file)
 		) STRICT;
+		CREATE TABLE IF NOT EXISTS deleted_project_files (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			root TEXT NOT NULL CHECK (root IN ('document', 'body')),
+			file TEXT NOT NULL,
+			UNIQUE (root, file)
+		) STRICT;
 		COMMIT;
 		`);
 	} catch (error) {
