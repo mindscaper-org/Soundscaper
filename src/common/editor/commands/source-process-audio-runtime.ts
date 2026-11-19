@@ -5,8 +5,8 @@ import type { AudioEditorCommand } from './protocol.ts';
 import { evaluateAudioWarpMapAtSource, normalizeAudioWarpMap } from '../audio-warp-domain.ts';
 import { audioWarpOuterAtTimelineFrame, isMusicalAudioWarpClip, type AudioWarpAuthorityRuntimeClip, type AudioWarpAuthorityRuntimeProject } from '../audio-warp-runtime-authority.ts';
 import { CLIP_SOURCE_STRETCH_EXTENSION, type ClipSourceStretchMemory } from '../clip-source-stretch-memory.ts';
-import { addRationals, beatToSampleFrame, compareRationals, multiplyRationals, subtractRationals, type Rational } from '../timeline-time.ts';
-import { clipLoopTransformFields } from '../audio-clip-loop.ts';
+import { addRationals, beatToSampleFrame, compareRationals, multiplyRationals, roundRational, subtractRationals, type Rational } from '../timeline-time.ts';
+import { readClipLoop, withClipLoop, type ClipLoop } from '../audio-clip-loop.ts';
 import { remapProcessedSourceEnvelope } from './source-process-envelope.ts';
 
 type RecordValue = Record<string, unknown>;
@@ -35,6 +35,8 @@ interface Project extends RecordValue, AudioWarpAuthorityRuntimeProject {
 	projectBin?: { clips: Clip[] };
 }
 
+interface SourceEdit { readonly startFrame: number; readonly endFrame: number; readonly outputFrames: number }
+
 /** Replace source samples once, retaining each instance's authored processing. */
 export function processSourceAudio(projectValue: object, command: Extract<AudioEditorCommand, { type: 'source/process-audio' }>): void {
 	const project = projectValue as Project;
@@ -53,6 +55,7 @@ export function processSourceAudio(projectValue: object, command: Extract<AudioE
 	const outputFrames = next.frameCount - previous.frameCount + endFrame - startFrame;
 	if (!Number.isSafeInteger(outputFrames) || outputFrames < 1) throw new RangeError('Processed source range must retain audio.');
 	const delta = next.frameCount - previous.frameCount;
+	const edit = { startFrame, endFrame, outputFrames };
 	const mapFrame = (frame: number): number => frame <= startFrame ? frame : frame >= endFrame
 		? frame + delta : startFrame + Math.round((frame - startFrame) * outputFrames / (endFrame - startFrame));
 	const mapRational = (frame: Rational): Rational => compareRationals(frame, startFrame) <= 0 ? frame
@@ -64,11 +67,13 @@ export function processSourceAudio(projectValue: object, command: Extract<AudioE
 		const sourceStartFrame = Math.min(next.frameCount - 1, mapFrame(clip.sourceStartFrame));
 		const sourceDurationFrames = Math.max(1, mapFrame(clip.sourceStartFrame + clip.sourceDurationFrames) - sourceStartFrame);
 		const ratio = sourceDurationFrames / clip.sourceDurationFrames;
-		const durationFrames = Math.max(1, Math.round(clip.durationFrames * ratio));
+		const loop = delta ? readClipLoop(clip) : null;
+		const loopTiming = loop ? remapProcessedLoop(clip, loop, sourceStartFrame, sourceDurationFrames, edit) : null;
+		const durationFrames = loopTiming?.durationFrames ?? Math.max(1, Math.round(clip.durationFrames * ratio));
+		const changedLoop = loop && loopTiming && (loopTiming.loop.periodFrames !== loop.periodFrames
+			|| loopTiming.loop.offsetFrames !== loop.offsetFrames) ? loopTiming.loop : null;
 		const warpMap = clip.warpMap ? normalizeAudioWarpMap(clip.warpMap) : null;
-		const stretchMemory = remapStretchMemory(clip, previous, next, mapRational, { startFrame, endFrame, outputFrames });
-		// Replacing one period's PCM retains repetitions; it does not bake them into the source.
-		const loopFields = clipLoopTransformFields({ ...clip, ...stretchMemory }, { durationFrames });
+		const stretchMemory = remapStretchMemory(clip, previous, next, mapRational, edit);
 		const changes: RecordValue = {
 			sourceId: next.id, sourceStartFrame, sourceDurationFrames, durationFrames,
 			renderCacheRevision: (clip.renderCacheRevision ?? 0) + 1,
@@ -84,7 +89,7 @@ export function processSourceAudio(projectValue: object, command: Extract<AudioE
 				outer: remapWarpOuter(project, clip, point.outer, durationFrames),
 			})) } } : {}),
 			...stretchMemory,
-			...loopFields,
+			...(changedLoop ? { opaqueExtensions: withClipLoop(stretchMemory.opaqueExtensions ?? clip.opaqueExtensions, changedLoop) } : {}),
 		};
 		const updated = normalizeClipForProject(project, { ...clip, ...changes }) as Clip;
 		assertClipSourceBounds(project, updated);
@@ -92,6 +97,37 @@ export function processSourceAudio(projectValue: object, command: Extract<AudioE
 	};
 	project.clips = project.clips.map(replace);
 	if (project.projectBin) project.projectBin.clips = project.projectBin.clips.map(replace);
+}
+
+/** Reproject the first and last audible source boundaries across the same repeats. */
+function remapProcessedLoop(clip: Clip, loop: ClipLoop, sourceStartFrame: number, sourceDurationFrames: number, edit: SourceEdit) {
+	const oldPeriod = BigInt(loop.periodFrames);
+	const oldSpan = BigInt(clip.sourceDurationFrames), newSpan = BigInt(sourceDurationFrames);
+	const periodFrames = Math.max(1, roundRational(oldPeriod * newSpan, oldSpan, 'point'));
+	const period = BigInt(periodFrames);
+	const direction = clip.reversed ? -1n : 1n;
+	const oldOrigin = BigInt(clip.sourceStartFrame) + (clip.reversed ? oldSpan : 0n);
+	const newOrigin = BigInt(sourceStartFrame) + (clip.reversed ? newSpan : 0n);
+	const editLength = BigInt(edit.endFrame - edit.startFrame);
+	const editDelta = BigInt(edit.outputFrames) - editLength;
+	const editStart = BigInt(edit.startFrame) * oldPeriod;
+	const editWidth = editLength * oldPeriod;
+	const end = BigInt(loop.offsetFrames) + BigInt(clip.durationFrames);
+	const offsetFrames = Math.min(periodFrames - 1, mapPhase(BigInt(loop.offsetFrames)));
+	const mappedEnd = end / oldPeriod * period + BigInt(mapPhase(end % oldPeriod));
+	const durationFrames = Math.max(1, roundRational(mappedEnd - BigInt(offsetFrames), 1n, 'point'));
+	return { loop: { periodFrames, offsetFrames }, durationFrames };
+
+	function mapPhase(phase: bigint): number {
+		if (phase === 0n) return 0;
+		const coordinate = oldOrigin * oldPeriod + direction * phase * oldSpan;
+		const local = coordinate - editStart;
+		// Only the portion of the source edit before this boundary contributes to its shift.
+		const editedPrefix = local <= 0n ? 0n : local >= editWidth ? editWidth : local;
+		const mapped = (coordinate - newOrigin * oldPeriod) * editLength + editDelta * editedPrefix;
+		const offset = roundRational(direction * mapped * period, editWidth * newSpan, 'point');
+		return Math.max(0, Math.min(periodFrames, offset));
+	}
 }
 
 function remapWarpOuter(project: Project, clip: Clip, outer: Rational, durationFrames: number): Rational {
@@ -105,7 +141,7 @@ function remapWarpOuter(project: Project, clip: Clip, outer: Rational, durationF
 }
 
 function remapStretchMemory(clip: Clip, previous: Source, next: Source, mapFrame: (frame: Rational) => Rational,
-	range: Readonly<{ startFrame: number; endFrame: number; outputFrames: number }>): RecordValue {
+	range: SourceEdit): RecordValue {
 	const extensions = clip.opaqueExtensions && typeof clip.opaqueExtensions === 'object'
 		? clip.opaqueExtensions as RecordValue : null;
 	const memory = extensions?.[CLIP_SOURCE_STRETCH_EXTENSION] as ClipSourceStretchMemory | undefined;

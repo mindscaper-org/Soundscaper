@@ -44,6 +44,10 @@ export function withoutClipLoop(opaqueExtensions: unknown): Record<string, unkno
 	return output;
 }
 
+export function withClipLoop(opaqueExtensions: unknown, loop: ClipLoop): Record<string, unknown> {
+	return { ...record(opaqueExtensions), [LOOP_EXTENSION]: loop };
+}
+
 /** The extension travels through native projects and clipboard copies without changing their schema. */
 export function readClipLoop(clip: object): ClipLoop | null {
 	const value = record(record(record(clip).opaqueExtensions)[LOOP_EXTENSION]);
@@ -168,7 +172,7 @@ export function clipLoopSegmentFields(clip: LoopAudioClip, localStartFrame: numb
 	const loop = readClipLoop(clip);
 	if (!loop) return null;
 	const segment = normalizeInactiveClipLoop({ ...clip, durationFrames,
-		opaqueExtensions: { ...record(clip.opaqueExtensions), [LOOP_EXTENSION]: { ...loop, offsetFrames: (loop.offsetFrames + localStartFrame) % loop.periodFrames } } });
+		opaqueExtensions: withClipLoop(clip.opaqueExtensions, { ...loop, offsetFrames: (loop.offsetFrames + localStartFrame) % loop.periodFrames }) });
 	return { sourceStartFrame: segment.sourceStartFrame, sourceDurationFrames: segment.sourceDurationFrames, opaqueExtensions: record(segment.opaqueExtensions) };
 }
 
