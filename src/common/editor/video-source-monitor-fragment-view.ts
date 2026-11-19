@@ -18,7 +18,7 @@ export interface FragmentPlaybackClock {
 /** A local, picture-only playback view where browsers disagree on the original fragment clock. */
 export async function prepareFragmentPlaybackView(
 	file: Blob, timing: FragmentPlaybackClock, signal: AbortSignal,
-	options: Readonly<{ maximumBytes?: number; standardSampleEntry?: boolean; zeroOriginHybrid?: boolean }> = {},
+	options: Readonly<{ maximumBytes?: number; standardSampleEntry?: boolean; programmePicture?: boolean }> = {},
 ): Promise<Blob | null> {
 	const maximumBytes = Math.min(options.maximumBytes ?? MAXIMUM_FRAGMENT_PLAYBACK_VIEW_BYTES, MAXIMUM_FRAGMENT_PLAYBACK_VIEW_BYTES);
 	if (file.size > maximumBytes || timing.timescale > MAXIMUM_MUXER_TIMESCALE) return null;
@@ -46,8 +46,8 @@ export async function prepareFragmentPlaybackView(
 		if (!track || tracks.length !== 1) return null;
 		const codec = await track.getCodec();
 		if (codec !== 'avc' && codec !== 'av1') return null;
-		const zeroOriginHybrid = options.zeroOriginHybrid || codec === 'av1';
-		if (zeroOriginHybrid && await hasLeadingIsobmffVideoEdit(createVideoTimingDemuxReader(file, { signal }), signal)) return null;
+		const restrictedProfile = options.programmePicture || codec === 'av1';
+		if (restrictedProfile && await hasLeadingIsobmffVideoEdit(createVideoTimingDemuxReader(file, { signal }), signal)) return null;
 		let initialSampleCount: number | undefined;
 		let av1Configuration: Uint8Array | null = null;
 		for (const trak of children.filter(box => box.type === 'trak')) {
@@ -70,6 +70,7 @@ export async function prepareFragmentPlaybackView(
 				if (extensions.some(box => !['avcC', 'pasp', 'btrt'].includes(box.type))) return null;
 			}
 			const { initialCount, tail } = await fragmentSampleView(sizes);
+			if (options.programmePicture && initialCount === 0 && fields.some(box => box.type === 'edts')) return null;
 			initialSampleCount = initialCount;
 			if (tail) fragments = new Input({ source: new BlobSource(tail), formats: [MP4, QTFF] });
 			break;
@@ -81,9 +82,11 @@ export async function prepareFragmentPlaybackView(
 		if (fragments && !fragmentTrack) return null;
 		const origin = await track.getFirstTimestamp();
 		const transformationMatrix = await track.getTransformationMatrix();
-		if (zeroOriginHybrid) {
+		const videoOnlyFragment = options.programmePicture && codec === 'avc' && !fragmentTrack
+			&& (await input.getTracks()).length === 1;
+		if (restrictedProfile) {
 			const ratio = await track.getPixelAspectRatio();
-			if (!fragmentTrack || origin !== 0 || ratio.num !== ratio.den
+			if ((!videoOnlyFragment && (!fragmentTrack || origin !== 0)) || ratio.num !== ratio.den
 				|| transformationMatrix.some((component, index) => component !== (index % 4 === 0 ? 1 : 0))) return null;
 		}
 		const target = new BufferTarget();
@@ -95,6 +98,8 @@ export async function prepareFragmentPlaybackView(
 		});
 		await output.start();
 		let count = 0, bytes = 0;
+		let previousTimestamp = -Infinity;
+		let reordered = false;
 		const configObus = av1Configuration?.subarray(AV1_CONFIGURATION_HEADER_BYTES);
 		for (const leg of fragmentTrack ? [track, fragmentTrack] : [track]) {
 			let first = true;
@@ -107,11 +112,17 @@ export async function prepareFragmentPlaybackView(
 				first = false;
 				bytes += packet.byteLength;
 				if (++count > timing.frameCount || bytes > maximumBytes) return null;
+				if (videoOnlyFragment && !reordered) {
+					reordered = packet.timestamp < previousTimestamp;
+					previousTimestamp = packet.timestamp;
+				}
 				await source.add(packet.clone({ timestamp: packet.timestamp - origin }), { decoderConfig: config });
 			}
 			if (fragmentTrack && leg === track && count !== initialSampleCount) return null;
 		}
-		if (count !== timing.frameCount) return null;
+		// Browsers may shift a fully fragmented reordered picture clock. Apply
+		// this Programme view only if the source actually reorders its pictures.
+		if (count !== timing.frameCount || (videoOnlyFragment && !reordered)) return null;
 		await output.finalize();
 		if (!target.buffer || target.buffer.byteLength > maximumBytes) return null;
 		const view = new Blob([target.buffer], { type: 'video/mp4' });

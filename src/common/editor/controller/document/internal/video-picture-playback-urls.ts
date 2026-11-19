@@ -22,7 +22,7 @@ export function createVideoPicturePlaybackUrls(urls: ObjectUrlPort) {
 			reservedBytes += reservation;
 			const view = await prepareFragmentPlaybackView(blob, {
 				...timing, presentationTick: ordinal => timing.presentationTicks[ordinal],
-			}, signal, { maximumBytes: blob.size, standardSampleEntry: true, zeroOriginHybrid: true });
+			}, signal, { maximumBytes: blob.size, standardSampleEntry: true, programmePicture: true });
 			if (!view) return null;
 			const url = urls.createObjectURL(view);
 			if (url) {

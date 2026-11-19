@@ -5,9 +5,12 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { BlobSource, EncodedPacketSink, Input, MP4 } from 'mediabunny';
 import { prepareFragmentPlaybackView } from '../src/common/editor/video-source-monitor-fragment-view.ts';
+import { createVideoPicturePlaybackUrls } from '../src/common/editor/controller/document/internal/video-picture-playback-urls.ts';
 import { demuxVideoTiming } from '../src/common/editor/video-timing-demux.ts';
+import { createVideoTimingAssetPublication, validateVideoTimingAssetBytes } from '../src/common/editor/video-timing-asset.ts';
 import { sourceMonitorFragmentedMedia } from './browser/fixtures/video-timing-probe-media.js';
 import { hybridAv1VideoFixture } from './browser/fixtures/video-hybrid-av1.js';
+import { videoOnlyFragmentedAvcFixture } from './browser/fixtures/video-only-fragmented-avc.js';
 
 async function pictureBodies(file: Blob): Promise<string[]> {
 	const input = new Input({ formats: [MP4], source: new BlobSource(file) });
@@ -45,6 +48,35 @@ test('Source Monitor fragment views retain all authored timings and original enc
 	}
 });
 
+test('owned Programme can normalize a complete video-only fragment picture clock', async () => {
+	const [fragment, fragmentWithAudio] = [videoOnlyFragmentedAvcFixture(), sourceMonitorFragmentedMedia()[1]!]
+		.map(({ buffer, mimeType }) => new Blob([Uint8Array.from(buffer)], { type: mimeType }));
+	const original = fragment!;
+	const withAudio = fragmentWithAudio!;
+	const blobs = new Map<string, Blob>();
+	const playback = createVideoPicturePlaybackUrls({
+		createObjectURL(body) { blobs.set('fragment-picture', body); return 'fragment-picture'; },
+		revokeObjectURL(url) { blobs.delete(url); },
+	});
+	const indexFor = async (blob: Blob) => {
+		const sourceDigest = createHash('sha256').update(new Uint8Array(await blob.arrayBuffer())).digest('hex');
+		const timing = createVideoTimingAssetPublication(sourceDigest, await demuxVideoTiming(blob));
+		return validateVideoTimingAssetBytes(timing.reference, timing.bytes);
+	};
+	const timing = await indexFor(original);
+	const url = await playback.create(original, timing);
+	assert.equal(url, 'fragment-picture');
+	const view = blobs.get(url)!;
+	const actual = await demuxVideoTiming(view);
+	assert.deepEqual(actual.presentationTicks, timing.presentationTicks);
+	assert.equal(actual.timescale, timing.timescale);
+	assert.equal(actual.finalFrameDurationTicks, timing.finalFrameDurationTicks);
+	assert.deepEqual(await pictureBodies(view), await pictureBodies(original));
+	assert.equal(await playback.create(withAudio, await indexFor(withAudio)), null);
+	playback.revoke(url);
+	assert.equal(blobs.size, 0);
+});
+
 test('hybrid AV1 playback keeps all authored packets and requires its original decoder configuration', async () => {
 	const { buffer, mimeType } = hybridAv1VideoFixture();
 	const asFile = (bytes: Buffer) => new Blob([Uint8Array.from(bytes)], { type: mimeType });
@@ -53,7 +85,7 @@ test('hybrid AV1 playback keeps all authored packets and requires its original d
 	const timing = { ...original, frameCount: original.presentationTicks.length,
 		presentationTick: (ordinal: number) => original.presentationTicks[ordinal] };
 	const signal = new AbortController().signal;
-	const view = await prepareFragmentPlaybackView(file, timing, signal, { standardSampleEntry: true, zeroOriginHybrid: true });
+	const view = await prepareFragmentPlaybackView(file, timing, signal, { standardSampleEntry: true, programmePicture: true });
 	assert.ok(view);
 	const projected = await demuxVideoTiming(view);
 	assert.equal(projected.timescale, original.timescale);

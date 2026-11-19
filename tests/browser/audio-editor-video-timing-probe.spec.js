@@ -7,6 +7,7 @@ import { validateVideoTimingAssetBytes } from '../../src/common/editor/video-tim
 import {
 	endEditedMp4TimingProbeMedia, fragmentedMp4TimingProbeMedia, sourceMonitorFragmentedMedia, videoTimingProbeMedia,
 } from './fixtures/video-timing-probe-media.js';
+import { videoOnlyFragmentedAvcFixture } from './fixtures/video-only-fragmented-avc.js';
 import { bootEditor, chooseFileAction, importFiles, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 import { openFramescaperSourcePropertiesFromBin } from './helpers/framescaper-source-properties.js';
@@ -147,6 +148,31 @@ test('Programme seeks render the authored pictures beyond the first hybrid MP4 r
 			await expect(editor).not.toHaveAttribute('data-project-id', projectId);
 			await waitForProjectActivation(editor);
 		}
+	}
+});
+
+test('Programme seeks show authored pictures in a video-only MP4 with reordered fragments', async ({ page }) => {
+	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	await importFiles(editor, [videoOnlyFragmentedAvcFixture()]);
+	const preview = editor.locator('[data-video-preview]');
+	await expect(preview).toHaveAttribute('data-video-preview-renderer', 'ready');
+	const picture = preview.locator('[data-video-preview-canvas]');
+	for (const [ordinal, label] of [[3, 3], [12, 12], [20, 20], [26, 25], [12, 12]]) {
+		await seekFramescaperTimecode(page, editor, `00:00:00:${String(ordinal).padStart(2, '0')}`);
+		await expect(preview).toHaveAttribute('data-video-preview-evaluated-timeline-sample', String(ordinal * 1600));
+		await expect.poll(async () => page.evaluate(async png => {
+			const bitmap = await createImageBitmap(new Blob([Uint8Array.from(atob(png), c => c.charCodeAt(0))], { type: 'image/png' }));
+			try {
+				const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+				const context = canvas.getContext('2d');
+				context.drawImage(bitmap, 0, 0);
+				const width = canvas.height * 4 / 3;
+				const cells = [.25, .75].flatMap(y => [.125, .375, .625, .875].map(x =>
+					context.getImageData(Math.floor(canvas.width / 2 + (x - .5) * width), Math.floor(canvas.height * y), 1, 1).data[0]));
+				return cells[0] < 35 && cells[1] > 215
+					? cells.slice(2, 7).reduce((value, pixel, bit) => value | (pixel > 128 ? 1 << bit : 0), 0) : null;
+			} finally { bitmap.close(); }
+		}, (await picture.screenshot()).toString('base64'))).toBe(label);
 	}
 });
 
