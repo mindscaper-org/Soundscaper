@@ -286,7 +286,10 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 				previewRootRef.current.dataset.videoPreviewEvaluatedTimelineSample = String(timelineFrame);
 			}
 			try {
-				publishEvaluatedVideoPreviewFrame({ compositor, project, timelineFrame });
+				publishEvaluatedVideoPreviewFrame({
+					compositor, project, timelineFrame,
+					currentProject: () => compositorRef.current === compositor ? freezeCaptureProjectRef.current : null,
+				});
 			} catch { /* clean-display failure must not stop the editor preview */ }
 			updateCompositorState(report.status === 'fallback'
 				? 'fallback' : report.renderedEntryCount > 0 ? 'ready' : 'webgl');

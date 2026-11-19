@@ -37,6 +37,7 @@ interface PublisherState {
 export interface VideoPreviewExternalDisplayPublishRequest {
 	readonly compositor: EvaluatedPreviewCompositor;
 	readonly project: ExternalDisplayProjectIdentity | null | undefined;
+	readonly currentProject: () => ExternalDisplayProjectIdentity | null | undefined;
 	readonly timelineFrame: number;
 }
 
@@ -56,11 +57,13 @@ export function publishEvaluatedVideoPreviewFrame(
 	dependencies: VideoPreviewExternalDisplayPublisherDependencies = {},
 ): boolean {
 	const bridge = (dependencies.resolveBridge ?? resolveFramescaperNativeServicesBridge)();
-	if (bridge === null || typeof bridge.presentExternalDisplay !== 'function') return false;
+	const present = bridge?.presentExternalDisplay;
+	if (bridge === null || typeof present !== 'function') return false;
 	const store = framescaperNativeServicesStoreFor(bridge);
-	if (store.getSnapshot()?.activeExternalDisplayId === null
-		|| store.getSnapshot() === null) return false;
+	const displayTarget = store.externalDisplayTarget();
+	if (displayTarget === null) return false;
 	const project = projectIdentity(request.project);
+	const { currentProject } = request;
 	const timelineFrame = frame(request.timelineFrame);
 	const state = stateFor(bridge);
 	if (state.inFlight) return false;
@@ -69,28 +72,33 @@ export function publishEvaluatedVideoPreviewFrame(
 	const sequence = state.sequence;
 	state.sequence += 1;
 	state.inFlight = true;
-	const rgbaSha256 = bytesToHex(sha256(evaluated.rgba));
-	const evaluationFingerprint = bytesToHex(sha256(new TextEncoder().encode(
-		canonicalizeNativeMediaSummaryValue({
-			schemaVersion: 1,
-			kind: 'framescaper-evaluated-video-preview-frame',
-			projectId: project.id,
-			projectRevision: project.revision,
-			timelineFrame,
+	void (async () => {
+		const rgbaSha256 = bytesToHex(new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', evaluated.rgba)));
+		const current = currentProject();
+		if (store.externalDisplayTarget() !== displayTarget || current?.id !== project.id
+			|| current.revision !== project.revision) return;
+		const evaluationFingerprint = bytesToHex(sha256(new TextEncoder().encode(
+			canonicalizeNativeMediaSummaryValue({
+				schemaVersion: 1,
+				kind: 'framescaper-evaluated-video-preview-frame',
+				projectId: project.id,
+				projectRevision: project.revision,
+				timelineFrame,
+				width: evaluated.width,
+				height: evaluated.height,
+				rgbaSha256,
+			}),
+		)));
+		await present.call(bridge, Object.freeze({
+			sequence,
+			evaluationFingerprint,
 			width: evaluated.width,
 			height: evaluated.height,
+			dynamicRange: 'sdr',
 			rgbaSha256,
-		}),
-	)));
-	void bridge.presentExternalDisplay(Object.freeze({
-		sequence,
-		evaluationFingerprint,
-		width: evaluated.width,
-		height: evaluated.height,
-		dynamicRange: 'sdr',
-		rgbaSha256,
-		rgba: evaluated.rgba,
-	})).catch(() => {
+			rgba: evaluated.rgba,
+		}));
+	})().catch(() => {
 		void store.refresh().catch(() => null);
 	}).finally(() => { state.inFlight = false; });
 	return true;
