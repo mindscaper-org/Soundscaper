@@ -30,58 +30,52 @@ import { validateDesktopRendererDynamicSource } from '../../desktop/renderer-smo
 
 const SCRIPT_PATTERN = /\.(?:c|m)?js$/u;
 
-export function assembleE2ERawProfiles({ runRoot, evidence, repositoryRoot, runtime: runRuntime }) {
-	const profiles = new Map(requiredSurfaceIds().map((surface) => [surface, []]));
+export function assembleE2ERawProfiles({ runRoot, evidence, repositoryRoot, runtime: runRuntime, createGroup }) {
 	const dynamicScripts = new Map();
 	assembleBrowserProfiles({
 		directory: join(runRoot, 'coverage/v8-browser'),
 		dynamicScripts,
 		evidence,
-		profiles,
+		profiles: createGroup(),
 		repositoryRoot,
 	});
+	const packaged = createGroup();
 	assemblePackagedProfiles({
 		directory: join(runRoot, 'coverage/v8-packaged'),
 		dynamicScripts,
 		evidence,
-		profiles,
+		profiles: packaged,
 		repositoryRoot,
 		runRuntime,
 	});
 	const ordinaryElectronSurfaces = E2E_PRODUCTS.flatMap((productId) =>
 		['main', 'preload', 'renderer'].map((realm) => electronSurface(productId, realm)));
-	if (ordinaryElectronSurfaces.some((surface) => profiles.get(surface).length === 0)) {
+	if (ordinaryElectronSurfaces.some((surface) => packaged.count(surface) === 0)) {
 		throw new Error('Ordinary packaged coverage did not observe every Electron product surface.');
 	}
-	const local = assembleLocalAssistanceRawProfiles({
+	assembleLocalAssistanceRawProfiles({
 		directory: join(runRoot, 'coverage/v8-local-assistance'), evidence, runRuntime,
+		profiles: createGroup(),
 	});
-	for (const [surface, values] of local) profiles.get(surface).push(...values);
 	return Object.freeze({
 		dynamicScripts: Object.freeze([...dynamicScripts.values()].sort((left, right) => (
 			left.coverageUrl.localeCompare(right.coverageUrl)
 		))),
-		profiles,
 	});
 }
 
 function assembleBrowserProfiles({ directory, dynamicScripts, evidence, profiles, repositoryRoot }) {
-	const files = readProfiles(directory, 'browser');
+	const files = profileNames(directory, 'browser');
 	const ffmpegCoverage = browserFfmpegCoverageContract(repositoryRoot, evidence.sourceRevision);
 	const scriptsByUrl = new Map([...evidence.browser.values()].flatMap(({ scripts }) => (
 		scripts.map((script) => [script.coverageUrl, script])
 	)));
-	const suppliedMaps = new Map();
-	const suppliedMacroMaps = new Map();
-	for (const { name, profile } of files) {
+	const suppliedMaps = new Set();
+	for (const { name, profile } of readProfiles(directory, files, 'browser')) {
 		validateBrowserSourceCache(profile, name);
 		for (const [url, cache] of Object.entries(profile['source-map-cache'] ?? {})) {
 			if (isBrowserMacroDynamicCoverage(url)) {
-				const previous = suppliedMacroMaps.get(url);
-				if (previous !== undefined && stableJson(previous) !== stableJson(cache)) {
-					throw new Error(`Browser coverage supplied conflicting macro source maps for ${url}.`);
-				}
-				suppliedMacroMaps.set(url, cache);
+				profiles.storeSourceMap(url, cache, `Browser coverage supplied conflicting macro source maps for ${url}.`);
 				continue;
 			}
 			const script = scriptsByUrl.get(url);
@@ -96,15 +90,12 @@ function assembleBrowserProfiles({ directory, dynamicScripts, evidence, profiles
 				evidence.sourceRevision,
 				`browser profile ${name}`,
 			);
-			const previous = suppliedMaps.get(url);
-			if (previous !== undefined && stableJson(previous) !== stableJson(normalized)) {
-				throw new Error(`Browser coverage supplied conflicting source maps for ${url}.`);
-			}
-			suppliedMaps.set(url, normalized);
+			profiles.storeSourceMap(url, normalized, `Browser coverage supplied conflicting source maps for ${url}.`);
+			suppliedMaps.add(url);
 		}
 	}
 	const observed = new Map();
-	for (const { name, profile } of files) {
+	for (const { name, profile } of readProfiles(directory, files, 'browser')) {
 		const grouped = groupEntries(profile.result, (entry) => {
 			if (isBrowserFfmpegCoverage({ contract: ffmpegCoverage, entry, profile })) return null;
 			if (isBrowserMediabunnyBlobCoverage({ entry, evidence, profile })) return null;
@@ -115,7 +106,7 @@ function assembleBrowserProfiles({ directory, dynamicScripts, evidence, profiles
 					evidence,
 					name,
 					profile,
-					rawMap: suppliedMacroMaps.get(entry.url),
+					rawMap: profiles.readSourceMap(entry.url),
 					repositoryRoot,
 				});
 				return { ...classified, surface: browserSurface(classified.script.productId) };
@@ -140,10 +131,18 @@ function assembleBrowserProfiles({ directory, dynamicScripts, evidence, profiles
 }
 
 function assemblePackagedProfiles({ directory, dynamicScripts, evidence, profiles, repositoryRoot, runRuntime }) {
-	const files = readProfiles(directory, 'packaged');
+	const files = profileNames(directory, 'packaged');
 	const ffmpegCoverage = browserFfmpegCoverageContract(repositoryRoot, evidence.sourceRevision);
-	const cdp = files.filter(({ profile }) => profile['soundscaper-packaged-runtime'] !== undefined);
-	const runtimes = cdp.map(({ name, profile }) => packagedRuntime(profile, name, evidence));
+	const cdp = [];
+	const node = [];
+	const runtimes = [];
+	for (const { file, name, profile } of readProfiles(directory, files, 'packaged')) {
+		if (profile['soundscaper-packaged-runtime'] === undefined) node.push(file);
+		else {
+			cdp.push(file);
+			runtimes.push(packagedRuntime(profile, name, evidence));
+		}
+	}
 	if (new Set(runtimes.map(({ productId }) => productId)).size !== E2E_PRODUCTS.length) {
 		throw new Error('Packaged coverage does not identify both product runtimes.');
 	}
@@ -153,7 +152,7 @@ function assemblePackagedProfiles({ directory, dynamicScripts, evidence, profile
 		throw new Error('Packaged coverage runtime metadata disagrees with its nightly run identity.');
 	}
 	const observed = new Map();
-	for (const { name, profile } of cdp) {
+	for (const { name, profile } of readProfiles(directory, cdp, 'packaged')) {
 		const runtime = packagedRuntime(profile, name, evidence);
 		validatePackagedSourceCache(profile, name, (url) => classifyCdpEntry({
 			entry: { functions: [], scriptId: 'unobserved', url },
@@ -169,9 +168,7 @@ function assemblePackagedProfiles({ directory, dynamicScripts, evidence, profile
 		}));
 		appendGroupedProfiles(profiles, grouped, `packaged-cdp-${name}`, observed);
 	}
-	for (const { name, profile } of files.filter(({ profile }) => (
-		profile['soundscaper-packaged-runtime'] === undefined
-	))) {
+	for (const { name, profile } of readProfiles(directory, node, 'packaged')) {
 		const classified = [];
 		for (const entry of resultEntries(profile.result, `packaged profile ${name}`)) {
 			const match = classifyNodeEntry(entry, evidence, ffmpegCoverage, runtimes);
@@ -416,22 +413,22 @@ function validatePortableRepositorySources(map, repositoryRoot, label) {
 function appendGroupedProfiles(profiles, grouped, name, observed) {
 	for (const [surface, classified] of grouped) {
 		for (const { script } of classified) observed.set(script.coverageUrl, script);
-		profiles.get(surface).push({
-			name: safeProfileName(`${name}-${surface}.json`),
-			profile: { result: classified.map(({ entry }) => entry), 'source-map-cache': {} },
+		profiles.write(surface, safeProfileName(`${name}-${surface}.json`), {
+			result: classified.map(({ entry }) => entry), 'source-map-cache': {},
 		});
 	}
 }
 
 function attachObservedMaps(profiles, observed) {
-	for (const [surface, surfaceProfiles] of profiles) {
-		if (surfaceProfiles.length === 0) continue;
-		const cache = surfaceProfiles[0].profile['source-map-cache'];
+	for (const surface of requiredSurfaceIds()) {
+		if (profiles.count(surface) === 0) continue;
+		const cache = {};
 		for (const script of observed.values()) {
 			if (script.sourceMap !== null && surfaceForScript(script) === surface) {
 				cache[script.coverageUrl] = script.sourceMap;
 			}
 		}
+		profiles.attachMaps(surface, cache);
 	}
 }
 
@@ -460,12 +457,25 @@ function resultEntries(value, label) {
 	return value;
 }
 
-function readProfiles(directory, label) {
+function profileNames(directory, label) {
 	if (!existsSync(directory)) throw new Error(`Nightly ${label} coverage directory is missing.`);
 	return readdirSync(directory, { withFileTypes: true })
 		.filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
 		.sort((left, right) => left.name.localeCompare(right.name))
-		.map(({ name }) => ({ name, profile: readJson(join(directory, name), `${label} profile ${name}`) }));
+		.map(({ name }) => ({ name, digest: null }));
+}
+
+function* readProfiles(directory, files, label) {
+	for (const file of files) {
+		const { name } = file;
+		const bytes = readFileSync(join(directory, name));
+		const digest = createHash('sha256').update(bytes).digest('hex');
+		if (file.digest !== null && file.digest !== digest) {
+			throw new Error(`Nightly ${label} profile ${name} changed between coverage passes.`);
+		}
+		file.digest = digest;
+		yield { file, name, profile: parseProfile(bytes, `${label} profile ${name}`) };
+	}
 }
 
 function productForProfilePid(name, runtimes) {
@@ -516,8 +526,8 @@ function safeProfileName(value) {
 
 
 
-function readJson(path, label) {
-	try { return JSON.parse(readFileSync(path, 'utf8')); }
+function parseProfile(bytes, label) {
+	try { return JSON.parse(bytes.toString('utf8')); }
 	catch (error) { throw new Error(`The ${label} is not readable JSON.`, { cause: error }); }
 }
 

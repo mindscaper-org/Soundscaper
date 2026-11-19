@@ -70,22 +70,29 @@ test.describe('audio warp and transient workflow', () => {
 
 		await directTimecodeInput(dialog, 'Grid interval').fill('2048');
 		const strength = dialog.getByRole('slider', { name: /Quantization strength/u });
+		await expect(strength).toBeEnabled();
 		await strength.focus();
+		await expect(strength).toBeFocused();
 		await page.keyboard.press('Home');
 		await expect(strength).toHaveValue('0');
 		await dialog.getByRole('button', { name: 'Quantize transients', exact: true }).click();
 		await expect(dialog).toContainText('Transients quantized.');
 		await expect(map.getByRole('row')).toHaveCount(3);
 
+		await expect(strength).toBeEnabled();
 		await strength.focus();
+		await expect(strength).toBeFocused();
 		await page.keyboard.press('End');
 		await expect(strength).toHaveValue('100');
 		await dialog.getByRole('button', { name: 'Quantize transients', exact: true }).click();
 		await expect(dialog).toContainText('Transients quantized.');
 		await expect(map.getByRole('row')).toHaveCount(6);
 
+		await expect(strength).toBeEnabled();
 		await strength.focus();
+		await expect(strength).toBeFocused();
 		await page.keyboard.press('Home');
+		await expect(strength).toHaveValue('0');
 		for (let index = 0; index < 50; index += 1) await page.keyboard.press('ArrowRight');
 		await expect(strength).toHaveValue('50');
 		await dialog.getByRole('button', { name: 'Quantize transients', exact: true }).click();
@@ -94,7 +101,9 @@ test.describe('audio warp and transient workflow', () => {
 		await dialog.getByRole('checkbox', { name: 'Enable groove template', exact: true }).click();
 		await dialog.getByLabel(/Groove offsets/u).fill('0, 1/3, 2/3');
 		const grooveStrength = dialog.getByRole('slider', { name: /Groove strength/u });
+		await expect(grooveStrength).toBeEnabled();
 		await grooveStrength.focus();
+		await expect(grooveStrength).toBeFocused();
 		await page.keyboard.press('End');
 		await dialog.getByRole('button', { name: 'Apply groove', exact: true }).click();
 		await expect(dialog).toContainText('Groove applied.');

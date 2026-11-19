@@ -22,3 +22,12 @@ export async function encodeVideoKeyframeOfflineVideoToSink<Output>(
 	request.assertCurrent();
 	return runtime.encodeVideoKeyframeOfflineVideoToSink(request, sink);
 }
+
+export async function consumeVideoKeyframeOfflineFrames(
+	request: VideoKeyframeOfflineVideoExportRequest,
+	consumer: Parameters<typeof import('./video-keyframe-offline-video-export.ts').consumeVideoKeyframeOfflineFrames>[1],
+) {
+	const runtime = await import('./video-keyframe-offline-video-export.ts');
+	request.assertCurrent();
+	return runtime.consumeVideoKeyframeOfflineFrames(request, consumer);
+}

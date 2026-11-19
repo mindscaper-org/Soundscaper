@@ -69,7 +69,14 @@ test('visualizer foreground over background matches the same native solid-layer 
 	const choosing = page.waitForEvent('filechooser'); await chooseFileAction(page, editor, 'Open');
 	await (await choosing).setFiles({ name: 'Layer reference.fscape', mimeType: 'application/zip', buffer: Buffer.from(await archive.blob.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-project-id', project.id, { timeout: 30_000 }); await waitForProjectActivation(editor);
-	await expect.poll(() => page.evaluate(() => globalThis.__visualizerColors?.center)).toEqual([180, 180, 0, 255]);
+	// Native layers quantize their linear source-over result to Rec.709 delivery
+	// bytes before the preview converts that retained output to display sRGB.
+	const displayMidtones = [128 / 255, 127 / 255].map(coverage => {
+		const deliveryByte = Math.round(255 * (1.099 * coverage ** .45 - .099));
+		const linear = ((deliveryByte / 255 + .099) / 1.099) ** (1 / .45);
+		return Math.round(255 * (1.055 * linear ** (1 / 2.4) - .055));
+	});
+	await expect.poll(() => page.evaluate(() => globalThis.__visualizerColors?.center)).toEqual([...displayMidtones, 0, 255]);
 	const nativeLayers = await page.evaluate(() => globalThis.__visualizerColors.center);
 	// The generator's intermediate RGBA8 representation permits one output LSB
 	// versus the native composition's floating-point working buffer.

@@ -12,7 +12,7 @@ test('Escape cancels adjustment of an existing spectral band', async ({ page }) 
 	const brush = editor.getByRole('button', { name: 'Spectral brush', exact: true });
 	const box = await brush.boundingBox();
 	expect(box).not.toBeNull();
-	await page.mouse.move(box.x + 200, box.y + box.height / 3);
+	await brush.hover({ position: { x: 200, y: box.height / 3 } });
 	await page.mouse.down();
 	await page.mouse.move(box.x + 235, box.y + box.height / 3 + 30);
 	await page.mouse.up();

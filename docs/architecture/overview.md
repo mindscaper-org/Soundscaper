@@ -1,7 +1,7 @@
 # Architecture and maintainability
 
-The Vite entry selects a product from `src/soundscaper/` or `src/framescaper/`.
-Both products depend on shared code in `src/common/`; the editor domain lives in
+The Vite entry selects a product from `src/soundscaper/`, `src/framescaper/`, or
+`src/motionscaper/`. These products depend on shared code in `src/common/`; the editor domain lives in
 `src/common/editor/`, while React presentation belongs in its `ui/` directory.
 
 ## Shared module ownership
@@ -22,7 +22,7 @@ for source ownership, public files, allowed module dependencies, owner test
 targets, browser/product requirements and runtime inputs. The most specific
 source prefix or explicit source file owns a path. Semantic owners are separate
 from the Node runner's execution shards. Existing product applications remain
-under `src/soundscaper/` and `src/framescaper/`.
+under `src/soundscaper/`, `src/framescaper/`, and `src/motionscaper/`.
 
 `scripts/lib/module-test-suites.ts` derives a complete test inventory from those
 owners, declared test rules and helper dependencies. One-owner Node suites and

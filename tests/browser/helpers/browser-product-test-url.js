@@ -13,9 +13,12 @@ export function resolveBrowserProductTestUrl(path, environment = process.env) {
 	const encoded = environment[BROWSER_PRODUCT_ORIGINS_VARIABLE];
 	if (encoded === undefined || encoded === '') return path;
 	const origins = browserProductOrigins(encoded);
-	if (path === '/framescaper' || path.startsWith('/framescaper/')) {
-		const canonicalPath = path.slice('/framescaper'.length) || '/';
-		return new URL(canonicalPath, selectedOrigin(origins, 'framescaper')).href;
+	for (const product of ['framescaper', 'motionscaper']) {
+		const prefix = `/${product}`;
+		if (path === prefix || path.startsWith(`${prefix}/`)) {
+			const canonicalPath = path.slice(prefix.length) || '/';
+			return new URL(canonicalPath, selectedOrigin(origins, product)).href;
+		}
 	}
 	if (path.startsWith('/')) return new URL(path, selectedOrigin(origins, 'soundscaper')).href;
 	return path;
@@ -38,7 +41,7 @@ function browserProductOrigins(encoded) {
 	}
 	const origins = {};
 	for (const productId of Object.keys(value)) {
-		if (!['soundscaper', 'framescaper'].includes(productId)) throw new Error(`${BROWSER_PRODUCT_ORIGINS_VARIABLE} names an unknown product: ${productId}.`);
+		if (!['soundscaper', 'framescaper', 'motionscaper'].includes(productId)) throw new Error(`${BROWSER_PRODUCT_ORIGINS_VARIABLE} names an unknown product: ${productId}.`);
 		let url;
 		try {
 			url = new URL(value[productId]);
@@ -54,7 +57,7 @@ function browserProductOrigins(encoded) {
 		}
 		origins[productId] = url.origin;
 	}
-	if (origins.soundscaper === origins.framescaper) {
+	if (new Set(Object.values(origins)).size !== Object.keys(origins).length) {
 		throw new Error(`${BROWSER_PRODUCT_ORIGINS_VARIABLE} must name distinct product origins.`);
 	}
 	return origins;

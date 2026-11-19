@@ -8,11 +8,11 @@ import { hasPendingVideoPreviewMediaSeek } from '../../controller/clip-video/vid
  * linear composition do not serialize the real-time render loop.
  */
 export function shouldRenderExactProductVideoPreview(
-	session: Readonly<{ readonly renderExact?: unknown }> | null | undefined,
+	session: Readonly<{ readonly renderExact?: unknown; readonly requiresAsyncFrames?: boolean }> | null | undefined,
 	transportState: unknown,
 	frame?: Readonly<{ requiresLayeredPreview?: boolean }> | null,
 ): boolean {
-	return transportState !== 'playing' && frame?.requiresLayeredPreview !== true && typeof session?.renderExact === 'function';
+	return (transportState !== 'playing' || session?.requiresAsyncFrames === true) && frame?.requiresLayeredPreview !== true && typeof session?.renderExact === 'function';
 }
 
 /** Read back decoded media after its seek drains; readiness alone can still name the old picture. */

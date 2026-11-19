@@ -102,7 +102,7 @@ test('device-rate Reduce and Residue remain complementary without changing the c
 	assert.throws(() => processors[0]!.updateParams({ output: 'invalid' }), /output/u);
 });
 
-test('Get Noise Profile then Play uses the project profile on the ordinary device clock and compensates parallel tracks', async (context) => {
+test('Get Noise Profile then Play uses the project profile on the ordinary device clock and compensates parallel tracks', { timeout: 10_000 }, async (context) => {
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const previousContext = globalThis.AudioContext;
 	const previousWorklet = globalThis.AudioWorkletNode;
@@ -141,7 +141,18 @@ test('Get Noise Profile then Play uses the project profile on the ordinary devic
 	const id = controller.actions.effects.add({ type: 'audacity-noise-reduction', scope: 'track', trackId: 'wet' });
 	assert.ok(id); controller.actions.timeline.setSelection(0, 4096);
 	await controller.actions.effects.captureRackNoiseProfile('track', 'wet', id);
-	await controller.actions.transport.playPause();
+	// Capturing commits a project refresh; it can reissue the pending Play over
+	// the new profile after the original Play promise has already settled.
+	const playing = new Promise<void>((resolve, reject) => {
+		const unsubscribeState = controller.engine.subscribeState(state => {
+			if (state === 'playing') resolve();
+		});
+		const unsubscribeErrors = controller.engine.subscribePlaybackErrors(reject);
+		context.after(() => { unsubscribeState(); unsubscribeErrors(); });
+	});
+	await Promise.all([controller.actions.transport.playPause(), playing]);
+	assert.equal(controller.engine.getState().state, 'playing');
+	assert.equal((await controller.engine.getAudioContext({ resume: false })).sampleRate, 44_100);
 	assert.equal(processors.length, 1, 'the menu-added effect reaches the production listening graph');
 	const plan = compileProjectPathPdcPlanV21(controller.project!, { sampleRate: 44_100 });
 	assert.equal(plan.latencyFrames, processors[0]!.latencyFrames);

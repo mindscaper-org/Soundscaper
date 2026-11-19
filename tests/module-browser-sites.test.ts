@@ -16,7 +16,12 @@ test('a focused browser plan starts one product while retaining its distinct pee
 	assert.deepEqual(soundscaper.sites.map(site => site.productId), ['soundscaper']);
 	assert.doesNotThrow(() => assertPlan(framescaper));
 	assert.doesNotThrow(() => assertPlan(soundscaper));
-	assert.deepEqual(ordinaryBrowserProductSitePlan({}).sites.map(site => site.productId), ['soundscaper', 'framescaper']);
+	const motion = ordinaryBrowserProductSitePlan({ SCAPE_BROWSER_PRODUCTS: 'motionscaper', PLAYWRIGHT_PORT: '4610' });
+	assert.deepEqual(motion.sites.map(site => site.productId), ['motionscaper']);
+	assert.equal(motion.sites[0]!.origin, 'http://127.0.0.1:4612');
+	assert.equal(motion.sites[0]!.peerOrigin, 'http://127.0.0.1:4611');
+	assert.doesNotThrow(() => assertPlan(motion));
+	assert.deepEqual(ordinaryBrowserProductSitePlan({}).sites.map(site => site.productId), ['soundscaper', 'framescaper', 'motionscaper']);
 });
 
 test('browser product selection rejects unknown and repeated products, empty fields and origin collisions', () => {
@@ -28,6 +33,14 @@ test('browser product selection rejects unknown and repeated products, empty fie
 	assert.throws(() => assertPlan({ sites: [] }), /nonempty/iu);
 	assert.throws(() => assertPlan({ sites: [both.sites[0], both.sites[0]] }), /unique|duplicate/iu);
 	assert.throws(() => assertPlan({ sites: [both.sites[0], { ...both.sites[1], origin: both.sites[0]!.origin }] }), /origin|different/iu);
+	assert.throws(() => assertPlan({ sites: [...both.sites.slice(0, 2), { ...both.sites[2], peerOrigin: both.sites[0]!.origin }] }), /peer/iu);
+});
+
+test('Motionscaper-only preparation authenticates its build and rejects changed served bytes', async context => {
+	const site = await fixtureSite('motionscaper', context);
+	await prepareOrdinaryBrowserProductSites({ sites: [site] }, { soundscaperBuildDirectory: '.wrangler/absent-module-producer', sourceMaps: false });
+	await writeFile(resolve(site.outputDirectory, '_headers'), 'tampered');
+	await assert.rejects(() => prepareOrdinaryBrowserProductSites({ sites: [site] }, { sourceMaps: false }), /browser file changed/iu);
 });
 
 test('Framescaper-only preparation authenticates its build without reading an absent Soundscaper producer', async context => {

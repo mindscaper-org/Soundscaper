@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+cmake_minimum_required(VERSION 3.28)
+project(motionscaper_reference_decoder LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+if(MSVC)
+	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
+endif()
+if(NOT IS_ABSOLUTE "${MOTION_REFERENCE_OUTPUT_DIRECTORY}" OR NOT MOTION_REFERENCE_INCLUDE_DIRECTORIES OR NOT MOTION_REFERENCE_LIBRARY_DIRECTORIES)
+	message(FATAL_ERROR "The reference owner must supply its output and approved codec closure")
+endif()
+set(PKG_CONFIG_ARGN --static)
+set(PKG_CONFIG_USE_CMAKE_PREFIX_PATH FALSE)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(MOTION_REFERENCE_FFMPEG REQUIRED IMPORTED_TARGET NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH
+	libavcodec=63.1.101 libavformat=63.1.101 libavutil=61.1.101 libswscale=10.1.101)
+
+# pkg-config may describe only the already admitted source-owned recipe prefixes.
+function(require_approved_directories observed approved)
+	set(normalized_approved "")
+	foreach(directory IN LISTS ${approved})
+		file(TO_CMAKE_PATH "${directory}" normalized)
+		list(APPEND normalized_approved "${normalized}")
+	endforeach()
+	foreach(directory IN LISTS ${observed})
+		file(TO_CMAKE_PATH "${directory}" normalized)
+		if(NOT "${normalized}" IN_LIST normalized_approved)
+			message(FATAL_ERROR "Reference pkg-config escaped the approved codec closure: ${directory}")
+		endif()
+	endforeach()
+endfunction()
+require_approved_directories(MOTION_REFERENCE_FFMPEG_INCLUDE_DIRS MOTION_REFERENCE_INCLUDE_DIRECTORIES)
+require_approved_directories(MOTION_REFERENCE_FFMPEG_LIBRARY_DIRS MOTION_REFERENCE_LIBRARY_DIRECTORIES)
+
+add_executable(motion-reference-decoder ../motionscaper-native-reference.cpp)
+target_link_libraries(motion-reference-decoder PRIVATE PkgConfig::MOTION_REFERENCE_FFMPEG)
+set_target_properties(motion-reference-decoder PROPERTIES
+	RUNTIME_OUTPUT_DIRECTORY "${MOTION_REFERENCE_OUTPUT_DIRECTORY}"
+	RUNTIME_OUTPUT_DIRECTORY_RELEASE "${MOTION_REFERENCE_OUTPUT_DIRECTORY}")
+if(MSVC)
+	target_compile_options(motion-reference-decoder PRIVATE /W4 /WX /permissive- /Brepro /utf-8)
+	target_link_options(motion-reference-decoder PRIVATE /MANIFEST:EMBED
+		"/MANIFESTINPUT:${CMAKE_CURRENT_LIST_DIR}/../../../native/motionscaper-media-host/src/windows.manifest")
+else()
+	target_compile_options(motion-reference-decoder PRIVATE -O2 -Wall -Wextra -Werror)
+endif()

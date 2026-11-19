@@ -325,7 +325,7 @@ test('packaged video benchmark seeds exact effects and drives localized controls
 	assert.doesNotMatch(source, /name: '(?:Clip properties|Add effect|Play|Stop)'/u);
 });
 
-test('nightly product staging builds isolated Soundscaper and Framescaper trees', async (context) => {
+test('nightly product staging builds isolated Soundscaper, Framescaper and Motionscaper trees', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-nightly-products-'));
 	context.after(() => rm(root, { recursive: true, force: true }));
 	const outputRoot = join(root, 'release/desktop-nightly-products');
@@ -385,11 +385,12 @@ test('nightly product staging builds isolated Soundscaper and Framescaper trees'
 	assert.deepEqual(calls.map(({ productId }) => productId), [
 		'soundscaper', 'soundscaper', 'soundscaper',
 		'framescaper', 'framescaper', 'framescaper',
+		'motionscaper', 'motionscaper',
 	]);
 	assert.ok(calls.every(({ sourceMaps }) => sourceMaps === '1'));
 	assert.ok(calls.every(({ r2AccessKey }) => r2AccessKey === undefined));
 	assert.deepEqual(calls.filter(({ args }) => args.includes('--dir')).map(({ args }) => args.slice(0, 2)),
-		Array.from({ length: 2 }, () => ['--import', pathToFileURL(join(root, 'scripts/ci-github-release-fetch.mjs')).href]));
+		Array.from({ length: 3 }, () => ['--import', pathToFileURL(join(root, 'scripts/ci-github-release-fetch.mjs')).href]));
 	assert.deepEqual(calls.filter(({ args }) => args.some((value) => value.endsWith('publish-assistance-runtime-assets.mjs')))
 		.map(({ args }) => args.at(-1)), ['--verify', '--verify']);
 	calls.length = 0;
@@ -398,12 +399,12 @@ test('nightly product staging builds isolated Soundscaper and Framescaper trees'
 			SOUNDSCAPER_ASSISTANCE_RUNTIME_HANDOFF_ROOT: join(root, 'published-handoff'),
 			R2_MODELS_ACCESS_KEY_ID: 'must-not-reach-import' }, run });
 	assert.deepEqual(calls.map(({ productId }) => productId), [
-		'soundscaper', 'soundscaper', 'framescaper', 'framescaper',
+		'soundscaper', 'soundscaper', 'framescaper', 'framescaper', 'motionscaper', 'motionscaper',
 	]);
 	assert.ok(calls.every(({ r2AccessKey }) => r2AccessKey === undefined));
 	assert.equal(calls.some(({ args }) => args.some((value) =>
 		value.endsWith('publish-assistance-runtime-assets.mjs'))), false);
-	for (const productId of ['soundscaper', 'framescaper']) {
+	for (const productId of ['soundscaper', 'framescaper', 'motionscaper']) {
 		assert.equal(
 			JSON.parse(await readFile(join(outputRoot, productId, 'stage-manifest.json'), 'utf8')).productId,
 			productId,

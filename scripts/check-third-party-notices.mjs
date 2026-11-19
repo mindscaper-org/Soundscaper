@@ -37,6 +37,7 @@ const trackedVersions = [
 	'@types/jsdom',
 	'@zip.js/zip.js',
 	'axe-core',
+	'canvaskit-wasm',
 	'electron',
 	'fflate',
 	'gettext-parser',

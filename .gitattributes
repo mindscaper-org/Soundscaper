@@ -80,3 +80,4 @@ patches/**/*.patch text eol=lf
 /config/assistance-onnx-webgpu-plugin.json text eol=lf
 /config/assistance-onnx-node-api-build.json text eol=lf
 /config/assistance-sherpa-gpu-build.json text eol=lf
+tests/fixtures/native-aep/*.aepx -text -diff

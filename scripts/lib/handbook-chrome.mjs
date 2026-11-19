@@ -51,6 +51,7 @@ const REFERENCE_ENTRIES = Object.freeze({
 export const HANDBOOK_CHROME_COPY = Object.freeze({
 	'site.title': 'Soundscaper Handbook',
 	'site.title.framescaper': 'Framescaper Handbook',
+	'site.title.motionscaper': 'Motionscaper Handbook',
 	'notice.aiGenerated': 'This documentation is AI-generated.',
 	'sidebar.start': 'Start here',
 	'sidebar.soundscaper': 'Soundscaper',
@@ -58,6 +59,7 @@ export const HANDBOOK_CHROME_COPY = Object.freeze({
 	'sidebar.guides': 'How-to guides',
 	'sidebar.guides.all': 'All guides',
 	'sidebar.framescaper': 'Framescaper',
+	'sidebar.motionscaper': 'Motionscaper',
 	'sidebar.projects-and-data': 'Projects and data',
 	'sidebar.help': 'Help',
 	'sidebar.reference': 'Reference',

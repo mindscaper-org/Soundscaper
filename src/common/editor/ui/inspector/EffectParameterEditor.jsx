@@ -69,6 +69,7 @@ export default function EffectParameterEditor({
 	automationProject,
 	automationStrip,
 	onChange,
+	onParameterDraft = undefined,
 }) {
 	const [error, setError] = usePresentationFeedback(copy);
 	const definition = isAudacityDefinition(effect.type) ? AUDACITY_EFFECT_DEFINITIONS[effect.type] : null;
@@ -310,6 +311,7 @@ export default function EffectParameterEditor({
 					|| (effect.type === 'audacity-loudness-normalization' && name === 'dualMono' && effect.params?.mode === 'rms')}
 				sampleRate={sampleRate}
 				onCommit={(value, automation) => updateParam(name, value, automation)}
+				onDraftChange={onParameterDraft ? () => onParameterDraft(name) : undefined}
 				gestureFor={(parameterId = name, elementId = null) => (
 					parameterGestureProps(parameterId, elementId)
 				)}
@@ -390,7 +392,7 @@ function nativeParameterChoices(type, name) {
 }
 
 function AudacityParameter({ name, effectType, descriptor, value, effectParams, copy, disabled,
-	sampleRate, durationTimeCodeMap, onCommit, gestureFor }) {
+	sampleRate, durationTimeCodeMap, onCommit, onDraftChange, gestureFor }) {
 	const label = audacityEffectParameterLabel(effectType, name, copy);
 	const projectTimeCodeMap = useContext(TimeCodeMusicalContext);
 	const options = useMemo(() => descriptor.kind === 'enum' ? descriptor.options.map((option) => ({
@@ -456,6 +458,7 @@ function AudacityParameter({ name, effectType, descriptor, value, effectParams, 
 			timeCodeUnit={timeCodeUnit(effectType, name, descriptor.unit, range)}
 			sampleRate={sampleRate}
 			onCommit={(next) => onCommit(next, { controlValue: next })}
+			onDraftChange={onDraftChange}
 			{...gestureFor(name)}
 		/>
 		</TimeCodeMusicalContext.Provider>

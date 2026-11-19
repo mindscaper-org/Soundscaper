@@ -1,0 +1,8 @@
+asset:        aepx-pair.aepx
+title:        After Effects project fixture (combined): cases 000, 058, 060, 110 and 124 (the XML .aepx half of the .aep / .aepx pair)
+author:       vangel76 (contributor)
+source:       original work; generation: tools/aep/GENERATING.md, case map: docs/aep/CASES.md
+license:      MIT OR Apache-2.0
+license-file: LICENSE-MIT (MIT option selected in this distribution)
+added:        2026-11-03 by @vangel76
+notes:        Generated from scratch by the contributor with Adobe After Effects 2026, driven by the generator in `tools/aep/` (one composition per case, named like the case; docs/aep/CASES.md), as their own test data for the effectcraft-aep tests; contains only synthetic project structure, no third-party footage, presets, templates or personal data. No Adobe sample project or asset was used. Saved by After Effects as .aepx right after the .aep of the same name; the XMP packet in its ProjectXMPMetadata element was replaced by the base project's packet, so both halves carry the same one. Colour profile payloads removed: every embedded ICC profile (the working-space profile in the settings JSON, and the profile of imported footage) was replaced by a description-only stub made in code (tools/aep/stubicc.rs: 128-byte header, one `desc` tag with the original profile name, no colour data). The stub keeps the working-space name for metadata tests; it is not a colour-transform oracle. Final bytes checked with tools/aep/inspect-embedded.py (raw, base64 and AEPX hex): only stubs remain, no vendor strings, no personal paths or names (docs/aep/2026-11-03-initial-corpus.md).

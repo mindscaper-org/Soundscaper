@@ -44,6 +44,7 @@ export const LEGACY_PROJECT_FILE_EXTENSION = '.scape';
 export const ACCEPTED_PROJECT_FILE_EXTENSIONS = Object.freeze([
 	'.sscape',
 	'.fscape',
+	'.mscape',
 	'.liscape',
 	'.scape',
 ]);

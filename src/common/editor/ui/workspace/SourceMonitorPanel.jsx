@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { productVideoVisualPreviewRuntimeFor } from './product-video-visual-preview-runtime.ts';
+import ProductGeneratedSourceCanvas from './ProductGeneratedSourceCanvas.tsx';
+import { sourceMonitorIdentityIsCurrent } from './source-monitor-identity.ts';
 
 import { cancelVideoPreviewMediaSeek, seekVideoPreviewMedia } from '../../controller/clip-video/video-preview-media-seek.ts';
 import { resolveVideoDisplayGeometry } from '../../video-display-geometry.ts';
@@ -24,7 +27,16 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 	const view = controller.actions.video.sourceMonitor.view();
 	const visual = view.sourceId ? controller.actions.video.getSourceVisualData(view.sourceId, { sourceMonitor: true }) : null;
 	const { mediaUrl, pending } = useSourceMonitorMedia(visual);
+	const generatedRuntime = productVideoVisualPreviewRuntimeFor(controller)?.generatedSources;
+	const generated = view.sourceId && generatedRuntime?.ownsSource(snapshot.project, view.sourceId) ? generatedRuntime : null;
 	const disabled = blocked || snapshot.readOnly;
+	const generatedIsCurrent = useCallback(() => sourceMonitorIdentityIsCurrent(controller, {
+		sourceId: view.sourceId, openRevision: view.openRevision, project: snapshot.project,
+	}), [controller, view.sourceId, view.openRevision, snapshot.project]);
+	const publishGenerated = useCallback(frame => {
+		if (generatedIsCurrent()) controller.actions.video.sourceMonitor.seek(frame);
+	}, [controller, generatedIsCurrent]);
+
 	const setVideoRef = useCallback((media) => {
 		if (videoRef.current !== media) cancelVideoPreviewMediaSeek(videoRef.current);
 		videoRef.current = media;
@@ -57,10 +69,12 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 		videoRef.current?.pause?.();
 		setPlaying(false);
 	}, []);
+	const stopGenerated = useCallback(() => { if (generatedIsCurrent()) stop(); }, [generatedIsCurrent, stop]);
+	const generatedPlayingChanged = useCallback(value => { if (!value) stopGenerated(); }, [stopGenerated]);
 	useEffect(() => {
 		endedNaturally.current = false;
 		stop();
-	}, [stop, view.sourceId, view.openRevision, mediaUrl]);
+	}, [stop, view.sourceId, view.openRevision, snapshot.project, mediaUrl]);
 	useEffect(() => {
 		if (panelActive) return;
 		if (playingRef.current && videoRef.current) controller.actions.video.sourceMonitor.seekMediaTime(Number(videoRef.current.currentTime) || 0);
@@ -102,6 +116,11 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 		});
 	};
 	const togglePlay = () => {
+		if (generated) {
+			if (playing) stop();
+			else setPlaying(true);
+			return;
+		}
 		const media = videoRef.current;
 		if (!media || !panelActive) return;
 		if (playingRef.current) {
@@ -124,7 +143,8 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 		data-source-monitor-mark-out={view.markOut == null ? '' : view.markOut}
 	>
 		<div className="kw-audio-editor__source-monitor-picture">
-			{mediaUrl
+			{generated ? <ProductGeneratedSourceCanvas runtime={generated} project={snapshot.project} sourceId={view.sourceId} sourceFrame={view.positionFrame}
+				width={640} height={360} frameRate={view.frameRate} sourceFrameCount={view.sourceFrameCount} playing={playing} onPosition={publishGenerated} onPlayingChanged={generatedPlayingChanged} unavailable={copy.videoPreviewUnavailable} label={`${copy.panelSourceMonitor}: ${view.sourceName || copy.videoClip}`} onError={stopGenerated} /> : mediaUrl
 				? <video
 					ref={setVideoRef}
 					data-source-monitor-video
@@ -167,7 +187,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 				data-source-monitor-action="play"
 				aria-label={playing ? copy.pause : copy.play}
 				aria-pressed={playing}
-				disabled={!mediaUrl}
+				disabled={!mediaUrl && !generated}
 				onClick={togglePlay}
 			>{playing ? '❚❚' : '▶'}</button>
 			<button

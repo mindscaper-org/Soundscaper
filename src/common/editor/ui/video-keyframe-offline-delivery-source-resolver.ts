@@ -7,7 +7,7 @@ import {
 import {
 	createVideoKeyframeOfflineHtmlVideoSourceResolver, type VideoKeyframeOfflineHtmlVideoSourceResolverOptions,
 } from './video-keyframe-offline-html-video-source-resolver.ts';
-import type { VideoKeyframeOfflineSourcePresentation, VideoKeyframeOfflineSourceSession } from './video-keyframe-offline-rgba-source.ts';
+import type { VideoKeyframeOfflineSourcePresentation, VideoKeyframeOfflineSourceSession } from '../video-keyframe-offline-rgba-source.ts';
 
 /** Choose a stable drawable for the occurrence before the compositor admits it. */
 export function createVideoKeyframeOfflineDeliverySourceResolver(

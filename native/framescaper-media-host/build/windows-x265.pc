@@ -1,0 +1,13 @@
+prefix=${pcfiledir}/../..
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: x265
+Description: H.265/HEVC video encoder
+Version: 4.2
+Requires:
+Conflicts:
+Libs: -L${libdir} -lx265
+Libs.private: -ladvapi32
+Cflags: -I${includedir}

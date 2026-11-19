@@ -73,8 +73,11 @@ const ProjectBinCardContent = memo(function ProjectBinCardContent({
 	const videoClip = itemClips[videoIndex] ?? null;
 	const visualClip = itemClips[visualIndex] ?? null;
 	const waveformPath = useProjectBinWaveformPath(!videoClip && !visualClip && (buffer || peaks) ? { buffer, peaks } : null, clip, project);
+	const generatedVideo = Boolean(videoClip && productVideoVisualPreviewRuntimeFor(controller)?.generatedSources?.ownsSource(project, videoClip.sourceId));
+	const thumbnailClip = visualClip || (generatedVideo ? videoClip : null);
 	const visualThumbnail = useProductVisualThumbnail({
-		controller, project, clip: visualClip, source: sources[visualIndex] ?? null,
+		controller, project, clip: thumbnailClip,
+		source: thumbnailClip ? sources[itemClips.indexOf(thumbnailClip)] ?? null : null,
 	});
 	const previewPlaying = previewActive && previewState === 'playing';
 	const instanceCount = useProjectBinInstanceCount(controller.actions.projectBin.instanceCount, clip.id, project?.clips, project?.projectBin?.clips);
@@ -202,7 +205,7 @@ const ProjectBinCardContent = memo(function ProjectBinCardContent({
 					aria-label={`${copy.videoClip}: ${name}`}
 					role="img"
 				>
-					{previewActive && mediaUrl ? (
+					{generatedVideo ? <ProjectBinVisualThumbnail state={visualThumbnail} /> : previewActive && mediaUrl ? (
 						<video
 							ref={videoRef}
 							src={mediaUrl}

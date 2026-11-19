@@ -1,6 +1,9 @@
-import { Suspense } from 'react';
+/* global __SCAPE_FRAMESCAPER_LINE__ */
+import { Suspense, useState } from 'react';
+import { getLocaleDescriptor } from '../i18n/locales.js';
 
 import { bundledSiteCopyForLocale } from '../i18n/site-copy.js';
+import { productIdentity } from '../product-identities.js';
 import { productHref } from '../product-web-links.js';
 import { lazyEditorModule } from '../offline/lazy-module.tsx';
 import BrandSidebar from './BrandSidebar.jsx';
@@ -16,7 +19,13 @@ import './site.css';
 // rather than becoming a dormant bootstrap for a product this origin cannot
 // serve. The final bundle assertion in startup-graph-budget.mjs enforces that
 // output property for both product builds.
-const EditorBootstrap = __SCAPE_PRODUCT__ === 'framescaper'
+const EditorBootstrap = __SCAPE_PRODUCT__ === 'motionscaper'
+	? lazyEditorModule(() => import('../../motionscaper/MotionscaperBootstrap.tsx')
+		.then((module) => { editorStartupProgress.markPreparing(); return module; }))
+	: __SCAPE_PRODUCT__ === 'framescaper' && __SCAPE_FRAMESCAPER_LINE__ === 'successor'
+	? lazyEditorModule(() => import('../editor/ui/FramescaperSuccessorBootstrap.tsx')
+		.then((module) => { editorStartupProgress.markPreparing(); return module; }))
+	: __SCAPE_PRODUCT__ === 'framescaper'
 	? lazyEditorModule(() => import('../../framescaper/ui/FramescaperAudioEditorBootstrap.tsx')
 		.then((module) => { editorStartupProgress.markPreparing(); return module; }))
 	: lazyEditorModule(() => import('../../soundscaper/ui/SoundscaperAudioEditorBootstrap.tsx')
@@ -24,7 +33,15 @@ const EditorBootstrap = __SCAPE_PRODUCT__ === 'framescaper'
 const PrivacyPolicyRoute = lazyEditorModule(() => import('../editor/ui/PrivacyPolicyRoute.tsx'));
 
 export default function App({ route }) {
-	const { desktop, direction, embedded, locale, productId } = route;
+	const { desktop, direction, embedded, productId } = route;
+	const [motionLocale, setMotionLocale] = useState(null);
+	const locale = desktop && productId === 'motionscaper' ? motionLocale ?? route.locale : route.locale;
+	const changeMotionLocale = desktop && productId === 'motionscaper' ? (value) => {
+		const descriptor = getLocaleDescriptor(value); if (!descriptor) throw new RangeError('Unsupported application locale.');
+		document.documentElement.lang = descriptor.locale;
+		document.documentElement.dir = descriptor.direction;
+		setMotionLocale(descriptor.locale);
+	} : undefined;
 	const copy = useSiteCopy(locale);
 	if (route.privacyPolicy) {
 		return <>
@@ -49,6 +66,7 @@ export default function App({ route }) {
 							<EditorBootstrap
 								locale={locale}
 								fallbackCopy={copy}
+								onLocaleChange={changeMotionLocale}
 								productId={productId}
 								initialSurface={route.initialSurface}
 							/>
@@ -83,7 +101,7 @@ export function applyDocumentRoute(route) {
 }
 
 function updateProductHead(productId, privacyPolicy) {
-	const productName = productId === 'framescaper' ? 'Framescaper' : 'Soundscaper';
+	const productName = productIdentity(productId).name;
 	document.title = privacyPolicy
 		? `${bundledSiteCopyForLocale(document.documentElement.lang).legalLink} · ${productName}`
 		: productName;

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { bindIdleEffectContext } from './idle-effect-host.ts';
 
+import { disposeEngine, disposeEngineResources } from './disposal.ts';
 import { createEngineRealtimeContext, prepareAutomaticRealtimeSampleRate, prepareRealtimeSampleRate } from './realtime-sample-rate.ts';
 import { configureRealtimeContextLease, isBorrowedRealtimeContext, releaseEngineRealtimeContext, type EngineRealtimeContextLease } from './realtime-context-custody.ts';
 export { createRealtimeContext } from './realtime-sample-rate.ts';
@@ -8,7 +9,6 @@ import { ChunkStreamClient } from '../chunk-stream-client.js';
 import { createChunkStreamAudioNode } from '../chunk-stream-worklet-node.js';
 import { createAudioWarpRenderPathStatus } from '../audio-warp-runtime.ts';
 import { clearPreparedAudioWarpPlayback } from './audio-warp-fallback.ts';
-import { clearPlaybackMeterDemand } from './playback-meter-demand.ts';
 import {
 	normalizeChunkSource,
 	normalizeSourceResolver,
@@ -23,13 +23,10 @@ import {
 import { engineProjectRefreshMethods } from './project-refresh-playback.ts';
 import { engineProjectLoadingMethods } from './project-loading.ts';
 import { setPlaybackSourceResolver } from './playback-source-resolver.ts';
-import { disposePlaybackFrequencyOutput } from './playback-frequency-range.ts';
 import {
 	ENGINE_ASSERT_ACTIVE,
-	ENGINE_CANCEL_SCRUB,
 	ENGINE_DISPOSE_RESOURCES,
 	ENGINE_GET_CONTEXT,
-	ENGINE_HALT_GRAPH,
 } from './runtime-symbols.ts';
 import type {
 	EngineOfflineContextFactory,
@@ -369,50 +366,8 @@ getOutputDeviceState() {
 		});
 	},
 
-dispose() {
-		if (this.disposePromise) return this.disposePromise;
-		this.disposed = true;
-		this.lifecycleGeneration += 1;
-		this.state = 'disposed';
-		this.disposePromise = this[ENGINE_DISPOSE_RESOURCES]();
-		return this.disposePromise;
-	},
-
-async [ENGINE_DISPOSE_RESOURCES]() {
-		clearPlaybackMeterDemand(this);
-		this[ENGINE_CANCEL_SCRUB]();
-		this[ENGINE_HALT_GRAPH]();
-		this.project = null;
-		this.projectGraphSelection = null;
-		this.sources.clear();
-		this.chunkSources.clear();
-		this.positionListeners.clear();
-		this.meterListeners.clear();
-		this.stateListeners.clear(); this.playbackErrorListeners.clear();
-		this.parametricEqErrorListeners.clear();
-		this.reversedBuffers = new WeakMap();
-		this.preparedSpeedPlayback = null;
-		clearPreparedAudioWarpPlayback(this);
-		this.masterLoudnessMeter?.dispose();
-		this.masterLoudnessMeter = null;
-		this.masterLoudnessMeterChannelCount = null;
-		this.masterLoudnessMeterChannelWeights = null;
-		this.masterLoudnessMeterPromise = null;
-		this.latestMasterLoudnessMeter = null;
-		this.masterLoudnessMeterError = null;
-		disposePlaybackFrequencyOutput(this);
-		this.playbackOutputNode?.disconnect();
-		this.playbackOutputNode = null;
-		this.playbackOutputDestination = null;
-		const context = this.context;
-		this.context = null;
-		await releaseEngineRealtimeContext(this, context);
-		try {
-			this.chunkStreamClient?.dispose?.();
-		} finally {
-			this.chunkStreamClient = null;
-		}
-	},
+dispose() { return disposeEngine(this); },
+[ENGINE_DISPOSE_RESOURCES]: disposeEngineResources,
 async [ENGINE_GET_CONTEXT]() {
 		this[ENGINE_ASSERT_ACTIVE]();
 		if (this.context) await prepareAutomaticRealtimeSampleRate(this);

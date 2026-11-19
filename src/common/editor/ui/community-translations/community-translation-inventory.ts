@@ -16,12 +16,16 @@ export function loadCommunityTranslationInventory(): Promise<CommunityTranslatio
 		import('../../../i18n/freesound-attribution-copy.js'),
 		import('../../../i18n/audiocom-copy.ts'),
 		import('../dialogs/nyquist-bundled-control-copy.ts'),
+		import('../../../i18n/framescaper-successor-copy.ts'),
+		import('../../../i18n/framescaper-native-delivery-copy.ts'),
 		import('../../../i18n/editor-acx-compliance-copy.ts'),
-	]).then(([freesound, audiocom, nyquist, acx]) => {
+	]).then(([freesound, audiocom, nyquist, successor, nativeDelivery, acx]) => {
 		const owners = [
 			{ owner: 'freesoundAttribution', en: freesound.FREESOUND_ATTRIBUTION_ENGLISH_COPY },
 			{ owner: 'audiocom', en: audiocom.AUDIOCOM_COPY_BY_LOCALE.en },
 			{ owner: 'nyquistBundled', en: nyquist.NYQUIST_BUNDLED_CONTROL_COPY },
+			{ owner: 'framescaperSuccessor', en: successor.FRAMESCAPER_SUCCESSOR_ENGLISH_COPY },
+			{ owner: 'framescaperNativeDelivery', en: nativeDelivery.FRAMESCAPER_NATIVE_DELIVERY_ENGLISH_COPY },
 			{ owner: 'acxCompliance', en: acx.ACX_COMPLIANCE_COPY },
 		];
 		const english: Record<string, string> = { ...EDITOR_ENGLISH_COPY };

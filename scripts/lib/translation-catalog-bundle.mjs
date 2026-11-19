@@ -46,6 +46,61 @@ export function renderTranslationCatalogModule(catalog, sourceTexts = [], locale
 	].join('\n');
 }
 
+/** @param {unknown} value @param {readonly string[]} sourceTexts
+ * @param {readonly { specifier: string; texts: readonly string[] }[]} localePools */
+function compactCatalogValue(value, sourceTexts = [], localePools = []) {
+	const normalized = JSON.parse(JSON.stringify(value));
+	const counts = new Map();
+	countStrings(normalized, counts);
+	const shared = new Map(sourceTexts.map((text, index) => [text, `__catalogSourceText[${index}]`]));
+	const usesShared = [...counts.keys()].some(text => shared.has(text));
+	for (const [poolIndex, pool] of localePools.entries()) {
+		for (const [index, text] of pool.texts.entries()) shared.set(text, `__catalogLocaleText_${poolIndex}[${index}]`);
+	}
+	const strings = new Map([...counts].filter(([text, count]) => !shared.has(text) && count > 1
+		&& (['machine', 'audacity', 'human'].includes(text) || new TextEncoder().encode(JSON.stringify(text)).byteLength >= 16))
+		.map(([text], index) => [text, `__catalogText_${index}`]));
+	return {
+		declarations: [
+			...(usesShared ? [`import __catalogSourceText from ${JSON.stringify(SOURCE_POOL_SPECIFIER)};`] : []),
+			...localePools.map((pool, index) => `const __catalogLocaleText_${index} = (await import(${JSON.stringify(pool.specifier)})).default;`),
+			...[...strings].map(([text, name]) => `const ${name} = ${JSON.stringify(text)};`),
+		],
+		expression: catalogValue(normalized, new Map([...shared, ...strings])),
+	};
+}
+
+/** @param {Record<string, unknown>} catalog */
+function catalogExports(catalog) {
+	return [
+		...CATALOG_FIELDS.filter((key) => Object.hasOwn(catalog, key))
+			.map((key) => `export const ${key} = catalog.${key};`),
+		'export default catalog;',
+	];
+}
+
+/** @param {string} key */
+function isMotionTranslation(key) {
+	return key.startsWith('ui.motionscaper.') || key.startsWith('ui.motionscaper-')
+		|| key.startsWith('ui.motionLinkBridge.');
+}
+
+/** @param {string} key */
+function translationOwner(key) {
+	if (isMotionTranslation(key)) return 'motion';
+	if (/^ui\.framescaper(?:[A-Z.-])/u.test(key)) return 'framescaper';
+	return 'core';
+}
+
+/** @param {Record<string, unknown>} entries @param {string} owner @param {readonly string[]} sourceTexts
+ * @param {readonly { specifier: string; texts: readonly string[] }[]} localePools */
+function renderCatalogPart(entries, owner, sourceTexts, localePools) {
+	const values = Object.fromEntries(Object.entries(entries)
+		.filter(([key]) => translationOwner(key) === owner));
+	const { declarations, expression } = compactCatalogValue(values, sourceTexts, localePools);
+	return [...declarations, `export default ${expression};`].join('\n');
+}
+
 /** Only oversized lazy locales need an additional, independently bounded text module.
  * @param {Record<string, unknown>} catalog
  * @param {readonly string[]} sourceTexts
@@ -107,6 +162,8 @@ export function createTranslationCatalogBundlePlugin() {
 	let catalogDirectory = '';
 	/** @type {Map<string, { path: string; source: string }>} */
 	const localeTextModules = new Map();
+	/** @type {Map<string, { path: string, owner: string }>} */
+	const parts = new Map();
 	/** @type {Promise<{ paths: string[], texts: readonly string[] }> | null} */
 	let pendingPool = null;
 	async function loadPool() {
@@ -118,13 +175,28 @@ export function createTranslationCatalogBundlePlugin() {
 		})();
 		return pendingPool;
 	}
+	/** @param {Record<string, unknown>} catalog @param {readonly string[]} texts @param {string} path
+	 * @param {(pools: readonly { specifier: string; texts: readonly string[] }[]) => string} render */
+	async function renderBoundedCatalog(catalog, texts, path, render) {
+		const source = render([]);
+		if (new TextEncoder().encode(source).byteLength < MAXIMUM_CATALOG_MODULE_BYTES) return source;
+		const minified = await transform(source, { minify: true, charset: 'utf8' });
+		if (new TextEncoder().encode(minified.code).byteLength < MAXIMUM_CATALOG_MODULE_BYTES) return source;
+		const pools = localeTextPools(catalog, texts).map((pool, index) => {
+			const specifier = `${LOCALE_POOL_SPECIFIER}${basename(path)}:${index}`;
+			localeTextModules.set(`\0${specifier}${VIRTUAL_EXTENSION}`, { path, source: `export default ${JSON.stringify(pool)};` });
+			return { specifier, texts: pool };
+		});
+		return render(pools);
+	}
 	return {
 		name: 'scape:compact-translation-catalogs',
 		enforce: /** @type {const} */ ('pre'),
 		apply: /** @type {const} */ ('build'),
-		buildStart() { pendingPool = null; localeTextModules.clear(); },
+		buildStart() { pendingPool = null; localeTextModules.clear(); parts.clear(); },
 		/** @param {string} source @param {string | undefined} importer */
 		resolveId(source, importer) {
+			if (parts.has(source)) return source;
 			if (source === SOURCE_POOL_SPECIFIER) return SOURCE_POOL_ID;
 			if (source.startsWith(LOCALE_POOL_SPECIFIER)) {
 				const id = `\0${source}${VIRTUAL_EXTENSION}`;
@@ -145,20 +217,58 @@ export function createTranslationCatalogBundlePlugin() {
 				return `export default ${JSON.stringify(pool.texts)};`;
 			}
 			if (!id.startsWith(VIRTUAL_PREFIX)) return null;
+			const part = parts.get(id);
+			if (part) {
+				this.addWatchFile(part.path);
+				const catalog = JSON.parse(await readFile(part.path, 'utf8'));
+				const { texts } = await loadPool();
+				const values = Object.fromEntries(Object.entries(catalog.entries).filter(([key]) => translationOwner(key) === part.owner));
+				return renderBoundedCatalog(values, texts, `${part.path}.${part.owner}`,
+					pools => renderCatalogPart(values, part.owner, texts, pools));
+			}
 			const path = id.slice(VIRTUAL_PREFIX.length, -VIRTUAL_EXTENSION.length);
 			this.addWatchFile(path);
 			const catalog = JSON.parse(await readFile(path, 'utf8'));
+			if (Object.keys(catalog.entries).some(isMotionTranslation)) {
+				const imports = [];
+				for (const owner of ['core', 'motion', 'framescaper']) {
+					const partId = `${VIRTUAL_PREFIX}${path}.${owner}${VIRTUAL_EXTENSION}`;
+					parts.set(partId, { path, owner });
+					imports.push(`import(${JSON.stringify(partId)})`);
+				}
+				const { declarations, expression } = compactCatalogValue({ ...catalog, entries: undefined });
+				return [
+					// The selected locale awaits its fragments. Static imports here would
+					// put every locale's fragment URLs in the initial Vite preload list.
+					`const [core, motion, framescaper] = await Promise.all([${imports.join(', ')}]);`,
+					...declarations,
+					`const catalog = { ...${expression}, entries: { ...core.default, ...motion.default, ...framescaper.default } };`,
+					...catalogExports(catalog),
+				].join('\n');
+			}
 			const { texts } = await loadPool();
-			const source = renderTranslationCatalogModule(catalog, texts);
-			if (new TextEncoder().encode(source).byteLength < MAXIMUM_CATALOG_MODULE_BYTES) return source;
-			const minified = await transform(source, { minify: true, charset: 'utf8' });
-			if (new TextEncoder().encode(minified.code).byteLength < MAXIMUM_CATALOG_MODULE_BYTES) return source;
-			const pools = localeTextPools(catalog, texts).map((pool, index) => {
-				const specifier = `${LOCALE_POOL_SPECIFIER}${basename(path)}:${index}`;
-				localeTextModules.set(`\0${specifier}${VIRTUAL_EXTENSION}`, { path, source: `export default ${JSON.stringify(pool)};` });
-				return { specifier, texts: pool };
-			});
-			return renderTranslationCatalogModule(catalog, texts, pools);
+			return renderBoundedCatalog(catalog, texts, path, pools => renderTranslationCatalogModule(catalog, texts, pools));
+		},
+		/** @param {import('rolldown').OutputOptions} options */
+		outputOptions(options) {
+			if (options.codeSplitting === false) return null;
+			const splitting = typeof options.codeSplitting === 'object' ? options.codeSplitting : {};
+			return { ...options, codeSplitting: {
+				...splitting,
+				groups: [
+					...(splitting.groups ?? []),
+					{
+						// Output options run before loading the graph; resolve registered
+						// virtual owners when the bundler assigns each module to a chunk.
+						/** @param {string} id */
+						name(id) {
+							const part = parts.get(id);
+							return part ? `translation-${basename(part.path, '.json')}-${part.owner}` : null;
+						},
+						priority: 200, minSize: 0, includeDependenciesRecursively: false,
+					},
+				],
+			} };
 		},
 	};
 }

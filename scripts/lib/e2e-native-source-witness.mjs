@@ -11,7 +11,7 @@ import { deriveTopology, sourceOwnership, coverageCounter } from './e2e-v8-sourc
 import { deriveV8FunctionTopology } from './e2e-v8-function-topology.mjs';
 
 /** A reviewed test selector is not runtime proof: require actual execution in each declared realm. */
-export function validateNativeSourceWitnesses({ repositoryRoot, artifactRoot, profiles, scripts, nodeSources }) {
+export function validateNativeSourceWitnesses({ repositoryRoot, artifactRoot, profiles, profilesForScript = ({ surface }) => profiles?.filter(item => item.surface === surface).map(({ profile }) => profile) ?? [], scripts, nodeSources }) {
 	const failures = [], witnesses = [];
 	for (const source of nodeSources) {
 		let original, originalGeometry;
@@ -28,7 +28,7 @@ export function validateNativeSourceWitnesses({ repositoryRoot, artifactRoot, pr
 			const candidates = scripts.filter(script => script.surface === surface && script.sources.includes(source.path));
 			for (const script of candidates) {
 				try {
-					witness = scriptWitness({ artifactRoot, profiles: profiles.filter(item => item.surface === surface), script, source, original, originalGeometry });
+					witness = scriptWitness({ artifactRoot, profiles: [...profilesForScript(script)], script, source, original, originalGeometry });
 					if (witness) break;
 				} catch (error) {
 					failures.push(`${surface} ${source.path} native witness: ${errorMessage(error)}`);
@@ -43,9 +43,9 @@ export function validateNativeSourceWitnesses({ repositoryRoot, artifactRoot, pr
 
 function scriptWitness({ artifactRoot, profiles, script, source, original, originalGeometry }) {
 	if (script.sourceMapSha256 == null) throw new Error('a source-mapped witness requires an authenticated source map');
-	const entries = profiles.flatMap(({ profile }) => (profile.result ?? []).filter(entry => entry.url === script.coverageUrl));
+	const entries = profiles.flatMap((profile) => (profile.result ?? []).filter(entry => entry.url === script.coverageUrl));
 	if (!entries.length) return null;
-	const caches = profiles.flatMap(({ profile }) => {
+	const caches = profiles.flatMap((profile) => {
 		const cache = profile['source-map-cache']?.[script.coverageUrl]; return cache ? [cache] : [];
 	});
 	const generated = readFileSync(inside(artifactRoot, script.artifactPath), 'utf8');

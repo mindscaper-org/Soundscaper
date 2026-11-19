@@ -135,6 +135,9 @@ test.describe('Project Bin replacement and linked original relink', () => {
 		await expect(page.locator('[data-project-bin-relink-changed-dialog]')).toHaveCount(0);
 		await expect.poll(() => linkedAudioLocatorId(page, projectId)).toBe(locatorIds.exact);
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		// Binding publication precedes runtime source activation. Verify the
+		// exact replacement can render before starting another chooser workflow.
+		expectDominantLinkedTone(await exportLinkedAudioTone(page, editor), 330);
 
 		await chooseRelink(page, card, 'declined');
 		const changedDialog = page.locator('[data-project-bin-relink-changed-dialog]');

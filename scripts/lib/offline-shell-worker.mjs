@@ -61,7 +61,7 @@ export function validateOfflineShellConfiguration(value) {
 			'scope', 'workerSha256',
 		])
 		|| value.schemaVersion !== 2
-		|| !['framescaper', 'soundscaper'].includes(value.productId)
+		|| !['framescaper', 'soundscaper', 'motionscaper'].includes(value.productId)
 		|| !validShellScope(value.scope)
 		|| !Array.isArray(value.foreignScopes) || value.foreignScopes.length > 8
 		|| value.foreignScopes.some((scope, index) => !validShellScope(scope) || !scope.startsWith(value.scope)
@@ -138,7 +138,7 @@ function legacyShellCompletionUrl(releaseId) {
 }
 
 async function completionRecord(cache, cacheName, productId) {
-	let match = cacheName.match(/^soundscaper-application-shell-v2-(framescaper|soundscaper)-([a-f\d]{64})$/u);
+	let match = cacheName.match(/^soundscaper-application-shell-v2-(framescaper|soundscaper|motionscaper)-([a-f\d]{64})$/u);
 	let marker;
 	let expected;
 	if (match) {

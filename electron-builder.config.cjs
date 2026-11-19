@@ -3,14 +3,16 @@ const professionalNativePayloadManifest = require('./config/soundscaper-professi
 
 const productId = resolveDesktopProductId(process.env.SCAPE_PRODUCT);
 const framescaper = productId === 'framescaper';
-const productName = framescaper ? 'Framescaper' : 'Soundscaper';
+const motionscaper = productId === 'motionscaper';
+const productName = { soundscaper: 'Soundscaper', framescaper: 'Framescaper', motionscaper: 'Motionscaper' }[productId];
 const releaseMetadata = require('./scripts/lib/product-release-lines.mjs').resolveProductDesktopMetadata(productId);
 const releaseName = releaseMetadata.applicationVersion;
+const artifactPrefix = motionscaper ? `${productName}-${releaseName}` : releaseName;
 // Development builds use ad-hoc seals; credentialed release jobs explicitly
 // select a Developer ID identity and require notarization.
 const signing = require('./scripts/lib/desktop-signing-config.cjs').desktopSigningConfig();
 const macSigningIdentity = signing.mac.identity;
-const macEntitlements = framescaper
+const macEntitlements = motionscaper ? 'desktop/motionscaper-entitlements.mac.plist' : framescaper
 	? 'desktop/framescaper-entitlements.mac.plist'
 	: 'desktop/soundscaper-entitlements.mac.plist';
 // These payloads are sealed before their exact digests enter the stage
@@ -28,11 +30,13 @@ const macPreAuthenticatedRuntimePayload = [
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
 	forceCodeSigning: signing.forceCodeSigning,
-	appId: framescaper ? 'org.framescaper.desktop' : 'org.soundscaper.desktop',
+	appId: `org.${productId}.desktop`,
 	productName,
-	artifactName: `${releaseName}-\${os}-\${arch}.\${ext}`,
-	buildVersion: releaseMetadata.packageVersion,
-	extraMetadata: { version: releaseMetadata.packageVersion, releaseVersion: releaseName },
+	artifactName: `${artifactPrefix}-\${os}-\${arch}.\${ext}`,
+	...(releaseMetadata.packageVersion === undefined ? {} : {
+		buildVersion: releaseMetadata.packageVersion,
+		extraMetadata: { version: releaseMetadata.packageVersion, releaseVersion: releaseName },
+	}),
 	compression: 'maximum',
 	asar: true,
 	// Stock Electron enables proprietary codecs in its Chromium FFmpeg library.
@@ -40,8 +44,8 @@ module.exports = {
 	// this framework library is not a Soundscaper codec-provider tier.
 	downloadAlternateFFmpeg: true,
 	npmRebuild: false,
-	beforePack: './scripts/desktop-before-pack.mjs',
-	afterPack: './scripts/desktop-after-pack.mjs',
+	beforePack: motionscaper ? './scripts/motionscaper-desktop-before-pack.mjs' : './scripts/desktop-before-pack.mjs',
+	afterPack: motionscaper ? './scripts/motionscaper-desktop-after-pack.mjs' : './scripts/desktop-after-pack.mjs',
 	afterSign: './scripts/desktop-after-sign.mjs',
 	afterAllArtifactBuild: './scripts/desktop-after-all-artifact-build.mjs',
 	msiProjectCreated: './scripts/desktop-msi-project.mjs',
@@ -69,8 +73,8 @@ module.exports = {
 		{
 			// Each build claims its own suffix plus the legacy one. Neither app
 			// claims `.liscape`, which Lightscaper will register for itself.
-			ext: framescaper ? 'fscape' : 'sscape',
-			name: framescaper ? 'Framescaper Project' : 'Soundscaper Project',
+			ext: { soundscaper: 'sscape', framescaper: 'fscape', motionscaper: 'mscape' }[productId],
+			name: `${productName} Project`,
 			description: `${productName} project`,
 			mimeType: 'application/vnd.soundscaper.scape+zip',
 			role: 'Editor',
@@ -78,11 +82,11 @@ module.exports = {
 		{
 			ext: 'scape',
 			name: 'Scape Project',
-			description: 'Soundscaper/Framescaper project',
+			description: 'Scape project',
 			mimeType: 'application/vnd.soundscaper.scape+zip',
 			role: 'Editor',
 		},
-		...(!framescaper ? [{
+		...(productId === 'soundscaper' ? [{
 			ext: ['aup3', 'aup4'],
 			// Named for what it is: 'Soundscaper Project' now belongs to `.sscape`.
 			name: 'Audacity Project',
@@ -93,8 +97,8 @@ module.exports = {
 	],
 	win: {
 		...signing.win,
-		// The standalone helper is authenticated against the staged executable bytes.
-		signExts: ['!fdk-aac-tool.exe'],
+		// Each standalone helper is authenticated against its staged executable bytes.
+		signExts: [motionscaper ? '!motionscaper-media-host.exe' : '!fdk-aac-tool.exe'],
 		extraResources: [{ from: 'desktop/installer/windows-ffmpeg-install.ps1', to: 'installer/windows-ffmpeg-install.ps1' }],
 		icon: '.desktop-build/icons/icon.ico',
 		target: ['nsis', 'zip', 'msi'],
@@ -127,12 +131,13 @@ module.exports = {
 		hardenedRuntime: signing.mac.notarize,
 		entitlements: macEntitlements,
 		entitlementsInherit: macEntitlements,
-		signIgnore: signing.mac.notarize ? '/Contents/Resources/runtime/' : macPreAuthenticatedRuntimePayload,
+		signIgnore: signing.mac.notarize ? '/Contents/Resources/runtime/' : motionscaper
+			? '/Contents/Resources/runtime/motionscaper-media-host/motionscaper-media-host$' : macPreAuthenticatedRuntimePayload,
 		gatekeeperAssess: false,
-		category: framescaper ? 'public.app-category.video' : 'public.app-category.music',
+		category: productId === 'soundscaper' ? 'public.app-category.music' : 'public.app-category.video',
 		// The after-all hook builds the PKG with optional components from this same sealed app.
 		target: ['dmg'],
-		extendInfo: framescaper ? {
+		extendInfo: motionscaper ? {} : framescaper ? {
 			NSCameraUsageDescription: 'Framescaper accesses the camera only when you choose a camera capture source.',
 			NSMicrophoneUsageDescription: 'Framescaper records microphone audio only when you choose a microphone capture source.',
 			NSAudioCaptureUsageDescription: 'Framescaper records system audio only when you explicitly include it with a screen capture.',
@@ -144,25 +149,25 @@ module.exports = {
 		// DMG titles expand ${arch} to a suffix that already includes its hyphen.
 		title: `${releaseName}\${arch}`,
 		sign: signing.mac.notarize,
-		artifactName: `${releaseName}-mac-\${arch}.\${ext}`,
+		artifactName: `${artifactPrefix}-mac-\${arch}.\${ext}`,
 	},
 	linux: {
 		icon: '.desktop-build/icons/linux',
-		executableName: framescaper ? 'framescaper' : 'soundscaper',
+		executableName: productId,
 		syncDesktopName: true,
-		category: framescaper ? 'AudioVideo;Video' : 'AudioVideo;Audio',
-		synopsis: framescaper ? 'Local-first video editor' : 'Local-first multitrack audio editor',
-		description: framescaper
+		category: productId === 'soundscaper' ? 'AudioVideo;Audio' : 'AudioVideo;Video',
+		synopsis: motionscaper ? 'Local-first motion graphics and compositing' : framescaper ? 'Local-first video editor' : 'Local-first multitrack audio editor',
+		description: motionscaper ? 'Motionscaper is a local-first motion graphics and compositing program.' : framescaper
 			? 'Framescaper is a local-first video editor with offline project and media export support.'
 			: 'Soundscaper is a local-first multitrack audio editor with offline project and media export support.',
 		maintainer: 'Mindscaper',
 		target: ['AppImage', 'deb'],
 	},
 	appImage: {
-		artifactName: `${releaseName}-linux-\${arch}.\${ext}`,
+		artifactName: `${artifactPrefix}-linux-\${arch}.\${ext}`,
 	},
 	deb: {
-		artifactName: `${releaseName}-linux-\${arch}.\${ext}`,
+		artifactName: `${artifactPrefix}-linux-\${arch}.\${ext}`,
 		recommends: ['ffmpeg'],
 	},
 	publish: null,
@@ -175,13 +180,13 @@ function regexEscape(value) {
 
 /**
  * @param {string | undefined} value
- * @returns {'soundscaper' | 'framescaper'}
+ * @returns {'soundscaper' | 'framescaper' | 'motionscaper'}
  */
 function resolveDesktopProductId(value) {
 	const requested = value === undefined ? 'soundscaper' : value;
-	if (requested !== 'soundscaper' && requested !== 'framescaper') {
+	if (requested !== 'soundscaper' && requested !== 'framescaper' && requested !== 'motionscaper') {
 		throw new Error(
-			`SCAPE_PRODUCT must be soundscaper or framescaper; received ${JSON.stringify(value)}.`,
+			`SCAPE_PRODUCT must be soundscaper, framescaper, or motionscaper; received ${JSON.stringify(value)}.`,
 		);
 	}
 	return requested;

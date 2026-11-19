@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
+import { resolveProductAudioChunkProvider } from './product-audio-source-provider.ts';
 import { isMidiClip } from '../../../midi-model.ts';
 import {
 	audioWarpMinimumSourceSpanPerColumn,
@@ -64,6 +65,8 @@ export function createWaveformPcmWindowRequester<
 		* 2 * Float32Array.BYTES_PER_ELEMENT;
 
 	async function loadWaveformProvider(projectAtStart: Project, source: SourceLifecycleSource) {
+		const product = await resolveProductAudioChunkProvider(runtime, projectAtStart, source);
+		if (product) { sourceChunkProviders.set(source.id, product); runtime.engine.setChunkSources?.(sourceChunkProviders); return product; }
 		const metadata = await store.getSourceMetadata(source.storageKey || source.id);
 		if (getProject() !== projectAtStart) return null;
 		// Playback preparation or another clip's waveform can publish this source

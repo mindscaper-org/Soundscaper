@@ -5,7 +5,7 @@ import { raceAbortableRead } from '../../foundation/abort-race.ts';
 import { hasClassicAvcDecoderConfiguration } from '../video-avc-decoder-admission.ts';
 import { createVideoRetimeHtmlVideoPresentationRequest } from '../video-retime-html-video-seek-port.ts';
 import type { VideoKeyframeOfflineHtmlVideoSourceAssetSnapshot } from './video-keyframe-offline-html-video-source-admission.ts';
-import type { VideoKeyframeOfflineSourcePresentation } from './video-keyframe-offline-rgba-source.ts';
+import type { VideoKeyframeOfflineSourcePresentation } from '../video-keyframe-offline-rgba-source.ts';
 
 const MAXIMUM_FORWARDS_SKIP = 120;
 

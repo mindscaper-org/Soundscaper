@@ -2,10 +2,20 @@
 import { expect, test, createWavFixture, longTone } from './audio-editor-test-fixtures.js';
 import { bootEditor, clipByName, collectClientErrors, closeWorkspacePanel, importFiles, openClipProperties, openSourceMonitor, registerAudioEditorHooks, chooseNestedCommandAction, chooseCommandAction, projectTimelineSourceNames, showClipTimingFields } from './audio-editor-test-helpers.js';
 import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
+import { installClipSourceHandoffDiagnostics, attachClipSourceHandoffDiagnostics } from './helpers/clip-source-handoff-diagnostics.ts';
 
 test.describe('clip source editor', () => {
 	registerAudioEditorHooks();
 	test.use({ viewport: { width: 1440, height: 1000 } });
+	const handoffDiagnosticTitle = 'offers ruler modes and gives focused source playback its own transport';
+	test.beforeEach(async ({ page, browserName }, testInfo) => {
+		if (browserName !== 'chromium' || testInfo.title !== handoffDiagnosticTitle) return;
+		await installClipSourceHandoffDiagnostics(page);
+	});
+	test.afterEach(async ({ page, browserName }, testInfo) => {
+		if (browserName !== 'chromium' || testInfo.title !== handoffDiagnosticTitle) return;
+		await attachClipSourceHandoffDiagnostics(page, testInfo);
+	});
 
 	test('source zoom keeps the ruler’s accessible position within its visible bounds', async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });

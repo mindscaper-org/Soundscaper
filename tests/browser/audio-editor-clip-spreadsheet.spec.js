@@ -214,6 +214,36 @@ test.describe('clip spreadsheet', () => {
 		expect(errors).toEqual([]);
 	});
 
+	test('shows boolean cells as checkboxes and copies and pastes their text values', async ({ page }) => {
+		const errors = collectClientErrors(page);
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [toneA, toneB]);
+		const panel = await openSpreadsheet(page, editor);
+		const grid = panel.getByRole('grid');
+		const reversed = cell(grid, 0, 'reversed').getByRole('checkbox');
+		const inverted = cell(grid, 0, 'inverted').getByRole('checkbox');
+		await expect(reversed).not.toBeChecked();
+		await expect(inverted).not.toBeChecked();
+		await expect(cell(grid, 0, 'reversed')).toHaveText('');
+		await expect(cell(grid, 0, 'inverted')).toHaveText('');
+		await reversed.check();
+		await cell(grid, 0, 'reversed').click({ position: { x: 5, y: 5 } });
+		expect(await copiedText(page)).toBe('true');
+		await pasteText(page, 'false');
+		await expect(reversed).not.toBeChecked();
+		await expect(reversed).toBeEnabled();
+		await page.keyboard.press('ControlOrMeta+z');
+		await expect(reversed).toBeChecked();
+		await cell(grid, 0, 'reversed').click({ position: { x: 5, y: 5 } });
+		await cell(grid, 1, 'inverted').click({ position: { x: 5, y: 5 }, modifiers: ['Shift'] });
+		await pasteText(page, 'true\tfalse\nfalse\ttrue');
+		await expect(reversed).toBeChecked();
+		await expect(inverted).not.toBeChecked();
+		await expect(cell(grid, 1, 'reversed').getByRole('checkbox')).not.toBeChecked();
+		await expect(cell(grid, 1, 'inverted').getByRole('checkbox')).toBeChecked();
+		expect(await copiedText(page)).toBe('true\tfalse\r\nfalse\ttrue');
+		expect(errors).toEqual([]);
+	});
 
 	test('docks, floats, resizes and restores its saved panel placement', async ({ page }) => {
 		const errors = collectClientErrors(page);

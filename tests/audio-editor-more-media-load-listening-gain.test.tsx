@@ -14,10 +14,13 @@ function installMetadataEvents() {
 	const priorAdd = Object.getOwnPropertyDescriptor(ReactTestElement.prototype, 'addEventListener');
 	const priorRemove = Object.getOwnPropertyDescriptor(ReactTestElement.prototype, 'removeEventListener');
 	Object.defineProperty(ReactTestElement.prototype, 'addEventListener', { configurable: true,
-		value(this: ReactTestElement, type: string, listener: MediaListener | null) {
+		value(this: ReactTestElement, type: string, listener: MediaListener | null, options?: AddEventListenerOptions | boolean) {
 			if (type !== 'loadedmetadata' || !listener) return;
+			const signal = typeof options === 'object' ? options.signal : undefined;
+			if (signal?.aborted) return;
 			const entries = listeners.get(this) ?? new Set<MediaListener>();
 			entries.add(listener); listeners.set(this, entries);
+			signal?.addEventListener('abort', () => { entries.delete(listener); }, { once: true });
 		} });
 	Object.defineProperty(ReactTestElement.prototype, 'removeEventListener', { configurable: true,
 		value(this: ReactTestElement, type: string, listener: MediaListener | null) {

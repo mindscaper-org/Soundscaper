@@ -2,6 +2,7 @@
 
 import { isAudioMediaKind } from '../../audio-media-kind.ts';
 import { hasProjectBinMediaAuthority } from '../../project-schema-version.ts';
+import { createProjectVisualFrequencyReaders } from './internal/project-visual-frequency-readers.ts';
 import { createVideoVisualMediaSynchronizer, videoVisualMediaIdentity } from './internal/video-visual-media-sync.ts';
 import { createVideoVisualDerivativePublisher, readVideoDerivative } from './internal/video-visual-derivatives.ts';
 import { createVideoPicturePlaybackUrls } from './internal/video-picture-playback-urls.ts';
@@ -34,6 +35,7 @@ export function createProjectVisualService(
 	const videoVisuals = new Map<string, Readonly<VideoVisualRecord>>();
 	const generations = new Map<string, number>();
 	const mediaIdentities = new Map<string, string>();
+	const { sourceFrequencyAnalysis, clipFrequencyWindow } = createProjectVisualFrequencyReaders(dependencies);
 	const picturePlayback = createVideoPicturePlaybackUrls(dependencies.url);
 	let disposed = false;
 	let disposePromise: Promise<void> | null = null;
@@ -115,7 +117,7 @@ export function createProjectVisualService(
 			...(frequencyAnalysis ? { frequencyAnalysis } : {}),
 			...(frequencyWindow ? { frequencyWindow } : {}),
 			available: Boolean(source && (!dependencies.missingSourceIds.has(source.id)
-				|| video?.mediaKind === 'proxy')),
+				|| video?.mediaKind !== undefined)),
 			...(videoClip ? {
 				itemClips: Object.freeze(itemClips),
 				videoClip,
@@ -126,48 +128,6 @@ export function createProjectVisualService(
 				...(video?.mediaKind ? { mediaKind: video.mediaKind } : {}),
 			} : {}),
 		});
-	}
-
-	function sourceFrequencyAnalysis(
-		project: ProjectVisualProject,
-		source: ProjectVisualSource | null,
-	): unknown {
-		if (!source) return null;
-		const candidate = dependencies.sourceFrequencyAnalyses?.get(source.id);
-		if (!candidate || typeof candidate !== 'object'
-			|| !('projectId' in candidate) || candidate.projectId !== project.id
-			|| !('storageKey' in candidate) || candidate.storageKey !== (source.storageKey || source.id)
-			|| !('analysis' in candidate)) return null;
-		const analysis = candidate.analysis;
-		if (!analysis || typeof analysis !== 'object') return null;
-		if (source.frameCount !== undefined
-			&& (!('frameCount' in analysis) || analysis.frameCount !== source.frameCount)) return null;
-		if (source.channelCount !== undefined
-			&& (!('channelCount' in analysis) || analysis.channelCount !== source.channelCount)) return null;
-		if (source.sampleRate !== undefined
-			&& (!('sampleRate' in analysis) || analysis.sampleRate !== source.sampleRate)) return null;
-		return analysis;
-	}
-
-	function clipFrequencyWindow(
-		project: ProjectVisualProject,
-		clip: ProjectVisualClip,
-		source: ProjectVisualSource | null,
-	): unknown {
-		if (!source) return null;
-		const candidate = dependencies.sourceFrequencyWindows?.get(clip.id);
-		if (!candidate || typeof candidate !== 'object'
-			|| !('projectId' in candidate) || candidate.projectId !== project.id
-			|| !('sourceId' in candidate) || candidate.sourceId !== source.id
-			|| !('storageKey' in candidate) || candidate.storageKey !== (source.storageKey || source.id)
-			|| !('window' in candidate)) return null;
-		const window = candidate.window;
-		if (!window || typeof window !== 'object') return null;
-		if (source.channelCount !== undefined
-			&& (!('channelCount' in window) || window.channelCount !== source.channelCount)) return null;
-		if (source.sampleRate !== undefined
-			&& (!('sampleRate' in window) || window.sampleRate !== source.sampleRate)) return null;
-		return window;
 	}
 
 	function getVideoSourceVisualData(sourceId: string, options?: Readonly<{ sourceMonitor?: boolean }>): Readonly<VideoSourceVisualData> | null {
@@ -202,6 +162,19 @@ export function createProjectVisualService(
 		let linkedPlaybackLease: LinkedVideoPlaybackLease | null = null;
 		try {
 			throwIfAborted(options.signal);
+			const composition = project && dependencies.resolveProductVideoSource ? await dependencies.resolveProductVideoSource({ project, source,
+				assertCurrent: () => { if (!isActivationCurrent(source.id, operation, project, projectToken)) throw new DOMException('The composition preview project changed.', 'AbortError'); }, ...options }) : null;
+			throwIfAborted(options.signal);
+			if (composition) {
+				if (composition.mediaKind !== 'composition' || !composition.timingIndex) throw new TypeError('Invalid product composition source activation.');
+				if (!isActivationCurrent(source.id, operation, project, projectToken)) return null;
+				await dropVisual(source.id); throwIfAborted(options.signal);
+				if (!isActivationCurrent(source.id, operation, project, projectToken)) return null;
+				const visual = Object.freeze({ mediaKind: composition.mediaKind, mediaUrl: null, posterUrl: null, thumbnails: Object.freeze([]) });
+				registerVideoTimingIndex(source, composition.timingIndex);
+				videoVisuals.set(source.id, Object.freeze({ visual, objectUrls: Object.freeze([]), linkedPlaybackLease: null }));
+				return visual;
+			}
 			const timing = source.timingAsset == null
 				? null
 				: await loadVideoTimingAsset(dependencies.store, source.timingAsset, {
@@ -402,6 +375,7 @@ export function createProjectVisualService(
 			(!options.audioOnly || (isAudioMediaKind(clip.kind) && isAudioMediaKind(sourceById?.get(clip.sourceId)?.kind)))
 			&& !options.excludedSourceIds?.has(clip.sourceId)
 			&& dependencies.missingSourceIds.has(clip.sourceId)
+			&& videoVisuals.get(clip.sourceId)?.visual.mediaKind !== 'composition'
 		));
 	}
 

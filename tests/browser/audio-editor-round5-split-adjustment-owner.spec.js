@@ -4,6 +4,18 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clickClipInterior, importFiles } from './audio-editor-test-helpers.js';
 import { createDeterministicAvFixture } from './fixtures/deterministic-av-media.js';
 import { EDITOR_ENGLISH_COPY } from '../../src/common/i18n/editor-copy-inventory.ts';
+import { attachSplitAdjustmentNavigationDiagnostics, installSplitAdjustmentNavigationDiagnostics } from './helpers/split-adjustment-navigation-diagnostics.ts';
+
+test.beforeEach(({ page, browserName }, testInfo) => {
+	if (browserName === 'webkit' && testInfo.title === 'a split video retains its selected adjustment controls') {
+		installSplitAdjustmentNavigationDiagnostics(page);
+	}
+});
+test.afterEach(async ({ page, browserName }, testInfo) => {
+	if (browserName === 'webkit' && testInfo.title === 'a split video retains its selected adjustment controls') {
+		await attachSplitAdjustmentNavigationDiagnostics(page, testInfo);
+	}
+});
 
 test('a split video retains its selected adjustment controls', async ({ page }) => {
 	// Media import and repeated inspector/history edits share one workflow budget.

@@ -8,12 +8,15 @@
 
 export const BROWSER_PRODUCT_FIXTURE_ROOT = '.wrangler/browser-products';
 
-export const PRODUCT_IDS = Object.freeze(['soundscaper', 'framescaper']);
+export const PRODUCT_IDS = Object.freeze(['soundscaper', 'framescaper', 'motionscaper']);
+const TRANSFER_PEERS = Object.freeze({
+	soundscaper: 'framescaper', framescaper: 'soundscaper', motionscaper: 'framescaper',
+});
 
 /** @typedef {{ productId: string, origin: string, peerOrigin: string, outputDirectory: string }} BrowserProductSite */
 
 /**
- * The two production-shaped origins used by the ordinary browser suite.
+ * The production-shaped origins used by the ordinary browser suite.
  *
  * Soundscaper keeps PLAYWRIGHT_PORT for compatibility with focused local runs.
  * Framescaper defaults to the following port, but can be moved independently
@@ -28,13 +31,19 @@ export function ordinaryBrowserProductSitePlan(environment = process.env) {
 		soundscaperPort + 1,
 		'PLAYWRIGHT_FRAMESCAPER_PORT',
 	);
-	if (soundscaperPort === framescaperPort) {
-		throw new Error('The Soundscaper and Framescaper Playwright origins must use different ports.');
+	const motionscaperPort = browserPort(
+		environment.PLAYWRIGHT_MOTIONSCAPER_PORT,
+		soundscaperPort + 2,
+		'PLAYWRIGHT_MOTIONSCAPER_PORT',
+	);
+	if (new Set([soundscaperPort, framescaperPort, motionscaperPort]).size !== PRODUCT_IDS.length) {
+		throw new Error('The editor Playwright origins must use different ports.');
 	}
 	return productSitePlan({
 		fixtureRoot: BROWSER_PRODUCT_FIXTURE_ROOT,
 		soundscaperOrigin: `http://127.0.0.1:${String(soundscaperPort)}`,
 		framescaperOrigin: `http://127.0.0.1:${String(framescaperPort)}`,
+		motionscaperOrigin: `http://127.0.0.1:${String(motionscaperPort)}`,
 		products: browserProducts(environment.SCAPE_BROWSER_PRODUCTS),
 	});
 }
@@ -66,15 +75,16 @@ export function vitePreviewServer(site, readinessPath = '/en/') {
 	};
 }
 
-function productSitePlan({ fixtureRoot, soundscaperOrigin, framescaperOrigin, products }) {
+function productSitePlan({ fixtureRoot, soundscaperOrigin, framescaperOrigin, motionscaperOrigin, products }) {
 	const origins = Object.freeze({
 		soundscaper: browserOrigin(soundscaperOrigin, 'Soundscaper browser origin'),
 		framescaper: browserOrigin(framescaperOrigin, 'Framescaper browser origin'),
+		motionscaper: browserOrigin(motionscaperOrigin, 'Motionscaper browser origin'),
 	});
 	const sites = products.map((productId) => Object.freeze({
 		productId,
 		origin: origins[productId],
-		peerOrigin: origins[productId === 'soundscaper' ? 'framescaper' : 'soundscaper'],
+		peerOrigin: origins[TRANSFER_PEERS[productId]],
 		outputDirectory: `${fixtureRoot}/${productId}`,
 	}));
 	return Object.freeze({ fixtureRoot, sites: Object.freeze(sites) });
@@ -108,11 +118,9 @@ export function assertPlan(plan) {
 			throw new TypeError(`Browser-product plans require unique ${field} values.`);
 		}
 	}
-	if (plan.sites.length === PRODUCT_IDS.length) {
-		for (const site of plan.sites) {
-			const peer = plan.sites.find(candidate => candidate.productId !== site.productId);
-			if (site.peerOrigin !== peer.origin) throw new TypeError('Browser-product peer origins must match the selected peer.');
-		}
+	for (const site of plan.sites) {
+		const peer = plan.sites.find(candidate => candidate.productId === TRANSFER_PEERS[site.productId]);
+		if (peer && site.peerOrigin !== peer.origin) throw new TypeError('Browser-product peer origins must match the selected peer.');
 	}
 }
 

@@ -4,8 +4,8 @@ import { deepFreezeAuditSites } from './foundation-audit-site-freeze.ts';
 import type { FoundationTimeConversionSite } from './foundation-time-conversion-audit.ts';
 
 /**
- * Conversion sites owned outside the shared editor: the two product trees and the
- * desktop main process.
+ * Conversion sites owned by product workflows, their shared motion rendering, and
+ * the desktop main process.
  *
  * The shared helpers are importable from anywhere in the repository, so a register
  * that stopped at `src/common/editor` claimed a coverage it did not have. The paired
@@ -19,6 +19,47 @@ export const FOUNDATION_TIME_CONVERSION_PRODUCT_SITES: readonly FoundationTimeCo
 		file: 'src/framescaper/video-export-picture-availability-finishing.ts',
 		behavior: 'Picture availability converts both authored sequence endpoints to nearest project samples before checking overlap with the export range.',
 		conversions: [{ helper: 'videoFrameToSampleFrame', policies: ['point'] }],
+	},
+	{
+		id: 'motion-work-area-output-grid',
+		file: 'src/common/editor/motion-work-area-output.ts',
+		behavior: 'Motion output includes each integer frame at or after the exact work-area start and strictly before its end; both boundaries round toward the next integer so preview retains a fractional area without inventing a delivered sample.',
+		conversions: [
+			{ helper: 'roundRational', policies: ['directional'] },
+		],
+	},
+	{
+		id: 'motion-audio-preview-output-span',
+		file: 'src/common/editor/controller/track-audio/motion-audio-preview.ts',
+		behavior: 'Motion audio preview encloses the final fractional output sample of an exact playback interval while retaining its rational source origin and bounded queue; the video clock follows the samples actually scheduled and played.',
+		conversions: [
+			{ helper: 'roundRational', policies: ['enclosingEnd'] },
+		],
+	},
+	{
+		id: 'framescaper-linked-composition-source-span',
+		file: 'src/framescaper/editor-composition-link-source.ts',
+		behavior: 'A retained linked composition encloses its exact duration on both the receiving project sample grid and the original Motion audio grid, preserving complete final samples without changing the authoritative picture frame count.',
+		conversions: [
+			{ helper: 'secondsToSampleFrame', policies: ['enclosingEnd'] },
+		],
+	},
+	{
+		id: 'framescaper-linked-composition-paired-placement',
+		file: 'src/framescaper/editor-composition-link-placement.ts',
+		behavior: 'Paired composition placement resolves its picture duration to the nearest destination sequence frame and its shared start to the nearest project sample, then commits picture and audio with one owner and history action.',
+		conversions: [
+			{ helper: 'roundRational', policies: ['point'] },
+			{ helper: 'secondsToSampleFrame', policies: ['point'] },
+		],
+	},
+	{
+		id: 'framescaper-linked-composition-conform-window',
+		file: 'src/framescaper/editor-composition-link-conform-core.ts',
+		behavior: 'Reviewed Conform resolves source-window endpoints and trim bounds to nearest samples or frames on the replacement source grid, preserves the exact timeline extent, and publishes the complete validated picture/audio update atomically.',
+		conversions: [
+			{ helper: 'roundRational', policies: ['point'] },
+		],
 	},
 	{
 		id: 'framescaper-native-bin-overwrite-span',

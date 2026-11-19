@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 
 import { deriveTopology, sourceOwnership, coverageCounter, validateBranch } from './e2e-v8-source-topology.mjs';
+import { collectV8ProfileObservations } from './e2e-v8-profile-observations.ts';
 import { validateV8FunctionObservations, validateV8OwnerMultiplicity } from './e2e-v8-function-topology.mjs';
 
 /**
@@ -22,10 +23,22 @@ export function validateE2ERawV8Topology({ artifactRoot, profiles, scripts, qual
 	if (typeof artifactRoot !== 'string' || !Array.isArray(profiles) || !Array.isArray(scripts)) {
 		throw new TypeError('Raw V8 topology validation needs an artifact root, profiles, and scripts.');
 	}
-	const entriesByUrl = collectEntries(profiles);
-	const sourceMapsByUrl = collectSourceMaps(profiles);
+	const observations = collectV8ProfileObservations(profiles);
+	return validateTopologyGroups({ artifactRoot, scripts, observationsForGroup: () => observations, qualifiedNodeSources });
+}
+
+/** The provider owns one equivalence group's payload for the duration of a visit. */
+export function validateE2ERawV8TopologyGroups({ artifactRoot, scripts, observationsForGroup, qualifiedNodeSources = new Set() }) {
+	if (typeof artifactRoot !== 'string' || !Array.isArray(scripts) || typeof observationsForGroup !== 'function') {
+		throw new TypeError('Raw V8 topology groups need an artifact root, scripts, and an observation provider.');
+	}
+	return validateTopologyGroups({ artifactRoot, scripts, observationsForGroup, qualifiedNodeSources });
+}
+
+function validateTopologyGroups({ artifactRoot, scripts, observationsForGroup, qualifiedNodeSources }) {
 	const failures = [];
 	for (const group of groupEquivalentScripts(scripts)) {
+		const { entriesByUrl, sourceMapsByUrl } = observationsForGroup(group.coverageKey);
 		const observedScripts = group.scripts.filter(({ coverageUrl }) => entriesByUrl.has(coverageUrl));
 		const entries = observedScripts.flatMap(({ coverageUrl }) => entriesByUrl.get(coverageUrl) ?? []);
 		if (entries.length === 0) continue;
@@ -100,31 +113,6 @@ export function validateE2ERawV8Topology({ artifactRoot, profiles, scripts, qual
 		}
 	}
 	return failures;
-}
-
-function collectSourceMaps(profiles) {
-	const byUrl = new Map();
-	for (const profile of profiles) {
-		for (const [url, cache] of Object.entries(profile?.['source-map-cache'] ?? {})) {
-			const values = byUrl.get(url) ?? [];
-			values.push(cache);
-			byUrl.set(url, values);
-		}
-	}
-	return byUrl;
-}
-
-function collectEntries(profiles) {
-	const byUrl = new Map();
-	for (const profile of profiles) {
-		for (const entry of profile?.result ?? []) {
-			if (typeof entry?.url !== 'string') continue;
-			const entries = byUrl.get(entry.url) ?? [];
-			entries.push(entry);
-			byUrl.set(entry.url, entries);
-		}
-	}
-	return byUrl;
 }
 
 function groupEquivalentScripts(scripts) {

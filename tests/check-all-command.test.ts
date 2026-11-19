@@ -169,7 +169,7 @@ for (const runtime of ['fixture', 'systemd'] as const) test(`check-all command s
 	const successful = (await readFile(join(fixture, 'activity.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line) as { type: string; name: string });
 	const reportStart = successful.findIndex(event => event.type === 'start' && event.name.startsWith('report-local'));
 	assert.ok(reportStart >= 0);
-	assert.equal(successful.slice(0, reportStart).filter(event => event.type === 'end' && event.name.startsWith('compact-v8')).length, 4);
+	assert.equal(successful.slice(0, reportStart).filter(event => event.type === 'end' && event.name.startsWith('compact-v8')).length, 5);
 	await assert.rejects(readFile(join(fixture, '.wrangler/check-all.lock')), { code: 'ENOENT' });
 	const interrupted = await run(false, true);
 	assert.equal(interrupted.code, 130, interrupted.output);

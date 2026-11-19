@@ -190,6 +190,9 @@ export function renderReferenceDocuments(sources) {
 		scapeFormat, video, videoEffects, workspaces,
 	} = sources;
 	const productProfiles = products.PRODUCT_IDS.map((id) => products.PRODUCT_PROFILES[id]);
+	// These registries describe the shared timeline editor, whose project
+	// authority is separate from a product-owned motion workspace.
+	const sharedEditorProfiles = productProfiles.filter((product) => product.capabilities?.project === true);
 	const englishCopy = copy.COPY_BY_LOCALE.en;
 	const workspaceEnglishCopy = Object.freeze({
 		...englishCopy,
@@ -200,7 +203,7 @@ export function renderReferenceDocuments(sources) {
 		['commands.md', renderCommandReference({
 			manifest: actions.AUDACITY_ACTION_MANIFEST,
 			implementedStatus: actions.AUDACITY_ACTION_STATUS.IMPLEMENTED,
-			products: productProfiles,
+			products: sharedEditorProfiles,
 			source: actions.AUDACITY_ACTION_SOURCE,
 			isProductCommandDisabled: actions.isAudacityShortcutCommandDisabled,
 			applicationMenuEntries: sources.applicationMenuReference?.APPLICATION_MENU_REFERENCE_ENTRIES ?? [],
@@ -212,7 +215,7 @@ export function renderReferenceDocuments(sources) {
 			audioFormats: media.MEDIA_EXPORT_FORMATS,
 			videoFormats: video.VIDEO_EXPORT_FORMATS,
 		})],
-		['product-capabilities.md', renderCapabilityReference({ products: productProfiles })],
+		['product-capabilities.md', renderCapabilityReference({ products: productProfiles, capabilities: productionCapabilities })],
 		['audio-effects.md', renderAudioEffectReference(audioEffectInputs(sources, productProfiles))],
 		['video-effects.md', renderVideoEffectReference({
 			products: productProfiles,
@@ -221,7 +224,7 @@ export function renderReferenceDocuments(sources) {
 		['nyquist-plugins.md', renderNyquistReference({
 			plugins: nyquist.NYQUIST_BUNDLED_PLUGINS,
 			regularEffectReplacement: sources.nyquistReplacements.regularEffectReplacementForNyquistPlugin,
-			products: productProfiles,
+			products: sharedEditorProfiles,
 			isProductCommandDisabled: actions.isAudacityShortcutCommandDisabled,
 		})],
 		['local-assistance.md', renderAssistanceReference({
@@ -232,7 +235,7 @@ export function renderReferenceDocuments(sources) {
 			modelCatalog,
 		})],
 		['workspaces.md', renderWorkspaceReference({
-			products: productProfiles,
+			products: sharedEditorProfiles,
 			copy: workspaceEnglishCopy,
 			builtInWorkspaces: workspaces.AUDIO_EDITOR_BUILT_IN_WORKSPACES,
 			presets: workspaces.AUDIO_EDITOR_WORKSPACE_PRESETS,

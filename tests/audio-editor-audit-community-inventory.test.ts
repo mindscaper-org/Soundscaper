@@ -11,9 +11,11 @@ test('the opted-in translator inventories every optional surface and retains its
 	const inventory = await loadCommunityTranslationInventory();
 	assert.deepEqual(inventory.english, EDITOR_COPY_AUDIT_INVENTORY);
 	assert.equal(await loadCommunityTranslationInventory(), inventory);
-	const keys = ['ui.freesoundAttribution.panel', 'ui.audiocom.searchLabel', 'ui.nyquistBundled.highpass.control.FREQUENCY.label', 'ui.acxCompliance.title'];
+	const keys = ['ui.freesoundAttribution.panel', 'ui.audiocom.searchLabel',
+		'ui.nyquistBundled.highpass.control.FREQUENCY.label', 'ui.acxCompliance.title',
+		'ui.framescaperSuccessor.menu', 'ui.framescaperNativeDelivery.title'];
 	// Every lazy owner must participate even when the key names evolve.
-	for (const owner of ['freesoundAttribution', 'audiocom', 'nyquistBundled', 'acxCompliance']) {
+	for (const owner of ['freesoundAttribution', 'audiocom', 'nyquistBundled', 'acxCompliance', 'framescaperSuccessor', 'framescaperNativeDelivery']) {
 		const key = Object.keys(inventory.english).find(key => key.startsWith(`ui.${owner}.`));
 		assert.ok(key);
 		assert.equal(inventory.metadata[key]?.owner, owner);

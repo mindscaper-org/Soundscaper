@@ -36,6 +36,7 @@ export default function AudioEditorMenuBar({
 	drawerSlot = /** @type {import('react').ReactNode} */ (null),
 	locale,
 	menus,
+	menuAvailabilityRevision = /** @type {string | undefined} */ (undefined),
 	onAssistanceSearchClose,
 	onFullscreen,
 	onSearchActivate,
@@ -46,11 +47,14 @@ export default function AudioEditorMenuBar({
 	saveState,
 	saveText,
 	searchEntries = [],
+	searchEnabled = true,
 }) {
 	const { theme } = useTheme();
 	const { activeProfile } = useAccessibilityProfile();
 	const menuButtonsRef = useRef([]);
 	const openMenuRef = useRef(null);
+	const focusedMenuRequestRef = useRef(null);
+	const menuAvailabilityRevisionRef = useRef(menuAvailabilityRevision);
 	const compactBarRef = useRef(null);
 	const drawerToggleRef = useRef(null);
 	const drawerId = useId();
@@ -96,6 +100,18 @@ export default function AudioEditorMenuBar({
 	}, []);
 	useLayoutEffect(() => { closeMenu(false); }, [closeMenu, projectSessionKey]);
 
+	// Deferred planners keep their open-time snapshot unless the owning product
+	// explicitly invalidates availability. Only the currently open menu resolves.
+	useLayoutEffect(() => {
+		if (menuAvailabilityRevisionRef.current === menuAvailabilityRevision) return;
+		menuAvailabilityRevisionRef.current = menuAvailabilityRevision;
+		const current = openMenuRef.current;
+		if (!current || menuAvailabilityRevision === undefined) return;
+		const index = orderedMenus.findIndex((menu) => menu.id === current.id);
+		if (index < 0) { closeMenu(); return; }
+		setOpenMenu({ ...current, index, menu: materializeApplicationMenu(orderedMenus[index]) });
+	}, [closeMenu, menuAvailabilityRevision, orderedMenus]);
+
 	const openMenuAt = useCallback((index, { keyboard = false } = {}) => {
 		const trigger = menuButtonsRef.current[index];
 		if (!trigger) return;
@@ -110,9 +126,11 @@ export default function AudioEditorMenuBar({
 		setOpenMenu({
 			id: menu.id,
 			index,
+			menu: materializeApplicationMenu(menu),
 			x: compact ? 8 : rect.left,
 			y: compact ? rect.bottom + 4 : rect.bottom,
 			autoFocus: keyboard,
+			focusRequest: {},
 		});
 	}, [compact, onAssistanceSearchClose, orderedMenus]);
 
@@ -195,7 +213,11 @@ export default function AudioEditorMenuBar({
 					subtree: true,
 				});
 			}
-			if (!openMenu.autoFocus) return;
+			// An availability refresh keeps this opening's focus request. It may
+			// finish pending initial focus, but cannot move an existing selection.
+			if (!openMenu.autoFocus || focusedMenuRequestRef.current === openMenu.focusRequest) return;
+			focusedMenuRequestRef.current = openMenu.focusRequest;
+			if (root?.contains(root.ownerDocument.activeElement)) return;
 			const firstEnabled = root?.querySelector(DIRECT_ENABLED_MENU_ITEM_SELECTOR);
 			(firstEnabled || root?.querySelector(DIRECT_MENU_ITEM_SELECTOR))?.focus?.({ preventScroll: true });
 		});
@@ -255,10 +277,10 @@ export default function AudioEditorMenuBar({
 	};
 	const currentMenu = useMemo(() => {
 		const menu = orderedMenus.find(item => item.id === openMenu?.id);
-		return menu ? materializeApplicationMenu(menu) : null;
-	}, [openMenu?.id, orderedMenus]);
+		return menu ? materializeApplicationMenu(menu, openMenu.menu) : null;
+	}, [openMenu, orderedMenus]);
 	const drawer = compact && chromeDrawer ? chromeDrawer : null;
-	const search = (
+	const search = searchEnabled && (
 		<AudioEditorSearch
 			assistanceSearch={assistanceSearch}
 			copy={copy}
