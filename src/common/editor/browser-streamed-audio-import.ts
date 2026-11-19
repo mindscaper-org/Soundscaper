@@ -5,6 +5,7 @@ import type { BrowserContainerAudioSample } from './browser-container-audio-deco
 import type { WavPackImportGroupDecoder } from './browser-streamed-wavpack-import.ts';
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from './controller/shared/file-size-warning.ts';
 import { correctRifxAudioImportCodec } from './rifx-audio-import-codec.ts';
+import { ChainedOpusAudioError } from './chained-opus-audio-error.ts';
 
 const MAXIMUM_CHANNELS = 32;
 const MAXIMUM_SAMPLE_FRAMES = 65_536;
@@ -65,7 +66,7 @@ export async function prepareStreamedAudioImport(
 		throw new RangeError('The compressed audio original has an unsupported byte length.');
 	}
 	if (!options.desktop) await confirmFileSizeWarning(file.size, LARGE_AUDIO_FILE_BYTES, 'Compressed audio import', options);
-	const session = await awaitImportOperation((options.openSession ?? (async (blob, signal) => {
+	const open = options.openSession ?? (async (blob: Blob, signal?: AbortSignal) => {
 		let header = new Uint8Array(await blob.slice(0, 8).arrayBuffer());
 		if (new TextDecoder().decode(header) === 'APETAGEX') {
 			const { leadingApeTagEnd } = await import('./ape-tag-location.ts');
@@ -77,30 +78,44 @@ export async function prepareStreamedAudioImport(
 			return openStreamedWavPackImportSession(blob, signal, options.desktopCodec);
 		}
 		return openBrowserAudioImportSession(blob, signal, options.reviewedFallback !== false, options.desktopCodec);
-	}))(file, options.signal), [options.signal], (abandoned) => abandoned.dispose());
+	});
+	const prepareLink = (blob: Blob, signal?: AbortSignal) => prepareStreamedAudioSession(blob, options.desktop === true, open, signal);
+	try { return await prepareLink(file, options.signal); }
+	catch (error) {
+		if (options.openSession || !(error instanceof ChainedOpusAudioError)) throw error;
+		const { prepareChainedOpusAudioImport } = await import('./browser-chained-opus-import.ts');
+		return awaitImportOperation(prepareChainedOpusAudioImport(file, options.desktop === true, prepareLink, options.signal),
+			[options.signal], abandoned => abandoned.dispose());
+	}
+}
+
+async function prepareStreamedAudioSession(file: Blob, desktop: boolean,
+	open: (file: Blob, signal?: AbortSignal) => Promise<StreamedAudioImportSession>, signal?: AbortSignal,
+): Promise<PreparedStreamedAudioImport> {
+	const session = await awaitImportOperation(open(file, signal), [signal], (abandoned) => abandoned.dispose());
 	let disposed = false;
 	const dispose = (): void => {
 		if (disposed) return;
 		disposed = true;
-		options.signal?.removeEventListener('abort', dispose);
+		signal?.removeEventListener('abort', dispose);
 		session.dispose();
 	};
-	options.signal?.addEventListener('abort', dispose, { once: true });
+	signal?.addEventListener('abort', dispose, { once: true });
 	try {
-		options.signal?.throwIfAborted();
-		const descriptor = admittedDescriptor(session, file.type, options.desktop === true);
+		signal?.throwIfAborted();
+		const descriptor = admittedDescriptor(session, file.type, desktop);
 		return Object.freeze({
 			descriptor, dispose,
 			async stream(settings: StreamedAudioImportStreamOptions) {
 				if (disposed) throw new Error('The compressed audio import decoder is closed.');
 				const assertCurrent = (): void => {
-					options.signal?.throwIfAborted();
+					signal?.throwIfAborted();
 					settings.signal?.throwIfAborted();
 					session.failureSignal?.throwIfAborted();
 					settings.assertCurrent?.();
 				};
 				settings.signal?.addEventListener('abort', dispose, { once: true });
-				try { await streamSession(session, descriptor, settings, assertCurrent, [options.signal, settings.signal, session.failureSignal]); }
+				try { await streamSession(session, descriptor, settings, assertCurrent, [signal, settings.signal, session.failureSignal]); }
 				finally {
 					settings.signal?.removeEventListener('abort', dispose);
 					dispose();
