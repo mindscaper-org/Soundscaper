@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { open, rename, statfs, unlink } from 'node:fs/promises';
+import { open, rename, stat, statfs, unlink } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 
 import {
@@ -14,7 +14,7 @@ import { restorePublishedFileMode } from './save-publication-mode.js';
 import {
 	SPACE_EXHAUSTED_MESSAGE, commitFailureMessage, isSpaceExhaustedError,
 	assertTemporarySaveFileCurrent, canTrackTemporarySaveFile, cleanupTemporarySaveFile,
-	availableSaveStorageBytes as availableStorageBytes, boundedSaveCapacity as boundedLimit,
+	createSaveDiskAdmission, boundedSaveCapacity as boundedLimit,
 	requireSaveOwner as requireOwner, saveBinaryBuffer as toBuffer,
 } from './save-space.js';
 import { validateDeclaredSize } from './validation.js';
@@ -124,6 +124,7 @@ export class AtomicSaveManager {
 	#admittedBytes = 0;
 	#cleanupErrors = [];
 	#confirmFileSizeWarning;
+	#disk;
 	#closing = false;
 	#disposePromise = null;
 	#maximumAdmittedBytes;
@@ -137,7 +138,6 @@ export class AtomicSaveManager {
 	#reservedSessions = 0;
 	#revocations = new Set();
 	#sessions = new Map();
-	#statfs;
 	#targets;
 	#unlink;
 
@@ -145,6 +145,7 @@ export class AtomicSaveManager {
 		targets = /** @type {SaveTargetStore | null} */ (null),
 		openImpl = open,
 		renameImpl = rename,
+		statImpl = stat,
 		statfsImpl = statfs,
 		unlinkImpl = unlink,
 		randomBytesImpl = randomBytes,
@@ -157,7 +158,7 @@ export class AtomicSaveManager {
 		this.#targets = targets;
 		this.#open = openImpl;
 		this.#rename = renameImpl;
-		this.#statfs = statfsImpl;
+		this.#disk = createSaveDiskAdmission(statImpl, statfsImpl);
 		this.#unlink = unlinkImpl;
 		this.#randomBytes = randomBytesImpl;
 		this.#confirmFileSizeWarning = confirmFileSizeWarning;
@@ -232,7 +233,7 @@ export class AtomicSaveManager {
 			const writeId = this.#newId();
 			const targetDirectory = dirname(target.path);
 			const temporaryPath = join(targetDirectory, `.${writeId}.soundscaper-part`);
-			await this.#assertAvailableStorage(targetDirectory);
+			await this.#disk.check(targetDirectory, reservation);
 			let handle;
 			try {
 				handle = await this.#open(temporaryPath, 'wx', 0o600);
@@ -445,25 +446,8 @@ export class AtomicSaveManager {
 		reservation.released = true;
 		this.#reservedSessions -= 1;
 		this.#admittedBytes -= reservation.admittedSize;
+		this.#disk.release(reservation);
 		return true;
-	}
-
-	async #assertAvailableStorage(targetDirectory) {
-		let details;
-		try {
-			details = await this.#statfs(targetDirectory, { bigint: true });
-		} catch (error) {
-			throw new Error('Could not inspect filesystem capacity for the save', { cause: error });
-		}
-		let availableBytes;
-		try {
-			availableBytes = availableStorageBytes(details);
-		} catch (error) {
-			throw new Error('Filesystem capacity information is invalid', { cause: error });
-		}
-		if (availableBytes < BigInt(this.#admittedBytes)) {
-			throw new RangeError('Available disk space is below the aggregate admitted save capacity');
-		}
 	}
 
 	#admit(owner, operation) {

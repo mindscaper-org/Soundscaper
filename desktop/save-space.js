@@ -111,3 +111,41 @@ export function availableSaveStorageBytes(details) {
 	}
 	return details.bavail * details.bsize;
 }
+
+export function createSaveDiskAdmission(stat, statfs) {
+	const destinations = new Map();
+	return {
+		async check(directory, reservation) {
+			const device = await saveDiskDevice(stat, directory);
+			let admittedBytes = reservation.admittedSize;
+			for (const [previous, previousDevice] of destinations) {
+				if (device === null || previousDevice === null || previousDevice === device) admittedBytes += previous.admittedSize;
+			}
+			destinations.set(reservation, device);
+			let details;
+			try {
+				details = await statfs(directory, { bigint: true });
+			} catch (error) {
+				throw new Error('Could not inspect filesystem capacity for the save', { cause: error });
+			}
+			let availableBytes;
+			try {
+				availableBytes = availableSaveStorageBytes(details);
+			} catch (error) {
+				throw new Error('Filesystem capacity information is invalid', { cause: error });
+			}
+			if (availableBytes < BigInt(admittedBytes)) {
+				throw new RangeError('Available disk space is below the aggregate admitted save capacity');
+			}
+		},
+		release(reservation) { destinations.delete(reservation); },
+	};
+}
+
+async function saveDiskDevice(stat, path) {
+	try {
+		const { dev } = await stat(path, { bigint: true });
+		if (typeof dev === 'bigint' && dev > 0n) return dev;
+	} catch { /* Unidentified destinations still use conservative aggregate accounting and must pass statfs. */ }
+	return null;
+}

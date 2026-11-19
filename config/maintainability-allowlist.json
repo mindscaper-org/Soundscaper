@@ -27,7 +27,7 @@
 		"desktop/plugin-host-isolation.ts": 577,
 		"desktop/plugin-instance-state.ts": 589,
 		"desktop/project-library-exact-generation-main.ts": 591,
-		"desktop/save-targets.js": 583,
+		"desktop/save-targets.js": 567,
 		"desktop/soundscaper-delivery-service.ts": 594,
 		"desktop/soundscaper-project-library-catalog.ts": 558,
 		"desktop/soundscaper-project-library-publication-persistence.ts": 591,

@@ -1040,8 +1040,10 @@ scoped to that exact declared size and owner, with shutdown and owner revocation
 checked again before staging. One accepted larger save can occupy the
 admitted-byte budget alone. Count and byte reservations remain synchronous, and
 ordinary concurrent admitted-byte accounting stays enforced. A fail-closed
-bigint `statfs` available-space check completes before staging open. The check
-is point-in-time admission, not an operating-system reservation; charges release
+bigint `statfs` available-space check completes before staging open. Concurrent
+staging on distinct identified filesystem devices is charged separately for disk
+admission, with unidentified destinations counted conservatively. The check is
+point-in-time admission, not an operating-system reservation; charges release
 only after no staging was acquired, an acknowledged cleanup, or a completed
 commit, and a staging cleanup failure leaves them charged. A chunk or
 final-prefix write that fails with ENOSPC or EDQUOT is a qualified typed

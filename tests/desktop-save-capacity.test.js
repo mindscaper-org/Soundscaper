@@ -287,6 +287,25 @@ test('disk admission checks exact statfs arguments against cross-owner aggregate
 	await manager.dispose();
 });
 
+test('concurrent saves on different volumes use each destination’s available space', async () => {
+	const targets = new SaveTargetStore();
+	const a = targets.registerPath('/mixes/long.wav', { owner: OWNER_A, purpose: 'audio-pcm-mix' });
+	const b = targets.registerPath('/removable/field-notes.sscape', { owner: OWNER_A, purpose: 'project' });
+	const manager = new AtomicSaveManager({
+		targets,
+		statImpl: async (path) => ({ dev: path === '/mixes' ? 17n : 50n }),
+		statfsImpl: async (path) => availableBytes(path === '/mixes' ? 12 : 4),
+		openImpl: async () => fakeHandle(),
+		unlinkImpl: async () => undefined,
+	});
+	try {
+		await manager.begin({ owner: OWNER_A, targetId: a.id, size: 12 });
+		await manager.begin({ owner: OWNER_A, targetId: b.id, size: 4 });
+	} finally {
+		await manager.dispose();
+	}
+});
+
 test('filesystem capacity fails closed before staging and releases the pending reservation', async () => {
 	const results = [availableBytes(4), availableBytes(5)];
 	let statCalls = 0;
