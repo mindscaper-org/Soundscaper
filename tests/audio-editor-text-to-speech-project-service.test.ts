@@ -53,6 +53,7 @@ function fixture(options: Readonly<{
 	let discarded = 0;
 	let bytesWritten = 0;
 	let bodyAborts = 0;
+	let sourceMetadata: Readonly<Record<string, unknown>> | undefined;
 	let id = 0;
 	let project = options.project ?? { id: 'project-1', revision: 1, sampleRate: 48_000,
 		primarySequenceId: 'sequence-1', sources: [], clips: [], tracks: [], assistanceAssets: [] };
@@ -71,8 +72,9 @@ function fixture(options: Readonly<{
 			beginSourceWrite: async () => ({
 				framesWritten: options.reportedFramesWritten,
 				write: (channels: readonly Float32Array[]) => { bytesWritten += channels[0]!.length * 4; },
-				commit: () => {
+				commit: (metadata) => {
 					if (options.sourceCommitFailure) throw new Error('source already exists');
+					sourceMetadata = metadata;
 				}, abort: () => undefined,
 			}),
 			deleteSource: async (sourceId: string) => {
@@ -94,7 +96,7 @@ function fixture(options: Readonly<{
 	});
 	return { port, project, commands, deletedSources, get bytesWritten() { return bytesWritten; },
 		get bodyAborts() { return bodyAborts; },
-		get discarded() { return discarded; } };
+		get discarded() { return discarded; }, get sourceMetadata() { return sourceMetadata; } };
 }
 
 const REVIEWED = Object.freeze({ audio: pcm16Wave([0, 100, -100, 0]),
@@ -117,6 +119,30 @@ test('reviewed speech publishes a new track at the playhead with script only in 
 	assert.equal((edits[2]!.clip as { durationFrames: number }).durationFrames, 8);
 	assert.equal(state.bytesWritten, 16);
 	assert.equal(JSON.stringify(command).includes('Hello'), false);
+});
+
+test('new speech binds the committed PCM digest and keeps the reviewed WAV identity in provenance', async () => {
+	const state = fixture();
+	await state.port.loadInitial();
+	await state.port.accept(REVIEWED);
+	const packet = Buffer.alloc(20);
+	packet.writeUInt32LE(4);
+	for (const [index, sample] of [0, 100, -100, 0].entries()) {
+		packet.writeFloatLE(sample / 32_768, 4 + index * 4);
+	}
+	const pcmSha256 = createHash('sha256').update(packet).digest('hex');
+	const wavSha256 = createHash('sha256').update(new Uint8Array(await REVIEWED.audio.arrayBuffer())).digest('hex');
+	const command = state.commands[0]!;
+	const [add] = command.commands as readonly Readonly<{ source: Readonly<Record<string, unknown>> }>[];
+	assert.ok(add);
+	assert.equal(add.source.contentSha256, pcmSha256);
+	assert.equal(add.source.byteLength, packet.length);
+	assert.equal(state.sourceMetadata?.contentSha256, pcmSha256);
+	assert.equal(state.sourceMetadata?.byteLength, packet.length);
+	assert.equal((command.reference as { sourceSha256: string }).sourceSha256, pcmSha256);
+	assert.deepEqual(add.source.opaqueExtensions, { 'org.soundscaper.local-assistance-tts-v1': {
+		version: 1, waveSha256: wavSha256, waveByteLength: REVIEWED.audio.size,
+	} });
 });
 
 test('a rejected project edit rolls back both the persisted audio and private script', async () => {

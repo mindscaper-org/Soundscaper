@@ -193,7 +193,6 @@ function createPublicationPlans(
 			sampleRate: canonicalRate ? authority.projectSampleRate : output.review.sampleRate,
 			originalSampleRate: output.review.sampleRate,
 			sampleFormat: 'float32', chunkFrames: SOURCE_CHUNK_FRAMES,
-			contentSha256: output.claim.sha256, byteLength: output.claim.byteLength,
 			...(provenance ? { provenance } : {}),
 			opaqueExtensions: {
 				[EXTENSION_KEY]: {

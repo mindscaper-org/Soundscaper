@@ -8,7 +8,7 @@ import { createAssistanceTtsScriptBodyV1, createAssistanceTtsScriptBodyPublicati
 	'../../assistance/tts-script-body-publication-v1.ts';
 import type { AssistanceTtsScriptAssetReferenceV1 } from
 	'../../assistance/assistance-asset-reference-v1.ts';
-import { normalizeAssistanceAssetReferencesV1 } from '../../assistance/assistance-asset-reference-v1.ts';
+import { createAssistanceAssetReferenceV1, normalizeAssistanceAssetReferencesV1 } from '../../assistance/assistance-asset-reference-v1.ts';
 import { createAddClipCommand, createAddSourceCommand, createAddTrackCommand,
 	createRegenerateTtsClipCommand } from
 	'../../commands/factories.ts';
@@ -22,6 +22,7 @@ import { inspectWavBlobPcm, streamWavBlobPcm } from '../../wav-import.js';
 import type { TextToSpeechProjectPort, TextToSpeechRequest, TextToSpeechReviewed } from '../../assistance/text-to-speech-port-contract.ts';
 import { canonicalMediaContentBlob } from '../../../media/content-digest.ts';
 import { digestMediaContentInWorker } from '../../media-content-digest-worker-client.ts';
+import { createAssistanceSourcePcmIdentity } from './internal/audio/local-assistance-audio-source-publication.ts';
 
 type RecordValue = Readonly<Record<string, unknown>>;
 type Awaitable<T> = T | PromiseLike<T>;
@@ -121,16 +122,8 @@ export function createTextToSpeechProjectPort(
 		await dependencies.preflightStorage(descriptor.frameCount * 4, 'effect');
 		assertCurrent(project);
 		const sourceId = dependencies.createId('tts-source');
-		const digest = await digestMediaContentInWorker(audio);
+		const waveSha256 = await digestMediaContentInWorker(audio);
 		assertCurrent(project);
-		const source = createAudioSource({ id: sourceId, storageKey: sourceId,
-			name: 'Generated Speech', kind: 'audio', mimeType: 'audio/wav',
-			frameCount: descriptor.frameCount, channelCount: 1,
-			sampleRate: 24_000, originalSampleRate: 24_000, sampleFormat: 'float32',
-			chunkFrames: SOURCE_CHUNK_FRAMES, contentSha256: digest,
-			byteLength: audio.size,
-			provenance: createNonImportedSourceProvenance('generated'),
-		});
 		const selected = target;
 		const sourceHasPeerClip = selected !== null && (project.clips.some(({ id, sourceId: clipSourceId }) =>
 			id !== selected.clipId && clipSourceId === selected.reference.sourceId)
@@ -140,23 +133,36 @@ export function createTextToSpeechProjectPort(
 			assetId: reference?.id ?? dependencies.createId('tts-script'),
 			text: reviewed.request.text, language: reviewed.request.language,
 			voiceId: reviewed.request.voiceId, speed: reviewed.request.speed,
-			source: { sourceId, sourceSha256: digest, sourceStartFrame: 0,
+			source: { sourceId, sourceSha256: waveSha256, sourceStartFrame: 0,
 				sourceEndFrame: descriptor.frameCount },
 			model: { modelId: reviewed.modelId, modelVersion: reviewed.modelVersion,
 				artifactSha256s: [...reviewed.artifactSha256s].sort() },
 			recipe: { id: 'kokoro-text-to-speech', version: 1 },
 		});
-		const commands = placementCommands(project, target, source, descriptor.frameCount);
+		const placement = placementCommands(project, selected, sourceId, descriptor.frameCount);
 		let sourcePublished = false;
 		let ownedBody: OwnedMediaAssetPublication | null = null;
 		try {
-			await publishSource(dependencies.store, sourceId, audio, descriptor.frameCount, digest);
+			const identity = await publishSource(dependencies.store, sourceId, audio, descriptor.frameCount);
 			sourcePublished = true;
 			assertCurrent(project);
+			const source = createAudioSource({ id: sourceId, storageKey: sourceId,
+				name: 'Generated Speech', kind: 'audio', mimeType: 'audio/wav',
+				frameCount: descriptor.frameCount, channelCount: 1,
+				sampleRate: 24_000, originalSampleRate: 24_000, sampleFormat: 'float32',
+				chunkFrames: SOURCE_CHUNK_FRAMES, ...identity,
+				provenance: createNonImportedSourceProvenance('generated'),
+				opaqueExtensions: { 'org.soundscaper.local-assistance-tts-v1': {
+					version: 1, waveSha256, waveByteLength: audio.size,
+				} },
+			});
+			// The script body names the source ID. Its reference binds the committed PCM.
+			const pcmReference = createAssistanceAssetReferenceV1({ ...publication.reference,
+				sourceSha256: identity.contentSha256 });
 			ownedBody = await publishBody(dependencies.store, publication);
 			assertCurrent(project);
 			dependencies.commit({ type: 'assistance-asset/upsert', expectedReference: reference,
-				reference: publication.reference, commands });
+				reference: pcmReference, commands: [createAddSourceCommand(source), ...placement] });
 			target = null;
 		} catch (error) {
 			const failures: unknown[] = [error];
@@ -191,26 +197,23 @@ export function createTextToSpeechProjectPort(
 	function placementCommands(
 		project: SpeechProject,
 		selected: typeof target,
-		source: RecordValue,
+		sourceId: string,
 		frameCount: number,
 	): readonly AudioEditorCommand[] {
-		const commands: AudioEditorCommand[] = [createAddSourceCommand(source)];
-		if (selected) {
-			commands.push(createRegenerateTtsClipCommand(selected.clipId, String(source.id)));
-			return Object.freeze(commands);
-		}
+		if (selected) return [createRegenerateTtsClipCommand(selected.clipId, sourceId)];
 		const trackId = dependencies.createId('tts-track');
 		const clipId = dependencies.createId('tts-clip');
 		const start = dependencies.getPlayheadFrame();
 		if (!Number.isSafeInteger(start) || start < 0) throw new RangeError('The playhead is invalid.');
-		commands.push({ ...createAddTrackCommand(createAudioTrack({ id: trackId,
-			name: 'Generated Speech' }, project.sampleRate)),
-			...(project.primarySequenceId ? { sequenceId: project.primarySequenceId } : {}) });
-		commands.push(createAddClipCommand(trackId, createAudioClip({ id: clipId,
-			sourceId: String(source.id), title: 'Generated Speech', timelineStartFrame: start,
-			sourceStartFrame: 0, sourceDurationFrames: frameCount,
-			durationFrames: timelineDuration(frameCount, project.sampleRate), avLinkId: null })));
-		return Object.freeze(commands);
+		return [
+			{ ...createAddTrackCommand(createAudioTrack({ id: trackId,
+				name: 'Generated Speech' }, project.sampleRate)),
+				...(project.primarySequenceId ? { sequenceId: project.primarySequenceId } : {}) },
+			createAddClipCommand(trackId, createAudioClip({ id: clipId,
+				sourceId, title: 'Generated Speech', timelineStartFrame: start,
+				sourceStartFrame: 0, sourceDurationFrames: frameCount,
+				durationFrames: timelineDuration(frameCount, project.sampleRate), avLinkId: null })),
+		];
 	}
 }
 
@@ -222,22 +225,26 @@ function timelineDuration(frameCount: number, projectSampleRate: number): number
 
 async function publishSource(
 	store: TextToSpeechProjectDependencies['store'], sourceId: string, audio: Blob,
-	frameCount: number, digest: string,
-): Promise<void> {
+	frameCount: number,
+) {
+	const pcmIdentity = createAssistanceSourcePcmIdentity();
 	let writer: SpeechSourceWriter | null = null;
 	try {
 		writer = await store.beginSourceWrite(sourceId, { name: 'Generated Speech',
 			mimeType: 'audio/wav', sampleFormat: 'float32', sampleRate: 24_000,
-			channelCount: 1, chunkFrames: SOURCE_CHUNK_FRAMES,
-			contentSha256: digest, byteLength: audio.size });
+			channelCount: 1, chunkFrames: SOURCE_CHUNK_FRAMES });
 		await streamWavBlobPcm(audio, { chunkFrames: SOURCE_CHUNK_FRAMES,
-			onChunk: (channels: Float32Array[]) => writer!.write(channels) });
+			onChunk: async (channels: Float32Array[]) => {
+				pcmIdentity.update(channels);
+				await writer!.write(channels);
+			} });
 		if (writer.framesWritten !== undefined && writer.framesWritten !== frameCount) {
 			throw new Error('Speech source writing changed its frame count.');
 		}
+		const identity = pcmIdentity.finish();
 		await writer.commit({ sampleRate: 24_000, channelCount: 1,
-			chunkFrames: SOURCE_CHUNK_FRAMES, contentSha256: digest,
-			byteLength: audio.size }, { ifAbsent: true });
+			chunkFrames: SOURCE_CHUNK_FRAMES, ...identity }, { ifAbsent: true });
+		return identity;
 	} catch (error) {
 		await Promise.resolve(writer?.abort(error)).catch(() => undefined);
 		throw error;

@@ -40,12 +40,22 @@ function onlyClip(value: unknown) {
 	assert.equal(clips.length, 1); const clip = clips[0]; assert.ok(clip?.kind === 'audio'); return clip;
 }
 
-async function assertScript(store: Custody['store'], project: SoundscaperProject, reviewed: TextToSpeechReviewed): Promise<void> {
+async function assertScript(store: Custody['store'], project: SoundscaperProject, reviewed: TextToSpeechReviewed,
+	pcm: Float32Array): Promise<void> {
 	const references = normalizeAssistanceAssetReferencesV1(project.assistanceAssets);
 	assert.equal(references.length, 1); const reference = references[0]; assert.ok(reference?.kind === 'tts-script-v1');
 	const clip = onlyClip(project), source = project.sources.find(value => value.id === clip.sourceId); assert.ok(source?.kind === 'audio');
 	assert.equal(reference.sourceId, source.id); assert.equal(reference.sourceSha256, source.contentSha256);
-	assert.equal(source.contentSha256, createHash('sha256').update(Buffer.from(await reviewed.audio.arrayBuffer())).digest('hex'));
+	assert.equal(source.chunkFrames, 65_536);
+	const packet = Buffer.alloc(4 + pcm.length * 4);
+	packet.writeUInt32LE(pcm.length);
+	for (const [index, sample] of pcm.entries()) packet.writeFloatLE(sample, 4 + index * 4);
+	assert.equal(source.contentSha256, createHash('sha256').update(packet).digest('hex'));
+	assert.equal(source.byteLength, packet.length);
+	assert.deepEqual(source.opaqueExtensions?.['org.soundscaper.local-assistance-tts-v1'], {
+		version: 1, waveByteLength: reviewed.audio.size,
+		waveSha256: createHash('sha256').update(new Uint8Array(await reviewed.audio.arrayBuffer())).digest('hex'),
+	});
 	assert.deepEqual([reference.sourceStartFrame, reference.sourceEndFrame], [0, 48_000]);
 	const stored = await store.loadMediaAsset(reference.body.storageKey); assert.ok(stored);
 	const bytes = new Uint8Array(await canonicalMediaContentBlob(stored).arrayBuffer());
@@ -62,7 +72,7 @@ async function assertScript(store: Custody['store'], project: SoundscaperProject
 async function assertSavedSpeech(context: TestContext, f: Custody, reviewed: TextToSpeechReviewed, pcm: Float32Array, reopenController = false): Promise<void> {
 	await f.controller.actions.project.flush();
 	const project = clipboardProject(f.controller.project), saved: unknown = await f.store.loadProject(project.id);
-	assert.deepEqual(saved, project); await assertScript(f.store, project, reviewed);
+	assert.deepEqual(saved, project); await assertScript(f.store, project, reviewed, pcm);
 	await f.controller.actions.timeline.selectClip(onlyClip(project).id);
 	assert.deepEqual(await f.controller.textToSpeechProjectPort.loadInitial(), reviewed.request);
 	for (const source of project.sources) {
@@ -78,7 +88,7 @@ async function assertSavedSpeech(context: TestContext, f: Custody, reviewed: Tex
 	for (const source of reopened.sources) {
 		assert.ok(source.kind === 'audio'); assertPcmChannelsEqual(await readCustodyPcm(recipient, source), [pcm]);
 	}
-	await assertScript(recipient, reopened, reviewed);
+	await assertScript(recipient, reopened, reviewed, pcm);
 	if (reopenController) {
 		// Close the donor after its final edit before a fresh controller acquires
 		// the same project's real editing lease.
@@ -87,7 +97,7 @@ async function assertSavedSpeech(context: TestContext, f: Custody, reviewed: Tex
 		await fresh.controller.actions.project.openScapeFile(new File([exported.blob], 'Narration.sscape'), () => 'copy');
 		assert.equal(fresh.controller.getSnapshot().readOnly, false);
 		assert.deepEqual(clipboardDocument(clipboardProject(fresh.controller.project)), clipboardDocument(project));
-		await assertScript(fresh.store, clipboardProject(fresh.controller.project), reviewed);
+		await assertScript(fresh.store, clipboardProject(fresh.controller.project), reviewed, pcm);
 		await fresh.controller.actions.timeline.selectClip(onlyClip(project).id);
 		assert.deepEqual(await fresh.controller.textToSpeechProjectPort.loadInitial(), reviewed.request);
 	}
