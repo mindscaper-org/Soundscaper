@@ -15,6 +15,7 @@ import {
 	type EditorCommandMutationTransaction,
 } from '../common/editor/commands/mutation-transaction.ts';
 import type { AudioEditorCommand } from '../common/editor/commands/protocol.ts';
+import { pruneMissingProjectSelections } from '../common/editor/commands/shared-runtime.js';
 import {
 	PROJECT_SCHEMA_VERSION, SOUNDSCAPER_PROJECT_SCHEMA_FAMILY,
 } from '../common/editor/project-schema-identity.ts';
@@ -119,6 +120,7 @@ function applyCommandTree(
 			PRODUCTION_HANDLERS['audio-freeze/remove'](draft, command);
 		} else {
 			PRODUCTION_HANDLERS['audio-freeze/commit'](draft, command);
+			pruneMissingProjectSelections(draft);
 			// Committing swaps the track's clips for the derived render, which is the one
 			// inherited command that can move a track's resolved width. Restating the graph
 			// first repairs any map left aimed at the pre-freeze width; the lane pass then

@@ -77,7 +77,24 @@ test('freeze install/remove commands reconcile exact fallback state and survive 
 
 test('freeze commit is one undoable bake retaining strip/routing and retiring effect authority', () => {
 	const { project, freeze, digests, derivedSource, sourceContentIdentities } = fixture();
-	const initial = createSoundscaperProjectHistory(project);
+	const backgroundSource = createAudioSource({
+		id: 'background-live', frameCount: 512, channelCount: 2, sampleRate: 48_000, chunkFrames: 65_536,
+	});
+	const backgroundClip = createAudioClip({
+		id: 'background-clip', sourceId: backgroundSource.id, title: 'Background', durationFrames: 512,
+	});
+	const withSelection = applySoundscaperProjectCommand(project, {
+		type: 'batch', commands: [
+			{ type: 'source/add', source: backgroundSource },
+			{ type: 'track/add', track: createAudioTrack({ id: 'background', name: 'Background' }) },
+			{ type: 'clip/add', trackId: 'background', clip: backgroundClip },
+			{
+				type: 'selection/set', startFrame: 10, endFrame: 200,
+				trackIds: ['voice', 'background'], clipIds: ['voice-clip', 'background-clip'],
+			},
+		],
+	});
+	const initial = createSoundscaperProjectHistory(withSelection);
 	const installed = executeSoundscaperProjectCommand(initial, {
 		type: 'audio-freeze/install',
 		trackId: 'voice', expectedFreeze: null, replacementFreeze: freeze, derivedSource,
@@ -100,11 +117,13 @@ test('freeze commit is one undoable bake retaining strip/routing and retiring ef
 	assert.equal(Object.hasOwn(afterTrack, 'audioFreeze'), false);
 	assert.deepEqual(committed.present.automationLanes.map(({ id }) => id), ['voice-gain']);
 	assert.deepEqual(committed.present.mixer, before.mixer);
+	assert.deepEqual(committed.present.selection, { ...before.selection, clipIds: ['background-clip'] });
 	assert.deepEqual(freezeRequirements(committed.present), []);
 	assert.equal(committed.present.sources.some(({ id }) => id === 'voice-live'), false);
 	assert.equal(committed.present.sources.some(({ id }) => id === 'voice-freeze'), true);
 
 	const undone = undoSoundscaperProjectCommand(committed);
+	assert.deepEqual(undone.present.selection, before.selection);
 	assert.deepEqual(track(undone.present).audioFreeze, freeze);
 	assert.equal(undone.present.sources.some(({ id }) => id === 'voice-live'), true);
 	assert.equal(undone.present.sources.some(({ id }) => id === 'voice-freeze'), true);
