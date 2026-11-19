@@ -14,6 +14,7 @@ import {
 
 const SAMPLE_RATE = 16_000;
 const WINDOW_SAMPLES = 512;
+const WINDOW_OVERLAP_SAMPLES = 64;
 
 interface SherpaSpeechSegment {
 	readonly start: number;
@@ -65,6 +66,8 @@ export function createSherpaVadFactory(runtime: unknown, options: SherpaAccelera
 			if (wave.sampleRate !== SAMPLE_RATE || !(wave.samples instanceof Float32Array) || wave.samples.length < 1) {
 				throw new RangeError('Voice activity requires exact 16 kHz selected audio.');
 			}
+			const selectedSampleCount = wave.samples.length;
+			const analysisSampleCount = Math.ceil(selectedSampleCount / WINDOW_SAMPLES) * WINDOW_SAMPLES;
 			let completedSamples = 0;
 			return createSherpaNativeExecutorV1(options).run(request.signal, (provider) => {
 				const vad = callSherpaNativeV1(() => new module.Vad({
@@ -85,24 +88,33 @@ export function createSherpaVadFactory(runtime: unknown, options: SherpaAccelera
 					}
 				};
 				try {
-					for (let offset = 0; offset < wave.samples.length; offset += WINDOW_SAMPLES) {
+					for (let offset = 0; offset < selectedSampleCount; offset += WINDOW_SAMPLES) {
 						request.signal?.throwIfAborted();
-						const end = Math.min(offset + WINDOW_SAMPLES, wave.samples.length);
+						const end = Math.min(offset + WINDOW_SAMPLES, selectedSampleCount);
 						callSherpaNativeV1(() => { vad.acceptWaveform(wave.samples.subarray(offset, end)); });
 						request.signal?.throwIfAborted();
 						drain();
 						completedSamples = Math.max(completedSamples, end);
-						request.onProgress?.(Object.freeze({ completed: completedSamples, total: wave.samples.length }));
+						request.onProgress?.(Object.freeze({ completed: completedSamples, total: selectedSampleCount }));
 					}
+					// Sherpa flushes processed windows only. The pinned Silero model also needs 64 samples of overlap.
+					request.signal?.throwIfAborted();
+					const padding = new Float32Array(analysisSampleCount - selectedSampleCount + WINDOW_OVERLAP_SAMPLES);
+					callSherpaNativeV1(() => { vad.acceptWaveform(padding); });
 					callSherpaNativeV1(() => { vad.flush(); });
 					drain();
 					request.signal?.throwIfAborted();
-					for (const [index, segment] of segments.entries()) {
-						if (segment.startSample + segment.sampleCount > wave.samples.length) {
-							throw new RangeError(`Sherpa VAD segment ${index} exceeds the selected audio.`);
-						}
+					const result = normalizeVoiceActivityResult({ sampleRate: SAMPLE_RATE, segments });
+					const last = result.segments.at(-1);
+					const lastEnd = last ? last.startSample + last.sampleCount : 0;
+					if (!last || lastEnd <= selectedSampleCount) return result;
+					if (last.startSample >= selectedSampleCount || lastEnd > analysisSampleCount) {
+						throw new RangeError('Sherpa VAD segment exceeds the selected audio and its final analysis window.');
 					}
-					return normalizeVoiceActivityResult({ sampleRate: SAMPLE_RATE, segments });
+					return Object.freeze({ sampleRate: SAMPLE_RATE, segments: Object.freeze([
+						...result.segments.slice(0, -1), Object.freeze({ startSample: last.startSample,
+							sampleCount: selectedSampleCount - last.startSample }),
+					]) });
 				} finally {
 					try { vad.clear(); } finally { disposeSherpaNativeV1(vad); }
 				}
