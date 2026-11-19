@@ -241,6 +241,8 @@ Desktop close prompts default on and enumerate every open writable project.
 Save and canceled/failed picker results are awaited before allowing shutdown;
 discard decisions apply only after all projects accept closing. Renderer loss
 or replacement retires unconfirmed close requests and their pending quit intent.
+Shell project opens awaiting workspace admission return to the main-process queue
+when their renderer retires. The replacement renderer gets a fresh read capability.
 The temporary project limit defaults to ten and prunes oldest closed copies
 under their project locks and exact-current deletion. Open projects can exceed the limit.
 The native folder picker checks for existing destination conflicts before saving

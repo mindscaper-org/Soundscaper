@@ -29,10 +29,12 @@ export function useDesktopEditorBridge({
 		const lifetime = new AbortController();
 		const { signal } = lifetime;
 		let queue = Promise.resolve();
-		const unsubscribe = fileService.onOpenProject(descriptor => {
+		const unsubscribe = fileService.onOpenProject((descriptor, claim) => {
 			queue = queue.then(async () => {
 				try {
 					await waitForWorkspaceFileAdmission(controller, signal);
+					signal.throwIfAborted();
+					if (claim && !await claim()) return;
 					signal.throwIfAborted();
 				} catch (error) {
 					await discardDesktopProjectReadDescriptor(fileService, descriptor);

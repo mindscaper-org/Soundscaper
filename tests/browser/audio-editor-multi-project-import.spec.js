@@ -267,9 +267,11 @@ test('a desktop file association waits until an ongoing recording import has pub
 		globalThis.launchNativeArchive();
 		await new Promise(resolve => { requestAnimationFrame(() => { requestAnimationFrame(resolve); }); });
 	});
+	expect(await page.evaluate(() => globalThis.nativeArchiveClaimed)).toBe(false);
 	expect(await page.evaluate(() => globalThis.nativeArchiveReleased)).toBe(false);
 	await page.evaluate(() => globalThis.releaseManualMedia());
 	await expect(editor.getByRole('tab', { name: 'Waiting desktop file', exact: true })).toHaveAttribute('aria-selected', 'true');
+	expect(await page.evaluate(() => globalThis.nativeArchiveClaimed)).toBe(true);
 	await expect.poll(() => page.evaluate(() => globalThis.nativeArchiveReleased)).toBe(true);
 });
 
@@ -352,9 +354,10 @@ async function installDesktopArchiveLaunch(page, archive) {
 				'Content-Range': `bytes ${start}-${end}/${bytes.length}`,
 			} }));
 		};
+		globalThis.nativeArchiveClaimed = false;
 		globalThis.nativeArchiveReleased = false;
 		globalThis.soundscaperDesktop = { v1: {
-			onOpenProject(listener) { globalThis.launchNativeArchive = () => listener(descriptor); return () => {}; },
+			onOpenProject(listener) { globalThis.launchNativeArchive = () => listener(descriptor, () => { globalThis.nativeArchiveClaimed = true; return true; }); return () => {}; },
 			onMenuCommand(listener) { globalThis.openNativeProjectChoice = () => listener({ command: 'project:open' }); return () => {}; },
 			chooseFiles() {
 				globalThis.nativeProjectChoicePending = true;

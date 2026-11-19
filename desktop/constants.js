@@ -117,6 +117,7 @@ export const IPC = Object.freeze({
 	soakDebugProcessMetrics: 'soundscaper:v1:soak-debug:process-metrics',
 	soakDebugCoverageCheckpoint: 'soundscaper:v1:soak-debug:coverage-checkpoint',
 	chooseFiles: 'soundscaper:v1:files:choose',
+	claimPendingProjectOpen: 'soundscaper:v1:files:claim-project-open',
 	captureExternalMedia: 'soundscaper:v1:external-media:capture', resolveExternalMedia: 'soundscaper:v1:external-media:resolve',
 	releaseRead: 'soundscaper:v1:files:release',
 	prepareOriginalOverwrite: 'soundscaper:v1:original-file:prepare-overwrite',

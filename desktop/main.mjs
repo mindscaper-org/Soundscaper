@@ -108,7 +108,10 @@ const rendererOwnershipCleanup = new DesktopRendererOwnershipCleanup({
 	linkedVideoLocators: () => linkedVideoLocators,
 	ownership: rendererSaveOwnership,
 	projectLibraryIpc: () => projectLibraryIpc,
-	readCapabilities, originalFiles, sesxMediaSessions,
+	readCapabilities: { async revokeOwner(owner) {
+		try { await readCapabilities.revokeOwner(owner); }
+		finally { if (pendingOpenProjects.requeueOffers(owner)) await pendingOpenProjects.dispatch(); }
+	} }, originalFiles, sesxMediaSessions,
 	reportError: (error) => console.error('Desktop renderer ownership cleanup failed:', cleanError(error)),
 	saves,
 });
@@ -118,6 +121,7 @@ const pendingOpenProjects = new PendingProjectQueue(createPendingProjectDelivery
 	isOwnerCurrent: isRendererSaveOwnerCurrent,
 	register: (filePath, owner) => registerSelectedReadCapability(readCapabilities, filePath, { owner, purpose: 'project', originalFiles }),
 	release: (id, owner) => readCapabilities.release(id, { owner }),
+	onOffer: (id, filePath, owner) => pendingOpenProjects.trackOffer(id, filePath, owner),
 	send: (descriptor) => {
 		desktopSmokeProbe.observeProjectDescriptor(descriptor, (id) => readCapabilities.get(id));
 		return sendToRenderer(IPC.openProject, descriptor);
@@ -425,6 +429,7 @@ async function registerIpcHandlers(desktopSession) {
 	assistance = registerAssistance({ fetchImpl: managedFetch(managedPolicy, 'ModelDownloadsAllowed'), channels: IPC, handle, on, sendToRenderer, app, storagePaths: desktopStorage, settings, dialog, windowFor: () => mainWindow, externalFfmpegPreferences: externalFfmpegPreferences.service }); assistanceSemanticSearch = registerAssistanceSemanticSearchMainIpc({ handle, removeHandler: (channel) => ipcMain.removeHandler(channel), ownerFor: rendererSaveOwnerFor, query: assistance.semanticQuery });
 	registerHostAffordances({ channels: IPC, handle, windowFor: () => mainWindow });
 	handle(IPC.windowAction, (_event, action) => runCurrentWindowAction(action));
+	handle(IPC.claimPendingProjectOpen, (event, id) => pendingOpenProjects.claimOffer(opaqueId(id, 64), rendererSaveOwnerFor(event)));
 	on(IPC.rendererReady, () => {
 		rendererReady = true;
 		publishWindowState();

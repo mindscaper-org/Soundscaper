@@ -15,6 +15,7 @@ export class PendingProjectQueue {
 	#deliver;
 	#dispatchPromise = null;
 	#dispatchRequested = false;
+	#offers = new Map();
 	#paths = [];
 
 	constructor(deliver) {
@@ -23,8 +24,29 @@ export class PendingProjectQueue {
 	}
 
 	enqueue(filePath) {
-		if (this.#paths.includes(filePath)) return false;
-		this.#paths.push(filePath);
+		if (this.#paths.some((entry) => entry.filePath === filePath)) return false;
+		this.#paths.push({ filePath });
+		return true;
+	}
+
+	trackOffer(id, filePath, owner) {
+		this.#offers.set(id, { filePath, owner });
+	}
+
+	claimOffer(id, owner) {
+		const offer = this.#offers.get(id);
+		return Boolean(offer && offer.owner === owner && this.#offers.delete(id));
+	}
+
+	requeueOffers(owner) {
+		const retry = [];
+		for (const [id, offer] of this.#offers) {
+			if (offer.owner !== owner) continue;
+			this.#offers.delete(id);
+			retry.push({ filePath: offer.filePath });
+		}
+		if (!retry.length) return false;
+		this.#paths = retry.concat(this.#paths);
 		return true;
 	}
 
@@ -39,8 +61,9 @@ export class PendingProjectQueue {
 			do {
 				this.#dispatchRequested = false;
 				while (this.#paths.length) {
-					if (!await this.#deliver(this.#paths[0])) break;
-					this.#paths.shift();
+					const entry = this.#paths[0];
+					if (!await this.#deliver(entry.filePath)) break;
+					this.#paths.splice(this.#paths.indexOf(entry), 1);
 				}
 			} while (this.#dispatchRequested);
 		} finally {
@@ -56,6 +79,7 @@ export function createPendingProjectDelivery({
 	register,
 	release,
 	send,
+	onOffer,
 	reportError,
 }) {
 	return async (filePath) => {
@@ -75,6 +99,7 @@ export function createPendingProjectDelivery({
 				return false;
 			}
 			if (send(descriptor) !== true) throw new Error('Renderer did not accept pending project delivery');
+			onOffer?.(descriptor.id, filePath, owner);
 			return true;
 		} catch (error) {
 			let reportedError = error;

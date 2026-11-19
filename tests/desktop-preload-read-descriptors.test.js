@@ -26,7 +26,7 @@ test('preload sanitizes and freezes exact materialized chooser descriptors', asy
 });
 
 test('preload admits a canonical safe-integer Scape range descriptor from OS association', async () => {
-	const fixture = await loadPreload();
+	const fixture = await loadPreload([true]);
 	const raw = readDescriptor({
 		readProfile: SCAPE_RANGE_PROFILE,
 		name: 'Reference.SCAPE',
@@ -34,11 +34,15 @@ test('preload admits a canonical safe-integer Scape range descriptor from OS ass
 		mimeType: SCAPE_MIME_TYPE,
 	});
 	let received = null;
-	const unsubscribe = fixture.bridge.onOpenProject((descriptor) => { received = descriptor; });
+	let claim;
+	const unsubscribe = fixture.bridge.onOpenProject((descriptor, claimOffer) => { received = descriptor; claim = claimOffer; });
 	fixture.listeners.get('soundscaper:v1:event:project-open')({}, raw);
 
 	assert.deepEqual({ ...received }, raw);
 	assert.equal(Object.isFrozen(received), true);
+	assert.equal(fixture.invocations.length, 0);
+	assert.equal(await claim(), true);
+	assert.deepEqual(fixture.invocations, [['soundscaper:v1:files:claim-project-open', ID]]);
 	unsubscribe();
 	assert.equal(fixture.removals.length, 1);
 });
