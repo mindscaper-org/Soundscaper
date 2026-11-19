@@ -44,6 +44,8 @@ export function createVideoKeyframeOfflineDeliverySourceResolver(
 				const body = await prepareDecoderSource?.(asset, signal) ?? asset.blob;
 				const fallback = await createPacketPicturePresentation({
 					body, asset, document: document ?? globalThis.document, signal,
+					useCodedAvcRaster: body === asset.blob && presentation.decodedWidth === asset.postRotationAspectWidth
+						&& presentation.decodedHeight === asset.decodedHeight,
 					timeoutMs: timeoutMs ?? 5_000,
 					bindEntry(value) {
 						const next = bindVideoKeyframeOfflineHtmlVideoEntry(value, assets);

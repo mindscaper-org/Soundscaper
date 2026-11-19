@@ -53,11 +53,12 @@ test.describe('video container exporters', () => {
 		}, Array.from(bytes));
 		expect(tailPeak).toBeGreaterThan(.05);
 	});
-	for (const [index, variant] of ['classic', 'fragmented', 'hybrid', 'quarter-turned'].entries()) {
+	for (const [index, variant] of ['classic', 'fragmented', 'hybrid', 'quarter-turned', 'quarter-turned anamorphic'].entries()) {
 		test(`${variant} VFR AVC with fractional frame timestamps delivers every picture cell`, async ({ page }) => {
 			await disableNativeSavePicker(page);
 			const editor = await bootEditor(page, '/framescaper/embed/en/');
-			const turned = variant === 'quarter-turned';
+			const turned = variant.startsWith('quarter-turned');
+			const anamorphic = variant.endsWith('anamorphic');
 			const file = sourceMonitorFragmentedMedia()[turned ? 0 : index];
 			if (turned) {
 				const buffer = Buffer.from(file.buffer);
@@ -72,6 +73,18 @@ test.describe('video container exporters', () => {
 				for (const [i, value] of rotation.entries()) {
 					expect(buffer.readInt32BE(matrix + i * 4)).toBe(identity[i]);
 					buffer.writeInt32BE(value, matrix + i * 4);
+				}
+				if (anamorphic) {
+					// This pinned classic fixture has an eight-bit SPS aspect-ratio IDC at
+					// avcC payload byte 16 and a matching container pixel aspect box.
+					const avcC = buffer.indexOf('avcC');
+					const pasp = buffer.indexOf('pasp');
+					expect(buffer.readUInt32BE(avcC - 4)).toBe(51);
+					expect(buffer[avcC + 20]).toBe(1);
+					expect(buffer.readUInt32BE(pasp + 4)).toBe(1);
+					expect(buffer.readUInt32BE(pasp + 8)).toBe(1);
+					buffer[avcC + 20] = 16;
+					buffer.writeUInt32BE(2, pasp + 4);
 				}
 				file.buffer = buffer;
 			}
@@ -89,7 +102,7 @@ test.describe('video container exporters', () => {
 				const track = await input.getPrimaryVideoTrack();
 				expect(track).not.toBeNull();
 				if (turned) {
-					expect([await track.getCodedWidth(), await track.getCodedHeight()]).toEqual([48, 64]);
+					expect([await track.getCodedWidth(), await track.getCodedHeight()]).toEqual([48, anamorphic ? 128 : 64]);
 				}
 				let pictures = 0;
 				for await (const packet of new EncodedPacketSink(track).packets(undefined, undefined, { metadataOnly: true })) {

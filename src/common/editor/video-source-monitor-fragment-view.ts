@@ -20,7 +20,7 @@ export async function prepareFragmentPlaybackView(
 ): Promise<Blob | null> {
 	const maximumBytes = Math.min(options.maximumBytes ?? MAXIMUM_FRAGMENT_PLAYBACK_VIEW_BYTES, MAXIMUM_FRAGMENT_PLAYBACK_VIEW_BYTES);
 	if (file.size > maximumBytes || timing.timescale > MAXIMUM_MUXER_TIMESCALE) return null;
-	const { read, boxes, trackId, trackSampleTable, fragmentSampleView } = createIsoBoxReader(file, signal);
+	const { boxes, trackId, trackSampleTable, fragmentSampleView, singleAvcSampleEntry } = createIsoBoxReader(file, signal);
 	const roots = await boxes(0, file.size);
 	if (!roots.some(box => box.type === 'moof')) return null;
 	const movies = roots.filter(box => box.type === 'moov');
@@ -51,12 +51,12 @@ export async function prepareFragmentPlaybackView(
 			const descriptions = entries.find(box => box.type === 'stsd');
 			const sizes = entries.find(box => box.type === 'stsz' || box.type === 'stz2');
 			if (!descriptions || !sizes) return null;
-			const stsd = await read(descriptions.start, 16, descriptions.end);
-			if (stsd.getUint32(4) !== 1 || stsd.getUint32(12) !== 0x61766331) return null; // avc1
+			const entryExtensions = await singleAvcSampleEntry(descriptions);
+			if (entryExtensions === null) return null;
 			if (options.standardSampleEntry) {
 				// Preserve configurations represented by the packet muxer. Keep the original
 				// decoder path for extra presentation metadata such as clap or ICC profiles.
-				const extensions = await boxes(descriptions.start + 16 + 78, descriptions.end);
+				const extensions = await boxes(entryExtensions, descriptions.end);
 				if (extensions.some(box => !['avcC', 'pasp', 'btrt'].includes(box.type))) return null;
 			}
 			const { initialCount, tail } = await fragmentSampleView(sizes);

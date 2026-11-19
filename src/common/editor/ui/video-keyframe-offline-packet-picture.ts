@@ -2,6 +2,7 @@
 
 import type { TransformationMatrix, VideoSample } from 'mediabunny';
 import { raceAbortableRead } from '../../foundation/abort-race.ts';
+import { hasClassicAvcDecoderConfiguration } from '../video-avc-decoder-admission.ts';
 import { createVideoRetimeHtmlVideoPresentationRequest } from '../video-retime-html-video-seek-port.ts';
 import type { VideoKeyframeOfflineHtmlVideoSourceAssetSnapshot } from './video-keyframe-offline-html-video-source-admission.ts';
 import type { VideoKeyframeOfflineSourcePresentation } from './video-keyframe-offline-rgba-source.ts';
@@ -21,12 +22,13 @@ export async function createPacketPicturePresentation(options: Readonly<{
 	document: Pick<Document, 'createElement'>;
 	signal: AbortSignal;
 	timeoutMs: number;
+	useCodedAvcRaster: boolean;
 	bindEntry(value: unknown): Readonly<Record<string, unknown>>;
 	onClose(): void;
 }>): Promise<VideoKeyframeOfflineSourcePresentation | null> {
-	const { body, asset, document, signal, timeoutMs, bindEntry, onClose } = options;
+	const { body, asset, document, signal, timeoutMs, useCodedAvcRaster, bindEntry, onClose } = options;
 	const { sourceId, identity, decodedWidth, decodedHeight, displayWidth, displayHeight } = asset;
-	if (decodedWidth !== displayWidth || decodedHeight !== displayHeight) return null;
+	if (decodedWidth !== displayWidth || (!useCodedAvcRaster && decodedHeight !== displayHeight)) return null;
 	const { BlobSource, Input, MP4, QTFF, VideoSampleSink } = await import('mediabunny');
 	signal.throwIfAborted();
 	const input = new Input({ source: new BlobSource(body, { maxCacheSize: 1024 ** 2, useStreamReader: false }), formats: [MP4, QTFF] });
@@ -36,7 +38,7 @@ export async function createPacketPicturePresentation(options: Readonly<{
 		const [track, ...otherPictures] = await raceAbortableRead(() => input.getVideoTracks(), setup);
 		if (!track || otherPictures.length || await raceAbortableRead(() => track.getCodec(), setup) !== 'avc') return null;
 		const matrix = await raceAbortableRead(() => track.getTransformationMatrix(), setup);
-		if (!isUntranslatedQuarterTurn(matrix)) return null;
+		if (!isUntranslatedQuarterTurn(matrix) || (useCodedAvcRaster && matrix[0] === 1)) return null;
 		let geometry: PacketPictureGeometry | null = null;
 		if (matrix[0] !== 1) {
 			const [rotation, codedWidth, codedHeight, sampleAspect] = await raceAbortableRead(
@@ -46,8 +48,13 @@ export async function createPacketPicturePresentation(options: Readonly<{
 				]), setup,
 			);
 			const turned = rotation % 180 !== 0;
-			if (sampleAspect.num !== sampleAspect.den || (turned ? codedHeight : codedWidth) !== decodedWidth
+			if ((turned ? codedHeight : codedWidth) !== decodedWidth
 				|| (turned ? codedWidth : codedHeight) !== decodedHeight) return null;
+			if (useCodedAvcRaster) {
+				if (!turned || sampleAspect.num === sampleAspect.den
+					|| Math.round(decodedHeight * sampleAspect.num / sampleAspect.den) !== displayHeight
+					|| !await hasClassicAvcDecoderConfiguration(body, track.id, setup)) return null;
+			} else if (sampleAspect.num !== sampleAspect.den) return null;
 			geometry = { codedWidth, codedHeight, rotation };
 		}
 		if (!await raceAbortableRead(() => track.canDecode(), setup)) return null;
@@ -57,7 +64,7 @@ export async function createPacketPicturePresentation(options: Readonly<{
 		drawable.height = decodedHeight;
 		const context = drawable.getContext('2d', { alpha: false });
 		if (!context) return null;
-		const sink = new VideoSampleSink(track);
+		const sink = new VideoSampleSink(track, useCodedAvcRaster ? { avcCodedRaster: true } : undefined);
 		let stream: AsyncGenerator<VideoSample, void, unknown> | null = null;
 		const lifetime = new AbortController();
 		let lastOrdinal = -1;

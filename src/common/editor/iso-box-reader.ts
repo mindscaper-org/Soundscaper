@@ -52,7 +52,12 @@ export function createIsoBoxReader(file: Blob, signal?: AbortSignal) {
 		], { type: file.type }) : null;
 		return { initialCount, tail };
 	};
-	return { read, boxes, trackId, trackSampleTable, fragmentSampleView };
+	const singleAvcSampleEntry = async (description: IsoBox): Promise<number | null> => {
+		const stsd = await read(description.start, 16, description.end);
+		return stsd.getUint32(4) === 1 && stsd.getUint32(12) === 0x61766331
+			? description.start + 16 + 78 : null; // avc1 visual sample entry extensions
+	};
+	return { read, boxes, trackId, trackSampleTable, fragmentSampleView, singleAvcSampleEntry };
 }
 
 function safeInteger(value: bigint): number {

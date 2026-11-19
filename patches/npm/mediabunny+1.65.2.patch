@@ -1,5 +1,5 @@
 diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/mediabunny/dist/bundles/mediabunny.cjs
-index 284f1d9cc..71e6bd0da 100644
+index 284f1d9cc..27f54c003 100644
 --- a/node_modules/mediabunny/dist/bundles/mediabunny.cjs
 +++ b/node_modules/mediabunny/dist/bundles/mediabunny.cjs
 @@ -431,7 +431,7 @@ var Mediabunny = (() => {
@@ -1120,7 +1120,128 @@ index 284f1d9cc..71e6bd0da 100644
                if (header) {
                  this.seekTo(possibleHeaderStartPos);
                  let remaining3 = this.ensureBuffered(header.frameLength);
-@@ -28517,7 +28817,7 @@ var Mediabunny = (() => {
+@@ -25635,14 +25935,74 @@ var Mediabunny = (() => {
+       };
+     }
+   };
++  var codedAvcDecoderConfig = (config, aspect) => {
++    const description = config.description && toUint8Array(config.description);
++    const record = description && description.byteLength <= 4_096
++      ? deserializeAvcDecoderConfigurationRecord(description)
++      : null;
++    if (!description || !record || record.configurationVersion !== 1 || record.lengthSizeMinusOne !== 3
++      || record.sequenceParameterSets.length !== 1 || record.pictureParameterSets.length !== 1
++      || (record.sequenceParameterSetExt?.length ?? 0) !== 0) {
++      throw new RangeError('Coded AVC raster requires one bounded AVC configuration.');
++    }
++    const canonical = serializeAvcDecoderConfigurationRecord(record);
++    const sps = parseAvcSps(record.sequenceParameterSets[0]);
++    if (canonical.length !== description.length || canonical.some((value, index) => value !== description[index])
++      || !sps || sps.frameMbsOnlyFlag !== 1 || sps.chromaFormatIdc !== 1
++      || sps.bitDepthLumaMinus8 !== 0 || sps.bitDepthChromaMinus8 !== 0
++      || sps.displayWidth !== config.codedWidth || sps.displayHeight !== config.codedHeight
++      || sps.pixelAspectRatio.num * aspect.den !== aspect.num * sps.pixelAspectRatio.den) {
++      throw new RangeError('Coded AVC raster requires a matching progressive 8-bit AVC configuration.');
++    }
++    const rbsp = sps.emulationUnpreventedBytes.slice();
++    const bits = new Bitstream(rbsp);
++    bits.pos = sps.vuiParametersFlagBitOffset;
++    if (bits.getBitsLeft() < 10 || bits.readBits(2) !== 3) {
++      throw new RangeError('Coded AVC raster requires an explicit SPS pixel aspect.');
++    }
++    const idc = bits.readBits(8);
++    if (idc < 2 || idc > 16) {
++      throw new RangeError('Coded AVC raster requires a standard SPS pixel aspect.');
++    }
++    bits.pos -= 8;
++    bits.writeBits(8, 1);
++    record.sequenceParameterSets[0] = addEmulationPreventionBytes(rbsp);
++    const coded = { ...config, description: serializeAvcDecoderConfigurationRecord(record) };
++    delete coded.displayAspectWidth;
++    delete coded.displayAspectHeight;
++    return coded;
++  };
++  var validateCodedAvcPacket = (packet, config) => {
++    let consumed = 0;
++    let hasPicture = false;
++    for (const unit of iterateAvcNalUnits(packet.data, config)) {
++      const end = unit.offset + unit.length;
++      const header = packet.data[unit.offset] ?? 0;
++      const type = extractNalUnitTypeForAvc(header);
++      const isPicture = type === 1 || type === 5;
++      // An optional first access-unit delimiter has no parameter sets or picture data.
++      const isDelimiter = consumed === 0 && header === 9 && unit.length === 2
++        && ((packet.data[unit.offset + 1] ?? 0) & 0x1F) === 0x10;
++      if (unit.offset !== consumed + 4 || unit.length < 1 || end > packet.byteLength
++        || (header & 0x80) !== 0 || !(isPicture || type === 6 || isDelimiter)) {
++        throw new RangeError('Coded AVC raster requires original picture slices without in-band configuration.');
++      }
++      consumed = end;
++      hasPicture ||= isPicture;
++    }
++    if (consumed !== packet.byteLength || !hasPicture) {
++      throw new RangeError('Coded AVC raster received an incomplete picture packet.');
++    }
++  };
+   var VideoDecoderWrapper = class extends DecoderWrapper {
+-    constructor(onSample, onError, codec, decoderConfig, rotation, flip, timeResolution) {
++    constructor(onSample, onError, codec, decoderConfig, rotation, flip, timeResolution, avcCodedRaster) {
+       super(onSample, onError);
+       this.codec = codec;
+       this.decoderConfig = decoderConfig;
+       this.rotation = rotation;
+       this.flip = flip;
+       this.timeResolution = timeResolution;
++      this.avcCodedRaster = avcCodedRaster;
+       this.decoder = null;
+       this.customDecoder = null;
+       this.customDecoderCallSerializer = new CallSerializer();
+@@ -25765,6 +26125,9 @@ var Mediabunny = (() => {
+       }
+     }
+     decode(packet) {
++      if (this.avcCodedRaster) {
++        validateCodedAvcPacket(packet, this.decoderConfig);
++      }
+       if (this.codec === "hevc" && this.currentPacketIndex > 0 && !this.raslSkipped) {
+         if (this.hasHevcRaslPicture(packet.data)) {
+           return;
+@@ -25782,7 +26145,7 @@ var Mediabunny = (() => {
+         if (!isWebKit()) {
+           insertSorted(this.inputTimestamps, packet.timestamp, (x) => x);
+         }
+-        if (isChromium() && this.currentPacketIndex === 0) {
++        if (!this.avcCodedRaster && isChromium() && this.currentPacketIndex === 0) {
+           if (this.codec === "avc") {
+             const filteredNalUnits = [];
+             let hasFrameData = false;
+@@ -26317,6 +26680,9 @@ var Mediabunny = (() => {
+     if (decoderOptions.optimizeForLatency !== void 0 && typeof decoderOptions.optimizeForLatency !== "boolean") {
+       throw new TypeError("decoderOptions.optimizeForLatency, when provided, must be a boolean.");
+     }
++    if (decoderOptions.avcCodedRaster !== void 0 && typeof decoderOptions.avcCodedRaster !== "boolean") {
++      throw new TypeError("decoderOptions.avcCodedRaster, when provided, must be a boolean.");
++    }
+   };
+   var VideoSampleSink = class extends BaseMediaSampleSink {
+     /** Creates a new {@link VideoSampleSink} for the given {@link InputVideoTrack}. */
+@@ -26350,7 +26716,14 @@ var Mediabunny = (() => {
+         hardwareAcceleration: this._decoderOptions.hardwareAcceleration,
+         optimizeForLatency: this._decoderOptions.optimizeForLatency
+       };
+-      return new VideoDecoderWrapper(onSample, onError, codec, decoderConfig, rotation, flip, timeResolution);
++      const avcCodedRaster = this._decoderOptions.avcCodedRaster === true;
++      if (avcCodedRaster) {
++        if (codec !== "avc") {
++          throw new TypeError("Coded AVC raster requires an AVC track.");
++        }
++        decoderConfig = codedAvcDecoderConfig(decoderConfig, await this._track.getPixelAspectRatio());
++      }
++      return new VideoDecoderWrapper(onSample, onError, codec, decoderConfig, rotation, flip, timeResolution, avcCodedRaster);
+     }
+     /** @internal */
+     _createPacketSink() {
+@@ -28517,7 +28890,7 @@ var Mediabunny = (() => {
        }
        if (length === 0) {
          const buffer = new Uint8Array(0);
@@ -1129,7 +1250,7 @@ index 284f1d9cc..71e6bd0da 100644
        }
        const end = start + length;
        const result = this.source._read(start, end, DEFAULT_MIN_READ_POSITION, DEFAULT_MAX_READ_POSITION);
-@@ -28526,13 +28826,13 @@ var Mediabunny = (() => {
+@@ -28526,13 +28899,13 @@ var Mediabunny = (() => {
            if (!x) {
              return null;
            }
@@ -1145,7 +1266,7 @@ index 284f1d9cc..71e6bd0da 100644
        }
      }
      requestSliceRange(start, minLength, maxLength) {
-@@ -28593,11 +28893,11 @@ var Mediabunny = (() => {
+@@ -28593,11 +28966,11 @@ var Mediabunny = (() => {
            joined.set(chunk, offset);
            offset += chunk.length;
          }
@@ -1159,7 +1280,7 @@ index 284f1d9cc..71e6bd0da 100644
      constructor(bytes2, view2, offset, start, end) {
        this.bytes = bytes2;
        this.view = view2;
-@@ -28848,12 +29148,30 @@ var Mediabunny = (() => {
+@@ -28848,12 +29221,30 @@ var Mediabunny = (() => {
        decoderSpecificInfo
      };
    };
@@ -1195,7 +1316,7 @@ index 284f1d9cc..71e6bd0da 100644
    var readDataBox = (slice) => {
      const header = readBoxHeader(slice);
      if (!header || header.name !== "data") {
-@@ -28870,7 +29188,7 @@ var Mediabunny = (() => {
+@@ -28870,7 +29261,7 @@ var Mediabunny = (() => {
          return textDecoder.decode(data);
        // UTF-8
        case 2:
@@ -1204,7 +1325,7 @@ index 284f1d9cc..71e6bd0da 100644
        // UTF-16-BE
        case 13:
          return new RichImageData(data, "image/jpeg");
-@@ -30904,7 +31222,7 @@ var Mediabunny = (() => {
+@@ -30904,7 +31295,7 @@ var Mediabunny = (() => {
      if (codec === "aac") {
        if (decoderConfig.description && decoderConfig.description.byteLength > 0 && toUint8Array(decoderConfig.description)[0] === 3) {
          const { decoderSpecificInfo } = readEsDescriptor(
@@ -1213,7 +1334,7 @@ index 284f1d9cc..71e6bd0da 100644
          );
          decoderConfig.description = decoderSpecificInfo ?? void 0;
        }
-@@ -32820,7 +33138,7 @@ var Mediabunny = (() => {
+@@ -32820,7 +33211,7 @@ var Mediabunny = (() => {
          if (!this.metadataWritten) {
            this.writeVorbisCommentAndPictureBlock();
          }
@@ -1222,7 +1343,7 @@ index 284f1d9cc..71e6bd0da 100644
          slice.skip(2);
          const bytes2 = readBytes(slice, 2);
          const bitstream = new Bitstream(bytes2);
-@@ -35717,7 +36035,7 @@ var Mediabunny = (() => {
+@@ -35717,7 +36108,7 @@ var Mediabunny = (() => {
          if (!packet) {
            throw new Error("No AAC description provided; you must therefore provide a priming packet.");
          }
@@ -1231,7 +1352,7 @@ index 284f1d9cc..71e6bd0da 100644
          if (!adtsFrame) {
            throw new Error(
              "Couldn't parse ADTS header from the AAC packet. Make sure the packets are in ADTS format (as specified in ISO 13818-7) when not providing a description, or provide a description (must be an AudioSpecificConfig as specified in ISO 14496-3) and ensure the packets are raw AAC data."
-@@ -35868,7 +36186,7 @@ var Mediabunny = (() => {
+@@ -35868,7 +36259,7 @@ var Mediabunny = (() => {
          const trackData = this.getAudioTrackData(track, packet, meta);
          let packetData = packet.data;
          if (trackData.info.requiresAdtsStripping) {
@@ -1240,7 +1361,7 @@ index 284f1d9cc..71e6bd0da 100644
            if (!adtsFrame) {
              throw new Error("Expected ADTS frame, didn't get one.");
            }
-@@ -37104,8 +37422,8 @@ var Mediabunny = (() => {
+@@ -37104,8 +37495,8 @@ var Mediabunny = (() => {
          if (!(value instanceof AttachedFile)) {
            continue;
          }
@@ -1251,7 +1372,7 @@ index 284f1d9cc..71e6bd0da 100644
            continue;
          }
          if (images.find((x) => x.mimeType === value.mimeType && uint8ArraysAreEqual(x.data, value.data))) {
-@@ -37118,7 +37436,7 @@ var Mediabunny = (() => {
+@@ -37118,7 +37509,7 @@ var Mediabunny = (() => {
              { id: 18030 /* FileName */, data: new EBMLUnicodeString(value.name ?? "") },
              { id: 18016 /* FileMediaType */, data: value.mimeType ?? "" },
              { id: 18012 /* FileData */, data: value.data },
@@ -1260,7 +1381,7 @@ index 284f1d9cc..71e6bd0da 100644
            ]
          });
        }
-@@ -37255,7 +37573,7 @@ var Mediabunny = (() => {
+@@ -37255,7 +37646,7 @@ var Mediabunny = (() => {
          if (!packet) {
            throw new Error("No AAC description provided; you must therefore provide a priming packet.");
          }
@@ -1269,7 +1390,7 @@ index 284f1d9cc..71e6bd0da 100644
          if (!adtsFrame) {
            throw new Error(
              "Couldn't parse ADTS header from the AAC packet. Make sure the packets are in ADTS format (as specified in ISO 13818-7) when not providing a description, or provide a description (must be an AudioSpecificConfig as specified in ISO 14496-3) and ensure the packets are raw AAC data."
-@@ -37356,7 +37674,7 @@ var Mediabunny = (() => {
+@@ -37356,7 +37747,7 @@ var Mediabunny = (() => {
          const trackData = this.getAudioTrackData(track, packet, meta);
          let packetData = packet.data;
          if (trackData.info.requiresAdtsStripping) {
@@ -1279,7 +1400,7 @@ index 284f1d9cc..71e6bd0da 100644
              throw new Error("Expected ADTS frame, didn't get one.");
            }
 diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/mediabunny/dist/bundles/mediabunny.mjs
-index 82c6c9d9e..edde7d4b3 100644
+index 82c6c9d9e..af2d8e3d4 100644
 --- a/node_modules/mediabunny/dist/bundles/mediabunny.mjs
 +++ b/node_modules/mediabunny/dist/bundles/mediabunny.mjs
 @@ -274,7 +274,7 @@ var TextEncoder = typeof globalThis.TextEncoder !== "undefined" ? globalThis.Tex
@@ -2400,7 +2521,128 @@ index 82c6c9d9e..edde7d4b3 100644
              if (header) {
                this.seekTo(possibleHeaderStartPos);
                let remaining3 = this.ensureBuffered(header.frameLength);
-@@ -28360,7 +28660,7 @@ var Reader12 = class {
+@@ -25478,14 +25778,74 @@ var BaseMediaSampleSink = class {
+     };
+   }
+ };
++var codedAvcDecoderConfig = (config, aspect) => {
++  const description = config.description && toUint8Array(config.description);
++  const record = description && description.byteLength <= 4_096
++    ? deserializeAvcDecoderConfigurationRecord(description)
++    : null;
++  if (!description || !record || record.configurationVersion !== 1 || record.lengthSizeMinusOne !== 3
++    || record.sequenceParameterSets.length !== 1 || record.pictureParameterSets.length !== 1
++    || (record.sequenceParameterSetExt?.length ?? 0) !== 0) {
++    throw new RangeError('Coded AVC raster requires one bounded AVC configuration.');
++  }
++  const canonical = serializeAvcDecoderConfigurationRecord(record);
++  const sps = parseAvcSps(record.sequenceParameterSets[0]);
++  if (canonical.length !== description.length || canonical.some((value, index) => value !== description[index])
++    || !sps || sps.frameMbsOnlyFlag !== 1 || sps.chromaFormatIdc !== 1
++    || sps.bitDepthLumaMinus8 !== 0 || sps.bitDepthChromaMinus8 !== 0
++    || sps.displayWidth !== config.codedWidth || sps.displayHeight !== config.codedHeight
++    || sps.pixelAspectRatio.num * aspect.den !== aspect.num * sps.pixelAspectRatio.den) {
++    throw new RangeError('Coded AVC raster requires a matching progressive 8-bit AVC configuration.');
++  }
++  const rbsp = sps.emulationUnpreventedBytes.slice();
++  const bits = new Bitstream(rbsp);
++  bits.pos = sps.vuiParametersFlagBitOffset;
++  if (bits.getBitsLeft() < 10 || bits.readBits(2) !== 3) {
++    throw new RangeError('Coded AVC raster requires an explicit SPS pixel aspect.');
++  }
++  const idc = bits.readBits(8);
++  if (idc < 2 || idc > 16) {
++    throw new RangeError('Coded AVC raster requires a standard SPS pixel aspect.');
++  }
++  bits.pos -= 8;
++  bits.writeBits(8, 1);
++  record.sequenceParameterSets[0] = addEmulationPreventionBytes(rbsp);
++  const coded = { ...config, description: serializeAvcDecoderConfigurationRecord(record) };
++  delete coded.displayAspectWidth;
++  delete coded.displayAspectHeight;
++  return coded;
++};
++var validateCodedAvcPacket = (packet, config) => {
++  let consumed = 0;
++  let hasPicture = false;
++  for (const unit of iterateAvcNalUnits(packet.data, config)) {
++    const end = unit.offset + unit.length;
++    const header = packet.data[unit.offset] ?? 0;
++    const type = extractNalUnitTypeForAvc(header);
++    const isPicture = type === 1 || type === 5;
++    // An optional first access-unit delimiter has no parameter sets or picture data.
++    const isDelimiter = consumed === 0 && header === 9 && unit.length === 2
++      && ((packet.data[unit.offset + 1] ?? 0) & 0x1F) === 0x10;
++    if (unit.offset !== consumed + 4 || unit.length < 1 || end > packet.byteLength
++      || (header & 0x80) !== 0 || !(isPicture || type === 6 || isDelimiter)) {
++      throw new RangeError('Coded AVC raster requires original picture slices without in-band configuration.');
++    }
++    consumed = end;
++    hasPicture ||= isPicture;
++  }
++  if (consumed !== packet.byteLength || !hasPicture) {
++    throw new RangeError('Coded AVC raster received an incomplete picture packet.');
++  }
++};
+ var VideoDecoderWrapper = class extends DecoderWrapper {
+-  constructor(onSample, onError, codec, decoderConfig, rotation, flip, timeResolution) {
++  constructor(onSample, onError, codec, decoderConfig, rotation, flip, timeResolution, avcCodedRaster) {
+     super(onSample, onError);
+     this.codec = codec;
+     this.decoderConfig = decoderConfig;
+     this.rotation = rotation;
+     this.flip = flip;
+     this.timeResolution = timeResolution;
++    this.avcCodedRaster = avcCodedRaster;
+     this.decoder = null;
+     this.customDecoder = null;
+     this.customDecoderCallSerializer = new CallSerializer();
+@@ -25608,6 +25968,9 @@ var VideoDecoderWrapper = class extends DecoderWrapper {
+     }
+   }
+   decode(packet) {
++    if (this.avcCodedRaster) {
++      validateCodedAvcPacket(packet, this.decoderConfig);
++    }
+     if (this.codec === "hevc" && this.currentPacketIndex > 0 && !this.raslSkipped) {
+       if (this.hasHevcRaslPicture(packet.data)) {
+         return;
+@@ -25625,7 +25988,7 @@ var VideoDecoderWrapper = class extends DecoderWrapper {
+       if (!isWebKit()) {
+         insertSorted(this.inputTimestamps, packet.timestamp, (x) => x);
+       }
+-      if (isChromium() && this.currentPacketIndex === 0) {
++      if (!this.avcCodedRaster && isChromium() && this.currentPacketIndex === 0) {
+         if (this.codec === "avc") {
+           const filteredNalUnits = [];
+           let hasFrameData = false;
+@@ -26160,6 +26523,9 @@ var validateVideoSinkDecoderOptions = (decoderOptions) => {
+   if (decoderOptions.optimizeForLatency !== void 0 && typeof decoderOptions.optimizeForLatency !== "boolean") {
+     throw new TypeError("decoderOptions.optimizeForLatency, when provided, must be a boolean.");
+   }
++  if (decoderOptions.avcCodedRaster !== void 0 && typeof decoderOptions.avcCodedRaster !== "boolean") {
++    throw new TypeError("decoderOptions.avcCodedRaster, when provided, must be a boolean.");
++  }
+ };
+ var VideoSampleSink = class extends BaseMediaSampleSink {
+   /** Creates a new {@link VideoSampleSink} for the given {@link InputVideoTrack}. */
+@@ -26193,7 +26559,14 @@ var VideoSampleSink = class extends BaseMediaSampleSink {
+       hardwareAcceleration: this._decoderOptions.hardwareAcceleration,
+       optimizeForLatency: this._decoderOptions.optimizeForLatency
+     };
+-    return new VideoDecoderWrapper(onSample, onError, codec, decoderConfig, rotation, flip, timeResolution);
++    const avcCodedRaster = this._decoderOptions.avcCodedRaster === true;
++    if (avcCodedRaster) {
++      if (codec !== "avc") {
++        throw new TypeError("Coded AVC raster requires an AVC track.");
++      }
++      decoderConfig = codedAvcDecoderConfig(decoderConfig, await this._track.getPixelAspectRatio());
++    }
++    return new VideoDecoderWrapper(onSample, onError, codec, decoderConfig, rotation, flip, timeResolution, avcCodedRaster);
+   }
+   /** @internal */
+   _createPacketSink() {
+@@ -28360,7 +28733,7 @@ var Reader12 = class {
      }
      if (length === 0) {
        const buffer = new Uint8Array(0);
@@ -2409,7 +2651,7 @@ index 82c6c9d9e..edde7d4b3 100644
      }
      const end = start + length;
      const result = this.source._read(start, end, DEFAULT_MIN_READ_POSITION, DEFAULT_MAX_READ_POSITION);
-@@ -28369,13 +28669,13 @@ var Reader12 = class {
+@@ -28369,13 +28742,13 @@ var Reader12 = class {
          if (!x) {
            return null;
          }
@@ -2425,7 +2667,7 @@ index 82c6c9d9e..edde7d4b3 100644
      }
    }
    requestSliceRange(start, minLength, maxLength) {
-@@ -28436,11 +28736,11 @@ var Reader12 = class {
+@@ -28436,11 +28809,11 @@ var Reader12 = class {
          joined.set(chunk, offset);
          offset += chunk.length;
        }
@@ -2439,7 +2681,7 @@ index 82c6c9d9e..edde7d4b3 100644
    constructor(bytes2, view2, offset, start, end) {
      this.bytes = bytes2;
      this.view = view2;
-@@ -28691,12 +28991,30 @@ var readEsDescriptor = (slice) => {
+@@ -28691,12 +29064,30 @@ var readEsDescriptor = (slice) => {
      decoderSpecificInfo
    };
  };
@@ -2475,7 +2717,7 @@ index 82c6c9d9e..edde7d4b3 100644
  var readDataBox = (slice) => {
    const header = readBoxHeader(slice);
    if (!header || header.name !== "data") {
-@@ -28713,7 +29031,7 @@ var readDataBox = (slice) => {
+@@ -28713,7 +29104,7 @@ var readDataBox = (slice) => {
        return textDecoder.decode(data);
      // UTF-8
      case 2:
@@ -2484,7 +2726,7 @@ index 82c6c9d9e..edde7d4b3 100644
      // UTF-16-BE
      case 13:
        return new RichImageData(data, "image/jpeg");
-@@ -30747,7 +31065,7 @@ var fixAudioDecoderConfig = (codec, encoderConfig, decoderConfig) => {
+@@ -30747,7 +31138,7 @@ var fixAudioDecoderConfig = (codec, encoderConfig, decoderConfig) => {
    if (codec === "aac") {
      if (decoderConfig.description && decoderConfig.description.byteLength > 0 && toUint8Array(decoderConfig.description)[0] === 3) {
        const { decoderSpecificInfo } = readEsDescriptor(
@@ -2493,7 +2735,7 @@ index 82c6c9d9e..edde7d4b3 100644
        );
        decoderConfig.description = decoderSpecificInfo ?? void 0;
      }
-@@ -32663,7 +32981,7 @@ var FlacMuxer = class extends Muxer {
+@@ -32663,7 +33054,7 @@ var FlacMuxer = class extends Muxer {
        if (!this.metadataWritten) {
          this.writeVorbisCommentAndPictureBlock();
        }
@@ -2502,7 +2744,7 @@ index 82c6c9d9e..edde7d4b3 100644
        slice.skip(2);
        const bytes2 = readBytes(slice, 2);
        const bitstream = new Bitstream(bytes2);
-@@ -35560,7 +35878,7 @@ var IsobmffMuxer2 = class extends Muxer {
+@@ -35560,7 +35951,7 @@ var IsobmffMuxer2 = class extends Muxer {
        if (!packet) {
          throw new Error("No AAC description provided; you must therefore provide a priming packet.");
        }
@@ -2511,7 +2753,7 @@ index 82c6c9d9e..edde7d4b3 100644
        if (!adtsFrame) {
          throw new Error(
            "Couldn't parse ADTS header from the AAC packet. Make sure the packets are in ADTS format (as specified in ISO 13818-7) when not providing a description, or provide a description (must be an AudioSpecificConfig as specified in ISO 14496-3) and ensure the packets are raw AAC data."
-@@ -35711,7 +36029,7 @@ var IsobmffMuxer2 = class extends Muxer {
+@@ -35711,7 +36102,7 @@ var IsobmffMuxer2 = class extends Muxer {
        const trackData = this.getAudioTrackData(track, packet, meta);
        let packetData = packet.data;
        if (trackData.info.requiresAdtsStripping) {
@@ -2520,7 +2762,7 @@ index 82c6c9d9e..edde7d4b3 100644
          if (!adtsFrame) {
            throw new Error("Expected ADTS frame, didn't get one.");
          }
-@@ -36947,8 +37265,8 @@ var MatroskaMuxer = class extends Muxer {
+@@ -36947,8 +37338,8 @@ var MatroskaMuxer = class extends Muxer {
        if (!(value instanceof AttachedFile)) {
          continue;
        }
@@ -2531,7 +2773,7 @@ index 82c6c9d9e..edde7d4b3 100644
          continue;
        }
        if (images.find((x) => x.mimeType === value.mimeType && uint8ArraysAreEqual(x.data, value.data))) {
-@@ -36961,7 +37279,7 @@ var MatroskaMuxer = class extends Muxer {
+@@ -36961,7 +37352,7 @@ var MatroskaMuxer = class extends Muxer {
            { id: 18030 /* FileName */, data: new EBMLUnicodeString(value.name ?? "") },
            { id: 18016 /* FileMediaType */, data: value.mimeType ?? "" },
            { id: 18012 /* FileData */, data: value.data },
@@ -2540,7 +2782,7 @@ index 82c6c9d9e..edde7d4b3 100644
          ]
        });
      }
-@@ -37098,7 +37416,7 @@ var MatroskaMuxer = class extends Muxer {
+@@ -37098,7 +37489,7 @@ var MatroskaMuxer = class extends Muxer {
        if (!packet) {
          throw new Error("No AAC description provided; you must therefore provide a priming packet.");
        }
@@ -2549,7 +2791,7 @@ index 82c6c9d9e..edde7d4b3 100644
        if (!adtsFrame) {
          throw new Error(
            "Couldn't parse ADTS header from the AAC packet. Make sure the packets are in ADTS format (as specified in ISO 13818-7) when not providing a description, or provide a description (must be an AudioSpecificConfig as specified in ISO 14496-3) and ensure the packets are raw AAC data."
-@@ -37199,7 +37517,7 @@ var MatroskaMuxer = class extends Muxer {
+@@ -37199,7 +37590,7 @@ var MatroskaMuxer = class extends Muxer {
        const trackData = this.getAudioTrackData(track, packet, meta);
        let packetData = packet.data;
        if (trackData.info.requiresAdtsStripping) {
@@ -2559,7 +2801,7 @@ index 82c6c9d9e..edde7d4b3 100644
            throw new Error("Expected ADTS frame, didn't get one.");
          }
 diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs
-index c77d01b05..735cdc3f2 100644
+index c77d01b05..76bb597f8 100644
 --- a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs
 +++ b/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs
 @@ -428,7 +428,7 @@ var Mediabunny = (() => {
@@ -3680,7 +3922,128 @@ index c77d01b05..735cdc3f2 100644
                if (header) {
                  this.seekTo(possibleHeaderStartPos);
                  let remaining3 = this.ensureBuffered(header.frameLength);
-@@ -28520,7 +28820,7 @@ var Mediabunny = (() => {
+@@ -25638,14 +25938,74 @@ var Mediabunny = (() => {
+       };
+     }
+   };
++  var codedAvcDecoderConfig = (config, aspect) => {
++    const description = config.description && toUint8Array(config.description);
++    const record = description && description.byteLength <= 4_096
++      ? deserializeAvcDecoderConfigurationRecord(description)
++      : null;
++    if (!description || !record || record.configurationVersion !== 1 || record.lengthSizeMinusOne !== 3
++      || record.sequenceParameterSets.length !== 1 || record.pictureParameterSets.length !== 1
++      || (record.sequenceParameterSetExt?.length ?? 0) !== 0) {
++      throw new RangeError('Coded AVC raster requires one bounded AVC configuration.');
++    }
++    const canonical = serializeAvcDecoderConfigurationRecord(record);
++    const sps = parseAvcSps(record.sequenceParameterSets[0]);
++    if (canonical.length !== description.length || canonical.some((value, index) => value !== description[index])
++      || !sps || sps.frameMbsOnlyFlag !== 1 || sps.chromaFormatIdc !== 1
++      || sps.bitDepthLumaMinus8 !== 0 || sps.bitDepthChromaMinus8 !== 0
++      || sps.displayWidth !== config.codedWidth || sps.displayHeight !== config.codedHeight
++      || sps.pixelAspectRatio.num * aspect.den !== aspect.num * sps.pixelAspectRatio.den) {
++      throw new RangeError('Coded AVC raster requires a matching progressive 8-bit AVC configuration.');
++    }
++    const rbsp = sps.emulationUnpreventedBytes.slice();
++    const bits = new Bitstream(rbsp);
++    bits.pos = sps.vuiParametersFlagBitOffset;
++    if (bits.getBitsLeft() < 10 || bits.readBits(2) !== 3) {
++      throw new RangeError('Coded AVC raster requires an explicit SPS pixel aspect.');
++    }
++    const idc = bits.readBits(8);
++    if (idc < 2 || idc > 16) {
++      throw new RangeError('Coded AVC raster requires a standard SPS pixel aspect.');
++    }
++    bits.pos -= 8;
++    bits.writeBits(8, 1);
++    record.sequenceParameterSets[0] = addEmulationPreventionBytes(rbsp);
++    const coded = { ...config, description: serializeAvcDecoderConfigurationRecord(record) };
++    delete coded.displayAspectWidth;
++    delete coded.displayAspectHeight;
++    return coded;
++  };
++  var validateCodedAvcPacket = (packet, config) => {
++    let consumed = 0;
++    let hasPicture = false;
++    for (const unit of iterateAvcNalUnits(packet.data, config)) {
++      const end = unit.offset + unit.length;
++      const header = packet.data[unit.offset] ?? 0;
++      const type = extractNalUnitTypeForAvc(header);
++      const isPicture = type === 1 || type === 5;
++      // An optional first access-unit delimiter has no parameter sets or picture data.
++      const isDelimiter = consumed === 0 && header === 9 && unit.length === 2
++        && ((packet.data[unit.offset + 1] ?? 0) & 0x1F) === 0x10;
++      if (unit.offset !== consumed + 4 || unit.length < 1 || end > packet.byteLength
++        || (header & 0x80) !== 0 || !(isPicture || type === 6 || isDelimiter)) {
++        throw new RangeError('Coded AVC raster requires original picture slices without in-band configuration.');
++      }
++      consumed = end;
++      hasPicture ||= isPicture;
++    }
++    if (consumed !== packet.byteLength || !hasPicture) {
++      throw new RangeError('Coded AVC raster received an incomplete picture packet.');
++    }
++  };
+   var VideoDecoderWrapper = class extends DecoderWrapper {
+-    constructor(onSample, onError, codec, decoderConfig, rotation, flip, timeResolution) {
++    constructor(onSample, onError, codec, decoderConfig, rotation, flip, timeResolution, avcCodedRaster) {
+       super(onSample, onError);
+       this.codec = codec;
+       this.decoderConfig = decoderConfig;
+       this.rotation = rotation;
+       this.flip = flip;
+       this.timeResolution = timeResolution;
++      this.avcCodedRaster = avcCodedRaster;
+       this.decoder = null;
+       this.customDecoder = null;
+       this.customDecoderCallSerializer = new CallSerializer();
+@@ -25768,6 +26128,9 @@ var Mediabunny = (() => {
+       }
+     }
+     decode(packet) {
++      if (this.avcCodedRaster) {
++        validateCodedAvcPacket(packet, this.decoderConfig);
++      }
+       if (this.codec === "hevc" && this.currentPacketIndex > 0 && !this.raslSkipped) {
+         if (this.hasHevcRaslPicture(packet.data)) {
+           return;
+@@ -25785,7 +26148,7 @@ var Mediabunny = (() => {
+         if (!isWebKit()) {
+           insertSorted(this.inputTimestamps, packet.timestamp, (x) => x);
+         }
+-        if (isChromium() && this.currentPacketIndex === 0) {
++        if (!this.avcCodedRaster && isChromium() && this.currentPacketIndex === 0) {
+           if (this.codec === "avc") {
+             const filteredNalUnits = [];
+             let hasFrameData = false;
+@@ -26320,6 +26683,9 @@ var Mediabunny = (() => {
+     if (decoderOptions.optimizeForLatency !== void 0 && typeof decoderOptions.optimizeForLatency !== "boolean") {
+       throw new TypeError("decoderOptions.optimizeForLatency, when provided, must be a boolean.");
+     }
++    if (decoderOptions.avcCodedRaster !== void 0 && typeof decoderOptions.avcCodedRaster !== "boolean") {
++      throw new TypeError("decoderOptions.avcCodedRaster, when provided, must be a boolean.");
++    }
+   };
+   var VideoSampleSink = class extends BaseMediaSampleSink {
+     /** Creates a new {@link VideoSampleSink} for the given {@link InputVideoTrack}. */
+@@ -26353,7 +26719,14 @@ var Mediabunny = (() => {
+         hardwareAcceleration: this._decoderOptions.hardwareAcceleration,
+         optimizeForLatency: this._decoderOptions.optimizeForLatency
+       };
+-      return new VideoDecoderWrapper(onSample, onError, codec, decoderConfig, rotation, flip, timeResolution);
++      const avcCodedRaster = this._decoderOptions.avcCodedRaster === true;
++      if (avcCodedRaster) {
++        if (codec !== "avc") {
++          throw new TypeError("Coded AVC raster requires an AVC track.");
++        }
++        decoderConfig = codedAvcDecoderConfig(decoderConfig, await this._track.getPixelAspectRatio());
++      }
++      return new VideoDecoderWrapper(onSample, onError, codec, decoderConfig, rotation, flip, timeResolution, avcCodedRaster);
+     }
+     /** @internal */
+     _createPacketSink() {
+@@ -28520,7 +28893,7 @@ var Mediabunny = (() => {
        }
        if (length === 0) {
          const buffer = new Uint8Array(0);
@@ -3689,7 +4052,7 @@ index c77d01b05..735cdc3f2 100644
        }
        const end = start + length;
        const result = this.source._read(start, end, DEFAULT_MIN_READ_POSITION, DEFAULT_MAX_READ_POSITION);
-@@ -28529,13 +28829,13 @@ var Mediabunny = (() => {
+@@ -28529,13 +28902,13 @@ var Mediabunny = (() => {
            if (!x) {
              return null;
            }
@@ -3705,7 +4068,7 @@ index c77d01b05..735cdc3f2 100644
        }
      }
      requestSliceRange(start, minLength, maxLength) {
-@@ -28596,11 +28896,11 @@ var Mediabunny = (() => {
+@@ -28596,11 +28969,11 @@ var Mediabunny = (() => {
            joined.set(chunk, offset);
            offset += chunk.length;
          }
@@ -3719,7 +4082,7 @@ index c77d01b05..735cdc3f2 100644
      constructor(bytes2, view2, offset, start, end) {
        this.bytes = bytes2;
        this.view = view2;
-@@ -28851,12 +29151,30 @@ var Mediabunny = (() => {
+@@ -28851,12 +29224,30 @@ var Mediabunny = (() => {
        decoderSpecificInfo
      };
    };
@@ -3755,7 +4118,7 @@ index c77d01b05..735cdc3f2 100644
    var readDataBox = (slice) => {
      const header = readBoxHeader(slice);
      if (!header || header.name !== "data") {
-@@ -28873,7 +29191,7 @@ var Mediabunny = (() => {
+@@ -28873,7 +29264,7 @@ var Mediabunny = (() => {
          return textDecoder.decode(data);
        // UTF-8
        case 2:
@@ -3764,7 +4127,7 @@ index c77d01b05..735cdc3f2 100644
        // UTF-16-BE
        case 13:
          return new RichImageData(data, "image/jpeg");
-@@ -30907,7 +31225,7 @@ var Mediabunny = (() => {
+@@ -30907,7 +31298,7 @@ var Mediabunny = (() => {
      if (codec === "aac") {
        if (decoderConfig.description && decoderConfig.description.byteLength > 0 && toUint8Array(decoderConfig.description)[0] === 3) {
          const { decoderSpecificInfo } = readEsDescriptor(
@@ -3773,7 +4136,7 @@ index c77d01b05..735cdc3f2 100644
          );
          decoderConfig.description = decoderSpecificInfo ?? void 0;
        }
-@@ -32823,7 +33141,7 @@ var Mediabunny = (() => {
+@@ -32823,7 +33214,7 @@ var Mediabunny = (() => {
          if (!this.metadataWritten) {
            this.writeVorbisCommentAndPictureBlock();
          }
@@ -3782,7 +4145,7 @@ index c77d01b05..735cdc3f2 100644
          slice.skip(2);
          const bytes2 = readBytes(slice, 2);
          const bitstream = new Bitstream(bytes2);
-@@ -35719,7 +36037,7 @@ var Mediabunny = (() => {
+@@ -35719,7 +36110,7 @@ var Mediabunny = (() => {
          if (!packet) {
            throw new Error("No AAC description provided; you must therefore provide a priming packet.");
          }
@@ -3791,7 +4154,7 @@ index c77d01b05..735cdc3f2 100644
          if (!adtsFrame) {
            throw new Error(
              "Couldn't parse ADTS header from the AAC packet. Make sure the packets are in ADTS format (as specified in ISO 13818-7) when not providing a description, or provide a description (must be an AudioSpecificConfig as specified in ISO 14496-3) and ensure the packets are raw AAC data."
-@@ -35870,7 +36188,7 @@ var Mediabunny = (() => {
+@@ -35870,7 +36261,7 @@ var Mediabunny = (() => {
          const trackData = this.getAudioTrackData(track, packet, meta);
          let packetData = packet.data;
          if (trackData.info.requiresAdtsStripping) {
@@ -3800,7 +4163,7 @@ index c77d01b05..735cdc3f2 100644
            if (!adtsFrame) {
              throw new Error("Expected ADTS frame, didn't get one.");
            }
-@@ -37106,8 +37424,8 @@ var Mediabunny = (() => {
+@@ -37106,8 +37497,8 @@ var Mediabunny = (() => {
          if (!(value instanceof AttachedFile)) {
            continue;
          }
@@ -3811,7 +4174,7 @@ index c77d01b05..735cdc3f2 100644
            continue;
          }
          if (images.find((x) => x.mimeType === value.mimeType && uint8ArraysAreEqual(x.data, value.data))) {
-@@ -37120,7 +37438,7 @@ var Mediabunny = (() => {
+@@ -37120,7 +37511,7 @@ var Mediabunny = (() => {
              { id: 18030 /* FileName */, data: new EBMLUnicodeString(value.name ?? "") },
              { id: 18016 /* FileMediaType */, data: value.mimeType ?? "" },
              { id: 18012 /* FileData */, data: value.data },
@@ -3820,7 +4183,7 @@ index c77d01b05..735cdc3f2 100644
            ]
          });
        }
-@@ -37257,7 +37575,7 @@ var Mediabunny = (() => {
+@@ -37257,7 +37648,7 @@ var Mediabunny = (() => {
          if (!packet) {
            throw new Error("No AAC description provided; you must therefore provide a priming packet.");
          }
@@ -3829,7 +4192,7 @@ index c77d01b05..735cdc3f2 100644
          if (!adtsFrame) {
            throw new Error(
              "Couldn't parse ADTS header from the AAC packet. Make sure the packets are in ADTS format (as specified in ISO 13818-7) when not providing a description, or provide a description (must be an AudioSpecificConfig as specified in ISO 14496-3) and ensure the packets are raw AAC data."
-@@ -37358,7 +37676,7 @@ var Mediabunny = (() => {
+@@ -37358,7 +37749,7 @@ var Mediabunny = (() => {
          const trackData = this.getAudioTrackData(track, packet, meta);
          let packetData = packet.data;
          if (trackData.info.requiresAdtsStripping) {
@@ -3839,7 +4202,7 @@ index c77d01b05..735cdc3f2 100644
              throw new Error("Expected ADTS frame, didn't get one.");
            }
 diff --git a/node_modules/mediabunny/dist/mediabunny.d.ts b/node_modules/mediabunny/dist/mediabunny.d.ts
-index 86d102a50..cc4015d32 100644
+index 86d102a50..119f26aaf 100644
 --- a/node_modules/mediabunny/dist/mediabunny.d.ts
 +++ b/node_modules/mediabunny/dist/mediabunny.d.ts
 @@ -3430,20 +3430,18 @@ export declare type MetadataTags = {
@@ -3870,6 +4233,15 @@ index 86d102a50..cc4015d32 100644
       * - MPEG-TS: Not supported.
       */
      raw?: Record<string, string | string[] | Uint8Array | Uint8Array[] | RichImageData | AttachedFile | Record<string, string> | null>;
+@@ -5398,6 +5396,8 @@ export declare type VideoSinkDecoderOptions = {
+      * before video frames are output.
+      */
+     optimizeForLatency?: boolean;
++    /** Use a decoder-only square-pixel SPS for an independently qualified AVC picture track. */
++    avcCodedRaster?: boolean;
+ };
+ 
+ /**
 diff --git a/node_modules/mediabunny/dist/modules/src/codec-data.js b/node_modules/mediabunny/dist/modules/src/codec-data.js
 index feaf0387f..e684a165f 100644
 --- a/node_modules/mediabunny/dist/modules/src/codec-data.js
@@ -4982,6 +5354,159 @@ index a1d23087a..0db727651 100644
                  ],
              });
          }
+diff --git a/node_modules/mediabunny/dist/modules/src/media-sink.d.ts b/node_modules/mediabunny/dist/modules/src/media-sink.d.ts
+index 056c51cdc..10caf3d8d 100644
+--- a/node_modules/mediabunny/dist/modules/src/media-sink.d.ts
++++ b/node_modules/mediabunny/dist/modules/src/media-sink.d.ts
+@@ -129,6 +129,8 @@ export type VideoSinkDecoderOptions = {
+      * before video frames are output.
+      */
+     optimizeForLatency?: boolean;
++    /** Use a decoder-only square-pixel SPS for an independently qualified AVC picture track. */
++    avcCodedRaster?: boolean;
+ };
+ /**
+  * A sink that retrieves decoded video samples (video frames) from a video track.
+diff --git a/node_modules/mediabunny/dist/modules/src/media-sink.js b/node_modules/mediabunny/dist/modules/src/media-sink.js
+index 636382fa9..01e1ee656 100644
+--- a/node_modules/mediabunny/dist/modules/src/media-sink.js
++++ b/node_modules/mediabunny/dist/modules/src/media-sink.js
+@@ -6,7 +6,7 @@
+  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+  */
+ import { parsePcmCodec, PCM_AUDIO_CODECS, OPUS_SAMPLE_RATE } from './codec.js';
+-import { addAvcBitstreamRestriction, AvcNalUnitType, concatAvcNalUnits, deserializeAvcDecoderConfigurationRecord, determineVideoPacketType, extractNalUnitTypeForAvc, extractNalUnitTypeForHevc, HevcNalUnitType, iterateAvcNalUnits, iterateHevcNalUnits, parseAvcSps, parseOpusIdentificationHeader, sanitizeHevcPacketForChromium, serializeAvcDecoderConfigurationRecord, } from './codec-data.js';
++import { addAvcBitstreamRestriction, addEmulationPreventionBytes, AvcNalUnitType, concatAvcNalUnits, deserializeAvcDecoderConfigurationRecord, determineVideoPacketType, extractNalUnitTypeForAvc, extractNalUnitTypeForHevc, HevcNalUnitType, iterateAvcNalUnits, iterateHevcNalUnits, parseAvcSps, parseOpusIdentificationHeader, sanitizeHevcPacketForChromium, serializeAvcDecoderConfigurationRecord, } from './codec-data.js';
+ import { customVideoDecoders, customAudioDecoders } from './custom-coder.js';
+ import { InputDisposedError } from './input.js';
+ import { InputAudioTrack, InputTrack, InputVideoTrack } from './input-track.js';
+@@ -14,6 +14,7 @@ import { assert, assertNever, CallSerializer, clamp, colorSpaceIsComplete, getIn
+ import { EncodedPacket } from './packet.js';
+ import { fromAlaw, fromUlaw } from './pcm.js';
+ import { AudioSample, clampCropRectangle, validateCropRectangle, VideoSample, } from './sample.js';
++import { Bitstream } from '../shared/bitstream.js';
+ const validatePacketRetrievalOptions = (options) => {
+     if (!options || typeof options !== 'object') {
+         throw new TypeError('options must be an object.');
+@@ -701,14 +702,74 @@ export class BaseMediaSampleSink {
+         };
+     }
+ }
++const codedAvcDecoderConfig = (config, aspect) => {
++    const description = config.description && toUint8Array(config.description);
++    const record = description && description.byteLength <= 4_096
++        ? deserializeAvcDecoderConfigurationRecord(description)
++        : null;
++    if (!description || !record || record.configurationVersion !== 1 || record.lengthSizeMinusOne !== 3
++        || record.sequenceParameterSets.length !== 1 || record.pictureParameterSets.length !== 1
++        || (record.sequenceParameterSetExt?.length ?? 0) !== 0) {
++        throw new RangeError('Coded AVC raster requires one bounded AVC configuration.');
++    }
++    const canonical = serializeAvcDecoderConfigurationRecord(record);
++    const sps = parseAvcSps(record.sequenceParameterSets[0]);
++    if (canonical.length !== description.length || canonical.some((value, index) => value !== description[index])
++        || !sps || sps.frameMbsOnlyFlag !== 1 || sps.chromaFormatIdc !== 1
++        || sps.bitDepthLumaMinus8 !== 0 || sps.bitDepthChromaMinus8 !== 0
++        || sps.displayWidth !== config.codedWidth || sps.displayHeight !== config.codedHeight
++        || sps.pixelAspectRatio.num * aspect.den !== aspect.num * sps.pixelAspectRatio.den) {
++        throw new RangeError('Coded AVC raster requires a matching progressive 8-bit AVC configuration.');
++    }
++    const rbsp = sps.emulationUnpreventedBytes.slice();
++    const bits = new Bitstream(rbsp);
++    bits.pos = sps.vuiParametersFlagBitOffset;
++    if (bits.getBitsLeft() < 10 || bits.readBits(2) !== 3) {
++        throw new RangeError('Coded AVC raster requires an explicit SPS pixel aspect.');
++    }
++    const idc = bits.readBits(8);
++    if (idc < 2 || idc > 16) {
++        throw new RangeError('Coded AVC raster requires a standard SPS pixel aspect.');
++    }
++    bits.pos -= 8;
++    bits.writeBits(8, 1);
++    record.sequenceParameterSets[0] = addEmulationPreventionBytes(rbsp);
++    const coded = { ...config, description: serializeAvcDecoderConfigurationRecord(record) };
++    delete coded.displayAspectWidth;
++    delete coded.displayAspectHeight;
++    return coded;
++};
++const validateCodedAvcPacket = (packet, config) => {
++    let consumed = 0;
++    let hasPicture = false;
++    for (const unit of iterateAvcNalUnits(packet.data, config)) {
++        const end = unit.offset + unit.length;
++        const header = packet.data[unit.offset] ?? 0;
++        const type = extractNalUnitTypeForAvc(header);
++        const isPicture = type === 1 || type === 5;
++        // An optional first access-unit delimiter has no parameter sets or picture data.
++        const isDelimiter = consumed === 0 && header === 9 && unit.length === 2
++            && ((packet.data[unit.offset + 1] ?? 0) & 0x1F) === 0x10;
++        if (unit.offset !== consumed + 4 || unit.length < 1 || end > packet.byteLength
++            || (header & 0x80) !== 0 || !(isPicture || type === 6 || isDelimiter)) {
++            throw new RangeError('Coded AVC raster requires original picture slices without in-band configuration.');
++        }
++        consumed = end;
++        hasPicture ||= isPicture;
++    }
++    if (consumed !== packet.byteLength || !hasPicture) {
++        throw new RangeError('Coded AVC raster received an incomplete picture packet.');
++    }
++};
+ class VideoDecoderWrapper extends DecoderWrapper {
+-    constructor(onSample, onError, codec, decoderConfig, rotation, flip, timeResolution) {
++    constructor(onSample, onError, codec, decoderConfig, rotation, flip, timeResolution, avcCodedRaster) {
+         super(onSample, onError);
+         this.codec = codec;
+         this.decoderConfig = decoderConfig;
+         this.rotation = rotation;
+         this.flip = flip;
+         this.timeResolution = timeResolution;
++        this.avcCodedRaster = avcCodedRaster;
+         this.decoder = null;
+         this.customDecoder = null;
+         this.customDecoderCallSerializer = new CallSerializer();
+@@ -845,6 +906,8 @@ class VideoDecoderWrapper extends DecoderWrapper {
+         }
+     }
+     decode(packet) {
++        if (this.avcCodedRaster)
++            validateCodedAvcPacket(packet, this.decoderConfig);
+         if (this.codec === 'hevc' && this.currentPacketIndex > 0 && !this.raslSkipped) {
+             if (this.hasHevcRaslPicture(packet.data)) {
+                 return; // Drop
+@@ -866,7 +929,7 @@ class VideoDecoderWrapper extends DecoderWrapper {
+             if (!isWebKit()) {
+                 insertSorted(this.inputTimestamps, packet.timestamp, x => x);
+             }
+-            if (isChromium() && this.currentPacketIndex === 0) {
++            if (!this.avcCodedRaster && isChromium() && this.currentPacketIndex === 0) {
+                 if (this.codec === 'avc') {
+                     // Workaround for https://issues.chromium.org/issues/470109459
+                     const filteredNalUnits = [];
+@@ -1479,6 +1542,9 @@ const validateVideoSinkDecoderOptions = (decoderOptions) => {
+     if (decoderOptions.optimizeForLatency !== undefined && typeof decoderOptions.optimizeForLatency !== 'boolean') {
+         throw new TypeError('decoderOptions.optimizeForLatency, when provided, must be a boolean.');
+     }
++    if (decoderOptions.avcCodedRaster !== undefined && typeof decoderOptions.avcCodedRaster !== 'boolean') {
++        throw new TypeError('decoderOptions.avcCodedRaster, when provided, must be a boolean.');
++    }
+ };
+ /**
+  * A sink that retrieves decoded video samples (video frames) from a video track.
+@@ -1516,7 +1582,13 @@ export class VideoSampleSink extends BaseMediaSampleSink {
+             hardwareAcceleration: this._decoderOptions.hardwareAcceleration,
+             optimizeForLatency: this._decoderOptions.optimizeForLatency,
+         };
+-        return new VideoDecoderWrapper(onSample, onError, codec, decoderConfig, rotation, flip, timeResolution);
++        const avcCodedRaster = this._decoderOptions.avcCodedRaster === true;
++        if (avcCodedRaster) {
++            if (codec !== 'avc')
++                throw new TypeError('Coded AVC raster requires an AVC track.');
++            decoderConfig = codedAvcDecoderConfig(decoderConfig, await this._track.getPixelAspectRatio());
++        }
++        return new VideoDecoderWrapper(onSample, onError, codec, decoderConfig, rotation, flip, timeResolution, avcCodedRaster);
+     }
+     /** @internal */
+     _createPacketSink() {
 diff --git a/node_modules/mediabunny/dist/modules/src/metadata.d.ts b/node_modules/mediabunny/dist/modules/src/metadata.d.ts
 index d981d8ca7..1733fbac5 100644
 --- a/node_modules/mediabunny/dist/modules/src/metadata.d.ts
@@ -6221,6 +6746,158 @@ index d9571b8a2..c2dd4f33d 100644
  				],
  			});
  		}
+diff --git a/node_modules/mediabunny/src/media-sink.ts b/node_modules/mediabunny/src/media-sink.ts
+index 1e88c0b21..82a1f70d6 100644
+--- a/node_modules/mediabunny/src/media-sink.ts
++++ b/node_modules/mediabunny/src/media-sink.ts
+@@ -9,6 +9,7 @@
+ import { parsePcmCodec, PCM_AUDIO_CODECS, PcmAudioCodec, VideoCodec, AudioCodec, OPUS_SAMPLE_RATE } from './codec';
+ import {
+ 	addAvcBitstreamRestriction,
++	addEmulationPreventionBytes,
+ 	AvcNalUnitType,
+ 	concatAvcNalUnits,
+ 	deserializeAvcDecoderConfigurationRecord,
+@@ -62,6 +63,7 @@ import {
+ 	VideoSample,
+ 	VideoSamplePixelFormat,
+ } from './sample';
++import { Bitstream } from '../shared/bitstream';
+ 
+ /**
+  * Additional options for controlling packet retrieval.
+@@ -938,6 +940,70 @@ export abstract class BaseMediaSampleSink<
+ 	}
+ }
+ 
++const codedAvcDecoderConfig = (
++	config: VideoDecoderConfig,
++	aspect: Readonly<{ num: number; den: number }>,
++): VideoDecoderConfig => {
++	const description = config.description && toUint8Array(config.description);
++	const record = description && description.byteLength <= 4_096
++		? deserializeAvcDecoderConfigurationRecord(description)
++		: null;
++	if (!description || !record || record.configurationVersion !== 1 || record.lengthSizeMinusOne !== 3
++		|| record.sequenceParameterSets.length !== 1 || record.pictureParameterSets.length !== 1
++		|| (record.sequenceParameterSetExt?.length ?? 0) !== 0) {
++		throw new RangeError('Coded AVC raster requires one bounded AVC configuration.');
++	}
++	const canonical = serializeAvcDecoderConfigurationRecord(record);
++	const sps = parseAvcSps(record.sequenceParameterSets[0]!);
++	if (canonical.length !== description.length || canonical.some((value, index) => value !== description[index])
++		|| !sps || sps.frameMbsOnlyFlag !== 1 || sps.chromaFormatIdc !== 1
++		|| sps.bitDepthLumaMinus8 !== 0 || sps.bitDepthChromaMinus8 !== 0
++		|| sps.displayWidth !== config.codedWidth || sps.displayHeight !== config.codedHeight
++		|| sps.pixelAspectRatio.num * aspect.den !== aspect.num * sps.pixelAspectRatio.den) {
++		throw new RangeError('Coded AVC raster requires a matching progressive 8-bit AVC configuration.');
++	}
++	const rbsp = sps.emulationUnpreventedBytes.slice();
++	const bits = new Bitstream(rbsp);
++	bits.pos = sps.vuiParametersFlagBitOffset;
++	if (bits.getBitsLeft() < 10 || bits.readBits(2) !== 3) {
++		throw new RangeError('Coded AVC raster requires an explicit SPS pixel aspect.');
++	}
++	const idc = bits.readBits(8);
++	if (idc < 2 || idc > 16) {
++		throw new RangeError('Coded AVC raster requires a standard SPS pixel aspect.');
++	}
++	bits.pos -= 8;
++	bits.writeBits(8, 1);
++	record.sequenceParameterSets[0] = addEmulationPreventionBytes(rbsp);
++	const coded = { ...config, description: serializeAvcDecoderConfigurationRecord(record) };
++	delete coded.displayAspectWidth;
++	delete coded.displayAspectHeight;
++	return coded;
++};
++
++const validateCodedAvcPacket = (packet: EncodedPacket, config: VideoDecoderConfig) => {
++	let consumed = 0;
++	let hasPicture = false;
++	for (const unit of iterateAvcNalUnits(packet.data, config)) {
++		const end = unit.offset + unit.length;
++		const header = packet.data[unit.offset] ?? 0;
++		const type = extractNalUnitTypeForAvc(header);
++		const isPicture = type === 1 || type === 5;
++		// An optional first access-unit delimiter has no parameter sets or picture data.
++		const isDelimiter = consumed === 0 && header === 9 && unit.length === 2
++			&& ((packet.data[unit.offset + 1] ?? 0) & 0x1F) === 0x10;
++		if (unit.offset !== consumed + 4 || unit.length < 1 || end > packet.byteLength
++			|| (header & 0x80) !== 0 || !(isPicture || type === 6 || isDelimiter)) {
++			throw new RangeError('Coded AVC raster requires original picture slices without in-band configuration.');
++		}
++		consumed = end;
++		hasPicture ||= isPicture;
++	}
++	if (consumed !== packet.byteLength || !hasPicture) {
++		throw new RangeError('Coded AVC raster received an incomplete picture packet.');
++	}
++};
++
+ class VideoDecoderWrapper extends DecoderWrapper<VideoSample> {
+ 	decoder: VideoDecoder | null = null;
+ 
+@@ -977,6 +1043,7 @@ class VideoDecoderWrapper extends DecoderWrapper<VideoSample> {
+ 		public rotation: Rotation,
+ 		public flip: boolean,
+ 		public timeResolution: number,
++		public avcCodedRaster: boolean,
+ 	) {
+ 		super(onSample, onError);
+ 
+@@ -1103,6 +1170,7 @@ class VideoDecoderWrapper extends DecoderWrapper<VideoSample> {
+ 	}
+ 
+ 	decode(packet: EncodedPacket) {
++		if (this.avcCodedRaster) validateCodedAvcPacket(packet, this.decoderConfig);
+ 		if (this.codec === 'hevc' && this.currentPacketIndex > 0 && !this.raslSkipped) {
+ 			if (this.hasHevcRaslPicture(packet.data)) {
+ 				return; // Drop
+@@ -1127,7 +1195,7 @@ class VideoDecoderWrapper extends DecoderWrapper<VideoSample> {
+ 				insertSorted(this.inputTimestamps, packet.timestamp, x => x);
+ 			}
+ 
+-			if (isChromium() && this.currentPacketIndex === 0) {
++			if (!this.avcCodedRaster && isChromium() && this.currentPacketIndex === 0) {
+ 				if (this.codec === 'avc') {
+ 					// Workaround for https://issues.chromium.org/issues/470109459
+ 					const filteredNalUnits: Uint8Array[] = [];
+@@ -1862,6 +1930,11 @@ export type VideoSinkDecoderOptions = {
+ 	 * before video frames are output.
+ 	 */
+ 	optimizeForLatency?: boolean;
++	/**
++	 * Retain the unscaled coded AVC raster for an authenticated single AVC1 configuration.
++	 * The caller owns the authored pixel aspect outside this sink.
++	 */
++	avcCodedRaster?: boolean;
+ };
+ 
+ const validateVideoSinkDecoderOptions = (decoderOptions: VideoSinkDecoderOptions) => {
+@@ -1880,6 +1953,9 @@ const validateVideoSinkDecoderOptions = (decoderOptions: VideoSinkDecoderOptions
+ 	if (decoderOptions.optimizeForLatency !== undefined && typeof decoderOptions.optimizeForLatency !== 'boolean') {
+ 		throw new TypeError('decoderOptions.optimizeForLatency, when provided, must be a boolean.');
+ 	}
++	if (decoderOptions.avcCodedRaster !== undefined && typeof decoderOptions.avcCodedRaster !== 'boolean') {
++		throw new TypeError('decoderOptions.avcCodedRaster, when provided, must be a boolean.');
++	}
+ };
+ 
+ /**
+@@ -1935,7 +2011,12 @@ export class VideoSampleSink extends BaseMediaSampleSink<VideoSample> {
+ 			optimizeForLatency: this._decoderOptions.optimizeForLatency,
+ 		};
+ 
+-		return new VideoDecoderWrapper(onSample, onError, codec, decoderConfig, rotation, flip, timeResolution);
++		const avcCodedRaster = this._decoderOptions.avcCodedRaster === true;
++		if (avcCodedRaster) {
++			if (codec !== 'avc') throw new TypeError('Coded AVC raster requires an AVC track.');
++			decoderConfig = codedAvcDecoderConfig(decoderConfig, await this._track.getPixelAspectRatio());
++		}
++		return new VideoDecoderWrapper(onSample, onError, codec, decoderConfig, rotation, flip, timeResolution, avcCodedRaster);
+ 	}
+ 
+ 	/** @internal */
 diff --git a/node_modules/mediabunny/src/metadata.ts b/node_modules/mediabunny/src/metadata.ts
 index cc253f5af..01201ef55 100644
 --- a/node_modules/mediabunny/src/metadata.ts
