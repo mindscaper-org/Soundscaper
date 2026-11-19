@@ -5,6 +5,29 @@ import { strFromU8, unzipSync } from 'fflate';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, collectClientErrors, disableNativeSavePicker, importFiles, chooseExportProjectFileAction, chooseFileAction, downloadBytes, chooseNestedCommandAction, chooseCommandAction, chooseDropdown, openClipProperties, showClipTimingFields, clipField, closeClipProperties, openExportDialog, readDownloadBytes, waitForEditor, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
+import { sourceMonitorFragmentedMedia } from './fixtures/video-timing-probe-media.js';
+
+test('hybrid MP4 import retains AAC through the authored last sample', async ({ page }) => {
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	const file = sourceMonitorFragmentedMedia()[2];
+	await importFiles(editor, [file]);
+	await expect(editor).toHaveAttribute('data-clip-count', '2');
+	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+	const saving = page.waitForEvent('download');
+	await chooseExportProjectFileAction(page, editor);
+	const entries = unzipSync(await downloadBytes(await saving));
+	const project = JSON.parse(strFromU8(entries['project.json']));
+	const video = project.sources.find(source => source.kind === 'video');
+	const audio = project.sources.find(source => source.kind === 'audio');
+	const pcm = Buffer.from(entries[`audio/${audio.id}.f32c`]);
+	let energy = 0;
+	for (let frame = 40_000; frame < 46_080; frame++) energy += pcm.readFloatLE(4 + frame * 4) ** 2;
+	expect(Math.sqrt(energy / 6080)).toBeGreaterThan(.05);
+	expect(audio.frameCount).toBe(46_400);
+	expect(pcm.subarray(4 + 46_144 * 4)).toEqual(Buffer.alloc((46_400 - 46_144) * 4));
+	expect(Buffer.from(entries[`media/${video.id}/original`])).toEqual(file.buffer);
+});
 
 for (const picture of [1, 2]) test(`video import retains its longer audio programme: ${picture}s picture, 2s audio`, async ({ page }, testInfo) => {
 	test.setTimeout(60_000); const errors = collectClientErrors(page);

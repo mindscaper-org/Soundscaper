@@ -39,7 +39,7 @@ export function createExternalMediaAudioDecoder(ports: ExternalAudioDecodePorts)
 				durationSeconds: (programme?.pictureFrameCount ?? frames) / sampleRate, hasAudio: true, signal,
 				audioProgramme: programme?.streamIndex ?? 'legacy',
 				inspectEncodedSampleRate: () => null,
-				decodeNative: encoded => ports.decodeNative(encoded, reference.decodeSampleRate ?? null),
+				decodeNative: (encoded, rate) => ports.decodeNative(encoded, rate ?? reference.decodeSampleRate ?? null),
 				decodeFfmpeg: (input, settings) => ports.decodeCodec(input, settings),
 			});
 			decoded = result.decodedAudio;

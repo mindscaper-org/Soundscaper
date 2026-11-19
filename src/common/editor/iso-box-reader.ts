@@ -33,7 +33,26 @@ export function createIsoBoxReader(file: Blob, signal?: AbortSignal) {
 		if (version > 1) invalid();
 		return (await read(header.start + (version === 1 ? 20 : 12), 4, header.end)).getUint32(0);
 	};
-	return { read, boxes, trackId };
+	const trackSampleTable = async (track: IsoBox): Promise<readonly IsoBox[]> => {
+		let table = track;
+		for (const type of ['mdia', 'minf', 'stbl']) {
+			const part = (await boxes(table.start, table.end)).find(box => box.type === type);
+			if (!part) return [];
+			table = part;
+		}
+		return boxes(table.start, table.end);
+	};
+	const fragmentSampleView = async (sizes: IsoBox): Promise<Readonly<{ initialCount: number; tail: Blob | null }>> => {
+		const offset = sizes.start + 8;
+		const initialCount = (await read(offset, 4, sizes.end)).getUint32(0);
+		// A nonempty static table masks fragments in the packet demuxer. Expose
+		// its fragment iterator through a view of the same byte positions.
+		const tail = initialCount ? new Blob([
+			file.slice(0, offset), new Uint8Array(4), file.slice(offset + 4),
+		], { type: file.type }) : null;
+		return { initialCount, tail };
+	};
+	return { read, boxes, trackId, trackSampleTable, fragmentSampleView };
 }
 
 function safeInteger(value: bigint): number {

@@ -3,6 +3,7 @@ import { throwIfAborted } from '../../../video-timing-demux-reader.ts';
 import { isQuickTimeS16Pcm } from '../../../browser-container-audio-decode.ts';
 import { secondsToSampleFrame } from '../../../timeline-time.ts';
 import type { ImportedVideoDecodedAudio } from './video-import-audio-decode.ts';
+import type { VideoAudioWorkload } from './video-import-audio-workload.ts';
 
 const MAXIMUM_OUTPUT_BYTES = 128 * 1024 * 1024;
 
@@ -13,6 +14,7 @@ interface VideoContainerAudioTiming {
 	readonly nativeTimingShared: boolean;
 	readonly packetDecodePreferred?: boolean;
 	readonly selectedAudioTrack?: Readonly<{ file: Blob; ordinal: number; streamIndex: number; sampleRate: number }>;
+	readonly hybridAacWorkload?: VideoAudioWorkload;
 	/** Authenticated ISO AAC-LC presentation end, relative to picture zero. */
 	readonly programmeEndSeconds: number | null;
 }
@@ -65,6 +67,22 @@ async function inspectVideoContainerAudioTiming(blob: Blob, signal: AbortSignal 
 		const [audioStart, videoStart] = await Promise.all([audio.getFirstTimestamp(), video.getFirstTimestamp()]);
 		throwIfAborted(signal);
 		if (!Number.isFinite(audioStart) || !Number.isFinite(videoStart)) throw new RangeError('Invalid container audio timing.');
+		if (selection === 'primary' && (format === MP4 || format === QTFF) && audioTrackCount === 1
+			&& audioStart === 0 && videoStart === 0) {
+			try {
+				const tracks = await input.getTracks();
+				const streamIndex = tracks.indexOf(audio);
+				if (streamIndex >= 0 && tracks.length === 2 && await audio.getCodec() === 'aac') {
+					const { projectHybridVideoAac } = await import('./video-import-hybrid-aac.ts');
+					const hybrid = await projectHybridVideoAac(blob, audio, signal);
+					if (hybrid) return {
+						offsetSeconds: 0, audioTrackCount, nativeTimingShared: true,
+						selectedAudioTrack: { file: hybrid.file, ordinal: 0, streamIndex, sampleRate: hybrid.workload.sampleRate },
+						hybridAacWorkload: hybrid.workload, programmeEndSeconds: hybrid.workload.presentationEndSeconds ?? null,
+					};
+				}
+			} catch { throwIfAborted(signal); }
+		}
 		// Native whole-file decoders already remove samples before composition zero
 		// (for example negative AAC priming); those must not be removed twice.
 		const offsetSeconds = Math.max(0, audioStart) - Math.max(0, videoStart);

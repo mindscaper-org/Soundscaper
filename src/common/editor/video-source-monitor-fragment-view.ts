@@ -20,7 +20,7 @@ export async function prepareFragmentPlaybackView(
 ): Promise<Blob | null> {
 	const maximumBytes = Math.min(options.maximumBytes ?? MAXIMUM_FRAGMENT_PLAYBACK_VIEW_BYTES, MAXIMUM_FRAGMENT_PLAYBACK_VIEW_BYTES);
 	if (file.size > maximumBytes || timing.timescale > MAXIMUM_MUXER_TIMESCALE) return null;
-	const { read, boxes, trackId } = createIsoBoxReader(file, signal);
+	const { read, boxes, trackId, trackSampleTable, fragmentSampleView } = createIsoBoxReader(file, signal);
 	const roots = await boxes(0, file.size);
 	if (!roots.some(box => box.type === 'moof')) return null;
 	const movies = roots.filter(box => box.type === 'moov');
@@ -46,13 +46,7 @@ export async function prepareFragmentPlaybackView(
 			const fields = await boxes(trak.start, trak.end);
 			const header = fields.find(box => box.type === 'tkhd');
 			if (!header || await trackId(header) !== track.id) continue;
-			let table = trak;
-			for (const type of ['mdia', 'minf', 'stbl']) {
-				const part = (await boxes(table.start, table.end)).find(box => box.type === type);
-				if (!part) return null;
-				table = part;
-			}
-			const entries = await boxes(table.start, table.end);
+			const entries = await trackSampleTable(trak);
 			const descriptions = entries.find(box => box.type === 'stsd');
 			const sizes = entries.find(box => box.type === 'stsz' || box.type === 'stz2');
 			if (!descriptions || !sizes) return null;
@@ -64,14 +58,9 @@ export async function prepareFragmentPlaybackView(
 				const extensions = await boxes(descriptions.start + 16 + 78, descriptions.end);
 				if (extensions.some(box => !['avcC', 'pasp', 'btrt'].includes(box.type))) return null;
 			}
-			const offset = sizes.start + 8;
-			initialSampleCount = (await read(offset, 4, sizes.end)).getUint32(0);
-			if (initialSampleCount) {
-				// MediaBunny reads the nonempty sample table in preference to fragments.
-				// A private input view exposes the second iterator without changing any offsets.
-				const tail = new Blob([file.slice(0, offset), new Uint8Array(4), file.slice(offset + 4)], { type: file.type });
-				fragments = new Input({ source: new BlobSource(tail), formats: [MP4, QTFF] });
-			}
+			const { initialCount, tail } = await fragmentSampleView(sizes);
+			initialSampleCount = initialCount;
+			if (tail) fragments = new Input({ source: new BlobSource(tail), formats: [MP4, QTFF] });
 			break;
 		}
 		if (initialSampleCount === undefined) return null;

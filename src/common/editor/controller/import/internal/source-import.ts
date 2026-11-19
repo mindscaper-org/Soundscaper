@@ -217,7 +217,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 					hasAudio: timingProbe.characteristics.audioStreams?.some(() => true),
 					signal: importOptions.signal,
 					inspectEncodedSampleRate: inspectEncodedAudioSampleRate,
-					decodeNative: (encoded) => engine.decodeAudioData(encoded, { sampleRate }),
+					decodeNative: (encoded, rate = sampleRate) => engine.decodeAudioData(encoded, { sampleRate: rate }),
 					decodeContainerAudio: runtime.decodeContainerAudio,
 					decodeFfmpeg: async (video, options) => ffmpeg.decode(video, options),
 				});
