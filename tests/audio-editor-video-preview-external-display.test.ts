@@ -28,10 +28,11 @@ test('the active display receives the preview evaluator bytes once with exact ba
 		}); });
 	});
 	await framescaperNativeServicesStoreFor(bridge).refresh();
-	let captures = 0;
+	const captures: Uint8Array[] = [];
 	const compositor = { captureEvaluatedRgba: () => {
-		captures += 1;
-		return { width: 2, height: 1, rgba: Uint8Array.of(1, 2, 3, 255, 4, 5, 6, 255) };
+		const rgba = Uint8Array.of(1, 2, 3, 255, 4, 5, 6, 255);
+		captures.push(rgba);
+		return { width: 2, height: 1, rgba };
 	} };
 	const project = { id: 'project-1', revision: 8 };
 	const dependencies = { resolveBridge: () => bridge };
@@ -42,8 +43,9 @@ test('the active display receives the preview evaluator bytes once with exact ba
 	assert.equal(publishEvaluatedVideoPreviewFrame({
 		compositor, project, timelineFrame: 48_001,
 	}, dependencies), false);
-	assert.equal(captures, 1, 'a backpressured frame is dropped before framebuffer readback');
+	assert.equal(captures.length, 1, 'a backpressured frame is dropped before framebuffer readback');
 	assert.equal(presented.length, 1);
+	assert.equal(presented[0]?.rgba, captures[0], 'the compositor-owned readback is published directly');
 	assert.equal(presented[0]?.sequence, 0);
 	assert.equal(presented[0]?.dynamicRange, 'sdr');
 	assert.match(String(presented[0]?.rgbaSha256), /^[a-f0-9]{64}$/u);

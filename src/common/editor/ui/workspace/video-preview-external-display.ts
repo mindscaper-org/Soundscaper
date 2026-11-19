@@ -16,10 +16,11 @@ import {
 interface EvaluatedPreviewFrame {
 	readonly width: number;
 	readonly height: number;
-	readonly rgba: Uint8Array;
+	readonly rgba: Uint8Array<ArrayBuffer>;
 }
 
 interface EvaluatedPreviewCompositor {
+	/** Each readback gives the caller a newly allocated pixel buffer. */
 	captureEvaluatedRgba(): EvaluatedPreviewFrame | null;
 }
 
@@ -119,7 +120,7 @@ function capturedFrame(value: unknown): EvaluatedPreviewFrame | null {
 		|| !(frameValue.rgba instanceof Uint8Array) || frameValue.rgba.byteLength !== byteLength) {
 		throw new RangeError('The evaluated preview frame exceeds its exact RGBA geometry.');
 	}
-	return Object.freeze({ width, height, rgba: Uint8Array.from(frameValue.rgba) });
+	return Object.freeze({ width, height, rgba: frameValue.rgba });
 }
 
 function projectIdentity(value: unknown): ExternalDisplayProjectIdentity {
