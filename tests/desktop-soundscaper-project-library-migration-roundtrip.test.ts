@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { lstat, mkdir, mkdtemp, readdir, rename, rm, rmdir, writeFile } from 'node:fs/promises';
+import { chmod, lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, rmdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
@@ -15,7 +15,7 @@ import {
 import { SoundscaperDesktopProjectLibraryMain } from '../desktop/soundscaper-project-library-main.ts';
 import { createSoundscaperDesktopProjectLibraryTransferBodies } from
 	'../desktop/soundscaper-project-library-transfer-contract.ts';
-import { TemporaryProjectStorage } from '../desktop/temporary-project-storage.ts';
+import { TemporaryProjectStorage, TemporaryProjectStorageUnavailableError } from '../desktop/temporary-project-storage.ts';
 import {
 	createAudioClip,
 	createAudioSource,
@@ -180,6 +180,52 @@ test('temporary library relocation refuses while another profile owns the librar
 		try { assert.equal((await session.readProjectBundle(project.id))?.project.projectId, project.id); }
 		finally { await session.close(); }
 	} finally { await reopened.close(); }
+});
+
+test('a newly read-only temporary destination keeps the current catalog available until it becomes writable', {
+	skip: process.platform !== 'linux' || process.getuid?.() === 0,
+}, async context => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-library-readonly-destination-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const active = join(root, 'current'), selected = join(root, 'selected'), settings = join(root, 'settings.json');
+	const storage = () => new TemporaryProjectStorage(settings, active, 'Soundscaper');
+	const handshake = createSoundscaperDesktopProjectLibraryHandshake();
+	const project = createSoundscaperProject({ id: 'pending-move-project', title: 'Keep my working cut' });
+	const original = await withSession('original', active, async session => {
+		const publicationId = 'c'.repeat(48);
+		await session.beginPublication({ publicationId, expectedMetadataRevision: 0, expectedProject: null, project, bodies: [] });
+		return session.finishPublication({ publicationId });
+	});
+	await storage().select(selected);
+	const pending = await readFile(settings, 'utf8');
+	const destination = createSoundscaperDesktopProjectLibraryPaths(selected).databasePath;
+	await chmod(selected, 0o500);
+	try {
+		const launch = storage();
+		assert.equal(await launch.prepare(), active);
+		assert.equal(launch.status().restartRequired, true);
+		assert.equal(await readFile(settings, 'utf8'), pending);
+		assert.deepEqual(await withSession('fallback', active, session => session.readProjectBundle(project.id)), original);
+		await assert.rejects(lstat(destination), { code: 'ENOENT' });
+
+		const recorded = JSON.stringify({ ...JSON.parse(pending) as object, moveStarted: true });
+		await writeFile(settings, recorded);
+		await assert.rejects(storage().prepare(), TemporaryProjectStorageUnavailableError);
+		assert.equal(await readFile(settings, 'utf8'), recorded);
+		await writeFile(settings, pending);
+	} finally { await chmod(selected, 0o700); }
+
+	assert.equal(await storage().prepare(), selected);
+	assert.deepEqual(await withSession('relocated', selected, session => session.readProjectBundle(project.id)), original);
+	await assert.rejects(lstat(createSoundscaperDesktopProjectLibraryPaths(active).databasePath), { code: 'ENOENT' });
+
+	async function withSession<Result>(name: string, path: string, work: (session: ReturnType<SoundscaperDesktopProjectLibraryMain['openSession']>) => Promise<Result>) {
+		const host = await start(path, name);
+		try {
+			const session = host.openSession(handshake);
+			try { return await work(session); } finally { await session.close(); }
+		} finally { await host.close(); }
+	}
 });
 
 function start(appDataPath: string, instanceId: string): Promise<SoundscaperDesktopProjectLibraryMain> {

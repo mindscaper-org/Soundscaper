@@ -107,26 +107,30 @@ for (const moveStarted of [true, undefined]) test(`a disconnected destination ca
 	assert.equal(await readFile(join(destination, 'unmoved.media'), 'utf8'), 'project audio');
 });
 
-test('starting a move records it before the destination can refuse filesystem writes', {
+test('starting a move records it before an existing destination subtree can refuse filesystem writes', {
 	skip: process.platform === 'win32' || process.getuid?.() === 0,
 }, async t => {
 	const root = await mkdtemp(join(tmpdir(), 'scape-temporary-folder-write-refusal-'));
 	t.after(() => rm(root, { recursive: true, force: true }));
 	const config = join(root, 'settings.json'), original = join(root, 'default'), selected = join(root, 'chosen');
 	const libraryPath = join('Soundscaper', 'project-library', 'v1');
-	const source = join(original, libraryPath);
+	const source = join(original, libraryPath), destination = join(selected, libraryPath);
 	await mkdir(source, { recursive: true });
+	await mkdir(destination, { recursive: true });
 	await writeFile(join(source, 'library.sqlite'), 'project catalog');
 	await new TemporaryProjectStorage(config, original, 'Soundscaper').select(selected);
 	const { selectedId } = JSON.parse(await readFile(config, 'utf8')) as { selectedId: string };
 	assert.deepEqual(JSON.parse(await readFile(config, 'utf8')), { active: original, selected, moveStarted: false, selectedId });
 
-	await chmod(selected, 0o500);
+	await chmod(destination, 0o500);
 	try {
 		await assert.rejects(new TemporaryProjectStorage(config, original, 'Soundscaper').prepare(), /EACCES|EPERM/iu);
-		assert.deepEqual(JSON.parse(await readFile(config, 'utf8')), { active: original, selected, moveStarted: true, selectedId });
+		const { copyStage, ...recorded } = JSON.parse(await readFile(config, 'utf8')) as { copyStage?: string };
+		assert.deepEqual(recorded, { active: original, selected, moveStarted: true, selectedId });
+		if (process.platform === 'linux') assert.match(copyStage ?? '', /^relocation-[a-f0-9]{32}$/u);
+		else assert.equal(copyStage, undefined);
 		assert.equal(await readFile(join(source, 'library.sqlite'), 'utf8'), 'project catalog');
-	} finally { await chmod(selected, 0o700); }
+	} finally { await chmod(destination, 0o700); }
 
 	assert.equal(await new TemporaryProjectStorage(config, original, 'Soundscaper').prepare(), selected);
 	assert.deepEqual(JSON.parse(await readFile(config, 'utf8')), { active: selected, selected, moveStarted: false, activeId: selectedId, selectedId });

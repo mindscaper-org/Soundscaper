@@ -20,7 +20,7 @@ type FolderState = Readonly<{
 export class TemporaryProjectStorageUnavailableError extends Error {
 	constructor(folder: 'active' | 'selected') {
 		super(folder === 'active' ? 'Reconnect the current temporary data folder, then start the app again.'
-			: 'Reconnect the selected temporary data folder to finish moving the project library, then start the app again.');
+			: 'Reconnect the selected temporary data folder or restore write access to finish moving the project library, then start the app again.');
 		this.name = 'TemporaryProjectStorageUnavailableError';
 	}
 }
@@ -52,7 +52,7 @@ export class TemporaryProjectStorage {
 			if (state.moveStarted || !(error instanceof UnsupportedDesktopStorageLocationError)) throw error;
 			return this.#refuseFolderSelection(error, onSelectionRefused);
 		}
-		if (selectedRoot === null) {
+		if (selectedRoot === null || !await temporaryFolderIsWritable(selectedRoot)) {
 			if (state.moveStarted) throw new TemporaryProjectStorageUnavailableError('selected');
 			return state.active;
 		}
@@ -224,6 +224,14 @@ async function availableTemporaryFolder(path: string): Promise<string | null> {
 	} catch (error) {
 		const code = (error as NodeJS.ErrnoException).code;
 		if (code === 'ENOENT' || code === 'ENOTDIR') return null;
+		throw error;
+	}
+}
+async function temporaryFolderIsWritable(path: string): Promise<boolean> {
+	try { await access(path, constants.W_OK); return true; }
+	catch (error) {
+		const code = (error as NodeJS.ErrnoException).code;
+		if (code === 'EACCES' || code === 'EPERM' || code === 'EROFS' || code === 'ENOENT' || code === 'ENOTDIR') return false;
 		throw error;
 	}
 }
