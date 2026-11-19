@@ -28,6 +28,8 @@ function fixture(
 		desktop, getProject: () => current, getPreferences: () => settings,
 		getOpenProjectIds: () => [...tabs.keys()],
 		getProjects: () => [...tabs.values()].map(project => ({ project, readOnly: readOnlyIds.has(project.id) })),
+		getWritableProject: id => readOnlyIds.has(id) ? null : tabs.get(id) ?? null,
+		isProjectWritable: id => tabs.has(id) && !readOnlyIds.has(id),
 		activate: async id => { current = tabs.get(id)!; }, flushInternal: async () => { flushes += 1; await flush(); },
 		write: async (_project, target, assertWritable?: () => void) => {
 			await beforeCommit();

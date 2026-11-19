@@ -17,6 +17,8 @@ interface Dependencies<Project extends FileSavingProject> {
 	readonly getProject: () => Project | null;
 	readonly getOpenProjectIds: () => readonly string[];
 	readonly getProjects: () => readonly Readonly<{ project: Project; readOnly: boolean }>[];
+	readonly getWritableProject: (id: string) => Project | null;
+	readonly isProjectWritable: (id: string) => boolean;
 	readonly getPreferences: () => SavingPreferences;
 	readonly activate: (id: string) => Awaitable<unknown>;
 	readonly flushInternal: () => Awaitable<unknown>;
@@ -101,9 +103,8 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 		return enqueue(async () => {
 			if (disposed) return false;
 			if (d.getProject()?.id === project.id) await d.flushInternal();
-			const latest = d.getProjects().find(entry => entry.project.id === project.id);
-			if (!latest || latest.readOnly) return false;
-			return write(latest.project, true);
+			const latest = d.getWritableProject(project.id);
+			return latest ? write(latest, true) : false;
 		});
 	}
 	async function write(project: Project, explicit: boolean): Promise<boolean> {
@@ -120,7 +121,7 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 		const ownsDestination = () => !disposed && entries.get(project.id) === entry;
 		const assertWritable = () => {
 			const ownsWriter = lease ? !lease.readOnly : !d.acquireInactiveWrite || d.getProject()?.id === project.id;
-			if (!ownsWriter || !ownsDestination() || !d.getProjects().some(tab => tab.project.id === project.id && !tab.readOnly)) {
+			if (!ownsWriter || !ownsDestination() || !d.isProjectWritable(project.id)) {
 				throw new DOMException('The project lost write access before the file could be saved.', 'AbortError');
 			}
 		};
@@ -162,16 +163,15 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 			timers.delete(id);
 			void enqueue(async () => {
 				if (disposed || !d.getPreferences().autoSaving || d.canSave?.() === false) return;
-				const beforeFlush = d.getProjects().find(entry => entry.project.id === id);
-				if (!beforeFlush || beforeFlush.readOnly) return;
-				await load(beforeFlush.project);
+				const beforeFlush = d.getWritableProject(id);
+				if (!beforeFlush) return;
+				await load(beforeFlush);
 				const entry = entries.get(id);
 				if (!entry?.originalFile && !entry?.fileHandle) return;
 				if (d.getProject()?.id === id) await d.flushInternal();
 				if (disposed || !d.getPreferences().autoSaving || d.canSave?.() === false) return;
-				const latest = d.getProjects().find(entry => entry.project.id === id);
-				if (!latest || latest.readOnly) return;
-				await write(latest.project, false);
+				const latest = d.getWritableProject(id);
+				if (latest) await write(latest, false);
 			}).catch(d.handleError);
 		}, 750));
 	}
@@ -226,7 +226,7 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 		} finally {
 			try {
 				if (restoreSelection && d.getProject()?.id === restoreSelection.from
-					&& d.getProjects().some(entry => entry.project.id === restoreSelection?.to)) {
+					&& d.getOpenProjectIds().includes(restoreSelection.to)) {
 					await d.activate(restoreSelection.to);
 				}
 			} finally {

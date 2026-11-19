@@ -132,6 +132,50 @@ test('file-saving observations and close checks do not clone session undo histor
 	assert.equal(materialized('undoStack'), false, 'close checks can read present documents independently');
 });
 
+test('a file save clones only the target document and rechecks write admission from tab metadata', async t => {
+	const project = createSoundscaperProject({ id: 'write-project', title: 'Present' });
+	const other = createSoundscaperProject({ id: 'other-project', title: 'Other recording' });
+	const session = createAudioEditorSessionController({ currentSchemaVersion: project.schemaVersion, projects: [other, project] });
+	const signal = new AbortController();
+	t.after(() => { signal.abort(); session.dispose(); });
+	const reads: string[] = [];
+	const runtime = createControllerFileSavingRuntime({
+		session: { getSnapshot: session.getSnapshot, getProject(id) { reads.push(id); return session.getProject(id); } },
+		signal: signal.signal,
+		store: { listProjects: async () => [], loadProject: async () => null, deleteProjectSnapshot: async () => false },
+		preferences: () => ({ saving: { autoSaving: false, askBeforeClosing: true },
+			temporaryData: { limitProjects: false, maximumProjects: 10 } }),
+		switchProject() {}, closeProject() {}, acquire: async () => ({ readOnly: false, release() {} }),
+		subscribe: () => () => {}, handleError: error => { throw error; },
+	});
+	const saving = bindProjectFileSaving({ runtime, fileService: { isDesktop: true }, copy: {}, getProject: () => project,
+		flush() {}, write: async (captured, _target, assertWritable) => {
+			assert.equal(captured.id, project.id);
+			assert.equal(captured.title, 'Present');
+			session.updateProjectMetadata(other.id, { playheadFrame: 42 });
+			assertWritable();
+			return {};
+		} });
+	await saving.service.opened(project, {});
+	assert.equal(await saving.service.save(), true);
+	assert.deepEqual(reads, [project.id]);
+
+	reads.length = 0;
+	const captured = runtime.getWritableProject(project.id);
+	assert.equal(runtime.getWritableProject(project.id), captured);
+	assert.equal(runtime.getProjects().find(entry => entry.project.id === project.id)?.project, captured);
+	assert.deepEqual(reads, [project.id, other.id]);
+	session.setProjectReadOnly(project.id, true);
+	assert.equal(runtime.isProjectWritable(project.id), false);
+	assert.equal(runtime.getWritableProject(project.id), null);
+	session.closeProject(project.id);
+	assert.equal(runtime.getWritableProject(project.id), null);
+	assert.deepEqual(reads, [project.id, other.id]);
+	session.openProject({ ...project, title: 'Replacement' });
+	assert.equal(runtime.getWritableProject(project.id)?.title, 'Replacement');
+	assert.equal(captured?.title, 'Present');
+});
+
 test('Save uses a new destination after a read-only Scape reopen or an external replacement', async t => {
 	const folder = await mkdtemp(join(tmpdir(), 'scape-replaced-file-binding-'));
 	const writablePath = join(folder, 'First draft.sscape'), readOnlyPath = join(folder, 'Reference draft.sscape');

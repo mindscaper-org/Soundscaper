@@ -11,6 +11,8 @@ for (const lostWriteAuthority of [false, true]) test(`automatic project file sav
 		desktop: true, getProject: () => project,
 		getOpenProjectIds: () => [project.id],
 		getProjects: () => [{ project, readOnly }], getPreferences: () => ({ autoSaving: true, askBeforeClosing: true }),
+		getWritableProject: id => id === project.id && !readOnly ? project : null,
+		isProjectWritable: id => id === project.id && !readOnly,
 		activate() {}, discard() {}, ask: async () => 'cancel',
 		flushInternal: async () => {
 			// Quiescing an external plug-in publishes its latest state as a new document generation.

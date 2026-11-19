@@ -11,6 +11,8 @@ import { formatPresentationMessage } from '../../../i18n/presentation-message.ts
 export interface ProjectFileSavingRuntime {
 	getOpenProjectIds(): readonly string[];
 	getProjects(): readonly Readonly<{ project: NativeProjectDocument; readOnly: boolean }>[];
+	getWritableProject(id: string): NativeProjectDocument | null;
+	isProjectWritable(id: string): boolean;
 	getPreferences(): SavingPreferences;
 	getRetentionKey?(): string;
 	isReady?(): boolean;
@@ -44,6 +46,8 @@ export function bindProjectFileSaving(d: Readonly<{
 		desktop: d.fileService.isDesktop, getProject: d.getProject,
 		getOpenProjectIds: runtime?.getOpenProjectIds ?? (() => { const project = d.getProject(); return project ? [project.id] : []; }),
 		getProjects: runtime?.getProjects ?? (() => { const project = d.getProject(); return project ? [{ project, readOnly: false }] : []; }),
+		getWritableProject: runtime?.getWritableProject ?? (id => { const project = d.getProject(); return project?.id === id ? project : null; }),
+		isProjectWritable: runtime?.isProjectWritable ?? (id => d.getProject()?.id === id),
 		getPreferences: runtime?.getPreferences ?? (() => normalizeSavingPreferences(undefined, d.fileService.isDesktop)),
 		acquireInactiveWrite: runtime?.acquireInactiveWrite,
 		activate: id => runtime?.activate(id), discard: id => runtime?.discard(id), flushInternal: d.flush, write: d.write,
@@ -161,19 +165,43 @@ export function createControllerFileSavingRuntime<Project extends NativeProjectD
 	signal: AbortSignal;
 	handleError: ProjectFileSavingRuntime['handleError'];
 }>): ProjectFileSavingRuntime {
-	const projectViews = new WeakMap<ReturnType<typeof d.session.getSnapshot>, ReturnType<ProjectFileSavingRuntime['getProjects']>>();
+	type Snapshot = ReturnType<typeof d.session.getSnapshot>;
+	type Tab = Snapshot['tabs'][number];
+	type ProjectView = Readonly<{ project: Project; readOnly: boolean }>;
+	type SnapshotViews = { readonly byId: Map<string, ProjectView>; all?: readonly ProjectView[] };
+	const projectViews = new WeakMap<Snapshot, SnapshotViews>();
+	function viewsFor(snapshot: Snapshot): SnapshotViews {
+		let views = projectViews.get(snapshot);
+		if (!views) { views = { byId: new Map() }; projectViews.set(snapshot, views); }
+		return views;
+	}
+	function projectView(views: SnapshotViews, tab: Tab): ProjectView {
+		let view = views.byId.get(tab.projectId);
+		if (!view) {
+			view = { project: d.session.getProject(tab.projectId), readOnly: Boolean(tab.readOnly) };
+			views.byId.set(tab.projectId, view);
+		}
+		return view;
+	}
 	const getProjects = () => {
 		const snapshot = d.session.getSnapshot();
-		const cached = projectViews.get(snapshot);
-		if (cached) return cached;
-		const projects = snapshot.tabs.map(tab => ({ project: d.session.getProject(tab.projectId), readOnly: Boolean(tab.readOnly) }));
-		projectViews.set(snapshot, projects);
-		return projects;
+		const views = viewsFor(snapshot);
+		return views.all ??= snapshot.tabs.map(tab => projectView(views, tab));
+	};
+	const findTab = (snapshot: Snapshot, id: string) => snapshot.tabs.find(tab => tab.projectId === id);
+	const getWritableProject = (id: string): Project | null => {
+		const snapshot = d.session.getSnapshot();
+		const tab = findTab(snapshot, id);
+		return tab && !tab.readOnly ? projectView(viewsFor(snapshot), tab).project : null;
+	};
+	const isProjectWritable = (id: string): boolean => {
+		const tab = findTab(d.session.getSnapshot(), id);
+		return Boolean(tab && !tab.readOnly);
 	};
 	const getOpenProjectIds = () => d.session.getSnapshot().tabs.map(tab => tab.projectId);
-	const isOpen = (id: string): boolean => d.session.getSnapshot().tabs.some(tab => tab.projectId === id);
+	const isOpen = (id: string): boolean => Boolean(findTab(d.session.getSnapshot(), id));
 	return {
-		getProjects, getOpenProjectIds, isReady: d.ready, getPreferences: () => d.preferences().saving, getRetentionKey: () => JSON.stringify(d.preferences().temporaryData), subscribe: d.subscribe, signal: d.signal, handleError: d.handleError,
+		getProjects, getOpenProjectIds, getWritableProject, isProjectWritable, isReady: d.ready, getPreferences: () => d.preferences().saving, getRetentionKey: () => JSON.stringify(d.preferences().temporaryData), subscribe: d.subscribe, signal: d.signal, handleError: d.handleError,
 		acquireInactiveWrite: async id => {
 			const lock = await d.acquire(id);
 			let retained = false;
