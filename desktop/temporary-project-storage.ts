@@ -84,7 +84,7 @@ export class TemporaryProjectStorage {
 					}
 				},
 				copyStageDirectory,
-				createCopyStage: process.platform === 'linux' ? async () => {
+				createCopyStage: process.platform === 'linux' || process.platform === 'win32' ? async () => {
 					copyStageDirectory = await this.#createCopyStage(location);
 					return copyStageDirectory;
 				} : undefined,

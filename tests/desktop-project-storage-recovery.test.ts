@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
+import { watch } from 'node:fs';
 import { lstat, mkdir, mkdtemp, readdir, readFile, rm, symlink, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -216,6 +217,37 @@ test('overlapping folder choices persist the last selection through a single wri
 	await Promise.all([storage.select(first), storage.select(second)]);
 	assert.equal(storage.status().selectedFolder, second);
 	assert.equal(await new TemporaryProjectStorage(path, active, 'Soundscaper').prepare(), second);
+});
+
+test('startup registers a private stage before copying a temporary library into an existing folder', {
+	skip: process.platform !== 'linux' && process.platform !== 'win32',
+}, async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-storage-copy-stage-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const active = join(root, 'active'), selected = join(root, 'selected');
+	const catalogDirectory = join('Soundscaper', 'project-library', 'v1');
+	const source = join(active, catalogDirectory, 'library.sqlite3');
+	const destination = join(selected, catalogDirectory, 'library.sqlite3');
+	const configuration = join(root, 'settings.json');
+	await mkdir(join(active, catalogDirectory), { recursive: true });
+	await writeFile(source, 'active catalog');
+	// A previously existing empty directory forces the move through file copies.
+	await mkdir(join(selected, catalogDirectory), { recursive: true });
+	await new TemporaryProjectStorage(configuration, active, 'Soundscaper').select(selected);
+
+	const location = projectLibraryLocationDirectory(selected, 'Soundscaper');
+	const stageObserved = Promise.withResolvers<boolean>();
+	const watcher = watch(location, (_event, name) => {
+		if (name && /^relocation-[a-f0-9]{32}$/u.test(name)) stageObserved.resolve(true);
+	});
+	watcher.once('error', () => stageObserved.resolve(false));
+	const timeout = setTimeout(() => stageObserved.resolve(false), 2000);
+	try {
+		assert.equal(await new TemporaryProjectStorage(configuration, active, 'Soundscaper').prepare(), selected);
+		assert.equal(await stageObserved.promise, true);
+		assert.equal(await readFile(destination, 'utf8'), 'active catalog');
+		assert.equal((await readdir(location)).some(name => name.startsWith('relocation-')), false);
+	} finally { clearTimeout(timeout); watcher.close(); }
 });
 
 test('restart clears a registered copy stage after the library source was retired', async context => {
