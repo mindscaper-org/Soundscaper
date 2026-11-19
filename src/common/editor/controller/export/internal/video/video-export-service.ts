@@ -254,7 +254,8 @@ export function createEditorVideoExportAction(
 			}
 			const rawVideoBytes = [...videoBlobs.values()]
 				.reduce((total, blob) => total + blob.size, 0);
-			await preflightStorage(Math.max(rawVideoBytes, 16 * 1024 * 1024), 'export');
+			await preflightStorage(Math.max(rawVideoBytes, 16 * 1024 * 1024), 'export', abort.signal);
+			assertVideoExportCurrent();
 			setLocalizedStatus(setStatus, copy, "rendering");
 			progressTask.setPhase(copy.rendering, { start: 0, end: 0.4, value: 0 }, { key: 'rendering' });
 			let audioMixBlob = null;
