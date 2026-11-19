@@ -159,6 +159,11 @@ export function createFramescaperAudioEditorController(
 		productNativeRenderInputAuthority: nativeRenderInputAuthority,
 		...presentation,
 	});
+	if (openFxFrames) {
+		const { beginDisposal, dispose } = controller;
+		controller.beginDisposal = () => { openFxFrames.dispose(); beginDisposal(); };
+		controller.dispose = () => { openFxFrames.dispose(); return dispose(); };
+	}
 	Object.defineProperty(controller, 'prepareNativeRenderInputStream', {
 		enumerable: false,
 		configurable: false,

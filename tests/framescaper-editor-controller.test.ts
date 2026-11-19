@@ -119,6 +119,27 @@ test('the controller is composed headless with no project until one is opened', 
 	assert.equal((controller.getSnapshot as () => Data)().productId, 'framescaper');
 });
 
+test('controller teardown retires its native OpenFX window listener', async (context) => {
+	await environment();
+	const previous = Object.getOwnPropertyDescriptor(globalThis, 'window');
+	const scope = new EventTarget();
+	const add = context.mock.method(scope, 'addEventListener');
+	const remove = context.mock.method(scope, 'removeEventListener');
+	Object.defineProperty(globalThis, 'window', { configurable: true, value: scope });
+	context.after(() => {
+		if (previous) Object.defineProperty(globalThis, 'window', previous);
+		else Reflect.deleteProperty(globalThis, 'window');
+	});
+	installBridge(context, { ...desktopBridge(), openOpenFxFrameSession: async () => null });
+	const controller = await controllerWith();
+	const offer = add.mock.calls.find(({ arguments: [name] }) => name === 'message')?.arguments[1];
+	assert.ok(offer);
+	(controller.blockStoreClose as () => void)();
+	(controller.beginDisposal as () => void)();
+	await (controller.dispose as () => Promise<void>)();
+	assert.equal(remove.mock.calls.filter(({ arguments: [name, listener] }) => name === 'message' && listener === offer).length, 1);
+});
+
 test('native render input preparation is installed as a sealed non-enumerable member', async () => {
 	const controller = await controllerWith();
 

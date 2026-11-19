@@ -2,6 +2,7 @@
 
 /** Renderer half of the bounded, pathless baseline OpenFX frame port. */
 
+import { createBoundedWorkQueue } from '../controller/shared/bounded-work-queue.ts';
 import {
 	fingerprintNativeMediaPlan,
 } from '../native-media-plan-canonical-form.ts';
@@ -15,9 +16,13 @@ const MAXIMUM_FRAME_SET_BYTES = 512 * 1024 * 1024;
 const SESSION = /^[a-f\d]{40}$/u;
 const SHA256 = /^[a-f\d]{64}$/u;
 const TIMEOUT_MS = 30_000;
+// Preview, filmstrip, export and live staging can each request a frame.
+const MAXIMUM_WAITING_FRAMES = 3;
 
 export interface FramescaperOpenFxRendererMessagePort {
 	postMessage(message: unknown): void;
+	addEventListener(type: 'close', listener: () => void): void;
+	removeEventListener(type: 'close', listener: () => void): void;
 	start(): void;
 	close(): void;
 	onmessage: ((event: MessageEvent<unknown>) => void) | null;
@@ -55,15 +60,14 @@ export function createFramescaperOpenFxFramePortClient(options: Readonly<{
 	let waiter: Readonly<{
 		sessionId: string;
 		resolve: (port: FramescaperOpenFxRendererMessagePort) => void;
-		reject: (error: unknown) => void;
 	}> | null = null;
 	let consumed = false;
-	let disposed = false;
-	let active = false;
+	const lifetime = new AbortController();
+	const queue = createBoundedWorkQueue(1, MAXIMUM_WAITING_FRAMES);
 	const unsubscribe = options.subscribeOffers((offerValue, port) => {
 		try {
 			const offer = admittedOffer(offerValue);
-			if (disposed || !active || expected === null
+			if (lifetime.signal.aborted || expected === null
 				|| offer.requestNonce !== expected.requestNonce
 				|| (expected.sessionId !== null && offer.sessionId !== expected.sessionId)
 				|| consumed || offered !== null) { port.close(); return; }
@@ -74,17 +78,22 @@ export function createFramescaperOpenFxFramePortClient(options: Readonly<{
 	});
 
 	async function execute(request: FramescaperOpenFxFrameExecutionRequestNativeMedia) {
-		if (disposed) throw new Error('OpenFX frame client is disposed.');
-		if (active) throw new Error('OpenFX frame client permits one in-flight frame.');
-		active = true;
+		const signal = AbortSignal.any([request.signal, lifetime.signal]);
+		return queue.run(() => executeFrame(request, signal), { signal });
+	}
+
+	async function executeFrame(request: FramescaperOpenFxFrameExecutionRequestNativeMedia, signal: AbortSignal) {
 		let port: FramescaperOpenFxRendererMessagePort | null = null;
 		let sessionId: string | null = null;
 		let completed = false;
+		const closure = new AbortController();
+		const closed = () => closure.abort();
 		try {
-			request.signal.throwIfAborted();
+			signal.throwIfAborted();
 			const requestNonce = opaqueId((options.mintRequestNonce ?? randomOpaqueId)());
 			expected = Object.freeze({ requestNonce, sessionId: null });
 			const admitted = await portRequest(request, requestNonce);
+			signal.throwIfAborted();
 			const offer = admittedOffer(await options.openSession(admitted.control));
 			if (offer.requestNonce !== requestNonce) {
 				throw new Error('OpenFX frame-port offer did not bind the renderer request capability.');
@@ -94,18 +103,21 @@ export function createFramescaperOpenFxFramePortClient(options: Readonly<{
 			if (offered !== null && offered.sessionId !== offer.sessionId) {
 				offered.port.close(); offered = null;
 			}
-			port = await offeredPort(offer.sessionId, request.signal, () => offered?.port ?? null, (value) => {
+			// An admitted session still needs its port so cancellation can retire it.
+			port = await offeredPort(offer.sessionId, lifetime.signal, () => offered?.port ?? null, (value) => {
 				offered = value === null ? null : Object.freeze({ sessionId: offer.sessionId, port: value });
 			}, (value) => { waiter = value; });
 			consumed = true;
-			request.signal.throwIfAborted();
+			port.addEventListener('close', closed);
 			port.start();
+			signal.throwIfAborted();
 			if (admitted.control.inputBinding !== null) {
-				await sendInput(port, admitted.control.inputBinding, admitted.bytes, request.signal);
+				await sendInput(port, admitted.control.inputBinding, admitted.bytes, signal);
 			}
-			const result = resultMessage(await message(port, request.signal), offer.sessionId);
+			const result = resultMessage(await message(port, signal), offer.sessionId);
 			if (result.mode !== 'render') { completed = true; return result; }
-			const pixels = await receiveOutput(port, result.outputBinding, request.signal);
+			const pixels = await receiveOutput(port, result.outputBinding, signal);
+			signal.throwIfAborted();
 			completed = true;
 			return Object.freeze({
 				mode: 'render' as const,
@@ -114,24 +126,33 @@ export function createFramescaperOpenFxFramePortClient(options: Readonly<{
 				reportsDegradation: result.reportsDegradation,
 			});
 		} finally {
-			if (!completed && port && sessionId) try {
-				port.postMessage(Object.freeze({ protocolVersion: 1, type: 'cancel', sessionId }));
-			} catch { /* closing */ }
+			if (!completed && port && sessionId) {
+				try { port.postMessage(Object.freeze({ protocolVersion: 1, type: 'cancel', sessionId })); }
+				catch { /* the remote port can already be closing */ }
+				await awaitPortClosure(closure.signal);
+			}
+			port?.removeEventListener('close', closed);
 			port?.close(); offered?.port.close();
-			offered = null; expected = null; consumed = false; waiter = null; active = false;
+			offered = null; expected = null; consumed = false; waiter = null;
 		}
 	}
 
 	return Object.freeze({
 		execute,
 		dispose() {
-			if (disposed) return;
-			disposed = true; unsubscribe();
+			if (lifetime.signal.aborted) return;
+			lifetime.abort(new Error('OpenFX frame client is disposed.'));
+			unsubscribe();
 			offered?.port.close();
-			waiter?.reject(new Error('OpenFX frame client is disposed.'));
 			offered = null; expected = null; waiter = null;
 		},
 	});
+}
+
+async function awaitPortClosure(closed: AbortSignal): Promise<void> {
+	if (closed.aborted) return;
+	const terminal = AbortSignal.any([closed, AbortSignal.timeout(TIMEOUT_MS)]);
+	await new Promise<void>((resolve) => terminal.addEventListener('abort', () => resolve(), { once: true }));
 }
 
 async function portRequest(request: FramescaperOpenFxFrameExecutionRequestNativeMedia, requestNonce: string) {
@@ -348,7 +369,6 @@ function offeredPort(
 	setWaiter: (value: Readonly<{
 		sessionId: string;
 		resolve: (port: FramescaperOpenFxRendererMessagePort) => void;
-		reject: (error: unknown) => void;
 	}> | null) => void,
 ): Promise<FramescaperOpenFxRendererMessagePort> {
 	const available = getOffered();
@@ -361,7 +381,7 @@ function offeredPort(
 			clearTimeout(timeout); signal.removeEventListener('abort', abort); setWaiter(null);
 			if (error) reject(error); else resolve(port!);
 		};
-		setWaiter(Object.freeze({ sessionId, resolve: (port) => finish(null, port), reject: finish }));
+		setWaiter(Object.freeze({ sessionId, resolve: (port) => finish(null, port) }));
 		signal.addEventListener('abort', abort, { once: true });
 	});
 }

@@ -9,7 +9,7 @@ import {
 	type FrequencyWaveformWindow,
 } from '../../frequency-waveform-contract.ts';
 import { requiredAudioSource } from './internal/frequency-waveform-source-admission.ts';
-import { createBoundedWorkQueue } from './internal/bounded-work-queue.ts';
+import { createBoundedWorkQueue } from '../shared/bounded-work-queue.ts';
 import type {
 	FrequencyWaveformRuntimeClip,
 	FrequencyWaveformRuntimeProject,
