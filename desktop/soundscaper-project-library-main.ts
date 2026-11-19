@@ -41,6 +41,7 @@ import {
 import {
 	SoundscaperDesktopProjectLibraryTransferService,
 } from './soundscaper-project-library-transfer-service.ts';
+import { reclaimUnjournaledSoundscaperDesktopPublicationStages } from './soundscaper-project-library-retention.ts';
 import {
 	acquireSoundscaperDesktopProjectLibraryLeaseWithWait,
 } from './soundscaper-project-library-lease-wait.ts';
@@ -197,6 +198,7 @@ export class SoundscaperDesktopProjectLibraryMain {
 				{ waitMs: leaseTtlMs + 1_000 },
 			);
 			const recovery = await recoverPending(database, catalog, host, lease);
+			await reclaimUnjournaledSoundscaperDesktopPublicationStages(database, paths, lease);
 			await host.reclaimStorage().catch(() => undefined);
 			// Reclaim opaque state only before a renderer can open a session. A live
 			// undo stack may still own a newly persisted body not present in a durable
