@@ -79,6 +79,27 @@ test('an oversized frame request preserves smaller warm cache entries', async ()
 		'a frame too large to retain must not evict an unrelated cache hit');
 });
 
+test('the cache and each consumer own their pixels when a decoder reuses its buffer', async () => {
+	const decoderPixels = Uint8Array.of(10, 20, 30, 255);
+	const addressing = createFramescaperVideoFrameAddressFinishing({
+		sources: new Map([['video-source', new Blob(['video'])]]),
+		timingViewsBySourceId: new Map([[
+			'video-source', { kind: 'cfr', rate: { num: 30, den: 1 }, frameCount: 1 },
+		]]),
+		createDecoder: () => ({
+			capture: () => ({ width: 1, height: 1, pixels: decoderPixels }), dispose() {},
+		}),
+	});
+	const request = { sourceId: 'video-source', sourceFrame: 0, width: 1, height: 1, signal: new AbortController().signal };
+	try {
+		const first = await addressing.resolve(request);
+		decoderPixels[0] = 11;
+		first.pixels[0] = 12;
+		const cached = await addressing.resolve(request);
+		assert.equal(cached.pixels[0], 10);
+	} finally { await addressing.dispose(); }
+});
+
 test('decoder creation finishing after disposal cannot reopen frame addressing', async () => {
 	let releaseDecoder!: () => void;
 	const decoderReady = new Promise<void>((resolve) => { releaseDecoder = resolve; });
@@ -120,6 +141,7 @@ for (const resolution of ['preview', 'render'] as const) test(`the default decod
 	}
 	let capturedWidth = 0;
 	let capturedHeight = 0;
+	let readbackBuffer: ArrayBuffer | undefined;
 	const video = fakeVideo();
 	const document = {
 		createElement(name: string) {
@@ -134,7 +156,9 @@ for (const resolution of ['preview', 'render'] as const) test(`the default decod
 						getImageData() {
 							capturedWidth = canvas.width;
 							capturedHeight = canvas.height;
-							return { data: new Uint8ClampedArray(canvas.width * canvas.height * 4) };
+							const data = new Uint8ClampedArray(canvas.width * canvas.height * 4);
+							readbackBuffer = data.buffer;
+							return { data };
 						},
 					};
 				},
@@ -152,6 +176,7 @@ for (const resolution of ['preview', 'render'] as const) test(`the default decod
 	});
 	const addressing = createFramescaperVideoFrameAddressFinishing({
 		resolution,
+		maximumCacheBytes: 1,
 		sources: new Map([['video-source', new Blob(['video'], { type: 'video/mp4' })]]),
 		timingViewsBySourceId: new Map([[
 			'video-source', { kind: 'cfr' as const, rate: { num: 30, den: 1 }, frameCount: 1 },
@@ -165,6 +190,9 @@ for (const resolution of ['preview', 'render'] as const) test(`the default decod
 		assert.deepEqual({ width: frame.width, height: frame.height }, { width: 1_280, height: 720 });
 		assert.deepEqual({ width: capturedWidth, height: capturedHeight },
 			resolution === 'preview' ? { width: 640, height: 360 } : { width: 1_280, height: 720 });
+		if (resolution === 'render') {
+			assert.ok(frame.pixels.buffer === readbackBuffer, 'an unretained native-resolution frame owns its readback');
+		}
 	} finally {
 		await addressing.dispose();
 		for (const [name, descriptor] of originals) {

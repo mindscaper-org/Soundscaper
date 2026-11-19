@@ -61,6 +61,7 @@ export function createFramescaperVideoFrameAddressFinishing(options: Readonly<{
 		throw new RangeError('Selected finishing frame-address source authority is inconsistent.');
 	}
 	const resolution = options.resolution ?? 'preview';
+	const ownsDecodedPixels = options.createDecoder == null;
 	const createDecoder: FrameDecoderFactoryFinishing = options.createDecoder ?? (
 		(body, decoderOptions) => defaultDecoder(body, decoderOptions, resolution)
 	);
@@ -126,7 +127,7 @@ export function createFramescaperVideoFrameAddressFinishing(options: Readonly<{
 				videoBoundaryTime(view, sourceFrame), videoBoundaryTime(view, sourceFrame + 1),
 			),
 			width, height, signal,
-		})), 'Selected finishing addressed frame');
+		})), 'Selected finishing addressed frame', ownsDecodedPixels);
 		throwIfAborted(signal);
 		if (disposed) throw closedError();
 		const frame = decoded.width === width && decoded.height === height
@@ -138,15 +139,14 @@ export function createFramescaperVideoFrameAddressFinishing(options: Readonly<{
 			return cloneFrame(retained);
 		}
 		const byteLength = frame.pixels.byteLength;
-		if (byteLength <= maximumCacheBytes) {
-			while (cache.size > 0 && retainedBytes + byteLength > maximumCacheBytes) {
-				const oldest = cache.keys().next().value as string;
-				retainedBytes -= cache.get(oldest)!.pixels.byteLength;
-				cache.delete(oldest);
-			}
-			cache.set(key, frame);
-			retainedBytes += byteLength;
+		if (byteLength > maximumCacheBytes) return frame;
+		while (cache.size > 0 && retainedBytes + byteLength > maximumCacheBytes) {
+			const oldest = cache.keys().next().value as string;
+			retainedBytes -= cache.get(oldest)!.pixels.byteLength;
+			cache.delete(oldest);
 		}
+		cache.set(key, frame);
+		retainedBytes += byteLength;
 		return cloneFrame(frame);
 	}
 
@@ -203,7 +203,7 @@ function resizeFrame(
 	return Object.freeze({ width, height, pixels: resizeVideoRgbaNearest(frame, width, height, 0.5) });
 }
 
-function checkedFrame(value: unknown, name: string): UnifiedExactRenderRgbaFrameV13 {
+function checkedFrame(value: unknown, name: string, ownsDecodedPixels: boolean): UnifiedExactRenderRgbaFrameV13 {
 	if (!value || typeof value !== 'object') throw new TypeError(`${name} must be an RGBA frame.`);
 	const frame = value as Partial<UnifiedExactRenderRgbaFrameV13>;
 	const width = positiveInteger(frame.width, `${name} width`);
@@ -211,7 +211,9 @@ function checkedFrame(value: unknown, name: string): UnifiedExactRenderRgbaFrame
 	if (!(frame.pixels instanceof Uint8Array) || frame.pixels.byteLength !== width * height * 4) {
 		throw new RangeError(`${name} has invalid RGBA geometry.`);
 	}
-	return Object.freeze({ width, height, pixels: Uint8Array.from(frame.pixels) as Uint8Array<ArrayBuffer> });
+	// The built-in decoder returns fresh canvas readback for each capture.
+	const pixels = ownsDecodedPixels ? frame.pixels : Uint8Array.from(frame.pixels);
+	return Object.freeze({ width, height, pixels });
 }
 
 function cloneFrame(frame: UnifiedExactRenderRgbaFrameV13): UnifiedExactRenderRgbaFrameV13 {
