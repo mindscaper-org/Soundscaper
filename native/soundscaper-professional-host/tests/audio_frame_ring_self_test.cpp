@@ -83,6 +83,31 @@ bool startsAsioWithBatchedProducer(uint32_t producerFrames, bool delayed)
 	return started;
 }
 
+bool recoversOneLateAsioPeriod()
+{
+	constexpr uint32_t period = 4u;
+	soundscaper::AudioFrameRing ring(2u, 3u * period);
+	std::array<float, period> left{}, right{};
+	float *targets[] = { left.data(), right.data() };
+	const float *sources[] = { left.data(), right.data() };
+	bool missed = false;
+	const auto read = [&] { return soundscaper::readAsioOutputPeriod(ring, targets, 2u, period, missed); };
+	const auto push = [&](float value) {
+		left.fill(value);
+		right.fill(-value);
+		return ring.push(sources, 2u, period);
+	};
+	const auto equals = [&](float value) {
+		return std::all_of(left.begin(), left.end(), [=](float sample) { return sample == value; })
+			&& std::all_of(right.begin(), right.end(), [=](float sample) { return sample == -value; });
+	};
+	return push(1.0f) && read() && equals(1.0f)
+		&& read() && equals(0.0f)
+		&& push(2.0f) && push(3.0f) && read() && equals(3.0f)
+		&& read() && equals(0.0f)
+		&& push(4.0f) && !read() && ring.availableFrames() == 0u;
+}
+
 }
 
 int main()
@@ -93,6 +118,10 @@ int main()
 	}
 	if (!startsAsioWithBatchedProducer(480u, false) || !startsAsioWithBatchedProducer(512u, true)) {
 		std::cerr << "ASIO playback exhausted its startup reserve with batched render packets.\n";
+		return 1;
+	}
+	if (!recoversOneLateAsioPeriod()) {
+		std::cerr << "ASIO playback replayed a late block, or failed to detect sustained starvation.\n";
 		return 1;
 	}
 	return 0;

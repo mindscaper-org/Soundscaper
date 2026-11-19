@@ -38,9 +38,9 @@ void text(char *destination, const std::string &value)
 class Session final : public JuceAudioSession, private juce::AudioIODeviceCallback {
 public:
 	Session(std::unique_ptr<juce::AudioIODevice> opened,
-		const soundscaper_pro_audio_request &request, uint32_t callbackFrames, bool useSharedWasapi, uint32_t startFrames)
+		const soundscaper_pro_audio_request &request, uint32_t callbackFrames, bool useSharedWasapi, bool useAsio, uint32_t startFrames)
 		: device(std::move(opened)), channelCount(request.channel_count), frameCount(request.period_frames),
-		deviceFrames(callbackFrames), sampleRate(request.sample_rate), sharedWasapi(useSharedWasapi),
+		deviceFrames(callbackFrames), sampleRate(request.sample_rate), sharedWasapi(useSharedWasapi), asio(useAsio),
 		playbackStartFrames(startFrames),
 		captureEnabled(request.direction == 0u || request.direction == 2u),
 		playbackEnabled(request.direction == 1u || request.direction == 2u),
@@ -100,8 +100,14 @@ private:
 		if (captureEnabled) captureReady.notify_one();
 		if (playbackEnabled) {
 			playbackStarted = playbackStarted || output.availableFrames() >= playbackStartFrames;
-			if (playbackStarted && output.pop(outputs, static_cast<uint32_t>(outputChannels), deviceFrames)) return;
-			if (playbackStarted) failed.store(true, std::memory_order_release);
+			if (playbackStarted) {
+				const auto channels = static_cast<uint32_t>(outputChannels);
+				const bool delivered = asio
+					? readAsioOutputPeriod(output, outputs, channels, deviceFrames, missedPlaybackPeriod)
+					: output.pop(outputs, channels, deviceFrames);
+				if (delivered) return;
+				failed.store(true, std::memory_order_release);
+			}
 		}
 		for (int channel = 0; channel < outputChannels; ++channel) {
 			if (outputs[channel] != nullptr) std::fill_n(outputs[channel], frames, 0.0f);
@@ -156,6 +162,7 @@ private:
 	const uint32_t deviceFrames;
 	const uint32_t sampleRate;
 	const bool sharedWasapi;
+	const bool asio;
 	const uint32_t playbackStartFrames;
 	const bool captureEnabled;
 	const bool playbackEnabled;
@@ -168,6 +175,7 @@ private:
 	std::condition_variable captureReady;
 	bool started = false;
 	bool playbackStarted = false; // Audio callback thread only.
+	bool missedPlaybackPeriod = false; // Audio callback thread only.
 	bool captureStarted = false; // Helper consumer only.
 };
 
@@ -296,7 +304,7 @@ soundscaper_pro_audio_result openJuceAudio(
 		return result;
 	}
 	const auto deviceFrames = static_cast<uint32_t>(callbackFrames);
-	session = std::make_unique<Session>(std::move(device), request, deviceFrames, sharedWasapi,
+	session = std::make_unique<Session>(std::move(device), request, deviceFrames, sharedWasapi, backend == "asio",
 		jucePlaybackStartFrames(backend, sharedWasapi, request.period_frames, deviceFrames));
 	result.status = SOUNDSCAPER_PRO_OK;
 	result.sample_rate = request.sample_rate;

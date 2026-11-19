@@ -165,6 +165,11 @@ shared callbacks use the endpoint period at the opened stream rate. Input-only
 callbacks consume complete blocks already in JUCE's capture reservoir before
 waiting for another device event.
 
+ASIO output can recover from one missed callback. The device renders silence
+for that period and skips its late packet when the next complete period is
+ready. If the next period also misses its deadline, the session reports
+device loss.
+
 Input loss during recording commits only the already captured prefix through
 the normal recording publication path. The capture worklet signals terminal
 input loss through a dedicated output in the same render quantum, so the
