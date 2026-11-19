@@ -57,6 +57,7 @@ export interface FramescaperExternalDisplayWindow {
 	readonly close: () => void;
 	readonly isDestroyed: () => boolean;
 	readonly setBounds: (bounds: FramescaperExternalDisplayBounds) => void;
+	/** Serializes the pixels synchronously and may acknowledge presentation later. */
 	readonly send: (channel: string, payload: unknown) => void | Promise<void>;
 	readonly onClosed?: (listener: () => void) => void;
 }
@@ -303,7 +304,7 @@ function admitFrame(value: FramescaperExternalDisplayFrame): FramescaperExternal
 	if (!(value.rgba instanceof Uint8Array) || value.rgba.byteLength !== byteLength) {
 		throw new RangeError('An external display RGBA frame does not match its geometry.');
 	}
-	const rgba = new Uint8Array(value.rgba);
+	const rgba = value.rgba.buffer instanceof ArrayBuffer ? value.rgba : new Uint8Array(value.rgba);
 	if (createHash('sha256').update(rgba).digest('hex') !== value.rgbaSha256) {
 		throw new Error('An external display RGBA frame does not match its digest.');
 	}
