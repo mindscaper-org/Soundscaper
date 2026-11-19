@@ -307,8 +307,8 @@
 		},
 		{
 			"path": "src/media_host.cpp",
-			"byteLength": 20358,
-			"sha256": "4255383d6503204c6b93654317531fd975eda55b33cf7bcd3ef45e23e222344d"
+			"byteLength": 20477,
+			"sha256": "283edf4d7abea715012c3794b7c45aee1491d2ba0da12ec80c08ef034851ebc1"
 		},
 		{
 			"path": "src/media_host_arguments.cpp",

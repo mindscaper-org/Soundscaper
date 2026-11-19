@@ -166,14 +166,15 @@ void require_exact_render_source_roles(const invocation& job) {
 			if (carriers == 1) {
 				const auto carrier = std::find(job.source_roles.begin(), job.source_roles.end(), "evaluated-rgba-frame-pack");
 				const auto carrier_index = static_cast<std::size_t>(carrier - job.source_roles.begin());
-				if (job.source_stream_fds[carrier_index] != 0) {
-					throw admission_error("The live V14 RGBA carrier requires its stdin grant.");
+				const auto carrier_fd = job.source_stream_fds[carrier_index];
+				if (carrier_fd != -1 && carrier_fd != 0) {
+					throw admission_error("The V14 RGBA carrier requires its authenticated file or stdin grant.");
 				}
 				if (audio == 1) {
 					const auto staged = std::find(job.source_roles.begin(), job.source_roles.end(), "staged-audio-mix");
 					const auto audio_index = static_cast<std::size_t>(staged - job.source_roles.begin());
-					if (job.source_stream_fds[audio_index] != 3) {
-						throw admission_error("The live V14 audio carrier requires its fd 3 grant.");
+					if (job.source_stream_fds[audio_index] != (carrier_fd == 0 ? 3 : -1)) {
+						throw admission_error("The V14 audio carrier requires the corresponding file or fd 3 grant.");
 					}
 				}
 			}
