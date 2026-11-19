@@ -5,6 +5,9 @@ import type {
 	ProjectVideoPreviewMediaRequest,
 } from '../common/editor/controller/document/project-visual-service.ts';
 import type { ProjectVisualSource } from '../common/editor/controller/document/project-visual-types.ts';
+import { NATIVE_MEDIA_PROXY_RECIPE_ID, NATIVE_MEDIA_PROXY_RECIPE_VERSION } from '../common/editor/native-media-proxy-recipe.ts';
+import { VIDEO_PROXY_ADDITIONAL_COPY } from '../common/i18n/editor-video-proxy-additional-copy.ts';
+import { createLocalizedError } from '../common/i18n/presentation-message.ts';
 import { digestMediaContent } from '../common/media/content-digest.ts';
 import {
 	VIDEO_TIMING_ASSET_ENCODING,
@@ -46,6 +49,7 @@ export interface FramescaperVideoProxyPreviewMediaOptionsRetime {
 	getProject(): unknown;
 	getMode(sourceId: string): FramescaperVideoProxyModeRetime;
 	getPressure(sourceId: string): Readonly<FramescaperVideoProxyPressureRetime> | null;
+	canPreviewProxy?(attachment: unknown): boolean;
 	onTrustStatus?(
 		sourceId: string,
 		attachment: unknown,
@@ -87,6 +91,20 @@ export class FramescaperVideoProxyPreviewUnavailableError extends Error {
 	}
 }
 
+export function createFramescaperProxyPreviewCapability(canPlayNativeProRes: () => boolean): (attachment: unknown) => boolean {
+	let nativeProResSupported: boolean | undefined;
+	return (value) => {
+		const attachment = value as Partial<VideoProxyAttachmentV18> | null;
+		return attachment?.recipeId !== NATIVE_MEDIA_PROXY_RECIPE_ID
+			|| attachment.recipeVersion !== NATIVE_MEDIA_PROXY_RECIPE_VERSION
+			|| (nativeProResSupported ??= canPlayNativeProRes());
+	};
+}
+
+export function createNativeProResProxyPreviewUnavailableError(): Error {
+	return createLocalizedError(Error, VIDEO_PROXY_ADDITIONAL_COPY, 'videoProxyDecoderUnavailable');
+}
+
 /** Verify and select a source-domain proxy before occurrence retime is evaluated. */
 export function createFramescaperVideoProxyPreviewMediaResolverRetime(
 	options: FramescaperVideoProxyPreviewMediaOptionsRetime,
@@ -119,6 +137,11 @@ export function createFramescaperVideoProxyPreviewMediaResolverRetime(
 		}
 		if (mode === 'original') return null;
 		throwIfAborted(request.signal);
+		if (options.canPreviewProxy?.(attachment) === false) {
+			reportTrust(options, sourceId, attachmentValue, 'decoder-unavailable');
+			if (mode === 'proxy') throw createNativeProResProxyPreviewUnavailableError();
+			return null;
+		}
 		const originalAvailable = await hasOriginal(options.originalStore, request);
 		const provisional = resolveFramescaperVideoProxyUseRetime({
 			purpose: 'preview', mode, originalAvailable, proxyTrust: 'verified',
@@ -333,6 +356,7 @@ function assertOptions(options: FramescaperVideoProxyPreviewMediaOptionsRetime):
 	if (!options?.bodyStore || !options.originalStore
 		|| typeof options.getProject !== 'function' || typeof options.getMode !== 'function'
 		|| typeof options.getPressure !== 'function'
+		|| (options.canPreviewProxy !== undefined && typeof options.canPreviewProxy !== 'function')
 		|| (options.onTrustStatus !== undefined && typeof options.onTrustStatus !== 'function')) {
 		throw new TypeError('Framescaper proxy preview-media ports are incomplete.');
 	}

@@ -44,8 +44,11 @@ import type {
 	FramescaperVideoProxyActionRuntime,
 	FramescaperVideoProxyPreviewTrust,
 } from './editor-video-proxy-action-runtime.ts';
-import { createFramescaperVideoProxyPreviewMediaResolverNativeMedia, sameFramescaperVideoProxyAttachment } from
-	'./editor-video-proxy-preview-media-retime.ts';
+import {
+	createFramescaperProxyPreviewCapability,
+	createFramescaperVideoProxyPreviewMediaResolverNativeMedia,
+	sameFramescaperVideoProxyAttachment,
+} from './editor-video-proxy-preview-media-retime.ts';
 import {
 	bindFramescaperSelectedImageAuthoringControllerTimelineImage,
 	type FramescaperSelectedImageFileServiceTimelineImage,
@@ -105,12 +108,14 @@ export function createFramescaperAudioEditorController(
 		status: FramescaperVideoProxyPreviewTrust;
 	}>>();
 	let controller: ReturnType<typeof createAudioEditorController> | null = null;
+	const canPreviewProxy = createFramescaperProxyPreviewCapability(canPreviewNativeProResProxy);
 	const resolveProductVideoPreviewMedia = createFramescaperVideoProxyPreviewMediaResolverNativeMedia({
 		bodyStore: environment.store,
 		originalStore: environment.controllerStore,
 		getProject: () => controller?.project ?? null,
 		getMode: (sourceId) => proxyActions?.mode(sourceId) ?? 'auto',
 		getPressure: (sourceId) => proxyActions?.pressure(sourceId) ?? null,
+		canPreviewProxy,
 		onTrustStatus: (sourceId, attachment, status) => {
 			proxyTrust.set(sourceId, Object.freeze({ attachment, status }));
 		},
@@ -178,6 +183,7 @@ export function createFramescaperAudioEditorController(
 	proxyActions = createFramescaperVideoProxyActions({
 		owner: controller,
 		cleanup: environment.videoProxyCleanup,
+		canPreviewProxy,
 		createScheduler: () => createFramescaperCapturedVideoProxyScheduler(
 			environment, sessionController, selectedProxyComposition,
 		),
@@ -229,6 +235,13 @@ export function createFramescaperAudioEditorController(
 	});
 	bindFramescaperCorridorKeyController(controller as never, environment.controllerStore);
 	return controller;
+}
+
+function canPreviewNativeProResProxy(): boolean {
+	const video = globalThis.document?.createElement('video');
+	if (!video) return true;
+	return Boolean(video.canPlayType('video/quicktime; codecs="apco"')
+		|| video.canPlayType('video/mp4; codecs="apco"'));
 }
 
 function snapshotPresentation(value: unknown): FramescaperAudioEditorControllerPresentation {

@@ -27,6 +27,7 @@ import {
 	framescaperVideoProxyPressureSelectsProxyRetime as pressureSelectsProxy,
 	snapshotFramescaperVideoProxyPressureRetime as snapshotPressure,
 } from './editor-video-proxy-pressure-retime.ts';
+import { createNativeProResProxyPreviewUnavailableError } from './editor-video-proxy-preview-media-retime.ts';
 
 type SchedulerFactory = () => FramescaperCapturedVideoProxyScheduler;
 type ExistingSchedulerFactory = (candidate: Blob) => FramescaperCapturedVideoProxyScheduler;
@@ -66,6 +67,7 @@ export interface FramescaperVideoProxyActionsRetimeOptions {
 	readonly createAttachExistingScheduler?: ExistingSchedulerFactory;
 	readonly createSessionId?: () => string;
 	readonly cleanup: FramescaperVideoProxyCleanupCoordinatorRetime;
+	readonly canPreviewProxy?: (attachment: unknown) => boolean;
 	readonly previewTrust?: (
 		sourceId: string,
 		attachment: unknown,
@@ -107,6 +109,10 @@ export function createFramescaperVideoProxyActions(
 			}
 			const previous = modes.get(id);
 			if ((previous ?? 'auto') === mode) return;
+			if (mode === 'proxy' && options.canPreviewProxy) {
+				const { proxyAttachment } = videoSource(exactProject(options.owner.project), id);
+				if (!options.canPreviewProxy(proxyAttachment)) throw createNativeProResProxyPreviewUnavailableError();
+			}
 			modes.set(id, mode);
 			try {
 				await refresh(id);
@@ -131,10 +137,9 @@ export function createFramescaperVideoProxyActions(
 			const before = pressureSelectsProxy(previous ?? null);
 			pressures.set(id, captured);
 			try {
-				if ((modes.get(id) ?? 'auto') === 'auto'
-					&& before !== pressureSelectsProxy(captured)
-					&& videoSource(exactProject(options.owner.project), id).proxyAttachment !== null) {
-					await refresh(id);
+				if ((modes.get(id) ?? 'auto') === 'auto' && before !== pressureSelectsProxy(captured)) {
+					const { proxyAttachment } = videoSource(exactProject(options.owner.project), id);
+					if (proxyAttachment !== null && options.canPreviewProxy?.(proxyAttachment) !== false) await refresh(id);
 				}
 			} catch (error) {
 				if (pressures.get(id) === captured) {
@@ -513,6 +518,7 @@ function assertOptions(options: FramescaperVideoProxyActionsOptions): void {
 	if (!options?.owner || typeof options.owner !== 'object'
 		|| typeof options.createScheduler !== 'function'
 		|| (options.previewTrust !== undefined && typeof options.previewTrust !== 'function')
+		|| (options.canPreviewProxy !== undefined && typeof options.canPreviewProxy !== 'function')
 		|| !options.cleanup || typeof options.cleanup.prepareReplacement !== 'function'
 		|| typeof options.cleanup.cancel !== 'function' || typeof options.cleanup.settle !== 'function'
 		|| !options.owner.actions?.edit || !options.owner.actions.projectBin

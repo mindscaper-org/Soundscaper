@@ -280,7 +280,7 @@ function ProjectVideoProxyDialog({
 					</select>
 				</label>
 				{selected && <section aria-label={label(copy, 'videoProxyStatus', VIDEO_PROXY_ADDITIONAL_COPY.videoProxyStatus)}>
-					<p role={previewTrust === 'stale' || previewTrust === 'unavailable' ? 'alert' : undefined}>{
+					<p role={previewTrust === 'stale' || previewTrust === 'unavailable' || previewTrust === 'decoder-unavailable' ? 'alert' : undefined}>{
 						proxyTrustLabel(copy, selected.attachmentPresent, previewTrust)
 					}</p>
 					{!selected.originalAvailable && previewTrust === 'verified' && <p role="status">{
@@ -361,6 +361,9 @@ function proxyTrustLabel(
 	}
 	if (trust === 'unavailable') {
 		return label(copy, 'videoProxyUnavailable', VIDEO_PROXY_ADDITIONAL_COPY.videoProxyUnavailable);
+	}
+	if (trust === 'decoder-unavailable') {
+		return label(copy, 'videoProxyDecoderUnavailable', VIDEO_PROXY_ADDITIONAL_COPY.videoProxyDecoderUnavailable);
 	}
 	return label(copy, 'videoProxyUnverified', VIDEO_PROXY_ADDITIONAL_COPY.videoProxyUnverified);
 }
