@@ -116,6 +116,13 @@ interface RendererPublicationRequest extends FileSizeWarningOptions {
 	readonly beforeFinish?: () => PromiseLike<void> | void;
 }
 
+interface RendererDuplicateOptions extends Pick<FileSizeWarningOptions, 'signal' | 'assertCurrent'> {
+	readonly id: string;
+	readonly title: string;
+	readonly timestamp: string;
+	readonly expectedSource?: FramescaperProject;
+}
+
 export interface FramescaperDesktopProjectLibraryRenderer {
 	listProjects(): Promise<readonly Readonly<FramescaperDesktopProjectLibraryProjectSummary>[]>;
 	claimProjectWriteFence(projectId: string): Promise<string>;
@@ -126,11 +133,7 @@ export interface FramescaperDesktopProjectLibraryRenderer {
 	publishProjectIfCurrentWithWriteFence(expected: unknown, project: unknown, token: string, options?: FileSizeWarningOptions): Promise<FramescaperProject | null>;
 	deleteProject(projectId: string): Promise<void>;
 	deleteProjectIfCurrent(project: unknown): Promise<boolean>;
-	duplicateProject(sourceProjectId: string, options: Readonly<{
-		readonly id: string;
-		readonly title: string;
-		readonly timestamp: string;
-	}>): Promise<FramescaperProject>;
+	duplicateProject(sourceProjectId: string, options: Readonly<RendererDuplicateOptions>): Promise<FramescaperProject>;
 }
 
 const RENDERER_COMPOSITIONS = new WeakMap<object, Readonly<{
@@ -370,16 +373,16 @@ class Renderer implements FramescaperDesktopProjectLibraryRenderer {
 			return true;
 		});
 	}
-	duplicateProject(sourceProjectId: string, options: Readonly<{
-		readonly id: string;
-		readonly title: string;
-		readonly timestamp: string;
-	}>): Promise<FramescaperProject> {
+	duplicateProject(sourceProjectId: string, options: Readonly<RendererDuplicateOptions>): Promise<FramescaperProject> {
 		return this.#exclusive(async () => {
 			const sourceId = projectIdValue_(sourceProjectId);
 			const raw = await this.#bridge.readProjectBundle(sourceId);
 			if (raw === null) throw new Error('Framescaper duplicate source is unavailable.');
 			const source = validateBundle(this.#profile, raw, sourceId);
+			if (options.expectedSource && !sameFramescaperDesktopProject(options.expectedSource, source.project)) {
+				throw new Error('The Framescaper duplicate source changed before publication.');
+			}
+			assertPublicationCurrent(options);
 			const result = await this.#bridge.duplicateProject({
 				sourceProjectId: sourceId,
 				copyProjectId: projectIdValue_(options.id),

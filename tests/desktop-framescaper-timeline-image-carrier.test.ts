@@ -6,15 +6,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
-import { createFramescaperDesktopProjectLibraryHandshake, createFramescaperDesktopProjectLibraryPaths } from '../desktop/framescaper-project-library-contract.ts';
-import { FramescaperDesktopProjectLibraryMain } from '../desktop/framescaper-project-library-main.ts';
+import { createFramescaperDesktopProjectLibraryPaths } from '../desktop/framescaper-project-library-contract.ts';
 import { framescaperNativeProjectBody } from '../desktop/native-services-project-body-custody.ts';
 import { framescaperDesktopExactMediaPath } from '../desktop/project-library-exact-generation-storage.ts';
 import { openFramescaperImageFramePackV1 } from '../src/common/editor/timeline-image-frame-pack-v1.ts';
 import { validateFramescaperDesktopBodyDescriptor } from '../src/framescaper/desktop-project-library-body-contract.ts';
-import { createFramescaperAudioEditorController } from '../src/framescaper/editor-controller.ts';
 import { applyFramescaperProjectCommand } from '../src/framescaper/editor-project-commands.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
+import { startFramescaperDesktopProjectSession as startDesktop } from './helpers/framescaper-desktop-project-session.ts';
 import { framescaperPortableTimelineImage, openFramescaperImageFixtureLibrary, saveFramescaperImageFixtureArchive } from './helpers/framescaper-portable-timeline-image.ts';
 
 test('a desktop Scape import keeps its timeline image after restarting with an empty renderer store', async context => {
@@ -123,46 +122,3 @@ test('desktop reads a legacy image project whose catalog omitted every timeline 
 		assert.equal(await reopened.environment.store.loadMediaAsset(fixture.source.storageKey), null);
 	} finally { await reopened.close(); }
 });
-
-async function startDesktop(directory: string) {
-	const handshake = createFramescaperDesktopProjectLibraryHandshake();
-	const main = await FramescaperDesktopProjectLibraryMain.start({
-		appDataPath: directory, handshake,
-		owner: { product: 'framescaper', processId: process.pid, instanceId: crypto.randomUUID() },
-		onLeaseLost: () => undefined, testControl: null,
-	});
-	const session = main.openSession(handshake);
-	const bridge = Object.freeze({
-		connect: async () => handshake, handshakeState: () => 'admitted',
-		listProjects: () => session.listProjects(), readProjectBundle: (id: string) => session.readProjectBundle(id),
-		readBodyChunk: (request: unknown) => session.readBodyChunk(request),
-		claimProjectWriteFence: (id: string) => Promise.resolve(session.claimProjectWriteFence(id)),
-		checkProjectWriteFence: (request: unknown) => session.checkProjectWriteFence(request),
-		beginPublication: (request: unknown) => session.beginPublication(request),
-		writePublicationChunk: (request: unknown) => session.writePublicationChunk(request),
-		finishPublication: (request: unknown) => session.finishPublication(request),
-		abortPublication: (request: unknown) => session.abortPublication(request),
-		deleteProject: (request: unknown) => session.deleteProject(request),
-		duplicateProject: (request: unknown) => session.duplicateProject(request),
-	});
-	const previous = Object.getOwnPropertyDescriptor(globalThis, 'framescaperDesktop');
-	Object.defineProperty(globalThis, 'framescaperDesktop', { configurable: true, enumerable: true,
-		value: Object.freeze({ v1: Object.freeze({ projectLibrary: bridge }) }),
-	});
-	const release = async () => {
-		if (previous) Object.defineProperty(globalThis, 'framescaperDesktop', previous);
-		else Reflect.deleteProperty(globalThis, 'framescaperDesktop');
-		try { await session.close(); } finally { await main.close(); }
-	};
-	try {
-		const environment = await openFramescaperImageFixtureLibrary();
-		const controller = createFramescaperAudioEditorController(environment, { locale: 'en' });
-		const close = async () => {
-			try { await controller.dispose(); }
-			finally { try { await environment.close(); } finally { await release(); } }
-		};
-		try { await controller.ready; }
-		catch (error) { await close(); throw error; }
-		return { environment, controller, session, close };
-	} catch (error) { await release(); throw error; }
-}
