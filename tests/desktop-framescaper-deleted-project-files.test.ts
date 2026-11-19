@@ -10,6 +10,7 @@ import test, { type TestContext } from 'node:test';
 import { createFramescaperDesktopProjectLibraryPaths } from '../desktop/framescaper-project-library-contract.ts';
 import { framescaperDesktopExactMediaPath } from '../desktop/project-library-exact-generation-storage.ts';
 import { validateFramescaperDesktopBodyDescriptor } from '../src/framescaper/desktop-project-library-body-contract.ts';
+import { deferred } from './helpers/async-test-control.ts';
 import { startFramescaperDesktopProjectSession } from './helpers/framescaper-desktop-project-session.ts';
 import { framescaperPortableTimelineImage, openFramescaperImageFixtureLibrary, saveFramescaperImageFixtureArchive } from './helpers/framescaper-portable-timeline-image.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
@@ -136,8 +137,8 @@ test('Framescaper Save defers retirement while an admitted native document read 
 		await desktop.controller.actions.project.openScapeFile(input, () => assert.fail('Expected a fresh working copy.'));
 		previousDocument = readManagedFiles(paths, projectId).document;
 		const expected = await readFile(previousDocument, 'utf8');
-		const observedRead = Promise.withResolvers<void>();
-		const allowRead = Promise.withResolvers<void>();
+		const observedRead = deferred<void>();
+		const allowRead = deferred<void>();
 		const nativeReadFile = fileSystem.readFile;
 		let armed = true;
 		const gate = context.mock.method(fileSystem, 'readFile', async (...args: Parameters<typeof nativeReadFile>) => {

@@ -36,7 +36,9 @@ test('desktop Overwrite Original retains exact libsndfile AIFF-C compression and
 		await fileService.withReadDescriptors(descriptors, {}, async (inputs: readonly File[]) => {
 			await controller.actions.project.importFiles(inputs);
 		});
-		assert.equal(controller.project.sources[0]?.frameCount, frameCount);
+		const project = controller.project;
+		assert.ok(project);
+		assert.equal(project.sources[0]?.frameCount, frameCount);
 		assert.equal(controller.actions.export.overwriteOriginalAvailable(), true);
 		await controller.actions.export.overwriteOriginal();
 		assert.equal(native.prepared.length, 1);

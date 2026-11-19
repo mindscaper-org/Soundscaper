@@ -37,7 +37,7 @@ for (const profile of CASES) test(`Advanced ${profile[0]} reviews after its phys
 	const fixture = await diskReviewFixture(context, profile);
 	await fixture.store.run();
 	const { phase, error, result } = fixture.store.getSnapshot();
-	assert.equal(phase, 'completed', error ?? undefined);
+	assert.equal(phase, 'completed', error ?? 'Advanced disk-backed review did not complete.');
 	assert.deepEqual(result?.outputs.map(({ slotId, review }) => {
 		assert.equal(review.kind, 'audio-wave');
 		return [slotId, review.sampleRate, review.channelCount, review.frameCount];

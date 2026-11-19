@@ -317,6 +317,7 @@ test('AIFF-C aliases carry exact headers and sample bytes in buffered and stream
 		const layout = inspectAiffLayout(options);
 		const channels = [Float32Array.of(-0.5)];
 		const result = encodeAiff(channels, options);
+		assert.ok(result instanceof Uint8Array);
 		assert.equal(layout.container, 'aifc');
 		assert.equal(result.byteLength, layout.byteLength);
 		assert.equal(Buffer.from(result).toString('ascii', 50, 54), aifcCompression);
