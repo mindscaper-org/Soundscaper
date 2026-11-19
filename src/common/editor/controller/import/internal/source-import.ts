@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { OPERATION_STATUS_COPY_BY_LOCALE } from '../../../../i18n/operation-status-copy.js';
+import { createLocalizedError } from '../../../../i18n/presentation-message.ts';
 import { linkedVideoLocatorReferenceFromImportOptions } from './project-import-options.ts';
 import { sampleFrameToVideoFrame } from '../../../timeline-time.ts'; import { attachExternalMedia } from '../../../desktop-external-media.ts';
 import type {
 	OwnedMediaAssetPublication,
 } from '../../../storage/media-asset-write-contract.ts';
 import { createFfmpegVideoTimingProbe, probeVideoTiming } from '../../../video-timing-probe.ts';
-import { createContainerVideoTimingProbe } from '../../../video-timing-demux.ts';
+import { createContainerVideoTimingProbe, hasDeclaredLeadingVideoEdit } from '../../../video-timing-demux.ts';
 import {
 	createUnreportedVideoSourceCharacteristics,
 	normalizeVideoSourceCharacteristics,
@@ -56,6 +58,10 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 			const startingProjectId = startingProject.id;
 			const startingVideoTrackCount = startingProject.tracks
 				.filter((track) => track.type === 'video').length;
+			if (file instanceof Blob && await hasDeclaredLeadingVideoEdit(file, importOptions.signal)) {
+				throw createLocalizedError(RangeError, copy, 'videoImportLeadingPictureEdit', undefined,
+					{ fallback: OPERATION_STATUS_COPY_BY_LOCALE.en.videoImportLeadingPictureEdit });
+			}
 			await preflightStorage(Math.max(file.size * 2, 16 * 1024 * 1024), 'import');
 			let canonicalVideoFile: Blob = file;
 			const sampleRate = projectSampleRate();

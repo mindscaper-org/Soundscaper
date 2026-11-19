@@ -64,9 +64,51 @@ interface Edit {
 }
 
 const MAXIMUM_MOVIE_BOX_BYTES = 64 * 1024 * 1024;
+const MAXIMUM_EDIT_INSPECTION_BOXES = 1024;
+const MAXIMUM_TWO_EDIT_BYTES = 48;
 const HANDLER_VIDEO = 'vide';
 const UNIT_EDIT_RATE = 0x0001_0000n;
 const WHOLE_TRACK: EditWindow = Object.freeze({ shiftTicks: 0n, startTicks: null, endTicks: null });
+
+/** Identify a declared leading picture delay before a decoder can rebase it. */
+export async function hasLeadingIsobmffVideoEdit(reader: VideoTimingDemuxReader, signal?: AbortSignal): Promise<boolean> {
+	let remaining = MAXIMUM_EDIT_INSPECTION_BOXES;
+	async function* scan(range: Pick<Box, 'body' | 'end'>): AsyncGenerator<Box> {
+		for (let offset = range.body; remaining > 0 && offset + 8 <= range.end;) {
+			throwIfAborted(signal);
+			remaining--;
+			const box = await readRangedBox(reader, offset, range.end);
+			if (!box) return;
+			yield box;
+			offset = box.end;
+		}
+	}
+	async function findIn(range: Pick<Box, 'body' | 'end'>, type: string): Promise<Box | null> {
+		for await (const box of scan(range)) if (box.type === type) return box;
+		return null;
+	}
+	const movie = await findIn({ body: 0, end: reader.byteLength }, 'moov');
+	if (!movie) return false;
+	let video: Box | null = null;
+	for await (const track of scan(movie)) {
+		if (track.type !== 'trak') continue;
+		const media = await findIn(track, 'mdia');
+		const handler = media && await findIn(media, 'hdlr');
+		if (!handler || handler.end - handler.body < 12
+			|| boxType(await reader.read(handler.body + 8, 4), 0) !== HANDLER_VIDEO) continue;
+		// Import backends need not select the same track in a multi-picture file.
+		if (video) return false;
+		video = track;
+	}
+	const edits = video && await findIn(video, 'edts');
+	const list = edits && await findIn(edits, 'elst');
+	if (!list) return false;
+	const bytes = await reader.read(list.body, Math.min(list.end - list.body, MAXIMUM_TWO_EDIT_BYTES));
+	const entries = readEditEntries(bytes, { body: 0, end: bytes.byteLength });
+	const [empty, picture] = entries ?? [];
+	return empty !== undefined && picture !== undefined && empty.mediaTicks === -1n
+		&& empty.movieTicks > 0n && picture.mediaTicks >= 0n && picture.rate === UNIT_EDIT_RATE;
+}
 
 /**
  * Read exact presentation timing from the sample tables and movie fragments.
@@ -95,7 +137,7 @@ async function findMovieBox(
 	let offset = 0;
 	while (offset + 8 <= reader.byteLength) {
 		throwIfAborted(signal);
-		const box = await readTopLevelBox(reader, offset);
+		const box = await readRangedBox(reader, offset, reader.byteLength);
 		if (!box) return null;
 		// A movie box larger than this is not an index a timing probe should hold.
 		if (box.type === 'moov') return box.end - box.body > MAXIMUM_MOVIE_BOX_BYTES ? null : box;
@@ -104,9 +146,9 @@ async function findMovieBox(
 	return null;
 }
 
-async function readTopLevelBox(reader: VideoTimingDemuxReader, offset: number): Promise<Box | null> {
-	if (offset + 8 > reader.byteLength) return null;
-	const header = await reader.read(offset, Math.min(16, reader.byteLength - offset));
+async function readRangedBox(reader: VideoTimingDemuxReader, offset: number, end: number): Promise<Box | null> {
+	if (offset + 8 > end) return null;
+	const header = await reader.read(offset, Math.min(16, end - offset));
 	const type = boxType(header, 4);
 	let size = Number(bigEndianUnsigned(header, 0, 4));
 	let body = offset + 8;
@@ -114,8 +156,8 @@ async function readTopLevelBox(reader: VideoTimingDemuxReader, offset: number): 
 		if (header.byteLength < 16) return null;
 		size = Number(bigEndianUnsigned(header, 8, 16));
 		body = offset + 16;
-	} else if (size === 0) size = reader.byteLength - offset;
-	if (!Number.isSafeInteger(size) || size < body - offset || offset + size > reader.byteLength) return null;
+	} else if (size === 0) size = end - offset;
+	if (!Number.isSafeInteger(size) || size < body - offset || offset + size > end) return null;
 	return { type, body, end: offset + size };
 }
 
@@ -216,7 +258,7 @@ async function readFragments(
 ): Promise<boolean> {
 	while (offset < reader.byteLength) {
 		throwIfAborted(signal);
-		const box = await readTopLevelBox(reader, offset);
+		const box = await readRangedBox(reader, offset, reader.byteLength);
 		if (!box) return false;
 		offset = box.end;
 		if (box.type !== 'moof') continue;
@@ -298,22 +340,16 @@ function readEditWindow(
 ): EditWindow | null {
 	const list = find(bytes, trak, ['edts', 'elst']);
 	if (list === null) return WHOLE_TRACK;
-	if (list.end - list.body < 8) return null;
-	const version = bytes[list.body];
-	if (version !== 0 && version !== 1) return null;
-	const width = version === 1 ? 8 : 4;
-	const entries = Number(bigEndianUnsigned(bytes, list.body + 4, list.body + 8));
-	if (!Number.isSafeInteger(entries) || entries < 0
-		|| list.body + 8 + entries * (width * 2 + 4) > list.end) return null;
-	if (entries === 0) return WHOLE_TRACK;
-	if (entries > 2) return null;
-	const first = readEdit(bytes, list.body + 8, width);
+	const entries = readEditEntries(bytes, list);
+	if (entries === null) return null;
+	const [first, second] = entries;
+	if (first === undefined) return WHOLE_TRACK;
 	// A leading empty edit is a delay; anything else with two entries is more than
 	// one presented segment, which is a timeline these sample tables do not carry.
 	const empty = first.mediaTicks < 0n;
-	if (empty ? first.mediaTicks !== -1n || entries !== 2 : entries !== 1) return null;
-	const segment = empty ? readEdit(bytes, list.body + 8 + width * 2 + 4, width) : first;
-	if (segment.mediaTicks < 0n || segment.rate !== UNIT_EDIT_RATE) return null;
+	if (empty ? first.mediaTicks !== -1n : second !== undefined) return null;
+	const segment = empty ? second : first;
+	if (!segment || segment.mediaTicks < 0n || segment.rate !== UNIT_EDIT_RATE) return null;
 	const shiftTicks = empty ? toMediaTicks(first.movieTicks, mediaTimescale, movieTimescale) : 0n;
 	const spanTicks = toMediaTicks(segment.movieTicks, mediaTimescale, movieTimescale);
 	if (shiftTicks === null || spanTicks === null) return null;
@@ -322,6 +358,17 @@ function readEditWindow(
 		startTicks: segment.mediaTicks,
 		endTicks: spanTicks === 0n ? null : segment.mediaTicks + spanTicks,
 	});
+}
+
+function readEditEntries(bytes: Uint8Array, list: Pick<Box, 'body' | 'end'>): readonly Edit[] | null {
+	if (list.end - list.body < 8) return null;
+	const version = bytes[list.body];
+	if (version !== 0 && version !== 1) return null;
+	const width = version === 1 ? 8 : 4;
+	const entryBytes = width * 2 + 4;
+	const count = Number(bigEndianUnsigned(bytes, list.body + 4, list.body + 8));
+	if (count > 2 || list.body + 8 + count * entryBytes > list.end) return null;
+	return Array.from({ length: count }, (_, index) => readEdit(bytes, list.body + 8 + index * entryBytes, width));
 }
 
 function readEdit(bytes: Uint8Array, offset: number, width: number): Edit {

@@ -8,6 +8,7 @@ export const OPERATION_STATUS_COPY_BY_LOCALE = Object.freeze({
 			importing: 'Importing and decoding audio locally',
 			multipleLegacyAupProjects: 'Choose one legacy Audacity project (.aup) and its data files per import.',
 			videoAudioDecodeFailed: 'The audio from {file} could not be decoded. The video was imported without audio.',
+			videoImportLeadingPictureEdit: 'This file declares a picture delay before its first video frame. Render a new copy with that opening gap preserved before importing.',
 			recording: 'Recording',
 			resamplingTrack: 'Resampling track with windowed sinc',
 			resamplingClip: 'Resampling clip with windowed sinc',
