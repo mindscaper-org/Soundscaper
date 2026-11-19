@@ -300,12 +300,9 @@ export function prepareDisjointRangeDeleteCommand(project, options = {}, idFacto
 			rippleMode: options.rippleMode,
 		}, idFactory);
 		commands.push(command);
-		const commandProject = isRuntimeProjectProjection(working)
-			? working
-			: projectForCommandConsumers(working);
-		working = cloneProject(commandProject);
-		if (isFoundationProjectAuthority(working)) {
-			brandRuntimeProjectProjection(working);
+		if (working === project) {
+			working = cloneProject(isRuntimeProjectProjection(project) ? project : projectForCommandConsumers(project));
+			if (isFoundationProjectAuthority(working)) brandRuntimeProjectProjection(working);
 		}
 		deleteRange(working, command, rangeDeleteRippleMode(command.type));
 		pruneMissingProjectSelections(working);
