@@ -4,9 +4,9 @@
  * Producing one trimmed copy with the FFmpeg that already ships.
  *
  * The sequence is: find where the source's keyframes are, widen the plan's runs
- * back to them, copy each run out, join the copies, and hand back the result.
- * Nothing is re-encoded at any step, so a trimmed source is the same pictures
- * and the same samples it always was — just fewer of them.
+ * to them, copy each run out, join the copies, and hand back the result.
+ * B-pictures can need references later in presentation order. Keep their
+ * complete picture groups and verify the joined copy before rebinding it.
  *
  * The keyframe probe is not optional and its failure is not recoverable here. A
  * source whose keyframes cannot be read cannot be cut losslessly, and cutting it
@@ -21,6 +21,8 @@
  */
 
 import {
+	ffmpegVideoHasBPictures,
+	ffmpegVideoPictureChecksums,
 	parseFfmpegVideoKeyframeLogs,
 } from '../../../ffmpeg-video-keyframe-index.ts';
 import {
@@ -75,7 +77,8 @@ export async function executeTrimMediaCopy(
 			throw new Error(`Reading the source's keyframes exited with ${String(probe.exitCode)}.`);
 		}
 		const keyframes = parseFfmpegVideoKeyframeLogs(probe.logs);
-		const runs = alignTrimMediaRunsToKeyframes(request.source, keyframes);
+		const sourcePictures = ffmpegVideoHasBPictures(probe.logs) ? ffmpegVideoPictureChecksums(probe.logs) : null;
+		const runs = alignTrimMediaRunsToKeyframes(request.source, keyframes, sourcePictures !== null);
 
 		const parts: string[] = [];
 		for (const [index, run] of runs.entries()) {
@@ -106,11 +109,19 @@ export async function executeTrimMediaCopy(
 		if (joined.exitCode !== 0) {
 			throw new Error(`Joining the retained runs exited with ${String(joined.exitCode)}.`);
 		}
+		const frameCount = runs.reduce((sum, run) => sum + (run.endFrame - run.startFrame), 0);
+		if (sourcePictures) {
+			const verified = await runtime.exec(buildFfmpegVideoTimingProbeArgs(outputPath), signalOptions);
+			if (verified.exitCode !== 0) {
+				throw new Error(`Verifying the trimmed video exited with ${String(verified.exitCode)}.`);
+			}
+			verifyCopiedPictures(sourcePictures, ffmpegVideoPictureChecksums(verified.logs), runs, frameCount);
+		}
 		const bytes = await runtime.readOutput(outputPath, signalOptions);
 		result = Object.freeze({
 			bytes,
 			runs,
-			frameCount: runs.reduce((sum, run) => sum + (run.endFrame - run.startFrame), 0),
+			frameCount,
 			keyframeCount: keyframes.length,
 		});
 	} catch (error) {
@@ -139,4 +150,23 @@ export async function executeTrimMediaCopy(
 	}
 	if (!result) throw new Error('Trimming media produced no result.');
 	return result;
+}
+
+function verifyCopiedPictures(
+	source: readonly string[],
+	output: readonly string[],
+	runs: readonly TrimMediaRange[],
+	frameCount: number,
+): void {
+	if (output.length !== frameCount) {
+		throw new Error(`The trimmed video contains ${String(output.length)} of ${String(frameCount)} expected pictures.`);
+	}
+	let outputOrdinal = 0;
+	for (const { startFrame, endFrame } of runs) {
+		for (let sourceOrdinal = startFrame; sourceOrdinal < endFrame; sourceOrdinal += 1, outputOrdinal += 1) {
+			if (source[sourceOrdinal] !== output[outputOrdinal]) {
+				throw new Error(`The trimmed video picture ${String(outputOrdinal)} differs from source picture ${String(sourceOrdinal)}.`);
+			}
+		}
+	}
 }
