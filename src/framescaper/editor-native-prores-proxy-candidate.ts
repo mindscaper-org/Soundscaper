@@ -6,8 +6,7 @@ import {
 	type VideoProxyCandidateGeneratorPort,
 	type VideoProxyCandidateObserver,
 } from '../common/editor/video-proxy-candidate-observation.ts';
-import { createFfmpegVideoTimingProbe, type VideoTimingProbePort } from
-	'../common/editor/video-timing-probe.ts';
+import { createVideoProxyTimingProbes } from '../common/editor/controller/capture/video-proxy-candidate-composition.ts';
 import {
 	resolveFramescaperNativeServicesBridge,
 	type FramescaperNativeServicesBridge,
@@ -58,8 +57,6 @@ export function createFramescaperNativeProResProxyCandidateObserver(
 	}
 	const bridge = resolveFramescaperNativeServicesBridge(options.scope ?? globalThis);
 	if (!proxyBridgeAvailable(bridge)) return null;
-	const probes = timingProbes(options.composition);
-	if (probes.length === 0) return null;
 	const executionOptions: FramescaperNativeProResProxyGeneratorOptions = Object.freeze({
 		profile: options.profile,
 		getProject: () => framescaperProjectNativeMediaFoundationShapeAssistance(options.getProject()),
@@ -79,7 +76,7 @@ export function createFramescaperNativeProResProxyCandidateObserver(
 	return createVideoProxyCandidateObserver({
 		generator,
 		recipe: RECIPE,
-		probes,
+		probes: createVideoProxyTimingProbes(options.composition.runtime, options.composition),
 		maximumBytes: VIDEO_PROXY_CANDIDATE_MAXIMUM_BYTES,
 		confirmFileSizeWarning: options.confirmFileSizeWarning ?? options.composition.confirmFileSizeWarning,
 	});
@@ -117,14 +114,6 @@ function exactGenerator(value: unknown): VideoProxyCandidateGeneratorPort {
 		throw new TypeError('Deferred native proxy execution returned an invalid generator.');
 	}
 	return generator;
-}
-
-function timingProbes(
-	composition: FramescaperCapturedVideoProxyRuntimeComposition,
-): readonly VideoTimingProbePort[] {
-	const web = createFfmpegVideoTimingProbe(composition.runtime ?? {});
-	return Object.freeze([composition.helperTimingProbe ?? null, web]
-		.filter((probe): probe is VideoTimingProbePort => probe !== null));
 }
 
 function proxyBridgeAvailable(

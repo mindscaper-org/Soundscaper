@@ -61,10 +61,6 @@ test('an observer declines when the bridge lacks any proxy execution port', () =
 	}
 });
 
-test('an observer declines when no timing probe can measure the source', () => {
-	assert.equal(
-		observer({ composition: { runtime: {} } }),
-		null,
-		'a proxy that cannot be timed must not be offered',
-	);
+test('an observer can use the container timing probe without platform probes', () => {
+	assert.notEqual(observer({ composition: { runtime: {} } }), null);
 });

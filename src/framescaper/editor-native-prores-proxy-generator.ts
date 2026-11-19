@@ -17,7 +17,7 @@ import {
 	type VideoProxyCandidateObserver,
 	type VideoProxyCandidateRecipe,
 } from '../common/editor/video-proxy-candidate-observation.ts';
-import { createFfmpegVideoTimingProbe, type VideoTimingProbePort } from '../common/editor/video-timing-probe.ts';
+import { createVideoProxyTimingProbes } from '../common/editor/controller/capture/video-proxy-candidate-composition.ts';
 import {
 	createFramescaperNativeServicesStore,
 	resolveFramescaperNativeServicesBridge,
@@ -67,15 +67,14 @@ export function createFramescaperNativeProResProxyCandidateObserver(
 	}
 	const bridge = resolveFramescaperNativeServicesBridge(options.scope ?? globalThis);
 	if (!proxyBridgeAvailable(bridge)) return null;
-	const probes = timingProbes(options.composition);
-	if (probes.length === 0) return null;
 	const generator = createFramescaperNativeProResProxyGenerator({
 		profile: options.profile, getProject: options.getProject, bridge,
 		confirmFileSizeWarning: options.confirmFileSizeWarning ?? options.composition.confirmFileSizeWarning,
 		...(options.waitForPoll ? { waitForPoll: options.waitForPoll } : {}),
 	});
 	return createVideoProxyCandidateObserver({
-		generator, recipe: RECIPE, probes, maximumBytes: MAXIMUM_PROXY_BYTES,
+		generator, recipe: RECIPE, maximumBytes: MAXIMUM_PROXY_BYTES,
+		probes: createVideoProxyTimingProbes(options.composition.runtime, options.composition),
 		confirmFileSizeWarning: options.confirmFileSizeWarning ?? options.composition.confirmFileSizeWarning,
 	});
 }
@@ -247,14 +246,6 @@ function videoSource(project: FramescaperProjectNativeMedia, sourceId: string): 
 		throw new Error('The native proxy candidate source is absent or duplicated.');
 	}
 	return rows[0];
-}
-
-function timingProbes(
-	composition: FramescaperCapturedVideoProxyRuntimeComposition,
-): readonly VideoTimingProbePort[] {
-	const web = createFfmpegVideoTimingProbe(composition.runtime ?? {});
-	return Object.freeze([composition.helperTimingProbe ?? null, web]
-		.filter((probe): probe is VideoTimingProbePort => probe !== null));
 }
 
 function proxyBridgeAvailable(
