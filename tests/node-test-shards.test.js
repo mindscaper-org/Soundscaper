@@ -239,6 +239,14 @@ test('the full-size HDR boundary fixture runs alone without changing shard owner
 	assert.ok(boundaryBatch < batches.length - 1, 'the fixture must finish before the parallel batch starts');
 });
 
+test('the Electron CPU profiling test runs alone before the parallel Node batch', () => {
+	const name = 'desktop-cpu-profiling-panel.test.ts';
+	const probe = rootTestFiles.find((file) => basename(file) === name);
+	assert.ok(probe);
+	const ordinary = '/repository/tests/ordinary.test.js';
+	assert.deepEqual(partitionNodeTestExecutionBatches([ordinary, probe]), [[probe], [ordinary]]);
+});
+
 for (const workflowName of SHARDED_WORKFLOWS) {
 	test(`${workflowName} runs one job per shard and no more`, async () => {
 		const job = extractJob(await readWorkflow(workflowName), 'tests');

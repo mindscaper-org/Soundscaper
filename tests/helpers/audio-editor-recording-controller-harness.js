@@ -82,12 +82,11 @@ export function createCapturePool({ hardware = {}, display = /** @type {ReturnTy
 			displayEntry = null;
 			return true;
 		},
-		releaseAll() {
-			const count = hardwareEntries.size + (displayEntry ? 1 : 0);
-			for (const stream of hardwareEntries.values()) stopStream(stream);
-			hardwareEntries.clear();
-			if (displayEntry) stopStream(displayEntry);
-			displayEntry = null;
+		releaseAll({ retainHardwareDeviceId } = {}) {
+			let count = Number(pool.releaseDisplay());
+			for (const deviceId of hardwareEntries.keys()) {
+				if (deviceId !== retainHardwareDeviceId) count += Number(pool.releaseHardware(deviceId));
+			}
 			return count;
 		},
 		dispose() {

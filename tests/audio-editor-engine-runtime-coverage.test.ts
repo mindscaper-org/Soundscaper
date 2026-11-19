@@ -343,7 +343,7 @@ class TestBufferSourceNode extends TestAudioNode {
 	onended: (() => void) | null = null;
 	started: readonly [number, number, number] | null = null;
 
-	start(when = 0, offset = 0, duration = 0): void {
+	start(when = 0, offset = 0, duration = this.buffer ? this.buffer.length / this.buffer.sampleRate - offset : 0): void {
 		this.started = [when, offset, duration];
 	}
 }

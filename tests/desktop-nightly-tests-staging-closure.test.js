@@ -59,6 +59,7 @@ const PRELOAD_FIXTURE_ALIASES = Object.freeze({
 	'./project-library-runtime/desktop/ara-preload.js': './ara-preload.ts',
 	'./project-library-runtime/desktop/blender-preload.js': './blender-preload.ts',
 	'./project-library-runtime/desktop/assistance-keyed-video-preload.js': './assistance-keyed-video-preload.ts',
+	'./project-library-runtime/desktop/framescaper-external-display-preload.js': './framescaper-external-display-preload.ts',
 });
 // These audits change the staging inventory, while their repository sources stay
 // fixed. Reuse parsed imports and filesystem resolution, never inventory verdicts.
@@ -186,7 +187,7 @@ test('nightly payload production-module audit rejects an unstaged local dependen
 test('nightly preload contract aliases still require their maintained owners in the staged payload', () => {
 	for (const owner of ['desktop/desktop-audio-codec-operation-contract.ts',
 		'desktop/desktop-audio-codec-capability-contract.ts', 'desktop/save-target-preload.ts',
-		'desktop/cpu-profile-preload.ts', 'desktop/ai-denoise-preload.ts']) {
+		'desktop/cpu-profile-preload.ts', 'desktop/ai-denoise-preload.ts', 'desktop/framescaper-external-display-preload.ts']) {
 		const withoutOwner = NIGHTLY_TEST_PAYLOAD_INPUTS.filter(({ source }) => source !== owner);
 		assert.throws(() => inspectLocalImportClosure(withoutOwner), error => (
 			error instanceof Error && error.message.startsWith('Unstaged local import ') && error.message.includes(owner)

@@ -173,6 +173,7 @@ export const FOUNDATION_RUNTIME_SHIELDED_OWNERS: readonly FoundationRuntimeShiel
 	{ file: 'src/common/editor/video-export.js', surfaces: ['video-export'] },
 	{ file: 'src/common/editor/video-caption-cues.ts', surfaces: ['video-export'] },
 	{ file: 'src/common/editor/video-keyframe-export-inventory.ts', surfaces: ['video-export'] },
+	{ file: 'src/common/editor/video-source-time.ts', surfaces: ['preview'] },
 	{ file: 'src/common/editor/ui/video-keyframe-offline-video-export.ts', surfaces: ['video-export'] },
 	{ file: 'src/common/editor/video-timeline.js', surfaces: ['preview', 'composition', 'transition', 'navigation'] },
 	{ file: 'src/common/editor/project.js', surfaces: ['navigation'] },

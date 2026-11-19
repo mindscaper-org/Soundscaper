@@ -31,7 +31,7 @@ for (const sourceRate of [24_000, 48_000, 96_000, 768_000]) for (const reversed 
 			fromFrame: 12_345 + 500, toFrame: 12_345 + 70_000 - 333, sampleRate: 48_000, contextStartTime: .25,
 			reversedBuffers: new WeakMap(), sourceResolver: null, activeSources: new Set(), allNodes: [], mode: 'offline' });
 		const nodes = context.bufferSources as unknown as readonly {
-			buffer: AudioBuffer; playbackRate: { value: number }; started: readonly [number, number, number];
+			buffer: AudioBuffer; playbackRate: { value: number }; started: readonly [number, number?, number?];
 		}[];
 		assert.ok(nodes.length > 2);
 		const expected = samples.slice(200, 70_200);
@@ -41,8 +41,10 @@ for (const sourceRate of [24_000, 48_000, 96_000, 768_000]) for (const reversed 
 		for (const node of nodes) {
 			assert.equal(node.buffer.sampleRate * node.playbackRate.value, 48_000);
 			assert.ok(Math.abs(node.started[0] - (.25 + actual.length / 48_000)) < 1e-12);
-			const start = Math.round(node.started[1] * node.buffer.sampleRate);
-			const count = Math.round(node.started[2] * node.buffer.sampleRate);
+			const [, offset = 0, duration = node.buffer.duration - offset] = node.started;
+			const start = Math.round(offset * node.buffer.sampleRate);
+			const count = Math.round(duration * node.buffer.sampleRate);
+			assert.equal(count, node.buffer.length, 'the buffer contains only the scheduled PCM');
 			actual.push(...node.buffer.getChannelData(0).subarray(start, start + count));
 		}
 		assert.deepEqual(Float32Array.from(actual), selected);

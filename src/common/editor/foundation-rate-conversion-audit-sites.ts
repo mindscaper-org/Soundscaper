@@ -60,9 +60,15 @@ export const FOUNDATION_RATE_CONVERSION_AUDIT_SITES: readonly FoundationTimeConv
 	},
 	{
 		id: 'external-video-companion-audio-rebuild',
-		file: 'src/common/editor/external-media-audio-decoder.ts',
+		file: 'src/common/editor/controller/import/internal/external-media-audio-decoder.ts',
 		behavior: 'Reopening a referenced video reconstructs its companion audio at the saved project rate using the same nearest-frame resampling length as the original import, before padding or trimming to the timeline extent.',
 		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
+		id: 'video-export-audio-encode-extent',
+		file: 'src/common/editor/video-keyframe-mediabunny-execution.ts',
+		behavior: 'Movie export rounds the resampled audio endpoint outward on the encoder clock before padding the programme to cover its authored picture extent.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['enclosingEnd'] }],
 	},
 	{
 		id: 'clip-spreadsheet-source-replacement',

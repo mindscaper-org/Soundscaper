@@ -18,7 +18,9 @@ for (const direction of ['input', 'output', 'duplex'] as const) for (const chann
 			const actual = settings as AudioWorkletNodeOptions | null;
 			assert.ok(actual);
 			assert.equal(actual.numberOfInputs, direction === 'input' ? 0 : 1);
-			assert.deepEqual(actual.outputChannelCount, [channelCount], 'native capture/output planes retain their physical geometry');
+			const outputs = direction === 'output' ? [channelCount] : [channelCount, 1];
+			assert.equal(actual.numberOfOutputs, outputs.length);
+			assert.deepEqual(actual.outputChannelCount, outputs, 'native capture keeps its physical planes and separate mono terminal flag');
 			assert.deepEqual(actual.processorOptions, { direction, channelCount, periodFrames: 128, queueCapacity: 8 });
 			if (direction !== 'input' && channelCount === 1) {
 				assert.equal(actual.channelCount, 1);
