@@ -239,9 +239,10 @@ Collision and recovery copies choose their own destination when first saved.
 
 Desktop close prompts default on and enumerate every open writable project.
 Save and canceled/failed picker results are awaited before allowing shutdown;
-discard decisions apply only after all projects accept closing. The temporary
-project limit defaults to ten and prunes oldest closed copies under their
-project locks and exact-current deletion. Open projects can exceed the limit.
+discard decisions apply only after all projects accept closing. Renderer loss
+or replacement retires unconfirmed close requests and their pending quit intent.
+The temporary project limit defaults to ten and prunes oldest closed copies
+under their project locks and exact-current deletion. Open projects can exceed the limit.
 The native folder picker checks for existing destination conflicts before saving
 a temporary root selection. The closed library moves on the next startup, with
 another conflict check before migration. If preflight refuses a fresh

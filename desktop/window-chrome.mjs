@@ -136,12 +136,6 @@ export function runWindowAction(action, { windowFor, quit, development }) {
 	return true;
 }
 
-/** A later application Quit takes precedence over an in-flight window-close confirmation. */
-export function upgradePendingCloseRequestForQuit(request, applicationIsQuitting) {
-	if (!request || applicationIsQuitting !== true || request.reason === 'quit') return request;
-	return Object.freeze({ ...request, reason: 'quit' });
-}
-
 /** Publish the authoritative native state after either OS- or renderer-initiated changes. */
 export function onWindowStateChanged({ windowFor, send }) {
 	const window = windowFor();

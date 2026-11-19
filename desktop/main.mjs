@@ -61,7 +61,7 @@ import { createSoakDebugDialog } from './soak-debug-dialog.mjs'; import { collec
 import { createDesktopLinkedVideoLocatorRuntime } from './linked-video-locator-runtime.js';
 import { startDesktopProjectLibraryProductRuntime } from './project-library-product-runtime.js';
 import { startSoundscaperDeliveryRegistration } from './soundscaper-delivery-registration.mjs';
-import { attachDesktopMainWindowRecovery } from './project-library-runtime/desktop/main-window-recovery.js';
+import { attachDesktopMainWindowRecovery, DesktopMainWindowClose } from './project-library-runtime/desktop/main-window-recovery.js';
 import { registerDesktopNativeTierControls } from './project-library-runtime/desktop/native-tier-controls.js';
 import { RendererSaveOwnership } from './renderer-save-owner.js';
 import { DesktopRendererOwnershipCleanup } from './renderer-ownership-cleanup.js';
@@ -72,7 +72,7 @@ import { configureWindowsApplicationIdentity } from './project-library-runtime/d
 import {
 	desktopWindowOptions, hideNativeWindowButtons, installDesktopApplicationMenu,
 	onWindowStateChanged, registerFocusedWindowAccelerators,
-	runWindowAction, upgradePendingCloseRequestForQuit,
+	runWindowAction,
 } from './window-chrome.mjs';
 import {
 	assertEditorDocumentUrl, acceptsFile,
@@ -95,12 +95,10 @@ let nightlyTestsWindow = null;
 let settings = null, updates = null; let temporaryProjectStorage = null, projectFileAssociations = null;
 let blender = null;
 let rendererReady = false;
-let pendingClose = null;
+const windowClose = new DesktopMainWindowClose();
 let projectLibraryRuntime = null, projectLibraryStartup = null, projectLibraryIpc = null;
 let linkedVideoLocators = null, nativeTier = null, nativeServices = null, soundscaperDelivery = null;
 let captureSecurity = null, assistance = null, assistanceSemanticSearch = null, externalFfmpegPreferences = null, desktopCodecs = null, freesound = null, audiocom = null;
-let allowNextClose = false;
-let applicationIsQuitting = false;
 const rendererOwnershipCleanup = new DesktopRendererOwnershipCleanup({
 	revokeBlender: (owner) => blender?.revokeOwner(owner),
 	revokeCapture: (owner) => revokeDesktopCaptureOwner(captureSecurity, owner), revokeAssistanceSemanticSearch: (owner) => assistanceSemanticSearch?.revokeOwner(owner),
@@ -164,7 +162,7 @@ app.on('open-file', (event, filePath) => {
 	enqueueProjectPath(filePath);
 });
 app.on('before-quit', () => {
-	applicationIsQuitting = true;
+	windowClose.beginQuit();
 });
 app.on('will-quit', (event) => {
 	event.preventDefault();
@@ -272,8 +270,7 @@ async function startApplication() {
 async function createWindow() {
 	if (mainWindow && !mainWindow.isDestroyed()) return mainWindow;
 	rendererReady = false;
-	pendingClose = null;
-	allowNextClose = false;
+	windowClose.resetForWindow();
 	mainWindow = new BrowserWindow({
 		...desktopWindowOptions({ rendererRoot: resourceRoots().renderer, productId: PRODUCT_ID }),
 		title: APP_NAME,
@@ -311,10 +308,10 @@ async function createWindow() {
 	desktopSmokeProbe.attach(mainWindow);
 	const webContents = mainWindow.webContents;
 	attachDesktopMainWindowRecovery({
-		cleanup: async () => { rendererReady = false; await rendererOwnershipCleanup.drain(webContents); },
+		cleanup: async () => { retireRendererCloseRequest(webContents); await rendererOwnershipCleanup.drain(webContents); },
 		editorUrl: `${APP_ORIGIN}/`,
 		exit: exitApplication,
-		isIntentional: () => applicationIsQuitting || allowNextClose || !mainWindow || mainWindow.isDestroyed(),
+		isIntentional: () => windowClose.isIntentionalShutdown || !mainWindow || mainWindow.isDestroyed() || mainWindow.webContents !== webContents,
 		reportError: (error) => console.error('Desktop renderer recovery failed:', cleanError(error)),
 		webContents,
 		windowFor: () => mainWindow,
@@ -333,20 +330,13 @@ async function createWindow() {
 	mainWindow.on('enter-full-screen', publishWindowState);
 	mainWindow.on('leave-full-screen', publishWindowState);
 	mainWindow.on('close', (event) => {
-		if (allowNextClose || !rendererReady) return;
-		event.preventDefault();
-		if (pendingClose) {
-			pendingClose = upgradePendingCloseRequestForQuit(pendingClose, applicationIsQuitting);
-			return;
-		}
-		pendingClose = { requestId: randomUUID(), reason: applicationIsQuitting ? 'quit' : 'window-close' };
-		sendToRenderer(IPC.closeRequested, pendingClose);
+		windowClose.intercept(event, rendererReady, (request) => sendToRenderer(IPC.closeRequested, request));
 	});
 	mainWindow.on('closed', () => {
 		revokeRendererSaveOwner(webContents);
 		mainWindow = null;
 		rendererReady = false;
-		pendingClose = null;
+		windowClose.retireRenderer();
 	});
 	await mainWindow.loadURL(`${APP_ORIGIN}/`);
 	return mainWindow;
@@ -359,8 +349,14 @@ function activateRendererSaveOwner(webContents, processId, frameId) {
 }
 
 function revokeRendererSaveOwner(webContents) {
-	rendererReady = false;
+	retireRendererCloseRequest(webContents);
 	rendererOwnershipCleanup.revoke(webContents);
+}
+
+function retireRendererCloseRequest(webContents) {
+	if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents !== webContents) return;
+	rendererReady = false;
+	windowClose.retireRenderer();
 }
 
 function rendererSaveOwnerFor(event) {
@@ -439,16 +435,9 @@ async function registerIpcHandlers(desktopSession) {
 }
 
 function respondToClose(value) {
-	if (!pendingClose || value?.requestId !== pendingClose.requestId) return;
-	const request = pendingClose;
-	pendingClose = null;
-	if (value?.allow !== true) {
-		applicationIsQuitting = false;
-		return;
-	}
-	allowNextClose = true;
-	if (request.reason === 'quit') app.quit();
-	else mainWindow?.close();
+	const reason = windowClose.respond(value);
+	if (reason === 'quit') app.quit();
+	else if (reason === 'window-close') mainWindow?.close();
 }
 
 function reportPendingProjectError(error) {
