@@ -5,6 +5,7 @@ import test from 'node:test';
 
 import { createFramescaperVideoFrameAddressFinishing } from
 	'../src/framescaper/video-frame-address-finishing.ts';
+import { createVideoTimingAssetPublication, validateVideoTimingAssetBytes } from '../src/common/editor/video-timing-asset.ts';
 
 test('concurrent frame resolves share decoder creation and account for one cache entry', async () => {
 	let releaseDecoder!: () => void;
@@ -134,7 +135,9 @@ test('decoder creation finishing after disposal cannot reopen frame addressing',
 	assert.equal(disposals, 1);
 });
 
-for (const resolution of ['preview', 'render'] as const) test(`the default decoder captures ${resolution} temporal pixels without a still-image round trip`, async () => {
+for (const [resolution, timingKind] of [
+	['preview', 'cfr'], ['render', 'cfr'], ['render', 'vfr'],
+] as const) test(`the default decoder captures ${resolution} ${timingKind} temporal pixels without a still-image round trip`, async () => {
 	const originals = new Map<string, PropertyDescriptor | undefined>();
 	for (const name of ['document', 'createImageBitmap']) {
 		originals.set(name, Object.getOwnPropertyDescriptor(globalThis, name));
@@ -174,13 +177,23 @@ for (const resolution of ['preview', 'render'] as const) test(`the default decod
 			value: () => { assert.fail('temporal frame addressing attempted still decoding'); },
 		},
 	});
+	let bodyReads = 0;
+	const body = new class extends Blob {
+		override slice(start?: number, end?: number, contentType?: string): Blob {
+			bodyReads += 1;
+			return super.slice(start, end, contentType);
+		}
+	}(['video'], { type: 'video/mp4' });
+	const cfr = { kind: 'cfr' as const, rate: { num: 30, den: 1 }, frameCount: 1 };
+	const { reference, bytes } = createVideoTimingAssetPublication('ab'.repeat(32), {
+		timescale: 30, presentationTicks: [0n], finalFrameDurationTicks: 1n,
+	});
+	const vfr = { kind: 'vfr' as const, reference, index: validateVideoTimingAssetBytes(reference, bytes) };
 	const addressing = createFramescaperVideoFrameAddressFinishing({
 		resolution,
 		maximumCacheBytes: 1,
-		sources: new Map([['video-source', new Blob(['video'], { type: 'video/mp4' })]]),
-		timingViewsBySourceId: new Map([[
-			'video-source', { kind: 'cfr' as const, rate: { num: 30, den: 1 }, frameCount: 1 },
-		]]),
+		sources: new Map([['video-source', body]]),
+		timingViewsBySourceId: new Map([['video-source', timingKind === 'vfr' ? vfr : cfr]]),
 	});
 	try {
 		const frame = await addressing.resolve({
@@ -193,6 +206,7 @@ for (const resolution of ['preview', 'render'] as const) test(`the default decod
 		if (resolution === 'render') {
 			assert.ok(frame.pixels.buffer === readbackBuffer, 'an unretained native-resolution frame owns its readback');
 		}
+		if (timingKind === 'vfr') assert.equal(bodyReads, 0, 'the addressed decoder already has the authenticated source timing');
 	} finally {
 		await addressing.dispose();
 		for (const [name, descriptor] of originals) {

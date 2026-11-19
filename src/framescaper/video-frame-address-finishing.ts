@@ -12,6 +12,7 @@ import {
 	videoBoundaryTime,
 	type VideoSourceTimingView,
 } from '../common/editor/video-source-timing-view.ts';
+import type { VideoTimingIndex } from '../common/editor/video-timing-asset.ts';
 
 interface FrameDecoderFinishing {
 	capture(request: Readonly<{
@@ -61,11 +62,11 @@ export function createFramescaperVideoFrameAddressFinishing(options: Readonly<{
 		throw new RangeError('Selected finishing frame-address source authority is inconsistent.');
 	}
 	const resolution = options.resolution ?? 'preview';
-	const ownsDecodedPixels = options.createDecoder == null;
-	const createDecoder: FrameDecoderFactoryFinishing = options.createDecoder ?? (
-		(body, decoderOptions) => defaultDecoder(body, decoderOptions, resolution)
-	);
-	if (typeof createDecoder !== 'function') throw new TypeError('A finishing frame decoder factory is required.');
+	const createDecoder = options.createDecoder;
+	const ownsDecodedPixels = createDecoder == null;
+	if (!ownsDecodedPixels && typeof createDecoder !== 'function') {
+		throw new TypeError('A finishing frame decoder factory is required.');
+	}
 	const maximumCacheBytes = options.maximumCacheBytes === undefined
 		? DEFAULT_MAXIMUM_CACHE_BYTES
 		: positiveInteger(options.maximumCacheBytes, 'finishing frame cache byte limit');
@@ -101,7 +102,9 @@ export function createFramescaperVideoFrameAddressFinishing(options: Readonly<{
 			let creation = decoderCreations.get(sourceId);
 			if (!creation) {
 				creation = (async () => {
-					const created = await createDecoder(body, Object.freeze({ signal }));
+					const created = await (ownsDecodedPixels
+						? defaultDecoder(body, { signal, ...(view.kind === 'vfr' ? { timing: view.index } : {}) }, resolution)
+						: createDecoder(body, Object.freeze({ signal })));
 					if (!created || typeof created.capture !== 'function'
 						|| typeof created.dispose !== 'function') {
 						throw new TypeError('The selected finishing frame decoder is invalid.');
@@ -171,7 +174,7 @@ export function createFramescaperVideoFrameAddressFinishing(options: Readonly<{
 
 async function defaultDecoder(
 	body: Blob,
-	options: Readonly<{ readonly signal: AbortSignal }>,
+	options: Readonly<{ readonly signal: AbortSignal; readonly timing?: VideoTimingIndex }>,
 	resolution: CaptureResolution,
 ): Promise<FrameDecoderFinishing> {
 	const module = await import('../common/editor/video-media.js');
