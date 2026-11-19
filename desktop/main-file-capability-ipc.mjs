@@ -15,7 +15,8 @@ import { acceptsFile, validateFileChoice, validateSaveChoice } from './validatio
  * @property {(id: string, options: {owner: object}) => Promise<OriginalFileDescriptor | null>} registerRead
  * @property {(id: string, options: {owner: object; allowProjectSavePicker?: true}) => Promise<OriginalFileDescriptor | null>} prepare
  * @property {(id: string, options: {owner: object}) => boolean} release
- * @property {(path: string, options: {owner: object}) => Promise<OriginalFileDescriptor & {originalFile: OriginalFileDescriptor}>} registerProjectSave
+ * @property {(path: string, options: {owner: object; copySourceId?: string}) => Promise<OriginalFileDescriptor & {originalFile: OriginalFileDescriptor}>} registerProjectSave
+ * @property {(readId: string, options: {owner: object}) => Promise<string>} protectCopySource
  */
 
 // Save purposes that write a project rather than exporting something out of one.
@@ -78,8 +79,15 @@ export function registerFileCapabilityIpc({
 	async function chooseSaveTarget(event, value) {
 		const owner = ownerFor(event);
 		if (typeof value?.kind === 'string' && value.kind.startsWith('macro-file-')) return macroBatchSave(owner, value);
+		if (value?.kind === 'protect-project-copy-source') {
+			if (!originalFiles) throw new Error('Project copy source protection is unavailable.');
+			return originalFiles.protectCopySource(opaqueId(value.readId, 64), { owner });
+		}
 		const choice = validateSaveChoice(value);
+		const copySourceId = value?.projectCopySourceId === undefined ? null : opaqueId(value.projectCopySourceId, 48);
+		if (copySourceId && (choice.purpose !== 'project-copy' || !originalFiles)) throw new TypeError('A protected project-copy destination is required.');
 		const register = async (path) => {
+			if (copySourceId && originalFiles) return originalFiles.registerProjectSave(path, { owner, copySourceId });
 			if (choice.purpose === 'audacity-recovery') await readCapabilities.assertRecoveryOutputPath(path, { owner });
 			return originalFiles && choice.purpose === 'project' && acceptedProjectSuffix(path)
 				? originalFiles.registerProjectSave(path, { owner }) : saveTargets.registerPath(path, { owner, purpose: choice.purpose,

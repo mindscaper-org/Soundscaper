@@ -9,9 +9,17 @@ interface Options {
 /** Ordinary and batch save pickers share the existing capability IPC channel. */
 export function createSaveTargetPreload(options: Options) {
 	return {
-		chooseSaveTarget: (request: { purpose?: unknown; suggestedName?: unknown }) => options.invoke(options.channel, {
-			purpose: options.text(request?.purpose, 24), suggestedName: options.text(request?.suggestedName, 220),
-		}),
+		chooseSaveTarget: (request: { purpose?: unknown; suggestedName?: unknown; projectCopySourceId?: unknown; kind?: unknown; readId?: unknown }) => {
+			if (request?.kind === 'protect-project-copy-source') {
+				const readId = request.readId;
+				if (typeof readId !== 'string' || !/^[a-f0-9]{64}$/u.test(readId)) throw new TypeError('Invalid project read capability.');
+				return options.invoke(options.channel, { kind: request.kind, readId });
+			}
+			return options.invoke(options.channel, {
+				purpose: options.text(request?.purpose, 24), suggestedName: options.text(request?.suggestedName, 220),
+				...(request?.projectCopySourceId === undefined ? {} : { projectCopySourceId: id(request.projectCopySourceId) }),
+			});
+		},
 		chooseBatchSaveDirectory: async (request: { suggestedNames?: unknown } = {}) => {
 			const names = namesFor(request.suggestedNames ?? [], true);
 			const result = await options.invoke(options.channel, { kind: 'macro-file-folder', suggestedNames: names });

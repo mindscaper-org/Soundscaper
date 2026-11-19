@@ -44,17 +44,20 @@ export async function beginNativeScapeSave(
 		fallbackFileName: unknown;
 		options: SaveScapeOptions;
 		signal: AbortSignal;
+		projectCopySourceId?: string;
 	}>,
 ): Promise<Readonly<{ fileName: string; prepared: NativePreparedSave }>> {
 	const extension = runtime.projectFileExtension;
 	const fileName = runtime.ensureProjectFileName(
 		request.options.fileName || request.fallbackFileName, extension,
 	);
+	const copySourceId = request.projectCopySourceId;
 	const prepared = await runtime.fileService.prepareSave({
-		purpose: 'project',
+		purpose: copySourceId ? 'project-copy' : 'project',
+		...(copySourceId ? { projectCopySourceId: copySourceId } : {}),
 		suggestedName: fileName,
 		mimeType: runtime.scapeMimeType,
-		target: request.options.saveTarget,
+		target: copySourceId ? undefined : request.options.saveTarget,
 		types: scapeFileTypes(extension),
 		useFileSystemAccess: request.options.useFileSystemAccess !== false,
 		signal: request.signal,
@@ -125,6 +128,7 @@ export interface NativeRetainedScapeArchive {
 	readonly manifest: NativeScapeManifest;
 	readonly cleanup?: () => Promise<void>;
 	readonly copySource?: ScapeArchiveByteSource;
+	readonly projectCopySourceId?: string;
 }
 
 /** Orchestrate the unchanged-copy save of a retained future-schema archive. */
@@ -145,6 +149,7 @@ export async function saveNativeScapeArchiveCopy(
 	// The bytes are copied unchanged; only the name follows the saving product.
 	const { fileName, prepared } = await beginNativeScapeSave(runtime, {
 		fallbackFileName: request.fallbackFileName, options: request.options, signal: request.signal,
+		projectCopySourceId: request.retained.projectCopySourceId,
 	});
 	if (prepared.mode === 'cancelled') return { cancelled: true };
 	try {

@@ -211,6 +211,7 @@ export interface NativeSesxReadDescriptor {
 
 export interface NativeProjectFileService extends ProjectFileSavingPort {
 	readonly isDesktop: boolean;
+	protectProjectCopySource?(input: object): Promise<string | null>;
 	externalMediaResolver?(input: object): ExternalMediaResolver;
 	resolveSesxMedia?(request: Readonly<{
 		sessionReadId: string; relativePath: string; mediaRootId?: string;
@@ -230,7 +231,8 @@ export interface NativeProjectFileService extends ProjectFileSavingPort {
 		mimeType: string;
 	}>): Promise<unknown>;
 	prepareSave(request: Readonly<{
-		purpose: 'project' | 'interchange';
+		purpose: 'project' | 'project-copy' | 'interchange';
+		projectCopySourceId?: string;
 		suggestedName: string;
 		mimeType: string;
 		target?: unknown;

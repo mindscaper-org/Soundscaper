@@ -16,7 +16,7 @@ import {
 import { createDesktopScapeArchiveByteSource } from './desktop-scape-archive-byte-source.ts';
 import { createDesktopHelperVideoTimingProbe } from './desktop-helper-video-timing-probe.ts';
 import { createDesktopLinkedOriginalAccess } from './desktop-linked-original-port.ts';
-import { registerDesktopReadCapability } from './desktop-read-capability-registry.ts';
+import { desktopReadCapabilityIdFor, registerDesktopReadCapability } from './desktop-read-capability-registry.ts';
 import { readSourceWithRecovery } from './storage/source-read-recovery.ts';
 import { releaseDownloadObjectUrl } from './object-url-revoke.ts';
 import { createDesktopLinkedVideoOriginalAccess } from './storage/desktop-linked-video-original-port.ts';
@@ -99,6 +99,7 @@ export function createAudioEditorFileService(options = {}) {
 			respondMcpRequest: (response) => bridge?.respondMcpRequest?.(response),
 		} : {}),
 		chooseFiles,
+		protectProjectCopySource,
 		openReadDescriptor,
 		withScapeReadDescriptor,
 		withReadDescriptors,
@@ -234,6 +235,14 @@ export function createAudioEditorFileService(options = {}) {
 		await readSourceWithRecovery(() => bridge.releaseRead(String(id)), { maximumAttempts: 1 });
 	}
 
+	async function protectProjectCopySource(input) {
+		const readId = desktopReadCapabilityIdFor(input);
+		if (!readId || !bridge?.chooseSaveTarget) return null;
+		const sourceId = await bridge.chooseSaveTarget({ kind: 'protect-project-copy-source', readId });
+		if (typeof sourceId !== 'string' || !/^[a-f0-9]{48}$/u.test(sourceId)) throw new TypeError('Invalid project copy source.');
+		return sourceId;
+	}
+
 	async function chooseSaveTarget(request = {}) {
 		const purpose = normalizePurpose(request.purpose, ['project', 'project-copy', 'aup3', 'aup4', 'audacity-recovery', 'audio-pcm-mix', 'audio', 'video', 'media', 'labels', 'preset', 'macro', 'report', 'attribution-csv', 'interchange', 'translation']);
 		const suggestedName = sanitizeSuggestedName(request.suggestedName || request.fileName);
@@ -241,6 +250,7 @@ export function createAudioEditorFileService(options = {}) {
 			return bridge.chooseSaveTarget({
 				purpose,
 				suggestedName,
+				...(request.projectCopySourceId === undefined ? {} : { projectCopySourceId: request.projectCopySourceId }),
 				...(request.mimeType ? { mimeType: String(request.mimeType) } : {}),
 			});
 		}
