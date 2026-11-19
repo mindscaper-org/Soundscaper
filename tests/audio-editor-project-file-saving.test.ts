@@ -12,7 +12,7 @@ function fixture(
 	remember?: (id: string, target: Readonly<{ originalFile?: ProjectFileReference }>, baseline: string) => Promise<void> | void,
 	acquireInactiveWrite?: (id: string) => Promise<Readonly<{ readOnly: boolean; release(): void }> | null>,
 ) {
-	let current: Project = { id: 'a', title: 'A', revision: 1, tracks: [] };
+	let current: Project = { id: 'a', title: 'A', revision: 0, tracks: [] };
 	let settings = { autoSaving: !desktop, askBeforeClosing: true };
 	const tabs = new Map([[current.id, current]]);
 	const readOnlyIds = new Set<string>();

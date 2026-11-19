@@ -10,6 +10,9 @@ import { createProjectSavingPreload } from '../desktop/project-saving-preload.ts
 import { bindProjectFileSaving, createControllerFileSavingRuntime } from '../src/common/editor/controller/document/project-file-saving-composition.ts';
 import { createAudioEditorSessionController } from '../src/common/editor/session.js';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
+import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts';
+import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
+import { createSoundscaperEphemeralProjectStore } from '../src/soundscaper/editor-project-store.ts';
 import { settle } from './helpers/async-test-control.ts';
 const { createAudioEditorController } = await import('../src/common/editor/app.js');
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
@@ -113,4 +116,27 @@ test('file-saving observations and close checks do not clone session undo histor
 	session.setProjectReadOnly(project.id, true);
 	assert.equal(runtime.getProjects()[0]?.readOnly, true);
 	assert.equal(materialized('undoStack'), false, 'close checks can read present documents independently');
+});
+
+test('closing a reopened project with only a saved library edit still asks for a project file', async t => {
+	const store = createSoundscaperEphemeralProjectStore();
+	const runtime = createSoundscaperProjectRuntimeSelection();
+	const edited = applySoundscaperProjectCommand(createSoundscaperProject({ id: 'only-renamed' }), {
+		type: 'project/rename', title: 'My dialogue template',
+	});
+	await store.saveProject(edited);
+	const prompts: string[] = [];
+	const fileService = createAudioEditorFileService({ bridge: {
+		async confirmProjectSave(request: { message: string }) { prompts.push(request.message); return 'cancel'; },
+	} });
+	const controller = createAudioEditorController(null, { headless: true, productId: 'soundscaper', copy: COPY, locale: 'en',
+		store, projectRuntime: runtime, sessionController: runtime.createSessionController(), fileService,
+		engine: createMemoryEngine() as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'],
+	});
+	t.after(() => controller.dispose());
+	await controller.ready;
+	await controller.actions.project.openById(edited.id);
+	assert.equal(controller.project?.title, edited.title);
+	assert.equal(await controller.actions.project.prepareClose(), false);
+	assert.match(prompts[0] ?? '', /My dialogue template/u);
 });

@@ -62,7 +62,7 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 					return;
 				}
 				entries.set(project.id, restored ? { ...restored, baseline: Promise.resolve(restored.baseline) }
-					: { baseline: emptyProject(project) ? fingerprint(project) : null });
+					: { baseline: initialEmptyProject(project) ? fingerprint(project) : null });
 			})();
 			loading.set(project.id, operation);
 		}
@@ -250,9 +250,15 @@ export async function releaseProjectFileWriteLease(lease: ProjectFileWriteLease)
 	finally { await Promise.resolve(lease.finished).catch(() => undefined); }
 }
 
-function emptyProject(project: FileSavingProject): boolean {
-	const value = project as FileSavingProject & { tracks?: readonly { type?: unknown; labels?: readonly unknown[] }[]; clips?: readonly unknown[]; sources?: readonly unknown[]; timelineAnnotations?: readonly unknown[] };
-	return !value.clips?.length && !value.sources?.length && !value.timelineAnnotations?.length
+function initialEmptyProject(project: FileSavingProject): boolean {
+	const value = project as FileSavingProject & {
+		revision?: number;
+		tracks?: readonly { type?: unknown; labels?: readonly unknown[] }[];
+		clips?: readonly unknown[];
+		sources?: readonly unknown[];
+		timelineAnnotations?: readonly unknown[];
+	};
+	return (value.revision ?? 0) === 0 && !value.clips?.length && !value.sources?.length && !value.timelineAnnotations?.length
 		&& (value.tracks?.length ?? 0) <= 1 && !value.tracks?.some(track => track.labels?.length || track.type === 'label' || track.type === 'video')
 		&& !authoredTiming(project);
 }
