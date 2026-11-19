@@ -65,6 +65,7 @@ async function run() {
 		return detector.detect({
 			modelId: grant.modelId,
 			audioPath: grant.audio.path,
+			audioByteLength: grant.audio.bytes,
 			model: { model: grant.model.path },
 			onProgress: ({ completed, total }) => parentPort?.postMessage({
 				type: 'progress', value: total === 0 ? 1 : completed / total,

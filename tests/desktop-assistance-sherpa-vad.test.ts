@@ -5,8 +5,38 @@ import test from 'node:test';
 
 import { createSherpaVadFactory } from '../desktop/assistance-sherpa-vad.ts';
 import { normalizeVoiceActivityResult } from '../desktop/assistance-vad-runtime.ts';
+import { writeSherpaVadWave } from './helpers/sherpa-vad-wave.ts';
 
-test('Sherpa VAD measures exact speech sample ranges from authenticated 16 kHz audio', async () => {
+test('Sherpa VAD reads the prepared file in exact windows across PCM block boundaries', async context => {
+	const samples = Float32Array.from({ length: 65_536 + 513 }, (_, index) => (index % 31 - 15) / 32);
+	const file = await writeSherpaVadWave(context, samples);
+	let inputOffset = 0;
+	let inferenceCalls = 0;
+	const detector = createSherpaVadFactory({
+		readWave() { assert.fail('The worker must not load the complete WAV into the native runtime.'); },
+		Vad: class {
+			acceptWaveform(input: Float32Array) {
+				const length = Math.min(512, samples.length - inputOffset);
+				if (length > 0) {
+					assert.deepEqual(input, samples.subarray(inputOffset, inputOffset + length));
+					inputOffset += length;
+				} else assert.deepEqual(input, new Float32Array(575));
+				inferenceCalls += 1;
+			}
+			isEmpty() { return true; }
+			pop() {}
+			flush() {}
+			clear() {}
+		},
+	});
+	const result = await detector.detect({ ...file, model: { model: '/private/silero.onnx' } });
+	assert.deepEqual(result.segments, []);
+	assert.equal(inputOffset, samples.length);
+	assert.equal(inferenceCalls, 131);
+});
+
+test('Sherpa VAD measures exact speech sample ranges from authenticated 16 kHz audio', async context => {
+	const file = await writeSherpaVadWave(context, new Float32Array(4_096));
 	const configurations: unknown[] = [];
 	const accepted: number[] = [];
 	let flushed = false;
@@ -16,11 +46,6 @@ test('Sherpa VAD measures exact speech sample ranges from authenticated 16 kHz a
 		{ start: 2_048, samples: new Float32Array(1_024) },
 	];
 	const runtime = {
-		readWave: (path: string, enableExternalBuffer = true) => {
-			assert.equal(enableExternalBuffer, false, 'Electron requires V8-owned audio buffers');
-			assert.equal(path, '/private/selected.wav');
-			return { sampleRate: 16_000, samples: new Float32Array(4_096) };
-		},
 		Vad: class {
 			constructor(config: unknown, bufferSeconds: number) {
 				configurations.push({ config, bufferSeconds });
@@ -40,7 +65,7 @@ test('Sherpa VAD measures exact speech sample ranges from authenticated 16 kHz a
 	const detector = createSherpaVadFactory(runtime);
 
 	const result = await detector.detect({
-		audioPath: '/private/selected.wav',
+		...file,
 		modelId: 'silero-vad-v6',
 		model: { model: '/private/silero_vad.onnx' },
 		onProgress: (value) => progress.push(value),
@@ -70,13 +95,13 @@ test('Sherpa VAD measures exact speech sample ranges from authenticated 16 kHz a
 	}]);
 });
 
-test('Sherpa VAD finishes the terminal speech window without extending selection or progress', async () => {
+test('Sherpa VAD finishes the terminal speech window without extending selection or progress', async context => {
 	const source = new Float32Array(16_001).fill(0.25);
+	const file = await writeSherpaVadWave(context, source);
 	const finalWindows: Float32Array[] = [];
 	const progress: unknown[] = [];
 	let received = 0;
 	const detector = createSherpaVadFactory({
-		readWave: () => ({ sampleRate: 16_000, samples: source }),
 		Vad: class {
 			ready = false;
 			acceptWaveform(samples: Float32Array) {
@@ -91,7 +116,7 @@ test('Sherpa VAD finishes the terminal speech window without extending selection
 		},
 	});
 	const result = await detector.detect({
-		audioPath: '/private/selected.wav', model: { model: '/private/silero.onnx' },
+		...file, model: { model: '/private/silero.onnx' },
 		onProgress: value => progress.push(value),
 	});
 
@@ -100,14 +125,14 @@ test('Sherpa VAD finishes the terminal speech window without extending selection
 	assert.deepEqual(progress.at(-1), { completed: 16_001, total: 16_001 });
 });
 
-test('Sherpa VAD rejects non-16 kHz input instead of changing timing authority', async () => {
+test('Sherpa VAD rejects non-16 kHz input instead of changing timing authority', async context => {
+	const file = await writeSherpaVadWave(context, new Float32Array(8), 48_000);
 	const detector = createSherpaVadFactory({
-		readWave: () => ({ sampleRate: 48_000, samples: new Float32Array(8) }),
 		Vad: class { constructor() { throw new Error('must not construct'); } },
 	});
 	await assert.rejects(detector.detect({
-		audioPath: '/private/selected.wav', model: { model: '/private/silero.onnx' },
-	}), /16 kHz/iu);
+		...file, model: { model: '/private/silero.onnx' },
+	}), /mono IEEE Float32/iu);
 });
 
 test('voice-activity result admission rejects overlapping or out-of-order segments', () => {

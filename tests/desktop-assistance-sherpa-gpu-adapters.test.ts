@@ -4,12 +4,13 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 
 import { createSherpaRecognizerFactory } from '../desktop/assistance-sherpa-recognizer.ts';
 import { createSherpaVadFactory } from '../desktop/assistance-sherpa-vad.ts';
 import { createSherpaDiarizerFactory } from '../desktop/assistance-sherpa-diarizer.ts';
 import type { SherpaAccelerationOptions } from '../desktop/assistance-sherpa-acceleration.ts';
+import { writeSherpaVadWave } from './helpers/sherpa-vad-wave.ts';
 
 const KINDS = ['recognizer', 'vad', 'diarizer'] as const;
 type Kind = typeof KINDS[number];
@@ -22,7 +23,7 @@ interface HarnessOptions {
 	readonly cleanupFails?: boolean;
 }
 
-function harness(kind: Kind, options: HarnessOptions = {}, acceleration: SherpaAccelerationOptions = {
+function harness(context: TestContext, kind: Kind, options: HarnessOptions = {}, acceleration: SherpaAccelerationOptions = {
 	executionProviders: ['webgpu', 'cpu'],
 }) {
 	const events: string[] = [];
@@ -64,7 +65,6 @@ function harness(kind: Kind, options: HarnessOptions = {}, acceleration: SherpaA
 	}
 	if (kind === 'vad') {
 		const factory = createSherpaVadFactory({
-			readWave,
 			Vad: class {
 				readonly provider: string;
 				queued = false;
@@ -80,9 +80,11 @@ function harness(kind: Kind, options: HarnessOptions = {}, acceleration: SherpaA
 				free() { cleanup(this.provider); }
 			},
 		}, acceleration);
-		return { events, configured, run: () => factory.detect({
-			audioPath: '/audio.wav', model: { model: '/vad' },
-		}) };
+		return { events, configured, async run() {
+			const { samples, sampleRate } = readWave();
+			const file = await writeSherpaVadWave(context, samples, sampleRate);
+			return factory.detect({ ...file, model: { model: '/vad' } });
+		} };
 	}
 	const factory = createSherpaDiarizerFactory({
 		readWave,
@@ -105,53 +107,53 @@ function harness(kind: Kind, options: HarnessOptions = {}, acceleration: SherpaA
 }
 
 for (const kind of KINDS) {
-	for (const provider of ['coreml', 'webgpu'] as const) test(`Sherpa ${kind} selects authenticated ${provider} for every neural model`, async () => {
-		const fixture = harness(kind, {}, { executionProviders: [provider, 'cpu'] });
+	for (const provider of ['coreml', 'webgpu'] as const) test(`Sherpa ${kind} selects authenticated ${provider} for every neural model`, async context => {
+		const fixture = harness(context, kind, {}, { executionProviders: [provider, 'cpu'] });
 		await fixture.run();
 		assert.deepEqual(fixture.configured, [provider]);
 		assert.ok(fixture.events.includes(`run:${provider}`));
 		assert.equal(fixture.events.at(-1), `dispose:${provider}`);
 	});
 
-	for (const fail of ['construct', 'run'] as const) test(`Sherpa ${kind} retries native ${fail} failure on CPU after GPU quiesces`, async () => {
-		const fixture = harness(kind, { fail });
+	for (const fail of ['construct', 'run'] as const) test(`Sherpa ${kind} retries native ${fail} failure on CPU after GPU quiesces`, async context => {
+		const fixture = harness(context, kind, { fail });
 		await fixture.run();
 		assert.deepEqual(fixture.configured, ['webgpu', 'cpu']);
 		if (fail === 'run') assert.ok(fixture.events.indexOf('dispose:webgpu') < fixture.events.indexOf('construct:cpu'));
 		assert.equal(fixture.events.at(-1), 'dispose:cpu');
 	});
 
-	test(`Sherpa ${kind} preserves CPU execution errors`, async () => {
+	test(`Sherpa ${kind} preserves CPU execution errors`, async context => {
 		const failure = new Error('CPU device failure');
-		const fixture = harness(kind, { fail: 'run', cpuFails: true, failure });
+		const fixture = harness(context, kind, { fail: 'run', cpuFails: true, failure });
 		await assert.rejects(fixture.run(), (error) => error === failure);
 		assert.deepEqual(fixture.configured, ['webgpu', 'cpu']);
 	});
 
-	test(`Sherpa ${kind} does not retry malformed native results`, async () => {
-		const fixture = harness(kind, { malformed: true });
+	test(`Sherpa ${kind} does not retry malformed native results`, async context => {
+		const fixture = harness(context, kind, { malformed: true });
 		await assert.rejects(fixture.run(), /mismatch|exceeds|invalid/iu);
 		assert.deepEqual(fixture.configured, ['webgpu']);
 	});
 
-	test(`Sherpa ${kind} does not retry invalid audio input`, async () => {
-		const invalid = harness(kind, { sampleRate: 48_000 });
-		await assert.rejects(invalid.run(), /16 kHz/iu);
+	test(`Sherpa ${kind} does not retry invalid audio input`, async context => {
+		const invalid = harness(context, kind, { sampleRate: 48_000 });
+		await assert.rejects(invalid.run(), kind === 'vad' ? /mono IEEE Float32/iu : /16 kHz/iu);
 		assert.ok(!invalid.configured.includes('cpu'));
 	});
 
-	test(`Sherpa ${kind} does not start CPU inference when GPU cleanup fails`, async () => {
-		const fixture = harness(kind, { fail: 'run', cleanupFails: true });
+	test(`Sherpa ${kind} does not start CPU inference when GPU cleanup fails`, async context => {
+		const fixture = harness(context, kind, { fail: 'run', cleanupFails: true });
 		await assert.rejects(fixture.run(), /cleanup failed/iu);
 		assert.deepEqual(fixture.configured, ['webgpu']);
 	});
 }
 
-test('Sherpa VAD restarts a failed GPU attempt with fresh output and monotone progress', async () => {
+test('Sherpa VAD restarts a failed GPU attempt with fresh output and monotone progress', async context => {
 	const progress: number[] = [];
 	const events: string[] = [];
+	const file = await writeSherpaVadWave(context, new Float32Array(2_048));
 	const detector = createSherpaVadFactory({
-		readWave: () => ({ sampleRate: 16_000, samples: new Float32Array(2_048) }),
 		Vad: class {
 			readonly provider: string;
 			calls = 0;
@@ -169,7 +171,7 @@ test('Sherpa VAD restarts a failed GPU attempt with fresh output and monotone pr
 			free() { events.push(`free:${this.provider}`); }
 		},
 	}, { executionProviders: ['webgpu', 'cpu'] });
-	const result = await detector.detect({ audioPath: '/audio.wav', model: { model: '/vad' },
+	const result = await detector.detect({ ...file, model: { model: '/vad' },
 		onProgress: ({ completed }) => { progress.push(completed); } });
 	assert.deepEqual(result.segments, [{ startSample: 512, sampleCount: 512 }]);
 	assert.deepEqual(events, ['create:webgpu', 'free:webgpu', 'create:cpu', 'free:cpu']);
