@@ -18,7 +18,7 @@ import {
 	readStoredLinkedOriginalProvisionalRootInventory,
 } from './linked-original-provisional-root.ts';
 import { publishSource } from './media-records.ts';
-import { publishProjectSources } from './project-source-publication.ts';
+import { publishProjectSources, type StagedMediaAssertions } from './project-source-publication.ts';
 import { ProjectCommittedMaintenanceError } from './project-committed-maintenance-error.ts';
 import { sameProjectSnapshot } from './project-snapshot-equality.ts';
 import { pruneProjectRevisions } from './project-revision-pruning.ts';
@@ -67,7 +67,7 @@ export type ProjectPostCommitMaintenance = () => PromiseLike<void> | void;
 /** Structural project seam implemented by local and desktop-shared repositories. */
 export interface ProjectRepositoryPort {
 	createIfAbsent?(project: ProjectDocument): Promise<ProjectDocument | null>;
-	createForScapeImportIfAbsent?(project: ProjectDocument): Promise<ProjectDocument | null>;
+	createForScapeImportIfAbsent?(project: ProjectDocument, assertions?: StagedMediaAssertions): Promise<ProjectDocument | null>;
 	save(project: ProjectDocument, postCommit?: ProjectPostCommitMaintenance): Promise<ProjectDocument>;
 	saveIfCurrent?(expected: ProjectDocument, project: ProjectDocument, postCommit?: ProjectPostCommitMaintenance): Promise<ProjectDocument | null>;
 	claimWriteFence?(projectId: string): Promise<string>;
@@ -115,17 +115,21 @@ export class ProjectRepository implements ProjectRepositoryPort {
 	}
 
 	/** Atomically create an imported project and publish only its referenced staged sources. */
-	async createForScapeImportIfAbsent(project: ProjectDocument): Promise<ProjectDocument | null> {
-		return this.#createIfAbsent(project, true);
+	async createForScapeImportIfAbsent(project: ProjectDocument, assertions?: StagedMediaAssertions): Promise<ProjectDocument | null> {
+		return this.#createIfAbsent(project, true, assertions);
 	}
 
 	async #createIfAbsent(
 		project: ProjectDocument,
 		publishStagedSources: boolean,
+		assertions?: StagedMediaAssertions,
 	): Promise<ProjectDocument | null> {
 		const creationFence = createProjectCreationFence();
 		const { snapshot, revisionRecord } = projectPublication(project, creationFence);
-		const sourceIds = publishStagedSources ? collectProjectStorageKeys(snapshot) : [];
+		const sourceIds = publishStagedSources ? collectProjectStorageKeys(snapshot) : new Set<string>();
+		if (assertions && [...assertions.keys()].some(key => !sourceIds.has(key))) {
+			throw new Error('The Scape project does not reference every required staged body.');
+		}
 		const database = await this.#port.database();
 		if (!database) {
 			const memory = this.#port.memory;
@@ -139,6 +143,7 @@ export class ProjectRepository implements ProjectRepositoryPort {
 				const source = asRecord(memory.sources.get(sourceId));
 				if (source?.pendingProjectUntil) mutations.push(setMemoryMutation(memory.sources, sourceId, publishSource(source)));
 				const media = asRecord(memory.mediaAssets.get(sourceId));
+				assertions?.get(sourceId)?.(media);
 				if (media?.pendingProjectUntil) mutations.push(setMemoryMutation(memory.mediaAssets, sourceId, publishSource(media)));
 			}
 			applyMemoryMutations(mutations);
@@ -155,7 +160,7 @@ export class ProjectRepository implements ProjectRepositoryPort {
 			]);
 			if (current !== undefined || currentRevision !== undefined || revisionCount > 0) return false;
 			await Promise.all([request(projects.put(snapshot)), request(revisions.put(revisionRecord))]);
-			await publishProjectSources({ sources, mediaAssets }, sourceIds);
+			await publishProjectSources({ sources, mediaAssets }, sourceIds, assertions);
 			return true;
 		});
 		return created ? this.#rememberCreation(snapshot, creationFence) : null;

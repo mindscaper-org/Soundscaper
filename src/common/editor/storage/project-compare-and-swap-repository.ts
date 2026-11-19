@@ -4,7 +4,7 @@ import { collectProjectStorageKeys, compactProjectSourceMetadata } from '../rete
 import { sameSerializedScapeProjectDocument } from '../scape-project-document.ts';
 import { request, transact } from '../../media/indexeddb.ts';
 import { publishSource } from './media-records.ts';
-import { publishProjectSources } from './project-source-publication.ts';
+import { publishProjectSources, type StagedMediaAssertions } from './project-source-publication.ts';
 import { ProjectCommittedMaintenanceError } from './project-committed-maintenance-error.ts';
 import { pruneProjectRevisions } from './project-revision-pruning.ts';
 import { restoreProjectSnapshotIfCurrent } from './project-snapshot-restoration-repository.ts';
@@ -42,10 +42,10 @@ export class ProjectCompareAndSwapRepository implements ProjectRepositoryPort {
 		return create.call(this.#delegate, project);
 	}
 
-	createForScapeImportIfAbsent(project: ProjectDocument): Promise<ProjectDocument | null> {
+	createForScapeImportIfAbsent(project: ProjectDocument, assertions?: StagedMediaAssertions): Promise<ProjectDocument | null> {
 		const create = this.#delegate.createForScapeImportIfAbsent;
 		if (!create) throw new Error('Atomic Scape project creation is unavailable.');
-		return create.call(this.#delegate, project);
+		return create.call(this.#delegate, project, assertions);
 	}
 
 	save(project: ProjectDocument, postCommit?: ProjectPostCommitMaintenance): Promise<ProjectDocument> {

@@ -9,8 +9,7 @@ import type {
 } from '../common/editor/timeline-image-model.ts';
 import { serializeScapeProjectDocument } from '../common/editor/scape-project-document.ts';
 import { request, transact } from '../common/media/indexeddb.ts';
-import { trustedMediaContentSha256 } from '../common/editor/storage/media-content-provenance.ts';
-import { publishSource, type StorageRecord } from '../common/editor/storage/media-records.ts';
+import { publishSource } from '../common/editor/storage/media-records.ts';
 import {
 	applyMemoryMutations,
 	setMemoryMutation,
@@ -26,8 +25,11 @@ import {
 	type FramescaperProjectTimelineImage,
 } from './editor-project-timeline-image.ts';
 
-export const FRAMESCAPER_TIMELINE_IMAGE_BODY_KIND_TIMELINE_IMAGE = 'timeline-image' as const;
-export const FRAMESCAPER_TIMELINE_IMAGE_BODY_ENCODING_TIMELINE_IMAGE = 'framescaper-image-asset-v1' as const;
+import {
+	canonicalTimestamp, FRAMESCAPER_TIMELINE_IMAGE_BODY_ENCODING_TIMELINE_IMAGE,
+	FRAMESCAPER_TIMELINE_IMAGE_BODY_KIND_TIMELINE_IMAGE, requireStagedTimelineImageBody,
+} from './editor-timeline-image-staged-body.ts';
+export { FRAMESCAPER_TIMELINE_IMAGE_BODY_ENCODING_TIMELINE_IMAGE, FRAMESCAPER_TIMELINE_IMAGE_BODY_KIND_TIMELINE_IMAGE };
 
 const TRANSITION_FIELDS = ['expected', 'project'] as const;
 const PUBLISHER_DEPENDENCY_FIELDS = ['port', 'store', 'projectCodec'] as const;
@@ -350,7 +352,7 @@ async function publishIndexedDb(
 		if (await request(revisions.get(nextKey)) !== undefined) {
 			throw new Error('The timelineImage image publication next revision is occupied.');
 		}
-		const row = stagedBody(
+		const row = requireStagedTimelineImageBody(
 			await request(mediaAssets.get(publication.source.storageKey)),
 			publication.source,
 		);
@@ -375,7 +377,7 @@ function publishMemory(port: StorageRepositoryPort, publication: PreparedPublica
 	);
 	const nextKey = revisionKey(publication.projectId, publication.nextRevision);
 	if (memory.revisions.has(nextKey)) throw new Error('The timelineImage image publication next revision is occupied.');
-	const row = stagedBody(memory.mediaAssets.get(publication.source.storageKey), publication.source);
+	const row = requireStagedTimelineImageBody(memory.mediaAssets.get(publication.source.storageKey), publication.source);
 	applyMemoryMutations([
 		setMemoryMutation(memory.mediaAssets, publication.source.storageKey, structuredClone(publishSource(row))),
 		setMemoryMutation(memory.projects, publication.projectId, structuredClone(publication.project)),
@@ -387,22 +389,6 @@ function publishMemory(port: StorageRepositoryPort, publication: PreparedPublica
 		})),
 	]);
 	return true;
-}
-
-function stagedBody(value: unknown, source: FramescaperImageSourceV1): StorageRecord {
-	const row = record(value, 'timelineImage staged image body') as StorageRecord;
-	const committedAt = canonicalTimestamp(row.committedAt, 'body committedAt');
-	const pendingUntil = canonicalTimestamp(row.pendingProjectUntil, 'body pendingProjectUntil');
-	if (Date.parse(pendingUntil) <= Date.parse(committedAt)
-		|| row.sourceId !== source.storageKey
-		|| row.kind !== FRAMESCAPER_TIMELINE_IMAGE_BODY_KIND_TIMELINE_IMAGE
-		|| row.encoding !== FRAMESCAPER_TIMELINE_IMAGE_BODY_ENCODING_TIMELINE_IMAGE
-		|| row.mimeType !== source.mimeType
-		|| row.size !== source.assetByteLength
-		|| trustedMediaContentSha256(row) !== source.contentSha256) {
-		throw new Error('The staged timelineImage image body does not match its immutable source authority.');
-	}
-	return row;
 }
 
 function assertBaseRevision(value: unknown, publication: PreparedPublication): void {
@@ -468,15 +454,6 @@ function assertFreshTimestamp(before: unknown, after: unknown): void {
 	if (Date.parse(next) <= Date.parse(base)) {
 		throw new Error('timelineImage image publication requires one fresh updatedAt timestamp.');
 	}
-}
-
-function canonicalTimestamp(value: unknown, name: string): string {
-	if (typeof value !== 'string') throw new TypeError(`timelineImage image ${name} must be a timestamp.`);
-	const date = new Date(value);
-	if (Number.isNaN(date.getTime()) || date.toISOString() !== value) {
-		throw new TypeError(`timelineImage image ${name} must be canonical.`);
-	}
-	return value;
 }
 
 function revision(value: unknown, name: string): number {
