@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { extname, join } from 'node:path';
 
+import { ACCEPTED_PROJECT_FILE_EXTENSIONS, PROJECT_FILE_EXTENSION } from './constants.js';
 import { throwAfterReadCapabilityRollback, createMacroBatchSaveRequestHandler } from './file-capabilities.js';
 import { redispatchPendingProjectsAfterReadRelease } from './file-associations.js';
 import { registerSelectedReadCapability } from './read-selection-service.js';
@@ -25,6 +26,11 @@ const SAVE_DIALOG_TITLES = new Map([
 	['aup4', 'Export Audacity interchange'],
 	['audacity-recovery', 'Save repaired Audacity copy'],
 ]);
+
+function acceptedProjectSuffix(path) {
+	const suffix = extname(path).toLowerCase();
+	return ACCEPTED_PROJECT_FILE_EXTENSIONS.includes(suffix) ? suffix : null;
+}
 
 /**
  * The renderer's file surface: the two native choosers and the capability-scoped reads and
@@ -75,7 +81,7 @@ export function registerFileCapabilityIpc({
 		const choice = validateSaveChoice(value);
 		const register = async (path) => {
 			if (choice.purpose === 'audacity-recovery') await readCapabilities.assertRecoveryOutputPath(path, { owner });
-			return originalFiles && choice.purpose === 'project' && /\.(?:sscape|fscape|liscape|scape)$/iu.test(path)
+			return originalFiles && choice.purpose === 'project' && acceptedProjectSuffix(path)
 				? originalFiles.registerProjectSave(path, { owner }) : saveTargets.registerPath(path, { owner, purpose: choice.purpose,
 					...(choice.purpose === 'audacity-recovery' ? { beforeCommit: () => readCapabilities.assertRecoveryOutputPath(path, { owner }) } : {}) });
 		};
@@ -83,26 +89,33 @@ export function registerFileCapabilityIpc({
 		if (smokeFilePath !== null) {
 			return register(smokeFilePath);
 		}
-		let defaultPath = choice.suggestedName;
+		const projectSuffix = choice.purpose === 'project' ? PROJECT_FILE_EXTENSION
+			: choice.purpose === 'project-copy' ? acceptedProjectSuffix(choice.suggestedName) ?? PROJECT_FILE_EXTENSION : null;
+		let defaultPath = projectSuffix && !acceptedProjectSuffix(choice.suggestedName)
+			? `${choice.suggestedName}${projectSuffix}` : choice.suggestedName;
 		if (projectDirectory && SAVE_DIALOG_TITLES.has(choice.purpose)) {
 			const directory = await projectDirectory();
 			if (directory) {
 				try {
 					await mkdir(directory, { recursive: true, mode: 0o700 });
-					defaultPath = join(directory, choice.suggestedName);
+					defaultPath = join(directory, defaultPath);
 				} catch {
 					// An unavailable default directory must not prevent choosing another location.
 				}
 			}
 		}
-		const result = await dialog.showSaveDialog(windowFor(), {
-			title: SAVE_DIALOG_TITLES.get(choice.purpose) ?? 'Export',
-			defaultPath,
-			filters: choice.filters,
-		});
-		return result.canceled || !result.filePath
-			? null
-			: register(result.filePath);
+		for (;;) {
+			const result = await dialog.showSaveDialog(windowFor(), {
+				title: SAVE_DIALOG_TITLES.get(choice.purpose) ?? 'Export',
+				defaultPath,
+				filters: choice.filters,
+			});
+			if (result.canceled || !result.filePath) return null;
+			if (!projectSuffix || acceptedProjectSuffix(result.filePath)) return register(result.filePath);
+			// The native dialog must confirm the corrected name and any overwrite.
+			if (ownerFor(event) !== owner) return null;
+			defaultPath = `${result.filePath}${projectSuffix}`;
+		}
 	}
 
 	handle(channels.chooseFiles, (event, value) => chooseFiles(event, value));

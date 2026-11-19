@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { lstat, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -16,6 +16,7 @@ async function fixture(t: test.TestContext, disabled = false, smokePath: string 
 	const directory = join(home, 'My Projects');
 	const handlers = new Map<string, (event: unknown, value: unknown) => unknown>();
 	const dialogs: SaveDialogOptions[] = [];
+	const choices: Array<{ canceled: boolean; filePath: string }> = [];
 	let resolutions = 0;
 	registerFileCapabilityIpc({
 		channels: { chooseSaveTarget: 'save:choose' },
@@ -24,7 +25,7 @@ async function fixture(t: test.TestContext, disabled = false, smokePath: string 
 			showOpenDialog: async () => ({ canceled: true, filePaths: [] }),
 			showSaveDialog: async (_window: unknown, options: SaveDialogOptions) => {
 				dialogs.push(options);
-				return { canceled: true, filePath: '' };
+				return choices.shift() ?? { canceled: true, filePath: '' };
 			},
 		},
 		handle: (channel: string, handler: (event: unknown, value: unknown) => unknown) => {
@@ -38,8 +39,8 @@ async function fixture(t: test.TestContext, disabled = false, smokePath: string 
 	const choose = handlers.get('save:choose');
 	assert.ok(choose);
 	return {
-		directory, dialogs, resolutions: () => resolutions,
-		choose: (purpose: string) => choose({}, { purpose, suggestedName: 'A recording' }),
+		home, directory, dialogs, choices, resolutions: () => resolutions,
+		choose: (purpose: string, suggestedName = 'A recording') => choose({}, { purpose, suggestedName }),
 	};
 }
 
@@ -83,4 +84,28 @@ test('artifact smoke saves bypass production Projects resolution', async (t) => 
 	assert.equal(f.dialogs.length, 0);
 	assert.equal(f.resolutions(), 0);
 	await assert.rejects(lstat(f.directory), { code: 'ENOENT' });
+});
+
+test('a native project save confirms the suffixed destination before granting it', async (t) => {
+	const f = await fixture(t);
+	const typed = join(f.home, 'Evening recording');
+	const supported = `${typed}.sscape`;
+	await writeFile(supported, 'previous archive');
+	f.choices.push({ canceled: false, filePath: typed });
+	assert.equal(await f.choose('project'), null, 'canceling the corrected picker grants no destination');
+	assert.equal(f.dialogs.at(-1)?.defaultPath, supported);
+	assert.equal(await readFile(supported, 'utf8'), 'previous archive');
+	await assert.rejects(lstat(typed), { code: 'ENOENT' });
+
+	f.choices.push({ canceled: false, filePath: typed }, { canceled: false, filePath: supported });
+	assert.equal(await f.choose('project'), supported);
+});
+
+test('a renamed cross-product copy keeps the suggested family suffix', async (t) => {
+	const f = await fixture(t);
+	const typed = join(f.home, 'Evening.mix');
+	const supported = `${typed}.fscape`;
+	f.choices.push({ canceled: false, filePath: typed }, { canceled: false, filePath: supported });
+	assert.equal(await f.choose('project-copy', 'Interview.fscape'), supported);
+	assert.equal(f.dialogs.at(-1)?.defaultPath, supported);
 });
