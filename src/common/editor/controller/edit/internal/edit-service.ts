@@ -14,7 +14,7 @@ import {
 	resolveAudioEditorDefaultDelete,
 	resolveAudioEditorDefaultPaste,
 } from '../../../editing-preferences.ts';
-import { mergeEditingRanges, resolveEditingActionAvailability, resolveEditingSelectionAuthority } from '../../../commands/editing-selection-authority.ts';
+import { mergeEditingRanges, resolveEditingActionAvailability, resolveEditingSelectionAuthority, type EditingAuthorityProject } from '../../../commands/editing-selection-authority.ts';
 import { firstById } from '../../../commands/editing-work-index.ts';
 import { mediaClipOwnerIndex } from '../../../commands/clip-edit-index.ts';
 
@@ -57,7 +57,23 @@ export function createEditorEditService(runtime: EditServiceRuntime): HandleEdit
 		const previousHistory = state.history;
 		state.history = step(previousHistory, { playheadFrame: playheadFrame() });
 		if (state.history === previousHistory) return;
+		restoreClipFocus(state.history.present);
 		projectChanged({ restorePlayheadFrame: state.history.playheadFrame });
+	}
+
+	/** A restored exact selection owns the primary clip and its track. */
+	function restoreClipFocus(project: EditingAuthorityProject): void {
+		const clipIds = project.selection?.clipIds;
+		if (!clipIds?.length) return;
+		const current: unknown = state.selectedClipId;
+		const clipId = typeof current === 'string' && clipIds.includes(current)
+			? current : clipIds.find(id => typeof id === 'string' && findClip(project, id));
+		if (typeof clipId !== 'string') return;
+		const track = findClipTrack(project, clipId);
+		if (!track) return;
+		state.selectedClipId = clipId;
+		state.selectedTrackId = track.id;
+		state.selectedLabels = [];
 	}
 
 	/** Where the transport's playhead sits, for a runtime that has a transport. */

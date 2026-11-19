@@ -235,6 +235,51 @@ test('reopened projects keep track visualization scoped to their tabs and histor
 	}
 });
 
+test('Split into new track uses the clip highlighted after Undo in a reopened project', async ({ page }, result) => {
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await renameProject(page, editor, 'Before edit');
+	await importFiles(editor, [toneA, toneB]);
+	const downloading = page.waitForEvent('download');
+	await chooseExportProjectFileAction(page, editor);
+	const download = await downloading;
+	const archivePath = result.outputPath(download.suggestedFilename());
+	try {
+		await download.saveAs(archivePath);
+		await editor.getByRole('button', { name: 'Close project: Before edit', exact: true }).click();
+		await expect(editor.getByRole('tab', { name: 'Before edit', exact: true })).toHaveCount(0);
+		await waitForProjectActivation(editor);
+		const choosing = page.waitForEvent('filechooser');
+		await chooseFileAction(page, editor, 'Open');
+		await (await choosing).setFiles(archivePath);
+		await expect(editor.getByRole('tab', { name: 'Before edit', exact: true })).toHaveAttribute('aria-selected', 'true');
+		await waitForProjectActivation(editor);
+
+		const first = clipByName(editor, toneA.name);
+		const second = clipByName(editor, toneB.name);
+		await first.locator('.clip-header').click();
+		await editor.getByRole('slider', { name: 'Playhead', exact: true }).press('ArrowRight');
+		await expect.poll(async () => Number(await editor.getByRole('slider', { name: 'Playhead', exact: true }).getAttribute('aria-valuenow'))).toBeGreaterThan(0);
+		await renameProject(page, editor, 'After edit');
+		await second.locator('.clip-header').click();
+		await expect(second.locator('.clip-display')).toHaveAttribute('data-selected', 'true');
+		await chooseCommandAction(page, editor, 'Edit', 'Undo');
+		await expect(first.locator('.clip-display')).toHaveAttribute('data-selected', 'true');
+		await expect.soft(second.locator('.clip-display')).not.toHaveAttribute('data-selected', 'true');
+
+		await chooseNestedCommandAction(page, editor, 'Edit', ['Audio clips', 'Split into new track']);
+		await expect(editor).toHaveAttribute('data-clip-count', '3');
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		const saved = await persistedProject(page, await editor.getAttribute('data-project-id'));
+		const firstSource = saved.sources.find(source => source.name === toneA.name);
+		const secondSource = saved.sources.find(source => source.name === toneB.name);
+		expect([firstSource, secondSource].map(source => saved.clips.filter(clip => clip.sourceId === source.id).length)).toEqual([2, 1]);
+	} finally {
+		await rm(archivePath, { force: true });
+		await download.delete();
+	}
+});
+
 test('a project deletion refused by another editor preserves the active tab and live Undo', async ({ page, context }, result) => {
 	test.setTimeout(45_000);
 	await disableNativeSavePicker(page);

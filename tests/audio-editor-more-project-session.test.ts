@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
-import { createAudioTrack } from '../src/common/editor/project-media-factory.ts';
+import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
+import { createCurrentAudioEditorProject } from '../src/common/editor/project-current.ts';
 import { createProjectSessionSelectionService } from '../src/common/editor/controller/document/internal/project/project-session-selection-service.ts';
 import { createAudioEditorEngine } from '../src/common/editor/engine/runtime-class.ts';
 import { createMemoryFfmpeg, waitFor } from './helpers/audio-editor-controller-fixtures.js';
@@ -33,12 +34,13 @@ test('MP07: opening a project restores its durable active track and annotation s
 async function openTabFixture(context: TestContext) {
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const engine = createAudioEditorEngine();
+	const store = createMemoryStore();
 	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, engine,
-		store: createMemoryStore() as unknown as Options['store'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'],
+		store: store as unknown as Options['store'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'],
 	});
 	context.after(() => controller.dispose());
 	await controller.ready;
-	return { controller, engine, firstId: controller.project!.id };
+	return { controller, engine, store, firstId: controller.project!.id };
 }
 
 test('the transport playhead returns to the position last used in each project tab', async context => {
@@ -69,6 +71,34 @@ test('the timeline zoom stays with the tab where it was changed', async context 
 	assert.equal(controller.getSnapshot().timeline.pixelsPerSecond, firstZoom);
 	await controller.actions.project.openById(secondId);
 	assert.equal(controller.getSnapshot().timeline.pixelsPerSecond, secondZoom);
+});
+
+test('Undo and Redo focus a clip belonging to their restored selection', async context => {
+	const { controller, store } = await openTabFixture(context);
+	const clip = (id: string) => createAudioClip({ id, sourceId: 'source', durationFrames: 24_000 });
+	const project = createCurrentAudioEditorProject({ id: 'focus-history', title: 'Before edit',
+		sources: [createAudioSource({ id: 'source', frameCount: 24_000, channelCount: 1, sampleRate: 48_000 })],
+		clips: [clip('first-clip'), clip('second-clip')],
+		tracks: [createAudioTrack({ id: 'first-track', clipIds: ['first-clip'] }),
+			createAudioTrack({ id: 'second-track', clipIds: ['second-clip'] })],
+	});
+	await store.saveProject(project);
+	await controller.actions.project.openById(project.id);
+	controller.actions.timeline.selectClip('first-clip');
+	await controller.actions.project.rename('After edit');
+	controller.actions.timeline.selectClip('second-clip');
+
+	controller.actions.edit.undo();
+	const undone = controller.getSnapshot();
+	assert.deepEqual(undone.project?.selection?.clipIds, ['first-clip']);
+	assert.equal(undone.selectedClipId, 'first-clip');
+	assert.equal(undone.selectedTrackId, 'first-track');
+
+	controller.actions.edit.redo();
+	const redone = controller.getSnapshot();
+	assert.deepEqual(redone.project?.selection?.clipIds, ['second-clip']);
+	assert.equal(redone.selectedClipId, 'second-clip');
+	assert.equal(redone.selectedTrackId, 'second-track');
 });
 
 test('whole-track spectral displays follow the active tab and its undo history', async context => {
