@@ -6,6 +6,7 @@ import { highRateIntraVideoFile } from './fixtures/video-paused-preview-media.js
 import { videoSourceGeometryMedia } from './fixtures/video-source-geometry-media.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
+import { seekFramescaperTimecode } from './helpers/framescaper-standard-timecode.js';
 import {
 	DURABLE_MEDIA_STORAGE_REQUIRED,
 	hasDurableMediaStorageCapability,
@@ -19,6 +20,36 @@ const MARKED_FRAMES = MARK_OUT_FRAME + 1 - MARK_IN;
 const SOURCE_FRAMES = CFR.presentationTicks.length;
 
 test.describe('3B-3b source monitor qualification', () => {
+	test('Match frame opens the picture that owns the Programme time on an unretimed VFR clip', async ({ page }) => {
+		const editor = await openFramescaper(page);
+		test.skip(!await page.evaluate(hasDurableMediaStorageCapability), DURABLE_MEDIA_STORAGE_REQUIRED);
+		const [file] = sourceMonitorFragmentedMedia();
+		const name = file.name.replace(/\.mp4$/u, '');
+		await editor.locator('[data-project-bin-input]').setInputFiles(file);
+		await editor.getByRole('button', { name: `Add to timeline: ${name}`, exact: true }).click();
+		await editor.getByRole('button', { name: `Open in source monitor: ${name}`, exact: true }).click();
+		const monitor = editor.locator('[data-source-monitor]');
+		const video = monitor.locator('video');
+		// The fifth decoded picture starts at 15,000 ticks on the 90 kHz source clock.
+		await scrubTo(page, 4);
+		const seekTime = (5 * .75 + 7 * .25) / 30;
+		await expect.poll(() => video.evaluate((element, target) => !element.seeking && element.readyState >= 2
+			&& Math.abs(element.currentTime - target) < .00001, seekTime)).toBe(true);
+		const sourceTimecode = await monitor.locator('[data-source-monitor-timecode]').textContent();
+		const readPicture = () => sourceMonitorPicture(video);
+		const expectedPicture = await readPicture();
+		expect(expectedPicture).not.toBeNull();
+		await scrubTo(page, 0);
+		await expect.poll(readPicture).not.toBe(expectedPicture);
+		await seekFramescaperTimecode(page, editor, '00:00:00:05');
+		await monitor.getByRole('button', { name: 'Match frame', exact: true }).click();
+		await expect(monitor).toHaveAttribute('data-source-monitor-frame', '4');
+		await expect(monitor).toHaveAttribute('data-source-monitor-mark-in', '0');
+		await expect(monitor).toHaveAttribute('data-source-monitor-mark-out', '22');
+		await expect.poll(readPicture).toBe(expectedPicture);
+		await expect(editor.locator('[data-sequence-timecode]')).toHaveAttribute('data-source-timecode', sourceTimecode);
+	});
+
 	test('fragmented AVC with B-pictures preserves every Source Monitor ordinal', async ({ page }) => {
 		test.setTimeout(90_000);
 		const editor = await openFramescaper(page);
@@ -30,16 +61,7 @@ test.describe('3B-3b source monitor qualification', () => {
 			await editor.getByRole('button', { name: `Open in source monitor: ${file.name.replace(/\.mp4$/u, '')}`, exact: true }).click();
 			const monitor = editor.locator('[data-source-monitor]');
 			await expect(monitor.locator('video')).toHaveAttribute('aria-label', new RegExp(file.name.replaceAll('.', '\\.'), 'u'));
-			const picture = () => monitor.locator('video').evaluate(video => {
-				if (video.seeking || video.readyState < 2) return null;
-				const canvas = document.createElement('canvas');
-				canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-				const context = canvas.getContext('2d');
-				context.drawImage(video, 0, 0);
-				let hash = 0;
-				for (const value of context.getImageData(0, 0, canvas.width, canvas.height).data) hash = Math.imul(hash, 31) + value | 0;
-				return hash;
-			});
+			const picture = () => sourceMonitorPicture(monitor.locator('video'));
 			for (let ordinal = 0; ordinal < 22; ordinal++) {
 				await expect(monitor).toHaveAttribute('data-source-monitor-frame', String(ordinal));
 				const seekTime = (boundaries[ordinal] * .75 + boundaries[ordinal + 1] * .25) / 30;
@@ -228,6 +250,20 @@ test.describe('3B-3b source monitor qualification', () => {
 		expect(whole[0].sourceInFrame).toBe(0);
 	});
 });
+
+async function sourceMonitorPicture(video) {
+	return video.evaluate(element => {
+		if (element.seeking || element.readyState < 2) return null;
+		const canvas = document.createElement('canvas');
+		canvas.width = element.videoWidth;
+		canvas.height = element.videoHeight;
+		const context = canvas.getContext('2d');
+		context.drawImage(element, 0, 0);
+		let hash = 0;
+		for (const value of context.getImageData(0, 0, canvas.width, canvas.height).data) hash = Math.imul(hash, 31) + value | 0;
+		return hash;
+	});
+}
 
 async function addToTimeline(editor) {
 	const name = CFR.file.name.replace(/\.[^.]+$/u, '');

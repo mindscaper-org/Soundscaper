@@ -7,6 +7,7 @@ import { proportionalSourceFrame, sourceFrameTimecodeLabel } from './source-prop
 import { normalizeVideoSourceCharacteristicsForConsumer } from './video-source-characteristics-consumer.ts';
 import { browserVideoFrameSeekSeconds } from './video-drawable-interval.ts';
 import { videoFrameToSampleFrame, type RationalRate } from './timeline-time.ts';
+import { indexedUnretimedVideoFrameAtSample } from './video-source-time.ts';
 import { videoBoundaryTime, videoSourceTimingView, type VideoSourceTimingView } from './video-source-timing-view.ts';
 import { resolveVideoSourceTimingViews } from './video-source-timing-views.ts';
 import {
@@ -212,11 +213,8 @@ export function resolveProgramFrame(
 	const sequence = arrayOf(project.sequences).find((candidate) => String(candidate.id) === sequenceId);
 	if (!sequence) return null;
 	const rate = frameRate(sequence.rate);
-	const frame = sequenceFrameAtSample(
-		Math.max(0, Math.trunc(safeInteger(request.sample, 'program sample'))),
-		rate,
-		sampleRate,
-	);
+	const timelineSample = Math.max(0, safeInteger(request.sample, 'program sample'));
+	const frame = sequenceFrameAtSample(timelineSample, rate, sampleRate);
 	const trackIdByClipId = new Map<string, string>();
 	const memberIds = new Set(Array.isArray(sequence.trackIds) ? sequence.trackIds.map(String) : []);
 	const tracks = arrayOf(project.tracks).filter(track => memberIds.size === 0 || memberIds.has(String(track.id)));
@@ -261,7 +259,7 @@ export function resolveProgramFrame(
 			project,
 			clip: matched,
 			source,
-			timelineSample: Math.max(0, Math.trunc(request.sample)),
+			timelineSample,
 		})
 		: null;
 	const sourceFrameCount = Number(matched.sourceFrameCount ?? sequenceFrameCount);
@@ -271,6 +269,7 @@ export function resolveProgramFrame(
 		sourceId: String(matched.sourceId),
 		sequenceId,
 		sourceFrame: retimedSourceFrame
+			?? (source && indexedUnretimedVideoFrameAtSample(project, matched, source, timelineSample))
 			?? proportionalSourceFrame(
 				sourceIn, sourceFrameCount,
 				sequenceStartFrame, sequenceFrameCount, frame,

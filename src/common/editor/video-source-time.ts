@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { browserVideoFrameSeekSeconds } from './video-drawable-interval.ts';
+import { resolveRuntimeClipProjection, type RuntimeClipProject, type RuntimePersistedClip } from './runtime-clip-projection.ts';
+import { isVideoTimingIndexVerifiedForReference } from './video-timing-asset.ts';
 
 export const VIDEO_THUMBNAIL_BASE_INTERVAL_SECONDS = 5;
 export const VIDEO_THUMBNAIL_MINIMUM_SPACING_PIXELS = 80;
@@ -120,6 +122,17 @@ export function indexedVideoSourceSeekSeconds(
 	const start = Number(index.presentationTicks[frame]) / index.timescale;
 	const next = Number(index.presentationTicks[frame + 1] ?? index.endTicks) / index.timescale;
 	return browserVideoFrameSeekSeconds(start, next);
+}
+
+/** Find the picture drawn at a sample using the same source clock as paused Programme. */
+export function indexedUnretimedVideoFrameAtSample(
+	project: RuntimeClipProject, clip: RuntimePersistedClip, source: DataRecord, timelineSample: number,
+): number | null {
+	if (clip.retimeMap != null || source.timingAsset == null) return null;
+	const index = timingIndexForClip(clip, source);
+	if (!isVideoTimingIndexVerifiedForReference(index, source.timingAsset)) return null;
+	const tick = sourceTickAtTimelineSample(resolveRuntimeClipProjection(project, clip), timelineSample, index);
+	return tick === null ? null : sourceFrameIndexAtTime(tick, index);
 }
 
 /** Identity changes whenever exact timing availability or lease restoration changes. */

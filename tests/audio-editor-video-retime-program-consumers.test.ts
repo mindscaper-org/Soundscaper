@@ -118,6 +118,33 @@ test('match-frame and source timecode use the registered exact VFR authority', (
 	}
 });
 
+test('unretimed match-frame and source timecode follow a trimmed VFR range stretched in the sequence', () => {
+	const options = framescaperV20Options();
+	const source = videoSource(options);
+	const publication = createVideoTimingAssetPublication(String(source.contentSha256), {
+		timescale: 100,
+		presentationTicks: [0n, 2n, 5n, 9n, 14n, 20n, 27n, 35n, 44n, 54n],
+		finalFrameDurationTicks: 11n,
+	});
+	(options.sources as Record<string, unknown>[])[0] = {
+		...source,
+		timingAsset: publication.reference,
+		timingDecision: { mode: 'exact', rate: source.frameRate, backend: 'demuxer' },
+	};
+	const clips = options.clips as Record<string, unknown>[];
+	clips[0] = { ...clips[0], sequenceStartFrame: 2, sequenceFrameCount: 13, sourceInFrame: 2, sourceFrameCount: 6 };
+	const project = createFramescaperProjectRetime(PROFILE, options);
+	const exactSource = videoSource(project);
+	registerVideoTimingIndex(exactSource, validateVideoTimingAssetBytes(publication.reference, publication.bytes));
+	try {
+		// 24,000 samples into the placement, the source tick reaches 20 exactly.
+		assertConsumers(project, 33_599, 4, 'before the authored picture boundary');
+		assertConsumers(project, 33_600, 5, 'at the authored picture boundary');
+	} finally {
+		unregisterVideoTimingIndex(exactSource);
+	}
+});
+
 test('retimed match-frame and source timecode fail closed without exact VFR timing', () => {
 	const { project, publication } = vfrReverseProject();
 	const source = videoSource(project);
