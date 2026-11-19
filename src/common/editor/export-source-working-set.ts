@@ -107,14 +107,14 @@ export function estimateExportSourceWorkingSetBytes(
 			}
 			const source = plan.chunkSource;
 			if (!source) continue;
-			if (plan.chunkLoopRange) {
-				const periodFrames = plan.chunkLoopRange.endFrame - plan.chunkLoopRange.startFrame;
+			const loop = plan.chunkLoopRange;
+			const inputFrames = loop ? loop.endFrame - loop.startFrame : plan.segmentDuration * plan.playbackRate * plan.sourceSampleRate;
+			const outputFrames = loop?.outputFrames ?? Math.round(plan.segmentDuration * sampleRate);
+			if (loop && inputFrames === outputFrames) {
 				// A storage chunk, assembled period and native loop buffer can overlap.
-				renderBytes = addBytes(renderBytes, pcmBytes(source.chunkFrames + periodFrames * 2, source.channelCount));
+				renderBytes = addBytes(renderBytes, pcmBytes(source.chunkFrames + outputFrames * 2, source.channelCount));
 				continue;
 			}
-			const inputFrames = plan.segmentDuration * plan.playbackRate * plan.sourceSampleRate;
-			const outputFrames = Math.round(plan.segmentDuration * sampleRate);
 			const direct = Math.abs(Math.round(plan.offsetFrame) - plan.offsetFrame) <= 1e-9
 				&& Math.abs(Math.round(inputFrames) - inputFrames) <= 1e-9
 				&& Math.round(inputFrames) === outputFrames;

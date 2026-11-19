@@ -33,15 +33,18 @@ import { indexedClipScheduleRange } from './clip-schedule-index.ts';
 import { preferOfflineChunkSource } from './offline-buffer-source.ts';
 import { prepareClipScheduleEnvelopes } from './clip-envelope-preparation.ts';
 import { clipEffectInputKey } from './clip-effect-inputs.ts';
+import { defaultWindowedSincRadius } from '../resample-geometry.ts';
 
 export { mergeFrameRanges, getTrackClips, automaticCrossfadeRanges };
 export type { ClipCrossfadeRanges, FrameRange };
 
 const BUFFERED_CHUNK_LOOP_BUDGET_BYTES = 4 * 1024 ** 2;
+// Bound sinc work on the caller's thread as well as the retained PCM.
+const BUFFERED_CHUNK_LOOP_SINC_BUDGET = 1024 ** 2;
 
 export interface ClipSchedulePlan extends ClipCrossfadeRanges {
 	/** One original, forward PCM period to read before scheduling this loop. */
-	readonly chunkLoopRange?: Readonly<{ startFrame: number; endFrame: number }>;
+	readonly chunkLoopRange?: Readonly<{ startFrame: number; endFrame: number; outputFrames: number }>;
 	readonly loopSourceStartFrame?: number;
 	readonly loopSourceEndFrame?: number;
 	readonly clip: EngineClip;
@@ -169,6 +172,7 @@ export function buildClipSchedulePlans({
 }: BuildClipSchedulePlansOptions): ClipSchedulePlan[] {
 	let clipsById: ReadonlyMap<string, EngineClip> | null = null;
 	let chunkLoopBudgetBytes = BUFFERED_CHUNK_LOOP_BUDGET_BYTES;
+	let chunkLoopSincBudget = BUFFERED_CHUNK_LOOP_SINC_BUDGET;
 	const plans: ClipSchedulePlan[] = [];
 	const audioTracks = (project.tracks || [])
 		.filter((track) => track.type !== 'label' && track.type !== 'video');
@@ -192,22 +196,31 @@ export function buildClipSchedulePlans({
 				const resolved = preferOfflineChunkSource(resolveClipSource(clip, project, sources, sourceResolver, chunkSources), offlineSampleRate);
 				const sourceDuration = resolved.sourceDurationFrames ?? clip.sourceDurationFrames ?? loop.periodFrames;
 				const sourceSampleRate = resolved.buffer?.sampleRate ?? resolved.chunkSource?.sampleRate ?? sampleRate;
-				const bytes = sourceDuration * (resolved.chunkSource?.channelCount ?? 0) * Float32Array.BYTES_PER_ELEMENT;
+				const outputSamples = loop.periodFrames * (resolved.chunkSource?.channelCount ?? 0);
+				const bytes = outputSamples * Float32Array.BYTES_PER_ELEMENT;
+				const sincWork = sourceDuration === loop.periodFrames ? 0
+					: outputSamples * defaultWindowedSincRadius(sourceDuration, loop.periodFrames);
 				const endFrame = resolved.sourceStartFrame + sourceDuration;
 				const chunkLoopRange = !resolved.buffer && resolved.chunkSource && clip.warpMap == null
-					&& chunkLoopSampleRate === sampleRate && sourceSampleRate === sampleRate && sourceDuration === loop.periodFrames
-					&& segmentEnd - segmentStart > loop.periodFrames && endFrame <= resolved.chunkSource.frameCount && bytes <= chunkLoopBudgetBytes
-					? { startFrame: resolved.sourceStartFrame, endFrame } : undefined;
+					&& chunkLoopSampleRate === sampleRate && sourceDuration * sampleRate === loop.periodFrames * sourceSampleRate
+					&& segmentEnd - segmentStart > loop.periodFrames && endFrame <= resolved.chunkSource.frameCount
+					&& bytes <= chunkLoopBudgetBytes && sincWork <= chunkLoopSincBudget
+					? { startFrame: resolved.sourceStartFrame, endFrame, outputFrames: loop.periodFrames } : undefined;
 				if (resolved.buffer || chunkLoopRange) {
-					if (chunkLoopRange) chunkLoopBudgetBytes -= bytes;
+					if (chunkLoopRange) {
+						chunkLoopBudgetBytes -= bytes;
+						chunkLoopSincBudget -= sincWork;
+					}
 					const loopSourceStartFrame = !resolved.buffer ? 0 : resolved.reversed ? resolved.buffer.length - endFrame : resolved.sourceStartFrame;
+					const bufferFrames = chunkLoopRange?.outputFrames ?? sourceDuration;
+					const bufferRate = chunkLoopRange ? sampleRate : sourceSampleRate;
 					const phase = (segmentStart - start + loop.offsetFrames) % loop.periodFrames;
 					plans.push({ clip, ...(crossfades.get(String(clip.id)) ?? { crossfadeInRanges: [], crossfadeOutRanges: [] }),
 						trackInput, originalBuffer: resolved.buffer, chunkSource: chunkLoopRange ? resolved.chunkSource : null, reversed: resolved.reversed,
 						...(chunkLoopRange ? { chunkLoopRange } : {}),
-						loopSourceStartFrame, loopSourceEndFrame: loopSourceStartFrame + sourceDuration,
-						offsetFrame: loopSourceStartFrame + phase * sourceDuration / loop.periodFrames, sourceSampleRate,
-						playbackRate: sourceDuration * sampleRate / (loop.periodFrames * sourceSampleRate),
+						loopSourceStartFrame, loopSourceEndFrame: loopSourceStartFrame + bufferFrames,
+						offsetFrame: loopSourceStartFrame + phase * bufferFrames / loop.periodFrames, sourceSampleRate: bufferRate,
+						playbackRate: bufferFrames * sampleRate / (loop.periodFrames * bufferRate),
 						segmentStart, segmentEnd, segmentDuration: (segmentEnd - segmentStart) / sampleRate,
 						relativeStart: segmentStart - start, duration });
 					continue;

@@ -191,13 +191,22 @@ export async function scheduleProjectClips({
 	});
 	for (const [index, plan] of plans.entries()) {
 		if (!plan.chunkLoopRange || !plan.chunkSource) continue;
-		const { startFrame, endFrame } = plan.chunkLoopRange;
-		const channels = await readChunkSourceRange(plan.chunkSource, startFrame, endFrame, signal);
-		throwIfAborted(signal);
-		const buffer = context.createBuffer(channels.length, endFrame - startFrame, context.sampleRate);
-		for (const [channel, samples] of channels.entries()) {
-			buffer.getChannelData(channel).set(plan.reversed ? samples.reverse() : samples);
+		const { startFrame, endFrame, outputFrames } = plan.chunkLoopRange;
+		const inputFrames = endFrame - startFrame;
+		let buffer: AudioBuffer;
+		if (inputFrames === outputFrames) {
+			const channels = await readChunkSourceRange(plan.chunkSource, startFrame, endFrame, signal);
+			throwIfAborted(signal);
+			buffer = context.createBuffer(channels.length, outputFrames, context.sampleRate);
+			for (const [channel, samples] of channels.entries()) {
+				buffer.getChannelData(channel).set(plan.reversed ? samples.reverse() : samples);
+			}
+		} else {
+			const source = plan.reversed ? createReversedChunkSource(plan.chunkSource) : plan.chunkSource;
+			buffer = await createOfflineChunkResampleBuffer({ context, source, inputFrameCount: inputFrames,
+				inputOffsetFrame: plan.reversed ? source.frameCount - endFrame : startFrame, outputFrameCount: outputFrames, signal });
 		}
+		throwIfAborted(signal);
 		plans[index] = { ...plan, originalBuffer: buffer, chunkSource: null, reversed: false };
 	}
 	const streamed: PreparedLiveChunkPlan[] = [];
