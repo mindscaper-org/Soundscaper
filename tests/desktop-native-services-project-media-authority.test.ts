@@ -356,7 +356,7 @@ test('the baseline prepares one exact original as a native ProRes Proxy MOV job'
 		source.kind === 'video' ? {
 			...source,
 			contentSha256: sourceSha256,
-			videoCodec: 'h264',
+			videoCodec: 'h264', width: 2_154, height: 722,
 			characteristics: professionalCharacteristics(),
 		} : source
 	));
@@ -431,7 +431,7 @@ test('the baseline prepares one exact original as a native ProRes Proxy MOV job'
 	assert.equal(materializations, 1);
 	assert.equal(requests.length, 1);
 	assert.deepEqual(requests[0]?.recipe, {
-		id: 'framescaper-native-prores-proxy-mov-v1', width: 1_280, height: 720,
+		id: 'framescaper-native-prores-proxy-mov-v1', width: 1_280, height: 428,
 	});
 	assert.equal(requests[0]?.sourceBody.sourceId, 'video-source');
 	assert.equal(requests[0]?.timingBodies.length, 0);
@@ -491,7 +491,7 @@ function silentVideoOptions(): Record<string, unknown> {
 
 function professionalCharacteristics() {
 	return normalizeVideoSourceCharacteristicsV25({
-		backend: 'framescaper-media-host', codedWidth: 1_920, codedHeight: 1_080,
+		backend: 'framescaper-media-host', codedWidth: 2_154, codedHeight: 722,
 		hasAlpha: false, videoCodec: 'h264', bitDepth: 10, pixelFormat: 'yuv420p10le',
 		chromaFormat: '4:2:0', colour: {
 			primaries: 'bt709', transfer: 'bt709', matrix: 'bt709', range: 'limited',
