@@ -13,9 +13,11 @@ test('undoing a newly added MIDI note during its held drag retires the obsolete 
 	await expect(note).toBeVisible();
 	const rect=await note.boundingBox(); expect(rect).not.toBeNull();
 	const x=rect.x+rect.width/2,y=rect.y+rect.height/2;
-	await page.mouse.move(x,y); await page.mouse.down(); await page.mouse.move(x+25,y,{steps:3});
-	await page.keyboard.press('Control+z');
+	await page.mouse.move(x,y); await page.mouse.down(); await page.mouse.move(x+25,y);
+	await expect(note).not.toHaveCSS('left', '0px');
+	await panel.locator('.kw-audio-editor__piano-roll-notes > [tabindex="0"]').press('ControlOrMeta+z');
 	await expect(note).toHaveCount(0);
 	await page.mouse.move(x+50,y,{steps:3}); await page.mouse.up();
+	await expect(note).toHaveCount(0);
 	await expect(editor.getByText(/MIDI note .* is missing\./u)).toHaveCount(0);
 });

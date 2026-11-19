@@ -87,8 +87,6 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
   const lastResizedDurationRef = useRef<number | null>(null);
   const [boxSelectionRect, setBoxSelectionRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [previewNote, setPreviewNote] = useState<{ pitch: number; startTime: number; duration: number } | null>(null);
-  const previewNoteRef = useRef(previewNote);
-  previewNoteRef.current = previewNote;
   const [ghostNote, setGhostNote] = useState<{ pitch: number; startTime: number; duration: number } | null>(null);
   const isDraggingRef = useRef(false);
   const viewRef = useRef({ scrollX, scrollY, pixelsPerSecond, noteHeight });
@@ -330,7 +328,8 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
 
     const duration = lastResizedDurationRef.current ?? durationAt(Math.max(0, globalTime));
 
-    setPreviewNote({ pitch, startTime: Math.max(0, globalTime), duration });
+    let placement = { pitch, startTime: Math.max(0, globalTime), duration };
+    setPreviewNote(placement);
     onPlayNote?.(pitch);
     lastPlayedPitchRef.current = pitch;
 
@@ -342,24 +341,14 @@ export const NoteGrid: React.FC<NoteGridProps> = ({
         onPlayNote?.(newPitch);
         lastPlayedPitchRef.current = newPitch;
       }
-      setPreviewNote(prev => prev ? { ...prev, pitch: newPitch, startTime: newTime,
-        duration: lastResizedDurationRef.current ?? durationAt(newTime) } : null);
+      placement = { pitch: newPitch, startTime: newTime, duration: lastResizedDurationRef.current ?? durationAt(newTime) };
+      setPreviewNote(placement);
     };
 
     const handlePreviewUp = () => {
       isDraggingRef.current = false;
       lastPlayedPitchRef.current = null;
-      const current = previewNoteRef.current;
-      if (current) {
-        const newNote: MidiNote = {
-          id: Date.now(),
-          pitch: current.pitch,
-          startTime: current.startTime,
-          duration: current.duration,
-          velocity: DEFAULT_VELOCITY,
-        };
-        onAddNote(newNote);
-      }
+      onAddNote({ ...placement, id: Date.now(), velocity: DEFAULT_VELOCITY });
       setPreviewNote(null);
     };
 
