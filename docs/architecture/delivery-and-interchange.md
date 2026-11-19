@@ -229,6 +229,8 @@ without changing the picture edit.
 Selected companion media and desktop
 session-folder lookup bind referenced sources. Missing media retains an offline
 source and its edit for relinking rather than silently dropping clips.
+On desktop, releasing a selected file also retires its session-folder grant,
+including for files still waiting when a batch ends early.
 
 Referenced Standard MIDI Files in audio edit-list slots also use this boundary:
 OTIO recognizes `.mid`/`.midi` URLs and MIDI track declarations; selected or

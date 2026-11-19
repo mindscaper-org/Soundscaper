@@ -35,7 +35,12 @@ const registerSessionIpc = registerFileCapabilityIpc as unknown as (options: Ses
 
 /** Only OS dialog/IPC transport are modeled; host capabilities, media grants and reads are real. */
 export async function sesxDesktopHardwareFixture(document: string | Uint8Array | ((directory: string) => string), wave: Uint8Array,
-	options: Readonly<{ fileName?: string; extraFiles?: readonly Readonly<{ path: string; bytes: Uint8Array }>[] }> = {}) {
+	options: Readonly<{
+		fileName?: string;
+		extraFiles?: readonly Readonly<{ path: string; bytes: Uint8Array }>[];
+		additionalSelectedFiles?: readonly string[];
+		onRangeRead?(request: Request): void;
+	}> = {}) {
 	const directory = await mkdtemp(join(tmpdir(), 'sesx-controller-custody-'));
 	const sessionPath = join(directory, options.fileName ?? 'Selection.sesx');
 	const reads = new ReadCapabilityStore(), targets = new SaveTargetStore();
@@ -45,7 +50,8 @@ export async function sesxDesktopHardwareFixture(document: string | Uint8Array |
 	const dialog = {
 		async showOpenDialog(_window: unknown, request: Readonly<{ properties?: readonly string[] }>) {
 			assert.ok(!request.properties?.includes('openDirectory'), 'the selected session already has its physical adjacent media');
-			return { canceled: false, filePaths: [sessionPath] };
+			const additional = request.properties?.includes('multiSelections') ? options.additionalSelectedFiles ?? [] : [];
+			return { canceled: false, filePaths: [sessionPath, ...additional.map(path => join(directory, path))] };
 		},
 		async showSaveDialog() { assert.fail('Import must not ask for an output path'); },
 	};
@@ -79,8 +85,10 @@ export async function sesxDesktopHardwareFixture(document: string | Uint8Array |
 			chooseSesxMediaFolder: (request: unknown) => invoke(IPC.sesxChooseFolder, request),
 			releaseSesxSession: async (id: string) => { releasedSessions.push(id); return await invoke(IPC.sesxReleaseSession, id); },
 			releaseRead: async (id: string) => { releasedReads.push(id); return await invoke(IPC.releaseRead, id); },
-		}, fetch: async (url: string, options?: RequestInit) => {
-			const request = new Request(url, options), response = await protocol(request);
+		}, fetch: async (url: string, init?: RequestInit) => {
+			const request = new Request(url, init);
+			options.onRangeRead?.(request);
+			const response = await protocol(request);
 			requests.push({ url, range: request.headers.get('Range'), status: response.status }); return response;
 		} });
 		return { fileService, requests, releasedReads, releasedSessions, close };

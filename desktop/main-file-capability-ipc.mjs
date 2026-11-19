@@ -119,10 +119,12 @@ export function registerFileCapabilityIpc({
 	}
 
 	handle(channels.chooseFiles, (event, value) => chooseFiles(event, value));
-	handle(channels.releaseRead, (event, id) => redispatchPendingProjectsAfterReadRelease(
-		pendingOpenProjects,
-		readCapabilities.release(opaqueId(id, 64), { owner: ownerFor(event) }),
-	));
+	handle(channels.releaseRead, (event, value) => {
+		const owner = ownerFor(event);
+		const id = opaqueId(value, 64);
+		sesxMediaSessions?.release(id, { owner });
+		return redispatchPendingProjectsAfterReadRelease(pendingOpenProjects, readCapabilities.release(id, { owner }));
+	});
 	if (sesxMediaSessions) {
 		handle(channels.sesxResolveMedia, (event, value) => sesxMediaSessions.resolve({
 			owner: ownerFor(event), sessionReadId: opaqueId(value?.sessionReadId, 64),
