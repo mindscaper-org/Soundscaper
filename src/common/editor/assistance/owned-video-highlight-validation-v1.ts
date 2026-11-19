@@ -4,6 +4,7 @@
 
 import type { AssistanceTrackedSubjectResultV1 } from './subject-tracker-v1.ts';
 import { MAXIMUM_ASSISTANCE_EDITORIAL_CHAPTERS } from './m7-semantic-results.ts';
+import { ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION } from './visual-frame-pack-v2.ts';
 import { VIDEO_TIMING_ASSET_MAXIMUM_FRAMES } from '../video-timing-asset-reference.ts';
 import {
 	reviewAssistanceSourceTimeRowsV1,
@@ -92,8 +93,8 @@ export function reviewOwnedVideoSourceTimeAuthorityV1(
 	const row = ownedExactRecord(value, SOURCE_FIELDS, 'video source-time authority');
 	exactIdentity(row, 'video-source-time-authority', 'video source-time authority');
 	const sourceId = stableId(row.sourceId, 'video source ID');
-	const width = ownedInteger(row.width, 1, 4_096, 'video source width');
-	const height = ownedInteger(row.height, 1, 4_096, 'video source height');
+	const width = ownedInteger(row.width, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'video source width');
+	const height = ownedInteger(row.height, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'video source height');
 	const sourceStartFrame = ownedInteger(row.sourceStartFrame, 0, 0xffff_ffff,
 		'video selected source start');
 	const sourceEndFrame = ownedInteger(row.sourceEndFrame, sourceStartFrame + 1, 0xffff_ffff,
@@ -187,8 +188,8 @@ export function reviewOwnedFramePackPlanV1(value: unknown): AssistanceOwnedFrame
 	const row = ownedExactRecord(value, FRAME_PACK_FIELDS, 'owned frame-pack plan');
 	exactIdentity(row, 'frame-pack-plan', 'owned frame-pack plan');
 	const sourceId = stableId(row.sourceId, 'frame-pack source ID');
-	const width = ownedInteger(row.width, 1, 4_096, 'frame-pack width');
-	const height = ownedInteger(row.height, 1, 4_096, 'frame-pack height');
+	const width = ownedInteger(row.width, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'frame-pack source width');
+	const height = ownedInteger(row.height, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'frame-pack source height');
 	const timescale = ownedInteger(row.timescale, 1, 0x7fff_ffff, 'frame-pack timescale');
 	let priorSource = -1;
 	let priorTick = -1n;
@@ -226,8 +227,8 @@ export function reviewOwnedFramePackPlanV1(value: unknown): AssistanceOwnedFrame
 export function reviewOwnedTrackedSubjectsV1(value: unknown): AssistanceTrackedSubjectResultV1 {
 	const row = ownedExactRecord(value, TRACKED_FIELDS, 'owned tracked-subject result');
 	if (row.schemaVersion !== 1) throw new TypeError('The tracked-subject schema version is unsupported.');
-	const width = ownedInteger(row.width, 1, 4_096, 'tracked-subject width');
-	const height = ownedInteger(row.height, 1, 4_096, 'tracked-subject height');
+	const width = ownedInteger(row.width, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'tracked-subject width');
+	const height = ownedInteger(row.height, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'tracked-subject height');
 	const timescale = ownedInteger(row.timescale, 1, 0x7fff_ffff, 'tracked-subject timescale');
 	let priorFrame = -1;
 	let priorTick = -1n;
@@ -298,7 +299,7 @@ export function reviewOwnedHighlightSignalsV1(value: unknown): AssistanceOwnedHi
 	return Object.freeze({ schemaVersion: 1, kind: 'highlight-signals',
 		sourceId: stableId(row.sourceId, 'highlight source ID'),
 		sampleRate: ownedInteger(row.sampleRate, 1, 768_000, 'highlight sample rate'),
-		sourceSize: dimensions(row.sourceSize, 'highlight source size'),
+		sourceSize: dimensions(row.sourceSize, 'highlight source size', ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION),
 		candidates: Object.freeze(candidates) });
 }
 
@@ -311,7 +312,7 @@ export function reviewOwnedHighlightCandidatesV1(value: unknown): AssistanceOwne
 	return Object.freeze({ schemaVersion: 1, kind: 'highlight-candidates',
 		sourceId: stableId(row.sourceId, 'ranked highlight source ID'),
 		sampleRate: ownedInteger(row.sampleRate, 1, 768_000, 'ranked highlight sample rate'),
-		sourceSize: dimensions(row.sourceSize, 'ranked highlight source size'),
+		sourceSize: dimensions(row.sourceSize, 'ranked highlight source size', ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION),
 		targetAspect: dimensions(row.targetAspect, 'ranked highlight target aspect'),
 		candidates: Object.freeze(candidates) });
 }
@@ -380,10 +381,10 @@ export function canonicalTick(value: unknown, label: string): string {
 	return value;
 }
 
-export function dimensions(value: unknown, label: string): Readonly<{ width: number; height: number }> {
+export function dimensions(value: unknown, label: string, maximum = 4_096): Readonly<{ width: number; height: number }> {
 	const row = ownedExactRecord(value, DIMENSION_FIELDS, label);
-	return Object.freeze({ width: ownedInteger(row.width, 1, 4_096, `${label} width`),
-		height: ownedInteger(row.height, 1, 4_096, `${label} height`) });
+	return Object.freeze({ width: ownedInteger(row.width, 1, maximum, `${label} width`),
+		height: ownedInteger(row.height, 1, maximum, `${label} height`) });
 }
 
 function rankedCandidate(

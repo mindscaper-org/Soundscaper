@@ -12,6 +12,7 @@ import {
 import type { AssistanceVideoSourceTimeAuthorityV1 } from
 	'../src/common/editor/assistance/owned-video-highlight-transform-types-v1.ts';
 import type { AssistanceWorkflowV1 } from '../src/common/editor/assistance/workflow.ts';
+import { ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION } from '../src/common/editor/assistance/visual-frame-pack-v2.ts';
 import {
 	PROJECT_SCHEMA_VERSION,
 	readProjectSchemaIdentity,
@@ -63,8 +64,8 @@ export function materializeAssistanceSelectedVideoAuthorityV1(options: Readonly<
 		|| options.videoClaim.sha256 !== range.sourceSha256) {
 		throw new TypeError('The selected-video timing sidecar disagrees with aggregate source authority.');
 	}
-	const width = integer(row.sourceWidth, 1, 4_096, 'sidecar source width');
-	const height = integer(row.sourceHeight, 1, 4_096, 'sidecar source height');
+	const width = integer(row.sourceWidth, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'sidecar source width');
+	const height = integer(row.sourceHeight, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'sidecar source height');
 	integer(row.sampleRate, 8_000, 768_000, 'sidecar project sample rate');
 	const timescale = integer(row.timescale, 1, 0x7fff_ffff, 'sidecar timescale');
 	const selectionStartFrame = integer(row.selectionStartFrame, 0, Number.MAX_SAFE_INTEGER,

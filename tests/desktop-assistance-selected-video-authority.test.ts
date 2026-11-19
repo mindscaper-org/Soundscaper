@@ -12,7 +12,7 @@ import {
 	'../src/common/editor/assistance/source-time-rows-v1.ts';
 import type { AssistanceWorkflowV1 } from '../src/common/editor/assistance/workflow.ts';
 
-test('desktop materializes compact authority beyond 100,000 rows without losing exact ticks', () => {
+test('desktop materializes compact 5K authority beyond 100,000 rows without losing exact ticks', () => {
 	const sourceEndFrame = 100_001;
 	const sourceSha256 = '12'.repeat(32);
 	const timingAuthoritySha256 = '34'.repeat(32);
@@ -26,7 +26,7 @@ test('desktop materializes compact authority beyond 100,000 rows without losing 
 		schemaFamily: 'framescaper', schemaVersion: 1,
 		projectId: 'project-a', projectRevision: 7, sequenceId: 'sequence-a',
 		videoOccurrenceId: 'video-occurrence', sourceId: 'video-source', sourceSha256,
-		timingAuthoritySha256, sourceWidth: 1_920, sourceHeight: 1_080,
+		timingAuthoritySha256, sourceWidth: 5_120, sourceHeight: 2_880,
 		sourceStartFrame: 0, sourceEndFrame, sampleRate: 48_000, timescale: 90_000,
 		selectionStartFrame: 0, selectionEndFrame: sourceEndFrame * 2_000, frames };
 	const request = { fence: { projectId: 'project-a', schemaFamily: 'framescaper',
@@ -36,6 +36,7 @@ test('desktop materializes compact authority beyond 100,000 rows without losing 
 			occurrenceIds: ['video-occurrence'] }] } } as unknown as AssistanceWorkflowV1;
 	const authority = materializeAssistanceSelectedVideoAuthorityV1({ value, request,
 		videoClaim: { role: 'video', sha256: sourceSha256 } });
+	assert.deepEqual([authority.width, authority.height], [5_120, 2_880]);
 	assert.ok(authority.frames.length < 4, 'compact input must not expand into one object per frame');
 	assert.equal((authority.frames[0] as { kind?: string }).kind, 'source-time-rows');
 	assert.equal((authority.frames[0] as { bodyBase64?: string }).bodyBase64,

@@ -7,6 +7,7 @@ import {
 	createAssistanceFramePackV1,
 } from '../../../../assistance/binary-formats-v1.ts';
 import {
+	ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION,
 	createAssistanceVisualFramePackV2,
 } from '../../../../assistance/visual-frame-pack-v2.ts';
 import {
@@ -141,8 +142,8 @@ export async function createLocalAssistanceSelectedVideoVisualFramePacksV2(
 	options: LocalAssistanceSelectedVideoFramePackOptions = {},
 ): Promise<readonly Blob[]> {
 	const normalized = normalizeRequest(request);
-	const sourceWidth = integer(request.sourceWidth, 1, 4_096, 'visual source width');
-	const sourceHeight = integer(request.sourceHeight, 1, 4_096, 'visual source height');
+	const sourceWidth = integer(request.sourceWidth, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'visual source width');
+	const sourceHeight = integer(request.sourceHeight, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'visual source height');
 	const rasterWidth = integer(request.rasterWidth, 1,
 		LOCAL_ASSISTANCE_REFRAME_MAXIMUM_RASTER_DIMENSION, 'visual raster width');
 	const rasterHeight = integer(request.rasterHeight, 1,

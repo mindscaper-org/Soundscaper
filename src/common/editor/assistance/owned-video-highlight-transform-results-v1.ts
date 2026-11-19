@@ -25,6 +25,7 @@ import {
 	stableId,
 } from './owned-video-highlight-validation-v1.ts';
 import { reviewAssistanceReframePathResultV1 } from './visual-semantic-results-v1.ts';
+import { ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION } from './visual-frame-pack-v2.ts';
 import {
 	createAssistanceVisualSearchRowsV1,
 	reviewAssistanceVisualSearchRecordsV1,
@@ -144,8 +145,8 @@ export function reviewAssistanceOwnedReframePathV1(value: unknown) {
 	}
 	const authorityRow = ownedExactRecord(row.authority, AUTHORITY_FIELDS,
 		'owned reframe authority');
-	const width = ownedInteger(authorityRow.width, 1, 4_096, 'reframe authority width');
-	const height = ownedInteger(authorityRow.height, 1, 4_096, 'reframe authority height');
+	const width = ownedInteger(authorityRow.width, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'reframe authority width');
+	const height = ownedInteger(authorityRow.height, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'reframe authority height');
 	const timescale = ownedInteger(authorityRow.timescale, 1, 0x7fff_ffff,
 		'reframe authority timescale');
 	let priorSource = -1;
