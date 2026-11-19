@@ -5,9 +5,31 @@
 import type { AssistanceWorkflowV1 } from '../../assistance/workflow.ts';
 import {
 	validateAssistanceWorkflowReviewAuthorityV1,
+	type AssistanceWorkflowReviewMediaAssetV1,
 	type AssistanceWorkflowReviewAuthorityV1,
 } from '../../assistance/workflow-review-authority-v1.ts';
 import { digestMediaContent } from '../../../media/content-digest.ts';
+import { releaseLocalAssistancePreparedAudioWave } from './local-assistance-audio-spool-release.ts';
+
+export async function releaseLocalAssistanceGuidedReviewAudio(
+	authority: AssistanceWorkflowReviewAuthorityV1 | undefined,
+): Promise<void> {
+	const body = authority?.media.audio?.body;
+	if (body) await releaseLocalAssistancePreparedAudioWave(body).catch(() => undefined);
+}
+
+export function localAssistanceGuidedAuditionAuthority(
+	workflow: AssistanceWorkflowV1,
+	asset: AssistanceWorkflowReviewMediaAssetV1 | null,
+): Readonly<{ sourceStartFrame: number; sourceSampleRate: number }> | null {
+	if (asset === null) return null;
+	const ranges = workflow.fence.sourceRanges.filter(({ mediaKind }) => mediaKind === 'audio');
+	if (ranges.length !== 1 || ranges[0]!.sourceSampleRate === null) {
+		throw new TypeError('Guided audio audition lost its exact source-time authority.');
+	}
+	return Object.freeze({ sourceStartFrame: ranges[0]!.sourceStartFrame,
+		sourceSampleRate: ranges[0]!.sourceSampleRate });
+}
 
 export async function verifyLocalAssistanceGuidedReviewMediaAuthority(
 	workflow: AssistanceWorkflowV1,
