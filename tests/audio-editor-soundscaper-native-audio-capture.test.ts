@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { RecordingInputLossError } from '../src/common/editor/recording-input-events.ts';
 import test from 'node:test';
 
+import { createRecordingCapturePool } from '../src/common/editor/recording-capture-pool.js';
 import { createRecordingController, requestHardwareInput } from '../src/common/editor/recording.js';
 import { createSoundscaperNativeAudioRenderer, soundscaperNativeAudioDestination } from '../src/common/editor/soundscaper-native-audio-renderer.ts';
 import {
@@ -11,6 +12,27 @@ import {
 	claimSoundscaperNativeAudioCapture,
 	soundscaperNativeAudioCaptureHasActiveLease,
 } from '../src/common/editor/soundscaper-native-audio-capture.ts';
+
+test('the capture pool uses negotiated native width instead of the stereo lifecycle track', async () => {
+	for (const channelCount of [1, 3]) {
+		const claim = claimSoundscaperNativeAudioCapture({
+			sessionId: 'capture-pool',
+			context: { createMediaStreamDestination: () => ({ stream: captureStream() }) } as unknown as AudioContext,
+			node: audioNode('device', []) as unknown as AudioNode,
+			channelCount, sampleRate: 48_000,
+		});
+		const pool = createRecordingCapturePool();
+		claim.activate();
+		try {
+			const options = { channelCount, sampleRate: 48_000 };
+			const stream = await pool.acquireHardware('default', options);
+			assert.equal(pool.getSnapshot()[0]?.channelCount, channelCount);
+			assert.equal(await pool.acquireHardware('default', options), stream);
+			await assert.rejects(pool.acquireHardware('default', { ...options, channelCount: channelCount + 1 }), RangeError);
+			assert.equal(pool.getHardware('default'), stream);
+		} finally { pool.dispose(); claim.revoke(); }
+	}
+});
 
 test('an ended native capture lease no longer blocks idle-only calibration', () => {
 	const stream = captureStream();

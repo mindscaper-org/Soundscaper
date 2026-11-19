@@ -132,5 +132,9 @@ for (const [channel, stereo] of [['0', false], ['1', false], ['1', true], ['2', 
 			await expect.poll(() => page.evaluate(() => window.__nativeInputPeer.requests.filter(request => request.direction === 'input').at(-1)?.channelCount)).toBe(Math.max(Number(channel) + 1, stereo ? 2 : 1));
 			await expect(editor.getByRole('alert').filter({ hasText: /None of the assigned recording inputs are available/u })).toHaveCount(0);
 		} finally { await editor.getByRole('button', { name: 'Stop', exact: true }).click(); }
+		if (channel === '2') {
+			await expect(record).toHaveAttribute('aria-pressed', 'false');
+			await expect(row.getByRole('status', { name: 'Input status: Open', exact: true })).toBeVisible();
+		}
 	});
 }
