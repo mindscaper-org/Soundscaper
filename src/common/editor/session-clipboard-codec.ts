@@ -115,6 +115,28 @@ function clone<Value>(value: Value): Value {
 	return cloneSessionValue(value) as Value;
 }
 
+/** Keep the captured clipboard private until a caller reads the snapshot's value. */
+export function deferSessionClipboardSnapshot<Snapshot extends { clipboard: AudioEditorSessionClipboard | null }>(snapshot: Snapshot): Snapshot {
+	let clipboard = snapshot.clipboard;
+	let detached = false;
+	Object.defineProperty(snapshot, 'clipboard', {
+		enumerable: true,
+		configurable: true,
+		get() {
+			if (!detached) {
+				clipboard = clone(clipboard);
+				detached = true;
+			}
+			return clipboard;
+		},
+		set(value: AudioEditorSessionClipboard | null) {
+			clipboard = value;
+			detached = true;
+		},
+	});
+	return snapshot;
+}
+
 /** A detached clipboard view carries destination compatibility without exposing session ownership. */
 export function clipboardForSampleRate(clipboard: AudioEditorSessionClipboard | null, sampleRate: number) {
 	if (!clipboard) return null;

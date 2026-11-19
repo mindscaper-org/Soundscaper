@@ -9,6 +9,7 @@ import {
 	collectAudioEditorClipboardSourceIds,
 	clipboardForSampleRate,
 	createAudioEditorSessionClipboard,
+	deferSessionClipboardSnapshot,
 	normalizeAudioEditorSessionClipboard,
 } from './session-clipboard-codec.ts';
 import {
@@ -442,7 +443,7 @@ export function createAudioEditorSessionController(options = {}) {
 
 	function getSnapshot(fresh = false) {
 		if (!fresh && snapshotCache) return snapshotCache;
-		const snapshot = {
+		const snapshot = deferSessionClipboardSnapshot({
 			schemaVersion: AUDIO_EDITOR_SESSION_SCHEMA_VERSION,
 			activeProjectId,
 			tabs: tabs.map((tab) => {
@@ -460,10 +461,10 @@ export function createAudioEditorSessionController(options = {}) {
 					metadata: freezeProjectFeatureReportMetadata(clone(tab.metadata)),
 				};
 			}),
-			clipboard: clone(clipboard),
+			clipboard,
 			sourceReferenceCounts: countsObject(countsFor(tabs, clipboard)),
 			disposed,
-		};
+		});
 		if (!fresh) snapshotCache = snapshot;
 		return snapshot;
 	}
