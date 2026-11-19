@@ -10,14 +10,14 @@ export async function loadPreload(results) {
 	let bridge;
 	const invocations = [];
 	const dataPlaneChunks = [];
-	const displayPeers = new WeakSet();
+	const bulkPeers = new WeakSet();
 	class PreloadMessageChannel extends MessageChannel {
 		constructor() {
 			super();
 			const post = this.port2.postMessage.bind(this.port2);
 			this.port2.postMessage = (message, transfer) => {
-				if (displayPeers.has(this.port1)) {
-					assert.equal(transfer?.length ?? 0, 0, 'Electron external-display chunks must use structured clone');
+				if (bulkPeers.has(this.port1)) {
+					assert.equal(transfer?.length ?? 0, 0, 'Electron bulk chunks must use structured clone');
 				}
 				post(message, transfer);
 			};
@@ -35,7 +35,8 @@ export async function loadPreload(results) {
 				postMessage(channel, value, ports) {
 					invocations.push([channel, value]);
 					const port = ports[0];
-					if (channel.endsWith(':display:frame-port')) displayPeers.add(port);
+					if (channel.endsWith(':display:frame-port') || channel.endsWith(':image-sequence:import-port')
+						|| channel.endsWith(':render-inputs:port')) bulkPeers.add(port);
 					port.on('message', (message) => {
 						if (message.type === 'chunk') {
 							dataPlaneChunks.push({ sequence: message.sequence, offset: message.offset,
