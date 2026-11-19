@@ -22,6 +22,7 @@ import {
 	createLocalAssistanceAudioWaveFromChunks,
 	LOCAL_ASSISTANCE_PREPARATION_CHUNK_FRAMES,
 } from './audio/local-assistance-audio-preparation.ts';
+import { releaseLocalAssistancePreparedAudioWave } from '../local-assistance-audio-spool-release.ts';
 import { localAssistanceAudioWaveGeometry } from './audio/local-assistance-audio-geometry.ts';
 import { localAssistanceAudioEffectTargets } from './audio/local-assistance-audio-effect-targets.ts';
 import { hasAssistanceIdentityTiming, projectAssistanceSourceRange } from '../../../assistance/selected-media-identity-timing.ts';
@@ -198,23 +199,29 @@ export function createLocalAssistanceSelectedMediaPreparation(
 				yield await renderRange(start, end);
 			}
 		}
-		const input = await createLocalAssistanceAudioWaveFromChunks(
-			request.operation as AudioOperation, chunks(), expectedFrames,
-			selected.project.sampleRate, first.length, request.signal,
-		);
-		request.signal?.throwIfAborted();
-		dependencies.assertProject(token);
 		const geometry = localAssistanceAudioWaveGeometry(
 			request.operation as AudioOperation, expectedFrames,
 			selected.project.sampleRate, first.length,
 		);
+		const outputs = outputsFor(request.operation as AudioOperation, geometry.byteLength);
+		const input = await createLocalAssistanceAudioWaveFromChunks(
+			request.operation as AudioOperation, chunks(), expectedFrames,
+			selected.project.sampleRate, first.length, request.signal,
+		);
+		try {
+			request.signal?.throwIfAborted();
+			dependencies.assertProject(token);
+		} catch (error) {
+			await releaseLocalAssistancePreparedAudioWave(input).catch(() => undefined);
+			throw error;
+		}
 		return Object.freeze({
 			sourceId: request.sourceId,
 			operation: request.operation as AudioOperation,
 			selectionFence: selected.fence,
 			inputs: Object.freeze([Object.freeze({ role: 'audio' as const,
 				mediaType: 'audio/wav' as const, bytes: input })]),
-			outputs: outputsFor(request.operation as AudioOperation, geometry.byteLength),
+			outputs,
 		});
 	}
 

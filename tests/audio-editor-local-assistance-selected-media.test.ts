@@ -68,6 +68,55 @@ test('selected-media inventory exposes only operations with an exact audio input
 	assert.deepEqual(rendered, []);
 });
 
+test('a cancelled or stale selected audio preparation releases its finalized OPFS file', async () => {
+	const frames = 4_200_000;
+	const byteLength = 44 + frames * 8;
+	const current = project({ selection: { startFrame: 0, endFrame: frames, clipIds: ['voice-clip'], trackIds: ['voice-track'] },
+		sources: [{ ...project().sources[0], frameCount: frames }], clips: [{ ...project().clips[0],
+			timelineStartFrame: 0, durationFrames: frames, sourceStartFrame: 0, sourceDurationFrames: frames }],
+	});
+	const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+	try {
+		for (const reason of ['Cancelled while finalizing audio', 'Project changed while finalizing audio']) {
+			const cancellation = new AbortController();
+			const failure = new Error(reason);
+			let written = 0, removed = 0, currentRevision = current.revision;
+			let closed = false;
+			const directory = {
+				async getFileHandle(name: string) { return {
+					async createWritable() { return {
+						async write(bytes: ArrayBuffer) { written += bytes.byteLength; },
+						async close() { closed = true; },
+					}; },
+					async getFile() {
+						assert.ok(closed);
+						assert.equal(written, byteLength);
+						if (reason.startsWith('Cancelled')) cancellation.abort(failure);
+						else currentRevision += 1;
+						return new File([new ArrayBuffer(byteLength)], name);
+					},
+				}; },
+				async removeEntry() { removed += 1; },
+			};
+			Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { storage: {
+				estimate: async () => ({ quota: byteLength * 2, usage: 0 }),
+				getDirectory: async () => ({ getDirectoryHandle: async () => directory }),
+			} } });
+			const preparation = createLocalAssistanceSelectedMediaPreparation({
+				getProject: () => current, getSelectedClipId: () => 'voice-clip', captureProject: () => currentRevision,
+				assertProject: token => { if (token !== currentRevision) throw failure; },
+				renderDryTrackRange: async (_track, start, end) => [new Float32Array(end - start), new Float32Array(end - start)],
+			});
+			await assert.rejects(preparation.prepareSelectedMedia({ sourceId: 'voice-source', operation: 'speech-enhancement',
+				signal: cancellation.signal }), failure);
+			assert.equal(removed, 1, reason);
+		}
+	} finally {
+		if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
+		else Reflect.deleteProperty(globalThis, 'navigator');
+	}
+});
+
 test('two-second mono and stereo audio at a different source rate remains available for dereverb', async () => {
 	for (const channelCount of [1, 2]) {
 		const current = project({ schemaFamily: 'soundscaper',
