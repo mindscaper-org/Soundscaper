@@ -184,6 +184,35 @@ test('native capture marks its graph output only after terminal device loss', as
 	assert.equal(ended[0], 1);
 });
 
+test('native device loss drains admitted capture into the recorder including a partial final quantum', async () => {
+	const { NativeDeviceIoProcessor } = await import('../src/common/editor/native-device-io-worklet.js');
+	const { StreamingRecorderProcessor } = await import('../src/common/editor/recording-worklet.js');
+	const device = new NativeDeviceIoProcessor({ processorOptions: { direction: 'input', channelCount: 1, periodFrames: 192, queueCapacity: 2 } });
+	const recorder = new StreamingRecorderProcessor({ processorOptions: { channelCount: 1, chunkFrames: 256 } });
+	const recorded = [], statuses = [];
+	recorder.port.postMessage = ({ type, channels }) => {
+		statuses.push(type);
+		if (type === 'audio-chunk') recorded.push(...channels[0]);
+	};
+	recorder.port.onmessage({ data: { type: 'start' } });
+	const peer = messagePort();
+	device.port.onmessage({ data: { type: 'native-device-attach', generation: 1 }, ports: [peer] });
+	const [first, second] = peer.posted;
+	for (let frame = 0; frame < 192; frame++) first.channels[0][frame] = (frame + 1) / 256;
+	peer.onmessage({ data: { ...first, kind: 'audio', status: 'ok', framesTransferred: 192 } });
+	peer.onmessage({ data: { ...second, kind: 'audio', status: 'device-unavailable', framesTransferred: 0 } });
+	peer.onclose();
+	const pcm = new Float32Array(128), ended = new Float32Array(128);
+	for (let quantum = 0; quantum < 3; quantum++) {
+		device.process([], [[pcm], [ended]]);
+		recorder.process([[pcm], [ended]], [[new Float32Array(128)]]);
+	}
+	assert.deepEqual(recorded, Array.from({ length: 192 }, (_, frame) => (frame + 1) / 256));
+	assert.equal(peer.posted.filter(message => message.kind === 'capture-credit').length, 2);
+	assert.equal(statuses.filter(type => type === 'input-lost').length, 1);
+	assert.equal(statuses.filter(type => type === 'stopped').length, 1);
+});
+
 test('native playback keeps contiguous packets across a disconnected programme input', async () => {
 	const { NativeDeviceIoProcessor } = await import('../src/common/editor/native-device-io-worklet.js');
 	const processor = new NativeDeviceIoProcessor({ processorOptions: {

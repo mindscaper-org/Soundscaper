@@ -172,9 +172,9 @@ the device callback size even when the transport packets use another size. If
 the next period also misses its deadline, the session reports device loss.
 
 Input loss during recording commits only the already captured prefix through
-the normal recording publication path. The capture worklet signals terminal
-input loss through a dedicated output in the same render quantum, so the
-recorder can flush the prefix before renderer-side teardown.
+the normal recording publication path. The capture worklet drains the complete
+packets it already accepted and signals the valid frame count in its final
+render quantum. The recorder flushes those frames before renderer-side teardown.
 Removing a PipeWire input ends its capture session. Opening a new session can
 select the new default source.
 Output loss stops monitoring; playback may use an explicitly compatible Web

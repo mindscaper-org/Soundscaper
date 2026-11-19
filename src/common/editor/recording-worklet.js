@@ -55,12 +55,13 @@ export class StreamingRecorderProcessor extends ProcessorBase {
 		const globalFrame = Number.isFinite(globalThis.currentFrame) ? globalThis.currentFrame : this.nextFrame;
 		this.nextFrame = globalFrame + blockLength;
 
-		if (inputs[1]?.[0]?.[0] === 1) {
+		const terminal = inputs[1]?.[0]?.[0] ?? 0;
+		const ended = terminal > 0 && terminal <= blockLength + 1 && Number.isSafeInteger(terminal);
+		const validFrames = ended ? terminal - 1 : blockLength;
+		if (ended && this.recording) this.port.postMessage({ type: 'input-lost' });
+		if (ended && (validFrames === 0 || this.paused || !this.recording)) {
 			for (const channel of output) channel.fill(0);
-			if (this.recording) {
-				this.port.postMessage({ type: 'input-lost' });
-				this.#finish();
-			}
+			this.#finish();
 			return true;
 		}
 
@@ -94,9 +95,9 @@ export class StreamingRecorderProcessor extends ProcessorBase {
 		if (this.recording && this.paused && this.fixedStopFrame && this.nextFrame >= this.stopFrame) this.#finish();
 		if (!this.recording || this.paused) return true;
 		const firstIndex = Math.max(0, this.startFrame - globalFrame, (resumedAt ?? globalFrame) - globalFrame);
-		const lastIndex = Math.min(blockLength, this.stopFrame - globalFrame);
+		const lastIndex = Math.min(validFrames, this.stopFrame - globalFrame);
 		if (lastIndex <= firstIndex) {
-			if (globalFrame >= this.stopFrame) this.#finish();
+			if (ended || globalFrame >= this.stopFrame) this.#finish();
 			return true;
 		}
 		if (!input[0]?.length) {
@@ -144,7 +145,7 @@ export class StreamingRecorderProcessor extends ProcessorBase {
 			frameIndex += frames;
 			if (this.writeOffset === this.chunkFrames && !this.#flush()) return true;
 		}
-		if (globalFrame + blockLength >= this.stopFrame) this.#finish();
+		if (ended || globalFrame + blockLength >= this.stopFrame) this.#finish();
 		return true;
 	}
 
