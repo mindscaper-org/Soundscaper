@@ -13,20 +13,18 @@ const STAGE_FILE = /^[a-f0-9]{64}$/u;
 export class DesktopStorageCopyStage {
 	#directory: Promise<BigIntStats> | undefined;
 	#capability: Promise<boolean> | undefined;
+	#creation: Promise<string | undefined> | undefined;
 	#path: string | undefined;
 
-	constructor(path: string | undefined, private readonly create: (() => Promise<string>) | undefined,
+	constructor(path: string | undefined, private readonly create: (() => Promise<string | undefined>) | undefined,
 		private readonly linkFile: typeof link) { this.#path = path; }
 
-	async #ready(): Promise<{ path: string; metadata: BigIntStats }> {
-		this.#path ??= await this.create?.();
-		const path = this.#path;
-		if (path === undefined) throw new Error('The migration copy stage has no directory.');
+	async #metadata(path: string): Promise<BigIntStats> {
 		this.#directory ??= lstat(path, { bigint: true }).then((entry) => {
 			if (!entry.isDirectory()) throw new Error('The migration copy stage is no longer a directory.');
 			return entry;
 		});
-		return { path, metadata: await this.#directory };
+		return this.#directory;
 	}
 
 	#filePath(path: string, destination: string): string {
@@ -34,7 +32,9 @@ export class DesktopStorageCopyStage {
 	}
 
 	async prepareFile(destination: string): Promise<string | null> {
-		const { path, metadata: stage } = await this.#ready();
+		const path = this.#path ??= await (this.#creation ??= this.create?.());
+		if (path === undefined) return null;
+		const stage = await this.#metadata(path);
 		const parent = await lstat(dirname(destination), { bigint: true });
 		if (stage.dev !== parent.dev) return null;
 		this.#capability ??= this.#probe(path);
@@ -48,7 +48,7 @@ export class DesktopStorageCopyStage {
 	async publish(stage: string, destination: string): Promise<boolean> {
 		try { await this.linkFile(stage, destination); }
 		catch (error) {
-			if (unsupportedLink(error)) return false;
+			if (isDesktopStorageLinkUnavailable(error)) return false;
 			if (errorCode(error) === 'EEXIST') throw receiptConflict(destination);
 			throw error;
 		}
@@ -56,8 +56,9 @@ export class DesktopStorageCopyStage {
 	}
 
 	async verifyReceipt(destination: string, verified?: BigIntStats): Promise<void> {
-		if (this.#path === undefined) return;
-		const { path } = await this.#ready();
+		const path = this.#path;
+		if (path === undefined) return;
+		await this.#metadata(path);
 		const stage = await optionalFile(this.#filePath(path, destination));
 		if (stage === null) {
 			if (verified !== undefined) throw receiptConflict(destination);
@@ -88,7 +89,7 @@ export class DesktopStorageCopyStage {
 			const [original, linked] = await Promise.all([lstat(from, { bigint: true }), lstat(to, { bigint: true })]);
 			return original.nlink === 2n && sameFile(original, linked);
 		} catch (error) {
-			if (unsupportedLink(error)) return false;
+			if (isDesktopStorageLinkUnavailable(error)) return false;
 			throw error;
 		} finally {
 			await removeStageFile(to);
@@ -133,7 +134,7 @@ function sameFile(first: BigIntStats, second: BigIntStats): boolean {
 	return first.ino > 0n && first.dev === second.dev && first.ino === second.ino;
 }
 
-function unsupportedLink(error: unknown): boolean {
+export function isDesktopStorageLinkUnavailable(error: unknown): boolean {
 	return ['EXDEV', 'ENOTSUP', 'EOPNOTSUPP', 'ENOSYS', 'EPERM', 'EMLINK'].includes(errorCode(error));
 }
 

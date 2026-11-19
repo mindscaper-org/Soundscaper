@@ -22,7 +22,7 @@ interface MigrationOperations {
 	readonly link: typeof link;
 	readonly unlink: typeof unlink;
 	readonly copyStageDirectory?: string | undefined;
-	readonly createCopyStage?: (() => Promise<string>) | undefined;
+	readonly createCopyStage?: (() => Promise<string | undefined>) | undefined;
 	readonly beforeMove?: () => Promise<void>;
 }
 
