@@ -50,6 +50,28 @@ test('the Float32 WAV file reader opens sparse authority beyond ten minutes with
 	assert.ok(source.maximumObservedFileReadBytes <= ASSISTANCE_WAVE_MAXIMUM_FILE_READ_BYTES);
 });
 
+test('complete Float32 review detects a late invalid sample with bounded file reads', async (context) => {
+	const sampleRate = 16_000;
+	const sampleCount = 70_000;
+	const bytes = encodeWav([new Float32Array(sampleCount)], { sampleRate, float: true });
+	const validPath = await writeFixture(context, bytes);
+	const source = await openAssistanceFloat32MonoWaveFileV1(validPath, sampleRate, bytes.byteLength,
+		{ validateSamples: true });
+	context.after(() => source.close());
+	assert.equal(source.maximumObservedFileReadBytes, ASSISTANCE_WAVE_MAXIMUM_FILE_READ_BYTES);
+	assert.deepEqual(await source.readSamples(sampleCount - 1, 1), Float32Array.of(0));
+
+	new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+		.setFloat32(bytes.byteLength - Float32Array.BYTES_PER_ELEMENT, Number.NaN, true);
+	const invalidPath = await writeFixture(context, bytes);
+	await assert.rejects(openAssistanceFloat32MonoWaveFileV1(invalidPath, sampleRate, bytes.byteLength,
+		{ validateSamples: true }), /sample must be finite/u);
+
+	const signal = AbortSignal.abort(new DOMException('review cancelled', 'AbortError'));
+	await assert.rejects(openAssistanceFloat32MonoWaveFileV1(validPath, sampleRate, bytes.byteLength,
+		{ validateSamples: true, signal }), { name: 'AbortError' });
+});
+
 async function writeFixture(context: TestContext, bytes: Uint8Array): Promise<string> {
 	const path = join(tmpdir(), `soundscaper-wave-reader-${crypto.randomUUID()}.wav`);
 	context.after(() => rm(path, { force: true }));

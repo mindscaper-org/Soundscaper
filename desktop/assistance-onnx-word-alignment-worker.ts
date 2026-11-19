@@ -8,8 +8,6 @@ import {
 	alignAssistanceCtcWordsV1,
 	type AssistanceCtcWordV1,
 } from '../src/common/editor/assistance/ctc-forced-alignment-v1.ts';
-import { reviewAssistanceFloat32MonoWaveV1 } from
-	'../src/common/editor/assistance/float32-mono-wave-v1.ts';
 import {
 	ASSISTANCE_ALIGNMENT_SAMPLE_RATE,
 	reviewAssistanceWordAlignmentV1,
@@ -22,6 +20,10 @@ import {
 	splitAssistanceWav2Vec2EnglishSegmentWordsV1,
 	tokenizeAssistanceWav2Vec2EnglishWordV1,
 } from '../src/common/editor/assistance/wav2vec2-english-tokenizer-v1.ts';
+import {
+	openAssistanceFloat32MonoWaveFileV1,
+	type AssistanceFloat32MonoWaveFileV1,
+} from './assistance-float32-mono-wave-file-reader.ts';
 import type {
 	AssistanceOnnxRuntimeModuleV1,
 	AssistanceOnnxTensorV1,
@@ -97,33 +99,44 @@ async function executeWav2Vec2Alignment(
 	}
 	context.signal?.throwIfAborted();
 	context.onProgress(0);
-	const [audioBytes, transcriptBytes] = await Promise.all([
-		readFile(audio.path), readFile(transcript.path),
-	]);
-	context.signal?.throwIfAborted();
-	const wave = reviewAssistanceFloat32MonoWaveV1(audioBytes, ASSISTANCE_ALIGNMENT_SAMPLE_RATE);
-	const segments = parseWhisperEnglishTranscript(transcriptBytes, wave.samples.length);
-	if (segments.length === 0) {
-		return publishJson(context, reviewAssistanceWordAlignmentV1({
-			schemaVersion: 1, sampleRate: ASSISTANCE_ALIGNMENT_SAMPLE_RATE, words: [],
+	const wave = await openAssistanceFloat32MonoWaveFileV1(
+		audio.path, ASSISTANCE_ALIGNMENT_SAMPLE_RATE, audio.byteLength,
+		{ validateSamples: true, signal: context.signal },
+	);
+	try {
+		const transcriptBytes = await readFile(transcript.path, { signal: context.signal });
+		const segments = parseWhisperEnglishTranscript(transcriptBytes, wave.sampleCount);
+		const words = segments.length > 0
+			? await alignWhisperSegments(context, loadRuntime, model.path, wave, segments) : [];
+		return await publishJson(context, reviewAssistanceWordAlignmentV1({
+			schemaVersion: 1, sampleRate: ASSISTANCE_ALIGNMENT_SAMPLE_RATE, words,
 		}));
+	} finally {
+		await wave.close();
 	}
+}
+
+async function alignWhisperSegments(
+	context: AssistanceRuntimeFamilyWorkerExecutionContext,
+	loadRuntime: RuntimeLoader,
+	modelPath: string,
+	wave: AssistanceFloat32MonoWaveFileV1,
+	segments: readonly AlignmentSegment[],
+): Promise<AssistanceAlignedWordV1[]> {
 	const runtime = reviewAssistanceOnnxRuntimeModuleV1(
 		await loadRuntime(context.job.descriptor.entrypoint), WAV2VEC2_RUNTIME_ERRORS,
 	);
 	context.signal?.throwIfAborted();
-	const session = await createAssistanceOnnxSessionV1(
-		runtime, model.path, WAV2VEC2_SESSION_ERRORS,
-	);
+	const session = await createAssistanceOnnxSessionV1(runtime, modelPath, WAV2VEC2_SESSION_ERRORS);
 	try {
 		assertExactNames(session.inputNames, INPUT_NAMES, 'input');
 		assertExactNames(session.outputNames, OUTPUT_NAMES, 'output');
 		const words: AssistanceAlignedWordV1[] = [];
 		for (const [segmentOffset, segment] of segments.entries()) {
-			context.signal?.throwIfAborted();
-			const input = normalizeInputValues(
-				wave.samples.subarray(segment.startSample, segment.endSample), context.signal,
+			const samples = await wave.readSamples(
+				segment.startSample, segment.endSample - segment.startSample, context.signal,
 			);
+			const input = normalizeInputValues(samples, context.signal);
 			const frameCount = featureFrameCount(input.length);
 			const outputs = exactOutputs(await session.run({
 				input_values: new runtime.Tensor('float32', input, [1, input.length]),
@@ -145,9 +158,7 @@ async function executeWav2Vec2Alignment(
 			context.signal?.throwIfAborted();
 			context.onProgress((segmentOffset + 1) / (segments.length + 1));
 		}
-		return publishJson(context, reviewAssistanceWordAlignmentV1({
-			schemaVersion: 1, sampleRate: ASSISTANCE_ALIGNMENT_SAMPLE_RATE, words,
-		}));
+		return words;
 	} finally {
 		await session.release?.();
 	}

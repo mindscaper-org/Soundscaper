@@ -171,7 +171,6 @@ export const DESKTOP_ASSISTANCE_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/assistance/deepfilternet3-signal-v1.js',
 	'src/common/editor/assistance/disfluency.js',
 	'src/common/editor/assistance/editorial-generation-v1.js',
-	'src/common/editor/assistance/float32-mono-wave-v1.js',
 	'src/common/editor/assistance/highlight-ranking-v1.js',
 	'src/common/editor/assistance/internal/centered-periodic-hann-stft-v1.js',
 	'src/common/editor/assistance/internal/radix-two-fft-v1.js',
