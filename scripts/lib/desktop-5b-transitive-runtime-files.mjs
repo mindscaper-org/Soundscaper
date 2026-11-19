@@ -57,7 +57,7 @@ export const DESKTOP_5B_TRANSITIVE_RUNTIME_FILES = Object.freeze([
 	'desktop/native-media-v14-helper-adapter.js',
 	'desktop/native-media-v14-runtime-contract.js',
 	'desktop/native-queue-capacity-provider-v3.js',
-	'desktop/native-services-checkpoint-directory-durability.js',
+	'desktop/desktop-directory-durability.js',
 	'desktop/native-services-checkpoint-recovery-core.js',
 	'desktop/native-services-checkpoint-recovery-v3.js',
 	'desktop/native-services-carrier-recovery-v3.js',

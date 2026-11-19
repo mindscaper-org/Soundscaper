@@ -9,7 +9,7 @@ import {
 } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { DesktopStorageCopyStage } from './desktop-storage-copy-stage.ts';
-import { syncNativeCheckpointDirectory } from './native-services-checkpoint-directory-durability.ts';
+import { syncDirectory } from './desktop-directory-durability.ts';
 
 interface StorageEntry {
 	readonly source: string;
@@ -231,7 +231,7 @@ async function copyWithReceipt(
 		await copies.removeFile(destination);
 		return null;
 	}
-	await syncNativeCheckpointDirectory(dirname(destination));
+	await syncDirectory(dirname(destination));
 	await copies.verifyReceipt(destination, stagedSnapshot);
 	return verified;
 }
