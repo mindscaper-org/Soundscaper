@@ -10,6 +10,8 @@ import test, { type TestContext } from 'node:test';
 import { migrateDesktopProjectLibraries } from '../desktop/desktop-project-library-migration.ts';
 import { openProjectLibraryDirectoryLock, projectLibraryLocationDirectory } from '../desktop/project-library-directory-lock.ts';
 
+const legacyCopyTests = { skip: process.platform !== 'linux' && process.platform !== 'win32' };
+
 async function fixture(context: TestContext) {
 	const root = await mkdtemp(join(tmpdir(), 'scape-library-migration-'));
 	context.after(() => rm(root, { recursive: true, force: true }));
@@ -53,7 +55,7 @@ async function interruptedLegacyCopy(context: TestContext) {
 	return { options: { ...paths, appName }, source, stage, catalog, final, staged, record: join(location, recordName) };
 }
 
-test('Linux legacy upgrade restarts an unfinished registered copy', { skip: process.platform !== 'linux' }, async context => {
+test('legacy upgrade restarts an unfinished registered copy', legacyCopyTests, async context => {
 	const witness = await interruptedLegacyCopy(context);
 	await writeFile(witness.staged, 'partial');
 	await migrateDesktopProjectLibraries(witness.options);
@@ -64,7 +66,7 @@ test('Linux legacy upgrade restarts an unfinished registered copy', { skip: proc
 	assert.equal((await lstat(witness.final)).nlink, 1);
 });
 
-test('Linux legacy upgrade keeps a matching independently created final file and original', { skip: process.platform !== 'linux' }, async context => {
+test('legacy upgrade keeps a matching independently created final file and original', legacyCopyTests, async context => {
 	const witness = await interruptedLegacyCopy(context);
 	await writeFile(witness.staged, witness.catalog);
 	await writeFile(witness.final, witness.catalog);
@@ -77,8 +79,8 @@ test('Linux legacy upgrade keeps a matching independently created final file and
 });
 
 for (const sourceRetired of [false, true]) {
-	test(`Linux legacy upgrade retires a linked receipt ${sourceRetired ? 'after' : 'with'} its source`,
-		{ skip: process.platform !== 'linux' }, async context => {
+	test(`legacy upgrade retires a linked receipt ${sourceRetired ? 'after' : 'with'} its source`,
+		legacyCopyTests, async context => {
 			const witness = await interruptedLegacyCopy(context);
 			await writeFile(witness.staged, witness.catalog);
 			await link(witness.staged, witness.final);
@@ -95,7 +97,7 @@ for (const sourceRetired of [false, true]) {
 		});
 }
 
-test('Linux legacy upgrade waits for a receiving library that another profile has opened', { skip: process.platform !== 'linux' }, async context => {
+test('legacy upgrade waits for a receiving library that another profile has opened', legacyCopyTests, async context => {
 	const paths = await fixture(context);
 	const appName = 'Soundscaper';
 	const source = oldLibrary(paths.legacyAppDataPath);

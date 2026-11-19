@@ -39,7 +39,7 @@ export async function migrateDesktopProjectLibraries(
 		source: join(base, 'kw.media', `${appName.toLowerCase()}-project-library`, 'v1'),
 		destination,
 	}));
-	if (process.platform !== 'linux') return migrateDesktopStorageEntries(entries);
+	if (process.platform !== 'linux' && process.platform !== 'win32') return migrateDesktopStorageEntries(entries);
 
 	const location = projectLibraryLocationDirectory(projectLibraryAppDataPath, appName);
 	const record = join(location, LEGACY_COPY_RECORD);
@@ -68,14 +68,17 @@ export async function migrateDesktopProjectLibraries(
 }
 
 async function readLegacyCopyStage(location: string, record: string, identity: string): Promise<string | undefined> {
-	const handle = await open(record, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK).catch((error: unknown) => {
+	const previous = await lstat(record, { bigint: true }).catch((error: unknown) => {
 		if (missing(error)) return null;
 		throw error;
 	});
-	if (handle === null) return undefined;
+	if (previous === null) return undefined;
+	if (!previous.isFile()) throw new Error('The legacy project library copy record must be a regular file.');
+	const handle = await open(record, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
 	try {
-		const entry = await handle.stat();
-		if (!entry.isFile() || entry.size !== LEGACY_COPY_RECORD_SIZE) throw new Error('Invalid legacy project library copy record.');
+		const entry = await handle.stat({ bigint: true });
+		if (!entry.isFile() || entry.dev !== previous.dev || entry.ino !== previous.ino
+			|| entry.size !== BigInt(LEGACY_COPY_RECORD_SIZE)) throw new Error('Invalid legacy project library copy record.');
 		const body = Buffer.alloc(LEGACY_COPY_RECORD_SIZE);
 		const { bytesRead } = await handle.read(body);
 		if (bytesRead !== body.length) throw new Error('Invalid legacy project library copy record.');

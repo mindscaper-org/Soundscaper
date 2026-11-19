@@ -258,6 +258,8 @@ Once the move may have started, startup requires the destination to be available
 because the old location may contain only part of the library.
 On Linux and Windows, a hard-link-capable destination can publish completed
 copies from a private stage and use that stage to resume an interrupted move.
+Startup upgrades from the former project library also register a private copy
+stage when the destination supports hard links.
 
 Desktop working storage is admitted before database open, profile startup, and
 temporary-folder selection or migration. The database opener also checks storage
