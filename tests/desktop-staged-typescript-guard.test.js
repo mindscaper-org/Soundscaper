@@ -14,7 +14,7 @@ import { access, cp, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/p
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import {
 	DESKTOP_RUNTIME_PACKAGE_IMPORTS,
@@ -83,11 +83,18 @@ test('the staged desktop tree carries no TypeScript specifier and resolves every
 	const soundscaperImports = desktopProductRuntimePackageImports(
 		'soundscaper', DESKTOP_RUNTIME_PACKAGE_IMPORTS,
 	);
-	assert.deepEqual(Object.keys(soundscaperImports), ['#desktop-runtime/helper-contract']);
+	assert.deepEqual(Object.keys(soundscaperImports), [
+		'#desktop-runtime/bundled-native-plugins', '#desktop-runtime/bundled-plugin-resources',
+		'#desktop-runtime/bundled-plugin-factory-data', '#desktop-runtime/plugin-midi-events',
+		'#desktop-runtime/helper-contract',
+	]);
 	for (const [alias, target] of Object.entries(soundscaperImports)) {
 		assert.match(target, /^\.\/desktop\/project-library-runtime\//u, `${alias} must resolve to a compiled runtime member`);
 		await access(join(applicationDesktopRoot, '..', target));
 	}
+	await writeFile(join(applicationDesktopRoot, '..', 'package.json'), JSON.stringify({ type: 'module', imports: soundscaperImports }));
+	const payload = await import(pathToFileURL(join(applicationDesktopRoot, 'soundscaper-professional-native-payload.mjs')).href);
+	assert.equal(typeof payload.describeSoundscaperProfessionalNativePayload, 'function');
 	for (const [alias, target] of Object.entries(DESKTOP_RUNTIME_PACKAGE_IMPORTS)) {
 		assert.match(target, /^\.\/desktop\/project-library-runtime\//u, `${alias} must resolve to a compiled runtime member`);
 		await access(join(ROOT, repositoryPackage.imports[alias]));

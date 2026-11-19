@@ -108,11 +108,12 @@ export async function stageDesktopApplicationSources({
 		await stageSoundscaperDesktopEntrySources(sourceRoot, applicationRoot);
 	}
 	const stagedSourceFiles = await listRuntimeFiles(applicationRoot);
+	const runtimePackageImports = desktopProductRuntimePackageImports(productId, DESKTOP_RUNTIME_PACKAGE_IMPORTS);
 	const runtimeRoots = await collectApplicationDesktopRuntimeReferences({
 		applicationRoot,
 		applicationFiles: stagedSourceFiles,
 		completeFiles: runtimeFiles,
-		runtimePackageImports: desktopProductRuntimePackageImports(productId, DESKTOP_RUNTIME_PACKAGE_IMPORTS),
+		runtimePackageImports,
 	});
 	let packagedRuntimeFiles = await collectDesktopProductRuntimeClosure({
 		compiledRoot,
@@ -131,8 +132,8 @@ export async function stageDesktopApplicationSources({
 	await stageBundledAudioCodecRuntimeManifest({ desktopRoot: applicationRoot });
 	await bundleDesktopFileCapabilities(sourceRoot, applicationRoot);
 	await bundleDesktopMainPreload(applicationRoot);
-	packagedRuntimeFiles = await retainDesktopRuntimeClosureAfterBundling({ applicationRoot, applicationFiles: stagedSourceFiles, compiledRoot, completeFiles: runtimeFiles, stagedFiles: packagedRuntimeFiles, productId, runtimePackageImports: desktopProductRuntimePackageImports(productId, DESKTOP_RUNTIME_PACKAGE_IMPORTS) });
-	await assertStagedDesktopImportsResolve(applicationRoot);
+	packagedRuntimeFiles = await retainDesktopRuntimeClosureAfterBundling({ applicationRoot, applicationFiles: stagedSourceFiles, compiledRoot, completeFiles: runtimeFiles, stagedFiles: packagedRuntimeFiles, productId, runtimePackageImports });
+	await assertStagedDesktopImportsResolve(applicationRoot, runtimePackageImports);
 	assertRuntimePackageImportTargets(productId, packagedRuntimeFiles);
 	await bundleSandboxPreload({
 		entryPoint: join(sourceRoot, 'soundscaper-project-library-sandbox-preload.ts'),
