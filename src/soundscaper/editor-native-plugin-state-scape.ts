@@ -54,7 +54,6 @@ export function createSoundscaperNativePluginStateScapeExtension():
 		// these references at the document root, so none is added to project.sources.
 		sourceKinds: Object.freeze([SOUNDSCAPER_SCAPE_NATIVE_PLUGIN_STATE_KIND]),
 		planExportAssets: async ({ project, store, signal }: ScapeProjectAssetExtensionExportRequest) => {
-			validateSoundscaperProject(project)
 			const bodies = uniqueProjectBodies(project)
 			if (bodies.length && typeof (store as SoundscaperScapeNativePluginStateStore)
 				.getNativePluginStateBodyMetadata !== 'function') {
@@ -140,7 +139,6 @@ function exportAsset(body: Readonly<SoundscaperNativePluginStateBody>): PlannedS
 }
 
 function validateImportAssets(project: unknown, manifest: ScapeManifest): NativeStateValidation {
-	validateSoundscaperProject(project)
 	const expected = new Map(uniqueProjectBodies(project).map((body) => [body.bodyId, body]))
 	const descriptors = manifest.assets.filter(
 		({ kind }) => kind === SOUNDSCAPER_SCAPE_NATIVE_PLUGIN_STATE_KIND,

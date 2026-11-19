@@ -9,9 +9,32 @@ import { readSessionSnapshots, snapshotProjectState } from '../src/common/editor
 import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts';
 import { createSoundscaperProject, validateSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperEphemeralProjectStore } from '../src/soundscaper/editor-project-store.ts';
+import { createSoundscaperNativePluginStateScapeExtension } from '../src/soundscaper/editor-native-plugin-state-scape.ts';
 import { createSoundscaperScapeNativeRuntime, type SoundscaperScapeNativeStore } from '../src/soundscaper/editor-scape-native.ts';
 
 const NOW = '2026-11-16T12:00:00.000Z';
+
+test('native plug-in archive inventory admits the project structure once per direction', async context => {
+	const store = createSoundscaperEphemeralProjectStore();
+	context.after(async () => { await store.close(); });
+	const project = createSoundscaperProject({ now: NOW });
+	const archive = await createSoundscaperScapeNativeRuntime().exportScapeProject(project, store);
+	const extension = createSoundscaperNativePluginStateScapeExtension();
+	let inspections = 0;
+	const observed = new Proxy(project, { ownKeys(value) {
+		inspections += 1;
+		return Reflect.ownKeys(value);
+	} });
+	assert.ok(validateSoundscaperProject(observed));
+	const singleAdmission = inspections;
+	assert.ok(singleAdmission > 0);
+	inspections = 0;
+	assert.deepEqual(await extension.planExportAssets({ project: observed, store }), []);
+	assert.equal(inspections, singleAdmission, 'export scans the same project structure once');
+	inspections = 0;
+	extension.validateImportAssets(observed, archive.manifest);
+	assert.equal(inspections, singleAdmission, 'import scans the same project structure once');
+});
 
 test('snapshot-only native plug-in bodies travel with the project and are deduplicated', async context => {
 	const bytes = Uint8Array.from([1, 7, 255]);
