@@ -29,7 +29,7 @@
 			"payload": {
 				"path": "native/soundscaper-helper-addon/prebuilt/linux-x64/soundscaper_helper.node",
 				"byteLength": 89672,
-				"sha256": "5afa2bb67d62ffa9ddbd6dd04f366bf4b44ef5f05f47ca26dfe5a83f08741cb4"
+				"sha256": "0349ff52116f95f6c8fffd69914a7599aa18aca20702f1cfb76468e11e02fbe8"
 			},
 			"buildResult": null
 		},

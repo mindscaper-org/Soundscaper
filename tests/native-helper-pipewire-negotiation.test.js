@@ -36,7 +36,7 @@ function probe(script, environment = {}) {
 		import { createRequire } from 'node:module';
 		const addon = createRequire(import.meta.url)(${JSON.stringify(addonPath)});
 		const open = (request) => addon.openAudioDevice({
-			candidates: [{ backend: 'pipewire', deviceHandle: '@DEFAULT_SINK@' }],
+			candidates: [{ backend: 'pipewire', deviceHandle: request.direction === 0 ? '@DEFAULT_SOURCE@' : '@DEFAULT_SINK@' }],
 			direction: ${OUTPUT},
 			exclusive: 0,
 			sampleRate: 48_000,
@@ -148,6 +148,7 @@ for (const [name, mode, status, lostFrames, left, right] of [
 	['waits for the rest of a capture packet', 'delayed', 'ok', 0, [0.25, 0.75, 1.25, 1.75], [0.5, 1, 1.5, 2]],
 	['leaves an incomplete capture packet untouched on timeout', 'stalled', 'recovered', 4, incompleteCapture, incompleteCapture],
 	['reports device loss while waiting for capture', 'lost', 'device-lost', 0, incompleteCapture, incompleteCapture],
+	['ends capture when a replacement source could be linked', 'relink', 'device-lost', 0, incompleteCapture, incompleteCapture],
 ]) {
 	test(`PipeWire ${name}`, { skip: !addonIsBuilt || stubRoot === null }, () => {
 		const { elapsed, ...observed } = probe(`

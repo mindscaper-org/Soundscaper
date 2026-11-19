@@ -17,6 +17,7 @@
 #define SOUNDSCAPER_PIPEWIRE_NEGOTIATION_MS 2000u
 #define SOUNDSCAPER_PIPEWIRE_POLL_MS 2u
 #define SOUNDSCAPER_PIPEWIRE_CAPTURE_GRACE_MS 100u
+#define SOUNDSCAPER_PIPEWIRE_DEFAULT_SOURCE "@DEFAULT_SOURCE@"
 
 struct soundscaper_pipewire_session {
 #if SOUNDSCAPER_HAS_PIPEWIRE
@@ -210,7 +211,7 @@ void soundscaper_pipewire_enumerate(soundscaper_backend_inventory *inventory)
 	set_text(inventory->devices[0].handle, "@DEFAULT_SINK@");
 	set_text(inventory->devices[0].label, "Default output (PipeWire)");
 	inventory->devices[0].direction = SOUNDSCAPER_DEVICE_OUTPUT;
-	set_text(inventory->devices[1].handle, "@DEFAULT_SOURCE@");
+	set_text(inventory->devices[1].handle, SOUNDSCAPER_PIPEWIRE_DEFAULT_SOURCE);
 	set_text(inventory->devices[1].label, "Default input (PipeWire)");
 	inventory->devices[1].direction = SOUNDSCAPER_DEVICE_INPUT;
 #else
@@ -272,13 +273,16 @@ soundscaper_audio_open_status soundscaper_pipewire_open(
 	}
 	char latency[64];
 	snprintf(latency, sizeof(latency), "%u/%u", period_frames, sample_rate);
+	/* Let the policy choose the initial default without a literal target name. */
+	const char *target_key = direction == SOUNDSCAPER_DEVICE_INPUT
+		&& strcmp(device_handle, SOUNDSCAPER_PIPEWIRE_DEFAULT_SOURCE) == 0 ? NULL : PW_KEY_TARGET_OBJECT;
 	struct pw_properties *properties = session->api.properties_new(
 		PW_KEY_MEDIA_TYPE, "Audio",
 		PW_KEY_MEDIA_CATEGORY, direction == SOUNDSCAPER_DEVICE_OUTPUT ? "Playback" : "Capture",
 		PW_KEY_MEDIA_ROLE, "Production",
 		PW_KEY_NODE_NAME, "Soundscaper",
 		PW_KEY_NODE_LATENCY, latency,
-		PW_KEY_TARGET_OBJECT, device_handle,
+		target_key, device_handle,
 		NULL);
 	session->stream = session->api.stream_new_simple(
 		session->api.thread_loop_get_loop(session->loop), "Soundscaper", properties, &STREAM_EVENTS, session);
@@ -304,6 +308,8 @@ soundscaper_audio_open_status soundscaper_pipewire_open(
 	enum pw_stream_flags flags = PW_STREAM_FLAG_AUTOCONNECT
 		| PW_STREAM_FLAG_MAP_BUFFERS
 		| PW_STREAM_FLAG_RT_PROCESS;
+	/* Removing the source ends this capture. A new session can use the new default. */
+	if (direction == SOUNDSCAPER_DEVICE_INPUT) flags |= PW_STREAM_FLAG_DONT_RECONNECT;
 	if (exclusive_requested) flags |= PW_STREAM_FLAG_EXCLUSIVE | PW_STREAM_FLAG_NO_CONVERT;
 	const int connected = session->api.stream_connect(
 		session->stream,

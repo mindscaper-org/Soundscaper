@@ -125,10 +125,12 @@ const char *snd_strerror(int code) { (void)code; return "the stub card refused t
  * `SOUNDSCAPER_STUB_PIPEWIRE_RATE` or `_CHANNELS` says otherwise.
  * `capture-delayed`, `capture-stalled` and `capture-lost` send half an input
  * packet before delivering the rest, stalling, or disconnecting.
+ * A capture-relink substitute source can fill the rest of the packet.
  * `capture-overrun` exceeds a one-frame period's 32-frame ring at startup.
  */
 export const PIPEWIRE_STUB_SOURCE = `
 #include <pthread.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -140,6 +142,8 @@ static const struct pw_stream_events *stub_events;
 static void *stub_data;
 static uint8_t stub_requested[1024];
 static int stub_has_requested;
+static enum pw_stream_flags stub_flags;
+static int stub_literal_default;
 static char stub_loop_object;
 static char stub_stream_object;
 static char stub_context_object;
@@ -190,7 +194,14 @@ struct pw_loop *pw_thread_loop_get_loop(struct pw_thread_loop *loop)
 
 struct pw_properties *pw_properties_new(const char *key, ...)
 {
-	(void)key;
+	stub_literal_default = 0;
+	va_list args;
+	va_start(args, key);
+	for (; key != NULL; key = va_arg(args, const char *)) {
+		const char *value = va_arg(args, const char *);
+		if (strcmp(key, PW_KEY_TARGET_OBJECT) == 0 && strcmp(value, "@DEFAULT_SOURCE@") == 0) stub_literal_default = 1;
+	}
+	va_end(args);
 	return (struct pw_properties *)calloc(1u, sizeof(void *));
 }
 
@@ -222,7 +233,7 @@ int pw_stream_connect(
 	(void)stream;
 	(void)direction;
 	(void)target_id;
-	(void)flags;
+	stub_flags = flags;
 	stub_has_requested = 0;
 	if (params != NULL && n_params > 0u && params[0] != NULL) {
 		const size_t size = SPA_POD_SIZE(params[0]);
@@ -256,7 +267,8 @@ static void *stub_finish_capture(void *data)
 	const char *mode = data;
 	const struct timespec delay = { .tv_nsec = 50000000L };
 	nanosleep(&delay, NULL);
-	if (strcmp(mode, "capture-lost") == 0) {
+	if (strcmp(mode, "capture-lost") == 0
+		|| (strcmp(mode, "capture-relink") == 0 && (stub_flags & PW_STREAM_FLAG_DONT_RECONNECT))) {
 		stub_events->state_changed(stub_data, PW_STREAM_STATE_STREAMING, PW_STREAM_STATE_UNCONNECTED, NULL);
 	} else if (strcmp(mode, "capture-overrun") == 0) {
 		stub_capture_frames(18.25f, 32u);
@@ -271,7 +283,8 @@ int pw_thread_loop_start(struct pw_thread_loop *loop)
 	(void)loop;
 	const char *mode = stub_mode();
 	if (stub_events == NULL || strcmp(mode, "silent") == 0) return 0;
-	if (strcmp(mode, "error") == 0) {
+	if (strcmp(mode, "error") == 0
+		|| (stub_literal_default && (stub_flags & PW_STREAM_FLAG_DONT_RECONNECT))) {
 		if (stub_events->state_changed != NULL) {
 			stub_events->state_changed(stub_data, PW_STREAM_STATE_CONNECTING, PW_STREAM_STATE_ERROR,
 				"the stub graph refused the node");
