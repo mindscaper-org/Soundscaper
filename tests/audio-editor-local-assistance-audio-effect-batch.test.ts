@@ -37,6 +37,33 @@ test('video track ranges include uniquely linked audio alongside other selected 
 	}
 });
 
+test('occurrence selection reads each track inventory once and keeps distinct owners', () => {
+	const clips = [
+		{ id: 'camera', kind: 'video', avLinkId: 'one' },
+		{ id: 'other-camera', kind: 'video', avLinkId: 'two' },
+		{ id: 'voice', kind: 'audio', avLinkId: 'one', timelineStartFrame: 0, durationFrames: 10 },
+		{ id: 'room', kind: 'audio', avLinkId: 'two', timelineStartFrame: 12, durationFrames: 8 },
+	];
+	const reads = new Map<string, number>();
+	const track = (id: string, type: string, clipIds: readonly string[]) => ({ id, type,
+		get clipIds() {
+			reads.set(id, (reads.get(id) ?? 0) + 1);
+			return clipIds;
+		},
+	});
+	const tracks = [track('video-track', 'video', ['camera', 'other-camera']),
+		track('audio-track', 'audio', ['voice', 'voice', 'room'])];
+	const selection = { startFrame: 2, endFrame: 16, trackIds: ['video-track'], clipIds: [] };
+	const targets = localAssistanceAudioEffectTargets({ clips, tracks, selection }, null);
+	assert.deepEqual(targets.map(({ clipId, trackId, selection: { startFrame, endFrame } }) => (
+		[clipId, trackId, startFrame, endFrame]
+	)), [['voice', 'audio-track', 2, 10], ['room', 'audio-track', 12, 16]]);
+	assert.deepEqual(Object.fromEntries(reads), { 'video-track': 1, 'audio-track': 1 });
+	assert.throws(() => localAssistanceAudioEffectTargets({ clips,
+		tracks: [...tracks, track('unselected-track', 'audio', ['voice'])], selection,
+	}, null), /ambiguous track ownership/u);
+});
+
 test('audio selection inventory deduplicates sources across selected tracks and occurrences', async () => {
 	const fixture = batchFixture();
 	const inventory = await fixture.runtime.listSelectedMedia();
