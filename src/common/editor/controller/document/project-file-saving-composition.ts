@@ -28,7 +28,7 @@ export interface ProjectFileSavingPort {
 	prepareOriginalOverwrite?(id: string): PromiseLike<unknown> | unknown;
 	confirmProjectSave?(request: Record<string, string>): PromiseLike<unknown> | unknown;
 	restoreProjectFile?(id: string): PromiseLike<unknown> | unknown;
-	rememberProjectFile?(request: Readonly<{ projectId: string; originalId: string; baseline: string }>): PromiseLike<unknown> | unknown;
+	rememberProjectFile?(request: Readonly<{ projectId: string; originalId: string | null; baseline: string }>): PromiseLike<unknown> | unknown;
 }
 
 export function bindProjectFileSaving(d: Readonly<{
@@ -69,7 +69,7 @@ export function bindProjectFileSaving(d: Readonly<{
 			return { ...value, baseline: value.baseline };
 		},
 		remember: async (id, target, baseline) => {
-			if (target.originalFile) await d.fileService.rememberProjectFile?.({ projectId: id, originalId: target.originalFile.id, baseline });
+			await d.fileService.rememberProjectFile?.({ projectId: id, originalId: target.originalFile?.id ?? null, baseline });
 		}, release: async original => { await releaseDesktopOriginalFile(original); await d.fileService.releaseOriginalFile?.(original.id); }, handleError: error => runtime?.handleError(error),
 	});
 	let retentionRequest: Readonly<{ key: string }> | null = null, maintenance: Promise<unknown> = Promise.resolve();
