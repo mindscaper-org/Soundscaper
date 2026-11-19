@@ -81,6 +81,23 @@ export function resolveVideoDisplayGeometry(
 			});
 		}
 	}
+	// Some decoders stretch the already rotated raster horizontally. Accept its
+	// exact raster size only, after the ordinary rotation/aspect cases above.
+	if (quarterTurn && anamorphic && height === codedWidth) {
+		const stretch = aspectNum / aspectDen;
+		const displayHeight = Math.max(1, Math.round(codedWidth * stretch));
+		if (width === Math.max(1, Math.round(codedHeight * stretch))
+			&& displayHeight <= VIDEO_SOURCE_MAXIMUM_CODED_DIMENSION) {
+			return Object.freeze({
+				reconciliation: 'residual',
+				displayWidth: codedHeight,
+				displayHeight,
+				residualRotationDegrees: 0,
+				residualScaleX: codedHeight / width,
+				residualScaleY: displayHeight / height,
+			});
+		}
+	}
 	return unreconciled('disagreed', width, height);
 }
 

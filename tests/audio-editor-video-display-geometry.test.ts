@@ -119,6 +119,17 @@ test('a decoder that turned the frame moves the residual stretch with it', () =>
 	assert.equal(geometry.displayHeight, 64);
 });
 
+test('a turned decoder raster with horizontal pixel stretch is corrected on both display axes', () => {
+	const facts = characteristics({
+		codedWidth: 64, codedHeight: 48, rotationDegrees: 270, pixelAspectRatio: { num: 2, den: 1 },
+	});
+	assert.deepEqual(resolveVideoDisplayGeometry(facts, { width: 96, height: 64 }), {
+		reconciliation: 'residual', residualRotationDegrees: 0,
+		residualScaleX: .5, residualScaleY: 2, displayWidth: 48, displayHeight: 128,
+	});
+	assert.equal(resolveVideoDisplayGeometry(facts, { width: 95, height: 64 }).reconciliation, 'disagreed');
+});
+
 test('geometry that no rotation or stretch explains is reported as disagreement', () => {
 	const geometry = resolveVideoDisplayGeometry(
 		characteristics({ codedWidth: 1_920, codedHeight: 1_080 }),

@@ -213,8 +213,8 @@ export function createVideoKeyframeOfflineHtmlVideoSourceResolver(
 			throwIfAborted(signal);
 			const decodedWidth = video.videoWidth;
 			const decodedHeight = video.videoHeight;
-			const matchesDecoded = decodedWidth === asset.decodedWidth
-				&& decodedHeight === asset.decodedHeight;
+			const matchesDecoded = decodedHeight === asset.decodedHeight
+				&& (decodedWidth === asset.decodedWidth || decodedWidth === asset.postRotationAspectWidth);
 			const matchesDisplay = decodedWidth === asset.displayWidth
 				&& decodedHeight === asset.displayHeight;
 			if (!matchesDecoded && !matchesDisplay) {

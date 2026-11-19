@@ -9,6 +9,7 @@ import {
 import { videoRetimePreviewMedia } from './fixtures/video-retime-preview-media.js';
 import { createDeterministicSilentVideoFixture } from './fixtures/deterministic-av-media.js';
 import { sourceMonitorFragmentedMedia } from './fixtures/video-timing-probe-media.js';
+import { videoSourceGeometryMedia } from './fixtures/video-source-geometry-media.js';
 import { nativeVideoAudioTailFixture } from '../helpers/native-video-audio-tail-fixture.ts';
 
 test.describe('video container exporters', () => {
@@ -100,6 +101,41 @@ test.describe('video container exporters', () => {
 			} finally { input.dispose(); }
 		});
 	}
+
+	test('a rotated anamorphic clip presents its authored aspect in Programme and WebM', async ({ page }) => {
+		await disableNativeSavePicker(page);
+		const editor = await bootEditor(page, '/framescaper/embed/en/');
+		const source = videoSourceGeometryMedia.find(({ id }) => id === 'geometry-rotated-anamorphic-mp4-v1');
+		await importFiles(editor, [source.file]);
+		const canvas = editor.locator('[data-video-preview-canvas]');
+		await expect(canvas).toHaveAttribute('data-renderer-state', 'ready');
+		await expect.poll(async () => {
+			const screenshot = await canvas.screenshot({ scale: 'css' });
+			return page.evaluate(async ({ png, display }) => {
+				const image = new Image();
+				image.src = `data:image/png;base64,${png}`;
+				await image.decode();
+				const line = new OffscreenCanvas(image.width, 1).getContext('2d');
+				line.drawImage(image, 0, -Math.floor(image.height / 4));
+				const { data } = line.getImageData(0, 0, image.width, 1);
+				let visible = 0;
+				for (let offset = 0; offset < data.length; offset += 4) {
+					if (data[offset] + data[offset + 1] + data[offset + 2] > 90) visible++;
+				}
+				return Math.abs(visible - image.height * display.width / display.height);
+			}, { png: screenshot.toString('base64'), display: source.display });
+		}).toBeLessThanOrEqual(3);
+		const dialog = await openExportDialog(page, editor, { label: 'Export video' });
+		await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'WebM video');
+		await dialog.getByRole('button', { name: 'Export', exact: true }).click();
+		const link = dialog.locator('[data-export-download]');
+		await expect(link).toBeVisible({ timeout: 25_000 });
+		const input = new Input({ source: new BufferSource(await readDownloadBytes(page, link)), formats: [WEBM] });
+		try {
+			const track = await input.getPrimaryVideoTrack();
+			expect({ width: await track.getCodedWidth(), height: await track.getCodedHeight() }).toEqual(source.display);
+		} finally { input.dispose(); }
+	});
 
 	for (const [label, extension, mimeType, source, dimensions] of [
 		['MP4 video', 'mp4', 'video/mp4', videoRetimePreviewMedia.file,
