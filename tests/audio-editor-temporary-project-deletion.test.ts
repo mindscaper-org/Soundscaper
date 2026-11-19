@@ -120,6 +120,8 @@ test('a transient temporary data read error can recover while the same projects 
 		runtime: {
 			getOpenProjectIds: () => [project.id],
 			getProjects: () => [{ project, readOnly: false }],
+			getWritableProject: id => id === project.id ? project : null,
+			isProjectWritable: id => id === project.id,
 			getPreferences: () => ({ autoSaving: false, askBeforeClosing: true }),
 			activate: () => undefined, discard: () => undefined, subscribe(listener) { publish = listener; return () => undefined; },
 			signal: new AbortController().signal, handleError(error) { errors.push(error); },
