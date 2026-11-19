@@ -17,4 +17,28 @@ export function compositeNormalLinearPixels(target: Float64Array, source: Float6
 	}
 }
 
+/** Encode a normal layer over a constant premultiplied backdrop in one pass. */
+export function encodeNormalLinearPixelsOverBackground(
+	target: Uint8Array,
+	source: Float64Array,
+	background: readonly [number, number, number, number],
+	encode: (channel: number) => number,
+): void {
+	const [red, green, blue, backgroundAlpha] = background;
+	const backdrop = [red * backgroundAlpha, green * backgroundAlpha, blue * backgroundAlpha];
+	const uncovered = 1 - backgroundAlpha;
+	for (let offset = 0; offset < target.length; offset += 4) {
+		const sourceAlpha = clamp(source[offset + 3]!);
+		const remainder = 1 - sourceAlpha;
+		const alpha = clamp(sourceAlpha + backgroundAlpha * remainder);
+		for (let channel = 0; channel < 3; channel += 1) {
+			const foreground = sourceAlpha > 1e-12 ? source[offset + channel]! / sourceAlpha : 0;
+			const composited = clamp(remainder * backdrop[channel]!
+				+ sourceAlpha * (uncovered * foreground + backgroundAlpha * foreground));
+			target[offset + channel] = encode(alpha > 1e-12 ? composited / alpha : 0);
+		}
+		target[offset + 3] = Math.round(alpha * 255);
+	}
+}
+
 function clamp(value: number): number { return Math.max(0, Math.min(1, value)); }

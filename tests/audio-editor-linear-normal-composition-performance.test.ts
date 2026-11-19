@@ -7,10 +7,41 @@ import test from 'node:test';
 import { compositeNormalLinearPixels } from '../src/common/editor/unified-exact-linear-normal-composition.ts';
 import {
 	compositeUnifiedExactLinearFrameV13,
+	createUnifiedExactLinearPremultipliedFrameV13,
+	encodeUnifiedExactLinearCompositionV13,
+	encodeUnifiedExactLinearFrameV13,
 	type UnifiedExactLinearPremultipliedFrameV13,
 } from '../src/common/editor/unified-exact-linear-rgba-v13.ts';
 
 const MODES = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'difference', 'exclusion', 'add'] as const;
+
+test('direct composition encoding agrees with separate linear compositing and encoding', () => {
+	for (const background of [[0, 0, 0, 0], [0.2, 0.3, 0.5, 1], [0.1, 0.8, 0.2, 0.6]] as const) {
+		for (const variant of [0, 1, 2]) {
+			const normal = { frame: frame(variant), blendMode: 'normal' } as const;
+			const multiply = { frame: frame(variant + 1), blendMode: 'multiply' } as const;
+			for (const entries of [[], [normal], [normal, multiply], [multiply]]) {
+				const backdrop = createUnifiedExactLinearPremultipliedFrameV13(4, 4, background);
+				for (const entry of entries) compositeUnifiedExactLinearFrameV13(backdrop, entry.frame, entry.blendMode);
+				for (const space of ['srgb', 'rec709', 'linear-rec709-d65'] as const) {
+					const target = new Uint8Array(64);
+					assert.equal(encodeUnifiedExactLinearCompositionV13(4, 4, background, entries, space, target), target);
+					assert.deepEqual(target, encodeUnifiedExactLinearFrameV13(backdrop, space));
+				}
+			}
+		}
+	}
+});
+
+test('direct composition encoding keeps the backdrop staging boundary for overlapping byte targets', () => {
+	const source = frame(0);
+	const target = new Uint8Array(source.pixels.buffer, 32, 64);
+	const backdrop = createUnifiedExactLinearPremultipliedFrameV13(4, 4, [0, 0, 0, 1]);
+	compositeUnifiedExactLinearFrameV13(backdrop, source, 'normal');
+	const expected = encodeUnifiedExactLinearFrameV13(backdrop, 'srgb');
+	encodeUnifiedExactLinearCompositionV13(4, 4, [0, 0, 0, 1], [{ frame: source, blendMode: 'normal' }], 'srgb', target);
+	assert.deepEqual(target, expected);
+});
 
 test('normal composition reads each target channel once without calculating an unused backdrop', () => {
 	const target = frame(0), source = frame(1);

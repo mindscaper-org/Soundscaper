@@ -11,7 +11,7 @@ import {
 } from './video-preview-render-description.ts';
 import type { UnifiedExactLinearSourceFrame } from './unified-exact-linear-source-frame.ts';
 import type { UnifiedExactRenderRgbaFrameV13 } from './unified-exact-render-finishing-consumers-v13.ts';
-import { compositeNormalLinearPixels } from './unified-exact-linear-normal-composition.ts';
+import { compositeNormalLinearPixels, encodeNormalLinearPixelsOverBackground } from './unified-exact-linear-normal-composition.ts';
 
 export interface UnifiedExactLinearPremultipliedFrameV13 {
 	readonly width: number;
@@ -247,6 +247,35 @@ export function encodeUnifiedExactLinearFrameV13(
 	return pixels;
 }
 
+/** Encode an ordered composition directly when one normal layer covers a constant backdrop. */
+export function encodeUnifiedExactLinearCompositionV13(
+	width: number,
+	height: number,
+	background: readonly [number, number, number, number],
+	entries: readonly UnifiedExactLinearCompositionEntryV13[],
+	outputSpace: VideoColorOutputSpaceV1,
+	target: Uint8Array<ArrayBuffer>,
+): Uint8Array<ArrayBuffer> {
+	const entry = entries.length === 1 ? entries[0] : undefined;
+	if (entry?.blendMode === 'normal' && ArrayBuffer.isView(target)
+		&& Object.getPrototypeOf(target) === Uint8Array.prototype
+		&& hasOrdinaryFrameFields(entry.frame) && entry.frame.pixels.buffer !== target.buffer) {
+		const frameWidth = dimension(width, 'linear frame width');
+		const frameHeight = dimension(height, 'linear frame height');
+		const backdrop = tuple(background, 'linear frame background');
+		const source = premultipliedFrame(entry.frame, 'linear composite source');
+		assertSameGeometry({ width: frameWidth, height: frameHeight }, source, 'linear composite');
+		if (target.byteLength !== source.pixels.length) {
+			throw new RangeError('A linear encoded target must match its frame geometry.');
+		}
+		encodeNormalLinearPixelsOverBackground(target, source.pixels, backdrop, createManagedSdrLinearByteEncoderV1(outputSpace));
+		return target;
+	}
+	const output = createUnifiedExactLinearPremultipliedFrameV13(width, height, background);
+	for (const { frame, blendMode } of entries) compositeUnifiedExactLinearFrameV13(output, frame, blendMode);
+	return encodeUnifiedExactLinearFrameV13(output, outputSpace, target);
+}
+
 function place(
 	source: UnifiedExactRenderRgbaFrameV13 | UnifiedExactLinearSourceFrame,
 	target: UnifiedExactLinearPremultipliedFrameV13,
@@ -461,7 +490,7 @@ function premultipliedFrame(
 }
 
 function assertSameGeometry(
-	left: UnifiedExactLinearPremultipliedFrameV13,
+	left: Pick<UnifiedExactLinearPremultipliedFrameV13, 'width' | 'height'>,
 	right: UnifiedExactLinearPremultipliedFrameV13,
 	name: string,
 ): void {
