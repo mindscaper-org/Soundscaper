@@ -15,6 +15,7 @@ import {
 	chunkChannels,
 	createClipGainChain,
 	createReversedChunkSource,
+	readChunkSourceRange,
 } from './clip-scheduler-chunk-sources.ts';
 import {
 	assertSharedPlaybackStart,
@@ -182,11 +183,23 @@ export async function scheduleProjectClips({
 		chunkSources,
 		trackInputs,
 		offlineSampleRate: mode === 'offline' ? context.sampleRate : undefined,
+		chunkLoopSampleRate: transportRate === 1 ? context.sampleRate : undefined,
 		fromFrame,
 		toFrame,
 		sampleRate,
 		sourceResolver,
 	});
+	for (const [index, plan] of plans.entries()) {
+		if (!plan.chunkLoopRange || !plan.chunkSource) continue;
+		const { startFrame, endFrame } = plan.chunkLoopRange;
+		const channels = await readChunkSourceRange(plan.chunkSource, startFrame, endFrame, signal);
+		throwIfAborted(signal);
+		const buffer = context.createBuffer(channels.length, endFrame - startFrame, context.sampleRate);
+		for (const [channel, samples] of channels.entries()) {
+			buffer.getChannelData(channel).set(plan.reversed ? samples.reverse() : samples);
+		}
+		plans[index] = { ...plan, originalBuffer: buffer, chunkSource: null, reversed: false };
+	}
 	const streamed: PreparedLiveChunkPlan[] = [];
 	let loadedChunkFrames = 0;
 	const totalChunkFrames = plans.reduce((total, plan) => (

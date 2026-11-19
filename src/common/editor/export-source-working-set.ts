@@ -92,6 +92,7 @@ export function estimateExportSourceWorkingSetBytes(
 		const to = Math.min(nonNegativeInteger(range.endFrame, 'Render end frame'), duration);
 		const plans = buildClipSchedulePlans({
 			project, sources, chunkSources, trackInputs, sampleRate,
+			chunkLoopSampleRate: sampleRate,
 			fromFrame: Math.max(0, from - sampleRate * 10), toFrame: to,
 		});
 		let renderBytes = residentBytes;
@@ -106,6 +107,12 @@ export function estimateExportSourceWorkingSetBytes(
 			}
 			const source = plan.chunkSource;
 			if (!source) continue;
+			if (plan.chunkLoopRange) {
+				const periodFrames = plan.chunkLoopRange.endFrame - plan.chunkLoopRange.startFrame;
+				// A storage chunk, assembled period and native loop buffer can overlap.
+				renderBytes = addBytes(renderBytes, pcmBytes(source.chunkFrames + periodFrames * 2, source.channelCount));
+				continue;
+			}
 			const inputFrames = plan.segmentDuration * plan.playbackRate * plan.sourceSampleRate;
 			const outputFrames = Math.round(plan.segmentDuration * sampleRate);
 			const direct = Math.abs(Math.round(plan.offsetFrame) - plan.offsetFrame) <= 1e-9

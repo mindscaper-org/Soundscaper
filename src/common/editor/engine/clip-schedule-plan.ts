@@ -37,7 +37,11 @@ import { clipEffectInputKey } from './clip-effect-inputs.ts';
 export { mergeFrameRanges, getTrackClips, automaticCrossfadeRanges };
 export type { ClipCrossfadeRanges, FrameRange };
 
+const BUFFERED_CHUNK_LOOP_BUDGET_BYTES = 4 * 1024 ** 2;
+
 export interface ClipSchedulePlan extends ClipCrossfadeRanges {
+	/** One original, forward PCM period to read before scheduling this loop. */
+	readonly chunkLoopRange?: Readonly<{ startFrame: number; endFrame: number }>;
 	readonly loopSourceStartFrame?: number;
 	readonly loopSourceEndFrame?: number;
 	readonly clip: EngineClip;
@@ -148,6 +152,7 @@ export interface BuildClipSchedulePlansOptions {
 	readonly sampleRate: number;
 	readonly sourceResolver?: EngineSourceResolver | null;
 	readonly offlineSampleRate?: number;
+	readonly chunkLoopSampleRate?: number;
 }
 
 export function buildClipSchedulePlans({
@@ -160,8 +165,10 @@ export function buildClipSchedulePlans({
 	sampleRate,
 	sourceResolver = null,
 	offlineSampleRate,
+	chunkLoopSampleRate,
 }: BuildClipSchedulePlansOptions): ClipSchedulePlan[] {
 	let clipsById: ReadonlyMap<string, EngineClip> | null = null;
+	let chunkLoopBudgetBytes = BUFFERED_CHUNK_LOOP_BUDGET_BYTES;
 	const plans: ClipSchedulePlan[] = [];
 	const audioTracks = (project.tracks || [])
 		.filter((track) => track.type !== 'label' && track.type !== 'video');
@@ -183,13 +190,21 @@ export function buildClipSchedulePlans({
 			const loop = readClipLoop(clip);
 			if (loop) {
 				const resolved = preferOfflineChunkSource(resolveClipSource(clip, project, sources, sourceResolver, chunkSources), offlineSampleRate);
-				if (resolved.buffer) {
-					const sourceDuration = resolved.sourceDurationFrames ?? clip.sourceDurationFrames ?? loop.periodFrames;
-					const sourceSampleRate = resolved.buffer.sampleRate;
-					const loopSourceStartFrame = resolved.reversed ? resolved.buffer.length - resolved.sourceStartFrame - sourceDuration : resolved.sourceStartFrame;
+				const sourceDuration = resolved.sourceDurationFrames ?? clip.sourceDurationFrames ?? loop.periodFrames;
+				const sourceSampleRate = resolved.buffer?.sampleRate ?? resolved.chunkSource?.sampleRate ?? sampleRate;
+				const bytes = sourceDuration * (resolved.chunkSource?.channelCount ?? 0) * Float32Array.BYTES_PER_ELEMENT;
+				const endFrame = resolved.sourceStartFrame + sourceDuration;
+				const chunkLoopRange = !resolved.buffer && resolved.chunkSource && clip.warpMap == null
+					&& chunkLoopSampleRate === sampleRate && sourceSampleRate === sampleRate && sourceDuration === loop.periodFrames
+					&& segmentEnd - segmentStart > loop.periodFrames && endFrame <= resolved.chunkSource.frameCount && bytes <= chunkLoopBudgetBytes
+					? { startFrame: resolved.sourceStartFrame, endFrame } : undefined;
+				if (resolved.buffer || chunkLoopRange) {
+					if (chunkLoopRange) chunkLoopBudgetBytes -= bytes;
+					const loopSourceStartFrame = !resolved.buffer ? 0 : resolved.reversed ? resolved.buffer.length - endFrame : resolved.sourceStartFrame;
 					const phase = (segmentStart - start + loop.offsetFrames) % loop.periodFrames;
 					plans.push({ clip, ...(crossfades.get(String(clip.id)) ?? { crossfadeInRanges: [], crossfadeOutRanges: [] }),
-						trackInput, originalBuffer: resolved.buffer, chunkSource: null, reversed: resolved.reversed,
+						trackInput, originalBuffer: resolved.buffer, chunkSource: chunkLoopRange ? resolved.chunkSource : null, reversed: resolved.reversed,
+						...(chunkLoopRange ? { chunkLoopRange } : {}),
 						loopSourceStartFrame, loopSourceEndFrame: loopSourceStartFrame + sourceDuration,
 						offsetFrame: loopSourceStartFrame + phase * sourceDuration / loop.periodFrames, sourceSampleRate,
 						playbackRate: sourceDuration * sampleRate / (loop.periodFrames * sourceSampleRate),
