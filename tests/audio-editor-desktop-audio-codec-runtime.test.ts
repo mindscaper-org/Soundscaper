@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { openAsBlob } from 'node:fs';
+import { mkdtemp, readFile, rm, truncate, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
 import {
@@ -197,6 +200,20 @@ test('desktop standalone decode keeps the source clock without reading the origi
 	assert.equal(imported.decoded.sampleRate, 96_000);
 	assert.equal(rangedBytes, file.size);
 	assert.equal(wholeBodyReads, 0);
+});
+
+test('desktop decode refuses a file beyond the IPC budget before reading its body', async context => {
+	const scratch = await mkdtemp(join(tmpdir(), 'soundscaper-codec-size-'));
+	context.after(async () => { await rm(scratch, { force: true, recursive: true }); });
+	const path = join(scratch, 'large.wma');
+	await writeFile(path, '');
+	await truncate(path, 64 * 1024 ** 2 + 1);
+	const file = await openAsBlob(path);
+	assert.equal(file.size, 64 * 1024 ** 2 + 1);
+	const slice = context.mock.method(file, 'slice', () => assert.fail('a file that exceeds the IPC budget must not enter staging'));
+	const runtime = createDesktopAudioCodecRuntime(successBridge(() => assert.fail('IPC must not receive the oversized file')));
+	await assert.rejects(runtime.decode(file), /desktop audio decode input exceeds 64 MiB/u);
+	assert.equal(slice.mock.callCount(), 0);
 });
 
 test('decode infers all seven file formats and converts exact interleaved results to planar channels', async () => {

@@ -5,6 +5,7 @@ import { inspectEncodedAudioSampleRate } from './audio-file-metadata.js';
 /** Renderer adapter for the pathless, main-owned desktop audio codec bridge. */
 import {
 	DESKTOP_AUDIO_CODEC_FORMATS,
+	DESKTOP_AUDIO_CODEC_IPC_MAXIMUM_ACTIVE_INPUT_BYTES,
 	normalizeDesktopAudioCodecRequest, normalizeDesktopAudioCodecResult,
 	type DesktopAudioCodecFormat, type DesktopAudioCodecRequest, type DesktopAudioCodecResult,
 } from '../../../desktop/desktop-audio-codec-operation-contract.ts';
@@ -355,6 +356,9 @@ export function createDesktopAudioCodecRuntime(bridgeValue: DesktopAudioCodecRen
 async function boundedInputBytes(value: Blob | ArrayBuffer | ArrayBufferView, signal?: AbortSignal,
 ): Promise<Uint8Array> {
 	throwIfAborted(signal);
+	const byteLength = value instanceof Blob ? value.size : value.byteLength;
+	const limit = DESKTOP_AUDIO_CODEC_IPC_MAXIMUM_ACTIVE_INPUT_BYTES;
+	if (byteLength > limit) throw new RangeError(`The desktop audio decode input exceeds ${String(limit / 1024 ** 2)} MiB.`);
 	if (value instanceof Blob) {
 		if (!Number.isSafeInteger(value.size) || value.size < 1) {
 			throw new RangeError('The desktop audio decode input must have a positive safe byte count.');
