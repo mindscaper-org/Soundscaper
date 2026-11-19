@@ -13,8 +13,7 @@ import { sourceMonitorFragmentedMedia } from './fixtures/video-timing-probe-medi
 test.describe('video container exporters', () => {
 	registerAudioEditorHooks();
 	for (const [index, variant] of ['classic', 'fragmented', 'hybrid'].entries()) {
-		test(`${variant} VFR AVC with fractional frame timestamps delivers every picture cell`, async ({ page, browserName }) => {
-			test.skip(browserName === 'webkit', 'WebKit reports a coded epoch for this exact AVC delivery fixture.');
+		test(`${variant} VFR AVC with fractional frame timestamps delivers every picture cell`, async ({ page }) => {
 			await disableNativeSavePicker(page);
 			const editor = await bootEditor(page, '/framescaper/embed/en/');
 			const file = sourceMonitorFragmentedMedia()[index];

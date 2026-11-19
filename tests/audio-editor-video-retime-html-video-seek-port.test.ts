@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
 
-import { createVideoRetimeHtmlVideoSeekPort } from '../src/common/editor/video-retime-html-video-seek-port.ts';
+import { createVideoRetimeHtmlVideoSeekPort, VideoRetimeFrameIntervalMismatch } from '../src/common/editor/video-retime-html-video-seek-port.ts';
 
 class PausedVideo extends EventTarget {
 	static readonly HAVE_CURRENT_DATA = 2;
@@ -84,6 +84,33 @@ test('the same rounded timestamp cannot authenticate the previous picture', asyn
 	video.presentFrame(.2);
 	video.drain();
 	assert.deepEqual(await result, { value: { mediaTime: .2 } });
+});
+
+test('a truncated microsecond timestamp authenticates its own authored start', async (context) => {
+	const { video, result } = fixture(context, 2 / 30, 3 / 30, 2.5 / 30);
+	video.presentFrame(.066666);
+	video.drain();
+	assert.deepEqual(await result, { value: { mediaTime: 2 / 30 } });
+});
+
+test('a truncated following boundary cannot authenticate the preceding picture after a retry', async (context) => {
+	const { video, result } = fixture(context, 0, 2 / 30, 1 / 30);
+	video.presentFrame(.133333);
+	video.drain();
+	assert.deepEqual(video.seeks, [1 / 30, 0]);
+	video.presentFrame(.066666);
+	video.drain();
+	const outcome = await result;
+	assert.ok('error' in outcome && outcome.error instanceof VideoRetimeFrameIntervalMismatch);
+});
+
+test('a microsecond shared by both boundary representations authenticates neither', async (context) => {
+	const { video, result } = fixture(context, .0666666, .0666672, .0666668);
+	video.presentFrame(.05);
+	video.presentFrame(.066667);
+	video.drain();
+	const outcome = await result;
+	assert.ok('error' in outcome && outcome.error instanceof VideoRetimeFrameIntervalMismatch);
 });
 
 test('a forward-snapped paused frame retries only after the initial seek drains', async (context) => {

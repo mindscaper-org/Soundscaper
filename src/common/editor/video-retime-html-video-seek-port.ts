@@ -52,6 +52,12 @@ interface VideoSourceIdentity {
 const DEFAULT_TIMEOUT_MS = 5_000;
 const MAXIMUM_TIMEOUT_MS = 30_000;
 
+export class VideoRetimeFrameIntervalMismatch extends RangeError {
+	constructor() {
+		super('The presented video frame is outside its requested half-open source interval.');
+	}
+}
+
 /** Adapt one exact source-frame descriptor into this seek port's validated request. */
 export function createVideoRetimeHtmlVideoPresentationRequest(
 	descriptor: VideoRetimeFrameDescriptor,
@@ -202,9 +208,7 @@ export function createVideoRetimeHtmlVideoSeekPort(
 							}
 							return;
 						}
-						requestFailure(seek, new RangeError(
-							'The presented video frame is outside its requested half-open source interval.',
-						));
+						requestFailure(seek, new VideoRetimeFrameIntervalMismatch());
 						return;
 					}
 					seek.presentedMediaTime = mediaTime;
@@ -367,15 +371,19 @@ function mediaTimeInRequestedInterval(mediaTime: number, request: ActiveSeek['re
 }
 
 function authoredCallbackTime(mediaTime: number, request: ActiveSeek['request']): number {
-	// Browsers can report a microsecond-rounded decoder PTS. Map either exact
-	// reporting boundary back to its authored value before the half-open check.
-	const start = Math.round(request.intervalStartSeconds * 1_000_000) / 1_000_000;
-	const end = Math.round(request.intervalEndSeconds * 1_000_000) / 1_000_000;
-	if (start < end) {
-		if (mediaTime === start) return request.intervalStartSeconds;
-		if (mediaTime === end) return request.intervalEndSeconds;
-	}
+	// Browser decoders can round or truncate a reporting boundary to a whole
+	// microsecond. A representation shared by both boundaries proves neither.
+	const atStart = reportsBoundary(mediaTime, request.intervalStartSeconds);
+	const atEnd = reportsBoundary(mediaTime, request.intervalEndSeconds);
+	if (atStart && atEnd) return Number.NaN;
+	if (atStart) return request.intervalStartSeconds;
+	if (atEnd) return request.intervalEndSeconds;
 	return mediaTime;
+}
+
+function reportsBoundary(mediaTime: number, boundary: number): boolean {
+	const micros = boundary * 1_000_000;
+	return mediaTime === Math.round(micros) / 1_000_000 || mediaTime === Math.floor(micros) / 1_000_000;
 }
 
 function samePresentationRequest(left: ActiveSeek['request'], right: ActiveSeek['request']): boolean {

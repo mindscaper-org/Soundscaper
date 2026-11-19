@@ -151,7 +151,7 @@ export const EDITOR_OPTIONAL_EXECUTION_CHUNK_TEST = new RegExp(
 
 /** Audio/video delivery and Freesound clip materialization isolated from the eager controller graph. */
 export const EDITOR_OPTIONAL_EXPORT_CHUNK_TEST = new RegExp(
-	`${editorPath}(?:controller[\\\\/]${editorOptionalExportControllerModule}|${editorOptionalExportFlatModule}|ui[\\\\/]video-keyframe-offline-(?:html-video-source-(?:admission|resolver)|rgba-(?:admission|source|renderer)|video-export(?:-(?:admission|sources|encoder|runner))?))\\.ts$`,
+	`${editorPath}(?:controller[\\\\/]${editorOptionalExportControllerModule}|${editorOptionalExportFlatModule}|ui[\\\\/]video-keyframe-offline-(?:delivery-source-resolver|packet-picture|html-video-source-(?:admission|resolver)|rgba-(?:admission|source|renderer)|video-export(?:-(?:admission|sources|encoder|runner))?))\\.ts$`,
 );
 
 /** Capture and Web VCR implementation behind the deferred Framescaper capture runtime. */
