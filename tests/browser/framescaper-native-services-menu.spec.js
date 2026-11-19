@@ -96,6 +96,26 @@ test('Framescaper v1 exposes native work only through menus and retains its watc
 	await expect(dialog.getByRole('list', { name: 'Watch folders' })).toContainText('Generate');
 });
 
+test('Tools proxy commands open the usable manager directly', async ({ page }) => {
+	await stubStorageEstimate(page, { usage: 1024 ** 2, quota: 2 * 1024 ** 3 });
+	await installNativeServicesFixture(page);
+	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	await openNativePreferences(page, editor, 'Advanced', 'Native media and scratch');
+	const preferences = page.getByRole('dialog', { name: 'Native media and scratch', exact: true });
+	await preferences.locator('[data-native-service-preference="native-media"]').check();
+	await preferences.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: /^Close$/u }).click();
+	const media = videoTimingProbeMedia.find(({ id }) => id === 'cfr-25fps-mp4-v1');
+	await editor.locator('[data-project-bin-input]').setInputFiles(media.file);
+	await expect(editor.locator('[data-project-bin-item]').first()).toBeVisible({ timeout: 30_000 });
+	const manager = page.getByRole('dialog', { name: 'Video proxies', exact: true });
+	for (const command of ['Generate', 'Attach', 'Detach', 'Relink']) {
+		await chooseNestedCommandAction(page, editor, 'Tools', ['Proxies', command]);
+		await expect(manager).toBeVisible({ timeout: 4_000 });
+		await manager.getByRole('button', { name: 'Attach existing', exact: true }).click({ trial: true });
+		await manager.getByRole('button', { name: 'Close', exact: true }).click();
+	}
+});
+
 test('a native watch claim imports one video into the Project Bin and acknowledges its committed revision', async ({ page }) => {
 	test.setTimeout(90_000);
 	const media = videoTimingProbeMedia.find(({ id }) => id === 'cfr-25fps-mp4-v1');
