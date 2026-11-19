@@ -112,6 +112,7 @@ export async function publishNativeScape(
 	});
 	if (saved.cancelled) throw new DOMException('The file save was cancelled.', 'AbortError');
 	await recordScapeArchiveManifest(runtime, {
+		projectId: request.project.id,
 		archive: exported.blob, fileName: savedScapeFileName(saved, request.fileName),
 		projectTitle: String(request.project?.title ?? '') || null, signal: request.signal,
 	});
@@ -151,6 +152,7 @@ export async function saveNativeScapeArchiveCopy(
 		request.beginWriting();
 	} catch (error) { return abortNativeScapeSave(prepared, error); }
 	const { saved } = await publishNativeScapeArchiveCopy(runtime, {
+		projectId: request.retained.projectId,
 		archive: request.retained.archive,
 		copySource: request.retained.copySource,
 		assertReadyToCommit: request.assertReady,
@@ -164,6 +166,7 @@ export async function publishNativeScapeArchiveCopy(
 	runtime: Pick<NativeProjectServiceRuntime,
 	'copyFutureScapeArchive' | 'fileService' | 'publishDocumentSnapshot' | 'scapeMimeType' | 'state'>,
 	request: Readonly<{
+		projectId: string;
 		archive: Blob;
 		copySource?: ScapeArchiveByteSource;
 		assertReadyToCommit(): void;
@@ -215,6 +218,7 @@ export async function publishNativeScapeArchiveCopy(
 			throw error;
 		}
 		await recordScapeArchiveManifest(runtime, {
+			projectId: request.projectId,
 			archive: request.archive, fileName: savedScapeFileName(publication.saved, request.fileName), signal: request.signal,
 		});
 		return publication;
@@ -240,6 +244,7 @@ export async function publishNativeScapeArchiveCopy(
 	});
 	if (saved.cancelled) throw new DOMException('The file save was cancelled.', 'AbortError');
 	await recordScapeArchiveManifest(runtime, {
+		projectId: request.projectId,
 		archive: request.archive, fileName: savedScapeFileName(saved, request.fileName), signal: request.signal,
 	});
 	return { copied, saved };
@@ -278,6 +283,7 @@ async function publishDirectScape(
 		return abortNativeScapeSave(request.prepared, error);
 	}
 	await recordScapeArchiveManifest(runtime, {
+		projectId: request.project.id,
 		archive: null,
 		fileName: savedScapeFileName(publication.saved, request.fileName),
 		projectTitle: String(request.project?.title ?? '') || null,

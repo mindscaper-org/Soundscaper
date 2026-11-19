@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createNativeProjectService } from '../src/common/editor/controller/document/native-project-service.ts';
+import { currentScapeArchiveManifest, recordScapeArchiveManifest } from '../src/common/editor/controller/document/internal/scape/scape-archive-manifest-action.ts';
 import type { NativeProjectDocument } from '../src/common/editor/controller/document/native-project-types.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
@@ -35,11 +36,10 @@ test('MP03: a canceled Scape save preserves the manifest of the last saved archi
 			saveFile: async () => ({ cancelled: true }),
 		},
 	});
-	const previous = Object.freeze({ fileName: 'previous.sscape', manifest: { members: [] } });
-	const state = fixture.state as unknown as Record<string, unknown>;
-	state.archiveManifest = previous;
+	const previous = await recordScapeArchiveManifest(fixture, { projectId: snapshot.id,
+		archive: blob, fileName: 'previous.sscape', signal: new AbortController().signal });
 	await assert.rejects(createNativeProjectService(fixture.runtime).saveScape(), { name: 'AbortError' });
-	assert.equal(state.archiveManifest, previous);
+	assert.equal(currentScapeArchiveManifest(fixture.state, snapshot.id), previous);
 });
 
 test('MP05: Scape archive reports identify the filename actually chosen by the user', async () => {
@@ -52,8 +52,7 @@ test('MP05: Scape archive reports identify the filename actually chosen by the u
 		},
 	});
 	await createNativeProjectService(fixture.runtime).saveScape();
-	const state = fixture.state as unknown as { archiveManifest: { fileName: string } };
-	assert.equal(state.archiveManifest.fileName, 'chosen.sscape');
+	assert.equal(currentScapeArchiveManifest(fixture.state, snapshot.id)?.fileName, 'chosen.sscape');
 });
 
 test('MP04: editing while a native archive is being saved leaves the newer document dirty', async () => {

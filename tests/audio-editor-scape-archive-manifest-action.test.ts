@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+	currentScapeArchiveManifest,
 	recordScapeArchiveManifest,
 	saveCurrentScapeArchiveManifest,
 } from '../src/common/editor/controller/document/internal/scape/scape-archive-manifest-action.ts';
@@ -11,10 +12,12 @@ import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 
 const PROJECT = new TextEncoder().encode('{"schemaVersion":9}');
 const MEDIA = Uint8Array.from({ length: 2_048 }, (_value, index) => index % 251);
+const projectId = 'cafe-film';
 
 test('a saved archive records a manifest of the bytes it actually contains', async () => {
 	const runtime = createRuntime();
 	const record = await recordScapeArchiveManifest(runtime, {
+		projectId,
 		archive: archive(),
 		fileName: 'Cafe Film.scape',
 		projectTitle: 'Cafe Film',
@@ -29,20 +32,21 @@ test('a saved archive records a manifest of the bytes it actually contains', asy
 		record.manifest?.members.find(({ id }) => id === 'media/a.wav')?.sha256,
 		digestScapeBytes(MEDIA),
 	);
-	assert.equal(runtime.state.archiveManifest, record);
+	assert.equal(currentScapeArchiveManifest(runtime.state, projectId), record);
 	assert.equal(runtime.published, 1);
 });
 
 test('a streamed save says the archive was never held rather than inventing one', async () => {
 	const runtime = createRuntime();
 	const record = await recordScapeArchiveManifest(runtime, {
+		projectId,
 		archive: null, fileName: 'Cafe Film.scape', signal: new AbortController().signal,
 	});
 
 	assert.equal(record.manifest, null);
 	assert.match(String(record.unavailable), /streamed straight to its destination/u);
 	// "We did not check" and "we checked and it passed" stay different answers.
-	const saved = await saveCurrentScapeArchiveManifest(runtime);
+	const saved = await saveCurrentScapeArchiveManifest(runtime, projectId);
 	assert.equal(saved.saved, false);
 	assert.match(String(saved.reason), /streamed straight to its destination/u);
 	assert.equal(runtime.saved.length, 0);
@@ -53,22 +57,26 @@ test('an archive that cannot be read back is a missing manifest, not a failed sa
 	// The file is already written and saved by the time this runs. Evidence that
 	// could not be gathered must never turn into a failure of the save itself.
 	const record = await recordScapeArchiveManifest(runtime, {
+		projectId,
 		archive: new Blob([Uint8Array.of(1, 2, 3)]), fileName: 'Cafe Film.scape',
 		signal: new AbortController().signal,
 	});
 
 	assert.equal(record.manifest, null);
 	assert.match(String(record.unavailable), /could not be read back/u);
-	assert.equal(runtime.state.archiveManifest, record);
+	assert.equal(currentScapeArchiveManifest(runtime.state, projectId), record);
 });
 
 test('the recorded manifest saves as a report document', async () => {
 	const runtime = createRuntime();
 	const record = await recordScapeArchiveManifest(runtime, {
+		projectId,
 		archive: archive(), fileName: 'Cafe Film.scape', projectTitle: 'Cafe Film',
 		signal: new AbortController().signal,
 	});
-	const saved = await saveCurrentScapeArchiveManifest(runtime);
+	assert.equal((await saveCurrentScapeArchiveManifest(runtime, 'another-project')).saved, false);
+	assert.equal(runtime.saved.length, 0);
+	const saved = await saveCurrentScapeArchiveManifest(runtime, projectId);
 
 	assert.equal(saved.saved, true);
 	assert.equal(runtime.saved.length, 1);

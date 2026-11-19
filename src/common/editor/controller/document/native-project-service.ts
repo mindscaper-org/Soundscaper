@@ -7,6 +7,7 @@ import { isScapeProjectFile } from '../../scape-project-format.ts';
 import { createDeferredDawprojectService } from '../import/deferred-dawproject-service.ts';
 import { createDeferredSesxService } from '../import/deferred-sesx-service.ts';
 import { createDeferredInterchangeService } from '../import/deferred-interchange-service.ts';
+import { retireScapeArchiveManifests } from './internal/scape/scape-archive-manifest-action.ts';
 import {
 	EDITOR_PROJECT_TASK_SCOPE,
 	type EditorProjectToken,
@@ -146,6 +147,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 	}
 
 	async function retireClosedScapeArchives(): Promise<void> {
+		retireScapeArchiveManifests(runtime.state, projectId => Boolean(runtime.sessionTab(projectId)));
 		const releases: Promise<void>[] = [];
 		for (const [projectId, archive] of futureScapeArchives) {
 			if (runtime.sessionTab(projectId)) continue;

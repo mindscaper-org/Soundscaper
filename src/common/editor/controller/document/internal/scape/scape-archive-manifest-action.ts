@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 /**
- * The checksum manifest of the Scape archive this session just wrote.
+ * The checksum manifest of the last Scape archive written for an open project.
  *
  * It is built by reading the written archive back and digesting what is in it,
  * never by copying the digests the writer computed on the way out. A manifest
@@ -37,23 +37,41 @@ export interface ArchiveManifestSessionRecord {
 	readonly fileName: string;
 }
 
-const pendingReadbacks = new WeakMap<object, symbol>();
+interface ProjectArchiveReadback {
+	record: ArchiveManifestSessionRecord | null;
+}
+
+const readbacks = new WeakMap<object, Map<string, ProjectArchiveReadback>>();
+
+export function currentScapeArchiveManifest(state: object, projectId: unknown): ArchiveManifestSessionRecord | null {
+	return typeof projectId === 'string' ? readbacks.get(state)?.get(projectId)?.record ?? null : null;
+}
+
+export function retireScapeArchiveManifests(state: object, retainProject: (id: string) => boolean): void {
+	const projects = readbacks.get(state);
+	if (!projects) return;
+	for (const id of projects.keys()) if (!retainProject(id)) projects.delete(id);
+}
 
 /** Record the manifest of a saved archive, or why one could not be made. */
 export async function recordScapeArchiveManifest(
 	runtime: ScapeArchiveManifestRuntime,
 	request: Readonly<{
+		projectId: string;
 		archive: Blob | null | undefined;
 		fileName: string;
 		projectTitle?: string | null;
 		signal: AbortSignal;
 	}>,
 ): Promise<ArchiveManifestSessionRecord> {
-	const requestToken = Symbol();
-	pendingReadbacks.set(runtime.state, requestToken);
+	let projects = readbacks.get(runtime.state);
+	if (!projects) readbacks.set(runtime.state, projects = new Map());
+	const { projectId } = request;
+	const pending = { record: projects.get(projectId)?.record ?? null };
+	projects.set(projectId, pending);
 	const record = await manifestRecord(request);
-	if (pendingReadbacks.get(runtime.state) === requestToken) {
-		(runtime.state as Record<string, unknown>).archiveManifest = record;
+	if (projects.get(projectId) === pending) {
+		pending.record = record;
 		runtime.publishDocumentSnapshot?.();
 	}
 	return record;
@@ -106,9 +124,9 @@ function errorText(error: unknown): string {
 /** Save the recorded manifest as a report document. */
 export async function saveCurrentScapeArchiveManifest(
 	runtime: ScapeArchiveManifestRuntime,
+	projectId: unknown,
 ): Promise<Readonly<{ saved: boolean; reason: string | null; localization?: LocalizedPresentationMessage }>> {
-	const record = (runtime.state as Record<string, unknown>)
-		.archiveManifest as ArchiveManifestSessionRecord | undefined;
+	const record = currentScapeArchiveManifest(runtime.state, projectId);
 	if (!record?.manifest) {
 		return Object.freeze({ saved: false, reason: record?.unavailable ?? PROJECT_MEDIA_COPY_BY_LOCALE.en.noArchive,
 			localization: record?.unavailable ? record.unavailableLocalization : {

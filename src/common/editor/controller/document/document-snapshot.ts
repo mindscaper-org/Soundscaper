@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { materializeSnapshotValue } from './internal/snapshots/published-snapshot-value.ts';
+import { currentScapeArchiveManifest } from './internal/scape/scape-archive-manifest-action.ts';
 import { normalizePlayAtSpeedRate } from '../../engine/buffer-math.ts';
 import { projectFeatureAffectedObjects } from '../../project-feature-affected-objects.ts';
 import type { ProjectFeatureRequirementsReport } from '../../project-feature-requirements.ts';
@@ -154,8 +155,6 @@ export interface EditorDocumentSnapshotState extends Readonly<SelectedLabelState
 	readonly clipboard: unknown;
 	readonly status: Readonly<{ message: string; state: string; localization?: import('../../../i18n/presentation-message.ts').LocalizedPresentationMessage }>;
 	readonly deliveryReport?: unknown;
-	/** The checksum manifest of the Scape this session last wrote, if it held one. */
-	readonly archiveManifest?: unknown;
 	readonly videoDeliveryPreviewCanvas?: unknown;
 	readonly saveState: string;
 	readonly storageEstimate: Readonly<StorageCapacitySnapshot>;
@@ -375,7 +374,7 @@ export function createEditorDocumentSnapshot<Project extends SnapshotProject>(
 		// full re-read of the archive to produce these checksums, and the menu entry
 		// that saves them is enabled from the snapshot. Leaving it out of the
 		// snapshot left the entry disabled for the whole session.
-		archiveManifest: state.archiveManifest ?? null,
+		archiveManifest: currentScapeArchiveManifest(state, currentProject?.id),
 		videoDeliveryPreviewCanvas: state.videoDeliveryPreviewCanvas ?? null,
 		featureRequirementsCompatibility: currentTabMetadata.featureRequirementsReport ?? null,
 		featureRequirementsReadOnly: Boolean(currentTabMetadata.featureRequirementsReadOnly),

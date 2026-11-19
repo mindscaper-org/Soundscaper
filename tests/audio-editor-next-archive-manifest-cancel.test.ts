@@ -32,11 +32,14 @@ test('NP032: File checksum export acknowledges native Cancel and permits a succe
 	await controller.actions.project.openScapeFile(new File([future], 'Future.sscape'), () => 'copy');
 	await controller.actions.project.saveScape({ saveCopy: true });
 	assert.ok(controller.getSnapshot().archiveManifest);
-	await controller.actions.project.create();
 	const cancelled = await controller.actions.media.saveArchiveManifest();
 	assert.deepEqual(cancelled, { saved: false, reason: null });
 	assert.equal(reportWrites, 0);
 	cancelReport = false;
 	assert.deepEqual(await controller.actions.media.saveArchiveManifest(), { saved: true, reason: null });
+	assert.equal(reportWrites, 1);
+	await controller.actions.project.create();
+	assert.equal(controller.getSnapshot().archiveManifest, null);
+	assert.equal((await controller.actions.media.saveArchiveManifest()).saved, false);
 	assert.equal(reportWrites, 1);
 });

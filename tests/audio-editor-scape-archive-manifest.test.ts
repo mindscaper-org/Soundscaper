@@ -11,7 +11,7 @@ import {
 
 import { createScapeArchiveManifest } from '../src/common/editor/scape-archive-manifest.ts';
 import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
-import { recordScapeArchiveManifest, type ArchiveManifestSessionRecord } from '../src/common/editor/controller/document/internal/scape/scape-archive-manifest-action.ts';
+import { currentScapeArchiveManifest, recordScapeArchiveManifest, retireScapeArchiveManifests } from '../src/common/editor/controller/document/internal/scape/scape-archive-manifest-action.ts';
 import { deferred } from './helpers/async-test-control.ts';
 
 const PROJECT = new TextEncoder().encode('{"schemaVersion":9}');
@@ -49,7 +49,7 @@ test('manifest creation obeys cancellation before opening an archive', async () 
 	}), { name: 'AbortError' });
 });
 
-test('a slow readback from the previous tab cannot replace a newer saved archive’s checksums', async context => {
+test('overlapping readbacks keep the newest record for each open project', async context => {
 	const slow = await archive();
 	const second = await archive();
 	const entered = deferred<void>(), resume = deferred<void>();
@@ -59,18 +59,24 @@ test('a slow readback from the previous tab cannot replace a newer saved archive
 		if (!held) { held = true; entered.resolve(); await resume.promise; }
 		return read.call(this);
 	});
-	const state: { archiveManifest?: ArchiveManifestSessionRecord } = {};
+	const state = {};
 	const signal = new AbortController().signal;
-	const first = recordScapeArchiveManifest({ state }, { archive: slow, fileName: 'First.sscape', signal });
+	const first = recordScapeArchiveManifest({ state }, { projectId: 'first', archive: slow, fileName: 'First.sscape', signal });
 	await entered.promise;
 	try {
-		await recordScapeArchiveManifest({ state }, { archive: second, fileName: 'Second.sscape', signal });
+		await recordScapeArchiveManifest({ state }, { projectId: 'second', archive: second, fileName: 'Second.sscape', signal });
+		assert.equal(currentScapeArchiveManifest(state, 'first'), null);
+		await recordScapeArchiveManifest({ state }, { projectId: 'first', archive: null, fileName: 'New first.sscape', signal });
 	} finally {
 		resume.resolve();
 		await first;
 	}
-	assert.equal(state.archiveManifest?.fileName, 'Second.sscape');
-	assert.ok(state.archiveManifest?.manifest);
+	assert.equal(currentScapeArchiveManifest(state, 'first')?.fileName, 'New first.sscape');
+	assert.equal(currentScapeArchiveManifest(state, 'second')?.fileName, 'Second.sscape');
+	assert.ok(currentScapeArchiveManifest(state, 'second')?.manifest);
+	retireScapeArchiveManifests(state, projectId => projectId === 'second');
+	assert.equal(currentScapeArchiveManifest(state, 'first'), null);
+	assert.ok(currentScapeArchiveManifest(state, 'second')?.manifest);
 });
 
 async function archive(withDirectory = false): Promise<Blob> {
