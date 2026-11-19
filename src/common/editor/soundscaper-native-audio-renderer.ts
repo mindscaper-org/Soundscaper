@@ -70,7 +70,7 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 	onTransfer?: (sessionId: string, value: Readonly<{
 		framesTransferred: number; lostFrames: number;
 	}>) => void;
-	onDeviceLoss?: (sessionId: string, reason: string) => Promise<void> | void;
+	onDeviceLoss?: (sessionId: string, reason: string, direction: NativeAudioSessionOpenRequestV1['direction']) => Promise<void> | void;
 }>) {
 	const windowValue = options.windowValue ?? (typeof window === 'undefined' ? null : window);
 	const createNode = options.createNode ?? createNativeDeviceIoWorkletNode;
@@ -201,7 +201,7 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 			}
 			capture?.revoke(String(value.reason || fallback));
 			void (async () => {
-				try { await options.onDeviceLoss?.(sessionId, reason); }
+				try { await options.onDeviceLoss?.(sessionId, reason, request.direction); }
 				finally { await release(sessionId); }
 			})().catch(() => undefined);
 		};

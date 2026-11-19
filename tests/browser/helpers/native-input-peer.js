@@ -7,7 +7,8 @@ export async function installNativeInputPeer(page) {
 	await installNativeOutputPeer(page);
 	await page.addInitScript(() => {
 		const api = window.soundscaperDesktop.v1, requests = new Map(), peers = new Map();
-		window.__nativeInputPeer = { requests: [], contexts: [] };
+		window.__nativeInputPeer = { requests: [], contexts: [],
+			loseDevice: sessionId => peers.get(sessionId).worker.postMessage({ deviceLost: true }) };
 		const Context = AudioContext;
 		window.AudioContext = new Proxy(Context, { construct(target, args, newTarget) {
 			const context = Reflect.construct(target, args, newTarget);
@@ -29,10 +30,16 @@ export async function installNativeInputPeer(page) {
 			const request = requests.get(sessionId);
 			if (request.direction === 'output') return bind({ sessionId });
 			const pair = new MessageChannel(), url = URL.createObjectURL(new Blob([`
+				let deviceLost = false;
 				onmessage = ({ data }) => {
+					if (data.deviceLost) { deviceLost = true; return; }
 					const { port, rate } = data;
 					port.onmessage = ({ data }) => {
 						if (data.kind !== 'capture-credit') return;
+						if (deviceLost) {
+							port.postMessage({ ...data, kind: 'audio', status: 'device-unavailable', framesTransferred: 0 }, data.channels.map(channel => channel.buffer));
+							return;
+						}
 						for (const channel of data.channels) for (let frame = 0; frame < channel.length; frame++) {
 							channel[frame] = (rate === 44100 ? .02 : .2) * Math.sin(2 * Math.PI * 440 * (data.startFrame + frame) / rate);
 						}

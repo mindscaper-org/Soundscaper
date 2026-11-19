@@ -2,7 +2,35 @@
 
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, importFiles } from './audio-editor-test-helpers.js';
+import { installNativeInputPeer } from './helpers/native-input-peer.js';
 import { installNativeOutputPeer, NATIVE_OUTPUT_PEER_WEBKIT_REASON } from './helpers/native-output-peer.js';
+
+test('losing a separate native microphone leaves speaker playback running', async ({ page, browserName }) => {
+	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
+	await installNativeInputPeer(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	await importFiles(editor, [createWavFixture({ name: 'Separate input and output.wav', sampleRate: 48_000,
+		frequency: 440, duration: 4, channelCount: 1 })]);
+	await editor.getByRole('button', { name: 'Audio setup', exact: true }).click();
+	const setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
+	await setup.getByRole('combobox', { name: 'Host', exact: true }).selectOption('alsa');
+	await expect(setup.getByRole('combobox', { name: 'Speakers', exact: true })).toBeEnabled();
+	await page.keyboard.press('Escape');
+	await editor.getByRole('button', { name: 'Play', exact: true }).click();
+	try {
+		await expect.poll(() => page.evaluate(() => Math.max(0, ...window.__nativeOutput.channelRms))).toBeGreaterThan(.05);
+		const input = await page.evaluate(() => {
+			const request = window.__nativeInputPeer.requests.find(value => value.direction === 'input');
+			window.__nativeInputPeer.loseDevice(request.sessionId);
+			return request.sessionId;
+		});
+		await expect.poll(() => page.evaluate(() => window.__nativeOutput.loss)).toEqual([{ sessionId: input, reason: 'device-loss' }]);
+		await expect(editor.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
+		const fence = await page.evaluate(() => window.__nativeOutput.fence());
+		await expect.poll(() => page.evaluate(({ packet, sessionId, periodFrames }) => window.__nativeOutput.packetHistory.some(next =>
+			next.sessionId === sessionId && next.startFrame >= packet.endFrame + 8 * periodFrames && Math.max(...next.peaks) > .05), fence)).toBe(true);
+	} finally { await editor.getByRole('button', { name: 'Stop', exact: true }).click(); }
+});
 
 test('native playback keeps the same device clock while paused and resumes audio', async ({ page, browserName }) => {
 	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);

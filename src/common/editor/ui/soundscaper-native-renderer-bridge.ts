@@ -95,8 +95,8 @@ function createNativeEffectRendererBridge(options: Readonly<{
 				sessionId, ...value,
 			}));
 		},
-		onDeviceLoss: (sessionId, reason) => {
-			if (options.onAudioDeviceLoss) options.engine.pause();
+		onDeviceLoss: (sessionId, reason, direction) => {
+			if (direction !== 'input' && options.onAudioDeviceLoss) options.engine.pause();
 			options.onAudioDeviceLoss?.(sessionId, reason);
 			return enqueueAudioReport(sessionId, () => options.bridge.reportNativeAudioSessionLoss({ sessionId, reason }));
 		},
