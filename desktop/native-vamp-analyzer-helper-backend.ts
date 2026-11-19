@@ -142,8 +142,7 @@ class HelperVampAnalyzerInstance implements VampAnalyzerBackendInstance {
 	async process(chunk: Readonly<VampAnalyzerPcmChunk>) {
 		if (this.#configuration === null) throw new Error('The Vamp analyzer backend is not configured.');
 		const admitted = consumeVampAnalyzerSessionPcm(chunk, this.#configuration, this.#nextFrame);
-		const answer = await this.#request('process', { chunk: admitted },
-			admitted.channels.map(({ buffer }) => buffer as ArrayBuffer));
+		const answer = await this.#request('process', { chunk: admitted });
 		if (answer.kind !== 'features') throw new Error('The Vamp helper returned the wrong process response.');
 		const features = captureVampAnalyzerBackendFeatures(answer.features, this.#outputs);
 		this.#nextFrame += admitted.frameCount;
@@ -199,7 +198,6 @@ class HelperVampAnalyzerInstance implements VampAnalyzerBackendInstance {
 	#request(
 		kind: 'configure' | 'process' | 'finish' | 'cancel',
 		fields: Readonly<Record<string, unknown>> = {},
-		transfer: readonly ArrayBuffer[] = [],
 	): Promise<Record<string, unknown>> {
 		const perform = async () => {
 			if (this.#closed || this.#closing) throw new Error('The Vamp analyzer backend is closed.');
@@ -210,7 +208,7 @@ class HelperVampAnalyzerInstance implements VampAnalyzerBackendInstance {
 				this.#pending = Object.freeze({ resolve, reject });
 			});
 			try {
-				this.#port.postMessage({ protocolVersion: PROTOCOL_VERSION, kind, requestId, ...fields }, transfer);
+				this.#port.postMessage({ protocolVersion: PROTOCOL_VERSION, kind, requestId, ...fields });
 			} catch (error) {
 				this.#pending = null;
 				throw error;
