@@ -37,6 +37,7 @@ patches/**/*.patch text eol=lf
 /scripts/self-test-soundscaper-delivery-fs.mjs text eol=lf
 /scripts/lib/soundscaper-professional-packaged-app-authority.mjs text eol=lf
 /scripts/lib/soundscaper-professional-native-containment-probes.mjs text eol=lf
+/scripts/lib/windows-vst2-x86-canary.mjs text eol=lf
 /scripts/lib/soundscaper-native-test-runtime.mjs text eol=lf
 /native/soundscaper-helper-addon/source-manifest.json text eol=lf
 /native/soundscaper-helper-addon/src/*.c text eol=lf
