@@ -121,10 +121,7 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 			maximumHeight: captureOptions.maximumHeight ?? 180,
 			maximumEncodedBytes: captureOptions.maximumEncodedBytes,
 		});
-		const timestamp = Math.max(0, Math.min(
-			Math.max(0, durationSeconds - 0.001),
-			Number(timestampSeconds) || 0,
-		));
+		const timestamp = captureTiming.clampTime(Math.max(0, Number(timestampSeconds) || 0), durationSeconds);
 		const abortScope = createCaptureAbortScope([
 			captureOptions.signal ?? options.signal,
 			captureLifetime.signal,

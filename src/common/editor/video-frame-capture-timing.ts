@@ -8,6 +8,7 @@ type FrameMatcher = (timestamp: number, mediaTime: number) => boolean;
 interface VideoFrameCaptureTiming {
 	readonly matches: FrameMatcher;
 	readonly seekTime: (timestamp: number) => number | null;
+	readonly clampTime: (timestamp: number, duration: number) => number;
 }
 interface CaptureTimingOptions {
 	readonly signal?: AbortSignal;
@@ -29,7 +30,7 @@ export async function createVideoFrameCaptureTiming(
 	} catch {
 		options.signal?.throwIfAborted();
 		// A native decoder may support a container the timing reader does not.
-		return Object.freeze({ matches: exactTimestamp, seekTime: () => null });
+		return Object.freeze({ matches: exactTimestamp, seekTime: () => null, clampTime: clampUnindexedTime });
 	}
 	options.signal?.throwIfAborted();
 	const starts = timing.presentationTicks.map(ticks => Number(ticks) / timing.timescale);
@@ -59,7 +60,17 @@ export async function createVideoFrameCaptureTiming(
 		// target toward this frame's PTS while remaining inside its interval.
 		return start + ((starts[frame + 1] ?? end) - start) / 4;
 	};
-	return Object.freeze({ matches, seekTime });
+	const clampTime = (timestamp: number, duration: number): number => {
+		const last = starts.at(-1);
+		const pictureEnd = Math.min(end, duration);
+		if (last === undefined || last >= pictureEnd) return clampUnindexedTime(timestamp, duration);
+		return timestamp < pictureEnd ? timestamp : last;
+	};
+	return Object.freeze({ matches, seekTime, clampTime });
+}
+
+function clampUnindexedTime(timestamp: number, duration: number): number {
+	return Math.min(timestamp, Math.max(0, duration - 0.001));
 }
 
 function exactTimestamp(timestamp: number, mediaTime: number): boolean {

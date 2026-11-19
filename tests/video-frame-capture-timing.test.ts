@@ -36,10 +36,12 @@ test('capture matches frame PTS and interior times across variable source interv
 });
 
 test('unknown containers retain exact-time matching and cancellation is never swallowed', async () => {
-	const { matches, seekTime } = await createVideoFrameCaptureTiming(file, {
+	const { matches, seekTime, clampTime } = await createVideoFrameCaptureTiming(file, {
 		readTiming: () => Promise.reject(new Error('Unsupported timing.')),
 	});
 	assert.equal(seekTime(0), null);
+	assert.equal(clampTime(5, 10), 5);
+	assert.equal(clampTime(11, 10), 9.999);
 	assert.equal(matches(.1, .1), true);
 	assert.equal(matches(.1, 0), false);
 	const controller = new AbortController();

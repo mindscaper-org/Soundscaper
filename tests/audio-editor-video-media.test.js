@@ -137,6 +137,20 @@ test('an indexed capture seeks early enough to avoid the next decoded frame', as
 	} finally { fixture.extractor.dispose(); }
 });
 
+test('a capture inside or beyond a sub-millisecond final frame selects that frame', async () => {
+	const fixture = await videoExtractorFixture({
+		duration: 0.002,
+		timing: { timescale: 2_000, presentationTicks: [0n, 1n, 2n, 3n], finalFrameDurationTicks: 1n },
+	});
+	try {
+		const beforeEnd = await fixture.extractor.capturePixels(0.00175);
+		const beyondEnd = await fixture.extractor.capturePixels(1);
+		assert.equal(beforeEnd.timestampSeconds, 0.00175);
+		assert.equal(beyondEnd.timestampSeconds, 0.0015);
+		assert.deepEqual(fixture.seeks.map(time => Math.round(time * 1e6)), [1625]);
+	} finally { fixture.extractor.dispose(); }
+});
+
 test('the initial poster seeks inside the first admitted source frame', async () => {
 	const fixture = await videoExtractorFixture({
 		duration: 0.004,
