@@ -1,8 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { FoundationRuntimeConsumerEvidence } from './foundation-runtime-consumer-evidence.ts';
 
-/** Projection evidence for controlled audio previews and transcript geometry. */
+/** Projection evidence for audio and video previews and transcript geometry. */
 export const FOUNDATION_RUNTIME_ADDITIONAL_CONSUMERS: readonly FoundationRuntimeConsumerEvidence[] = [
+	{
+		id: 'indexed-video-preview-picture', surface: 'preview', file: 'src/common/editor/video-source-time.ts',
+		entryPoint: 'indexedUnretimedVideoFrameAtSample', inputIdentifier: 'project', projectedIdentifier: null,
+		boundary: 'resolveRuntimeClipProjection',
+		evidence: 'The preview resolves the authored clip before mapping the selected project sample onto the verified source picture clock.',
+	},
 	{
 		id: 'normalization-controls-musical-target', surface: 'composition',
 		file: 'src/common/editor/controller/clip-video/internal/clip-normalization-controls.ts', entryPoint: 'clipNormalizationControlProject',

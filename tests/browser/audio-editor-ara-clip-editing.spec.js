@@ -23,6 +23,7 @@ for (const productId of ['soundscaper', 'framescaper']) {
 		const originalClip = clipByName(editor, AUDIO.name);
 		await originalClip.locator('.clip-header').click();
 		const originalClipId = await originalClip.getAttribute('data-clip-id');
+		const originalTimelineClip = originalClip.and(editor.locator(`[data-clip-id="${originalClipId}"]`));
 		const projectId = await editor.getAttribute('data-project-id');
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved', { timeout: 15_000 });
 		const before = await storedProject(page, productId, projectId);
@@ -40,7 +41,7 @@ for (const productId of ['soundscaper', 'framescaper']) {
 		await expect(editor.locator('[data-track-row]')).toHaveCount(trackCount + 1);
 		const renderedTrack = editor.locator('[data-track-row]').last();
 		await expect(renderedTrack.getByRole('button', { name: 'Mute', exact: true })).toHaveAttribute('aria-pressed', 'true');
-		await expect(editor.locator(`[data-clip-id="${originalClipId}"]`)).toBeVisible();
+		await expect(originalTimelineClip).toBeVisible();
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved', { timeout: 15_000 });
 		const after = await storedProject(page, productId, projectId);
 		expect(after.clips.find(({ id }) => id === originalClipId)).toEqual(before.clips.find(({ id }) => id === originalClipId));
@@ -53,7 +54,7 @@ for (const productId of ['soundscaper', 'framescaper']) {
 		await expect.poll(() => page.evaluate(() => globalThis.__araCalls.filter(([method]) => method === 'close').length)).toBe(1);
 		await chooseCommandAction(page, editor, 'Edit', 'Undo');
 		await expect(editor.locator('[data-track-row]')).toHaveCount(trackCount);
-		await expect(editor.locator(`[data-clip-id="${originalClipId}"]`)).toBeVisible();
+		await expect(originalTimelineClip).toBeVisible();
 	});
 
 	test(`${productId} cancels an ARA session without publishing audio`, async ({ page }) => {

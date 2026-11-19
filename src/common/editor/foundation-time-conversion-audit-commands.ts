@@ -33,8 +33,8 @@ export const FOUNDATION_TIME_CONVERSION_COMMAND_SITES: readonly FoundationTimeCo
 	{
 		id: 'shared-source-effect-musical-warp-duration',
 		file: 'src/common/editor/commands/source-process-audio-runtime.ts',
-		behavior: 'Length-changing source effects resolve musical warp points to nearest project samples before scaling elapsed time and recovering their beat coordinates through the current tempo map.',
-		conversions: [{ helper: 'beatToSampleFrame', policies: ['point'] }],
+		behavior: 'Length-changing source effects resolve musical warp points to nearest project samples before recovering their beats through the tempo map. Loop periods and phase boundaries round to the nearest sample when the edit changes the source span.',
+		conversions: [{ helper: 'beatToSampleFrame', policies: ['point'] }, { helper: 'roundRational', policies: ['point'] }],
 	},
 	{
 		id: 'tts-regeneration-duration',
@@ -242,8 +242,8 @@ export const FOUNDATION_TIME_CONVERSION_COMMAND_SITES: readonly FoundationTimeCo
 	{
 		id: 'video-import-audio-programme-duration',
 		file: 'src/common/editor/controller/import/internal/video-import-audio-decode.ts',
-		behavior: 'Authored container audio extending beyond the picture window resolves its retained programme duration to the nearest project sample at the project rate.',
-		conversions: [{ helper: 'secondsToSampleFrame', policies: ['point'] }],
+		behavior: 'Authored container audio extending beyond the picture window resolves its programme duration to the nearest project sample, whether the decoder supplies a native frame count or the container reports seconds.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }, { helper: 'secondsToSampleFrame', policies: ['point'] }],
 	},
 	{
 		id: 'video-import-audio-workload-output',
