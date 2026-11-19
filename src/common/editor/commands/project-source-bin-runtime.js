@@ -42,9 +42,7 @@ import {
 	normalizeCommandIds,
 	normalizeFrequencyRange,
 	normalizeSelectionIds,
-	replaceClip,
 	requireClip,
-	requireClipTrack,
 	requireProjectBin,
 	requireProjectBinClip,
 	requireSource,
@@ -59,7 +57,7 @@ import {
 	rewriteSourceMedia,
 	updateSource,
 } from './project-source-record-runtime.js';
-import { createClipEditIndex } from './clip-edit-index.ts';
+import { createClipEditIndex, mediaClipOwnerIndex, requireIndexedOwner } from './clip-edit-index.ts';
 import { movedBinItemIds } from './bin-move-index.ts';
 import { cloneVideoCompositionCarrierFields } from './video-composition-carrier.ts';
 import {
@@ -339,6 +337,7 @@ function replaceProjectBinMedia(project, command) {
 	const targetColor = target.color;
 	const removedDurationsByTrack = new Map();
 	const removedTimelineIds = new Set();
+	let owners;
 
 	project.clips = project.clips.flatMap((clip) => {
 		const replacement = replacementBySourceId.get(clip.sourceId);
@@ -346,11 +345,11 @@ function replaceProjectBinMedia(project, command) {
 		const next = remapReplacementClip(project, clip, replacement.oldSource, replacement.newSource);
 		if (!next) {
 			removedTimelineIds.add(clip.id);
-			recordReplacementContraction(project, clip, clip.durationFrames, removedDurationsByTrack);
+			recordReplacementContraction(owners ??= mediaClipOwnerIndex(project.tracks), clip, clip.durationFrames, removedDurationsByTrack);
 			return [];
 		}
 		const reduction = clip.durationFrames - next.durationFrames;
-		if (reduction > 0) recordReplacementContraction(project, clip, reduction, removedDurationsByTrack);
+		if (reduction > 0) recordReplacementContraction(owners ??= mediaClipOwnerIndex(project.tracks), clip, reduction, removedDurationsByTrack);
 		return [next];
 	});
 	for (const track of project.tracks) {
@@ -409,21 +408,23 @@ function replaceProjectBinMedia(project, command) {
 	});
 
 	if (command.shortfallMode === 'contract-gaps') {
+		let editIndex;
 		for (const track of project.tracks) {
 			if (!Array.isArray(track.clipIds)) continue;
 			const contractions = removedDurationsByTrack.get(track.id) || [];
 			if (!contractions.length) continue;
 			const contractionAt = createProjectBinContractionEvaluator(contractions);
+			editIndex ??= createClipEditIndex(project.clips);
 			for (const clipId of track.clipIds) {
-				const clip = requireClip(project, clipId);
+				const clip = editIndex.require(clipId);
 				const shift = contractionAt(clip.timelineStartFrame);
-				if (shift > 0) replaceClip(project, normalizeClipForProject(project, {
+				if (shift > 0) editIndex.replace(normalizeClipForProject(project, {
 					...clip,
 					timelineStartFrame: Math.max(0, clip.timelineStartFrame - shift),
 					id: clip.id,
 				}));
 			}
-			sortTrack(project, track);
+			sortTrack(project, track, { get: editIndex.require });
 		}
 	}
 
@@ -491,11 +492,11 @@ function normalizeReplacementClip(project, original, replacement) {
 	const memory = replacedClipSourceStretchFields(original, requireSource(project, original.sourceId),
 		requireSource(project, replacement.sourceId), project.sampleRate);
 	const clip = normalizeClipForProject(project, { ...replacement, ...memory, warpMap: null });
-	return normalizeClipForProject(project, { ...clip, ...projectBinReplacementWarp(original, clip) });
+	return original.warpMap == null ? clip : normalizeClipForProject(project, { ...clip, ...projectBinReplacementWarp(original, clip) });
 }
 
-function recordReplacementContraction(project, clip, frames, contractionsByTrack) {
-	const track = requireClipTrack(project, clip.id);
+function recordReplacementContraction(owners, clip, frames, contractionsByTrack) {
+	const track = requireIndexedOwner(owners, clip.id);
 	const contractions = contractionsByTrack.get(track.id) || [];
 	contractions.push({
 		endFrame: clip.timelineStartFrame + clip.durationFrames,
