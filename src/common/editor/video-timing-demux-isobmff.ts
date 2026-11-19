@@ -8,14 +8,17 @@
  * and `ctts` gives the composition offset that reorders coded frames into the
  * order they are presented in. Nothing here decodes a frame — the integers the
  * container already states are the answer.
+ * In fragmented MP4, `tfdt`, `tfhd`, and `trun` supply the same timing with
+ * per-track defaults from `trex`. An initial sample table and later fragments
+ * can belong to the same track.
  *
  * The track's `edts/elst` then states which part of that media is presented and
  * when. A stream-copy trim leaves the samples it skipped in `mdat` and says so
  * only here, and an initial empty edit delays the whole track; a media element
  * and FFmpeg both apply the edit, so timing read without it describes a file
- * nobody plays. An edit list this cannot apply exactly — a rate change, a
- * boundary inside a frame, more than one presented segment — is refused instead,
- * so the probe list falls through rather than publish timing that is not true.
+ * nobody plays. An edit ending inside its final picture limits how long that
+ * picture is shown. A rate change, an opening inside a frame, or more than one
+ * presented segment still falls through to another probe.
  */
 
 import {
@@ -37,6 +40,12 @@ interface Box {
 	readonly end: number;
 }
 
+interface TrackSampleTiming {
+	readonly decodeDurations: bigint[];
+	readonly composition: bigint[];
+	decodeTime: bigint;
+}
+
 /** The part of a track's media the edit list presents, in media ticks. */
 interface EditWindow {
 	/** Ticks an initial empty edit holds before the first frame is presented. */
@@ -55,14 +64,54 @@ interface Edit {
 }
 
 const MAXIMUM_MOVIE_BOX_BYTES = 64 * 1024 * 1024;
+const MAXIMUM_EDIT_INSPECTION_BOXES = 1024;
+const MAXIMUM_TWO_EDIT_BYTES = 48;
 const HANDLER_VIDEO = 'vide';
 const UNIT_EDIT_RATE = 0x0001_0000n;
 const WHOLE_TRACK: EditWindow = Object.freeze({ shiftTicks: 0n, startTicks: null, endTicks: null });
 
+/** Identify a declared leading picture delay before a decoder can rebase it. */
+export async function hasLeadingIsobmffVideoEdit(reader: VideoTimingDemuxReader, signal?: AbortSignal): Promise<boolean> {
+	let remaining = MAXIMUM_EDIT_INSPECTION_BOXES;
+	async function* scan(range: Pick<Box, 'body' | 'end'>): AsyncGenerator<Box> {
+		for (let offset = range.body; remaining > 0 && offset + 8 <= range.end;) {
+			throwIfAborted(signal);
+			remaining--;
+			const box = await readRangedBox(reader, offset, range.end);
+			if (!box) return;
+			yield box;
+			offset = box.end;
+		}
+	}
+	async function findIn(range: Pick<Box, 'body' | 'end'>, type: string): Promise<Box | null> {
+		for await (const box of scan(range)) if (box.type === type) return box;
+		return null;
+	}
+	const movie = await findIn({ body: 0, end: reader.byteLength }, 'moov');
+	if (!movie) return false;
+	let video: Box | null = null;
+	for await (const track of scan(movie)) {
+		if (track.type !== 'trak') continue;
+		const media = await findIn(track, 'mdia');
+		const handler = media && await findIn(media, 'hdlr');
+		if (!handler || handler.end - handler.body < 12
+			|| boxType(await reader.read(handler.body + 8, 4), 0) !== HANDLER_VIDEO) continue;
+		// Import backends need not select the same track in a multi-picture file.
+		if (video) return false;
+		video = track;
+	}
+	const edits = video && await findIn(video, 'edts');
+	const list = edits && await findIn(edits, 'elst');
+	if (!list) return false;
+	const bytes = await reader.read(list.body, Math.min(list.end - list.body, MAXIMUM_TWO_EDIT_BYTES));
+	const entries = readEditEntries(bytes, { body: 0, end: bytes.byteLength });
+	const [empty, picture] = entries ?? [];
+	return empty !== undefined && picture !== undefined && empty.mediaTicks === -1n
+		&& empty.movieTicks > 0n && picture.mediaTicks >= 0n && picture.rate === UNIT_EDIT_RATE;
+}
+
 /**
- * Read the video track's exact presentation timing, or null when this is not an
- * ISO base media file the sample tables describe completely — a fragmented file
- * whose timing lives in movie fragments, or one with no video track at all.
+ * Read exact presentation timing from the sample tables and movie fragments.
  */
 export async function demuxIsobmffVideoTiming(
 	reader: VideoTimingDemuxReader,
@@ -72,9 +121,10 @@ export async function demuxIsobmffVideoTiming(
 	if (movie === null) return null;
 	const bytes = await reader.read(movie.body, movie.end - movie.body);
 	throwIfAborted(options.signal);
-	const movieTimescale = readTimescale(bytes, firstChild(bytes, 0, bytes.byteLength, 'mvhd'));
+	const movieTimescale = readHeaderValueAfterDates(bytes, firstChild(bytes, 0, bytes.byteLength, 'mvhd'));
+	const extensions = firstChild(bytes, 0, bytes.byteLength, 'mvex');
 	for (const trak of children(bytes, 0, bytes.byteLength, 'trak')) {
-		const track = readTrack(bytes, trak, movieTimescale);
+		const track = await readTrack(bytes, trak, movieTimescale, extensions, reader, movie.end, options.signal);
 		if (track !== null) return track;
 	}
 	return null;
@@ -87,42 +137,49 @@ async function findMovieBox(
 	let offset = 0;
 	while (offset + 8 <= reader.byteLength) {
 		throwIfAborted(signal);
-		const header = await reader.read(offset, Math.min(16, reader.byteLength - offset));
-		if (header.byteLength < 8) return null;
-		const type = boxType(header, 4);
-		let size = Number(bigEndianUnsigned(header, 0, 4));
-		let body = offset + 8;
-		if (size === 1) {
-			if (header.byteLength < 16) return null;
-			size = Number(bigEndianUnsigned(header, 8, 16));
-			body = offset + 16;
-		} else if (size === 0) size = reader.byteLength - offset;
-		if (!Number.isSafeInteger(size) || size < body - offset || offset + size > reader.byteLength) return null;
+		const box = await readRangedBox(reader, offset, reader.byteLength);
+		if (!box) return null;
 		// A movie box larger than this is not an index a timing probe should hold.
-		if (type === 'moov') {
-			return offset + size - body > MAXIMUM_MOVIE_BOX_BYTES
-				? null : { type, body, end: offset + size };
-		}
-		offset += size;
+		if (box.type === 'moov') return box.end - box.body > MAXIMUM_MOVIE_BOX_BYTES ? null : box;
+		offset = box.end;
 	}
 	return null;
 }
 
-function readTrack(
+async function readRangedBox(reader: VideoTimingDemuxReader, offset: number, end: number): Promise<Box | null> {
+	if (offset + 8 > end) return null;
+	const header = await reader.read(offset, Math.min(16, end - offset));
+	const type = boxType(header, 4);
+	let size = Number(bigEndianUnsigned(header, 0, 4));
+	let body = offset + 8;
+	if (size === 1) {
+		if (header.byteLength < 16) return null;
+		size = Number(bigEndianUnsigned(header, 8, 16));
+		body = offset + 16;
+	} else if (size === 0) size = end - offset;
+	if (!Number.isSafeInteger(size) || size < body - offset || offset + size > end) return null;
+	return { type, body, end: offset + size };
+}
+
+async function readTrack(
 	bytes: Uint8Array,
 	trak: Box,
 	movieTimescale: number | null,
-): VideoTimingDemuxTrack | null {
+	extensions: Box | null,
+	reader: VideoTimingDemuxReader,
+	fragmentStart: number,
+	signal: AbortSignal | undefined,
+): Promise<VideoTimingDemuxTrack | null> {
 	const handler = find(bytes, trak, ['mdia', 'hdlr']);
 	if (handler === null || handler.end - handler.body < 12
 		|| boxType(bytes, handler.body + 8) !== HANDLER_VIDEO) return null;
-	const timescale = readTimescale(bytes, find(bytes, trak, ['mdia', 'mdhd']));
+	const timescale = readHeaderValueAfterDates(bytes, find(bytes, trak, ['mdia', 'mdhd']));
 	if (timescale === null) return null;
 	const edit = readEditWindow(bytes, trak, movieTimescale, timescale);
 	if (edit === null) return null;
 
 	const decodeDurations = readTimeToSample(bytes, find(bytes, trak, ['mdia', 'minf', 'stbl', 'stts']));
-	if (decodeDurations === null || decodeDurations.length === 0) return null;
+	if (decodeDurations === null) return null;
 	const compositionOffsets = readCompositionOffsets(
 		bytes, find(bytes, trak, ['mdia', 'minf', 'stbl', 'ctts']), decodeDurations.length,
 	);
@@ -134,6 +191,24 @@ function readTrack(
 		composition.push(decodeTime + (compositionOffsets[index] ?? 0n));
 		decodeTime += duration;
 	}
+	if (extensions !== null) {
+		const trackId = readHeaderValueAfterDates(bytes, find(bytes, trak, ['tkhd']));
+		if (trackId === null) return null;
+		const defaultDuration = readFragmentDefaults(bytes, extensions, trackId);
+		if (defaultDuration !== null && !await readFragments(reader, fragmentStart, trackId, defaultDuration, {
+			decodeDurations, composition, decodeTime,
+		}, signal)) return null;
+	}
+	return resolvePresentation(timescale, edit, decodeDurations, composition);
+}
+
+function resolvePresentation(
+	timescale: number,
+	edit: EditWindow,
+	decodeDurations: readonly bigint[],
+	composition: readonly bigint[],
+): VideoTimingDemuxTrack | null {
+	if (composition.length === 0) return null;
 	const order = composition.map((_value, index) => index)
 		.sort((left, right) => compare(composition[left]!, composition[right]!));
 	// An edit opening at or before the first coded picture trims nothing, so the
@@ -145,23 +220,111 @@ function readTrack(
 		composition[index]! >= origin && (edit.endTicks === null || composition[index]! < edit.endTicks)
 	));
 	if (presented.length === 0) return null;
-	// The edit has to name whole frames. A boundary that falls inside one leaves a
-	// picture this cannot place, and guessing is how two backends come to disagree.
+	// A partial opening picture does not have an unambiguous presentation start.
 	if (start !== null && composition[presented[0]!]! !== start) return null;
 	const presentationTicks = presented.map((index) => composition[index]! - origin + edit.shiftTicks);
 	for (let index = 1; index < presentationTicks.length; index += 1) {
 		if (presentationTicks[index]! <= presentationTicks[index - 1]!) return null;
 	}
-	// The frame presented last owns the final duration, whatever its decode order.
+	// The frame presented last owns the final duration, bounded by the edit end.
 	const last = presented.at(-1)!;
-	const finalFrameDurationTicks = decodeDurations[last]!;
+	const codedDuration = decodeDurations[last]!;
+	const untilEditEnd = edit.endTicks === null ? codedDuration : edit.endTicks - composition[last]!;
+	const finalFrameDurationTicks = untilEditEnd < codedDuration ? untilEditEnd : codedDuration;
 	if (finalFrameDurationTicks <= 0n) return null;
-	if (edit.endTicks !== null && composition[last]! + finalFrameDurationTicks > edit.endTicks) return null;
 	return Object.freeze({
 		timescale,
 		presentationTicks: Object.freeze(presentationTicks),
 		finalFrameDurationTicks,
 	});
+}
+
+function readFragmentDefaults(bytes: Uint8Array, extensions: Box, trackId: number): bigint | null {
+	for (const { body, end } of children(bytes, extensions.body, extensions.end, 'trex')) {
+		if (end - body >= 24 && bytes[body] === 0 && Number(bigEndianUnsigned(bytes, body + 4, body + 8)) === trackId) {
+			return bigEndianUnsigned(bytes, body + 12, body + 16);
+		}
+	}
+	return null;
+}
+
+async function readFragments(
+	reader: VideoTimingDemuxReader,
+	offset: number,
+	trackId: number,
+	defaultDuration: bigint,
+	timing: TrackSampleTiming,
+	signal: AbortSignal | undefined,
+): Promise<boolean> {
+	while (offset < reader.byteLength) {
+		throwIfAborted(signal);
+		const box = await readRangedBox(reader, offset, reader.byteLength);
+		if (!box) return false;
+		offset = box.end;
+		if (box.type !== 'moof') continue;
+		const size = box.end - box.body;
+		if (size > MAXIMUM_MOVIE_BOX_BYTES) return false;
+		const fragment = await reader.read(box.body, size);
+		throwIfAborted(signal);
+		for (const traf of children(fragment, 0, size, 'traf')) {
+			if (!readTrackFragment(fragment, traf, trackId, defaultDuration, timing)) return false;
+		}
+	}
+	return true;
+}
+
+function readTrackFragment(
+	bytes: Uint8Array,
+	traf: Box,
+	trackId: number,
+	defaultDuration: bigint,
+	timing: TrackSampleTiming,
+): boolean {
+	const header = find(bytes, traf, ['tfhd']);
+	if (header === null || header.end - header.body < 8 || bytes[header.body] !== 0) return false;
+	if (Number(bigEndianUnsigned(bytes, header.body + 4, header.body + 8)) !== trackId) return true;
+	const flags = Number(bigEndianUnsigned(bytes, header.body + 1, header.body + 4));
+	// The default duration follows the optional base offset and sample description.
+	const durationOffset = header.body + 8 + (flags & 0x01 ? 8 : 0) + (flags & 0x02 ? 4 : 0);
+	const headerEnd = durationOffset + (flags & 0x08 ? 4 : 0) + (flags & 0x10 ? 4 : 0) + (flags & 0x20 ? 4 : 0);
+	if (headerEnd > header.end) return false;
+	const duration = flags & 0x08 ? bigEndianUnsigned(bytes, durationOffset, durationOffset + 4) : defaultDuration;
+	const decode = find(bytes, traf, ['tfdt']);
+	if (decode !== null) {
+		const version = bytes[decode.body];
+		if (version !== 0 && version !== 1) return false;
+		const width = version === 1 ? 8 : 4;
+		if (decode.body + 4 + width > decode.end) return false;
+		timing.decodeTime = bigEndianUnsigned(bytes, decode.body + 4, decode.body + 4 + width);
+	}
+	for (const run of children(bytes, traf.body, traf.end, 'trun')) {
+		if (!readTrackRun(bytes, run, duration, timing)) return false;
+	}
+	return true;
+}
+
+function readTrackRun(bytes: Uint8Array, run: Box, defaultDuration: bigint, timing: TrackSampleTiming): boolean {
+	const version = bytes[run.body];
+	if (run.end - run.body < 8 || (version !== 0 && version !== 1)) return false;
+	const flags = Number(bigEndianUnsigned(bytes, run.body + 1, run.body + 4));
+	const count = Number(bigEndianUnsigned(bytes, run.body + 4, run.body + 8));
+	let sample = run.body + 8 + (flags & 0x01 ? 4 : 0) + (flags & 0x04 ? 4 : 0);
+	const durationWidth = flags & 0x0100 ? 4 : 0;
+	const offsetWidth = flags & 0x0800 ? 4 : 0;
+	const stride = durationWidth + (flags & 0x0200 ? 4 : 0) + (flags & 0x0400 ? 4 : 0) + offsetWidth;
+	if (sample + count * stride > run.end || timing.composition.length + count > VIDEO_TIMING_ASSET_MAXIMUM_FRAMES) {
+		return false;
+	}
+	for (let index = 0; index < count; index += 1, sample += stride) {
+		const duration = durationWidth ? bigEndianUnsigned(bytes, sample, sample + durationWidth) : defaultDuration;
+		if (duration <= 0n) return false;
+		const rawOffset = offsetWidth ? bigEndianUnsigned(bytes, sample + stride - offsetWidth, sample + stride) : 0n;
+		const offset = version === 1 && rawOffset >= 0x8000_0000n ? rawOffset - 0x1_0000_0000n : rawOffset;
+		timing.composition.push(timing.decodeTime + offset);
+		timing.decodeDurations.push(duration);
+		timing.decodeTime += duration;
+	}
+	return true;
 }
 
 /**
@@ -177,22 +340,16 @@ function readEditWindow(
 ): EditWindow | null {
 	const list = find(bytes, trak, ['edts', 'elst']);
 	if (list === null) return WHOLE_TRACK;
-	if (list.end - list.body < 8) return null;
-	const version = bytes[list.body];
-	if (version !== 0 && version !== 1) return null;
-	const width = version === 1 ? 8 : 4;
-	const entries = Number(bigEndianUnsigned(bytes, list.body + 4, list.body + 8));
-	if (!Number.isSafeInteger(entries) || entries < 0
-		|| list.body + 8 + entries * (width * 2 + 4) > list.end) return null;
-	if (entries === 0) return WHOLE_TRACK;
-	if (entries > 2) return null;
-	const first = readEdit(bytes, list.body + 8, width);
+	const entries = readEditEntries(bytes, list);
+	if (entries === null) return null;
+	const [first, second] = entries;
+	if (first === undefined) return WHOLE_TRACK;
 	// A leading empty edit is a delay; anything else with two entries is more than
 	// one presented segment, which is a timeline these sample tables do not carry.
 	const empty = first.mediaTicks < 0n;
-	if (empty ? first.mediaTicks !== -1n || entries !== 2 : entries !== 1) return null;
-	const segment = empty ? readEdit(bytes, list.body + 8 + width * 2 + 4, width) : first;
-	if (segment.mediaTicks < 0n || segment.rate !== UNIT_EDIT_RATE) return null;
+	if (empty ? first.mediaTicks !== -1n : second !== undefined) return null;
+	const segment = empty ? second : first;
+	if (!segment || segment.mediaTicks < 0n || segment.rate !== UNIT_EDIT_RATE) return null;
 	const shiftTicks = empty ? toMediaTicks(first.movieTicks, mediaTimescale, movieTimescale) : 0n;
 	const spanTicks = toMediaTicks(segment.movieTicks, mediaTimescale, movieTimescale);
 	if (shiftTicks === null || spanTicks === null) return null;
@@ -201,6 +358,17 @@ function readEditWindow(
 		startTicks: segment.mediaTicks,
 		endTicks: spanTicks === 0n ? null : segment.mediaTicks + spanTicks,
 	});
+}
+
+function readEditEntries(bytes: Uint8Array, list: Pick<Box, 'body' | 'end'>): readonly Edit[] | null {
+	if (list.end - list.body < 8) return null;
+	const version = bytes[list.body];
+	if (version !== 0 && version !== 1) return null;
+	const width = version === 1 ? 8 : 4;
+	const entryBytes = width * 2 + 4;
+	const count = Number(bigEndianUnsigned(bytes, list.body + 4, list.body + 8));
+	if (count > 2 || list.body + 8 + count * entryBytes > list.end) return null;
+	return Array.from({ length: count }, (_, index) => readEdit(bytes, list.body + 8 + index * entryBytes, width));
 }
 
 function readEdit(bytes: Uint8Array, offset: number, width: number): Edit {
@@ -229,15 +397,15 @@ function toMediaTicks(
 	return (movieTicks * BigInt(mediaTimescale) + divisor / 2n) / divisor;
 }
 
-/** The timescale an `mvhd` or `mdhd` header names, or null when it states none. */
-function readTimescale(bytes: Uint8Array, header: Box | null): number | null {
+/** The timescale in `mvhd` or `mdhd`, or the track ID in `tkhd`. */
+function readHeaderValueAfterDates(bytes: Uint8Array, header: Box | null): number | null {
 	if (header === null || header.end - header.body < 4) return null;
 	const version = bytes[header.body];
 	if (version !== 0 && version !== 1) return null;
 	const offset = header.body + (version === 1 ? 20 : 12);
 	if (offset + 4 > header.end) return null;
-	const timescale = Number(bigEndianUnsigned(bytes, offset, offset + 4));
-	return Number.isSafeInteger(timescale) && timescale > 0 ? timescale : null;
+	const value = Number(bigEndianUnsigned(bytes, offset, offset + 4));
+	return value > 0 ? value : null;
 }
 
 function readTimeToSample(bytes: Uint8Array, box: Box | null): bigint[] | null {

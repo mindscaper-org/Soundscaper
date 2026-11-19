@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { randomBytes } from 'node:crypto';
 import { chmod, mkdir } from 'node:fs/promises';
-import { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync } from 'node:sqlite';
+import { openLocalDesktopDatabase } from './desktop-database.ts';
 import {
 	framescaperDesktopProjectLibraryExactGenerationMetadataRevision as metadataRevision,
-	initializeFramescaperDesktopProjectLibraryExactGenerationDatabase as initializeDatabase,
-	setFramescaperDesktopProjectLibraryExactGenerationMetadataRevision as setMetadataRevision,
+	initializeFramescaperDesktopProjectLibraryDatabaseWithWait as initializeDatabase,
 } from './project-library-exact-generation-database.ts';
 import type {
 	FramescaperDesktopProjectLibraryOwner,
@@ -36,6 +36,7 @@ import {
 	assertFramescaperDesktopExactExpectedProject as assertExpected,
 	assertFramescaperDesktopExactCurrentDocument as assertCurrentDocument,
 	checkFramescaperDesktopExactCurrentWriteFence as checkCurrentWriteFence,
+	deleteFramescaperDesktopExactProject as deleteExactProject,
 	framescaperDesktopExactMediaPath as mediaPath,
 	framescaperDesktopExactProjectTimestamp as instant,
 	framescaperDesktopExactStoredExpectedProject as expectedProjectRecord,
@@ -44,6 +45,7 @@ import {
 	persistFramescaperDesktopExactPublication as persistPublication,
 	readFramescaperDesktopExactProjectRow as readRow,
 	readFramescaperDesktopExactProjectBundle as readBundle,
+	reclaimDeletedFramescaperDesktopProjectFiles as reclaimDeletedFiles,
 	validateFramescaperDesktopExactBody as validateBody,
 	type FramescaperDesktopExactBodyDescriptor as BodyDescriptor,
 	type FramescaperDesktopExactPublication as Publication,
@@ -136,16 +138,11 @@ export class FramescaperDesktopProjectLibraryExactGenerationMain {
 		configuration.validateHandshake(options.handshake);
 		const owner = configuration.validateOwner(options.owner);
 		const paths = configuration.createPaths(options.appDataPath);
-		await mkdir(paths.projectsRoot, { recursive: true, mode: 0o700 });
-		await mkdir(paths.managedMediaRoot, { recursive: true, mode: 0o700 });
-		const database = new DatabaseSync(paths.databasePath, {
-			allowExtension: false,
-			enableDoubleQuotedStringLiterals: false,
-			enableForeignKeyConstraints: true,
-			timeout: 50,
-		});
+		const database = openLocalDesktopDatabase(paths.databasePath, { timeout: 50 });
 		try {
-			initializeDatabase(database, configuration);
+			await mkdir(paths.projectsRoot, { recursive: true, mode: 0o700 });
+			await mkdir(paths.managedMediaRoot, { recursive: true, mode: 0o700 });
+			await initializeDatabase(database, configuration);
 			await chmod(paths.databasePath, 0o600);
 			const lifecycle = extension ? await extension.start({
 				appDataPath: options.appDataPath,
@@ -153,6 +150,7 @@ export class FramescaperDesktopProjectLibraryExactGenerationMain {
 				owner,
 				paths,
 			}) : null;
+			await reclaimDeletedFiles(configuration, database, paths, lifecycle).catch(() => undefined);
 			return new FramescaperDesktopProjectLibraryExactGenerationMain(
 				configuration, paths, database, owner, lifecycle,
 			);
@@ -470,29 +468,14 @@ class ExactGenerationSession implements FramescaperDesktopProjectLibraryExactGen
 		});
 	}
 
-	async deleteProject(value: unknown): Promise<unknown> {
-		this.#assertOpen();
-		const record = value as Record<string, unknown>;
-		const projectId = text(record?.projectId, 'project id');
-		const expectedMetadataRevision = nonNegative(record?.expectedMetadataRevision, 'metadata revision');
-		if (expectedMetadataRevision !== metadataRevision(this.#database)) {
-			throw new Error(`${this.#configuration.label} metadata CAS failed`);
-		}
-		assertExpected(
-			readRow(this.#database, projectId),
-			expectedProjectRecord(record?.expectedProject, this.#configuration.label),
-			this.#configuration.label,
-		);
-		this.#database.exec('BEGIN IMMEDIATE');
-		try {
-			this.#lifecycle?.assertLeaseInTransaction(this.#database);
-			this.#database.prepare('DELETE FROM projects WHERE project_id = ?').run(projectId);
-			setMetadataRevision(this.#database, expectedMetadataRevision + 1, this.#configuration.label);
-			this.#database.exec('COMMIT');
-		} catch (error) { this.#database.exec('ROLLBACK'); throw error; }
-		this.#writeFences.revoke(projectId);
-		this.#onActiveProject(null);
-		return Object.freeze({ projectId, metadataRevision: expectedMetadataRevision + 1, deleted: true });
+	deleteProject(value: unknown): Promise<unknown> {
+		return this.#admit(async () => {
+			const result = deleteExactProject(this.#configuration, this.#database, this.#paths, this.#lifecycle, value);
+			this.#writeFences.revoke(result.projectId);
+			this.#onActiveProject(null);
+			await reclaimDeletedFiles(this.#configuration, this.#database, this.#paths, this.#lifecycle).catch(() => undefined);
+			return result;
+		});
 	}
 
 	duplicateProject(value: unknown): Promise<unknown> {

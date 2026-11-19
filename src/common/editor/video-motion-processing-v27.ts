@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { sampleGrayVideoFrameBilinearV1 } from './gray-video-frame-sampling-v1.ts';
+import { collectShiTomasiCandidatesV1 } from './video-motion-shi-tomasi-v27.ts';
 
 /** Deterministic CPU motion processing with an optional GPU execution port. */
 
@@ -45,22 +46,33 @@ const MAXIMUM_PIXELS = 16_777_216;
 const MAXIMUM_FEATURES = 4_096;
 export const VIDEO_MOTION_MAXIMUM_RANSAC_MATCHES_V1 = 512;
 const MAXIMUM_RANSAC_HYPOTHESES = 1_024;
+const ownedGrayFrames = new WeakSet<GrayVideoFrameV1>();
 
 export function createGrayVideoFrameV1(value: Readonly<{
 	readonly width: unknown;
 	readonly height: unknown;
 	readonly samples: unknown;
 }>): GrayVideoFrameV1 {
+	const owned = value as GrayVideoFrameV1;
+	if (ownedGrayFrames.has(owned)) return owned;
 	const width = positiveInteger(value?.width, 'gray frame width');
 	const height = positiveInteger(value?.height, 'gray frame height');
 	if (width * height > MAXIMUM_PIXELS) throw new RangeError('The gray frame exceeds its pixel bound.');
 	if (!Array.isArray(value?.samples) || value.samples.length !== width * height) {
 		throw new RangeError('The gray frame requires exactly width times height samples.');
 	}
-	const samples = value.samples.map((sample, index) => bounded(
-		sample, 0, 1, `gray frame sample ${String(index)}`,
-	));
-	return Object.freeze({ width, height, samples: Object.freeze(samples) });
+	const sourceSamples: readonly unknown[] = value.samples;
+	const samples: number[] = [];
+	for (let index = 0; index < width * height; index += 1) {
+		const sample = sourceSamples[index];
+		if (typeof sample !== 'number' || !(sample >= 0 && sample <= 1)) {
+			throw new RangeError(`gray frame sample ${String(index)} is outside its finite bound.`);
+		}
+		samples.push(sample === 0 ? 0 : sample);
+	}
+	const frame = Object.freeze({ width, height, samples: Object.freeze(samples) });
+	ownedGrayFrames.add(frame);
+	return frame;
 }
 
 export function detectShiTomasiFeaturesV1(
@@ -75,30 +87,7 @@ export function detectShiTomasiFeaturesV1(
 	const maximumFeatures = boundedInteger(options?.maximumFeatures, 1, MAXIMUM_FEATURES, 'Shi-Tomasi maximum features');
 	const quality = bounded(options?.quality, Number.EPSILON, 1, 'Shi-Tomasi quality');
 	const minimumDistance = bounded(options?.minimumDistance, 0, 256, 'Shi-Tomasi minimum distance');
-	const candidates: ShiTomasiFeatureV1[] = [];
-	let maximumScore = 0;
-	for (let y = 2; y < frame.height - 2; y += 1) {
-		for (let x = 2; x < frame.width - 2; x += 1) {
-			let xx = 0;
-			let xy = 0;
-			let yy = 0;
-			for (let oy = -1; oy <= 1; oy += 1) {
-				for (let ox = -1; ox <= 1; ox += 1) {
-					const gradientX = (pixel(frame, x + ox + 1, y + oy) - pixel(frame, x + ox - 1, y + oy)) / 2;
-					const gradientY = (pixel(frame, x + ox, y + oy + 1) - pixel(frame, x + ox, y + oy - 1)) / 2;
-					xx += gradientX * gradientX;
-					xy += gradientX * gradientY;
-					yy += gradientY * gradientY;
-				}
-			}
-			const trace = xx + yy;
-			const discriminant = Math.sqrt(Math.max(0, (xx - yy) ** 2 + 4 * xy ** 2));
-			const score = (trace - discriminant) / 2;
-			if (score <= 0) continue;
-			maximumScore = Math.max(maximumScore, score);
-			candidates.push(Object.freeze({ x, y, score }));
-		}
-	}
+	const { candidates, maximumScore } = collectShiTomasiCandidatesV1(frame);
 	const threshold = maximumScore * quality;
 	candidates.sort((left, right) => right.score - left.score || left.y - right.y || left.x - right.x);
 	const selected: ShiTomasiFeatureV1[] = [];
@@ -114,16 +103,33 @@ export function detectShiTomasiFeaturesV1(
 	return Object.freeze(selected);
 }
 
+type LucasKanadeOptions = Readonly<{
+	windowRadius: number; pyramidLevels: number; maximumIterations: number; epsilon: number;
+}>;
+
 export function trackPyramidalLucasKanadeV1(
-	previousValue: GrayVideoFrameV1,
-	nextValue: GrayVideoFrameV1,
-	featuresValue: readonly ShiTomasiFeatureV1[],
-	options: Readonly<{
-		readonly windowRadius: number;
-		readonly pyramidLevels: number;
-		readonly maximumIterations: number;
-		readonly epsilon: number;
-	}>,
+	previousValue: GrayVideoFrameV1, nextValue: GrayVideoFrameV1,
+	featuresValue: readonly ShiTomasiFeatureV1[], options: LucasKanadeOptions,
+): readonly LucasKanadeTrackV1[] {
+	return trackPyramidalLucasKanade(previousValue, nextValue, featuresValue, options, buildPyramid);
+}
+
+export function createAdjacentLucasKanadeTrackerV1(): typeof trackPyramidalLucasKanadeV1 {
+	let last: Readonly<{ frame: GrayVideoFrameV1; levels: number; pyramid: readonly GrayVideoFrameV1[] }> | undefined;
+	const getPyramid: typeof buildPyramid = (frame, levels) => {
+		if (last?.frame === frame && last.levels === levels) return last.pyramid;
+		const pyramid = buildPyramid(frame, levels);
+		last = { frame, levels, pyramid };
+		return pyramid;
+	};
+	return (previousValue, nextValue, featuresValue, options) => trackPyramidalLucasKanade(
+		previousValue, nextValue, featuresValue, options, getPyramid,
+	);
+}
+
+function trackPyramidalLucasKanade(
+	previousValue: GrayVideoFrameV1, nextValue: GrayVideoFrameV1,
+	featuresValue: readonly ShiTomasiFeatureV1[], options: LucasKanadeOptions, getPyramid: typeof buildPyramid,
 ): readonly LucasKanadeTrackV1[] {
 	const previous = frameValueChecked(previousValue, 'Lucas-Kanade previous frame');
 	const next = frameValueChecked(nextValue, 'Lucas-Kanade next frame');
@@ -138,9 +144,10 @@ export function trackPyramidalLucasKanadeV1(
 	const requestedLevels = boundedInteger(options?.pyramidLevels, 1, 8, 'Lucas-Kanade pyramid levels');
 	const maximumIterations = boundedInteger(options?.maximumIterations, 1, 64, 'Lucas-Kanade iteration count');
 	const epsilon = bounded(options?.epsilon, Number.EPSILON, 1, 'Lucas-Kanade epsilon');
-	const previousPyramid = buildPyramid(previous, requestedLevels);
-	const nextPyramid = buildPyramid(next, previousPyramid.length);
+	const previousPyramid = getPyramid(previous, requestedLevels);
+	const nextPyramid = getPyramid(next, requestedLevels);
 	const levels = Math.min(previousPyramid.length, nextPyramid.length);
+	const referenceSamples = new Float64Array((2 * windowRadius + 1) ** 2);
 	return Object.freeze(features.map((feature) => {
 		let targetX = feature.x / 2 ** (levels - 1);
 		let targetY = feature.y / 2 ** (levels - 1);
@@ -157,7 +164,7 @@ export function trackPyramidalLucasKanadeV1(
 			const result = lucasKanadeLevel(
 				previousPyramid[level]!, nextPyramid[level]!,
 				sourceX, sourceY, targetX, targetY,
-				windowRadius, maximumIterations, epsilon,
+				windowRadius, maximumIterations, epsilon, referenceSamples,
 			);
 			if (result === null) continue;
 			targetX = result.x;
@@ -225,12 +232,20 @@ export function applySimilarityTransformV1(
 	transformValue: VideoSimilarityTransformV1,
 ): VideoPointV1 {
 	const point = pointValueChecked(pointValue, 'similarity input point');
-	const transform = similarityValue(transformValue, 'similarity transform');
-	const cosine = Math.cos(transform.rotationRadians) * transform.scale;
-	const sine = Math.sin(transform.rotationRadians) * transform.scale;
+	const { cosine, sine, translateX, translateY } = prepareSimilarityAffineCoefficientsV1(transformValue);
 	return Object.freeze({
-		x: cosine * point.x - sine * point.y + transform.translateX,
-		y: sine * point.x + cosine * point.y + transform.translateY,
+		x: cosine * point.x - sine * point.y + translateX,
+		y: sine * point.x + cosine * point.y + translateY,
+	});
+}
+
+export function prepareSimilarityAffineCoefficientsV1(transformValue: VideoSimilarityTransformV1) {
+	const transform = similarityValue(transformValue, 'similarity transform');
+	return Object.freeze({
+		cosine: Math.cos(transform.rotationRadians) * transform.scale,
+		sine: Math.sin(transform.rotationRadians) * transform.scale,
+		translateX: transform.translateX,
+		translateY: transform.translateY,
 	});
 }
 
@@ -267,8 +282,15 @@ function lucasKanadeLevel(
 	radius: number,
 	iterations: number,
 	epsilon: number,
+	referenceSamples: Float64Array,
 ): Readonly<{ x: number; y: number; error: number }> | null {
-	if (!inside(previous, sourceX, sourceY, radius + 1)) return null;
+	if (!inside(previous, sourceX, sourceY, radius + 1) || !inside(next, initialX, initialY, radius + 1)) return null;
+	let offset = 0;
+	for (let oy = -radius; oy <= radius; oy += 1) {
+		for (let ox = -radius; ox <= radius; ox += 1) {
+			referenceSamples[offset++] = sampleGrayVideoFrameBilinearV1(previous, sourceX + ox, sourceY + oy);
+		}
+	}
 	let targetX = initialX;
 	let targetY = initialY;
 	let meanError = Number.POSITIVE_INFINITY;
@@ -289,7 +311,7 @@ function lucasKanadeLevel(
 					- sampleGrayVideoFrameBilinearV1(next, nextX - 1, nextY)) / 2;
 				const gradientY = (sampleGrayVideoFrameBilinearV1(next, nextX, nextY + 1)
 					- sampleGrayVideoFrameBilinearV1(next, nextX, nextY - 1)) / 2;
-				const error = sampleGrayVideoFrameBilinearV1(previous, sourceX + ox, sourceY + oy)
+				const error = referenceSamples[count]!
 					- sampleGrayVideoFrameBilinearV1(next, nextX, nextY);
 				xx += gradientX * gradientX;
 				xy += gradientX * gradientY;
@@ -441,8 +463,7 @@ function fitSimilarity(
 
 function frameValueChecked(value: unknown, name: string): GrayVideoFrameV1 {
 	if (!value || typeof value !== 'object') throw new TypeError(`${name} must be a gray frame.`);
-	const candidate = value as Partial<GrayVideoFrameV1>;
-	return createGrayVideoFrameV1({ width: candidate.width, height: candidate.height, samples: candidate.samples });
+	return createGrayVideoFrameV1(value as GrayVideoFrameV1);
 }
 
 function featureValue(value: unknown, name: string): ShiTomasiFeatureV1 {

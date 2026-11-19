@@ -49,6 +49,7 @@ export function createFrequencyWaveformRuntime(inputs: FrequencyWaveformRuntimeI
 	let frequencyWaveformServicePromise: Promise<FrequencyWaveformService> | null = null;
 	let frequencyWaveformWindowService: FrequencyWaveformWindowService | null = null;
 	let frequencyWaveformWindowServicePromise: Promise<FrequencyWaveformWindowService> | null = null;
+	const viewportRequests = new Map<string, { readonly geometry: readonly unknown[]; readers: number }>();
 	const loadFrequencyWaveformService = (): Promise<FrequencyWaveformService> => {
 		if (frequencyWaveformService) return Promise.resolve(frequencyWaveformService);
 		if (frequencyWaveformServicePromise) return frequencyWaveformServicePromise;
@@ -123,22 +124,30 @@ export function createFrequencyWaveformRuntime(inputs: FrequencyWaveformRuntimeI
 			options: FrequencyWaveformRuntimeRequestOptions = {},
 		) => {
 			const generation = frequencyWaveformRuntimeGeneration;
+			const requestsWindow = options.startFrame !== undefined || options.endFrame !== undefined;
+			const geometry = [options.startFrame, options.endFrame, options.lowMidCrossoverHz, options.midHighCrossoverHz];
+			const previous = viewportRequests.get(clipId);
+			const request = previous?.geometry.every((value, index) => value === geometry[index]) ? previous : { geometry, readers: 0 };
+			if (requestsWindow) { request.readers++; viewportRequests.set(clipId, request); }
+			const viewportCurrent = () => generation === frequencyWaveformRuntimeGeneration && viewportRequests.get(clipId) === request;
 			try {
-				const requestsWindow = options.startFrame !== undefined || options.endFrame !== undefined;
 				if (!requestsWindow) {
 					const service = await loadFrequencyWaveformService();
 					if (generation !== frequencyWaveformRuntimeGeneration) return null;
 					return service.requestFrequencyWaveform(clipId, options);
 				}
 				const windowService = await loadFrequencyWaveformWindowService();
-				if (generation !== frequencyWaveformRuntimeGeneration) return null;
+				if (!viewportCurrent()) return null;
 				const window = await windowService.requestFrequencyWaveformWindow(clipId, options);
-				if (window || generation !== frequencyWaveformRuntimeGeneration) return window;
+				if (!viewportCurrent()) return null;
+				if (window) return window;
 				const sourceService = await loadFrequencyWaveformService();
-				if (generation !== frequencyWaveformRuntimeGeneration) return null;
-				return sourceService.requestFrequencyWaveform(clipId, options);
+				if (!viewportCurrent()) return null;
+				return await sourceService.requestFrequencyWaveform(clipId, options);
 			} catch {
 				return null;
+			} finally {
+				if (requestsWindow && --request.readers === 0 && viewportRequests.get(clipId) === request) viewportRequests.delete(clipId);
 			}
 		},
 		invalidateSource: async (sourceId: string): Promise<void> => {
@@ -178,6 +187,7 @@ export function createFrequencyWaveformRuntime(inputs: FrequencyWaveformRuntimeI
 		},
 		clearRuntime: (): void => {
 			frequencyWaveformRuntimeGeneration += 1;
+			viewportRequests.clear();
 			sourceFrequencyAnalyses.clear();
 			sourceFrequencyWindows.clear();
 			frequencyWaveformService?.clearRuntime();

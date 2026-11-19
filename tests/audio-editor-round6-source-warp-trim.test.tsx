@@ -64,6 +64,26 @@ test('Source trimming resolves a musical warp through the project tempo authorit
 	assert.deepEqual(edited.clips[0]!.musicalStartBeat, { num: 0, den: 1 });
 });
 
+test('source trimming a stretched clip preserves anchors within the same output sample', () => {
+	const short = createSoundscaperProject({ id: 'dense-source-trim', sampleRate: document.sampleRate,
+		sources: [source], tracks: [createAudioTrack({ id: 'track', clipIds: ['clip'] })],
+		clips: [createAudioClip({ id: 'clip', sourceId: source.id, timelineStartFrame: 0,
+			durationFrames: 4, sourceStartFrame: 0, sourceDurationFrames: 4, warpMap: { feature: 'audio-warp', points: [
+				{ outer: 0, source: 0, mode: 'forward' },
+				{ outer: { num: 1, den: 4 }, source: 1, mode: 'forward' },
+				{ outer: { num: 1, den: 2 }, source: 2, mode: 'forward' },
+				{ outer: 4, source: 4, mode: 'forward' },
+			] } })],
+	});
+	const runtime = resolveRuntimeClipProjection(short, short.clips[0]!);
+	const changes = clipSourceTrim(runtime, source, short.sampleRate, 'end', 3, short);
+	const edited = applySoundscaperProjectCommand(short, { type: 'clip/trim', clipId: runtime.id, sourceRange: true, ...changes });
+	const points = normalizeAudioWarpMap(edited.clips[0]!.warpMap).points;
+	assert.deepEqual(points.map(point => point.source.num), [0, 1, 2, 3]);
+	assert.ok(points[1]!.outer.num / points[1]!.outer.den < points[2]!.outer.num / points[2]!.outer.den);
+	assert.equal(points.at(-1)?.outer.num, changes.durationFrames);
+});
+
 for (const [edge, frame, expectedDuration, outputOffset] of [
 	['end', 43_200, 38_400, 0], ['end', 33_600, 22_400, 0],
 	['start', 4800, 44_800, 3200], ['start', 36_000, 24_000, 24_000],

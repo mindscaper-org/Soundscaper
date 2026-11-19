@@ -11,6 +11,9 @@ import { calculateAudioEditorMetronomeSchedule } from '../src/common/editor/cont
 import { createControllerTransportState } from '../src/common/editor/controller/transport/transport-state.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createAudioTrack } from '../src/common/editor/project-media-factory.ts';
+import { projectDurationFrames } from '../src/common/editor/project.js';
+import { appendRecordingPreview } from '../src/common/editor/controller/recording/recording-model.ts';
+import { liveTimelinePositionFrame } from '../src/common/editor/ui/timeline/timeline-playback-frame-loop.ts';
 import { MockAudioContext, MockParam } from './helpers/mock-audio-context.js';
 import { createRecordingCaptureFixture, createScope } from './fixtures/recording-capture-fixture.ts';
 
@@ -44,13 +47,15 @@ for (const metronomeEnabled of [true, false]) test(`ongoing capture retains its 
 		persistSetting: async () => {}, productSettingKey: (name: string) => name, publishDocumentSnapshot() {},
 	} as unknown as TransportServiceRuntime);
 	const view = createViewStateService({ state, getProject: () => project,
+		projectDurationFrames,
 		handleMicrophoneMeterTransportState() {}, syncMetronome: transport.syncMetronome,
 		publishTelemetrySnapshot() {},
 	} as unknown as ViewStateServiceRuntime);
 	engine.loadProject(project);
 	try {
 		await createRoutedRecordingCaptureService({ ...capture.runtime, state, getProject: () => project,
-			engine, updateTransportState: view.updateTransportState,
+			engine, updateTransportState: view.updateTransportState, appendPreview: appendRecordingPreview,
+			updatePlayhead: () => view.updatePlayhead(),
 		}).capture({ trackId: 'track-1' }, createScope(() => true));
 		const audibleStart = engine.getPlaybackAudibleStartTime();
 		assert.ok(audibleStart !== null);
@@ -64,10 +69,16 @@ for (const metronomeEnabled of [true, false]) test(`ongoing capture retains its 
 			}
 			context.mock.timers.tick(25);
 			for (let turn = 0; turn < 8; turn++) await Promise.resolve();
+			if (tick % 40 === 0) await capture.recorderOptions()!.onChunk({
+				frameStart: (tick / 40 - 1) * 48_000, frames: 48_000, channels: [new Float32Array(48_000)],
+			});
 		}
 		assert.ok(state.recorder, 'microphone capture remains active');
 		assert.equal(engine.getState().state, 'stopped', 'the finite backing playback has completed');
 		assert.equal(state.transportState, 'recording', 'backing playback cannot take ownership from capture');
+		assert.equal(capture.writerRecords[0]?.writer.framesWritten, 33 * 48_000);
+		assert.equal(liveTimelinePositionFrame(state, () => engine.getPositionFrames()), 33 * 48_000,
+			'the visible playhead must advance with capture after backing playback ends');
 		const afterEnd = clicks.filter(when => when >= 31);
 		assert.ok(afterEnd.length >= 3, 'the metronome must continue beyond backing playback');
 		for (const when of clicks) {

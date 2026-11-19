@@ -27,8 +27,7 @@ test('data-plane file IO preserves exact bytes with sequence, digest, and acknow
 		const transfer = binding('host-to-helper', BYTES, 5, 2);
 		const received = receiveHelperDataPlaneFile({ binding: transfer, port: helper, path: destination });
 		const sent = sendHelperDataPlaneFile({ binding: transfer, port: host, path: source });
-		assert.deepEqual(await sent, completion(transfer));
-		assert.deepEqual(await received, completion(transfer));
+		assert.deepEqual(await Promise.all([sent, received]), [completion(transfer), completion(transfer)]);
 		assert.deepEqual(await readFile(destination), BYTES);
 		assert.equal(host.maximumUnacknowledged, 1, 'the implementation uses strict one-chunk backpressure');
 	} finally {
@@ -165,14 +164,16 @@ class Port extends EventEmitter implements HelperDataPlaneIoPort {
 	maximumUnacknowledged = 0;
 	#unacknowledged = 0;
 
-	postMessage(message: unknown): void {
+	postMessage(message: unknown, transfer: readonly unknown[] = []): void {
+		assert.equal(transfer.length, 0, 'Electron only transfers MessagePorts, so file chunks use structured clone');
 		this.messages.push(message);
 		if (typeOf(message) === 'chunk') {
 			this.#unacknowledged += 1;
 			this.maximumUnacknowledged = Math.max(this.maximumUnacknowledged, this.#unacknowledged);
 		}
 		if (typeOf(message) === 'ack') this.peer?.acknowledged();
-		queueMicrotask(() => this.peer?.emit('message', { data: message }));
+		const data: unknown = structuredClone(message);
+		queueMicrotask(() => this.peer?.emit('message', { data }));
 	}
 
 	start(): void {}

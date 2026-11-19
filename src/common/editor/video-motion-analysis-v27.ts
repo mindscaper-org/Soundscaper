@@ -13,9 +13,9 @@ import {
 	type VideoTrackingProcessorV1,
 } from './video-motion-model-v27.ts';
 import {
+	createAdjacentLucasKanadeTrackerV1,
 	detectShiTomasiFeaturesV1,
 	estimateSimilarityRansacV1,
-	trackPyramidalLucasKanadeV1,
 	VIDEO_MOTION_MAXIMUM_RANSAC_MATCHES_V1,
 	type GrayVideoFrameV1,
 	type VideoPointMatchV1,
@@ -59,12 +59,19 @@ export interface VideoMotionAnalysisRequestV1 {
 	readonly analysisId: string;
 	readonly inputSha256: string;
 	readonly processorStack: unknown;
-	readonly frames: readonly Readonly<{
-		readonly frameNumber: number;
-		readonly frame: GrayVideoFrameV1;
-	}>[];
+	readonly frames: readonly VideoMotionAnalysisFrameV1[] | VideoMotionAnalysisFrameStreamV1;
 	readonly signal?: AbortSignal;
 	readonly onProgress?: (progress: VideoMotionAnalysisProgressV1) => void;
+}
+
+export interface VideoMotionAnalysisFrameV1 {
+	readonly frameNumber: number;
+	readonly frame: GrayVideoFrameV1;
+}
+
+export interface VideoMotionAnalysisFrameStreamV1 {
+	readonly count: number;
+	readonly frames: AsyncIterable<VideoMotionAnalysisFrameV1>;
 }
 
 const UTF8 = new TextEncoder();
@@ -72,6 +79,7 @@ const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
 const SHA256 = /^[a-f0-9]{64}$/u;
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 const MAXIMUM_ANALYSIS_FRAMES = 1_000_000;
+const authenticatedReferences = new WeakMap<VideoMotionAnalysisBodyV1, VideoMotionAnalysisReferenceV1>();
 
 export async function analyzeVideoMotionV1(
 	request: Readonly<VideoMotionAnalysisRequestV1>,
@@ -81,23 +89,34 @@ export async function analyzeVideoMotionV1(
 	const inputSha256 = digest(request?.inputSha256, 'motion analysis input digest');
 	const stack = normalizeVideoProcessorStackV1(request?.processorStack);
 	const tracking = trackingProcessor(stack);
-	const frames = analysisFrames(request?.frames);
+	const trackPair = createAdjacentLucasKanadeTrackerV1();
+	const { count, frames } = analysisFrames(request?.frames);
 	const settingsSha256 = videoMotionSettingsSha256V1(stack);
 	const transforms: VideoMotionAnalysisTransformV1[] = [];
-	const total = frames.length - 1;
-	for (let index = 1; index < frames.length; index += 1) {
+	let previous: VideoMotionAnalysisFrameV1 | undefined;
+	let analysisWidth = 0, analysisHeight = 0, startFrame = 0;
+	let received = 0;
+	for await (const value of frames) {
 		throwIfAborted(request.signal);
-		const previous = frames[index - 1]!;
-		const current = frames[index]!;
+		if (++received > count) throw new RangeError('The motion analysis stream frame count changed.');
+		const current = analysisFrame(value, previous);
+		if (!previous) {
+			({ width: analysisWidth, height: analysisHeight } = current.frame);
+			startFrame = current.frameNumber;
+			previous = current;
+			continue;
+		}
 		transforms.push(Object.freeze({
 			frameNumber: current.frameNumber,
-			transform: analyzePair(previous.frame, current.frame, tracking),
+			transform: analyzePair(previous.frame, current.frame, tracking, trackPair),
 		}));
-		request.onProgress?.(Object.freeze({ phase: 'tracking', completed: index, total }));
+		previous = current;
+		request.onProgress?.(Object.freeze({ phase: 'tracking', completed: received - 1, total: count - 1 }));
 		// Let cancellation and UI progress run between expensive frame pairs.
 		await yieldToHostTask();
 	}
 	throwIfAborted(request.signal);
+	if (received !== count || !previous) throw new RangeError('The motion analysis stream frame count changed.');
 	const body = normalizeBody({
 		schemaVersion: 1,
 		analysisId,
@@ -105,10 +124,8 @@ export async function analyzeVideoMotionV1(
 		processorStackId: stack.id,
 		inputSha256,
 		settingsSha256,
-		analysisWidth: frames[0]!.frame.width,
-		analysisHeight: frames[0]!.frame.height,
-		startFrame: frames[0]!.frameNumber,
-		endFrame: frames[frames.length - 1]!.frameNumber + 1,
+		analysisWidth, analysisHeight, startFrame,
+		endFrame: previous.frameNumber + 1,
 		transforms,
 	});
 	const bytes = encodedBody(body);
@@ -134,10 +151,10 @@ export function videoMotionSettingsSha256V1(stackValue: unknown): string {
 	return bytesToHex(sha256(UTF8.encode(JSON.stringify(stack))));
 }
 
-/** Authenticate body bytes and reject stale source or settings authority. */
+/** Authenticate bytes or recheck an admitted immutable body against current authority. */
 export function requireVideoMotionAnalysisBodyV1(
 	referenceValue: unknown,
-	bytesValue: Uint8Array,
+	analysis: Uint8Array | VideoMotionAnalysisBodyV1,
 	expected: Readonly<{ readonly inputSha256: string; readonly processorStack: unknown }>,
 ): VideoMotionAnalysisBodyV1 {
 	const stack = normalizeVideoProcessorStackV1(expected?.processorStack);
@@ -148,20 +165,14 @@ export function requireVideoMotionAnalysisBodyV1(
 		inputSha256: expected?.inputSha256,
 		settingsSha256,
 	});
-	const bytes = wholeBytes(bytesValue);
-	if (bytes.byteLength !== reference.byteLength
-		|| bytesToHex(sha256(bytes)) !== reference.sha256) {
-		throw new RangeError('The motion analysis body digest or byte length changed.');
-	}
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(UTF8_DECODER.decode(bytes)) as unknown;
-	} catch (error) {
-		throw new TypeError('The motion analysis body is not canonical UTF-8 JSON.', { cause: error });
-	}
-	const body = normalizeBody(parsed);
-	if (JSON.stringify(body) !== UTF8_DECODER.decode(bytes)) {
-		throw new TypeError('The motion analysis body is not canonical JSON.');
+	const encoded = analysis instanceof Uint8Array;
+	const body = encoded ? decodeAnalysisBody(analysis, reference) : analysis;
+	if (!encoded) {
+		const admitted = authenticatedReferences.get(body);
+		if (!admitted) throw new TypeError('The motion analysis body has not been authenticated.');
+		if (admitted.byteLength !== reference.byteLength || admitted.sha256 !== reference.sha256) {
+			throw new RangeError('The motion analysis body digest or byte length changed.');
+		}
 	}
 	if (body.analysisId !== reference.id || body.sourceId !== reference.sourceId
 		|| body.processorStackId !== reference.processorStackId
@@ -170,6 +181,27 @@ export function requireVideoMotionAnalysisBodyV1(
 		|| body.startFrame !== reference.startFrame || body.endFrame !== reference.endFrame) {
 		throw new RangeError('The motion analysis body does not match its persisted reference.');
 	}
+	if (encoded) authenticatedReferences.set(body, reference);
+	return body;
+}
+
+function decodeAnalysisBody(bytesValue: Uint8Array, reference: VideoMotionAnalysisReferenceV1): VideoMotionAnalysisBodyV1 {
+	const bytes = wholeBytes(bytesValue);
+	if (bytes.byteLength !== reference.byteLength
+		|| bytesToHex(sha256(bytes)) !== reference.sha256) {
+		throw new RangeError('The motion analysis body digest or byte length changed.');
+	}
+	let parsed: unknown, json: string;
+	try {
+		json = UTF8_DECODER.decode(bytes);
+		parsed = JSON.parse(json) as unknown;
+	} catch (error) {
+		throw new TypeError('The motion analysis body is not canonical UTF-8 JSON.', { cause: error });
+	}
+	const body = normalizeBody(parsed);
+	if (JSON.stringify(body) !== json) {
+		throw new TypeError('The motion analysis body is not canonical JSON.');
+	}
 	return body;
 }
 
@@ -177,9 +209,10 @@ function analyzePair(
 	previous: GrayVideoFrameV1,
 	current: GrayVideoFrameV1,
 	tracking: VideoTrackingProcessorV1,
+	trackPair: ReturnType<typeof createAdjacentLucasKanadeTrackerV1>,
 ): VideoSimilarityTransformV1 {
 	const features = detectShiTomasiFeaturesV1(previous, tracking);
-	const tracks = trackPyramidalLucasKanadeV1(previous, current, features, {
+	const tracks = trackPair(previous, current, features, {
 		windowRadius: tracking.windowRadius,
 		pyramidLevels: tracking.pyramidLevels,
 		maximumIterations: 24,
@@ -227,31 +260,45 @@ function trackingProcessor(stack: VideoProcessorStackV1): VideoTrackingProcessor
 	return processors[0]!;
 }
 
-function analysisFrames(value: unknown): readonly Readonly<{
-	readonly frameNumber: number;
-	readonly frame: GrayVideoFrameV1;
-}>[] {
-	if (!Array.isArray(value) || value.length < 2 || value.length > MAXIMUM_ANALYSIS_FRAMES) {
+function analysisFrames(value: unknown): Readonly<{
+	count: number;
+	frames: Iterable<VideoMotionAnalysisFrameV1> | AsyncIterable<VideoMotionAnalysisFrameV1>;
+}> {
+	if (Array.isArray(value)) {
+		assertFrameCount(value.length);
+		const frames: VideoMotionAnalysisFrameV1[] = [];
+		for (const item of value) frames.push(analysisFrame(item, frames.at(-1)));
+		return { count: frames.length, frames };
+	}
+	if (!value || typeof value !== 'object') throw new TypeError('Motion analysis requires a frame source.');
+	const stream = value as Partial<VideoMotionAnalysisFrameStreamV1>;
+	const count = stream.count ?? 0;
+	assertFrameCount(count);
+	if (typeof stream.frames?.[Symbol.asyncIterator] !== 'function') throw new TypeError('Motion analysis requires a frame stream.');
+	return { count, frames: stream.frames };
+}
+
+function assertFrameCount(count: number): void {
+	if (!Number.isSafeInteger(count) || count < 2 || count > MAXIMUM_ANALYSIS_FRAMES) {
 		throw new RangeError('Motion analysis requires a bounded sequence of at least two frames.');
 	}
-	let width = 0;
-	let height = 0;
-	return Object.freeze(value.map((item, index) => {
-		if (!item || typeof item !== 'object') throw new TypeError('A motion analysis frame must be an object.');
-		const candidate = item as Readonly<{ frameNumber?: unknown; frame?: unknown }>;
-		const frameNumber = nonNegativeInteger(candidate.frameNumber, 'motion analysis frame number');
-		const frame = candidate.frame;
-		if (!frame || typeof frame !== 'object') throw new TypeError('A motion analysis gray frame is required.');
-		const checked = frame as GrayVideoFrameV1;
-		if (index === 0) { width = checked.width; height = checked.height; }
-		if (checked.width !== width || checked.height !== height) {
+}
+
+function analysisFrame(item: unknown, previous: VideoMotionAnalysisFrameV1 | undefined): VideoMotionAnalysisFrameV1 {
+	if (!item || typeof item !== 'object') throw new TypeError('A motion analysis frame must be an object.');
+	const candidate = item as Partial<VideoMotionAnalysisFrameV1>;
+	const frameNumber = nonNegativeInteger(candidate.frameNumber, 'motion analysis frame number');
+	const frame = candidate.frame;
+	if (!frame || typeof frame !== 'object') throw new TypeError('A motion analysis gray frame is required.');
+	if (previous) {
+		if (frame.width !== previous.frame.width || frame.height !== previous.frame.height) {
 			throw new RangeError('Motion analysis frame dimensions must remain constant.');
 		}
-		if (index > 0 && frameNumber !== Number((value[index - 1] as { frameNumber?: unknown }).frameNumber) + 1) {
+		if (frameNumber !== previous.frameNumber + 1) {
 			throw new RangeError('Motion analysis frame numbers must be contiguous.');
 		}
-		return Object.freeze({ frameNumber, frame: checked });
-	}));
+	}
+	return Object.freeze({ frameNumber, frame });
 }
 
 function normalizeBody(value: unknown): VideoMotionAnalysisBodyV1 {

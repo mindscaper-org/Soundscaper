@@ -6,8 +6,9 @@ import { bootEditor, chooseCommandAction, importFiles } from './audio-editor-tes
 for (const [amplitude, ebu] of [[.8, false], [.9, true], [.9, false]]) {
 	test(`the ordinary ${String(amplitude)} tone ${ebu ? 'retains EBU headroom' : 'has no false clipping'} warning`, async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/');
+		// Six seconds leaves playback headroom for the initial meter-warning assertions.
 		await importFiles(editor, [createWavFixture({ name: 'ordinary-headroom.wav', frequency: 440,
-			duration: 20, channelCount: 2, channelAmplitudes: [amplitude, amplitude] })]);
+			duration: 6, channelCount: 2, channelAmplitudes: [amplitude, amplitude] })]);
 		await chooseCommandAction(page, editor, 'Window', 'Mixer');
 		const panel = editor.locator('[data-workspace-panel="playback-meter"]');
 		if (!await panel.count()) await chooseCommandAction(page, editor, 'Window', 'Playback meter');

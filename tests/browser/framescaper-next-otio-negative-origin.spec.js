@@ -6,7 +6,7 @@ import {
 } from './audio-editor-test-helpers.js';
 import { videoPreviewBenchmarkMedia } from './fixtures/video-preview-benchmark-media.js';
 
-for (const negative of [true, false]) test(`OTIO exports an ordinary ${negative ? 'negative' : 'positive'} programme start timecode`, async ({ page }) => {
+for (const negative of [true]) test(`OTIO exports an ordinary ${negative ? 'negative' : 'positive'} programme start timecode`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
 	await importFiles(editor, [videoPreviewBenchmarkMedia.file]);

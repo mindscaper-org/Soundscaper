@@ -5,7 +5,7 @@ import { bootEditor, chooseNestedCommandAction, clipByName, commitInput,
 	importFiles, openSourceMonitor } from './audio-editor-test-helpers.js';
 
 test('source effect frequency controls use the selected recording sample rate', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'telephone-recording.wav', sampleRate: 11_025,
 		frequency: 1000, duration: 0.8, channelCount: 1 });
 	await importFiles(editor, [recording]);

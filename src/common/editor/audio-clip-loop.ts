@@ -44,6 +44,10 @@ export function withoutClipLoop(opaqueExtensions: unknown): Record<string, unkno
 	return output;
 }
 
+export function withClipLoop(opaqueExtensions: unknown, loop: ClipLoop): Record<string, unknown> {
+	return { ...record(opaqueExtensions), [LOOP_EXTENSION]: loop };
+}
+
 /** The extension travels through native projects and clipboard copies without changing their schema. */
 export function readClipLoop(clip: object): ClipLoop | null {
 	const value = record(record(record(clip).opaqueExtensions)[LOOP_EXTENSION]);
@@ -67,6 +71,17 @@ export function clipHasLoopRepeats(clip: ClipLoopCarrier & { readonly durationFr
 /** Older projects and partial split clips may retain a loop without repeating. */
 export function normalizeInactiveClipLoop<Clip extends LoopAudioClip>(clip: Clip): Clip {
 	return readClipLoop(clip) && !clipHasLoopRepeats(clip) ? { ...clip, ...clipLoopUpdateFields(clip, false) } : clip;
+}
+
+/** Keep the audible span when its source orientation changes. */
+export function reverseClipLoopChange(clip: LoopAudioClip): ClipLoopChange | false | undefined {
+	const loop = readClipLoop(clip);
+	if (!loop) return undefined;
+	const remainingFrames = loop.periodFrames - loop.offsetFrames;
+	if (clip.durationFrames <= remainingFrames) return false;
+	const phase = (remainingFrames - clip.durationFrames % loop.periodFrames) % loop.periodFrames;
+	const offsetFrames = phase < 0 ? phase + loop.periodFrames : phase;
+	return offsetFrames === loop.offsetFrames ? undefined : { periodFrames: loop.periodFrames, offsetFrames };
 }
 
 function frame(value: unknown, minimum: number, name: string): number {
@@ -133,7 +148,10 @@ export function trimClipLoopPeriod(clip: LoopAudioClip, sourceFrameCount: number
 	const change = Math.max(1 - loop.periodFrames, Math.min(Math.floor(extension / ratio), Math.round(requested)));
 	const periodFrames = loop.periodFrames + change;
 	const sourceDurationFrames = Math.max(1, Math.min(clip.sourceDurationFrames + extension, Math.round(periodFrames * ratio)));
-	return { periodFrames, offsetFrames: 0, sourceDurationFrames,
+	// Preserve an existing partial repeat's first sample while it remains in the period.
+	const retainedOffset = edge === 'left' && loop.offsetFrames > 0 ? loop.offsetFrames + change : loop.offsetFrames;
+	const offsetFrames = retainedOffset >= 0 && retainedOffset < periodFrames ? retainedOffset : 0;
+	return { periodFrames, offsetFrames, sourceDurationFrames,
 		sourceStartFrame: clip.sourceStartFrame + (trimsSourceStart ? clip.sourceDurationFrames - sourceDurationFrames : 0) };
 }
 
@@ -154,18 +172,18 @@ export function clipLoopSegmentFields(clip: LoopAudioClip, localStartFrame: numb
 	const loop = readClipLoop(clip);
 	if (!loop) return null;
 	const segment = normalizeInactiveClipLoop({ ...clip, durationFrames,
-		opaqueExtensions: { ...record(clip.opaqueExtensions), [LOOP_EXTENSION]: { ...loop, offsetFrames: (loop.offsetFrames + localStartFrame) % loop.periodFrames } } });
+		opaqueExtensions: withClipLoop(clip.opaqueExtensions, { ...loop, offsetFrames: (loop.offsetFrames + localStartFrame) % loop.periodFrames }) });
 	return { sourceStartFrame: segment.sourceStartFrame, sourceDurationFrames: segment.sourceDurationFrames, opaqueExtensions: record(segment.opaqueExtensions) };
 }
 
 /** Stretch repeats with the clip; rendered replacements already contain the repetitions. */
-export function clipLoopTransformFields(clip: LoopAudioClip, changes: Readonly<Record<string, unknown>>): { opaqueExtensions: Record<string, unknown> } | null {
+export function clipLoopTransformFields(clip: LoopAudioClip, changes: Readonly<Record<string, unknown>>, timelineScale?: number): { opaqueExtensions: Record<string, unknown> } | null {
 	const loop = readClipLoop(clip);
 	if (!loop) return null;
+	const factor = timelineScale ?? (typeof changes.durationFrames === 'number' ? changes.durationFrames / clip.durationFrames : 1);
 	const opaqueExtensions = { ...record(clip.opaqueExtensions) };
 	if (changes.sourceId !== undefined && changes.sourceId !== record(clip).sourceId) delete opaqueExtensions[LOOP_EXTENSION];
-	else if (typeof changes.durationFrames === 'number' && changes.durationFrames !== clip.durationFrames) {
-		const factor = changes.durationFrames / clip.durationFrames;
+	else if (factor !== 1) {
 		const periodFrames = Math.max(1, Math.round(loop.periodFrames * factor));
 		opaqueExtensions[LOOP_EXTENSION] = { periodFrames, offsetFrames: Math.min(periodFrames - 1, Math.round(loop.offsetFrames * factor)) };
 	} else return null;

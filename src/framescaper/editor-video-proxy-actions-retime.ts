@@ -27,6 +27,8 @@ import {
 	framescaperVideoProxyPressureSelectsProxyRetime as pressureSelectsProxy,
 	snapshotFramescaperVideoProxyPressureRetime as snapshotPressure,
 } from './editor-video-proxy-pressure-retime.ts';
+import { createNativeProResProxyPreviewUnavailableError } from './editor-video-proxy-preview-media-retime.ts';
+import type { FramescaperProxyDetachPermit } from './editor-session-video-proxy-detach.ts';
 
 type SchedulerFactory = () => FramescaperCapturedVideoProxyScheduler;
 type ExistingSchedulerFactory = (candidate: Blob) => FramescaperCapturedVideoProxyScheduler;
@@ -66,6 +68,7 @@ export interface FramescaperVideoProxyActionsRetimeOptions {
 	readonly createAttachExistingScheduler?: ExistingSchedulerFactory;
 	readonly createSessionId?: () => string;
 	readonly cleanup: FramescaperVideoProxyCleanupCoordinatorRetime;
+	readonly canPreviewProxy?: (attachment: unknown) => boolean;
 	readonly previewTrust?: (
 		sourceId: string,
 		attachment: unknown,
@@ -73,6 +76,9 @@ export interface FramescaperVideoProxyActionsRetimeOptions {
 }
 
 export interface FramescaperVideoProxyActionsOptions extends FramescaperVideoProxyActionsRetimeOptions {
+	readonly stageDetach?: (
+		projectId: string, sourceId: string, attachment: Readonly<VideoProxyAttachmentV18>,
+	) => FramescaperProxyDetachPermit;
 	readonly createDetachCommand?: (
 		sourceId: string,
 		expectedAttachment: unknown,
@@ -107,6 +113,10 @@ export function createFramescaperVideoProxyActions(
 			}
 			const previous = modes.get(id);
 			if ((previous ?? 'auto') === mode) return;
+			if (mode === 'proxy' && options.canPreviewProxy) {
+				const { proxyAttachment } = videoSource(exactProject(options.owner.project), id);
+				if (!options.canPreviewProxy(proxyAttachment)) throw createNativeProResProxyPreviewUnavailableError();
+			}
 			modes.set(id, mode);
 			try {
 				await refresh(id);
@@ -131,10 +141,9 @@ export function createFramescaperVideoProxyActions(
 			const before = pressureSelectsProxy(previous ?? null);
 			pressures.set(id, captured);
 			try {
-				if ((modes.get(id) ?? 'auto') === 'auto'
-					&& before !== pressureSelectsProxy(captured)
-					&& videoSource(exactProject(options.owner.project), id).proxyAttachment !== null) {
-					await refresh(id);
+				if ((modes.get(id) ?? 'auto') === 'auto' && before !== pressureSelectsProxy(captured)) {
+					const { proxyAttachment } = videoSource(exactProject(options.owner.project), id);
+					if (proxyAttachment !== null && options.canPreviewProxy?.(proxyAttachment) !== false) await refresh(id);
 				}
 			} catch (error) {
 				if (pressures.get(id) === captured) {
@@ -234,16 +243,21 @@ export function createFramescaperVideoProxyActions(
 
 	async function detachPointer(sourceIdValue: string): Promise<void> {
 		const sourceId = identifier(sourceIdValue);
-		const source = videoSource(exactProject(options.owner.project), sourceId);
+		const project = exactProject(options.owner.project);
+		const source = videoSource(project, sourceId);
 		if (source.proxyAttachment === null) return;
 		const expectedAttachment = normalizeVideoProxyAttachmentV18(source.proxyAttachment);
-		await options.owner.actions.edit.commit(options.createDetachCommand
+		const command = options.createDetachCommand
 			? options.createDetachCommand(sourceId, expectedAttachment)
-			: {
-				type: 'framescaper/video-proxy-detach',
-				sourceId,
-				expectedAttachment,
-			});
+			: { type: 'framescaper/video-proxy-detach', sourceId, expectedAttachment };
+		const permit = options.stageDetach?.(identifier(project.id), sourceId, expectedAttachment);
+		try {
+			await options.owner.actions.edit.commit(command);
+			permit?.complete();
+		} catch (error) {
+			permit?.rollback();
+			throw error;
+		}
 		await refresh(sourceId);
 	}
 
@@ -513,6 +527,7 @@ function assertOptions(options: FramescaperVideoProxyActionsOptions): void {
 	if (!options?.owner || typeof options.owner !== 'object'
 		|| typeof options.createScheduler !== 'function'
 		|| (options.previewTrust !== undefined && typeof options.previewTrust !== 'function')
+		|| (options.canPreviewProxy !== undefined && typeof options.canPreviewProxy !== 'function')
 		|| !options.cleanup || typeof options.cleanup.prepareReplacement !== 'function'
 		|| typeof options.cleanup.cancel !== 'function' || typeof options.cleanup.settle !== 'function'
 		|| !options.owner.actions?.edit || !options.owner.actions.projectBin

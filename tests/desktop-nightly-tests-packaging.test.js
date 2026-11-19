@@ -232,7 +232,7 @@ test('desktop test artifacts validate packaged runtimes without rerunning the sh
 	assert.ok(testGuard.startsWith('if: >-'));
 	assert.doesNotMatch(testGuard, /github\.event_name|workflow_run/u);
 	assert.doesNotMatch(testGuard, /inputs\.artifact_variant/u);
-	assert.match(testJob, /needs: \[nightly-test-targets, motionscaper-native-build, browser-sites\]/u);
+	assert.match(testJob, /needs: \[nightly-test-targets, browser-sites, professional-native-build, motionscaper-native-build\]/u);
 	assert.match(testGuard, /needs\.nightly-test-targets\.result == 'success'/u);
 	assert.match(testGuard, /needs\.motionscaper-native-build\.result == 'success'/u);
 	assert.match(workflow, /motionscaper-native-build:\s+needs: nightly-test-targets\s+uses: \.\/\.github\/workflows\/motionscaper-media-host-native-build\.yml/u);

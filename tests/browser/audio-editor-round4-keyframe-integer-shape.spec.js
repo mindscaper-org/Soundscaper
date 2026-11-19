@@ -10,7 +10,7 @@ test('integer effect keyframes begin with the supported Hold interpolation', asy
 	const clip = editor.getByRole('group', { name: /^Video clip:/u }).first();
 	const properties = await openClipProperties(page, editor, clip);
 	const rack = properties.locator('[data-video-effect-rack]');
-	await rack.getByRole('button', { name: 'Choose an effect', exact: true }).click();
+	await rack.getByRole('button', { name: /^Choose an effect(?::|$)/u }).click();
 	await page.getByRole('option', { name: 'Pixelate', exact: true }).click();
 	await rack.getByRole('button', { name: 'Add effect', exact: true }).click();
 	await expect(rack.getByRole('checkbox', { name: 'Pixelate', exact: true })).toBeChecked();
@@ -36,7 +36,7 @@ test('removing an interior integer keyframe preserves a supported Hold bridge', 
 	await importFiles(editor, [createDeterministicSilentVideoFixture('pixelate-removal.webm')]);
 	const properties = await openClipProperties(page, editor, editor.getByRole('group', { name: /^Video clip:/u }).first());
 	const rack = properties.locator('[data-video-effect-rack]');
-	await rack.getByRole('button', { name: 'Choose an effect', exact: true }).click();
+	await rack.getByRole('button', { name: /^Choose an effect(?::|$)/u }).click();
 	await page.getByRole('option', { name: 'Pixelate', exact: true }).click();
 	await rack.getByRole('button', { name: 'Add effect', exact: true }).click();
 	await chooseNestedCommandAction(page, editor, 'Edit', ['Audio clips', 'Video keyframes']);

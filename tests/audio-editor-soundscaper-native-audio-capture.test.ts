@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { RecordingInputLossError } from '../src/common/editor/recording-input-events.ts';
 import test from 'node:test';
 
+import { createRecordingCapturePool } from '../src/common/editor/recording-capture-pool.js';
 import { createRecordingController, requestHardwareInput } from '../src/common/editor/recording.js';
 import { createSoundscaperNativeAudioRenderer, soundscaperNativeAudioDestination } from '../src/common/editor/soundscaper-native-audio-renderer.ts';
 import {
@@ -11,6 +12,27 @@ import {
 	claimSoundscaperNativeAudioCapture,
 	soundscaperNativeAudioCaptureHasActiveLease,
 } from '../src/common/editor/soundscaper-native-audio-capture.ts';
+
+test('the capture pool uses negotiated native width instead of the stereo lifecycle track', async () => {
+	for (const channelCount of [1, 3]) {
+		const claim = claimSoundscaperNativeAudioCapture({
+			sessionId: 'capture-pool',
+			context: { createMediaStreamDestination: () => ({ stream: captureStream() }) } as unknown as AudioContext,
+			node: audioNode('device', []) as unknown as AudioNode,
+			channelCount, sampleRate: 48_000,
+		});
+		const pool = createRecordingCapturePool();
+		claim.activate();
+		try {
+			const options = { channelCount, sampleRate: 48_000 };
+			const stream = await pool.acquireHardware('default', options);
+			assert.equal(pool.getSnapshot()[0]?.channelCount, channelCount);
+			assert.equal(await pool.acquireHardware('default', options), stream);
+			await assert.rejects(pool.acquireHardware('default', { ...options, channelCount: channelCount + 1 }), RangeError);
+			assert.equal(pool.getHardware('default'), stream);
+		} finally { pool.dispose(); claim.revoke(); }
+	}
+});
 
 test('an ended native capture lease no longer blocks idle-only calibration', () => {
 	const stream = captureStream();
@@ -106,12 +128,16 @@ test('bound native input is pulled silently and records exact channels through t
 		onError: (error: unknown) => { losses.push(error); },
 	} as never);
 	controller.start();
+	assert.deepEqual(events.filter(value => Array.isArray(value) && value[2] === 'recorder'), [
+		['connect', 'device', 'recorder'], ['connect', 'device', 'recorder', 1, 1],
+	]);
 	recorder.port.onmessage?.({ data: {
 		type: 'audio-chunk', frameStart: 0, frames: 2,
 		channels: [new Float32Array([0.25, 0.5]), new Float32Array([-0.25, -0.5])],
 	} });
 	callbacks.reportDeviceLoss?.();
 	await Promise.resolve();
+	recorder.port.onmessage?.({ data: { type: 'input-lost' } });
 	const stopped = controller.stop();
 	assert.equal(recorder.posted.some((value) => value.type === 'stop'), true);
 	recorder.port.onmessage?.({ data: { type: 'stopped', frame: 2 } });
@@ -310,7 +336,7 @@ function audioNode(name: string, events: unknown[]) {
 		channelCount: 1,
 		channelCountMode: 'max',
 		channelInterpretation: 'speakers',
-		connect(destination: { name?: string }) { events.push(['connect', name, destination.name]); },
+		connect(destination: { name?: string }, ...indices: number[]) { events.push(['connect', name, destination.name, ...indices]); },
 		disconnect(destination?: { name?: string }) { events.push(['disconnect', name, destination?.name]); },
 	};
 }

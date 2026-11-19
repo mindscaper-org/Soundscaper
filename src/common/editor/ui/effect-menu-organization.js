@@ -43,18 +43,18 @@ export function resolveEffectMenuTargeting({
  * The Effect menu's effect entries, either as category submenus or as one
  * alphabetical list.
  *
- * @param {{organization?: string, copy: Record<string, string>, effectLabels: Map<string, string>, productId: string, disabled: boolean, typeBlocked?: (type: string) => boolean, selectionActive?: boolean, allAudioTarget?: boolean, repairAvailable?: boolean, locale?: string}} context
+ * @param {{organization?: string, copy: Record<string, string>, effectLabels: Map<string, string>, productId: string, disabled: boolean, typeBlocked?: (type: string) => boolean, selectionActive?: boolean, allAudioTarget?: boolean, repairAvailable?: boolean, microphoneBleedAvailable?: boolean, locale?: string}} context
  * @param {(type: string) => unknown} openSelectionEffect
  * @returns {object[]} menu entries to splice into the Effect menu
  */
 export function createEffectMenuEntries(context, openSelectionEffect) {
 	const { organization, copy, effectLabels, productId, disabled, selectionActive, allAudioTarget, locale } = context;
 	const admitted = (type) => effectLabels.has(type)
-		&& (type !== 'reviewed-utility-gain' || productId === 'soundscaper');
+		&& (!['reviewed-utility-gain', 'automatic-microphone-bleed-reduction'].includes(type) || productId === 'soundscaper');
 	const entry = (type) => ({
 		id: type,
 		label: effectLabels.get(type),
-		disabled: disabled || context.typeBlocked?.(type) || (type === 'audacity-repair' && context.repairAvailable === false) || (!selectionActive
+		disabled: disabled || context.typeBlocked?.(type) || (type === 'automatic-microphone-bleed-reduction' && !context.microphoneBleedAvailable) || (type === 'audacity-repair' && context.repairAvailable === false) || (!selectionActive
 			&& !(allAudioTarget && audioSelectionEffectAppliesToAllAudio(type))),
 		onClick: () => openSelectionEffect(type),
 	});

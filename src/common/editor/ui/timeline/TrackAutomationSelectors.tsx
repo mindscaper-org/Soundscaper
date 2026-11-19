@@ -11,6 +11,7 @@ import {
 } from '../../track-automation-runtime.ts';
 import { localizeTrackAutomationTargets } from './track-automation-target-presentation.ts';
 import type { TrackAutomationTargetV21 } from '../../track-automation-targets-v21.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export interface TrackAutomationSelectorsProps {
 	readonly trackId: string;
@@ -41,7 +42,7 @@ export function TrackAutomationSelectors({
 	const targetLabel = copy.automationParameter || 'Automation parameter';
 	const modeLabel = copy.automationMode || 'Automation mode';
 	const selectTarget = (event: ChangeEvent<HTMLSelectElement>) => {
-		if (runtime && runtime.snapshot.mode !== 'read') runtime.setMode('read', null);
+		if (runtime && mode !== 'read') runtime.setMode('read', null);
 		onTarget(event.currentTarget.value);
 	};
 
@@ -52,7 +53,7 @@ export function TrackAutomationSelectors({
 			data-track-id={trackId}
 		>
 			<label>
-				<span className="kw-audio-editor-sr-only">{targetLabel}</span>
+				<EditorControlLabel className="kw-audio-editor-sr-only">{targetLabel}</EditorControlLabel>
 				<select
 					aria-label={targetLabel}
 					value={selectedTarget.key}
@@ -75,7 +76,7 @@ export function TrackAutomationSelectors({
 				</select>
 			</label>
 			<label>
-				<span className="kw-audio-editor-sr-only">{modeLabel}</span>
+				<EditorControlLabel className="kw-audio-editor-sr-only">{modeLabel}</EditorControlLabel>
 				<select
 					aria-label={modeLabel}
 					value={mode}

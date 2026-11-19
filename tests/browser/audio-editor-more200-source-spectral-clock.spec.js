@@ -6,7 +6,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 import { calculateAudioSpectrum } from '../../src/common/editor/audio-spectrum.ts';
 
 for (const variant of [{ rate: 24_000 }, { rate: 48_000 }, { rate: 96_000 }, { rate: 24_000, pitch: true }]) test(`Source Editor painted frequency matches audible PCM for ${variant.rate}Hz input; pitch=${!!variant.pitch}`, async ({ page }) => {
-	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
+	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'Clock48.wav', sampleRate: 48_000, duration: .2, frequency: 50, channelCount: 1 })]);
 	await importFiles(editor, [createWavFixture({ name: 'Source tone.wav', sampleRate: variant.rate, duration: 2, frequency: 1000, channelCount: 1 })]);
 	const downloading = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);

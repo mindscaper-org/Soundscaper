@@ -62,6 +62,7 @@ const AUDIO_CODEC_RUNTIME_FILES = Object.freeze([
 	'desktop/desktop-audio-codec-capability-contract.js',
 	'desktop/desktop-audio-codec-capability-probe.js',
 	'desktop/desktop-audio-codec-main-ipc.js',
+	'desktop/desktop-audio-codec-lazy-service.js',
 	'desktop/desktop-audio-codec-ipc-queue.js',
 	'desktop/desktop-audio-codec-admission-snapshot.js',
 	'desktop/desktop-codec-operation-queue.js',
@@ -237,6 +238,10 @@ test('compiled desktop audio main entry points are importable from the staged ru
 	)).href);
 	assert.equal(typeof composition.createDesktopAudioCodecRuntimeComposition, 'function');
 	assert.equal(typeof ipc.registerDesktopAudioCodecMainIpc, 'function');
+	const video = await import(pathToFileURL(join(
+		outputRoot, 'desktop/external-ffmpeg-video-operation-service.js',
+	)).href);
+	assert.equal(typeof video.createExternalFfmpegVideoOperationService, 'function');
 });
 
 test('FLAC staging refuses a pre-existing destination symlink', async (context) => {

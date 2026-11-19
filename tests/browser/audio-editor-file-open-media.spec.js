@@ -5,7 +5,7 @@ import { bootEditor, chooseFileAction } from './audio-editor-test-helpers.js';
 
 test('mobile File Open starts a new project for audio while File Import keeps the active project', async ({ page }) => {
 	await page.setViewportSize({ width: 390, height: 844 });
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const originalId = await editor.getAttribute('data-project-id');
 	const first = createWavFixture({ name: 'phone-recording.wav', frequency: 330 });
 
@@ -39,7 +39,7 @@ test('mobile File Open starts a new project for audio while File Import keeps th
 
 test('mobile File Open creates a CUE project only after its import destination is accepted', async ({ page }) => {
 	await page.setViewportSize({ width: 390, height: 844 });
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const originalId = await editor.getAttribute('data-project-id');
 	const choosingFile = page.waitForEvent('filechooser');
 	await chooseFileAction(page, editor, 'Open');

@@ -17,6 +17,8 @@ export const NIGHTLY_TEST_RUNTIME_PACKAGE_ROOTS = Object.freeze([
 	'canvaskit-wasm',
 	'esbuild',
 	'fflate',
+	'js-synthesizer',
+	'libadlmidi-js',
 	'mediabunny',
 	'react',
 	'react-dom',

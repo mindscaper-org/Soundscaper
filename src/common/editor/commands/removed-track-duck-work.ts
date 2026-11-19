@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { retainedClipEffectRacks } from './retained-clip-effect-racks.ts';
 
 type Data = Record<string, unknown>;
 export interface RemovedTrackDuckSlot {
@@ -49,7 +50,9 @@ export function prepareRemovedTrackDuckWork(
 		if (!dataRecord(bus) || !dataArray(bus.effects)) return null;
 		buses.push(bus);
 	}
-	const racks = [project.master.effects,
+	const clipRacks = retainedClipEffectRacks(project);
+	if (!clipRacks.every(dataArray)) return null;
+	const racks = [project.master.effects, ...clipRacks,
 		...tracks.filter(track => Array.isArray(track.effects)).map(track => track.effects as unknown[]),
 		...buses.map(bus => bus.effects as unknown[])];
 	for (const rack of racks) for (const effect of rack) {

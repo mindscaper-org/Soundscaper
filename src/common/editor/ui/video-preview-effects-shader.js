@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { VIDEO_PREVIEW_PIXELATE_SHADER_BODY } from './video-preview-pixelate.ts';
 import { VIDEO_CHROMA_KEY_SHADER_BODY } from '../video-chroma-key.ts';
 
 export const MAX_GAUSSIAN_BLUR_PAIR_COUNT = 30;
-export const VIDEO_PREVIEW_PIXELATE_GRID_SIZE = 2;
 
 export const FRAGMENT_SHADER_SOURCE = `#version 300 es
 precision highp float;
@@ -126,22 +126,8 @@ void main() {
 		yuv.x = clamp(yuv.x, 16.0 / 255.0, 235.0 / 255.0);
 		yuv.yz = clamp(yuv.yz, vec2(16.0 / 255.0), vec2(240.0 / 255.0));
 		color.rgb = limited_yuv_to_rgb(yuv);
-	} else if (u_effect == 2) {
-		float block_size = max(1.0, u_params0.x);
-		vec2 pixel_size = vec2(block_size) / max(u_resolution, vec2(1.0));
-		vec2 top_origin_uv = vec2(content_uv.x, 1.0 - content_uv.y);
-		vec2 block_origin = floor(top_origin_uv / pixel_size) * pixel_size;
-		vec2 block_extent = min(pixel_size, vec2(1.0) - block_origin);
-		vec4 block_average = vec4(0.0);
-		for (int sample_y = 0; sample_y < ${VIDEO_PREVIEW_PIXELATE_GRID_SIZE}; sample_y += 1) {
-			for (int sample_x = 0; sample_x < ${VIDEO_PREVIEW_PIXELATE_GRID_SIZE}; sample_x += 1) {
-				vec2 sample_position = (vec2(float(sample_x), float(sample_y)) + 0.5)
-					/ float(${VIDEO_PREVIEW_PIXELATE_GRID_SIZE});
-				vec2 top_origin_sample = block_origin + sample_position * block_extent;
-				block_average += sample_content(vec2(top_origin_sample.x, 1.0 - top_origin_sample.y));
-			}
-		}
-		color = block_average / float(${VIDEO_PREVIEW_PIXELATE_GRID_SIZE * VIDEO_PREVIEW_PIXELATE_GRID_SIZE});
+	} else if (u_effect == 2 || u_effect == 18 || u_effect == 19) {
+${VIDEO_PREVIEW_PIXELATE_SHADER_BODY}
 	} else if (u_effect == 3) {
 		float amount = clamp(u_params0.x, 0.0, 1.0);
 		float angle = amount * (1.57079632679 - 0.001);

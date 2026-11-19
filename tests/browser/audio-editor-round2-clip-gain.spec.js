@@ -5,7 +5,7 @@ import { expectClipGain, openClipGainDialog, setClipGain } from './audio-editor-
 import { bootEditor, clipByName, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
 
 test('an omitted clip gain is refused instead of resetting the audio to zero dB', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const properties = await openClipProperties(page, editor, clipByName(editor, toneA.name));
 	await setClipGain(properties, -6);

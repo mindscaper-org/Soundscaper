@@ -18,7 +18,6 @@ import { createSoundscaperDeliveryFilesystemFixture } from
 
 test('concurrent delivery claims cannot replace the first live claim', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-delivery-claim-race-'));
-	context.after(() => rm(root, { recursive: true, force: true }));
 	const outputRoot = join(root, 'outputs');
 	await mkdir(outputRoot);
 	const bothRevalidating = deferred<void>();
@@ -40,7 +39,9 @@ test('concurrent delivery claims cannot replace the first live claim', async (co
 			return observeSoundscaperDeliveryRoot(path);
 		},
 	});
-	context.after(() => service.close());
+	context.after(async () => {
+		try { await service.close(); } finally { await rm(root, { recursive: true, force: true }); }
+	});
 	const grant = await service.authorizeRoot(outputRoot);
 	const queued = deliveryDescription(grant.grantId);
 	await service.enqueue(queued, null, admission(queued));

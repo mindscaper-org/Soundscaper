@@ -104,12 +104,15 @@ function appendBloom(context: VideoEffectGraphContext): void {
 }
 
 function appendAlphaUnderlay(context: VideoEffectGraphContext): void {
-	const { filters, inputLabel, outputLabel, operation, width, height } = context;
+	const { filters, inputLabel, outputLabel, operation } = context;
 	const original = `${outputLabel}_original`;
 	const maskSource = `${outputLabel}_mask_source`;
 	const sourceMask = `${outputLabel}_source_mask`;
 	let decorationMask = `${outputLabel}_decoration_mask`;
-	filters.push(`[${inputLabel}]format=pix_fmts=rgba,split=2[${original}][${maskSource}]`);
+	const base = `${outputLabel}_base`;
+	filters.push(operation.shape === 'drop-shadow'
+		? `[${inputLabel}]format=pix_fmts=rgba,split=3[${original}][${maskSource}][${base}_source]`
+		: `[${inputLabel}]format=pix_fmts=rgba,split=2[${original}][${maskSource}]`);
 	filters.push(`[${maskSource}]alphaextract[${sourceMask}]`);
 	if (operation.shape === 'outline') {
 		const dilationStart = `${outputLabel}_dilation_source`;
@@ -137,12 +140,15 @@ function appendAlphaUnderlay(context: VideoEffectGraphContext): void {
 	const color = `${outputLabel}_color`;
 	const decoration = `${outputLabel}_decoration`;
 	const opacity = numberToken(operation.opacity, 'opacity');
-	filters.push(`color=c=${colorToken(operation.color)}:s=${width}x${height},format=pix_fmts=rgb24[${color}]`);
-	filters.push(`[${color}][${decorationMask}]alphamerge,format=pix_fmts=rgba,lutrgb=a=val*${opacity}[${decoration}]`);
+	const packedColor = Number(operation.color);
+	colorToken(packedColor);
+	const matte = `${outputLabel}_matte`;
+	filters.push(`[${decorationMask}]split=2[${matte}][${color}_source]`);
+	filters.push(`[${color}_source]format=pix_fmts=rgb24,lutrgb=r=${(packedColor >>> 16) & 255}:g=${(packedColor >>> 8) & 255}:b=${packedColor & 255}[${color}]`);
+	filters.push(`[${color}][${matte}]alphamerge,format=pix_fmts=rgba,lutrgb=a=val*${opacity}[${decoration}]`);
 	if (operation.shape === 'drop-shadow') {
-		const base = `${outputLabel}_base`;
 		const shifted = `${outputLabel}_shifted`;
-		filters.push(`color=c=black@0:s=${width}x${height},format=pix_fmts=rgba[${base}]`);
+		filters.push(`[${base}_source]lutrgb=a=0[${base}]`);
 		filters.push(
 			`[${base}][${decoration}]overlay=x=${numberToken(operation.offsetX, 'offsetX')}`
 			+ `:y=${numberToken(operation.offsetY, 'offsetY')}:eof_action=pass:repeatlast=0:format=auto[${shifted}]`,

@@ -155,7 +155,7 @@ export const TimelineRulerContextMenu: React.FC<TimelineRulerContextMenuProps> =
     <ContextMenu isOpen={isOpen} onClose={onClose} x={x} y={y} className="timeline-ruler-context-menu" autoFocus={autoFocus} style={style}>
       {/* Time format options */}
       <ContextMenuItem
-        label={copy.minutesSeconds}
+        tooltipKey="ruler-minutes-seconds" label={copy.minutesSeconds}
         onClick={() => {
           onTimeFormatChange?.('minutes-seconds');
           onClose();
@@ -165,7 +165,7 @@ export const TimelineRulerContextMenu: React.FC<TimelineRulerContextMenuProps> =
       />
 
       <ContextMenuItem
-        label={copy.beatsMeasures}
+        tooltipKey="ruler-beats-measures" label={copy.beatsMeasures}
         onClick={() => {
           onTimeFormatChange?.('beats-measures');
           onClose();
@@ -179,7 +179,7 @@ export const TimelineRulerContextMenu: React.FC<TimelineRulerContextMenuProps> =
 
       {/* Display options */}
       <ContextMenuItem
-        label={copy.scrollViewToPlayhead}
+        tooltipKey="ruler-scroll-playhead" label={copy.scrollViewToPlayhead}
         onClick={() => {
           onToggleScrollViewToPlayhead?.();
           onClose();
@@ -189,7 +189,7 @@ export const TimelineRulerContextMenu: React.FC<TimelineRulerContextMenuProps> =
       />
 
       <ContextMenuItem
-        label={copy.pinnedPlayhead}
+        tooltipKey="ruler-pinned-playhead" label={copy.pinnedPlayhead}
         onClick={() => {
           onTogglePinnedPlayHead?.();
           onClose();
@@ -200,7 +200,7 @@ export const TimelineRulerContextMenu: React.FC<TimelineRulerContextMenuProps> =
 
       {/* Click ruler to start playback */}
       <ContextMenuItem
-        label={copy.clickRulerPlayback}
+        tooltipKey="ruler-click-playback" label={copy.clickRulerPlayback}
         onClick={() => {
           onToggleClickRulerToStartPlayback?.();
           onClose();
@@ -214,7 +214,7 @@ export const TimelineRulerContextMenu: React.FC<TimelineRulerContextMenuProps> =
 
       {/* Loop region with submenu */}
       <ContextMenuItem
-        label={copy.toggleLoopRegion}
+        tooltipKey="toggle-loop-region" label={copy.toggleLoopRegion}
         onClick={() => {
           onToggleLoopRegion?.();
           onClose();
@@ -224,21 +224,21 @@ export const TimelineRulerContextMenu: React.FC<TimelineRulerContextMenuProps> =
         hasSubmenu
       >
         <ContextMenuItem
-          label={copy.clearLoopRegion}
+          tooltipKey="clear-loop-region" label={copy.clearLoopRegion}
           onClick={() => {
             onClearLoopRegion?.();
             onClose();
           }}
         />
         <ContextMenuItem
-          label={copy.loopToSelection}
+          tooltipKey="set-loop-region-to-selection" label={copy.loopToSelection}
           onClick={() => {
             onSetLoopRegionToSelection?.();
             onClose();
           }}
         />
         <ContextMenuItem
-          label={copy.selectionToLoop}
+          tooltipKey="set-selection-to-loop" label={copy.selectionToLoop}
           onClick={() => {
             onSetSelectionToLoop?.();
             onClose();
@@ -246,7 +246,7 @@ export const TimelineRulerContextMenu: React.FC<TimelineRulerContextMenuProps> =
         />
         <div className="timeline-ruler-context-menu-divider" />
         <ContextMenuItem
-          label={copy.selectionFollowsLoop}
+          tooltipKey="toggle-selection-follows-loop-region" label={copy.selectionFollowsLoop}
           onClick={() => {
             onToggleCreatingLoopSelectsAudio?.();
             onClose();
@@ -260,7 +260,7 @@ export const TimelineRulerContextMenu: React.FC<TimelineRulerContextMenuProps> =
 
       {/* Show vertical rulers */}
       <ContextMenuItem
-        label={copy.showVerticalRulers}
+        tooltipKey="show-rulers" label={copy.showVerticalRulers}
         onClick={() => {
           onToggleVerticalRulers?.();
           onClose();

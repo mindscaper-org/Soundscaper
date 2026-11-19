@@ -188,6 +188,7 @@ export interface CommandRippleRangePayload extends CommandRangePayload {
 }
 
 export type EffectRackTarget =
+	| { readonly scope: 'clip'; readonly trackId: string; readonly busId?: never }
 	| { readonly scope: 'master'; readonly trackId?: never; readonly busId?: never }
 	| { readonly scope: 'track'; readonly trackId: string; readonly busId?: never }
 	| { readonly scope: 'group' | 'send'; readonly busId?: string; readonly trackId?: string };

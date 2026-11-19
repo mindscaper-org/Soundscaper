@@ -2,6 +2,8 @@
 import type { SelectionEffectWorkerContext, SelectionEffectWorkerRequest, SelectionEffectWorkerResult, EffectWorkerRunOptions } from './selection-effect-worker-service.ts';
 import type { IndependentSelectionEffectOptions } from './bounded-selection-effect-workers.ts';
 import { independentTrackEffectParams } from './independent-track-effect-params.ts';
+import { autoTuneSelectionContext } from '../../../first-party-effects/auto-tune/project-control.ts';
+import type { EngineProject } from '../../../engine/types.ts';
 
 interface Target {
 	readonly track: Readonly<{ id: string }>;
@@ -24,11 +26,14 @@ export async function processIndependentSelectionTargets<TargetValue extends Tar
 	definition: Definition; spectralSelections: ReadonlyMap<string, unknown>; controlChannels: Float32Array[] | null;
 	controlTrackId: string; noiseProfile: unknown; contextFrames: number; afterContextFrames: number;
 	projectFrameCount: () => number; assertCurrent: () => void;
+	project?: EngineProject;
 	renderDryRange(trackId: string, startFrame: number, endFrame: number, channelCount?: number, clipIds?: readonly string[]): Promise<Float32Array[]>;
 }>): Promise<Array<Readonly<{ target: TargetValue; channels: Float32Array[] | undefined }>>> {
 	async function prepare({ target, channels, neighbourContext }: DryResult<TargetValue>): Promise<SelectionEffectWorkerRequest> {
 		options.assertCurrent();
 		const context: Record<string, unknown> = {};
+		if (options.effectType === 'auto-tune' && options.params.controlTrackId) Object.assign(context,
+			autoTuneSelectionContext(options.project ?? {}, options.params, target.startFrame, channels[0]!.length, options.sampleRate));
 		const spectral = options.spectralSelections.get(target.track.id); if (spectral) context.spectralSelection = spectral;
 		if (options.definition.requiresControlTrack) context.controlChannels = options.controlChannels || await options.renderDryRange(options.controlTrackId, target.startFrame, target.endFrame);
 		if (options.definition.requiresNoiseProfile) context.noiseProfile = options.noiseProfile;

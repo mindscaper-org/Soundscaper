@@ -144,8 +144,8 @@ export function createDesktopFreesoundProxy({ appOrigin, apiOrigin, fetchImpl, s
 			const token = sessionStore.get();
 			const upstreamRequest = await upstreamRequestOptions(request, route, { appOrigin, token });
 			const upstream = await fetchImpl(`${apiOrigin}${apiPath}${parsedUrl.search}`, upstreamRequest);
-			if (upstream.status === 401 && token) await sessionStore.clear();
-			if (apiPath === '/api/freesound/oauth/session' && request.method === 'DELETE' && upstream.ok) {
+			if (upstream.status === 401 && token && sessionStore.get() === token) await sessionStore.clear();
+			if (apiPath === '/api/freesound/oauth/session' && request.method === 'DELETE' && upstream.ok && sessionStore.get() === token) {
 				await sessionStore.clear();
 			}
 			if (route.kind === 'json' && apiPath.endsWith('/oauth/poll') && upstream.ok) {

@@ -12,7 +12,7 @@ async function saveAs(page, dialog, name) {
 	await naming.getByRole('textbox', { name: 'Preset name', exact: true }).fill(name);
 	await naming.getByRole('button', { name: 'Save preset', exact: true }).click();
 	await expect(naming).toBeHidden();
-	await expect(dialog.getByRole('button', { name: 'Preset', exact: true })).toContainText(name);
+	await expect(dialog.getByRole('button', { name: /^Preset(?::|$)/u })).toContainText(name);
 }
 
 test('two open Export dialogs retain each tab’s saved delivery preset after reload', async ({ page, context }) => {
@@ -33,7 +33,7 @@ test('two open Export dialogs retain each tab’s saved delivery preset after re
 		await saveAs(other, secondDialog, 'Archive stereo');
 		await other.reload(); await waitForEditor(other); await waitForProjectActivation(second);
 		const reopened = await openExportDialog(other, second);
-		await reopened.getByRole('button', { name: 'Preset', exact: true }).click();
+		await reopened.getByRole('button', { name: /^Preset(?::|$)/u }).click();
 		await expect(other.getByRole('option', { name: /^Radio mono \(custom\)/u })).toBeVisible();
 		await expect(other.getByRole('option', { name: /^Archive stereo \(custom\)/u })).toBeVisible();
 	} finally { await other.close(); }
@@ -57,7 +57,7 @@ test('a stale Export dialog Save as does not restore a preset deleted in the oth
 		await saveAs(other, secondDialog, 'New delivery');
 		await other.reload(); await waitForEditor(other); await waitForProjectActivation(second);
 		const reopened = await openExportDialog(other, second);
-		await reopened.getByRole('button', { name: 'Preset', exact: true }).click();
+		await reopened.getByRole('button', { name: /^Preset(?::|$)/u }).click();
 		await expect(other.getByRole('option', { name: /^New delivery \(custom\)/u })).toBeVisible();
 		await expect(other.getByRole('option', { name: /^Retired delivery \(custom\)/u })).toHaveCount(0);
 	} finally { await other.close(); }

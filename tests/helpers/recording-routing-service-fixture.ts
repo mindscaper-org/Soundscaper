@@ -41,6 +41,7 @@ interface FixtureOptions {
 	readonly publishDocumentSnapshot?: (state: Readonly<RecordingRoutingState>) => void;
 	readonly getAudioContext?: (options: Readonly<{ resume?: boolean; sampleRate?: number }>) => Promise<unknown>;
 	readonly setOutputDevice?: (deviceId: string) => Promise<OutputDeviceResult>;
+	readonly recordingCapturePool?: RecordingRoutingCapturePool<unknown>;
 }
 
 export function createFixture(options: FixtureOptions = {}) {
@@ -54,12 +55,10 @@ export function createFixture(options: FixtureOptions = {}) {
 	const persistCalls: Array<[string, unknown, unknown]> = [];
 	const stopMeterCalls: unknown[] = [];
 	const assignedTrackIds: string[] = [];
-	const releasedHardware: string[] = [];
 	let publishes = 0;
 	let meterInvalidations = 0;
 	let meterSynchronizations = 0;
 	let releaseAllCalls = 0;
-	let releaseDisplayCalls = 0;
 	let poolSources: readonly RecordingPoolSource[] = [];
 	const state: FixtureState = {
 		recordingRouting: {
@@ -104,14 +103,8 @@ export function createFixture(options: FixtureOptions = {}) {
 			poolSources = [];
 			return 2;
 		},
-		releaseDisplay: () => {
-			releaseDisplayCalls += 1;
-			return true;
-		},
-		releaseHardware: (deviceId: string) => {
-			releasedHardware.push(deviceId);
-			return true;
-		},
+		releaseDisplay: () => true,
+		releaseHardware: () => true,
 	};
 	const runtime = {
 		lifetime,
@@ -150,7 +143,7 @@ export function createFixture(options: FixtureOptions = {}) {
 		getProject: () => project,
 		projectSampleRate: () => 48_000,
 		publishDocumentSnapshot: () => { publishes += 1; options.publishDocumentSnapshot?.(state); },
-		recordingCapturePool,
+		recordingCapturePool: options.recordingCapturePool ?? recordingCapturePool,
 		recordingRouteSourceKey: (route: RecordingInputRoute) => (
 			route.kind === 'display' ? 'display' : `device:${route.deviceId}`
 		),
@@ -184,7 +177,6 @@ export function createFixture(options: FixtureOptions = {}) {
 		loadCalls,
 		normalizationCalls,
 		persistCalls,
-		releasedHardware,
 		stopMeterCalls,
 		setPoolSources: (sources: readonly RecordingPoolSource[]) => { poolSources = sources; },
 		setProject(next: TestProject | null) { project = next; },
@@ -192,6 +184,5 @@ export function createFixture(options: FixtureOptions = {}) {
 		meterInvalidations: () => meterInvalidations,
 		meterSynchronizations: () => meterSynchronizations,
 		releaseAllCalls: () => releaseAllCalls,
-		releaseDisplayCalls: () => releaseDisplayCalls,
 	};
 }

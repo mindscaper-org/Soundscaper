@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { sequenceFrameAtSample } from '../common/editor/sequence-frame-navigation.ts';
+import { registerVideoPreviewDrawableRevision } from '../common/editor/controller/clip-video/video-preview-frame-identity.ts';
 import type { AudioEditorProjectStore } from '../common/editor/storage.js';
+import { createFramescaperImageTimelineTickMapperV1 } from '../common/editor/timeline-image-model.ts';
 import type {
 	ProductVideoVisualPreviewCreateRequest,
 	ProductVideoVisualPreviewFrame,
@@ -12,24 +14,29 @@ import type {
 import type { VideoCanvasFit } from '../common/editor/video-canvas-fit.ts';
 import { DEFAULT_VIDEO_CLIP_COMPOSITION } from '../common/editor/video-clip-composition.ts';
 import { resolveVideoRenderDescription } from '../common/editor/video-render-description.ts';
-import { createVisibleVideoTrackPredicate } from '../common/editor/video-track-visibility.js';
+import { indexVisibleFramescaperImageTracks } from './editor-timeline-image-track-index.ts';
+import { createFramescaperImageClipIndex } from './editor-timeline-image-clip-index.ts';
 import {
 	fitFramescaperImagePreviewSizeTimelineImage,
 	framescaperImageSourceForClipTimelineImage,
-	mapFramescaperImageFrameAtSampleTimelineImage,
 	openFramescaperStoredImageFramePackTimelineImage,
 	scaleFramescaperImageRgbaTimelineImage,
 	throwIfFramescaperImagePreviewAbortedTimelineImage,
 	type FramescaperImageClipV1,
-	type FramescaperImageFramePackReaderV1,
-	type FramescaperImageSourceV1,
 } from './editor-selected-timeline-image-image-frame-source.ts';
 import {
 	admitFramescaperImageProjectBinThumbnailResourcesTimelineImage,
 	admitFramescaperImageTimelinePreviewResourcesTimelineImage,
 	assertFramescaperImagePreviewReaderMetadataTimelineImage,
 	FRAMESCAPER_IMAGE_PREVIEW_MAXIMUM_CONTEXTS_TIMELINE_IMAGE,
+	type FramescaperImagePreviewResourceContextTimelineImage,
 } from './editor-selected-timeline-image-image-preview-resources.ts';
+import {
+	createFramescaperImagePreviewPrefetchTimelineImage,
+	disposeFramescaperImagePreviewFramesTimelineImage,
+	openFramescaperImagePreviewFramesTimelineImage,
+	type FramescaperImagePreviewFramesTimelineImage,
+} from './editor-selected-timeline-image-image-preview-frames.ts';
 import { FRAMESCAPER_FINISHING_PROJECT_RUNTIME_PROFILE } from './editor-domain-runtime-profile.ts';
 import { framescaperProjectFinishingFoundationShapeNativeMedia } from './editor-project-native-media-foundation.ts';
 import { framescaperProjectNativeMediaFoundationShapeTimelineImage } from './editor-project-timeline-image-foundation.ts';
@@ -51,6 +58,7 @@ export interface FramescaperImagePreviewVideoTimelineImage {
 
 export interface FramescaperImagePreviewDrawableTimelineImage {
 	readonly video: FramescaperImagePreviewVideoTimelineImage;
+	/** Consume the borrowed picture synchronously. */
 	present(rgba: Uint8Array<ArrayBuffer>): void;
 	dispose(): void;
 }
@@ -86,26 +94,12 @@ export interface FramescaperSelectedProjectBinThumbnailOptionsTimelineImage
 	readonly cloneProject?: (profile: unknown, project: unknown) => FramescaperProjectTimelineImage;
 }
 
-interface LoadedImageSourceTimelineImage {
-	readonly source: FramescaperImageSourceV1;
-	readonly reader: FramescaperImageFramePackReaderV1;
-	readonly width: number;
-	readonly height: number;
-	readonly frames: Uint8Array<ArrayBuffer>[];
-}
-
-interface PlannedImageSourceTimelineImage {
-	readonly source: FramescaperImageSourceV1;
-	readonly width: number;
-	readonly height: number;
-}
-
 interface ImageClipPreviewTimelineImage {
 	readonly clip: FramescaperImageClipV1;
-	readonly loaded: LoadedImageSourceTimelineImage;
+	readonly loaded: FramescaperImagePreviewFramesTimelineImage;
 	readonly trackId: string;
 	readonly trackIndex: number;
-	readonly sequenceRate: Readonly<{ readonly num: number; readonly den: number }>;
+	readonly sourceTicksAt: (sequenceFrame: number) => bigint;
 	readonly drawable: FramescaperImagePreviewDrawableTimelineImage;
 	lastFrameIndex: number;
 }
@@ -117,7 +111,9 @@ export async function createFramescaperSelectedVisualPreviewSessionTimelineImage
 	const project = admittedProject(options?.profile, options?.project, options?.cloneProject);
 	const canvas = previewCanvas(options?.width, options?.height, options?.fit);
 	throwIfFramescaperImagePreviewAbortedTimelineImage(options.signal);
-	const contexts = imageClipContexts(project);
+	const sequence = project.sequences.find(({ id }) => id === project.primarySequenceId);
+	if (!sequence) throw new ReferenceError('The selected timelineImage primary sequence is unavailable.');
+	const contexts = imageClipContexts(project, sequence);
 	const plannedSources = planTimelineSources(project, contexts, canvas);
 	admitFramescaperImageTimelinePreviewResourcesTimelineImage(contexts.map(({ clip }) => {
 		const planned = required(plannedSources, clip.sourceId, 'planned image source');
@@ -127,7 +123,7 @@ export async function createFramescaperSelectedVisualPreviewSessionTimelineImage
 		createDefaultInheritedSession(request, options.store)
 	));
 	const inheritedPromise = Promise.resolve().then(() => inheritedFactory({ project, ...canvas }));
-	const imagePromise = loadTimelineSources(
+	const imagePromise = openFramescaperImagePreviewFramesTimelineImage(
 		options.store, [...plannedSources.values()], options.signal,
 	);
 	const [inheritedResult, imageResult] = await Promise.allSettled([
@@ -140,7 +136,7 @@ export async function createFramescaperSelectedVisualPreviewSessionTimelineImage
 		);
 	}
 	if (inheritedResult.status === 'rejected') {
-		if (imageResult.status === 'fulfilled') disposeLoadedSources(imageResult.value);
+		if (imageResult.status === 'fulfilled') disposeFramescaperImagePreviewFramesTimelineImage(imageResult.value);
 		throw inheritedResult.reason;
 	}
 	if (imageResult.status === 'rejected') {
@@ -168,24 +164,30 @@ export async function createFramescaperSelectedVisualPreviewSessionTimelineImage
 		}
 	} catch (error) {
 		disposeClipDrawables(clips);
-		disposeLoadedSources(loaded);
+		disposeFramescaperImagePreviewFramesTimelineImage(loaded);
 		disposeInheritedSession(inherited);
 		throw error;
 	}
 	if (inherited === null && clips.length === 0) return null;
 	let disposed = false;
+	const schedulePrefetch = createFramescaperImagePreviewPrefetchTimelineImage();
+	const clipsAt = createFramescaperImageClipIndex(clips);
 	const imageFrame = (timelineSampleValue: number): ProductVideoVisualPreviewFrame => {
 		if (disposed) throw new Error('The selected timelineImage image preview session is disposed.');
-		return resolveImageFrame(project, clips, timelinePosition(timelineSampleValue), canvas);
+		throwIfFramescaperImagePreviewAbortedTimelineImage(options.signal);
+		const frame = sequenceFrameAtSample(timelinePosition(timelineSampleValue), sequence.rate, project.sampleRate);
+		return resolveImageFrame(clipsAt, frame, canvas, schedulePrefetch);
 	};
-	const resolve = (timelineSample: number): ProductVideoVisualPreviewFrame => (
-		mergePreviewFrames(inherited?.resolve(timelinePosition(timelineSample)) ?? emptyFrame(), imageFrame(timelineSample))
-	);
-	// The inherited exact executor owns a flattened finishing graph and cannot place a
-	// new timelineImage image between its already-composited tracks. Keep the exact route
-	// only when this session has no image node; image projects retain the layered
-	// compositor path until the timelineImage exact plan owns image nodes itself.
-	const renderExact = clips.length === 0 ? inherited?.renderExact : undefined;
+	const resolve = (timelineSample: number): ProductVideoVisualPreviewFrame => {
+		try {
+			return mergePreviewFrames(inherited?.resolve(timelinePosition(timelineSample)) ?? emptyFrame(), imageFrame(timelineSample));
+		} catch (error) {
+			schedulePrefetch();
+			throw error;
+		}
+	};
+	// Active images require the layered compositor because the exact session omits their tracks.
+	const renderExact = inherited?.renderExact;
 	return Object.freeze({
 		resolve,
 		resolveTransitionWeight(clipId: string, timelineSample: number): number | null {
@@ -200,6 +202,7 @@ export async function createFramescaperSelectedVisualPreviewSessionTimelineImage
 		}>) {
 			const sample = timelinePosition(request.timelineSample);
 			const images = imageFrame(sample);
+			if (images.layers.length) throw new Error('Active images require layered preview.');
 			const result = await renderExact.call(inherited, {
 				timelineSample: sample,
 				mediaLayers: request.mediaLayers,
@@ -209,8 +212,9 @@ export async function createFramescaperSelectedVisualPreviewSessionTimelineImage
 		dispose(): void {
 			if (disposed) return;
 			disposed = true;
+			schedulePrefetch();
 			disposeClipDrawables(clips);
-			disposeLoadedSources(loaded);
+			disposeFramescaperImagePreviewFramesTimelineImage(loaded);
 			disposeInheritedSession(inherited);
 		},
 	});
@@ -259,23 +263,16 @@ export async function createFramescaperSelectedProjectBinThumbnailTimelineImage(
 	});
 }
 
-function imageClipContexts(project: FramescaperProjectTimelineImage): readonly Omit<ImageClipPreviewTimelineImage,
+function imageClipContexts(project: FramescaperProjectTimelineImage, sequence: FramescaperProjectTimelineImage['sequences'][number]): readonly Omit<ImageClipPreviewTimelineImage,
 	'loaded' | 'drawable' | 'lastFrameIndex'>[] {
-	const sequence = project.sequences.find(({ id }) => id === project.primarySequenceId);
-	if (!sequence) throw new ReferenceError('The selected timelineImage primary sequence is unavailable.');
-	const sequenceTrackIds = new Set(sequence.trackIds);
-	const videoTracks = project.tracks.filter(track => track.type === 'video').filter(({ id }) => sequenceTrackIds.has(id));
-	const visible = createVisibleVideoTrackPredicate(videoTracks);
+	const trackByClip = indexVisibleFramescaperImageTracks(project, sequence);
 	const output: Omit<ImageClipPreviewTimelineImage, 'loaded' | 'drawable' | 'lastFrameIndex'>[] = [];
-	for (const value of project.clips) {
-		if (value.kind !== 'image') continue;
-		const clip = value as FramescaperImageClipV1;
-		if (clip.sequenceId !== sequence.id) continue;
-		const owner = videoTracks.find(({ clipIds }) => clipIds.includes(clip.id));
-		if (!owner || !visible(owner)) continue;
-		const trackIndex = sequence.trackIds.indexOf(owner.id);
-		if (trackIndex < 0) throw new ReferenceError(`timelineImage image track ${owner.id} is outside its sequence.`);
-		output.push({ clip, trackId: owner.id, trackIndex, sequenceRate: sequence.rate });
+	for (const clip of project.clips) {
+		if (clip.kind !== 'image' || clip.sequenceId !== sequence.id) continue;
+		const owner = trackByClip.get(clip.id);
+		if (!owner) continue;
+		output.push({ clip, ...owner,
+			sourceTicksAt: createFramescaperImageTimelineTickMapperV1(clip, sequence.rate) });
 		if (output.length > FRAMESCAPER_IMAGE_PREVIEW_MAXIMUM_CONTEXTS_TIMELINE_IMAGE) {
 			throw new RangeError('timelineImage image timeline preview exceeds its context count bound.');
 		}
@@ -289,8 +286,8 @@ function planTimelineSources(
 	project: FramescaperProjectTimelineImage,
 	contexts: readonly Omit<ImageClipPreviewTimelineImage, 'loaded' | 'drawable' | 'lastFrameIndex'>[],
 	canvas: Readonly<{ width: number; height: number; fit?: VideoCanvasFit }>,
-): ReadonlyMap<string, PlannedImageSourceTimelineImage> {
-	const output = new Map<string, PlannedImageSourceTimelineImage>();
+): ReadonlyMap<string, FramescaperImagePreviewResourceContextTimelineImage> {
+	const output = new Map<string, FramescaperImagePreviewResourceContextTimelineImage>();
 	for (const { clip } of contexts) {
 		if (output.has(clip.sourceId)) continue;
 		const source = framescaperImageSourceForClipTimelineImage(project.sources, clip);
@@ -302,64 +299,26 @@ function planTimelineSources(
 	return output;
 }
 
-async function loadTimelineSources(
-	store: AudioEditorProjectStore,
-	plannedSources: readonly PlannedImageSourceTimelineImage[],
-	signal?: AbortSignal,
-): Promise<LoadedImageSourceTimelineImage[]> {
-	const output: LoadedImageSourceTimelineImage[] = [];
-	try {
-		for (const { source, width, height } of [...plannedSources]
-			.sort((left, right) => compareText(left.source.id, right.source.id))) {
-			const reader = await openFramescaperStoredImageFramePackTimelineImage(
-				store, source, signal,
-				(byteLength) => { assertFramescaperImagePreviewReaderMetadataTimelineImage(source, byteLength); },
-			);
-			const frames: Uint8Array<ArrayBuffer>[] = [];
-			try {
-				for (let index = 0; index < source.canonical.frameCount; index += 1) {
-					const raw = await reader.readFrame(index, signal);
-					try {
-						frames.push(scaleFramescaperImageRgbaTimelineImage(
-							raw, source.canonical.width, source.canonical.height,
-							width, height, signal,
-						));
-					} finally { raw.fill(0); }
-				}
-			} catch (error) {
-				for (const frame of frames) frame.fill(0);
-				frames.length = 0;
-				throw error;
-			}
-			output.push(Object.freeze({ source, reader, width, height, frames }));
-		}
-		return output;
-	} catch (error) {
-		disposeLoadedSources(output);
-		throw error;
-	}
-}
-
 function resolveImageFrame(
-	project: FramescaperProjectTimelineImage,
-	clips: readonly ImageClipPreviewTimelineImage[],
-	timelineSample: number,
+	clipsAt: (frame: number) => readonly ImageClipPreviewTimelineImage[],
+	sequenceFrame: number,
 	canvas: Readonly<{ width: number; height: number }>,
+	schedulePrefetch: (next?: () => void) => void,
 ): ProductVideoVisualPreviewFrame {
-	const sequence = project.sequences.find(({ id }) => id === project.primarySequenceId)!;
-	const sequenceFrame = sequenceFrameAtSample(timelineSample, sequence.rate, project.sampleRate);
 	const layers = new Map<string, { trackId: string; trackIndex: number; entries: Data[] }>();
 	const nodes: string[] = [];
-	for (const context of clips) {
+	let prefetch: (() => void) | undefined;
+	for (const context of clipsAt(sequenceFrame)) {
 		const clip = context.clip;
-		if (sequenceFrame < clip.sequenceStartFrame
-			|| sequenceFrame >= clip.sequenceStartFrame + clip.sequenceFrameCount) continue;
-		const address = mapFramescaperImageFrameAtSampleTimelineImage(
-			context.loaded.reader, clip, timelineSample, context.sequenceRate, project.sampleRate,
-		);
+		const sourceTicks = context.sourceTicksAt(sequenceFrame);
+		const address = { sourceTicks, frameIndex: context.loaded.reader.frameIndexAtTicks(sourceTicks) };
 		if (context.lastFrameIndex !== address.frameIndex) {
-			context.drawable.present(context.loaded.frames[address.frameIndex]!);
+			context.drawable.present(context.loaded.read(address.frameIndex));
 			context.lastFrameIndex = address.frameIndex;
+		}
+		if (!prefetch && sequenceFrame + 1 < clip.sequenceStartFrame + clip.sequenceFrameCount) {
+			const nextIndex = context.loaded.reader.frameIndexAtTicks(context.sourceTicksAt(sequenceFrame + 1));
+			if (nextIndex !== address.frameIndex) prefetch = context.loaded.prefetch(nextIndex);
 		}
 		const layer = layers.get(context.trackId) ?? {
 			trackId: context.trackId, trackIndex: context.trackIndex, entries: [],
@@ -368,6 +327,7 @@ function resolveImageFrame(
 		layers.set(context.trackId, layer);
 		nodes.push(`render:image:${clip.id}`);
 	}
+	schedulePrefetch(prefetch);
 	const ids = uniqueSorted(nodes);
 	return Object.freeze({
 		layers: Object.freeze([...layers.values()].map((layer) => Object.freeze({
@@ -409,6 +369,7 @@ function mergePreviewFrames(
 	const layers = mergeVisualLayers(left.layers, right.layers);
 	return Object.freeze({
 		layers,
+		...(right.layers.length ? { requiresLayeredPreview: true } : {}),
 		adjustments: Object.freeze([...left.adjustments, ...right.adjustments]),
 		activeFreezeNodeIds: uniqueSorted([...left.activeFreezeNodeIds, ...right.activeFreezeNodeIds]),
 		availablePresetIds: uniqueSorted([...left.availablePresetIds, ...right.availablePresetIds]),
@@ -488,17 +449,22 @@ function createCanvasDrawable(request: Readonly<{
 	canvas.height = request.height;
 	const context = canvas.getContext('2d');
 	if (!context) throw new Error('Selected timelineImage image preview has no 2D canvas context.');
+	let revision = 0;
+	const video = Object.freeze({
+		drawable: canvas, videoWidth: request.width, videoHeight: request.height,
+		readyState: 4 as const, currentTime: 0 as const, pause() {},
+	});
+	registerVideoPreviewDrawableRevision(video, () => revision);
 	return Object.freeze({
-		video: Object.freeze({
-			drawable: canvas, videoWidth: request.width, videoHeight: request.height,
-			readyState: 4 as const, currentTime: 0 as const, pause() {},
-		}),
+		video,
 		present(rgba: Uint8Array<ArrayBuffer>) {
 			context.putImageData(new ImageData(
 				new Uint8ClampedArray(rgba), request.width, request.height,
 			), 0, 0);
+			revision += 1;
 		},
 		dispose() {
+			revision += 1;
 			context.clearRect(0, 0, request.width, request.height);
 			canvas.width = 0;
 			canvas.height = 0;
@@ -512,14 +478,6 @@ function assertDrawable(value: FramescaperImagePreviewDrawableTimelineImage, wid
 		|| value.video.videoWidth !== width || value.video.videoHeight !== height) {
 		throw new TypeError('A timelineImage image preview drawable has invalid dimensions or lifecycle ports.');
 	}
-}
-
-function disposeLoadedSources(sources: LoadedImageSourceTimelineImage[]): void {
-	for (const source of sources) {
-		for (const frame of source.frames) frame.fill(0);
-		source.frames.length = 0;
-	}
-	sources.length = 0;
 }
 
 function disposeClipDrawables(clips: ImageClipPreviewTimelineImage[]): void {

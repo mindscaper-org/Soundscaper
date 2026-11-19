@@ -5,7 +5,8 @@ import { sunPcmAu48_000Fixture } from '../helpers/os-audio-codec-fixtures.ts';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes } from './audio-editor-test-helpers.js';
 
-for (const [name, mimeType, opening] of [['Recording.au', 'application/octet-stream', true], ['Recording.snd', 'application/octet-stream', true],
+// Node owns both extension routes; retain native File Open via .snd and Import via .au.
+for (const [name, mimeType, opening] of [['Recording.snd', 'application/octet-stream', true],
 	['Control.au', 'audio/basic', false]]) {
 	test(`File ${opening ? 'Open' : 'Import'} retains the existing native AU audio for ${name}`, async ({ page }) => {
 		const original = sunPcmAu48_000Fixture();

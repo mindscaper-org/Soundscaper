@@ -4,7 +4,7 @@ import { chooseTrackMenuAction } from './helpers/track-menu.js';
 import { bootEditor, chooseCommandAction, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
 async function setup(page) {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [longTone, toneB]);
 	await chooseCommandAction(page, editor, 'Select', 'Select none');
 	const clip = clipByName(editor, longTone.name);

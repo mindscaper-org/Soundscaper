@@ -121,7 +121,7 @@ export function connectPlaybackFrequencyOutput(
 
 /** The audition's explicit time range owns its end while the saved loop stays intact. */
 export function isPlaybackLoopEnabled(engine: EngineRuntimeHost): boolean {
-	return engine.loop.enabled && !auditions.get(engine)?.range;
+	return engine.loop.enabled && !engine.playRange?.overrideLoop && !auditions.get(engine)?.range;
 }
 
 /** Snapshot only transient listening intent for an automatic same-project refresh. */

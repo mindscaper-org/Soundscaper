@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
 
-import { createVideoRetimeHtmlVideoSeekPort } from '../src/common/editor/video-retime-html-video-seek-port.ts';
+import { createVideoRetimeHtmlVideoSeekPort, VideoRetimeFrameIntervalMismatch } from '../src/common/editor/video-retime-html-video-seek-port.ts';
 
 class PausedVideo extends EventTarget {
 	static readonly HAVE_CURRENT_DATA = 2;
@@ -47,7 +47,7 @@ class PausedVideo extends EventTarget {
 	}
 }
 
-function fixture(context: TestContext) {
+function fixture(context: TestContext, intervalStartSeconds = .04, intervalEndSeconds = .13, targetSeconds = .085) {
 	for (const name of ['HTMLVideoElement', 'HTMLMediaElement']) {
 		const original = Object.getOwnPropertyDescriptor(globalThis, name);
 		Object.defineProperty(globalThis, name, { configurable: true, value: PausedVideo });
@@ -63,11 +63,55 @@ function fixture(context: TestContext) {
 	});
 	context.after(() => { controller.abort(); video.drain(); });
 	const result = Promise.resolve(port.present({ drawableSourceFrame: 1,
-		intervalStartSeconds: 0.04, intervalEndSeconds: 0.13, targetSeconds: 0.085,
+		intervalStartSeconds, intervalEndSeconds, targetSeconds,
 		signal: controller.signal,
 	})).then((value) => ({ value }), (error: unknown) => ({ error }));
 	return { video, controller, result };
 }
+
+test('a compositor timestamp rounded down to microseconds still authenticates its own picture', async (context) => {
+	const { video, result } = fixture(context, 7 / 30, 8 / 30, .25);
+	video.presentFrame(.233333);
+	video.drain();
+	assert.deepEqual(await result, { value: { mediaTime: 7 / 30 } });
+});
+
+test('the same rounded timestamp cannot authenticate the previous picture', async (context) => {
+	const { video, result } = fixture(context, .2, 7 / 30, .21);
+	video.presentFrame(.233333);
+	video.drain();
+	assert.deepEqual(video.seeks, [.21, .201]);
+	video.presentFrame(.2);
+	video.drain();
+	assert.deepEqual(await result, { value: { mediaTime: .2 } });
+});
+
+test('a truncated microsecond timestamp authenticates its own authored start', async (context) => {
+	const { video, result } = fixture(context, 2 / 30, 3 / 30, 2.5 / 30);
+	video.presentFrame(.066666);
+	video.drain();
+	assert.deepEqual(await result, { value: { mediaTime: 2 / 30 } });
+});
+
+test('a truncated following boundary cannot authenticate the preceding picture after a retry', async (context) => {
+	const { video, result } = fixture(context, 0, 2 / 30, 1 / 30);
+	video.presentFrame(.133333);
+	video.drain();
+	assert.deepEqual(video.seeks, [1 / 30, .001]);
+	video.presentFrame(.066666);
+	video.drain();
+	const outcome = await result;
+	assert.ok('error' in outcome && outcome.error instanceof VideoRetimeFrameIntervalMismatch);
+});
+
+test('a microsecond shared by both boundary representations authenticates neither', async (context) => {
+	const { video, result } = fixture(context, .0666666, .0666672, .0666668);
+	video.presentFrame(.05);
+	video.presentFrame(.066667);
+	video.drain();
+	const outcome = await result;
+	assert.ok('error' in outcome && outcome.error instanceof VideoRetimeFrameIntervalMismatch);
+});
 
 test('a forward-snapped paused frame retries only after the initial seek drains', async (context) => {
 	const { video, result } = fixture(context);
@@ -76,7 +120,7 @@ test('a forward-snapped paused frame retries only after the initial seek drains'
 	video.dispatchEvent(new Event('seeked'));
 	assert.deepEqual(video.seeks, [0.085], 'a stale seeked event cannot overlap the active seek');
 	video.drain();
-	assert.deepEqual(video.seeks, [0.085, 0.04], 'seeked must recover without another spontaneous paused-frame callback');
+	assert.deepEqual(video.seeks, [0.085, 0.041], 'seeked must recover without another spontaneous paused-frame callback');
 	video.presentFrame(0.04);
 	video.drain();
 	assert.deepEqual(await result, { value: { mediaTime: 0.04 } });
@@ -87,14 +131,25 @@ test('a boundary retry still rejects an out-of-interval decoded frame', async (c
 	const { video, result } = fixture(context);
 	video.presentFrame(0.13);
 	video.drain();
-	assert.deepEqual(video.seeks, [0.085, 0.04]);
+	assert.deepEqual(video.seeks, [0.085, 0.041]);
 	video.presentFrame(0.13);
 	video.drain();
 	const outcome = await result;
 	assert.ok('error' in outcome && outcome.error instanceof RangeError);
 	assert.match(outcome.error.message, /outside.*half-open/iu);
-	assert.deepEqual(video.seeks, [0.085, 0.04], 'an invalid boundary presentation never retries indefinitely');
+	assert.deepEqual(video.seeks, [0.085, 0.041], 'an invalid boundary presentation never retries indefinitely');
 	assert.equal(video.callbacks.size, 0);
+});
+
+test('retrying a short frame goes earlier without touching its exact start', async (context) => {
+	const { video, result } = fixture(context, .04, .0408, .0404);
+	video.presentFrame(.0408);
+	video.drain();
+	assert.equal(video.seeks.length, 2);
+	assert.ok(video.seeks[1]! > .04 && video.seeks[1]! < .0404);
+	video.presentFrame(.04);
+	video.drain();
+	assert.deepEqual(await result, { value: { mediaTime: .04 } });
 });
 
 test('cancelling a deferred boundary retry drains without issuing another seek', async (context) => {

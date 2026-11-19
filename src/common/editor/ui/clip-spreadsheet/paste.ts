@@ -9,8 +9,8 @@ import {
 import type { ClipSpreadsheetNewRow } from '../../clip-spreadsheet-insert.ts';
 import {
 	MAX_SPREADSHEET_CELLS,
-	parseSpreadsheetTsv,
-	planSpreadsheetPaste,
+	parseSpreadsheetClipboard,
+	forEachSpreadsheetPasteCell,
 	type SpreadsheetRange,
 } from './clipboard.ts';
 
@@ -26,7 +26,7 @@ export function planClipSpreadsheetPaste(
 	range: SpreadsheetRange | null,
 	rows: readonly ClipSpreadsheetRow[],
 ): ClipSpreadsheetPastePlan {
-	const matrix = parseSpreadsheetTsv(text);
+	const matrix = parseSpreadsheetClipboard(text);
 	if (range && (![range.top, range.left, range.bottom, range.right].every(value => Number.isSafeInteger(value) && value >= 0)
 		|| range.top > range.bottom || range.left > range.right
 		|| range.bottom >= rows.length)) {
@@ -37,27 +37,26 @@ export function planClipSpreadsheetPaste(
 	const selected = fullRow && matrix.length > 1 ? { ...range, bottom: range.top + matrix.length - 1 }
 		: range ?? { top: rows.length, left: 0, bottom: rows.length, right: 0 };
 	const rowCount = range ? rows.length : rows.length + matrix.length;
-	const cells = planSpreadsheetPaste(matrix, selected, rowCount, columnCount);
 	const edits: ClipSpreadsheetEdit[] = [];
-	const newRows = new Map<number, Partial<Record<ClipSpreadsheetColumnId, string>>>();
+	const newRows: Partial<Record<ClipSpreadsheetColumnId, string>>[] = [];
+	let lastNewRowIndex = -1;
 	let bottom = selected.top;
 	let right = selected.left;
-	for (const cell of cells) {
-		const column = CLIP_SPREADSHEET_COLUMNS[cell.column]!.id;
-		const clip = rows[cell.row];
-		if (clip) edits.push({ clipId: clip.id, column, value: cell.value });
+	forEachSpreadsheetPasteCell(matrix, selected, rowCount, columnCount, (row, columnIndex, value) => {
+		const column = CLIP_SPREADSHEET_COLUMNS[columnIndex]!.id;
+		const clip = rows[row];
+		if (clip) edits.push({ clipId: clip.id, column, value });
 		else {
-			const values = newRows.get(cell.row) ?? {};
-			values[column] = cell.value;
-			newRows.set(cell.row, values);
+			if (row !== lastNewRowIndex) { newRows.push({}); lastNewRowIndex = row; }
+			newRows.at(-1)![column] = value;
 		}
-		bottom = Math.max(bottom, cell.row);
-		right = Math.max(right, cell.column);
-	}
+		bottom = row;
+		right = Math.max(right, columnIndex);
+	});
 	return {
 		edits,
 		// Source presence and all clip properties are validated together by the domain planner.
-		newRows: [...newRows.values()],
+		newRows,
 		range: { top: selected.top, left: selected.left, bottom, right },
 	};
 }
@@ -75,6 +74,9 @@ interface SourceReference {
 	readonly windows: boolean;
 }
 
+const AMBIGUOUS = Symbol('ambiguous source');
+type FileMatch<SourceFile> = SourceFile | typeof AMBIGUOUS;
+
 /** Match only files already granted by a chooser; path strings never authorize disk reads. */
 export function matchClipSpreadsheetSourceFiles<SourceFile extends ClipSpreadsheetSourceFile>(
 	references: readonly string[],
@@ -83,36 +85,32 @@ export function matchClipSpreadsheetSourceFiles<SourceFile extends ClipSpreadshe
 	if (references.length > MAX_SPREADSHEET_CELLS || files.length > MAX_SPREADSHEET_CELLS) {
 		throw new RangeError('Spreadsheet source selection is too large.');
 	}
-	const exact = new Map<string, Set<SourceFile>>();
-	const basenames = new Map<string, Set<SourceFile>>();
-	const windowsBasenames = new Map<string, Set<SourceFile>>();
-	const canonicalExact = new Map<string, Set<SourceFile>>();
-	const canonicalBasenames = new Map<string, Set<SourceFile>>();
-	const canonicalWindowsBasenames = new Map<string, Set<SourceFile>>();
+	const exact = new Map<string, FileMatch<SourceFile>>();
+	const basenames = new Map<string, FileMatch<SourceFile>>();
+	const windowsBasenames = new Map<string, FileMatch<SourceFile>>();
+	const canonicalExact = new Map<string, FileMatch<SourceFile>>();
+	const canonicalBasenames = new Map<string, FileMatch<SourceFile>>();
+	const canonicalWindowsBasenames = new Map<string, FileMatch<SourceFile>>();
 	const selected = new Set(files);
 	for (const file of selected) {
-		const paths = new Set([file.webkitRelativePath, file.relativePath, file.path].filter((value): value is string => Boolean(value)));
-		for (const reference of [sourceReference(file.name, true), ...[...paths].map(value => sourceReference(value))]) {
-			addMatch(exact, reference.path, file);
-			addMatch(basenames, reference.basename, file);
-			addMatch(windowsBasenames, reference.basename.toLowerCase(), file);
-			addMatch(canonicalExact, reference.path.normalize('NFC'), file);
-			addMatch(canonicalBasenames, reference.basename.normalize('NFC'), file);
-			addMatch(canonicalWindowsBasenames, reference.basename.toLowerCase().normalize('NFC'), file);
-		}
+		const { webkitRelativePath, relativePath, path } = file;
+		indexReference(sourceReference(file.name, true), file);
+		if (webkitRelativePath) indexReference(sourceReference(webkitRelativePath), file);
+		if (relativePath && relativePath !== webkitRelativePath) indexReference(sourceReference(relativePath), file);
+		if (path && path !== relativePath && path !== webkitRelativePath) indexReference(sourceReference(path), file);
 	}
 	const matched = new Map<string, SourceFile>();
 	const referencesByFile = new Map<SourceFile, string>();
 	for (const value of references) {
-		const reference = sourceReference(value, exact.has(value) || canonicalExact.has(value.normalize('NFC')));
-		const candidates = exact.get(reference.path)
-			?? canonicalExact.get(reference.path.normalize('NFC'))
-			?? (reference.windows ? windowsBasenames.get(reference.basename.toLowerCase()) : basenames.get(reference.basename))
-			?? (reference.windows ? canonicalWindowsBasenames.get(reference.basename.toLowerCase().normalize('NFC'))
-				: canonicalBasenames.get(reference.basename.normalize('NFC')));
-		if (!candidates?.size) throw new RangeError(`Selected source file is missing: ${value}`);
-		if (candidates.size !== 1) throw new RangeError(`Selected source file is ambiguous: ${value}`);
-		const file = candidates.values().next().value!;
+		const normalized = value.normalize('NFC');
+		const reference = sourceReference(value, exact.has(value) || canonicalExact.has(normalized));
+		const basename = reference.windows ? reference.basename.toLowerCase() : reference.basename;
+		const file = exact.get(reference.path)
+			?? canonicalExact.get(reference.path === value ? normalized : reference.path.normalize('NFC'))
+			?? (reference.windows ? windowsBasenames : basenames).get(basename)
+			?? (reference.windows ? canonicalWindowsBasenames : canonicalBasenames).get(basename.normalize('NFC'));
+		if (!file) throw new RangeError(`Selected source file is missing: ${value}`);
+		if (file === AMBIGUOUS) throw new RangeError(`Selected source file is ambiguous: ${value}`);
 		const previous = referencesByFile.get(file);
 		if (previous !== undefined && previous !== reference.path) {
 			throw new RangeError(`Distinct source paths are ambiguous for the selected file: ${value}`);
@@ -122,12 +120,22 @@ export function matchClipSpreadsheetSourceFiles<SourceFile extends ClipSpreadshe
 	}
 	if (referencesByFile.size !== selected.size) throw new RangeError('Some selected files do not match the requested source files.');
 	return matched;
+
+	function indexReference(reference: SourceReference, file: SourceFile): void {
+		const lowercase = reference.basename.toLowerCase();
+		addMatch(exact, reference.path, file);
+		addMatch(basenames, reference.basename, file);
+		addMatch(windowsBasenames, lowercase, file);
+		addMatch(canonicalExact, reference.path.normalize('NFC'), file);
+		addMatch(canonicalBasenames, reference.basename.normalize('NFC'), file);
+		addMatch(canonicalWindowsBasenames, lowercase.normalize('NFC'), file);
+	}
 }
 
-function addMatch<SourceFile>(index: Map<string, Set<SourceFile>>, key: string, file: SourceFile): void {
-	const matches = index.get(key) ?? new Set<SourceFile>();
-	matches.add(file);
-	index.set(key, matches);
+function addMatch<SourceFile>(index: Map<string, FileMatch<SourceFile>>, key: string, file: SourceFile): void {
+	const previous = index.get(key);
+	if (previous === undefined) index.set(key, file);
+	else if (previous !== file && previous !== AMBIGUOUS) index.set(key, AMBIGUOUS);
 }
 
 function sourceReference(value: string, literal = false): SourceReference {
@@ -158,7 +166,7 @@ function sourceReference(value: string, literal = false): SourceReference {
 	}
 	path = `${prefix}${segments.join('/')}`;
 	if (windows) path = path.toLowerCase();
-	const basename = path.split('/').at(-1) ?? '';
+	const basename = path.slice(path.lastIndexOf('/') + 1);
 	if (!basename || basename === '..') throw new RangeError('Invalid spreadsheet source reference.');
 	return { path, basename, windows };
 }

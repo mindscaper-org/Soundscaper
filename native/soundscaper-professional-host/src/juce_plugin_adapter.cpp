@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 #include "juce_plugin_adapter.h"
+#include "juce_midi_events.h"
 #include "plugin_stable_identity.h"
 #include "juce_ara_adapter.h"
 #include "ladspa_host_state.h"
@@ -127,8 +128,8 @@ std::unique_ptr<juce::AudioPluginInstance> instantiate(
 		selected = description;
 	}
 	if (selected == nullptr) { error = "The selected descriptor is no longer present."; return nullptr; }
-	if (selected->isInstrument) {
-		error = "Instrument plug-ins are recorded but never hosted as effects.";
+	if (selected->isInstrument && format != "vst2" && format != "vst3" && format != "lv2") {
+		error = "This instrument format is not supported.";
 		return nullptr;
 	}
 	if (format == "ladspa" && selected->uniqueId < 0) { error = "The descriptor index is invalid."; return nullptr; }
@@ -196,12 +197,18 @@ public:
 		}
 		juce::ScopedNoDenormals noDenormals;
 		plugin->processBlock(buffer, midi);
+		midi.clear();
 		for (uint32_t channel = 0; channel < outputChannels; ++channel) {
 			if (outputs == nullptr || outputs[channel] == nullptr) return SOUNDSCAPER_PRO_FORMAT_REFUSED;
 			std::memcpy(outputs[channel], buffer.getReadPointer(static_cast<int>(channel)),
 				static_cast<size_t>(frames) * sizeof(float));
 		}
 		return SOUNDSCAPER_PRO_OK;
+	}
+
+	soundscaper_pro_status midiEvents(const soundscaper_pro_midi_event *events, uint32_t count, uint32_t frames) override
+	{
+		return populateJuceMidiEvents(midi, events, count, frames, ceiling, plugin->acceptsMidi());
 	}
 
 	uint32_t latency() const override
@@ -424,6 +431,20 @@ soundscaper_pro_status scanJucePlugin(
 			|| !stableIds.insert(stableId).second) return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
 		soundscaper_pro_plugin_description destination{};
 		describe(format, stableId, *source, destination);
+		// Hosts without system LV2 class ontologies can report a MIDI generator
+		// as a generic Plugin. Its zero-input MIDI topology is unambiguous.
+		if (format == "lv2" && source->numInputChannels == 0 && source->numOutputChannels > 0 && !source->isInstrument) {
+			juce::String error;
+			auto probe = manager.createPluginInstance(*source, 48000.0, 512, error);
+			if (probe != nullptr && probe->acceptsMidi()) destination.is_instrument = 1u;
+		}
+		if (source->isInstrument && destination.output_channels == 0u) {
+			juce::String error;
+			auto probe = manager.createPluginInstance(*source, 48000.0, 512, error);
+			if (probe == nullptr) return SOUNDSCAPER_PRO_PLUGIN_UNREADABLE;
+			if (const auto *bus = probe->getBus(true, 0)) destination.input_channels = static_cast<uint32_t>(bus->getLastEnabledLayout().size());
+			if (const auto *bus = probe->getBus(false, 0)) destination.output_channels = static_cast<uint32_t>(bus->getLastEnabledLayout().size());
+		}
 		output.push_back(destination);
 	}
 	std::sort(output.begin(), output.end(), [](const auto &left, const auto &right) {

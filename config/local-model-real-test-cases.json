@@ -2,6 +2,83 @@
 	"schemaVersion": 1,
 	"cases": [
 		{
+			"id": "gtcrn-speech-enhancement",
+			"modelIds": [
+				"gtcrn"
+			],
+			"operation": "speech-enhancement",
+			"fixtureId": "noisy-speech-48khz",
+			"validation": "changed-audio",
+			"documentation": {
+				"modelTitles": {
+					"gtcrn": "GTCRN"
+				},
+				"summary": "Lightweight speech noise reduction through the Sherpa streaming denoiser.",
+				"menu": "Effect → Noise Removal & Repair → Enhance Dialogue → Model",
+				"steps": [
+					"Select the audio to process.",
+					"Install GTCRN through Tools → Local Models → Manage Models, then choose it in Enhance Dialogue.",
+					"Apply the effect to the selection. Listen to the result and use Undo to restore the original if needed."
+				],
+				"limitations": [
+					"Channels are processed independently; selection duration and channel count are preserved.",
+					"Noise reduction may remove wanted detail. Listen after applying and use Undo to restore the original if needed.",
+					"The test establishes basic inference and audio geometry, not perceptual quality."
+				]
+			}
+		},
+		{
+			"id": "dpdfnet2-48khz-speech-enhancement",
+			"modelIds": [
+				"dpdfnet2-48khz"
+			],
+			"operation": "speech-enhancement",
+			"fixtureId": "noisy-speech-48khz",
+			"validation": "changed-audio",
+			"documentation": {
+				"modelTitles": {
+					"dpdfnet2-48khz": "DPDFNet2 48 kHz"
+				},
+				"summary": "Full-band 48 kHz speech enhancement through the Sherpa DPDFNet2 denoiser.",
+				"menu": "Effect → Noise Removal & Repair → Enhance Dialogue → Model",
+				"steps": [
+					"Select the audio to process.",
+					"Install DPDFNet2 through Tools → Local Models → Manage Models, then choose it in Enhance Dialogue.",
+					"Apply the effect to the selection. Listen to the result and use Undo to restore the original if needed."
+				],
+				"limitations": [
+					"Channels are processed independently; selection duration and channel count are preserved.",
+					"Noise reduction may remove wanted detail. Listen after applying and use Undo to restore the original if needed.",
+					"The test establishes basic inference and audio geometry, not perceptual quality."
+				]
+			}
+		},
+		{
+			"id": "voxlock-speech-enhancement",
+			"modelIds": [
+				"voxlock"
+			],
+			"operation": "speech-enhancement",
+			"fixtureId": "noisy-speech-48khz",
+			"validation": "changed-audio",
+			"documentation": {
+				"modelTitles": {
+					"voxlock": "VoxLock voice isolation"
+				},
+				"summary": "Keep the main speaker while suppressing competing voices using one shared enrollment sample.",
+				"menu": "Effect → Noise Removal & Repair → Enhance Dialogue → Model",
+				"steps": [
+					"Select the audio to process.",
+					"Install VoxLock through Tools → Local Models → Manage Models, then choose it in Enhance Dialogue.",
+					"Apply the effect to the selection. Listen to the result and use Undo to restore the original if needed."
+				],
+				"limitations": [
+					"Select at least three seconds. The loudest three-second window within the first 15 seconds determines the retained voice, using the same reference for every channel. Other voices may be removed.",
+					"The test checks changed, finite, non-silent audio and preserved duration and channels. It does not establish speaker-isolation quality."
+				]
+			}
+		},
+		{
 			"id": "kokoro-speech-generation",
 			"modelIds": ["kokoro-82m-v1.0"],
 			"operation": "text-to-speech", "fixtureId": "tts-script", "validation": "synthesized-audio",

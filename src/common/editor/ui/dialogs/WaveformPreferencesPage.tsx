@@ -9,6 +9,7 @@ import {
 	WAVEFORM_VISUALIZATION_MINIMUM_CROSSOVER_HZ,
 	type WaveformVisualizationPreferences,
 } from '../../waveform-visualization-preferences.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface WaveformPreferencesPageProps {
 	readonly controller: Readonly<{
@@ -75,7 +76,7 @@ export default function WaveformPreferencesPage({
 		<PreferencePanel title={copy.threeBandWaveformView}>
 			<div className="kw-audio-editor-preferences__waveform" data-waveform-visualization-settings>
 				<label>
-					<span>{copy.waveformLowMidCrossover}</span>
+					<EditorControlLabel>{copy.waveformLowMidCrossover}</EditorControlLabel>
 					<input
 						aria-label={copy.waveformLowMidCrossover}
 						aria-invalid={!draft}
@@ -91,7 +92,7 @@ export default function WaveformPreferencesPage({
 					/>
 				</label>
 				<label>
-					<span>{copy.waveformMidHighCrossover}</span>
+					<EditorControlLabel>{copy.waveformMidHighCrossover}</EditorControlLabel>
 					<input
 						aria-label={copy.waveformMidHighCrossover}
 						aria-invalid={!draft}

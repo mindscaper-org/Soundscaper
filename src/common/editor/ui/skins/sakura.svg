@@ -13,7 +13,7 @@
  <g fill="none" stroke="#a55f7e" stroke-linecap="round" opacity=".55">
   <path d="M1010 600Q831 420 868 234Q879 142 822 30" stroke-width="15"/>
   <path d="M892 448Q734 318 629 339M864 282Q770 228 721 141M868 233Q936 165 933 101M833 84Q764 64 745 7" stroke-width="7"/>
-  <path d="M767 346L716 255M681 334L593 269M765 209L670 198M919 163L883 106" stroke-width="3"/>
+  <path d="M767 365L716 255M681 334L593 269M765 209L670 198M919 163L883 106" stroke-width="3"/>
  </g>
  <g opacity=".85">
   <use href="#flower" transform="translate(828 81) rotate(12) scale(1.2)"/>

@@ -203,8 +203,9 @@ function drawIndividualSamples(context, channel, options) {
 	// Native compound paths vary by raster backend, even at unit scale.
 	// Batch only after an exact private-surface capability proof.
 	const transform = typeof context.getTransform === 'function' ? context.getTransform() : null;
-	const batchStems = options.batchSampleStems && options.pixelRatioX === 1
-		&& (!transform || (transform.a === 1 && transform.b === 0 && transform.c === 0 && transform.d === 1))
+	const batchStems = options.batchSampleStems && !options.halfWave && options.pixelRatioX === 1
+		&& (!transform || (transform.a === 1 && transform.b === 0 && transform.c === 0 && transform.d === 1
+			&& Number.isInteger(transform.e) && Number.isInteger(transform.f)))
 		&& pixelsPerSample > 3 && canBatchRoundCapStems(context);
 	let strokeColor;
 	for (let index = 0; index < samples.length; index += 1) {

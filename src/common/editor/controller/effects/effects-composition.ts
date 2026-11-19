@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createLocalizedError } from '../../../i18n/presentation-message.ts'; import {
-	AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES,
 	assertAudacityEffectOutput,
 	estimateAudacityEffectPeakBytes,
 } from '../../audacity-effects/contracts.js';
@@ -21,6 +20,8 @@ import {
 import { effectRackLatencyFrames } from '../../engine.js';
 import { createStableId } from '../../project.js';
 import { audioTrackChannelCount } from '../../project-audio-factory.js';
+import { createAudioSource } from '../../project-media-factory.ts';
+import { effectPeakMemoryLimitBytes } from '../../effect-memory-budget.ts';
 import {
 	estimateAudioSelectionEffectOutputFrames,
 	estimateAudioSelectionEffectPeakBytes,
@@ -38,6 +39,7 @@ import { createEffectAudioService } from './internal/effect-audio-service.ts';
 import { createDeferredAraClipEditingRuntime } from './internal/deferred-ara-clip-editing.ts';
 import { createEffectControlsService } from './effect-controls-service.ts';
 import { createSelectionEffectExecutionService } from './internal/effect-execution-service.ts';
+import { createStreamedEffectsComposition } from './internal/streamed-composition.ts';
 import { createSourceControlTrackRenderer } from './internal/source-control-track-renderer.ts';
 import { canSliceSimpleDryTrackPcm } from './internal/direct-dry-track-pcm.ts';
 import { createEffectMacroService, type EffectMacroServiceRuntime } from './internal/macro/effect-macro-service.ts';
@@ -72,6 +74,7 @@ import {
 	type RenderedAudio,
 } from '../source/source-audio.ts';
 import { generateWaveformPeaks, peakCacheKey } from '../source/waveform-analysis.ts';
+import { createMicrophoneBleedAction } from './internal/microphone-bleed-composition.ts';
 
 export type {
 	EffectsCompositionCopy,
@@ -109,13 +112,14 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 	const captureProject = () => dependencies.projectGeneration.capture(requireProject().id);
 	const assertProject = (token: ReturnType<typeof captureProject>) => dependencies.projectGeneration.assertCurrent(token);
 	const memoryError = () => audacityEffectMemoryError(copy);
+	const effectMemoryLimitBytes = () => effectPeakMemoryLimitBytes(dependencies.isDesktop === true, state.preferences?.advanced?.effectMemoryLimitGiB);
 	const sourceEditor = createSourceEditorEffects<AudioBuffer>({
 		getProject: dependencies.getCommandProject,
 		publishDocumentSnapshot: dependencies.publishDocumentSnapshot,
 		loadSourceWindow: (source, request) => loadSourceEditorAudioWindow(source, request, { store,
 			buffer: typeof dependencies.sourceBuffers.get === 'function' ? dependencies.sourceBuffers.get(source.id) as AudioBuffer | undefined : undefined }),
 		loadSourceBuffer: async (source) => {
-			if (source.frameCount * source.channelCount * Float32Array.BYTES_PER_ELEMENT > AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES) throw memoryError();
+			if (source.frameCount * source.channelCount * Float32Array.BYTES_PER_ELEMENT > effectMemoryLimitBytes()) throw memoryError();
 			const cached = typeof dependencies.sourceBuffers.get === 'function'
 				? dependencies.sourceBuffers.get(source.id) as AudioBuffer | undefined : undefined;
 			if (cached) return cached;
@@ -165,6 +169,7 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 		captureRackNoiseProfile: (...args) => audio.captureRackNoiseProfile(...args),
 	});
 	const audio: EffectAudio = createEffectAudioService<RenderedAudio>({
+		importMidiDocument: dependencies.importMidiDocument,
 		renderSourceRange: sourceEditor.renderRange,
 		lifetime: dependencies.lifetime,
 		...(dependencies.projectRuntime.assistanceAssetCommands ? {
@@ -176,7 +181,7 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 		assertProject,
 		state,
 		copy,
-		memoryLimitBytes: AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES,
+		get memoryLimitBytes() { return effectMemoryLimitBytes(); },
 		getProject: requireProject,
 		activeSelection: dependencies.activeSelection,
 		audacityEffectTarget: (...args) => selection.audacityEffectTarget(...args),
@@ -191,10 +196,10 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 		createId: createStableId,
 		cloneProject: dependencies.projectRuntime.cloneProject,
 		audacitySelectionChannelCount,
-		renderSnapshot: dependencies.renderSnapshot,
+		renderSnapshot: (project, range, buffers, signal) => dependencies.renderSnapshot(project, range, buffers, signal, dependencies.sourceChunkProviders),
 		prepareCommittedTimePitchCaches: dependencies.prepareCommittedTimePitchCaches,
 		createRenderEngine: dependencies.createRenderEngine,
-		sourceBuffers: dependencies.sourceBuffers,
+		sourceBuffers: dependencies.sourceBuffers, sourceChunkProviders: dependencies.sourceChunkProviders,
 		audioBufferChannels,
 		matchAudacitySelectionChannels,
 		// The worker answers a capture request with a profile; the audio service reads only that.
@@ -207,6 +212,8 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 		publishDocumentSnapshot: dependencies.publishDocumentSnapshot,
 	});
 	const result: SelectionEffectResult = createSelectionEffectResultService<AudioBuffer>({
+		activateSource: (source, signal) => dependencies.activateStoredSource(createAudioSource(source), signal ?? new AbortController().signal),
+		releaseSource: dependencies.releaseStoredSource,
 		expandSourceResult: sourceEditor.expandResult,
 		SOURCE_CHUNK_FRAMES,
 		assertAudacityEffectOutput,
@@ -303,12 +310,14 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 		publishDocumentSnapshot: dependencies.publishDocumentSnapshot,
 		setStatus: dependencies.setStatus,
 	});
+	const runStreamedEffects = createStreamedEffectsComposition(dependencies, audio, effectMemoryLimitBytes);
 	const macro = dependencies.composition.macros
 		? createEffectMacroService<RenderedAudio>({
 			lifetime: dependencies.lifetime,
 			projectGeneration: dependencies.projectGeneration,
 			copy,
-			memoryLimitBytes: AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES,
+			get memoryLimitBytes() { return effectMemoryLimitBytes(); },
+			runStreamedEffects,
 			getProject: requireProject,
 			audacityEffectTarget: (...args) => selection.audacityEffectTarget(...args),
 			audacityEffectTargets: selection.audacityEffectTargets,
@@ -354,9 +363,15 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 	const execution = dependencies.composition.effects
 		? createSelectionEffectExecutionService({
 		cancelSelectionWorkers: () => worker.cancelWorkers(),
+			runStreamedEffects,
+			measureSelectionPeak: async (targets, assertCurrent) => {
+				const { measureSelectionPeak } = await import('./internal/streamed/selection-peak.ts');
+				return measureSelectionPeak(targets, (target, start, end) => audio.renderDryTrackRange(target.track.id, start, end, target.channelCount, target.clipIds), assertCurrent);
+			},
+			audioSelectionEffectLabel,
 			beginResultTransaction: dependencies.beginResultTransaction,
 			pauseSourcePreview: dependencies.pauseSourcePreview, batchPresentation: dependencies.batchPresentation,
-			AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES,
+			get AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES() { return effectMemoryLimitBytes(); },
 			AUDIO_SELECTION_EFFECT_DEFINITIONS,
 			NYQUIST_AGGREGATE_AUDIO_LIMIT_BYTES,
 			abortError,
@@ -422,13 +437,14 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 	/** The long-running effect operations, reported through task progress. */
 	const processing = (label: string | undefined) => label || copy.audacityProcessing;
 	return Object.freeze({
+		reduceMicrophoneBleed: createMicrophoneBleedAction(dependencies, audio),
 		araClipEditing: createDeferredAraClipEditingRuntime({
 			lifetime: dependencies.lifetime, projectGeneration: dependencies.projectGeneration,
 			getProject: dependencies.getProject, getCommandProject: dependencies.getCommandProject,
 			getSelectedClipId: () => state.selectedClipId, editingBlocked: dependencies.editingBlocked,
 			renderClip: (trackId, startFrame, endFrame, channelCount, clipIds, signal) => audio.renderDryTrackRange(trackId, startFrame, endFrame, channelCount, clipIds, signal),
 			preflightStorage: dependencies.preflightStorage, createId: createStableId,
-			activateSource: dependencies.activateAraSource, releaseSource: dependencies.releaseAraSource,
+			activateSource: dependencies.activateStoredSource, releaseSource: dependencies.releaseStoredSource,
 			store, commit: dependencies.commit,
 		}),
 		sourceEditor,
@@ -441,16 +457,29 @@ export function createEffectsComposition(dependencies: EffectsCompositionDepende
 		rack,
 		macro,
 		worker,
-		execution,
+		execution: { ...execution, previewAudacityEffectFromController: (request: Parameters<typeof execution.previewAudacityEffectFromController>[0] = {}) =>
+			taskProgress.run('effect', copy.audacityProcessing, task => {
+				task.setCancellation(() => { controls.cancelAudacityEffectPreview(); });
+				return execution.previewAudacityEffectFromController(request);
+			}, undefined, { key: 'audacityPreviewProcessing' }) },
 		persistAudacityEffectResult,
 		runEffectMacro: (request: Parameters<EffectMacro['runEffectMacro']>[0]) => (
-			taskProgress.run('effect', processing(copy.macroProcessing), () => macro.runEffectMacro(request), undefined, { key: copy.macroProcessing ? 'macroProcessing' : 'audacityProcessing' })
+			taskProgress.run('effect', processing(copy.macroProcessing), task => {
+				task.setCancellation(() => { macro.cancelEffectMacro(); });
+				return macro.runEffectMacro(request);
+			}, undefined, { key: copy.macroProcessing ? 'macroProcessing' : 'audacityProcessing' })
 		),
 		applyAudacityEffectFromController: (...args: Parameters<EffectControls['applyAudacityEffectFromController']>) => (
-			taskProgress.run('effect', copy.audacityProcessing, () => controls.applyAudacityEffectFromController(...args), undefined, { key: "audacityProcessing" })
+			taskProgress.run('effect', copy.audacityProcessing, task => {
+				task.setCancellation(() => { execution.cancelSelectedAudacityEffect(); });
+				return controls.applyAudacityEffectFromController(...args);
+			}, undefined, { key: 'audacityProcessing' })
 		),
 		repeatLastAudacityEffect: (...args: Parameters<EffectControls['repeatLastAudacityEffect']>) => (
-			taskProgress.run('effect', copy.audacityProcessing, () => controls.repeatLastAudacityEffect(...args), undefined, { key: "audacityProcessing" })
+			taskProgress.run('effect', copy.audacityProcessing, task => {
+				task.setCancellation(() => { execution.cancelSelectedAudacityEffect(); });
+				return controls.repeatLastAudacityEffect(...args);
+			}, undefined, { key: 'audacityProcessing' })
 		),
 		applySpectralSelection: (...args: Parameters<EffectAudio['applySpectralSelection']>) => (
 			taskProgress.run('effect', processing(copy.spectralProcessing), () => audio.applySpectralSelection(...args), undefined, { key: copy.spectralProcessing ? 'spectralProcessing' : 'audacityProcessing' })

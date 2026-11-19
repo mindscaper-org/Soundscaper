@@ -2,6 +2,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { parseMidiFile, writeMidiFile } from '../src/common/editor/midi-file.ts';
+import { midiFileImportTracks } from '../src/common/editor/midi-file-import-tracks.ts';
+import type { MidiFileTrack } from '../src/common/editor/midi-file-types.ts';
 import { midiServiceFixture } from './helpers/midi-service-fixture.ts';
 
 for (const destination of ['timeline', 'project-bin'] as const) {
@@ -38,4 +40,20 @@ test('An omitted empty conductor retains the song ending beyond its short note l
 	] });
 	assert.equal(fixture.project().clips.length, 1);
 	assert.equal(fixture.project().clips[0]!.durationFrames, 32000);
+});
+
+test('MIDI import classifies large track lists without rescanning the authored track array', () => {
+	const authored = Array.from({ length: 512 }, (_, index) => ({ name: `Track ${index}`, notes: [], durationFrames: index + 1 }));
+	const conductor = { name: 'Conductor', conductorOnly: true, notes: [], durationFrames: 2000 } satisfies MidiFileTrack;
+	let authoredScans = 0;
+	class TrackList extends Array<MidiFileTrack> {
+		override includes(track: MidiFileTrack, fromIndex?: number): boolean {
+			authoredScans++;
+			return super.includes(track, fromIndex);
+		}
+	}
+	const imported = midiFileImportTracks({ sampleRate: 8000, tempos: [], signatures: [], tracks: new TrackList(conductor, ...authored) });
+	assert.deepEqual(Array.from(imported, ({ name }) => name), authored.map(({ name }) => name));
+	assert.ok(imported.every(({ durationFrames }) => durationFrames === conductor.durationFrames));
+	assert.equal(authoredScans, 0);
 });

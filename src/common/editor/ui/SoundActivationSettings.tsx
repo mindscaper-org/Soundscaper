@@ -14,6 +14,7 @@ import {
 import AudioEditorTimeCodeInput from './AudioEditorTimeCodeInput.tsx';
 import EditorHelpTooltip from './EditorHelpTooltip.tsx';
 import { useOperationFocusRecovery } from './useOperationFocusRecovery.ts';
+import EditorControlLabel from './EditorControlLabel.tsx';
 
 interface SoundActivationActions {
 	setThresholdDb(value: number): unknown;
@@ -142,14 +143,14 @@ export default function SoundActivationSettings({
 						aria-label={copy.soundActivationAddTimestamps}
 						aria-describedby={`${timestampDescriptionId} ${statusId}`}
 						onChange={(event) => update(() => actions.setAddTimestamps(event.currentTarget.checked))} />
-					<span>{copy.soundActivationAddTimestamps}</span>
+					<EditorControlLabel>{copy.soundActivationAddTimestamps}</EditorControlLabel>
 					<EditorHelpTooltip subject={copy.soundActivationAddTimestamps}
 						description={copy.soundActivationAddTimestampsDescription}
 						helpLabel={copy.helpMenu} hook="sound-activation-add-timestamps"
 						describedBy={timestampDescriptionId} />
-					<span id={timestampDescriptionId} className="kw-audio-editor-sr-only">
+					<EditorControlLabel id={timestampDescriptionId} className="kw-audio-editor-sr-only">
 						{copy.soundActivationAddTimestampsDescription}
-					</span>
+					</EditorControlLabel>
 				</label>
 			</fieldset>
 			<p
@@ -242,11 +243,11 @@ function SoundActivationRange({
 	const data = { [`data-sound-activation-${dataAttribute}`]: true };
 	return <label className="kw-audio-editor-sound-activation__control">
 		<span>
-			<span className="audio-editor-help-label">
-				<strong>{label}</strong>
+			<EditorControlLabel className="audio-editor-help-label">
+				<span>{label}</span>
 				<EditorHelpTooltip subject={label} description={description} helpLabel={helpLabel}
 					hook={name} describedBy={descriptionId} />
-			</span>
+			</EditorControlLabel>
 			<output htmlFor={name}>{displayedText}</output>
 		</span>
 		<input
@@ -270,7 +271,7 @@ function SoundActivationRange({
 				writes.update(defaultValue);
 			}}
 		/>
-		<span id={descriptionId} className="kw-audio-editor-sr-only">{description}</span>
+		<EditorControlLabel id={descriptionId} className="kw-audio-editor-sr-only">{description}</EditorControlLabel>
 	</label>;
 }
 
@@ -280,11 +281,11 @@ function SoundActivationTime({
 	const descriptionId = useId();
 	return <label className="kw-audio-editor-sound-activation__control">
 		<span>
-			<span className="audio-editor-help-label">
-				<strong>{label}</strong>
+			<EditorControlLabel className="audio-editor-help-label">
+				<span>{label}</span>
 				<EditorHelpTooltip subject={label} description={description} helpLabel={helpLabel}
 					hook={name} describedBy={descriptionId} />
-			</span>
+			</EditorControlLabel>
 			<output htmlFor={name}>{valueText}</output>
 		</span>
 		<span data-sound-activation-hold>
@@ -293,6 +294,6 @@ function SoundActivationTime({
 				valueText={valueText} describedBy={`${descriptionId} ${statusId}`}
 				disabled={disabled} onCommit={onChange} />
 		</span>
-		<span id={descriptionId} className="kw-audio-editor-sr-only">{description}</span>
+		<EditorControlLabel id={descriptionId} className="kw-audio-editor-sr-only">{description}</EditorControlLabel>
 	</label>;
 }

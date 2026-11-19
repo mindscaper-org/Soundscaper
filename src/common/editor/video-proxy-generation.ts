@@ -13,11 +13,11 @@
  *
  * Three properties of the encode follow directly from that promise.
  *
- * **Frame for frame.** `-fps_mode passthrough` writes each decoded frame with
+ * **Frame for frame.** With an exact encoder time base, `-fps_mode passthrough` writes each decoded frame with
  * the timestamp it arrived with, so a variable-rate original stays variable and
  * a constant-rate one keeps its exact rational rate. Anything that resamples the
- * stream onto a new clock — `-r`, `-vsync cfr`, a trim — would produce a file
- * whose boundaries no longer line up, and conformance would refuse it.
+ * stream onto a new clock — `-vsync cfr`, a trim — would produce a file
+ * whose boundaries no longer line up, and conformance would refuse it. The encoder rate is the reciprocal of the final frame duration; passthrough leaves every earlier PTS untouched.
  *
  * **Display geometry, not coded geometry.** Measured against the pinned
  * `@ffmpeg/core` 0.12.10 (FFmpeg 5.1.4): `-noautorotate` copies the input's
@@ -53,8 +53,8 @@ export interface VideoProxyGenerationRecipe extends Readonly<Record<string, unkn
  * command is built from.
  */
 export const VIDEO_PROXY_GENERATION_RECIPE: VideoProxyGenerationRecipe = Object.freeze({
-	id: 'framescaper-video-proxy-h264-540-v1',
-	version: 1,
+	id: 'framescaper-video-proxy-h264-540-v2',
+	version: 2,
 });
 
 /**
@@ -80,16 +80,16 @@ export interface VideoProxyGenerationRequest {
 	 * that is not sure states nothing rather than pinning the wrong one.
 	 */
 	readonly timescale?: number;
+	/** Encoder rate sets the final packet duration; passthrough retains all PTS. */
+	readonly finalFrameDurationTicks?: bigint;
 }
 
 /** The scale-and-square filter, escaped as the filtergraph parser reads it. */
 export function videoProxyGenerationFilter(): string {
-	// An unescaped comma inside `min(...)` would end the scale filter and start a
-	// filter named `ih)`, so the argument separator is escaped where the height
-	// expression needs a real one. `trunc(.../2)*2` keeps the height even and
-	// `-2` derives an even width from it, both of which yuv420p requires.
-	const height = `trunc(min(${String(VIDEO_PROXY_GENERATION_OUTPUT.maximumHeight)}\\,ih)/2)*2`;
-	return `scale=-2:${height},setsar=1`;
+	// Resample the display aspect before removing SAR. Both coded dimensions
+	// must be positive even integers for H264/yuv420p, including a 2x1 source.
+	const height = `max(2\\,trunc(min(${String(VIDEO_PROXY_GENERATION_OUTPUT.maximumHeight)}\\,ih)/2)*2)`;
+	return `scale=w=max(2\\,trunc(oh*dar/2+0.5)*2):h=${height},setsar=1`;
 }
 
 /** One proxy, written from one original, at the recipe's size. */
@@ -99,6 +99,7 @@ export function buildVideoProxyGenerationArgs(
 	const input = nonEmpty(request?.inputPath, 'input');
 	const output = nonEmpty(request?.outputPath, 'output');
 	const timescale = request?.timescale === undefined ? null : videoTrackTimescale(request.timescale);
+	const timingArgs = encoderTimingArgs(timescale, request.finalFrameDurationTicks);
 	return Object.freeze([
 		'-hide_banner', '-nostdin', '-y',
 		'-i', input,
@@ -110,7 +111,7 @@ export function buildVideoProxyGenerationArgs(
 		'-fps_mode', 'passthrough',
 		'-c:v', 'libx264', '-preset', 'veryfast', '-crf', '30',
 		'-pix_fmt', 'yuv420p',
-		...(timescale === null ? [] : ['-video_track_timescale', String(timescale)]),
+		...timingArgs,
 		// A preview seeks constantly, and a proxy whose index sits at the end of
 		// the file makes the first seek wait for the whole body to arrive.
 		'-movflags', '+faststart',
@@ -130,4 +131,23 @@ function videoTrackTimescale(value: unknown): number {
 		throw new RangeError('A video proxy timescale must be a positive safe integer.');
 	}
 	return value;
+}
+
+function encoderTimingArgs(timescale: number | null, duration: bigint | undefined): string[] {
+	if (duration !== undefined && (timescale === null || typeof duration !== 'bigint' || duration <= 0n)) {
+		throw new RangeError('A positive final frame duration requires the original timescale.');
+	}
+	if (timescale === null) return [];
+	const args = ['-enc_time_base', `1/${timescale}`, '-video_track_timescale', String(timescale)];
+	if (duration !== undefined) {
+		let numerator = BigInt(timescale), denominator = duration;
+		let a = numerator, b = denominator;
+		while (b) { const remainder = a % b; a = b; b = remainder; }
+		numerator /= a; denominator /= a;
+		if (numerator > 2147483647n || denominator > 2147483647n) {
+			throw new RangeError('This proxy recipe cannot preserve the original final frame duration.');
+		}
+		args.push('-r', `${numerator}/${denominator}`);
+	}
+	return args;
 }

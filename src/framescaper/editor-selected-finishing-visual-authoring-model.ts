@@ -188,6 +188,7 @@ export function assertFramescaperSelectedVisualAuthoringRuntimeFenceFinishing(in
 	readonly fence: unknown;
 	readonly selectedClipId: unknown;
 	readonly playheadSample: unknown;
+	readonly requiresPlayhead: boolean;
 }>): void {
 	const selectedClipId = input.selectedClipId === null ? null
 		: stableId(input.selectedClipId, 'runtime selected clip ID');
@@ -197,7 +198,7 @@ export function assertFramescaperSelectedVisualAuthoringRuntimeFenceFinishing(in
 	if (JSON.stringify(fence.selectedClipIds) !== JSON.stringify(expected)) {
 		throw new Error('The selected visual authoring has a stale selection. Reopen the dialog.');
 	}
-	if (fence.playheadSample !== nonNegativeInteger(input.playheadSample, 'runtime playhead sample')) {
+	if (input.requiresPlayhead && fence.playheadSample !== nonNegativeInteger(input.playheadSample, 'runtime playhead sample')) {
 		throw new Error('The selected visual authoring playhead is stale. Reopen the dialog.');
 	}
 }

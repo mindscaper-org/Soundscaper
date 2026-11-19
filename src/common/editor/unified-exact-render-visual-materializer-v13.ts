@@ -18,6 +18,7 @@ import {
 	type SoundVisualizerRgbaRequest,
 } from './sound-visualizer-rgba.ts';
 import { renderVideoNoiseRgba, renderVideoTestImageRgba } from './video-test-image-noise-rgba.ts';
+import { resizeVideoRgbaNearest } from './video-rgba-nearest-resize.ts';
 import { decodeManagedSdrOutputPixelV1, encodeManagedSdrLinearPixelV1 } from './video-color-management-v27.ts';
 
 export type UnifiedExactRenderVisualRgbaV13 = VideoMaskMatteRgbaInputV13;
@@ -264,17 +265,8 @@ function scaleFrame(
 	if (sourceWidth === width && sourceHeight === height) {
 		return Object.freeze({ width, height, pixels: frame.pixels.slice() as Uint8Array<ArrayBuffer> });
 	}
-	const pixels = new Uint8Array(width * height * 4);
-	for (let y = 0; y < height; y += 1) {
-		throwIfAborted(signal);
-		// Map destination pixel centres into the source's nearest-pixel cells.
-		const sourceY = Math.min(sourceHeight - 1, Math.floor((y + 0.5) * sourceHeight / height));
-		for (let x = 0; x < width; x += 1) {
-			const sourceX = Math.min(sourceWidth - 1, Math.floor((x + 0.5) * sourceWidth / width));
-			const sourceOffset = (sourceY * sourceWidth + sourceX) * 4;
-			pixels.set(frame.pixels.subarray(sourceOffset, sourceOffset + 4), (y * width + x) * 4);
-		}
-	}
+	const pixels = resizeVideoRgbaNearest({ pixels: frame.pixels, width: sourceWidth, height: sourceHeight },
+		width, height, 0.5, () => { throwIfAborted(signal); });
 	return Object.freeze({ width, height, pixels });
 }
 

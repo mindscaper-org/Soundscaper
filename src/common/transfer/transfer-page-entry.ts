@@ -150,7 +150,7 @@ export async function mountTransferPage(options: MountTransferPageOptions): Prom
 	// to arrive is reported on a page the visitor can already read.
 	const view = createTransferView(scope.document, route.title, route.summary);
 	const sizeWarning = createTransferPageSizeWarning(view);
-	scope.addEventListener?.('pagehide', (event) => { if (event.type === 'pagehide') sizeWarning.dispose(); }, { once: true });
+	scope.addEventListener?.('pagehide', (event) => { if (!event.persisted) sizeWarning.dispose(); });
 	const confirmFileSizeWarning = sizeWarning.confirm;
 	const dependencies = options.dependencies ?? deferredDependencies();
 	view.note(configuration.loopback
@@ -214,7 +214,7 @@ function importTallyText(tally: { imported: number; skipped: number; failed: num
 async function mountReceiver(context: TransferPageContext): Promise<void> {
 	const { configuration, scope, view } = context;
 	const { ACCEPTED_PROJECT_FILE_EXTENSION_LIST } = await import('../project-file-extensions.ts');
-	view.files(
+	const manualImport = view.files(
 		'Import downloaded project archives and conversion-report sidecars',
 		`${ACCEPTED_PROJECT_FILE_EXTENSION_LIST},.json`,
 		async (files) => {
@@ -253,6 +253,7 @@ async function mountReceiver(context: TransferPageContext): Promise<void> {
 		allowedOrigins: configuration.allowedOrigins,
 		expectedSource: opener,
 	});
+	manualImport.disabled = true;
 	// One tally, kept as the records arrive and reused for the final report:
 	// the live line and the summary have to be counting the same thing, and two
 	// tallies is how they came to disagree.
@@ -321,6 +322,7 @@ async function mountReceiver(context: TransferPageContext): Promise<void> {
 	} finally {
 		windowPort.close();
 		await source?.close().catch(() => undefined);
+		manualImport.disabled = false;
 	}
 }
 

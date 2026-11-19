@@ -3,6 +3,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTrustedDesktopIpc } from '../desktop/main-trusted-ipc.ts';
+import { resolveManagedPolicy } from '../desktop/managed-policy.ts';
+import { enforceManagedIpc } from '../desktop/managed-network-policy.ts';
 
 test('desktop IPC admits only the current application main frame and validates its URL', () => {
 	const handlers = new Map<string, (event: unknown, ...args: unknown[]) => unknown>();
@@ -33,4 +35,19 @@ test('desktop IPC admits only the current application main frame and validates i
 	current = null;
 	assert.throws(() => handlers.get('request')!({ sender, senderFrame: frame }), /application window/u);
 	assert.deepEqual(calls, [7, 7]);
+});
+
+test('a trusted renderer cannot bypass managed restrictions by directly invoking a channel', () => {
+	const frame = { url: 'scape://app/' }, sender = { mainFrame: frame };
+	let listener: ((event: unknown, ...args: unknown[]) => unknown) | undefined;
+	let started = false;
+	const policy = resolveManagedPolicy({ machine: { ExternalCodecInstallationAllowed: 0 } });
+	const ipc = createTrustedDesktopIpc({
+		ipcMain: { handle: (_channel, handler) => { listener = handler; }, on: () => {} },
+		windowFor: () => ({ webContents: sender }), assertDocumentUrl: () => {},
+		beforeInvoke: (channel, args) => enforceManagedIpc(policy, channel, args),
+	});
+	ipc.handle('soundscaper:v1:ffmpeg:install', () => { started = true; });
+	assert.throws(() => listener!({ sender, senderFrame: frame }), /administrator policy/u);
+	assert.equal(started, false);
 });

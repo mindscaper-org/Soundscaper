@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { registerHooks } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -53,4 +53,75 @@ test('clearing a scanner quarantine also releases its supervisor hold so scannin
 	assert.deepEqual(await clear({}, { digest, clearance: 'rescan' }), { cleared: true });
 	assert.equal(held, false);
 	assert.equal(registration.quarantine.isQuarantined(digest), false);
+});
+
+
+test('bridge preference IPC defaults on for Windows x64 and persists opt-outs across restarts', async (t) => {
+	const userDataPath = await mkdtemp(join(tmpdir(), 'bridge-preference-'));
+	t.after(() => rm(userDataPath, { recursive: true, force: true }));
+	const handlers = new Map<string, (event?: unknown, value?: unknown) => Promise<unknown>>();
+	const register = (target: string) => registerDesktopPluginDiscovery({
+		channels: new Proxy({}, { get: (_target, key) => key }),
+		handle: (channel: string, handler: (event?: unknown, value?: unknown) => Promise<unknown>) => handlers.set(channel, handler),
+		ownerFor: () => ({}), userDataPath, nativePluginBridgeTarget: target,
+		stateDataPath: undefined, parentWindow: () => null, desktopRoot: userDataPath, packaged: false, resourcesPath: undefined,
+		settings: { snapshot: () => ({ nativePluginDiscoveryEnabled: true }) },
+		supervisor: { runJob: async () => { throw new Error('unused'); }, snapshot: () => ({ quarantined: false }),
+			clearQuarantine: () => undefined, dispose: () => undefined },
+		describePayload: async () => ({ status: 'available' }), isPluginHostFormatActivated: () => true,
+	});
+	const registration = register('win-x64'); await registration.ready();
+	const availability = handlers.get('nativePluginAvailability'); assert.ok(availability);
+	const initial = await availability() as { consent: { windowsX86Vst2: unknown } };
+	assert.deepEqual(initial.consent.windowsX86Vst2, { supported: true, enabled: true });
+	const consent = handlers.get('nativePluginConsent'); assert.ok(consent);
+	assert.deepEqual(await consent({}, { format: 'vst2', action: 'enable-x86-vst2' }), { supported: true, enabled: true });
+	assert.deepEqual(JSON.parse(await readFile(join(userDataPath, 'windows-vst2-x86-consent-v1.json'), 'utf8')), { enabled: true });
+	await registration.dispose();
+	const restored = register('win-x64'); await restored.ready();
+	const restoredAvailability = handlers.get('nativePluginAvailability'); assert.ok(restoredAvailability);
+	const result = await restoredAvailability() as typeof initial;
+	assert.deepEqual(result.consent.windowsX86Vst2, { supported: true, enabled: true });
+	const disable = handlers.get('nativePluginConsent'); assert.ok(disable);
+	await disable({}, { format: 'vst2', action: 'disable-x86-vst2' });
+	assert.deepEqual(JSON.parse(await readFile(join(userDataPath, 'windows-vst2-x86-consent-v1.json'), 'utf8')), { enabled: false });
+	await restored.dispose();
+	const optedOut = register('win-x64'); await optedOut.ready();
+	const optedOutAvailability = handlers.get('nativePluginAvailability'); assert.ok(optedOutAvailability);
+	const disabled = await optedOutAvailability() as typeof initial;
+	assert.deepEqual(disabled.consent.windowsX86Vst2, { supported: true, enabled: false });
+	await optedOut.dispose();
+	const arm = register('win-arm64'); await arm.ready();
+	const refused = handlers.get('nativePluginConsent'); assert.ok(refused);
+	await assert.rejects(refused({}, { format: 'vst2', action: 'enable-x86-vst2' }), /Windows x64/u);
+	await arm.dispose();
+});
+
+test('Linux Wine preferences are detected at startup and enabling Windows VST3 is a persisted main-owned action', async (t) => {
+	const userDataPath = await mkdtemp(join(tmpdir(), 'wine-registration-'));
+	t.after(() => rm(userDataPath, { recursive: true, force: true }));
+	const handlers = new Map<string, (event?: unknown, value?: unknown) => Promise<unknown>>();
+	const registration = registerDesktopPluginDiscovery({
+		channels: new Proxy({}, { get: (_target, key) => key }),
+		handle: (channel: string, handler: (event?: unknown, value?: unknown) => Promise<unknown>) => handlers.set(channel, handler),
+		ownerFor: () => ({}), userDataPath, nativePluginBridgeTarget: 'linux-x64',
+		stateDataPath: undefined, parentWindow: () => null, desktopRoot: userDataPath, packaged: false, resourcesPath: undefined,
+		settings: { snapshot: () => ({ nativePluginDiscoveryEnabled: true }) },
+		supervisor: { runJob: async () => { throw new Error('unused'); }, snapshot: () => ({ quarantined: false }),
+			clearQuarantine: () => undefined, dispose: () => undefined },
+		describePayload: async () => ({ status: 'available' }), isPluginHostFormatActivated: () => true,
+	});
+	t.after(() => registration.dispose());
+	await registration.ready();
+	const availability = handlers.get('nativePluginAvailability'); assert.ok(availability);
+	const initial = await availability() as { consent: { linuxWineVst3: { supported: boolean; enabled: boolean } } };
+	assert.equal(initial.consent.linuxWineVst3.supported, true);
+	assert.equal(initial.consent.linuxWineVst3.enabled, false);
+	const change = handlers.get('nativePluginConsent'); assert.ok(change);
+	await change({}, { format: 'vst3', action: 'enable-wine-vst3' });
+	assert.deepEqual(JSON.parse(await readFile(join(userDataPath, 'wine-vst3-preferences-v1.json'), 'utf8')),
+		{ enabled: true, selectedPath: null });
+	await change({}, { format: 'vst3', action: 'disable-wine-vst3' });
+	const disabled = await availability() as typeof initial;
+	assert.equal(disabled.consent.linuxWineVst3.enabled, false);
 });

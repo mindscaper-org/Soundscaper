@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, clipByName, importFiles, registerAudio
 test.describe('clip handle visibility', () => {
 	registerAudioEditorHooks();
 	test('one selected clip keeps all handles; multi-selection across tracks reveals only the hovered clip', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA, toneB]);
 		const first = clipByName(editor, toneA.name), second = clipByName(editor, toneB.name);
 		await first.locator('.clip-header').click();
@@ -53,7 +53,7 @@ test.describe('clip handle visibility', () => {
 	});
 
 	test('fade menu presets create a fade, show its curve, and undo in one step', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		await clip.focus();

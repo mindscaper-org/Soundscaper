@@ -2,6 +2,7 @@
 import type { MidiFileDocument } from '../../../midi-file-types.ts';
 import { midiFileDeliveryReport } from '../../../midi-file-delivery-report.ts';
 import type { MidiProject, MidiServiceDependencies } from '../midi-service-types.ts';
+import { EditorProjectChangedError } from '../../shared/lifecycle.ts';
 
 export async function deliverMidiFile(dependencies: Pick<MidiServiceDependencies, 'saveFile' | 'publishDeliveryReport'>,
 	document: MidiFileDocument, format: 'midi' | 'allegro', name: string, isCurrent: () => boolean, project: MidiProject): Promise<unknown> {
@@ -10,6 +11,7 @@ export async function deliverMidiFile(dependencies: Pick<MidiServiceDependencies
 		: { purpose: 'interchange', text: (await import('../../../allegro-file.ts')).writeAllegroFile(document),
 			mimeType: 'text/plain', suggestedName: `${name}.gro`, extensions: ['gro'] };
 	const report = midiFileDeliveryReport(document, format, project);
+	if (!isCurrent()) throw new EditorProjectChangedError();
 	const result: unknown = await dependencies.saveFile(request);
 	const canceled = result !== null && typeof result === 'object' && 'cancelled' in result && result.cancelled === true;
 	if (!canceled && isCurrent()) dependencies.publishDeliveryReport?.(report);

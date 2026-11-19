@@ -110,6 +110,9 @@ test('repeated pauses cancel every parallel worker and continue the original tes
 		test('already completed', () => { record('complete'); });
 		for (const id of ['one', 'two']) test('worker '+id, async () => {
 			record(id);
+			// Expose the file creation/write window to the readiness observer.
+			writeFileSync(root+'/'+id+'.pid', '');
+			await new Promise(resolve => setTimeout(resolve, 100));
 			writeFileSync(root+'/'+id+'.pid', String(process.pid));
 			if (!existsSync(root+'/resume-final')) await new Promise(() => {});
 		});
@@ -125,7 +128,9 @@ test('repeated pauses cancel every parallel worker and continue the original tes
 	while (pauses < 2) {
 		const pids = await waitFor(async () => {
 			const values = await Promise.all(['one', 'two'].map((id) => readFile(join(root, `${id}.pid`), 'utf8').catch(() => null)));
-			return values.every((value) => value !== null) ? values.map(Number) : null;
+			const published = values.map(Number);
+			// A newly created, empty file maps to PID 0, which probes our process group.
+			return published.every((pid) => Number.isSafeInteger(pid) && pid > 0) ? published : null;
 		});
 		control.pause();
 		control.pause();

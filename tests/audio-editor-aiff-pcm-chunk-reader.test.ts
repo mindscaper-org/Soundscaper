@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { encodeAiff } from '../src/common/editor/aiff.js';
@@ -8,6 +9,7 @@ import {
 	createAiffBlobPcmChunkReader,
 	inspectAiffBlobPcm,
 } from '../src/common/editor/aiff-pcm-chunk-reader.ts';
+import { libsndfileAiffAlignmentFixture } from './helpers/libsndfile-aiff-alignment-fixture.ts';
 
 function encodedAiff(
 	channels: Float32Array[],
@@ -100,6 +102,68 @@ test('AIFF PCM reads preserve 24-bit and 32-bit integer sample geometry', async 
 	}
 });
 
+test('libsndfile mono AIFF and AIFF-C retain their authored PCM when SSND includes the alignment byte', async () => {
+	const { files, frameCount, sampleRate, samples } = libsndfileAiffAlignmentFixture();
+	for (const file of files) {
+		const { source, reads } = trackedSource(new Uint8Array(await file.arrayBuffer()));
+		const descriptor = await inspectAiffBlobPcm(source);
+		assert.equal(descriptor.frameCount, frameCount);
+		assert.equal(descriptor.sampleRate, sampleRate);
+		assert.equal(descriptor.dataByteLength, frameCount * 3);
+		assert.deepEqual(reads.filter(([start]) => start >= descriptor.dataOffset), [[file.size - 1, file.size]]);
+		const chunk = await createAiffBlobPcmChunkReader(source, { descriptor }).readChunk(0);
+		assert.deepEqual(chunk.channels[0], samples, file.name);
+		assert.deepEqual(reads.at(-1), [descriptor.dataOffset, file.size - 1]);
+	}
+});
+
+test('an included AIFF alignment byte must be zero and end on an even boundary', async () => {
+	const file = libsndfileAiffAlignmentFixture().files[0]!;
+	const bytes = new Uint8Array(await file.arrayBuffer());
+	bytes[bytes.length - 1] = 1;
+	await assert.rejects(inspectAiffBlobPcm(new Blob([bytes])), /declared PCM geometry/u);
+
+	const stereo = encodedAiff([Float32Array.of(0.25), Float32Array.of(-0.25)],
+		{ sampleRate: 44_100, sampleFormat: 'int24', dither: 'none' });
+	const extra = new Uint8Array(stereo.length + 2);
+	extra.set(stereo);
+	const view = new DataView(extra.buffer);
+	view.setUint32(4, extra.length - 8, false);
+	view.setUint32(42, 8 + 7, false);
+	await assert.rejects(inspectAiffBlobPcm(new Blob([extra])), /declared PCM geometry/u);
+});
+
+test('libsndfile AIFF-C integer tags retain their width, byte order, and exact PCM', async () => {
+	const path = new URL('./fixtures/libsndfile-aifc-integer.json', import.meta.url);
+	const variants = JSON.parse(await readFile(path, 'ascii')) as Record<string, string>;
+	const pattern = [-6542089, 2393443, 4980736, -1835008, 262144, -3670016];
+	for (const [name, base64] of Object.entries(variants)) {
+		const encoded = Uint8Array.from(Buffer.from(base64, 'base64'));
+		const file = new Blob([encoded]);
+		const descriptor = await inspectAiffBlobPcm(file);
+		assert.equal(descriptor.container, 'aifc', name);
+		assert.equal(descriptor.sampleRate, 44_100, name);
+		assert.equal(descriptor.frameCount, 51, name);
+		assert.equal(descriptor.channelCount, 2, name);
+		assert.equal(descriptor.bitDepth, name.includes('24') ? 24 : 32, name);
+		assert.equal(descriptor.littleEndian ?? false, name.startsWith('little'), name);
+		const reader = createAiffBlobPcmChunkReader(file, { descriptor, chunkFrames: 17 });
+		for (const index of [0, 1, 2]) {
+			const chunk = await reader.readChunk(index);
+			for (const [channel, samples] of chunk.channels.entries()) {
+				for (const [frame, value] of samples.entries()) {
+					const expected = pattern[((chunk.frameOffset + frame) * 2 + channel) % pattern.length]! / 8388608;
+					assert.equal(value, expected, name);
+				}
+			}
+		}
+		const comm = Buffer.from(encoded.buffer).indexOf('COMM');
+		assert.ok(comm >= 0, name);
+		new DataView(encoded.buffer).setUint16(comm + 14, 16, false);
+		await assert.rejects(inspectAiffBlobPcm(new Blob([encoded])), /AIFF-C compression/);
+	}
+});
+
 test('AIFF-C admission and chunk reads decode first-party big-endian float32 PCM', async () => {
 	const encoded = encodedAiff([
 		Float32Array.of(-1.25, -0.5, 0, 0.5),
@@ -112,6 +176,7 @@ test('AIFF-C admission and chunk reads decode first-party big-endian float32 PCM
 		container: 'aifc',
 		encoding: 'ieee-float',
 		sampleFormat: 'float32',
+		aifcCompression: 'fl32',
 		sampleRate: 48_000,
 		channelCount: 2,
 		frameCount: 4,

@@ -84,7 +84,6 @@
 
 .audio-editor-bext-fields label > span {
 	color: var(--muted);
-	font-weight: 700;
 }
 
 .audio-editor-bext-fields :is(input, textarea) {
@@ -110,7 +109,6 @@
 
 .kw-audio-editor__metadata-list label > span {
 	color: var(--muted);
-	font-weight: 700;
 }
 
 :is(.kw-audio-editor__metadata-list, .kw-audio-editor__label-manager) :is(input, textarea) {

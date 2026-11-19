@@ -4,6 +4,7 @@ import test from 'node:test';
 import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { inspectDecodedAudioSampleRate, inspectEncodedAudioSampleRate } from '../src/common/editor/audio-file-metadata.js';
 import { isNativeContainerAudioView, normalizeNativeContainerAudio } from '../src/common/editor/controller/import/internal/native-container-audio-admission.ts';
+import { libsndfileWave64Fixture } from './helpers/libsndfile-wave64-fixture.ts';
 import { nativeWave64Fixture } from './helpers/native-wave64-fixture.ts';
 import { inspectWave64PcmSourceGeometry } from '../src/common/editor/wave64-pcm-source-geometry.ts';
 
@@ -20,6 +21,33 @@ test('the ordinary complete Wave64 PCM source pins its original and native decod
 	const encoded = await nativeWave64Fixture().file.arrayBuffer();
 	assert.equal(inspectEncodedAudioSampleRate(encoded), 48_000);
 	assert.equal(inspectDecodedAudioSampleRate(encoded), 48_000);
+});
+
+test('a libsndfile Wave64 with no terminal fill retains its clock and authored exclusive end', async () => {
+	const { file, frameCount, sampleRate, sampleAt } = libsndfileWave64Fixture();
+	const encoded = await file.arrayBuffer();
+	assert.equal(inspectEncodedAudioSampleRate(encoded), sampleRate);
+	assert.equal(inspectDecodedAudioSampleRate(encoded), sampleRate);
+	const channels = [0, 1].map(channel => Float32Array.from({ length: frameCount }, (_, frame) => sampleAt(frame, channel)));
+	const decoded = normalizeNativeContainerAudio(nativeBuffer(channels, 5120, sampleRate), null, encoded);
+	assert.equal(decoded.length, frameCount);
+	for (const [index, channel] of channels.entries()) assertPcmSamplesEqual(decoded.getChannelData(index), channel);
+});
+
+test('terminal fill cannot be partial and is required before the next Wave64 chunk', async () => {
+	const { file, frameCount, sampleRate } = libsndfileWave64Fixture();
+	const source = new Uint8Array(await file.arrayBuffer());
+	const extraChunk = new Uint8Array(24);
+	extraChunk.set(source.subarray(40, 56));
+	extraChunk.set(new TextEncoder().encode('junk'));
+	new DataView(extraChunk.buffer).setBigUint64(16, 24n, true);
+	for (const [padBytes, trailingChunk] of [[0, extraChunk], [2, new Uint8Array()], [4, extraChunk]] as const) {
+		const bytes = new Uint8Array(source.length + padBytes + trailingChunk.length);
+		bytes.set(source);
+		bytes.set(trailingChunk, source.length + padBytes);
+		new DataView(bytes.buffer).setBigUint64(16, BigInt(bytes.length), true);
+		assert.deepEqual(inspectWave64PcmSourceGeometry(bytes), padBytes === 4 ? { frameCount, sampleRate, channelCount: 2 } : null);
+	}
 });
 
 test('Wave64 canonical storage consumes only authored PCM, keeping a padded native buffer out of the resident cache', async () => {

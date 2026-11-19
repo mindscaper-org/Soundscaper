@@ -19,6 +19,8 @@ for (const mode of ['natural end', 'pause']) test(`source monitor Play resumes a
 	const monitor = editor.locator('[data-source-monitor]');
 	const video = monitor.locator('[data-source-monitor-video]');
 	await expect.poll(() => video.evaluate(element => element.readyState)).toBeGreaterThanOrEqual(2);
+	// Give the real Pause click time to reach the sub-second fixture on busy runners.
+	if (mode === 'pause') await video.evaluate(element => { element.playbackRate = .25; });
 	await monitor.getByRole('button', { name: 'Play', exact: true }).click();
 	let pausedAt = 0;
 	if (mode === 'natural end') {
@@ -26,7 +28,8 @@ for (const mode of ['natural end', 'pause']) test(`source monitor Play resumes a
 		await expect(monitor).toHaveAttribute('data-source-monitor-frame', String(fixture.presentationTicks.length - 1));
 	} else {
 		await expect.poll(() => video.evaluate(element => element.currentTime)).toBeGreaterThan(.2);
-		await monitor.getByRole('button', { name: 'Pause', exact: true }).click();
+		await monitor.getByRole('button', { name: 'Pause', exact: true }).click({ timeout: 3_000 });
+		await expect.poll(() => video.evaluate(element => element.paused && !element.ended)).toBe(true);
 		pausedAt = await video.evaluate(element => element.currentTime);
 		expect(pausedAt).toBeGreaterThan(.15);
 	}

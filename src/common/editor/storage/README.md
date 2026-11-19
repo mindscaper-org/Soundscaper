@@ -37,7 +37,11 @@ actual expanded payload. Existing raw and WavPack packets remain readable.
 
 - Change the IndexedDB version, store names, indexes, or keys only in
   `indexeddb-backend.ts`, with schema tests.
-- Version 1 is the first shipped browser schema. Append future upgrades to
+- Version 1 is the first shipped browser schema. Version 2 retains its stores and
+  indexes and admits `midi-generated-v1` immutable score/instrument source records.
+  The version change fences older clients before they can encounter a recipe
+  requiring the demand renderer. Existing physical PCM records are unchanged.
+  Append future upgrades to
   `EDITOR_STORAGE_MIGRATIONS`; never drop or recreate stores carrying baseline
   user data. Cover preservation of existing projects and media references in
   upgrade tests, and abort the upgrade transaction on migration failure.

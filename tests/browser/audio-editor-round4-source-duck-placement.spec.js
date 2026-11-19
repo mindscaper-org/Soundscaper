@@ -8,7 +8,7 @@ import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 
 test('Auto Duck in a clip source uses its control track at the clip timeline placement', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const files = ['music', 'voice'].map((name, index) => createWavFixture({
 		name: `${name}.wav`, frequency: index ? 1000 : 330, duration: 2,
 		channelCount: 1, channelAmplitudes: [0.35],

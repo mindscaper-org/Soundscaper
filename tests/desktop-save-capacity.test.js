@@ -287,6 +287,51 @@ test('disk admission checks exact statfs arguments against cross-owner aggregate
 	await manager.dispose();
 });
 
+test('concurrent saves on different volumes use each destination’s available space', async () => {
+	const targets = new SaveTargetStore();
+	const a = targets.registerPath('/mixes/long.wav', { owner: OWNER_A, purpose: 'audio-pcm-mix' });
+	const b = targets.registerPath('/removable/field-notes.sscape', { owner: OWNER_A, purpose: 'project' });
+	const manager = new AtomicSaveManager({
+		targets,
+		statImpl: async (path) => ({ dev: path === '/mixes' ? 17n : 50n }),
+		statfsImpl: async (path) => availableBytes(path === '/mixes' ? 12 : 4),
+		openImpl: async () => fakeHandle(),
+		unlinkImpl: async () => undefined,
+	});
+	try {
+		await manager.begin({ owner: OWNER_A, targetId: a.id, size: 12 });
+		await manager.begin({ owner: OWNER_A, targetId: b.id, size: 4 });
+	} finally {
+		await manager.dispose();
+	}
+});
+
+test('filesystem admission charges only the unwritten capacity of staged saves', async () => {
+	let available = 14;
+	const targets = new SaveTargetStore();
+	const a = targets.registerPath('/tmp/long.scape', { owner: OWNER_A, purpose: 'project' });
+	const b = targets.registerPath('/tmp/second.wav', { owner: OWNER_A, purpose: 'audio-pcm-mix' });
+	const c = targets.registerPath('/tmp/third.wav', { owner: OWNER_A, purpose: 'audio-pcm-mix' });
+	const manager = new AtomicSaveManager({
+		targets,
+		statfsImpl: async () => availableBytes(available),
+		openImpl: async () => fakeHandle({ writeImpl: length => {
+			available -= length;
+			return { bytesWritten: length };
+		} }),
+		unlinkImpl: async () => undefined,
+	});
+	try {
+		const first = await manager.begin({ owner: OWNER_A, targetId: a.id, maximumSize: 10 });
+		await manager.writeChunk({ owner: OWNER_A, writeId: first.writeId, offset: 0, bytes: new Uint8Array(8) });
+		assert.equal(available, 6);
+		await manager.begin({ owner: OWNER_A, targetId: b.id, size: 4 });
+		await assert.rejects(manager.begin({ owner: OWNER_A, targetId: c.id, size: 1 }), /available disk space/iu);
+	} finally {
+		await manager.dispose();
+	}
+});
+
 test('filesystem capacity fails closed before staging and releases the pending reservation', async () => {
 	const results = [availableBytes(4), availableBytes(5)];
 	let statCalls = 0;

@@ -80,6 +80,9 @@ class SelectedRangeBlob extends Blob {
 			this.#offset + first, Math.max(0, last - first), contentType.toLowerCase());
 	}
 	override async arrayBuffer(): Promise<ArrayBuffer> {
+		assertReadable(this.#lifetime, this.#options.signal);
+		if (!this.size) return new ArrayBuffer(0);
+		if (this.size <= DESKTOP_LINKED_ORIGINAL_RANGE_MAXIMUM_BYTES) return (await this.#readRange(0, this.size)).buffer;
 		const bytes = new Uint8Array(this.size);
 		let offset = 0;
 		for await (const part of this.stream()) { bytes.set(part, offset); offset += part.byteLength; }
@@ -97,12 +100,15 @@ class SelectedRangeBlob extends Blob {
 			assertReadable(this.#lifetime, this.#options.signal);
 			if (offset >= this.size) { controller.close(); return; }
 			const length = Math.min(this.size - offset, DESKTOP_LINKED_ORIGINAL_RANGE_MAXIMUM_BYTES);
-			const bytes = await readDesktopLinkedOriginalRange(this.#descriptor, {
-				offset: this.#offset + offset, length,
-				...(this.#options.signal ? { signal: this.#options.signal } : {}),
-			}, this.#options.fetch, 'selected');
-			offset += bytes.byteLength; controller.enqueue(bytes.slice());
+			const bytes = await this.#readRange(offset, length);
+			offset += bytes.byteLength;
+			controller.enqueue(bytes);
 		} });
+	}
+	#readRange(offset: number, length: number): Promise<Uint8Array<ArrayBuffer>> {
+		return readDesktopLinkedOriginalRange(this.#descriptor, {
+			offset: this.#offset + offset, length, signal: this.#options.signal,
+		}, this.#options.fetch, 'selected');
 	}
 }
 

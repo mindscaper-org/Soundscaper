@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { open, rename, statfs, unlink } from 'node:fs/promises';
+import { open, rename, stat, statfs, unlink } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 
 import {
@@ -13,8 +13,9 @@ import {
 import { restorePublishedFileMode } from './save-publication-mode.js';
 import {
 	SPACE_EXHAUSTED_MESSAGE, commitFailureMessage, isSpaceExhaustedError,
-	availableSaveStorageBytes as availableStorageBytes, boundedSaveCapacity as boundedLimit,
-	isMissingSavePathError as isMissingPathError, requireSaveOwner as requireOwner, saveBinaryBuffer as toBuffer,
+	assertTemporarySaveFileCurrent, canTrackTemporarySaveFile, cleanupTemporarySaveFile,
+	createSaveDiskAdmission, boundedSaveCapacity as boundedLimit,
+	requireSaveOwner as requireOwner, saveBinaryBuffer as toBuffer,
 } from './save-space.js';
 import { validateDeclaredSize } from './validation.js';
 
@@ -39,7 +40,7 @@ export class SaveTargetStore {
 		this.#randomBytes = randomBytesImpl;
 		this.#maximumTargets = boundedLimit(maximumTargets, MAX_SAVE_TARGETS, 'Save target capacity');
 	}
-	registerPath(filePath, { owner, purpose, beforeCommit, afterCommit } = {}) {
+	registerPath(filePath, { owner, purpose, beforeCommit, afterCommit, publish } = {}) {
 		if (this.#disposed) throw new Error('Save target store is disposed');
 		this.#assertOwnerActive(owner);
 		this.#sweepExpired();
@@ -47,7 +48,7 @@ export class SaveTargetStore {
 			throw new RangeError(`Save target capacity reached its product-wide limit of ${this.#maximumTargets}`);
 		}
 		const id = this.#newId();
-		const entry = { id, path: filePath, name: basename(filePath), owner, purpose, beforeCommit, afterCommit, expiresAt: this.#now() + this.#ttlMs, timer: null };
+		const entry = { id, path: filePath, name: basename(filePath), owner, purpose, beforeCommit, afterCommit, publish, expiresAt: this.#now() + this.#ttlMs, timer: null };
 		entry.timer = setTimeout(() => this.#releaseEntry(entry), this.#ttlMs);
 		entry.timer.unref?.();
 		this.#entries.set(id, entry);
@@ -123,6 +124,7 @@ export class AtomicSaveManager {
 	#admittedBytes = 0;
 	#cleanupErrors = [];
 	#confirmFileSizeWarning;
+	#disk;
 	#closing = false;
 	#disposePromise = null;
 	#maximumAdmittedBytes;
@@ -136,14 +138,14 @@ export class AtomicSaveManager {
 	#reservedSessions = 0;
 	#revocations = new Set();
 	#sessions = new Map();
-	#statfs;
 	#targets;
 	#unlink;
 
 	constructor({
-		targets,
+		targets = /** @type {SaveTargetStore | null} */ (null),
 		openImpl = open,
 		renameImpl = rename,
+		statImpl = stat,
 		statfsImpl = statfs,
 		unlinkImpl = unlink,
 		randomBytesImpl = randomBytes,
@@ -156,7 +158,7 @@ export class AtomicSaveManager {
 		this.#targets = targets;
 		this.#open = openImpl;
 		this.#rename = renameImpl;
-		this.#statfs = statfsImpl;
+		this.#disk = createSaveDiskAdmission(statImpl, statfsImpl);
 		this.#unlink = unlinkImpl;
 		this.#randomBytes = randomBytesImpl;
 		this.#confirmFileSizeWarning = confirmFileSizeWarning;
@@ -195,7 +197,7 @@ export class AtomicSaveManager {
 		} catch (error) {
 			return Promise.reject(error);
 		}
-		return this.#admit(owner, () => this.#begin(owner, options, exactSize, admittedSize, reservation))
+		return this.#admit(owner, () => this.#begin(owner, options, exactSize, reservation))
 			.catch((error) => {
 				this.#releaseReservation(reservation);
 				throw error;
@@ -215,10 +217,10 @@ export class AtomicSaveManager {
 			const error = new Error('The large-file save was canceled'); error.name = 'AbortError'; throw error;
 		}
 		const reservation = this.#reserve(admittedSize, true);
-		return this.#begin(owner, options, exactSize, admittedSize, reservation, target);
+		return this.#begin(owner, options, exactSize, reservation, target);
 	}
 
-	async #begin(owner, { targetId, finalPrefixByteLength }, exactSize, admittedSize, reservation, admittedTarget) {
+	async #begin(owner, { targetId, finalPrefixByteLength }, exactSize, reservation, admittedTarget) {
 		try {
 			const target = admittedTarget ?? this.#targets.consume(targetId, { owner });
 			if (!target) throw new Error('Save target expired or was already used');
@@ -231,7 +233,7 @@ export class AtomicSaveManager {
 			const writeId = this.#newId();
 			const targetDirectory = dirname(target.path);
 			const temporaryPath = join(targetDirectory, `.${writeId}.soundscaper-part`);
-			await this.#assertAvailableStorage(targetDirectory);
+			await this.#disk.check(targetDirectory, reservation);
 			let handle;
 			try {
 				handle = await this.#open(temporaryPath, 'wx', 0o600);
@@ -241,15 +243,13 @@ export class AtomicSaveManager {
 			this.#sessions.set(writeId, {
 				id: writeId,
 				owner,
-				targetPath: target.path, beforeCommit: target.beforeCommit, afterCommit: target.afterCommit,
+				targetPath: target.path, beforeCommit: target.beforeCommit, afterCommit: target.afterCommit, publish: target.publish,
 				temporaryPath,
 				handle,
 				exactSize,
-				admittedSize,
 				chunkSize,
 				finalPrefixState: finalPrefixByteLength === undefined ? 'none' : 'required',
 				reservation,
-				written: 0,
 				busy: false,
 				idle: Promise.resolve(),
 			});
@@ -266,11 +266,12 @@ export class AtomicSaveManager {
 
 	async #writeChunk(owner, { writeId, offset, bytes }) {
 		const session = this.#session(writeId, owner);
+		const { reservation } = session;
 		if (session.busy) throw new Error('Concurrent save writes are not allowed');
 		const buffer = toBuffer(bytes);
 		if (buffer.byteLength > session.chunkSize) throw new RangeError('Save chunk is too large');
-		if (!Number.isSafeInteger(offset) || offset !== session.written) throw new RangeError('Save chunk offset is out of sequence');
-		if (buffer.byteLength > session.admittedSize - session.written) {
+		if (!Number.isSafeInteger(offset) || offset !== reservation.written) throw new RangeError('Save chunk offset is out of sequence');
+		if (buffer.byteLength > reservation.admittedSize - reservation.written) {
 			throw new RangeError(session.exactSize
 				? 'Save exceeds its declared size'
 				: 'Save exceeds its admitted maximum');
@@ -282,12 +283,12 @@ export class AtomicSaveManager {
 		try {
 			let cursor = 0;
 			while (cursor < buffer.byteLength) {
-				const result = await session.handle.write(buffer, cursor, buffer.byteLength - cursor, session.written + cursor);
+				const result = await session.handle.write(buffer, cursor, buffer.byteLength - cursor, offset + cursor);
 				if (!result.bytesWritten) throw new Error('Save write made no progress');
 				cursor += result.bytesWritten;
 			}
-			session.written += buffer.byteLength;
-			return Object.freeze({ nextOffset: session.written });
+			reservation.written += buffer.byteLength;
+			return Object.freeze({ nextOffset: reservation.written });
 		} catch (error) {
 			spaceExhausted = isSpaceExhaustedError(error);
 			if (!spaceExhausted) throw error;
@@ -306,12 +307,13 @@ export class AtomicSaveManager {
 
 	async #patchFinalPrefix(owner, { writeId, bytes }) {
 		const session = this.#session(writeId, owner);
+		const { written, admittedSize } = session.reservation;
 		if (session.busy) throw new Error('Concurrent save writes are not allowed');
 		if (session.finalPrefixState !== 'required') {
 			if (session.finalPrefixState === 'none') throw new Error('Save did not declare a final prefix');
 			throw new Error('Final prefix patch was already attempted');
 		}
-		if (session.written !== session.admittedSize) {
+		if (written !== admittedSize) {
 			throw new Error('Final prefix can be patched only after all sequential bytes are written');
 		}
 		const buffer = toBuffer(bytes);
@@ -333,7 +335,7 @@ export class AtomicSaveManager {
 				cursor += result.bytesWritten;
 			}
 			session.finalPrefixState = 'complete';
-			return Object.freeze({ byteLength: session.written });
+			return Object.freeze({ byteLength: written });
 		} catch (error) {
 			session.finalPrefixState = 'failed';
 			spaceExhausted = isSpaceExhaustedError(error);
@@ -356,24 +358,28 @@ export class AtomicSaveManager {
 		if (session.busy) throw new Error('Save write is still in progress');
 		if (session.finalPrefixState === 'required') throw new Error('The required final prefix is missing');
 		if (session.finalPrefixState === 'failed') throw new Error('The final prefix patch failed');
-		if (session.exactSize && session.written !== session.admittedSize) {
+		if (session.exactSize && session.reservation.written !== session.reservation.admittedSize) {
 			throw new Error('Save ended before the declared size was written');
 		}
 		this.#sessions.delete(session.id);
+		const trackStage = canTrackTemporarySaveFile(session.handle);
 		let handleClosed = false;
+		let committed = false;
 		try {
 			await session.handle.sync();
 			await restorePublishedFileMode(session.handle, session.targetPath);
-			const published = session.afterCommit ? await session.handle.stat({ bigint: true }) : null;
-			await session.handle.close();
-			handleClosed = true;
+			const published = trackStage || session.afterCommit ? await session.handle.stat({ bigint: true }) : null;
+			if (!trackStage) { await session.handle.close(); handleClosed = true; }
 			await session.beforeCommit?.();
-			await this.#rename(session.temporaryPath, session.targetPath);
+			if (trackStage) await assertTemporarySaveFileCurrent(session.temporaryPath, published);
+			if (session.publish) await session.publish(session.temporaryPath); else await this.#rename(session.temporaryPath, session.targetPath);
+			committed = true;
+			if (trackStage) { await session.handle.close(); handleClosed = true; }
 			await session.afterCommit?.(published);
 			this.#releaseReservation(session.reservation);
-			return Object.freeze({ byteLength: session.written });
+			return Object.freeze({ byteLength: session.reservation.written });
 		} catch (error) {
-			await this.#cleanupSession(session, { closeHandle: !handleClosed });
+			await this.#cleanupSession(session, { closeHandle: !handleClosed, removeTemporary: !committed });
 			throw new Error(commitFailureMessage(error), { cause: error });
 		}
 	}
@@ -432,7 +438,7 @@ export class AtomicSaveManager {
 		}
 		this.#reservedSessions += 1;
 		this.#admittedBytes += admittedSize;
-		return { admittedSize, released: false };
+		return { admittedSize, written: 0, released: false };
 	}
 
 	#releaseReservation(reservation) {
@@ -440,25 +446,8 @@ export class AtomicSaveManager {
 		reservation.released = true;
 		this.#reservedSessions -= 1;
 		this.#admittedBytes -= reservation.admittedSize;
+		this.#disk.release(reservation);
 		return true;
-	}
-
-	async #assertAvailableStorage(targetDirectory) {
-		let details;
-		try {
-			details = await this.#statfs(targetDirectory, { bigint: true });
-		} catch (error) {
-			throw new Error('Could not inspect filesystem capacity for the save', { cause: error });
-		}
-		let availableBytes;
-		try {
-			availableBytes = availableStorageBytes(details);
-		} catch (error) {
-			throw new Error('Filesystem capacity information is invalid', { cause: error });
-		}
-		if (availableBytes < BigInt(this.#admittedBytes)) {
-			throw new RangeError('Available disk space is below the aggregate admitted save capacity');
-		}
 	}
 
 	#admit(owner, operation) {
@@ -524,22 +513,8 @@ export class AtomicSaveManager {
 		}
 	}
 
-	async #cleanupSession(session, { closeHandle = true } = {}) {
-		const errors = [];
-		if (closeHandle) {
-			try {
-				await session.handle.close();
-			} catch (error) {
-				errors.push(new Error('Could not close the temporary save file', { cause: error }));
-			}
-		}
-		try {
-			await this.#unlink(session.temporaryPath);
-		} catch (error) {
-			if (!isMissingPathError(error)) {
-				errors.push(new Error('Could not remove the temporary save file', { cause: error }));
-			}
-		}
+	async #cleanupSession(session, { closeHandle = true, removeTemporary = true } = {}) {
+		const errors = await cleanupTemporarySaveFile(session, this.#unlink, { closeHandle, removeTemporary });
 		this.#cleanupErrors.push(...errors);
 		this.#ownerState(session.owner).cleanupErrors.push(...errors);
 		if (!errors.length) this.#releaseReservation(session.reservation);

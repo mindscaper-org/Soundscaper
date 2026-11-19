@@ -8,6 +8,7 @@ import { resolveSelectionRange } from '../../selection-range.ts';
 import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
 import { useTimelineAnnotationInteractions } from './useTimelineAnnotationInteractions.js';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export function TimelineAnnotationPanel(props) {
 	return <TimelineAnnotationPanelSession key={editorProjectEditSessionKey(props.controller, props.project?.id)} {...props} />;
@@ -130,7 +131,6 @@ const TimelineAnnotationRow = React.memo(function TimelineAnnotationRow({ row, i
 							data-annotation-id={annotation.id}
 							aria-pressed={row.selected}
 							aria-disabled={blocked}
-							aria-label={`${annotation.name || copy.unnamedTimelineAnnotation}, ${annotation.kind === 'marker' ? copy.timelineMarker : copy.timelineRegion}, ${row.timingLabel}`}
 							tabIndex={row.focused ? 0 : -1}
 							onClick={(event) => select(event, annotation)}
 							onDoubleClick={() => {
@@ -146,7 +146,7 @@ const TimelineAnnotationRow = React.memo(function TimelineAnnotationRow({ row, i
 							<small>{annotation.anchor === 'sample' ? copy.sampleAnchor : copy.musicalAnchor}</small>
 						</button>
 						{expanded && <div className="audio-editor-timeline-annotation-list__editor" role="group" aria-label={copy.editTimelineAnnotation}>
-							<label>{copy.annotationName}<input
+							<label><EditorControlLabel>{copy.annotationName}</EditorControlLabel><input
 								ref={renameRef}
 								disabled={blocked}
 								value={editingId === annotation.id ? draftName : annotation.name}
@@ -157,16 +157,16 @@ const TimelineAnnotationRow = React.memo(function TimelineAnnotationRow({ row, i
 								onBlur={() => handleRenameBlur(annotation)}
 								onKeyDown={handleRenameKeyDown}
 							/></label>
-							<label>{copy.annotationColor}<select disabled={blocked} value={annotation.color} onChange={(event) => setColor(annotation.id, event.target.value)}>
+							<label><EditorControlLabel>{copy.annotationColor}</EditorControlLabel><select disabled={blocked} value={annotation.color} onChange={(event) => setColor(annotation.id, event.target.value)}>
 								{AUDIO_EDITOR_TIMELINE_ANNOTATION_COLORS.map((color) => <option key={color} value={color}>{colorLabel(copy, color)}</option>)}
 							</select></label>
-							<label>{copy.annotationKind}<select disabled={blocked} value={annotation.kind} onChange={(event) => convert(annotation, { kind: event.target.value, anchor: annotation.anchor })}>
+							<label><EditorControlLabel>{copy.annotationKind}</EditorControlLabel><select disabled={blocked} value={annotation.kind} onChange={(event) => convert(annotation, { kind: event.target.value, anchor: annotation.anchor })}>
 								<option value="marker">{copy.timelineMarker}</option><option value="region">{copy.timelineRegion}</option>
 							</select></label>
-							<label>{copy.annotationAnchor}<select disabled={blocked} value={annotation.anchor} onChange={(event) => convert(annotation, { kind: annotation.kind, anchor: event.target.value })}>
+							<label><EditorControlLabel>{copy.annotationAnchor}</EditorControlLabel><select disabled={blocked} value={annotation.anchor} onChange={(event) => convert(annotation, { kind: annotation.kind, anchor: event.target.value })}>
 								<option value="sample">{copy.sampleAnchor}</option><option value="musical">{copy.musicalAnchor}</option>
 							</select></label>
-							<label>{copy.annotationStartFrame}<TimelineAnnotationFrameInput
+							<label><EditorControlLabel>{copy.annotationStartFrame}</EditorControlLabel><TimelineAnnotationFrameInput
 								disabled={blocked}
 								value={annotation.timelineStartFrame}
 								minimum={0}
@@ -177,7 +177,7 @@ const TimelineAnnotationRow = React.memo(function TimelineAnnotationRow({ row, i
 									? resizeTo(annotation, 'start', frame)
 									: moveTo(annotation, frame)}
 							/></label>
-							{annotation.kind === 'region' && <label>{copy.annotationEndFrame}<TimelineAnnotationFrameInput
+							{annotation.kind === 'region' && <label><EditorControlLabel>{copy.annotationEndFrame}</EditorControlLabel><TimelineAnnotationFrameInput
 								disabled={blocked}
 								value={annotation.timelineEndFrame}
 								minimum={annotation.timelineStartFrame + 1}

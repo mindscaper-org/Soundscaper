@@ -30,7 +30,7 @@ test('an imported automatic video preset permits a different explicit delivery s
 				maximumWidth: 64, maximumHeight: 36, maximumFrameRate: { num: 10, den: 1 },
 			} }] })),
 	});
-	await dialog.getByRole('button', { name: 'Preset', exact: true }).click();
+	await dialog.getByRole('button', { name: /^Preset(?::|$)/u }).click();
 	await page.getByRole('option', { name: 'Small automatic (custom)', exact: true }).click();
 	const size = dialog.locator('[data-export-field="canvasSize"] input');
 	await size.nth(0).fill('128');

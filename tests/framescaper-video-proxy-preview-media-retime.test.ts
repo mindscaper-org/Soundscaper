@@ -14,7 +14,9 @@ import type {
 	FramescaperVideoProxyModeRetime,
 	FramescaperVideoProxyPressureRetime,
 } from '../src/framescaper/editor-video-proxy-use-policy-retime.ts';
+import { createFramescaperVideoProxyActions } from '../src/framescaper/editor-video-proxy-actions-retime.ts';
 import {
+	createFramescaperProxyPreviewCapability,
 	createFramescaperVideoProxyPreviewMediaResolverRetime,
 	FramescaperVideoProxyPreviewUnavailableError,
 	sameFramescaperVideoProxyAttachment,
@@ -106,6 +108,7 @@ interface HarnessSetup {
 	readonly linked: (() => Readonly<{ blob: unknown }> | null) | null;
 	readonly sourceTimingIndex: VideoTimingIndex | null;
 	readonly signal: AbortSignal;
+	readonly canPreviewProxy: (attachment: unknown) => boolean;
 }
 
 interface HarnessState {
@@ -172,6 +175,7 @@ function harness(setup: Partial<HarnessSetup> = {}): PreviewHarness {
 			state.pressureCalls += 1;
 			return setup.pressures?.[index] ?? null;
 		},
+		...(setup.canPreviewProxy ? { canPreviewProxy: setup.canPreviewProxy } : {}),
 		onTrustStatus: (_sourceId, _attachment, status) => { state.trust.push(status); },
 	};
 	const request: PreviewHarness['request'] = {
@@ -213,6 +217,55 @@ test('a verified attachment resolves to a frozen proxy body in forced proxy mode
 	assert.deepEqual(rig.state.originalSignals, [undefined]);
 	assert.deepEqual(rig.state.modeIds, ['source-1']);
 	assert.deepEqual(rig.state.trust, ['unverified', 'verified']);
+});
+
+test('an unsupported native ProRes proxy keeps Auto on the original and refuses strict Proxy', async () => {
+	const proxyAttachment = attachment({
+		mimeType: 'video/quicktime', generatorId: 'framescaper-native-media-host',
+		recipeId: 'framescaper-native-prores-proxy-mov-v1',
+	});
+	const body = new Blob([PROXY_BYTES], { type: 'video/quicktime' });
+	let capabilityChecks = 0;
+	const canPreviewProxy = createFramescaperProxyPreviewCapability(() => {
+		capabilityChecks += 1;
+		return false;
+	});
+	const setup = {
+		source: videoSource({ proxyAttachment }), bodies: bodies({ [PROXY_KEY]: body }),
+		canPreviewProxy, pressures: [PRESSURE, PRESSURE],
+	};
+	const auto = harness(setup);
+	assert.equal(await auto.resolve(), null);
+	assert.deepEqual(auto.state.loads, []);
+	assert.equal(auto.state.trust.at(-1), 'decoder-unavailable');
+
+	const strict = harness({ ...setup, mode: 'proxy' });
+	await assert.rejects(strict.resolve(), /cannot preview the attached ProRes proxy/u);
+	assert.deepEqual(strict.state.loads, []);
+
+	const capable = harness({ ...setup, mode: 'proxy', canPreviewProxy: createFramescaperProxyPreviewCapability(() => true) });
+	assert.equal((await capable.resolve())?.mediaKind, 'proxy');
+	const otherCodec = harness({ mode: 'proxy', canPreviewProxy });
+	assert.equal((await otherCodec.resolve())?.mediaKind, 'proxy');
+	assert.equal(capabilityChecks, 1);
+});
+
+test('an unsupported proxy selection refuses before reloading an active original', async () => {
+	const source = videoSource({ proxyAttachment: attachment({ recipeId: 'framescaper-native-prores-proxy-mov-v1' }) });
+	let refreshes = 0;
+	const action = createFramescaperVideoProxyActions({
+		owner: {
+			project: { schemaFamily: 'framescaper', schemaVersion: 1, id: 'project-1', sources: [source] },
+			actions: { edit: {}, projectBin: {}, video: { reloadSourceVisual: () => { refreshes += 1; } } },
+		},
+		cleanup: { prepareReplacement() {}, cancel() {}, settle() {} },
+		createScheduler() { throw new Error('Unexpected proxy generation.'); },
+		canPreviewProxy: createFramescaperProxyPreviewCapability(() => false),
+	} as never);
+	await assert.rejects(action.setMode('source-1', 'proxy'), /cannot preview the attached ProRes proxy/u);
+	await action.reportPreviewPressure('source-1', PRESSURE);
+	assert.equal(action.mode('source-1'), 'auto');
+	assert.equal(refreshes, 0);
 });
 
 test('a detached published project view retains the captured live project generation', async () => {

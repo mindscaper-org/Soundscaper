@@ -20,22 +20,10 @@ import { SOUNDSCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 
 const sessions = [
 	{
-		name: 'music-bed pickup trim, gain ride, verse split, and slower client tempo',
-		tempo: 92, sourceInFrame: 2_400, durationFrame: 240_000, split: 0.42,
-		gain: -2.5, fadeInFrame: 4_800, fadeOutFrame: 9_600, points: [0.2, 0.72],
-		stretchToTempo: true, mode: 'read', nudge: 2,
-	},
-	{
 		name: 'podcast cold-open cleanup, sponsor split, and revised scoring tempo',
 		tempo: 108, sourceInFrame: 4_800, durationFrame: 264_000, split: 0.35,
 		gain: -1.25, fadeInFrame: 2_400, fadeOutFrame: 7_200, points: [0.16, 0.61],
 		stretchToTempo: false, mode: 'touch', nudge: -1, addAccent: true,
-	},
-	{
-		name: 'dialogue pre-roll trim, breath split, clip envelope, and faster rehearsal tempo',
-		tempo: 132, sourceInFrame: 7_200, durationFrame: 216_000, split: 0.28,
-		gain: 1.5, fadeInFrame: 1_200, fadeOutFrame: 3_600, points: [0.12, 0.48],
-		stretchToTempo: true, mode: 'trim', nudge: 1,
 	},
 ];
 

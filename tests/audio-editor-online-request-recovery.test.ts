@@ -73,6 +73,24 @@ test('offline recovery has a bounded window', async () => {
 	await assert.rejects(request('https://example.test'), { name: 'TimeoutError' });
 });
 
+test('an offline upload still waits for reconnect after the system clock jumps forward', async context => {
+	let wallTime = 100_000, elapsed = 0, calls = 0;
+	context.mock.method(Date, 'now', () => wallTime);
+	context.mock.method(performance, 'now', () => elapsed);
+	const request = createRecoveringOnlineFetch(async () => {
+		calls += 1;
+		return new Response(null, { status: 204 });
+	}, {
+		isOnline: () => elapsed >= 500, log: () => undefined,
+		wait: async milliseconds => {
+			elapsed += milliseconds;
+			wallTime += 3_600_000;
+		},
+	});
+	assert.equal((await request('https://example.test', { method: 'POST', body: 'audio' })).status, 204);
+	assert.equal(calls, 1);
+});
+
 test('authentication and validation responses are returned without retries', async () => {
 	let calls = 0;
 	const request = createRecoveringOnlineFetch(async () => { calls += 1; return new Response('denied', { status: 401 }); });
@@ -81,11 +99,32 @@ test('authentication and validation responses are returned without retries', asy
 
 test('safe HTTP retries honor a bounded Retry-After and retain the final status', async () => {
 	let calls = 0; const delays: number[] = [];
-	const request = createRecoveringOnlineFetch(async () => { calls += 1; return new Response('busy', { status: 503, headers: { 'Retry-After': '90' } }); }, {
+	const request = createRecoveringOnlineFetch(async () => { calls += 1; return new Response('busy', { status: 503, headers: { 'Retry-After': '30' } }); }, {
 		wait: async milliseconds => { delays.push(milliseconds); }, log: () => undefined,
 	});
 	assert.equal((await request('https://example.test')).status, 503);
 	assert.equal(calls, 3); assert.deepEqual(delays, [30_000, 30_000]);
+});
+
+test('provider read rate limits beyond the automatic wait window are returned without early retries', async () => {
+	let calls = 0;
+	const delays: number[] = [];
+	const wait = async (milliseconds: number) => { delays.push(milliseconds); };
+	const response = () => new Response('Rate limit reached', { status: 429, headers: { 'Retry-After': '90' } });
+	const request = createRecoveringOnlineFetch(async () => { calls += 1; return response(); }, { wait, log: () => undefined });
+	const result = await request('https://example.test/downloads');
+	assert.equal(result.status, 429);
+	assert.equal(result.headers.get('Retry-After'), '90');
+	assert.equal(await result.text(), 'Rate limit reached');
+	assert.equal(calls, 1);
+	const refusal = new Error('Rate limit reached');
+	let downloads = 0;
+	await assert.rejects(recoverOnlineRead(async () => {
+		downloads += 1;
+		throw onlineReadResponseError(response(), refusal);
+	}, undefined, { wait, log: () => undefined }), error => error === refusal);
+	assert.equal(downloads, 1);
+	assert.deepEqual(delays, []);
 });
 
 test('temporary server errors recover on reads without replaying a mutation', async () => {

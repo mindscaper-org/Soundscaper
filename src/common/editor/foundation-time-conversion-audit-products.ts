@@ -15,6 +15,12 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
  */
 export const FOUNDATION_TIME_CONVERSION_PRODUCT_SITES: readonly FoundationTimeConversionSite[] = deepFreezeAuditSites([
 	{
+		id: 'framescaper-picture-availability-range',
+		file: 'src/framescaper/video-export-picture-availability-finishing.ts',
+		behavior: 'Picture availability converts both authored sequence endpoints to nearest project samples before checking overlap with the export range.',
+		conversions: [{ helper: 'videoFrameToSampleFrame', policies: ['point'] }],
+	},
+	{
 		id: 'motion-work-area-output-grid',
 		file: 'src/common/editor/motion-work-area-output.ts',
 		behavior: 'Motion output includes each integer frame at or after the exact work-area start and strictly before its end; both boundaries round toward the next integer so preview retains a fractional area without inventing a delivered sample.',

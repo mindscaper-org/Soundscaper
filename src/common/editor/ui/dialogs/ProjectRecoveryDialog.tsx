@@ -9,6 +9,7 @@ import { runAwaitedAudioEditorOperation } from '../workspace/audio-editor-worksp
 import { projectRecoveryChangeLabel } from './project-recovery-reason-label.ts';
 import type { ProjectRecoverySummary } from '../../storage/project-recovery-repository.ts';
 import type { ProjectRecoveryUiActions, ProjectRecoveryUiInspection } from './project-recovery-model.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface Props {
 	readonly actions: ProjectRecoveryUiActions;
@@ -87,13 +88,13 @@ export default function ProjectRecoveryDialog({ actions, initialProjectId = '', 
 	>
 		<p id="project-recovery-description">{copy.projectRecoveryDescription}</p>
 		{projects.length > 0 ? <>
-			<label>{copy.projectRecoveryProject}
+			<label><EditorControlLabel>{copy.projectRecoveryProject}</EditorControlLabel>
 				<select value={projectId} disabled={recovering} onChange={(event) => setProjectId(event.currentTarget.value)}>
 					{projects.map((value) => <option key={value.id} value={value.id}>{value.title}</option>)}
 				</select>
 			</label>
 			{inspection && inspection.candidates.length > 0 ? <>
-				<label>{copy.projectRecoveryVersion}
+				<label><EditorControlLabel>{copy.projectRecoveryVersion}</EditorControlLabel>
 					<select value={candidateIndex} disabled={recovering} onChange={(event) => setCandidateIndex(Number(event.currentTarget.value))}>
 						{inspection.candidates.map((value, index) => <option key={value.key} value={index}>{candidateLabel(value)}</option>)}
 					</select>

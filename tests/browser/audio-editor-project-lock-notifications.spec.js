@@ -158,4 +158,55 @@ test.describe('project lock notifications', () => {
 			await page.evaluate(() => globalThis.__heldProjectEstimate.release()).catch(() => undefined);
 		}
 	});
+
+	test('the stale view releases the writer after the newer project window closes', async ({ browserName, page, context }) => {
+		test.skip(browserName !== 'chromium', 'This regression inspects the Chromium Web Locks state.');
+		const viewer = await bootEditor(page, '/embed/en/');
+		const id = await viewer.getAttribute('data-project-id');
+		const writerPage = await context.newPage();
+		try {
+			const writer = await bootEditor(writerPage, '/embed/en/');
+			await expect(writer).toHaveAttribute('data-project-id', id);
+			await expect(viewer).toHaveAttribute('data-edit-block-reason', 'read-only');
+			await chooseNestedCommandAction(writerPage, writer, 'Tracks', ['Add new track', 'Audio track']);
+			await expect(writer).toHaveAttribute('data-track-count', '2');
+			await expect(writer.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		} finally { await writerPage.close(); }
+		await expect(viewer.getByRole('alert').filter({ hasText: /This project is read-only\.$/u })).toBeVisible();
+		await expect(viewer).toHaveAttribute('data-track-count', '1');
+		await expect.poll(() => page.evaluate(async projectId => {
+			const { held } = await navigator.locks.query();
+			return held.some(lock => lock.name.endsWith(`:${projectId}`));
+		}, id)).toBe(false);
+	});
+
+	test('returning to a stale project tab does not take write access from the current editor', async ({ page, context }) => {
+		const viewer = await bootEditor(page, '/embed/en/');
+		const originalId = await viewer.getAttribute('data-project-id');
+		await viewer.getByRole('button', { name: 'New project', exact: true }).click();
+		await expect(viewer).not.toHaveAttribute('data-project-id', originalId);
+		const writerPage = await context.newPage();
+		try {
+			const writer = await bootEditor(writerPage, `/embed/en/?project=${originalId}`);
+			await expect(writer).toHaveAttribute('data-project-id', originalId);
+			await chooseNestedCommandAction(writerPage, writer, 'Tracks', ['Add new track', 'Audio track']);
+			await expect(writer).toHaveAttribute('data-track-count', '2');
+			await expect(writer.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+			await page.bringToFront();
+			await viewer.getByRole('tab').first().click();
+			await expect(viewer).toHaveAttribute('data-project-id', originalId);
+			await expect(viewer).toHaveAttribute('data-edit-block-reason', 'read-only');
+			await expect(viewer).toHaveAttribute('data-track-count', '1');
+			await writerPage.bringToFront();
+			await chooseNestedCommandAction(writerPage, writer, 'Tracks', ['Add new track', 'Audio track']);
+			await expect(writer).toHaveAttribute('data-track-count', '3');
+			await expect(writer.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+			await page.bringToFront();
+			await chooseCommandAction(page, viewer, 'File', 'Edit here');
+			await expect(viewer).toHaveAttribute('data-edit-block-reason', 'read-only');
+			await writerPage.bringToFront();
+			await chooseNestedCommandAction(writerPage, writer, 'Tracks', ['Add new track', 'Audio track']);
+			await expect(writer).toHaveAttribute('data-track-count', '4');
+		} finally { await writerPage.close(); }
+	});
 });

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { EditorController, EditorSnapshot } from '../../types.ts';
 import type { TrackAutomationRuntime } from '../../track-automation-runtime.ts';
 import type { TrackFreezeRuntime } from '../../track-freeze-runtime.ts';
@@ -6,6 +7,7 @@ import type { FileSizeWarningConfirmation } from '../../controller/shared/file-s
 import TimelineController from './TimelineController.jsx';
 import EditorSurfaceBoundary from '../EditorSurfaceBoundary.jsx';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
+import type { ProjectTimelineViews } from './useProjectTimelineScroll.ts';
 
 export interface TrackHeaderDrawer {
 	readonly isOpen: boolean;
@@ -30,6 +32,7 @@ interface AudioEditorTimelineProps {
 	readonly trackHeaderDrawer?: TrackHeaderDrawer | null;
 	readonly showArmControls: boolean;
 	readonly displayAudioSupported: boolean;
+	readonly importRoutedFiles?: (files: readonly File[], options: Readonly<Record<string, unknown>>) => unknown;
 	readonly productId: string;
 	readonly capabilities: Readonly<Record<string, unknown>>;
 	readonly splitToolEnabled?: boolean;
@@ -61,6 +64,7 @@ export default function AudioEditorTimeline({
 	trackHeaderDrawer = null,
 	showArmControls,
 	displayAudioSupported,
+	importRoutedFiles,
 	productId,
 	capabilities,
 	splitToolEnabled = false,
@@ -80,6 +84,13 @@ export default function AudioEditorTimeline({
 	searchRevealRequest = null,
 	overlayTarget = null,
 }: AudioEditorTimelineProps) {
+	const [projectViews] = useState<ProjectTimelineViews>(() => new Map());
+	const openTabs: unknown = snapshot.projectTabs;
+	useEffect(() => {
+		if (!Array.isArray(openTabs)) return;
+		const openIds = new Set((openTabs as readonly { id: string }[]).map(tab => tab.id));
+		for (const id of projectViews.keys()) if (!openIds.has(id)) projectViews.delete(id);
+	}, [openTabs, projectViews]);
 	const geometry = { mobile, showArmControls, displayAudioSupported, trackHeaderDrawer };
 	const selection = { searchRevealRequest };
 	const preview = { overlayTarget };
@@ -91,6 +102,7 @@ export default function AudioEditorTimeline({
 	};
 	const actions = {
 		confirmFileSizeWarning,
+		importRoutedFiles,
 		onError,
 		onOpenEffects,
 		onOpenClipProperties,
@@ -117,6 +129,7 @@ export default function AudioEditorTimeline({
 				runtimeProject={runtimeProject}
 				locale={locale}
 				copy={copy}
+				projectViews={projectViews}
 				geometry={geometry}
 				selection={selection}
 				preview={preview}

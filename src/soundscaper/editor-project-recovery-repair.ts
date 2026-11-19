@@ -8,8 +8,9 @@ import { normalizeProjectFeatureRequirements } from '../common/editor/project-fe
 import { reconcileProjectOwnedFeatureRequirements } from '../common/editor/project-owned-feature-requirements.ts';
 import { reconcileSoundscaperProjectFeatureRequirements } from './editor-project-feature-requirements.ts';
 import { createSoundscaperProject, validateSoundscaperProject, type SoundscaperProject } from './editor-project.ts';
-import { PROJECT_SCHEMA_VERSION, SOUNDSCAPER_PROJECT_SCHEMA_FAMILY } from './editor-project-validation.ts';
+import { isCurrentProjectSchemaIdentity, SOUNDSCAPER_PROJECT_SCHEMA_FAMILY } from '../common/editor/project-schema-identity.ts';
 import { restoreSoundscaperRecoveryClipGroups } from './editor-project-recovery-clip-groups.ts';
+import { restoreRecoveryRecord, restoreSoundscaperRecoveryAlternatives, restoreSoundscaperRecoverySequences } from './editor-project-recovery-sections.ts';
 import type { SoundscaperProjectRecoveryChange } from './editor-project-recovery-types.ts';
 
 type RecordValue = Record<string, unknown>;
@@ -21,8 +22,7 @@ export interface SoundscaperProjectRepair {
 /** Salvage only current owning-family data. Every admitted result passes the production validator. */
 export function repairSoundscaperProject(value: unknown, availableSourceIds: ReadonlySet<string>): SoundscaperProjectRepair {
 	const original = record(value);
-	if (!original || original.schemaFamily !== SOUNDSCAPER_PROJECT_SCHEMA_FAMILY
-		|| original.schemaVersion !== PROJECT_SCHEMA_VERSION) {
+	if (!original || !isCurrentProjectSchemaIdentity(original, SOUNDSCAPER_PROJECT_SCHEMA_FAMILY)) {
 		throw new Error('Recovery supports only the current Soundscaper project schema.');
 	}
 	// Reuse the maintained codec's bounded graph traversal; never invoke accessors or repair future data.
@@ -35,27 +35,21 @@ export function repairSoundscaperProject(value: unknown, availableSourceIds: Rea
 	raw.sources = values(raw.sources).filter((source, index) => {
 		const candidate = record(source);
 		const sourceId = candidate?.id;
-		if (typeof sourceId === 'string' && availableSourceIds.has(sourceId)) {
-			if (candidate?.kind === 'audio' && (typeof candidate.name !== 'string' || !candidate.name.trim())) {
+		if (candidate && typeof sourceId === 'string' && availableSourceIds.has(sourceId)) {
+			if (typeof candidate.name !== 'string' || !candidate.name.trim()) {
 				candidate.name = sourceId;
-				note(`sources[${String(index)}].name`, 'Reset an invalid media name; verified audio remains available.', 'media-name-reset');
+				const path = `sources[${String(index)}].name`;
+				if (candidate.kind === 'audio') note(path, 'Reset an invalid media name; verified audio remains available.', 'media-name-reset');
+				else note(path, 'Reset an invalid media name; verified video remains available.');
 			}
 			available.add(sourceId); return true;
 		}
 		note(`sources[${String(index)}]`, 'Removed media that is missing or unreadable.', 'media-unavailable');
 		return false;
 	});
-	raw.clips = values(raw.clips).filter((clip, index) => {
-		if (available.has(String(record(clip)?.sourceId))) return true;
-		note(`clips[${String(index)}]`, 'Removed a clip whose media is unavailable.', 'clip-media-unavailable');
-		return false;
-	});
+	raw.clips = repairClips(raw.clips, 'clips', available, note);
 	const bin = record(raw.projectBin);
-	if (bin) raw.projectBin = { ...bin, clips: values(bin.clips).filter((clip, index) => {
-		if (available.has(String(record(clip)?.sourceId))) return true;
-		note(`projectBin.clips[${String(index)}]`, 'Removed a bin clip whose media is unavailable.', 'bin-media-unavailable');
-		return false;
-	}) };
+	if (bin) raw.projectBin = { ...bin, clips: repairClips(bin.clips, 'projectBin.clips', available, note) };
 	raw.takeGroups = repairTakeMedia(raw.takeGroups, available, note);
 	const clipIds = ids(raw.clips);
 	const trackIds = ids(raw.tracks);
@@ -103,19 +97,18 @@ export function repairSoundscaperProject(value: unknown, availableSourceIds: Rea
 	};
 	for (const fields of [
 		['revision'], ['createdAt'], ['updatedAt'], ['tempo', 'tempoMap', 'signatureMap'],
-		['snap'], ['timeDisplay'], ['metadata'], ['loop'], ['opaqueExtensions'], ['master'],
+		['snap'], ['timeDisplay'], ['loop'], ['opaqueExtensions'],
 	] as const) {
 		attempt(fields.join(', '), (draft) => { for (const field of fields) draft[field] = raw[field]; });
 	}
+	restoreRecoveryRecord('metadata', raw.metadata, attempt);
+	restoreRecoveryRecord('master', raw.master, attempt);
 	for (const [index, source] of values(raw.sources).entries()) {
 		attempt(`sources[${String(index)}]`, (draft) => { draft.sources = [...values(draft.sources), source]; });
 	}
 	// Recover sequence clocks first; hierarchy and ownership are rebuilt as tracks are admitted.
-	const sequences = values(raw.sequences).flatMap((value) => {
-		const sequence = record(value);
-		return sequence ? [{ ...sequence, trackIds: [], trackNodes: [] }] : [];
-	});
-	attempt('sequences', (draft) => { draft.sequences = sequences; draft.primarySequenceId = raw.primarySequenceId; });
+	restoreSoundscaperRecoverySequences(raw, attempt);
+	const sequenceIds = ids(project.sequences);
 	for (const [index, value] of values(raw.tracks).entries()) {
 		const track = record(value);
 		if (!track) { note(`tracks[${String(index)}]`, 'Removed an invalid track.', 'track-removed'); continue; }
@@ -125,7 +118,8 @@ export function repairSoundscaperProject(value: unknown, availableSourceIds: Rea
 		candidate.laneGroupId = null;
 		const addTrack = (value: unknown): boolean => attempt(`tracks[${String(index)}]`, (draft) => {
 			draft.tracks = [...values(draft.tracks), value];
-			const owner = values(raw.sequences).map(record).find((sequence) => values(sequence?.trackIds).includes(candidate.id));
+			const owner = values(raw.sequences).map(record).find(sequence =>
+				sequenceIds.has(String(sequence?.id)) && values(sequence?.trackIds).includes(candidate.id));
 			draft.sequences = values(draft.sequences).map((value) => {
 				const sequence = record(value)!;
 				return sequence.id === (owner?.id ?? draft.primarySequenceId) ? { ...sequence, trackIds: [...values(sequence.trackIds), candidate.id] } : sequence;
@@ -184,11 +178,19 @@ export function repairSoundscaperProject(value: unknown, availableSourceIds: Rea
 		draft.sequences = values(draft.sequences).map((value) => {
 			const sequence = record(value)!;
 			const saved = values(raw.sequences).map(record).find((saved) => saved?.id === sequence.id);
-			return saved ? { ...sequence, trackNodes: values(saved.trackNodes).filter((value) => {
+			if (!saved) return sequence;
+			const trackNodes = values(saved.trackNodes).filter((value) => {
 				const node = record(value);
 				return node?.kind !== 'track' || acceptedTracks.has(String(node.id));
-			}) } : sequence;
+			});
+			const trackIds = trackNodes.flatMap(node => record(node)?.kind === 'track' ? [record(node)?.id] : []);
+			return { ...sequence, trackNodes, trackIds };
 		});
+		const byId = new Map(values(draft.tracks).map(track => [record(track)?.id, track]));
+		const hierarchyIds = values(draft.sequences).flatMap(sequence => values(record(sequence)?.trackIds));
+		if (hierarchyIds.length === byId.size && new Set(hierarchyIds).size === byId.size && hierarchyIds.every(id => byId.has(id))) {
+			draft.tracks = hierarchyIds.map(id => byId.get(id));
+		}
 	};
 	if (!attempt('trackFolders, sequences, mixer', (draft) => { restoreHierarchy(draft); draft.mixer = raw.mixer; })) {
 		attempt('trackFolders, sequences', (draft) => {
@@ -213,6 +215,7 @@ export function repairSoundscaperProject(value: unknown, availableSourceIds: Rea
 	for (const field of ['selection', 'view', 'featureRequirements'] as const) {
 		attempt(field, (draft) => { draft[field] = raw[field]; });
 	}
+	restoreSoundscaperRecoveryAlternatives(raw.metadata, attempt);
 	validateSoundscaperProject(project);
 	return report(original, project, changes);
 }
@@ -250,6 +253,19 @@ function repairEffects(value: unknown, path: string, note: (path: string, reason
 		catch (error) { note(`${path}[${String(index)}]`, `Removed an invalid effect: ${error instanceof Error ? error.message : String(error)}`, 'effect-removed'); }
 	}
 	return result;
+}
+function repairClips(value: unknown, path: 'clips' | 'projectBin.clips', available: ReadonlySet<string>,
+	note: (path: string, reason: string, reasonCode?: ProjectRecoveryReasonCode) => void): unknown[] {
+	return values(value).filter((value, index) => {
+		const clip = record(value);
+		const item = `${path}[${String(index)}]`;
+		if (!clip || !available.has(String(clip.sourceId))) {
+			note(item, 'Removed a clip whose media is unavailable.', path === 'clips' ? 'clip-media-unavailable' : 'bin-media-unavailable');
+			return false;
+		}
+		if (clip.kind === 'audio' && Object.hasOwn(clip, 'effects')) clip.effects = repairEffects(clip.effects, `${item}.effects`, note);
+		return true;
+	});
 }
 function repairTakeMedia(value: unknown, available: ReadonlySet<string>, note: (path: string, reason: string, reasonCode?: ProjectRecoveryReasonCode) => void): unknown[] {
 	return values(value).flatMap((value, groupIndex) => {

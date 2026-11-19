@@ -257,27 +257,31 @@ export async function writeTranslationCatalog(catalog, directory = TRANSLATION_C
 }
 
 /** Regenerate the loader index from the catalog files present. */
-export async function writeTranslationCatalogIndex(directory = TRANSLATION_CATALOG_DIRECTORY) {
+export async function writeTranslationCatalogIndex(directory = TRANSLATION_CATALOG_DIRECTORY, options = {}) {
 	const locales = await listTranslationCatalogLocales(directory);
 	for (const locale of locales) assertTranslationCatalogLocale(locale);
-	await writeAtomically(join(directory, TRANSLATION_CATALOG_INDEX_FILE), renderTranslationCatalogIndex(locales));
+	await writeAtomically(join(directory, TRANSLATION_CATALOG_INDEX_FILE), renderTranslationCatalogIndex(locales, options));
 	return locales;
 }
 
-export function renderTranslationCatalogIndex(locales) {
+export function renderTranslationCatalogIndex(locales, { jsonImportAttributes = false } = {}) {
 	const list = locales.map((locale) => `\t'${locale}',`).join('\n');
-	const loaders = locales.map((locale) => `\t${propertyKey(locale)}: () => import('./${locale}.json'),`).join('\n');
+	const loaders = locales.map((locale) => `\t${propertyKey(locale)}: () => import('./${locale}.json'${jsonImportAttributes ? ", { with: { type: 'json' } }" : ''}),`).join('\n');
 	return [
 		'/* SPDX-License-Identifier: AGPL-3.0-only */',
 		'',
 		'// Generated from the catalogs beside this file by scripts/i18n-ai.mjs and',
 		'// scripts/audacity-qt-translations.mjs; do not edit by hand. Each loader is',
 		"// a lazy JSON chunk of one locale's translations, whatever their origin, so a",
-		'// locale costs nothing until it is opened. The imports carry no type',
-		'// attribute on purpose: Vite bundles a JSON module into a JavaScript chunk,',
-		'// which the browser would refuse under a JSON attribute. Node reads these',
-		"// files through scripts/i18n-ai/catalog.mjs; the test runner's tsx loader",
-		'// resolves the attribute-free imports.',
+		jsonImportAttributes ? '// locale costs nothing until it is opened.' : '// locale costs nothing until it is opened. The imports carry no type',
+		...(jsonImportAttributes ? [
+			'// JSON import attributes support this server-only index in native Node.',
+		] : [
+			'// attribute on purpose: Vite bundles a JSON module into a JavaScript chunk,',
+			'// which the browser would refuse under a JSON attribute. Node reads these',
+			"// files through scripts/i18n-ai/catalog.mjs; the test runner's tsx loader",
+			'// resolves the attribute-free imports.',
+		]),
 		'',
 		locales.length ? `export const TRANSLATION_CATALOG_LOCALES = Object.freeze([\n${list}\n]);` : 'export const TRANSLATION_CATALOG_LOCALES = Object.freeze([]);',
 		'',

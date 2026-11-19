@@ -20,6 +20,7 @@ export const VIDEO_EXPORT_DIALOG_FORMATS = Object.freeze([
 		id: 'video-webm',
 		labelKey: 'videoExportWebm',
 	}),
+	Object.freeze({ id: 'video-mov', labelKey: 'videoExportMov', desktopOnly: true, productId: 'soundscaper' }),
 ]);
 
 const VIDEO_EXPORT_DIALOG_FORMAT_IDS = new Set(VIDEO_EXPORT_DIALOG_FORMATS.map(({ id }) => id));
@@ -47,7 +48,7 @@ export function createExportDialogRequest(settings, options = {}) {
 		const canvas = statedVideoCanvas(settings);
 		const quality = statedVideoQuality(settings);
 		const audioLayout = statedVideoAudioLayout(settings);
-		const captions = options.captionDeliveryUnavailable ? null : statedVideoCaptions(settings);
+		const captions = options.captionDeliveryUnavailable ? null : statedVideoCaptions(settings, options.captionBurnInOnly);
 		const target = statedVideoDeliveryTarget(settings);
 		const targetOptions = target ? { ...target.options } : null;
 		// A target states its format the way a plan does; the request states it the
@@ -92,7 +93,7 @@ export function createExportDialogRequest(settings, options = {}) {
 		range,
 		format: settings.format,
 		...(['bwf', 'bw64'].includes(settings.format) ? { bext: options.bext ?? settings.bext } : {}),
-		...(settings.format === 'bw64' ? { adm: options.adm ?? settings.adm } : {}),
+		...(settings.format === 'bw64' || settings.earLayout ? { adm: options.adm ?? settings.adm } : {}),
 		sampleFormat: settings.sampleFormat,
 		bitDepth: Number(settings.sampleFormat.replace(/\D/g, '')) || undefined,
 		floatingPoint: settings.sampleFormat === 'float32',
@@ -114,7 +115,8 @@ export function createExportDialogRequest(settings, options = {}) {
 		extension: settings.customExtension,
 		mimeType: settings.customMimeType,
 		customArguments: settings.customArguments.split(/\r?\n/).map((argument) => argument.trim()).filter(Boolean),
-		includeTail: settings.mode === 'clips' ? false : settings.includeTail,
+		includeTail: settings.mode === 'clips' || (settings.range === 'loop' && settings.renderAsLoop) ? false : settings.includeTail,
+		...(settings.range === 'loop' && settings.mode === 'mix' && settings.renderAsLoop === true ? { renderAsLoop: true } : {}),
 		...(settings.embedLabelChapters === true && exportDialogSupportsEmbeddedChapters(settings)
 			&& (options.project === undefined || exportDialogHasDeliveredChapterLabels(options.project, settings))
 			? { embedLabelChapters: true } : {}),
@@ -122,6 +124,7 @@ export function createExportDialogRequest(settings, options = {}) {
 		// untouched dialog must keep producing the request it always produced.
 		...(exportDialogSupportsLoudnessNormalization(settings) && settings.loudnessNormalization ? { loudnessNormalization: settings.loudnessNormalization } : {}),
 		...(settings.mode === 'mix' && settings.binaural ? { binaural: true } : {}),
+		...(settings.mode === 'mix' && settings.earLayout ? { earLayout: settings.earLayout } : {}),
 		...(settings.masteringSequenceId ? { masteringSequenceId: settings.masteringSequenceId } : {}),
 	};
 }

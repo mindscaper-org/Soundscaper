@@ -12,7 +12,7 @@ test.describe('ordinary editing regression workflows', () => {
 	registerAudioEditorHooks();
 
 	test('Paste puts copied audio on the selected destination track', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA, toneB]);
 		const original = clipByName(editor, toneA.name);
 		const originalTrackId = await original.locator('xpath=ancestor::div[@data-track-row][1]').getAttribute('data-track-id');
@@ -26,14 +26,14 @@ test.describe('ordinary editing regression workflows', () => {
 	});
 
 	test('Jump to project end seeks to the last audio frame', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await editor.getByRole('button', { name: 'Jump to project end', exact: true }).click();
 		await expect(editor.getByRole('slider', { name: 'Playhead' })).toHaveAttribute('aria-valuenow', '38400');
 	});
 
 	test('per-track ripple closes overlapping selected clips once', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [monoTone]);
 		await clipByName(editor, monoTone.name).locator('.clip-header').click();
 		await chooseCommandAction(page, editor, 'Edit', 'Copy');
@@ -59,7 +59,7 @@ test.describe('ordinary editing regression workflows', () => {
 	});
 
 	test('copy and paste retain loop repetitions', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [monoTone]);
 		const clip = clipByName(editor, monoTone.name);
 		await clip.locator('.clip-header').click();
@@ -71,7 +71,7 @@ test.describe('ordinary editing regression workflows', () => {
 	});
 
 	test('split clips at silences cuts every repeated silent interval', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		const recording = createWavFixture({ name: 'tone-with-pause.wav', frequency: 440, channelCount: 1 });
 		recording.buffer.fill(0, 44 + 9_600 * 2, 44 + 14_400 * 2);
 		await importFiles(editor, [recording]);
@@ -83,7 +83,7 @@ test.describe('ordinary editing regression workflows', () => {
 	});
 
 	test('Select all tracks preserves an exact range when Snap is enabled', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA, toneB]);
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 		const timecodes = editor.locator('[data-selection-toolbar] .timecode');
@@ -95,7 +95,7 @@ test.describe('ordinary editing regression workflows', () => {
 	});
 
 	test('Track start to end uses the clip bounds with Snap enabled', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 		const timecodes = editor.locator('[data-selection-toolbar] .timecode');
@@ -107,7 +107,7 @@ test.describe('ordinary editing regression workflows', () => {
 	});
 
 	test('keyboard track moves preserve the existing clip position with Snap enabled', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA, toneB]);
 		const moving = clipByName(editor, toneA.name);
 		await moving.locator('.clip-header').click();
@@ -123,7 +123,7 @@ test.describe('ordinary editing regression workflows', () => {
 	});
 
 	test('trim outside selected clips keeps independent ranges on each selected track', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA, toneB]);
 		await clipByName(editor, toneA.name).locator('.clip-header').click();
 		await chooseCommandAction(page, editor, 'Edit', 'Copy');
@@ -144,7 +144,7 @@ test.describe('ordinary editing regression workflows', () => {
 	});
 
 		test('No tracks prevents Delete from acting on the whole project', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA, toneB]);
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 		await chooseNestedCommandAction(page, editor, 'Select', ['Tracks', 'No tracks']);
@@ -153,7 +153,7 @@ test.describe('ordinary editing regression workflows', () => {
 	});
 
 	test('clip peak normalization reads an ordinary imported recording', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [monoTone]);
 		const properties = await openClipProperties(page, editor, clipByName(editor, monoTone.name));
 		await chooseClipMediaSetting(properties, 'Normalize to −1 dBFS');

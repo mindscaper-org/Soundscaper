@@ -36,10 +36,10 @@ export function bindProjectAdministrationActions(
 			if (projectId) getCapture()?.assertOriginCloseAllowed(projectId);
 			return service.closeProjectTab(projectId, options);
 		},
-		async deleteProject() {
+		async deleteProject(...args: Parameters<Administration['deleteProject']>) {
 			const project = getProject();
 			if (project) getCapture()?.assertOriginDeleteAllowed(project.id);
-			return service.deleteProject();
+			return service.deleteProject(...args);
 		},
 		async clearLocalData() {
 			const capture = getCapture();

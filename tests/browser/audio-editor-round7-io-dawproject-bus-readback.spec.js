@@ -31,9 +31,12 @@ function rms(values) {
 	return Math.sqrt(window.reduce((sum, value) => sum + value ** 2, 0) / window.length);
 }
 
-for (const routed of [false, true]) test(`own DAWproject preserves the ${routed ? 'audible downstream group assignment' : 'healthy direct master assignment'} on reopening`, async ({ page }) => {
+// Node closes both route variants through real DAW and Scape archives.
+// This workflow already renders the direct route before rewiring downstream.
+const routed = true;
+test(`own DAWproject preserves the ${routed ? 'audible downstream group assignment' : 'healthy direct master assignment'} on reopening`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/'); await importFiles(editor, [monoTone]);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await importFiles(editor, [monoTone]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Mixer']);
 	let mixer = editor.locator('[data-mixer-panel]');
 	for (let bus = 0; bus < 2; bus++) await mixer.getByRole('button', { name: 'Add group bus', exact: true }).click();

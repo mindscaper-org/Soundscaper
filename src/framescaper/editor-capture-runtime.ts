@@ -38,7 +38,10 @@ const DEFAULT_LOADER: FramescaperCaptureImplementationLoader = () => import('./e
 export function createDeferredFramescaperCaptureRuntime(load: FramescaperCaptureImplementationLoader = DEFAULT_LOADER) {
 	let implementation: ReturnType<FramescaperCaptureImplementationLoader> | null = null;
 	const loadOnce: FramescaperCaptureImplementationLoader = () => {
-		implementation ??= Promise.resolve().then(load);
+		implementation ??= Promise.resolve().then(load).catch((error: unknown) => {
+			implementation = null;
+			throw error;
+		});
 		return implementation;
 	};
 	return Object.freeze({
@@ -54,7 +57,10 @@ export function createDeferredFramescaperCaptureRuntime(load: FramescaperCapture
 		): FramescaperCaptureDerivativeScheduler => {
 			let scheduler: Promise<FramescaperCaptureDerivativeScheduler> | null = null;
 			return async (request) => {
-				scheduler ??= loadOnce().then((loaded) => loaded.createDerivativeScheduler(options));
+				scheduler ??= loadOnce().then((loaded) => loaded.createDerivativeScheduler(options)).catch((error: unknown) => {
+					scheduler = null;
+					throw error;
+				});
 				await (await scheduler)(request);
 			};
 		},

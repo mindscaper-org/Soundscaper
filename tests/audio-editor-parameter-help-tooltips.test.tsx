@@ -72,7 +72,7 @@ test('sound activation parameters describe themselves through help tooltips', as
 			const target = container.querySelector(`[id="${describedBy}"]`);
 			assert.ok(target, `Missing description for ${hook}.`);
 			assert.equal(target.textContent, description);
-			assert.equal(target.getAttribute('class'), 'kw-audio-editor-sr-only');
+			assert.ok(target.getAttribute('class')?.split(/\s+/u).includes('kw-audio-editor-sr-only'));
 		}
 		const prose = container.querySelectorAll('p').map(({ textContent }) => textContent);
 		assert.equal(prose.includes(ENGLISH_COPY.soundActivationDescription), false);

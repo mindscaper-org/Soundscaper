@@ -28,9 +28,9 @@ test('sliding stretch matches its four Qt cards with tempo sliders and linked pi
 	for (const card of ['initial-tempo', 'final-tempo', 'initial-pitch', 'final-pitch']) {
 		assert.match(markup, new RegExp(`data-audacity-port-section="${card}"`, 'u'));
 	}
-	assert.equal(markup.match(/<span>Semitones \(-12 → 12\)<\/span>/gu)?.length, 2);
-	assert.equal(markup.match(/<span>Percentage change<\/span>/gu)?.length, 2);
-	assert.doesNotMatch(markup, /<span>Initial pitch shift<\/span>|<span>Final pitch shift<\/span>/u);
+	assert.equal(markup.match(/<span class="audio-editor-control-label">Semitones \(-12 → 12\)<\/span>/gu)?.length, 2);
+	assert.equal(markup.match(/<span class="audio-editor-control-label">Percentage change<\/span>/gu)?.length, 2);
+	assert.doesNotMatch(markup, /<span class="audio-editor-control-label">Initial pitch shift<\/span>|<span class="audio-editor-control-label">Final pitch shift<\/span>/u);
 	for (const [name, percent] of [['startPitchSemitonesPercent', '-50'], ['endPitchSemitonesPercent', '100']]) {
 		const parameter = markup.split(`data-effect-param="${name}"`)[1]?.split('data-effect-param=')[0];
 		assert.ok(parameter);

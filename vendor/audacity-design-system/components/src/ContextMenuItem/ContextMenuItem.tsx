@@ -116,6 +116,8 @@ export function createSafeTriangleTracker({ isReentry, onLeave }: SafeTriangleTr
 }
 
 export interface ContextMenuItemProps {
+	/** Stable command identity for context help, including dynamically named entries. */
+	tooltipKey?: string;
   /**
    * Label text for the menu item
    */
@@ -177,6 +179,7 @@ export interface ContextMenuItemProps {
  * Supports nested submenus via children prop
  */
 export const ContextMenuItem: React.FC<ContextMenuItemProps> = ({
+	tooltipKey,
   label,
   onClick,
   disabled = false,
@@ -491,6 +494,7 @@ export const ContextMenuItem: React.FC<ContextMenuItemProps> = ({
       ref={itemRef}
       className={`context-menu-item ${disabled ? 'disabled' : ''} ${submenuOpen ? 'submenu-open' : ''}`}
       role={role}
+			data-menu-tooltip-id={tooltipKey}
       tabIndex={disabled ? -1 : 0}
       aria-disabled={disabled}
       aria-checked={role !== 'menuitem' ? Boolean(checked) : undefined}

@@ -4,7 +4,7 @@ import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
 import { bootEditor, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
 test('closing a focused track hands keyboard navigation to a surviving track', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA, toneB]);
 	const first = clipByName(editor, toneA.name);
 	const second = clipByName(editor, toneB.name);

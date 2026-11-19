@@ -6,7 +6,7 @@ import type { FramescaperProjectFinishing } from './editor-project-finishing.ts'
 import { createFramescaperVideoExportExactExecutionFinishing } from './video-export-exact-execution-finishing.ts';
 import { isFramescaperVideoVisualPlanFinishing } from './video-export-visual-plan-finishing.ts';
 import { createVideoExactPictureExportFrameSource, type VideoKeyframeExportFrame } from '../common/editor/video-keyframe-export-frame-source.ts';
-import { createVideoKeyframeOfflineEncoderRequest, preflightVideoKeyframeOfflineEncoder, type VideoKeyframeOfflineEncoderOptions } from '../common/editor/ui/video-keyframe-offline-video-export-encoder.ts';
+import type { VideoKeyframeOfflineEncoderOptions } from '../common/editor/ui/video-keyframe-offline-video-export-encoder.ts';
 import type { VideoKeyframeOfflineRgbaRenderer } from '../common/editor/ui/video-keyframe-offline-rgba-renderer.ts';
 export async function createVisualExecution(
 	profile: unknown,
@@ -26,6 +26,10 @@ export async function createVisualExecution(
 	if (includesAudio !== (request.audioMix instanceof Blob)) {
 		throw new TypeError('Selected finishing picture-only audio must exactly match its detached plan.');
 	}
+	const { createVideoKeyframeOfflineEncoderRequest, preflightVideoKeyframeOfflineEncoder } = await import(
+		'../common/editor/ui/video-keyframe-offline-video-export-encoder.ts'
+	);
+	request.assertCurrent();
 	const exact = await createFramescaperVideoExportExactExecutionFinishing({
 		profile, project: authority.canonicalProject as unknown as FramescaperProjectFinishing,
 		request, ...(assetStore === undefined ? {} : { store: assetStore }),

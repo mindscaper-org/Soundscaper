@@ -11,7 +11,9 @@ interface CaptureSeekOptions {
 	readonly timeoutMs: number;
 	readonly signal?: AbortSignal;
 	readonly isRequestedFrame?: (mediaTime: number) => boolean;
+	readonly retryTimestamp?: number | null;
 }
+const PRESENTATION_RETRY_DELAY_MS = 75;
 
 /** A seek event may precede submission of the decoded pixels to the compositor. */
 export function seekVideoFrameForCapture(video: CaptureVideo, timestamp: number, options: CaptureSeekOptions): Promise<void> {
@@ -23,6 +25,8 @@ export function seekVideoFrameForCapture(video: CaptureVideo, timestamp: number,
 		let seeked = false;
 		let presented = typeof video.requestVideoFrameCallback !== 'function';
 		let callbackId: number | undefined;
+		let retryTimestamp = options.retryTimestamp;
+		let retryTimer: ReturnType<typeof setTimeout> | undefined;
 		const finish = (error?: Error): void => {
 			if (settled || (!error && !(seeked && presented))) return;
 			settled = true;
@@ -30,10 +34,18 @@ export function seekVideoFrameForCapture(video: CaptureVideo, timestamp: number,
 			video.removeEventListener('error', onError);
 			signal?.removeEventListener('abort', onAbort);
 			if (timeout !== undefined) globalThis.clearTimeout(timeout);
+			if (retryTimer !== undefined) globalThis.clearTimeout(retryTimer);
 			if (callbackId !== undefined) video.cancelVideoFrameCallback?.(callbackId);
 			if (error) reject(error); else resolve();
 		};
-		const onSeeked = (): void => { seeked = true; finish(); };
+		const onSeeked = (): void => {
+			seeked = true;
+			finish();
+			// A drained paused seek may never submit another callback after a rejected early one.
+			if (!settled && retryTimestamp != null && retryTimer === undefined) {
+				retryTimer = globalThis.setTimeout(retry, PRESENTATION_RETRY_DELAY_MS);
+			}
+		};
 		const onError = (): void => { finish(new Error('The browser could not seek this video.')); };
 		const onAbort = (): void => { finish(aborted()); };
 		const onFrame: VideoFrameRequestCallback = (_now, metadata) => {
@@ -47,6 +59,21 @@ export function seekVideoFrameForCapture(video: CaptureVideo, timestamp: number,
 			}
 			presented = true; finish();
 		};
+		const issueSeek = (target: number): void => {
+			try {
+				callbackId = video.requestVideoFrameCallback?.(onFrame);
+				video.currentTime = target;
+			} catch (error) { finish(error instanceof Error ? error : new Error(String(error))); }
+		};
+		const retry = (): void => {
+			retryTimer = undefined;
+			const target = retryTimestamp;
+			retryTimestamp = undefined;
+			if (settled || presented || target == null) return;
+			seeked = false;
+			if (callbackId !== undefined) video.cancelVideoFrameCallback?.(callbackId);
+			issueSeek(target);
+		};
 		video.addEventListener('seeked', onSeeked);
 		video.addEventListener('error', onError);
 		signal?.addEventListener('abort', onAbort, { once: true });
@@ -54,9 +81,6 @@ export function seekVideoFrameForCapture(video: CaptureVideo, timestamp: number,
 		const timeout = timeoutMs > 0
 			? globalThis.setTimeout(() => { finish(new Error('Timed out waiting for a presented video frame.')); }, timeoutMs)
 			: undefined;
-		try {
-			callbackId = video.requestVideoFrameCallback?.(onFrame);
-			video.currentTime = timestamp;
-		} catch (error) { finish(error instanceof Error ? error : new Error(String(error))); }
+		issueSeek(timestamp);
 	});
 }

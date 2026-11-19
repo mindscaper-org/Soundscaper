@@ -55,29 +55,33 @@ export class RateConvertedNoiseReductionProcessor {
 		const frames: number = validateBlock(input, output);
 		if (this.profileRate === this.sampleRate) return this.inner.process(input, output);
 		if (output.length !== this.queues.length) this.prepare(output.length);
-		const incoming = this.inputResampler!.push(output.map((_, channel) => channelAt(input, channel) ?? new Float32Array(frames)));
+		const silence = input.length === 0 ? new Float32Array(frames) : null;
+		const incoming = this.inputResampler!.push(output.map((_, channel) => channelAt(input, channel) ?? silence!));
 		const length = incoming[0]!.length;
 		if (this.processedPlanes.length !== incoming.length || this.processedCapacity < length) {
 			this.processedPlanes = incoming.map(() => new Float32Array(length));
 			this.processedCapacity = length;
 		}
-		const processed = this.processedPlanes.map((channel) => channel.subarray(0, length));
+		const processed = length === this.processedCapacity ? this.processedPlanes
+			: this.processedPlanes.map((channel) => channel.subarray(0, length));
 		this.inner.process(incoming, processed);
 		const converted = this.outputResampler!.push(processed);
 		for (let channel = 0; channel < output.length; channel++) {
-			this.queues[channel]!.push(converted[channel]!);
+			this.queues[channel]!.pushOwned(converted[channel]!);
 			if (this.queues[channel]!.length < frames) throw new Error('Noise Reduction clock conversion exhausted its bounded reserve.');
 		}
 		// Convert the removed noise, not the complete recording. Device samples
 		// outside a lower-rate profile's bandwidth must retain their dry signal.
+		const residue = this.requestedOutput === 'residue';
+		const ringLength = this.dry[0]!.length;
 		for (let frame = 0; frame < frames; frame++) {
 			for (let channel = 0; channel < output.length; channel++) {
 				const ring = this.dry[channel]!;
 				const dry = ring[this.cursor]!; ring[this.cursor] = channelAt(input, channel)?.[frame] ?? 0;
 				const removed: number = this.queues[channel]!.shift();
-				output[channel]![frame] = this.requestedOutput === 'residue' ? removed : dry - removed;
+				output[channel]![frame] = residue ? removed : dry - removed;
 			}
-			this.cursor = (this.cursor + 1) % this.dry[0]!.length;
+			if (++this.cursor === ringLength) this.cursor = 0;
 		}
 		return true;
 	}
@@ -89,7 +93,7 @@ export class RateConvertedNoiseReductionProcessor {
 		this.outputResampler = createStreamingWindowedSincResampler(this.profileRate, this.sampleRate, channelCount,
 			{ ...options, initialInputPosition: geometry.outputPhase });
 		this.queues = Array.from({ length: channelCount }, () => {
-			const queue = new SampleQueue(); queue.push(new Float32Array(geometry.reserveFrames)); return queue;
+			const queue = new SampleQueue(); queue.pushOwned(new Float32Array(geometry.reserveFrames)); return queue;
 		});
 		this.dry = Array.from({ length: channelCount }, () => new Float32Array(geometry.latencyFrames)); this.cursor = 0;
 	}

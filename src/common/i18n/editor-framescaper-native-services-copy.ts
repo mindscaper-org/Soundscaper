@@ -31,6 +31,7 @@ export const FRAMESCAPER_NATIVE_SERVICES_COPY = Object.freeze({
 	projectActionRun: 'Continue',
 	projectActionReady: 'The exact project and runtime gates passed.',
 	projectActionComplete: 'The project operation completed.',
+	renderTimelineImagesUnsupported: 'The native render queue cannot include imported images on this timeline. Use File > Export Video to retain them.',
 	frameRateNumerator: 'Frame rate numerator',
 	frameRateDenominator: 'Frame rate denominator',
 	renderDeliveryFormat: 'Delivery format',

@@ -6,13 +6,24 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
 /** Exact native visual editing boundaries, with sample aliases owned only by the live preview. */
 export const FOUNDATION_TIME_CONVERSION_VISUAL_EDIT_SITES: readonly FoundationTimeConversionSite[] = deepFreezeAuditSites([
 	{
+		id: 'sequence-visual-frame-rebase',
+		file: 'src/common/editor/timeline-visual-placement-time.ts',
+		behavior: 'Cross-sequence placement rebases directly between rational frame grids with nearest-point rounding before applying the existing source windows.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
+		id: 'project-bin-native-drag-extent',
+		file: 'src/common/editor/ui/timeline/useTimelineProjectBinDnd.js',
+		behavior: 'The Project Bin drag preview snaps the insertion point to a destination sequence frame and displays the conformed span at the project sample rate.',
+		conversions: [{ helper: 'sampleFrameToVideoFrame', policies: ['point'] }, { helper: 'videoFrameRangeToSampleRange', policies: ['point'] }],
+	},
+	{
 		id: 'restored-native-visual-sequence-rate-conformance',
 		file: 'src/framescaper/editor-sequence-visual-rate-conformance.ts',
-		behavior: 'Detached native image, still and generator clips preserve absolute wall-clock placement across inherited sequence-rate changes by resolving both old sequence boundaries as nearest project samples, conforming each to the new sequence grid, and deriving extent from their difference while retaining native source phase and windows. Explicit cross-sequence visual moves and Bin placement rebase coordinates directly between rational frame grids with nearest-point rounding before applying their existing source windows.',
+		behavior: 'Detached native image, still and generator clips preserve absolute wall-clock placement across inherited sequence-rate changes by resolving both old sequence boundaries as nearest project samples, conforming each to the new sequence grid, and deriving extent from their difference while retaining native source phase and windows.',
 		conversions: [
 			{ helper: 'videoFrameToSampleFrame', policies: ['point'] },
 			{ helper: 'sampleFrameToVideoFrame', policies: ['point'] },
-			{ helper: 'roundRational', policies: ['point'] },
 		],
 	},
 	{

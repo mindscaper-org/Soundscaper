@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, clipByName, importFiles } from './audi
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('inline timeline clip rename respects track lock and restores ordinary rename on unlock', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const original = clipByName(editor, toneA.name);
 	const clipId = await original.getAttribute('data-clip-id');

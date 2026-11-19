@@ -14,7 +14,7 @@ test('pending Audacity file recovery keeps its progress dialog until the import 
 		globalThis.Worker = class extends NativeWorker {
 			constructor(url, options) { super(url, options); this.audacity = options?.name === 'kw-media-audacity-projects'; }
 			postMessage(message, ...options) {
-				if (this.audacity && message.type === 'open-file' && message.args.recover) {
+				if (globalThis.__holdRecoveryRead && this.audacity && message.type === 'open-file' && message.args.recover) {
 					queued.push([this, message, options]); globalThis.__recoveryReadQueued = true; return;
 				}
 				super.postMessage(message, ...options);
@@ -30,6 +30,8 @@ test('pending Audacity file recovery keeps its progress dialog until the import 
 	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Recover Audacity project']);
 	const bytes = await createAup3Fixture();
 	await dialog.locator('input[type="file"]').setInputFiles({ name: 'Recover me.aup3', mimeType: 'application/x-audacity-project', buffer: Buffer.from(bytes) });
+	await expect(dialog.getByRole('button', { name: 'Recover project file', exact: true })).toBeEnabled();
+	await page.evaluate(() => { globalThis.__holdRecoveryRead = true; });
 	await dialog.getByRole('button', { name: 'Recover project file', exact: true }).click();
 	await expect.poll(() => page.evaluate(() => globalThis.__recoveryReadQueued)).toBe(true);
 	await expect(dialog.getByRole('button', { name: 'Close', exact: true }).last()).toBeDisabled();

@@ -12,7 +12,8 @@ type RetentionSink = Pick<TemporaryFileSink, 'persistent' | 'write' | 'close' | 
 
 /** Detach opaque native archives while their original desktop read is still live. */
 export async function retainNativeScapeArchive(
-	runtime: Pick<NativeProjectServiceRuntime, 'confirmFileSizeWarning' | 'scapeMimeType'>,
+	runtime: Pick<NativeProjectServiceRuntime, 'confirmFileSizeWarning' | 'scapeMimeType'>
+		& Partial<Pick<NativeProjectServiceRuntime, 'fileService'>>,
 	input: ScapeProjectInput,
 	request: Readonly<{
 		projectId: string;
@@ -32,7 +33,12 @@ export async function retainNativeScapeArchive(
 		});
 	});
 	const sink = await createSink();
+	let projectCopySourceId: string | null | undefined;
+	const releaseCopySource = async () => {
+		if (projectCopySourceId) await runtime.fileService?.releaseOriginalFile?.(projectCopySourceId);
+	};
 	try {
+		if (isDesktopScapeArchiveByteSource(input)) projectCopySourceId = await runtime.fileService?.protectProjectCopySource?.(input);
 		if (!sink.persistent) await confirmFileSizeWarning(input.size, SCAPE_WEB_CORE_BLOB_MAXIMUM_BYTES, 'Scape archive retention', {
 			signal: request.signal, assertCurrent: request.assertCurrent, confirmFileSizeWarning: runtime.confirmFileSizeWarning,
 		});
@@ -54,11 +60,13 @@ export async function retainNativeScapeArchive(
 		if (offset !== input.size || archive.size !== input.size) {
 			throw new Error('The retained archive does not match the original byte count.');
 		}
-		return { projectId: request.projectId, archive, manifest: request.manifest, cleanup: () => sink.remove(),
+		return { projectId: request.projectId, archive, manifest: request.manifest,
+			cleanup: async () => { try { await sink.remove(); } finally { await releaseCopySource(); } },
+			...(projectCopySourceId ? { projectCopySourceId } : {}),
 			...(isDesktopScapeArchiveByteSource(input) ? { copySource: createRetainedDesktopScapeArchiveByteSource(input, archive) } : {}),
 		};
 	} catch (error) {
-		await sink.abort();
+		try { await sink.abort(); } finally { await releaseCopySource(); }
 		throw error;
 	}
 }

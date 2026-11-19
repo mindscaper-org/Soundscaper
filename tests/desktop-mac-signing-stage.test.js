@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import test from 'node:test';
 import { createPackage } from '@electron/asar';
-import assistance from '../config/assistance-native-runtime-manifest.json' with { type: 'json' };
+import assistance from './fixtures/assistance-native-runtime-1.13.5.json' with { type: 'json' };
 import familyCandidates from '../config/assistance-runtime-family-supply-candidates.json' with { type: 'json' };
 import { assistanceNativeRuntimeStageSummary } from '../desktop/assistance-native-runtime-payload.mjs';
 import { captureMacSigningInputs, signVerifiedMacStage, verifySignedMacPackage, repinStageDocuments,
@@ -81,7 +81,7 @@ test('native signing preserves source authority and packages exactly the repinne
 	await assert.rejects(verifySignedMacPackage(f.context), /changed after signing/);
 });
 
-test('mac release accepts the separately signed and archived Sherpa receipt', async t => {
+test('mac signing retains the archived Sherpa receipt while release requires current native authority', async t => {
 	const root = await mkdtemp(join(tmpdir(), 'assistance-release-signing-'));
 	t.after(() => rm(root, { recursive: true, force: true }));
 	const saved = { ...process.env };
@@ -154,7 +154,8 @@ test('mac release accepts the separately signed and archived Sherpa receipt', as
 		nativeAddons: { target: 'mac-arm64', targetSource: 'declared', status: 'ci-generated',
 			payload: null, buildResult: null, blockedBy: null },
 		framescaperNativeHosts: null } };
-	assert.doesNotThrow(() => validateDesktopRuntimeManifests([release], ['soundscaper']));
+	assert.throws(() => validateDesktopRuntimeManifests([release], ['soundscaper']), /built native target/u,
+		'an archived CPU stage cannot substitute for the current package-generated GPU runtime');
 });
 
 test('signing refuses a signer that changes executable contents', async t => {

@@ -12,92 +12,108 @@ import {
 	openExportDialog,
 	readDownloadBytes,
 	registerAudioEditorHooks,
+	waitForProjectActivation,
 } from './audio-editor-test-helpers.js';
 
 test.describe('Broadcast WAV metadata UI', () => {
 	registerAudioEditorHooks();
 
-	test('edits and persists project BEXT v2 metadata independently from general metadata', async ({ page }) => {
+	test('edits project BEXT, keeps export overrides transient and respects draft keyboard decisions', async ({ page }) => {
+		const caseTimeout = test.info().timeout;
+		test.setTimeout(caseTimeout * 3);
 		const editor = await bootEditor(page, '/embed/en/');
-		await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
-		let panel = editor.locator('[data-workspace-panel="metadata"]');
-		await expect(panel).toBeVisible();
-		await expect(panel.getByRole('tab', { name: 'General', exact: true })).toHaveAttribute('aria-selected', 'true');
-		await panel.getByRole('tab', { name: 'BEXT', exact: true }).click();
+		await test.step('edits and persists project BEXT v2 metadata independently from general metadata', async () => {
+			await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
+			let panel = editor.locator('[data-workspace-panel="metadata"]');
+			await expect(panel).toBeVisible();
+			await expect(panel.getByRole('tab', { name: 'General', exact: true })).toHaveAttribute('aria-selected', 'true');
+			await panel.getByRole('tab', { name: 'BEXT', exact: true }).click();
 
-		const version = panel.locator('input[name="version"]');
-		await expect(version).toHaveValue('2');
-		await expect(version).toHaveAttribute('readonly', '');
-		await commitInput(panel.locator('input[name="description"]'), 'Location master');
-		await commitInput(panel.locator('input[name="originator"]'), 'Soundscaper Unit');
-		await commitInput(panel.locator('input[name="timeReference"]'), '9007199254740993');
-		await commitInput(panel.locator('input[name="loudnessValue"]'), '-23');
-		await commitInput(panel.locator('textarea[name="codingHistory"]'), 'A=PCM,F=48000,W=24,M=stereo,T=Recorder');
+			const version = panel.locator('input[name="version"]');
+			await expect(version).toHaveValue('2');
+			await expect(version).toHaveAttribute('readonly', '');
+			await commitInput(panel.locator('input[name="description"]'), 'Location master');
+			await commitInput(panel.locator('input[name="originator"]'), 'Soundscaper Unit');
+			await commitInput(panel.locator('input[name="timeReference"]'), '9007199254740993');
+			await commitInput(panel.locator('input[name="loudnessValue"]'), '-23');
+			await commitInput(panel.locator('textarea[name="codingHistory"]'), 'A=PCM,F=48000,W=24,M=stereo,T=Recorder');
 
+			await closeWorkspacePanel(editor, 'metadata');
+			await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
+			panel = editor.locator('[data-workspace-panel="metadata"]');
+			await panel.getByRole('tab', { name: 'BEXT', exact: true }).click();
+			await expect(panel.locator('input[name="description"]')).toHaveValue('Location master');
+			await expect(panel.locator('input[name="originator"]')).toHaveValue('Soundscaper Unit');
+			await expect(panel.locator('input[name="timeReference"]')).toHaveValue('9007199254740993');
+			await expect(panel.locator('input[name="loudnessValue"]')).toHaveValue('-23');
+			await expect(panel.locator('textarea[name="codingHistory"]')).toHaveValue('A=PCM,F=48000,W=24,M=stereo,T=Recorder\n');
+		}, { timeout: caseTimeout });
 		await closeWorkspacePanel(editor, 'metadata');
-		await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
-		panel = editor.locator('[data-workspace-panel="metadata"]');
-		await panel.getByRole('tab', { name: 'BEXT', exact: true }).click();
-		await expect(panel.locator('input[name="description"]')).toHaveValue('Location master');
-		await expect(panel.locator('input[name="originator"]')).toHaveValue('Soundscaper Unit');
-		await expect(panel.locator('input[name="timeReference"]')).toHaveValue('9007199254740993');
-		await expect(panel.locator('input[name="loudnessValue"]')).toHaveValue('-23');
-		await expect(panel.locator('textarea[name="codingHistory"]')).toHaveValue('A=PCM,F=48000,W=24,M=stereo,T=Recorder\n');
-	});
+		await test.step('start a fresh project', async () => {
+			const originalId = await editor.getAttribute('data-project-id');
+			await editor.getByRole('button', { name: 'New project', exact: true }).click();
+			await expect(editor).not.toHaveAttribute('data-project-id', originalId);
+			await waitForProjectActivation(editor);
+		}, { timeout: caseTimeout });
+		await test.step('keeps Broadcast WAV BEXT export overrides transient', async () => {
+			await importFiles(editor, [monoTone]);
+			let dialog = await openExportDialog(page, editor);
+			await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'Broadcast WAV (BWF)');
+			await expect(dialog.locator('[data-export-channel-option="stereo"] input')).toBeChecked();
+			await dialog.getByRole('button', { name: 'Metadata', exact: true }).click();
 
-	test('keeps Broadcast WAV BEXT export overrides transient', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
-		await importFiles(editor, [monoTone]);
-		let dialog = await openExportDialog(page, editor);
-		await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'Broadcast WAV (BWF)');
-		await expect(dialog.locator('[data-export-channel-option="stereo"] input')).toBeChecked();
-		await dialog.getByRole('button', { name: 'Metadata', exact: true }).click();
+			let metadataDialog = page.getByRole('dialog', { name: 'Metadata', exact: true });
+			await expect(metadataDialog.getByRole('tab')).toHaveCount(2);
+			await metadataDialog.getByRole('tab', { name: 'BEXT', exact: true }).click();
+			await commitInput(metadataDialog.locator('input[name="description"]'), 'One-off delivery');
+			await metadataDialog.getByRole('button', { name: /^Done\.?$/u }).click();
 
-		let metadataDialog = page.getByRole('dialog', { name: 'Metadata', exact: true });
-		await expect(metadataDialog.getByRole('tab')).toHaveCount(2);
-		await metadataDialog.getByRole('tab', { name: 'BEXT', exact: true }).click();
-		await commitInput(metadataDialog.locator('input[name="description"]'), 'One-off delivery');
-		await metadataDialog.getByRole('button', { name: /^Done\.?$/u }).click();
+			dialog = page.getByRole('dialog', { name: 'Export audio', exact: true });
+			await dialog.getByRole('button', { name: 'Metadata', exact: true }).click();
+			metadataDialog = page.getByRole('dialog', { name: 'Metadata', exact: true });
+			await metadataDialog.getByRole('tab', { name: 'BEXT', exact: true }).click();
+			await expect(metadataDialog.locator('input[name="description"]')).toHaveValue('One-off delivery');
+			await metadataDialog.getByRole('button', { name: /^Done\.?$/u }).click();
+			await page.getByRole('dialog', { name: 'Export audio', exact: true }).getByRole('button', { name: 'Cancel', exact: true }).click();
 
-		dialog = page.getByRole('dialog', { name: 'Export audio', exact: true });
-		await dialog.getByRole('button', { name: 'Metadata', exact: true }).click();
-		metadataDialog = page.getByRole('dialog', { name: 'Metadata', exact: true });
-		await metadataDialog.getByRole('tab', { name: 'BEXT', exact: true }).click();
-		await expect(metadataDialog.locator('input[name="description"]')).toHaveValue('One-off delivery');
-		await metadataDialog.getByRole('button', { name: /^Done\.?$/u }).click();
-		await page.getByRole('dialog', { name: 'Export audio', exact: true }).getByRole('button', { name: 'Cancel', exact: true }).click();
-
-		await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
-		const projectMetadata = editor.locator('[data-workspace-panel="metadata"]');
-		await projectMetadata.getByRole('tab', { name: 'BEXT', exact: true }).click();
-		await expect(projectMetadata.locator('input[name="description"]')).not.toHaveValue('One-off delivery');
-	});
-
-	test('Escape cancels a BEXT field draft while Enter still commits it', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
-		await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
-		let panel = editor.locator('[data-workspace-panel="metadata"]');
-		await panel.getByRole('tab', { name: 'BEXT', exact: true }).click();
-		let description = panel.locator('input[name="description"]');
-		const original = await description.inputValue();
-
-		await description.fill('Cancelled description');
-		await description.press('Escape');
-		await expect(description).toHaveValue(original);
+			await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
+			const projectMetadata = editor.locator('[data-workspace-panel="metadata"]');
+			await projectMetadata.getByRole('tab', { name: 'BEXT', exact: true }).click();
+			await expect(projectMetadata.locator('input[name="description"]')).not.toHaveValue('One-off delivery');
+		}, { timeout: caseTimeout });
 		await closeWorkspacePanel(editor, 'metadata');
-		await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
-		panel = editor.locator('[data-workspace-panel="metadata"]');
-		await panel.getByRole('tab', { name: 'BEXT', exact: true }).click();
-		description = panel.locator('input[name="description"]');
-		await expect(description).toHaveValue(original);
+		await test.step('start a fresh project', async () => {
+			const originalId = await editor.getAttribute('data-project-id');
+			await editor.getByRole('button', { name: 'New project', exact: true }).click();
+			await expect(editor).not.toHaveAttribute('data-project-id', originalId);
+			await waitForProjectActivation(editor);
+		}, { timeout: caseTimeout });
+		await test.step('Escape cancels a BEXT field draft while Enter still commits it', async () => {
+			await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
+			let panel = editor.locator('[data-workspace-panel="metadata"]');
+			await panel.getByRole('tab', { name: 'BEXT', exact: true }).click();
+			let description = panel.locator('input[name="description"]');
+			const original = await description.inputValue();
 
-		await description.fill('Committed description');
-		await description.press('Enter');
+			await description.fill('Cancelled description');
+			await description.press('Escape');
+			await expect(description).toHaveValue(original);
+			await closeWorkspacePanel(editor, 'metadata');
+			await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
+			panel = editor.locator('[data-workspace-panel="metadata"]');
+			await panel.getByRole('tab', { name: 'BEXT', exact: true }).click();
+			description = panel.locator('input[name="description"]');
+			await expect(description).toHaveValue(original);
+
+			await description.fill('Committed description');
+			await description.press('Enter');
+			await closeWorkspacePanel(editor, 'metadata');
+			await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
+			panel = editor.locator('[data-workspace-panel="metadata"]');
+			await panel.getByRole('tab', { name: 'BEXT', exact: true }).click();
+			await expect(panel.locator('input[name="description"]')).toHaveValue('Committed description');
+		}, { timeout: caseTimeout });
 		await closeWorkspacePanel(editor, 'metadata');
-		await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
-		panel = editor.locator('[data-workspace-panel="metadata"]');
-		await panel.getByRole('tab', { name: 'BEXT', exact: true }).click();
-		await expect(panel.locator('input[name="description"]')).toHaveValue('Committed description');
 	});
 
 	test('downloads an offline BWF with authored BEXT v2 metadata and canonical coding history', async ({ page }) => {

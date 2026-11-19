@@ -57,7 +57,7 @@ export default function TransportAuditionMenu({
 		},
 	];
 	return <>{items.map((item) => <ContextMenuItem
-		key={item.id} label={item.label} shortcut={shortcut(item.id)} disabled={item.disabled}
+		key={item.id} tooltipKey={item.id} label={item.label} shortcut={shortcut(item.id)} disabled={item.disabled}
 		onClick={() => { close(); run(item.onClick); }}
 	/>)}</>;
 }

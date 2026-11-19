@@ -313,6 +313,7 @@ export default function AudioEditorMenuBar({
 						type="button"
 						className={`application-header__menu-item${openMenu?.index === index ? ' application-header__menu-item--open' : ''}`}
 						role="menuitem"
+						data-menu-tooltip-id={menu.id}
 						aria-haspopup="menu"
 						aria-expanded={openMenu?.index === index}
 						aria-keyshortcuts={menuAccessKeysEnabled && menuAccessKeysById.has(menu.id)

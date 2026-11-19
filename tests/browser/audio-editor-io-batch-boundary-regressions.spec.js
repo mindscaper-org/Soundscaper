@@ -22,7 +22,7 @@ async function openQueue(page, editor) {
 }
 
 test('a mixed-programme BW64 preset is unavailable for a stems batch', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
 	const metadata = editor.locator('[data-workspace-panel="metadata"]');
@@ -44,9 +44,25 @@ test('a mixed-programme BW64 preset is unavailable for a stems batch', async ({ 
 	await expect(preset).toBeChecked();
 });
 
+test('keeps the queue available without offering an empty project for export', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await importFiles(editor, [toneA]);
+	await savePreset(page, await openExportDialog(page, editor), 'WAV master');
+	await editor.getByRole('button', { name: 'New project', exact: true }).click();
+	let queue = await openQueue(page, editor);
+	await queue.getByRole('checkbox', { name: 'WAV master', exact: true }).check();
+	await expect(queue.getByRole('checkbox', { name: 'Entire project', exact: true })).toBeDisabled();
+	await expect(queue.getByRole('button', { name: 'Queue batch', exact: true })).toBeDisabled();
+	await expect(queue.getByText('Add media to the timeline before queueing a delivery.', { exact: true })).toBeVisible();
+	await queue.getByRole('button', { name: 'Close', exact: true }).last().click();
+	await importFiles(editor, [toneB]);
+	queue = await openQueue(page, editor);
+	await expect(queue.getByRole('checkbox', { name: 'Entire project', exact: true })).toBeEnabled();
+});
+
 test('a paused delivery cannot export a different project after switching tabs', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Rename project']);
 	const naming = page.getByRole('dialog', { name: 'Rename project', exact: true });

@@ -1,0 +1,94 @@
+{
+	"schemaVersion": 1,
+	"modelId": "voicefixer",
+	"version": "1.0.0",
+	"task": "speech-enhancement",
+	"runtimeFamily": "onnxruntime-node",
+	"platforms": [
+		"darwin-arm64",
+		"linux-x64",
+		"linux-arm64",
+		"win32-x64",
+		"win32-arm64"
+	],
+	"minimumMemoryBytes": 4294967296,
+	"sourceRevision": "aa259fa578b9d5f4c76fda3cd967f73542b0e15b",
+	"sourceRepository": "https://huggingface.co/TigreGotico/audiosronnx-voicefixer",
+	"originalSourceRevision": "aae2253c85f97a87b844b6832384de249c23ab37",
+	"converterSourceRevision": "e31e2207dbaf452f9696d056d3931b64cfe36a13",
+	"catalogActivation": "after-public-readback",
+	"artifacts": [
+		{
+			"fileName": "analysis.onnx",
+			"byteLength": 282016051,
+			"sha256": "113d24062c5c9f87293a4e4771fbd4930136ccdff87ccbe6a6cb47726fc9cae9",
+			"url": "https://huggingface.co/TigreGotico/audiosronnx-voicefixer/resolve/aa259fa578b9d5f4c76fda3cd967f73542b0e15b/analysis.onnx"
+		},
+		{
+			"fileName": "vocoder.onnx",
+			"byteLength": 132905282,
+			"sha256": "51b513f2e5510bd7d1e61d255015d47e2fc7b5af95eb35f25b6e5030446c5310",
+			"url": "https://huggingface.co/TigreGotico/audiosronnx-voicefixer/resolve/aa259fa578b9d5f4c76fda3cd967f73542b0e15b/vocoder.onnx"
+		},
+		{
+			"fileName": "mel_filters.npy",
+			"byteLength": 524928,
+			"sha256": "d534ace99f19552fadd89d07d8cef0e3ff398b608ed2247c975c153b95b17f04",
+			"url": "https://huggingface.co/TigreGotico/audiosronnx-voicefixer/resolve/aa259fa578b9d5f4c76fda3cd967f73542b0e15b/mel_filters.npy"
+		}
+	],
+	"notices": [
+		{
+			"path": "LICENSES/local-models/voicefixer-LICENSE.txt",
+			"sha256": "002c2696d92b5c8cf956c11072baa58eaf9f6ade995c031ea635c6a1ee342ad1",
+			"url": "https://raw.githubusercontent.com/haoheliu/voicefixer/aae2253c85f97a87b844b6832384de249c23ab37/LICENSE"
+		},
+		{
+			"path": "LICENSES/local-models/voicefixer-ONNX-MODEL-CARD.md",
+			"sha256": "5e73cfe4685d808d5c2ddb5f64997e8e4a1685a26f83b8b14db9cc4a47fe4336",
+			"url": "https://huggingface.co/TigreGotico/audiosronnx-voicefixer/resolve/aa259fa578b9d5f4c76fda3cd967f73542b0e15b/README.md"
+		},
+		{
+			"path": "LICENSES/local-models/voicefixer-converter-LICENSE.txt",
+			"sha256": "71e0867d4fd5a15975faed7ee0b574c5b109ee2361f780d12c6ac85429709d51",
+			"url": "https://raw.githubusercontent.com/TigreGotico/audiosronnx/e31e2207dbaf452f9696d056d3931b64cfe36a13/LICENSE"
+		},
+		{
+			"path": "LICENSES/local-models/voicefixer-weights-CC-BY-4.0.txt",
+			"sha256": "d557539df68e771cc1eedcc91d13f70fca930e508d11eedcafa4b15db49e3744",
+			"url": "https://raw.githubusercontent.com/spdx/license-list-data/main/text/CC-BY-4.0.txt"
+		},
+		{
+			"path": "LICENSES/local-models/voicefixer-CHECKPOINT-RECORD.json",
+			"sha256": "8a9f52bdea0734ed1e86bcd2364ccbe4277aa02b237a813efc7aab12487afea1",
+			"url": "https://zenodo.org/api/records/5600188"
+		}
+	],
+	"realTestCase": {
+		"id": "voicefixer-speech-declipping",
+		"modelIds": [
+			"voicefixer"
+		],
+		"operation": "speech-enhancement",
+		"fixtureId": "clipped-speech-48khz",
+		"validation": "changed-audio",
+		"documentation": {
+			"modelTitles": {
+				"voicefixer": "VoiceFixer Speech Declipping and Restoration"
+			},
+			"summary": "Restore clipped speech with the optional local VoiceFixer model.",
+			"menu": "Effect \u2192 Noise Removal & Repair \u2192 Enhance Dialogue \u2192 Model",
+			"steps": [
+				"Select the clipped speech recording.",
+				"Install VoiceFixer through Tools \u2192 Local Models \u2192 Manage Models, then choose VoiceFixer in Enhance Dialogue.",
+				"Apply the effect. Listen to the result and use Undo to restore the original if needed."
+			],
+			"limitations": [
+				"The model resynthesizes speech and can change voice timbre, room sound and background noise. It is not validated for music.",
+				"Channels are processed independently with five-second windows and 50% overlap. Selection duration and channel count are preserved.",
+				"CPU processing may be slow; GPU availability depends on the authenticated runtime and machine.",
+				"The packaged test establishes finite, changed audio and exact geometry, rather than perceptual recovery of the original."
+			]
+		}
+	}
+}

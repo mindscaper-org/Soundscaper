@@ -54,6 +54,8 @@ test('source timing views preserve exact verified VFR index and persisted refere
 		if (view?.kind !== 'vfr') assert.fail('Expected a VFR timing view.');
 		assert.equal(view.index, index, 'the verified registry object must not be reconstructed');
 		assert.equal(view.reference, source.timingAsset, 'the persisted reference must retain its identity');
+		assert.ok(Object.isFrozen(index));
+		assert.ok(Object.isFrozen(index.presentationTicks));
 	} finally {
 		unregisterVideoTimingIndex(source);
 	}

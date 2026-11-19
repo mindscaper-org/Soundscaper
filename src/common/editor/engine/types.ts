@@ -30,6 +30,8 @@ export interface EngineGainOwner {
 }
 
 export interface EngineClip extends Readonly<Record<string, unknown>> {
+	readonly effects?: readonly EngineEffect[];
+	readonly effectsActive?: boolean;
 	readonly id?: unknown;
 	readonly sourceId?: unknown;
 	readonly timelineStartFrame?: number;
@@ -91,7 +93,7 @@ export interface EngineProject extends Readonly<Record<string, unknown>> {
 }
 
 export interface EngineEffectRackLocation {
-	readonly scope: 'track' | 'group' | 'send' | 'master';
+	readonly scope: 'clip' | 'track' | 'group' | 'send' | 'master';
 	readonly targetId: string | null;
 	readonly effectsActive: boolean;
 	readonly effects: readonly EngineEffect[];
@@ -99,6 +101,7 @@ export interface EngineEffectRackLocation {
 
 export interface EngineChunkReadContext {
 	readonly signal?: AbortSignal | null;
+	readonly renderStartFrame?: number;
 }
 
 export type EngineChunkReadValue =

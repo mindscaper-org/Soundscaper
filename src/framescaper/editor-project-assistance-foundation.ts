@@ -4,6 +4,8 @@ import {
 	PROJECT_OWNED_FEATURE_REQUIREMENT_IDS,
 } from '../common/editor/project-owned-feature-requirements.ts';
 import type { ProjectFeatureRequirementsManifest } from '../common/editor/project-feature-requirements.ts';
+import { FRAMESCAPER_NATIVE_SERVICES_COPY } from '../common/i18n/editor-framescaper-native-services-copy.ts';
+import { createLocalizedError } from '../common/i18n/presentation-message.ts';
 import {
 	reconcileFramescaperProjectFeatureRequirementsTimelineImage,
 } from './editor-project-feature-requirements-timeline-image.ts';
@@ -32,6 +34,15 @@ export function framescaperProjectTimelineImageFoundationShapeAssistance(project
 /** Detach both assistance assistance and timelineImage image authority for immutable nativeMedia consumers. */
 export function framescaperProjectNativeMediaFoundationShapeAssistance(project: unknown): FramescaperProjectNativeMedia {
 	return framescaperProjectNativeMediaFoundationShapeTimelineImage(framescaperProjectTimelineImageFoundationShapeAssistance(project));
+}
+
+/** Refuse the queue before the inherited projection drops authored image clips. */
+export function framescaperProjectNativeRenderQueueFoundationShapeAssistance(project: unknown): FramescaperProjectNativeMedia {
+	const timeline = framescaperProjectTimelineImageFoundationShapeAssistance(project);
+	if (timeline.clips.some(clip => clip.kind === 'image' && clip.sequenceId === timeline.primarySequenceId)) {
+		throw createLocalizedError(Error, FRAMESCAPER_NATIVE_SERVICES_COPY, 'renderTimelineImagesUnsupported');
+	}
+	return framescaperProjectNativeMediaFoundationShapeTimelineImage(timeline);
 }
 
 function record(value: unknown, name: string): Record<string, unknown> {

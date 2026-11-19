@@ -14,6 +14,9 @@ test.describe('Web Core storage visibility', () => {
 		const editor = await bootEditor(page, '/embed/en/');
 		const panel = editor.locator('[data-storage-capacity]');
 		await expect(panel).toHaveCount(0);
+		await editor.getByRole('menuitem', { name: 'Help', exact: true }).click();
+		await expect(editor.getByRole('menuitem', { name: 'CPU profiling', exact: true })).toHaveCount(0);
+		await page.keyboard.press('Escape');
 		await chooseCommandAction(page, editor, 'Help', 'Debug storage');
 		await expect(panel).toBeVisible();
 		await expect(panel.locator('summary')).toContainText('Storage:');

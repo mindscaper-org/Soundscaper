@@ -2,6 +2,7 @@
 
 import { addRationals, subtractRationals, divideRationals, compareRationals, normalizeRational, roundRational, multiplyRationals, type Rational } from './timeline-time.ts';
 import { rationalFromDouble } from './dawproject-format.ts';
+import { nativeInterchangePictureOrder } from './interchange-painter-order.ts';
 import { timelineImportIssue, timelineInterchangeMediaName, TIMELINE_INTERCHANGE_MAXIMUM_DEPTH, TIMELINE_INTERCHANGE_MAXIMUM_ITEMS,
 	type TimelineInterchangeDocument, type TimelineInterchangeMedia, type TimelineInterchangeTrack, type TimelineInterchangeClip } from './timeline-interchange-types.ts';
 
@@ -19,7 +20,7 @@ export function parseOtioTimeline(text: string): TimelineInterchangeDocument {
 	const start = record(root.global_start_time);
 	let visited = 0;
 	let firstVideoRate: Rational | undefined;
-	const walk = (node: RecordValue, kind: 'audio' | 'video', name: string, depth: number): Segment => {
+	const walk = (node: RecordValue, kind: 'audio' | 'video', name: string, depth: number, midi = false): Segment => {
 		if (depth > TIMELINE_INTERCHANGE_MAXIMUM_DEPTH) throw new RangeError('OTIO nesting depth limit exceeded.');
 		const index = ++visited;
 		if (index > TIMELINE_INTERCHANGE_MAXIMUM_ITEMS) throw new RangeError('OTIO item limit exceeded.');
@@ -55,6 +56,7 @@ export function parseOtioTimeline(text: string): TimelineInterchangeDocument {
 				const id = [...media.values()].some(item => item.id === path) ? `${kind}:${path}` : path || `missing-${visited}`;
 				const sourceRate = record(available.duration).rate ?? record(range.duration).rate;
 				entry = { id, path, name: timelineInterchangeMediaName(path, String(reference.name ?? node.name ?? '')), kind,
+					...(kind === 'audio' && (midi || /\.midi?(?:$|[?#])/iu.test(path)) ? { midi: true as const } : {}),
 					aliases: [String(record(record(reference.metadata)[NAMESPACE]).sourceName ?? reference.name ?? '')].filter(Boolean),
 					...(sourceRate ? { rate: rateFromDouble(Number(sourceRate)) } : {}),
 					...(available.duration ? { duration: time(record(available.duration)) } : {}) };
@@ -71,13 +73,14 @@ export function parseOtioTimeline(text: string): TimelineInterchangeDocument {
 		const children = node.children;
 		if (!Array.isArray(children)) throw new TypeError('OTIO containers need a children array.');
 		const childKind = type === 'Track' ? node.kind === 'Video' ? 'video' : 'audio' : kind;
+		const childMidi = type === 'Track' ? /^midi$/iu.test(String(node.kind)) : midi;
 		const trackName = String(node.name ?? name);
 		let cursor = ZERO;
 		const tracks: TimelineInterchangeTrack[] = [];
 		const directClips: TimelineInterchangeClip[] = [];
 		for (const childValue of children) {
 			const child = record(childValue);
-			const segment = walk(child, childKind, trackName, depth + 1);
+			const segment = walk(child, childKind, trackName, depth + 1, childMidi);
 			for (const track of segment.tracks) {
 				const clips = track.clips.map(clip => ({ ...clip, start: addRationals(clip.start, type === 'Track' ? cursor : ZERO) }));
 				if (type === 'Track' && schema(child) === 'Clip') directClips.push(...clips);
@@ -99,7 +102,7 @@ export function parseOtioTimeline(text: string): TimelineInterchangeDocument {
 	const startFrameCount = roundRational(origin.num, origin.den, 'point');
 	const sampleRate = metadata.sampleRate === undefined ? 48000 : Number(metadata.sampleRate);
 	if (!Number.isSafeInteger(sampleRate) || sampleRate < 1) throw new RangeError('OTIO sample rate must be positive.');
-	return { format: 'otio', title: String(root.name ?? 'OTIO timeline'), sampleRate, rate, dropFrame: Boolean(metadata.dropFrame), startFrameCount, tracks: segment.tracks, media: [...media.values()], issues };
+	return { format: 'otio', title: String(root.name ?? 'OTIO timeline'), sampleRate, rate, dropFrame: Boolean(metadata.dropFrame), startFrameCount, tracks: nativeInterchangePictureOrder(segment.tracks), media: [...media.values()], issues };
 }
 
 function trimSegment(segment: Segment, start: Rational, duration: Rational): Segment {

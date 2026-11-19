@@ -38,10 +38,12 @@ test('single-entry editors retain bridge copy in the shared catalog without anot
 		const entry = chunks.find(chunk => chunk.isEntry && chunk.facadeModuleId === main);
 		const editor = chunks.find(chunk => chunk.facadeModuleId === bootstrap);
 		assert.ok(entry && editor);
-		assert.deepEqual(entry.imports, []);
+		const runtime = chunks.filter(chunk => chunk.fileName.startsWith('rolldown-runtime-'));
+		assert.ok(runtime.length <= 1);
+		assert.deepEqual(entry.imports, runtime.map(chunk => chunk.fileName));
 		assert.deepEqual(entry.dynamicImports, [editor.fileName]);
 		assert.ok(editor.imports.includes(catalog.fileName));
-		assert.equal(chunks.length, 3, 'product-ready startup needs only its entry, bootstrap and catalog requests');
+		assert.equal(chunks.length - runtime.length, 3, 'product-ready startup needs only its entry, bootstrap and catalog application chunks');
 	} finally { await bundle.close(); }
 });
 

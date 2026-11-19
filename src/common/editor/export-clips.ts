@@ -10,6 +10,8 @@ import { exportClipMixer } from './export-clip-mixer.ts';
 import { mixerEndpointKeyV21, type MixerGraphV21 } from './mixer-graph-v21.ts';
 import { hasProductionMixerProjectAuthority } from './project-schema-version.ts';
 import { normalizeAutomationLaneV21 } from './automation-lane-v21.ts';
+import { clipEffectControlTrackIds } from './clip-effect-control-tracks.ts';
+import type { EngineProject } from './engine/types.ts';
 
 type DataRecord = Readonly<Record<string, unknown>>;
 
@@ -28,14 +30,20 @@ export function createExportClipProject<Project extends object>(projectValue: Pr
 			&& Array.isArray(track.clipIds) && track.clipIds.includes(output.clipId);
 	});
 	if (!clip || !owner) throw new RangeError(`Export clip ${String(output.clipId)} is missing from its audio track.`);
+	const trackId = String(output.trackId);
+	const seed = { clips: project.clips, tracks: project.tracks.map(value => {
+		const track = value as DataRecord;
+		return track.id === trackId ? { ...track, clipIds: [clip.id] } : track;
+	}) };
+	const controls = new Set(clipEffectControlTrackIds(seed as unknown as EngineProject, new Set([trackId])));
 	const mixer = hasProductionMixerProjectAuthority(project)
-		? exportClipMixer(project.mixer as MixerGraphV21, String(output.trackId)) : null;
+		? exportClipMixer(project.mixer as MixerGraphV21, trackId, [...controls]) : null;
 	const lanes = (project as DataRecord).automationLanes;
 	const clipIds = new Set([clip.id]);
 	for (const value of project.tracks) {
 		const track = value as DataRecord;
 		if (track.id === output.trackId || track.type !== 'audio'
-			|| !mixer?.detectorStrips.has(mixerEndpointKeyV21({ kind: 'track', id: String(track.id) }))) continue;
+			|| !controls.has(String(track.id)) && !mixer?.detectorStrips.has(mixerEndpointKeyV21({ kind: 'track', id: String(track.id) }))) continue;
 		for (const id of Array.isArray(track.clipIds) ? track.clipIds : []) clipIds.add(id);
 	}
 	const snapshot = {

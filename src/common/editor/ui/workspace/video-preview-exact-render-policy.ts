@@ -10,8 +10,9 @@ import { hasPendingVideoPreviewMediaSeek } from '../../controller/clip-video/vid
 export function shouldRenderExactProductVideoPreview(
 	session: Readonly<{ readonly renderExact?: unknown; readonly requiresAsyncFrames?: boolean }> | null | undefined,
 	transportState: unknown,
+	frame?: Readonly<{ requiresLayeredPreview?: boolean }> | null,
 ): boolean {
-	return (transportState !== 'playing' || session?.requiresAsyncFrames === true) && typeof session?.renderExact === 'function';
+	return (transportState !== 'playing' || session?.requiresAsyncFrames === true) && frame?.requiresLayeredPreview !== true && typeof session?.renderExact === 'function';
 }
 
 /** Read back decoded media after its seek drains; readiness alone can still name the old picture. */

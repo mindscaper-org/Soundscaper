@@ -94,6 +94,33 @@ test('waveform peak windows keep output bounded beyond the raw PCM window cap', 
 	assert.equal(window.channels[1]!.maximums.at(-1), 0.5);
 });
 
+test('peak summaries finalize buckets without a second array per channel and pass the live read signal', async () => {
+	const signal = new AbortController().signal;
+	const samples = Float32Array.of(0, -0, -2, 1, 4, -3, 8, 9);
+	const native = globalThis.Float64Array;
+	let bucketScratch = 0;
+	globalThis.Float64Array = new Proxy(native, { construct(target, args, receiver) {
+		if (args[0] === 3) bucketScratch++;
+		return Reflect.construct(target, args, receiver);
+	} });
+	try {
+		const readSignals: (AbortSignal | undefined)[] = [];
+		const window = await readWaveformPeakWindow({ channelCount: 1, chunkFrames: 3,
+			readStorageChunk(index, options) {
+				readSignals.push(options?.signal);
+				return [samples.subarray(index * 3, (index + 1) * 3)];
+			},
+		}, { startFrame: 0, endFrame: 8 }, { pixelWidth: 2.5, signal });
+		assert.equal(window.blockSize, 3);
+		assert.deepEqual(window.channels[0]?.minimums, Float32Array.of(-2, -3, 8));
+		assert.deepEqual(window.channels[0]?.rms, Float32Array.of(Math.sqrt(4 / 3), Math.sqrt(26 / 3), Math.sqrt(145 / 2)));
+		assert.equal(bucketScratch, 0);
+		assert.deepEqual(readSignals, [signal, signal, signal]);
+	} finally {
+		globalThis.Float64Array = native;
+	}
+});
+
 test('waveform peak windows reject a scale that requires individual PCM samples', async () => {
 	await assert.rejects(readWaveformPeakWindow({
 		channelCount: 1,

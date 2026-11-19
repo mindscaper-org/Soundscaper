@@ -16,6 +16,7 @@ import {
 } from '../common/editor/video-proxy-candidate-observation.ts';
 import type { CapturedVideoProxyBodyStore } from './editor-captured-video-proxy-bodies.ts';
 import type { CapturedVideoProxyClaimCleanup } from './editor-captured-video-proxy-claim-cleanup.ts';
+import type { FramescaperCapturedVideoProxyProject } from './editor-captured-video-proxy-preservation.ts';
 import type { CapturedVideoProxySessionController } from
 	'./editor-captured-video-proxy-session-reconciliation.ts';
 import {
@@ -38,6 +39,7 @@ export interface FramescaperCapturedVideoProxyRuntimeComposition
 	readonly runtime: VideoProxyCandidateRuntime | null | undefined;
 	/** Authenticated product/test composition seam; production builds omit it. */
 	readonly candidateObserver?: VideoProxyCandidateObserver;
+	readonly recordPersistedSnapshot?: (project: FramescaperCapturedVideoProxyProject) => PromiseLike<void> | void;
 	readonly synchronizeActiveProject?: (
 		update: FramescaperCapturedVideoProxyActiveUpdate,
 	) => PromiseLike<unknown> | unknown;
@@ -74,6 +76,7 @@ export interface CapturedVideoProxySchedulerDependencies {
 		beforeFinish?: () => PromiseLike<void> | void,
 	) => Promise<unknown>;
 	readonly claimCleanup: CapturedVideoProxyClaimCleanup;
+	readonly recordPersistedSnapshot: NonNullable<FramescaperCapturedVideoProxyRuntimeComposition['recordPersistedSnapshot']> | null;
 	readonly synchronizeActiveProject: NonNullable<
 		FramescaperCapturedVideoProxyRuntimeComposition['synchronizeActiveProject']
 	> | null;
@@ -124,6 +127,7 @@ export function capturedVideoProxySchedulerDependencies(
 			}),
 		}),
 		claimCleanup: environment.claimCleanup,
+		recordPersistedSnapshot: composition.recordPersistedSnapshot ?? null,
 		synchronizeActiveProject: composition.synchronizeActiveProject ?? null,
 		quiesceProjectSaves: composition.quiesceProjectSaves ?? null,
 		session,

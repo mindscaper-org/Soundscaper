@@ -9,6 +9,9 @@ import { createAudioClip, createAudioSource, createAudioTrack } from '../src/com
 import GeneratorDialog from '../src/common/editor/ui/dialogs/GeneratorDialog.jsx';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
+import { selectionControllerCustody, selectionWav } from './helpers/selection-controller-custody.tsx';
+import { clipboardDocument, clipboardProject } from './helpers/clipboard-source-custody.ts';
+import { readCustodyPcm } from './helpers/audio-project-archive-pcm-custody.ts';
 
 for (const [locked, selected, focused, expectedBlocked] of [
 	['one', ['one'], 'one', true], ['two', ['one', 'two'], 'one', true],
@@ -63,3 +66,59 @@ for (const [locked, selected, focused, expectedBlocked] of [
 		}
 	});
 }
+
+test('selected locks and an unselected locked focus govern real Silence publication, history and original PCM custody', async context => {
+	const f = await selectionControllerCustody(context, selectionWav('browser-tone-a.wav', 38_400, 2, 48_000, 330));
+	const { controller, fixture, store } = f;
+	const imported = clipboardProject(controller.project), clip = imported.clips[0]; assert.ok(clip?.kind === 'audio');
+	const track = imported.tracks.find(value => Array.isArray(value.clipIds) && value.clipIds.includes(clip.id)); assert.ok(track);
+	const button = (name: string) => { const node = fixture.dom.container.querySelectorAll('button').find(value => value.textContent === name); assert.ok(node, name); return node; };
+	let closed = 0;
+	const open = async () => fixture.render(<GeneratorDialog type="silence" controller={controller} snapshot={controller.getSnapshot()}
+		copy={ENGLISH_COPY} locale="en" run={fixture.run} onClose={() => { closed += 1; }} />);
+	const complete = async () => {
+		await act(async () => { reactProps(button('Generate')).onClick(); await Promise.resolve(); await fixture.settle(); });
+		await fixture.render(null);
+	};
+	const silence = async (before: ReturnType<typeof clipboardProject>, frames: number) => {
+		const after = clipboardProject(controller.project), source = after.sources.find(value => !before.sources.some(prior => prior.id === value.id));
+		assert.ok(source?.kind === 'audio'); assert.deepEqual([source.sampleRate, source.frameCount, source.channelCount], [48_000, frames, 2]);
+		const channels = await readCustodyPcm(store, source); assert.equal(channels.length, 2);
+		for (const channel of channels) { assert.equal(channel.length, frames); for (const sample of channel) assert.equal(sample, 0); }
+		const generated = after.clips.find(value => value.kind === 'audio' && value.sourceId === source.id); assert.ok(generated);
+		assert.deepEqual([generated.timelineStartFrame, generated.durationFrames, generated.sourceStartFrame, generated.sourceDurationFrames], [0, frames, 0, frames]);
+		return after;
+	};
+	try {
+		await controller.actions.timeline.selectClip(clip.id);
+		const before = clipboardProject(controller.project), entries = controller.getSnapshot().history.undoEntries.length;
+		await open(); assert.equal(button('Generate').hasAttribute('disabled'), false);
+		await complete(); assert.equal(closed, 1);
+		const selected = await silence(before, 38_400); assert.equal(selected.clips.length, 1); assert.equal(selected.tracks.length, before.tracks.length);
+		assert.equal(controller.getSnapshot().history.undoEntries.length, entries + 1);
+		await act(async () => { controller.actions.edit.undo(); });
+		assert.deepEqual(clipboardDocument(clipboardProject(controller.project)), clipboardDocument(before));
+		await controller.actions.track.update(track.id, { locked: true });
+		const locked = clipboardProject(controller.project), lockedHistory = structuredClone(controller.getSnapshot().history);
+		await open(); assert.equal(button('Generate').hasAttribute('disabled'), true, 'the selected locked source must refuse replacement');
+		await act(async () => { reactProps(button('Generate')).onClick(); await Promise.resolve(); await fixture.settle(); });
+		assert.deepEqual(controller.project, locked); assert.deepEqual(controller.getSnapshot().history, lockedHistory); assert.equal(closed, 1);
+		await act(async () => { reactProps(button('Cancel')).onClick(); }); await fixture.render(null);
+		await controller.actions.timeline.clearSelection();
+		const unselected = clipboardProject(controller.project), unselectedEntries = controller.getSnapshot().history.undoEntries.length;
+		await open(); assert.equal(button('Generate').hasAttribute('disabled'), false);
+		await complete(); assert.equal(closed, 3);
+		const appended = await silence(unselected, 1_440_000);
+		assert.equal(appended.clips.length, unselected.clips.length + 1); assert.equal(appended.tracks.length, unselected.tracks.length + 1);
+		assert.deepEqual(appended.tracks.find(value => value.id === track.id), unselected.tracks.find(value => value.id === track.id));
+		assert.equal(controller.getSnapshot().history.undoEntries.length, unselectedEntries + 1);
+		await act(async () => { controller.actions.edit.undo(); });
+		assert.deepEqual(clipboardDocument(clipboardProject(controller.project)), clipboardDocument(unselected));
+		await controller.actions.track.update(track.id, { locked: false }); await controller.actions.timeline.selectClip(clip.id);
+		await open(); assert.equal(button('Generate').hasAttribute('disabled'), false);
+		const restored = clipboardProject(controller.project), restoredHistory = structuredClone(controller.getSnapshot().history);
+		await act(async () => { reactProps(button('Cancel')).onClick(); }); await fixture.render(null);
+		assert.equal(closed, 4); assert.deepEqual(controller.project, restored); assert.deepEqual(controller.getSnapshot().history, restoredHistory);
+		assert.equal(restored.sources.length, 1); await f.archive();
+	} finally { await f.dispose(); }
+});

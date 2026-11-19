@@ -12,6 +12,7 @@ type LocalAssistancePorts<Names extends keyof LocalAssistancePreparation> = Pick
 >;
 
 export interface DeferredLocalAssistanceRuntimeDependencies {
+	readonly importMidiDocument?: import('../../assistance/music-transcription-v1.ts').MusicMidiImporter;
 	readonly assistanceStore?: unknown;
 	readonly assistanceVideoStore?: unknown;
 	readonly assistanceDerivativeRepository?: import(
@@ -51,6 +52,7 @@ const SELECTED_MEDIA_METHOD_NAMES = [
 	'prepareAdvancedWorkflow',
 	'prepareGuidedWorkflow',
 	'acceptGuidedWorkflowResult',
+	'assertCurrentWorkflowFence',
 ] as const satisfies readonly (keyof LocalAssistancePreparation)[];
 
 const ASSISTANCE_STORE_METHOD_NAMES = [
@@ -64,8 +66,8 @@ const ASSISTANCE_STORE_METHOD_NAMES = [
 /**
  * Load selected-media custody and result acceptance only when its menu dialog opens.
  *
- * The runtime exposes more than this facade proxies - the workflow fence, and
- * the selected-context helpers the preparation composes - so each half declares
+ * The runtime exposes more than this facade proxies, including the
+ * selected-context helpers the preparation composes, so each half declares
  * the ports it stands for and the completeness check holds against those. The
  * acceptance half is present only when the project carries an assistance store,
  * which is why it is a second facade over the same memoized load rather than a

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { VideoTimingIndex } from '../../video-timing-asset.ts';
+import type { VideoSourceCharacteristics } from '../../video-source-characteristics.ts';
 import type { PrepareSpectrogramProcessedPcm } from '../../spectrogram-processed-pcm-contract.ts';
 import type { VideoDerivativeInput } from '../../storage/video-derivative-repository.ts';
 
@@ -28,6 +29,7 @@ export interface ProjectVisualSource {
 	readonly sampleRate?: number;
 	readonly contentSha256?: string;
 	readonly timingAsset?: unknown;
+	readonly characteristics?: Pick<VideoSourceCharacteristics, 'audioStreams'>;
 	/** Video sources also carry the timing decision, proxy attachment and frame rate the preview resolvers read. */
 	readonly timingDecision?: unknown;
 	readonly proxyAttachment?: unknown;
@@ -130,6 +132,8 @@ export type ProjectVideoSourceActivationRequest = Omit<ProjectVideoPreviewMediaR
 
 export interface VideoVisualRecord {
 	readonly visual: Readonly<VideoVisual>;
+	readonly picturePlaybackUrl?: string;
+	readonly sourceMonitorBlob?: Blob;
 	readonly objectUrls: readonly string[];
 	readonly linkedPlaybackLease: LinkedVideoPlaybackLease | null;
 }
@@ -156,6 +160,7 @@ export interface ClipVisualData {
 
 export interface VideoSourceVisualData {
 	readonly source: ProjectVisualSource;
+	readonly sourceMonitorBlob?: Blob;
 	readonly available: boolean;
 	readonly mediaUrl: string | null;
 	readonly posterUrl: string | null;
@@ -188,7 +193,7 @@ export interface ProjectVisualService {
 	synchronizeVideoSources(): Promise<boolean>;
 	getClipVisualData(clipId: string): Readonly<ClipVisualData> | null;
 	getProjectBinClipVisualData(clipId: string): Readonly<ClipVisualData> | null;
-	getVideoSourceVisualData(sourceId: string): Readonly<VideoSourceVisualData> | null;
+	getVideoSourceVisualData(sourceId: string, options?: Readonly<{ sourceMonitor?: boolean }>): Readonly<VideoSourceVisualData> | null;
 	activateVideoSource(
 		source: ProjectVisualSource,
 		options?: Readonly<{ signal?: AbortSignal }>,

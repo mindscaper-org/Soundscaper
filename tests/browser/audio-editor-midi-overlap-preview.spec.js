@@ -18,13 +18,17 @@ test('finishing an earlier MIDI note publication keeps the newer held drag previ
 	await panel.getByRole('button',{name:'Add note',exact:true}).click();
 	const note=panel.locator('.note-rect[data-note-id="1"]');await expect(note).toBeVisible();
 	let box=await note.boundingBox();expect(box).not.toBeNull();
-	let x=box.x+box.width/2,y=box.y+box.height/2;
+	let x,y;
 	try{
-		await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+25,y,{steps:3});await page.mouse.up();
+		// 26px stays inside the 25px snap bucket, away from its rounding edge.
+		await note.hover();
+		box=await note.boundingBox();expect(box).not.toBeNull();x=box.x+box.width/2;y=box.y+box.height/2;
+		await page.mouse.down();await page.mouse.move(x+26,y,{steps:1});await page.mouse.up();
 		await expect.poll(()=>page.evaluate(()=>globalThis.__midiGateEntered)).toBe(true);
 		await expect(note).toHaveCSS('left','25px');
-		box=await note.boundingBox();x=box.x+box.width/2;y=box.y+box.height/2;
-		await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+25,y,{steps:3});
+		await note.hover();
+		box=await note.boundingBox();expect(box).not.toBeNull();x=box.x+box.width/2;y=box.y+box.height/2;
+		await page.mouse.down();await page.mouse.move(x+26,y,{steps:1});
 		await expect(note).toHaveCSS('left','50px');
 		await page.evaluate(()=>globalThis.__releaseMidiGate());
 		await expect.poll(()=>page.evaluate(()=>globalThis.__midiGatePublished)).toBe(true);

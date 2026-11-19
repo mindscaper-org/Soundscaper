@@ -140,7 +140,7 @@ async renderMixRealtime(this: EngineRuntimeHost, {
 			// A new context can report suspended while its automatic start is queued.
 			await context.suspend();
 			await context.audioWorklet.addModule(new URL('../render-capture-worklet.js', import.meta.url));
-			await ensureProjectWorklets(context, this.project);
+			await ensureProjectWorklets(context, this.project, { trackId, includeMaster });
 			nativeRuntimes = await prepareNativePluginOfflineRuntimes(context, this.project, { trackId, includeMaster });
 			nativeRuntimes.onFailure((error: Error) => {
 				nativePluginFailure ||= error;

@@ -8,7 +8,7 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, closeClipPr
 import { createDeterministicAvFixture } from './fixtures/deterministic-av-media.js';
 
 test('resampling a camera audio track preserves its picture, link and one Undo', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createDeterministicAvFixture('track-camera.webm')]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Video preview']);
 	const audio = editor.getByRole('group', { name: /^track-camera Audio clip,/u });

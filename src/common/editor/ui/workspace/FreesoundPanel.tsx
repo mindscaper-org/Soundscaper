@@ -6,7 +6,7 @@ import { Button } from '@soundscaper/design-system/Button';
 import { EditorErrorToast } from '../EditorToast.tsx';
 
 import '../audio-editor-design-system/06a-panels-freesound.css';
-import { useEffect, useState } from 'react';
+import { useSearchQueryDraft } from './useSearchQueryDraft.ts';
 
 import { FreesoundResultRow } from './FreesoundResultRow.tsx';
 import type { FreesoundUser } from './freesound-auth-upload-client.ts';
@@ -16,6 +16,7 @@ import type {
 	FreesoundPublishDraft,
 	FreesoundUploadQueueSnapshot,
 } from './freesound-upload-queue.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export type FreesoundLicenseFilter = 'all' | 'commercial' | 'cc0';
 export type FreesoundSort = 'relevance' | 'newest' | 'rating' | 'downloads';
@@ -69,6 +70,7 @@ export interface FreesoundPanelAuthState {
 export interface FreesoundPanelProps {
 	readonly copy: Readonly<Record<string, string>>;
 	readonly state: FreesoundPanelState;
+	readonly importError?: string | null;
 	readonly disabled: boolean;
 	readonly projectBinVisible?: boolean;
 	readonly onSearch: (request: FreesoundSearchRequest) => void;
@@ -122,6 +124,7 @@ function sortLabel(copy: Readonly<Record<string, string>>, sort: FreesoundSort):
 export function FreesoundPanel({
 	copy,
 	state,
+	importError,
 	disabled,
 	projectBinVisible = true,
 	onSearch,
@@ -143,8 +146,7 @@ export function FreesoundPanel({
 	onCancelUpload,
 	onRemoveUpload,
 }: FreesoundPanelProps) {
-	const [query, setQuery] = useState(state.query);
-	useEffect(() => setQuery(state.query), [state.query]);
+	const [query, setQuery] = useSearchQueryDraft(state.query);
 	const loading = state.status === 'loading';
 	const search = (request: Partial<FreesoundSearchRequest> = {}) => onSearch({
 		query: request.query ?? query.trim(),
@@ -165,7 +167,7 @@ export function FreesoundPanel({
 				search({ query: query.trim(), page: 1 });
 			}}>
 				<label className="kw-audio-editor__freesound-query">
-					<span className="kw-audio-editor-sr-only">{copy.searchLabel}</span>
+					<EditorControlLabel className="kw-audio-editor-sr-only">{copy.searchLabel}</EditorControlLabel>
 					<input
 						type="search"
 						value={query}
@@ -179,7 +181,7 @@ export function FreesoundPanel({
 				</Button>
 				<div className="kw-audio-editor__freesound-filters">
 					<label>
-						<span>{copy.filterLicense}</span>
+						<EditorControlLabel>{copy.filterLicense}</EditorControlLabel>
 						<select
 							aria-label={copy.filterLicense}
 							value={state.license}
@@ -195,7 +197,7 @@ export function FreesoundPanel({
 						</select>
 					</label>
 					<label>
-						<span>{copy.sort}</span>
+						<EditorControlLabel>{copy.sort}</EditorControlLabel>
 						<select
 							aria-label={copy.sort}
 							value={state.sort}
@@ -216,10 +218,13 @@ export function FreesoundPanel({
 				{state.status === 'ready' && state.results.length > 0 ? <p>{resultSummary}</p> : null}
 				{auth?.errorMessage ? <p className="kw-audio-editor__freesound-auth-error">{auth.errorMessage}</p> : null}
 			</div>
-			{state.status === 'error' && <div className="kw-audio-editor__toasts kw-audio-editor__freesound-toasts">
-				<EditorErrorToast key={state.errorMessage || copy.searchError} id="freesound-search-error"
+			{(state.status === 'error' || importError) && <div className="kw-audio-editor__toasts kw-audio-editor__freesound-toasts">
+				{state.status === 'error' && <EditorErrorToast key={state.errorMessage || copy.searchError} id="freesound-search-error"
 					title={copy.searchError} description={state.searchFailure ? onlineMediaFailureText(state.searchFailure, copy) : state.errorMessage}
-					dismissLabel={copy.close} />
+					dismissLabel={copy.close} />}
+				{importError && <EditorErrorToast key={importError} id="freesound-import-error"
+					title={copy.importError} description={importError === copy.importError ? undefined : importError}
+					dismissLabel={copy.close} />}
 			</div>}
 
 			{state.status === 'idle' ? <p className="kw-audio-editor__panel-empty">{copy.searchPrompt}</p> : null}

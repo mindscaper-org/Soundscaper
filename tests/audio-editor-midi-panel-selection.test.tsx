@@ -45,14 +45,14 @@ test('Ctrl-click removes an already selected MIDI note from the next Delete', as
 		const grid = dom.one('.kw-audio-editor__piano-roll-notes').querySelector('[tabindex="0"]'); assert.ok(grid);
 		await act(async () => { reactProps(grid).onKeyDown?.({ key: 'a', ctrlKey: true, preventDefault() {}, stopPropagation() {} }); });
 		await act(async () => {
-			reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({});
+			reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({ button: 0 });
 			reactProps(dom.one('[data-note-id="1"]')).onMouseDown?.({ currentTarget: dom.one('[data-note-id="1"]'), button: 0, ctrlKey: true, clientX: 20, clientY: 20, preventDefault() {}, stopPropagation() {} });
 		});
 		await act(async () => { for (const listener of [...listeners.get('mouseup') ?? []]) listener({} as MouseEvent); });
 		await act(async () => { reactProps(grid).onKeyDown?.({ key: 'Delete', stopPropagation() {} }); });
 		assert.deepEqual(deleted, [['second']]);
 		await act(async () => {
-			reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({});
+			reactProps(dom.one('.kw-audio-editor__piano-roll-notes')).onMouseDownCapture?.({ button: 0 });
 			reactProps(dom.one('[data-note-id="1"]')).onMouseDown?.({ currentTarget: dom.one('[data-note-id="1"]'), button: 0, ctrlKey: true, clientX: 20, clientY: 20, preventDefault() {}, stopPropagation() {} });
 		});
 		await act(async () => { for (const listener of [...listeners.get('mouseup') ?? []]) listener({} as MouseEvent); });

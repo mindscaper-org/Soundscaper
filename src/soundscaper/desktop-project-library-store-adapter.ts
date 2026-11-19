@@ -12,6 +12,9 @@ import {
 	reportDesktopProjectLocalCleanupError,
 } from '../common/editor/storage/project-store-defaults.ts';
 import type { LinkedOriginalStoreService } from '../common/editor/storage/linked-original-store-service.ts';
+import type { LocalStoreClearOptions } from '../common/editor/storage/linked-original-clear-admission.ts';
+import { SUBPROJECT_LIBRARY_SETTING } from '../common/editor/subproject-library-setting.ts';
+import { SOUNDSCAPER_DESKTOP_DELETE_INTENT_SETTING_PREFIX } from './desktop-project-library-delete-intents.ts';
 import type { EditorProjectRuntimeProfile } from '../common/editor/project-runtime-profile.ts';
 import {
 	assertSoundscaperProjectProfile,
@@ -48,6 +51,7 @@ export interface SoundscaperDesktopProjectStoreLocal {
 	loadProject(projectId: string, options?: Readonly<{ revision?: number; signal?: AbortSignal }> | unknown):
 		PromiseLike<unknown> | unknown;
 	listProjects(): PromiseLike<readonly unknown[]> | readonly unknown[];
+	clear(options?: LocalStoreClearOptions): Promise<void>;
 	readonly linkedOriginalStoreService: Pick<LinkedOriginalStoreService, 'deleteProject' | 'duplicateProject'>;
 }
 
@@ -127,6 +131,18 @@ function proxyHandler<Store extends SoundscaperDesktopProjectStoreLocal>(
 	lifecycle: SoundscaperDesktopProjectStoreLocal['linkedOriginalStoreService'],
 ): ProxyHandler<Store> {
 	const pendingDeleteCleanup = new Set<string>();
+	async function deleteProjectSnapshot(projectValue: unknown): Promise<boolean> {
+		const project = soundscaperProjectClone(profile, projectValue);
+		try {
+			return await lifecycle.deleteProject(String(project.id), async () => {
+				if (!await renderer.deleteProjectIfCurrent(project)) throw SCAPE_CREATION_FENCE_LOST;
+				return true;
+			});
+		} catch (error) {
+			if (error === SCAPE_CREATION_FENCE_LOST) return false;
+			throw error;
+		}
+	}
 	const overrides = Object.freeze({
 		listProjects: () => renderer.listProjects(),
 		readProjectRecoveryCandidates: async (projectId: string) => {
@@ -228,18 +244,8 @@ function proxyHandler<Store extends SoundscaperDesktopProjectStoreLocal>(
 			}
 			return Object.freeze({ ...expected });
 		},
-		deleteProjectIfCurrent: async (projectValue: unknown) => {
-			const project = soundscaperProjectClone(profile, projectValue);
-			try {
-				return await lifecycle.deleteProject(String(project.id), async () => {
-					if (!await renderer.deleteProjectIfCurrent(project)) throw SCAPE_CREATION_FENCE_LOST;
-					return true;
-				});
-			} catch (error) {
-				if (error === SCAPE_CREATION_FENCE_LOST) return false;
-				throw error;
-			}
-		},
+		deleteProjectIfCurrent: deleteProjectSnapshot,
+		deleteProjectSnapshot,
 		deleteProject: async (projectId: string) => {
 			try {
 				await lifecycle.deleteProject(projectId, () => renderer.deleteProject(projectId));
@@ -295,6 +301,8 @@ function proxyHandler<Store extends SoundscaperDesktopProjectStoreLocal>(
 				timestamp,
 			});
 		},
+		clear: () => localStore.clear({ preserveProjectData: true, preserveSettings: [SUBPROJECT_LIBRARY_SETTING],
+			preserveSettingPrefixes: [SOUNDSCAPER_DESKTOP_DELETE_INTENT_SETTING_PREFIX] }),
 		preservesProjectsOnClear: () => true,
 	});
 	return {

@@ -32,7 +32,7 @@ test.describe('Soundscaper track automation delivery', () => {
 			channelCount: 1,
 			channelAmplitudes: [TONE_AMPLITUDE],
 		});
-		let editor = await bootEditor(page, '/embed/en/');
+		let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [tone]);
 		let row = clipByName(editor, tone.name).locator('xpath=ancestor::div[@data-track-row]');
 

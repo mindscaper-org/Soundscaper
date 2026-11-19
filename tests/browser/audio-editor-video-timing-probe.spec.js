@@ -1,10 +1,18 @@
 import { expect } from '@playwright/test';
+import { createHash } from 'node:crypto';
+import { writeFile } from 'node:fs/promises';
 import { test } from './audio-editor-test-fixtures.js';
 
 import { validateVideoTimingAssetBytes } from '../../src/common/editor/video-timing-asset.ts';
-import { videoTimingProbeMedia } from './fixtures/video-timing-probe-media.js';
+import {
+	endEditedMp4TimingProbeMedia, fragmentedMp4TimingProbeMedia, sourceMonitorFragmentedMedia, videoTimingProbeMedia,
+} from './fixtures/video-timing-probe-media.js';
+import { videoOnlyFragmentedAvcFixture } from './fixtures/video-only-fragmented-avc.js';
+import { classicProgrammeBoundaryFixture } from './fixtures/video-classic-programme-boundary.js';
+import { bootEditor, chooseFileAction, importFiles, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 import { openFramescaperSourcePropertiesFromBin } from './helpers/framescaper-source-properties.js';
+import { seekFramescaperTimecode } from './helpers/framescaper-standard-timecode.js';
 import {
 	FRAMESCAPER_DATABASE_NAME,
 	FRAMESCAPER_OPFS_DIRECTORY_NAME,
@@ -15,11 +23,12 @@ import {
 } from './helpers/durable-media-storage-capability.js';
 
 const DATABASE_NAME = FRAMESCAPER_DATABASE_NAME;
+const TIMING_MEDIA = [...videoTimingProbeMedia, fragmentedMp4TimingProbeMedia, endEditedMp4TimingProbeMedia];
 
 test.describe('WP-0.3 browser timing-probe qualification', () => {
-	test('extracts and persists exact CFR and irregular VFR timing with the production container probe', async ({
+	test('imports and persists exact CFR, WebM, fragmented MP4 and trimmed MP4 timings', async ({
 		page,
-	}) => {
+	}, testInfo) => {
 		test.setTimeout(60_000);
 
 		await page.goto(resolveBrowserProductTestUrl('/framescaper/en/'));
@@ -34,14 +43,19 @@ test.describe('WP-0.3 browser timing-probe qualification', () => {
 			DURABLE_MEDIA_STORAGE_REQUIRED,
 		);
 
-		await editor.locator('[data-project-bin-input]').setInputFiles(videoTimingProbeMedia.map(({ file }) => file));
+		const localFiles = await Promise.all(TIMING_MEDIA.map(async ({ file }) => {
+			const path = testInfo.outputPath(file.name);
+			await writeFile(path, file.buffer);
+			return path;
+		}));
+		await editor.locator('[data-project-bin-input]').setInputFiles(localFiles);
 		await expect.poll(async () => (await persistedTimingEvidence(page)).length, {
 			timeout: 30_000,
-		}).toBe(videoTimingProbeMedia.length);
+		}).toBe(TIMING_MEDIA.length);
 		await expect(editor.locator('[data-status]')).toHaveAttribute('data-state', 'success');
 
 		const evidence = await persistedTimingEvidence(page);
-		for (const fixture of videoTimingProbeMedia) {
+		for (const fixture of TIMING_MEDIA) {
 			const actual = evidence.find(({ source }) => source.name === fixture.file.name);
 			expect(actual, `${fixture.id} must publish a persisted source and timing body`).toBeTruthy();
 			const { source, timingBytes } = actual;
@@ -68,10 +82,11 @@ test.describe('WP-0.3 browser timing-probe qualification', () => {
 			expect(source.characteristics.codedWidth).toBe(fixture.coded.width);
 			expect(source.characteristics.codedHeight).toBe(fixture.coded.height);
 			expect(source.characteristics.fieldOrder).toBeNull();
-			expect(source.characteristics.hasAlpha).toBe(fixture.kind === 'vfr');
-			expect(source.characteristics.videoCodec).toBe(fixture.kind === 'cfr' ? 'h264' : 'vp8');
+			const isWebm = fixture.file.mimeType === 'video/webm';
+			expect(source.characteristics.hasAlpha).toBe(isWebm);
+			expect(source.characteristics.videoCodec).toBe(isWebm ? 'vp8' : 'h264');
 			expect(source.videoCodec).toBe(source.characteristics.videoCodec);
-			// Both containers report no audio tracks; this is known, not unreported.
+			// These files report no audio tracks.
 			expect(source.characteristics.audioStreams).toEqual([]);
 			expect(source.characteristics.extractedAudioStreamIndex).toBeNull();
 			expect(source.characteristics.startTimecode).toBeNull();
@@ -110,6 +125,65 @@ test.describe('WP-0.3 browser timing-probe qualification', () => {
 			.toHaveAttribute('data-reported', 'true');
 	});
 });
+
+test('Programme seeks render the authored pictures beyond the first hybrid MP4 run', async ({ page }) => {
+	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	const [classic, , hybrid] = sourceMonitorFragmentedMedia();
+	const preview = editor.locator('[data-video-preview]');
+	const picture = preview.locator('[data-video-preview-canvas]');
+	const snapshots = [];
+	for (const file of [classic, hybrid]) {
+		await importFiles(editor, [file]);
+		await expect(preview).toHaveAttribute('data-video-preview-renderer', 'ready');
+		for (const ordinal of [3, 12, 20, 25]) {
+			await seekFramescaperTimecode(page, editor, `00:00:00:${String(ordinal).padStart(2, '0')}`);
+			await expect(preview).toHaveAttribute('data-video-preview-evaluated-timeline-sample', String(ordinal * 1600));
+			const digest = async () => createHash('sha256').update(await picture.screenshot()).digest('hex');
+			if (file === classic) snapshots.push(await digest());
+			else await expect.poll(digest).toBe(snapshots.shift());
+		}
+		if (file === classic) {
+			expect(new Set(snapshots).size).toBe(4);
+			const projectId = await editor.getAttribute('data-project-id');
+			await chooseFileAction(page, editor, 'New');
+			await expect(editor).not.toHaveAttribute('data-project-id', projectId);
+			await waitForProjectActivation(editor);
+		}
+	}
+});
+
+test('Programme seeks show authored pictures in a video-only MP4 with reordered fragments', async ({ page }) => {
+	await expectProgrammeLabels(page, videoOnlyFragmentedAvcFixture(), [[3, 3], [12, 12], [20, 20], [26, 25], [12, 12]]);
+});
+
+test('Programme presents the new picture at its exact classic VFR boundary', async ({ page }) => {
+	await expectProgrammeLabels(page, classicProgrammeBoundaryFixture(), [[24, 24], [25, 25], [24, 24], [25, 25]]);
+});
+
+async function expectProgrammeLabels(page, fixture, labels) {
+	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	await importFiles(editor, [fixture]);
+	const preview = editor.locator('[data-video-preview]');
+	await expect(preview).toHaveAttribute('data-video-preview-renderer', 'ready');
+	const picture = preview.locator('[data-video-preview-canvas]');
+	for (const [ordinal, label] of labels) {
+		await seekFramescaperTimecode(page, editor, `00:00:00:${String(ordinal).padStart(2, '0')}`);
+		await expect(preview).toHaveAttribute('data-video-preview-evaluated-timeline-sample', String(ordinal * 1600));
+		await expect.poll(async () => page.evaluate(async png => {
+			const bitmap = await createImageBitmap(new Blob([Uint8Array.from(atob(png), c => c.charCodeAt(0))], { type: 'image/png' }));
+			try {
+				const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+				const context = canvas.getContext('2d');
+				context.drawImage(bitmap, 0, 0);
+				const width = canvas.height * 4 / 3;
+				const cells = [.25, .75].flatMap(y => [.125, .375, .625, .875].map(x =>
+					context.getImageData(Math.floor(canvas.width / 2 + (x - .5) * width), Math.floor(canvas.height * y), 1, 1).data[0]));
+				return cells[0] < 35 && cells[1] > 215
+					? cells.slice(2, 7).reduce((value, pixel, bit) => value | (pixel > 128 ? 1 << bit : 0), 0) : null;
+			} finally { bitmap.close(); }
+		}, (await picture.screenshot()).toString('base64'))).toBe(label);
+	}
+}
 
 async function persistedTimingEvidence(page) {
 	return page.evaluate(async ({ databaseName, opfsDirectoryName, sourceNames }) => {
@@ -163,6 +237,6 @@ async function persistedTimingEvidence(page) {
 	}, {
 		databaseName: DATABASE_NAME,
 		opfsDirectoryName: FRAMESCAPER_OPFS_DIRECTORY_NAME,
-		sourceNames: videoTimingProbeMedia.map(({ file }) => file.name),
+		sourceNames: TIMING_MEDIA.map(({ file }) => file.name),
 	});
 }

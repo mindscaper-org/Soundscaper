@@ -83,8 +83,9 @@ export function useWorkspaceSearchRuntime({
 		if (entry.kind === 'project-bin') {
 			const binItemId = entry.target?.binItemId;
 			if (!binItemId) return;
+			const projectIdentity = editorProjectEditSessionKey(controller, project?.id);
 			openWorkspacePanel('project-bin');
-			setProjectBinSearchReveal({ binItemId, revision });
+			setProjectBinSearchReveal({ binItemId, revision, projectIdentity });
 		}
 	}, [controller, openWorkspacePanel, project?.id, run, setProjectBinSearchReveal, setTimelineSearchReveal, snapshot.readOnly]);
 

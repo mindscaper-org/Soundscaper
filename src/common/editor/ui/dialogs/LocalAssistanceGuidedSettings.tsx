@@ -14,7 +14,9 @@ import type {
 } from '../../assistance/workflow-settings-v1.ts';
 import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
 import type { LocalAssistanceModel } from '../../assistance/local-assistance-bridge.ts';
+import { SPEECH_ENHANCEMENT_MODELS, type SpeechEnhancementModelId } from '../../assistance/speech-enhancement-models.ts';
 import { assistanceTaskRecognizerChoices } from '../local-assistance-task-controls.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 type Copy = Readonly<Record<string, string | undefined>>;
 type EditorialField = 'title' | 'hook' | 'chapters' | 'explanation';
@@ -70,8 +72,19 @@ export default function LocalAssistanceGuidedSettings({
 					LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceCleanupPresetAggressive)}</option>
 			</SelectSetting>
 		</SettingsGroup>;
+		case 'enhance-dialogue': return <SettingsGroup copy={copy}>
+			<SelectSetting label={copy.assistanceModelName || 'Model'} value={settings.modelId ?? 'deepfilternet3'}
+				disabled={disabled} onChange={(modelId) => commit({ ...settings, modelId: modelId as SpeechEnhancementModelId })}>
+				{SPEECH_ENHANCEMENT_MODELS.map((model) => <option key={model.modelId} value={model.modelId}>
+					{text(copy, `localAssistanceEnhancer.${model.modelId}`, model.label)}
+				</option>)}
+			</SelectSetting>
+			{settings.modelId === 'voxlock' && <p>{text(copy, 'localAssistanceVoxLockReference',
+				LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceVoxLockReference)}</p>}
+			{settings.modelId === 'voicefixer' && <p>{text(copy, 'localAssistanceVoiceFixerScope',
+				LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceVoiceFixerScope)}</p>}
+		</SettingsGroup>;
 		case 'identify-speakers':
-		case 'enhance-dialogue':
 		case 'reduce-reverb':
 		case 'separate-dialogue-music-effects': return null;
 		case 'mark-reactions': return <SettingsGroup copy={copy}>
@@ -177,7 +190,7 @@ function NumberSetting({ label, value, min, max, step, disabled, onChange }: Rea
 	label: string; value: number; min: number; max: number; step: number; disabled: boolean;
 	onChange: (value: number) => unknown;
 }>) {
-	return <label>{label}<PreferenceNumberInput label={label} value={value} minimum={min} maximum={max}
+	return <label><EditorControlLabel>{label}</EditorControlLabel><PreferenceNumberInput label={label} value={value} minimum={min} maximum={max}
 		step={step} integer={Number.isInteger(step)} disabled={disabled} onCommit={onChange} /></label>;
 }
 
@@ -185,7 +198,7 @@ function TimeSetting({ label, value, min, max, disabled, onChange }: Readonly<{
 	label: string; value: number; min: number; max: number; disabled: boolean;
 	onChange: (value: number) => unknown;
 }>) {
-	return <label>{label}<AudioEditorTimeCodeInput label={label} value={value}
+	return <label><EditorControlLabel>{label}</EditorControlLabel><AudioEditorTimeCodeInput label={label} value={value}
 		minimum={min} maximum={max} disabled={disabled}
 		onChange={(next) => { void onChange(next); }} /></label>;
 }
@@ -198,10 +211,10 @@ function ModeSettings({ copy, name, legend, value, disabled, onChange }: Readonl
 		<legend>{legend}</legend>
 		<label><input type="radio" name={name} value="fast" checked={value === 'fast'}
 			onChange={() => { void onChange('fast'); }} />
-			{text(copy, 'localAssistanceShotDetectionFast', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceShotDetectionFast)}</label>
+			<EditorControlLabel>{text(copy, 'localAssistanceShotDetectionFast', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceShotDetectionFast)}</EditorControlLabel></label>
 		<label><input type="radio" name={name} value="accurate" checked={value === 'accurate'}
 			onChange={() => { void onChange('accurate'); }} />
-			{text(copy, 'localAssistanceShotDetectionAccurate', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceShotDetectionAccurate)}</label>
+			<EditorControlLabel>{text(copy, 'localAssistanceShotDetectionAccurate', LOCAL_ASSISTANCE_ADDITIONAL_COPY.localAssistanceShotDetectionAccurate)}</EditorControlLabel></label>
 	</fieldset>;
 }
 

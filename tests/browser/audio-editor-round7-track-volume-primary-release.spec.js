@@ -5,7 +5,7 @@ import { bootEditor, clipByName, collectClientErrors, importFiles } from './audi
 
 test('track Volume publishes its completed primary edit while middle remains held', async ({ page }) => {
 	const errors = collectClientErrors(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = clipByName(editor, toneA.name);
 	const row = clip.locator('xpath=ancestor::div[@data-track-row]');

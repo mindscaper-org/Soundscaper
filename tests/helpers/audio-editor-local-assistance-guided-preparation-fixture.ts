@@ -37,6 +37,7 @@ export function preparationFixture(
 	stale = false,
 	transcript?: Readonly<{ storageKey: string; bytes: Uint8Array }>,
 	selectedClipId: string | null = 'voice-clip',
+	audioBody?: Blob,
 ) {
 	const operations: string[] = [];
 	const preflights: number[] = [];
@@ -117,7 +118,7 @@ export function preparationFixture(
 				], { sampleRate, bitDepth: 32, float: true, dither: false });
 				return { sourceId: 'voice-source', operation, selectionFence: preparedFence,
 					inputs: [{ role: 'audio', mediaType: 'audio/wav',
-						bytes: new Blob([wav.slice().buffer], { type: 'audio/wav' }) }],
+							bytes: audioBody ?? new Blob([wav.slice().buffer], { type: 'audio/wav' }) }],
 					outputs: operation === 'source-separation'
 						? ['dialogue', 'music', 'effects'].map((slotId) => ({ slotId,
 							role: 'separated-audio', mediaType: 'audio/wav',

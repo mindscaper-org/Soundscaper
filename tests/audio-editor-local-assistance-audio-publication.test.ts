@@ -30,8 +30,9 @@ type DataRecord = Readonly<Record<string, unknown>>;
 
 test('enhancement authenticates the reviewed Blob before an explicit Project Bin publication', async () => {
 	const fixture = harness();
+	const reviewed = await request('speech-enhancement');
 	await fixture.acceptance.acceptValidatedResult(
-		await request('speech-enhancement'), { placement: 'project-bin' },
+		reviewed, { placement: 'project-bin' },
 	);
 
 	assert.equal(fixture.commits.length, 1);
@@ -42,8 +43,18 @@ test('enhancement authenticates the reviewed Blob before an explicit Project Bin
 	assert.deepEqual(batch.commands.map(({ type }) => type), ['source/add', 'project-bin/add']);
 	const source = batch.commands[0]!.source as DataRecord;
 	assert.equal(source.name, 'Enhanced Dialogue');
-	assert.equal(source.contentSha256,
-		(await request('speech-enhancement')).outputs[0]!.claim.sha256);
+	const stored = fixture.store.sources.get(String(source.id));
+	assert.ok(stored);
+	const pcmPacket = new Uint8Array(36);
+	const packetView = new DataView(pcmPacket.buffer);
+	packetView.setUint32(0, 4, true);
+	for (const [index, sample] of stored.flatMap(plane => Array.from(plane)).entries()) {
+		packetView.setFloat32(4 + index * 4, sample, true);
+	}
+	assert.equal(source.contentSha256, bytesToHex(sha256(pcmPacket)));
+	assert.equal(source.byteLength, pcmPacket.byteLength);
+	const extensions = source.opaqueExtensions as Readonly<Record<string, DataRecord>>;
+	assert.deepEqual(extensions['org.soundscaper.local-assistance-audio-v1']?.outputClaim, reviewed.outputs[0]!.claim);
 	assert.equal(source.sampleRate, 48_000);
 	assert.equal(source.channelCount, 2);
 	assert.equal(source.frameCount, 4);

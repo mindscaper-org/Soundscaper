@@ -7,7 +7,7 @@ import {
 
 for (const raw of [true, false]) {
 	test(`the open ${raw ? 'project rename' : 'track resample'} dialog follows a real editing lease change`, async ({ page, context }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [monoTone]);
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
 		const title = raw ? 'Rename project' : 'Resample';

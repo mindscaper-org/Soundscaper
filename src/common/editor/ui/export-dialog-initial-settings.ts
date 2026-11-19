@@ -11,7 +11,7 @@ export function exportDialogProjectIdentity(projectValue: unknown): string | nul
 	return typeof id === 'string' ? id : null;
 }
 
-export function createExportDialogInitialSettings(projectValue: unknown) {
+export function createExportDialogInitialSettings(projectValue: unknown, range: 'project' | 'selection' = 'project') {
 	const project = dataRecord(projectValue);
 	const projectMetadata = dataRecord(project.metadata);
 	const tags = projectAudioMetadata(projectMetadata);
@@ -22,7 +22,7 @@ export function createExportDialogInitialSettings(projectValue: unknown) {
 	return {
 		mode: 'mix',
 		chapterSource: 'labels',
-		range: 'project',
+		range,
 		format: 'wav',
 		sampleFormat: 'int24',
 		bitRate: '192',
@@ -35,7 +35,7 @@ export function createExportDialogInitialSettings(projectValue: unknown) {
 		sampleRate: String(project.sampleRate || 48_000),
 		channelMapping: 'preserve',
 		channelMatrix: '',
-		dither: 'triangular',
+		dither: 'none',
 		loudnessNormalization: '',
 		quality: '5',
 		metadataTitle: String(inheritedTitle ? '' : metadata.title ?? project.title ?? ''),
@@ -54,9 +54,10 @@ export function createExportDialogInitialSettings(projectValue: unknown) {
 		customExtension: '',
 		customMimeType: 'application/octet-stream',
 		customArguments: '',
-		includeTail: true,
+		includeTail: false,
+		renderAsLoop: false,
 		embedLabelChapters: false,
-		binaural: false,
+		binaural: false, earLayout: '',
 		masteringSequenceId: '',
 		canvasWidth: '',
 		canvasHeight: '',

@@ -38,7 +38,7 @@
 		{ "path": "response.js", "sha256": "347016bd704f99c38ebf7fe4aaeff60823b6a3156bb7cc152783453fbf3fed1d" },
 		{ "path": "wasm-loader.js", "sha256": "584658887c2cee51e696e67b262c4e2686ec90ed871e583cc1f193551594db6d" },
 		{ "path": "wasm-runtime.js", "sha256": "0bc9a8ccc7607e3552ccb3cb563f637c0b3efc80d005fd0d641e5c7b95d65672" },
-		{ "path": "worklet.js", "sha256": "bd6811feb350316e8addf14740a1bba3ff515f568f8166c6c7d2072f969b0617" }
+		{ "path": "worklet.js", "sha256": "46a6861ccb73bcbdfe2728564d0de0fc6dd8e019fdbe54b26f053402b2904bbf" }
 	],
 	"compiledSources": [
 		"parametric_eq_wasm.cpp"

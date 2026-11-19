@@ -9,6 +9,7 @@ import {
 	canonicalMediaContentBlob,
 	digestMediaContent,
 } from '../src/common/media/content-digest.ts';
+import { deferred } from './helpers/async-test-control.ts';
 
 class ObservedBlob extends Blob {
 	readonly slices: Array<Readonly<{ start: number; end: number }>> = [];
@@ -128,6 +129,24 @@ test('media content SHA-256 checks cancellation after every awaited slice read',
 		(error: unknown) => error === reason,
 	);
 	assert.deepEqual(blob.slices, [{ start: 0, end: 2 }]);
+});
+
+test('media content SHA-256 can cancel before its pending slice read finishes', async () => {
+	const controller = new AbortController();
+	const reason = new Error('Stop waiting for the pending media read');
+	const started = deferred<void>();
+	const pending = deferred<ArrayBuffer>();
+	const digest = digestMediaContent({
+		size: 1,
+		slice: () => ({ arrayBuffer: () => { started.resolve(); return pending.promise; } }),
+	}, { signal: controller.signal });
+	const observed = digest.catch((error: unknown) => error);
+	await started.promise;
+	controller.abort(reason);
+	const stillPending = Symbol('the read has not settled');
+	const outcome = await Promise.race([observed, new Promise(resolve => setImmediate(resolve, stillPending))]);
+	pending.resolve(new ArrayBuffer(1));
+	assert.equal(outcome, reason);
 });
 
 test('media content SHA-256 rejects unsafe Blob sizes and malformed chunk limits', async () => {

@@ -8,7 +8,7 @@ import {
 	releaseVideoTexture,
 	uploadVideoTexture,
 } from '../src/common/editor/ui/video-preview-video-textures.js';
-import { createVideoPreviewFrameIdentity } from '../src/common/editor/controller/clip-video/video-preview-frame-identity.ts';
+import { createVideoPreviewFrameIdentity, registerVideoPreviewDrawableRevision } from '../src/common/editor/controller/clip-video/video-preview-frame-identity.ts';
 
 type FrameCallback = (now: number, metadata: { mediaTime: number; presentedFrames: number }) => void;
 
@@ -139,6 +139,53 @@ test('opaque exact-render drawable wrappers always upload their freshly presente
 	uploadVideoTexture(gl, textures, exact, 1);
 	uploadVideoTexture(gl, textures, exact, 2);
 	assert.equal(counters.images + counters.subImages, 2);
+});
+
+test('rotated video uploads reuse one presentation canvas and release it after the last use', () => {
+	const { video, gl, textures } = fixture();
+	const uploads: unknown[] = [];
+	const draws: unknown[] = [];
+	let canvases = 0;
+	const canvas = { width: 0, height: 0 };
+	const context = { canvas, globalCompositeOperation: '', drawImage: (source: unknown) => { draws.push(source); } };
+	const ownerDocument = { createElement: () => { canvases += 1; return { getContext: () => context }; } };
+	const other = Object.assign(new Video(), { ownerDocument });
+	Object.assign(video, { ownerDocument });
+	gl.texImage2D = (...args: unknown[]) => { uploads.push(args.at(-1)); };
+	gl.texSubImage2D = (...args: unknown[]) => { uploads.push(args.at(-1)); };
+
+	uploadVideoTexture(gl, textures, video, 1);
+	uploadVideoTexture(gl, textures, video, 1, false, true);
+	uploadVideoTexture(gl, textures, video, 1, false, true);
+	video.present(.04, 1);
+	uploadVideoTexture(gl, textures, video, 2, false, true);
+	uploadVideoTexture(gl, textures, other, 2, false, true);
+	assert.deepEqual(uploads, [video, canvas, canvas, canvas]);
+	assert.deepEqual(draws, [video, video, other]);
+	assert.equal(canvases, 1);
+	assert.equal(context.globalCompositeOperation, 'copy');
+	assert.equal(canvas.width, video.videoWidth);
+	releaseVideoTexture(gl, textures, video);
+	assert.equal(canvas.width, other.videoWidth);
+	releaseVideoTexture(gl, textures, other);
+	assert.equal(canvas.width, 0);
+});
+
+test('an owned image drawable uploads only when its presented pixels change', () => {
+	const { gl, textures, counters } = fixture();
+	const image = Object.freeze({ videoWidth: 640, videoHeight: 360, drawable: {} });
+	let revision = 1;
+	registerVideoPreviewDrawableRevision(image, () => revision);
+	uploadVideoTexture(gl, textures, image, 1);
+	uploadVideoTexture(gl, textures, image, 2);
+	assert.equal(counters.images + counters.subImages, 1);
+	revision += 1;
+	uploadVideoTexture(gl, textures, image, 3);
+	uploadVideoTexture(gl, textures, image, 4);
+	assert.equal(counters.images + counters.subImages, 2);
+	pruneVideoTextures(gl, textures, 5);
+	uploadVideoTexture(gl, textures, image, 6);
+	assert.equal(counters.images + counters.subImages, 3, 'a new texture must receive pixels after eviction');
 });
 
 test('reused textures remain live in the current render generation and cleanup cancels callbacks', () => {

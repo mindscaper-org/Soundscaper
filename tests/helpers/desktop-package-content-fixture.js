@@ -102,6 +102,7 @@ export async function packageTree(context, { professionalBuilt = false } = {}) {
 				...descriptor('runtime/native/soundscaper-professional-host/linux-x64/soundscaper_delivery_fs'),
 			},
 			isolation: {
+				pluginResources: [],
 				launcher: {
 					path: 'native/soundscaper-professional-host/prebuilt/linux-x64/m5-native-isolation-launcher',
 					...descriptor('runtime/native/soundscaper-professional-host/linux-x64/m5-native-isolation-launcher'),

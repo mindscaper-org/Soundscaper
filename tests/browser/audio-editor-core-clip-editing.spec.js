@@ -14,7 +14,7 @@ test.describe('core clip editing', () => {
 
 	test('cuts a selected clip and keeps it pasteable through undo and redo', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const original = clipByName(editor, toneA.name);
 		const originalId = await original.getAttribute('data-clip-id');

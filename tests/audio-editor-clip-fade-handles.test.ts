@@ -57,6 +57,18 @@ test('shape dots stay on each fade curve and remain separate when fade lengths o
 	}
 });
 
+test('dragging a quiet overlapping fade dot down never raises its gain', () => {
+	const clip = {
+		timelineStartFrame: 0, durationFrames: 100, fadeInFrames: 100, fadeOutFrames: 100,
+		fadeInShape: 6, fadeOutShape: 6,
+	};
+	const geometry = fadeOverlayGeometry(clip, 0, 100, 66, 100);
+	const incoming = placeFadeShapeHandles(geometry, 66, clip).find(({ edge }) => edge === 'in')!;
+	assert.ok(incoming.gain < 0.05);
+	assert.equal(fadeShapeAtPointer(6, 0, 1, 100, incoming.baseGain, incoming.gain), 6);
+	assert.ok(fadeShapeAtPointer(6, 0, -1, 100, incoming.baseGain, incoming.gain) < 6);
+});
+
 test('shape dots align with the rounded rendered clip width', () => {
 	const clip = { timelineStartFrame: 0, durationFrames: 100, fadeInFrames: 100, fadeOutFrames: 0, fadeInShape: 1 };
 	const geometry = fadeOverlayGeometry(clip, 0, 100, 20, 100);

@@ -22,6 +22,8 @@ for (const currentProjectSchemaFamily of ['soundscaper', 'framescaper'] as const
 		});
 		const file = new File([archive], 'future.sscape');
 		const saved: Blob[] = [];
+		const released: string[] = [];
+		const originalFile = { id: 'e'.repeat(48), name: 'exported-copy.sscape' };
 		const fixture = createFixture({ importScapeProject: async () => ({
 			project: { ...fixtureProject(), schemaVersion }, readOnly: true, manifest: {},
 		}) });
@@ -32,9 +34,9 @@ for (const currentProjectSchemaFamily of ['soundscaper', 'framescaper'] as const
 			projectFileExtension: currentProjectSchemaFamily === 'soundscaper' ? '.sscape' : '.fscape',
 			taskProgress: createEditorTaskProgressCoordinator(),
 			copy: { ...fixture.runtime.copy, projectSaving: 'Saving' },
-			fileService: { ...fixture.runtime.fileService, saveFile: async (request) => {
+			fileService: { ...fixture.runtime.fileService, releaseOriginalFile: (id: string) => { released.push(id); }, saveFile: async (request) => {
 				saved.push(request.blob);
-				return { size: request.blob.size };
+				return { size: request.blob.size, originalFile };
 			} },
 		});
 		context.after(async () => { await service.dispose(); });
@@ -43,5 +45,6 @@ for (const currentProjectSchemaFamily of ['soundscaper', 'framescaper'] as const
 		await service.saveScape({ saveCopy: true });
 		assert.equal(saved.length, 1);
 		assert.deepEqual(await saved[0]!.arrayBuffer(), await archive.arrayBuffer());
+		assert.deepEqual(released, [originalFile.id], 'a Save Copy target does not need overwrite permission after publication');
 	});
 }

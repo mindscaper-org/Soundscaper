@@ -3,7 +3,11 @@ import { productVideoVisualPreviewRuntimeFor } from './product-video-visual-prev
 import ProductGeneratedSourceCanvas from './ProductGeneratedSourceCanvas.tsx';
 import { sourceMonitorIdentityIsCurrent } from './source-monitor-identity.ts';
 
+import { cancelVideoPreviewMediaSeek, seekVideoPreviewMedia } from '../../controller/clip-video/video-preview-media-seek.ts';
+import { resolveVideoDisplayGeometry } from '../../video-display-geometry.ts';
 import '../audio-editor-design-system/23-source-monitor.css';
+import EditorControlLabel from '../EditorControlLabel.tsx';
+import { useSourceMonitorMedia } from './use-source-monitor-media.ts';
 
 /**
  * The source monitor: one video source shown on its own frame grid.
@@ -16,11 +20,13 @@ import '../audio-editor-design-system/23-source-monitor.css';
 export default function SourceMonitorPanel({ controller, snapshot, copy, run, blocked, panelActive = true }) {
 	const videoRef = useRef(null);
 	const playingRef = useRef(false);
-	const [playback, setPlayback] = useState(null);
+	const endedNaturally = useRef(false);
+	const playRequest = useRef(0);
+	const [playing, setPlaying] = useState(false);
+	const [decodedSize, setDecodedSize] = useState(null);
 	const view = controller.actions.video.sourceMonitor.view();
-	const playing = playback?.sourceId === view.sourceId && playback?.project === snapshot.project && playback?.openRevision === view.openRevision;
-	const visual = view.sourceId ? controller.actions.video.getSourceVisualData(view.sourceId) : null;
-	const mediaUrl = visual?.available === false ? null : visual?.mediaUrl || null;
+	const visual = view.sourceId ? controller.actions.video.getSourceVisualData(view.sourceId, { sourceMonitor: true }) : null;
+	const { mediaUrl, pending } = useSourceMonitorMedia(visual);
 	const generatedRuntime = productVideoVisualPreviewRuntimeFor(controller)?.generatedSources;
 	const generated = view.sourceId && generatedRuntime?.ownsSource(snapshot.project, view.sourceId) ? generatedRuntime : null;
 	const disabled = blocked || snapshot.readOnly;
@@ -31,36 +37,60 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 		if (generatedIsCurrent()) controller.actions.video.sourceMonitor.seek(frame);
 	}, [controller, generatedIsCurrent]);
 
+	const setVideoRef = useCallback((media) => {
+		if (videoRef.current !== media) cancelVideoPreviewMediaSeek(videoRef.current);
+		videoRef.current = media;
+	}, []);
+	const readDecodedSize = (event) => {
+		const { videoWidth: width, videoHeight: height } = event.currentTarget;
+		if (!width || !height) return;
+		setDecodedSize(previous => previous?.mediaUrl === mediaUrl && previous.width === width && previous.height === height
+			? previous : { mediaUrl, width, height });
+	};
+	const geometry = decodedSize && decodedSize.mediaUrl === mediaUrl
+		? resolveVideoDisplayGeometry(visual?.source?.characteristics, decodedSize)
+		: null;
+	const pictureStyle = geometry?.reconciliation === 'residual' && geometry.residualRotationDegrees === 0
+		? {
+			aspectRatio: `${geometry.displayWidth} / ${geometry.displayHeight}`,
+			height: 'auto',
+			objectFit: 'fill',
+			width: `min(100%, calc(100% * ${geometry.displayWidth / geometry.displayHeight} / var(--source-monitor-viewport-aspect)))`,
+		}
+		: undefined;
+
 	// Playing a source is a viewing action; stopping it is what makes the
 	// controller's frame authoritative again.
 	const stop = useCallback(() => {
 		// pause() can dispatch a final timeupdate before React commits the state.
+		playRequest.current += 1;
+		if (playingRef.current) cancelVideoPreviewMediaSeek(videoRef.current);
 		playingRef.current = false;
 		videoRef.current?.pause?.();
-		setPlayback(null);
+		setPlaying(false);
 	}, []);
 	const stopGenerated = useCallback(() => { if (generatedIsCurrent()) stop(); }, [generatedIsCurrent, stop]);
 	const generatedPlayingChanged = useCallback(value => { if (!value) stopGenerated(); }, [stopGenerated]);
-	useEffect(() => { stop(); }, [stop, view.sourceId, view.openRevision, snapshot.project, mediaUrl]);
+	useEffect(() => {
+		endedNaturally.current = false;
+		stop();
+	}, [stop, view.sourceId, view.openRevision, snapshot.project, mediaUrl]);
 	useEffect(() => {
 		if (panelActive) return;
 		if (playingRef.current && videoRef.current) controller.actions.video.sourceMonitor.seekMediaTime(Number(videoRef.current.currentTime) || 0);
 		stop();
 	}, [controller, panelActive, stop]);
+	const seekPausedPicture = useCallback((media) => {
+		if (!media || playingRef.current || !Number.isFinite(view.mediaSeconds)) return;
+		// Preserve the native ended state so Play can restart the source.
+		if (endedNaturally.current && media.ended && view.positionFrame === view.sourceFrameCount - 1) return;
+		endedNaturally.current = false;
+		try { seekVideoPreviewMedia(media, view.mediaSeconds, 0); }
+		catch { /* The metadata callback retries when the element is ready. */ }
+	}, [view.mediaSeconds, view.positionFrame, view.sourceFrameCount]);
 	useEffect(() => {
-		const media = videoRef.current;
-		if (!media || playing || !Number.isFinite(view.mediaSeconds)) return;
-		// Seeking the last frame's midpoint would turn natural end into a paused
-		// final-frame seek, so native Play could no longer restart the source.
-		if (media.ended && view.positionFrame === view.sourceFrameCount - 1) return;
-		if (Math.abs((Number(media.currentTime) || 0) - view.mediaSeconds) > 1e-3) {
-			try {
-				media.currentTime = view.mediaSeconds;
-			} catch {
-				// Metadata can still be loading; the readiness callback retries.
-			}
-		}
-	}, [playing, view.mediaSeconds, view.positionFrame, view.sourceFrameCount, view.sourceId]);
+		seekPausedPicture(videoRef.current);
+	}, [mediaUrl, playing, seekPausedPicture, view.openRevision]);
 
 	if (!view.sourceId) {
 		return <div className="kw-audio-editor__source-monitor" data-source-monitor="empty">
@@ -70,11 +100,11 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 
 	const publish = (frame) => run(() => controller.actions.video.sourceMonitor.seek(frame));
 	const capturePlayback = () => {
-		if (playing && playingRef.current && videoRef.current) {
+		if (playingRef.current && videoRef.current) {
 			controller.actions.video.sourceMonitor.seekMediaTime(Number(videoRef.current.currentTime) || 0);
 		}
 	};
-	const mark = (operation) => run(() => {
+	const withCurrentFrame = (operation) => run(() => {
 		capturePlayback();
 		return operation();
 	});
@@ -87,19 +117,22 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 	};
 	const togglePlay = () => {
 		if (generated) {
-			if (playing) stop(); else setPlayback({ sourceId: view.sourceId, project: snapshot.project, openRevision: view.openRevision });
+			if (playing) stop();
+			else setPlaying(true);
 			return;
 		}
 		const media = videoRef.current;
 		if (!media || !panelActive) return;
-		if (playing) {
+		if (playingRef.current) {
 			stop();
 			run(() => controller.actions.video.sourceMonitor.seekMediaTime(Number(media.currentTime) || 0));
 			return;
 		}
+		endedNaturally.current = false;
 		playingRef.current = true;
-		setPlayback({ sourceId: view.sourceId, project: snapshot.project, openRevision: view.openRevision });
-		void media.play?.().catch(() => stop());
+		setPlaying(true);
+		const request = ++playRequest.current;
+		void media.play?.().catch(() => { if (playRequest.current === request) stop(); });
 	};
 
 	return <div
@@ -113,18 +146,24 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 			{generated ? <ProductGeneratedSourceCanvas runtime={generated} project={snapshot.project} sourceId={view.sourceId} sourceFrame={view.positionFrame}
 				width={640} height={360} frameRate={view.frameRate} sourceFrameCount={view.sourceFrameCount} playing={playing} onPosition={publishGenerated} onPlayingChanged={generatedPlayingChanged} unavailable={copy.videoPreviewUnavailable} label={`${copy.panelSourceMonitor}: ${view.sourceName || copy.videoClip}`} onError={stopGenerated} /> : mediaUrl
 				? <video
-					ref={videoRef}
+					ref={setVideoRef}
 					data-source-monitor-video
 					src={mediaUrl}
+					style={pictureStyle}
 					muted
 					playsInline
 					preload="auto"
 					aria-label={`${copy.panelSourceMonitor}: ${view.sourceName || copy.videoClip}`}
-					onLoadedMetadata={(event) => { event.currentTarget.currentTime = view.mediaSeconds; }}
+					onLoadedMetadata={(event) => { readDecodedSize(event); seekPausedPicture(event.currentTarget); }}
+					onResize={readDecodedSize}
 					onTimeUpdate={capturePlayback}
-					onEnded={() => run(() => { capturePlayback(); stop(); })}
+					onEnded={() => run(() => {
+						if (playingRef.current) endedNaturally.current = true;
+						capturePlayback();
+						stop();
+					})}
 				/>
-				: <p className="kw-audio-editor__panel-empty" role="status">{copy.videoPreviewUnavailable}</p>}
+				: <p className="kw-audio-editor__panel-empty" role="status">{pending ? copy.loading : copy.videoPreviewUnavailable}</p>}
 		</div>
 		<p className="kw-audio-editor__source-monitor-readout">
 			<output aria-label={copy.sourceMonitorPosition} data-source-monitor-timecode={view.timecodeLabel}>
@@ -158,7 +197,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 				onClick={() => step(1)}
 			>›</button>
 			<label className="kw-audio-editor__source-monitor-scrub">
-				<span className="kw-audio-editor__visually-hidden">{copy.sourceMonitorPosition}</span>
+				<EditorControlLabel className="kw-audio-editor__visually-hidden">{copy.sourceMonitorPosition}</EditorControlLabel>
 				<input
 					type="range"
 					min={0}
@@ -177,12 +216,12 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 			<button
 				type="button"
 				data-source-monitor-action="mark-in"
-				onClick={() => mark(() => controller.actions.video.sourceMonitor.markIn())}
+				onClick={() => withCurrentFrame(() => controller.actions.video.sourceMonitor.markIn())}
 			>{copy.sourceMarkIn}</button>
 			<button
 				type="button"
 				data-source-monitor-action="mark-out"
-				onClick={() => mark(() => controller.actions.video.sourceMonitor.markOut())}
+				onClick={() => withCurrentFrame(() => controller.actions.video.sourceMonitor.markOut())}
 			>{copy.sourceMarkOut}</button>
 			<button
 				type="button"
@@ -201,7 +240,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 				type="button"
 				data-source-monitor-action="replace"
 				disabled={disabled}
-				onClick={() => run(() => controller.actions.video.replace())}
+				onClick={() => withCurrentFrame(() => controller.actions.video.replace())}
 			>{copy.editReplace}</button>
 		</div>
 	</div>;

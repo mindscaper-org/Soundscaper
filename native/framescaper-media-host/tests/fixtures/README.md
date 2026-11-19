@@ -16,5 +16,11 @@ encoder's separate color/alpha conversion:
 -row-mt 1 -deadline good -cpu-used 4 -frames:v 4
 ```
 
+`chrome-vp8-alpha-64x32-4frames.webm` is repository-owned synthetic media
+recorded with Chromium `MediaRecorder` using `video/webm;codecs=vp8`. A
+64 × 32 canvas was cleared before each frame, then painted opaque for x < 16
+and half-opaque red for 16 ≤ x < 40. Its zero-rate capture track requested
+four frames about 60 ms apart. The fixture checks all three alpha levels.
+
 The ProRes fixture beside it is likewise synthetic and contains four 64 × 36
 frames at 24 fps; it is stored as base64 for portable source fixtures.

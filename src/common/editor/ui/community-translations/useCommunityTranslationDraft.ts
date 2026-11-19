@@ -22,6 +22,25 @@ export interface CommunityTranslationLoadedDraft {
 	readonly persistenceError: string | null;
 }
 
+const sessionStores = new WeakMap<CommunityTranslationPresentationPort, ReturnType<typeof createTranslationDraftStore>>();
+
+function draftStoreForSession(port: CommunityTranslationPresentationPort) {
+	let store = sessionStores.get(port);
+	if (store) return store;
+	store = createTranslationDraftStore({
+		loadSetting: async (key: string, fallback: unknown): Promise<unknown> => {
+			const raw = globalThis.localStorage.getItem(key);
+			return raw === null ? fallback : JSON.parse(raw) as unknown;
+		},
+		persistSetting: async (key: string, value: unknown): Promise<unknown> => {
+			globalThis.localStorage.setItem(key, JSON.stringify(value));
+			return value;
+		},
+	});
+	sessionStores.set(port, store);
+	return store;
+}
+
 export function useCommunityTranslationDraft(port: CommunityTranslationPresentationPort, initialLocale: string, feedbackCopy: Readonly<Record<string, string>>) {
 	const [locale, setLocale] = useState(initialLocale);
 	const [loaded, setLoaded] = useState<CommunityTranslationLoadedDraft | null>(null);
@@ -35,16 +54,7 @@ export function useCommunityTranslationDraft(port: CommunityTranslationPresentat
 		currentLoaded.current = value;
 		setLoaded(value);
 	}, []);
-	const store = useMemo(() => createTranslationDraftStore({
-		loadSetting: async (key: string, fallback: unknown): Promise<unknown> => {
-			const raw = globalThis.localStorage.getItem(key);
-			return raw === null ? fallback : JSON.parse(raw) as unknown;
-		},
-		persistSetting: async (key: string, value: unknown): Promise<unknown> => {
-			globalThis.localStorage.setItem(key, JSON.stringify(value));
-			return value;
-		},
-	}), []);
+	const store = draftStoreForSession(port);
 	useEffect(() => {
 		let active = true;
 		const sequence = ++activeLoad.current;
@@ -56,7 +66,7 @@ export function useCommunityTranslationDraft(port: CommunityTranslationPresentat
 		}).catch((failure: unknown) => {
 			if (active) setError(feedbackFailure(failure));
 		});
-		return () => { active = false; };
+		return () => { active = false; activeLoad.current += 1; };
 	}, [locale, store, publishLoaded]);
 	useEffect(() => loaded ? port.registerPreviewInventory?.(loaded.inventory.english) : undefined, [port, loaded?.inventory]);
 	useEffect(() => {
@@ -78,7 +88,8 @@ export function useCommunityTranslationDraft(port: CommunityTranslationPresentat
 	const importContributionFile = useCallback(async (file: { text(): Promise<string> }): Promise<boolean> => {
 		const started = currentLoaded.current;
 		if (!started || started.snapshot.locale !== currentLocale.current) return false;
-		const ownsImport = () => currentLoaded.current?.snapshot === started.snapshot
+		const sequence = activeLoad.current;
+		const ownsImport = () => activeLoad.current === sequence && currentLoaded.current?.snapshot === started.snapshot
 			&& currentLocale.current === started.snapshot.locale;
 		try {
 			const text = await file.text();

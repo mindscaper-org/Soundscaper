@@ -1,0 +1,253 @@
+{
+	"soundscaper": {
+		"version": "1.0.0-rc.Nov.10.a",
+		"url": "https://github.com/mindscaper-org/Soundscaper/releases/tag/soundscaper-v1.0.0-rc.Nov.10.a",
+		"assets": [
+			{
+				"name": "Soundscaper-1.0.0-rc.Nov.10.a-linux-arm64.AppImage",
+				"url": "https://github.com/mindscaper-org/Soundscaper/releases/download/soundscaper-v1.0.0-rc.Nov.10.a/Soundscaper-1.0.0-rc.Nov.10.a-linux-arm64.AppImage",
+				"platform": "linux",
+				"architecture": "arm64",
+				"format": "AppImage"
+			},
+			{
+				"name": "Soundscaper-1.0.0-rc.Nov.10.a-linux-arm64.deb",
+				"url": "https://github.com/mindscaper-org/Soundscaper/releases/download/soundscaper-v1.0.0-rc.Nov.10.a/Soundscaper-1.0.0-rc.Nov.10.a-linux-arm64.deb",
+				"platform": "linux",
+				"architecture": "arm64",
+				"format": "deb"
+			},
+			{
+				"name": "Soundscaper-1.0.0-rc.Nov.10.a-linux-arm64.flatpak",
+				"url": "https://github.com/mindscaper-org/Soundscaper/releases/download/soundscaper-v1.0.0-rc.Nov.10.a/Soundscaper-1.0.0-rc.Nov.10.a-linux-arm64.flatpak",
+				"platform": "linux",
+				"architecture": "arm64",
+				"format": "flatpak"
+			},
+			{
+				"name": "Soundscaper-1.0.0-rc.Nov.10.a-linux-x64.AppImage",
+				"url": "https://github.com/mindscaper-org/Soundscaper/releases/download/soundscaper-v1.0.0-rc.Nov.10.a/Soundscaper-1.0.0-rc.Nov.10.a-linux-x64.AppImage",
+				"platform": "linux",
+				"architecture": "x64",
+				"format": "AppImage"
+			},
+			{
+				"name": "Soundscaper-1.0.0-rc.Nov.10.a-linux-x64.deb",
+				"url": "https://github.com/mindscaper-org/Soundscaper/releases/download/soundscaper-v1.0.0-rc.Nov.10.a/Soundscaper-1.0.0-rc.Nov.10.a-linux-x64.deb",
+				"platform": "linux",
+				"architecture": "x64",
+				"format": "deb"
+			},
+			{
+				"name": "Soundscaper-1.0.0-rc.Nov.10.a-linux-x64.flatpak",
+				"url": "https://github.com/mindscaper-org/Soundscaper/releases/download/soundscaper-v1.0.0-rc.Nov.10.a/Soundscaper-1.0.0-rc.Nov.10.a-linux-x64.flatpak",
+				"platform": "linux",
+				"architecture": "x64",
+				"format": "flatpak"
+			},
+			{
+				"name": "Soundscaper-1.0.0-rc.Nov.10.a-mac-arm64.dmg",
+				"url": "https://github.com/mindscaper-org/Soundscaper/releases/download/soundscaper-v1.0.0-rc.Nov.10.a/Soundscaper-1.0.0-rc.Nov.10.a-mac-arm64.dmg",
+				"platform": "mac",
+				"architecture": "arm64",
+				"format": "dmg"
+			},
+			{
+				"name": "Soundscaper-1.0.0-rc.Nov.10.a-mac-arm64.pkg",
+				"url": "https://github.com/mindscaper-org/Soundscaper/releases/download/soundscaper-v1.0.0-rc.Nov.10.a/Soundscaper-1.0.0-rc.Nov.10.a-mac-arm64.pkg",
+				"platform": "mac",
+				"architecture": "arm64",
+				"format": "pkg"
+			},
+			{
+				"name": "Soundscaper-1.0.0-rc.Nov.10.a-win-arm64.exe",
+				"url": "https://github.com/mindscaper-org/Soundscaper/releases/download/soundscaper-v1.0.0-rc.Nov.10.a/Soundscaper-1.0.0-rc.Nov.10.a-win-arm64.exe",
+				"platform": "win",
+				"architecture": "arm64",
+				"format": "exe"
+			},
+			{
+				"name": "Soundscaper-1.0.0-rc.Nov.10.a-win-arm64.zip",
+				"url": "https://github.com/mindscaper-org/Soundscaper/releases/download/soundscaper-v1.0.0-rc.Nov.10.a/Soundscaper-1.0.0-rc.Nov.10.a-win-arm64.zip",
+				"platform": "win",
+				"architecture": "arm64",
+				"format": "zip"
+			},
+			{
+				"name": "Soundscaper-1.0.0-rc.Nov.10.a-win-x64.exe",
+				"url": "https://github.com/mindscaper-org/Soundscaper/releases/download/soundscaper-v1.0.0-rc.Nov.10.a/Soundscaper-1.0.0-rc.Nov.10.a-win-x64.exe",
+				"platform": "win",
+				"architecture": "x64",
+				"format": "exe"
+			},
+			{
+				"name": "Soundscaper-1.0.0-rc.Nov.10.a-win-x64.zip",
+				"url": "https://github.com/mindscaper-org/Soundscaper/releases/download/soundscaper-v1.0.0-rc.Nov.10.a/Soundscaper-1.0.0-rc.Nov.10.a-win-x64.zip",
+				"platform": "win",
+				"architecture": "x64",
+				"format": "zip"
+			}
+		]
+	},
+	"audacity4": {
+		"version": "4.0.2",
+		"url": "https://github.com/audacity/audacity/releases/tag/Audacity-4.0.2",
+		"assets": [
+			{
+				"name": "x86_64 MSI installer",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-4.0.2/audacity-win-4.0.2-x86_64.msi",
+				"platform": "win",
+				"architecture": "x64",
+				"format": "msi"
+			},
+			{
+				"name": "ARM64 MSI installer",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-4.0.2/audacity-win-4.0.2-arm64.msi",
+				"platform": "win",
+				"architecture": "arm64",
+				"format": "msi"
+			},
+			{
+				"name": "x86_64 portable archive",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-4.0.2/audacity-win-4.0.2-x86_64.7z",
+				"platform": "win",
+				"architecture": "x64",
+				"format": "7z"
+			},
+			{
+				"name": "ARM64 portable archive",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-4.0.2/audacity-win-4.0.2-arm64.7z",
+				"platform": "win",
+				"architecture": "arm64",
+				"format": "7z"
+			},
+			{
+				"name": "Universal DMG",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-4.0.2/audacity-macOS-4.0.2-universal.dmg",
+				"platform": "mac",
+				"architecture": "universal",
+				"format": "dmg"
+			},
+			{
+				"name": "ARM64 DMG (Apple Silicon)",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-4.0.2/audacity-macOS-4.0.2-arm64.dmg",
+				"platform": "mac",
+				"architecture": "arm64",
+				"format": "dmg"
+			},
+			{
+				"name": "x86_64 DMG (Intel)",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-4.0.2/audacity-macOS-4.0.2-x86_64.dmg",
+				"platform": "mac",
+				"architecture": "x64",
+				"format": "dmg"
+			},
+			{
+				"name": "x86_64 AppImage",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-4.0.2/audacity-linux-4.0.2-x86_64.AppImage",
+				"platform": "linux",
+				"architecture": "x64",
+				"format": "AppImage"
+			},
+			{
+				"name": "ARM64 AppImage",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-4.0.2/audacity-linux-4.0.2-aarch64.AppImage",
+				"platform": "linux",
+				"architecture": "arm64",
+				"format": "AppImage"
+			}
+		]
+	},
+	"audacity3": {
+		"version": "3.7.9",
+		"url": "https://github.com/audacity/audacity/releases/tag/Audacity-3.7.9",
+		"assets": [
+			{
+				"name": "audacity-linux-3.7.9-x64-20.04.AppImage",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-3.7.9/audacity-linux-3.7.9-x64-20.04.AppImage",
+				"platform": "linux",
+				"architecture": "x64",
+				"format": "AppImage",
+				"variant": "20.04"
+			},
+			{
+				"name": "audacity-linux-3.7.9-x64-22.04.AppImage",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-3.7.9/audacity-linux-3.7.9-x64-22.04.AppImage",
+				"platform": "linux",
+				"architecture": "x64",
+				"format": "AppImage",
+				"variant": "22.04"
+			},
+			{
+				"name": "audacity-macOS-3.7.9-arm64.dmg",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-3.7.9/audacity-macOS-3.7.9-arm64.dmg",
+				"platform": "mac",
+				"architecture": "arm64",
+				"format": "dmg"
+			},
+			{
+				"name": "audacity-macOS-3.7.9-universal.dmg",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-3.7.9/audacity-macOS-3.7.9-universal.dmg",
+				"platform": "mac",
+				"architecture": "universal",
+				"format": "dmg"
+			},
+			{
+				"name": "audacity-macOS-3.7.9-universal.pkg",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-3.7.9/audacity-macOS-3.7.9-universal.pkg",
+				"platform": "mac",
+				"architecture": "universal",
+				"format": "pkg"
+			},
+			{
+				"name": "audacity-macOS-3.7.9-x86_64.dmg",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-3.7.9/audacity-macOS-3.7.9-x86_64.dmg",
+				"platform": "mac",
+				"architecture": "x64",
+				"format": "dmg"
+			},
+			{
+				"name": "audacity-win-3.7.9-32bit.exe",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-3.7.9/audacity-win-3.7.9-32bit.exe",
+				"platform": "win",
+				"architecture": "x86",
+				"format": "exe"
+			},
+			{
+				"name": "audacity-win-3.7.9-32bit.zip",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-3.7.9/audacity-win-3.7.9-32bit.zip",
+				"platform": "win",
+				"architecture": "x86",
+				"format": "zip"
+			},
+			{
+				"name": "audacity-win-3.7.9-64bit.exe",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-3.7.9/audacity-win-3.7.9-64bit.exe",
+				"platform": "win",
+				"architecture": "x64",
+				"format": "exe"
+			},
+			{
+				"name": "audacity-win-3.7.9-64bit.zip",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-3.7.9/audacity-win-3.7.9-64bit.zip",
+				"platform": "win",
+				"architecture": "x64",
+				"format": "zip"
+			},
+			{
+				"name": "audacity-win-3.7.9-arm64.exe",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-3.7.9/audacity-win-3.7.9-arm64.exe",
+				"platform": "win",
+				"architecture": "arm64",
+				"format": "exe"
+			},
+			{
+				"name": "audacity-win-3.7.9-arm64.zip",
+				"url": "https://github.com/audacity/audacity/releases/download/Audacity-3.7.9/audacity-win-3.7.9-arm64.zip",
+				"platform": "win",
+				"architecture": "arm64",
+				"format": "zip"
+			}
+		]
+	}
+}

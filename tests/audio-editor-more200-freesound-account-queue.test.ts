@@ -14,7 +14,10 @@ for (const incoming of [
 	{ username: 'original-account', changed: false },
 ]) test(`Freesound pending uploads follow account ${JSON.stringify(incoming)}`, async () => {
 	let reconnected = false;
-	const client = createFreesoundApiClient({ openAuthorization() {}, request: async path => {
+	const wav = Uint8Array.from(encodeWav([new Float32Array(4800), new Float32Array(4800)], { sampleRate: 48_000, bitDepth: 16, dither: false }));
+	const original = new File([wav], 'Original local.wav', { type: 'audio/wav', lastModified: 123 });
+	let transfers = 0;
+	const client = createFreesoundApiClient({ openAuthorization() {}, request: async (path, init) => {
 		if (path.endsWith('/oauth/session')) return data({ connected: true, user: { id: 1, username: 'original-account' } });
 		if (path.endsWith('/oauth/poll')) { reconnected = true; return data({ connected: true, user: incoming }); }
 		if (path.endsWith('/oauth/start')) return data({ attemptId: 'retry', handoffToken: 'retry-handoff',
@@ -25,21 +28,29 @@ for (const incoming of [
 			pendingProcessing: [], pendingModeration: [],
 		});
 		assert.ok(path.endsWith('/uploads'));
+		assert.ok(init?.body instanceof File); transfers++;
+		assert.equal(init.body.name, original.name); assert.equal(init.body.type, original.type);
+		assert.equal(init.body.lastModified, original.lastModified);
+		assert.deepEqual(new Uint8Array(await init.body.arrayBuffer()), wav);
 		return Response.json({ error: { code: 'not_authenticated', message: 'Login expired.' } }, { status: 401 });
 	} });
 	const session = createFreesoundPanelSession(client);
 	await session.initialize();
 	assert.deepEqual(session.getSnapshot().uploadQueue.items.map(item => item.fileName), ['original-account.wav']);
-	const wav = Uint8Array.from(encodeWav([new Float32Array(48).fill(.25)], { sampleRate: 48_000 }));
-	session.enqueueFiles([new File([wav], 'Original local.wav', { type: 'audio/wav' })]);
+	session.enqueueFiles([original]);
 	for (let attempts = 0; session.getSnapshot().uploadQueue.active; attempts++) {
 		assert.ok(attempts < 100); await setImmediate();
 	}
 	assert.equal(session.getSnapshot().auth.status, 'disconnected');
+	assert.deepEqual(session.getSnapshot().uploadQueue.items.map(item => [item.sourceKind, item.status]), [['remote', 'ready-to-publish'], ['file', 'failed']]);
 	await session.connect();
 	assert.equal(session.getSnapshot().auth.user?.username, incoming.username);
 	assert.deepEqual(session.getSnapshot().uploadQueue.items.map(item => item.fileName), incoming.changed
 		? ['new-account.wav'] : ['original-account.wav', 'Original local.wav']);
+	assert.deepEqual(session.getSnapshot().uploadQueue.items.map(item => [item.sourceKind, item.status]), incoming.changed
+		? [['remote', 'ready-to-publish']] : [['remote', 'ready-to-publish'], ['file', 'failed']]);
+	assert.equal(transfers, 1, 'reconnection must not retry the failed local file implicitly');
+	assert.deepEqual(new Uint8Array(await original.arrayBuffer()), wav);
 });
 
 function data(value: unknown): Response { return Response.json({ data: value }); }

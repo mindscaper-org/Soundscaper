@@ -92,6 +92,17 @@ test('built-in tracking produces a deterministic digest-bound analysis with prog
 	});
 	assert.deepEqual(admitted, result.body);
 	assert.equal(Object.isFrozen(admitted.transforms), true);
+	const expected = { inputSha256: SHA_A, processorStack: stack() };
+	assert.equal(requireVideoMotionAnalysisBodyV1(result.reference, admitted, expected), admitted);
+	assert.throws(() => requireVideoMotionAnalysisBodyV1(
+		result.reference, structuredClone(admitted), expected,
+	), /authenticated/u);
+	assert.throws(() => requireVideoMotionAnalysisBodyV1(
+		{ ...result.reference, endFrame: 14 }, admitted, expected,
+	), /persisted reference/u);
+	assert.throws(() => requireVideoMotionAnalysisBodyV1(
+		{ ...result.reference, byteLength: result.reference.byteLength + 1 }, admitted, expected,
+	), /byte length/u);
 	assert.throws(() => requireVideoMotionAnalysisBodyV1(
 		result.reference,
 		result.bytes,
@@ -103,10 +114,9 @@ test('built-in tracking produces a deterministic digest-bound analysis with prog
 			},
 		},
 	), /stale|settings digest/iu);
-	const corrupt = result.bytes.slice();
-	corrupt[corrupt.length - 2] ^= 1;
+	result.bytes[result.bytes.length - 2] ^= 1;
 	assert.throws(() => requireVideoMotionAnalysisBodyV1(
-		result.reference, corrupt, { inputSha256: SHA_A, processorStack: stack() },
+		result.reference, result.bytes, expected,
 	), /digest|JSON|analysis body/iu);
 });
 
@@ -135,6 +145,28 @@ test('motion analysis is cancellable and never admits an optical-flow retime pro
 			{ frameNumber: 1, frame: translatedSquare(1, 1) },
 		],
 	}), /retime|unsupported|processor/iu);
+});
+
+test('streamed motion tracking consumes consecutive pairs before requesting later pictures', async () => {
+	const pictures = [0, 1, 2].map((offset) => ({ frameNumber: offset + 10, frame: translatedSquare(offset, offset) }));
+	const progress: number[] = [];
+	async function* frames() {
+		yield pictures[0]!;
+		yield pictures[1]!;
+		assert.deepEqual(progress, [1]);
+		yield pictures[2]!;
+	}
+	const request = { analysisId: 'analysis-1', inputSha256: SHA_A, processorStack: stack() };
+	const streamed = await analyzeVideoMotionV1({
+		...request, frames: { count: pictures.length, frames: frames() },
+		onProgress(value) { progress.push(value.completed); },
+	});
+	const ordinary = await analyzeVideoMotionV1({ ...request, frames: pictures });
+	assert.deepEqual(streamed.bytes, ordinary.bytes);
+	assert.deepEqual(progress, [1, 2]);
+	await assert.rejects(() => analyzeVideoMotionV1({
+		...request, frames: { count: pictures.length + 1, frames: (async function* () { yield* pictures; })() },
+	}), /stream frame count/u);
 });
 
 test('motion analysis yields to task-queued cancellation between frame pairs', async () => {

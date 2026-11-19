@@ -1,4 +1,4 @@
-import { getLocaleDescriptor } from '../i18n/locales.js';
+import { COMMITTED_LOCALE_TAGS, getLocaleDescriptor } from '../i18n/locales.js';
 import { PRODUCT_IDS } from '../product-identities.js';
 import { isTransferRoutePath } from '../transfer/transfer-route-path.ts';
 
@@ -52,7 +52,9 @@ export async function resolveApplicationRoute(scope = globalThis) {
 		return createRoute(BUILT_PRODUCT_ID, environment?.locale, true, true);
 	}
 	if (BUILT_PRODUCT_ID !== 'motionscaper' && isTransferRoutePath(scope.location?.pathname)) return mountTransferDocument(scope);
-	if (scope.location?.pathname === '/') scope.location.replace('/en/');
+	if (scope.location?.pathname === '/') {
+		scope.location.replace(`/en/${scope.location.search ?? ''}${scope.location.hash ?? ''}`);
+	}
 
 	const { productId, locale, embedded, privacyPolicy } = resolveWebRoute(scope.location?.pathname);
 	return createRoute(productId, locale, embedded, false, privacyPolicy);
@@ -86,7 +88,8 @@ async function mountTransferDocument(scope) {
 }
 
 function createRoute(productId, locale, embedded, desktop, privacyPolicy = false) {
-	const descriptor = getLocaleDescriptor(locale) || getLocaleDescriptor('en');
+	const requested = getLocaleDescriptor(locale);
+	const descriptor = requested && COMMITTED_LOCALE_TAGS.includes(requested.locale) ? requested : getLocaleDescriptor('en');
 	return Object.freeze({
 		productId,
 		locale: descriptor.locale,

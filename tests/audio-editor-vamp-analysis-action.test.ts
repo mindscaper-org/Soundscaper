@@ -5,6 +5,7 @@ import test from 'node:test';
 
 import { createDeferredDesktopVampAnalysisAction } from '../src/common/editor/controller/analysis/internal/deferred-vamp-analysis-action.ts';
 import { createDesktopVampAnalysisAction } from '../src/common/editor/controller/analysis/internal/vamp-analysis-action.ts';
+import { deferred } from './helpers/async-test-control.ts';
 
 const REQUEST = Object.freeze({
 	schemaVersion: 1 as const, analyzerId: 'va' + '1'.repeat(30), stableId: 'vi' + '2'.repeat(30),
@@ -177,6 +178,21 @@ test('Vamp analysis refuses missing track identity and an incompatible rendered 
 	}
 });
 
+test('a mono-only Vamp analyzer can analyze a track rendered by the stereo programme output', async () => {
+	const { action, bridge, engine, calls } = harness();
+	assert.ok(action);
+	bridge.listNativeVampAnalyzers = async () => rawCatalog().map(row => ({ ...row,
+		configuration: { ...row.configuration, maximumChannels: 1 },
+	}));
+	engine.renderTrack = async () => ({ channels: [new Float32Array(8).fill(.125), new Float32Array(8).fill(.625)] });
+	const result = await action.analyze({ projectId: 'project-1', projectRevision: 5, selectedTrackId: 'track-1', request: REQUEST }, new AbortController().signal);
+	const configured = calls.find(([kind]) => kind === 'configure')?.[1] as { channelCount: number };
+	const pushed = calls.find(([kind]) => kind === 'push')?.[1] as { channels: Float32Array[] };
+	assert.equal(configured.channelCount, 1);
+	assert.deepEqual(pushed.channels, [new Float32Array(8).fill(.375)]);
+	assert.equal(result.features.length, 1);
+});
+
 test('forged native feature timing and values cannot enter the analysis result', async () => {
 	const cases = [
 		{
@@ -254,6 +270,30 @@ test('desktop Vamp action requests cancellation while a native PCM operation is 
 	await assert.rejects(operation, { name: 'AbortError' });
 	assert.equal(cancelledWhilePushPending, true);
 	assert.equal(calls.filter(([kind]) => kind === 'cancel').length, 1);
+});
+
+test('cancelling Vamp before the catalog reply does not start rendering the selected audio', async () => {
+	const { action, bridge, calls } = harness();
+	assert.ok(action);
+	const catalog = deferred<ReturnType<typeof rawCatalog>>();
+	bridge.listNativeVampAnalyzers = () => catalog.promise;
+	const controller = new AbortController();
+	const operation = action.analyze({
+		projectId: 'project-1', projectRevision: 5, selectedTrackId: 'track-1', request: REQUEST,
+	}, controller.signal);
+	controller.abort();
+	catalog.resolve(rawCatalog());
+	await assert.rejects(operation, { name: 'AbortError' });
+	assert.deepEqual(calls, []);
+});
+
+test('analyzing a selection passes the dialog cancellation signal through to its PCM render', async () => {
+	const { action, calls } = harness();
+	assert.ok(action);
+	const { signal } = new AbortController();
+	await action.analyze({ projectId: 'project-1', projectRevision: 5, selectedTrackId: 'track-1', request: REQUEST }, signal);
+	const render = calls.find(([kind]) => kind === 'render-track')?.[1] as { options: { signal?: AbortSignal } };
+	assert.equal(render.options.signal, signal);
 });
 
 test('desktop Vamp action interprets features with the configured output descriptor', async () => {

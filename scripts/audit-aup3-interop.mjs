@@ -39,7 +39,7 @@ import {
 const EXPECTED_TABLE_NAMES = Object.freeze(['autosave', 'project', 'sampleblocks', 'sqlite_sequence']);
 const EXPECTED_SERIALIZATION = Object.freeze({
 	databaseByteLength: 327_680,
-	databaseSha256: '6784a784eb74f6958ba953a48acf4780a5fd130ba09a9dc7773c1bb6079d2bd6',
+	databaseSha256: '170dfa3baec94841568f7b886150906833cdcc6b17cbd733efbaa498d0a4f3bd',
 	dictionarySha256: '5f12bc125e38f2257b54952a4fd99f45b1945553a63aa560bfaf46573354628c',
 	documentSha256: 'bbc44e32929e20ac5db9387b61411a4307f32008ba5cbe249faed233ef5c54df',
 	summary256Sha256: '23d8d67feb9532a3d1f07f26ca0b8d520b6b4e4d153c041f5c5b3d42e7ea92d2',

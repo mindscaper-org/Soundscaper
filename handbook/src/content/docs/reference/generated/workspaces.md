@@ -39,6 +39,7 @@ Choose a workspace directly from **Window**. This menu lists open projects first
 | Freesound | `freesound` | Right | Hidden | Hidden | Hidden | Hidden | Hidden |
 | audio.com | `audiocom` | Right | Hidden | Hidden | Hidden | Hidden | Hidden |
 | Effects | `effects` | Left | Visible | Visible | Hidden | Hidden | Visible |
+| Macros palette | `macros-palette` | Right | Hidden | Hidden | Hidden | Hidden | Hidden |
 | Mixer | `mixer` | Bottom | Hidden | Visible | Hidden | Hidden | Hidden |
 | Analysis | `analysis` | Right | Hidden | Hidden | Hidden | Hidden | Hidden |
 | Recording setup | `recording-setup` | Bottom | Hidden | Hidden | Hidden | Hidden | Hidden |
@@ -48,6 +49,7 @@ Choose a workspace directly from **Window**. This menu lists open projects first
 | Clip properties | `clip-properties` | Right | Hidden | Hidden | Hidden | Hidden | Hidden |
 | Clip spreadsheet | `clip-spreadsheet` | Bottom | Hidden | Hidden | Hidden | Hidden | Hidden |
 | Piano roll (beta) | `piano-roll` | Bottom | Hidden | Hidden | Hidden | Hidden | Hidden |
+| Transcript-based editing | `transcript-editing` | Bottom | Hidden | Hidden | Hidden | Hidden | Hidden |
 
 Open optional panels from **Window**. The **Clock**, **Playback meter**, and Soundscaper’s **Recording meter** start hidden. You can also choose **Undock timecode** in the toolbar timecode’s dropdown to move that readout into the Clock panel; **Return to toolbar** in the Clock’s dropdown puts it back.
 

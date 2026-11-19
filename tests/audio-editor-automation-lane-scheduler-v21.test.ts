@@ -8,6 +8,7 @@ import {
 	scheduleAutomationLaneV21,
 } from '../src/common/editor/engine/automation-lane-scheduler-v21.ts';
 import { scheduleProjectAutomationLanesV21 } from '../src/common/editor/engine/project-automation-scheduler-v21.ts';
+import { normalizeAutomationLaneV21 } from '../src/common/editor/automation-lane-v21.ts';
 import { canonicalParameterAddressKey, type ParameterAddress } from '../src/common/editor/parameter-address.ts';
 import {
 	ScheduledParameterRegistry,
@@ -64,6 +65,20 @@ test('lane compilation emits exact set/linear events over a bounded playback ran
 		{ kind: 'set', frame: 10, value: 0.75 },
 		{ kind: 'linear', frame: 20, value: 1 },
 	]);
+});
+
+test('short absolute automation windows use authored samples without projecting the full lane', context => {
+	const authored = normalizeAutomationLaneV21({ ...lane(),
+		points: Array.from({ length: 256 }, (_, index) => ({ id: `point-${index}`, position: index * 10, value: index % 2 })),
+		segments: Array.from({ length: 255 }, () => ({ kind: 'linear' })),
+	});
+	const frozen = context.mock.method(Object, 'freeze');
+	assert.deepEqual(compileAutomationLaneEventsV21(authored, {
+		fromFrame: 2505, toFrame: 2510, sampleRate: 48_000, descriptor: descriptor(),
+	}), [{ kind: 'set', frame: 2505, value: .5 }, { kind: 'linear', frame: 2510, value: 1 }]);
+	assert.equal(frozen.mock.calls.filter(({ arguments: [entry] }) => (
+		entry !== null && typeof entry === 'object' && 'id' in entry && 'frame' in entry
+	)).length, 0);
 });
 
 test('registry scheduling applies the target latency once to exact message offsets', () => {
@@ -163,7 +178,7 @@ test('Framescaper v1 schedules shared V21 automation against active graph parame
 	assert.equal(packets.length, 1);
 });
 
-test('musical points and tempo changes compile to deterministic exact frame events', () => {
+test('musical points and tempo changes share one forward tempo projection per compilation', context => {
 	const tempoMap = {
 		mode: 'musical' as const,
 		events: [
@@ -182,8 +197,12 @@ test('musical points and tempo changes compile to deterministic exact frame even
 		segments: [{ kind: 'linear' }, { kind: 'linear' }],
 	};
 	const options = { fromFrame: 0, toFrame: 300, sampleRate: 100, tempoMap, descriptor: descriptor() };
+	const frozen = context.mock.method(Object, 'freeze');
 	const first = compileAutomationLaneEventsV21(musical, options);
 	assert.deepEqual(compileAutomationLaneEventsV21(musical, options), first);
+	assert.equal(frozen.mock.calls.filter(({ arguments: [entry] }) => (
+		entry !== null && typeof entry === 'object' && 'beat' in entry && 'bpm' in entry && 'samplePosition' in entry
+	)).length, 2 * tempoMap.events.length);
 	assert.deepEqual(first, [
 		{ kind: 'set', frame: 0, value: 0 },
 		{ kind: 'linear', frame: 200, value: 1 },

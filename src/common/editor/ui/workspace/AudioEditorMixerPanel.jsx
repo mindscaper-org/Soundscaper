@@ -28,6 +28,9 @@ const SOUNDSCAPER_BUILD = typeof __SCAPE_PRODUCT__ === 'undefined'
 	|| __SCAPE_PRODUCT__ === 'soundscaper';
 const SoundscaperRoutingGraphView = SOUNDSCAPER_BUILD
 	? lazyEditorModule(() => import('./SoundscaperRoutingGraphView.tsx')) : null;
+const EMPTY_LIST = Object.freeze([]);
+const EMPTY_SENDS = Object.freeze({});
+const EMPTY_ROUTE = Object.freeze({ groupId: null, sends: EMPTY_SENDS });
 
 export default function AudioEditorMixerPanel({ controller, snapshot, copy, run, showArmControls, displayAudioSupported, onOpenEffects, productId = snapshot.productId, capabilities = snapshot.capabilities, onRoutingGraphGesture = /** @type {import('./soundscaper-routing-graph-gesture.ts').SoundscaperRoutingGraphGestureHandler | undefined} */ (undefined), onRoutingParameterGesture = /** @type {import('./soundscaper-routing-graph-gesture.ts').SoundscaperRoutingParameterGestureHandler | undefined} */ (undefined), automationRuntime: automationRuntimeProp }) {
 	const project = snapshot.project;
@@ -56,31 +59,48 @@ export default function AudioEditorMixerPanel({ controller, snapshot, copy, run,
 	const [routingGraphOpen, setRoutingGraphOpen] = useState(false);
 	const [requestedRoutingSelection, setRequestedRoutingSelection] = useState(null);
 	const consumeRequestedRoutingSelection = useCallback(() => setRequestedRoutingSelection(null), []);
-	const routingCopy = resolveSoundscaperRoutingGraphCopy(copy);
-	const tracks = useMemo(() => (project?.tracks || []).filter((track) => track.type === 'audio'), [project?.tracks]);
-	const groups = project?.mixer?.groups || [];
-	const sends = project?.mixer?.sends || [];
-	const routing = useMemo(() => prepareMixerPanelRouting(project, tracks), [project, tracks]);
-	const { routes } = routing;
+	const routingCopy = useMemo(() => resolveSoundscaperRoutingGraphCopy(copy), [copy]);
+	const mixer = project?.mixer;
+	const sourceTracks = project?.tracks;
+	const sourceClips = project?.clips;
+	const sources = project?.sources;
+	const sequences = project?.sequences;
+	const masterChannels = project?.masterChannels;
+	const admMode = project?.metadata?.adm?.mode;
+	const groups = mixer?.groups ?? EMPTY_LIST;
+	const sends = mixer?.sends ?? EMPTY_LIST;
+	const routingGraphAvailable = SOUNDSCAPER_BUILD
+		&& productId === 'soundscaper'
+		&& capabilities?.audioMixerGraph !== false
+		&& isMixerGraphV21Surface(mixer);
+	const showingGraph = routingGraphOpen && routingGraphAvailable && Boolean(SoundscaperRoutingGraphView);
+	const tracks = useMemo(() => showingGraph ? EMPTY_LIST
+		: (sourceTracks ?? EMPTY_LIST).filter((track) => track.type === 'audio'), [showingGraph, sourceTracks]);
+	const routing = useMemo(() => showingGraph ? null : prepareMixerPanelRouting({
+		mixer, tracks: sourceTracks, clips: sourceClips, sources, masterChannels, metadata: { adm: { mode: admMode } },
+	}, tracks), [showingGraph, mixer, sourceTracks, sourceClips, sources, masterChannels, admMode, tracks]);
+	const routes = routing?.routes;
 	// A folder that contains audio owns its group: the folder holds that bus's
 	// name, mute, solo, and existence, and the graph refuses to edit them on the
 	// bus itself. The strip is still shown — it is where the folder's audio is
 	// mixed — but its mute and solo speak to the folder, and it is not offered for
 	// removal, because removing it means removing the folder.
-	const folderBusIds = folderOwnedMixerBusIds(project);
-	const mixerBuses = [
+	const hasGroups = groups.length > 0;
+	const folderBusIds = useMemo(() => showingGraph || !hasGroups ? null
+		: folderOwnedMixerBusIds({ sequences, tracks: sourceTracks }), [showingGraph, hasGroups, sequences, sourceTracks]);
+	const mixerBuses = useMemo(() => showingGraph ? EMPTY_LIST : [
 		...groups.map((bus) => ({ type: 'group', bus })),
 		...sends.map((bus) => ({ type: 'send', bus })),
-	];
-	const removableBuses = removableMixerBuses(mixerBuses, folderBusIds);
-	const routingGraphAvailable = SOUNDSCAPER_BUILD
-		&& productId === 'soundscaper'
-		&& capabilities?.audioMixerGraph !== false
-		&& isMixerGraphV21Surface(project?.mixer);
+	], [showingGraph, groups, sends]);
+	const removableBuses = useMemo(() => folderBusIds ? removableMixerBuses(mixerBuses, folderBusIds) : mixerBuses, [mixerBuses, folderBusIds]);
+	const groupOptions = useMemo(() => showingGraph ? EMPTY_LIST
+		: groups.map((bus) => <option key={bus.id} value={bus.id}>{bus.name}</option>), [showingGraph, groups]);
 	useEffect(() => {
 		if (!routingGraphAvailable && routingGraphOpen) setRoutingGraphOpen(false);
 	}, [routingGraphAvailable, routingGraphOpen]);
-	const effectLabels = new Map((snapshot.effects?.rackTypes || []).map(({ type, label }) => [type, label]));
+	const rackTypes = snapshot.effects?.rackTypes;
+	const effectLabels = useMemo(() => showingGraph ? null
+		: new Map((rackTypes ?? EMPTY_LIST).map(({ type, label }) => [type, label])), [showingGraph, rackTypes]);
 	const effectProps = (effects, scope, targetId) => (effects || []).map((effect) => ({
 		name: rackEffectLabel(effect, effectLabels, copy),
 		enabled: effect.enabled !== false,
@@ -94,7 +114,7 @@ export default function AudioEditorMixerPanel({ controller, snapshot, copy, run,
 		const isMaster = type === 'master';
 		const targetId = channel.id || 'master';
 		const scope = isTrack ? 'track' : type;
-		const folderOwned = mixerAudibilityAuthority(type, targetId, folderBusIds) === 'folder';
+		const folderOwned = folderBusIds && mixerAudibilityAuthority(type, targetId, folderBusIds) === 'folder';
 		const update = (changes) => {
 			if (isTrack) return controller.actions.track.update(targetId, changes);
 			if (isMaster) return controller.actions.mixer.updateMaster(changes);
@@ -167,7 +187,7 @@ export default function AudioEditorMixerPanel({ controller, snapshot, copy, run,
 				...(sends.length ? {
 					effectFooter: <MixerSendControls
 						track={channel}
-						route={routes[targetId] || { sends: {} }}
+						route={routes[targetId] || EMPTY_ROUTE}
 						sends={sends}
 							copy={copy}
 							disabled={snapshot.readOnly}
@@ -195,7 +215,7 @@ export default function AudioEditorMixerPanel({ controller, snapshot, copy, run,
 			}),
 		};
 	};
-	const channels = [
+	const channels = showingGraph ? EMPTY_LIST : [
 		...tracks.map((track) => ({ id: track.id, channelProps: channelProps(track, 'track') })),
 		...mixerBuses.map(({ type, bus }) => ({ id: bus.id, channelProps: channelProps(bus, type) })),
 	];
@@ -244,7 +264,7 @@ export default function AudioEditorMixerPanel({ controller, snapshot, copy, run,
 					{removableBuses.map(({ type, bus }) => <option key={bus.id} value={`${type}:${bus.id}`}>{type === 'group' ? copy.groupBus : copy.sendBus}: {bus.name}</option>)}
 				</select>}
 			</div>
-			{routingGraphOpen && routingGraphAvailable && SoundscaperRoutingGraphView ? <div id="soundscaper-mixer-routing-graph" className="kw-audio-editor__mixer-routing-graph-host">
+			{showingGraph ? <div id="soundscaper-mixer-routing-graph" className="kw-audio-editor__mixer-routing-graph-host">
 				<Suspense fallback={<p className="kw-audio-editor__panel-empty" role="status">{copy.loading || 'Loading routing graph…'}</p>}>
 					<SoundscaperRoutingGraphView
 						controller={controller}
@@ -264,12 +284,12 @@ export default function AudioEditorMixerPanel({ controller, snapshot, copy, run,
 				<table>
 					<thead><tr><th>{copy.track}</th><th>{copy.output}</th></tr></thead>
 					<tbody>{tracks.map((track) => {
-						const route = routes[track.id] || { groupId: null, sends: {} };
+						const route = routes[track.id] || EMPTY_ROUTE;
 						return <tr key={track.id}>
 							<th scope="row">{track.name}</th>
 							<td><select aria-label={`${copy.output}: ${track.name}`} disabled={snapshot.readOnly || route.groupEditable === false} value={route.groupId || ''} onChange={(event) => run(() => controller.actions.mixer.setRoute(track.id, { groupId: event.currentTarget.value || null }))}>
 								<option value="">{copy.master}</option>
-								{groups.map((bus) => <option key={bus.id} value={bus.id}>{bus.name}</option>)}
+								{groupOptions}
 							</select></td>
 						</tr>;
 					})}</tbody>

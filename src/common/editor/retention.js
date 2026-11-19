@@ -10,9 +10,11 @@ import {
 	isSoundscaperProductionProject,
 } from './project-schema-version.ts';
 import { collectTakeGroupSourceIds } from './take-group-source-references.ts';
+import { collectAlternativeSourceIds } from './alternative-source-references.ts';
 import { collectVisualPresetGeneratorSourceIds } from './video-visual-preset-v24.ts';
 import { videoSourceCharacteristicsAreReported } from './video-source-characteristics.ts';
 import { retireUnusedScapeLiteralKeys } from './scape-literal-json-keys.ts';
+import { sessionSnapshotProjects } from './session-snapshots.ts';
 
 const MAXIMUM_FRAMESCAPER_PROJECT_ASSET_ROOTS = 16_384;
 const SHA256 = /^[a-f0-9]{64}$/u;
@@ -44,6 +46,7 @@ export function collectProjectSourceIds(project, target = new Set()) {
 		if (typeof clip?.sourceId === 'string' && clip.sourceId) target.add(clip.sourceId);
 	}
 	collectTakeGroupSourceIds(project, target);
+	collectAlternativeSourceIds(project, target);
 	collectFeatureFallbackSourceIds(project, target);
 	collectReportedSourceCharacteristicsIds(project, target);
 	collectAssistanceAssetSourceIds(project, target);
@@ -234,6 +237,7 @@ export function collectProjectStorageKeys(
 		const storageKey = asset?.body?.storageKey;
 		if (typeof storageKey === 'string' && storageKey) target.add(storageKey);
 	}
+	for (const snapshot of sessionSnapshotProjects(project)) collectProjectStorageKeys(snapshot, target);
 	return target;
 }
 

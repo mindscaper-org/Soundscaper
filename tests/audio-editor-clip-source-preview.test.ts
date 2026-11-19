@@ -2,8 +2,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createClipSourcePreviewService, type ClipSourcePreviewDependencies } from '../src/common/editor/controller/clip-video/internal/clip-source-preview-service.ts';
+import { createClipSourcePreviewProject, type ClipSourcePreviewProject } from '../src/common/editor/controller/clip-video/internal/clip-source-preview-project.ts';
 import { EditorControllerLifetime, EditorProjectGeneration } from '../src/common/editor/controller/shared/lifecycle.ts';
 import type { EngineProject } from '../src/common/editor/engine/types.ts';
+import { createEffect } from '../src/common/editor/effects.js';
 
 function fixture(prepare: () => Promise<unknown> = async () => undefined, disposeEngine: () => Promise<void> = async () => undefined) {
 	const events: string[] = [];
@@ -72,6 +74,40 @@ test('full-source preview keeps clip processing within its active span and owns 
 	await service.dispose();
 	await service.dispose();
 	assert.equal(events.filter((event) => event === 'dispose').length, 1);
+});
+
+test('source transport translates a detector preview origin back to its own source clock', async () => {
+	const f = fixture();
+	Object.assign(f.project, { tracks: [{ id: 'owner', type: 'audio', clipIds: ['clip'] }, { id: 'guide', type: 'audio', clipIds: ['guide'] }] });
+	Object.assign(f.project.clips[0]!, { effects: [createEffect('audacity-auto-duck', { context: { controlTrackId: 'guide' } })] });
+	const guide = Object.assign({ ...f.project.clips[0]! }, { id: 'guide', timelineStartFrame: 0, effects: [] });
+	f.project.clips.push(guide);
+	f.service.focus('clip');
+	await f.service.playPause('clip');
+	assert.ok(f.events.includes('seek:1000'), 'source frame 100 plays at engine frame 1000 beside its guide');
+	assert.equal(f.service.snapshot().positionFrame, 100);
+	f.service.seek(150);
+	assert.equal(f.events.at(-1), 'seek:1050');
+	assert.equal(f.service.snapshot().positionFrame, 150);
+	await f.service.dispose();
+});
+
+test('musical source preview rebases guide tracks from resolved target timing', () => {
+	const tempoMap = { mode: 'musical' as const, events: [{ id: 'tempo', beat: { num: 0, den: 1 }, bpm: { num: 120, den: 1 } }] };
+	const target = { id: 'target', kind: 'audio', sourceId: 'source', anchor: 'musical', musicalExtent: 'beat',
+		musicalStartBeat: { num: 2, den: 1 }, musicalDurationBeats: { num: 1, den: 1 }, timelineStartFrame: 10,
+		sourceStartFrame: 100, sourceDurationFrames: 48_000, durationFrames: 24_000, effects: [createEffect('audacity-auto-duck', { context: { controlTrackId: 'guide-track' } })] };
+	const guide = { id: 'guide', kind: 'audio', sourceId: 'guide-source', anchor: 'musical', musicalExtent: 'beat',
+		musicalStartBeat: { num: 3, den: 1 }, musicalDurationBeats: { num: 1, den: 1 }, timelineStartFrame: 12,
+		sourceStartFrame: 0, sourceDurationFrames: 48_000, durationFrames: 48_000, effects: [] };
+	const project = { id: 'musical-project', sampleRate: 48_000, tempoMap, sources: [
+		{ id: 'source', sampleRate: 48_000, frameCount: 96_000, channelCount: 1 }, { id: 'guide-source', sampleRate: 48_000, frameCount: 96_000, channelCount: 1 },
+	], clips: [target, guide], tracks: [
+		{ id: 'target-track', type: 'audio', clipIds: ['target'] }, { id: 'guide-track', type: 'audio', clipIds: ['guide'] },
+	] } as unknown as ClipSourcePreviewProject;
+	const preview = createClipSourcePreviewProject(project, target.id);
+	assert.equal(preview.clipSourcePreviewOriginFrame, 47_900);
+	assert.equal(preview.clips?.find(clip => clip.id === guide.id)?.timelineStartFrame, 72_000);
 });
 
 test('timeline playback and leaving the source editor pause its private transport', async () => {

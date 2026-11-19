@@ -38,7 +38,7 @@ for (const saveReport of [false, true]) test(saveReport ? 'a failed old Contrast
 			},
 		} } });
 	}, Buffer.from(await archive.blob.arrayBuffer()).toString('base64'));
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await chooseCommandAction(page, editor, 'Analyze', 'Contrast');

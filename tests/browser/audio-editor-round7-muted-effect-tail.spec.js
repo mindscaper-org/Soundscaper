@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('muting a delayed recording removes its irrelevant release from Export', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, ['dry', 'delayed'].map(name => createWavFixture({ name: `${name}.wav`,
 		frequency: 440, duration: 1, channelCount: 2 })));
 	const panel = await openEffectsForTrack(editor, 2);
@@ -17,13 +17,13 @@ test('muting a delayed recording removes its irrelevant release from Export', as
 		await commitInput(dialog.locator(`[data-effect-param="${parameter}"] input`), value);
 	}
 	await closeDialog(dialog);
-	const sounding = await exportSamples(page, editor);
+	const sounding = await exportSamples(page, editor, { includeTail: true });
 	expect(sounding.length).toBe(96_000);
 	const track = clipByName(editor, 'delayed.wav').locator('xpath=ancestor::div[@data-track-row]');
 	await track.getByRole('button', { name: 'Mute', exact: true }).click();
-	const muted = await exportSamples(page, editor);
+	const muted = await exportSamples(page, editor, { includeTail: true });
 	expect(muted.length).toBe(48_000);
 	expect(Math.max(...muted.slice(0, 128).map(Math.abs))).toBeGreaterThan(.1);
 	await track.getByRole('button', { name: 'Mute', exact: true }).click();
-	expect((await exportSamples(page, editor)).length).toBe(96_000);
+	expect((await exportSamples(page, editor, { includeTail: true })).length).toBe(96_000);
 });

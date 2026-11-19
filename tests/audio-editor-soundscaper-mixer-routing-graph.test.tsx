@@ -71,6 +71,17 @@ test('the Soundscaper mixer opts into its graph and routes each gesture through 
 		assert.equal(closeGraph.textContent, 'Channel strips');
 		assert.ok(dom.one('[data-soundscaper-routing-graph]'));
 
+		const rackTypes: unknown[] = [];
+		Object.defineProperty(rackTypes, 'map', {
+			value: () => assert.fail('hidden channel strips must not prepare effect labels'),
+		});
+		await act(async () => root.render(<WorkspacePanelContent
+			{...baseProps}
+			panelId="mixer"
+			productId="soundscaper"
+			snapshot={{ ...snapshot(), effects: { rackTypes } }}
+		/>));
+
 		await act(async () => reactProps(dom.one('[data-routing-source="master"]')).onKeyDown?.({ key: 'Enter', preventDefault() {} }));
 		await act(async () => reactProps(dom.one('[data-routing-destination="output:main"]')).onKeyDown?.({ key: 'Enter', preventDefault() {} }));
 		assert.equal(gestures.length, 1);

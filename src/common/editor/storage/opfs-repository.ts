@@ -108,6 +108,21 @@ export class OpfsRepository {
 		return this.#directoryPromise;
 	}
 
+	async binaryFileSnapshot(path: string, signal?: AbortSignal): Promise<File | null> {
+		const directory = await this.directory();
+		throwIfAborted(signal);
+		if (!directory) throw new Error('Origin-private media storage is unavailable.');
+		try {
+			const file = await (await directory.getFileHandle(path)).getFile();
+			throwIfAborted(signal);
+			return file;
+		} catch (error) {
+			throwIfAborted(signal);
+			if (isNotFoundError(error)) return null;
+			throw error;
+		}
+	}
+
 	async loadBinaryRecord(
 		record: StorageRecord,
 		missingMessage: string,

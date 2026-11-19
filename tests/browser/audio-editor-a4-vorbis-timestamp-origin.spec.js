@@ -9,7 +9,10 @@ import {
 	downloadBytes, openExportDialog, readDownloadBytes,
 } from './audio-editor-test-helpers.js';
 
-for (const [absolute, missingPages] of [[false, 0], [true, 0], [false, Infinity], [true, 2]]) test(`File Import owns the Vorbis recording extent rather than its absolute broadcast clock=${String(absolute)}, missing page clocks=${String(missingPages)}`, async ({ page }) => {
+// Node covers every timestamp/granule variation with real decoding and Scape custody.
+// Keep sparse absolute page clocks through the native browser renderer as well.
+const absolute = true, missingPages = 2;
+test('File Import and native rendering retain sparse absolute Vorbis page clocks', async ({ page }) => {
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	const file = missingPages ? await vorbisMissingGranuleFixture(absolute, missingPages) : vorbisTimestampFixture(absolute);
 	const reference = vorbisTimestampReference();

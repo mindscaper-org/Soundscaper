@@ -238,6 +238,26 @@ test('a protocol failure never discards the record of what already landed', asyn
 	assert.match(described.summary, /stopped/iu);
 });
 
+test('a receiving view failure cannot acknowledge durable imports as failed', async () => {
+	const sendingStore = new FakeStore([{ id: 'p1', title: 'One' }, { id: 'p2', title: 'Two' }]);
+	const receivingStore = new FakeStore();
+	const runtime = runtimeFor(createFakeArchive());
+	const collection = await collectTransferArchives({ runtime, store: sendingStore });
+	const { senderPort, receiverPort } = linkedWindowPorts();
+	const [sent, received] = await Promise.all([
+		sendTransferArchives({ runtime, collection, port: senderPort, targetOrigin: FRAMESCAPER, allowedOrigins: [FRAMESCAPER] }),
+		receiveTransferArchives({
+			runtime, store: receivingStore, port: receiverPort, targetOrigin: SOUNDSCAPER,
+			allowedOrigins: [SOUNDSCAPER], sessionId: 'observer-failure',
+			onRecord: () => { throw new Error('Reporting view became unavailable'); },
+		}),
+	]);
+	assert.deepEqual(received.records.map(({ outcome }) => outcome), ['imported', 'imported']);
+	assert.deepEqual([...receivingStore.projects.keys()], ['p1', 'p2']);
+	assert.equal(sent.stored, 2);
+	assert.equal(sent.failed, 0);
+});
+
 /* ------------------------------------------------------------------ */
 /* Residue wording is what tells a visitor whether their data is safe. */
 /* ------------------------------------------------------------------ */

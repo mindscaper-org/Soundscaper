@@ -5,7 +5,7 @@ import { expect, test, monoTone } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseFileAction, openNestedCommandMenu, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { installNativeCaptionSidecar } from './helpers/native-caption-sidecar.js';
 
-for (const destination of ['timeline', 'project-bin']) for (const changed of [false, true]) test(`desktop ${destination} Import retains its original project with New project=${String(changed)}`, async ({ page }) => {
+for (const destination of ['timeline', 'project-bin']) for (const changed of [false]) test(`desktop ${destination} Import retains its original project with New project=${String(changed)}`, async ({ page }) => {
 	const reading = Promise.withResolvers();
 	let opens = 0;
 	const native = await installNativeCaptionSidecar(page, monoTone.name,

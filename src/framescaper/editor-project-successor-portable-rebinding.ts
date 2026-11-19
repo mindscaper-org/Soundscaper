@@ -4,7 +4,7 @@ import { canonicalJsonSha256 } from '../common/canonical-json-sha256.ts';
 import { createProjectCopyDocument } from '../common/editor/storage/project-copy-document.ts';
 import { motionArray, motionId, motionRecord } from '../common/editor/motion-values.ts';
 import { normalizeFramescaperSuccessorProject } from './editor-project-successor.ts';
-import { remapScapeProjectSourceReferences } from '../common/editor/scape-project-source-remap.ts';
+import { remapProjectSourceReferences } from '../common/editor/project-source-reference-remap.ts';
 import { rebindFramescaperSourceIdentities } from './editor-project-source-rebind.ts';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
@@ -39,7 +39,7 @@ export function bindFramescaperSuccessorPortableProject(closure: Closure, value:
 	}
 	const selected = copy ? createProjectCopyDocument(closure.project, copy) : closure.project;
 	const base = { ...structuredClone(selected), sources: closure.project.sources.map(source => keys.has(source.id) && source.kind !== 'image' ? { ...structuredClone(source), id: keys.get(source.id)!, storageKey: keys.get(source.id)! } : structuredClone(source)) };
-	rebindFramescaperSourceIdentities(base, keys); remapScapeProjectSourceReferences(base, keys);
+	rebindFramescaperSourceIdentities(base, keys); remapProjectSourceReferences(base, keys);
 	const project = normalizeFramescaperSuccessorProject(base);
 	return { project, binding: { copy, storageSourceIds } satisfies FramescaperSuccessorPortableBinding };
 }

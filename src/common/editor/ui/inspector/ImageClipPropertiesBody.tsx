@@ -4,6 +4,7 @@ import { normalizeFramescaperImageClipV1 } from '../../timeline-image-model.ts';
 import { useImageClipPropertiesTarget } from './useClipPropertyPresentation.ts';
 import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
 import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface ImageClipPropertiesBodyProps {
 	readonly controller: object;
@@ -35,14 +36,14 @@ export default function ImageClipPropertiesBody({ controller, project, clipId, c
 			<details className="audio-editor-clip-properties__drawer" data-clip-properties-drawer="media">
 				<summary><h3>{copy.clipMediaSettings}</h3></summary>
 				<div className="audio-editor-clip-properties__drawer-content">
-					<label className="audio-editor-field"><span>{copy.clipName}</span>
+					<label className="audio-editor-field"><EditorControlLabel>{copy.clipName}</EditorControlLabel>
 						<input value={String(source?.name ?? copy.clip)} readOnly /></label>
 					<div className="audio-editor-clip-properties__time-grid">
-						<label className="audio-editor-field" data-clip-field="startFrame"><span>{copy.clipStart}</span>
+						<label className="audio-editor-field" data-clip-field="startFrame"><EditorControlLabel>{copy.clipStart}</EditorControlLabel>
 							<AudioEditorTimeCodeInput label={copy.clipStart} value={clip.sequenceStartFrame}
 								unit="frames" rate={rate.num / rate.den} sampleRate={sampleRate} format="hh:mm:ss+milliseconds"
 								disabled={disabled} onCommit={value => commit('sequenceStartFrame', value)} /></label>
-						<label className="audio-editor-field" data-clip-field="durationFrame"><span>{copy.clipDuration}</span>
+						<label className="audio-editor-field" data-clip-field="durationFrame"><EditorControlLabel>{copy.clipDuration}</EditorControlLabel>
 							<AudioEditorTimeCodeInput label={copy.clipDuration} value={clip.sequenceFrameCount}
 								unit="frames" rate={rate.num / rate.den} sampleRate={sampleRate} format="hh:mm:ss+milliseconds"
 								minimum={1} disabled={disabled} onCommit={value => commit('sequenceFrameCount', value)} /></label>

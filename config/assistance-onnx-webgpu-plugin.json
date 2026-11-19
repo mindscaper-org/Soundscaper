@@ -58,49 +58,49 @@
 	"headers": [
 		{
 			"id": "ort-include-onnxruntime-core-session-onnxruntime_c_api-h",
-			"url": "https://raw.githubusercontent.com/microsoft/onnxruntime/2e2543fbe9fae542f921d47a72d21d5a4ef0b710/include/onnxruntime/core/session/onnxruntime_c_api.h",
+			"url": "https://raw.githubusercontent.com/ROCm/onnxruntime/2e2543fbe9fae542f921d47a72d21d5a4ef0b710/include/onnxruntime/core/session/onnxruntime_c_api.h",
 			"path": "include/onnxruntime/core/session/onnxruntime_c_api.h",
 			"byteLength": 398209,
 			"sha256": "acc0cf4b3f28d39339c76770d76164bb7a0637dc89f5fde764b4017b632f6743"
 		},
 		{
 			"id": "ort-include-onnxruntime-core-session-onnxruntime_cxx_api-h",
-			"url": "https://raw.githubusercontent.com/microsoft/onnxruntime/2e2543fbe9fae542f921d47a72d21d5a4ef0b710/include/onnxruntime/core/session/onnxruntime_cxx_api.h",
+			"url": "https://raw.githubusercontent.com/ROCm/onnxruntime/2e2543fbe9fae542f921d47a72d21d5a4ef0b710/include/onnxruntime/core/session/onnxruntime_cxx_api.h",
 			"path": "include/onnxruntime/core/session/onnxruntime_cxx_api.h",
 			"byteLength": 169698,
 			"sha256": "9c63ed5bf0427ddf1c10a99aca0beeec77318ce77d2ea6f7ae76d7d933660f67"
 		},
 		{
 			"id": "ort-include-onnxruntime-core-session-onnxruntime_cxx_inline-h",
-			"url": "https://raw.githubusercontent.com/microsoft/onnxruntime/2e2543fbe9fae542f921d47a72d21d5a4ef0b710/include/onnxruntime/core/session/onnxruntime_cxx_inline.h",
+			"url": "https://raw.githubusercontent.com/ROCm/onnxruntime/2e2543fbe9fae542f921d47a72d21d5a4ef0b710/include/onnxruntime/core/session/onnxruntime_cxx_inline.h",
 			"path": "include/onnxruntime/core/session/onnxruntime_cxx_inline.h",
 			"byteLength": 157865,
 			"sha256": "c508dbb7d8203003a2584b8712118cb88e5b4ef1e1c7876a9974156fb7489301"
 		},
 		{
 			"id": "ort-include-onnxruntime-core-session-onnxruntime_ep_c_api-h",
-			"url": "https://raw.githubusercontent.com/microsoft/onnxruntime/2e2543fbe9fae542f921d47a72d21d5a4ef0b710/include/onnxruntime/core/session/onnxruntime_ep_c_api.h",
+			"url": "https://raw.githubusercontent.com/ROCm/onnxruntime/2e2543fbe9fae542f921d47a72d21d5a4ef0b710/include/onnxruntime/core/session/onnxruntime_ep_c_api.h",
 			"path": "include/onnxruntime/core/session/onnxruntime_ep_c_api.h",
 			"byteLength": 156950,
 			"sha256": "e6c986c9e98583f8113b2c6bc3864814883b806d501cf24da4d239c45753e235"
 		},
 		{
 			"id": "ort-include-onnxruntime-core-session-onnxruntime_float16-h",
-			"url": "https://raw.githubusercontent.com/microsoft/onnxruntime/2e2543fbe9fae542f921d47a72d21d5a4ef0b710/include/onnxruntime/core/session/onnxruntime_float16.h",
+			"url": "https://raw.githubusercontent.com/ROCm/onnxruntime/2e2543fbe9fae542f921d47a72d21d5a4ef0b710/include/onnxruntime/core/session/onnxruntime_float16.h",
 			"path": "include/onnxruntime/core/session/onnxruntime_float16.h",
 			"byteLength": 17991,
 			"sha256": "88b242845d25981633a0bbd1c148e273cf8bfb016ea3f57c4af41a06530f72b0"
 		},
 		{
 			"id": "ort-include-onnxruntime-core-session-onnxruntime_error_code-h",
-			"url": "https://raw.githubusercontent.com/microsoft/onnxruntime/2e2543fbe9fae542f921d47a72d21d5a4ef0b710/include/onnxruntime/core/session/onnxruntime_error_code.h",
+			"url": "https://raw.githubusercontent.com/ROCm/onnxruntime/2e2543fbe9fae542f921d47a72d21d5a4ef0b710/include/onnxruntime/core/session/onnxruntime_error_code.h",
 			"path": "include/onnxruntime/core/session/onnxruntime_error_code.h",
 			"byteLength": 2775,
 			"sha256": "5ce3b054e798eced8d14f5b86e98692fd33470463f96194ce0700a2d53dd8721"
 		},
 		{
 			"id": "ort-coreml-provider-factory",
-			"url": "https://raw.githubusercontent.com/microsoft/onnxruntime/2e2543fbe9fae542f921d47a72d21d5a4ef0b710/include/onnxruntime/core/providers/coreml/coreml_provider_factory.h",
+			"url": "https://raw.githubusercontent.com/ROCm/onnxruntime/2e2543fbe9fae542f921d47a72d21d5a4ef0b710/include/onnxruntime/core/providers/coreml/coreml_provider_factory.h",
 			"path": "include/onnxruntime/core/providers/coreml/coreml_provider_factory.h",
 			"byteLength": 5247,
 			"sha256": "d6430c47d2b076d4a40ba6523e78d75cc4c4b0e5604fb280168891331b057ade"

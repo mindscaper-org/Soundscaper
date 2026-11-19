@@ -33,3 +33,10 @@ test('German participates in automatic translation like other non-English langua
 	assert.equal(assertMachineTranslatableLocale('de'), 'de');
 	assert.deepEqual(machineTranslatableLocales(['en', 'de', 'fr']), ['de', 'fr']);
 });
+
+test('German pitch correction help identifies the MIDI track and the musical key and scale', async () => {
+	const german = await resolveCatalog('de');
+	assert.match(german.effectAutoTuneHint, /MIDI-Steuerspur/u);
+	assert.match(german.effectAutoTuneHint, /Tonart und Tonleiter/u);
+	assert.doesNotMatch(german.effectAutoTuneHint, /Steuerkanal/u);
+});

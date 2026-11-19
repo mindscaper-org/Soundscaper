@@ -43,6 +43,7 @@ const EXPECTED_CODECS: Readonly<Record<DesktopVideoCodecFormat, Readonly<{
 	readonly video: string;
 	readonly audio: string;
 }>>> = Object.freeze({
+	mov: Object.freeze({ video: 'h264', audio: 'aac' }),
 	mp4: Object.freeze({ video: 'h264', audio: 'aac' }),
 	webm: Object.freeze({ video: 'vp9', audio: 'opus' }),
 });
@@ -277,7 +278,7 @@ function dataProperty(value: unknown, name: string, label: string): unknown {
 
 function validateOptions(options: ExternalFfmpegVideoCanaryInspectionRequest): void {
 	if (!options || typeof options !== 'object'
-		|| options.format !== 'mp4' && options.format !== 'webm'
+		|| options.format !== 'mp4' && options.format !== 'webm' && options.format !== 'mov'
 		|| !validAbsolutePath(options.ffprobePath)
 		|| !validAbsolutePath(options.outputPath)
 		|| !validAbsolutePath(options.workingDirectory)

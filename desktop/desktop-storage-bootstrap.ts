@@ -2,14 +2,15 @@
 
 import { lstatSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { mkdir, readFile } from 'node:fs/promises';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { configureDesktopBrowserCachesSync, migrateDesktopBrowserCaches } from './desktop-browser-cache.ts';
 import { migrateDesktopProjectLibraries } from './desktop-project-library-migration.ts';
 import { resolveDesktopProjectsDirectory } from './desktop-projects-directory.ts';
 import { migrateDesktopStorageEntries } from './desktop-storage-migration.ts';
 import { migrateDesktopStorageEntriesSync } from './desktop-storage-migration-sync.ts';
-import { resolveDesktopStoragePaths } from './desktop-storage-paths.ts';
+import { resolveDesktopStoragePaths, type DesktopStoragePaths } from './desktop-storage-paths.ts';
+import { assertLocalDesktopStorage, physicalDesktopStoragePath } from './local-storage-safety.ts';
 
 interface DesktopStorageApplication {
 	getPath(name: 'home' | 'appData' | 'userData' | 'exe'): string;
@@ -73,8 +74,10 @@ export function configureDesktopStorage(options: DesktopStorageBootstrapOptions)
 	const renderInputRoot = enabled && hasLegacyRenderInputs(legacyRenderInputs)
 		? legacyRenderInputs : join(paths.stateRoot, 'framescaper-native-render-inputs');
 	let prepared = false;
+	let migrationPaths = { ...paths, legacyAppData };
 	return Object.freeze({
 		...paths,
+		portable: portableRoot !== null,
 		xdgEnabled: enabled,
 		renderInputRoot,
 		projectsDirectory(): Promise<string | null> {
@@ -84,6 +87,10 @@ export function configureDesktopStorage(options: DesktopStorageBootstrapOptions)
 			});
 		},
 		prepareBeforeReady(): void {
+			if (prepared) return;
+			for (const path of new Set([paths.dataRoot, paths.stateRoot, paths.sessionDataRoot])) {
+				assertLocalDesktopStorage(path);
+			}
 			if (!prepared && portableRoot !== null) {
 				for (const path of [paths.logsRoot, paths.crashDumpsRoot]) mkdirSync(path, { recursive: true, mode: 0o700 });
 				app.setPath('sessionData', paths.sessionDataRoot);
@@ -91,53 +98,70 @@ export function configureDesktopStorage(options: DesktopStorageBootstrapOptions)
 				app.setPath('crashDumps', paths.crashDumpsRoot);
 			}
 			if (prepared || !enabled) { prepared = true; return; }
+			migrationPaths = linuxStorageMigrationPaths(paths, legacyAppData);
+			const { configRoot, sessionDataRoot, dataRoot, cacheRoot, stateRoot, logsRoot, crashDumpsRoot } = migrationPaths;
 			// Electron starts writing Local State and Crashpad before asynchronous I/O
 			// settles. Relocate its profile synchronously before changing its paths.
 			migrateDesktopStorageEntriesSync([
 				...BROWSER_FILES.map((name) => ({
-					source: join(paths.configRoot, name), destination: join(paths.sessionDataRoot, name),
+					source: join(configRoot, name), destination: join(sessionDataRoot, name),
 				})),
 				...BROWSER_CACHE_FILES.map((name) => ({
-					source: join(paths.configRoot, name), destination: join(paths.cacheRoot, 'browser', name),
+					source: join(configRoot, name), destination: join(cacheRoot, 'browser', name),
 				})),
-				{ source: join(paths.configRoot, 'Crashpad'), destination: paths.crashDumpsRoot },
+				{ source: join(configRoot, 'Crashpad'), destination: crashDumpsRoot },
 			]);
-			for (const path of [paths.dataRoot, paths.cacheRoot, paths.stateRoot,
-				paths.sessionDataRoot, paths.logsRoot, paths.crashDumpsRoot]) {
+			for (const path of [dataRoot, cacheRoot, stateRoot, sessionDataRoot, logsRoot, crashDumpsRoot]) {
 				mkdirSync(path, { recursive: true, mode: 0o700 });
 			}
-			configureDesktopBrowserCachesSync(paths.sessionDataRoot, paths.cacheRoot);
-			app.setPath('sessionData', paths.sessionDataRoot);
-			app.setAppLogsPath(paths.logsRoot);
-			app.setPath('crashDumps', paths.crashDumpsRoot);
-			app.commandLine.appendSwitch('disk-cache-dir', join(paths.cacheRoot, 'chromium'));
+			configureDesktopBrowserCachesSync(sessionDataRoot, cacheRoot);
+			app.setPath('sessionData', sessionDataRoot);
+			app.setAppLogsPath(logsRoot);
+			app.setPath('crashDumps', crashDumpsRoot);
+			app.commandLine.appendSwitch('disk-cache-dir', join(cacheRoot, 'chromium'));
 			prepared = true;
 		},
 		async migrate(): Promise<void> {
 			if (isolated || portableRoot !== null) return;
 			if (!prepared) throw new Error('Desktop storage must be prepared under the single-instance lock before ready.');
+			const { configRoot, sessionDataRoot, dataRoot, cacheRoot, stateRoot, projectLibraryAppData } = migrationPaths;
 			await migrateDesktopProjectLibraries({
-				legacyAppDataPath: legacyAppData, projectLibraryAppDataPath: paths.projectLibraryAppData, appName,
+				legacyAppDataPath: migrationPaths.legacyAppData, projectLibraryAppDataPath: projectLibraryAppData, appName,
 			});
 			if (!enabled) return;
 			const preserveModels = await hasChosenLegacyModels(paths.configRoot);
 			await migrateDesktopStorageEntries([{
-				source: join(paths.configRoot, 'runtime', '.archives'),
-				destination: join(paths.cacheRoot, 'runtime-archives'),
+				source: join(configRoot, 'runtime', '.archives'),
+				destination: join(cacheRoot, 'runtime-archives'),
 			}]);
 			const entries = (names: readonly string[], destinationRoot: string) => names.map((name) => ({
-				source: join(paths.configRoot, name), destination: join(destinationRoot, name),
+				source: join(configRoot, name), destination: join(destinationRoot, name),
 			}));
 			await migrateDesktopStorageEntries([
-				...entries(DATA_FILES.filter((name) => name !== 'models' || !preserveModels), paths.dataRoot),
-				...entries(STATE_FILES, paths.stateRoot),
-				...entries(CACHE_FILES, paths.cacheRoot),
+				...entries(DATA_FILES.filter((name) => name !== 'models' || !preserveModels), dataRoot),
+				...entries(STATE_FILES, stateRoot),
+				...entries(CACHE_FILES, cacheRoot),
 			]);
-			await mkdir(join(paths.sessionDataRoot, 'Partitions', `${appName.toLowerCase()}-production`),
+			await mkdir(join(sessionDataRoot, 'Partitions', `${appName.toLowerCase()}-production`),
 				{ recursive: true, mode: 0o700 });
-			await migrateDesktopBrowserCaches(paths.sessionDataRoot, paths.cacheRoot);
+			await migrateDesktopBrowserCaches(sessionDataRoot, cacheRoot);
 		},
 	});
+}
+
+function linuxStorageMigrationPaths(paths: DesktopStoragePaths, legacyAppData: string) {
+	// Only the chosen base can be an alias. Managed children still go through
+	// the migrators' entry and ancestor checks.
+	const chosenBase = (path: string) => physicalDesktopStoragePath(path) === resolve(path) ? path : assertLocalDesktopStorage(path);
+	const underBase = (path: string) => join(chosenBase(dirname(path)), basename(path));
+	const dataRoot = underBase(paths.dataRoot);
+	const stateRoot = underBase(paths.stateRoot);
+	return {
+		configRoot: underBase(paths.configRoot), dataRoot, stateRoot, cacheRoot: underBase(paths.cacheRoot),
+		legacyAppData: chosenBase(legacyAppData), projectLibraryAppData: dirname(dataRoot),
+		sessionDataRoot: join(dataRoot, basename(paths.sessionDataRoot)),
+		logsRoot: join(stateRoot, basename(paths.logsRoot)), crashDumpsRoot: join(stateRoot, basename(paths.crashDumpsRoot)),
+	};
 }
 
 function findPortableSettingsDirectory(options: DesktopStorageBootstrapOptions): string | null {

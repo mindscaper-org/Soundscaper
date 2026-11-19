@@ -44,7 +44,7 @@ for (const [wet, beforeGap] of [[false, false], [true, false], [true, true]]) {
 		});
 		const { project, blob } = await burstProject(wet, beforeGap);
 		await disableNativeSavePicker(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Burst.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) });
 		await expect(editor).toHaveAttribute('data-project-id', project.id);
 		await waitForProjectActivation(editor);

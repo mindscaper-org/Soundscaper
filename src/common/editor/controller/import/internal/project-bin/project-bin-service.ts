@@ -1,4 +1,5 @@
 import { createProjectBinInstanceCountReader } from '../../../../project-bin-instance-count-index.ts';
+import { binSourceTimelineRemovalIds } from '../../../../commands/bin-source-timeline-removal.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { publishedCopyFor } from '../../../shared/presentation-localization.ts'; import { createLocalizedError } from '../../../../../i18n/presentation-message.ts'; import { hasProjectBinMediaAuthority } from '../../../../project-schema-version.ts';
@@ -114,7 +115,7 @@ export interface ProjectBinService extends ProjectBinReplacementService,
 	renameProjectBinClip(clipId: string, requestedName: unknown): string | null;
 	removeProjectBinClip(clipId: string): string | null;
 	setProjectBinClipColor(clipId: string, color: string): string | null;
-	projectBinInstanceCount(clipId: string): number;
+	projectBinInstanceCount(clipId: string, options?: Readonly<{ forRemoval?: boolean }>): number;
 	selectProjectBinInstances(clipId: string): readonly string[];
 	removeProjectBinSource(clipId: string): readonly string[] | null;
 	playPauseProjectBinClip(clipId: string): Promise<ProjectBinPreview>;
@@ -176,7 +177,7 @@ export function createProjectBinService(
 
 	function placeProjectBinClip(
 		binClipId: string,
-		placement: Readonly<{ trackId?: string | null; timelineStartFrame?: unknown }> = {},
+		placement: Readonly<{ trackId?: string | null; timelineStartFrame?: unknown; createTrack?: boolean }> = {},
 	): string | null | Promise<string> {
 		dependencies.lifetime.assertActive();
 		if (dependencies.editingBlocked()) return null;
@@ -330,9 +331,10 @@ export function createProjectBinService(
 		return project.clips.filter((clip) => sourceIds.has(clip.sourceId)).map((clip) => clip.id);
 	}
 
-	function projectBinInstanceCount(clipId: string): number {
+	function projectBinInstanceCount(clipId: string, options: Readonly<{ forRemoval?: boolean }> = {}): number {
 		dependencies.lifetime.assertActive();
 		const project = dependencies.getProject();
+		if (options.forRemoval) return binSourceTimelineRemovalIds(project.clips, projectBinSourceIds(clipId, project)).length;
 		const count = readInstanceCount(project.clips, projectBinClips(project), clipId, hasProjectBinMediaAuthority(project));
 		if (count === undefined) throw createLocalizedError(Error, dependencies.copy, 'audioClipNotFound');
 		return count;
@@ -362,7 +364,8 @@ export function createProjectBinService(
 	function removeProjectBinSource(clipId: string): readonly string[] | null {
 		dependencies.lifetime.assertActive();
 		if (dependencies.editingBlocked()) return null;
-		const instanceIds = projectBinInstanceIds(clipId);
+		const project = dependencies.getProject();
+		const instanceIds = binSourceTimelineRemovalIds(project.clips, projectBinSourceIds(clipId, project));
 		dependencies.commit({ type: 'project-bin/remove-from-project', clipId }, { selectClipId: null });
 		return Object.freeze(instanceIds);
 	}

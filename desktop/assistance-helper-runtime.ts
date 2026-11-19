@@ -38,6 +38,8 @@ import {
 	type VoiceActivityResult,
 	type VoiceActivityRuntimeAdapter,
 } from './assistance-vad-runtime.ts';
+import { captureSherpaEnhancementGrant, type SherpaEnhancementRequest } from './assistance-sherpa-enhancement-capture.ts';
+import { validateSherpaEnhancementResult, type SherpaEnhancementResult } from './assistance-sherpa-enhancement-contract.ts';
 import { nativeChildFileIdentityFromStat } from './native-child-file-identity.ts';
 
 export interface AssistanceSpeechHostPort {
@@ -67,7 +69,7 @@ export interface AssistanceFileReadStream extends AsyncIterable<Uint8Array> {
 export function createAssistanceHelperRuntimeAdapter(
 	options: AssistanceHelperRuntimeOptions,
 ): SpeechRuntimeAdapter & VoiceActivityRuntimeAdapter & SpeakerDiarizationRuntimeAdapter
-	& Readonly<{ dispose(): void; shutdown(): Promise<void> }> {
+	& Readonly<{ enhance(request: SherpaEnhancementRequest): Promise<SherpaEnhancementResult>; dispose(): void; shutdown(): Promise<void> }> {
 	const mintJobId = options.mintJobId ?? (() => randomBytes(20).toString('hex'));
 	const openFileReadStream = options.openFileReadStream
 		?? ((path: string): AssistanceFileReadStream => createReadStream(path));
@@ -132,6 +134,11 @@ export function createAssistanceHelperRuntimeAdapter(
 				signal: request.signal,
 				onProgress: request.onProgress,
 			}, request.jobId), grant) as SpeakerDiarizationResult;
+		},
+		async enhance(request: SherpaEnhancementRequest): Promise<SherpaEnhancementResult> {
+			const grant = await captureSherpaEnhancementGrant(request);
+			return validateSherpaEnhancementResult(await run(grant, { signal: request.signal,
+				onProgress: request.onProgress }, request.jobId), grant);
 		},
 		dispose: () => options.host.dispose(),
 		shutdown: async () => options.host.shutdown ? await options.host.shutdown() : options.host.dispose(),

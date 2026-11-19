@@ -1,3 +1,4 @@
+import { checkNativeContextMenu, checkUnavailableCommands, resetFactorySettings } from './helpers/menu-state-journeys.js';
 import { darkTheme } from '../../vendor/audacity-design-system/tokens/src/themes/dark.v2.ts';
 import { lightTheme } from '../../vendor/audacity-design-system/tokens/src/themes/light.v2.ts';
 import { flushFocusCallbacks, holdFocusCallbacks, installControlledFocusCallbacks } from './helpers/controlled-focus-callbacks.js';
@@ -28,16 +29,6 @@ const cssColor = (hex) => `rgb(${[1, 3, 5].map((offset) =>
 test.describe('audio editor React/design-system workflows', () => {
 	registerAudioEditorHooks();
 
-	test('suppresses the browser context menu across the editor', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
-		await expect(editor.locator('.audio-editor-ruler-corner')).toBeVisible();
-		const prevented = await editor.evaluate((element) => {
-			const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
-			element.querySelector('.audio-editor-ruler-corner')?.dispatchEvent(event);
-			return event.defaultPrevented;
-		});
-		expect(prevented).toBe(true);
-	});
 
 	test('closes an application menu when the track area is clicked', async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/');
@@ -52,6 +43,10 @@ test.describe('audio editor React/design-system workflows', () => {
 
 		await expect(menu).toBeHidden();
 		await expect(file).toHaveAttribute('aria-expanded', 'false');
+
+		await test.step("suppresses the browser context menu across the editor", async () => {
+			await checkNativeContextMenu(page, editor);
+		});
 	});
 
 	test('presents the current menubar and the AU4 keyboard navigation model', async ({ page }) => {
@@ -168,6 +163,10 @@ test.describe('audio editor React/design-system workflows', () => {
 		await chooseCommandAction(page, editor, 'View', 'Enable multi-track recording');
 		await expect(arm).toHaveCount(1);
 		await expect(arm).toHaveAttribute('aria-pressed', 'true');
+
+		await test.step("omits unavailable commands and opens project properties from File > Project management", async () => {
+			await checkUnavailableCommands(page, editor);
+		});
 	});
 
 	test('leaves browser menu accelerators to the browser', async ({ page }) => {
@@ -233,39 +232,6 @@ test.describe('audio editor React/design-system workflows', () => {
 		await expect(view).toBeFocused();
 	});
 
-	test('omits unavailable commands and opens project properties from File > Project management', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
-		const menubar = editor.getByRole('menubar', { name: 'Application menu' });
-		for (const [menuName, labels] of [
-			['File', ['Close project', 'Export selected audio', 'Quit']],
-			['View', ['Show piano roll']],
-			['Tracks', ['Sync-lock tracks', 'MIDI track']],
-			['Generate', ['Plugin manager']],
-			['Effect', ['Plugin manager']],
-			['Analyze', ['Plugin manager']],
-			['Tools', [
-				'Plugin manager',
-				'Screenshot tools',
-				'Run benchmark',
-				'Reset configuration',
-				'Sample data import',
-				'Sample data export',
-			]],
-		]) {
-			await menubar.getByRole('menuitem', { name: menuName, exact: true }).click();
-			const menu = page.getByRole('menu', { name: menuName, exact: true });
-			await expect(menu).toBeVisible();
-			for (const label of labels) await expect(menu.getByRole('menuitem', { name: label, exact: true })).toHaveCount(0);
-			await page.keyboard.press('Escape');
-		}
-
-		await chooseCommandAction(page, editor, 'Help', 'Check for updates');
-		const desktopFeature = page.getByRole('dialog', { name: 'Desktop feature', exact: true });
-		await expect(desktopFeature).toBeVisible();
-		await desktopFeature.getByRole('button', { name: 'Cancel', exact: true }).click();
-		await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Project properties']);
-		await expect(editor.locator('[data-workspace-panel="metadata"]')).toBeVisible();
-	});
 
 	test('imports configured raw PCM and composes regular annotations from Tools', async ({ page }) => {
 		const errors = collectClientErrors(page);
@@ -315,28 +281,6 @@ test.describe('audio editor React/design-system workflows', () => {
 		expect(errors).toEqual([]);
 	});
 
-	test('reverts editor preferences from Help after confirmation without deleting the project', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
-		const projectId = await editor.getAttribute('data-project-id');
-
-		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
-		const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
-		await preferences.getByRole('tab', { name: /Appearance$/ }).click();
-		await preferences.getByRole('radio', { name: 'Dark', exact: true }).click();
-		await expect(editor).toHaveAttribute('data-editor-theme', 'dark');
-		await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-		await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
-
-		await chooseCommandAction(page, editor, 'Help', 'Revert to factory settings');
-		const confirmation = page.getByRole('dialog', { name: 'Revert to factory settings', exact: true });
-		await expect(confirmation).toContainText('Projects and audio files will not be deleted.');
-		await confirmation.getByRole('button', { name: 'Revert settings', exact: true }).click();
-
-		await expect(confirmation).toBeHidden();
-		await expect(editor).toHaveAttribute('data-editor-theme', 'system');
-		await expect(editor).toHaveAttribute('data-workspace-preset', 'modern');
-		await expect(editor).toHaveAttribute('data-project-id', projectId);
-	});
 
 	test('runs the Nyquist prompt and a bundled Legacy processor through the production WASM boundary', async ({ page }) => {
 		const errors = collectClientErrors(page);
@@ -487,6 +431,10 @@ test.describe('audio editor React/design-system workflows', () => {
 		const commandEffects = editor.locator('[data-workspace-panel="effects"]');
 		await expect(commandEffects.getByRole('region', { name: 'Effects panel', exact: true })).toBeVisible();
 		await closeEffectsPanel(commandEffects);
+
+		await test.step("reverts editor preferences from Help after confirmation without deleting the project", async () => {
+			await resetFactorySettings(page, editor);
+		});
 
 		await setDocumentTheme(page, 'light');
 		const applicationHeader = editor.locator('.kw-audio-editor__application-header');

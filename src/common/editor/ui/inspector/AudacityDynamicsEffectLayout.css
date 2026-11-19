@@ -86,9 +86,6 @@ html[data-theme='dark'] .kw-audio-editor-dialog:has(.audio-editor-audacity-port,
 .kw-audio-editor-dialog:has(.audio-editor-audacity-port, [data-audacity-dynamics-layout]) :is(.audio-editor-field, .audio-editor-effect-number) {
 	color: var(--text);
 	font-size: var(--editor-font-size, 12px);
-	font-weight: 400;
-	letter-spacing: normal;
-	text-transform: none;
 }
 
 .kw-audio-editor-dialog:has(.audio-editor-audacity-port, [data-audacity-dynamics-layout]) :is(.text-input__field, .dropdown__trigger) {
@@ -227,17 +224,23 @@ html[data-theme='dark'] .kw-audio-editor-dialog:has(.audio-editor-audacity-port,
 	grid-template-columns: 192px minmax(0, 1fr);
 	gap: 16px;
 	align-items: center;
+	min-height: 164px;
+	box-sizing: border-box;
 }
 
 .audio-editor-audacity-dynamics--limiter .audio-editor-audacity-dynamics__primary {
 	grid-template-columns: repeat(2, 88px);
 	gap: 16px;
-	padding-block: 12px;
+	padding-block: 0;
 }
 
 .audio-editor-audacity-dynamics--limiter .audio-editor-audacity-dynamics__secondary {
 	grid-template-columns: repeat(3, 70px);
-	gap: 16px;
+	gap: 6px 16px;
+}
+
+.audio-editor-audacity-dynamics--limiter [data-audacity-parameter='limitTruePeaks'] {
+	grid-column: 1 / -1;
 }
 
 .audio-editor-audacity-dynamics__multiband-controls {

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseAudioEditorLabels } from '../src/common/editor/label-io.js';
+import { parseAudioEditorLabels, serializeSubRipLabels } from '../src/common/editor/label-io.js';
 import { importAudioEditorEffectPresets, createAudioEditorEffectPresets, isCanonicalAudioEditorEffectPresets } from '../src/common/editor/effect-presets.js';
 import { parseAudacityEffectMacro } from '../src/common/editor/effect-macros.js';
 import { parseAudacityEffectPreset } from '../src/common/editor/audacity-effect-preset-import.ts';
@@ -40,6 +40,14 @@ test('effect preset JSON syntax, schema and record errors keep canonical library
 	check(failed(() => importAudioEditorEffectPresets(library, '{"schemaVersion":1,"presets":[null]}')), 'effect-preset', 'RECORD');
 	check(failed(() => importAudioEditorEffectPresets(library, '{"schemaVersion":1,"presets":[]}')), 'effect-preset', 'EMPTY');
 	assert.deepEqual(library.presets, []); assert.equal(isCanonicalAudioEditorEffectPresets(library), true);
+});
+
+test('a refused plain SubRip export explains how to deliver the literal title', () => {
+	const error = failed(() => serializeSubRipLabels([
+		{ id: 'label', title: '<b>Literal</b>', startFrame: 0, endFrame: 8000 },
+	], { sampleRate: 8000 }));
+	assert.equal(formatFileFailure(error)?.reason, 'UNREPRESENTABLE_TEXT');
+	assert.match(workspaceErrorMessage(error, { genericError: 'Error: {message}', unknownError: 'Unknown error' }), /SubRip.*literal.*Export WebVTT or TXT/u);
 });
 
 test('Audacity TXT macro and delegated preset errors expose translated line and parameter identities', () => {

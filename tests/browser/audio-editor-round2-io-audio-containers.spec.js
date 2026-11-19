@@ -16,7 +16,7 @@ for (const mimeType of ['audio/webm', 'video/webm']) {
 	test(`an ordinary audio-only WebM recording imports as audio when the picker reports ${mimeType}`, async ({ page }) => {
 		await disableNativeSavePicker(page);
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		try {
 			const picking = page.waitForEvent('filechooser');
 			await chooseFileAction(page, editor, 'Import');

@@ -3,7 +3,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, waitForEditor } from './audio-editor-test-helpers.js';
 
 test('an Audacity Insert shortcut imports, runs and survives reopening the editor', async ({ page }) => {
-	let editor = await bootEditor(page, '/embed/en/');
+	let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click();
@@ -14,7 +14,7 @@ test('an Audacity Insert shortcut imports, runs and survives reopening the edito
 	const review = preferences.getByRole('region', { name: 'Audacity shortcut import', exact: true });
 	await expect(review.getByRole('status')).toHaveText('1 command ready to import; 0 skipped.', { timeout: 15_000 });
 	await review.getByRole('button', { name: 'Apply shortcuts', exact: true }).click();
-	await expect(preferences.getByRole('status').filter({ hasText: 'Imported 1 command.' })).toBeVisible();
+	await expect(preferences.getByRole('status').filter({ hasText: 'Imported 1 command.' })).toBeVisible({ timeout: 15_000 });
 	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
 	const tracks = editor.getByRole('group', { name: /, audio track$/u }); const initial = await tracks.count();
 	await editor.getByRole('group', { name: 'Playhead', exact: true }).focus(); await page.keyboard.press('Alt+Insert');

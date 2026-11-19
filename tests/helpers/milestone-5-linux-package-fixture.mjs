@@ -8,11 +8,14 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
+import { gunzipSync } from 'node:zlib';
 
 import { createPackage } from '@electron/asar';
 import appImageUtil from 'app-builder-lib/out/targets/appimage/appImageUtil.js';
 
-import assistanceNativeRuntimeManifest from '../../config/assistance-native-runtime-manifest.json' with { type: 'json' };
+import { calendarPackageVersion, releaseArtifactStem } from '../../src/common/release/release-packaging.ts';
+import { parseReleaseVersion } from '../../src/common/release/release-version.ts';
+
 import { assistanceNativeRuntimeStageSummary } from '../../desktop/assistance-native-runtime-payload.mjs';
 import { DESKTOP_CODEC_POLICY } from '../../scripts/lib/desktop-codec-policy.mjs';
 import {
@@ -30,6 +33,13 @@ import {
 	stageVerifiedSoundscaperProfessionalNativePayload,
 	verifySoundscaperProfessionalNativePayload,
 } from '../../scripts/lib/soundscaper-professional-native-payload.mjs';
+
+// Use the immutable GPU handoff rather than an unbuilt source-checkout target.
+const retainedSnapshot = JSON.parse(gunzipSync(await readFile(new URL(
+	'../../config/desktop-test-assistance-runtime-snapshots/linux-x64.json.gz', import.meta.url,
+))));
+const assistanceNativeBuild = JSON.parse(retainedSnapshot.files['handoff.json']).assistanceNativeBuild;
+const assistanceNativeRuntimeManifest = assistanceNativeBuild.manifest;
 
 const executeFile = promisify(execFile);
 const TARGET_ID = 'linux-x64';
@@ -83,6 +93,7 @@ export async function createSoundscaperLinuxPackageFixture({
 			TARGET_ID,
 		),
 		assistanceRuntimeDistribution,
+		assistanceNativeBuild,
 		desktopCodecPolicy: DESKTOP_CODEC_POLICY,
 		desktopNotices: {
 			professionalNative: typedUnavailableSoundscaperProfessionalNativeNotices(TARGET_ID),
@@ -119,8 +130,9 @@ export async function createSoundscaperLinuxPackageFixture({
 		targetId: TARGET_ID,
 	});
 
-	const appImageName = `Soundscaper-${applicationVersion}-linux-x64.AppImage`;
-	const debianName = `Soundscaper-${applicationVersion}-linux-x64.deb`;
+	const stem = releaseArtifactStem(applicationVersion, 'Soundscaper');
+	const appImageName = `${stem}-linux-x64.AppImage`;
+	const debianName = `${stem}-linux-x64.deb`;
 	// electron-builder places the installed application itself at the AppImage
 	// SquashFS root; only the Debian package wraps it in /opt or /usr/lib.
 	const appImageRoot = join(workRoot, 'appimage-root');
@@ -161,7 +173,8 @@ async function stageAppImageWrapper(root, applicationVersion) {
 			'Type=Application',
 			'Icon=soundscaper',
 			'StartupWMClass=org.soundscaper',
-			`X-AppImage-Version=${applicationVersion}`,
+			`X-AppImage-Version=${parseReleaseVersion(applicationVersion)?.kind === 'calendar'
+				? calendarPackageVersion(applicationVersion) : applicationVersion}`,
 			'Comment=Soundscaper is a local-first multitrack audio editor with offline project and media export support.',
 			'MimeType=application/vnd.soundscaper.scape+zip;application/vnd.soundscaper.scape+zip;application/x-audacity-project;',
 			'Categories=AudioVideo;Audio;',
@@ -277,7 +290,8 @@ async function buildAppImage(treeRoot, outputPath, workRoot) {
 async function buildDebian(treeRoot, outputPath, applicationVersion) {
 	const control = [
 		'Package: soundscaper',
-		`Version: ${applicationVersion}`,
+		`Version: ${parseReleaseVersion(applicationVersion)?.kind === 'calendar'
+			? calendarPackageVersion(applicationVersion) : applicationVersion}`,
 		'Architecture: amd64',
 		'Maintainer: Soundscaper fixture <fixture@soundscaper.invalid>',
 		'Description: authenticated Milestone 5 package fixture',

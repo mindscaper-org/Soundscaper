@@ -92,6 +92,7 @@ export interface NormalizedLoop {
 export interface NormalizedPlayRange {
 	readonly startFrame: number;
 	readonly endFrame: number;
+	readonly overrideLoop?: true;
 }
 
 export function normalizePlayRange(
@@ -99,10 +100,10 @@ export function normalizePlayRange(
 	durationFrames: number,
 ): NormalizedPlayRange | null {
 	if (!value || typeof value !== 'object') return null;
-	const candidate = value as { startFrame?: unknown; endFrame?: unknown };
+	const candidate = value as { startFrame?: unknown; endFrame?: unknown; overrideLoop?: unknown };
 	const startFrame = clampFrame(candidate.startFrame, 0, durationFrames);
 	const endFrame = clampFrame(candidate.endFrame, 0, durationFrames);
-	return endFrame > startFrame ? { startFrame, endFrame } : null;
+	return endFrame > startFrame ? { startFrame, endFrame, ...(candidate.overrideLoop === true ? { overrideLoop: true } : {}) } : null;
 }
 
 /**

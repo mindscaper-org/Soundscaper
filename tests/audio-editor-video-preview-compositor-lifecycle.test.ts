@@ -11,12 +11,13 @@ import { installReactTestDom, ReactTestElement } from './helpers/react-test-dom.
 
 interface CompositorCounters {
 	contexts: number;
+	loseContext: number;
 	createProgram: number;
 	deleteProgram: number;
 }
 
 test('the preview compositor survives a project revision instead of being rebuilt', async () => {
-	const counters: CompositorCounters = { contexts: 0, createProgram: 0, deleteProgram: 0 };
+	const counters: CompositorCounters = { contexts: 0, loseContext: 0, createProgram: 0, deleteProgram: 0 };
 	const dom = installReactTestDom();
 	const restoreCanvas = installCanvasContext(counters);
 	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
@@ -47,10 +48,12 @@ test('the preview compositor survives a project revision instead of being rebuil
 		await act(async () => root.render(renderPanel(2)));
 		assert.equal(counters.deleteProgram, 0, 'a project revision must not dispose the compositor');
 		assert.equal(counters.contexts, 1, 'a project revision must not rebuild the compositor');
+		assert.equal(counters.loseContext, 0, 'a live preview retains its context');
 		assert.equal(counters.createProgram, compiled, 'a project revision must not recompile programs');
 
 		await act(async () => root.unmount());
 		assert.equal(counters.deleteProgram, compiled, 'unmounting releases every compiled program');
+		assert.equal(counters.loseContext, 1, 'unmounting returns the browser context slot immediately');
 	} finally {
 		actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
 		if (priorReact) Object.defineProperty(globalThis, 'React', priorReact);
@@ -83,8 +86,9 @@ function installCanvasContext(counters: CompositorCounters): () => void {
 	Object.defineProperty(prototype, 'getContext', {
 		configurable: true,
 		writable: true,
-		value(this: ReactTestElement, kind: string): unknown {
+		value(this: ReactTestElement, kind: string, options: WebGLContextAttributes): unknown {
 			if (this.tagName !== 'CANVAS' || kind !== 'webgl2') return null;
+			assert.equal(options.preserveDrawingBuffer, true, 'paused preview pixels survive browser presentation');
 			counters.contexts += 1;
 			return webgl2Stub(counters);
 		},
@@ -103,6 +107,8 @@ function webgl2Stub(counters: CompositorCounters): unknown {
 	return new Proxy({}, {
 		get(target: object, key: string | symbol): unknown {
 			if (typeof key !== 'string') return Reflect.get(target, key);
+			if (key === 'getExtension') return (name: string) => name === 'WEBGL_lose_context'
+				? { loseContext: () => { counters.loseContext += 1; } } : null;
 			const cached = members.get(key);
 			if (cached !== undefined) return cached;
 			const member = (): unknown => {

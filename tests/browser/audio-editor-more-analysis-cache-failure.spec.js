@@ -20,7 +20,7 @@ for (const failure of ['read', 'write']) test(`Analyze selection exports its val
 			return key === undefined ? put.call(this, value) : put.call(this, value, key);
 		};
 	}, { failing: failure });
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'cached analysis.wav', duration: 1, channelCount: 1 })]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await chooseCommandAction(page, editor, 'Analyze', 'Analyze selection');

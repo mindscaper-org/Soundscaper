@@ -57,6 +57,7 @@ const MAXIMUM_FILES = 16_384;
 const MAXIMUM_CLOSURE_BYTES = 4 * 1024 ** 3;
 const MAXIMUM_FILE_BYTES = 2 * 1024 ** 3;
 const MAXIMUM_MANIFEST_BYTES = 4 * 1024 ** 2;
+const FILE_AUTHENTICATION_WIDTH = 4;
 // Keep aligned with KOKORO_G2P_MAXIMUM_PATH_SEGMENTS in the build validator.
 const MAXIMUM_PATH_SEGMENTS = 32;
 const MAXIMUM_INPUT_BYTES = 64 * 1024;
@@ -263,9 +264,12 @@ async function authenticateClosure(
 	if (JSON.stringify(inventory) !== JSON.stringify(manifest.files.map((file) => file.path))) {
 		throw new TypeError('The offline Kokoro G2P closure inventory is not exact.');
 	}
-	for (const file of manifest.files) {
+	for (let index = 0; index < manifest.files.length; index += FILE_AUTHENTICATION_WIDTH) {
 		signal?.throwIfAborted();
-		await authenticateFile(resolve(directory, file.path), file);
+		// Close all of this batch's handles before reporting its first manifest-order failure.
+		const results = await Promise.allSettled(manifest.files.slice(index, index + FILE_AUTHENTICATION_WIDTH)
+			.map((file) => authenticateFile(resolve(directory, file.path), file, signal)));
+		for (const result of results) if (result.status === 'rejected') throw result.reason;
 	}
 	if (process.platform !== 'win32') {
 		await access(resolve(directory, manifest.executable), constants.X_OK);
@@ -299,7 +303,8 @@ async function listFiles(directory: string, path: string, signal?: AbortSignal):
 	return files.sort((left, right) => left.localeCompare(right, 'en'));
 }
 
-async function authenticateFile(path: string, pin: PinnedFile): Promise<void> {
+async function authenticateFile(path: string, pin: PinnedFile, signal?: AbortSignal): Promise<void> {
+	signal?.throwIfAborted();
 	if (await realpath(path) !== path) {
 		throw new TypeError('The offline Kokoro G2P closure contains a noncanonical path.');
 	}
@@ -315,7 +320,10 @@ async function authenticateFile(path: string, pin: PinnedFile): Promise<void> {
 			throw new Error('The offline Kokoro G2P closure file changed during admission.');
 		}
 		const hash = createHash('sha256');
-		for await (const chunk of handle.createReadStream({ autoClose: false })) hash.update(chunk);
+		for await (const chunk of handle.createReadStream({ autoClose: false })) {
+			signal?.throwIfAborted();
+			hash.update(chunk);
+		}
 		const after = await handle.stat({ bigint: true });
 		if (after.size !== before.size || after.mtimeNs !== before.mtimeNs
 			|| hash.digest('hex') !== pin.sha256) {

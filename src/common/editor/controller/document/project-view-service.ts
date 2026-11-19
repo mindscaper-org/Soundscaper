@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { isTrackDisplayMode, type TrackDisplayMode } from '../../track-display-mode.ts';
+import { isTrackDisplayMode, timelineViewForTrackDisplayMode, type TrackDisplayMode } from '../../track-display-mode.ts';
 import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import { AUDIO_EDITOR_MIN_PIXELS_PER_SECOND } from '../../timeline-zoom-limits.ts';
 
@@ -105,7 +105,9 @@ export function createProjectViewService<
 		const project = dependencies.getProject();
 		if (!project) return setTimelineView(displayMode);
 		if (dependencies.editingBlocked()) return null;
-		dependencies.state.timelineView = displayMode;
+		// Spectrogram and Multi-view are recorded by the track commands. Making
+		// either a fallback would also redraw waveform tracks in other revisions.
+		if (timelineViewForTrackDisplayMode(displayMode) === 'waveform') dependencies.state.timelineView = displayMode;
 		const commands: AudioEditorCommand[] = project.tracks
 			.filter((track) => track.type === 'audio' && track.displayMode !== displayMode)
 			.map((track) => ({

@@ -2,7 +2,7 @@
 
 import { confirmFileSizeWarning, type FileSizeWarningConfirmation, type FileSizeWarningOptions } from '../common/editor/controller/shared/file-size-warning.ts';
 import {
-	mapFramescaperImageTimelineFrameV1,
+	createFramescaperImageTimelineTickMapperV1,
 	type FramescaperImageClipV1,
 	type FramescaperImageSourceV1,
 } from '../common/editor/timeline-image-model.ts';
@@ -11,7 +11,8 @@ import type { UnifiedExactRenderPlanV13 } from '../common/editor/unified-exact-r
 import { DEFAULT_VIDEO_CLIP_COMPOSITION } from '../common/editor/video-clip-composition.ts';
 import { defaultVideoSourceColorInterpretationV1 } from '../common/editor/video-color-management-v27.ts';
 import { resolveVideoRenderDescription } from '../common/editor/video-render-description.ts';
-import { createVisibleVideoTrackPredicate } from '../common/editor/video-track-visibility.js';
+import { indexVisibleFramescaperImageTracks } from './editor-timeline-image-track-index.ts';
+import { createFramescaperImageClipIndex } from './editor-timeline-image-clip-index.ts';
 import {
 	framescaperImageSourceForClipTimelineImage,
 	openFramescaperStoredImageFramePackTimelineImage,
@@ -28,6 +29,7 @@ interface ImageContextTimelineImage {
 	readonly clip: FramescaperImageClipV1;
 	readonly source: FramescaperImageSourceV1;
 	readonly reader: FramescaperImageFramePackReaderV1;
+	readonly sourceTicksAt: (sequenceFrame: number) => bigint;
 	readonly trackId: string;
 	readonly trackIndex: number;
 }
@@ -104,13 +106,15 @@ export async function createFramescaperImagePictureExecutionTimelineImage(option
 				readers.set(source.id, reader);
 			}
 			assertReady(options);
-			contexts.push({ ...item, source, reader });
+			const sourceTicksAt = createFramescaperImageTimelineTickMapperV1(item.clip, sequenceRate(project, item.clip.sequenceId));
+			contexts.push({ ...item, source, reader, sourceTicksAt });
 		}
 	} catch (error) {
 		disposeExecutionState(contexts, readers, frameCache);
 		throw error;
 	}
 	const resources = Object.freeze({ ...baseResources, readerMetadataBytes });
+	const clipsAt = createFramescaperImageClipIndex(contexts);
 	let disposed = false;
 	let active = false;
 	return Object.freeze({
@@ -122,7 +126,7 @@ export async function createFramescaperImagePictureExecutionTimelineImage(option
 				assertReady({ ...options, signal: request.signal });
 				assertCanvas(options.foundationPlan, request.width, request.height);
 				const sequenceFrame = floorRational(request.sequencePosition);
-				const resolved = resolvedImageContexts(contexts, project, sequenceFrame);
+				const resolved = resolvedImageContexts(clipsAt(sequenceFrame), sequenceFrame);
 				admitResolvedImageFrames(resolved, resources, request.width, request.height);
 				retainCachedFrames(frameCache, new Set(resolved.map(({ context, frameIndex }) => (
 					imageFrameKey(context.source.id, frameIndex)
@@ -290,20 +294,10 @@ async function linearFrame(
 
 function resolvedImageContexts(
 	contexts: readonly ImageContextTimelineImage[],
-	project: FramescaperProjectTimelineImage,
 	sequenceFrame: number,
 ): readonly ResolvedImageContextTimelineImage[] {
-	return Object.freeze(contexts.flatMap((context) => {
-		const { clip } = context;
-		if (sequenceFrame < clip.sequenceStartFrame
-			|| sequenceFrame >= clip.sequenceStartFrame + clip.sequenceFrameCount) return [];
-		const address = mapFramescaperImageTimelineFrameV1({
-			clip,
-			sequenceFrame,
-			sequenceRate: sequenceRate(project, clip.sequenceId),
-			timings: context.reader.timings,
-		});
-		return [{ context, frameIndex: address.frameIndex }];
+	return contexts.map((context) => ({
+		context, frameIndex: context.reader.frameIndexAtTicks(context.sourceTicksAt(sequenceFrame)),
 	}));
 }
 
@@ -317,18 +311,13 @@ function visibleImageClips(
 }>[] {
 	const sequence = project.sequences.find(({ id }) => id === project.primarySequenceId);
 	if (!sequence) throw new ReferenceError('The timelineImage image export primary sequence is unavailable.');
-	const sequenceTrackIds = new Set(sequence.trackIds);
-	const tracks = project.tracks.filter(track => track.type === 'video').filter(({ id }) => sequenceTrackIds.has(id));
-	const visible = createVisibleVideoTrackPredicate(tracks);
+	const trackByClip = indexVisibleFramescaperImageTracks(project, sequence);
 	return Object.freeze(project.clips.flatMap((value) => {
 		if (value.kind !== 'image') return [];
 		const clip = value as FramescaperImageClipV1;
 		if (clip.sequenceId !== sequence.id || !activeClipIds.has(clip.id)) return [];
-		const track = tracks.find(({ clipIds }) => clipIds.includes(clip.id));
-		if (!track || !visible(track)) return [];
-		const trackIndex = sequence.trackIds.indexOf(track.id);
-		if (trackIndex < 0) throw new ReferenceError(`timelineImage image track ${track.id} is outside its sequence.`);
-		return [{ clip, trackId: track.id, trackIndex }];
+		const placement = trackByClip.get(clip.id);
+		return placement ? [{ clip, ...placement }] : [];
 	}).sort((left, right) => left.trackIndex - right.trackIndex
 		|| left.clip.sequenceStartFrame - right.clip.sequenceStartFrame
 		|| compareText(left.clip.id, right.clip.id)));

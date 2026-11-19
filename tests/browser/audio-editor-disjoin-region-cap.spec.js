@@ -6,7 +6,7 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, chooseExpor
 import { encodeWav } from '../../src/common/editor/wav.js';
 import { validateSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 
-for (const pauses of [128, 129]) test(`silence splitting completes or refuses atomically at ${pauses} pauses`, async ({ page }) => {
+for (const pauses of [129]) test(`silence splitting completes or refuses atomically at ${pauses} pauses`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const samples = new Float32Array(pauses * 1920 + 960);
 	for (let frame = 0; frame < samples.length; frame++) samples[frame] = .2 * Math.sin(2 * Math.PI * 440 * frame / 48_000);

@@ -35,6 +35,18 @@ test('native import choosers admit MKA and WMA through selected range reads', ()
 	}
 });
 
+test('desktop File Open, Import and Project Bin pickers expose the supported AU audio suffixes', () => {
+	for (const extension of ['au', 'snd']) {
+		const path = `/tmp/interview.${extension.toUpperCase()}`;
+		for (const purpose of ['project', 'media', 'audio-video', 'audio']) {
+			assert.ok(validateFileChoice({ purpose }).filters.some((filter: { extensions: readonly string[] }) => filter.extensions.includes(extension)));
+			assert.equal(acceptsFile(purpose, path), true);
+			assert.equal(readProfileForSelectedPath(purpose, path), 'selected-range-v1');
+			assert.equal(mimeTypeForPath(path), 'audio/basic');
+		}
+	}
+});
+
 test('Audacity import-only formats keep source geometry and fixed FFmpeg demuxers and decoders', () => {
 	for (const fixture of FORMATS) {
 		const request = decodeRequest(fixture.format);

@@ -17,7 +17,12 @@ test('native plug-in worklet transports an exact mono-in/stereo-out topology', (
 	processor.port.postMessage = (message) => { control.push(message); };
 	const peer = {
 		onmessage: null,
-		postMessage(message) {
+		postMessage(message, transfer = []) {
+			if (transfer.length) {
+				this.onmessage?.({ data: null });
+				return;
+			}
+			message = structuredClone(message);
 			assert.equal(message.input.length, 1);
 			assert.equal(message.output.length, 2);
 			message.output[0].fill(0.25);

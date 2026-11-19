@@ -8,6 +8,51 @@ import React, { act } from 'react';
 import { RawPcmImportDialog } from '../src/common/editor/ui/dialogs/ImportAnalysisDialogs.tsx';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
+import { controllerSession } from './helpers/soundscaper-controller-session.ts';
+
+test('raw PCM import leaves the dialog open for a retry when no clip was imported', async context => {
+	const { controller, store } = await controllerSession(context);
+	const beginSourceWrite = store.beginSourceWrite.bind(store);
+	let unavailable = true;
+	context.mock.method(store, 'beginSourceWrite', async (...args: Parameters<typeof beginSourceWrite>) => {
+		if (unavailable) throw new Error('The storage device disconnected during import.');
+		return await beginSourceWrite(...args);
+	});
+	const dom = installReactTestDom();
+	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const priorAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+	actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+	const { createRoot } = await import('react-dom/client');
+	const root = createRoot(dom.container as unknown as Element);
+	const operations: Promise<unknown>[] = [];
+	let closes = 0;
+	try {
+		await act(async () => root.render(<RawPcmImportDialog controller={controller}
+			copy={ENGLISH_COPY} onClose={() => { closes++; }}
+			run={operation => { operations.push(Promise.resolve(operation())); }} />));
+		await act(async () => reactProps(dom.one('input')).onChange({ currentTarget: {
+			files: [new File([Int16Array.from({ length: 4_410 }, (_, frame) => Math.round(Math.sin(frame / 4) * 16384))], 'Voice.raw')],
+		} }));
+		await submit();
+		assert.equal(controller.project?.clips.length, 0);
+		assert.equal(closes, 0);
+		assert.equal(dom.one('.audio-editor-raw-pcm-import-confirm').hasAttribute('disabled'), false);
+		unavailable = false;
+		await submit();
+		assert.equal(controller.project?.clips.length, 1);
+		assert.equal(closes, 1);
+	} finally {
+		await act(async () => root.unmount());
+		actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
+		dom.restore();
+	}
+	async function submit() {
+		await act(async () => {
+			reactProps(dom.one('form')).onSubmit({ preventDefault() {} });
+			await operations.at(-1);
+		});
+	}
+});
 
 test('raw PCM import admits only one rapid submit while conversion and import remain pending', async () => {
 	const dom = installReactTestDom();
@@ -16,7 +61,7 @@ test('raw PCM import admits only one rapid submit while conversion and import re
 	actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 	const readPending = deferred<ArrayBuffer>();
 	const readStarted = deferred<void>();
-	const importPending = deferred<void>();
+	const importPending = deferred<{ importedFileCount: number }>();
 	const importStarted = deferred<void>();
 	let reads = 0;
 	let imports = 0;
@@ -77,7 +122,7 @@ test('raw PCM import admits only one rapid submit while conversion and import re
 		assert.equal(imports, 1);
 
 		await act(async () => {
-			importPending.resolve();
+			importPending.resolve({ importedFileCount: 1 });
 			await importPending.promise;
 			await Promise.resolve();
 		});
@@ -86,7 +131,7 @@ test('raw PCM import admits only one rapid submit while conversion and import re
 		assert.equal(dom.one('.audio-editor-raw-pcm-import-confirm').hasAttribute('disabled'), false);
 	} finally {
 		readPending.resolve(new Uint8Array([0, 0]).buffer);
-		importPending.resolve();
+		importPending.resolve({ importedFileCount: 1 });
 		await act(async () => root.unmount());
 		actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
 		dom.restore();

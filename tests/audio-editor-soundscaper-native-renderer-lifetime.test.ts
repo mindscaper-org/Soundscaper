@@ -251,7 +251,7 @@ test('worklet transfer and loss reports reach main in order before the local rou
 		sessionId: opened.sessionId, framesTransferred: 2_048, lostFrames: 16,
 	}]);
 	assert.deepEqual(fixture.losses, [{ sessionId: opened.sessionId, reason: 'device-loss' }]);
-	assert.equal(soundscaperNativeAudioDestination(fixture.context, fixture.fallback), fixture.fallback);
+	assert.equal((soundscaperNativeAudioDestination(fixture.context, fixture.fallback) as GainNode).gain?.value, 0);
 	await renderer.dispose();
 });
 

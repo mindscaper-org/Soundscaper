@@ -122,19 +122,15 @@ export function applyAudacityEcho(channels, sampleRate, params = {}) {
 
 	return channels.map((input, channelIndex) => {
 		const output = new Float32Array(input.length);
-		const history = new Float32Array(historyLength);
-		let historyPosition = 0;
 		for (let index = 0; index < input.length; index += 1) {
-			const sample = input[index] + history[historyPosition] * decay;
+			const delayed = index >= historyLength ? output[index - historyLength] : 0;
+			const sample = input[index] + delayed * decay;
 			output[index] = sample;
 			if (!Number.isFinite(output[index])) {
 				throw new RangeError(
 					`Echo produced a non-finite sample at channel ${channelIndex}, frame ${index}; reduce Decay.`,
 				);
 			}
-			history[historyPosition] = output[index];
-			historyPosition += 1;
-			if (historyPosition === historyLength) historyPosition = 0;
 		}
 		return output;
 	});

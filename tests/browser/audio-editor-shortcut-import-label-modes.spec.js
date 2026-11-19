@@ -4,15 +4,19 @@ import { bootEditor, chooseCommandAction, importFiles } from './audio-editor-tes
 
 for (const [command, playing] of [['AddLabel', true], ['AddLabelPlaying', false]]) {
 	test(`legacy ${command} import preserves the local ${playing ? 'live' : 'stopped'} label mode`, async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/'); await importFiles(editor, [halfMinuteTone]);
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await importFiles(editor, [halfMinuteTone]);
+		await expect(editor).toHaveAttribute('data-clip-count', '1');
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 		const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 		await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click();
+		const importing = preferences.getByRole('button', { name: 'Import Audacity shortcuts', exact: true });
 		const choosing = page.waitForEvent('filechooser');
-		await preferences.getByRole('button', { name: 'Import Audacity shortcuts', exact: true }).click();
+		await importing.click();
 		await (await choosing).setFiles({ name: 'audacity.xml', mimeType: 'application/xml',
 			buffer: Buffer.from(`<audacitykeyboard audacityversion="3.7.7"><command name="${command}" key="Ctrl+Alt+Shift+F7"/></audacitykeyboard>`) });
+		// Choosing the file precedes the asynchronous read and parser load.
+		await expect(importing).toBeEnabled({ timeout: 15_000 });
 		const review = preferences.getByRole('region', { name: 'Audacity shortcut import', exact: true });
 		await expect(review.getByRole('status')).toHaveText('0 commands ready to import; 1 skipped.');
 		await expect(review.getByRole('button', { name: 'Apply shortcuts', exact: true })).toBeDisabled();

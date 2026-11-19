@@ -1,3 +1,5 @@
+import { useEffectAutoIdleOption } from './useEffectAutoIdleOption.ts';
+import { effectPluginKey } from '../../effect-plugin-identity.ts';
 import { usePresentationFeedback, feedbackFailure } from '../presentation-feedback.ts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
@@ -5,6 +7,7 @@ import { DialogFooter } from '@soundscaper/design-system/Footer';
 import { audacityEffectTypes } from '../../audacity-effects/manifest.js';
 import {
 	audioSelectionEffectAppliesToAllAudio,
+	audioEffectTypes,
 	audioSelectionEffectDefinition,
 	audioSelectionEffectDefaults,
 } from '../../effects.js';
@@ -20,6 +23,10 @@ import EffectParameterEditor from './EffectParameterEditor.jsx';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { LabeledDropdown } from './inspector-controls.jsx';
 import { effectPresetChoices, safeEffectLabel, samePresetParams } from './effect-helpers.ts';
+import PhaseCorrectionAudition from './PhaseCorrectionAudition.tsx';
+import { phaseCorrectionPreviewReports } from '../../first-party-effects/phase-correction/preview-contract.ts';
+import MatchEqPanel from './MatchEqPanel.tsx';
+import { useMatchEqSelection } from './useMatchEqSelection.ts';
 
 export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fileService, onClose }) {
 	const project = snapshot.project;
@@ -43,6 +50,14 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 	const [message, setMessage] = usePresentationFeedback(copy);
 	const [selectedPresetId, setSelectedPresetId] = useState('');
 	const [presetName, setPresetName] = useState('');
+	const [phaseAudition, setPhaseAudition] = useState({ source: 'corrected', mono: false });
+	const [phaseAnalysis, setPhaseAnalysis] = useState(null);
+	const phaseAnalysisKey = JSON.stringify([selectionType, selectionParams, project?.selection, snapshot.selectedTrackId,
+		snapshot.selectedClipId, controller.actions.effects.readSourceSelection?.()]);
+	const rememberPhaseAnalysis = (result) => {
+		const reports = phaseCorrectionPreviewReports(result);
+		if (reports) setPhaseAnalysis({ project, key: phaseAnalysisKey, reports });
+	};
 	const projectIdentity = project?.id ?? null;
 	const { advancedSettings, onAdvancedSettings } = useAudacityEffectOptions(selectionType, `${projectIdentity}:${selectionType}`);
 	const currentProjectIdentity = useRef(projectIdentity);
@@ -114,6 +129,8 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 		setSelectionParams((current) => ({ ...current, ...changes }));
 		controller.actions.effects.setSelectionParams(changes);
 	};
+	const matchEq = useMatchEqSelection({ effects: controller.actions.effects, project, reportKey: phaseAnalysisKey,
+		params: selectionParams, run, updateParams: updateSelectionParams });
 	const selectionDefinition = audioSelectionEffectDefinition(selectionType);
 	const implicitAllAudioTarget = snapshot.preferences?.editing?.applyEffectsToAllAudio === true
 		&& audioSelectionEffectAppliesToAllAudio(selectionType)
@@ -145,6 +162,7 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 	const eligibleControlTrackId = selectionControlTracks.some((track) => track.id === controlTrackId)
 		? controlTrackId
 		: '';
+	const autoIdle = useEffectAutoIdleOption(controller, effectPluginKey({ type: selectionType }), safeEffectLabel(selectionType, copy), run, audioEffectTypes().includes(selectionType));
 	const effectPresets = (snapshot.effects?.presets || []).filter((preset) => preset.effectType === selectionType);
 	const applyPreset = (id = selectedPresetId) => run(() => (
 		id ? controller.actions.effects.presets.apply(id) : null
@@ -213,7 +231,7 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 			dataAttributes={{ 'data-selection-effects-dialog': '' }}
 			headerSlot={(
 				<EffectPresetBar
-					copy={copy} aboutEffect={selectionType}
+					copy={copy} aboutEffect={selectionType} autoIdle={autoIdle}
 					onAdvancedSettings={onAdvancedSettings}
 					disabled={blocked}
 					resetKey={`${projectIdentity}:${selectionType}`}
@@ -255,14 +273,16 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 						<span data-preview-audacity-effect>
 							<Button
 								variant="secondary"
-								disabled={blocked || !effectTargetAvailable}
+								disabled={blocked || !effectTargetAvailable || (selectionType === 'match-eq' && !matchEq.reference && matchEq.source !== 'original')}
 								onClick={() => run(() => snapshot.effects?.previewing
 									? controller.actions.effects.cancelPreview()
 									: controller.actions.effects.previewSelection({
 										type: selectionType,
 										params: selectionParams,
 										controlTrackId: eligibleControlTrackId || null,
-									}))}
+										...(selectionType === 'automatic-phase-correction' ? { phaseCorrection: phaseAudition } : {}),
+										...(selectionType === 'match-eq' ? { matchEq: { source: matchEq.source } } : {}),
+									}), (result) => { rememberPhaseAnalysis(result); matchEq.remember(result); })}
 							>{snapshot.effects?.previewing ? copy.stopPreview : copy.previewEffect}</Button>
 						</span>
 					)}
@@ -272,7 +292,7 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 							<span data-apply-audacity-effect>
 								<Button
 									variant="primary"
-									disabled={blocked || !effectTargetAvailable || targetLocked}
+									disabled={blocked || !effectTargetAvailable || targetLocked || (selectionType === 'match-eq' && !matchEq.reference)}
 									onClick={() => {
 										if (controller.actions.effects.readSelectionTargetLocked?.()) return;
 										return run(() => controller.actions.effects.applySelection({
@@ -289,6 +309,7 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 			)}
 		>
 			<section className="audio-editor-selection-effects" data-audacity-effect-panel>
+				{selectionType === 'match-eq' && <MatchEqPanel copy={copy} disabled={blocked || !effectTargetAvailable} {...matchEq} />}
 				{selectionDefinition?.requiresControlTrack && (
 					<LabeledDropdown
 						label={copy.controlTrack}
@@ -335,6 +356,13 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 						controller.actions.effects.setSelectionParams({ gainDb: selectionParams.gainDb });
 					} : undefined}
 				/>
+				{selectionType === 'automatic-phase-correction' && <PhaseCorrectionAudition
+					copy={copy} disabled={blocked || !effectTargetAvailable} options={phaseAudition}
+					reports={phaseAnalysis?.project === project && phaseAnalysis?.key === phaseAnalysisKey ? phaseAnalysis.reports : null}
+					onChange={(options) => { controller.actions.effects.cancelPreview(); setPhaseAudition(options); }}
+					onAnalyze={() => { void run(() => controller.actions.effects.previewSelection({ type: selectionType,
+						params: selectionParams, phaseCorrection: { analyzeOnly: true } }), rememberPhaseAnalysis); }}
+				/>}
 				{selectionType === 'eq' && snapshot.selection?.frequencyRange && (
 					<p className="audio-editor-panel-hint" data-parametric-eq-spectral-notice>
 						{copy.eqSpectralSelectionNotice || 'The EQ uses the spectral box time span and affects the full spectrum.'}

@@ -18,7 +18,7 @@ test('File Open retains primary Ogg audio whose EOS precedes a longer secondary 
 		const tracks = await input.getAudioTracks();
 		assert.equal(tracks.length, 2, 'both real streams are independently recognized by the maintained demuxer');
 		assert.equal((await input.getPrimaryAudioTrack())?.id, tracks[0]?.id);
-		assert.ok(await tracks[1]!.computeDuration() > 20);
+		assert.equal(await tracks[1]!.computeDuration(), 20);
 	} finally { input.dispose(); }
 	const originalFetch = globalThis.fetch;
 	globalThis.fetch = async (value, init) => value instanceof URL && value.protocol === 'file:'

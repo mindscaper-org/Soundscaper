@@ -51,7 +51,7 @@ test('stopping playback explicitly disposes standard processors before rebuildin
 		const node = context.workletNodes[0];
 		assert.ok(node);
 		engine.stop();
-		assert.deepEqual(node.messages, [{ type: 'dispose' }]);
+		assert.deepEqual(node.messages, [{ type: 'suspend-idle-effect-processing', enabled: false }, { type: 'dispose' }]);
 		assert.equal(node.disconnected, true);
 	} finally { await engine.dispose(); restoreNode(); }
 });

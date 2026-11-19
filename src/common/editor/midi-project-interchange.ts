@@ -5,6 +5,7 @@ import { midiProjectTiming } from './midi-project-timing.ts';
 import { midiInitialTimingEvent } from './midi-initial-timing.ts';
 import { midiClipOccurrences } from './midi-project-source-projection.ts';
 import { quietMidiClipPerformanceEvents, type MidiPerformanceOccurrence } from './midi-project-performance-state.ts';
+import { isMidiProgramStateEvent } from './midi-project-program-defaults.ts';
 import { createMidiClipEventProjection } from './midi-project-event-projection.ts';
 import { createMidiClipNoteProjection } from './midi-project-note-projection.ts';
 import { assertMidiClipTailBoundaries, type MidiClipTailBoundary } from './midi-project-clip-tail-boundaries.ts';
@@ -44,6 +45,7 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 		const metadata = readMidiTrack(track);
 		if (!metadata) return [];
 		const trackIndex = exportedTracks++;
+		const volumeDefault = metadata.instrument === 'fluidsynth' || metadata.instrument === 'libadlmidi' ? 100 : 127;
 		const notes: MidiFileDocument['tracks'][number]['notes'][number][] = [];
 		const events: MidiFileEvent[] = [];
 		let durationFrames = 0;
@@ -52,7 +54,7 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 			const data = readMidiClip(persistedClip);
 			if (!persistedClip || !data) continue;
 			const source = sourcesById.get(String(persistedClip.sourceId));
-			const eventProjection = createMidiClipEventProjection(data.interchange);
+			const eventProjection = createMidiClipEventProjection(data.interchange, volumeDefault);
 			const noteProjection = createMidiClipNoteProjection(data);
 			const importedRootTempo = data.interchange && midiInitialTimingEvent(data.interchange.tempos);
 			const preserveTempos = !timing.hasTempoChanges && importedRootTempo && Math.abs(importedRootTempo.bpm - timing.tempos[0]!.bpm) < 0.000001;
@@ -77,6 +79,7 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 				}
 				const visible = eventProjection.events(start, sourceFrames, timelineStart, global, initializePerformance);
 				occurrences.push({ track: trackIndex, start: timelineStart, end: timelineEnd, notes: notes.slice(firstOccurrenceNote), events: visible,
+					volumeDefault,
 					eligible: Boolean(source && source.sampleRate === project.sampleRate && start === 0 && sourceFrames === source.frameCount
 						&& timelineEnd - timelineStart === sourceFrames && initializePerformance !== true && persistedClip.reversed !== true && persistedClip.warpMap == null) });
 				reserveEvents(visible.length);
@@ -102,8 +105,12 @@ export function midiDocumentFromProject(project: MidiExportProject): MidiFileDoc
 	assertMidiClipTailBoundaries(document, boundaries);
 	for (const [index, additions] of quietMidiClipPerformanceEvents(document, occurrences, reserveEvents)) {
 		const events = tracks[index]!.events;
-		for (const event of additions) events.push(event);
-		events.sort(byFrame);
+		// Establish source defaults before its own bank/program setup at the same onset.
+		const setup = additions.filter(isMidiProgramStateEvent);
+		if (tracks[index]!.program !== undefined && !events.some(event => (event.status & 240) === 192) && setup.some(event => (event.status & 240) === 192)) {
+			reserveEvents(1); setup.unshift({ frame: 0, status: 192, data: [tracks[index]!.program!] });
+		}
+		tracks[index]!.events = [...setup, ...events, ...additions.filter(event => !isMidiProgramStateEvent(event))].sort(byFrame);
 	}
 	return document;
 }

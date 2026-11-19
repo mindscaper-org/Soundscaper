@@ -9,7 +9,7 @@ import {
 import { normalizeAutomationLaneV21 } from '../common/editor/automation-lane-v21.ts';
 import { clipNeedsTimePitchRender } from '../common/editor/clip-time-pitch-cache.js';
 import { createStoredChunkProvider, SOURCE_CHUNK_FRAMES } from '../common/editor/controller/source/source-audio.ts';
-import { rackTailFrames } from '../common/editor/effects.js';
+import { soundscaperFreezeTailFrames } from './editor-audio-track-freeze-tail.ts';
 import { audioBufferChannels, type PlanarPcm } from '../common/editor/engine/buffer-math.ts';
 import { compileProjectPathPdcPlanV21 } from '../common/editor/engine/project-path-pdc-plan-v21.ts';
 import type { EnginePublicApi } from '../common/editor/engine/public-api.ts';
@@ -18,10 +18,12 @@ import { createDefaultMixerGraphV21 } from '../common/editor/mixer-graph-v21.ts'
 import { createAudioSource } from '../common/editor/project-media-factory.ts';
 import { resolveRuntimeProjectProjection } from '../common/editor/runtime-clip-projection.ts';
 import { resolveTerminalChannelWidths } from '../common/editor/terminal-channel-widths.ts';
+import { rackEffectChannelCount } from '../common/editor/rack-effect-channel-width.ts';
 import type { StorageRecord } from '../common/editor/storage/media-records.ts';
 import type { AudioSourceWriter } from '../common/editor/storage/source-write-repository.ts';
 import type { TransientAnalysisPcmStore } from '../common/editor/controller/analysis/transient-analysis-pcm-access.ts';
 import type { SoundscaperProject } from './editor-project-validation.ts';
+import { assertSoundscaperFreezeHasNoSidechain } from './editor-audio-track-freeze-sidechain.ts';
 import {
 	arrayValue, dataArray, dataRecord, exactRecordById, nonNegativeInteger,
 	positiveInteger, safeAdd, stableId, throwIfAborted, type DataRecord,
@@ -68,7 +70,9 @@ export interface FreezeTimePitchRenderOptions {
 
 export function planFreezeRange(project: SoundscaperProject, trackId: string) {
 	const runtime = resolveRuntimeProjectProjection(project);
+	assertFreezeRackWidth(runtime, trackId);
 	const track = exactRecordById(runtime.tracks, trackId, 'audio freeze track');
+	assertSoundscaperFreezeHasNoSidechain(project, track);
 	const clips = arrayValue(track.clipIds, 'audio freeze track.clipIds')
 		.map((id) => exactRecordById(runtime.clips, String(id), 'audio freeze clip'));
 	if (clips.length === 0) throw new RangeError('An empty audio track cannot be frozen.');
@@ -79,7 +83,7 @@ export function planFreezeRange(project: SoundscaperProject, trackId: string) {
 		'clip range',
 	)));
 	const sampleRate = positiveInteger(project.sampleRate, 'project sample rate');
-	const tailFrames = track.effectsActive === false ? 0 : rackTailFrames(track.effects, sampleRate, 10, runtime.automationLanes);
+	const tailFrames = soundscaperFreezeTailFrames(track, clips, sampleRate, runtime.automationLanes);
 	return Object.freeze({
 		renderStartFrame,
 		renderFrameCount: safeAdd(laneEndFrame - renderStartFrame, tailFrames, 'freeze render range'),
@@ -102,7 +106,9 @@ export async function renderFreezeBody(
 ): Promise<Readonly<{ readonly body: FreezeBody; readonly frameCount: number; readonly sampleRate: number; readonly channelCount: number }>> {
 	const ticket = captureSoundscaperFreezeProject(controller, request.project, request.trackId);
 	const runtime = resolveRuntimeProjectProjection(request.project);
+	assertFreezeRackWidth(runtime, request.trackId);
 	const track = exactRecordById(runtime.tracks, request.trackId, 'audio freeze render track');
+	assertSoundscaperFreezeHasNoSidechain(request.project, track);
 	const ownedIds = new Set(arrayValue(track.clipIds, 'audio freeze render track.clipIds').map(String));
 	const runtimeClips = dataArray(runtime.clips, 'runtime project.clips');
 	const clips = runtimeClips.filter((clip) => ownedIds.has(String(clip.id)));
@@ -124,7 +130,7 @@ export async function renderFreezeBody(
 		const latency = compileProjectPathPdcPlanV21(request.project, { sampleRate: request.sampleRate })
 			.freezeLatencyFramesByTrack.get(request.trackId) ?? 0;
 		const laneEndFrame = request.renderStartFrame + request.renderFrameCount
-			- (track.effectsActive === false ? 0 : rackTailFrames(track.effects, request.sampleRate, 10, runtime.automationLanes));
+			- soundscaperFreezeTailFrames(track, clips, request.sampleRate, runtime.automationLanes);
 		const renderProject = freezeRenderProject(runtime, track, clips, sources);
 		if (options.prepareTimePitchCaches) {
 			await options.prepareTimePitchCaches(renderProject, request.signal);
@@ -157,11 +163,12 @@ export async function renderFreezeBody(
 			signal: request.signal,
 		});
 		assertCurrentSoundscaperFreezeProject(controller, ticket);
-		const channels = Object.freeze(audioBufferChannels(rendered as AudioBuffer | PlanarPcm)
-			.map((channel) => channel.slice()));
-		if (channels.length === 0 || channels.some((channel) => channel.length !== request.renderFrameCount)) {
+		const output = audioBufferChannels(rendered as AudioBuffer | PlanarPcm);
+		if (output.length !== renderProject.masterChannels || output.some(channel => channel.length !== request.renderFrameCount)
+			|| ('sampleRate' in rendered && rendered.sampleRate !== request.sampleRate)) {
 			throw new RangeError('The offline freeze renderer returned unexpected PCM geometry.');
 		}
+		const channels = Object.freeze(output.map(channel => channel.slice()));
 		const body = Object.freeze({ channels, frameCount: request.renderFrameCount, sampleRate: request.sampleRate });
 		return Object.freeze({ body, frameCount: body.frameCount, sampleRate: body.sampleRate, channelCount: channels.length });
 	} catch (error) {
@@ -169,6 +176,13 @@ export async function renderFreezeBody(
 		throw error;
 	} finally {
 		await cleanupRenderResources(engine, providers, failure);
+	}
+}
+
+function assertFreezeRackWidth(project: DataRecord, trackId: string): void {
+	const declared = resolveTerminalChannelWidths(project as never, Number(project.masterChannels)).tracks.get(trackId);
+	if (declared !== undefined && rackEffectChannelCount(project as never, 'track', trackId) !== declared) {
+		throw new RangeError('Freeze requires matching track and effect channel widths. Render to a matching-width track first.');
 	}
 }
 

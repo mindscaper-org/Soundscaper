@@ -1,0 +1,308 @@
+[
+	[
+		"Feature",
+		"Soundscaper",
+		"Audacity 4.0.2",
+		"Audacity 3.7.9"
+	],
+	[
+		"**Named in Audacity's own compatibility notes**",
+		"",
+		"",
+		""
+	],
+	[
+		"Time tracks",
+		"No — automation lanes and tempo maps instead",
+		"No",
+		"Yes"
+	],
+	[
+		"Note tracks",
+		"Yes - beta",
+		"No",
+		"Yes"
+	],
+	[
+		"Mixer board",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"Macros",
+		"Yes – including JS scripting",
+		"No",
+		"Yes"
+	],
+	[
+		"Scripting pipe and the Scriptables commands",
+		"No",
+		"No",
+		"Yes"
+	],
+	[
+		"VAMP and LADSPA plug-in hosting",
+		"Yes - desktop only",
+		"No",
+		"Yes"
+	],
+	[
+		"Play-at-Speed",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"**Effects**",
+		"",
+		"",
+		""
+	],
+	[
+		"Auto Duck",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"Change Speed effect",
+		"Yes",
+		"No separate effect — clip pitch/speed controls remain available",
+		"Yes"
+	],
+	[
+		"Change Tempo effect",
+		"Yes",
+		"No separate effect — project tempo and clip stretching remain available",
+		"Yes"
+	],
+	[
+		"Classic Filters",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"Distortion",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"Echo",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"Phaser",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"Wahwah",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"Repeat",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"Legacy Compressor",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"Real-time effect rack per track",
+		"Yes – and more added",
+		"Yes",
+		"Yes"
+	],
+	[
+		"**Analyzers**",
+		"",
+		"",
+		""
+	],
+	[
+		"Plot Spectrum",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"Contrast",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"Find Clipping",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"**Recording**",
+		"",
+		"",
+		""
+	],
+	[
+		"Timer Record",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"Sound-activated recording",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"Punch and roll",
+		"Yes",
+		"Yes — renamed lead-in recording",
+		"Yes"
+	],
+	[
+		"**Export and import**",
+		"",
+		"",
+		""
+	],
+	[
+		"Export the selection only",
+		"Yes",
+		"Yes",
+		"Yes"
+	],
+	[
+		"Import raw data",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"**Tracks**",
+		"",
+		"",
+		""
+	],
+	[
+		"Mix and Render",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"Align tracks (seven commands)",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"Sort tracks by name or start time",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"Mute and unmute all tracks",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"Pan and gain commands for the focused track",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"**Editing and selection**",
+		"",
+		"",
+		""
+	],
+	[
+		"Labeled Audio commands (cut, delete, split, join by label region)",
+		"No",
+		"No",
+		"Yes"
+	],
+	[
+		"Store and retrieve a selection, store the cursor position",
+		"No",
+		"No",
+		"Yes"
+	],
+	[
+		"Move the playhead to selection start or end",
+		"Yes",
+		"Yes — assign shortcuts in Preferences",
+		"Yes"
+	],
+	[
+		"Move to previous or next label",
+		"No",
+		"No",
+		"Yes"
+	],
+	[
+		"Keyboard scrubbing and the seek-during-playback commands",
+		"No",
+		"No",
+		"Yes"
+	],
+	[
+		"Preview playback (play one second, play to selection, cut preview)",
+		"No",
+		"No",
+		"Yes"
+	],
+	[
+		"Spectral selection, spectral delete and spectral amplify",
+		"Yes – also added spectral drawing",
+		"Yes",
+		"Yes"
+	],
+	[
+		"**View and window**",
+		"",
+		"",
+		""
+	],
+	[
+		"Fit to height",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"Collapse and expand all tracks",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"Scroll the view to selection start or end (Skip to)",
+		"Yes",
+		"No",
+		"Yes"
+	],
+	[
+		"The Extra menu (cursor jumps, focused-track commands)",
+		"Partial",
+		"No",
+		"Yes"
+	]
+]

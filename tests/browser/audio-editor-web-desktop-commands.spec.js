@@ -28,9 +28,9 @@ test.describe('desktop command offers on the web', () => {
 			}
 			await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 			const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
-			await preferences.getByRole('tab', { name: /Media$/u }).click();
-			await expect(preferences.getByRole('button', { name: 'Use Native Probe Helper', exact: true })).toBeVisible();
-			await expect(preferences.getByRole('button', { name: 'Clear Probe Helper Quarantine', exact: true })).toBeVisible();
+			await expect(preferences.getByRole('tab', { name: /Media$/u })).toHaveCount(0);
+			await expect(preferences.getByRole('button', { name: 'Use Native Probe Helper', exact: true })).toHaveCount(0);
+			await expect(preferences.getByRole('button', { name: 'Clear Probe Helper Quarantine', exact: true })).toHaveCount(0);
 			await preferences.getByRole('tab', { name: /Audio settings$/u }).click();
 			await expect(preferences.getByRole('button', { name: 'Clear Audio Helper Quarantine', exact: true })).toBeVisible();
 			await preferences.getByRole('tab', { name: /Effects$/u }).click();

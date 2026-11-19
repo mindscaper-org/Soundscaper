@@ -98,7 +98,8 @@ test('Sherpa ARM64 native extraction uses a relative archive name accepted by BS
 test('Sherpa ARM64 build receipt preserves every existing package and binds exact source and recipe pins', async () => {
 	const value = receipt();
 	assert.equal(validateDesktopAssistanceSherpaArm64BuildReceipt(value), value);
-	assert.equal(assistanceNativeRuntimeStageSummary(value.manifest, 'win-arm64').status, 'built');
+	assert.throws(() => assistanceNativeRuntimeStageSummary(value.manifest, 'win-arm64'), /descriptor is invalid/u,
+		'the legacy CPU wrapper cannot be mixed with the current Sherpa common package');
 	assert.deepEqual(value.manifest.commonPackage, baseManifest.commonPackage);
 	assert.equal(desktopAssistanceNativeManifest({ assistanceNativeBuild: value }, 'win-arm64'), value.manifest);
 	assert.equal(desktopAssistanceNativeManifest({ assistanceNativeBuild: null }, 'linux-x64'), baseManifest);
@@ -106,7 +107,7 @@ test('Sherpa ARM64 build receipt preserves every existing package and binds exac
 	assert.equal(hash(await readFile(new URL('../native/assistance-sherpa-node-api/CMakeLists.txt', import.meta.url))), recipe.cmakeSha256);
 	for (const mutate of [
 		(candidate) => { candidate.manifest.commonPackage.files['addon.js'].sha256 = 'a'.repeat(64); },
-		(candidate) => { candidate.manifest.targets['linux-x64'].package.version = 'changed'; },
+		(candidate) => { candidate.manifest.targets['linux-x64'].status = 'unsupported'; },
 		(candidate) => { candidate.manifest.targets['win-arm64'].package.sourceBuild.sourceSha256 = 'b'.repeat(64); },
 		(candidate) => { candidate.provenance.sources[0].sha256 = 'c'.repeat(64); },
 		(candidate) => { candidate.provenance.cmakeSha256 = 'd'.repeat(64); },

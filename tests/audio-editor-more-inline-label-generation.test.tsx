@@ -42,7 +42,7 @@ test('a same-ID native File Open Replace retires the inline label title draft', 
 		await controller.ready;
 		await controller.actions.project.openById('same-project');
 		const saved = await store.loadProject('same-project'); assert.ok(saved);
-		const archive = await exportScapeProject(saved, store); assert.ok(archive.blob instanceof Blob);
+		const archive = await exportScapeProject({ ...saved, title: 'Replacement project' }, store); assert.ok(archive.blob instanceof Blob);
 		await act(async () => { render(); });
 		const marker = dom.one('[data-label-id="intro"]');
 		await act(async () => { reactProps(marker).onDoubleClick({ stopPropagation() {} }); });
@@ -51,7 +51,9 @@ test('a same-ID native File Open Replace retires the inline label title draft', 
 		await controller.actions.timeline.setExactSelection(12, 24);
 		await act(async () => { render(); });
 		assert.equal(dom.one('.audio-editor-label-title-input').value, 'Abandoned inline draft', 'ordinary publications retain editing');
-		await controller.actions.project.openScapeFile(new File([archive.blob], 'Replacement.sscape'), () => 'replace');
+		const decisions: string[] = [];
+		await controller.actions.project.openScapeFile(new File([archive.blob], 'Replacement.sscape'), request => { decisions.push(request.kind); return 'replace'; });
+		assert.deepEqual(decisions, ['collision']);
 		await act(async () => { render(); });
 		const remaining = dom.find('.audio-editor-label-title-input');
 		if (remaining) await act(async () => { reactProps(remaining).onBlur({ currentTarget: remaining }); });

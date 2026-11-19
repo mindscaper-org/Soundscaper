@@ -10,7 +10,7 @@ const COVERAGE_FIXTURE = /from\s+['"]\.\/(?:audio-editor-test-fixtures|helpers\/
 const COVERAGE_OPTOUT = /test\.(?:extend|use)\(\{\s*browserCoverage:\s*false(?:\s*,|\s*\})/u;
 const EXECUTABLE_MIME = /contentType:\s*['"](?:application|text)\/(?:ecmascript|javascript)(?:;[^'"]*)?['"]/gu;
 const EXECUTABLE_SCRIPT_TAG = /<script\b(?![^>]*\btype\s*=\s*['"]importmap['"])[^>]*>/iu;
-const EXECUTABLE_HTML_ATTRIBUTE = /<[^>]+\s(?:on[a-z]+|srcdoc)\s*=/iu;
+const EXECUTABLE_HTML_ATTRIBUTE = /<[a-z][a-z\d:-]*(?=[\s/>])[^>]*\s(?:on[a-z]+|srcdoc)\s*=/iu;
 const JAVASCRIPT_HTML_URL = /<[^>]+\s(?:href|src)\s*=\s*['"]javascript:/iu;
 
 test('coverage-bearing browser specs opt out when they serve test-only executable code', async () => {
@@ -83,6 +83,17 @@ test('browser helper traversal ignores import declarations inside bundled source
 		return '<script>synthetic()</script>';
 	});
 	assert.match(result, EXECUTABLE_SCRIPT_TAG);
+});
+
+test('HTML event detection distinguishes loop comparisons from executable tag attributes', () => {
+	const ordinaryCode = 'for (let frame = 24000; frame < 25000; frame++) record(frame);\nconst onset = samples => samples.findIndex(Boolean);';
+	assert.doesNotMatch(ordinaryCode, EXECUTABLE_HTML_ATTRIBUTE);
+	for (const html of [
+		'<button onclick="run()">Run</button>',
+		'<iframe srcdoc="content"></iframe>',
+		'<x-row role="button"\n onclick = "run()">Run</x-row>',
+		'<svg onload=run()></svg>',
+	]) assert.match(html, EXECUTABLE_HTML_ATTRIBUTE);
 });
 
 function browserSourceReader(readSource = (url) => readFile(url, 'utf8')) {

@@ -18,6 +18,7 @@ const COMMON_CONFIG_FILES = Object.freeze([
 const PRODUCT_CONFIG_FILES = Object.freeze({
 	soundscaper: Object.freeze([
 		...COMMON_CONFIG_FILES,
+		'config/yabridge-native-payload.json',
 		'config/soundscaper-professional-native-notices.json',
 		'config/soundscaper-professional-native-payload-manifest.json',
 	]),
@@ -41,6 +42,7 @@ const SOUNDSCAPER_SHARED_RUNTIME_EXCEPTIONS = new Set([
 const SOUNDSCAPER_SHARED_VIDEO_RUNTIME = /^src\/common\/editor\/video-[^/]+\.js$/u;
 const NIGHTLY_TEST_LAUNCHER_FILES = new Set([
 	'nightly-tests-assistance-host.mjs',
+	'nightly-tests-editor-host.mjs',
 	'nightly-tests-assistance.html',
 	'nightly-tests-main.mjs',
 	'nightly-tests-manifest.mjs',
@@ -167,8 +169,8 @@ export function soundscaperMainSource(sourceValue) {
 		/import \{ createDesktopLinkedVideoLocatorRuntime \} from '\.\/linked-video-locator-runtime\.js';\n/u,
 	];
 	for (const pattern of framesImports) source = replaceOnce(source, pattern, '', 'Framescaper main import');
-	source = replaceOnce(source, 'EXTERNAL_DESTINATIONS, FRAMESCAPER_WEB_VCR_ENABLED,',
-		'EXTERNAL_DESTINATIONS,', 'Framescaper capture feature flag');
+	source = replaceOnce(source, '\tFRAMESCAPER_WEB_VCR_ENABLED,\n',
+		'', 'Framescaper capture feature flag');
 	const replacement = [
 		"import {",
 		"\tdeferredWebVcrSmokeTrust, disposeDesktopCaptureSecurity,",
@@ -191,16 +193,16 @@ export function soundscaperMainSource(sourceValue) {
 		"\t\t{ name: 'desktop MCP', run: () => desktopMcp?.dispose() },\n\t\t{ name: 'desktop codecs', run: () => desktopCodecs?.dispose() },",
 		'Soundscaper MCP shutdown');
 	source = replaceOnce(source,
-		'cleanup: async () => { rendererReady = false; await rendererOwnershipCleanup.drain(webContents); },',
-		'cleanup: async () => { rendererReady = false; await desktopMcp?.revoke(); await rendererOwnershipCleanup.drain(webContents); },',
+		'cleanup: async () => { retireRendererCloseRequest(webContents); await rendererOwnershipCleanup.drain(webContents); },',
+		'cleanup: async () => { retireRendererCloseRequest(webContents); await desktopMcp?.revoke(); await rendererOwnershipCleanup.drain(webContents); },',
 		'Soundscaper MCP renderer recovery');
 	source = replaceOnce(source,
 		'if (revokedOwner) rendererOwnershipCleanup.start(revokedOwner);',
 		'if (revokedOwner) { void desktopMcp?.revoke(); rendererOwnershipCleanup.start(revokedOwner); }',
 		'Soundscaper MCP renderer replacement');
 	source = replaceOnce(source,
-		'function revokeRendererSaveOwner(webContents) {\n\trendererReady = false;',
-		'function revokeRendererSaveOwner(webContents) {\n\trendererReady = false;\n\tvoid desktopMcp?.revoke();',
+		'function revokeRendererSaveOwner(webContents) {\n\tretireRendererCloseRequest(webContents);',
+		'function revokeRendererSaveOwner(webContents) {\n\tretireRendererCloseRequest(webContents);\n\tvoid desktopMcp?.revoke();',
 		'Soundscaper MCP renderer revocation');
 	source = replaceOnce(source,
 		"\tregisterHostAffordances({ channels: IPC, handle, windowFor: () => mainWindow });",
@@ -208,8 +210,8 @@ export function soundscaperMainSource(sourceValue) {
 		'Soundscaper MCP IPC registration');
 	source = replaceRange(source,
 		'\tnativeServices = await startFramescaperNativeServicesRegistration({',
-		'\treleaseChecker =',
-		'\treleaseChecker =',
+		'\tupdates = createDesktopUpdates(',
+		'\tupdates = createDesktopUpdates(',
 		'deferred native services startup');
 	source = replaceOnce(source,
 		"\tlinkedVideoLocators = createDesktopLinkedVideoLocatorRuntime({ readCapabilities, registryPath: resolve(desktopStorage.dataRoot, 'linked-video-locators-project-v1.json'), confirmFileSizeWarning: createDesktopSaveSizeWarningConfirmation((options) => dialog.showMessageBox(options), 'linking') });\n\tawait linkedVideoLocators.ready();\n",
@@ -227,6 +229,9 @@ export function soundscaperMainSource(sourceValue) {
 
 export function soundscaperPreloadSource(sourceValue) {
 	let source = textSource(sourceValue, 'desktop preload');
+	source = replaceOnce(source,
+		/import \{ presentFramescaperExternalDisplayFrame \} from '[^']+';\n/u,
+		'', 'clean-display preload import');
 	source = replaceOnce(source,
 		/import \{ createAssistanceKeyedVideoPreloadBridge \} from '[^']+'; ?/u,
 		'', 'keyed-video preload import');
@@ -304,8 +309,9 @@ export function soundscaperConstantsSource(sourceValue) {
 	source = replaceRange(source, 'export const PRODUCT_ID',
 		'export const SETTINGS_SCHEMA_VERSION = 1;', [
 			"export const PRODUCT_ID = 'soundscaper';",
-			'const PRODUCT_METADATA_MATCHES = productConfig.schemaVersion === 1 && productConfig.id === PRODUCT_ID;',
+			'const PRODUCT_METADATA_MATCHES = [1, 2].includes(productConfig.schemaVersion) && productConfig.id === PRODUCT_ID;',
 			'export const DECLARED_APPLICATION_VERSION = PRODUCT_METADATA_MATCHES ? productConfig.applicationVersion : null;',
+			'export const DECLARED_PACKAGE_VERSION = PRODUCT_METADATA_MATCHES ? productConfig.packageVersion ?? productConfig.applicationVersion : null;',
 			"export const APPLICATION_VERSION_CHANNEL = PRODUCT_METADATA_MATCHES ? productConfig.applicationVersionChannel : 'candidate';",
 			"export const RELEASE_CHANNEL = PRODUCT_METADATA_MATCHES ? productConfig.releaseChannel : 'candidate';",
 			"export const APP_NAME = 'Soundscaper';",

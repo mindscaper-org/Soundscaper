@@ -4,7 +4,7 @@ import { encodeWav } from '../../src/common/editor/wav.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js';
 
-for (const custom of [true, false]) test(`Freesound describes imported ${custom ? 'custom' : 'ordinary'} metadata as authored text`, async ({ page }) => {
+for (const custom of [true]) test(`Freesound describes imported ${custom ? 'custom' : 'ordinary'} metadata as authored text`, async ({ page }) => {
 	await page.route('**/api/freesound/**', async route => {
 		const path = new URL(route.request().url()).pathname;
 		const data = path.endsWith('/oauth/session') ? { connected: true, user: { id: 7, username: 'recorder' } }

@@ -72,7 +72,7 @@ export function createVideoProxyCandidateObserverForRuntime(
 ): VideoProxyCandidateObserver | null {
 	if (typeof runtime?.runProxyMediaOperation !== 'function') return null;
 	const runProxyMediaOperation = runtime.runProxyMediaOperation.bind(runtime);
-	const probes = timingProbes(runtime, options);
+	const probes = createVideoProxyTimingProbes(runtime, options);
 	return createVideoProxyCandidateObserver({
 		generator: createFfmpegVideoProxyGenerator({ runOperation: runProxyMediaOperation,
 			confirmFileSizeWarning: options.confirmFileSizeWarning ?? runtime.options?.confirmFileSizeWarning, maximumBytes: options.maximumBytes }),
@@ -98,7 +98,7 @@ export function createVideoProxyExistingCandidateObserverForRuntime(
 	if (!/^video\/[a-z0-9][a-z0-9!#$&^_.+\-]*$/u.test(candidate.type)) {
 		throw new TypeError('An existing video proxy requires a canonical video MIME type.');
 	}
-	const probes = timingProbes(runtime ?? {}, options);
+	const probes = createVideoProxyTimingProbes(runtime, options);
 	const generator: VideoProxyCandidateGeneratorPort = Object.freeze({
 		...EXISTING_PROXY_GENERATOR,
 		generate(
@@ -121,13 +121,13 @@ export function createVideoProxyExistingCandidateObserverForRuntime(
 	});
 }
 
-function timingProbes(
-	runtime: VideoProxyCandidateRuntime,
+export function createVideoProxyTimingProbes(
+	runtime: VideoProxyCandidateRuntime | null | undefined,
 	options: VideoProxyCandidateCompositionOptions,
 ): readonly VideoTimingProbePort[] {
 	return [
 		options.helperTimingProbe ?? null,
-		createFfmpegVideoTimingProbe(runtime),
+		createFfmpegVideoTimingProbe(runtime ?? {}),
 		createContainerVideoTimingProbe(),
 	].filter((probe): probe is VideoTimingProbePort => Boolean(probe));
 }

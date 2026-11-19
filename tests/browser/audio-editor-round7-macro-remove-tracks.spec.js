@@ -5,17 +5,17 @@ import { bootEditor, chooseCommandAction, clipByName, collectClientErrors, impor
 
 test('the advertised RemoveTracks macro command removes its ordinary selected track', async ({ page }) => {
 	const errors = collectClientErrors(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await expect(editor).toHaveAttribute('data-track-count', '2');
 	await expect(clipByName(editor, toneA.name)).toBeVisible();
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const palette = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const palette = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await palette.locator('button[aria-label="New program"]').click();
 	const source = palette.locator('[data-macro-script-source]');
 	const log = palette.locator('[data-macro-script-log]');
 	await source.fill("await sound.command('NewMonoTrack'); sound.log.info('created ordinary track');");
-	await palette.getByRole('button', { name: 'Run program', exact: true }).click();
+	await palette.getByRole('button', { name: 'Run macro', exact: true }).click();
 	await expect(log).toHaveAttribute('data-outcome', 'completed');
 	await expect(log).toContainText('created ordinary track');
 	await expect(editor).toHaveAttribute('data-track-count', '3');
@@ -26,7 +26,7 @@ test('the advertised RemoveTracks macro command removes its ordinary selected tr
 		"await sound.command('RemoveTracks');",
 		"sound.log.info('removed ordinary track');",
 	].join('\n'));
-	await palette.getByRole('button', { name: 'Run program', exact: true }).click();
+	await palette.getByRole('button', { name: 'Run macro', exact: true }).click();
 	await expect(log).toContainText('targets=1');
 	await expect(log).toHaveAttribute('data-outcome', 'completed');
 	await expect(log).toContainText('removed ordinary track');

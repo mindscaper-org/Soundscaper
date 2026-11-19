@@ -34,6 +34,30 @@ test('the dialog asks what is delivered once, and the answer states both form an
 	}
 });
 
+test('Render as loop is an opt-in In/Out rendering choice and keeps appended tails off', async () => {
+	const fixture = await mountedExportDialog();
+	try {
+		assert.equal(fixture.dom.find('[data-export-field="renderAsLoop"]'), null);
+		await fixture.startExport();
+		assert.equal(fixture.requests[0]?.dither, 'none');
+		assert.equal(fixture.requests[0]?.includeTail, false);
+		await fixture.chooseOutput(ENGLISH_COPY.exportOutputLoop);
+		const row = fixture.dom.one('[data-export-field="renderAsLoop"]');
+		assert.ok(row.textContent.includes('Render as loop'));
+		const checkbox = row.querySelector('[role="checkbox"]');
+		assert.ok(checkbox);
+		assert.equal(checkbox.getAttribute('aria-checked'), 'false');
+		await fixture.click(checkbox);
+		await fixture.startExport();
+		assert.equal(fixture.requests[1]?.renderAsLoop, true);
+		assert.equal(fixture.requests[1]?.includeTail, false);
+		await fixture.chooseOutput(ENGLISH_COPY.entireProject);
+		assert.equal(fixture.dom.find('[data-export-field="renderAsLoop"]'), null);
+		await fixture.startExport();
+		assert.equal(fixture.requests[2]?.renderAsLoop, undefined);
+	} finally { await fixture.unmount(); }
+});
+
 test('a project with labels and no markers is offered the label split alone', async () => {
 	const fixture = await mountedExportDialog();
 	try {

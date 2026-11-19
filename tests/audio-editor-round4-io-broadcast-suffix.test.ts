@@ -16,7 +16,7 @@ for (const type of ['', 'application/octet-stream']) {
 		const unexpected = () => assert.fail('ordinary broadcast audio must reach the media importer');
 		await openWorkspaceProjectFile({ ready: Promise.resolve(), actions: { project: {
 			openAudacityProject: unexpected, openDawproject: unexpected,
-			create: ({ title }: Readonly<{ title: string }>) => { calls.push(`create:${title}`); },
+			create: ({ title }: Readonly<{ title: string }>) => { calls.push(`create:${title}`); return 'new-project'; },
 			importFiles: async (files: readonly File[], options: Readonly<{ destination: string }>) => {
 				assert.equal(files[0], file);
 				assert.equal(options.destination, 'timeline');

@@ -178,7 +178,7 @@ Known architectural constraints that drive later work:
 | 8+. Framescaper Web VCR | **Implemented and enabled for testing** | Expose the default-hidden Record-menu surface with `framescaperWebVcr: true`; keep 4K unavailable. |
 | 8+C. Framescaper product origin | **Implemented for family-v1 — immediate no-legacy cutover; permanent transfer routes** | Keep the first-class editable-copy action and permanent cross-origin transfer ceremony verified without reopening the frozen family. |
 | 9. Stable release and owner QA | **Soundscaper workflow automated** | Rebuild, test, package, deploy, and publish the tagged Soundscaper revision; use private owner QA as helpful. |
-| 9+. Post-1.0 extensions | **Planned — MIDI and installable distribution** | Add MIDI after stable 1.0 and install both products from Chrome for Android as independent apps, with an optional Google Play Trusted Web Activity track. |
+| 9+. Post-1.0 extensions | **Planned — full MIDI integration, control surfaces, CV/gate hardware, ambisonics, beat slicing, and installable distribution** | Extend MIDI after stable 1.0; add MCU then HUI control surfaces with separately gated EUCON feasibility; deliver MIDI-to-CV external instruments before direct CV/gate; add Soundscaper ambisonics through third order and coordinated beat slicing with gap smoothing; install both products from Chrome for Android as independent apps, with an optional Google Play Trusted Web Activity track. |
 
 Soundscaper has an independent release line and may ship without closing
 Framescaper milestones, payloads, or packaging. Framescaper stays in ordinary
@@ -626,14 +626,18 @@ described by the [native-services architecture](docs/architecture/native-service
 
 - **Electron Enhanced — Enabled for testing; payload-dependent:** contract v1 closes jobs/grants, supervision, 64 KiB control and authenticated data planes. Launcher source/contracts/tests implement Linux namespaces/Landlock/seccomp, macOS Seatbelt, and Windows AppContainer; an exact authenticated built launcher is still required to execute.
 - **Electron Enhanced — Menu-opt-in and active:** default-off routes enforce resource, custody, and publication bounds; payloads are reverified at staging, pack, and spawn, and helpers cannot publish project revisions.
-- **Electron Only — Enabled for testing:** scanning, quarantine, isolated hosting, continuity, and helper-owned vendor windows are fixture-tested. VST3, CLAP, AU, LV2, and OFX are platform-visible and defer execution to exact machine payload and containment checks; instruments wait for post-1.0 milestone 9+ (legacy packet 8B).
+- **Electron Only — Enabled for testing:** scanning, quarantine, isolated hosting, continuity, and helper-owned vendor windows are fixture-tested. VST3, CLAP, AU, LV2, and OFX are platform-visible and defer execution to exact machine payload and containment checks; VST2/VST3 and Linux LV2 instruments are available to MIDI beta tracks through Plugin Manager.
 
 ### Soundscaper native tier
 
 - **Electron Enhanced — Product route enabled for testing:** S30 inherits its exact S29 native-audio implementation: a persistent helper and direct `MessagePort` to an `AudioWorklet`; input feeds canonical recording publication, output feeds playback/monitoring, and loss preserves Web Core fallback. CoreAudio/WASAPI/PipeWire/ALSA are implemented; JACK stays discovery-only. Exact target payload and backend probes remain machine gates.
 - **Electron Only — Platform formats enabled for testing:** S30 delegates through exact S29 and inserts user-consented `native-plugin` effects with persistent RPC, real-time/offline render, exact V21 PDC, bounded state, bypass/frozen continuity, and helper-owned vendor windows. A scan or host operation still requires the exact authenticated payload, OS launcher, plug-in digest, consent, and quarantine state. Licensing and optional owner device checks remain separate from those execution gates.
-- **Planned for post-1.0 milestone 9+ (legacy packet 8B):** MIDI,
-  instruments, control surfaces, clock, and MTC are not implemented and do not
+- **Web Enhanced — Menu-opt-in:** Soundscaper sends and receives MTC through
+  permissioned Web MIDI and LTC through discrete-channel audio worklets; see
+  [timecode synchronization](docs/features/timecode-synchronization.md). Hardware
+  synchronization accuracy remains unqualified.
+- **Planned for post-1.0 milestone 9+ (legacy packet 8B):** native MIDI note
+  input, MPE, sampler instruments, control surfaces, and MIDI clock do not
   block stable 1.0.
 
 ### Framescaper native tier
@@ -983,8 +987,10 @@ while giving the owner useful optional QA and debugging tools.
 
 ## 9+. Post-1.0 extensions
 
-MIDI and installable distribution are explicitly post-release scope. Neither
-blocks the Soundscaper Stable 1.0 release.
+Full MIDI integration, hardware control surfaces, CV/gate hardware integration,
+first- through third-order ambisonics, beat slicing and gap smoothing, and
+installable distribution are explicitly post-release scope. None blocks the
+Soundscaper Stable 1.0 release.
 
 ### 8B. MIDI
 
@@ -1002,7 +1008,13 @@ provides both formats. Versioned note metadata and rendered PCM use existing
 audio carriers and survive project saves and history; see
 [project compatibility](docs/policies/project-compatibility.md).
 
-Device input, native MIDI services, MPE, sampler/plug-in instruments, and full
+Desktop VST2/VST3 instruments and Linux LV2 instruments can be assigned through
+**Effect > Plugin Manager** to the selected MIDI track. Isolated source renders
+retain channel messages, instrument settings and playable PCM for playback and
+audio export. The existing piano-roll instrument selector restores a built-in
+sound. Live MIDI device input is separate from this file/note-based workflow.
+
+Device input, native MIDI device services, MPE, sampler instruments, and full
 Audacity/AUP4 MIDI compatibility remain deferred. New schema allocation begins only after:
 
 1. the relevant Audacity design and source revision are public and pinned;
@@ -1023,8 +1035,11 @@ Planned implementation:
   file/editor fallback.
 - **Shared / Web Core — Planned:** a focused reviewed built-in instrument and
   sampler only after event/timing stability.
-- **Electron Only — Planned:** native MIDI, MPE where supported, instruments,
-  control surfaces, MIDI clock, and MTC through isolated services.
+- **Electron Only — Planned:** native MIDI devices, MPE where supported,
+  MIDI clock, and MTC through isolated services. Hardware control surfaces use
+  the separate MCU/HUI sequence below and share the native MIDI service.
+  The CV/gate sequence below reuses instrument output for MIDI-to-CV hardware
+  before adding a separate direct-voltage output path.
 - **Shared — Planned:** visible missing-instrument/device placeholders with
   frozen audio and preserved editable state.
 
@@ -1041,6 +1056,140 @@ Planned implementation:
 The legacy parity actions remain inert and menu-hidden; the beta has explicit
 menu commands. The full DAW goal remains a post-1.0 claim and closes only after
 this packet's remaining implementation and compatibility review pass.
+
+### 9+. Soundscaper hardware control surfaces
+
+**Status:** **Planned; post-1.0.** Implement Mackie Control Universal (MCU)
+first, then Human User Interface (HUI) compatibility. EUCON is a separate
+feasibility investigation and conditional adapter, not a committed support
+claim or a prerequisite for MCU/HUI delivery. Follow the
+[implementation plan](docs/development/control-surfaces.md) for bounded work
+packets, ownership, protocol evidence, acceptance, and stop conditions.
+
+- **Shared — Planned:** typed surface actions and feedback reuse existing
+  transport, recording, mixer, stable parameter addresses, and automation;
+  concurrent fader gestures preserve history and project-write authority.
+- **Electron Only — Planned:** opt-in setup inside **Edit > Preferences > Audio
+  settings**, explicit input/output pairing, supervised native MIDI sessions,
+  track banking, hardware feedback, and generation-fenced disconnect/reconnect.
+  Qualify exact payloads and device profiles across the maintained five-target
+  desktop matrix; device identities remain local to the installation.
+- **Electron Only — Feasibility required:** establish EUCON SDK terms,
+  AGPL-compatible distribution, runtime/platform availability, network/service
+  boundaries, and real-device test access before committing to supported targets.
+
+The baseline covers transport, volume/pan, mute/solo, track selection/banking,
+supported labels/meters, and automation touch/move/release. Plug-in pages,
+surround controls, generic MIDI learn, and Framescaper integration are separate
+scope. Existing file-based MIDI editing and Web Core fallback remain usable
+with surfaces disabled or unavailable; surface setup requires no new project
+schema. Any later MIDI event-model/schema change retains the 8B compatibility
+review above.
+
+**Exit gate:** independent MCU/HUI fixtures, editor and preferences workflows,
+simultaneous automation gestures, undo/save/reopen, authority loss, reconnect,
+real-device profiles, and exact packaged-target evidence satisfy the plan.
+EUCON remains unclaimed until its separate feasibility and implementation gates
+pass.
+
+### 9+. Soundscaper CV/gate hardware
+
+**Status:** **Planned; post-1.0, after the owning MIDI device/output contracts.**
+Deliver external-instrument sequencing through a hardware MIDI-to-CV converter
+first, including scheduled notes/controllers, audio return recording, and
+measured alignment. Direct CV/gate is a separate desktop extension: qualify one
+monophonic 1 V/octave pitch/gate pair before parameter-voltage automation and
+clock/reset outputs. Soundscaper leads the clock in this baseline. Follow the
+[implementation guide](docs/development/cv-gate.md) for contracts, ownership,
+work packets, calibration, failure handling, and hardware evidence.
+
+- **Shared — Planned:** portable logical routing and authored note/control
+  intent, canonical timing/automation, return-take publication, undo/save/reopen,
+  missing-device behavior, and export admission. Any schema extension retains
+  the 8B MIDI compatibility review and owning-family-v1 migration requirements.
+- **Electron Only — Planned:** MIDI-to-CV through the shared native MIDI service;
+  then dedicated, calibrated CV channels through qualified native audio
+  sessions. Opt in through **Edit > Preferences > Audio settings > External
+  hardware** and **Tracks > External hardware**; keep bindings/calibration local
+  and require explicit arming. Physical output isolation, bounded scheduling,
+  callback-level idle behavior, and exact device/backend/target evidence precede
+  direct-output support claims. MCU/HUI delivery is not a prerequisite.
+- **Deferred:** CV input, external clock following, polyphonic allocation, Hz/V,
+  S-trigger, vendor-specific encoded outputs, automatic oscillator tuning, and
+  automatic hardware freeze. Browser MIDI-to-CV may follow Web MIDI; direct
+  browser CV and Framescaper support need separate feasibility work.
+
+**Exit gate:** each shipping slice completes opt-in setup, sequencing, stop/seek/
+loop/disconnect recovery, return recording, portable save/reopen, and export with
+recorded audio or a truthful refusal/report. CV never reaches speaker/mix export
+paths or implicit device fallbacks; reconnect requires re-arming. Independent
+signal/lifecycle fixtures and measured voltage, pitch, timing, and fault behavior
+qualify each advertised hardware/packaged-target tuple. Offline rendering never
+drives external hardware. MIDI-to-CV remains independently deliverable.
+
+### 9+. Soundscaper ambisonics (orders 1–3)
+
+**Status:** **Planned; post-1.0.** Support full-sphere first-, second-, and
+third-order ambisonics as complete 4-, 9-, and 16-component workflows. Deliver
+first order end to end, then qualify second and third order on the same
+ACN/SN3D signal model. Follow the
+[implementation guide](docs/development/ambisonics.md) for ownership,
+conventions, work packets, compatibility, and independent acceptance evidence.
+
+- **Shared / Web Core — Planned:** explicit source interpretation, aligned
+  component editing, typed ambisonic tracks/buses, source encoding, scene
+  rotation, spatial automation, coherent-effect admission, and lossless Scape
+  persistence with a supported migration from the owning family-v1 baseline.
+- **Soundscaper Web and Electron — Planned:** opt-in actions through existing
+  Tracks, Effect, View, and File menus; measured-HRTF headphone decoding,
+  qualified speaker decoding, and component or decoded WAV/RF64 delivery.
+  Decoder assets and advertised desktop targets require their own provenance,
+  packaging, and bounded realtime evidence.
+- **Deferred:** orders above three, mixed/horizontal-only component sets,
+  microphone-specific A-format conversion, device head tracking, personalized
+  HRTFs, CAF ambix containers, ADM HOA authoring, and spatial compressed/video
+  delivery. Shared modules do not enable Framescaper implicitly.
+
+#### Ambisonics exit gate
+
+- Every order completes import/interpretation, editing, encoding/mixing,
+  rotation/automation, monitoring, component/decoded export, and save/reopen.
+- Independent coefficient, rotation, decoder, and file-reader fixtures verify
+  conventions and live/offline parity; width alone never establishes support.
+- Monitoring never sends raw components through speaker routing or the generic
+  first-pair fallback, and monitor settings never change component exports.
+- Existing migration, read-only custody, ADM passthrough, bounded resources,
+  accessibility, localization, licensing, and platform gates remain intact.
+
+### 9+. Soundscaper beat slicing and gap smoothing
+
+**Status:** **Planned; post-1.0.** Tighten recorded percussion by detecting
+attacks, splitting and moving audio slices toward a grid or groove, then
+repairing gaps and overlaps with retained source audio and short crossfades.
+Preserve each slice's speed and pitch and coordinate edits across selected
+microphone tracks. Follow the
+[implementation guide](docs/development/beat-slicing.md) for source ownership,
+timing and repair contracts, bounded work packets, and acceptance evidence.
+
+- **Shared / Web Core — Planned:** rigid slice planning, exact grid/groove
+  placement, protected attacks, source-bounded gap repair, shared multitrack
+  cuts/deltas/fades, atomic history, and lossless Scape save/reopen.
+- **Soundscaper Web and Electron — Planned:** opt-in review and audition through
+  the existing Effect > Pitch and tempo menu, with accessible localized
+  controls and explicit refusal of unsupported material or unrepairable joins.
+- **Deferred:** arbitrary layered/comped arrangements, warped/looped/reversed
+  inputs, continuous time stretching, generated gap audio, sample-to-MIDI
+  conversion, and persistent linked-track groups. Existing transient detection,
+  warp quantisation, and overlap crossfades remain separate capabilities.
+
+#### Beat slicing exit gate
+
+- A complete menu-driven workflow detects, slices, conforms, smooths, auditions,
+  applies, undoes/redoes, and saves/reopens a multitrack percussion edit.
+- Independent timing/source/gain fixtures prove preserved attacks and microphone
+  delays, safe handle use, playback/export parity, and unchanged outside material.
+- Impossible repairs, stale analysis, cancellation, locks, and resource limits
+  leave all participants unchanged; existing architecture and quality budgets hold.
 
 ### 9+. Installable distribution (PWA and Trusted Web Activity)
 
@@ -1146,6 +1295,10 @@ documentation when that work lands.
 | Framescaper capture | Permissions, supported source combinations, long-recording sync, device loss, recovery, and normal media handoff. |
 | Framescaper Web VCR | Record-dropdown-only availability, isolated persistent HTTPS browsing, target/manual crop, local-mute independence, background capture, quit recovery, capability-gated resolution, cropped-only retention, and normal recorded-media handoff. |
 | MIDI (post-1.0 9+) | Tests derived from pinned Audacity design: migration, timing, fallback, instruments, accessibility, Scape, and AUP4. |
+| Control surfaces (post-1.0 9+) | Independent MCU/HUI traces, opt-in setup, bidirectional controls, concurrent automation/history, stale-project and reconnect fences, tested device profiles, and exact native-target packages; EUCON additionally requires SDK/distribution and platform feasibility. |
+| CV/gate hardware (post-1.0 9+) | MIDI-to-CV external-instrument workflow first; direct CV additionally requires isolated physical channels, calibrated voltage/pitch and clock vectors, idle/watchdog failure behavior, measured timing, and exact device/backend/target evidence. Every slice covers opt-in setup, return recording, migration/Scape preservation, and export without hardware side effects. |
+| Ambisonics (post-1.0 9+) | Independent first-/second-/third-order encoding, rotation, decoder, and WAV/RF64 fixtures; opt-in complete workflows; coherent component editing/effects; monitoring/export isolation; migration and Scape preservation; and qualified web/desktop resource and asset evidence. |
+| Beat slicing and gap smoothing (post-1.0 9+) | Opt-in detect/slice/conform/smooth workflow with independent timing, source-handle and fade fixtures; shared microphone cuts/deltas preserving recorded delays; protected attacks; atomic refusal/history; Scape/recovery and playback/export parity; and bounded accessible web/desktop completion. |
 | Framescaper origin transfer | Multi-project cutover across origins: resumable after a killed receiver, exactly one copy per project, reported omissions matching the round-trip fixture matrix, no side-effect deletion, and no redirect loop for an installed pre-cutover app. |
 | Installable distribution | Distinct installable apps with disjoint scopes, touch operation at the recorded tablet viewports, cross-origin isolation on installed and shell-served navigations, screen-off export or its enforced refusal, offline localized open/effect/export, and survival of a product-version bump. |
 | Accessibility | Keyboard and assistive-technology completion at supported zoom, contrast, locale, and direction. |

@@ -21,15 +21,9 @@ export async function midiRecordingPendingFixture(context: TestContext, options:
 	const actual = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
 	const entered = deferred<void>(), release = deferred<void>(); let held = false;
 	const store = new Proxy(actual, { get(target, key, receiver) {
-		if (key === 'beginSourceWrite') return async (...args: Parameters<typeof actual.beginSourceWrite>) => {
-			const writer = await target.beginSourceWrite(...args);
-			return new Proxy(writer, { get(writeTarget, writeKey, writeReceiver) {
-				if (writeKey === 'write') return async (...writeArgs: Parameters<typeof writer.write>) => {
-					await writeTarget.write(...writeArgs); if (held) { entered.resolve(); await release.promise; }
-				};
-				const value: unknown = Reflect.get(writeTarget, writeKey, writeReceiver);
-				return typeof value === 'function' ? value.bind(writeTarget) : value;
-			} });
+		if (key === 'writeMidiSource') return async (...args: Parameters<typeof actual.writeMidiSource>) => {
+			if (held) { entered.resolve(); await release.promise; }
+			return target.writeMidiSource(...args);
 		};
 		const value: unknown = Reflect.get(target, key, receiver); return typeof value === 'function' ? value.bind(target) : value;
 	} });
@@ -51,7 +45,17 @@ export async function midiRecordingPendingFixture(context: TestContext, options:
 	const { clipId } = await controller.actions.midi.addTrack();
 	await controller.actions.midi.addNote(clipId, { id: 'note', pitch: 60, velocity: 100, startFrame: 0, durationFrames: 4000, channel: 0 });
 	await controller.actions.project.save();
-	return { controller, clipId, recordingTrackId, created, entered, release, get admittedPitch() { return admittedPitch; },
+	return { controller, clipId, recordingTrackId, created, release, get admittedPitch() { return admittedPitch; },
 		get positionFrame() { return engine.positionFrame; }, get playCalls() { return engine.playCalls; },
-		holdWrites() { held = true; }, get loadedPitch() { return midiPitch(loaded); } };
+		get loadedPitch() { return midiPitch(loaded); },
+		async holdNoteEdit() {
+			held = true;
+			const editing = controller.actions.midi.updateNote(clipId, 'note', { pitch: 67 });
+			const editOutcome = Promise.allSettled([editing]);
+			await Promise.race([entered.promise, editing.then(() => {
+				assert.fail('The MIDI edit completed before reaching the source-publication barrier.');
+			})]);
+			return { editing, editOutcome };
+		},
+	};
 }

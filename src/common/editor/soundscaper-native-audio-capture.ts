@@ -27,6 +27,35 @@ interface CaptureRoute {
 
 const leases = new WeakMap<MediaStream, CaptureRoute>();
 let route: CaptureRoute | null = null;
+let defaultInputGuard: Readonly<{ deviceId: string }> | null = null;
+
+export interface NativeRecordingInputRequest {
+	readonly deviceId: string;
+	readonly channelCount: number;
+	readonly sampleRate: number;
+	readonly signal?: AbortSignal;
+}
+
+let prepareRecordingInput: ((request: NativeRecordingInputRequest) => Promise<void> | undefined) | null = null;
+
+/** Desktop owns device admission. The recorder supplies its exact, single-source plan. */
+export function registerSoundscaperNativeRecordingInput(
+	prepare: NonNullable<typeof prepareRecordingInput>,
+): () => void {
+	prepareRecordingInput = prepare;
+	return () => { if (prepareRecordingInput === prepare) prepareRecordingInput = null; };
+}
+
+export function prepareSoundscaperNativeRecordingInput(request: NativeRecordingInputRequest): Promise<void> | undefined {
+	return request.deviceId.startsWith('native:wasapi:in:') ? prepareRecordingInput?.(request) : undefined;
+}
+
+/** A temporary track input must never satisfy an unqualified microphone request. */
+export function guardSoundscaperDefaultRecordingInput(deviceId: string): () => void {
+	const guard = { deviceId };
+	defaultInputGuard = guard;
+	return () => { if (defaultInputGuard === guard) defaultInputGuard = null; };
+}
 
 export function claimSoundscaperNativeAudioCapture(value: Readonly<{
 	sessionId: string;
@@ -69,6 +98,10 @@ export function acquireSoundscaperNativeAudioCapture(options: Readonly<{
 	sampleRate?: unknown;
 }> = {}): MediaStream | null {
 	const current = route;
+	if (defaultInputGuard && isDefaultDevice(options.deviceId)
+		&& (current?.deviceId !== defaultInputGuard.deviceId || !current.active || current.revoked)) {
+		throw new Error('The default microphone is being restored. Wait for Audio Setup before recording.');
+	}
 	if (!current?.active || current.revoked || !isSelectedDevice(options.deviceId, current.deviceId)) return null;
 	const requestedChannels = boundedChannelCount(options.channelCount ?? 1);
 	if (requestedChannels > current.channelCount) {
@@ -172,5 +205,7 @@ function boundedSampleRate(value: unknown): number {
 }
 
 function isSelectedDevice(value: unknown, deviceId: string): boolean {
-	return value == null || value === '' || value === 'default' || value === deviceId;
+	return isDefaultDevice(value) || value === deviceId;
 }
+
+function isDefaultDevice(value: unknown): boolean { return value == null || value === '' || value === 'default'; }

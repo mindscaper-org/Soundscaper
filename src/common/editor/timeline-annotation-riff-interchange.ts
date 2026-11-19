@@ -3,6 +3,7 @@
 import { projectForRuntimeConsumers } from './project-current-runtime.ts';
 import { isTimelineAnnotationProjectSchema } from './project-schema-version.ts';
 import type { RiffMarker, RiffMarkerInput } from './riff-markers.ts';
+import { createRiffCueDeliveryClock } from './riff-cue-delivery-clock.ts';
 import type { RuntimeClipProject } from './runtime-clip-projection.ts';
 import {
 	resolveRuntimeTimelineAnnotationsProjection,
@@ -25,6 +26,7 @@ const UINT32_MAX = 0xffff_ffff;
 const INVALID_ANNOTATION_NAME_TEXT = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu;
 
 type DataRecord = Record<string, unknown>;
+type CueClock = ReturnType<typeof createRiffCueDeliveryClock>;
 
 export type RiffMarkerExportSource = 'timeline-annotations' | 'label-track' | 'none';
 
@@ -102,9 +104,8 @@ export function createRiffAnnotationExport(
 		);
 		return frozenExport([], report);
 	}
-	if (source === 'label-track') {
-		return frozenExport(labelTrackMarkers(project, range, inputSampleRate, outputSampleRate, options, report), report);
-	}
+	const clock = createRiffCueDeliveryClock(range, inputSampleRate, outputSampleRate);
+	if (source === 'label-track') return frozenExport(labelTrackMarkers(project, range, clock, options, report), report);
 	const annotationProject = project as unknown as Parameters<typeof resolveRuntimeTimelineAnnotationsProjection>[0];
 	const annotations = resolveRuntimeTimelineAnnotationsProjection(annotationProject);
 	const primarySequenceId = canonicalId(project.primarySequenceId, 'project.primarySequenceId');
@@ -121,8 +122,7 @@ export function createRiffAnnotationExport(
 		const marker = projectedAnnotationMarker(
 			annotation,
 			range,
-			inputSampleRate,
-			outputSampleRate,
+			clock,
 			allocateCueId(annotation.id, usedCueIds),
 			report,
 		);
@@ -253,8 +253,7 @@ export function createOmittedRiffAnnotationImportReport(
 function projectedAnnotationMarker(
 	annotation: RuntimeTimelineAnnotationProjection,
 	range: Readonly<{ startFrame: number; endFrame: number }>,
-	inputSampleRate: number,
-	outputSampleRate: number,
+	clock: CueClock,
 	id: number,
 	report: ReturnType<typeof createTimelineAnnotationInterchangeReport>,
 ): RiffMarkerInput | null {
@@ -264,12 +263,7 @@ function projectedAnnotationMarker(
 				'A timeline marker outside the half-open export range was omitted.', {});
 			return null;
 		}
-		const sampleOffset = scaleSampleFrame(
-			annotation.timelineStartFrame - range.startFrame,
-			inputSampleRate,
-			outputSampleRate,
-			'point',
-		);
+		const sampleOffset = clock.point(annotation.timelineStartFrame);
 		if (sampleOffset > UINT32_MAX) return unrepresentableOffset(report, annotation.id);
 		reportAnnotationSemanticLosses(annotation, report);
 		return Object.freeze({
@@ -296,15 +290,14 @@ function projectedAnnotationMarker(
 				retainedEndFrame: clippedEnd,
 			});
 	}
-	const sampleOffset = scaleSampleFrame(clippedStart - range.startFrame, inputSampleRate, outputSampleRate, 'point');
-	const outputEnd = scaleSampleFrame(clippedEnd - range.startFrame, inputSampleRate, outputSampleRate, 'point');
+	const { sampleOffset, sampleLength: projectedLength } = clock.region(clippedStart, clippedEnd);
 	if (sampleOffset > UINT32_MAX) return unrepresentableOffset(report, annotation.id);
-	if (outputEnd <= sampleOffset) {
+	if (projectedLength <= 0) {
 		addItem(report, 'RIFF_ANNOTATION_REGION_UNREPRESENTABLE', 'omitted', annotation.id,
 			'A positive timeline region collapsed below one output sample and was omitted.', {});
 		return null;
 	}
-	let sampleLength = outputEnd - sampleOffset;
+	let sampleLength = projectedLength;
 	if (sampleLength > UINT32_MAX) {
 		addItem(report, 'RIFF_ANNOTATION_REGION_LENGTH_CLIPPED', 'clipped', annotation.id,
 			'A timeline region exceeded the RIFF uint32 length field and was clipped.', {
@@ -372,8 +365,7 @@ function reportAnnotationSemanticLosses(
 function labelTrackMarkers(
 	project: DataRecord,
 	range: Readonly<{ startFrame: number; endFrame: number }>,
-	inputSampleRate: number,
-	outputSampleRate: number,
+	clock: CueClock,
 	options: RiffAnnotationExportOptions,
 	report: ReturnType<typeof createTimelineAnnotationInterchangeReport>,
 ): readonly RiffMarkerInput[] {
@@ -404,14 +396,14 @@ function labelTrackMarkers(
 			'A maintained label crossing the export range was clipped to the exported audio.',
 			{ labelId: String(label.id ?? '') },
 		);
-		const sampleOffset = scaleSampleFrame(clippedStart - range.startFrame, inputSampleRate, outputSampleRate, 'point');
-		const outputEnd = scaleSampleFrame(clippedEnd - range.startFrame, inputSampleRate, outputSampleRate, 'point');
-		if (sampleOffset > UINT32_MAX || outputEnd - sampleOffset > UINT32_MAX) {
+		const { sampleOffset, sampleLength } = startFrame === endFrame
+			? { sampleOffset: clock.point(clippedStart), sampleLength: 0 } : clock.region(clippedStart, clippedEnd);
+		if (sampleOffset > UINT32_MAX || sampleLength > UINT32_MAX) {
 			addItem(report, 'RIFF_LABEL_UNREPRESENTABLE', 'omitted', null,
 				'A maintained label could not fit the RIFF uint32 cue fields and was omitted.', { labelId: String(label.id ?? '') });
 			return [];
 		}
-		if (endFrame > startFrame && outputEnd <= sampleOffset) {
+		if (endFrame > startFrame && sampleLength <= 0) {
 			addItem(report, 'RIFF_LABEL_UNREPRESENTABLE', 'omitted', null,
 				'A positive maintained label region collapsed below one output sample and was omitted.', {
 					labelId: String(label.id ?? ''),
@@ -421,7 +413,7 @@ function labelTrackMarkers(
 		return [Object.freeze({
 			id: index + 1,
 			sampleOffset,
-			sampleLength: Math.max(0, outputEnd - sampleOffset),
+			sampleLength,
 			label: String(label.title ?? ''),
 			note: labelNote(label),
 		})];

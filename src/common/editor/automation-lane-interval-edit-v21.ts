@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { shiftAutomationLaneCurveV21, type EditableAutomationPointV21 as EditablePoint, type EditableAutomationCurveV21 as EditableCurve } from './automation-lane-curve-shift-v21.ts';
 import { createAutomationLaneBoundaryIdMinterV21 } from './automation-lane-interval-boundary-id-v21.ts';
 import {
 	AUTOMATION_LANE_MAXIMUM_POINTS_V21,
@@ -9,7 +10,6 @@ import {
 	type AutomationLaneV21,
 } from './automation-lane-v21.ts';
 import {
-	addFractions,
 	approximateBoundedFraction,
 	compareFractions,
 	cubicFraction,
@@ -31,17 +31,6 @@ export interface AutomationLaneTimelineReplacementV21 {
 	readonly startFrame: number;
 	readonly endFrame: number;
 	readonly insertedDurationFrames: number;
-}
-
-interface EditablePoint {
-	readonly id: string;
-	readonly position: ExactInterpolationFraction;
-	readonly value: number;
-}
-
-interface EditableCurve {
-	readonly points: readonly EditablePoint[];
-	readonly segments: readonly InterpolationShape[];
 }
 
 interface SplitShape {
@@ -76,7 +65,6 @@ export function replaceAutomationLaneTimelineIntervalV21(
 		edit.insertedDurationFrames,
 		'automation inserted interval end',
 	);
-	const insertedEndPosition = positionAtFrame(lane, insertedEndFrame, sampleRate, options);
 	if (edit.startFrame === edit.endFrame
 		&& compareFractions(startPosition, curve.points.at(-1)!.position) > 0) return laneValue;
 
@@ -91,8 +79,13 @@ export function replaceAutomationLaneTimelineIntervalV21(
 		lane, curve, endPosition, edit.endFrame,
 		mint('right'), sampleRate, options,
 	);
-	const shift = subtractFractions(insertedEndPosition, endPosition);
-	const shiftedSuffix = shiftCurve(suffix, shift);
+	const shiftedSuffix = shiftAutomationLaneCurveV21(suffix, lane.timebase,
+		insertedEndFrame - edit.endFrame, options, mint, (current, frame, id) => {
+			const position = positionAtFrame(lane, frame, sampleRate, options);
+			const left = curvePrefixAt(lane, current, position, frame, id, sampleRate, options);
+			const right = curveSuffixAt(lane, current, position, frame, id, sampleRate, options);
+			return { points: [...left.points, ...right.points.slice(1)], segments: [...left.segments, ...right.segments] };
+		});
 	// The shoulder is resolved lazily: every accepted deletion would otherwise pay a
 	// second exact prefix split, and a lane whose bridge already holds must keep its
 	// existing result even when no shoulder position is representable.
@@ -408,25 +401,6 @@ function bezierShape(control1: EditablePoint, control2: EditablePoint): Interpol
 		kind: 'bezier',
 		control1: { position: publicFraction(control1.position), value: control1.value },
 		control2: { position: publicFraction(control2.position), value: control2.value },
-	};
-}
-
-function shiftCurve(curve: EditableCurve, delta: ExactInterpolationFraction): EditableCurve {
-	return {
-		points: curve.points.map((point) => ({
-			...point, position: addFractions(point.position, delta),
-		})),
-		segments: curve.segments.map((segment) => segment.kind !== 'bezier' ? segment : ({
-			...segment,
-			control1: {
-				...segment.control1,
-				position: publicFraction(addFractions(exactFraction(segment.control1.position), delta)),
-			},
-			control2: {
-				...segment.control2,
-				position: publicFraction(addFractions(exactFraction(segment.control2.position), delta)),
-			},
-		})),
 	};
 }
 

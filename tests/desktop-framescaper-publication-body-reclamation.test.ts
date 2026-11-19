@@ -25,7 +25,6 @@ const PUBLICATION_ID = 'bc'.repeat(24);
 
 test('a failed publication reclaims newly materialized unreferenced body files', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'framescaper-body-reclamation-'));
-	context.after(() => rm(root, { recursive: true, force: true }));
 	const handshake = createFramescaperDesktopProjectLibraryHandshake();
 	let advanceMetadataAtMaterialization = false;
 	let raceDatabase: DatabaseSync | null = null;
@@ -46,7 +45,9 @@ test('a failed publication reclaims newly materialized unreferenced body files',
 			},
 		},
 	});
-	context.after(() => main.close());
+	context.after(async () => {
+		try { await main.close(); } finally { await rm(root, { recursive: true, force: true }); }
+	});
 	raceDatabase = new DatabaseSync(
 		createFramescaperDesktopProjectLibraryPaths(root).databasePath, { timeout: 50 },
 	);
@@ -91,7 +92,6 @@ test('a failed publication reclaims newly materialized unreferenced body files',
 
 test('startup recovery reclaims body files recorded by an interrupted publication', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'framescaper-body-recovery-'));
-	context.after(() => rm(root, { recursive: true, force: true }));
 	const handshake = createFramescaperDesktopProjectLibraryHandshake();
 	const initialized = await FramescaperDesktopProjectLibraryMain.start({
 		appDataPath: root,
@@ -132,7 +132,9 @@ test('startup recovery reclaims body files recorded by an interrupted publicatio
 		owner: { product: 'framescaper', processId: 984, instanceId: 'body-recovery' },
 		handshake, onLeaseLost: () => undefined, testControl: null,
 	});
-	context.after(() => recovered.close());
+	context.after(async () => {
+		try { await recovered.close(); } finally { await rm(root, { recursive: true, force: true }); }
+	});
 	assert.equal(recovered.snapshot().writer.recovery.outcome, 'discarded');
 	for (const path of [bodyPath, documentPath]) {
 		await assert.rejects(stat(path), (error: unknown) =>

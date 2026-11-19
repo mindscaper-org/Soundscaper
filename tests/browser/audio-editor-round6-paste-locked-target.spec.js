@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName,
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('Edit Paste retains its healthy copy while refusing a locked destination', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone, toneA]);
 	const source = clipByName(editor, monoTone.name);
 	const destination = clipByName(editor, toneA.name);

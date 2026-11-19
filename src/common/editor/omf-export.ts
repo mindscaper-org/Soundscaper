@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { addDeliveryReportItem, createDeliveryReport, sealDeliveryReport, type DeliveryReport } from './delivery-report.ts';
-import { interchangeClipTimeEffect } from './interchange-omission-inventory.ts';
+import { interchangeClipTimeEffect, interchangeAnnotationOmission, interchangeCaptionTrackOmission } from './interchange-omission-inventory.ts';
+import { reportInterchangeMixOmissions } from './interchange-mix-omissions.ts';
 import { createInterchangeVisibility } from './interchange-track-visibility.ts';
 import { interchangeSourceInPoint } from './interchange-source-in-point.ts';
 import { createSerialLaneAllocator } from './interchange-serial-lane-index.ts';
@@ -91,7 +92,9 @@ export function createOmfExport(request: OmfExportRequest): OmfExportResult {
 			const clip = clips.get(String(id)); if (!clip) throw new ReferenceError(`OMF track references missing clip ${String(id)}.`); return clip;
 		}).sort((a, b) => Number(a.timelineStartFrame) - Number(b.timelineStartFrame));
 		if (readMidiTrack(track) || members.some((clip) => readMidiClip(clip) || clip.midi)) report('midi-authoring-converted', 'MIDI notes, messages and instruments are delivered as fallback audio; editable MIDI remains in the native project.', 'converted', { kind: 'track', id: String(track.id) });
-		const allocate = createSerialLaneAllocator(), lanes: { components: number[]; end: number; kind: number }[] = [];
+		const kinds = new Map<number, { allocate: ReturnType<typeof createSerialLaneAllocator>; indices: number[] }>();
+		const lanes: { components: number[]; end: number; kind: number }[] = [];
+		let maximumEnd = 0, overlapping = false;
 		for (const clip of members) {
 			if (clip.kind !== 'audio') { report('clip-kind-omitted', 'A non-audio clip is omitted from this OMF audio profile.', 'omitted', { kind: 'clip', id: String(clip.id) }); continue; }
 			const start = integer(clip.timelineStartFrame, 'clip start'), duration = integer(clip.durationFrames, 'clip duration', 1);
@@ -100,19 +103,26 @@ export function createOmfExport(request: OmfExportRequest): OmfExportResult {
 			const source = sources.get(String(clip.sourceId)), sourceStart = interchangeSourceInPoint(clip, source, { num: sampleRate, den: 1 }, sampleRate);
 			integer(sourceStart, 'source offset');
 			if (Number(clip.sourceStartFrame ?? 0) * sampleRate % media.rate !== 0) report('source-offset-rounded', 'The source offset is rounded to the OMF composition edit-unit grid.', 'converted', { kind: 'clip', id: String(clip.id) });
-			const laneId = allocate(start, start + duration), lane = lanes[laneId] ?? { components: [], end: 0, kind: media.kind };
-			lanes[laneId] = lane;
+			let group = kinds.get(media.kind);
+			if (!group) { group = { allocate: createSerialLaneAllocator(), indices: [] }; kinds.set(media.kind, group); }
+			const localLane = group.allocate(start, start + duration);
+			let laneId = group.indices[localLane];
+			if (laneId === undefined) { laneId = lanes.length; group.indices[localLane] = laneId; lanes.push({ components: [], end: 0, kind: media.kind }); }
+			const lane = lanes[laneId]!;
+			overlapping ||= start < maximumEnd; maximumEnd = Math.max(maximumEnd, start + duration);
 			if (start > lane.end) lane.components.push(writer.component('FILL', lane.kind, start - lane.end));
 			const segment = writer.sourceClip(media.kind, duration, media.id, sourceStart); writer.text(segment, 'CPNT:Name', String(clip.title ?? source?.name ?? clip.id));
 			lane.components.push(segment); lane.end = start + duration;
 			if (interchangeClipTimeEffect(clip)) report('time-effect-omitted', 'Time effects are not represented; the cut references forward source audio at unity speed.', 'omitted', { kind: 'clip', id: String(clip.id) });
-			if (clip.mute === true || clip.gain !== undefined && clip.gain !== 1 || clip.fadeInFrames || clip.fadeOutFrames || Array.isArray(clip.effects) && clip.effects.length) report('clip-processing-omitted', 'Clip gain, mute, fades and effects are not represented by this cut-only profile.', 'omitted', { kind: 'clip', id: String(clip.id) });
+			if (clip.mute === true || clip.gain !== undefined && clip.gain !== 1 || clip.fadeInFrames || clip.fadeOutFrames
+				|| clip.pitchCents || clip.inverted || records(clip.envelope).length || records(clip.effects).length) report('clip-processing-omitted', 'Clip gain, mute, fades, pitch, polarity, envelopes and effects are not represented by this cut-only profile.', 'omitted', { kind: 'clip', id: String(clip.id) });
 		}
 		lanes.forEach((lane, index) => {
 			const sequence = writer.component('SEQU', lane.kind, lane.end); writer.ref(sequence, 'SEQU:Components', lane.components, true);
 			slots.push(writer.slot(sequence, sampleRate, slots.length + 1, `${String(track.name ?? 'Audio')}${index ? ` (${index + 1})` : ''}`));
 		});
-		if (lanes.length > 1) report('overlapping-track-split', 'Overlapping clips are preserved on separate OMF tracks.', 'converted', { kind: 'track', id: String(track.id) }, { lanes: lanes.length });
+		if (overlapping) report('overlapping-track-split', 'Overlapping clips are preserved on separate OMF tracks.', 'converted', { kind: 'track', id: String(track.id) }, { lanes: lanes.length });
+		if (kinds.size > 1) report('mixed-channel-track-split', 'Mono and stereo clips are preserved on separate OMF tracks without implicit downmixing.', 'converted', { kind: 'track', id: String(track.id) }, { lanes: lanes.length });
 		if (track.gain !== undefined && track.gain !== 1 || track.pan || Array.isArray(track.effects) && track.effects.length || Array.isArray(track.envelope) && track.envelope.length) report('track-processing-omitted', 'Track gain, pan, effects and automation are not represented by this cut-only profile.', 'omitted', { kind: 'track', id: String(track.id) });
 	}
 	const audioTrackCount = slots.length;
@@ -130,7 +140,8 @@ export function createOmfExport(request: OmfExportRequest): OmfExportResult {
 	writer.ref(head, 'HEAD:DefinitionObjects', definitions, true);
 	writer.ref(composition, 'MOBJ:Slots', slots, true); writer.ref(head, 'HEAD:Mobs', mobs, true);
 	writer.ref(head, 'HEAD:PrimaryMobs', [composition], true); writer.ref(head, 'HEAD:MediaData', mediaObjects, true);
-	if (records(project.timelineAnnotations).length || records(project.videoCaptionTracks).length) report('annotations-omitted', 'Timeline annotations and captions are not represented by this OMF audio profile.', 'omitted');
+	if (interchangeAnnotationOmission(project) || interchangeCaptionTrackOmission(project, request.sequenceId)) report('annotations-omitted', 'Timeline annotations, label tracks and captions are not represented by this OMF audio profile.', 'omitted');
+	reportInterchangeMixOmissions(draft, project);
 	report('timeline-preserved', 'Audio cuts, source offsets, gaps and track names are represented in OMF2.', 'preserved', {}, { tracks: audioTrackCount, sources: sourceMobs.size });
 	return { bytes: writer.finish(), fileName: `${portableFileStem(title, 'timeline')}.omf`, mimeType: 'application/octet-stream', report: sealDeliveryReport(draft) };
 }

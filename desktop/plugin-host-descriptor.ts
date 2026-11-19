@@ -21,10 +21,11 @@ export function createPluginHostDescriptor(
 }
 
 export function selectPluginHostTopology(value: Readonly<{
+	readonly classification?: string;
 	readonly topologies: readonly Readonly<{ inputChannels: number; outputChannels: number }>[];
 }>): Readonly<{ inputChannels: number; outputChannels: number }> | null {
 	const candidates = value.topologies.filter(({ inputChannels, outputChannels }) => (
-		inputChannels >= 1 && inputChannels <= 32 && outputChannels >= 1 && outputChannels <= 32
+		inputChannels >= (value.classification === 'instrument' ? 0 : 1) && inputChannels <= 32 && outputChannels >= 1 && outputChannels <= 32
 	));
 	candidates.sort((left, right) => topologyRank(left) - topologyRank(right)
 		|| Math.abs(left.inputChannels - left.outputChannels) - Math.abs(right.inputChannels - right.outputChannels)

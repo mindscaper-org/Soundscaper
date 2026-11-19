@@ -21,9 +21,29 @@ const OUTPUT_AUDIO_RATES = Object.freeze({
 	'source-separation': 44_100,
 } as const);
 
+const REVIEW_AUTHORITY_BY_MEDIA = new WeakMap<object, LocalAssistanceReviewAuthority>();
+
 export async function deriveLocalAssistanceReviewAuthority(
 	prepared: LocalAssistancePreparedMedia,
 ): Promise<LocalAssistanceReviewAuthority> {
+	const authority = await reviewAuthority(prepared);
+	REVIEW_AUTHORITY_BY_MEDIA.set(prepared, authority);
+	return authority;
+}
+
+/** Read the authority produced for this prepared media while its bodies were available. */
+export function readLocalAssistanceReviewAuthority(
+	value: unknown, preparedValue: unknown,
+): LocalAssistanceReviewAuthority {
+	const authority = preparedValue && typeof preparedValue === 'object'
+		? REVIEW_AUTHORITY_BY_MEDIA.get(preparedValue) : undefined;
+	if (!authority || authority !== value) {
+		throw new TypeError('Advanced review authority does not match its prepared media.');
+	}
+	return authority;
+}
+
+async function reviewAuthority(prepared: LocalAssistancePreparedMedia): Promise<LocalAssistanceReviewAuthority> {
 	if (prepared.operation === 'editorial-generation') return editorialAuthority(prepared);
 	if (prepared.operation === 'image-text-embedding'
 		|| prepared.operation === 'optical-character-recognition'

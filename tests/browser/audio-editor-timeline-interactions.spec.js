@@ -673,13 +673,13 @@ test.describe('audio editor React/design-system workflows', () => {
 		const errors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [toneA]);
+		await expect(editor).toHaveAttribute('data-clip-count', '1');
+		await expect(editor).not.toHaveAttribute('data-edit-block-reason', /.+/u);
 		await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 		const panelsMenu = await openNestedCommandMenu(page, editor, 'Window', []);
 		await expect(panelsMenu.getByRole('menuitem', { name: 'Spectrogram', exact: true })).toHaveCount(0);
 		await page.keyboard.press('Escape');
 		await expect(panelsMenu).toBeHidden();
-		await page.keyboard.press('Escape');
-		await expect(page.getByRole('menu', { name: 'View', exact: true })).toBeHidden();
 
 		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 		const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });

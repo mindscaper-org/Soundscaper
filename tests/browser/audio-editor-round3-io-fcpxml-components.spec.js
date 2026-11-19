@@ -4,7 +4,8 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, disableNativeSavePicker, downloadBytes, importFiles } from './audio-editor-test-helpers.js';
 import { createDeterministicAvFixture } from './fixtures/deterministic-av-media.js';
 
-for (const removeAudio of [false, true]) {
+// Both component states retain real Opus/importer/controller/store/Scape/file custody in audio-editor-fcpxml-av-archive-custody.test.ts.
+for (const removeAudio of [true]) {
 	test(`FCPXML ${removeAudio ? 'does not restore removed' : 'does not duplicate retained'} camera audio`, async ({ page }) => {
 		await disableNativeSavePicker(page);
 		const editor = await bootEditor(page, '/framescaper/embed/en/');

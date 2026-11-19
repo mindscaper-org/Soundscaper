@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseNestedCommandAction, closeWorkspacePanel, openClipProperties } from './audio-editor-test-helpers.js';
 import { showClipTimingFields } from './audio-editor-inspector-test-helpers.js';
 import { createPngFixture } from '../helpers/png-fixture.mjs';
 
@@ -33,4 +33,13 @@ for (const kind of ['image', 'generator']) for (const entry of ['Window', 'clip 
 	await expect.poll(async () => (await clip.boundingBox())?.width).toBeCloseTo(before.width * (kind === 'image' ? 1.2 : 0.8), 0);
 	await chooseNestedCommandAction(page, editor, 'Edit', ['Undo']);
 	await expect(duration.locator('.timecode-digit')).toHaveText([...'000005000']);
+	if (kind === 'image' && entry === 'clip menu') {
+		// Cover numeric digit entry and panel reopening in the existing image Properties workflow.
+		await duration.locator('.timecode-digit').nth(5).click();
+		await page.keyboard.press('2'); await page.keyboard.press('Enter');
+		await expect(panel.getByRole('alert')).toHaveCount(0);
+		await closeWorkspacePanel(editor, 'clip-properties');
+		await openClipProperties(page, editor, clip); await showClipTimingFields(panel);
+		await expect(duration.locator('.timecode-digit')).toHaveText([...'000002000']);
+	}
 });

@@ -21,6 +21,7 @@ const PROFILES = Object.freeze({
 	'source-separation': profile(44_100, 'preserve'),
 	'audio-tagging': profile(32_000, 'mono'),
 	'beat-tracking': profile(22_050, 'mono'),
+	'music-transcription': profile(22_050, 'mono'),
 } satisfies Partial<Record<AssistanceOperation, LocalAssistanceAudioInputProfile>>);
 
 export type ProfiledAudioOperation = keyof typeof PROFILES;

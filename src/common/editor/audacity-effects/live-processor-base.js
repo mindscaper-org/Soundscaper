@@ -58,12 +58,15 @@ export class LiveProcessor {
 export class SampleQueue {
 	constructor() { this.chunks = []; this.head = 0; this.offset = 0; this.remaining = 0; }
 	push(values) {
-		// Each producer reuses its DSP scratch. Copy now, retain unboxed PCM,
+		// A producer can reuse its DSP scratch. Copy now, retain unboxed PCM,
 		// and release each consumed chunk rather than compacting audio samples.
-		const owned = values instanceof Float32Array || values instanceof Float64Array ? values.slice() : Array.from(values);
-		if (owned.length === 0) return;
-		this.chunks.push(owned);
-		this.remaining += owned.length;
+		this.pushOwned(values instanceof Float32Array || values instanceof Float64Array ? values.slice() : Array.from(values));
+	}
+	/** Take a buffer whose producer has relinquished write access. */
+	pushOwned(values) {
+		if (values.length === 0) return;
+		this.chunks.push(values);
+		this.remaining += values.length;
 	}
 	shift(fallback = 0) {
 		if (this.remaining === 0) return fallback;
@@ -73,7 +76,7 @@ export class SampleQueue {
 		if (this.offset === chunk.length) {
 			this.chunks[this.head++] = null;
 			this.offset = 0;
-			if (this.remaining === 0) { this.chunks = []; this.head = 0; }
+			if (this.remaining === 0) { this.chunks.length = 0; this.head = 0; }
 			else if (this.head >= 32 && this.head * 2 >= this.chunks.length) {
 				this.chunks = this.chunks.slice(this.head);
 				this.head = 0;

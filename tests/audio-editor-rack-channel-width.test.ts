@@ -16,7 +16,7 @@ test('manual rack admission respects independent source, bus and master channel 
 		groups: [strip('wide-group', 6), strip('stereo-group', 2)], sends: [strip('wide-send', 6)] } });
 	for (const [scope, id] of [['track', 'track'], ['group', 'wide-group'], ['send', 'wide-send'], ['master', null]] as const) {
 		assert.equal(rackEffectChannelCount(project, scope, id), 6);
-		assert.deepEqual(unavailableRackEffectTypes(project, scope, id), ['compressor', 'convolver', 'reverb']);
+		assert.deepEqual(unavailableRackEffectTypes(project, scope, id), ['ai-denoise', 'compressor', 'convolver', 'reverb']);
 	}
 	assert.equal(rackEffectChannelCount(project, 'group', 'stereo-group'), 2);
 	assert.deepEqual(unavailableRackEffectTypes(project, 'group', 'stereo-group'), []);

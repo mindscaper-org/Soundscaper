@@ -5,7 +5,7 @@ import { bootEditor, chooseDropdown, importFiles, openExportDialog } from './aud
 import { createDeterministicAvFixture } from './fixtures/deterministic-av-media.js';
 
 test('changing export kind retires the preset hidden by the new kind', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createDeterministicAvFixture('preset-switch.webm')]);
 	const dialog = await openExportDialog(page, editor);
 	await dialog.getByRole('button', { name: 'Save preset', exact: true }).click();

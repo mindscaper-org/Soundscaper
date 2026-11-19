@@ -12,6 +12,7 @@ import {
 	resolveVideoSourceDisplaySize,
 	resolveVideoSourcePresentation,
 } from '../video-source-presentation.ts';
+import { VIDEO_SOURCE_MAXIMUM_CODED_DIMENSION } from '../video-source-characteristics.ts';
 import {
 	boundVideoSourceTimingViewInfo,
 	type BoundVideoSourceTimingView,
@@ -47,6 +48,7 @@ interface CanonicalVideoSource {
 	readonly decodedHeight: number;
 	readonly displayWidth: number;
 	readonly displayHeight: number;
+	readonly postRotationAspectWidth?: number;
 }
 
 const MAXIMUM_SOURCE_COUNT = 4_096;
@@ -116,6 +118,7 @@ export function planVideoKeyframeOfflineVideoSources(requestValue: Readonly<{
 					decodedHeight: expected.decodedHeight,
 					displayWidth: expected.displayWidth,
 					displayHeight: expected.displayHeight,
+					...(expected.postRotationAspectWidth === undefined ? {} : { postRotationAspectWidth: expected.postRotationAspectWidth }),
 					presentationForEntry,
 				}));
 			}
@@ -171,6 +174,10 @@ function captureCanonicalSources(
 		const presentation = resolveVideoSourcePresentation(source);
 		const display = resolveVideoSourceDisplaySize(source);
 		if (!display) throw new RangeError(`Offline video source ${sourceId} has no display geometry.`);
+		const postRotationAspectWidth = presentation && display.width === presentation.decodedWidth
+			&& display.height === presentation.scaledHeight && presentation.scaledHeight !== presentation.decodedHeight
+			? Math.max(1, Math.round(presentation.decodedWidth * presentation.sampleAspect.num / presentation.sampleAspect.den))
+			: null;
 		result.set(sourceId, Object.freeze({
 			sourceId,
 			contentSha256: identity,
@@ -179,6 +186,8 @@ function captureCanonicalSources(
 			decodedHeight: dimension(presentation?.decodedHeight ?? persistedHeight, 'source decoded height'),
 			displayWidth: dimension(display.width, 'source display width'),
 			displayHeight: dimension(display.height, 'source display height'),
+			...(postRotationAspectWidth !== null && postRotationAspectWidth <= VIDEO_SOURCE_MAXIMUM_CODED_DIMENSION
+				? { postRotationAspectWidth } : {}),
 		}));
 	}
 	return result;

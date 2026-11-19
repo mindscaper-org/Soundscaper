@@ -7,8 +7,8 @@ import { createAssistanceEditorialGenerationPlanV1 } from
 	'../src/common/editor/assistance/editorial-generation-v1.ts';
 import { createAssistanceVisualFramePackV2 } from
 	'../src/common/editor/assistance/visual-frame-pack-v2.ts';
-import { deriveLocalAssistanceReviewAuthority } from
-	'../src/common/editor/ui/local-assistance-review-authority.ts';
+import { deriveLocalAssistanceReviewAuthority, readLocalAssistanceReviewAuthority } from
+	'../src/common/editor/controller/assistance/local-assistance-review-authority.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
 
 test('Advanced visual review authority is derived from exact frame-pack source geometry and VFR ticks', async () => {
@@ -46,14 +46,19 @@ test('Advanced dereverberation review derives exact audio authority', async () =
 		Float32Array.of(0.1, -0.1),
 		Float32Array.of(-0.1, 0.1),
 	], { sampleRate: 44_100, bitDepth: 32, float: true, dither: false });
-	const authority = await deriveLocalAssistanceReviewAuthority(prepared(
+	const media = prepared(
 		'dereverberation', 'audio', 'audio/wav',
 		new Blob([bytes.slice().buffer], { type: 'audio/wav' }),
-	));
+	);
+	const authority = await deriveLocalAssistanceReviewAuthority(media);
 
 	assert.deepEqual(authority, {
 		audioWave: { sampleRate: 44_100, channelCount: 2, frameCount: 2 },
 	});
+	assert.equal(readLocalAssistanceReviewAuthority(authority, media), authority);
+	assert.throws(() => readLocalAssistanceReviewAuthority({ ...authority }, media), /prepared media/u);
+	assert.throws(() => readLocalAssistanceReviewAuthority(authority,
+		prepared('dereverberation', 'audio', 'audio/wav', new Blob())), /prepared media/u);
 });
 
 function prepared(

@@ -14,7 +14,7 @@ export const FRAMESCAPER_FFMPEG_CONFIGURE_FLAGS = Object.freeze([
 	'--enable-libx264', '--enable-libx265', '--enable-libvpx', '--enable-libsvtav1', '--enable-libopus',
 	'--enable-zlib',
 	...values('decoder', [
-		'h264', 'hevc', 'vp8', 'vp9', 'libvpx_vp9', 'av1', 'prores', 'dnxhd', 'pcm_f32le', 'png', 'tiff', 'exr',
+		'h264', 'hevc', 'vp8', 'vp9', 'libvpx_vp8', 'libvpx_vp9', 'av1', 'prores', 'dnxhd', 'pcm_f32le', 'png', 'tiff', 'exr',
 	]),
 	...values('encoder', [
 		'libx264', 'libx265', 'libvpx_vp8', 'libvpx_vp9', 'libsvtav1', 'prores_ks', 'dnxhd', 'ffv1', 'png', 'tiff',
@@ -32,7 +32,7 @@ export const FRAMESCAPER_FFMPEG_POLICY = deepFreeze({
 	network: false,
 	externalLibraries: ['x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib'],
 	enabledDecoders: [
-		'h264', 'hevc', 'vp8', 'vp9', 'libvpx-vp9', 'av1', 'prores', 'dnxhd', 'pcm_f32le', 'png', 'tiff', 'exr',
+		'h264', 'hevc', 'vp8', 'vp9', 'libvpx', 'libvpx-vp9', 'av1', 'prores', 'dnxhd', 'pcm_f32le', 'png', 'tiff', 'exr',
 	],
 	enabledEncoders: [
 		'libx264', 'libx265', 'libvpx', 'libvpx-vp9', 'libsvtav1', 'prores_ks', 'dnxhd', 'ffv1', 'png', 'tiff',
@@ -49,7 +49,7 @@ export const FRAMESCAPER_FFMPEG_POLICY = deepFreeze({
 
 export const FRAMESCAPER_FFMPEG_REQUIRED_CONFIGURATION = Object.freeze([
 	'CONFIG_LIBX264', 'CONFIG_LIBX265', 'CONFIG_LIBVPX', 'CONFIG_LIBSVTAV1', 'CONFIG_LIBOPUS', 'CONFIG_ZLIB',
-	...configNames('DECODER', FRAMESCAPER_FFMPEG_POLICY.enabledDecoders, { 'libvpx-vp9': 'libvpx_vp9' }),
+	...configNames('DECODER', FRAMESCAPER_FFMPEG_POLICY.enabledDecoders, { libvpx: 'libvpx_vp8', 'libvpx-vp9': 'libvpx_vp9' }),
 	...configNames('ENCODER', FRAMESCAPER_FFMPEG_POLICY.enabledEncoders, { libvpx: 'libvpx_vp8', 'libvpx-vp9': 'libvpx_vp9' }),
 	...configNames('DEMUXER', FRAMESCAPER_FFMPEG_POLICY.enabledDemuxers),
 	...configNames('MUXER', FRAMESCAPER_FFMPEG_POLICY.enabledMuxers),

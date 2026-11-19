@@ -7,6 +7,7 @@ import type { SoundscaperProjectRecoveryStore } from './editor-project-recovery-
 import { createDigest as createScapeDigest, hex as scapeHex } from '../common/media/bytes.ts';
 import type { SourcePcmChunk } from '../common/editor/storage/source-read-repository.ts';
 import { LinkedOriginalContentUnavailableError } from '../common/editor/storage/linked-original-content-unavailable-error.ts';
+import { createRecoveryModelWaveVerifier, legacyRecoveryModelWaveBitDepth } from './editor-project-recovery-model-wave.ts';
 
 import { soundscaperRecoveryVideoAvailable } from './editor-project-recovery-video.ts';
 import type { SoundscaperRecoveryVideoStore } from './editor-project-recovery-video.ts';
@@ -19,17 +20,21 @@ export async function readSoundscaperRecoveryAvailableMediaSources(
 ): Promise<ReadonlySet<string>> {
 	serializeScapeProjectDocument(project);
 	const available = new Set<string>();
-	const sources = record(project)?.sources;
-	if (!Array.isArray(sources)) return available;
+	const document = record(project);
+	if (!document || !Array.isArray(document.sources)) return available;
+	const sources: unknown[] = document.sources;
 	for (const value of sources) {
 		const source = record(value);
 		if (!source || typeof source.id !== 'string' || (source.kind !== 'audio' && source.kind !== 'video')) continue;
 		const storageKey = typeof source.storageKey === 'string' && source.storageKey ? source.storageKey : source.id;
-		const cacheKey = JSON.stringify([source.kind, storageKey, source.frameCount, source.channelCount, source.sampleRate, source.contentSha256, source.timingAsset]);
+		const legacyWaveBitDepth = source.kind === 'audio' ? legacyRecoveryModelWaveBitDepth(document, source) : null;
+		const cacheKey = JSON.stringify([source.kind, storageKey, source.frameCount, source.channelCount,
+			source.sampleRate, source.contentSha256, source.timingAsset, legacyWaveBitDepth,
+			source.kind === 'video' ? [document.id, source.id] : null]);
 		if (availability.has(cacheKey)) { if (availability.get(cacheKey)) available.add(source.id); continue; }
 		try {
 			if (source.kind === 'video') {
-				const readable = await soundscaperRecoveryVideoAvailable(store, record(project)!, source);
+				const readable = await soundscaperRecoveryVideoAvailable(store, document, source);
 				availability.set(cacheKey, readable);
 				if (readable) available.add(source.id);
 				continue;
@@ -44,6 +49,7 @@ export async function readSoundscaperRecoveryAvailableMediaSources(
 			let frames = 0;
 			let nextIndex = 0;
 			const digest = typeof source.contentSha256 === 'string' ? createScapeDigest() : null;
+			const legacyWave = legacyWaveBitDepth === null ? null : await createRecoveryModelWaveVerifier(source, legacyWaveBitDepth);
 			for await (const chunk of store.readSourceChunks(storageKey)) {
 				if (chunk.index !== nextIndex || chunk.frames < 1 || !Number.isSafeInteger(chunk.frames)
 					|| chunk.channels.length !== source.channelCount
@@ -53,10 +59,11 @@ export async function readSoundscaperRecoveryAvailableMediaSources(
 				frames += chunk.frames;
 				if (frames > Number(source.frameCount)) throw new PcmStorageCorruptionError('Source PCM exceeds its saved extent.', 'PCM_RECORD_GEOMETRY');
 				if (digest) updateRecoveryPcmDigest(digest, chunk);
+				legacyWave?.write(chunk.channels);
 				nextIndex += 1;
 			}
 			if (frames !== source.frameCount) throw new PcmStorageCorruptionError('Source PCM is incomplete.', 'PCM_RECORD_GEOMETRY');
-			if (digest && scapeHex(digest.digest()) !== source.contentSha256) {
+			if (digest && scapeHex(digest.digest()) !== source.contentSha256 && !legacyWave?.matches()) {
 				throw new PcmStorageCorruptionError('Source PCM does not match its saved digest.', 'PCM_RECORD_DIGEST');
 			}
 			available.add(source.id);

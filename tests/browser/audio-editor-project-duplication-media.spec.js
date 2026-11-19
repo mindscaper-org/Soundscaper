@@ -73,6 +73,8 @@ test.describe('project duplication retained-media lifecycle', () => {
 		const confirmation = page.getByRole('dialog', { name: 'Delete this project?', exact: true });
 		await confirmation.getByRole('button', { name: 'Delete permanently', exact: true }).click();
 		await expect(confirmation).toBeHidden();
+		await expect(editor).toHaveAttribute('data-project-id', copyId);
+		await expect(projectTabs.getByRole('tab')).toHaveCount(1);
 
 		await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Local projects']);
 		const projects = page.getByRole('dialog', { name: 'Local projects', exact: true });

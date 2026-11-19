@@ -128,7 +128,7 @@ test.describe('desktop audio recording', () => {
 		await expect(record).toHaveAttribute('aria-pressed', 'false', { timeout: 20_000 });
 		await expect(editor).toHaveAttribute('data-clip-count', '1');
 		expect(await page.evaluate(() => window.__desktopDisplayConstraints)).toMatchObject({
-			audio: true,
+			audio: { channelCount: { ideal: 2 }, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
 			video: true,
 			selfBrowserSurface: 'exclude',
 			systemAudio: 'include',

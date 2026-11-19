@@ -8,12 +8,15 @@ import {
 	createLocalAssistanceSelectedVideoVisualFramePackV2,
 	createLocalAssistanceSelectedVideoVisualFramePacksV2,
 } from '../src/common/editor/controller/assistance/internal/selected-video/local-assistance-selected-video-frame-pack.ts';
+import { createLocalAssistanceSelectedVideoModelFramePack } from
+	'../src/common/editor/controller/assistance/internal/selected-video/local-assistance-selected-video-model-preparation.ts';
 import {
 	reviewAssistanceFramePackV1,
 } from '../src/common/editor/assistance/binary-formats-v1.ts';
 import {
 	reviewAssistanceVisualFramePackV2,
 } from '../src/common/editor/assistance/visual-frame-pack-v2.ts';
+import { reviewAssistanceSubjectResultV1 } from '../src/common/editor/assistance/visual-semantic-results-v1.ts';
 
 const BODY = new Blob(['video'], { type: 'video/mp4' });
 
@@ -151,4 +154,28 @@ test('visual packing chunks long timing without retaining one unbounded RGBA inv
 	assert.deepEqual(reviewed.map(({ frameCount }) => frameCount), [2, 1]);
 	assert.deepEqual(reviewed.flatMap((pack) => Array.from({ length: pack.frameCount },
 		(_, index) => pack.frame(index).sourceFrame)), [1, 2, 3]);
+});
+
+test('5K model video retains source geometry through bounded packing and subject review', async () => {
+	const rows = [{ sourceFrame: 7, presentationTick: '45000' }];
+	const timing = { timescale: 90_000, frames: [{ ...rows[0]!, timestampSeconds: 0.75 }] };
+	const prepared = await createLocalAssistanceSelectedVideoModelFramePack({
+		createFramePack: request => createLocalAssistanceSelectedVideoVisualFramePackV2(request, {
+			createDecoder: () => ({
+				capture: () => ({ width: 320, height: 180, rgba: new Uint8Array(320 * 180 * 4) }),
+				dispose() {},
+			}),
+		}),
+	}, {
+		operation: 'subject-detection', body: BODY, timing, sourceWidth: 5_120, sourceHeight: 2_880,
+		signal: new AbortController().signal, assertCurrent() {}, maximumInputBytes: 1024 * 1024,
+	});
+	const pack = reviewAssistanceVisualFramePackV2(new Uint8Array(await prepared.inputs[0]!.bytes.arrayBuffer()));
+	assert.deepEqual([pack.sourceWidth, pack.sourceHeight, pack.rasterWidth, pack.rasterHeight],
+		[5120, 2880, 320, 180]);
+	assert.deepEqual(pack.frameTiming(0), rows[0]);
+	const result = reviewAssistanceSubjectResultV1({ schemaVersion: 1, width: 5120, height: 2880, timescale: 90_000,
+		frames: [{ ...rows[0], subjects: [] }] },
+	{ width: pack.sourceWidth, height: pack.sourceHeight, timescale: pack.timescale, frames: rows });
+	assert.deepEqual([result.width, result.height, result.frames.length], [5120, 2880, 1]);
 });

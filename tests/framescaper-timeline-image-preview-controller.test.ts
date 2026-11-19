@@ -12,6 +12,8 @@ import test from 'node:test';
 
 import type { AudioEditorProjectStore } from '../src/common/editor/storage.js';
 import {
+	bindProductVideoVisualPreviewRuntime,
+	createProductVideoVisualPreviewRuntime,
 	productVideoVisualPreviewRuntimeFor,
 	type ProductVideoVisualPreviewRuntime,
 } from '../src/common/editor/ui/workspace/product-video-visual-preview-runtime.ts';
@@ -85,6 +87,29 @@ test('rebinding a controller replaces its runtime and leaves another controller 
 	assert.notEqual(productVideoVisualPreviewRuntimeFor(first), firstRuntime);
 	assert.equal(productVideoVisualPreviewRuntimeFor(second), secondRuntime);
 	assert.notEqual(secondRuntime, firstRuntime);
+});
+
+test('the image layer delegates regular video to the controller’s native finishing runtime', async () => {
+	const controller = {};
+	const routes: string[] = [];
+	const project = {
+		primarySequenceId: 'sequence-1',
+		sequences: [{ id: 'sequence-1', trackIds: [], rate: { num: 30, den: 1 } }],
+		tracks: [], clips: [], sources: [], projectBin: { clips: [] },
+	};
+	bindProductVideoVisualPreviewRuntime(controller, createProductVideoVisualPreviewRuntime(
+		async () => { routes.push('preview'); return null; },
+		async () => { routes.push('thumbnail'); return null; },
+		async () => { routes.push('filmstrip'); return null; },
+	));
+	bindPreview({ controller, profile: PROFILE, store: STORE, cloneProject: () => project as never });
+	const request = { project: {}, width: 320, height: 180 };
+	const bound = routesOf(controller);
+	assert.equal(await bound.create(request), null);
+	assert.equal(await bound.thumbnail({ ...request, clipId: 'video' }), null);
+	assert.equal(await bound.filmstrip({ ...request, frames: [{ key: 'video-1', clipId: 'video',
+		sourceId: 'camera', sourceUrl: 'blob:camera', timelineSample: 0 }] }), null);
+	assert.deepEqual(routes, ['preview', 'thumbnail', 'filmstrip']);
 });
 
 test('every route hands the bound profile and the requested project to the timelineImage factory', async () => {

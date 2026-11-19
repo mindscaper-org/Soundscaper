@@ -45,7 +45,7 @@ export function LabelContextMenu(props: LabelContextMenuProps) {
 			<ContextMenuItem label={copy.deleteLabel} disabled={blocked} onClick={onRemove} onClose={onClose} />
 			{audioMenu && <ContextMenuItem isDivider />}
 			{audioMenu && <ContextMenuItem label={audioMenu.label} hasSubmenu disabled={audioBlocked || point} onClose={onClose}>
-				{audioMenu.items.map((item) => <ContextMenuItem key={item.id} label={item.label}
+				{audioMenu.items.map((item) => <ContextMenuItem key={item.id} tooltipKey={item.id} label={item.label}
 					disabled={item.disabled} onClick={item.onClick} onClose={onClose} />)}
 			</ContextMenuItem>}
 		</ContextMenu>

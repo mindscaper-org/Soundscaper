@@ -132,7 +132,7 @@ function renderRecordFlyout(
 			recordingInputs: { hasOpenInputs: false, soundActivation: policy() },
 			monitor: { enabled: false },
 		},
-		controller: { actions: { recording: {
+		controller: { getTelemetrySnapshot: () => ({ positionFrame: 0 }), actions: { recording: {
 			startNewTrack: action,
 			startSoundActivated: action,
 			setMonitoring: action,

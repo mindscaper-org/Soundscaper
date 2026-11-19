@@ -12,7 +12,7 @@ import { createSoundscaperProjectStore } from '../src/soundscaper/editor-project
 import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { footerTaggedMp3Fixture, multilingualMp3Fixture } from './helpers/ordinary-cover-mp3-fixture.ts';
-import { quickTimeMetadataPrecedenceFixture } from './helpers/ordinary-tail-m4a-fixture.ts';
+import { freeformM4aMetadataFixture, iTunesGenreM4aFixture, multiValueM4aArtworkFixture, quickTimeMetadataPrecedenceFixture } from './helpers/ordinary-tail-m4a-fixture.ts';
 
 // The browser witness covers decoding and File-menu wiring. These cases exercise
 // the real metadata reader, attribution, source admission, archive and reopen paths.
@@ -52,6 +52,33 @@ test('Scape save and reopen retain every bilingual ID3 comment, lyric and identi
 		assert.equal(attachment.sha256, createHash('sha256').update(payload).digest('hex'), key);
 		assert.equal(attachment.byteLength, payload.length, key);
 	}
+});
+
+for (const grouped of [false, true]) test(`Scape reopening retains every M4A artwork attachment; grouped=${grouped}`, async context => {
+	const { file, images } = await multiValueM4aArtworkFixture(grouped);
+	const contribution = await savedContribution(context, file);
+	assert.deepEqual(contribution.warnings, []);
+	assert.equal(contribution.metadata.normalized.title, 'Two retained covers');
+	assert.equal(contribution.metadata.normalized.comment, 'After covers');
+	const covers = contribution.attachments.filter(attachment => /^images\[\d+\]$/u.test(attachment.path));
+	assert.deepEqual(covers.map(cover => cover.sha256), images.map(image => createHash('sha256').update(image).digest('hex')));
+	assert.deepEqual(covers.map(cover => cover.mimeType), ['image/png', 'image/png']);
+	assert.deepEqual(covers.map(cover => cover.byteLength), images.map(image => image.length));
+});
+
+for (const [genre, expected] of [[18, 'Rock'], ['Ambient', 'Ambient']] as const) {
+	test(`Scape reopening retains the independent iTunes genre ${genre}`, async context => {
+		const contribution = await savedContribution(context, await iTunesGenreM4aFixture(genre));
+		assert.deepEqual(contribution.warnings, []);
+		assert.equal(contribution.metadata.normalized.genre, expected);
+	});
+}
+
+test('Scape reopening retains distinct M4A custom-credit namespaces', async context => {
+	const contribution = await savedContribution(context, await freeformM4aMetadataFixture());
+	assert.deepEqual(contribution.warnings, []);
+	assert.equal(contribution.metadata.raw['----:com.apple.iTunes:ENGINEER'], 'Hélène — reviewed credit');
+	assert.equal(contribution.metadata.raw['----:org.example.archive:ENGINEER'], 'Second namespace credit');
 });
 
 async function savedContribution(context: TestContext, file: File): Promise<SourceAttributionContributionV1> {

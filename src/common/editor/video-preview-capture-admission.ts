@@ -17,7 +17,10 @@ export const VIDEO_PREVIEW_CAPTURE_MAXIMUM_SOURCE_RGBA_BYTES = 256 * MIB;
 
 export type VideoPreviewCaptureUsefulBinaryScope =
 	| 'video-preview-capture-rgba-useful-binary'
+	| 'video-render-capture-rgba-useful-binary'
 	| 'video-preview-source-rgba-useful-binary';
+
+type VideoCaptureKind = 'preview' | 'render';
 
 export interface VideoPreviewCaptureSourceGeometry {
 	readonly sourceWidth: number;
@@ -94,6 +97,22 @@ export function planVideoPreviewCapture(
 	source: VideoPreviewCaptureSourceGeometry,
 	options: VideoPreviewCaptureAdmissionOptions = {},
 ): Readonly<VideoPreviewCaptureAdmissionPlan> {
+	return planVideoCapture(source, options, 'preview');
+}
+
+/** Full-resolution rendering only requests raw pixels within the existing source bound. */
+export function planVideoRenderPixelCapture(
+	source: VideoPreviewCaptureSourceGeometry,
+	options: Pick<VideoPreviewCaptureAdmissionOptions, 'maximumWidth' | 'maximumHeight'> = {},
+): Readonly<VideoPreviewCaptureAdmissionPlan> {
+	return planVideoCapture(source, options, 'render');
+}
+
+function planVideoCapture(
+	source: VideoPreviewCaptureSourceGeometry,
+	options: VideoPreviewCaptureAdmissionOptions,
+	kind: VideoCaptureKind,
+): Readonly<VideoPreviewCaptureAdmissionPlan> {
 	const sourceWidth = positiveSafeInteger(
 		source?.sourceWidth,
 		'Video preview capture source width',
@@ -134,13 +153,13 @@ export function planVideoPreviewCapture(
 	});
 	const maximumWidth = normalizeDimensionMaximum(
 		options.maximumWidth,
-		VIDEO_PREVIEW_CAPTURE_MAXIMUM_WIDTH,
-		'width',
+		kind === 'preview' ? VIDEO_PREVIEW_CAPTURE_MAXIMUM_WIDTH : VIDEO_PREVIEW_CAPTURE_MAXIMUM_SOURCE_WIDTH,
+		'width', kind,
 	);
 	const maximumHeight = normalizeDimensionMaximum(
 		options.maximumHeight,
-		VIDEO_PREVIEW_CAPTURE_MAXIMUM_HEIGHT,
-		'height',
+		kind === 'preview' ? VIDEO_PREVIEW_CAPTURE_MAXIMUM_HEIGHT : VIDEO_PREVIEW_CAPTURE_MAXIMUM_SOURCE_HEIGHT,
+		'height', kind,
 	);
 	const maximumEncodedBytes = normalizeEncodedMaximum(options.maximumEncodedBytes);
 	const { outputWidth, outputHeight } = scaledDimensions(
@@ -153,13 +172,16 @@ export function planVideoPreviewCapture(
 		* BigInt(outputHeight)
 		* BigInt(RGBA_BYTES_PER_PIXEL);
 	const rgbaBytes = safeByteNumber(rgbaBytesValue, 'Video preview capture RGBA useful-binary bytes');
-	if (rgbaBytes > VIDEO_PREVIEW_CAPTURE_MAXIMUM_RGBA_BYTES) {
-		throw new RangeError('Video preview capture RGBA useful-binary bytes exceed the hard limit.');
+	const maximumRgbaBytes = kind === 'preview'
+		? VIDEO_PREVIEW_CAPTURE_MAXIMUM_RGBA_BYTES : VIDEO_PREVIEW_CAPTURE_MAXIMUM_SOURCE_RGBA_BYTES;
+	if (rgbaBytes > maximumRgbaBytes) {
+		throw new RangeError(`Video ${kind} capture RGBA useful-binary bytes exceed the hard limit.`);
 	}
 	const rgbaUsefulBinary = Object.freeze({
 		bytes: rgbaBytes,
 		certainty: 'exact' as const,
-		scope: 'video-preview-capture-rgba-useful-binary' as const,
+		scope: kind === 'preview' ? 'video-preview-capture-rgba-useful-binary' as const
+			: 'video-render-capture-rgba-useful-binary' as const,
 	});
 
 	return Object.freeze({
@@ -243,11 +265,12 @@ function normalizeDimensionMaximum(
 	value: number | undefined,
 	hardMaximum: number,
 	name: string,
+	kind: VideoCaptureKind,
 ): number {
 	const normalized = value === undefined ? hardMaximum : value;
 	if (!Number.isSafeInteger(normalized) || normalized < 2 || normalized > hardMaximum) {
 		throw new RangeError(
-			`Video preview capture maximum ${name} must be a safe integer between 2 and ${hardMaximum}.`,
+			`Video ${kind} capture maximum ${name} must be a safe integer between 2 and ${hardMaximum}.`,
 		);
 	}
 	return normalized;

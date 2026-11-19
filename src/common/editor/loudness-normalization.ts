@@ -103,31 +103,29 @@ export function computeLoudnessNormalization(
 	}
 
 	validateTarget(target);
+	const ceilingGainDb = measuredTruePeak === null
+		? Number.POSITIVE_INFINITY
+		: target.truePeakCeilingDb - measuredTruePeak;
 
 	if (measuredLoudness === null) {
-		// Silence, or a meter that never saw a gate-passing block. Applying a
-		// gain computed from nothing would be inventing a number.
+		// A short or gated signal can still have a measurable true peak.
+		const gainDb = Math.min(0, ceilingGainDb);
 		return decision({
 			outcome: 'unmeasurable',
-			gainDb: 0,
+			gainDb,
 			measuredLoudness,
 			measuredTruePeak,
 			projectedLoudness: null,
-			projectedTruePeak: measuredTruePeak,
+			projectedTruePeak: measuredTruePeak === null ? null : measuredTruePeak + gainDb,
 			target,
 			targetShortfallLu: 0,
-			reason: 'Integrated loudness could not be measured, so no gain was computed.',
+			reason: gainDb < 0
+				? `Integrated loudness could not be measured. Gain was reduced by ${(-gainDb).toFixed(2)} dB to respect the ${target.truePeakCeilingDb} dBTP ceiling.`
+				: 'Integrated loudness could not be measured and no gain was applied.',
 		});
 	}
 
 	const desiredGainDb = target.integratedLufs - measuredLoudness;
-
-	// The ceiling binds only when a true peak was actually measured. A missing
-	// peak is not permission to exceed the ceiling; it is a reason not to claim
-	// the ceiling was respected, which the projected value records as null.
-	const ceilingGainDb = measuredTruePeak === null
-		? Number.POSITIVE_INFINITY
-		: target.truePeakCeilingDb - measuredTruePeak;
 
 	const gainDb = Math.min(desiredGainDb, ceilingGainDb);
 	const shortfall = desiredGainDb - gainDb;

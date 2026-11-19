@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { cp, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -14,60 +14,20 @@ import {
 	verifyAssistanceNativeRuntimePayload,
 } from '../desktop/assistance-native-runtime-payload.mjs';
 
-test('the pinned Linux x64 assistance runtime stages and reauthenticates its exact closure', async (context) => {
+for (const targetId of Object.keys(manifest.targets)) test(`package-generated ${targetId} carries no source-checkout executable bytes`, async (context) => {
 	const outputRoot = await temporaryRoot(context);
 	const summary = await stageAssistanceNativeRuntimePayload({
-		manifest,
-		targetId: 'linux-x64',
-		nodeModulesRoot: resolve('node_modules'),
-		outputRoot,
-	});
-	assert.deepEqual(summary, assistanceNativeRuntimeStageSummary(manifest, 'linux-x64'));
-	const verified = await verifyAssistanceNativeRuntimePayload({ manifest, targetId: 'linux-x64', outputRoot });
-	assert.equal(verified.status, 'built');
-	assert.equal(verified.moduleSpecifier,
-		new URL('file://').protocol === 'file:'
-			? new URL(`file://${verified.modulePath}`).href
-			: null);
-	assert.match(verified.moduleSpecifier, /sherpa-onnx-node\/sherpa-onnx\.js$/u);
-	assert.equal(verified.fileCount, 26);
-});
-
-test('the assistance runtime refuses changed, extra, and symbolic staged bytes', async (context) => {
-	for (const failure of ['changed', 'extra', 'symbol']) {
-		const outputRoot = await temporaryRoot(context);
-		await stageAssistanceNativeRuntimePayload({
-			manifest, targetId: 'linux-x64', nodeModulesRoot: resolve('node_modules'), outputRoot,
-		});
-		const packageRoot = join(outputRoot, manifest.runtimePrefix, 'node_modules/sherpa-onnx-linux-x64');
-		if (failure === 'changed') await writeFile(join(packageRoot, 'index.js'), 'changed');
-		if (failure === 'extra') await writeFile(join(packageRoot, 'extra.dll'), 'extra');
-		if (failure === 'symbol') {
-			await rm(join(packageRoot, 'index.js'));
-			await symlink(join(packageRoot, 'README.md'), join(packageRoot, 'index.js'));
-		}
-		await assert.rejects(
-			verifyAssistanceNativeRuntimePayload({ manifest, targetId: 'linux-x64', outputRoot }),
-			/digest|length|inventory|symbolic|regular/iu,
-			failure,
-		);
-	}
-});
-
-test('package-generated targets carry no source-checkout executable bytes', async (context) => {
-	const outputRoot = await temporaryRoot(context);
-	const summary = await stageAssistanceNativeRuntimePayload({
-		manifest, targetId: 'win-arm64', nodeModulesRoot: resolve('node_modules'), outputRoot,
+		manifest, targetId, nodeModulesRoot: resolve('node_modules'), outputRoot,
 	});
 	assert.equal(summary.status, 'package-generated');
 	assert.equal(summary.blockedBy, null);
-	const verified = await verifyAssistanceNativeRuntimePayload({ manifest, targetId: 'win-arm64', outputRoot });
+	const verified = await verifyAssistanceNativeRuntimePayload({ manifest, targetId, outputRoot });
 	assert.equal(verified.status, 'package-generated');
 	assert.equal(verified.moduleSpecifier, null);
 	await cp(resolve('node_modules/sherpa-onnx-node'),
 		join(outputRoot, manifest.runtimePrefix, 'node_modules/sherpa-onnx-node'), { recursive: true });
 	await assert.rejects(
-		verifyAssistanceNativeRuntimePayload({ manifest, targetId: 'win-arm64', outputRoot }),
+		verifyAssistanceNativeRuntimePayload({ manifest, targetId, outputRoot }),
 		/package-generated.*payload|must not carry/iu,
 	);
 });
@@ -93,7 +53,8 @@ test('legacy Sherpa payloads cannot claim unbuilt GPU providers', () => {
 		['webgpu', 'cpu'], ['coreml', 'cpu'], ['cuda', 'cpu'], ['webgpu'], ['cpu', 'cpu'],
 	]) {
 		const changed = structuredClone(manifest);
-		changed.targets['linux-x64'].executionProviders = executionProviders;
+		changed.targets['linux-x64'] = { status: 'built', blockedBy: null, executionProviders,
+			package: { ...manifest.commonPackage, name: 'sherpa-onnx-linux-x64' } };
 		assert.throws(() => assistanceNativeRuntimeStageSummary(changed, 'linux-x64'),
 			/GPU|provider|capabilit/iu);
 	}

@@ -1,6 +1,7 @@
 import { Separator } from '@soundscaper/design-system/Separator';
 
 import EditorHelpTooltip from '../EditorHelpTooltip.tsx';
+import { EAR_LAYOUTS } from '../../ear/layouts.ts';
 import { DesignCheckbox, LabeledDropdown } from './inspector-controls.jsx';
 
 /**
@@ -23,8 +24,18 @@ export default function ExportRenderingSection({ copy, settings, exporting, admP
 				{/* Chapters and clips deliver exactly their own spans. */}
 				{settings.mode !== 'chapters' && settings.mode !== 'clips' && <div className="audio-editor-export-check" data-export-field="tails">
 					<span aria-hidden="true" />
-					<DesignCheckbox label={copy.includeTails} checked={settings.includeTail} disabled={exporting || admPassthrough} onChange={(checked) => onChange('includeTail', checked)} />
+					<DesignCheckbox label={copy.includeTails} checked={settings.includeTail && !(settings.range === 'loop' && settings.renderAsLoop)} disabled={exporting || admPassthrough || (settings.range === 'loop' && settings.renderAsLoop)} onChange={(checked) => onChange('includeTail', checked)} />
 				</div>}
+				{settings.range === 'loop' && settings.mode === 'mix' && !settings.masteringSequenceId && (
+					<div className="audio-editor-export-check" data-export-field="renderAsLoop">
+						<span aria-hidden="true" />
+						<span className="audio-editor-help-label">
+							<DesignCheckbox label={copy.renderAsLoop} checked={settings.renderAsLoop} disabled={exporting || admPassthrough} onChange={(checked) => onChange('renderAsLoop', checked)} />
+							<EditorHelpTooltip subject={copy.renderAsLoop} description={copy.renderAsLoopHint} helpLabel={copy.helpMenu} hook="renderAsLoop" />
+						</span>
+					</div>
+				)}
+				{binauralAvailable && <LabeledDropdown label={copy.earRenderer} hook="earLayout" value={settings.earLayout || ''} disabled={exporting} onChange={(value) => onChange('earLayout', value)} options={[{ value: '', label: copy.earRendererOff }, ...EAR_LAYOUTS.map((layout) => ({ value: layout, label: layout }))]} />}
 				{binauralAvailable && (
 					<div className="audio-editor-export-check" data-export-field="binaural">
 						<span aria-hidden="true" />

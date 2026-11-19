@@ -168,7 +168,10 @@ export function resolveBoundarySnap(input: SnapInput): BoundarySnapResult {
 	if (nearby.length === 0) return { frame, snapped: false };
 	if (nearby.length === 1) return { frame: nearby[0]!.frame, snapped: true };
 	const onCurrentTrack = nearby.filter(({ trackId }) => trackId === currentTrackId);
-	if (onCurrentTrack.length === 1) return { frame: onCurrentTrack[0]!.frame, snapped: true };
+	const currentFrame = onCurrentTrack[0]?.frame;
+	if (currentFrame !== undefined && currentFrame === onCurrentTrack.at(-1)!.frame) {
+		return { frame: currentFrame, snapped: true };
+	}
 	if ((nearby.at(-1)!.frame - nearby[0]!.frame) / sampleRate < COINCIDENT_SECONDS) {
 		return { frame: (rightEdge ? nearby.at(-1)! : nearby[0]!).frame, snapped: true };
 	}
@@ -183,7 +186,7 @@ export function resolveClipMoveBoundarySnap(input: ClipMoveSnapInput): ClipMoveS
 	const common = {
 		project: input.project,
 		index,
-		currentTrackId: input.currentTrackId,
+		currentTrackId: input.destinationTrackId ?? input.currentTrackId,
 		pixelsPerSecond: input.pixelsPerSecond,
 		sampleRate: input.sampleRate,
 		excludedClipIds: input.movingClipIds,

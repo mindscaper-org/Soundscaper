@@ -1,14 +1,14 @@
 import { EditorStoreBlockedError, EditorStoreClosedError, EditorStoreVersionStaleError, memoryFallbackReason } from './storage/status.ts';
 import { ProjectRecoveryRepository } from './storage/project-recovery-repository.ts';
 import { openDatabase } from './storage/indexeddb-backend.ts';
-import { getMemoryDatabase } from './storage/memory-backend.ts';
+import { storeMemoryDatabase } from './storage/memory-backend.ts';
 import { createStorageRepositories } from './storage/repositories.ts';
 import { bindEditorProjectStoreProfileFromOptions } from './storage/project-store-profile-binding.ts';
 import { DEFAULT_OPFS_DIRECTORY_NAME } from './storage/opfs-repository.ts';
 import { DEFAULT_OPFS_WORKER_NAME } from './storage/opfs-sync-worker-client.ts';
 import { admitLocalStoreClear } from './storage/linked-video-original-lifecycle-coordinator.ts';
 import { LinkedOriginalStoreService } from './storage/linked-original-store-service.ts';
-import { createStoreProjectIfAbsent, createStoreScapeProjectIfAbsent, deleteStoreProjectIfCurrent } from './storage/project-create-only-publication.ts';
+import { createStoreProjectIfAbsent, createStoreScapeProjectIfAbsent, deleteStoreProjectIfCurrent, deleteStoreProjectSnapshot } from './storage/project-create-only-publication.ts';
 import { saveStoreProjectIfCurrent } from './storage/project-conditional-publication.ts';
 import { duplicateStoreProject } from './storage/project-store-defaults.ts';
 import { restoreStoreProjectSnapshot, restoreStoreProjectSnapshotIfCurrent } from './storage/project-snapshot-restore.ts';
@@ -64,7 +64,7 @@ export class AudioEditorProjectStore {
 		this.closePromise = null;
 		this.clearPromise = null;
 		this.databasePromise = null;
-		this.memory = getMemoryDatabase(databaseName);
+		this.memory = storeMemoryDatabase(databaseName, options);
 		const repositories = repositoryFactory({
 			memory: this.memory,
 			database: () => this.#database(),
@@ -130,7 +130,11 @@ export class AudioEditorProjectStore {
 	createProjectIfAbsent(project, options = {}) { return createStoreProjectIfAbsent(this, this.projectRepository, project, options); }
 	createScapeProjectIfAbsent(project, options = {}) { return createStoreScapeProjectIfAbsent(this, this.projectRepository, project, options); }
 	deleteProjectIfCurrent(project) { return deleteStoreProjectIfCurrent(this.linkedOriginalStoreService, this.projectRepository, project); }
-
+	async deleteProjectSnapshot(project) {
+		const deleted = await deleteStoreProjectSnapshot(this.linkedOriginalStoreService, this.projectRepository, project);
+		if (deleted) await this.assistanceDerivativeRepository?.purgeProject(project.id).catch(() => undefined);
+		return deleted;
+	}
 	/**
 	 * @param {string} projectId
 	 * @param {() => unknown} [collectProtectedSourceReferences]
@@ -143,15 +147,11 @@ export class AudioEditorProjectStore {
 	async loadProject(projectId, { revision, signal } = {}) {
 		return this.projectRepository.load(projectId, { revision, signal });
 	}
-	async listProjects() {
-		return this.projectRepository.list();
-	}
+	async listProjects() { return this.projectRepository.list(); }
 	/** @param {string} projectId */
 	readProjectRecoveryCandidates(projectId) { return this.projectRecoveryRepository.read(projectId); }
 	listProjectRecoverySummaries() { return this.projectRecoveryRepository.list(); }
-	async listProjectRevisions(projectId) {
-		return this.projectRepository.listRevisions(projectId);
-	}
+	async listProjectRevisions(projectId) { return this.projectRepository.listRevisions(projectId); }
 	async deleteProject(projectId) {
 		const result = await this.linkedOriginalStoreService.deleteProject(projectId, () => this.projectRepository.delete(projectId));
 		await this.assistanceDerivativeRepository?.purgeProject(projectId).catch(() => undefined);
@@ -203,6 +203,8 @@ export class AudioEditorProjectStore {
 	async beginSourceWrite(sourceId, metadata = {}) {
 		return this.sourceRepository.beginWrite(sourceId, metadata);
 	}
+	/** @param {string} sourceId @param {import('./storage/midi-source.ts').MidiSourceRecipe} recipe @param {Readonly<Record<string, unknown>>} metadata */
+	async writeMidiSource(sourceId, recipe, metadata) { return this.sourceRepository.writeMidi(sourceId, recipe, metadata); }
 
 	async writeDerivedSource(sourceId, baseSourceId, replacementChunks, metadata = {}) { return this.sourceRepository.writeDerived(sourceId, baseSourceId, replacementChunks, metadata); }
 
@@ -210,13 +212,8 @@ export class AudioEditorProjectStore {
 
 	async writeAudioBuffer(sourceId, audioBuffer, metadata = {}, { chunkFrames = 65_536 } = {}) { return this.sourceRepository.writeAudioBuffer(sourceId, audioBuffer, metadata, { chunkFrames }); }
 
-	async getSourceMetadata(sourceId) {
-		return this.sourceRepository.getMetadata(sourceId);
-	}
-
-	async listSources() {
-		return this.sourceRepository.list();
-	}
+	async getSourceMetadata(sourceId) { return this.sourceRepository.getMetadata(sourceId); }
+	async listSources() { return this.sourceRepository.list(); }
 
 	/**
 	 * Persist the immutable original container for a media source. OPFS keeps
@@ -226,20 +223,20 @@ export class AudioEditorProjectStore {
 	async writeMediaAsset(sourceId, input, metadata = {}, { signal } = {}) {
 		return this.mediaRepository.writeAsset(sourceId, input, metadata, { signal });
 	}
-
 	/** Start a bounded transactional write without retaining the whole container. */
 	async beginMediaAssetWrite(sourceId, metadata = {}, options = {}) {
 		return this.mediaRepository.beginAssetWrite(sourceId, metadata, options);
 	}
-
 	async loadMediaAsset(sourceId, options = {}) {
 		return this.mediaRepository.loadAsset(sourceId, options);
 	}
-
 	async getMediaAssetMetadata(sourceId) {
 		return this.mediaRepository.getAssetMetadata(sourceId);
 	}
-
+	/** @param {string} sourceId @param {AbortSignal} [signal] */
+	async readMediaAssetVerificationSnapshot(sourceId, signal) {
+		return this.mediaRepository.readAssetVerificationSnapshot(sourceId, signal);
+	}
 	async bindLinkedAudioOriginal(projectId, source, locatorId, options = {}) {
 		this.#assertOpen();
 		return this.linkedOriginalStoreService.bindAudio(projectId, source, locatorId, options);
@@ -465,21 +462,21 @@ export class AudioEditorProjectStore {
 		}
 	}
 
-	clear() {
+	clear(/** @type {import('./storage/linked-original-clear-admission.ts').LocalStoreClearOptions} */ options = {}) {
 		this.#assertOpen();
 		if (!this.clearPromise) {
-			const admission = admitLocalStoreClear(this.retentionRepository);
-			const operation = Promise.resolve(this.sourceRepository.releaseReadSessions?.())
-				.then(() => this.linkedOriginalStoreService.clear(admission));
+			const admission = admitLocalStoreClear(this.retentionRepository, options);
+			const operation = Promise.resolve(this.sourceRepository.releaseReadSessions?.()).then(options.preserveProjectData === true
+				? () => this.linkedOriginalStoreService.run(() => admission.begin().completion)
+				: () => this.linkedOriginalStoreService.clear(admission));
 			this.clearPromise = operation;
 			void operation.then(
 				() => { if (this.clearPromise === operation) this.clearPromise = null; },
-				() => { if (this.clearPromise === operation) this.clearPromise = null; },
+				() => { admission.cancel(); if (this.clearPromise === operation) this.clearPromise = null; },
 			);
 		}
 		return this.clearPromise;
 	}
-
 	close() {
 		if (this.closePromise) return this.closePromise;
 		if (this.closed) return Promise.resolve();

@@ -5,6 +5,18 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
 /** Focused WP-0.1 inventory for integer sample-rate changes of basis. */
 export const FOUNDATION_RATE_CONVERSION_AUDIT_SITES: readonly FoundationTimeConversionSite[] = [
 	{
+		id: 'aaf-import-automation-clock',
+		file: 'src/common/editor/aaf-import-automation.ts',
+		behavior: 'Imported AAF automation retains rational clip-local offsets until rounding onto the project sample grid.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
+		id: 'workspace-import-placement-rate',
+		file: 'src/common/editor/ui/workspace/import-workspace-routed-files.ts',
+		behavior: 'Loose-media placement retains its requested time by scaling to the nearest sample on the newly opened project clock.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
 		id: 'generator-inspector-authored-source-duration',
 		file: 'src/common/editor/ui/inspector/GeneratorClipPropertiesBody.tsx',
 		behavior: 'Generator duration entry uses the authored source EOF on its sequence grid; both absolute sequence edges round to their nearest project sample before their displayed duration is subtracted.',
@@ -147,10 +159,17 @@ export const FOUNDATION_RATE_CONVERSION_AUDIT_SITES: readonly FoundationTimeConv
 		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
 	},
 	{
+		id: 'riff-cue-delivery-clock',
+		file: 'src/common/editor/riff-cue-delivery-clock.ts',
+		behavior: 'RIFF delivery encloses the rendered PCM extent at the output rate and maps authored cue positions to the nearest sample from the same origin. A region ending with the delivery uses its exclusive PCM endpoint.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['enclosingEnd', 'point'] }],
+	},
+	{
 		id: 'recording-preview-rate-conform',
 		file: 'src/common/editor/controller/recording/recording-model.ts',
 		behavior: 'Captured frame counts change from the input device rate to the project output rate once under point rounding without unsafe floating multiplication. A timed recording converts its wall-clock duration to an enclosing-end frame offset, so it never stops before the requested instant.',
 		conversions: [
+			{ helper: 'countInSampleFrames', policies: ['point'] },
 			{ helper: 'scaleSampleFrame', policies: ['point'] },
 			{ helper: 'secondsToSampleFrame', policies: ['enclosingEnd'] },
 		],

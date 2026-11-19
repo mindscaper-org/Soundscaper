@@ -27,7 +27,10 @@ export default function NativePreferencesPanel({ menus, section, copy, onNavigat
 	const nativeCopy = resolveSoundscaperNativeServicesCopy(copy);
 	if (section === 'advanced') return <>
 		<div className="kw-processing-preferences">
-			{entries.map((entry) => <AudioProcessingPreferences key={entry.id} entry={entry} />)}
+			{entries.map((entry) => entry.id === 'parallel-stack-processing'
+				? <AudioProcessingPreferences key={entry.id} entry={entry} />
+				: <Button key={entry.id} variant="secondary" disabled={entry.disabled === true}
+					onClick={() => { onNavigate(); queueMicrotask(() => { void entry.onClick?.(); }); }}>{entry.label}</Button>)}
 		</div>
 		<Separator />
 	</>;

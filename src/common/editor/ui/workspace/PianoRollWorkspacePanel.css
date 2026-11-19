@@ -52,6 +52,45 @@
 	max-width: 180px;
 }
 
+.kw-audio-editor__midi-note-picker {
+	width: 180px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	text-align: start;
+}
+
+.kw-audio-editor__midi-note-picker::after {
+	content: '▾';
+}
+
+.kw-audio-editor__midi-note-picker span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.kw-audio-editor__midi-note-options {
+	width: 180px;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+.kw-audio-editor__midi-note-options [role='option'] {
+	position: absolute;
+	inset-inline: 0;
+	display: flex;
+	align-items: center;
+	padding-inline: 8px;
+	cursor: pointer;
+}
+
+.kw-audio-editor__midi-note-options [role='option']:is(:hover, [data-active='true']) {
+	background: color-mix(in srgb, var(--accent) 16%, var(--panel));
+	color: var(--text);
+}
+
 .kw-audio-editor__piano-roll-grid {
 	display: flex;
 	flex: 1;

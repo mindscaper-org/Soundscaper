@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { clipRackTrackInputChannelCounts } from '../effect-signal-width.ts';
 
 import { connectSurroundMonitoring } from '../surround-monitoring.ts';
 import { inheritsTrackFolderMuteV12 } from '../track-folder-media-runtime.ts';
@@ -47,6 +48,8 @@ import type { EngineEffect, EngineProject, EngineTrack } from './types.ts';
 import { prepareProjectEdgeGeometryV21 } from './project-edge-geometry-v21.ts';
 import { createProjectSoloGainResolverV21, createProjectVcaGainResolverV21 } from './project-strip-control-index-v21.ts';
 import { createSuspendedEffectParameterRegistrarV21 } from './project-suspended-effect-parameters-v21.ts';
+import { buildClipEffectInputs } from './clip-effect-inputs.ts';
+import { compileClipEffectLatencyPlan } from './clip-effect-latency-plan.ts';
 
 interface AudioTrackV21 extends EngineTrack {
 	readonly id: string;
@@ -108,7 +111,9 @@ export function buildProjectGraphV21(
 		onParametricEqError,
 	} = options;
 	const sampleRate = context.sampleRate || DEFAULT_SAMPLE_RATE;
-	const prepared = prepareProjectV21(project, includeMaster, sampleRate);
+	const clipEffects = compileClipEffectLatencyPlan(project, sampleRate);
+	const clipLatency = clipEffects.maximumLatencyFrames;
+	const prepared = prepareProjectV21(project, includeMaster, sampleRate, clipLatency);
 	const { graph, tracks, plan } = prepared;
 	const nodes: AudioNodeArray = [];
 	const sources = new Set<AudioScheduledSourceNode>();
@@ -131,6 +136,7 @@ export function buildProjectGraphV21(
 	const productionStripAnalysersV21 = new Map<string, StripMeterAnalyserBankV21>();
 	const pathPdcDelayParamsV21 = new Map<string, AudioParam>();
 	const trackWidths = resolveTerminalChannelWidths(project, project.masterChannels).tracks;
+	const clipOutputWidths = clipRackTrackInputChannelCounts(project, trackWidths);
 	const edgeGeometry = prepareProjectEdgeGeometryV21(graph, tracks, trackWidths, project.masterChannels);
 	const vcaFactorForStrip = createProjectVcaGainResolverV21(graph.vcas, respectMuteSolo);
 	const compensatedTrackInputs = new Map<string, AudioNode>();
@@ -141,7 +147,7 @@ export function buildProjectGraphV21(
 			context,
 			nodes,
 			input,
-			plan.nodeInputLatencyFrames.get(`track:${track.id}`) ?? 0,
+			(plan.nodeInputLatencyFrames.get(`track:${track.id}`) ?? 0) - clipLatency,
 			(param) => pathPdcDelayParamsV21.set(`input:track:${track.id}`, param),
 		));
 	}
@@ -175,6 +181,7 @@ export function buildProjectGraphV21(
 	);
 	const taps = new Map<string, StripTapsV21>();
 	for (const strip of strips) {
+		const inputWidth = strip.scope === 'track' ? clipOutputWidths.get(String(strip.id)) ?? strip.width : strip.width;
 		const latencyFrames = plan.nodeOutputLatencyFrames.get(strip.key) ?? 0;
 		const explicitSidechains = sidechainInputs.get(strip.key);
 		registerSuspended(strip.ref, strip.suspendedEffects);
@@ -187,9 +194,9 @@ export function buildProjectGraphV21(
 			effectAnalysers,
 			parameterRegistry,
 			baseParameterLatencyFrames: plan.nodeInputLatencyFrames.get(strip.key) ?? 0,
-			effectChannelCount: strip.width,
+			effectChannelCount: inputWidth,
 			parametricEqWasmModule,
-			parametricEqChannelCount: strip.width,
+			parametricEqChannelCount: inputWidth,
 			onParametricEqError,
 		});
 		const pre = output;
@@ -315,6 +322,7 @@ export function buildProjectGraphV21(
 	if (monitoring) {
 		connectSurroundMonitoring(context, mainConnection, destination, mainOutput.channelCount, nodes);
 	} else connect(mainConnection, destination);
+	buildClipEffectInputs(context, project, clipEffects, trackInputs, nodes, { effectNodes, effectAnalysers, effectAnalysis, parametricEqWasmModule, onParametricEqError, parameterRegistry }, onlyTrackId);
 	return {
 		nodes,
 		sources,
@@ -347,6 +355,7 @@ function prepareProjectV21(
 	project: EngineProject,
 	includeMaster: boolean,
 	sampleRateValue: unknown,
+	clipLatencyFrames?: number,
 ): PreparedProjectV21 {
 	const tracks = Object.freeze((project.tracks ?? []).flatMap((track) => (
 		track?.type === 'audio' && typeof track.id === 'string'
@@ -366,7 +375,7 @@ function prepareProjectV21(
 	return Object.freeze({
 		graph: runtimeGraph,
 		tracks,
-		plan: compileProjectPathPdcPlanV21(pdcProject, { sampleRate }),
+		plan: compileProjectPathPdcPlanV21(pdcProject, { sampleRate, clipLatencyFrames }),
 	});
 }
 

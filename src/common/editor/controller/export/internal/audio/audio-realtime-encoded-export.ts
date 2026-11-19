@@ -15,6 +15,8 @@
 import {
 	createRealtimeExportPcmTransform, type RealtimeExportPcmTransform,
 } from '../realtime-export-pcm-transform.ts'; import { setLocalizedStatus } from '../../../../../i18n/presentation-message.ts';
+import { readLoopPcmSpool } from './loop-pcm-spool.ts';
+import { scaleSampleFrame } from '../../../../timeline-time.ts';
 import { encodeRealtimePcmSpoolChunk, readRealtimePcmSpool } from './realtime-pcm-spool.ts';
 import { directPcmContainerLabel } from '../direct/direct-export-dispatch.ts';
 import {
@@ -84,10 +86,11 @@ export function createRealtimeEncodedAudioExport(runtime: RealtimeEncodedExportR
 	let ownedOutput: RuntimeValue = null;
 	const failures: unknown[] = [];
 	try {
-		if (directDestination && plan.sampleRate > renderSampleRate) {
+		if (plan.renderAsLoop || (directDestination && plan.sampleRate > renderSampleRate)) {
 			// An eightfold upsample plus multichannel encoding can monopolize the
 			// renderer long enough to starve a streamed source's bounded queue.
 			// Capture at the project rate; convert after the continuous audio clock stops.
+			// Loop wrapping also needs the captured tail before writing its beginning.
 			captureSink = await createTemporaryFileSink(`audio-editor-${createStableId('capture')}.f32`, copy);
 			const captureBytes = (plan.range.durationFrames + plan.tailFrames)
 				* Number(snapshot.masterChannels || 2) * Float32Array.BYTES_PER_ELEMENT;
@@ -98,6 +101,7 @@ export function createRealtimeEncodedAudioExport(runtime: RealtimeEncodedExportR
 		const stagingFloat = !nativePcm && plan.format !== 'flac';
 		const encoderOptions = {
 			container: nativeWav ? plan.container : undefined,
+			aifcCompression: nativeAiff ? plan.aifcCompression : undefined,
 			sampleRate: plan.sampleRate,
 			channelCount: plan.channelCount,
 			totalFrames: plan.outputFrames,
@@ -154,9 +158,9 @@ export function createRealtimeEncodedAudioExport(runtime: RealtimeEncodedExportR
 			...renderTarget,
 			startFrame: plan.range.startFrame,
 			endFrame: plan.range.endFrame,
-			includeTail: settings.includeTail ? plan.tailFrames / renderSampleRate : false,
+			includeTail: plan.renderAsLoop || settings.includeTail ? plan.tailFrames / renderSampleRate : false,
 			sampleRate: renderSampleRate,
-			preRollFrames: Math.min(plan.range.startFrame, renderSampleRate * 10),
+			preRollFrames: plan.renderAsLoop ? false : Math.min(plan.range.startFrame, renderSampleRate * 10),
 			...directPcmRenderQueueOptions(Number(snapshot.masterChannels || 2), containerLabel),
 			// Browser suspend/resume can skip capture quanta. Keep every export
 			// continuous; bounded capture and sink paths reject overflow.
@@ -181,7 +185,10 @@ export function createRealtimeEncodedAudioExport(runtime: RealtimeEncodedExportR
 			setLocalizedStatus(setStatus, copy, 'encoding');
 			runtime.taskProgress?.setActivePhase?.(copy.encoding, { ...encodingProgressRange, value: 0 }, { key: 'encoding' });
 			let convertedFrames = 0;
-			for await (const channels of readRealtimePcmSpool(captured, captureChannelCount, captureChunkFrames)) {
+			const pcm = plan.renderAsLoop
+				? readLoopPcmSpool(captured, captureChannelCount, scaleSampleFrame(plan.range.durationFrames, renderSampleRate, renderedSampleRate, 'point'), () => { throwIfAborted(signal); assertDirectCurrent(); })
+				: readRealtimePcmSpool(captured, captureChannelCount, captureChunkFrames);
+			for await (const channels of pcm) {
 				throwIfAborted(signal);
 				assertDirectCurrent();
 				await writeConverted(channels);

@@ -5,7 +5,7 @@ import { bootEditor, clipByName, importFiles } from './audio-editor-test-helpers
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('vertical media-row navigation skips tracks hidden inside collapsed folders', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA, toneB, longTone]);
 	const first = clipByName(editor, toneA.name).locator('xpath=ancestor::div[@data-track-row][1]');
 	const middle = clipByName(editor, toneB.name).locator('xpath=ancestor::div[@data-track-row][1]');

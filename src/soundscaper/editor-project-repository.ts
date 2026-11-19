@@ -164,6 +164,10 @@ export class SoundscaperProjectRepository implements ProjectRepositoryPort {
 		return this.#delegate.deleteExact(this.#snapshot(projectValue))
 	}
 
+	deleteSnapshot(project: ProjectDocument): Promise<boolean> {
+		return this.#delegate.deleteSnapshot?.(this.#snapshot(project)) ?? Promise.resolve(false)
+	}
+
 	async delete(projectId: string): Promise<void> {
 		await this.#delegate.delete(projectId)
 	}

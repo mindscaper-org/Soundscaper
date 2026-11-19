@@ -46,7 +46,8 @@ export function ixmlForDeliveryChannels(
 ): Readonly<{ metadata: IxmlMetadata | null; omittedTrackCount: number }> {
 	if (input == null) return { metadata: null, omittedTrackCount: 0 };
 	const sameRouting = mapping.inputChannelCount === mapping.outputChannelCount
-		&& mapping.channels.every((output, index) => output.inputs.every(value => value.gain === 0 || value.channel === index));
+		&& mapping.channels.every((output, index) => output.inputs.every(value => value.gain === 0 || value.channel === index)
+			&& output.inputs.reduce((gain, value) => gain + value.gain, 0) !== 0);
 	if (sameRouting) return { metadata: normalizeIxmlMetadata(input), omittedTrackCount: 0 };
 	const metadata = parseIxmlPayload(encodeIxmlPayload(input));
 	const lists = xmlTree(metadata.rawXml).children.filter(node => node.name === 'TRACK_LIST');
@@ -78,6 +79,7 @@ export function ixmlForDeliveryRange(
 	outputSampleRate: number,
 	bitDepth: number,
 	assembly?: MasteringSequenceDeliveryPlan | null,
+	timeReference?: string,
 ): IxmlMetadata | null {
 	if (input == null) return null;
 	const segments = assembly?.segments ?? [{ sourceStartFrame: range.startFrame, sourceEndFrame: range.endFrame, outputStartFrame: 0 }];
@@ -96,7 +98,7 @@ export function ixmlForDeliveryRange(
 				duration: duration === null ? null : scale(clippedEnd - start, projectSampleRate, outputSampleRate) - relative });
 		}
 		return mapped;
-	});
+	}, timeReference);
 }
 
 function transform(
@@ -105,6 +107,7 @@ function transform(
 	outputRate: number,
 	bitDepth: number | undefined,
 	mapPoint: (position: bigint, duration: bigint | null) => readonly MappedPoint[],
+	timeReference?: string,
 ): IxmlMetadata {
 	// Reuse the bounded metadata parser before inspecting offsets in its original XML.
 	const metadata = parseIxmlPayload(encodeIxmlPayload(input));
@@ -116,6 +119,7 @@ function transform(
 	if (speed) {
 		replaceField(child(speed, 'FILE_SAMPLE_RATE'), String(outputRate), replacements);
 		if (bitDepth !== undefined) replaceField(child(speed, 'AUDIO_BIT_DEPTH'), String(bitDepth), replacements);
+		if (timeReference !== undefined) replaceSpeedTimeReference(speed, timeReference, outputRate, replacements);
 	}
 	for (const list of root.children.filter(node => node.name === 'SYNC_POINT_LIST')) {
 		let pointCount = 0;
@@ -150,6 +154,22 @@ function transform(
 	}
 	const transformed = applyReplacements(xml, replacements);
 	return transformed === xml ? normalizeIxmlMetadata(input) : parseIxmlPayload(new TextEncoder().encode(transformed));
+}
+
+function replaceSpeedTimeReference(speed: XmlNode, timeReference: string, sampleRate: number, replacements: Replacement[]): void {
+	const highTag = 'TIMESTAMP_SAMPLES_SINCE_MIDNIGHT_HI';
+	const lowTag = 'TIMESTAMP_SAMPLES_SINCE_MIDNIGHT_LO';
+	if (!child(speed, highTag) && !child(speed, lowTag)) return;
+	const timestamp = BigInt(timeReference);
+	const fields = [[highTag, String(timestamp >> 32n)], [lowTag, String(timestamp & 0xffff_ffffn)],
+		['TIMESTAMP_SAMPLE_RATE', String(sampleRate)]] as const;
+	let missing = '';
+	for (const [tag, value] of fields) {
+		const field = child(speed, tag);
+		if (field) replaceField(field, value, replacements);
+		else missing += `<${tag}>${value}</${tag}>`;
+	}
+	if (missing) replacements.push({ start: speed.contentEnd, end: speed.contentEnd, text: missing });
 }
 
 function xmlTree(xml: string): XmlNode {

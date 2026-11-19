@@ -137,6 +137,7 @@ export function createProjectLockService(runtime: ProjectLockServiceRuntime) {
 	const scheduleTimer = runtime.scheduleTimer
 		?? ((callback: () => void, delayMs: number) => Number(globalThis.setTimeout(callback, delayMs)));
 	const clearTimer = runtime.clearTimer ?? ((timer: number) => globalThis.clearTimeout(timer));
+	let claimingLock: ProjectLifecycleLock | null = null;
 
 	return Object.freeze({
 		claimProjectLock,
@@ -212,12 +213,24 @@ export function createProjectLockService(runtime: ProjectLockServiceRuntime) {
 		const projectId = runtime.getProjectId();
 		const previousLock = runtime.state.projectLock;
 		const metadata = projectId ? runtime.getProjectMetadata(projectId) : {};
-		if (!projectId || !previousLock?.readOnly || metadata.intrinsicReadOnly) return false;
+		if (!projectId || !previousLock?.readOnly || previousLock === claimingLock || metadata.intrinsicReadOnly) return false;
+		if (runtime.isPersistedSnapshotCurrent) {
+			claimingLock = previousLock;
+			try {
+				const current = await runtime.isPersistedSnapshotCurrent(projectId);
+				if (!ownsLock(projectId, previousLock) || !previousLock.readOnly) return false;
+				if (!current) {
+					setLocalizedStatus(runtime.setStatus, runtime.copy, 'projectReadOnly', undefined, 'error');
+					return false;
+				}
+			} finally { if (claimingLock === previousLock) claimingLock = null; }
+		}
 		const releasing = releaseProjectLock(previousLock);
 		const pending: ProjectLifecycleLock = {
 			projectId, readOnly: true, method: previousLock.method, release() {},
 		};
 		runtime.state.projectLock = pending;
+		claimingLock = pending;
 		let nextLock: ProjectLifecycleLock;
 		try {
 			await releasing;
@@ -232,6 +245,8 @@ export function createProjectLockService(runtime: ProjectLockServiceRuntime) {
 				runtime.publishProjectState();
 			}
 			throw error;
+		} finally {
+			if (claimingLock === pending) claimingLock = null;
 		}
 		if (!ownsLock(projectId, pending)) {
 			if (runtime.state.projectLock === pending) runtime.state.projectLock = null;
@@ -247,16 +262,7 @@ export function createProjectLockService(runtime: ProjectLockServiceRuntime) {
 			return false;
 		}
 		watchProjectLockLoss(projectId, nextLock);
-		if (runtime.isPersistedSnapshotCurrent && !await mayResumeWritable(projectId, nextLock)) return false;
-		runtime.state.readOnly = false;
-		runtime.setProjectReadOnly(projectId, {
-			readOnly: false,
-			reason: null,
-			lockMethod: nextLock.method,
-		});
-		runtime.publishProjectState();
-		setLocalizedStatus(runtime.setStatus, runtime.copy, "ready", undefined, 'success');
-		return true;
+		return publishRecoveredLock(projectId, nextLock);
 	}
 
 	async function recoverProjectLock(
@@ -285,8 +291,12 @@ export function createProjectLockService(runtime: ProjectLockServiceRuntime) {
 			return;
 		}
 		watchProjectLockLoss(projectId, nextLock);
-		if (runtime.isPersistedSnapshotCurrent && !await mayResumeWritable(projectId, nextLock)) return;
+		await publishRecoveredLock(projectId, nextLock);
+	}
 
+	async function publishRecoveredLock(projectId: string, lock: ProjectLifecycleLock): Promise<boolean> {
+		if (!ownsLock(projectId, lock) || lock.readOnly) return false;
+		if (runtime.isPersistedSnapshotCurrent && !await mayResumeWritable(projectId, lock)) return false;
 		const metadata = runtime.getProjectMetadata(projectId);
 		const intrinsicReadOnly = Boolean(metadata.intrinsicReadOnly);
 		const intrinsicReadOnlyReason = metadata.intrinsicReadOnlyReason || null;
@@ -298,11 +308,12 @@ export function createProjectLockService(runtime: ProjectLockServiceRuntime) {
 		runtime.setProjectReadOnly(projectId, {
 			readOnly: intrinsicReadOnly,
 			reason: intrinsicReadOnlyReason,
-			lockMethod: nextLock.method,
+			lockMethod: lock.method,
 		});
 		runtime.publishProjectState();
 		if (intrinsicReadOnly) publishProjectReadOnlyStatus(runtime.copy, runtime.setStatus, intrinsicReadOnlyReason);
 		else setLocalizedStatus(runtime.setStatus, runtime.copy, 'ready', undefined, 'success');
+		return !intrinsicReadOnly;
 	}
 
 	function handleProjectLockRecoveryError(
@@ -316,19 +327,32 @@ export function createProjectLockService(runtime: ProjectLockServiceRuntime) {
 	}
 
 	async function mayResumeWritable(projectId: string, lock: ProjectLifecycleLock): Promise<boolean> {
-		let current = false;
+		let current: boolean;
 		try { current = await runtime.isPersistedSnapshotCurrent?.(projectId) ?? true; }
-		catch (error) { runtime.handleError(error); }
+		catch (error) {
+			if (!ownsLock(projectId, lock) || lock.readOnly) return false;
+			clearTimer(runtime.state.projectLockRetryTimer);
+			runtime.state.projectLockRetryTimer = scheduleTimer(() => {
+				runtime.state.projectLockRetryTimer = 0;
+				void publishRecoveredLock(projectId, lock).catch(runtime.handleError);
+			}, Math.min(retryMaximumMs, 1_000));
+			runtime.handleError(error);
+			return false;
+		}
 		if (current) {
 			return ownsLock(projectId, lock) && !lock.readOnly;
 		}
 		if (!ownsLock(projectId, lock)) return false;
-		enterReadOnly(new DOMException('The stored project changed while write access was unavailable.', 'AbortError'));
-		runtime.setProjectReadOnly(projectId, {
-			readOnly: true, reason: 'project-lock', lockMethod: lock.method,
-		});
-		runtime.publishProjectState();
-		setLocalizedStatus(runtime.setStatus, runtime.copy, 'projectReadOnly', undefined, 'error');
+		// This view can retain its history, but it cannot use the acquired writer.
+		runtime.state.projectLock = { projectId, readOnly: true, method: lock.method, release() {} };
+		try {
+			enterReadOnly(new DOMException('The stored project changed while write access was unavailable.', 'AbortError'));
+			runtime.setProjectReadOnly(projectId, {
+				readOnly: true, reason: 'project-lock', lockMethod: lock.method,
+			});
+			runtime.publishProjectState();
+			setLocalizedStatus(runtime.setStatus, runtime.copy, 'projectReadOnly', undefined, 'error');
+		} finally { await discardLock(lock); }
 		return false;
 	}
 

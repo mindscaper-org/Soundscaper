@@ -11,3 +11,23 @@ export function normalizeControlValue(value: unknown, descriptor: ParameterDescr
 	}
 	return value;
 }
+
+export function nonNegativeFrame(value: unknown): number {
+	if (!Number.isSafeInteger(value) || Number(value) < 0) {
+		throw new RangeError('Automation frame authority must be a non-negative safe integer.');
+	}
+	return Number(value);
+}
+
+export function positiveSafeInteger(value: unknown, name: string): number {
+	if (!Number.isSafeInteger(value) || Number(value) <= 0) {
+		throw new RangeError(`${name} must be a positive safe integer.`);
+	}
+	return Number(value);
+}
+
+export function safeIncrement(value: number, name: string): number {
+	const next = value + 1;
+	if (!Number.isSafeInteger(next)) throw new RangeError(`${name} overflowed.`);
+	return next;
+}

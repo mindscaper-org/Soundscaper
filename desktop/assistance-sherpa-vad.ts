@@ -11,9 +11,14 @@ import {
 	callSherpaNativeV1, createSherpaNativeExecutorV1, disposeSherpaNativeV1,
 	type SherpaAccelerationOptions,
 } from './assistance-sherpa-acceleration.ts';
+import { openAssistanceFloat32MonoWaveFileV1 } from './assistance-float32-mono-wave-file-reader.ts';
 
 const SAMPLE_RATE = 16_000;
 const WINDOW_SAMPLES = 512;
+const WINDOW_OVERLAP_SAMPLES = 64;
+const PCM_BLOCK_SAMPLES = 65_536;
+
+type SherpaVadRequest = VoiceActivityRequest & Readonly<{ audioByteLength: number }>;
 
 interface SherpaSpeechSegment {
 	readonly start: number;
@@ -33,12 +38,11 @@ interface SherpaVadInstance {
 
 interface SherpaVadModule {
 	readonly Vad: new (config: unknown, bufferSizeInSeconds: number) => SherpaVadInstance;
-	readWave(path: string, enableExternalBuffer: false): Readonly<{ samples: Float32Array; sampleRate: number }>;
 }
 
 function exposesVad(value: unknown): value is SherpaVadModule {
 	const candidate = value as Partial<SherpaVadModule> | null;
-	return typeof candidate?.Vad === 'function' && typeof candidate.readWave === 'function';
+	return typeof candidate?.Vad === 'function';
 }
 
 function resolveRuntimeModule(runtime: unknown): SherpaVadModule {
@@ -49,24 +53,23 @@ function resolveRuntimeModule(runtime: unknown): SherpaVadModule {
 }
 
 export function createSherpaVadFactory(runtime: unknown, options: SherpaAccelerationOptions = {}): Readonly<{
-	detect(request: VoiceActivityRequest): Promise<VoiceActivityResult>;
+	detect(request: SherpaVadRequest): Promise<VoiceActivityResult>;
 }> {
 	const module = resolveRuntimeModule(runtime);
 	createSherpaNativeExecutorV1(options);
 	return Object.freeze({
-		async detect(request: VoiceActivityRequest): Promise<VoiceActivityResult> {
+		async detect(request: SherpaVadRequest): Promise<VoiceActivityResult> {
 			if (typeof request?.audioPath !== 'string' || request.audioPath === ''
 				|| typeof request.model?.model !== 'string' || request.model.model === '') {
 				throw new TypeError('Voice activity needs one audio file and one Silero model.');
 			}
 			request.signal?.throwIfAborted();
-			// Electron's V8 sandbox requires V8-owned buffers.
-			const wave = module.readWave(request.audioPath, false);
-			if (wave.sampleRate !== SAMPLE_RATE || !(wave.samples instanceof Float32Array) || wave.samples.length < 1) {
-				throw new RangeError('Voice activity requires exact 16 kHz selected audio.');
-			}
+			const executor = createSherpaNativeExecutorV1(options);
+			const wave = await openAssistanceFloat32MonoWaveFileV1(request.audioPath, SAMPLE_RATE, request.audioByteLength);
+			const selectedSampleCount = wave.sampleCount;
+			const analysisSampleCount = Math.ceil(selectedSampleCount / WINDOW_SAMPLES) * WINDOW_SAMPLES;
 			let completedSamples = 0;
-			return createSherpaNativeExecutorV1(options).run(request.signal, (provider) => {
+			return executor.run(request.signal, async (provider) => {
 				const vad = callSherpaNativeV1(() => new module.Vad({
 					sileroVad: {
 						model: request.model.model, threshold: 0.5,
@@ -85,28 +88,41 @@ export function createSherpaVadFactory(runtime: unknown, options: SherpaAccelera
 					}
 				};
 				try {
-					for (let offset = 0; offset < wave.samples.length; offset += WINDOW_SAMPLES) {
-						request.signal?.throwIfAborted();
-						const end = Math.min(offset + WINDOW_SAMPLES, wave.samples.length);
-						callSherpaNativeV1(() => { vad.acceptWaveform(wave.samples.subarray(offset, end)); });
-						request.signal?.throwIfAborted();
-						drain();
-						completedSamples = Math.max(completedSamples, end);
-						request.onProgress?.(Object.freeze({ completed: completedSamples, total: wave.samples.length }));
+					for (let first = 0; first < selectedSampleCount; first += PCM_BLOCK_SAMPLES) {
+						const block = await wave.readSamples(first,
+							Math.min(PCM_BLOCK_SAMPLES, selectedSampleCount - first), request.signal);
+						for (let offset = 0; offset < block.length; offset += WINDOW_SAMPLES) {
+							request.signal?.throwIfAborted();
+							const end = Math.min(offset + WINDOW_SAMPLES, block.length);
+							callSherpaNativeV1(() => { vad.acceptWaveform(block.subarray(offset, end)); });
+							request.signal?.throwIfAborted();
+							drain();
+							completedSamples = Math.max(completedSamples, first + end);
+							request.onProgress?.(Object.freeze({ completed: completedSamples, total: selectedSampleCount }));
+						}
 					}
+					// Sherpa flushes processed windows only. The pinned Silero model also needs 64 samples of overlap.
+					request.signal?.throwIfAborted();
+					const padding = new Float32Array(analysisSampleCount - selectedSampleCount + WINDOW_OVERLAP_SAMPLES);
+					callSherpaNativeV1(() => { vad.acceptWaveform(padding); });
 					callSherpaNativeV1(() => { vad.flush(); });
 					drain();
 					request.signal?.throwIfAborted();
-					for (const [index, segment] of segments.entries()) {
-						if (segment.startSample + segment.sampleCount > wave.samples.length) {
-							throw new RangeError(`Sherpa VAD segment ${index} exceeds the selected audio.`);
-						}
+					const result = normalizeVoiceActivityResult({ sampleRate: SAMPLE_RATE, segments });
+					const last = result.segments.at(-1);
+					const lastEnd = last ? last.startSample + last.sampleCount : 0;
+					if (!last || lastEnd <= selectedSampleCount) return result;
+					if (last.startSample >= selectedSampleCount || lastEnd > analysisSampleCount) {
+						throw new RangeError('Sherpa VAD segment exceeds the selected audio and its final analysis window.');
 					}
-					return normalizeVoiceActivityResult({ sampleRate: SAMPLE_RATE, segments });
+					return Object.freeze({ sampleRate: SAMPLE_RATE, segments: Object.freeze([
+						...result.segments.slice(0, -1), Object.freeze({ startSample: last.startSample,
+							sampleCount: selectedSampleCount - last.startSample }),
+					]) });
 				} finally {
 					try { vad.clear(); } finally { disposeSherpaNativeV1(vad); }
 				}
-			});
+			}).finally(() => wave.close());
 		},
 	});
 }

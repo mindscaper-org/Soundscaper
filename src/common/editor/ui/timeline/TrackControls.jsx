@@ -35,6 +35,7 @@ import {
 } from '../soundscaper-workflow-product-runtime.tsx';
 import { COMPACT_TRACK_PANEL_WIDTH } from './constants.ts';
 import { projectStripPanAvailable } from '../../terminal-channel-widths.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export function TrackControls({
 	controller,
@@ -377,7 +378,7 @@ export function TrackNameEditor({ track, label, blocked, controller, run, onClos
 				onClose();
 			});
 		}}>
-			<span className="kw-audio-editor-sr-only">{label}: {track.name}</span>
+			<EditorControlLabel className="kw-audio-editor-sr-only">{label}: {track.name}</EditorControlLabel>
 			<TextInput value={name} multiline={multiline} disabled={blocked} width="100%" onChange={setName} />
 		</label>
 	);

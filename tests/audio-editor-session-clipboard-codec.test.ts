@@ -162,7 +162,7 @@ test('session clipboard normalization orders referenced sources, prunes extras, 
 	);
 });
 
-test('session clipboard creation resolves descriptor sources and keeps its descriptor detached', () => {
+test('session clipboard creation detaches the descriptor and referenced sources without cloning the document', (context) => {
 	const descriptor = pairedDescriptor();
 	const project = {
 		schemaVersion: 2,
@@ -176,12 +176,16 @@ test('session clipboard creation resolves descriptor sources and keeps its descr
 		clips: [],
 		tracks: [],
 	};
+	const nativeClone = globalThis.structuredClone;
+	const cloning = context.mock.method(globalThis, 'structuredClone', nativeClone);
 	const clipboard = createAudioEditorSessionClipboard(project, { descriptor });
 
 	assert.equal(AUDIO_EDITOR_SESSION_CLIPBOARD_SCHEMA_VERSION, 1);
 	assert.equal(clipboard.originProjectId, 'project');
 	assert.deepEqual(clipboard.sources.map(({ id }) => id), ['source-a', 'source-z']);
 	assert.notEqual(clipboard.descriptor, descriptor);
+	assert.notEqual(clipboard.sources[0], project.sources[1]);
+	assert.equal(cloning.mock.calls.some(({ arguments: [value] }) => value === project), false);
 	assert.throws(
 		() => createAudioEditorSessionClipboard({ ...project, sources: project.sources.slice(0, 1) }, { descriptor }),
 		/Clipboard source source-a is missing/iu,

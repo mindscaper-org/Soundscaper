@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { admitProjectPublication, projectPublicationWarningOptions } from '../common/editor/storage/project-publication-options.ts';
+import type { LocalStoreClearOptions } from '../common/editor/storage/linked-original-clear-admission.ts';
+import type { LinkedOriginalStoreService } from '../common/editor/storage/linked-original-store-service.ts';
+import { ProjectDuplicationIndeterminateError } from '../common/editor/storage/project-duplication.ts';
 import type { ProjectDocument } from '../common/editor/storage/project-repository.ts';
 import { createProjectStoreId } from '../common/editor/storage/project-store-defaults.ts';
 import type { EditorProjectRuntimeProfile } from '../common/editor/project-runtime-profile.ts';
@@ -8,6 +11,7 @@ import {
 	assertFramescaperDesktopProjectLibraryRendererComposition,
 	type FramescaperDesktopProjectLibraryRenderer,
 } from './desktop-project-library-renderer.ts';
+import { FramescaperDesktopProjectLibraryCommittedError } from './desktop-project-library-errors.ts';
 import { assertFramescaperProjectRuntimeProfile } from './editor-project-runtime-profile.ts';
 import { framescaperProjectStoreAuthority, bindFramescaperDesktopProjectStoreAuthority } from './editor-project-store.ts';
 import type { AudioEditorProjectStore } from '../common/editor/storage.js';
@@ -28,9 +32,8 @@ export interface FramescaperDesktopProjectStoreLocal {
 	estimateStorage(): PromiseLike<unknown>;
 	loadProject(projectId: string, options?: unknown): PromiseLike<unknown> | unknown;
 	listProjects(): PromiseLike<readonly unknown[]> | readonly unknown[];
-	readonly linkedOriginalStoreService?: Readonly<{
-		deleteProject?<Value>(projectId: string, operation: () => PromiseLike<Value> | Value): Promise<Value>;
-	}>;
+	clear(options?: LocalStoreClearOptions): Promise<void>;
+	readonly linkedOriginalStoreService: Pick<LinkedOriginalStoreService, 'deleteProject' | 'duplicateProject'>;
 }
 
 export type FramescaperDesktopProjectStoreAdapter<Store> = Store & Readonly<{
@@ -72,6 +75,22 @@ function proxyHandler<Store extends FramescaperDesktopProjectStoreLocal>(
 	localStore: Store,
 	renderer: FramescaperDesktopProjectLibraryRenderer,
 ): ProxyHandler<Store> {
+	async function deleteProjectSnapshot(projectValue: unknown): Promise<boolean> {
+		const project = cloneFramescaperProject(profile, projectValue);
+		const lifecycle = localStore.linkedOriginalStoreService;
+		if (typeof lifecycle?.deleteProject !== 'function') {
+			return renderer.deleteProjectIfCurrent(project);
+		}
+		try {
+			return await lifecycle.deleteProject(String(project.id), async () => {
+				if (!await renderer.deleteProjectIfCurrent(project)) throw SCAPE_CREATION_FENCE_LOST;
+				return true;
+			});
+		} catch (error) {
+			if (error === SCAPE_CREATION_FENCE_LOST) return false;
+			throw error;
+		}
+	}
 	const overrides = Object.freeze({
 		listProjects: () => renderer.listProjects(),
 		loadProject: async (projectId: string, optionsValue: unknown = {}) => {
@@ -124,22 +143,8 @@ function proxyHandler<Store extends FramescaperDesktopProjectStoreLocal>(
 			await admitProjectPublication(localStore, project as ProjectDocument, publicationOptions);
 			return renderer.createScapeProjectIfAbsent(project, projectPublicationWarningOptions(publicationOptions));
 		},
-		deleteProjectIfCurrent: async (projectValue: unknown) => {
-			const project = cloneFramescaperProject(profile, projectValue);
-			const lifecycle = localStore.linkedOriginalStoreService;
-			if (typeof lifecycle?.deleteProject !== 'function') {
-				return renderer.deleteProjectIfCurrent(project);
-			}
-			try {
-				return await lifecycle.deleteProject(String(project.id), async () => {
-					if (!await renderer.deleteProjectIfCurrent(project)) throw SCAPE_CREATION_FENCE_LOST;
-					return true;
-				});
-			} catch (error) {
-				if (error === SCAPE_CREATION_FENCE_LOST) return false;
-				throw error;
-			}
-		},
+		deleteProjectIfCurrent: deleteProjectSnapshot,
+		deleteProjectSnapshot,
 		deleteProject: async (projectId: string) => {
 			const lifecycle = localStore.linkedOriginalStoreService;
 			if (typeof lifecycle?.deleteProject === 'function') {
@@ -155,17 +160,41 @@ function proxyHandler<Store extends FramescaperDesktopProjectStoreLocal>(
 				|| typeof options.title !== 'string' || !options.title) {
 				throw new TypeError(`${LABEL} duplication requires exact destination identity and title.`);
 			}
-			const source = await renderer.readProject(sourceProjectId);
+			const warningOptions = projectPublicationWarningOptions({ confirmFileSizeWarning: options.confirmFileSizeWarning,
+				signal: options.signal, assertCurrent: options.assertCurrent });
+			const signal = warningOptions.signal;
+			const source = await renderer.readProject(sourceProjectId, signal ? { signal } : {});
 			if (!source) throw new Error('The source project is unavailable.');
-			await admitProjectPublication(localStore, { ...source, id: copyProjectId, title: options.title, revision: 0 }, {
-				confirmFileSizeWarning: options.confirmFileSizeWarning, signal: options.signal, assertCurrent: options.assertCurrent,
-			});
-			return renderer.duplicateProject(sourceProjectId, {
-				id: copyProjectId,
-				title: options.title,
-				timestamp: new Date().toISOString(),
+			const title = options.title;
+			const timestamp = new Date().toISOString();
+			return localStore.linkedOriginalStoreService.duplicateProject({
+				loadProject: () => source as ProjectDocument,
+				listProjects: async () => (await renderer.listProjects()).map(({ id }) => ({ id })),
+				createProjectIfAbsent: async copy => {
+					await admitProjectPublication(localStore, { ...copy, revision: 0 }, warningOptions);
+					try {
+						return await renderer.duplicateProject(sourceProjectId, {
+							id: copyProjectId, title, timestamp, expectedSource: source, signal,
+							assertCurrent: warningOptions.assertCurrent,
+						}) as ProjectDocument;
+					} catch (error) {
+						if (error instanceof FramescaperDesktopProjectLibraryCommittedError) {
+							throw new ProjectDuplicationIndeterminateError(copyProjectId, error);
+						}
+						let published: boolean;
+						try { published = (await renderer.listProjects()).some(({ id }) => id === copyProjectId); }
+						catch (readError) {
+							throw new ProjectDuplicationIndeterminateError(copyProjectId, new AggregateError([error, readError]));
+						}
+						if (published) throw new ProjectDuplicationIndeterminateError(copyProjectId, error);
+						throw error;
+					}
+				},
+			}, {
+				sourceProjectId, copyProjectId, title, timestamp,
 			});
 		},
+		clear: () => localStore.clear({ preserveProjectData: true }),
 		preservesProjectsOnClear: () => true,
 	});
 	return {

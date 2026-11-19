@@ -149,7 +149,7 @@ export function scaleMasteringSequenceDeliveryPlan(
 	for (const segment of plan.segments) {
 		const gapBeforeFrames = scale(segment.gapBeforeFrames);
 		outputFrame += gapBeforeFrames;
-		const durationFrames = scale(segment.outputEndFrame - segment.outputStartFrame);
+		const durationFrames = Math.max(1, scale(segment.outputEndFrame - segment.outputStartFrame));
 		segments.push(Object.freeze({
 			...segment,
 			gapBeforeFrames,

@@ -89,6 +89,11 @@
 	min-width: 72px;
 }
 
+#kw-audio-editor-design-system [data-meter-dock],
+#kw-audio-editor-design-system .kw-audio-editor__workspace-panel-column:has(> [data-meter-panel]):not(:has(> .kw-audio-editor__workspace-panel:not([data-meter-panel]))) {
+	overflow: hidden;
+}
+
 #kw-audio-editor-design-system :is(.kw-audio-editor__panel-dock--left, .kw-audio-editor__panel-dock--right)[data-meter-dock] {
 	width: var(--workspace-dock-width, 72px);
 	min-width: var(--workspace-dock-min-width, 72px);

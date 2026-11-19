@@ -15,6 +15,15 @@ function assertRequestedPitch(samples: Float32Array): void {
 	assert.ok(Math.abs(frequency - 391.9954) < 1, `expected requested G4, received ${frequency} Hz`);
 }
 
+function assertInvertedPcm(output: Float32Array, packets: readonly Float32Array[]): void {
+	let offset = 0;
+	for (const packet of packets) {
+		for (let frame = 0; frame < packet.length; frame++) assert.equal(output[offset + frame]! + packet[frame]!, 0);
+		offset += packet.length;
+	}
+	assert.equal(output.length, offset);
+}
+
 for (const pending of [false, true]) test(`Invert captures the ${pending ? 'pending' : 'settled'} note and publishes signed inverted PCM`, async t => {
 	const f = await midiEffectsFixture(t);
 	let updating: Promise<unknown> | undefined;
@@ -29,9 +38,7 @@ for (const pending of [false, true]) test(`Invert captures the ${pending ? 'pend
 	}
 	await Promise.all([updating, applying]);
 	const input = f.inputs[0]; assert.ok(input); assertRequestedPitch(input);
-	const output = await f.samples();
-	assert.equal(output.length, input.length);
-	for (let frame = 0; frame < input.length; frame++) assert.equal(output[frame]! + input[frame]!, 0);
+	assertInvertedPcm(await f.samples(), f.inputs);
 	assert.equal(f.controller.getSnapshot().effects.lastSelectionType, 'audacity-invert');
 });
 
@@ -130,10 +137,9 @@ test('pending effects wait for the real controller source registry before readin
 	f.release.resolve(); await updating; await f.sourceReadEntered.promise; await settle();
 	assert.equal(f.inputs.length, 0, 'a committed source is not yet an activated render input');
 	f.releaseSourceRead.resolve(); await applying;
-	assert.deepEqual(f.readyInputs, [true]);
+	assert.ok(f.readyInputs.length > 0 && f.readyInputs.every(Boolean));
 	const input = f.inputs[0]; assert.ok(input); assertRequestedPitch(input);
-	const output = await f.samples();
-	for (let frame = 0; frame < input.length; frame++) assert.equal(output[frame]! + input[frame]!, 0);
+	assertInvertedPcm(await f.samples(), f.inputs);
 });
 
 for (const cancel of [false, true]) test(`${cancel ? 'Cancel' : 'Undo'} remains authoritative during source activation`, async t => {
@@ -155,8 +161,8 @@ test('a later owned MIDI source publication is activated before effect capture c
 	await f.controller.actions.midi.updateNote(f.clipId, 'note', { pitch: 69 });
 	const latest = f.controller.project?.clips.find(clip => clip.id === f.clipId); assert.ok(latest);
 	f.releaseSourceRead.resolve(); await applying;
-	assert.deepEqual(f.renderedSourceIds, [latest.sourceId]);
-	assert.deepEqual(f.readyInputs, [true]);
+	assert.deepEqual([...new Set(f.renderedSourceIds)], [latest.sourceId]);
+	assert.ok(f.readyInputs.length > 0 && f.readyInputs.every(Boolean));
 	const input = f.inputs[0]; assert.ok(input);
 	const crossings: number[] = [];
 	for (let frame = 1000; frame < 3500; frame++) if (input[frame - 1]! <= 0 && input[frame]! > 0) crossings.push(frame);

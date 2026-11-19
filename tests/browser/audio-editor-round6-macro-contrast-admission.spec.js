@@ -4,17 +4,17 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
 test('a program refuses the interactive Contrast command before admitting it as a bare analysis', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const palette = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const palette = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await palette.getByRole('button', { name: 'New program', exact: true }).click();
 	await palette.getByRole('textbox', { name: 'Program', exact: true }).fill([
 		"try { await sound.command('ContrastAnalyser'); }",
 		"catch (error) { sound.log.info(error.message); }",
 	].join('\n'));
-	await palette.getByRole('button', { name: 'Run program', exact: true }).click();
+	await palette.getByRole('button', { name: 'Run macro', exact: true }).click();
 	const log = palette.locator('[data-macro-script-log]');
 	await expect(log).toHaveAttribute('data-outcome', 'completed');
 	await expect(log).toContainText(/cannot run.*ContrastAnalyser/u);

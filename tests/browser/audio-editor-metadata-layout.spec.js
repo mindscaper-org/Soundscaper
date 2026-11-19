@@ -6,7 +6,7 @@ import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js'
 for (const width of [1280, 800]) {
 	test(`metadata fields keep aligned input columns at ${width}px`, async ({ page }) => {
 		await page.setViewportSize({ width, height: 900 });
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
 		const common = editor.getByRole('tabpanel', { name: 'General', exact: true });
 		await expectAlignedFields(common.getByRole('textbox'));

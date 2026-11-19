@@ -125,6 +125,8 @@ export const FOUNDATION_RUNTIME_SHIELDED_OWNERS: readonly FoundationRuntimeShiel
 	{ file: 'src/common/editor/controller/source/internal/processed-spectrogram-pcm.ts', surfaces: ['waveform'] },
 	{ file: 'src/common/editor/controller/clip-video/clip-time-pitch-render-service.ts', surfaces: ['composition'] },
 	{ file: 'src/common/editor/controller/clip-video/internal/clip-source-preview-project.ts', surfaces: ['preview'] },
+	{ file: 'src/common/editor/controller/clip-video/internal/clip-normalization-controls.ts', surfaces: ['composition'] },
+	{ file: 'src/common/editor/controller/clip-video/internal/clip-source-preview-controls.ts', surfaces: ['preview'] },
 	{ file: 'src/common/editor/controller/clip-video/internal/clip-normalization-render.ts', surfaces: ['composition'] },
 	{ file: 'src/common/editor/commands/clip-join-availability.ts', surfaces: ['timeline'] },
 	{ file: 'src/common/editor/ui/workspace/WorkspacePanelContent.jsx', surfaces: ['timeline'] },
@@ -133,7 +135,7 @@ export const FOUNDATION_RUNTIME_SHIELDED_OWNERS: readonly FoundationRuntimeShiel
 	{ file: 'src/common/editor/clip-spreadsheet.ts', surfaces: ['timeline', 'composition'] },
 	{ file: 'src/common/editor/controller/track-audio/internal/audio-warp/audio-warp-composition.ts', surfaces: ['composition'] },
 	{ file: 'src/common/editor/controller/import/internal/project-bin/project-bin-runtime.ts', surfaces: ['preview', 'composition'] },
-	{ file: 'src/common/editor/controller/import/internal/project-bin/project-bin-preview-service.ts', surfaces: ['preview'] },
+	{ file: 'src/common/editor/controller/import/internal/project-bin/project-bin-preview-project.ts', surfaces: ['preview'] },
 	{ file: 'src/common/editor/controller/import/internal/project-bin/project-bin-replacement-service.ts', surfaces: ['composition'] },
 	{ file: 'src/common/editor/project-bin-video-replacement.ts', surfaces: ['composition'] },
 	{ file: 'src/common/editor/ui/workspace/project-bin-video-preview-model.ts', surfaces: ['preview'] },
@@ -184,10 +186,15 @@ export const FOUNDATION_RUNTIME_SHIELDED_OWNERS: readonly FoundationRuntimeShiel
 	{ file: 'src/common/editor/controller/document/project-visual-service.ts', surfaces: ['waveform'] },
 	{ file: 'src/common/editor/ui/inspector/ClipPropertiesPanel.tsx', surfaces: ['timeline'] },
 	{ file: 'src/common/editor/ui/inspector/ClipSourceMonitorPanel.tsx', surfaces: ['waveform'] },
+	{ file: 'src/common/editor/transcript-editing.ts', surfaces: ['timeline'] },
 ]);
 
 /** Exact non-consumer readers co-located with a shield owner. No wildcard exclusions are admitted. */
 export const FOUNDATION_RUNTIME_TIMING_READER_EXCLUSIONS: readonly FoundationRuntimeTimingReaderExclusion[] = deepFreeze([
+	{
+		file: 'src/common/editor/transcript-editing.ts', entryPoint: 'projectWords',
+		reason: 'This downstream helper receives the resolved project and indexed runtime clips from transcriptEditingProject before mapping source words through warp, reversal and loop timing.',
+	},
 	{
 		file: 'src/common/editor/midi-file-delivery-report.ts', entryPoint: 'midiFileDeliveryReport',
 		reason: 'The delivery report reads only the supplied MIDI document event extents directly; authored project clip timing is resolved by the separately registered addClipPitchOmissions helper.',
@@ -447,6 +454,18 @@ export const FOUNDATION_RUNTIME_PROJECTION_IMPORTER_EXCLUSIONS: readonly Foundat
 	{
 		file: 'src/common/editor/quality/m3-longform-editorial-workload.ts',
 		reason: 'The deterministic qualification oracle resolves final clip positions only to compare persisted edit results against independently tracked expected coordinates; it is test workload construction rather than a runtime media consumer.',
+	},
+	{
+		file: 'src/common/editor/controller/document/internal/subprojects/subproject-time-pitch.ts',
+		reason: 'The subproject renderer passes its already-resolved project into this downstream cache-preparation helper; each clip receives the playback scalar before cache admission, while the registered renderer owns the runtime boundary.',
+	},
+	{
+		file: 'src/common/editor/track-playlist-av-links.ts',
+		reason: 'The playlist replacement adapter compares projected audio and picture ranges only to preserve or clear authored A/V link identities during command reconciliation; it does not produce playback or media output.',
+	},
+	{
+		file: 'src/common/editor/controller/composition/internal/transcript-editing-actions.ts',
+		reason: 'The transcript action controller uses the owned transcript timeline projection for selection, then resolves a command-only project for atomic deletion planning and commits through the persisted command boundary.',
 	},
 ]);
 

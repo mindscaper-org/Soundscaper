@@ -90,16 +90,26 @@ test('speaker diarization admits overlapping speakers but rejects unstable order
 	}), /ordered/iu);
 });
 
-test('Sherpa diarization rejects native timing outside selected audio', async () => {
+test('Sherpa diarization keeps the recorded part of a turn and drops turns in model padding', async () => {
 	const diarizer = createSherpaDiarizerFactory({
 		readWave: () => ({ sampleRate: 16_000, samples: new Float32Array(16_000) }),
 		OfflineSpeakerDiarization: class {
 			readonly sampleRate = 16_000;
-			process() { return [{ start: 0.75, end: 1.01, speaker: 0 }]; }
+			process() { return [
+				{ start: 1.01, end: 1.6, speaker: 2 },
+				{ start: 0.75, end: 1.0414375, speaker: 1 },
+				{ start: 0.25, end: 0.5, speaker: 0 },
+			]; }
 		},
 	});
-	await assert.rejects(diarizer.diarize({
+	assert.deepEqual(await diarizer.diarize({
 		audioPath: '/private/selected.wav',
 		models: { segmentation: '/private/segment.onnx', embedding: '/private/embed.onnx' },
-	}), /exceeds the selected audio/iu);
+	}), {
+		sampleRate: 16_000,
+		turns: [
+			{ startSample: 4_000, sampleCount: 4_000, speakerId: 0 },
+			{ startSample: 12_000, sampleCount: 4_000, speakerId: 1 },
+		],
+	});
 });

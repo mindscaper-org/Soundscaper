@@ -14,7 +14,8 @@ import {
 	type AutomationWritePhaseV21,
 } from '../common/editor/automation-write-mode-v21.ts';
 import type { ParameterDescriptor } from '../common/editor/parameter-address.ts';
-import { normalizeControlValue } from './editor-automation-control-value.ts';
+import { createStableId } from '../common/editor/stable-id.js';
+import { nonNegativeFrame, normalizeControlValue, positiveSafeInteger, safeIncrement } from './editor-automation-control-value.ts';
 import { sampleFrameToBeat } from '../common/editor/timeline-tempo-inverse.ts';
 import { compareRationals, type HoldTempoMap } from '../common/editor/timeline-time.ts';
 import type {
@@ -53,7 +54,6 @@ interface CaptureSession {
 	lastControlValue: number;
 	phase: AutomationWritePhaseV21;
 	gestureActive: boolean;
-	ordinal: number;
 }
 
 /**
@@ -224,7 +224,13 @@ export function createSoundscaperAutomationSession<Result = unknown>(
 		if (running && session && (
 			session.mode === 'write'
 			|| (session.mode === 'latch' && !session.gestureActive)
-		)) appendSample(session, current, session.lastControlValue);
+		)) {
+			const last = session.samples.at(-1);
+			const position = lanePosition(session.lane, current.positionFrame, current);
+			if (last && compareRationals(last.position, position) > 0) {
+				discardSession(true);
+			} else appendSample(session, current, session.lastControlValue, position);
+		}
 		return null;
 	}
 
@@ -269,7 +275,6 @@ export function createSoundscaperAutomationSession<Result = unknown>(
 			lastControlValue: controlValue,
 			phase,
 			gestureActive: phase === 'gesture',
-			ordinal: 0,
 		};
 	}
 
@@ -277,6 +282,7 @@ export function createSoundscaperAutomationSession<Result = unknown>(
 		activeSession: CaptureSession,
 		current: SoundscaperAutomationAuthority,
 		controlValue: number,
+		position?: AutomationLanePositionV21,
 	): SoundscaperAutomationPreview {
 		const frame = nonNegativeFrame(current.positionFrame);
 		const laneValue = evaluateAutomationLaneAtFrameV21(activeSession.lane, frame, {
@@ -290,14 +296,13 @@ export function createSoundscaperAutomationSession<Result = unknown>(
 			: decision.owner === 'trimmed-lane' ? laneValue + trimDelta : laneValue, activeSession.descriptor);
 		if (decision.capture) {
 			const sample = Object.freeze({
-				id: `automation-capture-${String(activeSession.generation)}-${String(activeSession.ordinal)}`,
-				position: lanePosition(activeSession.lane, frame, current),
+				id: createStableId('automation-capture'),
+				position: position ?? lanePosition(activeSession.lane, frame, current),
 				phase: activeSession.phase,
 				laneValue,
 				controlValue,
 				trimDelta,
 			});
-			activeSession.ordinal = safeIncrement(activeSession.ordinal, 'automation capture ordinal');
 			try {
 				appendOrReplace(activeSession.samples, sample);
 			} catch (error) {
@@ -548,24 +553,4 @@ function requiredTempoMap(current: SoundscaperAutomationAuthority): HoldTempoMap
 
 function transportActive(value: string): boolean {
 	return value === 'playing' || value === 'recording';
-}
-
-function nonNegativeFrame(value: unknown): number {
-	if (!Number.isSafeInteger(value) || Number(value) < 0) {
-		throw new RangeError('Automation frame authority must be a non-negative safe integer.');
-	}
-	return Number(value);
-}
-
-function positiveSafeInteger(value: unknown, name: string): number {
-	if (!Number.isSafeInteger(value) || Number(value) <= 0) {
-		throw new RangeError(`${name} must be a positive safe integer.`);
-	}
-	return Number(value);
-}
-
-function safeIncrement(value: number, name: string): number {
-	const next = value + 1;
-	if (!Number.isSafeInteger(next)) throw new RangeError(`${name} overflowed.`);
-	return next;
 }

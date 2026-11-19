@@ -26,12 +26,13 @@ export function inspectWavAdpcmSourceGeometry(bytes: Uint8Array): WavAdpcmSource
 	if (format === null || !frameCount || !dataBytes) return null;
 	const channelCount = view.getUint16(format + 2, true), sampleRate = view.getUint32(format + 4, true);
 	const blockAlign = view.getUint16(format + 12, true), samplesPerBlock = view.getUint16(format + 18, true);
+	// Writers such as FFmpeg store the configured average byte rate. Blocks and fact give the PCM extent.
 	if (view.getUint16(format, true) !== 2 || channelCount < 1 || channelCount > 2
 		|| sampleRate < 3000 || sampleRate > 384_000 || view.getUint16(format + 14, true) !== 4
 		|| view.getUint16(format + 16, true) !== 32 || view.getUint16(format + 20, true) !== 7
 		|| blockAlign <= 7 * channelCount || dataBytes % blockAlign !== 0
 		|| samplesPerBlock !== (blockAlign - 7 * channelCount) * 2 / channelCount + 2
-		|| view.getUint32(format + 8, true) !== Math.floor(sampleRate * blockAlign / samplesPerBlock)) return null;
+		|| view.getUint32(format + 8, true) === 0) return null;
 	const coefficients = [256, 0, 512, -256, 0, 0, 192, 64, 240, 0, 460, -208, 392, -232];
 	if (coefficients.some((coefficient, index) => view.getInt16(format + 22 + index * 2, true) !== coefficient)) return null;
 	const decodedFrameCount = dataBytes / blockAlign * samplesPerBlock;

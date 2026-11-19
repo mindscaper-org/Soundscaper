@@ -7,10 +7,10 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('Include tails completes the ordinary Noise Reduction spectral release', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'steady noise recording.wav', frequency: 1000,
 		duration: 1, channelCount: 1, channelAmplitudes: [.2] })]);
-	const dry = await exportSamples(page, editor);
+	const dry = await exportSamples(page, editor, { includeTail: true });
 	expect(dry.length).toBe(48_000);
 	expect(Math.max(...dry.slice(40_000, 47_000).map(Math.abs))).toBeGreaterThan(.13);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
@@ -22,7 +22,7 @@ test('Include tails completes the ordinary Noise Reduction spectral release', as
 	await expect(dialog.getByRole('button', { name: 'Disable effect', exact: true })).toBeVisible();
 	await commitInput(dialog.locator('[data-effect-param="reductionDb"] input[type="number"]'), '0');
 	await closeDialog(dialog);
-	const neutral = await exportSamples(page, editor);
+	const neutral = await exportSamples(page, editor, { includeTail: true });
 	expect(neutral.length).toBe(48_000);
 	expect(Math.max(...neutral.slice(40_000, 47_000).map(Math.abs))).toBeGreaterThan(.13);
 	const slot = panel.getByRole('group', { name: 'Noise Reduction', exact: true });
@@ -30,12 +30,12 @@ test('Include tails completes the ordinary Noise Reduction spectral release', as
 	await commitInput(dialog.locator('[data-effect-param="reductionDb"] input[type="number"]'), '24');
 	await commitInput(dialog.locator('[data-effect-param="frequencySmoothingBands"] input[type="number"]'), '3');
 	await closeDialog(dialog);
-	const wet = await exportSamples(page, editor);
+	const wet = await exportSamples(page, editor, { includeTail: true });
 	expect(wet.length).toBeGreaterThan(48_128);
 	expect(Math.max(...wet.slice(48_000, 48_128).map(Math.abs))).toBeGreaterThan(.005);
 	expect(Math.max(...wet.slice(-128).map(Math.abs))).toBeLessThan(.0001);
 	await slot.getByRole('button', { name: 'Disable effect', exact: true }).click();
-	const bypassed = await exportSamples(page, editor);
+	const bypassed = await exportSamples(page, editor, { includeTail: true });
 	expect(bypassed.length).toBe(48_000);
 	expect(Math.max(...bypassed.slice(40_000, 47_000).map(Math.abs))).toBeGreaterThan(.13);
 });

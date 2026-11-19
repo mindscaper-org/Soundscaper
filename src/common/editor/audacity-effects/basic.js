@@ -22,6 +22,7 @@
  * adaptation was created for kw.media in 2026.
  */
 
+import { applyTruePeakLimiter } from './limiter-live-processor.ts';
 import { normalizeAudacityEffectParams } from './manifest.js';
 import {
 	applyLegacyCompressorChannel,
@@ -219,6 +220,7 @@ export function applyAudacityInvert(channels, sampleRate = 48_000, params = {}) 
 export function applyAudacityLimiter(channels, sampleRate = 48_000, params = {}) {
 	validateAudio(channels, sampleRate);
 	const settings = effectParams('audacity-limiter', params);
+	if (settings.limitTruePeaks) return applyTruePeakLimiter(channels, sampleRate, settings);
 	return applyLinkedDynamics(channels, sampleRate, {
 		thresholdDb: settings.thresholdDb,
 		makeupGainDb: settings.makeupTargetDb - settings.thresholdDb,

@@ -21,3 +21,19 @@ test('linked clipping reports retain simultaneous short-channel peaks inside an 
 	assert.deepEqual(findAudioClippingRegions(channels), [{ startFrame: 1, endFrame: 5, frameCount: 4,
 		clippedSamples: 6, peakAmplitude: Math.abs(channels[1]![4]!) }]);
 });
+
+test('mono clipping emits exact qualifying runs without a per-frame coverage plane', (t) => {
+	const pcm = Float32Array.of(-1, 1.5, -1.25, 0, 1.8, 1.6, 0, -1.2, -1.7, 1.4);
+	const Reference = Uint8Array;
+	const original = Object.getOwnPropertyDescriptor(globalThis, 'Uint8Array')!;
+	const allocated: number[] = [];
+	Object.defineProperty(globalThis, 'Uint8Array', { ...original, value: class extends Reference {
+		constructor(length: number) { super(length); allocated.push(length); }
+	} });
+	t.after(() => { Object.defineProperty(globalThis, 'Uint8Array', original); });
+	assert.deepEqual(findAudioClippingRegions([pcm]), [
+		{ startFrame: 0, endFrame: 3, frameCount: 3, clippedSamples: 3, peakAmplitude: 1.5 },
+		{ startFrame: 7, endFrame: 10, frameCount: 3, clippedSamples: 3, peakAmplitude: Math.abs(pcm[8]!) },
+	]);
+	assert.deepEqual(allocated, []);
+});

@@ -40,11 +40,9 @@ import {
 	isVideoExportTimingMap,
 	videoExportTimingMapEntries,
 } from '../video-export-timing-map.ts';
-import {
-	createVideoKeyframeOfflineHtmlVideoSourceResolver,
-	type VideoKeyframeOfflineHtmlVideoSourceResolver,
-	type VideoKeyframeOfflineHtmlVideoSourceResolverOptions,
-} from './video-keyframe-offline-html-video-source-resolver.ts';
+import type { VideoKeyframeOfflineHtmlVideoSourceResolverOptions } from './video-keyframe-offline-html-video-source-resolver.ts';
+import type { VideoKeyframeOfflineSourceSession } from '../video-keyframe-offline-rgba-source.ts';
+import { createVideoKeyframeOfflineDeliverySourceResolver } from './video-keyframe-offline-delivery-source-resolver.ts';
 import {
 	createVideoKeyframeOfflineRgbaRenderer,
 	type VideoKeyframeOfflineRgbaRenderer,
@@ -59,6 +57,7 @@ import {
 	type VideoKeyframeOfflineWebCodecsDecision,
 } from './video-keyframe-offline-video-export-encoder.ts';
 import { runVideoKeyframeOfflineVideoResources } from './video-keyframe-offline-video-export-runner.ts';
+import { createOfflinePicturePlayback } from './video-keyframe-offline-picture-playback.ts';
 
 interface OfflineCanvas extends HTMLCanvasElement {
 	width: number;
@@ -107,7 +106,7 @@ export interface VideoKeyframeOfflineVideoExportDependencies {
 	readonly createCanvas: () => OfflineCanvas;
 	readonly createResolver: (
 		options: VideoKeyframeOfflineHtmlVideoSourceResolverOptions,
-	) => VideoKeyframeOfflineHtmlVideoSourceResolver;
+	) => VideoKeyframeOfflineSourceSession;
 	readonly createRenderer: typeof createVideoKeyframeOfflineRgbaRenderer;
 	readonly encodeVideo: typeof encodeVideoKeyframeVideo;
 	readonly encodeVideoToSink?: (
@@ -161,12 +160,12 @@ const DEFAULT_DEPENDENCIES: VideoKeyframeOfflineVideoExportDependencies = Object
 		}
 		return globalThis.document.createElement('canvas');
 	},
-	createResolver: createVideoKeyframeOfflineHtmlVideoSourceResolver,
+	createResolver: createVideoKeyframeOfflineDeliverySourceResolver,
 	createRenderer: createVideoKeyframeOfflineRgbaRenderer,
 	encodeVideo: encodeVideoKeyframeVideo,
 	encodeVideoToSink: encodeVideoKeyframeVideoToSink,
 });
-const EMPTY_ENCODED_RESOLVER: VideoKeyframeOfflineHtmlVideoSourceResolver = Object.freeze({
+const EMPTY_ENCODED_RESOLVER: VideoKeyframeOfflineSourceSession = Object.freeze({
 	resolveSource() { throw new ReferenceError('Generated-only export has no admitted encoded media source.'); },
 	dispose() {},
 });
@@ -267,6 +266,7 @@ async function executeOfflineVideo<Result>(
 	const result = await runVideoKeyframeOfflineVideoResources(
 		() => assets.length === 0 ? EMPTY_ENCODED_RESOLVER : dependencies.createResolver(Object.freeze({
 			sources: assets,
+			prepareDecoderSource: createOfflinePicturePlayback(request.timingBySourceId),
 			...(request.sourceTimeoutMs === undefined ? {} : { timeoutMs: request.sourceTimeoutMs }),
 		})),
 		(resolver) => {
@@ -295,8 +295,8 @@ async function executeOfflineVideo<Result>(
 
 function normalizeRequest(value: unknown, rawFrames = false): NormalizedRequest {
 	const request = closedRecord(value, 'offline video export request', REQUEST_FIELDS);
-	if (request.format !== 'mp4' && request.format !== 'webm') {
-		throw new RangeError('Offline video export format must be mp4 or webm.');
+	if (request.format !== 'mp4' && request.format !== 'webm' && request.format !== 'mov') {
+		throw new RangeError('Offline video export format must be mp4, webm, or mov.');
 	}
 	if (!(request.signal instanceof AbortSignal)) throw new TypeError('Offline video export requires an AbortSignal.');
 	if (typeof request.assertCurrent !== 'function') throw new TypeError('Offline video export requires assertCurrent.');
@@ -470,7 +470,7 @@ function normalizeDependencies(value: unknown): VideoKeyframeOfflineVideoExportD
 		createCanvas: () => Reflect.apply(createCanvas, value, []) as OfflineCanvas,
 		createResolver: (options: VideoKeyframeOfflineHtmlVideoSourceResolverOptions) => Reflect.apply(
 			createResolver, value, [options],
-		) as VideoKeyframeOfflineHtmlVideoSourceResolver,
+		) as VideoKeyframeOfflineSourceSession,
 		createRenderer: ((options: Parameters<typeof createVideoKeyframeOfflineRgbaRenderer>[0]) => Reflect.apply(
 			createRenderer, value, [options],
 		) as VideoKeyframeOfflineRgbaRenderer) as typeof createVideoKeyframeOfflineRgbaRenderer,

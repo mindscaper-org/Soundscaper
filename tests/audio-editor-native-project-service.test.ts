@@ -531,3 +531,13 @@ test('cancelled desktop targets and retryable initialization do not mutate save 
 	assert.equal(initializeCalls, 2);
 	assert.equal(service.nativeProjectProgressMessage({ value: Number.NaN }, 'Work'), 'Work 0%');
 });
+
+test('a read-only Save Copy never replaces the original destination for its tab', async () => {
+	const publications: NativeProjectDocument[] = [];
+	const fixture = createFixture({ onScapeSaved: (snapshot) => { publications.push(snapshot); } });
+	const service = createNativeProjectService(fixture.runtime);
+	fixture.state.readOnly = true;
+	const copy = await service.saveScape({ saveCopy: true });
+	assert.equal('manifest' in copy, true);
+	assert.deepEqual(publications, []);
+});

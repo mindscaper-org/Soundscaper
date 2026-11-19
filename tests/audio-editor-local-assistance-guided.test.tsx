@@ -34,14 +34,14 @@ import type { LocalAssistanceSnapshot } from '../src/common/editor/ui/local-assi
 import { digestMediaContent } from '../src/common/media/content-digest.ts';
 import { assistanceWorkflowFixture, WORKFLOW_JOB_ID } from './helpers/assistance-workflow-fixture.ts';
 
-test('the menu dialog opens Guided and exposes all 13 recipes before explicit Advanced opt-in', () => {
+test('the menu dialog opens Guided and exposes its recipes before explicit Advanced opt-in', () => {
 	const guided = createLocalAssistanceGuidedSessionStore({ bridge: null, preparation: null });
 	assert.equal(guided.getSnapshot().surface, 'guided');
 	assert.deepEqual(guided.getSnapshot().workflowIds, ASSISTANCE_GUIDED_WORKFLOW_IDS);
 	const initial = renderDialog(guided.getSnapshot());
 	assert.match(initial, /role="tab" aria-selected="true"[^>]*>Guided<\/button>/u);
 	assert.match(initial, /role="tabpanel"[^>]*aria-label="Guided"/u);
-	assert.match(initial, /<label[^>]*>Workflow/u);
+	assert.match(initial, /<label[^>]*><span[^>]*>Workflow<\/span>/u);
 	for (const workflowId of ASSISTANCE_GUIDED_WORKFLOW_IDS) {
 		assert.match(initial, new RegExp(`value="${workflowId}"`, 'u'));
 	}
@@ -55,7 +55,7 @@ test('the menu dialog opens Guided and exposes all 13 recipes before explicit Ad
 	for (const operation of ASSISTANCE_OPERATIONS.filter((candidate) => candidate !== 'text-to-speech' && candidate !== 'video-keying')) {
 		assert.match(advanced, new RegExp(`value="${operation}"`, 'u'));
 	}
-	assert.doesNotMatch(advanced, /<label[^>]*>Workflow/u);
+	assert.doesNotMatch(advanced, /<label[^>]*><span[^>]*>Workflow<\/span>/u);
 });
 
 test('each Guided recipe selects one frozen, strictly validated default settings body', () => {

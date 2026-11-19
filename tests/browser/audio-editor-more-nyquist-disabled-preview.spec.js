@@ -6,7 +6,7 @@ import { registerNyquistArchivePublication } from './helpers/nyquist-archive-pub
 
 test('published Trim Silence does not offer its explicitly disabled preview operation', async ({ page }) => {
 	await registerNyquistArchivePublication(page, ['TrimSilence.ny']);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'trim.wav', frequency: 440, duration: .1 })]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	let menu = await openNestedCommandMenu(page, editor, 'Effect', ['Nyquist']);

@@ -4,7 +4,7 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { bootEditor, clipByName, importFiles, openSourceMonitor } from './audio-editor-test-helpers.js';
 
 for (const sourceFocused of [true, false]) test(`Cut uses the focused editing surface, source=${sourceFocused}`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const file = createWavFixture({ name: 'Focus recording.wav', duration: 1, channelCount: 1 });
 	await importFiles(editor, [file]);
 	const clip = clipByName(editor, file.name);

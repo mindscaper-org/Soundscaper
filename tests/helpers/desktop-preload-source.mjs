@@ -14,10 +14,11 @@ export async function readDesktopPreloadSource(transformedSource = null) {
 			? { stdin: { contents: transformedSource, resolveDir: dirname(preloadPath), sourcefile: preloadPath } }
 			: { entryPoints: [preloadPath] }),
 		bundle: true, write: false, format: 'cjs', platform: 'node', external: ['electron'],
+		banner: { js: 'globalThis.window ??= { addEventListener() {} };' },
 		plugins: [{
 			name: 'desktop-preload-runtime-source',
 			setup(builder) {
-				builder.onResolve({ filter: /\/project-library-runtime\/desktop\/(?:(?:(?:ara|blender|assistance-keyed-video|project-saving)-preload|desktop-audio-codec-(?:operation|capability)-contract)|audiocom-(?:authorization|links))\.js$/ }, (args) => ({
+				builder.onResolve({ filter: /^\.\/project-library-runtime\/desktop\/[\w-]+\.js$/ }, (args) => ({
 					path: fileURLToPath(new URL(`../../desktop/${args.path.split('/').at(-1).replace(/\.js$/u, '.ts')}`, import.meta.url)),
 				}));
 			},

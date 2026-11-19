@@ -67,7 +67,7 @@ async function installSesBridge(page) {
 test('desktop File Open imports SES timing, source trim and gain, and exposes its limitations', async ({ page }) => {
 	test.setTimeout(60_000);
 	await installSesBridge(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseFileAction(page, editor, 'Open');
 	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 20_000 });
 	await expect(trackNameText(editor).first()).toHaveText('Legacy voice');
@@ -99,7 +99,7 @@ test('desktop File Open imports SES timing, source trim and gain, and exposes it
 });
 
 test('browser File Open rejects SES while preserving existing audio', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
 	const projectId = await editor.getAttribute('data-project-id');
@@ -113,7 +113,7 @@ test('browser File Open rejects SES while preserving existing audio', async ({ p
 
 test('a malformed desktop SES releases its media grant and preserves the open project', async ({ page }) => {
 	await installSesBridge(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseFileAction(page, editor, 'Open');
 	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 20_000 });
 	const projectId = await editor.getAttribute('data-project-id');

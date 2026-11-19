@@ -72,3 +72,14 @@ test('the cache keys on the decoded size and stays bounded', () => {
 	}
 	assert.ok(cache.size <= 64);
 });
+
+test('re-probed source characteristics invalidate cached display geometry', () => {
+	const cache: VideoPreviewDisplaySizeCache = new Map();
+	const target = entry();
+	const source = anamorphicSource();
+	const video = { videoWidth: 720, videoHeight: 576 };
+	applyVideoPreviewDisplaySize(cache, { ...source, characteristics: null }, target, video);
+	assert.equal(target.displayWidth, 720);
+	applyVideoPreviewDisplaySize(cache, source, target, video);
+	assert.equal(target.displayWidth, 1_024);
+});

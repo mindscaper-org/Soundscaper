@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { EditorProjectGeneration } from '../src/common/editor/controller/shared/lifecycle.ts';
 import test from 'node:test';
 
 import {
@@ -90,6 +91,60 @@ test('duplicate completion preserves initiating routing without replacing a late
 	assert.deepEqual(opened, []);
 	assert.deepEqual(fixture.state.projects, catalog);
 	assert.equal(Object.isFrozen(fixture.state.projects), true);
+});
+
+test('a completed duplicate does not switch tabs after the user leaves and returns to its origin', async () => {
+	const fixture = createFixture();
+	const origin = fixture.project()!;
+	const projectGeneration = new EditorProjectGeneration();
+	projectGeneration.activate(origin.id);
+	const started = deferred();
+	const release = deferred();
+	const copy = { id: 'dup', title: 'Copied project', revision: 0 };
+	const opened: string[] = [];
+	const service = createProjectAdminService({
+		...fixture.runtime,
+		projectGeneration,
+		store: { ...fixture.runtime.store, async duplicateProject() { started.resolve(); await release.promise; return copy; } },
+		openProject: (document) => { opened.push((document as { id: string }).id); },
+	});
+
+	const duplicating = service.duplicateProject('Copied project');
+	await started.promise;
+	projectGeneration.invalidate();
+	fixture.setProject({ id: 'another-tab', title: 'Another tab', revision: 0 });
+	projectGeneration.activate('another-tab');
+	fixture.setProject(origin);
+	projectGeneration.activate(origin.id);
+	release.resolve();
+
+	assert.equal(await duplicating, copy);
+	assert.deepEqual(opened, []);
+});
+
+test('a handoff cannot release a writer reacquired after switching away and back', async () => {
+	const fixture = createFixture();
+	const origin = fixture.project()!;
+	const projectGeneration = new EditorProjectGeneration();
+	projectGeneration.activate(origin.id);
+	const preparing = deferred();
+	const release = deferred();
+	const service = createProjectAdminService({
+		...fixture.runtime,
+		projectGeneration,
+		async flushProject() { preparing.resolve(); await release.promise; },
+	});
+	const handoff = service.prepareProjectHandoff({ projectId: origin.id, revision: origin.revision });
+	await preparing.promise;
+	projectGeneration.invalidate();
+	fixture.setProject({ id: 'another-tab', title: 'Another tab', revision: 0 });
+	projectGeneration.activate('another-tab');
+	fixture.setProject(origin);
+	projectGeneration.activate(origin.id);
+	release.resolve();
+
+	await assert.rejects(handoff, { code: 'PROJECT_CHANGED' });
+	assert.equal(fixture.calls.includes('release'), false);
 });
 
 test('closing inactive tabs persists dirty history and prunes session-only sources', async () => {

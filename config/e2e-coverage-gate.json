@@ -49,5 +49,5 @@
 			"description": "The packaged Soundscaper renderer, including its dedicated and shared workers, worklets, lazy chunks and service worker."
 		}
 	],
-	"reason": "The end-to-end gate is deliberately separate from Node and unit coverage. Its denominator is the executable inventory emitted by the Chromium and packaged Electron builds, and every required runtime surface must contribute evidence. All four Istanbul metrics are fixed at literal 100 percent; this file is a contract, not a ratchet."
+	"reason": "The end-to-end gate is separate from Node and unit coverage floors. Its complete production executable inventory defaults to native coverage; exact reviewed deterministic sources may require independent full-source Node coverage under coverage-test-layers.json. Every required native runtime surface must contribute evidence, and Node-owned sources retain genuine source-mapped native execution witnesses. All four Istanbul metrics are fixed at literal 100 percent in both layers; eligibility never substitutes for qualified proof."
 }

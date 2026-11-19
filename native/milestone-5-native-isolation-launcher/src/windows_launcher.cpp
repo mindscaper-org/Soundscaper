@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 #include <windows.h>
+#include "windows_child_crt_descriptors.h"
+#include "windows_child_pointer_width.h"
 #include <aclapi.h>
 #include <userenv.h>
 #include <io.h>
@@ -244,23 +246,19 @@ std::wstring quote(const std::wstring &value)
 	output.append(slashes * 2u, L'\\'); return output + L"\"";
 }
 
-std::vector<unsigned char> crtDescriptors(HANDLE extraInput)
+std::vector<unsigned char> crtDescriptors(HANDLE extraInput, size_t pointerBytes)
 {
+	std::vector<uint64_t> handles;
 	const int count = extraInput == nullptr ? 3 : 4;
-	std::vector<unsigned char> bytes(sizeof(int) + static_cast<size_t>(count)
-		+ static_cast<size_t>(count) * sizeof(intptr_t), 0u);
-	std::memcpy(bytes.data(), &count, sizeof(count));
-	auto *flags = bytes.data() + sizeof(int);
-	const size_t handleOffset = sizeof(int) + static_cast<size_t>(count);
 	for (int index = 0; index < count; ++index) {
 		const DWORD selector = index == 0 ? STD_INPUT_HANDLE : index == 1 ? STD_OUTPUT_HANDLE : STD_ERROR_HANDLE;
 		const HANDLE handle = index < 3 ? GetStdHandle(selector) : extraInput;
 		if (handle == nullptr || handle == INVALID_HANDLE_VALUE
 			|| !SetHandleInformation(handle, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT)) ExitProcess(125u);
-		flags[index] = 0x09u;
-		const auto raw = reinterpret_cast<intptr_t>(handle);
-		std::memcpy(bytes.data() + handleOffset + static_cast<size_t>(index) * sizeof(raw), &raw, sizeof(raw));
+		handles.push_back(static_cast<uint64_t>(reinterpret_cast<uintptr_t>(handle)));
 	}
+	const auto bytes = soundscaper::childCrtDescriptors(handles, pointerBytes);
+	if (bytes.empty()) ExitProcess(125u);
 	return bytes;
 }
 }
@@ -337,7 +335,7 @@ int wmain(int argc, wchar_t **argv)
 		registryReadSid == nullptr ? nullptr : &registryRead,
 		registryReadSid == nullptr ? 0u : 1u, 0u };
 	DWORD allApplicationPackagesPolicy = PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT;
-	const auto crt = crtDescriptors(values.extraInput);
+	const auto crt = crtDescriptors(values.extraInput, soundscaper::childPointerWidth(values.executable, values.pluginUserAccess));
 	std::vector<HANDLE> inherited{ GetStdHandle(STD_INPUT_HANDLE), GetStdHandle(STD_OUTPUT_HANDLE),
 		GetStdHandle(STD_ERROR_HANDLE) };
 	if (values.extraInput != nullptr) inherited.push_back(values.extraInput);

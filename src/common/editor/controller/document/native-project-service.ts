@@ -7,6 +7,7 @@ import { isScapeProjectFile } from '../../scape-project-format.ts';
 import { createDeferredDawprojectService } from '../import/deferred-dawproject-service.ts';
 import { createDeferredSesxService } from '../import/deferred-sesx-service.ts';
 import { createDeferredInterchangeService } from '../import/deferred-interchange-service.ts';
+import { retireScapeArchiveManifests } from './internal/scape/scape-archive-manifest-action.ts';
 import {
 	EDITOR_PROJECT_TASK_SCOPE,
 	type EditorProjectToken,
@@ -26,6 +27,7 @@ import {
 	persistNativeProjectSource,
 } from './internal/native-project/native-project-source-persistence.ts';
 import {
+	abortNativeScapeSave,
 	beginNativeScapeSave,
 	type NativeRetainedScapeArchive,
 	publishNativeScape,
@@ -36,6 +38,7 @@ import { persistNativeAudacitySampleBlocks } from './internal/native-project/nat
 import { confirmFileSizeWarning } from '../shared/file-size-warning.ts';
 import { withAudacityWorkerSizeAdmission } from './internal/native-project/audacity-worker-size-admission.ts';
 import { openAudacityWithRecovery } from './internal/native-project/audacity-recovery-open.ts';
+import { publishProjectReadOnlyStatus } from './project-read-only-status.ts';
 import type {
 	Aup4DecodedSource,
 	Aup4Environment,
@@ -43,6 +46,7 @@ import type {
 	NativeAup4Client,
 	NativeCompatibilityReport,
 	NativeProgress,
+	NativePreparedSave,
 	NativeProjectAudioSource,
 	NativeProjectDocument, NativeProjectFile, NativeScapeProjectFile,
 	NativeProjectServiceRuntime,
@@ -94,6 +98,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 		openAudacityProject,
 		openAup4, openDawproject: dawproject.openDawproject, saveDawproject: dawproject.saveDawproject, openSesx: sesx.openSesx,
 		openScape,
+		retireClosedScapeArchives,
 		openInterchange: interchange.openInterchange,
 		rememberAup4CompatibilityReport,
 		saveAup3: audacitySave.saveAup3,
@@ -141,6 +146,17 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 		}
 	}
 
+	async function retireClosedScapeArchives(): Promise<void> {
+		retireScapeArchiveManifests(runtime.state, projectId => Boolean(runtime.sessionTab(projectId)));
+		const releases: Promise<void>[] = [];
+		for (const [projectId, archive] of futureScapeArchives) {
+			if (runtime.sessionTab(projectId)) continue;
+			futureScapeArchives.delete(projectId);
+			if (archive.cleanup) releases.push(archive.cleanup());
+		}
+		await Promise.all(releases);
+	}
+
 	async function openScape(
 		file: NativeScapeProjectFile,
 		options: OpenScapeOptions = {},
@@ -148,23 +164,28 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 		if (!file || (file instanceof Blob && 'name' in file && !isScapeProjectFile(file))) {
 			throw new TypeError('Choose a Scape project file.');
 		}
-		if (runtime.editingBlocked()) return null;
+		if (runtime.editingBlocked(true)) return null;
 		const operation = beginProjectTask('native-project-open');
 		const signal = options.signal ? AbortSignal.any([operation.task.signal, options.signal]) : operation.task.signal;
 		try {
 			signal.throwIfAborted();
 			beginImport(operation.task);
-			if (options.collision === 'replace' && runtime.getProject() && !runtime.state.readOnly) {
+			if ((options.collision === 'replace' || options.collision === 'reuse') && runtime.getProject() && !runtime.state.readOnly) {
 				await runtime.flushProject();
 				assertOwnership(operation.task, operation.projectToken);
 			}
-			const imported = await runtime.importScapeProject(file, runtime.store, {
+			const loaded = await runtime.importScapeProject(file, runtime.store, {
 				...(runtime.fileService?.isDesktop ? { resolveExternalMedia: runtime.fileService.externalMediaResolver?.(file), decodeExternalAudio: runtime.decodeExternalAudio } : {}),
 				collision: options.collision || 'copy', recover: options.recover, copySuffix: publishedCopyFor(runtime.copy).projectCopySuffix, acquireReplaceProjectWriteAuthority: runtime.acquireReplaceProjectWriteAuthority,
 				confirmFileSizeWarning: runtime.confirmFileSizeWarning,
 				assertCurrent: () => assertOwnership(operation.task, operation.projectToken),
 				estimateStorageForPreflight: (bytes, operation) => runtime.estimateStorageForPreflight(bytes, operation, signal), signal,
 			});
+			// An opaque viewing tab owns its archive bytes independently of any
+			// editable project or other archive carrying the same document ID.
+			const imported = loaded.readOnly
+				? { ...loaded, project: { ...loaded.project, id: runtime.createStableId('opaque-project') } }
+				: loaded;
 			if (imported.publicationCommitted === true) {
 				// Publication is durable now. Adopt it despite a late cancellation, but
 				// never activate it over a different project opened in the meantime.
@@ -178,37 +199,36 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 					projectId: imported.project.id, manifest: imported.manifest, signal,
 					assertCurrent: () => assertOwnership(operation.task, operation.projectToken),
 				}) : null;
-			const previous = futureScapeArchives.get(imported.project.id);
-			if (retained) futureScapeArchives.set(imported.project.id, retained);
-			else futureScapeArchives.delete(imported.project.id);
+			const readOnlyReason = !imported.readOnly ? null : imported.reason === 'foreign-family'
+				? runtime.copy.projectReadOnly : runtime.copy.futureProjectReadOnly;
 			try {
 				await runtime.switchProject(imported.project, {
 					readOnly: imported.readOnly,
-					readOnlyReason: imported.readOnly ? runtime.copy.futureProjectReadOnly : null,
-					skipFlush: imported.collision === 'replace',
+					readOnlyReason,
+					skipFlush: imported.collision === 'replace' || imported.collision === 'reuse',
 					adoptSessionRevision: imported.collision === 'replace',
 					replaceSessionHistory: imported.collision === 'replace',
 					preserveScapeOpenRequest: true,
+					transient: imported.readOnly,
 				});
 			} catch (error) {
-				if (previous) futureScapeArchives.set(imported.project.id, previous);
-				else futureScapeArchives.delete(imported.project.id);
 				await retained?.cleanup?.();
 				throw error;
 			}
-			await previous?.cleanup?.();
-			for (const [projectId, archive] of futureScapeArchives) {
-				if (runtime.sessionTab(projectId)) continue;
-				futureScapeArchives.delete(projectId);
-				await archive.cleanup?.();
-			}
+			if (retained) futureScapeArchives.set(imported.project.id, retained);
+			await retireClosedScapeArchives();
 			if (imported.publicationCommitted !== true) {
 				signal.throwIfAborted();
 				operation.task.assertCurrent();
 			}
 			runtime.projectGeneration.capture(imported.project.id);
-			await runtime.onScapeOpened?.(runtime.getProject()?.id === imported.project.id ? runtime.getProject()! : imported.project, file);
-			setLocalizedStatus(runtime.setStatus, runtime.copy, runtime.state.readOnly ? 'projectReadOnly' : 'projectSaved', undefined, runtime.state.readOnly ? 'error' : 'success');
+			if (!imported.readOnly && imported.collision !== 'copy' && !imported.recoveryChanges?.length) {
+				const active = runtime.getProject();
+				const project = imported.collision !== 'reuse' && active?.id === imported.project.id ? active : imported.project;
+				await runtime.onScapeOpened?.(project, file);
+			}
+			if (runtime.state.readOnly) publishProjectReadOnlyStatus(runtime.copy, runtime.setStatus, readOnlyReason);
+			else setLocalizedStatus(runtime.setStatus, runtime.copy, 'projectSaved', undefined, 'success');
 			return imported;
 		} finally {
 			finishImport(operation.task);
@@ -224,48 +244,67 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 		if (runtime.state.readOnly && !options.saveCopy) throw createLocalizedError(Error, runtime.copy, 'projectReadOnly');
 		if (runtime.state.readOnly && futureScapeArchive?.projectId === projectAtStart.id) {
 			const operation = beginProjectTask('native-project-save', projectAtStart.id, PROJECT_SCOPED_TASK);
+			const priorState = runtime.state.saveState === 'dirty' ? 'dirty' : 'saved';
 			try {
-				return await saveNativeScapeArchiveCopy(runtime, {
+				const result = await saveNativeScapeArchiveCopy(runtime, {
 					assertReady: () => assertOwnership(operation.task, operation.projectToken),
+					beginWriting: () => beginSave(operation.task, operation.projectToken, projectAtStart),
 					fallbackFileName: projectAtStart.title, options, retained: futureScapeArchive, signal: operation.task.signal,
 				});
+				if ('manifest' in result) {
+					await runtime.releaseScapeCopyTarget?.(result);
+					announceScapeSave(operation, priorState);
+				}
+				return result;
+			} catch (error) {
+				failSave(operation.task, operation.projectToken, priorState);
+				throw error;
 			} finally { operation.task.finish(); }
 		}
 		if (runtime.hasMissingTimelineSources(projectAtStart)) throw createLocalizedError(Error, runtime.copy, 'missingSourcesPreventSave');
 		const operation = beginProjectTask('native-project-save', projectAtStart.id, PROJECT_SCOPED_TASK);
+		let unpublished: NativePreparedSave | null = null;
 		try {
 			const { fileName, prepared } = await beginNativeScapeSave(runtime, {
 				fallbackFileName: projectAtStart.title, options, signal: operation.task.signal,
 			});
 			if (prepared.mode === 'cancelled') return { cancelled: true };
+			unpublished = prepared;
 			assertOwnership(operation.task, operation.projectToken);
 			await runtime.flushProject({ prepareCurrentSnapshot: true, preparationPurpose: 'scape-save', allowFileSizeWarning: true });
 			assertOwnership(operation.task, operation.projectToken);
 			const snapshot = requireOwnedProject(projectAtStart.id);
+			const finalState = options.saveCopy && runtime.state.readOnly && runtime.state.saveState === 'dirty' ? 'dirty' : 'saved';
 			beginSave(operation.task, operation.projectToken);
+			unpublished = null;
 			const { exported, saved } = await publishNativeScape(runtime, {
 				assertReadyToCommit: () => assertOwnership(operation.task, operation.projectToken),
 				fileName, prepared, project: snapshot, signal: operation.task.signal,
 			});
-			await runtime.onScapeSaved?.(snapshot, saved);
-			if (finishSave(operation.task, operation.projectToken, 'saved')) {
-				setLocalizedStatus(runtime.setStatus, runtime.copy, "projectSaved", undefined, 'success');
-				runtime.publishDocumentSnapshot();
-			}
+			if (options.saveCopy) await runtime.releaseScapeCopyTarget?.(saved);
+			else await runtime.onScapeSaved?.(snapshot, saved);
+			announceScapeSave(operation, finalState);
 			return { ...saved, manifest: exported.manifest };
 		} catch (error) {
 			failSave(operation.task, operation.projectToken);
+			if (unpublished) return await abortNativeScapeSave(unpublished, error);
 			throw error;
 		} finally {
 			operation.task.finish();
 		}
 	}
 
+	function announceScapeSave(operation: ProjectTask, state: 'saved' | 'dirty'): void {
+		if (!finishSave(operation.task, operation.projectToken, state)) return;
+		setLocalizedStatus(runtime.setStatus, runtime.copy, 'projectSaved', undefined, 'success');
+		runtime.publishDocumentSnapshot();
+	}
+
 	async function openAudacityProject(file: NativeProjectFile, options: Readonly<{ recover?: boolean }> = {}): Promise<Readonly<Record<string, unknown>> | undefined> {
-		if (!file || !/\.aup[34]$/i.test(String(file.name || ''))) {
+		if (!file || !/\.aup(?:[34]|4unsaved)$/i.test(String(file.name || ''))) {
 			throw new TypeError('Choose an Audacity project file (.aup3 or .aup4).');
 		}
-		if (runtime.editingBlocked()) return undefined;
+		if (runtime.editingBlocked(true)) return undefined;
 		const operation = beginProjectTask('native-project-open');
 		const sourceGeneration = /\.aup3$/i.test(file.name) ? 'aup3' : 'aup4';
 		const nativeId = sanitizeNativeId(runtime.createStableId('audacity-project'));

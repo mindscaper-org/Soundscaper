@@ -10,7 +10,7 @@ import {
 	bindProductProjectBinActions, type ProductProjectBinActions,
 } from '../common/editor/controller/composition/project-bin-action-group.ts';
 import { createFramescaperImageBatchPlacementTimelineImage } from './editor-image-placement-timeline-image.ts';
-import { rebaseSequenceVisualFrame } from './editor-sequence-visual-rate-conformance.ts';
+import { rebaseSequenceVisualFrame } from '../common/editor/timeline-visual-placement-time.ts';
 import { createSplitVisualPresentationPlanner } from './editor-split-visual-presentations.ts';
 
 type Data = Readonly<Record<string, unknown>>;
@@ -134,7 +134,7 @@ export function createFramescaperProjectBinVisualActions(
 		return Object.freeze(moved.map(clip => String(clip.id)));
 	}
 
-	function place(clipId: string, placement: Readonly<{ trackId?: string | null; timelineStartFrame?: unknown }> = {}): string | null | undefined {
+	function place(clipId: string, placement: Readonly<{ trackId?: string | null; timelineStartFrame?: unknown; createTrack?: boolean }> = {}): string | null | undefined {
 		const project = data(owner.project);
 		const clip = records(data(project.projectBin).clips).find(clip => clip.id === clipId);
 		if (!clip || !owned(clip)) return undefined;
@@ -152,6 +152,7 @@ export function createFramescaperProjectBinVisualActions(
 			selection: { ...data(project.selection), trackIds: [placement.trackId] } } : project;
 		const target = createFramescaperImageBatchPlacementTimelineImage(targetProject, {
 			sequenceId: sequence.id, sequenceStartFrame: start, sequenceFrameCounts: [duration], createId,
+			...(placement.createTrack ? { createTrack: true } : {}),
 		});
 		const id = createId('clip');
 		const candidate = { ...clip, id, sequenceId: target.sequenceId, sequenceStartFrame: start, sequenceFrameCount: duration };

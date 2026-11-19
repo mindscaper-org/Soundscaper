@@ -34,7 +34,7 @@ const MAXIMUM_FRAME_SET_BYTES = 512 * 1024 * 1024;
 const TIMEOUT_MS = 30_000;
 
 interface MainPort {
-	postMessage(message: unknown, transfer?: readonly unknown[]): void;
+	postMessage(message: unknown): void;
 	on(event: 'message' | 'close', listener: (value: unknown) => void): unknown;
 	off?(event: 'message' | 'close', listener: (value: unknown) => void): unknown;
 	removeListener?(event: 'message' | 'close', listener: (value: unknown) => void): unknown;
@@ -225,8 +225,8 @@ async function sendOutput(
 ): Promise<void> {
 	const sender = new HelperDataPlaneSender(binding);
 	for (let offset = 0; offset < bytes.byteLength; offset += binding.maximumChunkBytes) {
-		const message = sender.createChunk(bytes.slice(offset, offset + binding.maximumChunkBytes));
-		port.postMessage(message, [message.bytes.buffer]);
+		const message = sender.createChunk(bytes.subarray(offset, offset + binding.maximumChunkBytes));
+		port.postMessage(message);
 		const reply = await once(port, signal);
 		sender.acceptAck(reply);
 	}

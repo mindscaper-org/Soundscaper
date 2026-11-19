@@ -21,8 +21,10 @@ for (const pce of [false, true]) for (const generic of [false, true]) test(`AAC 
 	await editor.locator('[data-import-input]').setInputFiles({ name: generic ? 'Recording.bin' : 'Recording.aac',
 		mimeType: generic ? 'application/octet-stream' : 'audio/aac', buffer: Buffer.from(file) });
 	if (!expected.supported) {
+		test.setTimeout(60_000);
 		// This platform cannot decode the profile natively; admission adds no decoder.
-		await expect(editor.locator('[data-editor-toast="workspace-status-error"]')).toContainText('0 file(s) imported, 1 failed', { timeout: 15_000 });
+		// Native rejection and the supported-file retry each own a media-operation wait.
+		await expect(editor.locator('[data-editor-toast="workspace-status-error"]')).toContainText('0 file(s) imported, 1 failed', { timeout: 30_000 });
 		await expect(editor).toHaveAttribute('data-clip-count', '0');
 		await editor.locator('[data-import-input]').setInputFiles({ name: 'Supported.aac', mimeType: 'audio/aac', buffer: Buffer.from(aacLcAdtsPceFixture(false)) });
 		await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 15_000 });

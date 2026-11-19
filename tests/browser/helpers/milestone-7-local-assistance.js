@@ -19,12 +19,12 @@ const MODELS = Object.freeze([
 	['qwen3-4b-q4-k-m', '1.0.0', 'editorial-generation'],
 ]);
 
-export async function installMilestone7LocalAssistanceFixture(page) {
+export async function installMilestone7LocalAssistanceFixture(page, additionalModels = [], { transcriptWordTiming = false } = {}) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(({ models }) => {
+	await page.addInitScript(({ models, transcriptWordTiming }) => {
 		const artifactSha256 = '11'.repeat(32);
-		const runtimeModels = Object.freeze(models.map(([modelId, version, task]) => Object.freeze({
-			modelId, version, task, artifactSha256s: Object.freeze([artifactSha256]),
+		const runtimeModels = Object.freeze(models.map(([modelId, version, task, modelSha256 = artifactSha256]) => Object.freeze({
+			modelId, version, task, artifactSha256s: Object.freeze([modelSha256]),
 		})));
 		const managerModels = Object.freeze(runtimeModels.map(({ modelId, version, task }) => Object.freeze({
 			modelId, version, task, availability: 'installed', downloadBytes: 4_096,
@@ -37,6 +37,10 @@ export async function installMilestone7LocalAssistanceFixture(page) {
 			latestInput: null,
 			modelCalls: 0,
 			progressEvents: 0,
+			readWaits: 0,
+			custodyReleases: 0,
+			stallNextRead: false,
+			releaseRead: () => undefined,
 			queryCalls: 0,
 			requests: new Map(),
 			stagedInputBodies: new Map(),
@@ -44,6 +48,7 @@ export async function installMilestone7LocalAssistanceFixture(page) {
 		};
 		const workflowListeners = new Set();
 		const outputReservations = new Map();
+		const releasedJobs = new Set();
 		const opaqueId = () => (state.id++).toString(16).padStart(40, '0');
 		const claim = (custody) => Object.freeze({
 			claimVersion: 1, direction: custody.direction, claimId: custody.claimId,
@@ -89,7 +94,7 @@ export async function installMilestone7LocalAssistanceFixture(page) {
 					producer: { stageId: request.producer.stageId, slotId: request.producer.slotId,
 						claimId: request.producer.claimId } });
 			},
-			release: async () => true,
+			release: async (jobId) => { state.custodyReleases++; releasedJobs.add(jobId); return true; },
 		});
 		const workflow = Object.freeze({
 			custody,
@@ -132,6 +137,12 @@ export async function installMilestone7LocalAssistanceFixture(page) {
 			cancel: async (jobId) => Object.freeze({ contractVersion: 1, jobId,
 				outcome: 'cancelled' }),
 			readOutput: async ({ claim: outputClaim }) => {
+				if (state.stallNextRead) {
+					state.stallNextRead = false;
+					state.readWaits++;
+					await new Promise(resolve => { state.releaseRead = resolve; });
+					if (releasedJobs.has(outputClaim.jobId)) throw new Error('Output custody released during acceptance.');
+				}
 				if (!outputReservations.has(outputClaim.claimId)) {
 					throw new Error('Fixture output custody is unavailable.');
 				}
@@ -248,10 +259,16 @@ export async function installMilestone7LocalAssistanceFixture(page) {
 			const timelineFrame = 12_000;
 			const captionEnd = Math.min(sourceEnd, sourceStart + 24_000);
 			const values = {
+				'midi-notes': { schemaVersion: 1, sampleRate: 22_050,
+					sampleCount: Math.round((sourceEnd - sourceStart) * 22_050 / (audio?.sourceSampleRate ?? 48_000)),
+					notes: [60, 64, 67].map(pitch => ({ pitch, startSample: 2205, durationSamples: 11025, velocity: 100 })) },
 				captions: { schemaVersion: 1, kind: 'captions', sourceId: audio?.sourceId,
 					sampleRate: audio?.sourceSampleRate ?? 48_000, alignmentApplied: false,
 					cues: [{ cueId: 'caption:0', startFrame: sourceStart, endFrame: captionEnd,
-						text: 'Launch plan from the interview.', words: [] }] },
+						text: 'Launch plan from the interview.', words: transcriptWordTiming ? ['Launch', 'plan', 'from', 'the', 'interview.'].map((text, index) => ({
+							text, startFrame: sourceStart + Math.floor((captionEnd - sourceStart) * index / 5),
+							endFrame: sourceStart + Math.floor((captionEnd - sourceStart) * (index + 1) / 5), confidence: 0.95,
+						})) : [] }] },
 				'beat-labels': { schemaVersion: 1, kind: 'beat-labels',
 					publicationRequested: request.settings.publishBeatLabels,
 					points: [{ id: 'beat-grid:downbeat:0', kind: 'downbeat', label: 'Downbeat',
@@ -401,7 +418,7 @@ export async function installMilestone7LocalAssistanceFixture(page) {
 		function jsonBlob(value, slotId) {
 			return new Blob([JSON.stringify(value)], { type: outputMediaType(slotId) });
 		}
-	}, { models: MODELS });
+	}, { models: [...MODELS, ...additionalModels], transcriptWordTiming });
 }
 
 export async function completeMilestone7Run(page) {
@@ -418,6 +435,7 @@ export async function milestone7FixtureSnapshot(page) {
 			consents: [...state.consents], highlightSourceTimeRows: signals?.sourceTimeAuthority ?? [],
 			modelCalls: state.modelCalls, progressEvents: state.progressEvents,
 			queryCalls: state.queryCalls, stagedSlots: [...state.stagedSlots],
+			readWaits: state.readWaits, custodyReleases: state.custodyReleases,
 			workflowFences: [...state.requests.values()]
 				.map(({ workflowId, fence }) => ({ workflowId, fence })),
 		};

@@ -15,7 +15,6 @@ import {
 	onWindowStateChanged,
 	registerFocusedWindowAccelerators,
 	runWindowAction,
-	upgradePendingCloseRequestForQuit,
 	windowActionForAccelerator,
 } from '../desktop/window-chrome.mjs';
 
@@ -208,15 +207,6 @@ test('reload and developer tools are refused in packaged builds', () => {
 	assert.throws(() => runWindowAction('reload', options), /development build/iu);
 	assert.throws(() => runWindowAction('toggle-dev-tools', options), /development build/iu);
 	assert.deepEqual(calls, []);
-});
-
-test('whole-app Quit upgrades an already pending window-close confirmation', () => {
-	const pending = { requestId: 'close-1', reason: 'window-close' };
-	assert.equal(upgradePendingCloseRequestForQuit(pending, false), pending);
-	const upgraded = upgradePendingCloseRequestForQuit(pending, true);
-	assert.deepEqual(upgraded, { requestId: 'close-1', reason: 'quit' });
-	assert.equal(Object.isFrozen(upgraded), true);
-	assert.equal(upgradePendingCloseRequestForQuit(upgraded, true), upgraded);
 });
 
 test('window state notifications describe the current window and ignore a missing one', () => {

@@ -39,6 +39,7 @@ test('afterPack starts payload verification without waiting for the codec absenc
 		verifyPackagedKokoroG2pRuntime: async () => { started.push('kokoro-g2p'); },
 		verifyPackagedNativeAddonResources: async () => { started.push('native'); },
 		verifyPackagedOsAudioCodecNativeResources: async () => { started.push('os-audio-codec'); },
+		verifyPackagedYabridgeResources: async () => { started.push('yabridge'); },
 		verifyPackagedSoundscaperProfessionalNativeResources: async () => {
 			started.push('soundscaper-professional');
 		},
@@ -51,7 +52,7 @@ test('afterPack starts payload verification without waiting for the codec absenc
 		.then(() => null, (error) => error);
 	assert.deepEqual(started, [
 		'codec-absence', 'electron-ffmpeg', 'assistance-native', 'kokoro-g2p', 'native', 'soundscaper-professional',
-		'framescaper-native-hosts', 'os-audio-codec',
+		'framescaper-native-hosts', 'os-audio-codec', 'yabridge',
 	]);
 	releaseAudit();
 	assert.equal(await settled, null);
@@ -72,6 +73,7 @@ test('beforePack runs the absence audit and native runtime verification at once'
 			verifyStagedKokoroG2pRuntime: async () => { started.push('kokoro-g2p'); },
 			verifyStagedNativeAddonBeforePack: async () => { started.push('native'); },
 			verifyStagedOsAudioCodecNativeBeforePack: async () => { started.push('os-audio-codec'); },
+			verifyStagedYabridge: async () => { started.push('yabridge'); },
 			verifyStagedSoundscaperProfessionalNativeBeforePack: async () => {
 				started.push('soundscaper-professional');
 			},
@@ -82,7 +84,7 @@ test('beforePack runs the absence audit and native runtime verification at once'
 	).then(() => null, (error) => error);
 	assert.deepEqual(started, [
 		'codec-absence', 'assistance-native', 'kokoro-g2p', 'native', 'soundscaper-professional',
-		'framescaper-native-hosts', 'os-audio-codec',
+		'framescaper-native-hosts', 'os-audio-codec', 'yabridge',
 	]);
 	releaseAudit();
 	assert.equal(await settled, null);

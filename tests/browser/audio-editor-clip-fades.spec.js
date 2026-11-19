@@ -65,7 +65,7 @@ test.describe('non-destructive clip fade handles', () => {
 	for (const fixture of [monoTone, toneA]) {
 		test(`previews both fades, keeps curves after deselection and undoes one drag (${fixture.name})`, async ({ page }, testInfo) => {
 			const errors = collectClientErrors(page);
-			const editor = await bootEditor(page, '/embed/en/');
+			const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 			await importFiles(editor, [fixture]);
 			const clip = clipByName(editor, fixture.name);
 			await selectClip(clip);
@@ -117,7 +117,7 @@ test.describe('non-destructive clip fade handles', () => {
 	}
 
 	test('shades above the fade curves and guides their actual endpoints while hovered or focused', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		await selectClip(clip);
@@ -194,7 +194,7 @@ test.describe('non-destructive clip fade handles', () => {
 	for (const surface of ['timeline', 'source']) {
 		test(`${surface} fade clicks toggle linear shape and double-clicks reset without consuming the drag gesture`, async ({ page }) => {
 			const errors = collectClientErrors(page);
-			const editor = await bootEditor(page, '/embed/en/');
+			const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 			await importFiles(editor, [toneA]);
 			const clip = clipByName(editor, toneA.name);
 			await selectClip(clip);
@@ -229,7 +229,7 @@ test.describe('non-destructive clip fade handles', () => {
 	}
 
 	test('keeps the fade path continuous in Multi-view', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		const track = clip.locator('xpath=ancestor::div[@data-track-row]');
@@ -252,7 +252,7 @@ test.describe('non-destructive clip fade handles', () => {
 	});
 
 	test('keeps the design-system fade grip squares inside the clip outline at both edges', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		await selectClip(clip);
@@ -273,7 +273,7 @@ test.describe('non-destructive clip fade handles', () => {
 	});
 
 	test('shape handles appear with fades, can be hidden in View, and save curve drags', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		let clip = clipByName(editor, toneA.name);
 		await selectClip(clip);
@@ -318,7 +318,7 @@ test.describe('non-destructive clip fade handles', () => {
 	});
 
 	test('Clip properties edits fade lengths while timeline handles own custom fade shapes', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		await selectClip(clip);
@@ -337,7 +337,7 @@ test.describe('non-destructive clip fade handles', () => {
 
 	test('fade menus edit presets in Fades, undo once and save both edges', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		let clip = clipByName(editor, toneA.name);
 		await selectClip(clip);
@@ -405,7 +405,7 @@ test.describe('non-destructive clip fade handles', () => {
 	});
 
 	test('fade menus support keyboard access, restore Escape focus and remove the chosen edge', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		await selectClip(clip);
@@ -433,7 +433,7 @@ test.describe('non-destructive clip fade handles', () => {
 	});
 
 	test('both shape dots remain draggable when the two authored fades overlap', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		await selectClip(clip);
@@ -458,7 +458,7 @@ test.describe('non-destructive clip fade handles', () => {
 	});
 
 	test('another pointer losing capture does not cancel a fade shape drag', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		await selectClip(clip);
@@ -483,7 +483,7 @@ test.describe('non-destructive clip fade handles', () => {
 	});
 
 	test('Escape and pointer cancellation discard a preview, while keyboard edits persist after reload', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		let clip = clipByName(editor, toneA.name);
 		await selectClip(clip);
@@ -524,7 +524,7 @@ test.describe('non-destructive clip fade handles', () => {
 	});
 
 	test('selected fades preview every selected track together, while an unselected target keeps the other clip picked', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA, toneB]);
 		const first = clipByName(editor, toneA.name);
 		const second = clipByName(editor, toneB.name);
@@ -582,7 +582,7 @@ test.describe('non-destructive clip fade handles', () => {
 	});
 
 	test('both grips remain reachable when a boundary pushes the opposite fade away', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		await selectClip(clip);
@@ -614,7 +614,7 @@ test.describe('non-destructive clip fade handles', () => {
 	});
 
 	test('handles take precedence over the split tool and an unchanged drag adds no undo entry', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		await selectClip(clip);
@@ -631,7 +631,7 @@ test.describe('non-destructive clip fade handles', () => {
 	});
 
 	test('narrow clips retain keyboard fade editing while pointer grips stay hidden', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		await editor.getByRole('button', { name: 'Zoom out', exact: true }).click();
@@ -648,7 +648,7 @@ test.describe('non-destructive clip fade handles', () => {
 	});
 
 	test('new clips use microfades until the editing preference is turned off', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const first = clipByName(editor, toneA.name);
 		await selectClip(first);

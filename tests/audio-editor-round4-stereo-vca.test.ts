@@ -7,7 +7,7 @@ import type { MixerGraphV21 } from '../src/common/editor/mixer-graph-v21.ts';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 
-test('stereo replacement restores source VCA memberships after structural pruning, in one Undo', async context => {
+test('stereo split preserves VCA memberships and adds the right channel in one Undo', async context => {
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const projectRuntime = createSoundscaperProjectRuntimeSelection();
 	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY,
@@ -28,8 +28,9 @@ test('stereo replacement restores source VCA memberships after structural prunin
 	const split = await controller.actions.track.splitStereoLR(trackId);
 	assert.ok(split);
 	const after = controller.getSnapshot().project!.mixer as unknown as MixerGraphV21;
-	assert.deepEqual(after.vcas[0], { ...before.vcas[0], members: [{ kind: 'master' },
-		{ kind: 'track', id: split.leftTrackId }, { kind: 'track', id: split.rightTrackId }] });
+	assert.equal(split.leftTrackId, trackId);
+	assert.deepEqual(after.vcas[0], { ...before.vcas[0], members: [
+		...before.vcas[0]!.members, { kind: 'track', id: split.rightTrackId }] });
 	assert.deepEqual(after.vcas[1], before.vcas[1]);
 	assert.equal(controller.getSnapshot().history.undoEntries.length, historyCount + 1);
 	controller.actions.edit.undo();

@@ -4,7 +4,9 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseFileAction, chooseNestedCommandAction, disableNativeSavePicker, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
 
-for (const offset of [-.1, 0, -.3]) test(`legacy AUP at ${offset}s exports only the original visible programme`, async ({ page }) => {
+// The ordinary zero-offset control runs in the matching Node import/store suite.
+// Retain clipped-before-zero output and fully hidden media recovery through Bin.
+for (const offset of [-.1, -.3]) test(`legacy AUP at ${offset}s exports only the original visible programme`, async ({ page }) => {
 	test.setTimeout(90_000);
 	const frames = 9600, bytes = new Uint8Array(24 + frames * 4), view = new DataView(bytes.buffer);
 	for (const [index, value] of [0x2e736e64, 24, frames * 4, 6, 48_000, 1].entries()) view.setUint32(index * 4, value);

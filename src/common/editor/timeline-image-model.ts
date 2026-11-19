@@ -11,6 +11,7 @@ import { timelineImageSourceTickAtFrame, normalizeTimelineImageSourceFraction,
 
 export const FRAMESCAPER_IMAGE_ASSET_MAGIC = 'FSCIAB01' as const;
 export const FRAMESCAPER_IMAGE_ASSET_MIME_TYPE = 'application/vnd.framescaper.image-asset' as const;
+export const FRAMESCAPER_IMAGE_ASSET_ENCODING = 'framescaper-image-asset-v1' as const;
 export const FRAMESCAPER_IMAGE_TICKS_PER_SECOND = 1_000_000 as const;
 export const FRAMESCAPER_IMAGE_MODEL_LIMITS_V1 = Object.freeze({
 	maximumAssetBytes: 512 * 1024 * 1024,

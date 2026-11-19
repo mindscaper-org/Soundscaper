@@ -227,7 +227,9 @@ test('a motion analysis body is admitted only against its own source digest', as
 	const sources = [{ id: 'video-source', contentSha256: SOURCE_SHA }];
 
 	const assets = await loadAssets(node, { store, project: { sources } });
-	assert.deepEqual(assets.analyses.get('analysis-1'), analysis.bytes);
+	const retained = assets.analyses.get('analysis-1');
+	assert.deepEqual(retained, analysis.body);
+	assert.ok(Object.isFrozen(retained?.transforms));
 	assert.equal(assets.luts.size, 0);
 
 	const drifted = [{ id: 'video-source', contentSha256: 'ab'.repeat(32) }];

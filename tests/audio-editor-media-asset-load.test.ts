@@ -33,6 +33,45 @@ test('markerless media rows load intact and never gain digest provenance', async
 	assert.equal(Object.hasOwn(legacyRecord, 'sha256'), false);
 });
 
+test('asset verification snapshots check the owned OPFS file size without loading payloads or fallback chunks', async () => {
+	let size = 12, opfsReads = 0;
+	let failure: Error | undefined;
+	const abort = new AbortController();
+	let abortWhileReading = false;
+	const directory = { async getFileHandle(path: string) {
+		assert.equal(path, 'owned-original');
+		opfsReads++;
+		if (failure) throw failure;
+		return { async getFile() {
+			if (abortWhileReading) abort.abort();
+			return { size, arrayBuffer: () => assert.fail('OPFS availability must never read payload bytes') };
+		} };
+	} };
+	const opfsRoot = { getDirectoryHandle: async () => directory } as unknown as FileSystemDirectoryHandle;
+	const store = createProjectStore({ databaseName: uniqueDatabaseName('opfs-metadata-size'),
+		indexedDB: null, memoryFallback: true, preferOpfs: true, opfsRoot });
+	try {
+		store.memory.mediaAssets.set('video', { sourceId: 'video', storage: 'opfs', size, path: 'owned-original' });
+		store.memory.mediaAssets.set('chunked', chunkedMediaRecord('chunked'));
+		assert.equal((await store.getMediaAssetMetadata('video'))?.size, 12);
+		assert.equal((await store.readMediaAssetVerificationSnapshot('chunked'))?.file, null);
+		assert.equal(opfsReads, 0);
+		const healthy = await store.readMediaAssetVerificationSnapshot('video');
+		assert.equal(healthy?.metadata.size, 12);
+		assert.equal(healthy.file?.size, 12);
+		size--;
+		assert.equal(await store.readMediaAssetVerificationSnapshot('video'), null);
+		failure = new DOMException('File was removed', 'NotFoundError');
+		assert.equal(await store.readMediaAssetVerificationSnapshot('video'), null);
+		failure = new DOMException('Cannot inspect this file', 'NotAllowedError');
+		await assert.rejects(store.readMediaAssetVerificationSnapshot('video'), error => error === failure);
+		failure = undefined;
+		abortWhileReading = true;
+		await assert.rejects(store.readMediaAssetVerificationSnapshot('video', abort.signal),
+			error => error === abort.signal.reason);
+	} finally { await store.close(); }
+});
+
 test('complete version-zero claim rows load unchanged and never upgrade to verified provenance', async () => {
 	const store = memoryStore('media-read-claim-row');
 	const sourceId = 'claimed-video';

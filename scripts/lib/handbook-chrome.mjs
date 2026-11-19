@@ -52,6 +52,7 @@ export const HANDBOOK_CHROME_COPY = Object.freeze({
 	'site.title': 'Soundscaper Handbook',
 	'site.title.framescaper': 'Framescaper Handbook',
 	'site.title.motionscaper': 'Motionscaper Handbook',
+	'notice.aiGenerated': 'This documentation is AI-generated.',
 	'sidebar.start': 'Start here',
 	'sidebar.soundscaper': 'Soundscaper',
 	'sidebar.tutorials': 'Tutorials',

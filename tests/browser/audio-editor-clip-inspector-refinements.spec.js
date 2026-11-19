@@ -105,7 +105,7 @@ test('clip colors use the track swatch palette and can follow the track again', 
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [longTone]);
 	const panel = await openClipProperties(page, editor, clipByName(editor, longTone.name), { additional: false });
-	const color = panel.getByRole('button', { name: 'Clip color', exact: true });
+	const color = panel.getByRole('button', { name: /^Clip color(?::|$)/u });
 	await color.click();
 	const red = page.getByRole('menuitem', { name: 'Clip color: Red', exact: true });
 	await expect(red).toBeVisible();
@@ -138,11 +138,11 @@ test('Framescaper inspector menus stay above Source and release it when closed',
 	await expect(gainDialog).toBeVisible();
 	await gainDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
 	await expect(panel.getByRole('textbox', { name: 'Start', exact: true })).toBeVisible();
-	await panel.getByRole('button', { name: 'Clip color', exact: true }).click();
+	await panel.getByRole('button', { name: /^Clip color(?::|$)/u }).click();
 	await page.getByRole('menuitem', { name: 'Clip color: Red', exact: true }).click();
-	await expect(panel.getByRole('button', { name: 'Clip color', exact: true })).toContainText('Red');
-	await panel.getByRole('button', { name: 'Track', exact: true }).click();
-	const tracks = page.getByRole('listbox', { name: 'Track', exact: true });
+	await expect(panel.getByRole('button', { name: /^Clip color(?::|$)/u })).toContainText('Red');
+	await panel.getByRole('button', { name: /^Track(?::|$)/u }).click();
+	const tracks = page.getByRole('listbox', { name: /^Track(?::|$)/u });
 	await tracks.getByRole('option', { selected: true }).click();
 	await expect(tracks).toBeHidden();
 

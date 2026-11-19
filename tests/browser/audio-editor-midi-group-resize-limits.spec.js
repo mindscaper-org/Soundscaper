@@ -6,7 +6,7 @@ import { strFromU8, unzipSync } from 'fflate';
 import { readMidiClip } from '../../src/common/editor/midi-model.ts';
 
 test('left resizing selected notes at source zero preserves their onset offsets', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const events = Buffer.from('00ff510307a12078903c648360803c008268903e648360803e0000ff2f00', 'hex');
 	const size = Buffer.alloc(4); size.writeUInt32BE(events.length);
 	const buffer = Buffer.concat([Buffer.from('4d546864000000060000000101e04d54726b', 'hex'), size, events]);
@@ -18,10 +18,13 @@ test('left resizing selected notes at source zero preserves their onset offsets'
 	await laterNote.click({ position: { x: 20, y: 5 } });
 	await page.keyboard.press('ControlOrMeta+a');
 	await expect(panel.locator('.note-rect--selected')).toHaveCount(2);
+	await laterNote.hover({ position: { x: 1, y: 5 } });
 	const bounds = await laterNote.boundingBox(); if (!bounds) throw new Error('Later selected note is not visible');
-	const x = bounds.x + 1, y = bounds.y + bounds.height / 2;
-	await page.mouse.move(x, y); await page.mouse.down();
-	await page.mouse.move(x - 50, y, { steps: 3 }); await page.mouse.up();
+	await page.mouse.down();
+	const grid = panel.locator('.kw-audio-editor__piano-roll-notes > [tabindex="0"]');
+	await expect(grid).toHaveCSS('cursor', 'ew-resize');
+	await page.mouse.move(bounds.x - 49, bounds.y + 5);
+	await page.mouse.up();
 	await expect(panel.locator('.note-rect[data-note-id="1"]')).toHaveCSS('left', '0px');
 	await expect(laterNote).toHaveCSS('left', '87.5px');
 	await expect(panel.locator('.note-rect[data-note-id="1"]')).toHaveCSS('width', '62.5px');
@@ -30,7 +33,7 @@ test('left resizing selected notes at source zero preserves their onset offsets'
 
 test('right resizing selected notes shares the shortest-note limit without moving their onsets', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const events = Buffer.from('00ff510307a12078903c648360803c008268903e648360803e0000ff2f00', 'hex');
 	const size = Buffer.alloc(4); size.writeUInt32BE(events.length);
 	const buffer = Buffer.concat([Buffer.from('4d546864000000060000000101e04d54726b', 'hex'), size, events]);
@@ -50,8 +53,12 @@ test('right resizing selected notes shares the shortest-note limit without movin
 	await expect(panel.locator('.note-rect--selected')).toHaveCount(2);
 	const bounds = await later.boundingBox();
 	if (!bounds) throw new Error('Later selected note is unavailable');
-	const x = bounds.x + bounds.width - 1, y = bounds.y + bounds.height / 2;
-	await page.mouse.move(x, y); await page.mouse.down();
+	await later.hover({ position: { x: bounds.width - 2, y: bounds.height / 2 } });
+	await expect(later).toHaveCSS('cursor', 'ew-resize');
+	const edge = await later.boundingBox();
+	if (!edge) throw new Error('Later selected note moved out of view');
+	const x = edge.x + edge.width - 2, y = edge.y + edge.height / 2;
+	await page.mouse.down();
 	await page.mouse.move(x - 25, y, { steps: 3 }); await page.mouse.up();
 	await expect(later).toHaveCSS('left', '100px');
 	await expect(panel.locator('.note-rect--selected')).toHaveCount(2);

@@ -131,7 +131,7 @@ function snapshotSequence(
 		name: sequence.name,
 		sequenceId: sequence.sequenceId,
 		entries: Object.freeze(entries),
-		deliverable: validation.valid,
+		deliverable: validation.valid && entries.length > 0,
 		issues: validation.issues,
 		// A length that counted a missing region as zero would read as a shorter
 		// delivery rather than as an unresolved one.

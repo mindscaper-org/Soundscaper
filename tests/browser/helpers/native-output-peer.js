@@ -6,15 +6,16 @@ import { installDesktopSpeedWarmupManifest } from './desktop-speed-warmup-fixtur
 export const NATIVE_OUTPUT_PEER_WEBKIT_REASON = 'WebKit cannot qualify the desktop native peer eight-credit realtime deadline.';
 
 /** The production native worklet exchanges owned PCM packets with an independent helper thread. */
-export async function installNativeOutputPeer(page, { outputChannelCount = 2, measureFrequency = false } = {}) {
+export async function installNativeOutputPeer(page, { outputChannelCount = 2, measureFrequency = false, backend = 'alsa' } = {}) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(({ outputChannelCount, measureFrequency }) => {
+	await page.addInitScript(({ outputChannelCount, measureFrequency, backend }) => {
 		const sessions = new Map(), peers = new Map();
 		const pendingFences = new Map();
 		let next = 0, nextFence = 0;
 		const unavailable = { status: 'unavailable', reason: 'not-built', detail: '' };
 		const queueCapacity = 8;
 		window.__nativeOutput = { packets: 0, mean: 0, channelMeans: [], channelRms: [], loss: [], packetHistory: [], queueCapacity };
+		window.__nativeOutput.loseDevice = sessionId => peers.get(sessionId).worker.postMessage({ deviceLost: true });
 		let observationFailure = null;
 		const failObservation = message => {
 			observationFailure = message;
@@ -54,7 +55,7 @@ export async function installNativeOutputPeer(page, { outputChannelCount = 2, me
 			readNativeTierControls: async () => ({ probeHelperEnabled: false, probeHelperQuarantined: false,
 				audioHelperEnabled: true, audioHelperQuarantined: false, nativeEffectDiscoveryEnabled: false }),
 			nativeAudioHelperAvailability: async () => ({ enabled: true, quarantined: false,
-				payload: { status: 'available', reason: null, detail: '' }, backends: ['alsa'] }),
+				payload: { status: 'available', reason: null, detail: '' }, backends: [backend] }),
 			setNativeAudioHelperEnabled: async () => true,
 			nativePluginAvailability: async () => ({ enabled: false, quarantined: false, payload: unavailable,
 				formats: [], consent: { scanningEnabled: false, formats: [] },
@@ -68,7 +69,7 @@ export async function installNativeOutputPeer(page, { outputChannelCount = 2, me
 			openNativeAudioSession: async request => {
 				const sessionId = `route-${++next}`;
 				sessions.set(sessionId, request);
-				return { status: 'opened', sessionId, backend: 'alsa', deviceHandle: 'speakers' };
+				return { status: 'opened', sessionId, backend, deviceHandle: 'speakers' };
 			},
 			bindNativeAudioSession: async ({ sessionId }) => {
 				const request = sessions.get(sessionId), pair = new MessageChannel();
@@ -111,7 +112,7 @@ export async function installNativeOutputPeer(page, { outputChannelCount = 2, me
 				const observer = new Worker(observerUrl);
 				const url = URL.createObjectURL(new Blob([`
 					let latestPacket = null, lastSequence = -1, measuredSequence = -1;
-					let pending = 0, failed = false;
+					let pending = 0, failed = false, deviceLost = false;
 					const fences = [];
 					const finishFences = () => {
 						for (let index = fences.length - 1; index >= 0; index--) {
@@ -121,6 +122,7 @@ export async function installNativeOutputPeer(page, { outputChannelCount = 2, me
 					};
 					onmessage = ({ data }) => {
 						if (data.fence) { fences.push({ id: data.fence, sequence: lastSequence }); finishFences(); return; }
+						if (data.deviceLost) { deviceLost = true; return; }
 						const { port, observations } = data;
 						observations.onmessage = ({ data }) => {
 							pending--; measuredSequence = data.sequence; latestPacket = data.packet;
@@ -129,6 +131,11 @@ export async function installNativeOutputPeer(page, { outputChannelCount = 2, me
 						observations.start();
 						port.onmessage = ({ data }) => {
 							if (data.kind !== 'audio') return;
+							if (deviceLost) {
+								port.postMessage({ ...data, kind: 'return', status: 'device-unavailable', framesTransferred: 0 },
+									data.channels.map(channel => channel.buffer));
+								return;
+							}
 							lastSequence = data.sequence;
 							// One bounded copy models the native device write. Neither FFT
 							// nor telemetry can delay the next eight-credit packet return.
@@ -193,5 +200,5 @@ export async function installNativeOutputPeer(page, { outputChannelCount = 2, me
 			bridge[name] = async () => { throw new Error(`Unexpected native fixture method ${name}`); };
 		}
 		Object.defineProperty(window, 'soundscaperDesktop', { configurable: true, value: { v1: bridge } });
-	}, { outputChannelCount, measureFrequency });
+	}, { outputChannelCount, measureFrequency, backend });
 }

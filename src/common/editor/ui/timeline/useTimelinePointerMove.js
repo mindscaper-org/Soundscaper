@@ -435,7 +435,7 @@ export function useTimelinePointerMove({
 				: resolveClipMoveBoundarySnap({
 					project, index: session.snapIndex, clipId: session.clipId, movingClipIds: session.clipIds,
 					rawStartFrame: rawActiveStartFrame, currentTrackId: session.trackId,
-					destinationTrackId: createsTrack ? NEW_AUDIO_TRACK_DROP_TARGET : requestedTrackId,
+					destinationTrackId: createsTrack ? NEW_AUDIO_TRACK_DROP_TARGET : (mediaTracks[activeTrackIndex + trackDelta]?.id ?? requestedTrackId),
 					pixelsPerSecond, sampleRate, preferRightEdge: session.preferRightSnap === true,
 					microfadeNewClips: snapshot.preferences?.editing?.applyMicrofadesToNewClips === true,
 				});

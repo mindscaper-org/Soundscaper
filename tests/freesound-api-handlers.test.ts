@@ -527,18 +527,12 @@ test('the upstream deadline remains active while a JSON response body is read', 
 });
 
 test('upstream rate limits are normalized without relaying an arbitrary Retry-After value', async () => {
-	const admitted = await handleFreesoundSearchRequest(context(
-		new Request('https://soundscaper.org/api/freesound/search?q=rain'),
-	), { fetchImpl: async () => new Response(null, { status: 429, headers: { 'Retry-After': '45' } }) });
-	assert.equal(admitted.status, 503);
-	assert.equal(admitted.headers.get('retry-after'), '45');
-
-	const rejected = await handleFreesoundSearchRequest(context(
-		new Request('https://soundscaper.org/api/freesound/search?q=rain'),
-	), { fetchImpl: async () => new Response(null, {
-		status: 429,
-		headers: { 'Retry-After': 'Wed, 21 Oct 2099 07:28:00 GMT' },
-	}) });
-	assert.equal(rejected.status, 503);
-	assert.equal(rejected.headers.get('retry-after'), null);
+	const retryDate = 'Thu, 15 Oct 2026 00:02:00 GMT';
+	for (const [value, expected] of [['45', '45'], [retryDate, retryDate], ['retry whenever', null]] as const) {
+		const result = await handleFreesoundSearchRequest(context(
+			new Request('https://soundscaper.org/api/freesound/search?q=rain'),
+		), { fetchImpl: async () => new Response(null, { status: 429, headers: { 'Retry-After': value } }) });
+		assert.equal(result.status, 503);
+		assert.equal(result.headers.get('Retry-After'), expected);
+	}
 });

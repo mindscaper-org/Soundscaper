@@ -3,7 +3,7 @@
 import { araFailureInfo, AraOperationError } from '../../ara-failure.ts'
 import { araFailureLabel } from './ara-failure-presentation.ts'
 import { EditorComponentCopyProvider } from '../EditorComponentCopyProvider.tsx'
-import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createRoot } from 'react-dom/client'
 import { DialogFooter } from '@soundscaper/design-system/Footer'
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx'
@@ -17,7 +17,8 @@ import type { AraBridge } from '../../ara-contract.ts'
 import { ARA_COPY_BY_LOCALE } from '../../../i18n/editor-ara-copy.ts'
 import { resolveEditorCopyScope } from '../../../i18n/editor-copy-scope.ts'
 import { captureNativeProcessingReturnFocus } from './native-processing-return-focus.ts'
-import type { NativePluginAvailability, NativePluginRegistryView, NativePluginConsentAction } from '../soundscaper-native-services-bridge.ts'
+import type { NativePluginAvailability, NativePluginRegistryView, NativePluginConsentAction, NativePluginScanOutcome } from '../soundscaper-native-services-bridge.ts'
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface AraDesktopBridge {
 	readonly ara: AraBridge
@@ -27,7 +28,7 @@ interface AraDesktopBridge {
 	selectNativePluginInstallation(request: { installationId: string }): Promise<unknown>
 	applyNativeTierControl?(request: { action: string; enabled: boolean }): Promise<unknown>
 	setNativePluginConsent?(request: { format: string; action: NativePluginConsentAction; rootId?: string }): Promise<unknown>
-	scanNativePlugins?(request: { format: string; rootId: string }): Promise<unknown>
+	scanNativePlugins?(request: { format: string; rootId: string }): Promise<NativePluginScanOutcome>
 }
 
 interface AraController {
@@ -86,26 +87,28 @@ export function AraClipEditorDialog({ bridge, clipEditing, controller, copy: hos
 	const [discoveryBusy, setDiscoveryBusy] = useState(false)
 	const [error, setError] = useState<unknown>(null)
 	const [availability, setAvailability] = useState<NativePluginAvailability | null>(null)
-	const refresh = async (): Promise<void> => {
-		const [payload, registry] = await Promise.all([bridge.nativePluginAvailability(), bridge.listNativePlugins()])
-		setAvailability(payload)
-		setPlugins(registry.entries.filter((entry) => entry.format.toLowerCase() === 'vst3')
-			.flatMap((entry) => entry.installations.filter((installation) => !installation.quarantined)
-				.map((installation) => ({ installationId: installation.installationId,
-					label: `${entry.name} ${installation.version} — ${entry.vendor}` }))))
-	}
-	useEffect(() => {
-		let active = true
-		void Promise.all([bridge.nativePluginAvailability(), bridge.listNativePlugins()]).then(([payload, registry]) => {
-			if (!active) return
-			setAvailability(payload)
-			setPlugins(registry.entries.filter((entry) => entry.format.toLowerCase() === 'vst3')
+	const inventoryRequest = useRef(0)
+	const operation = useRef<AbortController | null>(null)
+	const refresh = useCallback(async (): Promise<void> => {
+		const request = ++inventoryRequest.current
+		try {
+			const [payload, registry] = await Promise.all([bridge.nativePluginAvailability(), bridge.listNativePlugins()])
+			if (request !== inventoryRequest.current) return
+			const options = registry.entries.filter((entry) => entry.format.toLowerCase() === 'vst3')
 				.flatMap((entry) => entry.installations.filter((installation) => !installation.quarantined)
 					.map((installation) => ({ installationId: installation.installationId,
-						label: `${entry.name} ${installation.version} — ${entry.vendor}` }))))
-		}).catch((error: unknown) => { if (active) setError(error) })
-		return () => { active = false }
+						label: `${entry.name} ${installation.version} — ${entry.vendor}` })))
+			setAvailability(payload)
+			setPlugins(options)
+			setInstallationId(current => options.some(option => option.installationId === current) ? current : '')
+		} catch (failure) {
+			if (request === inventoryRequest.current) throw failure
+		}
 	}, [bridge])
+	useEffect(() => {
+		void refresh().catch(setError)
+		return () => { inventoryRequest.current += 1; operation.current?.abort() }
+	}, [refresh])
 	useEffect(() => {
 		const unsubscribe = controller.subscribe(() => { void session.reconcile() })
 		return () => { unsubscribe(); void session.dispose().catch(() => undefined) }
@@ -113,28 +116,63 @@ export function AraClipEditorDialog({ bridge, clipEditing, controller, copy: hos
 	useEffect(() => { if (state.phase === 'applied') onClose() }, [state.phase, onClose])
 	const busy = discoveryBusy || state.phase === 'opening' || state.phase === 'rendering'
 	const editing = state.phase === 'editing'
-	const perform = (operation: () => Promise<void>): void => {
+	const perform = (work: (signal: AbortSignal) => Promise<void>): void => {
+		if (operation.current) return
+		const owner = new AbortController()
+		operation.current = owner
 		setError(null)
 		setDiscoveryBusy(true)
-		void operation().catch((error: unknown) => setError(error))
-			.finally(() => setDiscoveryBusy(false))
+		void work(owner.signal).catch((failure: unknown) => { if (!owner.signal.aborted) setError(failure) })
+			.finally(() => {
+				if (operation.current === owner) operation.current = null
+				if (!owner.signal.aborted) setDiscoveryBusy(false)
+			})
 	}
-	const scan = async (custom: boolean): Promise<void> => {
-		if (!bridge.applyNativeTierControl || !bridge.setNativePluginConsent || !bridge.scanNativePlugins) {
+	const scan = async (custom: boolean, signal: AbortSignal): Promise<void> => {
+		const scanNativePlugins = bridge.scanNativePlugins?.bind(bridge)
+		if (!bridge.applyNativeTierControl || !bridge.setNativePluginConsent || !scanNativePlugins) {
 			throw new AraOperationError('unavailable', copy.unavailable)
 		}
+		const scanRoot = async (rootId: string): Promise<void> => {
+			signal.throwIfAborted()
+			const outcome = await scanNativePlugins({ format: 'vst3', rootId })
+			signal.throwIfAborted()
+			if (outcome.status === 'failed') throw new AraOperationError('discovery-failed', outcome.message)
+		}
 		await bridge.applyNativeTierControl({ action: 'set-native-effect-discovery-enabled', enabled: true })
+		signal.throwIfAborted()
 		await bridge.setNativePluginConsent({ format: 'vst3', action: 'grant' })
-		if (custom) await bridge.setNativePluginConsent({ format: 'vst3', action: 'add-custom-root' })
+		signal.throwIfAborted()
+		if (custom) {
+			const outcome = await bridge.setNativePluginConsent({ format: 'vst3', action: 'add-custom-root' })
+			signal.throwIfAborted()
+			if (outcome && typeof outcome === 'object' && 'status' in outcome) {
+				if (outcome.status === 'declined') return
+				if (outcome.status === 'admitted' && 'root' in outcome && outcome.root && typeof outcome.root === 'object'
+					&& 'rootId' in outcome.root && typeof outcome.root.rootId === 'string') {
+					await scanRoot(outcome.root.rootId)
+					await refresh()
+					return
+				}
+				if (outcome.status === 'refused' && 'message' in outcome) throw new Error(String(outcome.message))
+			}
+			throw new AraOperationError('discovery-failed', copy.discoveryFailed)
+		}
 		const payload = await bridge.nativePluginAvailability()
+		signal.throwIfAborted()
 		const format = payload.consent.formats.find((format) => format.format.toLowerCase() === 'vst3')
 		for (const root of format?.roots ?? []) {
-			if (!root.admitted && !custom) await bridge.setNativePluginConsent({ format: 'vst3', action: 'add-standard-root', rootId: root.rootId })
-			if (root.admitted || !custom) await bridge.scanNativePlugins({ format: 'vst3', rootId: root.rootId })
+			if (!root.admitted) await bridge.setNativePluginConsent({ format: 'vst3', action: 'add-standard-root', rootId: root.rootId })
+			await scanRoot(root.rootId)
 		}
 		await refresh()
 	}
-	const close = (): void => { void session.dispose().catch(() => undefined); onClose() }
+	const close = (): void => {
+		operation.current?.abort()
+		inventoryRequest.current += 1
+		void session.dispose().catch(() => undefined)
+		onClose()
+	}
 	return <AudioEditorDialogShell title={copy.title} onClose={close} width={680}
 		dataAttributes={{ 'data-ara-clip-editor': 'true' }}
 		footer={<DialogFooter className="audio-editor-dialog-footer" rightContent={<>
@@ -143,7 +181,7 @@ export function AraClipEditorDialog({ bridge, clipEditing, controller, copy: hos
 		</>} />}>
 		<p>{copy.description}</p>
 		<div className="audio-editor-soundscaper-native-services">
-			<label>{copy.plugin} <select aria-label={copy.plugin} value={installationId} disabled={busy || editing}
+			<label><EditorControlLabel>{copy.plugin} </EditorControlLabel><select aria-label={copy.plugin} value={installationId} disabled={busy || editing}
 				onChange={(event) => setInstallationId(event.target.value)}>
 				<option value="">{copy.choosePlugin}</option>
 				{plugins.map((plugin) => <option key={plugin.installationId} value={plugin.installationId}>{plugin.label}</option>)}
@@ -155,11 +193,13 @@ export function AraClipEditorDialog({ bridge, clipEditing, controller, copy: hos
 			{busy && <progress max={1} value={state.progress} aria-label={state.phase === 'rendering' ? copy.rendering : copy.opening} />}
 			<div className="audio-editor-dialog-buttons">
 				<Button disabled={busy || editing} onClick={() => perform(refresh)}>{copy.refresh}</Button>
-				<Button disabled={busy || editing} onClick={() => perform(() => scan(false))}>{copy.scan}</Button>
-				<Button disabled={busy || editing} onClick={() => perform(() => scan(true))}>{copy.customFolder}…</Button>
-				<Button disabled={busy || editing || !installationId} onClick={() => perform(async () => {
+				<Button disabled={busy || editing} onClick={() => perform(signal => scan(false, signal))}>{copy.scan}</Button>
+				<Button disabled={busy || editing} onClick={() => perform(signal => scan(true, signal))}>{copy.customFolder}…</Button>
+				<Button disabled={busy || editing || !installationId} onClick={() => perform(async signal => {
 					await bridge.setNativePluginInstallationAllowed({ installationId, allowed: true })
+					signal.throwIfAborted()
 					await bridge.selectNativePluginInstallation({ installationId })
+					signal.throwIfAborted()
 					await session.open(installationId)
 				})}>{copy.openClip}</Button>
 				<Button disabled={!editing || busy} onClick={() => { void session.openEditor() }}>{copy.openEditor}</Button>

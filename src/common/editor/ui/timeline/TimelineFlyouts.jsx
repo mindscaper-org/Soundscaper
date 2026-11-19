@@ -118,6 +118,7 @@ export function ContainerAddTrackFlyout({
 							type="button"
 							className="add-track-flyout__option"
 							role="menuitem"
+							data-menu-tooltip-id={`new-${option.type}-track`}
 							tabIndex={index === 0 ? 0 : -1}
 							disabled={mutationsBlocked}
 							onClick={(event) => {
@@ -136,6 +137,7 @@ export function ContainerAddTrackFlyout({
 						type="button"
 						className="add-track-flyout__checkbox-control"
 						role="menuitemcheckbox"
+						data-menu-tooltip-id="show-master-track"
 						aria-checked={showMasterTrack}
 						tabIndex={-1}
 						disabled={mutationsBlocked}
@@ -153,6 +155,7 @@ export function ContainerAddTrackFlyout({
 						className="add-track-flyout__checkbox-control"
 						role="menuitemcheckbox"
 						data-show-markers-toggle
+						data-menu-tooltip-id="show-markers"
 						aria-checked={showMarkers}
 						tabIndex={-1}
 						onClick={onToggleMarkers}
@@ -192,6 +195,7 @@ export function TrackColorPicker({ isOpen, x, y, color, copy, onChange, onClose,
 					role="menuitem"
 					className="audio-editor-track-color-picker__swatch"
 					data-color={candidate}
+					data-menu-tooltip-id="context-color"
 					data-selected={color === candidate ? 'true' : 'false'}
 					style={{ backgroundColor: `var(--clip-${candidate}-body)` }}
 					aria-label={`${copy.trackColor}: ${colorName(copy, candidate)}`}

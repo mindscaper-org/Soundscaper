@@ -2,12 +2,16 @@
 
 import type { ProductNativeRenderInputOperation } from '../common/editor/controller/composition/product-native-render-input-authority.ts';
 import type { ProductNativeRenderInputAuthorityBinding } from '../common/editor/controller/composition/product-native-render-input-authority.ts';
-import { framescaperProjectNativeMediaFoundationShapeAssistance } from './editor-project-assistance-foundation.ts';
+import {
+	framescaperProjectNativeMediaFoundationShapeAssistance,
+	framescaperProjectNativeRenderQueueFoundationShapeAssistance,
+} from './editor-project-assistance-foundation.ts';
 
 type Awaitable<Value> = Value | PromiseLike<Value>;
 
 export interface FramescaperControllerFoundationViewAssistance {
 	readonly project: unknown;
+	readonly projectForNativeRenderQueue: () => unknown;
 	readonly actions: Readonly<Record<string, unknown>>;
 	readonly getSnapshot: () => Readonly<Record<string, unknown>>;
 	readonly captureProjectGeneration?: () => Readonly<{ generation: number; projectId: string }>;
@@ -24,14 +28,14 @@ export function createFramescaperControllerFoundationViewAssistance(
 	const actions = data(controller, 'actions', 'assistance controller actions');
 	const getSnapshot = operation(controller, 'getSnapshot');
 	const getTelemetrySnapshot = operation(controller, 'getTelemetrySnapshot');
+	const readProject = () => data(controller, 'project', 'Framescaper controller project');
 	const captureGeneration = typeof controller.captureProjectGeneration === 'function'
 		? controller.captureProjectGeneration as () => Readonly<{ generation: number; projectId: string }> : null;
 	return Object.freeze({
 		get project(): unknown {
-			return framescaperProjectNativeMediaFoundationShapeAssistance(foundationInput(
-				data(controller, 'project', 'Framescaper controller project'),
-			));
+			return framescaperProjectNativeMediaFoundationShapeAssistance(readProject());
 		},
+		projectForNativeRenderQueue: () => framescaperProjectNativeRenderQueueFoundationShapeAssistance(readProject()),
 		...(captureGeneration ? { captureProjectGeneration: () => captureGeneration.call(controller) } : {}),
 		actions: actions as Readonly<Record<string, unknown>>,
 		getSnapshot: () => getSnapshot.call(controller) as Readonly<Record<string, unknown>>,
@@ -55,7 +59,7 @@ export function adaptFramescaperNativeRenderInputAuthorityAssistance(
 }
 
 function projectOperation(operation: ProductNativeRenderInputOperation): ProductNativeRenderInputOperation {
-	const foundation = framescaperProjectNativeMediaFoundationShapeAssistance(foundationInput(operation.project));
+	const foundation = framescaperProjectNativeMediaFoundationShapeAssistance(operation.project);
 	return Object.freeze({
 		project: foundation,
 		signal: operation.signal,
@@ -72,14 +76,6 @@ function projectOperation(operation: ProductNativeRenderInputOperation): Product
 		} : {}),
 		finish: () => operation.finish(),
 	});
-}
-
-function foundationInput(value: unknown): unknown {
-	if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
-	const family = Object.getOwnPropertyDescriptor(value, 'schemaFamily');
-	return family?.enumerable && Object.hasOwn(family, 'value') && family.value === 'framescaper'
-		? value
-		: value;
 }
 
 function controllerRecord(value: unknown): Record<string, unknown> {

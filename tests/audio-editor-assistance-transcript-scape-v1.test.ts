@@ -123,6 +123,33 @@ test('Framescaper v1 `.scape` collision import rebinds transcript JSON and its i
 	assert.equal(descriptor.sha256, reboundAsset.body.sha256);
 });
 
+test('cancellation during transcript writer acquisition retires the unpublished archive asset', async (context) => {
+	const transcript = publication('soundscaper');
+	const sender = memoryStore(context, 'cancelled-transcript-source');
+	const recipient = memoryStore(context, 'cancelled-transcript-recipient');
+	const project = createSoundscaperProject({ id: 'cancelled-transcript-project', title: 'Speech', now: NOW,
+		sources: [source()], assistanceAssets: [transcript.reference] } as never);
+	await seedProjectBodies(sender, transcript);
+	const runtime = createSoundscaperScapeNativeRuntime();
+	const exported = await runtime.exportScapeProject(project, sender);
+	const abort = new AbortController();
+	const reason = new DOMException('Cancel the new transcript writer', 'AbortError');
+	let aborts = 0;
+	const begin = recipient.beginMediaAssetWrite.bind(recipient);
+	context.mock.method(recipient, 'beginMediaAssetWrite', async (...args: Parameters<typeof begin>) => {
+		const writer = await begin(...args);
+		if (args[0] === transcript.reference.body.storageKey) {
+			const retire = writer.abort.bind(writer);
+			context.mock.method(writer, 'abort', async () => { aborts += 1; await retire(); });
+			abort.abort(reason);
+		}
+		return writer;
+	});
+	await assert.rejects(runtime.importScapeProject(exported.blob!, recipient, { signal: abort.signal }), error => error === reason);
+	assert.equal(aborts, 1);
+	assert.equal(await recipient.getMediaAssetMetadata(transcript.reference.body.storageKey), null);
+});
+
 test('both v1 families refuse missing and semantically corrupt transcript bodies', async (context) => {
 	const transcript = publication('soundscaper');
 	const missing = memoryStore(context, 'transcript-missing');

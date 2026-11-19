@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('a header-selected macro effect matches the ordinary effect without mixing an overlapping neighbor', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const neighbor = createWavFixture({ name: 'unselected-neighbor.wav', frequency: 880, channelCount: 1 });
 	await importFiles(editor, [monoTone, neighbor]);
 	const selected = clipByName(editor, monoTone.name);
@@ -24,11 +24,11 @@ test('a header-selected macro effect matches the ordinary effect without mixing 
 	const expected = await exportSamples(page, editor);
 	await editor.getByRole('button', { name: 'Undo', exact: true }).click();
 	await incoming.locator('.clip-header').click();
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New program', exact: true }).click();
 	await manager.getByRole('textbox', { name: 'Program', exact: true }).fill("await sound.effect('audacity-invert');");
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 	await expect(manager.locator('[data-macro-script-log]')).toHaveAttribute('data-outcome', 'completed', { timeout: 30_000 });
 	await manager.getByRole('button', { name: 'Close', exact: true }).click();
 	const actual = await exportSamples(page, editor);

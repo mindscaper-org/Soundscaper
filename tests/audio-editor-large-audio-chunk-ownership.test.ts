@@ -12,10 +12,12 @@ test('large audio codec execution remains behind menu-started imports and export
 	for (const name of [
 		'browser-audio-encode-stream-client',
 		'browser-audio-streamed-encode',
+		'browser-chained-opus-import',
 		'browser-reviewed-streamed-audio-decoders',
 		'browser-streamed-audio-import',
 		'browser-streamed-wavpack-import',
 		'browser-webcodecs-aac-stream',
+		'chained-opus-audio-error',
 		'desktop-audio-range-blob',
 		'desktop-audio-stream-encoder',
 		'desktop-audio-stream-request',

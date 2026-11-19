@@ -30,7 +30,7 @@ test.describe('Audacity Graphic EQ fader bank', () => {
 
 	test('aligns all mixer faders with their bands and paints across them with cancellation and reset', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [tone]);
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 		await chooseNestedCommandAction(page, editor, 'Effect', ['EQ and filters', 'Graphic EQ']);
@@ -79,10 +79,10 @@ test.describe('Audacity Graphic EQ fader bank', () => {
 		await expect(oneKhz).toHaveAttribute('aria-valuenow', '6');
 		await expect(dialog.getByRole('slider', { name: '800 Hz', exact: true })).toHaveAttribute('aria-valuenow', '0');
 		await expect(dialog.getByRole('slider', { name: '1250 Hz', exact: true })).toHaveAttribute('aria-valuenow', '0');
-		await expect(dialog.getByRole('button', { name: 'Interpolation', exact: true })).toHaveCount(0);
+		await expect(dialog.getByRole('button', { name: /^Interpolation:/u })).toHaveCount(0);
 		await dialog.getByRole('button', { name: 'More options', exact: true }).click();
 		await page.getByRole('menuitem', { name: 'Advanced settings', exact: true }).click();
-		await dialog.getByRole('button', { name: 'Interpolation', exact: true }).click();
+		await dialog.getByRole('button', { name: /^Interpolation:/u }).click();
 		await page.getByRole('option', { name: 'Cosine', exact: true }).click();
 		await capturePassingScreenshot(dialog, { path: 'test-results/graphic-eq-dialog.png' });
 		await dialog.getByRole('button', { name: 'Apply to selection', exact: true }).click();
@@ -97,7 +97,7 @@ test.describe('Audacity Graphic EQ fader bank', () => {
 
 	test('persists every painted rack band and cancels a later sweep', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		let editor = await bootEditor(page, '/embed/en/');
+		let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [tone]);
 		let panel = await openEffectsForTrack(editor, 1);
 		await addRackEffect(page, panel, 'track', 'Graphic EQ');

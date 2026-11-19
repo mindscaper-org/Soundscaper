@@ -192,7 +192,7 @@ test('only fully covered media sequences ripple while labels do not block partic
 	]);
 });
 
-test('disjoint preparation simulates annotation contraction right-to-left and replays atomically', () => {
+test('disjoint preparation reuses one isolated project for right-to-left annotation contraction', context => {
 	const project = projectWithTracks({
 		tracks: [audioTrack('main-track')],
 		sequences: [sequence(MAIN_SEQUENCE, ['main-track'])],
@@ -200,12 +200,20 @@ test('disjoint preparation simulates annotation contraction right-to-left and re
 		selectedAnnotationIds: ['removed'],
 	});
 	const runtime = projectForCommand(project as unknown as Record<string, unknown>);
+	const signature = JSON.stringify(runtime);
+	const clone = globalThis.structuredClone;
+	const cloning = context.mock.method(globalThis, 'structuredClone', clone);
 	const command = prepareDisjointRangeDeleteCommand(runtime, {
 		ranges: [{ startFrame: 10, endFrame: 20 }, { startFrame: 30, endFrame: 40 }],
 		trackIds: ['main-track'],
 		rippleMode: 'track',
 	}) as AudioEditorCommand;
+	const projectClones = cloning.mock.calls.filter(({ arguments: [value] }) => value !== null
+		&& typeof value === 'object' && 'tracks' in value && 'clips' in value);
+	cloning.mock.restore();
 
+	assert.equal(projectClones.length, 1);
+	assert.equal(JSON.stringify(runtime), signature);
 	assert.equal(command.type, 'batch');
 	if (command.type !== 'batch') throw new TypeError('Expected a disjoint command batch.');
 	assert.deepEqual(command.commands.map((child) => child.type), ['range/ripple-delete', 'range/ripple-delete']);

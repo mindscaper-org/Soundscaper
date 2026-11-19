@@ -17,7 +17,8 @@ for (const switchProject of [false, true]) test(`a Contrast report save failure 
 	const { createRoot } = await import('react-dom/client');
 	const root = createRoot(dom.container as unknown as Element);
 	let rejectSave: ((error: Error) => void) | undefined;
-	const fileService = { saveFile: () => new Promise<void>((_resolve, reject) => { rejectSave = reject; }) };
+	let saves = 0;
+	const fileService = { saveFile: () => new Promise<void>((_resolve, reject) => { saves++; rejectSave = reject; }) };
 	const controller = { actions: { analysis: { contrast: () => undefined } } };
 	const render = (id: string) => root.render(<AnalysisDialog mode="contrast" controller={controller} copy={ENGLISH_COPY}
 		fileService={fileService} onClose={() => undefined} snapshot={{ ready: true, project: {
@@ -27,12 +28,17 @@ for (const switchProject of [false, true]) test(`a Contrast report save failure 
 		await act(async () => { render('first'); });
 		const button = dom.container.querySelectorAll('button').find(element => element.textContent === ENGLISH_COPY.export);
 		assert.ok(button);
-		await act(async () => { reactProps(button).onClick(); });
+		await act(async () => { reactProps(button).onClick(); reactProps(button).onClick(); });
+		assert.equal(saves, 1, 'the second offered activation must not open another file picker');
+		assert.equal(button.hasAttribute('disabled'), true);
 		assert.ok(rejectSave);
 		if (switchProject) await act(async () => { render('second'); });
 		await act(async () => { rejectSave?.(new Error('Old report destination is unavailable.')); });
 		if (switchProject) assert.equal(dom.find('[role="alert"]'), null, 'the new project does not own this report-save failure');
-		else assert.equal(dom.one('[role="alert"]').textContent, 'Old report destination is unavailable.');
+		else {
+			assert.equal(dom.one('[role="alert"]').textContent, 'Old report destination is unavailable.');
+			assert.equal(button.hasAttribute('disabled'), false);
+		}
 	} finally {
 		await act(async () => { root.unmount(); });
 		globals.IS_REACT_ACT_ENVIRONMENT = previousAct;

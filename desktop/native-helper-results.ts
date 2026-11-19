@@ -90,7 +90,7 @@ export function validateHelperAudioDeviceOpenResult(value: unknown): HelperAudio
  * tell a user why a device they expect is missing.
  */
 export const NATIVE_AUDIO_BACKEND_STATUSES = Object.freeze([
-	'available', 'library-absent', 'symbols-absent', 'unsupported-platform', 'server-absent',
+	'available', 'backend-absent', 'library-absent', 'symbols-absent', 'unsupported-platform', 'server-absent',
 ] as const);
 
 export type NativeAudioBackendStatus = (typeof NATIVE_AUDIO_BACKEND_STATUSES)[number];
@@ -100,6 +100,7 @@ export interface HelperNativeAudioDevice {
 	readonly handle: string;
 	readonly label: string;
 	readonly direction: NativeAudioDeviceDirection;
+	readonly isDefault?: boolean;
 	/**
 	 * How many channels the backend says this device carries. Absent when the
 	 * backend reports no topology at all: routing that would pair channels needs
@@ -132,7 +133,7 @@ export const MAXIMUM_NATIVE_AUDIO_DEVICE_CHANNELS = 32;
 
 const INVENTORY_KEYS = Object.freeze(['backend', 'status', 'detail', 'devices']);
 const DEVICE_KEYS = Object.freeze(['handle', 'label', 'direction']);
-const DEVICE_OPTIONAL_KEYS = Object.freeze(['channelCount']);
+const DEVICE_OPTIONAL_KEYS = Object.freeze(['channelCount', 'isDefault']);
 const DIRECTIONS = Object.freeze(['input', 'output', 'duplex'] as const);
 
 export function validateHelperAudioDeviceInventoryResult(value: unknown): HelperAudioDeviceInventoryResult {
@@ -155,7 +156,8 @@ export function validateHelperAudioDeviceInventoryResult(value: unknown): Helper
 		throw new HelperContractViolationError('malformed',
 			'A native audio backend that is not available must publish no devices.');
 	}
-	const handles = new Set<string>();
+	const inputHandles = new Set<string>();
+	const outputHandles = new Set<string>();
 	const admitted = devices.map((device) => {
 		const entry = plainRecord(device, 'A native audio device');
 		exactKeys(entry, DEVICE_KEYS, 'A native audio device', DEVICE_OPTIONAL_KEYS);
@@ -164,15 +166,23 @@ export function validateHelperAudioDeviceInventoryResult(value: unknown): Helper
 			throw new HelperContractViolationError('malformed', 'A native audio device must name a known direction.');
 		}
 		const handle = boundedText(entry.handle, MAXIMUM_NATIVE_AUDIO_DEVICE_TEXT_BYTES, 'audio device handle');
-		if (handles.has(handle)) {
+		// JUCE device names are unique within each direction. A duplex row covers both.
+		if ((direction !== 'output' && inputHandles.has(handle))
+			|| (direction !== 'input' && outputHandles.has(handle))) {
 			throw new HelperContractViolationError('malformed',
-				'A native audio backend must not report the same device handle twice.');
+				'A native audio backend must not report the same device handle twice in one direction.');
 		}
-		handles.add(handle);
+		if (direction !== 'output') inputHandles.add(handle);
+		if (direction !== 'input') outputHandles.add(handle);
+		const isDefault = entry.isDefault;
+		if (isDefault !== undefined && typeof isDefault !== 'boolean') {
+			throw new HelperContractViolationError('malformed', 'A native audio default flag must be boolean.');
+		}
 		const described = {
 			handle,
 			label: boundedText(entry.label, MAXIMUM_NATIVE_AUDIO_DEVICE_TEXT_BYTES, 'audio device label'),
 			direction: direction as NativeAudioDeviceDirection,
+			...(isDefault === undefined ? {} : { isDefault }),
 		};
 		return Object.freeze(entry.channelCount === undefined ? described : {
 			...described,

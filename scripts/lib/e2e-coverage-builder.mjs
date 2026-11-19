@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto';
 import {
 	cpSync,
+	existsSync,
 	mkdirSync,
 	readFileSync,
 	rmSync,
@@ -24,6 +25,7 @@ import {
 	revisionBoundSource,
 	validateCoverageFileRecords,
 } from './e2e-coverage-integrity.mjs';
+import { copyQualifiedNodeEvidence, readQualifiedNodeEvidenceIndex } from './e2e-coverage-node-transport.mjs';
 
 export function prepareE2ECoverageArtifacts({
 	captureIndex,
@@ -33,7 +35,14 @@ export function prepareE2ECoverageArtifacts({
 	configuration = E2E_COVERAGE_CONFIGURATION,
 }) {
 	validateCaptureIndex(captureIndex, configuration);
+	if (existsSync(resolve(artifactRoot, 'node-evidence.json')) || existsSync(resolve(artifactRoot, 'node-evidence'))) {
+		throw new Error('Prepare into a fresh artifact directory; existing Node evidence cannot be inherited or replaced.');
+	}
 	mkdirSync(artifactRoot, { recursive: true });
+	const nodeEvidence = copyQualifiedNodeEvidence({
+		inputRoots: readQualifiedNodeEvidenceIndex({ root: captureRoot, locator: captureIndex.nodeEvidence }), outputRoot: artifactRoot,
+	});
+	if (nodeEvidence) writeJson(resolve(artifactRoot, 'node-evidence.json'), nodeEvidence);
 	const sources = captureIndex.sources.map((source) => {
 		if (source.origin === 'repository') {
 			const committed = revisionBoundSource(
@@ -137,6 +146,10 @@ export function validateCaptureIndex(value, configuration = E2E_COVERAGE_CONFIGU
 		throw new TypeError('The E2E capture index must list sources, scripts and surfaces.');
 	}
 	validateBuildEvidence(value.buildEvidence, value.sourceRevision);
+	if (value.nodeEvidence !== undefined && (!exactKeys(value.nodeEvidence, ['path', 'sha256'])
+		|| !safePath(value.nodeEvidence.path) || !sha256(value.nodeEvidence.sha256))) {
+		throw new TypeError('The E2E capture Node evidence needs an exact safe hash-bound locator.');
+	}
 	const configured = configuration.requiredSurfaces.map(({ id }) => id);
 	const surfaceIds = value.surfaces.map((surface) => surface?.id);
 	if (JSON.stringify(surfaceIds) !== JSON.stringify(configured)) {

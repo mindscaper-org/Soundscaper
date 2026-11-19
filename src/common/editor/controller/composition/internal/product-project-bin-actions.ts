@@ -3,7 +3,7 @@
 /** Owned media leaves can share bin actions without entering the A/V projection. */
 export interface ProductProjectBinActions {
 	moveFromTimeline(clipId?: string | readonly (string | null | undefined)[] | null): readonly string[] | null | undefined;
-	place(clipId: string, placement?: Readonly<{ trackId?: string | null; timelineStartFrame?: unknown }>): string | null | undefined;
+	place(clipId: string, placement?: Readonly<{ trackId?: string | null; timelineStartFrame?: unknown; createTrack?: boolean }>): string | null | undefined;
 	rename?(clipId: string, name: unknown): string | null | undefined;
 	removeFromBin?(clipId: string): string | null | undefined;
 	removeFromProject?(clipId: string): readonly string[] | null | undefined;

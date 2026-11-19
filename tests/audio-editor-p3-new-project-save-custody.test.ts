@@ -2,10 +2,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
+import { createSoundscaperProjectStore } from '../src/soundscaper/editor-project-store.ts';
+import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
 import { createProjectSaveService, ProjectSaveConflictError } from '../src/common/editor/controller/document/project-save-service.ts';
 import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
-import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
+import { COPY, createAudioEditorController, createMemoryEngine } from './helpers/audio-editor-controller-harness.js';
 import { installReactTestDom } from './helpers/react-test-dom.ts';
+import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
+import { clipboardDocument, clipboardProject } from './helpers/clipboard-source-custody.ts';
+import { assertAudioProjectArchivePcm } from './helpers/audio-project-archive-pcm-custody.ts';
 
 type Tab = Readonly<{ projectId: string; dirty: boolean }>;
 for (const scenario of ['quota', 'healthy', 'collision'] as const) test(`File New initial-save custody: ${scenario}`, async context => {
@@ -15,7 +20,8 @@ for (const scenario of ['quota', 'healthy', 'collision'] as const) test(`File Ne
 	Object.assign(window, { addEventListener(type: string, listener: (event: BeforeUnloadEvent) => void) {
 		if (type === 'beforeunload') listeners.push(listener);
 	} });
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
+	const indexedDB = createInstrumentedIndexedDB();
+	const store = createSoundscaperProjectStore({ indexedDB, preferOpfs: false });
 	let full = false;
 	const quota = new DOMException('Project storage is full', 'QuotaExceededError');
 	const wrapped = new Proxy(store, { get(target, key) {
@@ -28,7 +34,8 @@ for (const scenario of ['quota', 'healthy', 'collision'] as const) test(`File Ne
 	const runtime = createSoundscaperProjectRuntimeSelection(), session = runtime.createSessionController();
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, store: wrapped,
-		projectRuntime: runtime, sessionController: session, engine: createMemoryEngine() as unknown as Options['engine'] });
+		projectRuntime: runtime, sessionController: session, engine: createMemoryEngine() as unknown as Options['engine'],
+		engineFactory: () => { throw new Error('Initial project publication must not render audio.'); } });
 	context.after(async () => { full = false; try { await controller.dispose(); } catch (error) { assert.ok(error instanceof ProjectSaveConflictError); } }); await controller.ready;
 	const before = controller.project; assert.ok(before);
 	full = fails;
@@ -40,6 +47,9 @@ for (const scenario of ['quota', 'healthy', 'collision'] as const) test(`File Ne
 	assert.equal(tab.dirty, fails);
 	assert.equal(controller.getSnapshot().save.state, fails ? 'dirty' : 'saved');
 	assert.equal(await store.loadProject(current.id) === null, fails);
+	assert.ok(validateSoundscaperProject(current));
+	assert.deepEqual([current.sources.length, current.clips.length, current.tracks.length], [0, 0, 1]);
+	if (!fails) assert.deepEqual(await store.loadProject(current.id), current, 'initial healthy publication persists the complete product document');
 	let prevented = false;
 	const event = { returnValue: undefined, preventDefault() { prevented = true; } } as unknown as BeforeUnloadEvent;
 	for (const listener of listeners) listener(event);
@@ -55,11 +65,35 @@ for (const scenario of ['quota', 'healthy', 'collision'] as const) test(`File Ne
 		return;
 	}
 	await controller.actions.project.rename('Retry after storage is available');
+	const beforeTrackRename = clipboardProject(controller.project), track = beforeTrackRename.tracks[0]; assert.ok(track?.type === 'audio');
+	const entries = controller.getSnapshot().history.undoEntries.length;
+	await controller.actions.track.update(track.id, { name: 'Retry after storage is available' });
+	assert.equal(controller.getSnapshot().history.undoEntries.length, entries + 1);
+	const renamed = clipboardProject(controller.project);
+	await controller.actions.edit.undo(); assert.deepEqual(clipboardDocument(clipboardProject(controller.project)), clipboardDocument(beforeTrackRename));
+	await controller.actions.edit.redo(); assert.deepEqual(clipboardDocument(clipboardProject(controller.project)), clipboardDocument(renamed));
 	await controller.actions.project.save();
 	const saved = await store.loadProject(current.id); assert.ok(validateSoundscaperProject(saved));
 	assert.equal(saved.title, 'Retry after storage is available');
+	assert.equal(saved.tracks[0]?.name, 'Retry after storage is available');
+	assert.deepEqual(saved, controller.project);
 	assert.equal(session.getSnapshot().tabs.find((tab: Tab) => tab.projectId === current.id)?.dirty, false);
 	assert.equal(controller.getSnapshot().save.state, 'saved');
+	if (scenario === 'healthy') {
+		const reopened = await assertAudioProjectArchivePcm(context, store, controller.project, () => assert.fail('an empty project has no PCM sources'));
+		assert.deepEqual(reopened, saved);
+		await controller.dispose();
+		const recipientStore = createSoundscaperProjectStore({ indexedDB, preferOpfs: false });
+		const recipientRuntime = createSoundscaperProjectRuntimeSelection();
+		const recipient = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, store: recipientStore,
+			projectRuntime: recipientRuntime, sessionController: recipientRuntime.createSessionController(),
+			scapeProjectRuntime: createSoundscaperScapeNativeRuntime(), engine: createMemoryEngine() as unknown as Options['engine'],
+			engineFactory: () => { throw new Error('Stored project reopening must not render audio.'); } });
+		context.after(async () => { await recipient.dispose(); });
+		await recipient.ready; await recipient.actions.project.openById(saved.id);
+		assert.equal(recipient.getSnapshot().readOnly, false); assert.equal(recipient.getSnapshot().save.state, 'saved');
+		assert.deepEqual(clipboardDocument(clipboardProject(recipient.project)), clipboardDocument(saved));
+	}
 });
 
 for (const retirement of ['project', 'fence'] as const) test(`initial Save retry cannot publish after ${retirement} retirement`, async () => {

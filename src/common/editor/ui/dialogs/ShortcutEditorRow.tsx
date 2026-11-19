@@ -15,6 +15,7 @@ import {
 	findAudioEditorShortcutConflicts,
 	normalizeAudioEditorShortcut,
 } from '../../preferences.js';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 type ShortcutMap = Readonly<Record<string, readonly string[]>>;
 
@@ -55,6 +56,7 @@ export interface ShortcutEditorRowProps {
 	readonly copy: Readonly<Record<string, string>>;
 	readonly run: (operation: () => unknown) => unknown;
 	readonly conflictFor?: ShortcutEditorDraftInput['conflictFor'];
+	readonly drafts?: Map<string, string[]>;
 }
 
 const conflictsFor = findAudioEditorShortcutConflicts as (shortcuts: ShortcutMap) => ShortcutConflict[];
@@ -126,18 +128,18 @@ export function shortcutFocusTargetAfterRemove(index: number, remaining: number)
 	return `[data-shortcut-remove="${Math.min(index, remaining - 1)}"]`;
 }
 
-export function ShortcutEditorRow({ productId = 'soundscaper', command, commands = [], preferences, controller, copy, run, conflictFor }: ShortcutEditorRowProps) {
+export function ShortcutEditorRow({ productId = 'soundscaper', command, commands = [], preferences, controller, copy, run, conflictFor, drafts }: ShortcutEditorRowProps) {
 	const preferenceId = command.id;
 	// A normalized binding never contains a space, so the joined list doubles as
 	// a stable change signature and as the value the fields reset to.
 	const persistedKey = persistedShortcutBindings(preferences.shortcuts, command).join(' ');
 	const persisted = useMemo(() => (persistedKey ? persistedKey.split(' ') : []), [persistedKey]);
-	const [entries, setEntries] = useState<string[]>(() => editableEntries(persisted));
+	const [entries, setEntries] = useState<string[]>(() => drafts?.get(preferenceId) ?? editableEntries(persisted));
 	// A pending save may roll back after the user starts the next binding draft.
-	const unassignedDraft = useRef(false);
+	const localDraft = useRef<string[] | undefined>(undefined);
 	useLayoutEffect(() => {
-		if (!unassignedDraft.current) setEntries(editableEntries(persisted));
-	}, [persisted]);
+		setEntries(drafts?.get(preferenceId) ?? localDraft.current ?? editableEntries(persisted));
+	}, [drafts, persisted, preferenceId]);
 	const errorId = useId();
 	const bindingsRef = useRef<HTMLDivElement | null>(null);
 	const assignmentFocus = useRef<HTMLButtonElement | null>(null);
@@ -175,10 +177,16 @@ export function ShortcutEditorRow({ productId = 'soundscaper', command, commands
 		if (command.disabled || (document.activeElement !== button && document.activeElement !== document.body)) return;
 		bindingsRef.current?.querySelector<HTMLInputElement>('[data-shortcut-binding="0"]')?.focus();
 	}, [unchanged, command.disabled]);
+	const storeDraft = (next?: string[]) => {
+		if (!drafts) localDraft.current = next;
+		else if (next) drafts.set(preferenceId, next);
+		else drafts.delete(preferenceId);
+	};
 	const updateDraft = (next: string[]) => {
 		assignmentFocus.current = null;
 		const saved = editableEntries(persisted);
-		unassignedDraft.current = next.length !== saved.length || next.some((entry, index) => entry !== saved[index]);
+		const changed = next.length !== saved.length || next.some((entry, index) => entry !== saved[index]);
+		storeDraft(changed ? next : undefined);
 		setEntries(next);
 	};
 	const setEntry = (index: number, value: string) => updateDraft(entries.map((entry, position) => position === index ? value : entry));
@@ -203,9 +211,9 @@ export function ShortcutEditorRow({ productId = 'soundscaper', command, commands
 				{entries.map((entry, index) => (
 					<div className="kw-audio-editor-preferences__shortcut-binding" key={`binding-${index}`}>
 						<label>
-							<span className="kw-audio-editor-sr-only">
+							<EditorControlLabel className="kw-audio-editor-sr-only">
 								{`${command.label}: ${copy.shortcutColumn} ${index + 1}`}
-							</span>
+							</EditorControlLabel>
 							<input
 								data-shortcut-binding={index}
 								disabled={command.disabled}
@@ -253,7 +261,7 @@ export function ShortcutEditorRow({ productId = 'soundscaper', command, commands
 				onClick={(event) => {
 					const button = event?.currentTarget;
 					assignmentFocus.current = button && button.ownerDocument.activeElement === button ? button : null;
-					unassignedDraft.current = false;
+					storeDraft();
 					return run(() => controller.actions.preferences.setShortcut(preferenceId, draft.bindings));
 				}}
 			>{copy.shortcutAssign}</Button>

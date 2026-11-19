@@ -5,7 +5,7 @@ import { expect, test, monoTone } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, chooseCommandAction, clipByName, importFiles, openClipProperties, openSourceMonitor } from './audio-editor-test-helpers.js';
 
 test('Nyquist source processing receives the tempo at its placed clip', async ({ page }) => {
-	const editor = await bootEditor(page, '/en/');
+	const editor = await bootEditor(page, '/en/', { showProjectBin: false });
 	await page.locator('[data-sidebar] [data-workspace-select]').selectOption('music');
 	await importFiles(editor, [monoTone]);
 	await editor.getByRole('button', { name: 'Musical timeline', exact: true }).click();

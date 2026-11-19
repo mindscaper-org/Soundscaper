@@ -31,6 +31,7 @@ what came back.
 | `otio-fcpx-xml-adapter` | 1.0.0 | Apache-2.0 | reference FCPXML reader |
 | `xmlschema` | 3.4.5 | MIT | XSD validator for the DAWproject profile |
 | `elementpath` | 4.8.0 | MIT | XPath engine `xmlschema` depends on |
+| `pyaaf2` | 1.7.1 | MIT | Independent AAF reader/writer and standard dictionary generation |
 
 Run `npm run provision:interchange-conformance` once, then
 `npm run test:reference:interchange`.
@@ -60,6 +61,38 @@ vendored under `tests/fixtures/dawproject/` with their MIT notice (from
 output against them with `xmlschema`, a validator that is not ours. The test
 fails with the provisioning command when the validator is absent; it never
 skips.
+
+### AAF: independent readers and reproducible dictionary metadata
+
+`tests/audio-editor-aaf-reference-conformance.test.ts` validates exported objects
+and reads timeline positions, source-rate offsets, timecode and embedded bytes
+with pyaaf2. It also imports independent files containing raw PCM, effect groups
+and unavailable source chains. These checks fail when the reference package is
+absent. `tests/audio-editor-aaf-automation-import.test.ts` independently writes
+and validates standard operation groups, rational ConstantValue/VaryingValue
+records, interpolation references, and transitions with pyaaf2 before importing
+their gain, track pan and dissolve curves. Python remains a conformance/build tool; browser and ordinary desktop
+imports and exports use TypeScript.
+
+`tests/audio-editor-exchange-midi-reference-conformance.test.ts` independently
+writes and validates AS-01 auxiliary MIDI attachments with pyaaf2. It exercises
+static, timeline and event slots, embedded and linked SMFs, and a composition
+containing both audio and MIDI. Literal SMF fixtures specify independent note,
+channel-event and tempo expectations; ordinary integration tests additionally
+exercise import publication, rollback, real synthesis and portable Scape
+reopening. The standard dictionary seed is unchanged by this reader extension.
+
+`src/common/editor/aaf/standard-dictionary.json` carries the standard object/type
+dictionary seed and its uncompressed payload SHA-256. Its MIT notice is retained
+in `THIRD_PARTY_LICENSES.md`. Reproduce it with the pinned provisioned wheel:
+
+```sh
+PYTHONPATH=vendor/interchange-conformance python3 scripts/generate-aaf-template.py --check
+```
+
+Omit `--check` to regenerate after a deliberate schema change. The generator fixes
+timestamps and identity fields and serializes storage paths deterministically.
+Exports generate their own mob identities and never reuse template media.
 
 ### Why the wheels are provisioned rather than committed
 

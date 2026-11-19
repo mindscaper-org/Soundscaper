@@ -3,8 +3,10 @@
 import { normalizeEffect, updateEffect } from '../../../effects.js';
 import { isStandardEffect } from '../../../first-party-effects/standard/definition.ts';
 import { standardEffectStateBytes } from '../../../first-party-effects/standard/selection-contract.ts';
+import { autoTuneRealtimeGeometry } from '../../../first-party-effects/auto-tune/realtime-contract.ts';
+import { aiDenoiseRackGeometry } from '../../../first-party-effects/ai-denoise/contract.ts';
 import { STEREO_LIMITED_RENDER_EFFECT_TYPES } from '../../../adm-render-safety.ts';
-import { rackEffectChannelCount, rackEffectsActive, unavailableRackEffectTypes } from '../../../rack-effect-channel-width.ts';
+import { rackEffectInputChannelCount, rackEffectsActive, unavailableRackEffectTypes } from '../../../rack-effect-channel-width.ts';
 import type { CommandObject } from '../../../commands/protocol.ts';
 import type { ControllerRackEffect, RackEffectProject, RackEffectScope } from './rack-effect-service-types.ts';
 
@@ -15,9 +17,17 @@ export function assertStandardRackEffectConfiguration(project: RackEffectProject
 		&& rackEffectsActive(project, scope, targetId) && unavailableRackEffectTypes(project, scope, targetId).length) {
 		throw new RangeError(unsupportedMessage);
 	}
+	if (effect.type === 'ai-denoise') {
+		aiDenoiseRackGeometry(project.sampleRate ?? engineSampleRate ?? 48000, rackEffectInputChannelCount(project, scope, targetId, effect.id));
+		return;
+	}
+	if (effect.type === 'auto-tune') {
+		autoTuneRealtimeGeometry(project.sampleRate ?? engineSampleRate ?? 48000, rackEffectInputChannelCount(project, scope, targetId, effect.id));
+		return;
+	}
 	if (!isStandardEffect(effect.type)) return;
 	const normalized = normalizeEffect(effect) as ControllerRackEffect;
-	const channels = rackEffectChannelCount(project, scope, targetId);
+	const channels = rackEffectInputChannelCount(project, scope, targetId, effect.id);
 	standardEffectStateBytes(effect.type, normalized.params, project.sampleRate ?? engineSampleRate ?? 48000, channels);
 }
 
@@ -25,7 +35,7 @@ export function assertStandardRackEffectConfiguration(project: RackEffectProject
 export function assertStandardRackEffectUpdate(project: RackEffectProject, scope: RackEffectScope,
 	targetId: string | null, effect: ControllerRackEffect, changes: CommandObject, engineSampleRate?: number, unsupportedMessage?: string): void {
 	const type = String(changes.type || effect.type);
-	if (!isStandardEffect(type) && !STEREO_LIMITED_RENDER_EFFECT_TYPES.includes(type)) return;
+	if (type !== 'auto-tune' && !isStandardEffect(type) && !STEREO_LIMITED_RENDER_EFFECT_TYPES.includes(type)) return;
 	assertStandardRackEffectConfiguration(project, scope, targetId,
 		updateEffect(effect, changes) as ControllerRackEffect, engineSampleRate, unsupportedMessage);
 }

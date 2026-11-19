@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { VideoKeyframeVideoEncoderRequest } from '../video-keyframe-video-encoder.ts';
-import type { VideoKeyframeOfflineHtmlVideoSourceResolver } from './video-keyframe-offline-html-video-source-resolver.ts';
+import type { VideoKeyframeOfflineSourceSession } from '../video-keyframe-offline-rgba-source.ts';
 import type { VideoKeyframeOfflineRgbaRenderer } from './video-keyframe-offline-rgba-renderer.ts';
 
 type Awaitable<Value> = PromiseLike<Value> | Value;
 
 export async function runVideoKeyframeOfflineVideoResources<Result>(
-	createResolver: () => VideoKeyframeOfflineHtmlVideoSourceResolver,
+	createResolver: () => VideoKeyframeOfflineSourceSession,
 	createRenderer: (
-		resolver: VideoKeyframeOfflineHtmlVideoSourceResolver,
+		resolver: VideoKeyframeOfflineSourceSession,
 	) => Readonly<{
 		renderer: VideoKeyframeOfflineRgbaRenderer;
 		request: VideoKeyframeVideoEncoderRequest;
@@ -19,7 +19,7 @@ export async function runVideoKeyframeOfflineVideoResources<Result>(
 	) => Promise<Result>,
 	assertCurrent?: () => void,
 ): Promise<Result> {
-	let resolver: VideoKeyframeOfflineHtmlVideoSourceResolver | null = null;
+	let resolver: VideoKeyframeOfflineSourceSession | null = null;
 	let renderer: VideoKeyframeOfflineRgbaRenderer | null = null;
 	let result: Result | undefined; let completed = false;
 	let primary: unknown;

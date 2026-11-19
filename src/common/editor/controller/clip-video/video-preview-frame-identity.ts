@@ -27,10 +27,26 @@ export interface VideoPreviewFrameIdentity {
 const INVALIDATING_EVENTS = Object.freeze([
 	'loadeddata', 'seeked', 'emptied', 'loadstart', 'resize',
 ]);
+const drawableRevisions = new WeakMap<object, () => number>();
+
+/** The drawable owner advances the revision immediately after changing visible pixels. */
+export function registerVideoPreviewDrawableRevision(drawable: object, revision: () => number): void {
+	drawableRevisions.set(drawable, revision);
+}
 
 /** Observe injected media resources; opaque exact-render drawables remain uncached. */
 export function createVideoPreviewFrameIdentity(value: unknown): VideoPreviewFrameIdentity | null {
 	if (!value || typeof value !== 'object') return null;
+	const drawableRevision = drawableRevisions.get(value);
+	if (drawableRevision) {
+		let uploadedRevision: number | undefined;
+		return {
+			canReuseFrame: () => true,
+			needsUpload: () => drawableRevision() !== uploadedRevision,
+			markUploaded: () => { uploadedRevision = drawableRevision(); },
+			dispose() {},
+		};
+	}
 	const source = value as Partial<VideoFrameSource>;
 	if (typeof source.currentTime !== 'number' || typeof source.paused !== 'boolean'
 		|| typeof source.addEventListener !== 'function' || typeof source.removeEventListener !== 'function') {

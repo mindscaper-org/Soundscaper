@@ -27,3 +27,16 @@ test('empty label selection never scans a large cue sheet during snapshots or or
 	assert.equal(projectReads, 0, 'unrelated edits bypass label project resolution entirely');
 	assert.equal(labelReads, 0);
 });
+
+test('refused label selection retains the previous track, clip and annotation focus', () => {
+	const state = { selectedTrackId: 'audio', selectedClipId: 'clip', selectedAnnotationId: 'annotation',
+		selectedLabels: [], clipboard: null };
+	const before = { ...state };
+	const service = createSelectedLabelClipboardService({ state, getProject: () => ({ id: 'read-only', sampleRate: 48_000,
+		tracks: [{ type: 'label', id: 'labels', labels: [{ id: 'cue', title: 'Cue', startFrame: 12, endFrame: 24 }] }] }),
+		getPositionFrames: () => 0, createId: () => 'unused', updateSelection() { throw new Error('Read only'); },
+		commit() {}, prepareClipboard: () => () => undefined, publish() {}, copy: { labelTrackMissing: 'Missing labels' }, setStatus() {},
+	});
+	assert.throws(() => service.select('labels', 'cue'), /read only/iu);
+	assert.deepEqual(state, before);
+});

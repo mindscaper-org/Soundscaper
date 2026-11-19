@@ -183,14 +183,18 @@ export function createRecordingCapturePool(options = {}) {
 		return true;
 	}
 
-	function releaseAll() {
+	/** @param {Readonly<{ retainHardwareDeviceId?: string }>} [options] */
+	function releaseAll({ retainHardwareDeviceId } = {}) {
 		const keys = new Set([...entries.keys(), ...pending.keys()]);
-		const released = keys.size;
+		if (retainHardwareDeviceId !== undefined) keys.delete(hardwareInputKey(retainHardwareDeviceId));
 		for (const key of keys) invalidate(key);
-		for (const entry of entries.values()) stopStream(entry.stream);
-		entries.clear();
-		if (released) emitChange();
-		return released;
+		for (const key of keys) {
+			const entry = entries.get(key);
+			entries.delete(key);
+			if (entry) stopStream(entry.stream);
+		}
+		if (keys.size) emitChange();
+		return keys.size;
 	}
 
 	function pruneEndedEntries() {

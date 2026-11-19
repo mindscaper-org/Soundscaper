@@ -4,6 +4,8 @@ import { execFile } from 'node:child_process';
 import { chmod, link, lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { promisify } from 'node:util';
+import { parseReleaseVersion } from '../src/common/release/release-version.ts';
+import { calendarPackageVersion, releaseArtifactStem } from '../src/common/release/release-packaging.ts';
 
 const execute = promisify(execFile);
 const FFMPEG_LABEL = 'Add FFmpeg-support for proprietary file formats (M4A, MP4, MOV and more)';
@@ -42,14 +44,14 @@ export function macInstallerDistribution({ productId, version, minimumSystemVers
 export async function buildMacInstaller(options, dependencies = {}) {
 	const { appPath, outDir, productId, version, installerIdentity = null, keychain } = options;
 	const name = productName(productId);
-	if (!isAbsolute(appPath) || !isAbsolute(outDir) || !/^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.+-]+)?$/u.test(version)) {
+	if (!isAbsolute(appPath) || !isAbsolute(outDir) || !parseReleaseVersion(version)) {
 		throw new TypeError('Mac installer requires absolute paths and a valid product version.');
 	}
 	const appMetadata = await lstat(appPath);
 	if (!appMetadata.isDirectory() || appMetadata.isSymbolicLink()) throw new Error('Mac installer requires the packaged app directory.');
 	const executeFile = dependencies.executeFile ?? execute;
 	const identifier = `org.${productId}.desktop`;
-	const artifact = join(outDir, `${name}-${version}-mac-arm64.pkg`);
+	const artifact = join(outDir, `${releaseArtifactStem(version, name)}-mac-arm64.pkg`);
 	const workingDirectory = await mkdtemp(join(outDir, '.mac-pkg-'));
 	try {
 		const minimum = (await executeFile('/usr/libexec/PlistBuddy', ['-c', 'Print :LSMinimumSystemVersion',
@@ -75,7 +77,7 @@ export async function buildMacInstaller(options, dependencies = {}) {
 		await writeFile(join(scripts, 'postinstall'), postinstall);
 		await chmod(join(scripts, 'postinstall'), 0o755);
 		// Installer receipts use the numeric version; the release filename retains its RC suffix.
-		const packageVersion = /^\d+\.\d+\.\d+/u.exec(version)[0];
+		const packageVersion = parseReleaseVersion(version).kind === 'calendar' ? calendarPackageVersion(version) : /^\d+\.\d+\.\d+/u.exec(version)[0];
 		// Keep gzip/cpio payloads readable by the Linux release-audit extractor.
 		await executeFile('pkgbuild', ['--root', payload, '--compression', 'legacy', '--component-plist', componentPlist,
 			'--identifier', identifier, '--version', packageVersion, '--install-location', '/Applications',

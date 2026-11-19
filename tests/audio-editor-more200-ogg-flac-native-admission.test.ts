@@ -9,6 +9,7 @@ import { oggPageCrc } from '../src/common/editor/ogg-page-crc.ts';
 import { ordinaryOggOpusFixture } from './helpers/ordinary-ogg-opus-fixture.ts';
 import { chunkGroupForModulePath } from '../scripts/lib/build-chunk-groups.mjs';
 import { DESKTOP_MAIN_AUDIO_CODEC_RUNTIME_MARKER } from '../src/common/editor/desktop-main-audio-codec-runtime-marker.ts';
+import { libflacOggPipeFixture } from './helpers/libflac-ogg-pipe-fixture.ts';
 
 for (const generic of [true, false]) test(`File Import Ogg-FLAC retains native PCM with generic name=${String(generic)}`, async () => {
 	const original = await ordinaryOggFlacFixture();
@@ -48,12 +49,12 @@ test('native Ogg-FLAC admission is bounded and stays in the import execution chu
 		{ sampleRate: 48_000, numberOfChannels: 1, length: 1025 }]) assert.throws(() => assertNativeOggFlacGeometry(decoded, admission), /geometry/u);
 });
 
-test('unknown, oversized and unauthenticated Ogg-FLAC extents do not opt into native allocation', async () => {
+test('incomplete, oversized and unauthenticated Ogg-FLAC extents do not opt into native allocation', async () => {
 	const file = await ordinaryOggFlacFixture();
 	for (const count of [0n, 128n * 1024n ** 2n]) {
 		const bytes = new Uint8Array(await file.arrayBuffer()); const view = new DataView(bytes.buffer);
 		view.setBigUint64(55, view.getBigUint64(55) & ~0xf_ffff_ffffn | count); view.setUint32(22, oggPageCrc(bytes.subarray(0, 79)), true);
-		assert.equal(await nativeOggFlacAdmission(new Blob([bytes])), null);
+		assert.equal(await nativeOggFlacAdmission(new Blob([count === 0n ? bytes.subarray(0, -1) : bytes])), null);
 	}
 	const invalid = new Uint8Array(await file.arrayBuffer()); invalid[22] = invalid[22]! ^ 1;
 	assert.equal(await nativeOggFlacAdmission(new Blob([invalid])), null);
@@ -65,4 +66,48 @@ test('unknown, oversized and unauthenticated Ogg-FLAC extents do not opt into na
 		part.arrayBuffer = async () => { const bytes = await read(); pending.abort(); return bytes; }; return part;
 	} }
 	await assert.rejects(nativeOggFlacAdmission(new RetiredFile([file], file.name), { signal: pending.signal }), { name: 'AbortError' });
+});
+
+test('File Import retains a complete write-only Ogg-FLAC recording with an unset STREAMINFO total', async () => {
+	const { file, samples, sampleRate, frameCount, channelCount } = libflacOggPipeFixture();
+	assert.deepEqual(await nativeOggFlacAdmission(file), { sampleRate, frameCount, channelCount });
+	const { store } = await createTwoTrackFixture('pipe-ogg-flac', new Map<string, Float32Array>(), 48_000);
+	const input = new MockAudioBuffer(channelCount, frameCount, sampleRate);
+	for (const [channel, data] of samples.entries()) input.getChannelData(channel).set(data);
+	const engine = Object.assign(createMemoryEngine(), { async decodeAudioData(encoded: ArrayBuffer, options: Readonly<{ sampleRate: number | null }>) {
+		assert.equal(options.sampleRate, sampleRate);
+		assert.deepEqual(Buffer.from(encoded), Buffer.from(await file.arrayBuffer()));
+		return input;
+	} });
+	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
+	const controller = createAudioEditorController(null, { headless: true, copy: ENGLISH_COPY, locale: 'en', store,
+		engine: engine as unknown as Options['engine'], ffmpeg: { dispose() {} } as Options['ffmpeg'] });
+	try {
+		await controller.ready;
+		await controller.actions.project.importFiles([file], { destination: 'timeline' });
+		const project = controller.getSnapshot().project;
+		assert.ok(validateAudioEditorProjectV17(project));
+		assert.equal(project.sources.length, 1);
+		const source = project.sources[0]!;
+		assert.deepEqual({ sampleRate: source.sampleRate, frameCount: source.frameCount, channelCount: source.channelCount },
+			{ sampleRate, frameCount, channelCount });
+		for await (const chunk of store.readSourceChunks(source.storageKey)) assert.deepEqual(chunk.channels, samples);
+	} finally { await controller.dispose(); }
+});
+
+test('write-only Ogg-FLAC requires one closed stream with a checked EOS and a matching decoded count', async () => {
+	const { file, frameCount } = libflacOggPipeFixture();
+	const bytes = new Uint8Array(await file.arrayBuffer());
+	const eos = Buffer.from(bytes).lastIndexOf('OggS');
+	assert.ok(eos > 79);
+	for (const count of [1, frameCount + 1, 128 * 1024 ** 2]) {
+		const invalid = bytes.slice();
+		const view = new DataView(invalid.buffer, eos);
+		view.setBigUint64(6, BigInt(count), true);
+		view.setUint32(22, oggPageCrc(invalid.subarray(eos)), true);
+		assert.equal(await nativeOggFlacAdmission(new Blob([invalid])), null);
+	}
+	assert.equal(await nativeOggFlacAdmission(new Blob([bytes, bytes])), null);
+	bytes[bytes.length - 1] = bytes[bytes.length - 1]! ^ 1;
+	assert.equal(await nativeOggFlacAdmission(new Blob([bytes])), null);
 });

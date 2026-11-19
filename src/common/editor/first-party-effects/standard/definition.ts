@@ -3,7 +3,7 @@
 import { isStandardFilterEffect, type StandardFilterEffectType } from './filters-definition.ts';
 import { isStandardModulationEffect, type StandardModulationEffectType } from './modulation-definition.ts';
 
-export type StandardEffectType = StandardFilterEffectType | StandardModulationEffectType | 'noise-gate' | 'multi-tap-delay';
+export type StandardEffectType = StandardFilterEffectType | StandardModulationEffectType | 'noise-gate' | 'multi-tap-delay' | 'hum-removal';
 export function isStandardEffect(type: string): type is StandardEffectType {
-	return isStandardFilterEffect(type) || isStandardModulationEffect(type) || type === 'noise-gate' || type === 'multi-tap-delay';
+	return isStandardFilterEffect(type) || isStandardModulationEffect(type) || type === 'noise-gate' || type === 'multi-tap-delay' || type === 'hum-removal';
 }

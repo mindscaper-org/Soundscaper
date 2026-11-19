@@ -32,8 +32,9 @@ test('bootstrap starts its independent settings reads together before awaiting s
 	const pendingReads = requested.length;
 	gate.release();
 	await bootstrap;
-	assert.equal(pendingReads, 17, 'each storage latency is paid once, rather than seventeen times');
-	assert.equal(new Set(requested).size, 17, 'each setting is read once');
+	assert.equal(pendingReads, 18, 'all independent setting reads start before storage completes');
+	assert.equal(new Set(requested).size, 18, 'each setting is read once');
+	assert.ok(requested.includes('recording-lead-in-seconds'));
 	assert.equal(fixture.state.showVerticalRulers, true);
 	assert.equal(fixture.state.scrollViewToPlayhead, true);
 	assert.equal(fixture.state.playbackOnRulerClick, true);

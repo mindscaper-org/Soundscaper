@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { isWindowsVst2X86Artifact, windowsVst2X86Architecture, validateProfessionalArtifactArchitecture } from './windows-vst2-x86-artifact.mjs';
 /** Recursive dependency, RPATH, and binary-architecture closure verification. */
 
 import { spawnSync } from 'node:child_process';
@@ -11,7 +12,6 @@ import { isSoundscaperProfessionalLinuxRuntimeLibrary } from
 import {
 	assertSoundscaperNativeBinaryArchitecture,
 	inspectSoundscaperNativeBinaryFile,
-	validateSoundscaperNativeBinaryArchitectureReceipt,
 } from './soundscaper-native-binary-architecture.mjs';
 import {
 	canonicalRegularFile,
@@ -52,13 +52,14 @@ export async function validateSoundscaperProfessionalNativeDependencyClosure({
 			|| rpaths.some((value) => typeof value !== 'string' || value === '')) {
 			throw new TypeError('The native dependency inspector returned an invalid RPATH list.');
 		}
-		validateSoundscaperNativeBinaryArchitectureReceipt(architecture, target);
+		validateProfessionalArtifactArchitecture(architecture, target, artifact.path);
 		validateRpaths(target, artifact.path, rpaths);
 		for (const imported of imports) {
 			if (target.startsWith('linux-') && imported.replaceAll('\\', '/').includes('/')) {
 				throw new Error(`${artifact.path} has ambient runtime dependency ${imported}.`);
 			}
 			if (systemLibrary(target, imported)) continue;
+			if (isWindowsVst2X86Artifact(target, artifact.path)) throw new Error('The x86 VST2 bridge may import only Windows system libraries.');
 			if (ambientDependency(imported)) {
 				throw new Error(`${artifact.path} has ambient runtime dependency ${imported}.`);
 			}
@@ -81,7 +82,8 @@ export async function inspectSoundscaperProfessionalNativeDependencies({ target,
 	if (target.startsWith('win-')) {
 		const bytes = await canonicalRegularFile(path, 'Windows dependency-inspection input');
 		return {
-			architecture: assertSoundscaperNativeBinaryArchitecture(bytes, target),
+			architecture: isWindowsVst2X86Artifact(target, path)
+				? windowsVst2X86Architecture(bytes) : assertSoundscaperNativeBinaryArchitecture(bytes, target),
 			imports: portableExecutableImports(bytes),
 			rpaths: [],
 		};
@@ -137,13 +139,14 @@ function portableExecutableImports(value) {
 	const sectionCount = bytes.readUInt16LE(peOffset + 6);
 	const optionalBytes = bytes.readUInt16LE(peOffset + 20);
 	const optionalOffset = peOffset + 24;
-	if (sectionCount < 1 || sectionCount > 96 || optionalBytes < 240) {
+	const pe32 = bytes.readUInt16LE(optionalOffset) === 0x10b;
+	if (sectionCount < 1 || sectionCount > 96 || optionalBytes < (pe32 ? 224 : 240)) {
 		throw new TypeError('The PE dependency-table dimensions are invalid.');
 	}
 	requireRange(bytes, optionalOffset, optionalBytes + sectionCount * 40,
 		'PE optional header and sections');
-	if (bytes.readUInt16LE(optionalOffset) !== 0x20b
-		|| bytes.readUInt32LE(optionalOffset + 108) < 16) {
+	if ((!pe32 && bytes.readUInt16LE(optionalOffset) !== 0x20b)
+		|| bytes.readUInt32LE(optionalOffset + (pe32 ? 92 : 108)) < 16) {
 		throw new TypeError('The PE32+ dependency directories are incomplete.');
 	}
 	const sections = [];
@@ -173,14 +176,15 @@ function portableExecutableImports(value) {
 		}
 		throw new TypeError(`The ${label} RVA is outside the PE image.`);
 	};
-	const imports = descriptorImports(bytes, optionalOffset, rvaOffset, 1, 20, 12, false);
-	const delayed = descriptorImports(bytes, optionalOffset, rvaOffset, 13, 32, 4, true);
+	const directoriesOffset = optionalOffset + (pe32 ? 96 : 112);
+	const imports = descriptorImports(bytes, directoriesOffset, rvaOffset, 1, 20, 12, false);
+	const delayed = descriptorImports(bytes, directoriesOffset, rvaOffset, 13, 32, 4, true);
 	return [...new Set([...imports, ...delayed])];
 }
 
-function descriptorImports(bytes, optionalOffset, rvaOffset, directoryIndex,
+function descriptorImports(bytes, directoriesOffset, rvaOffset, directoryIndex,
 	descriptorBytes, nameFieldOffset, requireRvaAttribute) {
-	const directoryOffset = optionalOffset + 112 + directoryIndex * 8;
+	const directoryOffset = directoriesOffset + directoryIndex * 8;
 	const directoryRva = bytes.readUInt32LE(directoryOffset);
 	const directoryBytes = bytes.readUInt32LE(directoryOffset + 4);
 	if (directoryRva === 0 && directoryBytes === 0) return [];

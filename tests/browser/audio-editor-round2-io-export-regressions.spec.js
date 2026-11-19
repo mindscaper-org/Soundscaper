@@ -7,7 +7,7 @@ import {
 
 test('a Japanese project title identifies its ordinary WAV download', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Rename project']);
 	const naming = page.getByRole('dialog', { name: 'Rename project', exact: true });
@@ -21,7 +21,7 @@ test('a Japanese project title identifies its ordinary WAV download', async ({ p
 
 test('high-pass triangular dither writes the promised triangular noise into a quiet WAV', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'quiet-recording.wav', frequency: 0, duration: 4, channelCount: 1 })]);
 	const dialog = await openExportDialog(page, editor);
 	await chooseDropdown(page, dialog.getByRole('group', { name: 'Sample format', exact: true }), '16-bit PCM');

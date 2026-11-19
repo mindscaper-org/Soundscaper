@@ -38,6 +38,21 @@ test('failed inherited commands leave the original nested authority unchanged', 
 	assert.deepEqual(project, prior);
 });
 
+test('inherited metadata edits publish detached immutable capability declarations', () => {
+	const project = createSoundscaperProject();
+	const result = applySoundscaperProjectFoundationCommand(project,
+		{ type: 'metadata/update', changes: { tags: { $soundscaperOpaqueBinary: 'Editor credit' } } });
+	const { featureRequirements } = result;
+	assert.equal(result.metadata.tags.$soundscaperOpaqueBinary, 'Editor credit');
+	assert.equal(project.metadata.tags.$soundscaperOpaqueBinary, undefined);
+	assert.notEqual(featureRequirements, project.featureRequirements);
+	const requirement = featureRequirements.requirements.find(row => row.id === 'soundscaper.literal-json-keys');
+	assert.ok(requirement);
+	assert.ok(Object.isFrozen(requirement));
+	assert.ok(Object.isFrozen(featureRequirements.requirements));
+	assert.ok(Object.isFrozen(featureRequirements));
+});
+
 test('empty nested batches preserve the untouched input even when it is frozen', () => {
 	const project = Object.freeze(createSoundscaperProject());
 	const features = project.featureRequirements;

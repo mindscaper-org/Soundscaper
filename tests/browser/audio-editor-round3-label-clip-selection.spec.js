@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
 test('Add label uses the effective range of a header-selected clip', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await clipByName(editor, toneA.name).locator('.clip-header').click();
 	await chooseCommandAction(page, editor, 'Edit', 'Add label');

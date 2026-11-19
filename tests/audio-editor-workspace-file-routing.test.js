@@ -13,12 +13,13 @@ test('Audacity MKA and WMA exports are selectable and recognized without a platf
 test('workspace drops route AUP3, AUP4 and DAWproject files as projects instead of media', () => {
 	const aup3 = { name: 'old.AUP3' };
 	const aup4 = { name: 'new.aup4' };
+	const unsaved = { name: 'recording.aup4unsaved' };
 	const dawproject = { name: 'session.DawProject' };
 	const audio = { name: 'take.wav' };
 	const labels = { name: 'markers.vtt' };
 	const cue = { name: 'album.CUE' };
-	assert.deepEqual(partitionWorkspaceFiles([aup3, audio, aup4, dawproject, labels, cue]), {
-		projects: [aup3, aup4, dawproject],
+	assert.deepEqual(partitionWorkspaceFiles([aup3, audio, aup4, unsaved, dawproject, labels, cue]), {
+		projects: [aup3, aup4, unsaved, dawproject],
 		media: [audio],
 		labels: [labels],
 		cues: [cue],

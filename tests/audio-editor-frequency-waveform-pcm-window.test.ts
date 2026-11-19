@@ -45,6 +45,31 @@ test('ordinary waveform PCM windows retain their cached identity without frequen
 	assert.equal('visibleStartFrame' in (first ?? {}), false);
 });
 
+test('visible short stored waveform windows settle within the PCM byte budget', async () => {
+	const fixture = createSourceLifecycleFixture({ additionalAudioClips: 4, reuseContainedWaveformRequests: true });
+	const shortClips = fixture.clips.slice(0, 3);
+	const short = { startFrame: 0, endFrame: 10 };
+	const windows = [];
+	for (const clip of shortClips) {
+		const reading = fixture.service.requestWaveformPcmWindow(clip.id, short);
+		fixture.resolveRead([new Float32Array(10), new Float32Array(10)]);
+		windows.push(await reading);
+	}
+	assert.deepEqual([...fixture.clipWaveformPcmWindows.keys()], shortClips.map(clip => clip.id));
+	for (const [index, clip] of shortClips.entries()) {
+		assert.equal(await fixture.service.requestWaveformPcmWindow(clip.id, short), windows[index]);
+	}
+	assert.equal(fixture.waveformPcmReads(), shortClips.length, 'cache hits must not start a second storage pass');
+
+	const largeClips = fixture.clips.slice(3);
+	for (const clip of largeClips) {
+		const reading = fixture.service.requestWaveformPcmWindow(clip.id, { startFrame: 0, endFrame: 100 });
+		fixture.resolveRead([new Float32Array(100), new Float32Array(100)]);
+		await reading;
+	}
+	assert.deepEqual([...fixture.clipWaveformPcmWindows.keys()], largeClips.map(clip => clip.id));
+});
+
 test('contained waveform PCM requests reuse an unsignaled read without sharing observer cancellation', async () => {
 	const fixture = createSourceLifecycleFixture({ reuseContainedWaveformRequests: true });
 	const observer = new AbortController();

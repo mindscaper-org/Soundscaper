@@ -5,7 +5,7 @@ import { expect, test, monoTone } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, clipByName, importFiles, openClipProperties, closeClipProperties, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
 
 test('track alignment reads the end of selected clips as the selection end', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const clip = clipByName(editor, monoTone.name);
 	const properties = await openClipProperties(page, editor, clip);

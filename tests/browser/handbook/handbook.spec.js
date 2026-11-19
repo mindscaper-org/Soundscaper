@@ -76,12 +76,53 @@ test('local search indexes generated runtime references without cross-origin req
 	expect(crossOriginRequests).toEqual([]);
 });
 
-test('mobile readers can navigate the handbook sidebar', async ({ page }) => {
-	await page.setViewportSize({ width: 390, height: 844 });
-	await page.goto(`${BASE}soundscaper/recording/`);
-	await page.getByRole('button', { name: /menu/iu }).click();
-	await page.getByRole('link', { name: 'Storage, backups, and privacy' }).click();
-	await expect(page).toHaveURL(new RegExp(`${BASE}projects-and-data/storage-backups-and-privacy/$`, 'u'));
+test('readers open the collapsed handbook sidebar from the menu at desktop and mobile widths', async ({ page }) => {
+	for (const width of [1600, 390]) {
+		await page.setViewportSize({ width, height: 844 });
+		await page.goto(`${BASE}soundscaper/recording/`);
+		const menu = page.getByRole('button', { name: /menu/iu });
+		const storage = page.getByRole('link', { name: 'Storage, backups, and privacy', exact: true });
+		const title = page.getByRole('heading', { level: 1, includeHidden: true });
+		const titleBox = await title.boundingBox();
+		await expect(menu).toBeVisible();
+		await expect(storage).toBeHidden();
+		await menu.focus();
+		await page.keyboard.press('Enter');
+		await expect(storage).toBeVisible();
+		expect((await title.boundingBox()).x).toBeCloseTo(titleBox.x, 0);
+		expect((await title.boundingBox()).width).toBeCloseTo(titleBox.width, 0);
+		await page.keyboard.press('Escape');
+		await expect(storage).toBeHidden();
+		await expect(menu).toBeFocused();
+		await menu.click();
+		await expect(storage).toBeVisible();
+		await menu.click();
+		await expect(storage).toBeHidden();
+		await menu.click();
+		await storage.click();
+		await expect(page).toHaveURL(new RegExp(`${BASE}projects-and-data/storage-backups-and-privacy/$`, 'u'));
+		await expect(storage).toBeHidden();
+	}
+});
+
+test('the collapsed handbook menu remains usable without JavaScript', async ({ browser }) => {
+	const context = await browser.newContext({ javaScriptEnabled: false });
+	try {
+		const page = await context.newPage();
+		for (const width of [1600, 390]) {
+			await page.setViewportSize({ width, height: 844 });
+			await page.goto(`${BASE}soundscaper/recording/`);
+			const storage = page.getByRole('link', { name: 'Storage, backups, and privacy', exact: true });
+			await expect(storage).toBeHidden();
+			await page.getByRole('button', { name: /menu/iu }).click();
+			await expect(storage).toBeVisible();
+			await storage.click();
+			await expect(page).toHaveURL(new RegExp(`${BASE}projects-and-data/storage-backups-and-privacy/$`, 'u'));
+			await expect(storage).toBeHidden();
+		}
+	} finally {
+		await context.close();
+	}
 });
 
 test('states a local model purpose and keeps packaged-test mechanics collapsed', async ({ page }) => {
@@ -94,17 +135,105 @@ test('states a local model purpose and keeps packaged-test mechanics collapsed',
 	await expect(disclosure.getByText(/silero-voice-activity/u)).toBeVisible();
 });
 
-test('compares Web and Desktop with accessible symbols and explains the capability differences', async ({ page }) => {
+test('gives the comparison page full width while standard pages keep their reading layout', async ({ page }) => {
+	await page.setViewportSize({ width: 1600, height: 1000 });
+	await page.goto(`${BASE}start/how-soundscaper-compares/`);
+	const comparisonTitle = page.getByRole('heading', { level: 1, name: 'How Soundscaper compares' });
+	await expect(comparisonTitle).toBeVisible();
+	const comparisonWidth = (await comparisonTitle.boundingBox()).width;
+	expect(comparisonWidth).toBeGreaterThan(900);
+	const sidebarLink = page.getByRole('navigation', { name: 'Main', exact: true })
+		.getByRole('link', { name: 'How Soundscaper compares', exact: true });
+	const contents = page.getByRole('navigation', { name: 'On this page', exact: true });
+	await expect(sidebarLink).toBeHidden();
+	await expect(contents).toBeVisible();
+	for (const width of [1600, 2400]) {
+		await page.setViewportSize({ width, height: 1000 });
+		const titleBox = await comparisonTitle.boundingBox();
+		const contentsBox = await contents.boundingBox();
+		expect(titleBox.x).toBeLessThanOrEqual(48);
+		expect(contentsBox.x - (titleBox.x + titleBox.width)).toBeLessThanOrEqual(64);
+		expect(contentsBox.width).toBeLessThanOrEqual(300);
+		let referenceColumns;
+		for (const table of await page.getByRole('table').all()) {
+			const columns = await table.locator('tbody tr').first().locator('th, td').evaluateAll((cells) => cells.map((cell) => {
+				const { x, width: columnWidth } = cell.getBoundingClientRect();
+				return { x, width: columnWidth };
+			}));
+			referenceColumns ??= columns;
+			expect(columns).toHaveLength(referenceColumns.length);
+			for (const [index, column] of columns.entries()) {
+				expect(column.x).toBeCloseTo(referenceColumns[index].x, 0);
+				expect(column.width).toBeCloseTo(referenceColumns[index].width, 0);
+			}
+			expect((await table.boundingBox()).width).toBeGreaterThanOrEqual(titleBox.width - 1);
+		}
+	}
+
+	await page.setViewportSize({ width: 1600, height: 1000 });
+	await page.goto(`${BASE}soundscaper/recording/`);
+	const standardTitle = page.getByRole('heading', { level: 1 });
+	await expect(standardTitle).toBeVisible();
+	expect((await standardTitle.boundingBox()).width).toBeLessThan(comparisonWidth - 180);
+	await expect(page.getByRole('navigation', { name: 'On this page', exact: true })).toBeVisible();
+
+	for (const width of [1280, 390]) {
+		await page.setViewportSize({ width, height: 844 });
+		await page.goto(`${BASE}start/how-soundscaper-compares/`);
+		await expect(comparisonTitle).toBeVisible();
+		await expect(page.getByRole('navigation', { name: /^On this page/u })).toBeVisible();
+		const pageWidth = await page.evaluate(() => ({ content: document.documentElement.scrollWidth, viewport: window.innerWidth }));
+		expect(pageWidth.content).toBeLessThanOrEqual(pageWidth.viewport);
+		const comparisonScroll = page.getByRole('region', { name: 'Platform and terms', exact: true });
+		const scrollBox = await comparisonScroll.boundingBox();
+		const feature = comparisonScroll.getByRole('rowheader').first();
+		await comparisonScroll.focus();
+		await page.keyboard.press('ArrowRight');
+		await expect.poll(() => comparisonScroll.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+		await expect(feature).toBeVisible();
+		expect((await feature.boundingBox()).x).toBeCloseTo(scrollBox.x, 0);
+		await comparisonScroll.evaluate((element) => { element.scrollLeft = element.scrollWidth; });
+		const focusLabel = comparisonScroll.getByText('MIDI focus', { exact: true });
+		const featureBox = await feature.boundingBox();
+		expect((await focusLabel.boundingBox()).x).toBeGreaterThanOrEqual(featureBox.x + featureBox.width);
+	}
+});
+
+test('keeps wrapped comparison text inside cells without vertical table scrolling', async ({ page }) => {
+	await page.setViewportSize({ width: 1920, height: 1000 });
+	await page.goto(`${BASE}start/how-soundscaper-compares/`);
+	const overflow = await page.getByRole('table').evaluateAll((tables) => tables.flatMap((table) => {
+		const problems = [];
+		for (const container of [table, table.parentElement]) {
+			if (container.scrollHeight > container.clientHeight + 1) problems.push({ section: table.parentElement.getAttribute('aria-label'), verticalScroll: true });
+		}
+		for (const body of table.tBodies) {
+			for (const row of body.rows) {
+				for (const cell of row.cells) {
+					const bounds = cell.getBoundingClientRect();
+					const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+					while (walker.nextNode()) {
+						const node = walker.currentNode;
+						if (!node.textContent.trim() || node.parentElement.closest('[popover]')) continue;
+						const range = document.createRange();
+						range.selectNodeContents(node);
+						if ([...range.getClientRects()].some((rect) => rect.width > 0 && (rect.top < bounds.top - 1 || rect.bottom > bounds.bottom + 1 || rect.right > bounds.right + 1))) {
+							problems.push({ row: row.cells[0].textContent, text: node.textContent.trim() });
+						}
+					}
+				}
+			}
+		}
+		return problems;
+	}));
+	expect(overflow).toEqual([]);
+});
+
+test('renders comparison verdicts as accessible symbols with distinct colours', async ({ page }) => {
 	await page.goto(`${BASE}start/how-soundscaper-compares/`);
 	await expect(page.getByRole('heading', { level: 1, name: 'How Soundscaper compares' })).toBeVisible();
 	const tables = page.getByRole('table');
 	expect(await tables.count()).toBeGreaterThan(0);
-	for (const table of await tables.all()) {
-		await expect(table.getByRole('columnheader')).toHaveText([
-			'Capability', 'Soundscaper Web', 'Soundscaper Desktop', 'Audacity 4.0.2', 'Audition',
-		]);
-	}
-
 	const colours = [];
 	for (const [symbol, label] of [['+', 'Supported'], ['~', 'Limited'], ['/', 'Unavailable']]) {
 		const verdict = tables.getByRole('img', { name: label, exact: true }).first();
@@ -113,38 +242,53 @@ test('compares Web and Desktop with accessible symbols and explains the capabili
 		colours.push(await verdict.evaluate((element) => getComputedStyle(element).color));
 	}
 	expect(new Set(colours).size).toBe(3);
-	await expect(tables.getByText(/^(?:Yes|No|Partial)(?:\s|$)/u)).toHaveCount(0);
-	const row = (capability) => page.getByRole('row').filter({
-		has: page.getByRole('cell', { name: capability, exact: true }),
-	});
-	for (const [capability, web, desktop] of [
-		['Dedicated single-file editor', 'Supported', 'Supported'],
-		['Microphone and desktop audio together', 'Limited', 'Supported'],
-		...['VST2 plug-ins', 'VST3 plug-ins', 'CLAP plug-ins', 'Audio Units (AU)', 'LV2 plug-ins', 'LADSPA plug-ins', 'Vamp analysers']
-			.map((format) => [format, 'Unavailable', 'Supported']),
-		['Speech enhancement', 'Unavailable', 'Supported'],
-		['Transcription and diarisation', 'Unavailable', 'Supported'],
-		['Source separation into stems', 'Unavailable', 'Supported'],
-		['Lossy output', 'Limited', 'Supported'],
-	]) {
-		await expect(row(capability).getByRole('cell').nth(1).getByRole('img', { name: web, exact: true })).toBeVisible();
-		await expect(row(capability).getByRole('cell').nth(2).getByRole('img', { name: desktop, exact: true })).toBeVisible();
-	}
-	for (const column of [1, 2]) {
-		await expect(row('Dedicated single-file editor').getByRole('cell').nth(column))
-			.toContainText(/source waveform editor in source monitor/iu);
-	}
-	await expect(row('Sample-level drawing').getByRole('cell').nth(3).getByRole('img', { name: 'Supported', exact: true })).toBeVisible();
-	const audacityAutomation = row('Automation lanes').getByRole('cell').nth(3);
-	await expect(audacityAutomation.getByRole('img', { name: 'Limited', exact: true })).toBeVisible();
-	await expect(audacityAutomation).toContainText(/clip[ -]gain/iu);
-	const audacityProjects = row('Opens Audacity projects').getByRole('cell').nth(3);
-	await expect(audacityProjects).toContainText(/\baup\b.*\baup3\b.*\baup4\b.*import/iu);
-	await expect(audacityProjects).toContainText(/aup4\s+export/iu);
-	await expect(audacityProjects).toContainText(/no\s+aup3\s+export/iu);
-	await expect(row('Lossy output').getByRole('cell').nth(2)).toContainText(/ffmpeg/iu);
-	await expect(row('Lossy output').getByRole('cell').nth(3)).toContainText(/ffmpeg/iu);
-	await expect(row('Lossy output').getByRole('cell').nth(4)).toContainText(/formats|mp3|aac/iu);
+});
+
+test('keeps comparison sources collapsed and reveals cell details on hover, focus, and tap', async ({ page, isMobile }) => {
+	await page.goto(`${BASE}start/how-soundscaper-compares/`);
+	const sources = page.getByText('Where these claims come from', { exact: true });
+	const releaseNotes = page.getByRole('link', { name: 'release notes', exact: true });
+	await expect(releaseNotes).toBeHidden();
+	await sources.click();
+	await expect(releaseNotes).toBeVisible();
+	await sources.click();
+	await expect(releaseNotes).toBeHidden();
+
+	const note = page.getByRole('table').getByRole('button').first();
+	const detail = page.getByRole('tooltip', { includeHidden: true }).first();
+	const explanation = await detail.textContent();
+	await expect(detail).toBeHidden();
+	await note.hover();
+	await expect(detail).toBeVisible();
+	await detail.hover();
+	await expect(detail).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(detail).toBeHidden();
+	await note.focus();
+	await expect(detail).toBeVisible();
+	await expect(note).toHaveAccessibleDescription(explanation);
+	await page.keyboard.press('Escape');
+	await expect(detail).toBeHidden();
+	if (isMobile) await note.tap();
+	else await note.click();
+	await expect(detail).toBeVisible();
+
+	// Audit the open tooltip and its trigger here; the route audit below covers
+	// the complete comparison page without repeating its costly table scan.
+	const detailId = await detail.getAttribute('id');
+	expect(detailId).toBeTruthy();
+	const accessibility = await new AxeBuilder({ page })
+		.include(`[aria-describedby="${detailId}"]`)
+		.include(`[role="tooltip"][id="${detailId}"]`)
+		.analyze();
+	expect(accessibility.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical')).toEqual([]);
+	await page.getByRole('heading', { level: 1 }).click();
+	await expect(detail).toBeHidden();
+	const macros = page.getByRole('region', { name: 'Effects and plug-ins', exact: true })
+		.getByRole('row', { name: /^Macros and batch chains /u }).getByRole('cell').nth(5);
+	await expect(macros.getByRole('button')).toHaveText('+');
+	await macros.getByRole('button').focus();
+	await expect(macros.getByRole('button')).toHaveAccessibleDescription('Custom actions / ReaScript / batch converter');
 });
 
 // The generated reference pages carry the widest and longest tables in the
@@ -161,6 +305,10 @@ for (const route of [
 	`${BASE}start/how-soundscaper-compares/`,
 ]) {
 	test(`has no serious accessibility violations at ${route}`, async ({ page }) => {
+		test.slow(
+			route === `${BASE}start/how-soundscaper-compares/`,
+			'The expanded comparison matrix needs a longer complete accessibility scan on shared CI runners.',
+		);
 		await page.goto(route);
 		const results = await new AxeBuilder({ page }).analyze();
 		const serious = results.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical');

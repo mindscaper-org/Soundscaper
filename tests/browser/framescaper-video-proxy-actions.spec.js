@@ -8,8 +8,12 @@ import {
 	bootEditor,
 	chooseDropdown,
 	chooseFileAction,
+	chooseNestedCommandAction,
 	collectClientErrors,
+	commitInput,
 	stubStorageEstimate,
+	waitForEditor,
+	waitForProjectActivation,
 } from './audio-editor-test-helpers.js';
 import {
 	createDeterministicAvFixture,
@@ -23,6 +27,13 @@ test('publishes, cancels, verifies, and regenerates an existing video proxy', as
 	await stubStorageEstimate(page, { usage: 1024 ** 2, quota: 2 * 1024 ** 3 });
 	await installPersistentStorageStub(page);
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	const projectId = await editor.getAttribute('data-project-id');
+	const projectTitle = 'Proxy attachment history';
+	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Rename project']);
+	const rename = page.getByRole('dialog', { name: 'Rename project', exact: true });
+	await commitInput(rename.locator('[data-project-name-input] input'), projectTitle);
+	await rename.getByRole('button', { name: 'Save name', exact: true }).click();
+	await expect(rename).toBeHidden();
 	await editor.locator('[data-project-bin-input]').setInputFiles(original);
 	await expect(editor.locator('[data-status]')).toHaveAttribute('data-state', 'success', {
 		timeout: 30_000,
@@ -69,6 +80,46 @@ test('publishes, cancels, verifies, and regenerates an existing video proxy', as
 		timeout: 30_000,
 	});
 	await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+	await card.getByRole('button', { name: /Add to timeline:/u }).click();
+	const video = editor.locator('[data-clip-kind="video"]');
+	await expect(video).toHaveCount(1);
+	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved', {
+		timeout: 20_000,
+	});
+	await page.reload();
+	const reopened = await waitForEditor(page);
+	await waitForProjectActivation(reopened);
+	await expect(reopened).toHaveAttribute('data-project-id', projectId);
+	await expect(video).toHaveCount(1);
+	await openProxyDialog(page, card);
+	const detach = dialog.getByRole('button', { name: 'Detach', exact: true });
+	const close = dialog.getByRole('button', { name: 'Close', exact: true });
+	const save = editor.locator('[data-save-state]');
+	await detach.click();
+	await expect(proxyFeedback(dialog)).toContainText('Proxy detached.');
+	await close.click();
+	await expect(save).toHaveAttribute('data-state', 'saved');
+
+	const undo = editor.getByRole('button', { name: 'Undo', exact: true });
+	await undo.click();
+	await expect(save).toHaveAttribute('data-state', 'saved');
+	await openProxyDialog(page, card);
+	await expect(detach).toBeVisible();
+	await previewMode.selectOption('proxy');
+	await expect(proxyStatus(dialog)).toContainText('The attached proxy bodies and timing are verified for this session.');
+	await previewMode.selectOption('auto');
+	await close.click();
+	await editor.getByRole('button', { name: 'Redo', exact: true }).click();
+	await expect(save).toHaveAttribute('data-state', 'saved');
+	await editor.getByRole('button', { name: `Close project: ${projectTitle}`, exact: true }).click();
+	await expect(editor).not.toHaveAttribute('data-project-id', projectId);
+	await chooseNestedCommandAction(page, editor, 'File', ['Open recent', projectTitle]);
+	await waitForProjectActivation(editor);
+	await expect(editor).toHaveAttribute('data-project-id', projectId);
+	await expect(video).toHaveCount(1);
+	await expect(undo).toBeDisabled();
+	await openProxyDialog(page, card);
+	await expect(proxyStatus(dialog)).toContainText('No proxy is attached.');
 	expect(clientErrors).toEqual([]);
 });
 

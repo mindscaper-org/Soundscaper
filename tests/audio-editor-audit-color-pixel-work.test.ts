@@ -25,6 +25,27 @@ test('ungraded byte frames reuse the finite transfer palette with exact Float32 
 	}
 });
 
+test('ungraded palette conversion observes the cancellation checkpoint at each row', () => {
+	const prepared = prepareManagedSdrGradeStackV1({ decoding: 'linear', grades: [] });
+	const pixels = Uint8Array.from({ length: 4_096 }, (_, index) => index % 256);
+	const frame = { width: 64, height: 16, pixels };
+	const reason = new Error('stop grading on the second row');
+	const controller = new AbortController();
+	let checks = 0;
+	Object.defineProperty(controller.signal, 'aborted', { get() {
+		checks += 1;
+		if (checks === 2) controller.abort(reason);
+		return checks >= 2;
+	} });
+	assert.throws(() => gradeUnifiedExactLinearSourceFrame(prepared, frame, controller.signal),
+		(error: unknown) => error === reason);
+	assert.equal(checks, 2);
+	const expected = gradeUnifiedExactLinearSourceFrame(prepared, frame).pixels;
+	assert.deepEqual(gradeUnifiedExactLinearSourceFrame(prepared, {
+		...frame, get pixels() { return pixels; },
+	}).pixels, expected);
+});
+
 test('LUT lattice interpolation preserves all pixels without per-axis frozen records', () => {
 	const lut = parseCubeLutV1('LUT_3D_SIZE 2\nDOMAIN_MIN -0.1 0 0.1\nDOMAIN_MAX 1 1.2 0.9\n'
 		+ '0 0 0\n1 0.1 0\n0.2 1 0\n1 1 0.1\n0 0.1 1\n1 0.2 1\n0.2 1 1\n1 1 1');

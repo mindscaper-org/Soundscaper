@@ -167,7 +167,7 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 			failedSources: failedVideoSourcesRef.current });
 	}, [controller, layers, mediaErrorRevision, missingSourceIds]);
 	const activeEntries = resolvedLayers.flatMap((layer) => layer.clips);
-	useFramescaperVideoProxyPreviewPressure({ reporter: controller.actions.video?.reportPreviewPressure || null, entries: activeEntries, elements: videoElementsRef, canvas: canvasRef, referenceWidth: referenceCanvas.width, referenceHeight: referenceCanvas.height, playing: transportState === 'playing', run });
+	useFramescaperVideoProxyPreviewPressure({ reporter: controller.actions.video?.reportPreviewPressure || null, entries: activeEntries, elements: videoElementsRef, canvas: canvasRef, referenceWidth: referenceCanvas.width, referenceHeight: referenceCanvas.height, playing: transportState === 'playing', previewResolution: snapshot.preferences?.view?.videoPreviewResolution, run });
 	const renderableMediaEntries = keyframePreviewFailed
 		? []
 		: activeEntries.filter((entry) => entry.available);
@@ -269,7 +269,10 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 				previewRootRef.current.dataset.videoPreviewEvaluatedTimelineSample = String(timelineFrame);
 			}
 			try {
-				publishEvaluatedVideoPreviewFrame({ compositor, project, timelineFrame });
+				publishEvaluatedVideoPreviewFrame({
+					compositor, project, timelineFrame,
+					currentProject: () => compositorRef.current === compositor ? freezeCaptureProjectRef.current : null,
+				});
 			} catch { /* clean-display failure must not stop the editor preview */ }
 			updateCompositorState(report.status === 'fallback'
 				? 'fallback' : report.renderedEntryCount > 0 ? 'ready' : 'webgl');
@@ -280,7 +283,7 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 		try {
 			const visualSession = visualSessionRef.current;
 			const productFrame = visualSession?.resolve(timelineFrame) ?? null;
-			if (shouldRenderExactProductVideoPreview(visualSession, playhead.transportState)) {
+			if (shouldRenderExactProductVideoPreview(visualSession, playhead.transportState, productFrame)) {
 				if (!layersSynchronized || !areVideoPreviewMediaLayersReadyForExactRender(compositorLayersRef.current)) return;
 				void exactRenders.run({
 					render: () => visualSession.renderExact({

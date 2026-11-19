@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { parseFragment } from 'parse5';
+import { chunkGroupForModulePath } from '../scripts/lib/build-chunk-groups.mjs';
 
 import {
 	PRODUCT_BOOTSTRAPS,
@@ -103,6 +104,91 @@ test('each product-ready graph excludes the other product tree', () => {
 		}),
 		/framescaper.*forbidden soundscaper product module/iu,
 	);
+});
+
+test('the product-ready graph excludes synth libraries reached only on instrument use', () => {
+	for (const library of ['libadlmidi-js', 'js-synthesizer']) {
+		const bundle = fixtureBundle();
+		const bootstrap = addProductBootstrap(bundle, 'soundscaper');
+		const synthFile = 'assets/instrument-library.js';
+		bundle[synthFile] = chunk({
+			fileName: synthFile,
+			code: 'synth',
+			modules: { [`/workspace/node_modules/${library}/index.js`]: {} },
+		});
+		bootstrap.dynamicImports = [synthFile];
+		assert.doesNotThrow(() => assertProductionStartupGraphs(bundle, 'soundscaper'));
+
+		bootstrap.imports.push(synthFile);
+		assert.throws(
+			() => assertProductionStartupGraphs(bundle, 'soundscaper'),
+			new RegExp(`soundscaper product-ready graph.*${library}`, 'u'),
+		);
+	}
+});
+
+test('the product-ready graph excludes registration work deferred until application readiness', () => {
+	const bundle = fixtureBundle();
+	addProductBootstrap(bundle, 'soundscaper');
+	bundle['assets/shared.js'].modules['/workspace/src/common/offline/application-shell.ts'] = {};
+	assert.throws(
+		() => assertProductionStartupGraphs(bundle, 'soundscaper'),
+		/product-ready graph loads deferred offline shell registration/u,
+	);
+});
+
+test('MIDI and Allegro file codecs have an on-demand owner separate from playback', () => {
+	for (const name of ['midi-file.ts', 'allegro-file.ts', 'allegro-file-events.ts']) {
+		const path = `src/common/editor/${name}`;
+		for (const variant of [path, path.replaceAll('/', '\\')]) {
+			assert.equal(chunkGroupForModulePath(variant), 'editor-midi-file-codecs', variant);
+		}
+	}
+	assert.equal(chunkGroupForModulePath('src/common/editor/engine/midi-synthesis.ts'), 'editor-engine');
+});
+
+test('optional feature chunks stay outside both product-ready graphs', () => {
+	const features = {
+		timecode: 'controller/transport/timecode-sync-session.ts',
+		'midi-authoring': 'controller/track-audio/midi-service.ts',
+		'waveform-gpu': 'controller/source/internal/waveform-gpu-runtime.ts',
+		'overwrite-audio': 'desktop-original-export-settings.ts',
+		ara: 'controller/effects/internal/ara-clip-editing.ts',
+		'dialogue-alignment': 'controller/track-audio/internal/dialogue-alignment-service.ts',
+		'microphone-bleed': 'microphone-bleed-worker-client.ts',
+		'embedded-metadata': 'imported-metadata-reader.ts',
+		'video-keyframe-export': 'video-keyframe-video-encoder.ts',
+		blender: 'controller/export/blender-live-session.ts',
+		'import-codec-inspection': 'matroska-opus-end-padding.ts',
+		'clip-fades': 'ui/timeline/ClipFadesDialog.tsx',
+	};
+	for (const [feature, path] of Object.entries(features)) {
+		const source = `src/common/editor/${path}`;
+		const name = `editor-${feature}`;
+		assert.equal(chunkGroupForModulePath(source), name, source);
+		assert.equal(chunkGroupForModulePath(source.replaceAll('/', '\\')), name, source);
+		for (const product of ['soundscaper', 'framescaper']) {
+			assert.throws(() => assertProductGraphOwnership(product, { moduleIds: new Set([`/workspace/${source}`]) }),
+				new RegExp(`${product} product-ready graph loads deferred ${name} module`, 'u'));
+		}
+	}
+});
+
+test('neither product-ready graph includes MIDI or Allegro file codecs', () => {
+	for (const product of ['soundscaper', 'framescaper']) {
+		const bundle = fixtureBundle();
+		const bootstrap = addProductBootstrap(bundle, product);
+		const path = 'assets/midi-file-codecs.js';
+		bundle[path] = chunk({
+			fileName: path,
+			code: 'midi codecs',
+			modules: { '/workspace/src/common/editor/midi-file.ts': {}, '/workspace/src/common/editor/allegro-file-events.ts': {} },
+		});
+		bootstrap.dynamicImports = [path];
+		assert.doesNotThrow(() => assertProductionStartupGraphs(bundle, product));
+		bootstrap.imports.push(path);
+		assert.throws(() => assertProductionStartupGraphs(bundle, product), /product-ready graph loads on-demand MIDI file codec/u);
+	}
 });
 
 test('the emitted Framescaper project-command chunk cannot reciprocally import a feature chunk', () => {

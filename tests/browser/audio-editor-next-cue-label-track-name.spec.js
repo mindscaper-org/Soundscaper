@@ -3,7 +3,8 @@
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseFileAction } from './audio-editor-test-helpers.js';
 
-for (const [name, albumTitle, expectedName] of [['Album.cue', '   ', 'Album'], ['   .cue', '', 'Labels']]) {
+// Keep the platform-sensitive whitespace filename on the actual File Open path.
+for (const [name, albumTitle, expectedName] of [['   .cue', '', 'Labels']]) {
 	test(`File Open imports CUE labels with a usable track name: ${JSON.stringify({ name, albumTitle })}`, async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/');
 		const choosing = page.waitForEvent('filechooser');

@@ -3,6 +3,7 @@
 /** Traversal-independent source-domain RGBA access for selected finishing finishing. */
 
 import type { UnifiedExactRenderRgbaFrameV13 } from '../common/editor/unified-exact-render-finishing-consumers-v13.ts';
+import { resizeVideoRgbaNearest } from '../common/editor/video-rgba-nearest-resize.ts';
 import {
 	VIDEO_PREVIEW_CAPTURE_MAXIMUM_HEIGHT,
 	VIDEO_PREVIEW_CAPTURE_MAXIMUM_WIDTH,
@@ -11,6 +12,7 @@ import {
 	videoBoundaryTime,
 	type VideoSourceTimingView,
 } from '../common/editor/video-source-timing-view.ts';
+import type { VideoTimingIndex } from '../common/editor/video-timing-asset.ts';
 
 interface FrameDecoderFinishing {
 	capture(request: Readonly<{
@@ -26,6 +28,8 @@ type FrameDecoderFactoryFinishing = (
 	body: Blob,
 	options: Readonly<{ readonly signal: AbortSignal }>,
 ) => PromiseLike<FrameDecoderFinishing> | FrameDecoderFinishing;
+
+type CaptureResolution = 'preview' | 'render';
 
 export interface FramescaperVideoFrameAddressFinishing {
 	resolve(request: Readonly<{
@@ -46,6 +50,7 @@ export function createFramescaperVideoFrameAddressFinishing(options: Readonly<{
 	readonly timingViewsBySourceId: ReadonlyMap<string, VideoSourceTimingView>;
 	readonly createDecoder?: FrameDecoderFactoryFinishing;
 	readonly maximumCacheBytes?: number;
+	readonly resolution?: CaptureResolution;
 }>): FramescaperVideoFrameAddressFinishing {
 	if (!(options?.sources instanceof Map) || !(options.timingViewsBySourceId instanceof Map)) {
 		throw new TypeError('Selected finishing frame addressing requires source and timing maps.');
@@ -56,8 +61,12 @@ export function createFramescaperVideoFrameAddressFinishing(options: Readonly<{
 		|| [...sources].some(([id, body]) => !stableId(id) || !(body instanceof Blob) || !timing.has(id))) {
 		throw new RangeError('Selected finishing frame-address source authority is inconsistent.');
 	}
-	const createDecoder = options.createDecoder ?? defaultDecoder;
-	if (typeof createDecoder !== 'function') throw new TypeError('A finishing frame decoder factory is required.');
+	const resolution = options.resolution ?? 'preview';
+	const createDecoder = options.createDecoder;
+	const ownsDecodedPixels = createDecoder == null;
+	if (!ownsDecodedPixels && typeof createDecoder !== 'function') {
+		throw new TypeError('A finishing frame decoder factory is required.');
+	}
 	const maximumCacheBytes = options.maximumCacheBytes === undefined
 		? DEFAULT_MAXIMUM_CACHE_BYTES
 		: positiveInteger(options.maximumCacheBytes, 'finishing frame cache byte limit');
@@ -93,7 +102,9 @@ export function createFramescaperVideoFrameAddressFinishing(options: Readonly<{
 			let creation = decoderCreations.get(sourceId);
 			if (!creation) {
 				creation = (async () => {
-					const created = await createDecoder(body, Object.freeze({ signal }));
+					const created = await (ownsDecodedPixels
+						? defaultDecoder(body, { signal, ...(view.kind === 'vfr' ? { timing: view.index } : {}) }, resolution)
+						: createDecoder(body, Object.freeze({ signal })));
 					if (!created || typeof created.capture !== 'function'
 						|| typeof created.dispose !== 'function') {
 						throw new TypeError('The selected finishing frame decoder is invalid.');
@@ -119,7 +130,7 @@ export function createFramescaperVideoFrameAddressFinishing(options: Readonly<{
 				videoBoundaryTime(view, sourceFrame), videoBoundaryTime(view, sourceFrame + 1),
 			),
 			width, height, signal,
-		})), 'Selected finishing addressed frame');
+		})), 'Selected finishing addressed frame', ownsDecodedPixels);
 		throwIfAborted(signal);
 		if (disposed) throw closedError();
 		const frame = decoded.width === width && decoded.height === height
@@ -131,15 +142,14 @@ export function createFramescaperVideoFrameAddressFinishing(options: Readonly<{
 			return cloneFrame(retained);
 		}
 		const byteLength = frame.pixels.byteLength;
-		if (byteLength <= maximumCacheBytes) {
-			while (cache.size > 0 && retainedBytes + byteLength > maximumCacheBytes) {
-				const oldest = cache.keys().next().value as string;
-				retainedBytes -= cache.get(oldest)!.pixels.byteLength;
-				cache.delete(oldest);
-			}
-			cache.set(key, frame);
-			retainedBytes += byteLength;
+		if (byteLength > maximumCacheBytes) return frame;
+		while (cache.size > 0 && retainedBytes + byteLength > maximumCacheBytes) {
+			const oldest = cache.keys().next().value as string;
+			retainedBytes -= cache.get(oldest)!.pixels.byteLength;
+			cache.delete(oldest);
 		}
+		cache.set(key, frame);
+		retainedBytes += byteLength;
 		return cloneFrame(frame);
 	}
 
@@ -164,50 +174,28 @@ export function createFramescaperVideoFrameAddressFinishing(options: Readonly<{
 
 async function defaultDecoder(
 	body: Blob,
-	options: Readonly<{ readonly signal: AbortSignal }>,
+	options: Readonly<{ readonly signal: AbortSignal; readonly timing?: VideoTimingIndex }>,
+	resolution: CaptureResolution,
 ): Promise<FrameDecoderFinishing> {
 	const module = await import('../common/editor/video-media.js');
 	const extractor = await module.createAudioEditorVideoFrameExtractor(body, options) as Readonly<{
-		capture(timestamp: number, options: Readonly<Record<string, unknown>>): Promise<Readonly<{ blob: Blob }>>;
+		capturePixels(timestamp: number, options: Readonly<Record<string, unknown>>): Promise<UnifiedExactRenderRgbaFrameV13>;
+		captureRenderPixels(timestamp: number, options: Readonly<Record<string, unknown>>): Promise<UnifiedExactRenderRgbaFrameV13>;
 		dispose(): unknown;
 	}>;
+	const capturePixels = resolution === 'render' ? extractor.captureRenderPixels : extractor.capturePixels;
 	return Object.freeze({
-		async capture(request: Parameters<FrameDecoderFinishing['capture']>[0]) {
-			const captured = await extractor.capture(request.timestampSeconds, {
-				// This extractor owns a bounded analysis raster. resolve() retains the
-				// returned geometry and performs the requested output resize explicitly.
-				maximumWidth: Math.max(2, Math.min(request.width, VIDEO_PREVIEW_CAPTURE_MAXIMUM_WIDTH)),
-				maximumHeight: Math.max(2, Math.min(request.height, VIDEO_PREVIEW_CAPTURE_MAXIMUM_HEIGHT)),
-				mimeType: 'image/png', alpha: true, signal: request.signal,
+		capture(request: Parameters<FrameDecoderFinishing['capture']>[0]) {
+			return capturePixels(request.timestampSeconds, {
+				maximumWidth: Math.max(2, resolution === 'render' ? request.width
+					: Math.min(request.width, VIDEO_PREVIEW_CAPTURE_MAXIMUM_WIDTH)),
+				maximumHeight: Math.max(2, resolution === 'render' ? request.height
+					: Math.min(request.height, VIDEO_PREVIEW_CAPTURE_MAXIMUM_HEIGHT)),
+				alpha: true, signal: request.signal,
 			});
-			return decodeImage(captured.blob, request.signal);
 		},
 		async dispose() { await extractor.dispose(); },
 	});
-}
-
-async function decodeImage(body: Blob, signal: AbortSignal): Promise<UnifiedExactRenderRgbaFrameV13> {
-	throwIfAborted(signal);
-	if (typeof globalThis.createImageBitmap !== 'function' || !globalThis.document?.createElement) {
-		throw new Error('Selected finishing frame-address image decoding is unavailable.');
-	}
-	const bitmap = await globalThis.createImageBitmap(body, {
-		colorSpaceConversion: 'none', premultiplyAlpha: 'none',
-	});
-	try {
-		throwIfAborted(signal);
-		const canvas = globalThis.document.createElement('canvas');
-		canvas.width = bitmap.width;
-		canvas.height = bitmap.height;
-		const context = canvas.getContext('2d', { willReadFrequently: true });
-		if (!context) throw new Error('Selected finishing frame-address readback is unavailable.');
-		context.drawImage(bitmap, 0, 0);
-		const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
-		return Object.freeze({
-			width: canvas.width, height: canvas.height,
-			pixels: Uint8Array.from(data) as Uint8Array<ArrayBuffer>,
-		});
-	} finally { bitmap.close(); }
 }
 
 function resizeFrame(
@@ -215,17 +203,10 @@ function resizeFrame(
 	width: number,
 	height: number,
 ): UnifiedExactRenderRgbaFrameV13 {
-	const pixels = new Uint8Array(width * height * 4);
-	for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
-		const sourceX = Math.min(frame.width - 1, Math.floor((x + 0.5) * frame.width / width));
-		const sourceY = Math.min(frame.height - 1, Math.floor((y + 0.5) * frame.height / height));
-		const sourceOffset = (sourceY * frame.width + sourceX) * 4;
-		pixels.set(frame.pixels.subarray(sourceOffset, sourceOffset + 4), (y * width + x) * 4);
-	}
-	return Object.freeze({ width, height, pixels });
+	return Object.freeze({ width, height, pixels: resizeVideoRgbaNearest(frame, width, height, 0.5) });
 }
 
-function checkedFrame(value: unknown, name: string): UnifiedExactRenderRgbaFrameV13 {
+function checkedFrame(value: unknown, name: string, ownsDecodedPixels: boolean): UnifiedExactRenderRgbaFrameV13 {
 	if (!value || typeof value !== 'object') throw new TypeError(`${name} must be an RGBA frame.`);
 	const frame = value as Partial<UnifiedExactRenderRgbaFrameV13>;
 	const width = positiveInteger(frame.width, `${name} width`);
@@ -233,7 +214,9 @@ function checkedFrame(value: unknown, name: string): UnifiedExactRenderRgbaFrame
 	if (!(frame.pixels instanceof Uint8Array) || frame.pixels.byteLength !== width * height * 4) {
 		throw new RangeError(`${name} has invalid RGBA geometry.`);
 	}
-	return Object.freeze({ width, height, pixels: Uint8Array.from(frame.pixels) as Uint8Array<ArrayBuffer> });
+	// The built-in decoder returns fresh canvas readback for each capture.
+	const pixels = ownsDecodedPixels ? frame.pixels : Uint8Array.from(frame.pixels);
+	return Object.freeze({ width, height, pixels });
 }
 
 function cloneFrame(frame: UnifiedExactRenderRgbaFrameV13): UnifiedExactRenderRgbaFrameV13 {

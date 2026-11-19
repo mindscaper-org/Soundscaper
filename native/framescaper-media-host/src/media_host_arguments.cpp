@@ -8,8 +8,29 @@
 #include <string_view>
 #include <unordered_set>
 
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 namespace framescaper::media {
 namespace {
+
+#if defined(_WIN32)
+[[nodiscard]] std::string argument_text(const wchar_t* value) {
+	const auto length = static_cast<int>(std::char_traits<wchar_t>::length(value));
+	if (length == 0) return {};
+	const int bytes = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value, length, nullptr, 0, nullptr, nullptr);
+	if (bytes <= 0) throw admission_error("A Windows host argument is not valid Unicode.");
+	std::string utf8(static_cast<std::size_t>(bytes), '\0');
+	if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value, length, utf8.data(), bytes, nullptr, nullptr) != bytes) {
+		throw admission_error("A Windows host argument cannot be converted to UTF-8.");
+	}
+	return utf8;
+}
+#else
+[[nodiscard]] std::string_view argument_text(const char* value) noexcept { return value; }
+#endif
 
 [[nodiscard]] std::filesystem::path admitted_path(
 	const std::string_view value,
@@ -18,7 +39,7 @@ namespace {
 	if (value.empty() || value.size() > maximum_path_bytes) {
 		throw admission_error(std::string{label} + " path is empty or oversized.");
 	}
-	const std::filesystem::path path{value};
+	const std::filesystem::path path{std::u8string(value.begin(), value.end())};
 	if (!path.is_absolute() || path != path.lexically_normal()) {
 		throw admission_error(std::string{label} + " path must be an exact normalized absolute grant.");
 	}
@@ -56,11 +77,11 @@ void unique_flag(std::unordered_set<std::string>& flags, const std::string& flag
 
 } // namespace
 
-parsed_arguments parse_arguments(const int argc, char** argv) {
+parsed_arguments parse_arguments(const int argc, const std::filesystem::path::value_type* const* argv) {
 	parsed_arguments parsed;
 	std::unordered_set<std::string> flags;
 	for (int index = 1; index < argc; ++index) {
-		const std::string flag{argv[index]};
+		const std::string flag{argument_text(argv[index])};
 		if (flag == "--self-test" || flag == "--capabilities") {
 			unique_flag(flags, flag);
 			parsed.self_test = flag == "--self-test";
@@ -68,7 +89,7 @@ parsed_arguments parse_arguments(const int argc, char** argv) {
 			continue;
 		}
 		if (index + 1 >= argc) throw admission_error("A host flag is missing its value: " + flag);
-		const std::string_view value{argv[++index]};
+		const auto value = argument_text(argv[++index]);
 		if (flag == "--self-test-operation") {
 			unique_flag(flags, flag);
 			if (value != "selected-v20-render" && value != "selected-v28-v14-render") {

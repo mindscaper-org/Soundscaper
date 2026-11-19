@@ -36,7 +36,7 @@ function probe(script, environment = {}) {
 		import { createRequire } from 'node:module';
 		const addon = createRequire(import.meta.url)(${JSON.stringify(addonPath)});
 		const open = (request) => addon.openAudioDevice({
-			candidates: [{ backend: 'pipewire', deviceHandle: '@DEFAULT_SINK@' }],
+			candidates: [{ backend: 'pipewire', deviceHandle: request.direction === 0 ? '@DEFAULT_SOURCE@' : '@DEFAULT_SINK@' }],
 			direction: ${OUTPUT},
 			exclusive: 0,
 			sampleRate: 48_000,
@@ -141,4 +141,51 @@ test('an exclusive request is only granted once the graph has honoured it', {
 	assert.equal(observed.status, 'device-unavailable');
 	assert.equal(observed.exclusive, null,
 		'a mode can only be reported as granted by a session that exists');
+});
+
+const incompleteCapture = [-1, -1, -1, -1];
+for (const [name, mode, status, lostFrames, left, right] of [
+	['waits for the rest of a capture packet', 'delayed', 'ok', 0, [0.25, 0.75, 1.25, 1.75], [0.5, 1, 1.5, 2]],
+	['leaves an incomplete capture packet untouched on timeout', 'stalled', 'recovered', 4, incompleteCapture, incompleteCapture],
+	['reports device loss while waiting for capture', 'lost', 'device-lost', 0, incompleteCapture, incompleteCapture],
+	['ends capture when a replacement source could be linked', 'relink', 'device-lost', 0, incompleteCapture, incompleteCapture],
+]) {
+	test(`PipeWire ${name}`, { skip: !addonIsBuilt || stubRoot === null }, () => {
+		const { elapsed, ...observed } = probe(`
+			const result = open({ direction: 0, periodFrames: 256 });
+			const channels = Array.from({ length: 2 }, () => new Float32Array(4).fill(-1));
+			const started = performance.now();
+			const { status, lostFrames } = addon.readAudioDevice(result.session, 4, channels);
+			const elapsed = performance.now() - started;
+			addon.closeAudioDevice(result.session);
+			report({ status, lostFrames, elapsed, left: [...channels[0]], right: [...channels[1]] });
+		`, { SOUNDSCAPER_STUB_PIPEWIRE: `capture-${mode}` });
+		assert.deepEqual(observed, { status, lostFrames, left, right });
+		assert.ok(elapsed < 1_000, `bounded read took ${elapsed} ms`);
+	});
+}
+
+test('PipeWire drains the contiguous input prefix and reports an overrun before the next packet', {
+	skip: !addonIsBuilt || stubRoot === null,
+}, () => {
+	const observed = probe(`
+		const { session } = open({ direction: 0, periodFrames: 1 });
+		function read() {
+			const left = new Float32Array(16).fill(-1);
+			const right = new Float32Array(16).fill(-1);
+			const { status } = addon.readAudioDevice(session, 16, [left, right]);
+			return { status, left: [...left], right: [...right] };
+		}
+		const first = read();
+		const second = read();
+		const afterGap = read();
+		addon.closeAudioDevice(session);
+		report({ first, second, afterGap });
+	`, { SOUNDSCAPER_STUB_PIPEWIRE: 'capture-overrun' });
+	for (const [offset, block] of [[0, observed.first], [16, observed.second]]) {
+		assert.equal(block.status, 'ok');
+		assert.deepEqual(block.left, Array.from({ length: 16 }, (_, index) => 0.25 + (offset + index) * 0.5));
+		assert.deepEqual(block.right, Array.from({ length: 16 }, (_, index) => 0.5 + (offset + index) * 0.5));
+	}
+	assert.deepEqual(observed.afterGap, { status: 'recovered', left: Array(16).fill(-1), right: Array(16).fill(-1) });
 });

@@ -24,6 +24,7 @@ for (const [label, fftBin] of [['retained neighboring bucket', 278], ['narrow sk
 		const frequency = fftBin * sampleRate / 4096;
 		await importFiles(editor, [createWavFixture({ name: 'live-analysis-tone.wav', frequency,
 			duration: 8, sampleRate, channelCount: 1, channelAmplitudes: [.5] })]);
+		await chooseCommandAction(page, editor, 'Select', 'Select none');
 		await chooseCommandAction(page, editor, 'Analyze', 'Analysis');
 		const panel = editor.locator('[data-workspace-panel="analysis"]');
 		for (const id of ['spectrum', 'spectrogram']) {

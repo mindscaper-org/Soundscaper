@@ -27,6 +27,7 @@ export function findAudioClippingRegions(channels: readonly Float32Array[], opti
 	if (!Number.isSafeInteger(minimumConsecutiveSamples) || minimumConsecutiveSamples <= 0) {
 		throw new RangeError('Minimum consecutive clipping samples must be positive.');
 	}
+	if (channels.length === 1) return monoClippingRegions(channels[0]!, threshold, minimumConsecutiveSamples);
 	const frameCount = channels[0]!.length;
 	// One byte per rendered frame bounds the union independently of how many
 	// overlapping channel runs qualify, without allocating an object per run.
@@ -60,6 +61,26 @@ export function findAudioClippingRegions(channels: readonly Float32Array[], opti
 			start = -1;
 			peakAmplitude = 0;
 			clippedSamples = 0;
+		}
+	}
+	return Object.freeze(regions);
+}
+
+function monoClippingRegions(channel: Float32Array, threshold: number, minimum: number): readonly AudioClippingRegion[] {
+	const regions: AudioClippingRegion[] = [];
+	let startFrame = -1, peakAmplitude = 0;
+	for (let frame = 0; frame <= channel.length; frame++) {
+		const amplitude = frame < channel.length ? Math.abs(channel[frame]!) : 0;
+		if (amplitude >= threshold) {
+			if (startFrame < 0) startFrame = frame;
+			peakAmplitude = Math.max(peakAmplitude, amplitude);
+		} else if (startFrame >= 0) {
+			const frameCount = frame - startFrame;
+			if (frameCount >= minimum) regions.push(Object.freeze({
+				startFrame, endFrame: frame, frameCount, clippedSamples: frameCount, peakAmplitude,
+			}));
+			startFrame = -1;
+			peakAmplitude = 0;
 		}
 	}
 	return Object.freeze(regions);

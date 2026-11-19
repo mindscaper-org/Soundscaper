@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, clipByName, importFiles, openSourceMonitor } from './audio-editor-test-helpers.js';
 
 test('deleting a source stretch marker keeps keyboard playback on the source waveform', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const panel = await openSourceMonitor(page, editor, clipByName(editor, toneA.name));
 	const waveform = panel.getByRole('region', { name: 'Source waveform', exact: true });

@@ -9,10 +9,17 @@ const AUDACITY_WORKER_ENTRY = fileURLToPath(new URL('../../src/common/editor/aup
 export const WORKER_XML_VENDOR_CHUNK_TEST = /node_modules[\\/](?:saxes|xmlchars)[\\/]/;
 
 /** Effect metadata and the dependency-closed canonical copy registry used by workers. */
-export const WORKER_EFFECT_CONTRACT_CHUNK_TEST = /(?:src[\\/]common[\\/]i18n[\\/](?:(?:canonical-extras(?:-(?:audacity-(?:effects|presets)|standard-effects))?|locale)\.js|editor-(?:project|recording)-recovery-copy\.ts)|src[\\/]common[\\/]editor[\\/]audacity-effects[\\/]audacity-filter-release\.ts|src[\\/]common[\\/]editor[\\/]staffpad[\\/]parameters\.js|src[\\/]common[\\/]editor[\\/]nyquist[\\/]audio-budget\.ts|src[\\/]common[\\/]editor[\\/]first-party-effects[\\/](?:parametric-eq[\\/]coefficients\.ts|standard[\\/](?:definition|filters-definition|filters-coefficients|modulation-definition|noise-gate-definition|delay-definition|delay-pitch-admission|delay-selection-contract|parameter-range|effect-tail|nyquist-replacements|selection-contract)\.ts))$/;
+export const WORKER_EFFECT_CONTRACT_CHUNK_TEST = /(?:src[\\/]common[\\/]i18n[\\/](?:(?:canonical-extras(?:-(?:audacity-(?:effects|presets)|standard-effects))?|locale)\.js|editor-(?:(?:project|recording)-recovery|match-eq|spatial-render)-copy\.ts)|src[\\/]common[\\/]editor[\\/]audacity-effects[\\/]audacity-filter-release\.ts|src[\\/]common[\\/]editor[\\/]staffpad[\\/]parameters\.js|src[\\/]common[\\/]editor[\\/]nyquist[\\/]audio-budget\.ts|src[\\/]common[\\/]editor[\\/]first-party-effects[\\/](?:hum-removal[\\/]definition\.ts|auto-tune[\\/](?:definition|realtime-contract|control-notes)\.ts|parametric-eq[\\/]coefficients\.ts|standard[\\/](?:definition|filters-definition|filters-coefficients|modulation-definition|noise-gate-definition|delay-definition|delay-pitch-admission|delay-selection-contract|parameter-range|effect-tail|nyquist-replacements|selection-contract)\.ts))$/;
 
 /** @type {import('rolldown').CodeSplittingGroup[]} */
 export const workerChunkGroups = [
+	{
+		name: 'vendor-midi-synth-worker',
+		test: /node_modules[\\/](?:libadlmidi-js|js-synthesizer)[\\/]/,
+		priority: 101,
+		maxSize: 400_000,
+		includeDependenciesRecursively: false,
+	},
 	{
 		// Only this worker's already-initial libraries share an owner. Keeping the
 		// executable root separate prevents lazy recovery from importing it back.
@@ -41,8 +48,10 @@ export const workerChunkGroups = [
 		// Recovery and streaming chunks share the database vocabulary. If that
 		// vocabulary stays in the entry, importing it can execute the entry again
 		// in WebKit and install a second dispatcher with its own empty project map.
+		// Page recovery also shares CRC32 with snapshot writes. Keep that checksum
+		// leaf here so the lazy recovery chunk cannot import the dispatcher entry.
 		name: 'editor-audacity-project-core-worker',
-		test: /src[\\/]common[\\/]editor[\\/](?:audacity-binary-xml|aup[34]-(?:database|profile|conversion)(?:-[\w-]+)?)\.[jt]s$/,
+		test: /src[\\/]common[\\/]editor[\\/](?:(?:audacity-binary-xml|aup[34]-(?:database|profile|conversion)(?:-[\w-]+)?)\.[jt]s|wavpack[\\/]pcm\.js)$/,
 		priority: 97,
 		minSize: 0,
 		maxSize: 400_000,

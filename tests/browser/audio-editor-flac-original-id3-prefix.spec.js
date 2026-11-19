@@ -17,7 +17,7 @@ test('native File Import keeps Original FLAC available past consecutive ID3 tags
 	const native = await nativeOriginalImportFixture(file);
 	try {
 		await installNativeOriginalBridge(page, native);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await chooseFileAction(page, editor, 'Import');
 		await expect(editor).toHaveAttribute('data-clip-count', '1');
 		await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');

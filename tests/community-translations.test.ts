@@ -112,3 +112,14 @@ test('an explicit entry author takes precedence over a file submitter during a m
 		entries: draft.entries.map(entry => ({ ...entry, contributor: 1 })),
 	}));
 });
+
+test('importing a credited contribution does not assign its author to an anonymous saved edit', () => {
+	const snapshot = createContributionSnapshot('fr', english, published);
+	const existing = updateTranslationDraft(createTranslationDraft(snapshot), snapshot, 'open', 'Charger {name}');
+	const incoming = { ...updateTranslationDraft(createTranslationDraft(snapshot), snapshot, 'save', 'Sauver .po'), contributor: 'Other contributor' };
+	const merged = parseTranslationContribution(serializeTranslationContribution(mergeTranslationContributions(existing, incoming)));
+	const anonymous = merged.entries.find(({ key }) => key === 'open')!;
+	const imported = merged.entries.find(({ key }) => key === 'save')!;
+	assert.equal(anonymous.contributor ?? merged.contributor ?? '', '');
+	assert.equal(imported.contributor, 'Other contributor');
+});

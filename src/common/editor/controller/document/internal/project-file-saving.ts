@@ -6,21 +6,30 @@ import type { ProjectFileReference, ProjectFileTarget } from '../../../file-save
 type Awaitable<T> = PromiseLike<T> | T;
 export type SaveDecision = 'save' | 'discard' | 'cancel';
 export interface FileSavingProject { readonly id: string; readonly title?: unknown }
+export interface ProjectFileWriteLease {
+	readonly readOnly: boolean;
+	readonly finished?: PromiseLike<unknown> | null;
+	release(): Awaitable<unknown>;
+}
 interface Entry extends ProjectFileTarget { baseline: Promise<string> | null }
 interface Dependencies<Project extends FileSavingProject> {
 	readonly desktop: boolean;
 	readonly getProject: () => Project | null;
+	readonly getOpenProjectIds: () => readonly string[];
 	readonly getProjects: () => readonly Readonly<{ project: Project; readOnly: boolean }>[];
+	readonly getWritableProject: (id: string) => Project | null;
+	readonly isProjectWritable: (id: string) => boolean;
 	readonly getPreferences: () => SavingPreferences;
 	readonly activate: (id: string) => Awaitable<unknown>;
 	readonly flushInternal: () => Awaitable<unknown>;
-	readonly write: (project: Project, target?: unknown) => Promise<Readonly<Record<string, unknown>>>;
-	readonly prepareOriginal: (original: ProjectFileReference) => Awaitable<unknown>;
+	readonly write: (project: Project, target: unknown, assertWritable: () => void) => Promise<Readonly<Record<string, unknown>>>;
+	readonly prepareOriginal: (original: ProjectFileReference, allowProjectSavePicker: boolean) => Awaitable<unknown>;
 	readonly ask: (project: Project) => Promise<SaveDecision>;
 	readonly discard: (id: string) => Awaitable<unknown>;
 	readonly restore?: (id: string) => Promise<(ProjectFileTarget & { baseline: string }) | null>;
 	readonly remember?: (id: string, target: ProjectFileTarget, baseline: string) => Awaitable<unknown>;
 	readonly release?: (reference: ProjectFileReference) => Awaitable<unknown>;
+	readonly acquireInactiveWrite?: (id: string) => Awaitable<ProjectFileWriteLease | null>;
 	readonly canSave?: () => boolean;
 	readonly handleError: (error: unknown) => void;
 	readonly schedule?: (callback: () => void, milliseconds: number) => number;
@@ -36,7 +45,13 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 	let observed: Project | null = null, autoSaving = d.getPreferences().autoSaving;
 	const schedule = d.schedule ?? ((callback, ms) => Number(globalThis.setTimeout(callback, ms)));
 	const clear = d.clear ?? (timer => globalThis.clearTimeout(timer));
-	return Object.freeze({ opened, saved, save, observe, hasChanges, prepareClose, drain: () => tail, dispose });
+	return Object.freeze({ opened, saved, save, observe, hasChanges, prepareClose, releaseCopyTarget, drain: () => tail, dispose });
+
+	async function releaseCopyTarget(result: unknown): Promise<void> {
+		const original = (result as ProjectFileTarget).originalFile;
+		if (!original || [...entries.values()].some(entry => entry.originalFile?.id === original.id)) return;
+		try { await d.release?.(original); } catch (error) { d.handleError(error); }
+	}
 
 	async function load(project: Project): Promise<void> {
 		if (entries.has(project.id)) return;
@@ -44,9 +59,12 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 		if (!operation) {
 			operation = (async () => {
 				const restored = await d.restore?.(project.id);
-				if (entries.has(project.id) || disposed) return;
+				if (entries.has(project.id) || disposed || !d.getOpenProjectIds().includes(project.id)) {
+					if (restored) await releaseCopyTarget(restored);
+					return;
+				}
 				entries.set(project.id, restored ? { ...restored, baseline: Promise.resolve(restored.baseline) }
-					: { baseline: emptyProject(project) ? fingerprint(project) : null });
+					: { baseline: initialEmptyProject(project) ? fingerprint(project) : null });
 			})();
 			loading.set(project.id, operation);
 		}
@@ -58,15 +76,17 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 		await remember(project.id);
 		if (previous?.originalFile && previous.originalFile.id !== target.originalFile?.id) await d.release?.(previous.originalFile);
 	}
-	async function saved(project: Project, target: ProjectFileTarget): Promise<void> {
+	async function saved(project: Project, target: ProjectFileTarget, baseline = fingerprint(project)): Promise<void> {
 		const previous = entries.get(project.id);
-		entries.set(project.id, { ...previous, ...target, baseline: fingerprint(project) });
+		entries.set(project.id, { ...previous, ...target, baseline });
 		await remember(project.id);
 		if (previous?.originalFile && target.originalFile && previous.originalFile.id !== target.originalFile.id) await d.release?.(previous.originalFile);
 	}
 	async function remember(id: string): Promise<void> {
 		const entry = entries.get(id);
-		if (entry?.baseline) await d.remember?.(id, entry, await entry.baseline);
+		if (!entry?.baseline) return;
+		const baseline = await entry.baseline;
+		if (!disposed && entries.get(id) === entry) await d.remember?.(id, entry, baseline);
 	}
 	async function hasChanges(project: Project): Promise<boolean> {
 		await load(project);
@@ -81,28 +101,47 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 		const project = d.getProject();
 		if (!project || disposed) return false;
 		return enqueue(async () => {
-			await d.flushInternal();
-			const latest = d.getProjects().find(entry => entry.project.id === project.id);
-			if (!latest || latest.readOnly) return false;
-			return write(latest.project, true);
+			if (disposed) return false;
+			if (d.getProject()?.id === project.id) await d.flushInternal();
+			const latest = d.getWritableProject(project.id);
+			return latest ? write(latest, true) : false;
 		});
 	}
 	async function write(project: Project, explicit: boolean): Promise<boolean> {
 		await load(project);
-		const entry = entries.get(project.id)!;
-		if (!explicit && !await hasChanges(project)) return true;
+		const entry = entries.get(project.id);
+		if (!entry) return false;
 		const hasTarget = Boolean(entry.originalFile || entry.fileHandle);
 		if (!hasTarget && !explicit) return true;
-		const target = entry.originalFile ? await d.prepareOriginal(entry.originalFile) : entry.fileHandle;
-		if (hasTarget && !target) throw new Error('The original project file is unavailable. Export a project file to choose a new destination.');
-		const result = await d.write(project, target);
-		if (result.cancelled === true) return false;
-		await saved(project, result as ProjectFileTarget);
-		return true;
+		const previousBaseline = explicit ? null : await entry.baseline;
+		const nextBaseline = previousBaseline === null ? undefined : fingerprint(project);
+		if (nextBaseline && await nextBaseline === previousBaseline) return true;
+		const lease = d.getProject()?.id === project.id ? undefined : await d.acquireInactiveWrite?.(project.id);
+		if (lease === null) return false;
+		const ownsDestination = () => !disposed && entries.get(project.id) === entry;
+		const assertWritable = () => {
+			const ownsWriter = lease ? !lease.readOnly : !d.acquireInactiveWrite || d.getProject()?.id === project.id;
+			if (!ownsWriter || !ownsDestination() || !d.isProjectWritable(project.id)) {
+				throw new DOMException('The project lost write access before the file could be saved.', 'AbortError');
+			}
+		};
+		try {
+			assertWritable();
+			const allowProjectSavePicker = explicit && Boolean(entry.originalFile);
+			const target = entry.originalFile ? await d.prepareOriginal(entry.originalFile, allowProjectSavePicker) : entry.fileHandle;
+			if (hasTarget && !target && !allowProjectSavePicker) throw new Error('The original project file is unavailable. Export a project file to choose a new destination.');
+			assertWritable();
+			const result = await d.write(project, target ?? undefined, assertWritable);
+			if (result.cancelled === true) return false;
+			if (ownsDestination() && d.getOpenProjectIds().includes(project.id)) {
+				await saved(project, result as ProjectFileTarget, nextBaseline);
+			} else await releaseCopyTarget(result);
+			return true;
+		} finally { if (lease) await releaseProjectFileWriteLease(lease); }
 	}
 	function observe(): void {
 		if (disposed || closing) return;
-		const openIds = new Set(d.getProjects().map(entry => entry.project.id));
+		const openIds = new Set(d.getOpenProjectIds());
 		for (const [id, entry] of entries) {
 			if (openIds.has(id) || !entry.originalFile) continue;
 			entries.delete(id);
@@ -115,53 +154,90 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 		if (!autoSaving) { for (const timer of timers.values()) clear(timer); timers.clear(); }
 		if (!project) return;
 		void load(project).catch(d.handleError);
-		if (!autoSaving) return;
-		const existing = timers.get(project.id); if (existing) clear(existing);
-		timers.set(project.id, schedule(() => {
-			timers.delete(project.id);
+		if (autoSaving) scheduleFileSave(project.id);
+	}
+	function scheduleFileSave(id: string): void {
+		const existing = timers.get(id);
+		if (existing !== undefined) clear(existing);
+		timers.set(id, schedule(() => {
+			timers.delete(id);
 			void enqueue(async () => {
 				if (disposed || !d.getPreferences().autoSaving || d.canSave?.() === false) return;
-				const latest = d.getProjects().find(entry => entry.project.id === project.id);
-				if (!latest || latest.readOnly) return;
-				await load(latest.project);
-				const entry = entries.get(project.id);
+				const beforeFlush = d.getWritableProject(id);
+				if (!beforeFlush) return;
+				await load(beforeFlush);
+				const entry = entries.get(id);
 				if (!entry?.originalFile && !entry?.fileHandle) return;
-				if (d.getProject()?.id === project.id) await d.flushInternal();
-				await write(latest.project, false);
+				if (d.getProject()?.id === id) await d.flushInternal();
+				if (disposed || !d.getPreferences().autoSaving || d.canSave?.() === false) return;
+				const latest = d.getWritableProject(id);
+				if (latest) await write(latest, false);
 			}).catch(d.handleError);
 		}, 750));
 	}
 	async function prepareClose(projectId?: string): Promise<boolean> {
 		if (closing) return false;
 		closing = true;
-		const initialId = d.getProject()?.id;
+		const paused: string[] = [];
+		let prepared = false;
+		let restoreSelection: Readonly<{ from: string; to: string }> | null = null;
 		try {
-			for (const timer of timers.values()) clear(timer); timers.clear();
+			for (const [id, timer] of timers) {
+				if (projectId && id !== projectId) continue;
+				clear(timer);
+				timers.delete(id);
+				paused.push(id);
+			}
 			await tail.catch(() => undefined);
-			await d.flushInternal();
-			if (d.getPreferences().autoSaving) {
+			if (!projectId || projectId === d.getProject()?.id) await d.flushInternal();
+			const { autoSaving, askBeforeClosing } = d.getPreferences();
+			const promptForChanges = d.desktop && askBeforeClosing;
+			if (autoSaving) {
 				for (const { project, readOnly } of d.getProjects()) {
-					if ((!projectId || project.id === projectId) && !readOnly) await enqueue(() => write(project, false));
+					if ((projectId && project.id !== projectId) || readOnly) continue;
+					try { await enqueue(() => write(project, false)); }
+					catch (error) {
+						if (!promptForChanges) throw error;
+						d.handleError(error);
+					}
 				}
 			}
-			if (!d.desktop || !d.getPreferences().askBeforeClosing) return true;
-			const discard: string[] = [];
-			for (const { project, readOnly } of d.getProjects()) {
-				if ((projectId && project.id !== projectId) || readOnly || !await hasChanges(project)) continue;
-				const decision = await d.ask(project);
-				if (decision === 'cancel') return false;
-				if (decision === 'discard') discard.push(project.id);
-				else {
-					await d.activate(project.id);
-					if (!await save()) return false;
+			if (promptForChanges) {
+				const discard: string[] = [];
+				for (const { project, readOnly } of d.getProjects()) {
+					if ((projectId && project.id !== projectId) || readOnly || !await hasChanges(project)) continue;
+					const decision = await d.ask(project);
+					if (decision === 'cancel') return false;
+					if (decision === 'discard') discard.push(project.id);
+					else {
+						const activeId = d.getProject()?.id;
+						if (activeId && activeId !== project.id) {
+							const restoreId: string = restoreSelection?.from === activeId ? restoreSelection.to : activeId;
+							restoreSelection = { from: project.id, to: restoreId };
+							await d.activate(project.id);
+						}
+						if (d.getProject()?.id !== project.id || !await save()) return false;
+					}
 				}
+				for (const id of discard) await d.discard(id);
 			}
-			for (const id of discard) await d.discard(id);
+			prepared = true;
 			return true;
 		} finally {
-			closing = false;
-			if (initialId && d.getProjects().some(entry => entry.project.id === initialId) && d.getProject()?.id !== initialId) await d.activate(initialId);
-			observed = null; observe();
+			try {
+				if (restoreSelection && d.getProject()?.id === restoreSelection.from
+					&& d.getOpenProjectIds().includes(restoreSelection.to)) {
+					await d.activate(restoreSelection.to);
+				}
+			} finally {
+				closing = false;
+				observed = null;
+				observe();
+				if (!prepared && !disposed && d.getPreferences().autoSaving) {
+					const openIds = new Set(d.getOpenProjectIds());
+					for (const id of paused) if (openIds.has(id) && !timers.has(id)) scheduleFileSave(id);
+				}
+			}
 		}
 	}
 	async function dispose(): Promise<void> {
@@ -172,10 +248,22 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 	}
 }
 
-function emptyProject(project: FileSavingProject): boolean {
-	const value = project as FileSavingProject & { tracks?: readonly { labels?: readonly unknown[] }[]; clips?: readonly unknown[]; sources?: readonly unknown[]; timelineAnnotations?: readonly unknown[] };
-	return !value.clips?.length && !value.sources?.length && !value.timelineAnnotations?.length
-		&& !value.tracks?.some(track => track.labels?.length) && !authoredTiming(project);
+export async function releaseProjectFileWriteLease(lease: ProjectFileWriteLease): Promise<void> {
+	try { await lease.release(); }
+	finally { await Promise.resolve(lease.finished).catch(() => undefined); }
+}
+
+function initialEmptyProject(project: FileSavingProject): boolean {
+	const value = project as FileSavingProject & {
+		revision?: number;
+		tracks?: readonly { type?: unknown; labels?: readonly unknown[] }[];
+		clips?: readonly unknown[];
+		sources?: readonly unknown[];
+		timelineAnnotations?: readonly unknown[];
+	};
+	return (value.revision ?? 0) === 0 && !value.clips?.length && !value.sources?.length && !value.timelineAnnotations?.length
+		&& (value.tracks?.length ?? 0) <= 1 && !value.tracks?.some(track => track.labels?.length || track.type === 'label' || track.type === 'video')
+		&& !authoredTiming(project);
 }
 function authoredTiming(project: FileSavingProject): boolean {
 	const value = project as FileSavingProject & {

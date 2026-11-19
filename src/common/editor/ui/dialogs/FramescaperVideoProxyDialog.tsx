@@ -3,7 +3,7 @@ import { usePresentationFeedback, feedbackFailure } from '../presentation-feedba
 
 import { VIDEO_PROXY_ADDITIONAL_COPY } from '../../../i18n/editor-video-proxy-additional-copy.ts';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import {
@@ -20,6 +20,8 @@ import { WebFileLoadLimitError, withWebFileLoadLimitContext } from '../../web-fi
 import type { FramescaperVideoProxyModeRetime } from '../../../../framescaper/editor-video-proxy-use-policy-retime.ts';
 import type { FramescaperSidecarFileReader } from '../framescaper-sidecar-file.ts';
 import { withFramescaperVideoProxyFile } from '../framescaper-video-proxy-file.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 
 interface ProxyFileService extends FramescaperSidecarFileReader {
 	readonly isDesktop?: boolean;
@@ -45,7 +47,12 @@ interface FramescaperVideoProxyDialogProps {
 	readonly onClose: () => void;
 }
 
-export default function FramescaperVideoProxyDialog({
+export default function FramescaperVideoProxyDialog(props: FramescaperVideoProxyDialogProps) {
+	const id = (props.snapshot.project as Readonly<{ id?: unknown }> | null)?.id;
+	return <ProjectVideoProxyDialog key={editorProjectEditSessionKey(props.controller, id)} {...props} />;
+}
+
+function ProjectVideoProxyDialog({
 	controller, snapshot, editingBlocked, copy, fileService, run, onClose,
 }: FramescaperVideoProxyDialogProps) {
 	const runtime = framescaperVideoProxyActionRuntimeFor(controller);
@@ -68,6 +75,7 @@ export default function FramescaperVideoProxyDialog({
 	const [error, setError] = usePresentationFeedback(copy, VIDEO_PROXY_ADDITIONAL_COPY, 'videoProxy');
 	const [changedRelink, setChangedRelink] = useState<FramescaperVideoProxyOriginalRelinkCandidate | null>(null);
 	const abortRef = useRef<AbortController | null>(null);
+	const live = useRef(false);
 	const existingFileRef = useRef<HTMLInputElement | null>(null);
 	const modeGenerationRef = useRef(0);
 	const modeMutationRef = useRef<Promise<void>>(Promise.resolve());
@@ -84,9 +92,13 @@ export default function FramescaperVideoProxyDialog({
 		setMode(selectedSourceId && runtime ? runtime.mode(selectedSourceId) : 'auto');
 		setChangedRelink(null);
 	}, [runtime, selectedSourceId]);
-	useEffect(() => () => {
-		abortRef.current?.abort();
-		modeGenerationRef.current += 1;
+	useLayoutEffect(() => {
+		live.current = true;
+		return () => {
+			live.current = false;
+			abortRef.current?.abort();
+			modeGenerationRef.current += 1;
+		};
 	}, []);
 
 	const changeMode = (value: string): void => {
@@ -98,7 +110,7 @@ export default function FramescaperVideoProxyDialog({
 		setStatus('');
 		setError('');
 		const mutation = modeMutationRef.current.then(() => (
-			runAwaitedAudioEditorOperation(run, () => runtime.setMode(sourceId, next)).then(() => undefined)
+			runAwaitedAudioEditorOperation(run, () => live.current ? runtime.setMode(sourceId, next) : undefined)
 		));
 		modeMutationRef.current = mutation.catch(() => undefined);
 		void mutation.then(() => {
@@ -248,7 +260,7 @@ export default function FramescaperVideoProxyDialog({
 				label(copy, 'videoProxyNoSources', VIDEO_PROXY_ADDITIONAL_COPY.videoProxyNoSources)
 			}</p>}
 			{model.sources.length > 0 && <>
-				<label><span>{label(copy, 'videoProxySource', VIDEO_PROXY_ADDITIONAL_COPY.videoProxySource)}</span>
+				<label><EditorControlLabel>{label(copy, 'videoProxySource', VIDEO_PROXY_ADDITIONAL_COPY.videoProxySource)}</EditorControlLabel>
 					<select data-video-proxy-source value={selectedSourceId ?? ''}
 						disabled={pending !== null}
 						onChange={(event) => {
@@ -258,7 +270,7 @@ export default function FramescaperVideoProxyDialog({
 						{model.sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}
 					</select>
 				</label>
-				<label><span>{label(copy, 'videoProxyPreviewMode', VIDEO_PROXY_ADDITIONAL_COPY.videoProxyPreviewMode)}</span>
+				<label><EditorControlLabel>{label(copy, 'videoProxyPreviewMode', VIDEO_PROXY_ADDITIONAL_COPY.videoProxyPreviewMode)}</EditorControlLabel>
 					<select value={mode} data-video-proxy-preview-mode={mode}
 						disabled={!runtime || pending !== null}
 						onChange={(event) => changeMode(event.currentTarget.value)}>
@@ -268,7 +280,7 @@ export default function FramescaperVideoProxyDialog({
 					</select>
 				</label>
 				{selected && <section aria-label={label(copy, 'videoProxyStatus', VIDEO_PROXY_ADDITIONAL_COPY.videoProxyStatus)}>
-					<p role={previewTrust === 'stale' || previewTrust === 'unavailable' ? 'alert' : undefined}>{
+					<p role={previewTrust === 'stale' || previewTrust === 'unavailable' || previewTrust === 'decoder-unavailable' ? 'alert' : undefined}>{
 						proxyTrustLabel(copy, selected.attachmentPresent, previewTrust)
 					}</p>
 					{!selected.originalAvailable && previewTrust === 'verified' && <p role="status">{
@@ -349,6 +361,9 @@ function proxyTrustLabel(
 	}
 	if (trust === 'unavailable') {
 		return label(copy, 'videoProxyUnavailable', VIDEO_PROXY_ADDITIONAL_COPY.videoProxyUnavailable);
+	}
+	if (trust === 'decoder-unavailable') {
+		return label(copy, 'videoProxyDecoderUnavailable', VIDEO_PROXY_ADDITIONAL_COPY.videoProxyDecoderUnavailable);
 	}
 	return label(copy, 'videoProxyUnverified', VIDEO_PROXY_ADDITIONAL_COPY.videoProxyUnverified);
 }

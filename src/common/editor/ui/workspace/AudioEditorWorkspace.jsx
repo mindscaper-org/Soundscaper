@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { productProfile } from '../../../products.js';
+import { applicationInstallPromptCapture } from '../../../offline/install-prompt.ts';
 import { useControllerOwnedActionRuntime } from './useControllerOwnedActionRuntime.js';
 import { projectDurationFrames } from '../../project.js';
 import { useAudioEditorSnapshot, useAudioEditorThemeVariables } from '../DesignSystemRuntime.jsx';
@@ -13,7 +14,7 @@ import { resolveMeterPanelSettingsChange } from './meter-panel-settings.ts';
 import AudioEditorWorkspaceView from './AudioEditorWorkspaceView.jsx';
 import { resolveWorkspaceRuntimeProjection } from './workspace-runtime-projection.ts';
 import { workspaceStatusPresentation } from './workspace-status-presentation.ts';
-import { withDesktopProjectReadDescriptor } from './desktop-project-file-routing.ts';
+import { withDesktopProjectReadDescriptor } from './desktop-project-file-routing.ts'; import { useWorkspaceFileAdmission } from './workspace-file-admission.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { openDesktopWorkspaceFiles } from './desktop-workspace-file-choice.ts';
 import { workspacePreferencesPage } from './workspace-preferences-routing.ts';
@@ -29,6 +30,7 @@ import { useWorkspaceParityRequests } from './useWorkspaceParityRequests.js';
 import { useWorkspaceSearchRuntime } from './useWorkspaceSearchRuntime.js'; import { useWorkspaceAssistanceSearchRuntime } from './useWorkspaceAssistanceSearchRuntime.js';
 import { useSoundscaperWorkflowWorkspace } from '../soundscaper-workflow-product-runtime.tsx';
 import { useTrackRateDialog } from './useTrackRateDialog.js';
+import { useTimecodeSyncLifetime } from './timecode-sync-workspace.ts';
 import { useWorkspaceThemePreference } from './useWorkspaceThemePreference.js';
 import {
 	createWorkspaceApplicationMenus,
@@ -43,7 +45,7 @@ import { supportsDisplayAudioCapture } from '../../recording-display-input.ts';
 import { focusedRecordingTrackId, hasLockedRecordingTarget } from '../../recording-target-admission.ts';
 import { importWorkspaceRoutedFiles } from './import-workspace-routed-files.ts';
 import { openWorkspaceProjectFile } from './open-workspace-project-file.ts';
-import { createLegacyAupDirectorySelection } from './legacy-aup-directory-selection.ts';
+import { useLegacyAupDirectorySelection } from './legacy-aup-directory-selection.ts';
 import { desktopExternalDestination } from '../workspace-runtime.js'; import { createTimedRecordingDialogValue } from '../dialogs/timed-recording-dialog-model.ts';
 import { useTrackHeaderDrawerFlag, useWorkspaceCompactLayout } from './useWorkspaceCompactLayout.js';
 import { useWorkspaceEffectsPanel } from './useWorkspaceEffectsPanel.js';
@@ -65,12 +67,14 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	const product = useMemo(() => productProfile(productId), [productId]);
 	useFramescaperNativeServicesMenuRefresh({ productId });
 	useSoundscaperNativeServicesMenuRefresh({ productId, copy, engine: controller?.engine, controller });
+	useTimecodeSyncLifetime(controller);
 	const capabilities = product.capabilities;
 	const aboutLabel = productId === 'framescaper' ? copy.aboutFramescaper : copy.aboutEditor;
 	const editorThemeVariables = useAudioEditorThemeVariables();
 	const parityRuntime = useControllerOwnedActionRuntime(controller, productId, locale);
 	const snapshot = useAudioEditorSnapshot(controller);
 	const [activeSurface, setActiveSurface, surfaceRequestId] = useTakeCycleRecoverySurface(productId, snapshot.takeCycleRecovery);
+	const [clipExportRequest, setClipExportRequest] = useState(null);
 	useProjectRecoverySurface(productId, snapshot.projectRecovery?.projectId, setActiveSurface, snapshot.projectRecovery?.requestId);
 	usePrivacyPolicySurface(productId, initialSurface, setActiveSurface);
 	const { windows: effectWindows, open: setEffectWindow, close: closeEffectWindow } = useWorkspaceEffectWindows(snapshot.project?.id ?? null);
@@ -89,14 +93,10 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	const [editorOverlayTarget, setEditorOverlayTarget] = useState(null);
 	const [playbackMeterSettings, setPlaybackMeterSettings] = useState(() => loadPlaybackMeterSettings(productId));
 	const [recordingMeterSettings, setRecordingMeterSettings] = useState(() => loadRecordingMeterSettings(productId));
-	const { cueImportDialog, importInputRef, requestCueImport } = useCueImportWorkspace(controller, snapshot.project?.id);
+	const currentProjectSession = useCallback(() => editorProjectEditSessionKey(controller, controller.getSnapshot().project?.id), [controller]);
+	const { cueImportDialog, importInputRef, requestCueImport } = useCueImportWorkspace(controller, currentProjectSession());
 	const aup4InputRef = useRef(null);
-	const legacyDataInputRef = useRef(null);
-	const legacyProjectSelection = useMemo(() => createLegacyAupDirectorySelection({
-		getProjectSessionKey: () => editorProjectEditSessionKey(controller, controller.getSnapshot().project?.id),
-		chooseDirectory: () => legacyDataInputRef.current?.click(),
-		importFiles: files => controller.actions.project.importFiles(files),
-	}), [controller]);
+	const { legacyDataInputRef, legacyProjectSelection } = useLegacyAupDirectorySelection(controller);
 	const editorRef = useRef(null);
 	const workspaceRef = useRef(null);
 	const {
@@ -226,24 +226,27 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	), [controller, requestScapeOpenDecision]);
 	const openProjectFile = useCallback((file, desktopSesx = false) => openWorkspaceProjectFile(
 		controller, file, openScapeProjectFile, legacyProjectSelection.choose,
-		desktopSesx, (cueFile, prepareProject) => requestCueImport(cueFile, controller.getSnapshot().project?.id, prepareProject)), [controller, legacyProjectSelection, openScapeProjectFile, requestCueImport]);
-	const openDesktopProjectDescriptor = useCallback((descriptor) => withDesktopProjectReadDescriptor(
+		desktopSesx, (cueFile, prepareProject) => requestCueImport(cueFile, currentProjectSession(), prepareProject)), [controller, currentProjectSession, legacyProjectSelection, openScapeProjectFile, requestCueImport]);
+	const admitFileChoice = useWorkspaceFileAdmission(controller);
+	const openChosenProjectFile = useCallback(async file => { await admitFileChoice(); return openProjectFile(file); }, [admitFileChoice, openProjectFile]);
+	const openDesktopProjectDescriptor = useCallback((descriptor, admit) => withDesktopProjectReadDescriptor(
 		fileService,
 		descriptor,
 		{ openMaterialized: (file) => openProjectFile(file, true), openScape: openScapeProjectFile },
+		admit,
 	), [fileService, openProjectFile, openScapeProjectFile]);
 	const importRoutedFiles = useCallback((files, importOptions = {}) => importWorkspaceRoutedFiles({
 		controller, files, importOptions, openProjectFile,
-		projectBinVisible: projectBinEffectivelyOpen, requestCueImport,
-	}), [controller, openProjectFile, projectBinEffectivelyOpen, requestCueImport]);
+		projectBinVisible: projectBinEffectivelyOpen, requestCueImport: file => requestCueImport(file, currentProjectSession()),
+	}), [controller, currentProjectSession, openProjectFile, projectBinEffectivelyOpen, requestCueImport]);
 	useLaunchedFileImports({
 		controller, importFiles: importRoutedFiles, onError, desktop: fileService.isDesktop,
 	});
 	const openDesktopFiles = useCallback((purpose, multiple = false, importOptions = {}) => openDesktopWorkspaceFiles({
 		getProjectId: () => controller.getSnapshot().project?.id ?? null,
-		getProjectSessionKey: () => editorProjectEditSessionKey(controller, controller.getSnapshot().project?.id),
-		fileService, importFiles: importRoutedFiles, openProjectDescriptor: openDesktopProjectDescriptor,
-	}, purpose, multiple, importOptions), [controller, fileService, importRoutedFiles, openDesktopProjectDescriptor]);
+		getProjectSessionKey: currentProjectSession,
+		fileService, importFiles: importRoutedFiles, openProjectDescriptor: descriptor => openDesktopProjectDescriptor(descriptor, admitFileChoice),
+	}, purpose, multiple, importOptions), [admitFileChoice, controller, currentProjectSession, fileService, importRoutedFiles, openDesktopProjectDescriptor]);
 	const { clipPropertiesFocusRequest, openClipPropertiesSurface } = useWorkspaceClipPropertiesPanel({
 		controller, run, setActiveSurface, selectedClipId: snapshot.selectedClipId ?? null,
 		projectId: project?.id ?? null, panelVisible: Boolean(preferences?.workspace?.panels?.['clip-properties']?.visible),
@@ -253,8 +256,9 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		if (surface === 'preferences') {
 			setPreferencesPage(workspacePreferencesPage(options?.section));
 		}
+		if (surface === 'export-selection') setClipExportRequest({ projectSession: editorProjectEditSessionKey(controller, options.projectId), range: options.range });
 		setActiveSurface(surface);
-	}, [openClipPropertiesSurface, setActiveSurface]);
+	}, [controller, openClipPropertiesSurface, setActiveSurface]);
 	const soundscaperWorkflow = useSoundscaperWorkflowWorkspace({ productId, controller, project, selectedTrackId: snapshot.selectedTrackId, openSurface });
 	const { effectsPanelTarget, openEffects } = useWorkspaceEffectsPanel({
 		controller, run, setActiveSurface, selectedTrackId: snapshot.selectedTrackId,
@@ -322,11 +326,12 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	);
 	const uploadClipToFreesound = useFreesoundClipUploadCommand({ controller, project, missingSourceIds: snapshot.missingSourceIds, onError, openPanel: openWorkspacePanel });
 	useEffect(() => {
-		const binItemId = projectBinSearchReveal?.binItemId;
+		const { binItemId, projectIdentity } = projectBinSearchReveal || {};
 		if (!binItemId) return undefined;
 		let frame = 0;
 		let attempts = 0;
 		const revealItem = () => {
+			if (currentProjectSession() !== projectIdentity) return;
 			attempts += 1;
 			const item = [...(editorRef.current?.querySelectorAll('[data-project-bin-item]') || [])]
 				.find((candidate) => String(candidate.dataset.projectBinItem) === String(binItemId));
@@ -339,7 +344,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		};
 		frame = requestAnimationFrame(revealItem);
 		return () => cancelAnimationFrame(frame);
-	}, [projectBinSearchReveal]);
+	}, [currentProjectSession, projectBinSearchReveal]);
 	const openExternal = useCallback((url) => {
 		if (fileService.isDesktop) return fileService.openExternal(desktopExternalDestination(url));
 		const opened = globalThis.open?.(url, '_blank', 'noopener,noreferrer');
@@ -367,6 +372,8 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		toggleFullscreen,
 		workspaceRef,
 	});
+	const installPrompt = applicationInstallPromptCapture();
+	const installAvailable = useSyncExternalStore(installPrompt.subscribe, installPrompt.available, () => false);
 	const applicationMenus = useEditorFeedbackMenus(createWorkspaceApplicationMenus({
 		aboutLabel,
 		aup4InputRef,
@@ -383,8 +390,9 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		executeEdit,
 		fileService,
 		importInputRef,
+		installAvailable,
 		locale,
-		openDesktopFiles, openProjectFile,
+		openDesktopFiles, openProjectFile: openChosenProjectFile,
 		openEffects, openAssistanceSearch: assistanceSearchRuntime.openAssistanceSearch,
 		openExternal,
 		openGenerator,
@@ -437,7 +445,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		fileService,
 		isFullscreen,
 		onError,
-		openDesktopFiles, openProjectFile,
+		openDesktopFiles,
 		openDesktopProjectDescriptor,
 		openSurface,
 		run,
@@ -462,7 +470,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		toggleRecording, toolbarButtons: toolbarButtonPreferences, toolbars: toolbarPreferences, uiFlags, zoomProject, toolbarDock, onToolbarDock: setToolbarDock,
 	};
 	const overlayModel = createWorkspaceOverlayModel({
-		activeSurface, surfaceRequestId, applicationMenus, aboutLabel, capabilities, closeNyquist,
+		activeSurface, surfaceRequestId, applicationMenus, aboutLabel, capabilities, clipExportRequest, closeNyquist,
 		controller, copy, dialog, displayAudioSupported, dialogTrackId, dialogValue,
 		effectWindows, editBlocked, fileService, confirmFileSizeWarning, generatorType, locale, macroDraft,
 		nyquistTarget, preferences, preferencesPage, projectBinEffectivelyOpen, productId,
@@ -499,7 +507,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		moveWorkspacePanel,
 		onError,
 		openEffects,
-		openProjectFile,
+		openProjectFile: openChosenProjectFile,
 		openSurface,
 		parityRuntime,
 		legacyProjectSelection,

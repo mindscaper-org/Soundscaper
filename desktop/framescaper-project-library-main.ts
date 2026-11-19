@@ -28,6 +28,7 @@ import {
 	type FramescaperDesktopProjectLibraryWriterSnapshot,
 } from './framescaper-project-library-writer.ts';
 import { framescaperDesktopProjectLibraryClosedRecord as closedRecord } from './framescaper-project-library-values.ts';
+import { openProjectLibraryDirectoryLock } from './project-library-directory-lock.ts';
 
 const START_FIELDS = ['appDataPath', 'owner', 'handshake', 'onLeaseLost', 'testControl'] as const;
 const TEST_CONTROL_FIELDS = ['leaseTtlMs', 'renewIntervalMs', 'checkpoint'] as const;
@@ -45,9 +46,9 @@ const CONFIGURATION = Object.freeze({
 	validateOwner: validateFramescaperDesktopProjectLibraryOwner,
 	validateProject: (value: unknown) => validateFramescaperDesktopCurrentProject(value),
 	validateBodyDescriptor: (value: unknown) => validateFramescaperDesktopBodyDescriptor(value),
-	validateBodies: (project: unknown, projectSha256: string, value: unknown) => (
+	validateBodies: (project: unknown, projectSha256: string, value: unknown, stored: boolean) => (
 		validateFramescaperDesktopBodies(
-			validateFramescaperDesktopCurrentProject(project), projectSha256, value,
+			validateFramescaperDesktopCurrentProject(project), projectSha256, value, stored,
 		)
 	),
 });
@@ -63,11 +64,14 @@ export type FramescaperDesktopProjectLibraryMainSession =
 export class FramescaperDesktopProjectLibraryMain {
 	readonly #core: FramescaperDesktopProjectLibraryExactGenerationMain;
 	readonly #paths: Readonly<FramescaperDesktopProjectLibraryPaths>;
+	readonly #releaseDirectory: () => void;
+	#closePromise: Promise<void> | null = null;
 
 	private constructor(core: FramescaperDesktopProjectLibraryExactGenerationMain,
-		paths: Readonly<FramescaperDesktopProjectLibraryPaths>) {
+		paths: Readonly<FramescaperDesktopProjectLibraryPaths>, releaseDirectory: () => void) {
 		this.#core = core;
 		this.#paths = paths;
+		this.#releaseDirectory = releaseDirectory;
 	}
 
 	static async start(value: unknown): Promise<FramescaperDesktopProjectLibraryMain> {
@@ -77,16 +81,22 @@ export class FramescaperDesktopProjectLibraryMain {
 		}
 		const testControl = validateTestControl(options.testControl);
 		const owner = validateFramescaperDesktopProjectLibraryOwner(options.owner);
-		return new FramescaperDesktopProjectLibraryMain(
-			await FramescaperDesktopProjectLibraryExactGenerationMain.start(CONFIGURATION, {
-				appDataPath: options.appDataPath,
+		const appDataPath = options.appDataPath;
+		if (typeof appDataPath !== 'string') throw new TypeError('Framescaper desktop 1.0 main appDataPath must be a string');
+		const handshake = CONFIGURATION.validateHandshake(options.handshake);
+		const paths = CONFIGURATION.createPaths(appDataPath);
+		const releaseDirectory = openProjectLibraryDirectoryLock(appDataPath, 'Framescaper', 'open');
+		try {
+			const core = await FramescaperDesktopProjectLibraryExactGenerationMain.start(CONFIGURATION, {
+				appDataPath,
 				owner,
-				handshake: options.handshake,
+				handshake,
 			}, createFramescaperDesktopProjectLibraryExtension({
 				onLeaseLost: options.onLeaseLost as (error: unknown) => void,
 				testControl,
-			})), CONFIGURATION.createPaths(options.appDataPath as string),
-		);
+			}));
+			return new FramescaperDesktopProjectLibraryMain(core, paths, releaseDirectory);
+		} catch (error) { releaseDirectory(); throw error; }
 	}
 
 	get localHandshake(): unknown { return this.#core.localHandshake; }
@@ -114,7 +124,10 @@ export class FramescaperDesktopProjectLibraryMain {
 			framescaperDesktopExactMediaPath(this.#paths, body), destination, body, signal,
 		);
 	}
-	close(): Promise<void> { return this.#core.close(); }
+	close(): Promise<void> {
+		this.#closePromise ??= this.#core.close().finally(this.#releaseDirectory);
+		return this.#closePromise;
+	}
 }
 
 function validateTestControl(

@@ -23,6 +23,7 @@ import { macroScriptLibrarySchemaIsAhead } from '../../../../macro-script-librar
 import type { OwnedStateWriteScope } from '../../../shared/owned-state.ts';
 import type { ControllerRecordingState } from '../../../recording/recording-state.ts';
 import type { ControllerTransportState } from '../../../transport/transport-state.ts';
+import { normalizeRecordingLeadInSeconds } from '../../../recording/recording-model.ts';
 import { openStartupProject } from './project-startup-recovery.ts';
 import type { ProjectOpenRecoveryNotice } from '../../project-open-recovery.ts';
 
@@ -39,7 +40,7 @@ export interface ProjectBootstrapState<Preferences> {
 }
 
 export type ProjectBootstrapRecordingState = Pick<ControllerRecordingState,
-	| 'latencyOffsetMs' | 'leadInRecording' | 'microphoneMetering' | 'monitoring'
+	| 'leadInDurationSeconds' | 'latencyOffsetMs' | 'leadInRecording' | 'microphoneMetering' | 'monitoring'
 	| 'preferredInputChannelCount' | 'preferredInputDeviceId' | 'preferredOutputDeviceId'
 	| 'audioHost' | 'preferredRecordingSampleRate'
 	| 'recordingInputGain'
@@ -266,6 +267,8 @@ export function createProjectBootstrapService<
 			0,
 		)));
 		runtime.recordingState.leadInRecording = Boolean(await guard(loadSetting('recording-lead-in', false)));
+		try { runtime.recordingState.leadInDurationSeconds = normalizeRecordingLeadInSeconds(await guard(loadSetting('recording-lead-in-seconds', null))); }
+		catch (error) { if (runtime.isDisposedError(error)) throw error; runtime.recordingState.leadInDurationSeconds = null; }
 		runtime.state.showRms = Boolean(await guard(loadSetting(
 			runtime.productSettingKey('waveform-show-rms'),
 			false,

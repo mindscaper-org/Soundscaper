@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { cpuProfileControl } from './cpu-profile-instrumentation.ts';
 import { normalizeMixerGraphV21, mixerEndpointKeyV21 } from '../mixer-graph-v21.ts';
 import { soloRelatedStrips } from '../mixer-programme-reachability.ts';
 import { createMixerSignalTopologyV21 } from '../mixer-signal-topology-v21.ts';
@@ -37,6 +38,7 @@ export function compileParallelStackPlan(project: EngineProject, options: Parall
 	if ((project.automationLanes?.length ?? 0) > 0) throw new Error('Parallel timeline automation is not admitted yet.');
 	// Same authority as projectHasAuthoredAudioWarp; avoid importing its render graph into this compiler.
 	if (project.clips?.some((clip) => clip.warpMap != null)) throw new Error('Parallel authored audio warp is not admitted.');
+	if (project.clips?.some(clip => activeRackEffects(clip).some(effect => effect.enabled !== false && effect.bypassed !== true))) throw new Error('Parallel clip effect racks require the conventional graph.');
 	const graph = normalizeMixerGraphV21(project.mixer);
 	const tracks = (project.tracks ?? []).filter((track) => track.type === 'audio');
 	assertStableTrackInputWidths(project);
@@ -128,7 +130,7 @@ export function compileParallelStackPlan(project: EngineProject, options: Parall
 	const memoryBytes = parallelStackMemoryBytes(ordered, planeCount, blockFrames, bankCount, workerCount);
 	const limit = Math.min(options.maximumMemoryBytes ?? LIMIT_BYTES, LIMIT_BYTES);
 	if (!Number.isSafeInteger(memoryBytes) || memoryBytes > limit) throw new Error('Parallel graph exceeds the total memory limit.');
-	const result: ParallelStackPlan = { version: 1, sampleRate, blockFrames, bankCount, workerCount, planeCount, tasks: ordered,
+	const result: ParallelStackPlan = { cpuProfileControl: cpuProfileControl(), version: 1, sampleRate, blockFrames, bankCount, workerCount, planeCount, tasks: ordered,
 		taskOrder: ordered.map((_, index) => index), tracks: trackPlans, stripTaps, outputs,
 		inputPlaneIndices: trackPlans.map(({ inputPlanes }) => inputPlanes), outputPlaneIndices: outputs.map(({ planes }) => planes),
 		latencyFrames: pdc.latencyFrames, memoryBytes };

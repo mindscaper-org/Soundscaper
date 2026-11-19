@@ -7,10 +7,12 @@ import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.j
 import { readMidiClip } from '../src/common/editor/midi-model.ts';
 import { createAudioEditorSessionController } from '../src/common/editor/session.js';
 import { deferred, settle } from './helpers/async-test-control.ts';
+import { installNodeEditorWorkers } from './helpers/node-editor-workers.ts';
 
 for (const cancel of [false, true]) test(cancel
 	? 'closing export while it waits for MIDI cancels the pending submission'
-	: 'audio export includes the MIDI note edit requested before PCM publication', async t => {
+	: 'audio export includes the MIDI note edit requested before source publication', async t => {
+	installNodeEditorWorkers(t);
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const memory = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: 'midi-pending-audio-export' });
 	const session = createAudioEditorSessionController();
@@ -19,6 +21,10 @@ for (const cancel of [false, true]) test(cancel
 	let holdWrites = false;
 	const snapshots: unknown[] = [];
 	const store = new Proxy(memory, { get(target, key) {
+		if (key === 'writeMidiSource') return async (...args: Parameters<typeof memory.writeMidiSource>) => {
+			if (holdWrites) { entered.resolve(); await release.promise; }
+			return target.writeMidiSource(...args);
+		};
 		if (key === 'beginSourceWrite') return async (...args: Parameters<typeof memory.beginSourceWrite>) => {
 			const writer = await target.beginSourceWrite(...args);
 			return { ...writer, async write(channels: readonly Float32Array[]) {
@@ -45,9 +51,11 @@ for (const cancel of [false, true]) test(cancel
 	await controller.actions.project.save();
 	holdWrites = true;
 	const updating = controller.actions.midi.updateNote(clipId, 'note', { pitch: 67 });
-	await entered.promise;
+	await Promise.race([entered.promise, updating.then(() => {
+		assert.fail('The MIDI update completed without reaching the source-publication barrier.');
+	})]);
 	const exporting = controller.actions.export.start({ format: 'wav', bitDepth: 16, includeTail: false });
-	// Let export admit its snapshot while the requested PCM write is still held.
+	// Let export admit its snapshot while the requested MIDI source publication is held.
 	await settle();
 	if (cancel) await controller.actions.export.cancel();
 	release.resolve();

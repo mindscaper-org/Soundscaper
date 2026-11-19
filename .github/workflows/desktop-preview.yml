@@ -7,14 +7,22 @@ on:
     - cron: '17 2 * * *'
   push:
     tags:
-      - 'soundscaper-v*-beta.*'
-      - 'soundscaper-v*-rc.*'
-      - 'framescaper-v*-beta.*'
-      - 'framescaper-v*-rc.*'
+      - 'Soundscaper-alpha.*'
+      - 'Soundscaper-beta.*'
+      - 'Soundscaper-rc.*'
+      - 'Framescaper-alpha.*'
+      - 'Framescaper-beta.*'
+      - 'Framescaper-rc.*'
       - 'motionscaper-v*-alpha.*'
       - 'motionscaper-v*-beta.*'
       - 'motionscaper-v*-rc.*'
   workflow_dispatch:
+    inputs:
+      appx:
+        description: Additional unsigned Windows AppX artifacts (no Store publication)
+        type: choice
+        options: [none, development, store]
+        default: none
 
 permissions:
   contents: read
@@ -138,7 +146,7 @@ jobs:
         run: npm run audit:ci
 
   build:
-    name: Build and handbook
+    name: Build
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -188,9 +196,6 @@ jobs:
         uses: ./.github/actions/verified-node-dependencies
         with:
           scope: ubuntu-24.04
-
-      - name: Check and build the Soundscaper handbook
-        run: npm run docs:check
 
       - name: Build the site
         run: npm run build
@@ -261,6 +266,10 @@ jobs:
       - name: Resolve the selected test prerequisites
         id: test-prerequisites
         run: node scripts/ci-test-prerequisites.mjs --node-module-shard=${{ matrix.shard }} >> "$GITHUB_OUTPUT"
+
+      - name: Install headless Chromium for the WebGL pixelation regression
+        if: steps.test-prerequisites.outputs.chromium == 'true'
+        run: node node_modules/playwright-core/cli.js install --with-deps --only-shell chromium
 
       - name: Resolve the interchange download cache identity
         if: steps.test-prerequisites.outputs.interchange == 'true'
@@ -659,6 +668,40 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: ${{ env.SCAPE_MAC_SIGNING == 'true' && 'true' || 'false' }}
 
+      - name: Verify Windows MSI install, repair and uninstall
+        if: matrix.target.platform == 'win'
+        shell: pwsh
+        run: |
+          node --import tsx --test tests/desktop-windows-managed-policy.test.ts
+          if ($LASTEXITCODE -ne 0) { throw 'Native Group Policy checks failed' }
+          $packages = @(Get-ChildItem -LiteralPath 'release/desktop' -Filter '*-win-${{ matrix.target.arch }}.msi')
+          if ($packages.Count -ne 1) { throw 'Expected one MSI for this target' }
+          $product = '${{ matrix.product }}'
+          $productName = if ($product -eq 'soundscaper') { 'Soundscaper' } else { 'Framescaper' }
+          ./scripts/test-windows-msi.ps1 -Artifact $packages[0].FullName -ProductName $productName
+
+      - name: Package optional Windows AppX
+        if: github.event_name == 'workflow_dispatch' && inputs.appx != 'none' && matrix.target.platform == 'win'
+        run: >-
+          npm run desktop:appx -- --prepared --arch=${{ matrix.target.arch }}
+          ${{ inputs.appx == 'development' && '--development' || '' }}
+        env:
+          SCAPE_APPX_IDENTITY_NAME: ${{ vars[matrix.product == 'soundscaper' && 'SOUNDSCAPER_APPX_IDENTITY_NAME' || 'FRAMESCAPER_APPX_IDENTITY_NAME'] }}
+          SCAPE_APPX_PUBLISHER: ${{ vars.WINDOWS_STORE_PUBLISHER }}
+          SCAPE_APPX_PUBLISHER_DISPLAY_NAME: ${{ vars.WINDOWS_STORE_PUBLISHER_DISPLAY_NAME }}
+          SCAPE_APPX_VERSION: ${{ vars[matrix.product == 'soundscaper' && 'SOUNDSCAPER_APPX_VERSION' || 'FRAMESCAPER_APPX_VERSION'] }}
+
+      - name: Upload Windows AppX feasibility artifacts
+        if: github.event_name == 'workflow_dispatch' && inputs.appx != 'none' && matrix.target.platform == 'win'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: appx-${{ matrix.product }}-win-${{ matrix.target.arch }}
+          path: |
+            release/appx/*.appx
+            release/appx/*.json
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Install virtual display for Linux smoke
         if: runner.os == 'Linux'
         timeout-minutes: 10
@@ -773,6 +816,7 @@ jobs:
             release/desktop/*.dmg
             release/desktop/*.pkg
             release/desktop/*.exe
+            release/desktop/*.msi
             release/desktop/*.zip
             release/desktop/*.json
           if-no-files-found: error
@@ -988,8 +1032,12 @@ jobs:
           path: .desktop-build/flatpak-packages
 
       - name: Install Flatpak packaging and smoke tools
-        timeout-minutes: 10
-        run: bash scripts/ci-apt-install.sh flatpak flatpak-builder xvfb xauth dbus-daemon
+        timeout-minutes: 20
+        env:
+          CI_APT_TIMEOUT_SECONDS: '150' # Leave room for update and install retries.
+        run: >-
+          bash scripts/ci-apt-install.sh --no-install-recommends
+          flatpak flatpak-builder xvfb xauth dbus-daemon desktop-file-utils libgl1-mesa-dri libglx-mesa0
 
       - name: Allow the Flatpak build sandbox on Ubuntu
         run: |

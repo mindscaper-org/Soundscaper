@@ -116,6 +116,13 @@ interface RendererPublicationRequest extends FileSizeWarningOptions {
 	readonly beforeFinish?: () => PromiseLike<void> | void;
 }
 
+interface RendererDuplicateOptions extends Pick<FileSizeWarningOptions, 'signal' | 'assertCurrent'> {
+	readonly id: string;
+	readonly title: string;
+	readonly timestamp: string;
+	readonly expectedSource?: FramescaperProject;
+}
+
 export interface FramescaperDesktopProjectLibraryRenderer {
 	listProjects(): Promise<readonly Readonly<FramescaperDesktopProjectLibraryProjectSummary>[]>;
 	claimProjectWriteFence(projectId: string): Promise<string>;
@@ -126,11 +133,7 @@ export interface FramescaperDesktopProjectLibraryRenderer {
 	publishProjectIfCurrentWithWriteFence(expected: unknown, project: unknown, token: string, options?: FileSizeWarningOptions): Promise<FramescaperProject | null>;
 	deleteProject(projectId: string): Promise<void>;
 	deleteProjectIfCurrent(project: unknown): Promise<boolean>;
-	duplicateProject(sourceProjectId: string, options: Readonly<{
-		readonly id: string;
-		readonly title: string;
-		readonly timestamp: string;
-	}>): Promise<FramescaperProject>;
+	duplicateProject(sourceProjectId: string, options: Readonly<RendererDuplicateOptions>): Promise<FramescaperProject>;
 }
 
 const RENDERER_COMPOSITIONS = new WeakMap<object, Readonly<{
@@ -322,7 +325,7 @@ class Renderer implements FramescaperDesktopProjectLibraryRenderer {
 				}
 				finished = true;
 				assertPublicationCurrent(request);
-				const result = validateBundle(this.#profile, rawResult, projectId);
+				const result = validateBundle(this.#profile, rawResult, projectId, false);
 				if (JSON.stringify(result.project) !== JSON.stringify(project)) {
 					throw new Error('Framescaper publication readback changed the project.');
 				}
@@ -370,16 +373,16 @@ class Renderer implements FramescaperDesktopProjectLibraryRenderer {
 			return true;
 		});
 	}
-	duplicateProject(sourceProjectId: string, options: Readonly<{
-		readonly id: string;
-		readonly title: string;
-		readonly timestamp: string;
-	}>): Promise<FramescaperProject> {
+	duplicateProject(sourceProjectId: string, options: Readonly<RendererDuplicateOptions>): Promise<FramescaperProject> {
 		return this.#exclusive(async () => {
 			const sourceId = projectIdValue_(sourceProjectId);
 			const raw = await this.#bridge.readProjectBundle(sourceId);
 			if (raw === null) throw new Error('Framescaper duplicate source is unavailable.');
 			const source = validateBundle(this.#profile, raw, sourceId);
+			if (options.expectedSource && !sameFramescaperDesktopProject(options.expectedSource, source.project)) {
+				throw new Error('The Framescaper duplicate source changed before publication.');
+			}
+			assertPublicationCurrent(options);
 			const result = await this.#bridge.duplicateProject({
 				sourceProjectId: sourceId,
 				copyProjectId: projectIdValue_(options.id),
@@ -392,7 +395,7 @@ class Renderer implements FramescaperDesktopProjectLibraryRenderer {
 				},
 			});
 			return reconcileCommitted('duplicate', options.id, async () => {
-				const snapshot = validateBundle(this.#profile, result, options.id);
+				const snapshot = validateBundle(this.#profile, result, options.id, false);
 				await acquireFramescaperDesktopBodies(
 					snapshot.project,
 					snapshot.bundle.project.sha256,
@@ -469,6 +472,7 @@ function validateBundle(
 	profile: EditorProjectRuntimeProfile,
 	value: unknown,
 	expectedProjectId: string,
+	allowLegacyImages = true,
 ): Readonly<{ bundle: Readonly<Bundle>; project: FramescaperProject }> {
 	const raw = exactRecord(value, BUNDLE_FIELDS, 'Framescaper desktop bundle');
 	const row = projectRow(raw.project, expectedProjectId);
@@ -481,7 +485,7 @@ function validateBundle(
 	if (project.id !== row.projectId || project.title !== row.name || project.revision !== row.projectRevision) {
 		throw new Error('The Framescaper desktop project disagrees with its descriptor.');
 	}
-	const bodies = validateFramescaperDesktopBodies(project, row.sha256, raw.bodies);
+	const bodies = validateFramescaperDesktopBodies(project, row.sha256, raw.bodies, allowLegacyImages);
 	return Object.freeze({
 		bundle: Object.freeze({
 			metadataRevision: nonNegative(raw.metadataRevision, 'metadata revision'),

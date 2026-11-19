@@ -5,7 +5,7 @@ import { showClipTimingFields, bootEditor, chooseCommandAction, clipByName, impo
 import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 
 test('Nyquist labels from a source selection retain its clip placement', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const panel = await openClipProperties(page, editor, clipByName(editor, toneA.name));
 	await showClipTimingFields(panel);

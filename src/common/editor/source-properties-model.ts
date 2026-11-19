@@ -11,6 +11,7 @@ import {
 	type VideoSourceStartTimecode,
 } from './video-source-characteristics.ts';
 import { normalizeVideoSourceCharacteristicsForConsumer } from './video-source-characteristics-consumer.ts';
+import { indexedUnretimedVideoFrameAtSample } from './video-source-time.ts';
 import { sequenceFrameAtSample } from './sequence-frame-navigation.ts';
 import {
 	formatSequenceTimecode,
@@ -115,7 +116,7 @@ export function resolveVideoSourcePropertiesView(sourceValue: unknown): SourcePr
  * monitor cannot drift into two labels for the same frame.
  */
 /**
- * The source frame an unretimed occurrence draws at a sequence frame.
+ * The source frame an unretimed occurrence draws without a timing index.
  *
  * A clip without a retime map still maps proportionally: uniform rate
  * stretch persists sequenceFrameCount !== sourceFrameCount with no map, and
@@ -215,6 +216,7 @@ export function resolveSourceTimecodeAtSample(
 			return null;
 		}
 		const sourceFrame = retimedSourceFrame
+			?? indexedUnretimedVideoFrameAtSample(project, value, source, timelineSample)
 			?? proportionalSourceFrame(sourceIn, Number(value.sourceFrameCount), start, end - start, frame);
 		return Object.freeze({
 			sourceId: String(source.id ?? ''),

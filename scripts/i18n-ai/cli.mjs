@@ -113,6 +113,7 @@ export async function runCli(argv, io = {}) {
 				batchSize: options.batchSize,
 				keys: options.keys,
 				directory: io.directory,
+				englishCopy: io.englishCopy,
 			});
 			results.push(result);
 			stdout.write(`${locale}: ${result.pending} pending keys in ${result.batches} packets under ${resolve(options.output, locale)}\n`);
@@ -142,6 +143,8 @@ export async function runCli(argv, io = {}) {
 			batchSize: options.batchSize,
 			keys: options.keys,
 			directory: io.directory,
+			englishCopy: io.englishCopy,
+			indexOptions: io.indexOptions,
 			log: (line) => stderr.write(`${line}\n`),
 		});
 		summaries.push(summary);

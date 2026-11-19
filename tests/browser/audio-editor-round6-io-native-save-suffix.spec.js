@@ -6,7 +6,7 @@ import { bootEditor, chooseExportProjectFileAction, chooseFileAction, chooseNest
 import { installNativeCaptionSidecar } from './helpers/native-caption-sidecar.js';
 
 // Node retains all title lengths through native Save/Open and archive decoding.
-// The multibyte title also exercises the real rename and collision-copy dialogs.
+// The multibyte title also exercises the real rename and unchanged-reopen path.
 const title = '東京での録音'.repeat(20);
 test('native Save and Open preserve a long multibyte project title', async ({ page }) => {
 	const native = await installNativeCaptionSidecar(page, 'ordinary.srt', '', { saveName: 'choice.fscape', saveSuggestedName: true, openSavedFile: true });
@@ -31,16 +31,13 @@ test('native Save and Open preserve a long multibyte project title', async ({ pa
 		} finally { await reader.close(); }
 		await editor.getByRole('button', { name: 'New project', exact: true }).click();
 		await expect(editor).not.toHaveAttribute('data-project-id', id);
-		const draftId = await editor.getAttribute('data-project-id');
 		await test.info().attach('native-save-default.json', { body: JSON.stringify(native.saveChoices), contentType: 'application/json' });
 		await chooseFileAction(page, editor, 'Open');
 		await expect.poll(() => native.calls.length).toBe(1);
 		const collision = page.getByRole('dialog', { name: 'Project already exists', exact: true });
-		await expect(collision).toBeVisible();
-		await collision.getByRole('button', { name: 'Open as copy', exact: true }).click();
-		await expect(editor).not.toHaveAttribute('data-project-id', draftId);
-		await expect(editor.locator('[data-project-name]')).toContainText(title);
-		await expect(editor.locator('[data-project-name]')).toContainText('copy');
+		await expect(editor).toHaveAttribute('data-project-id', id);
+		await expect(collision).toBeHidden();
+		await expect(editor.locator('[data-project-name]')).toHaveText(title);
 		expect(native.saveChoices[0].defaultPath).toMatch(/\.fscape$/u);
 	} finally { await native.close(); }
 });

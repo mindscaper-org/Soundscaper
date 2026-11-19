@@ -3,7 +3,7 @@
 import { randomBytes } from 'node:crypto';
 import { rm } from 'node:fs/promises';
 import { relative, resolve, sep } from 'node:path';
-import { setTimeout as delay } from 'node:timers/promises';
+import { retryDesktopDatabaseContention } from './desktop-database-contention.ts';
 import type { DatabaseSync } from 'node:sqlite';
 import { withProjectLibraryImmediateTransaction } from './project-library-immediate-transaction.ts';
 
@@ -53,7 +53,10 @@ export function createFramescaperDesktopProjectLibraryExtension(
 	const timing = timingOptions(options.testControl);
 	return Object.freeze({
 		async start(context: Parameters<FramescaperDesktopProjectLibraryExactGenerationExtension['start']>[0]) {
-			initializeFramescaperDesktopProjectLibraryLifecycleDatabase(context.database);
+			await retryDesktopDatabaseContention(
+				() => initializeFramescaperDesktopProjectLibraryLifecycleDatabase(context.database),
+				{ waitMs: timing.leaseTtlMs + 1_000 },
+			);
 			const writer = await FramescaperDesktopProjectLibraryWriter.acquire({
 				...context,
 				onLeaseLost: options.onLeaseLost,
@@ -123,17 +126,13 @@ class FramescaperDesktopProjectLibraryWriter implements FramescaperDesktopProjec
 		renewIntervalMs: number;
 		checkpoint: ((phase: FramescaperDesktopProjectLibraryPublicationCheckpoint) => void) | null;
 	}>): Promise<FramescaperDesktopProjectLibraryWriter> {
-		const deadline = Date.now() + value.leaseTtlMs + 1_000;
-		let lease: Readonly<Lease> | null = null;
-		while (!lease) {
+		const busyMessage = 'Framescaper desktop 1.0 writer lease is busy';
+		const lease = await retryDesktopDatabaseContention(() => {
 			const attempt = acquireLease(value.database, value.owner, value.leaseTtlMs);
-			if (attempt.lease) lease = attempt.lease;
-			else {
-				const remaining = deadline - Date.now();
-				if (remaining <= 0) throw new Error('Framescaper desktop 1.0 writer lease is busy');
-				await delay(Math.min(remaining, Math.max(10, attempt.retryAtMs - Date.now() + 1)));
-			}
-		}
+			if (!attempt.lease) throw new Error(busyMessage);
+			return attempt.lease;
+		}, { waitMs: value.leaseTtlMs + 1_000,
+			isWriterLeaseBusy: (error): error is Error => error instanceof Error && error.message === busyMessage });
 		return new FramescaperDesktopProjectLibraryWriter({
 			database: value.database,
 			projectsRoot: value.paths.projectsRoot,

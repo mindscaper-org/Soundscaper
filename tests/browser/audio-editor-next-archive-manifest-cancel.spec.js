@@ -35,13 +35,14 @@ test('native checksum export cancellation preserves its report for a successful 
 	});
 	const editor = await bootEditor(page, '/embed/en/');
 	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'future.sscape', mimeType: 'application/vnd.soundscaper.scape+zip', buffer: Buffer.from(await future.arrayBuffer()) });
-	await expect(editor).toHaveAttribute('data-project-id', 'manifest-owner');
+	await expect(editor).toHaveAttribute('data-project-id', /^opaque-project-/u);
 	// An exact retained-archive copy has readable bytes even on the native
 	// streaming save route, so its checksums remain available for later work.
 	await chooseExportProjectFileAction(page, editor);
 	await expect(editor.locator('[data-status]')).toContainText('All changes saved locally');
+	const archiveTabId = await editor.getAttribute('data-project-id');
 	await editor.getByRole('button', { name: 'New project', exact: true }).click();
-	await expect(editor).not.toHaveAttribute('data-project-id', 'manifest-owner');
+	await expect.poll(() => editor.getAttribute('data-project-id')).not.toBe(archiveTabId);
 	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Save archive checksums']);
 	await expect.poll(() => page.evaluate(() => globalThis.__manifestRequests.filter(request => request.purpose === 'report').length)).toBe(1);
 	await expect(editor.locator('[data-status]')).not.toContainText('Archive checksums saved');

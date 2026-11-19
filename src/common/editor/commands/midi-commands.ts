@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { MidiClipData, MidiTrackData } from '../midi-model.ts';
+import type { MidiClipPayload, MidiTrackData } from '../midi-model.ts';
+import type { MidiPlaylistSourceReplacement } from '../midi-playlist-sources.ts';
 import type { AudioWarpMap } from '../audio-warp-domain.ts';
 import type { Rational } from '../timeline-time.ts';
 import { defineDomainCommandHandlerRegistry, type DomainCommandHandlerRegistry } from './domain-registry.ts';
@@ -12,14 +13,14 @@ export type MidiCommandHandlers = DomainCommandHandlerRegistry<typeof MIDI_COMMA
 export interface MidiCommandPayloads {
 	readonly 'midi/clip-set': Readonly<{
 		clipId: string;
-		data: MidiClipData;
+		data: MidiClipPayload;
 		sourceId: string;
 		sourceDurationFrames: number;
 		durationFrames?: number;
 		warpMap?: Readonly<AudioWarpMap>;
 		musicalDurationBeats?: Rational;
 	}>;
-	readonly 'midi/track-set': Readonly<{ trackId: string; data: MidiTrackData }>;
+	readonly 'midi/track-set': Readonly<{ trackId: string; data: MidiTrackData; playlistSources?: readonly MidiPlaylistSourceReplacement[] }>;
 }
 
 export function defineMidiCommandHandlers(handlers: MidiCommandHandlers): Readonly<MidiCommandHandlers> {

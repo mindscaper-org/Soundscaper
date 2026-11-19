@@ -1877,6 +1877,138 @@
 					"url": "https://assets.soundscaper.org/models/kokoro-82m-v1.0/1.0.0/zm_yunyang.bin"
 				}
 			]
+		},
+		{
+			"modelId": "gtcrn",
+			"version": "1.0.0",
+			"task": "speech-enhancement",
+			"platforms": [
+				"darwin-arm64",
+				"linux-arm64",
+				"linux-x64",
+				"win32-arm64",
+				"win32-x64"
+			],
+			"minimumMemoryBytes": 2147483648,
+			"licensingEvidence": {
+				"id": "gtcrn",
+				"sha256": "16461b141bc4c9677caf22f800075863a648922bf396767920e63acd079ab810"
+			},
+			"upstream": {
+				"source": "https://github.com/Xiaobin-Rong/gtcrn",
+				"revision": "502ebfab64da7c4a9af78dcb9c6ceef1ebb01c73",
+				"artifacts": [
+					{
+						"fileName": "gtcrn_simple.onnx",
+						"byteLength": 535638,
+						"sha256": "e77603ac0c23dac3227dd2d7135b3a585cbee2679048aecfa886657d3ae1b534",
+						"url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/speech-enhancement-models/gtcrn_simple.onnx"
+					}
+				]
+			},
+			"distribution": {
+				"kind": "identity-mirrored"
+			},
+			"artifacts": [
+				{
+					"fileName": "gtcrn_simple.onnx",
+					"byteLength": 535638,
+					"sha256": "e77603ac0c23dac3227dd2d7135b3a585cbee2679048aecfa886657d3ae1b534",
+					"url": "https://assets.soundscaper.org/models/gtcrn/1.0.0/gtcrn_simple.onnx"
+				}
+			]
+		},
+		{
+			"modelId": "dpdfnet2-48khz",
+			"version": "1.0.0",
+			"task": "speech-enhancement",
+			"platforms": [
+				"darwin-arm64",
+				"linux-arm64",
+				"linux-x64",
+				"win32-arm64",
+				"win32-x64"
+			],
+			"minimumMemoryBytes": 2147483648,
+			"licensingEvidence": {
+				"id": "dpdfnet2-48khz",
+				"sha256": "a3d172f6d870f3d9a3c8e2e603c6df562472a5c77031d52ad57b5993d0225ae0"
+			},
+			"upstream": {
+				"source": "https://github.com/ceva-ip/DPDFNet",
+				"revision": "9bd9844a227bb6aa57e55588d8d0e961fcff1c46",
+				"artifacts": [
+					{
+						"fileName": "dpdfnet2_48khz_hr.onnx",
+						"byteLength": 10596848,
+						"sha256": "0b399f8a58dc4d70d8cd97541f5c39869406145193b957d00a03b66070944928",
+						"url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/speech-enhancement-models/dpdfnet2_48khz_hr.onnx"
+					}
+				]
+			},
+			"distribution": {
+				"kind": "identity-mirrored"
+			},
+			"artifacts": [
+				{
+					"fileName": "dpdfnet2_48khz_hr.onnx",
+					"byteLength": 10596848,
+					"sha256": "0b399f8a58dc4d70d8cd97541f5c39869406145193b957d00a03b66070944928",
+					"url": "https://assets.soundscaper.org/models/dpdfnet2-48khz/1.0.0/dpdfnet2_48khz_hr.onnx"
+				}
+			]
+		},
+		{
+			"modelId": "voxlock",
+			"version": "1.1.1",
+			"task": "speech-enhancement",
+			"platforms": [
+				"darwin-arm64",
+				"linux-arm64",
+				"linux-x64",
+				"win32-arm64",
+				"win32-x64"
+			],
+			"minimumMemoryBytes": 2147483648,
+			"licensingEvidence": {
+				"id": "voxlock",
+				"sha256": "9e7b8d5f7391a73855bdf3c1ccfa897a897873310616cc5f8f91996f50a45db1"
+			},
+			"upstream": {
+				"source": "https://huggingface.co/arbazsiddiqui/voxlock",
+				"revision": "a50f4e1d109301d4b6f61dec57ebb1a61e7d8f03",
+				"artifacts": [
+					{
+						"fileName": "voxlock_enroll.onnx",
+						"byteLength": 12476014,
+						"sha256": "5d06048c156bb8cd422d29848e6d38fb26a7b39f6f7fd92eccf2a6ed1ce003c6",
+						"url": "https://github.com/arbazsiddiqui/voxlock/releases/download/sherpa-onnx-models/voxlock_enroll.onnx"
+					},
+					{
+						"fileName": "voxlock_chunk_int8.onnx",
+						"byteLength": 66608910,
+						"sha256": "df61a9d0062b0adbcf1182302b1eb8b815f15ac47ea4923e8e164c1aff64121d",
+						"url": "https://github.com/arbazsiddiqui/voxlock/releases/download/sherpa-onnx-models/voxlock_chunk_int8.onnx"
+					}
+				]
+			},
+			"distribution": {
+				"kind": "identity-mirrored"
+			},
+			"artifacts": [
+				{
+					"fileName": "voxlock_enroll.onnx",
+					"byteLength": 12476014,
+					"sha256": "5d06048c156bb8cd422d29848e6d38fb26a7b39f6f7fd92eccf2a6ed1ce003c6",
+					"url": "https://assets.soundscaper.org/models/voxlock/1.1.1/voxlock_enroll.onnx"
+				},
+				{
+					"fileName": "voxlock_chunk_int8.onnx",
+					"byteLength": 66608910,
+					"sha256": "df61a9d0062b0adbcf1182302b1eb8b815f15ac47ea4923e8e164c1aff64121d",
+					"url": "https://assets.soundscaper.org/models/voxlock/1.1.1/voxlock_chunk_int8.onnx"
+				}
+			]
 		}
 	]
 }

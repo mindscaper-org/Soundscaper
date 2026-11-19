@@ -56,6 +56,18 @@ test('placement applies masks to alpha without changing straight color', () => {
 	assert.deepEqual([...placed.pixels], [1, 1, 1, 1, 0, 0, 0, 0]);
 });
 
+test('linear placement rejects invalid floats and leaves a transparent background at exact zero', () => {
+	for (const invalid of [NaN, Infinity, -Infinity, -0.1, 1.1]) {
+		assert.throws(() => placeUnifiedExactLinearRgbaFrameV13({
+			frame: { width: 1, height: 1, pixels: Float32Array.of(0, 0, invalid, 1) },
+			displayWidth: 1, displayHeight: 1, outputWidth: 1, outputHeight: 1,
+			renderDescription: description(1),
+		}), /between zero and one/u);
+	}
+	assert.deepEqual(createUnifiedExactLinearPremultipliedFrameV13(2, 1, [1, 0.5, 1, -0]).pixels,
+		new Float64Array(8));
+});
+
 test('exact placement agrees with premultiplied bilinear sampling across affine crops and alpha masks', () => {
 	const frame = { width: 7, height: 5, pixels: Uint8Array.from(
 		{ length: 7 * 5 * 4 }, (_unused, index) => (index * 37 + 11) % 256,

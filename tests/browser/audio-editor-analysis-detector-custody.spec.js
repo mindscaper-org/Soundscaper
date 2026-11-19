@@ -65,11 +65,11 @@ function toneAmplitude(samples, frequency) {
 }
 
 for (const [position, detector] of [
-	['pre-fader', 'tone'], ['post-fader', 'tone'], ['post-fader', 'muted'], ['post-fader', 'zero'], ['post-fader', 'master'],
+	['pre-fader', 'tone'], ['post-fader', 'muted'], ['post-fader', 'zero'], ['post-fader', 'master'],
 ]) test(`Plot spectrum retains its authored ${position} external ${detector} detector`, async ({ page }) => {
 	test.setTimeout(90_000);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const fixture = await input(position, detector);
 	await editor.locator('[data-aup4-input]').setInputFiles({
 		name: 'sidechain.sscape', mimeType: 'application/zip', buffer: fixture.bytes,

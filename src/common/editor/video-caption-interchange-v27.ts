@@ -148,7 +148,7 @@ function reportUnreferencedDefinitions(
 }
 
 function parseSrt(text: string, limits: Readonly<VideoCaptionInterchangeLimitsV1>): TimedCueSource[] {
-	const blocks = subtitleBlocks(text);
+	const blocks = subtitleBlocks(text.replace(/\n[ \t]+(?=\n[^\n])/gu, '\n'));
 	assertCueCount(blocks.length, limits);
 	return blocks.map((block, index) => {
 		const lines = block.split('\n');
@@ -184,7 +184,7 @@ function parseWebVtt(text: string, limits: Readonly<VideoCaptionInterchangeLimit
 		if (VTT_TIMING.test(lines[bodyStart + 1] ?? '')) break;
 		bodyStart += 1;
 	}
-	const blocks = subtitleBlocks(lines.slice(bodyStart).join('\n')).filter((block) => !/^NOTE(?:[ \t]|\n|$)/u.test(block));
+	const blocks = webVttBlocks(lines, bodyStart).filter((block) => !/^NOTE(?:[ \t]|\n|$)/u.test(block));
 	assertCueCount(blocks.length, limits);
 	return blocks.map((block, index) => {
 		const cueLines = block.split('\n');
@@ -278,7 +278,7 @@ function exportWebVttCue(
 	const speaker = cue.speakerId === null ? null : definitions.speakers.get(cue.speakerId) ?? null;
 	const settings = style === null ? '' : ` align:${style.textAlign}`;
 	const timing = exportMillisecondTiming(cue, sampleRate, 'webvtt', losses) + settings;
-	const printable = cue.text.split('\n').filter((line) => line.trim().length > 0);
+	const printable = cue.text.split('\n').filter((line) => line.length > 0);
 	const passiveText = printable.length > 0 ? printable.join('\n') : ' ';
 	if (passiveText !== cue.text) {
 		losses.push(captionLoss('text-lines-normalized', `cues.${cue.id}.text`, 'WebVTT cannot preserve leading, trailing, or blank caption lines.', {}));
@@ -472,8 +472,28 @@ function parseVttSettings(value: string): VideoCaptionStyleV1['textAlign'] | nul
 }
 
 function subtitleBlocks(text: string): string[] {
-	const trimmed = text.replace(/\n[ \t]+(?=\n[^\n])/gu, '\n').replace(/^\n+/u, '').replace(/\n+$/u, '');
+	const trimmed = text.replace(/^\n+/u, '').replace(/\n+$/u, '');
 	return trimmed === '' ? [] : trimmed.split(/\n{2,}/u);
+}
+
+function webVttBlocks(lines: readonly string[], firstLine: number): string[] {
+	const blocks: string[] = [];
+	let start = firstLine;
+	for (let index = firstLine; index < lines.length; index++) {
+		const line = lines[index]!;
+		// Some sidecars pad a cue separator with spaces. Keep those spaces in
+		// the cue text unless the next line starts another cue.
+		if (line !== '' && !(/^[ \t]+$/u.test(line) && beginsWebVttCue(lines, index + 1))) continue;
+		if (index > start) blocks.push(lines.slice(start, index).join('\n'));
+		start = index + 1;
+	}
+	if (start < lines.length) blocks.push(lines.slice(start).join('\n'));
+	return blocks;
+}
+
+function beginsWebVttCue(lines: readonly string[], index: number): boolean {
+	const line = lines[index] ?? '';
+	return VTT_TIMING.test(line) || (line.trim() !== '' && VTT_TIMING.test(lines[index + 1] ?? ''));
 }
 
 function assertCueCount(count: number, limits: Readonly<VideoCaptionInterchangeLimitsV1>): void {

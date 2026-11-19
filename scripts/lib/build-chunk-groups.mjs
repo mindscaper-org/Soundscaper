@@ -21,6 +21,7 @@
  */
 
 import { EDITOR_UI_CHUNK_GROUPS } from './build-editor-ui-chunks.mjs';
+import { deferredEditorFeatureChunks } from './build-deferred-editor-features.mjs';
 
 import {
 	EDITOR_ASSISTANCE_MODEL_PREFLIGHT_CHUNK_TEST,
@@ -37,6 +38,7 @@ import {
 	EDITOR_FREQUENCY_WAVEFORM_CHUNK_TEST,
 	EDITOR_IMPORT_ADMISSION_CHUNK_TEST,
 	EDITOR_MACRO_DEFAULTS_CHUNK_TEST,
+	EDITOR_MIDI_FILE_CODECS_CHUNK_TEST,
 	EDITOR_OPTIONAL_ASSISTANCE_CHUNK_TEST,
 	EDITOR_OPTIONAL_CAPTURE_CHUNK_TEST,
 	EDITOR_OPTIONAL_EXECUTION_CHUNK_TEST,
@@ -95,6 +97,13 @@ export {
 /** @type {import('rolldown').CodeSplittingGroup[]} */
 export const chunkGroups = [
 	...motionChunkGroups,
+	...deferredEditorFeatureChunks,
+	{
+		// Transcript projection and inference are requested only by the optional panel.
+		name: 'editor-transcript-editing',
+		test: /src[\\/]common[\\/]editor[\\/](?:transcript-editing\.ts|controller[\\/](?:composition[\\/]internal[\\/]transcript-editing-actions|assistance[\\/]transcript-generation-session)\.ts|ui[\\/]workspace[\\/](?:Transcript(?:EditingPanel|Generation)\.tsx|TranscriptEditingPanel\.css|transcript-(?:dom-selection|editing-panel-types)\.ts))$/,
+		priority: 102, minSize: 0, maxSize: 400_000, includeDependenciesRecursively: false,
+	},
 	{ name: 'editor-assistance-model-preflight', test: EDITOR_ASSISTANCE_MODEL_PREFLIGHT_CHUNK_TEST,
 		priority: 100, minSize: 0, maxSize: 400_000,
 		includeDependenciesRecursively: false },
@@ -172,6 +181,21 @@ export const chunkGroups = [
 		test: EDITOR_COMMUNITY_TRANSLATIONS_CHUNK_TEST,
 		priority: 98,
 		minSize: 0,
+		maxSize: 400_000,
+		includeDependenciesRecursively: false,
+	},
+	{
+		// Import, export and interchange reach these codecs only on file use.
+		name: 'editor-midi-file-codecs',
+		test: EDITOR_MIDI_FILE_CODECS_CHUNK_TEST,
+		priority: 108,
+		maxSize: 120_000,
+		includeDependenciesRecursively: false,
+	},
+	{
+		name: 'vendor-midi-synth',
+		test: /node_modules[\\/](?:libadlmidi-js|js-synthesizer)[\\/]/,
+		priority: 101,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,
 	},
@@ -420,7 +444,8 @@ export const chunkGroups = [
 	},
 	{
 		name: 'editor-engine',
-		test: new RegExp(`${editorPath}(?:engine(?:\\.js|[\\\\/])|recording(?:\\.js|[\\\\/]|-listening-output\\.ts)|playback-meter\\.js)`),
+		// The library instrument entry points are imported on demand by the MIDI renderer.
+		test: new RegExp(String.raw`${editorPath}(?!engine[\\/](?:midi-adlmidi|midi-fluidsynth|midi-library-renderer|midi-soundfont-reference)\.ts$)(?:engine(?:\.js|[\\/])|recording(?:\.js|[\\/]|-listening-output\.ts)|playback-meter\.js)`),
 		priority: 90,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,
@@ -443,6 +468,7 @@ export const chunkGroups = [
 		name: 'editor-controller-core',
 		test: new RegExp(`${editorPath}(?!controller[\\\\/](?:${editorOptionalControllerModule}|${editorOptionalAssistanceModule}|${editorOptionalCaptureControllerModule})\\.ts$)(?:app\\.js|controller[\\\\/]|commands(?:\\.js|[\\\\/])|facade\\.ts|index\\.js)`),
 		priority: 75,
+		minSize: 40_000,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,
 	},
@@ -496,11 +522,22 @@ export { workerChunkGroups, WORKER_EFFECT_CONTRACT_CHUNK_TEST, WORKER_XML_VENDOR
 /**
  * A separate bridge entry needs its own copy owner. Single-entry editors read
  * only the shared inventory, so its table stays in the existing editor-copy owner.
- * @param {{ compositionLinkEntry: boolean }} composition
+ * @param {{ compositionLinkEntry: boolean, productId?: string }} composition
  * @returns {import('rolldown').CodeSplittingGroup[]}
  */
-export function chunkGroupsForBuild({ compositionLinkEntry }) {
-	return compositionLinkEntry ? chunkGroups : chunkGroups.filter(group => group.name !== 'motion-link-copy');
+export function chunkGroupsForBuild({ compositionLinkEntry, productId }) {
+	if (compositionLinkEntry) return chunkGroups;
+	if (productId !== 'framescaper') return chunkGroups.filter(group => group.name !== 'motion-link-copy');
+	const companionGroups = new Set(['motion-link-copy', 'motion-raster', 'framescaper-shared-runtime', 'framescaper-source-rebind', 'editor-presentation']);
+	return chunkGroups.filter(group => !companionGroups.has(group.name)).map(group => {
+		if (group.name === 'site-entry') return { ...group, test: undefined, priority: 110 };
+		// The baseline preview already uses both sets of presentation contracts.
+		if (group.name === 'editor-effect-contracts') return {
+			...group,
+			test: new RegExp(`${EDITOR_EFFECT_CONTRACT_CHUNK_TEST.source}|${EDITOR_PRESENTATION_CHUNK_TEST.source}`),
+		};
+		return group;
+	});
 }
 
 /**

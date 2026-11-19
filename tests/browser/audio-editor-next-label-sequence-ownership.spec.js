@@ -6,7 +6,8 @@ import { createAudioTrack } from '../../src/common/editor/project-media-factory.
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 import { createProjectStore } from '../../src/common/editor/storage.js';
 
-for (const entry of ['Edit', 'Manage labels']) for (const existing of [false, true]) test(`Add label through ${entry} stays in the focused sequence; existing label track=${existing}`, async ({ page }) => {
+// All four rows use the actual Edit adapter/mounted Manager/controller/history/Scape in Node.
+for (const [entry, existing] of [['Edit', true], ['Manage labels', false]]) test(`Add label through ${entry} stays in the focused sequence; existing label track=${existing}`, async ({ page }) => {
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` });
 	let blob;
 	try {

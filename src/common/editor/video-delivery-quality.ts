@@ -67,7 +67,8 @@ export function resolveVideoDeliveryFfmpegQuality(
 	formatId: string,
 	quality: unknown = DEFAULT_VIDEO_DELIVERY_QUALITY,
 ): VideoDeliveryFfmpegQuality {
-	const tiers = Object.hasOwn(FFMPEG_QUALITY, formatId) ? FFMPEG_QUALITY[formatId] : undefined;
+	const codecFormat = formatId === 'mov' ? 'mp4' : formatId;
+	const tiers = Object.hasOwn(FFMPEG_QUALITY, codecFormat) ? FFMPEG_QUALITY[codecFormat] : undefined;
 	if (!tiers) throw new RangeError(`No delivery quality mapping for format: ${String(formatId)}.`);
 	if (!isVideoDeliveryQuality(quality)) {
 		throw new RangeError(`Unsupported video delivery quality: ${String(quality)}.`);

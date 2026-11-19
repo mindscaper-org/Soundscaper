@@ -6,8 +6,8 @@ export interface P3VideoCore {
 	setLogger(callback: (event: { message: string }) => void): void;
 	readonly FS: { writeFile(path: string, bytes: Uint8Array | string): void; readFile(path: string): Uint8Array; unlink(path: string): void };
 }
-/** Pinned encoder authors four one-second solid colours, each frame independently decodable. */
-export async function p3TrimPreviewVideo(): Promise<{ bytes: Uint8Array<ArrayBuffer>; core: P3VideoCore }> {
+/** Pinned encoder authors a four-second, 25 fps MP4. */
+export async function p3TrimPreviewVideo(mode: 'intra' | 'reordered' = 'intra'): Promise<{ bytes: Uint8Array<ArrayBuffer>; core: P3VideoCore }> {
 	const location = new URL('../../node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.js', import.meta.url);
 	if (!('self' in globalThis)) Object.defineProperty(globalThis, 'self', { configurable: true, value: globalThis });
 	if (!('location' in globalThis)) Object.defineProperty(globalThis, 'location', { configurable: true, value: location });
@@ -16,6 +16,12 @@ export async function p3TrimPreviewVideo(): Promise<{ bytes: Uint8Array<ArrayBuf
 		readFile(new URL('../../node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.wasm', import.meta.url)),
 	]);
 	const core = await createCore({ wasmBinary });
+	if (mode === 'reordered') {
+		assert.equal(core.exec('-hide_banner', '-f', 'lavfi', '-i', 'testsrc2=size=64x64:rate=25', '-t', '4',
+			'-c:v', 'libx264', '-g', '25', '-keyint_min', '25', '-sc_threshold', '0', '-bf', '3', '-threads', '1',
+			'-y', 'reordered.mp4'), 0);
+		return { bytes: Uint8Array.from(core.FS.readFile('reordered.mp4')), core };
+	}
 	const pixels = new Uint8Array(64 * 32 * 3 * 100);
 	const colours = [[240, 16, 16], [16, 240, 16], [16, 16, 240], [240, 240, 16]] as const;
 	for (let frame = 0; frame < 100; frame += 1) {

@@ -18,7 +18,8 @@ test('the upstream properties surface follows selection and keeps the source vie
 		assert.ok(f.dom.find('[data-clip-properties-field="strip"]'));
 		assert.equal(f.dom.find('[data-audio-source-monitor-panel]'), null);
 		assert.equal(f.dom.find('[data-clip-properties-drawer]'), null);
-		assert.equal(f.dom.find('summary'), null, 'the audio inspector has no duplicated Additional properties surface');
+		assert.deepEqual(f.dom.container.querySelectorAll('summary').map(summary => summary.textContent), [ENGLISH_COPY.effects]);
+		assert.equal(reactProps(f.dom.one('details')).open, false, 'the per-clip rack starts collapsed');
 		await f.render(['two']);
 		assert.equal(f.input('name').value, 'Second source');
 		await f.render([]);

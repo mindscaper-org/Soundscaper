@@ -60,7 +60,7 @@ export function FadeShapeMenu<Id extends keyof typeof PRESET_LABELS>({
 			className="audio-editor-fade-shape-menu">
 			{presets.map(preset => {
 				const [copyKey, fallback] = PRESET_LABELS[preset.id];
-				return <ContextMenuItem key={preset.id} role="menuitemradio"
+				return <ContextMenuItem key={preset.id} tooltipKey={`fade-${preset.id}`} role="menuitemradio"
 					label={copy[copyKey] || fallback} checked={selectedId === preset.id}
 					onClick={() => {
 						onClose();

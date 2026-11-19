@@ -32,6 +32,7 @@ Application source 70a02ba9e passed complete Node/static gates, five fixed Linux
 | --- | --- | --- | --- |
 | Audio analysis | Enabled | Not enabled | Not enabled |
 | Audio automation | Enabled | Enabled | Not enabled |
+| Audio clip effects | Enabled | Not enabled | Not enabled |
 | Audio effects | Enabled | Not enabled | Not enabled |
 | Audio generators | Enabled | Not enabled | Not enabled |
 | Audio import | Enabled | Enabled | Not enabled |
@@ -51,6 +52,7 @@ Application source 70a02ba9e passed complete Node/static gates, five fixed Linux
 | Mastering sequences | Enabled | Not enabled | Not enabled |
 | Multicamera editing | Not enabled | Enabled | Not enabled |
 | Musical timeline | Enabled | Not enabled | Not enabled |
+| Nested audio subprojects | Enabled | Not enabled | Not enabled |
 | Nested sequences | Not enabled | Enabled | Not enabled |
 | OpenFX effects | Not enabled | Enabled | Not enabled |
 | Project bin | Enabled | Enabled | Not enabled |

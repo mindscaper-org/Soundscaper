@@ -165,7 +165,7 @@ export function normalizeTransientAnalysisChannelPolicy(
 	return value;
 }
 
-/** Admit PCM ownership, exact detector arrays, and a conservative candidate payload together. */
+/** Admit PCM ownership, conservative detector scratch, and candidate payload together. */
 export function planTransientAnalysisAdmission(
 	frameCountValue: unknown,
 	parametersValue: unknown = {},
@@ -280,8 +280,19 @@ function detectTransientPcm(
 	const amplitudes = owned && parameters.hopFrames < parameters.windowFrames
 		? new Float64Array(Math.min(frameCount, parameters.windowFrames)) : null;
 	let computedUntil = 0;
-	const levels = new Float64Array(windowCount);
-	const peakFrames = new Float64Array(windowCount);
+	const history = new Float64Array(Math.min(windowCount, parameters.baselineWindowHops + 1));
+	const floorAmplitude = 10 ** (parameters.floorDbfs / 20);
+	const candidates: PcmTransient[] = [];
+	let baselineSum = 0, previousLevel = 0, previousPeak = 0;
+	let leftNovelty = 0, pendingNovelty = 0, pendingThreshold = 0;
+	function admitPeak(nextNovelty: number): void {
+		if (pendingNovelty >= pendingThreshold && pendingNovelty > 0
+			&& pendingNovelty >= leftNovelty && pendingNovelty > nextNovelty) {
+			const sourceFrame = safeAdd(sourceStartFrame, previousPeak, 'Transient source frame');
+			const strength = quantizedStrength(pendingNovelty / Math.max(previousLevel, floorAmplitude));
+			admitSpacedCandidate(candidates, { sourceFrame, strength }, parameters.minimumSpacingFrames);
+		}
+	}
 	for (let windowIndex = 0; windowIndex < windowCount; windowIndex += 1) {
 		const start = windowIndex * parameters.hopFrames;
 		const end = Math.min(frameCount, start + parameters.windowFrames);
@@ -301,40 +312,24 @@ function detectTransientPcm(
 				peakFrame = frame;
 			}
 		}
-		levels[windowIndex] = end > start ? Math.sqrt(squareSum / (end - start)) : 0;
-		peakFrames[windowIndex] = peakFrame;
-	}
-
-	const novelty = new Float64Array(windowCount);
-	novelty[0] = levels[0]!;
-	for (let index = 1; index < windowCount; index += 1) {
-		novelty[index] = Math.max(0, levels[index]! - levels[index - 1]!);
-	}
-	const floorAmplitude = 10 ** (parameters.floorDbfs / 20);
-	const candidates: PcmTransient[] = [];
-	let baselineSum = 0;
-	for (let index = 0; index < windowCount; index += 1) {
-		const expired = index - parameters.baselineWindowHops - 1;
-		if (expired >= 0) baselineSum -= novelty[expired]!;
-		const baselineCount = Math.min(index, parameters.baselineWindowHops);
-		const threshold = Math.max(
+		const level = end > start ? Math.sqrt(squareSum / (end - start)) : 0;
+		const novelty = Math.max(0, level - previousLevel);
+		admitPeak(novelty);
+		const slot = windowIndex % history.length;
+		if (windowIndex > parameters.baselineWindowHops) baselineSum -= history[slot]!;
+		const baselineCount = Math.min(windowIndex, parameters.baselineWindowHops);
+		pendingThreshold = Math.max(
 			floorAmplitude,
 			baselineCount > 0 ? baselineSum / baselineCount * parameters.sensitivity : 0,
 		);
-		const current = novelty[index]!;
-		const previous = novelty[index - 1] ?? 0;
-		const next = novelty[index + 1] ?? 0;
-		if (current >= threshold && current > 0 && current >= previous && current > next) {
-			const sourceFrame = safeAdd(
-				sourceStartFrame,
-				peakFrames[index]!,
-				'Transient source frame',
-			);
-			const strength = quantizedStrength(current / Math.max(levels[index]!, floorAmplitude));
-			admitSpacedCandidate(candidates, { sourceFrame, strength }, parameters.minimumSpacingFrames);
-		}
-		baselineSum += current;
+		leftNovelty = pendingNovelty;
+		pendingNovelty = novelty;
+		previousLevel = level;
+		previousPeak = peakFrame;
+		history[slot] = novelty;
+		baselineSum += novelty;
 	}
+	admitPeak(0);
 	return result(channelPolicy, parameters, sourceRange, candidates);
 }
 

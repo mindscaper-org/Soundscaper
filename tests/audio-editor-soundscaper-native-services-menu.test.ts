@@ -194,6 +194,6 @@ test('native audio dialogs have no menu entry or surface after host settings rep
 
 test('Audio Plugins is consolidated into the single Plugin Manager entry', () => {
 	const { items } = build();
-	assert.deepEqual(items.effect.map(({ id }) => id), ['native-effect-manage']);
+	assert.deepEqual(items.effect.map(({ id }) => id), ['native-effect-manage', 'juce-effects']);
 	assert.deepEqual(SOUNDSCAPER_NATIVE_SERVICE_SURFACES, ['native-effect-manage', 'native-analyzer-use']);
 });

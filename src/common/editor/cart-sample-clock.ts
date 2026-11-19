@@ -7,6 +7,7 @@ export function scaleCartPostTimers(
 	input: CartMetadataInput | null | undefined,
 	inputSampleRate: number,
 	outputSampleRate: number,
+	inputEndFrame?: number,
 ): CartMetadata | null {
 	if (input == null) return null;
 	for (const rate of [inputSampleRate, outputSampleRate]) {
@@ -16,7 +17,9 @@ export function scaleCartPostTimers(
 	const denominator = BigInt(inputSampleRate);
 	const postTimers = metadata.postTimers.map(timer => {
 		const numerator = BigInt(timer.value) * BigInt(outputSampleRate);
-		const value = (numerator + denominator / 2n) / denominator;
+		// The delivered audio rounds its exclusive end up; interior cues use nearest samples.
+		const rounding = timer.value === inputEndFrame ? denominator - 1n : denominator / 2n;
+		const value = (numerator + rounding) / denominator;
 		if (value > 0xffff_ffffn) throw new RangeError('Converted CART post timer exceeds unsigned 32-bit samples.');
 		return { usage: timer.usage, value: Number(value) };
 	});

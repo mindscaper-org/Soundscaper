@@ -112,6 +112,29 @@ test('a constant-rate source captures frame midpoints and reports decoding progr
 	assert.deepEqual(held.loads.map((entry) => entry.key), ['video-source']);
 });
 
+test('motion analysis uses owned decoded pixels without encoding whenever the extractor offers them', async () => {
+	const held = storeHarness();
+	const controller = new AbortController();
+	let disposed = false;
+	const timestamps: number[] = [];
+	const provider = createProvider({
+		store: held.store,
+		createExtractor: () => ({
+			capture() { assert.fail('motion analysis attempted to encode an intermediate still'); },
+			capturePixels(timestamp: number, options?: CaptureOptions) {
+				timestamps.push(timestamp);
+				assert.deepEqual(options, { maximumWidth: 320, maximumHeight: 180, signal: controller.signal });
+				return Promise.resolve({ width: 2, height: 1, pixels: Uint8Array.of(255, 0, 0, 255, 0, 255, 0, 255) });
+			},
+			dispose() { disposed = true; },
+		}),
+	});
+	const frames = await provider(request({ startFrame: 2, endFrame: 4, signal: controller.signal }));
+	assert.deepEqual(timestamps, [0.1, 0.14]);
+	assert.deepEqual(frames.map(({ frame }) => frame.samples), [[0.2126, 0.7152], [0.2126, 0.7152]]);
+	assert.equal(disposed, true);
+});
+
 test('an empty frame range returns no frames and reports no progress at all', async () => {
 	const extractor = extractorHarness();
 	const provider = providerFor({ createExtractor: extractor.createExtractor });

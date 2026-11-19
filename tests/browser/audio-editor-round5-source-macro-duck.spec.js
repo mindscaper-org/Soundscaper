@@ -11,7 +11,7 @@ for (const sourceMode of [true, false]) test(`an Auto Duck macro retains its voi
 		name: `${name}.wav`, frequency: index ? 1000 : 330, duration: 2,
 		channelCount: 1, channelAmplitudes: [0.35], sampleRate: index ? 48_000 : 24_000,
 	}));
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await editor.locator('[data-track-row]').first().locator('.track-control-panel__track-name-text').click();
 	await chooseNestedCommandAction(page, editor, 'Tracks', ['Remove tracks']);
 	await importFiles(editor, files);
@@ -24,8 +24,8 @@ for (const sourceMode of [true, false]) test(`an Auto Duck macro retains its voi
 		await waveform.focus();
 		await waveform.press('Control+a');
 	} else await music.locator('.clip-header').click();
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New macro', exact: true }).click();
 	await manager.getByRole('button', { name: 'Add effect', exact: true }).click();
 	await page.getByRole('menu', { name: 'Choose an effect', exact: true }).getByRole('menuitem', { name: 'Auto Duck', exact: true }).click();

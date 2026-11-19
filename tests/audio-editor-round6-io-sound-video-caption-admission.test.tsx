@@ -7,7 +7,7 @@ import test from 'node:test';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
-import { framescaperCaptionDeliveryUnavailable } from '../src/common/editor/ui/video-caption-delivery-surface.ts';
+import { videoCaptionDeliveryUnavailable } from '../src/common/editor/ui/video-caption-delivery-surface.ts';
 import VideoDeliveryFields from '../src/common/editor/ui/VideoDeliveryFields.jsx';
 import { createExportDialogRequest } from '../src/common/editor/ui/export-dialog-model.js';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
@@ -20,14 +20,14 @@ const settings = { format: 'video-webm', range: 'project', deliveryTarget: '',
 	captionDelivery: 'mux+srt', captionBurnIn: true };
 
 test('the selected ordinary Soundscaper document cannot advertise video-file captions', () => {
-	assert.equal(framescaperCaptionDeliveryUnavailable('soundscaper', project), true);
+	assert.equal(videoCaptionDeliveryUnavailable('soundscaper', project), true);
 });
 
 test('the video surface explains the independent Soundscaper caption export in maintained locales', () => {
 	for (const copy of [ENGLISH_COPY, GERMAN_COPY]) {
-		const markup = renderToStaticMarkup(<VideoDeliveryFields copy={copy} productId="soundscaper"
+		const markup = renderToStaticMarkup(<VideoDeliveryFields copy={copy}
 			disabled={false} labelTracks={[{ id: 'dialogue', name: 'Dialogue' }]} settings={settings}
-			onChange={() => undefined} captionDeliveryUnavailable={framescaperCaptionDeliveryUnavailable('soundscaper', project)} />);
+			onChange={() => undefined} captionDeliveryUnavailable={videoCaptionDeliveryUnavailable('soundscaper', project)} />);
 		assert.match(markup, /data-export-field="captionDeliveryUnavailable"/u);
 		assert.match(markup, /Soundscaper/u);
 		assert.ok(!markup.includes('data-effect-field="captionTrack"'));

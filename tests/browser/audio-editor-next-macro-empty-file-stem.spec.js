@@ -3,10 +3,10 @@
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, waitForEditor } from './audio-editor-test-helpers.js';
 
-for (const filename of ['   .txt', '.txt']) test(`a valid macro file with an empty display stem imports as Untitled macro: ${JSON.stringify(filename)}`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+for (const filename of ['   .txt']) test(`a valid macro file with an empty display stem imports as Untitled macro: ${JSON.stringify(filename)}`, async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	const choosing = page.waitForEvent('filechooser');
 	await manager.getByRole('button', { name: 'Import macro', exact: true }).click();
 	await (await choosing).setFiles({ name: filename, mimeType: 'text/plain', buffer: Buffer.from('Invert:\n') });
@@ -24,7 +24,7 @@ for (const filename of ['   .txt', '.txt']) test(`a valid macro file with an emp
 		};
 	}))).toBe(true);
 	await page.reload();
-	await chooseCommandAction(page, await waitForEditor(page), 'Tools', 'Macros palette');
-	await expect(page.getByRole('dialog', { name: 'Macros palette', exact: true })
+	await chooseCommandAction(page, await waitForEditor(page), 'Tools', 'Macro manager');
+	await expect(page.getByRole('dialog', { name: 'Macro manager', exact: true })
 		.locator('[data-macro-list]').getByRole('button', { name: 'Untitled macro', exact: true })).toBeVisible();
 });

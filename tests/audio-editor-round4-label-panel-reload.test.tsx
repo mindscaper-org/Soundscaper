@@ -16,10 +16,9 @@ test('a persisted Labels panel survives reload before the project arrives and re
 	globals.React = React; globals.IS_REACT_ACT_ENVIRONMENT = true;
 	const errors: unknown[] = [];
 	const root = createRoot(dom.container as unknown as HTMLElement, { onUncaughtError: error => { errors.push(error); } });
-	const selections: [number, number][] = [];
+	const selections: unknown[] = [];
 	const controller = { actions: {
-		labels: { update() {}, remove() {}, add() {} },
-		timeline: { setExactSelection(start: number, end: number) { selections.push([start, end]); } },
+		labels: { update() {}, remove() {}, add() {}, select(...args: unknown[]) { selections.push(args); } },
 	}, getTelemetrySnapshot: () => ({ positionFrame: 0 }) };
 	const project = createSoundscaperProject({ id: 'saved-captions', sampleRate: 44_100,
 		tracks: [{ id: 'captions', type: 'label', name: 'Captions', labels: [
@@ -39,17 +38,21 @@ test('a persisted Labels panel survives reload before the project arrives and re
 		assert.equal(dom.find('button'), null, 'authoring waits for an actual project rather than a fallback rate');
 		await render(project);
 		const row = dom.one('[data-label-id="intro"]');
-		assert.equal(row.querySelector('input')?.value, 'Edited intro');
+		const title = row.querySelector('textarea');
+		assert.ok(title);
+		assert.equal(reactProps(title).value, 'Edited intro');
 		assert.deepEqual(row.querySelectorAll('[data-timecode-direct-entry]').map(input => input.value), ['0.250', '1.750']);
 		const select = row.querySelector('.button--secondary');
 		assert.ok(select);
 		await act(async () => reactProps(select).onClick?.({ currentTarget: select }));
-		assert.deepEqual(selections, [[11_025, 77_175]], 'the restored cue retains native sample boundaries');
+		assert.deepEqual(selections, [['captions', 'intro', { seek: true }]]);
 		await render(null);
 		assert.equal(dom.find('[data-label-id="intro"]'), null);
 		assert.deepEqual(errors, [], 'a later reload also retires the old authoring list safely');
 		await render(project);
-		assert.equal(dom.one('[data-label-id="intro"]').querySelector('input')?.value, 'Edited intro');
+		const restoredTitle = dom.one('[data-label-id="intro"]').querySelector('textarea');
+		assert.ok(restoredTitle);
+		assert.equal(reactProps(restoredTitle).value, 'Edited intro');
 		assert.deepEqual(errors, []);
 	} finally {
 		await act(async () => root.unmount());

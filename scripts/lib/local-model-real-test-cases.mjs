@@ -17,6 +17,7 @@ const OPERATIONS = Object.freeze({
 	'dereverberation': spec(['dereverberation'], 'reverberant-speech-44100hz', 'changed-audio'),
 	'audio-tagging': spec(['audio-tagging'], 'speech-tags-32khz', 'audio-tags'),
 	'beat-tracking': spec(['beat-tracking'], 'rhythmic-music-22050hz', 'beat-grid'),
+	'music-transcription': spec(['music-transcription'], 'melody-chords-22050hz', 'midi-notes'),
 	'shot-detection': spec(['shot-detection'], 'visual-shot-frames', 'shot-boundaries'),
 	'editorial-generation': spec(['editorial-generation'], 'editorial-candidates', 'editorial-proposal'),
 	'text-to-speech': spec(['text-to-speech'], 'tts-script', 'synthesized-audio'),
@@ -109,7 +110,9 @@ export function validateLocalModelRealTestCases(value, catalogValue, { candidate
 		if (!operation || tasks.toSorted().join('|') !== operation.tasks.toSorted().join('|')) {
 			throw new TypeError(`${id} has an unsupported operation or incomplete model pair.`);
 		}
-		if (entry.fixtureId !== operation.fixtureId) throw new TypeError(`${id} has an incompatible fixture.`);
+		const fixtureId = entry.operation === 'speech-enhancement' && modelIds.length === 1
+			&& modelIds[0] === 'voicefixer' ? 'clipped-speech-48khz' : operation.fixtureId;
+		if (entry.fixtureId !== fixtureId) throw new TypeError(`${id} has an incompatible fixture.`);
 		if (entry.validation !== operation.validation) throw new TypeError(`${id} has an incompatible output validation.`);
 		validateDocumentation(entry.documentation, modelIds, id);
 	}

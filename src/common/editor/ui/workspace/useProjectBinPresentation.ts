@@ -16,11 +16,16 @@ export function useProjectBinItems(clips: readonly BinClip[] = EMPTY_CLIPS) {
 }
 
 export function useProjectBinSources(items: ReturnType<typeof projectBinItems>, sources: readonly BinSource[] = EMPTY_SOURCES) {
+	const sourceById = useMemo(() => {
+		const index = new Map<string, BinSource>();
+		for (const source of sources) index.set(source.id, source);
+		return index;
+	}, [sources]);
 	return useMemo(() => {
-		const sourceById = new Map(sources.map(source => [source.id, source]));
-		const itemSources = new Map(items.map(item => [item.id, item.clips.map(clip => sourceById.get((clip as BinClip).sourceId ?? '') ?? null)]));
+		const itemSources = new Map<string, (BinSource | null)[]>();
+		for (const item of items) itemSources.set(item.id, item.clips.map(clip => sourceById.get((clip as BinClip).sourceId ?? '') ?? null));
 		return { sourceById, itemSources };
-	}, [items, sources]);
+	}, [items, sourceById]);
 }
 
 export function useProjectBinWaveformPath(visual: Parameters<typeof projectBinWaveformPath>[0], clip: Parameters<typeof projectBinWaveformPath>[1], project?: unknown) {
@@ -29,11 +34,16 @@ export function useProjectBinWaveformPath(visual: Parameters<typeof projectBinWa
 }
 
 export function useProjectBinTransformBadges(clips: readonly BinClip[], sources: readonly Parameters<typeof projectBinTransformBadges>[1][], copy: Parameters<typeof projectBinTransformBadges>[2]) {
-	return useMemo(() => [...new Set(clips.flatMap((clip, index) => projectBinTransformBadges(clip, sources[index], copy)))], [clips, sources, copy]);
+	return useMemo(() => {
+		const badges = new Set<string>();
+		for (const [index, clip] of clips.entries()) {
+			for (const badge of projectBinTransformBadges(clip, sources[index], copy)) badges.add(badge);
+		}
+		return [...badges];
+	}, [clips, sources, copy]);
 }
 
-export function useProjectBinMediaTiming(project: Parameters<typeof projectBinVideoPreviewModel>[0], videoClip: Parameters<typeof projectBinVideoPreviewModel>[1], videoSource: Parameters<typeof projectBinVideoPreviewModel>[2], visualClip: Parameters<typeof projectBinVisualDurationFrames>[1]) {
-	const timingToken = videoTimingRegistryToken();
+export function useProjectBinMediaTiming(project: Parameters<typeof projectBinVideoPreviewModel>[0], videoClip: Parameters<typeof projectBinVideoPreviewModel>[1], videoSource: Parameters<typeof projectBinVideoPreviewModel>[2], visualClip: Parameters<typeof projectBinVisualDurationFrames>[1], timingToken = videoTimingRegistryToken()) {
 	const videoPreview = useMemo(() => projectBinVideoPreviewModel(project, videoClip, videoSource), [project, videoClip, videoSource, timingToken]);
 	const visualDuration = useMemo(() => projectBinVisualDurationFrames(project, visualClip), [project, visualClip]);
 	return { videoPreview, visualDuration };

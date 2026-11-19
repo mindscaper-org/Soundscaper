@@ -9,7 +9,7 @@ function controller(calls: string[]) {
 	return { ready: Promise.resolve(), actions: { project: {
 		openAudacityProject: () => assert.fail('CUE is not an Audacity project'),
 		openDawproject: () => assert.fail('CUE is not a DAWproject'),
-		create: (options: Readonly<{ title: string }>) => { calls.push(`create:${options.title}`); },
+		create: (options: Readonly<{ title: string }>) => { calls.push(`create:${options.title}`); return 'new-project'; },
 	} } };
 }
 

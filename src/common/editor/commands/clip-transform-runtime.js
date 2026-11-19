@@ -28,7 +28,6 @@ import {
 } from '../project-schema-version.ts';
 import {
 	assertClipSourceBounds,
-	assertClipSpace,
 	assertUnusedClipId,
 	envelopeForTrimmedBounds,
 	normalizeClipForProject,
@@ -480,7 +479,6 @@ export function trimClip(project, command) {
 	);
 	markVideoKeyframeCarrierEdited(project, updated);
 	assertClipSourceBounds(project, updated);
-	assertClipSpace(project, track, updated, clip.id);
 	replaceClip(project, updated);
 	sortTrack(project, track);
 }

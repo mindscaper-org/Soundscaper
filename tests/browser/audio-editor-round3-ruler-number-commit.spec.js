@@ -4,7 +4,7 @@ import { bootEditor, importFiles, registerAudioEditorHooks } from './audio-edito
 test.describe('Frequency ruler completed numbers', () => {
 	registerAudioEditorHooks();
 	test('Enter preserves scientific frequency drafts and accepts values below project Nyquist', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 		const ruler = editor.locator('[data-track-ruler]').first();

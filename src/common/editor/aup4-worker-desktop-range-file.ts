@@ -10,7 +10,7 @@ export function createAup4DesktopRangeFile(descriptor: DesktopSelectedRangeDescr
 	arrayBuffer(): Promise<ArrayBuffer>;
 }> {
 	assertDesktopSelectedRangeDescriptor(descriptor);
-	if (!/\.(?:aup3|aup4)$/iu.test(descriptor.name)) throw new TypeError('An Audacity selected range is required.');
+	if (!/\.(?:aup3|aup4|aup4unsaved)$/iu.test(descriptor.name)) throw new TypeError('An Audacity selected range is required.');
 	const read = async (offset: number, length: number): Promise<ArrayBuffer> => {
 		if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(length) || length < 0
 			|| offset > descriptor.size - length || length > DESKTOP_LINKED_ORIGINAL_RANGE_MAXIMUM_BYTES) {

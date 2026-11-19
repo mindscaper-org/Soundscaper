@@ -10,6 +10,7 @@ import { classifyNodeTestFiles, NODE_TEST_SHARD_IDS, parseNodeTestSelection, sel
 import { needsDesktopRuntimeTestFixture } from './lib/node-test-desktop-runtime-fixture.ts';
 
 const INTERCHANGE_READERS = [
+	'tests/helpers/aaf-reference.ts',
 	'tests/helpers/interchange-reference.ts',
 	'tests/helpers/interchange-top-clip.ts',
 	'tests/audio-editor-dawproject-reference-conformance.test.ts',
@@ -43,6 +44,7 @@ export function nativePrerequisitesForTests(repositoryRoot, files) {
 		boost: classifyNodeTestFiles(repositoryRoot, files).get('framescaper').length > 0,
 		electron: [...dependencies].some(file => /electron/iu.test(readFileSync(file, 'utf8'))),
 		desktop_runtime: needsDesktopRuntimeTestFixture(files),
+		chromium: dependencies.has(resolve(repositoryRoot, 'tests/audio-editor-more50-pixelate.test.ts')),
 	};
 }
 

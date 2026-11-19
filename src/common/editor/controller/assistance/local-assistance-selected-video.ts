@@ -14,14 +14,13 @@ import {
 	validateAssistanceSelectionFence,
 	type AssistanceSelectionFence,
 } from '../../assistance/proposal-session.ts';
-import {
-	type LocalAssistanceShotDetectionMode,
-} from '../../assistance/shot-detection-mode.ts';
+import type { LocalAssistanceShotDetectionMode } from '../../assistance/shot-detection-mode.ts';
 import {
 	FRAMESCAPER_PROJECT_SCHEMA_FAMILY,
 	PROJECT_SCHEMA_VERSION,
 	readProjectSchemaIdentity,
 } from '../../project-schema-identity.ts';
+import { resolveVideoSourceDisplaySize } from '../../video-source-presentation.ts';
 import {
 	canonicalMediaContentBlob,
 	digestMediaContent,
@@ -228,6 +227,7 @@ export function createLocalAssistanceSelectedVideoPreparation(
 		if (request.operation !== 'shot-detection') {
 			const state = SELECTED_VIDEO_AUTHORITY_STATES.get(selected);
 			if (!state) throw new TypeError('Reframe preparation lost authenticated timing authority.');
+			const display = resolveVideoSourceDisplaySize(selected.source);
 			const shotAnchors = readLocalAssistanceSelectedVideoShotAnchorFrames({
 				project: selected.project, source: selected.source, sequence: selected.sequence,
 				fence: selected.fence, sourceStartFrame: selected.sourceStartFrame,
@@ -245,8 +245,8 @@ export function createLocalAssistanceSelectedVideoPreparation(
 					state.binding, shotAnchors, request.publicationTarget === 'reframe'
 						? reframePublicationSampleBudget(selected.project, selected.clip) : undefined,
 				),
-				sourceWidth: integer(selected.source.width, 1, 'source width'),
-				sourceHeight: integer(selected.source.height, 1, 'source height'),
+				sourceWidth: integer(display?.width, 1, 'source width'),
+				sourceHeight: integer(display?.height, 1, 'source height'),
 				signal, assertCurrent: () => dependencies.assertProject(token), maximumInputBytes,
 			});
 			return Object.freeze({ sourceId: request.sourceId, operation: modelOperation,

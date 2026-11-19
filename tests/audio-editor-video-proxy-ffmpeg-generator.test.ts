@@ -18,6 +18,9 @@ import {
 	VideoProxyGenerationError,
 } from '../src/common/editor/video-proxy-ffmpeg-generator.ts';
 
+import { videoRetimePreviewMedia } from './browser/fixtures/video-retime-preview-media.js';
+
+const ORIGINAL = Uint8Array.from(videoRetimePreviewMedia.file.buffer);
 const IDENTITY = Object.freeze({
 	authority: 'owned' as const,
 	projectId: 'project-1',
@@ -83,7 +86,7 @@ function generate(
 	generator: VideoProxyCandidateGeneratorPort,
 	recipe: VideoProxyCandidateRecipe = VIDEO_PROXY_GENERATION_RECIPE,
 	options: Readonly<{ signal?: AbortSignal; assertCurrent(): void }> = CURRENT,
-	body: Uint8Array = new Uint8Array([1, 2, 3, 4]),
+	body: Uint8Array = ORIGINAL,
 ): Promise<unknown> {
 	return Promise.resolve(generator.generate(new Blob([body.slice()]), IDENTITY, recipe, options));
 }
@@ -91,7 +94,7 @@ function generate(
 test('the generator runs the shipped recipe over the leased original', async () => {
 	const harness = createHarness();
 	const candidate = await harness.generator.generate(
-		new Blob([new Uint8Array([1, 2, 3, 4])], { type: 'video/mp4' }),
+		new Blob([ORIGINAL], { type: 'video/mp4' }),
 		IDENTITY,
 		VIDEO_PROXY_GENERATION_RECIPE,
 		CURRENT,
@@ -109,7 +112,7 @@ test('the generator runs the shipped recipe over the leased original', async () 
 	const input = [...harness.written.keys()][0]!;
 	assert.deepEqual(
 		harness.execArgs(),
-		buildVideoProxyGenerationArgs({ inputPath: input, outputPath: `${input}-proxy.mp4` }),
+		buildVideoProxyGenerationArgs({ inputPath: input, outputPath: `${input}-proxy.mp4`, timescale: 1000, finalFrameDurationTicks: 70n }),
 	);
 });
 

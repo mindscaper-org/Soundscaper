@@ -36,6 +36,7 @@ export type FramescaperVideoProxyPreviewTrustRetime =
 	| 'unverified'
 	| 'verified'
 	| 'stale'
+	| 'decoder-unavailable'
 	| 'unavailable';
 
 export interface FramescaperVideoProxyActionRuntime {

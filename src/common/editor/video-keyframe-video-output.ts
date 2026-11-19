@@ -114,8 +114,8 @@ function normalizeRequest(value: VideoKeyframeVideoOutputRequest): VideoKeyframe
 		}
 		admitted[key] = descriptor.value;
 	}
-	if (admitted.format !== 'mp4' && admitted.format !== 'webm') {
-		throw new TypeError('Video keyframe output request format must be mp4 or webm.');
+	if (admitted.format !== 'mp4' && admitted.format !== 'webm' && admitted.format !== 'mov') {
+		throw new TypeError('Video keyframe output request format must be mp4, webm, or mov.');
 	}
 	if (typeof admitted.path !== 'string') {
 		throw new TypeError('Video keyframe output request path must be a string.');

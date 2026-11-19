@@ -115,6 +115,22 @@ test('browser container audio decode still rejects genuine timestamp overlap', a
 	assert.equal(samples.every(({ closed }) => closed), true);
 });
 
+test('a decoder error after the complete picture window keeps the usable PCM prefix', async () => {
+	const prefix = sample(0, [[1, 2, 3, 4]]);
+	let disposed = false;
+	const decoded = await decodeBrowserContainerAudio(new Blob(['webm']), {
+		durationSeconds: .5, programmeSampleRate: 4,
+		openSession: async () => ({
+			timelineOrigin: 0, sampleRate: 4, channelCount: 1, programmeCapacitySeconds: 2,
+			async *samples() { yield prefix; throw new Error('Damaged tail packet'); },
+			dispose() { disposed = true; },
+		}),
+	});
+	assert.equal(decoded.programmeFrameCount, undefined);
+	assert.deepEqual([...decoded.channels[0]!], [1, 2]);
+	assert.ok(prefix.closed && disposed);
+});
+
 function sample(timestamp: number, channels: readonly (readonly number[])[], sampleRate = 4): BrowserContainerAudioSample & {
 	closed: boolean;
 	afterCopy?: () => void;

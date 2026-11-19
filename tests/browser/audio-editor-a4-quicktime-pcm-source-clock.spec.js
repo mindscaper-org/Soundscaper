@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { strFromU8, unzipSync } from 'fflate';
 import { inspectWavBlobPcm } from '../../src/common/editor/wav-import.js';
-import { encodeWav } from '../../src/common/editor/wav.js';
 import { nativeQuickTimePcmFixture } from '../helpers/quicktime-pcm-audio-fixture.ts';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import {
@@ -9,16 +8,16 @@ import {
 	downloadBytes, openExportDialog, readDownloadBytes,
 } from './audio-editor-test-helpers.js';
 
-for (const format of ['twos', 'sowt', 'wav']) test(`native ${format} retains48k source PCM on a44.1k output device`, async ({ page }) => {
+// Shared PCM controls run in audio-editor-pcm-source-clock-render.test.ts and
+// audio-editor-pcm-source-clock.spec.js; retain each codec and native fallback.
+for (const format of ['twos', 'sowt']) test(`native ${format} retains48k source PCM on a44.1k output device`, async ({ page }) => {
 	await page.addInitScript(() => {
 		const Native = globalThis.AudioContext;
 		globalThis.AudioContext = class extends Native {
 			constructor(options) { super({ ...options, sampleRate: options?.sampleRate ?? 44_100 }); }
 		};
 	});
-	const channels = [200, 300].map(frequency => Float32Array.from({ length: 4800 }, (_, frame) => .15 * Math.sin(2 * Math.PI * frequency * frame / 48_000)));
-	const file = format === 'wav' ? new File([Uint8Array.from(encodeWav(channels, { sampleRate: 48_000, bitDepth: 32, float: true }))], 'Control.wav', { type: 'audio/wav' })
-		: nativeQuickTimePcmFixture(format);
+	const file = nativeQuickTimePcmFixture(format);
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	const expected = await page.evaluate(async bytes => {
 		try {

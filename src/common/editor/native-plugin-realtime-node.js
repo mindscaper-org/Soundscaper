@@ -1,3 +1,6 @@
+import { registerIdleEffectNode, releaseIdleEffectNode } from './engine/idle-effect-host.ts';
+import { effectPluginKey } from './effect-plugin-identity.ts';
+import { acceptNativeMidiPort, nativeMidiControl } from './native-midi-port.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import {
@@ -230,7 +233,7 @@ export function createNativePluginEffectNode(context, effect, channelCount = 2, 
 			numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [topology.outputChannels],
 			channelCount: topology.inputChannels, channelCountMode: 'explicit', channelInterpretation: 'discrete',
 			processorOptions: {
-				instanceId, inputChannelCount: topology.inputChannels,
+				instanceId, sampleRate: context.sampleRate, inputChannelCount: topology.inputChannels,
 				outputChannelCount: topology.outputChannels,
 				queueCapacity: 4, bypassed: effect.bypassed === true,
 				strictRender: offlineAliases.has(context),
@@ -247,11 +250,13 @@ export function createNativePluginEffectNode(context, effect, channelCount = 2, 
 		const offer = offers.get(instanceId);
 		if (offer) attach(node, offer, instanceId);
 	}
+	registerIdleEffectNode(context, node, effectPluginKey(effect));
 	node.port.postMessage({ type: NATIVE_PLUGIN_CONTROL.bypass, bypassed: effect.bypassed === true });
 	return node;
 }
 
 export function acceptNativePluginPortOffer(offer, ports = []) {
+	if (acceptNativeMidiPort(offer, ports)) return true;
 	const port = ports.length === 1 ? ports[0] : null;
 	const instanceId = offer?.instanceId;
 	if (!port || typeof port.postMessage !== 'function' || typeof instanceId !== 'string'
@@ -341,6 +346,7 @@ export function releaseNativePluginRuntime(instanceId) {
 	rejectPending(instanceId, new Error('The native plug-in runtime closed.'));
 	rejectAttachment(instanceId, new Error('The native plug-in runtime closed.'));
 	forEachNode(instanceId, (node, byInstance) => {
+		releaseIdleEffectNode(node);
 		node.port.postMessage({ type: NATIVE_PLUGIN_CONTROL.revoke });
 		node.port.onmessage = null;
 		node.onprocessorerror = null;
@@ -404,6 +410,8 @@ function vendorUiRequest(instanceId, type, windowHandleId) {
 
 
 async function stateRequest(instanceId, type, bytes, fields = {}) {
+	const midi = nativeMidiControl(instanceId, type, bytes, fields);
+	if (midi) return midi;
 	await waitForNativePluginRuntime(instanceId);
 	const node = activeNodes.get(instanceId);
 	if (!node?.port?.postMessage) return Promise.reject(new Error('The native plug-in processor is unavailable.'));

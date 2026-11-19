@@ -204,6 +204,7 @@ function resolvePreparedVideoLayers(project, timelineFrame, options, prepared) {
 				clipId: clip.id,
 				source,
 				sourceId: source.id,
+				timelineSample: frame,
 				sourceFrame: mapping.sourceFrame,
 				sourceTimeSeconds: mapping.sourceTimeSeconds,
 				playbackRate: presentationDescriptor == null

@@ -13,15 +13,12 @@ import {
 	type VideoMotionAnalysisBodyV1,
 } from './video-motion-analysis-v27.ts';
 import {
-	processSpatialDenoiseV1,
+	processSpatialDenoiseCooperativeV1,
 	processTemporalDenoiseV1,
 	type VideoMotionWebGl2AcceleratorV1,
 	type VideoTemporalNeighborV1,
 } from './video-motion-denoise-v27.ts';
-import type {
-	VideoMotionAnalysisReferenceV1,
-	VideoProcessorStackV1,
-} from './video-motion-model-v27.ts';
+import type { VideoProcessorStackV1 } from './video-motion-model-v27.ts';
 import {
 	resolveStabilizationTransformV1,
 	type VideoSimilarityTransformV1,
@@ -75,7 +72,7 @@ export interface UnifiedExactRenderFinishingFrameRequestV13 {
 		readonly height: number;
 		readonly signal?: AbortSignal;
 	}>) => PromiseLike<UnifiedExactRenderRgbaFrameV13 | null> | UnifiedExactRenderRgbaFrameV13 | null;
-	readonly analysisBodies?: ReadonlyMap<string, Uint8Array<ArrayBuffer>>;
+	readonly analysisBodies?: ReadonlyMap<string, Uint8Array<ArrayBuffer> | VideoMotionAnalysisBodyV1>;
 	readonly lutBodies?: ReadonlyMap<string, ParsedCubeLutV1>;
 	readonly accelerator?: VideoMotionWebGl2AcceleratorV1;
 	readonly onAcceleratorFallback?: (reason: string) => void;
@@ -211,7 +208,7 @@ async function resolveFrame(
 					resolveStabilizationTransformV1(motion, processor.strength), body, frame,
 				), request.signal);
 			} else if (processor.kind === 'spatial-denoise') {
-				frame = spatialDenoise(frame, processor.radius, processor.strength, request.signal);
+				frame = await spatialDenoise(frame, processor.radius, processor.strength, request.signal);
 			} else {
 				const body = analysisBody(authority, source, stack, processor.analysisId,
 					request.analysisBodies, analysisCache);
@@ -269,15 +266,15 @@ function applicablePresentations(
 	});
 }
 
-function spatialDenoise(
+async function spatialDenoise(
 	frame: UnifiedExactRenderRgbaFrameV13,
 	radius: number,
 	strength: number,
 	signal?: AbortSignal,
-): UnifiedExactRenderRgbaFrameV13 {
+): Promise<UnifiedExactRenderRgbaFrameV13> {
 	const pixels = frame.pixels.slice();
 	for (let channel = 0; channel < 3; channel += 1) {
-		const output = processSpatialDenoiseV1(channelFrame(frame, channel), { radius, strength, signal });
+		const output = await processSpatialDenoiseCooperativeV1(channelFrame(frame, channel), { radius, strength, signal });
 		writeChannel(pixels, channel, output);
 	}
 	return Object.freeze({ width: frame.width, height: frame.height, pixels });
@@ -393,7 +390,7 @@ function analysisBody(
 	source: UnifiedExactRenderPlanSource,
 	stack: VideoProcessorStackV1,
 	analysisId: string,
-	assets: ReadonlyMap<string, Uint8Array<ArrayBuffer>> | undefined,
+	assets: UnifiedExactRenderFinishingFrameRequestV13['analysisBodies'],
 	cache: Map<string, VideoMotionAnalysisBodyV1>,
 ): VideoMotionAnalysisBodyV1 {
 	const cached = cache.get(analysisId);
@@ -401,23 +398,14 @@ function analysisBody(
 	const reference = authority.finishing.motionAnalyses.find(({ id }) => id === analysisId);
 	if (!reference) throw new ReferenceError(`V13 motion analysis ${analysisId} is unavailable.`);
 	if (!(assets instanceof Map)) throw new ReferenceError('An authenticated V13 motion analysis body map is unavailable.');
-	const bytes = assets.get(analysisId);
-	if (!bytes) throw new ReferenceError(`The V13 motion analysis body ${analysisId} is unavailable.`);
-	const body = requireAnalysis(reference, bytes, source, stack);
-	cache.set(analysisId, body);
-	return body;
-}
-
-function requireAnalysis(
-	reference: VideoMotionAnalysisReferenceV1,
-	bytes: Uint8Array<ArrayBuffer>,
-	source: UnifiedExactRenderPlanSource,
-	stack: VideoProcessorStackV1,
-): VideoMotionAnalysisBodyV1 {
-	return requireVideoMotionAnalysisBodyV1(reference, bytes, {
+	const analysis = assets.get(analysisId);
+	if (!analysis) throw new ReferenceError(`The V13 motion analysis body ${analysisId} is unavailable.`);
+	const body = requireVideoMotionAnalysisBodyV1(reference, analysis, {
 		inputSha256: source.contentSha256,
 		processorStack: stack,
 	});
+	cache.set(analysisId, body);
+	return body;
 }
 
 function adjacentMotion(body: VideoMotionAnalysisBodyV1, frame: number): VideoSimilarityTransformV1 {

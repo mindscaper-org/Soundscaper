@@ -29,14 +29,14 @@ void test('label row reflects the current host lock without blocking selection',
 		assert.equal(reactProps(add).disabled, true);
 		const marker = dom.one('[data-label-id]');
 		await act(async () => { reactProps(marker).onKeyDown?.({ key: 'F2', preventDefault() {}, stopPropagation() {} }); });
-		assert.equal(dom.container.querySelectorAll('input').length, 0);
+		assert.equal(marker.querySelector('textarea'), null);
 		await act(async () => { reactProps(marker).onFocus?.({ target: marker, currentTarget: marker }); });
 		assert.deepEqual(selected, ['labels']);
 		locked = false;
 		await act(async () => render());
 		assert.equal(reactProps(add).disabled, false);
 		await act(async () => { reactProps(marker).onKeyDown?.({ key: 'F2', preventDefault() {}, stopPropagation() {} }); });
-		assert.ok(dom.one('input'));
+		assert.ok(marker.querySelector('textarea'));
 	} finally { await act(async () => root.unmount()); dom.restore(); }
 });
 
@@ -55,7 +55,7 @@ for (const protection of ['lock', 'readOnly'] as const) void test(`an already-op
 			left={0} trackHeight={100} pixelsPerSecond={100} sampleRate={48_000} laneRef={{ current: null }}
 			selected={true} editing={true} blocked={false} copy={ENGLISH_COPY} run={run}
 			onSelect={() => undefined} onEdit={() => undefined} onFinishEdit={() => undefined} onRemove={() => undefined} />));
-		const input = dom.one('input');
+		const input = dom.one('textarea');
 		input.value = 'Protected draft';
 		if (protection === 'lock') locked = true; else readOnly = true;
 		await act(async () => { reactProps(input).onBlur?.({ currentTarget: input }); });

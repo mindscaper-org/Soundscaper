@@ -11,7 +11,9 @@ import { strFromU8, unzipSync } from 'fflate';
 
 const MASTER_ASSIGNMENT = TRACK_AUTOMATION_COPY_BY_LOCALE.en.automationAssignmentTarget.replace('{destination}', 'Master');
 
-for (const draft of ['13', '-61', '1e308']) test(`invalid connection gain ${draft} cannot write clamped automation during playback`, async ({ page, browserName }) => {
+// Node owns each draft's preview/release assertions. Batch native boundary probes
+// in one live playback/Save workflow to retain browser numeric-input behavior.
+for (const draft of ['13']) test(`invalid connection gain ${draft} cannot write clamped automation during playback`, async ({ page, browserName }) => {
 	if (browserName === 'firefox') {
 		await page.setContent('<button>Check native audio output</button>');
 		await page.evaluate(bytes => {
@@ -65,7 +67,10 @@ for (const draft of ['13', '-61', '1e308']) test(`invalid connection gain ${draf
 	const level = graph.locator('[data-routing-inspector="edge"]').getByLabel('Level (dB)', { exact: true });
 	await expect(level).toBeEnabled();
 	await editor.getByRole('button', { name: 'Play', exact: true }).click(); await expect(editor.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
-	await level.fill(draft); await level.press('Tab');
+	for (const invalid of [draft, '-61', '1e308']) {
+		await level.fill(invalid); await level.press('Tab');
+		await expect(level).toHaveValue('0');
+	}
 	await editor.getByRole('button', { name: 'Stop', exact: true }).click();
 	const downloading = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);
 	const saved = JSON.parse(strFromU8(unzipSync(await downloadBytes(await downloading))['project.json']));

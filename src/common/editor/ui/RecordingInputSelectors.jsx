@@ -1,6 +1,7 @@
 import React from 'react';
 import { recordingTrackRoute } from '../recording-routing.js';
 import { displayAudioCaptureUnsupportedReason, supportsDisplayAudioCapture } from '../recording-display-input.ts';
+import EditorControlLabel from './EditorControlLabel.tsx';
 
 const DISPLAY_SOURCE_KEY = 'display';
 const DEVICE_SOURCE_PREFIX = 'device:';
@@ -96,7 +97,7 @@ export default function RecordingInputSelectors({
 			onDoubleClick={stopTrackSelection}
 		>
 			<label>
-				<span className="kw-audio-editor-sr-only">{copy.recordingInputSource}: {track.name}</span>
+				<EditorControlLabel className="kw-audio-editor-sr-only">{copy.recordingInputSource}: {track.name}</EditorControlLabel>
 				<select
 					aria-label={`${copy.recordingInputSource}: ${track.name}`}
 					title={displayAudioTooltip}
@@ -110,7 +111,7 @@ export default function RecordingInputSelectors({
 				</select>
 			</label>
 			<label>
-				<span className="kw-audio-editor-sr-only">{copy.trackChannels}: {track.name}</span>
+				<EditorControlLabel className="kw-audio-editor-sr-only">{copy.trackChannels}: {track.name}</EditorControlLabel>
 				<select
 					aria-label={`${copy.trackChannels}: ${track.name}`}
 					disabled={controlsDisabled || !route}
@@ -122,7 +123,7 @@ export default function RecordingInputSelectors({
 				</select>
 			</label>
 			<label>
-				<span className="kw-audio-editor-sr-only">{copy.recordingInputChannel}: {track.name}</span>
+				<EditorControlLabel className="kw-audio-editor-sr-only">{copy.recordingInputChannel}: {track.name}</EditorControlLabel>
 				<select
 					aria-label={`${copy.recordingInputChannel}: ${track.name}`}
 					disabled={controlsDisabled || !route || !channelOptions.length}

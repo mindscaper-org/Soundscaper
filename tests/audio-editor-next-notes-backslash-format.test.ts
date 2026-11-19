@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertNotesControllerCustody } from './helpers/notes-controller-custody.tsx';
 import { formatRecordingNotes, parseRecordingNotesMarkdown } from '../src/common/editor/recording-notes-markdown.ts';
 
 for (const format of ['bold', 'italic'] as const) {
@@ -26,4 +27,10 @@ test('formatting a selected path leaves neighbouring notes and existing escapes 
 		{ kind: 'text', text: 'Folder: ' }, { kind: 'strong', content: [{ kind: 'text', text: 'C:\\Takes\\' }] },
 		{ kind: 'text', text: ' — keep *literal*' },
 	] }]);
+});
+
+
+test('the real notes workspace preserves a trailing Windows path through Bold, Preview, Undo, Redo and native Scape', async context => {
+	await assertNotesControllerCustody(context, 'C:\\Takes\\', [{ action: 'bold', formatted: '**C:\\Takes\\\\**',
+		element: 'strong', children: ['C:\\Takes\\'], toggle: false }]);
 });

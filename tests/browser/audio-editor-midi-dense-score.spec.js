@@ -1,0 +1,53 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
+import { denseMidiScoreFixture } from '../helpers/dense-midi-score-fixture.ts';
+import { expect, test } from './audio-editor-test-fixtures.js';
+import { bootEditor, chooseNestedCommandAction, clipByName, importFiles } from './audio-editor-test-helpers.js';
+
+test('an imported dense MIDI score can be edited and undone in the Piano roll', async ({ page }, testInfo) => {
+	test.slow();
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	const file = testInfo.outputPath('Dense score.mid');
+	await mkdir(dirname(file), { recursive: true });
+	await writeFile(file, denseMidiScoreFixture());
+	await importFiles(editor, file);
+	await expect(clipByName(editor, 'Dense score')).toBeVisible();
+	await chooseNestedCommandAction(page, editor, 'Window', ['Piano roll (beta)']);
+	const notes = editor.getByRole('group', { name: 'Note editor', exact: true });
+	const picker = notes.getByRole('combobox', { name: 'Selected note', exact: true });
+	const list = editor.getByRole('listbox', { name: 'Selected note', exact: true });
+	await expect(list).toHaveCount(0);
+	await picker.click();
+	await expect(picker).toBeFocused();
+	await expect(list.getByRole('option')).toHaveCount(11);
+	await page.keyboard.press('End');
+	await expect(list.getByRole('option').last()).toHaveAttribute('aria-posinset', '25001');
+	await page.keyboard.press('Enter');
+	await expect(list).toHaveCount(0);
+	const pitch = notes.getByRole('spinbutton', { name: 'Pitch (MIDI number)', exact: true });
+	await expect(pitch).toHaveValue('72');
+	await pitch.fill('73');
+	await pitch.press('Enter');
+	await expect(pitch).toHaveValue('73');
+	await editor.getByRole('button', { name: 'Undo', exact: true }).click();
+	await expect(pitch).toHaveValue('72');
+	await editor.getByRole('button', { name: 'Redo', exact: true }).click();
+	await expect(pitch).toHaveValue('73');
+	await picker.click();
+	await list.locator('.kw-audio-editor__midi-note-options').hover();
+	await page.mouse.wheel(0, -1300);
+	await expect(list.getByRole('option').last()).not.toHaveAttribute('aria-posinset', '25001');
+	await page.keyboard.press('End');
+	await expect(list.getByRole('option').last()).toHaveAttribute('aria-posinset', '25001');
+	await page.keyboard.press('Home');
+	const firstNote = list.getByRole('option').nth(1);
+	await expect(firstNote).toHaveAttribute('aria-posinset', '2');
+	await firstNote.click();
+	await expect(list).toHaveCount(0);
+	await expect(pitch).toHaveValue('48');
+	await picker.click();
+	await editor.getByRole('button', { name: 'Add note', exact: true }).focus();
+	await expect(list).toHaveCount(0);
+});

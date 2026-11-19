@@ -71,6 +71,7 @@ export function createDocumentComposition(dependencies: DocumentCompositionDepen
 		setRecentProjectIds: (projectIds) => { state.recentProjectIds = projectIds; },
 		getActiveProjectId: () => document.get()?.id ?? null,
 		getActiveProject: document.get,
+		getPlayhead: () => engine.getPositionFrames(),
 		state,
 		findTrack,
 		findClip,

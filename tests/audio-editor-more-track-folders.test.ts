@@ -47,9 +47,11 @@ test('MP38 ancillary: native Replace with matching project and folder IDs retire
 	const folder = controller.actions.trackFolders.create('Saved folder'); assert.ok(folder);
 	await controller.actions.project.save();
 	const saved = await store.loadProject('project-a'); assert.ok(saved);
-	const archive = await exportScapeProject(saved, store); assert.ok(archive.blob instanceof Blob);
+	const archive = await exportScapeProject({ ...saved, title: 'Replacement project' }, store); assert.ok(archive.blob instanceof Blob);
 	const generation = controller.captureProjectGeneration().generation;
-	await controller.actions.project.openScapeFile(new File([archive.blob], 'Replacement.sscape'), () => 'replace');
+	const decisions: string[] = [];
+	await controller.actions.project.openScapeFile(new File([archive.blob], 'Replacement.sscape'), request => { decisions.push(request.kind); return 'replace'; });
+	assert.deepEqual(decisions, ['collision']);
 	assert.equal(controller.project?.id, 'project-a');
 	assert.notEqual(controller.captureProjectGeneration().generation, generation);
 	assert.equal(controller.actions.trackFolders.selectedFolderId(), null);

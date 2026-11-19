@@ -8,10 +8,11 @@
 }
 
 .kw-audio-editor__source-monitor-picture {
+	--source-monitor-viewport-aspect: calc(16 / 9);
 	align-items: center;
 	flex: 0 0 auto;
 	width: 100%;
-	aspect-ratio: 16 / 9;
+	aspect-ratio: var(--source-monitor-viewport-aspect);
 	background: #000;
 	display: flex;
 	justify-content: center;

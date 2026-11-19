@@ -78,6 +78,23 @@ let previewFixturePromise;
 test.describe('Freesound discovery and attribution', () => {
 	registerAudioEditorHooks();
 
+	test('a failed sound download keeps its successful search results and reports an import failure', async ({ page }) => {
+		await mockFreesoundApi(page);
+		await page.route(`**/api/freesound/sounds/${SOUND.id}`, route => route.fulfill({ status: 503,
+			json: { error: { code: 'service_unavailable', message: 'This sound is temporarily unavailable.' } },
+		}));
+		const editor = await bootEditor(page, '/embed/en/');
+		const menu = await openNestedCommandMenu(page, editor, 'Window', []);
+		await getMenuItem(menu, 'Freesound').press('Enter');
+		const panel = editor.locator('[data-workspace-panel="freesound"]');
+		await panel.getByRole('searchbox', { name: 'Search Freesound' }).fill('harbor');
+		await panel.getByRole('button', { name: 'Search', exact: true }).click();
+		await expect(panel.getByText('1 sounds', { exact: true })).toBeVisible();
+		await panel.getByRole('button', { name: /^Add to project\s*:/u }).click();
+		await expect(panel.getByText('The Freesound sound could not be imported.', { exact: true })).toBeVisible();
+		await expect(panel.getByText('1 sounds', { exact: true })).toBeVisible();
+	});
+
 	test('previews and drops a result, preserves local metadata, and round-trips attribution', async ({ browser, page }) => {
 		test.setTimeout(90_000);
 		await disableNativeSavePicker(page);

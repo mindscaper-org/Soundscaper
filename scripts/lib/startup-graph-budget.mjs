@@ -3,6 +3,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { brotliCompressSync } from 'node:zlib';
+import { EDITOR_MIDI_FILE_CODECS_CHUNK_TEST } from './build-chunk-tests.mjs';
+import { deferredEditorFeatureChunks } from './build-deferred-editor-features.mjs';
 
 /**
  * The ceilings and the paragraphs that justify them live in
@@ -275,11 +277,29 @@ export function assertTransferArchiveRuntimeDoesNotReachProductBootstrap(bundle)
 }
 
 export function assertProductGraphOwnership(product, graph) {
+	const moduleIds = [...graph.moduleIds];
 	for (const otherProduct of BUDGETED_PRODUCT_IDS.filter((id) => id !== product)) {
-		const forbiddenModule = [...graph.moduleIds].find((moduleId) => moduleId.includes(`/src/${otherProduct}/`));
+		const forbiddenModule = moduleIds.find((moduleId) => moduleId.includes(`/src/${otherProduct}/`));
 		if (forbiddenModule) {
 			throw new Error(`${product} product-ready graph owns forbidden ${otherProduct} product module ${forbiddenModule}.`);
 		}
+	}
+	const synthModule = moduleIds.find((moduleId) => (
+		/\/node_modules\/(?:libadlmidi-js|js-synthesizer)\//u.test(moduleId)
+	));
+	if (synthModule) {
+		throw new Error(`${product} product-ready graph loads the on-demand MIDI synthesizer module ${synthModule}.`);
+	}
+	const midiFileCodec = moduleIds.find((moduleId) => EDITOR_MIDI_FILE_CODECS_CHUNK_TEST.test(moduleId));
+	if (midiFileCodec) {
+		throw new Error(`${product} product-ready graph loads on-demand MIDI file codec ${midiFileCodec}.`);
+	}
+	for (const { name, test } of deferredEditorFeatureChunks) {
+		const moduleId = moduleIds.find((id) => test.test(id));
+		if (moduleId) throw new Error(`${product} product-ready graph loads deferred ${name} module ${moduleId}.`);
+	}
+	if (moduleIds.some((moduleId) => moduleId.endsWith('/src/common/offline/application-shell.ts'))) {
+		throw new Error(`${product} product-ready graph loads deferred offline shell registration.`);
 	}
 }
 

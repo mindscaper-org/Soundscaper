@@ -3,17 +3,19 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import fileSystem from 'node:fs/promises';
 import { chmod, mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import test from 'node:test';
+import { basename, dirname, join } from 'node:path';
+import test, { type TestContext } from 'node:test';
 
 import {
 	createAssistanceKokoroOfflinePhonemizerV1,
 } from '../desktop/assistance-kokoro-g2p-runtime.ts';
 import { createAssistanceRuntimeFamilyThreadWorkerSpawner } from
 	'../desktop/assistance-runtime-family-thread-worker.ts';
-import { waitFor } from './helpers/async-test-control.ts';
+import { deferred, remainsPending, waitFor } from './helpers/async-test-control.ts';
 
 const TARGET = 'linux-x64';
 const PREFIX = 'assistance/kokoro-g2p/0.9.4';
@@ -108,6 +110,83 @@ test('the helper closure is reauthenticated for each speech request', async (t) 
 	await assert.rejects(phonemize({ language: 'a', voice: 'af_heart', text: 'again' }),
 		/authenticat|digest|length/iu);
 });
+
+test('Kokoro closure authentication settles its four open files before returning cancellation', async (t) => {
+	const files = await fixture(t, GOOD_PROGRAM);
+	const names = ['a', 'b', 'c', 'd', 'e'];
+	const directory = await addPayloadPins(files, names);
+	const gate = gatePayloadCloses(t, directory);
+	const controller = new AbortController();
+	const operation = neverSpawn(files)({ language: 'a', voice: 'af_heart', text: 'hello', signal: controller.signal });
+	void operation.catch(() => undefined);
+	try {
+		await waitFor(() => gate.opened.length >= 4, 'the first four closure files', { turns: 1000 });
+		assert.deepEqual([...gate.opened].sort(), names.slice(0, 4));
+		controller.abort();
+		assert.equal(await remainsPending(operation), true);
+	} finally {
+		controller.abort();
+		gate.release();
+		await operation.catch(() => undefined);
+	}
+	await assert.rejects(operation, { name: 'AbortError' });
+	assert.deepEqual([...gate.closed].sort(), names.slice(0, 4));
+	assert.deepEqual([...gate.opened].sort(), names.slice(0, 4));
+});
+
+test('Kokoro closure authentication reports the first failure in manifest order', async (t) => {
+	const files = await fixture(t, GOOD_PROGRAM);
+	const directory = await addPayloadPins(files, ['a', 'b']);
+	await writeFile(join(directory, 'a'), 'fail');
+	await writeFile(join(directory, 'b'), 'incorrect length');
+	await assert.rejects(neverSpawn(files)({ language: 'a', voice: 'af_heart', text: 'hello' }),
+		/closure file digest changed/iu);
+});
+
+async function addPayloadPins(files: Awaited<ReturnType<typeof fixture>>, names: readonly string[]) {
+	const directory = dirname(files.executable);
+	const bytes = Buffer.from('good');
+	for (const path of names) {
+		await writeFile(join(directory, path), bytes);
+		files.manifest.files.push({ path, byteLength: bytes.byteLength,
+			sha256: createHash('sha256').update(bytes).digest('hex') });
+	}
+	files.manifest.files.sort((left, right) => left.path.localeCompare(right.path, 'en'));
+	await writeFile(files.manifestPath, JSON.stringify(files.manifest));
+	return directory;
+}
+
+function neverSpawn(files: Awaited<ReturnType<typeof fixture>>) {
+	return createAssistanceKokoroOfflinePhonemizerV1({
+		manifestPath: files.manifestPath, runtimeRoot: files.runtimeRoot,
+		platform: 'linux', architecture: 'x64',
+		spawn: () => assert.fail('The Kokoro helper must not start.'),
+	});
+}
+
+function gatePayloadCloses(t: TestContext, directory: string) {
+	const open = fileSystem.open;
+	const gate = deferred<void>();
+	const opened: string[] = [];
+	const closed = new Set<string>();
+	t.mock.method(fileSystem, 'open', async (...args: Parameters<typeof open>) => {
+		const handle = await open(...args);
+		const [path] = args;
+		if (typeof path !== 'string' || dirname(path) !== directory) return handle;
+		const name = basename(path);
+		opened.push(name);
+		const close = handle.close.bind(handle);
+		handle.close = async () => {
+			await gate.promise;
+			await close();
+			closed.add(name);
+		};
+		return handle;
+	});
+	syncBuiltinESMExports();
+	t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
+	return { opened, closed, release: () => gate.resolve() };
+}
 
 test('the parsed G2P manifest cache uses fresh bytes and retires after failed authentication', async (t) => {
 	const files = await fixture(t, GOOD_PROGRAM), phonemize = port(files);

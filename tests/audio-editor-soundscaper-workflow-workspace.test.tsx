@@ -74,6 +74,26 @@ test('failed automation release retains the token for cancellation or retry', as
 	}
 });
 
+test('the automation controls reopen after transport stops during a pointer gesture', async () => {
+	const fixture = await mountedWorkflowFixture();
+	try {
+		await fixture.render('soundscaper', project('project-a', 1));
+		const automation = fixture.runtime().automationRuntime;
+		let token: unknown;
+		await act(async () => { token = automation.beginGesture?.('lane-a', 0.25); });
+		assert.equal(fixture.runtime().automationRuntime.snapshot.gestureActive, true);
+		fixture.stopGesture();
+		await fixture.render('soundscaper', project('project-a', 2));
+		const stopped = fixture.runtime().automationRuntime;
+		assert.equal(stopped.snapshot.gestureActive, false);
+		await act(async () => { await stopped.releaseGesture?.(token, 0.8); });
+		assert.deepEqual(fixture.releases, []);
+		await act(async () => { assert.equal(stopped.beginGesture?.('lane-a', 0.3), fixture.token); });
+	} finally {
+		await fixture.cleanup();
+	}
+});
+
 test('workflow runtime is absent outside Soundscaper', async () => {
 	const fixture = await mountedWorkflowFixture();
 	try {
@@ -147,21 +167,22 @@ function controllerFixture(options: Readonly<{ failFirstRelease?: boolean }> = {
 	const releases: unknown[][] = [];
 	const freezeCalls: unknown[][] = [];
 	let releaseAttempts = 0;
+	let gestureActive = false;
 	const controller: SoundscaperWorkflowControllerPort = {
 		actions: {
 			audioAutomation: {
-				getSnapshot: () => ({ mode: 'touch', laneId: 'lane-a', gestureActive: false }),
+				getSnapshot: () => ({ mode: 'touch', laneId: 'lane-a', gestureActive }),
 				setMode: () => undefined,
-				beginGesture: () => token,
+				beginGesture: () => { gestureActive = true; return token; },
 				previewGesture: (_token, value) => value,
 				releaseGesture: (active, value) => {
 					releases.push([active, value]);
 					releaseAttempts += 1;
-					return options.failFirstRelease && releaseAttempts === 1
-						? Promise.reject(new Error('release refused'))
-						: Promise.resolve('released');
+					if (options.failFirstRelease && releaseAttempts === 1) return Promise.reject(new Error('release refused'));
+					gestureActive = false;
+					return Promise.resolve('released');
 				},
-				cancelGesture: (active) => { cancellations.push(active); return true; },
+				cancelGesture: (active) => { gestureActive = false; cancellations.push(active); return true; },
 			},
 			audioFreeze: {
 				getStatus: (trackId) => trackId === 'track-a' ? 'stale' : 'none',
@@ -172,7 +193,7 @@ function controllerFixture(options: Readonly<{ failFirstRelease?: boolean }> = {
 			},
 		},
 	};
-	return { controller, token, cancellations, releases, freezeCalls };
+	return { controller, token, cancellations, releases, freezeCalls, stopGesture() { gestureActive = false; } };
 }
 
 function project(id: string, revision: number, frozen = false): unknown {

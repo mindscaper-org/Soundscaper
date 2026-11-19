@@ -29,6 +29,9 @@ export async function reconcileLandedCapturedVideoProxyProject(
 	dependencies: Readonly<{
 		readonly session: CapturedVideoProxySessionController;
 		readonly claimCleanup: CapturedVideoProxyClaimCleanup;
+		readonly recordPersistedSnapshot?: ((
+			project: FramescaperCapturedVideoProxyProject,
+		) => PromiseLike<void> | void) | null;
 		readonly synchronizeActiveProject: ((
 			update: FramescaperCapturedVideoProxyActiveUpdate,
 		) => PromiseLike<unknown> | unknown) | null;
@@ -67,6 +70,9 @@ export async function reconcileLandedCapturedVideoProxyProject(
 			sourceId,
 			dependencies.sameProject,
 		);
+		if (ticket?.kind === 'present' && dependencies.recordPersistedSnapshot) {
+			await dependencies.recordPersistedSnapshot(reconciliation.target);
+		}
 		throwIfAborted(signal);
 		if (activeUpdate && dependencies.synchronizeActiveProject) {
 			await dependencies.synchronizeActiveProject(activeUpdate);

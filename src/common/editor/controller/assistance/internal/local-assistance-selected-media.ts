@@ -22,8 +22,10 @@ import {
 	createLocalAssistanceAudioWaveFromChunks,
 	LOCAL_ASSISTANCE_PREPARATION_CHUNK_FRAMES,
 } from './audio/local-assistance-audio-preparation.ts';
+import { releaseLocalAssistancePreparedAudioWave } from '../local-assistance-audio-spool-release.ts';
 import { localAssistanceAudioWaveGeometry } from './audio/local-assistance-audio-geometry.ts';
 import { localAssistanceAudioEffectTargets } from './audio/local-assistance-audio-effect-targets.ts';
+import { hasAssistanceIdentityTiming, projectAssistanceSourceRange } from '../../../assistance/selected-media-identity-timing.ts';
 
 const MAXIMUM_OUTPUT_BYTES = 64 * 1024 * 1024;
 const TEXT_ENCODER = new TextEncoder();
@@ -39,6 +41,7 @@ const AUDIO_OPERATIONS = Object.freeze([
 	'source-separation',
 	'audio-tagging',
 	'beat-tracking',
+	'music-transcription',
 ] as const satisfies readonly AssistanceOperation[]);
 const AUDIO_OPERATION_SET = new Set<AssistanceOperation>(AUDIO_OPERATIONS);
 
@@ -146,7 +149,8 @@ export function createLocalAssistanceSelectedMediaPreparation(
 				const sourceId = text(selected.source.id, 'source id');
 				sources.set(sourceId, Object.freeze({ sourceId,
 					label: text(selected.clip.title ?? selected.source.name, 'selected-media label'),
-					mediaKind: 'audio' as const, operations: AUDIO_OPERATIONS }));
+					mediaKind: 'audio' as const, operations: AUDIO_OPERATIONS.filter(operation =>
+						operation !== 'music-transcription' || project.schemaFamily === 'soundscaper') }));
 			}
 		}
 		catch { return Object.freeze({ sources: Object.freeze([]) }); }
@@ -165,6 +169,7 @@ export function createLocalAssistanceSelectedMediaPreparation(
 		}
 		const token = dependencies.captureProject();
 		const selected = resolveLocalAssistanceSelectedMediaAuthority(dependencies);
+		if (request.operation === 'music-transcription' && selected.project.schemaFamily !== 'soundscaper') throw new Error('MIDI transcription requires Soundscaper.');
 		if (text(selected.source.id, 'source id') !== request.sourceId) {
 			throw new Error('The requested assistance source is no longer the selected occurrence.');
 		}
@@ -194,23 +199,29 @@ export function createLocalAssistanceSelectedMediaPreparation(
 				yield await renderRange(start, end);
 			}
 		}
-		const input = await createLocalAssistanceAudioWaveFromChunks(
-			request.operation as AudioOperation, chunks(), expectedFrames,
-			selected.project.sampleRate, first.length, request.signal,
-		);
-		request.signal?.throwIfAborted();
-		dependencies.assertProject(token);
 		const geometry = localAssistanceAudioWaveGeometry(
 			request.operation as AudioOperation, expectedFrames,
 			selected.project.sampleRate, first.length,
 		);
+		const outputs = outputsFor(request.operation as AudioOperation, geometry.byteLength);
+		const input = await createLocalAssistanceAudioWaveFromChunks(
+			request.operation as AudioOperation, chunks(), expectedFrames,
+			selected.project.sampleRate, first.length, request.signal,
+		);
+		try {
+			request.signal?.throwIfAborted();
+			dependencies.assertProject(token);
+		} catch (error) {
+			await releaseLocalAssistancePreparedAudioWave(input).catch(() => undefined);
+			throw error;
+		}
 		return Object.freeze({
 			sourceId: request.sourceId,
 			operation: request.operation as AudioOperation,
 			selectionFence: selected.fence,
 			inputs: Object.freeze([Object.freeze({ role: 'audio' as const,
 				mediaType: 'audio/wav' as const, bytes: input })]),
-			outputs: outputsFor(request.operation as AudioOperation, geometry.byteLength),
+			outputs,
 		});
 	}
 
@@ -255,13 +266,11 @@ export function resolveLocalAssistanceSelectedMediaAuthority(
 	if (selectionStart < clipStart || selectionEnd > clipEnd || selectionEnd <= selectionStart) {
 		throw new RangeError('The assistance selection must remain inside the selected occurrence.');
 	}
-	const selectionFrames = selectionEnd - selectionStart;
-	const sourceStart = safeAdd(integer(clip.sourceStartFrame, 0, 'clip source start'),
-		selectionStart - clipStart, 'selected source start');
-	const sourceEnd = safeAdd(sourceStart, selectionFrames, 'selected source end');
-	if (sourceEnd > integer(source.frameCount, 1, 'source frame count')) {
+	const sourceRange = projectAssistanceSourceRange(clip, selectionStart, selectionEnd);
+	if (!sourceRange || sourceRange.endFrame > integer(source.frameCount, 1, 'source frame count')) {
 		throw new RangeError('The assistance selection exceeds its authenticated source.');
 	}
+	const { startFrame: sourceStart, endFrame: sourceEnd } = sourceRange;
 	const fence = createLocalAssistanceSelectionFence(project, clip, source, track,
 		selectionStart, selectionEnd, sourceStart, sourceEnd);
 	return Object.freeze({ project, source, clip, track, startFrame: selectionStart,
@@ -328,6 +337,7 @@ function outputsFor(operation: AudioOperation, audioWaveByteLength: number): rea
 		'source-separation': ['separated-audio', 'audio/wav'],
 		'audio-tagging': ['audio-tags', 'application/vnd.soundscaper.audio-tags+json'],
 		'beat-tracking': ['beat-grid', 'application/vnd.soundscaper.beat-grid+json'],
+		'music-transcription': ['midi-notes', 'application/vnd.soundscaper.midi-notes+json'],
 	} satisfies Readonly<Record<AudioOperation, readonly [string, string]>>;
 	const [role, mediaType] = values[operation];
 	const slots = operation === 'speech-enhancement'
@@ -388,10 +398,8 @@ function selectedProject(value: unknown): SelectedMediaProject {
 }
 
 function assertIdentityTiming(clip: DataRecord, source: DataRecord, sampleRate: number): void {
-	if (clip.reversed !== false || clip.speedRatio !== 1 || clip.pitchCents !== 0
-		|| clip.stretchToTempo !== false || clip.anchor !== 'sample' || clip.warpMap !== null
-		|| clip.sourceDurationFrames !== clip.durationFrames
-		|| source.sampleRate !== sampleRate) {
+	const sourceRate = integer(source.sampleRate, 1, 'source sample rate');
+	if (!hasAssistanceIdentityTiming(clip, sampleRate, sourceRate)) {
 		throw new Error('Selected-media preparation currently requires forward identity timing.');
 	}
 }

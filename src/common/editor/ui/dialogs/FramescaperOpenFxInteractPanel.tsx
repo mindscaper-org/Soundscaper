@@ -21,6 +21,7 @@ import type { OfxInteractEventV1 } from '../../native-ofx-host-contract.ts';
 import type { FramescaperNativeServicesBridge } from '../framescaper-native-services-bridge.ts';
 import type { FramescaperNativeServicesCopy } from '../framescaper-native-services-copy.ts';
 import { canAppendOpenFxInteractEvent } from './openfx-interact-replay-admission.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 type OfxInteractModifier = 'alt' | 'control' | 'meta' | 'shift';
 type UnsequencedOfxInteractEvent =
@@ -195,7 +196,7 @@ export default function FramescaperOpenFxInteractPanel({ bridge, runtime, copy }
 		<p id="framescaper-openfx-interact-help">{copy.ofxInteractInstructions}</p>
 		<p role="status" aria-live="polite" data-framescaper-openfx-interact-status="true">{status}</p>
 		{model !== null && model.instances.length > 0 && <>
-			<p><label>{copy.ofxInteractInstance}<br /><select value={instanceId}
+			<p><label><EditorControlLabel>{copy.ofxInteractInstance}</EditorControlLabel><br /><select value={instanceId}
 				data-framescaper-openfx-interact-instance="true"
 				onChange={(value) => chooseInstance(value.currentTarget.value)}>
 				{model.instances.map((entry) => <option key={entry.effect.instanceId}
@@ -204,7 +205,7 @@ export default function FramescaperOpenFxInteractPanel({ bridge, runtime, copy }
 			<p>{copy.ofxContext}: <output data-framescaper-openfx-interact-context="true">
 				{instance?.effect.context}
 			</output></p>
-			<p><label>{copy.ofxInteractTarget}<br /><select value={targetValue}
+			<p><label><EditorControlLabel>{copy.ofxInteractTarget}</EditorControlLabel><br /><select value={targetValue}
 				data-framescaper-openfx-interact-target="true"
 				onChange={(value) => setTargetValue(value.currentTarget.value)}>
 				<option value="overlay">{copy.ofxInteractOverlay}</option>

@@ -84,3 +84,14 @@ test('a failed load is not cached, so a later use retries it', async () => {
 	assert.equal(loads.count, 2, 'a rejected load must not be cached as the permanent answer');
 	assert.deepEqual(runs, ['render-queue-enqueue']);
 });
+
+test('a deferred render request never reaches the runtime after a project switch', async () => {
+	const runs: string[] = [];
+	const loads = { count: 0 };
+	let token = { projectId: 'first', generation: 1 };
+	const runtime = bind(() => actionSlice(runs), loads, { captureProjectGeneration: () => token });
+	const pending = (runtime.run as (surface: string, request: unknown) => Promise<unknown>)('render-queue-enqueue', {});
+	token = { projectId: 'second', generation: 2 };
+	assert.deepEqual(await pending, { cancelled: true });
+	assert.deepEqual(runs, []);
+});

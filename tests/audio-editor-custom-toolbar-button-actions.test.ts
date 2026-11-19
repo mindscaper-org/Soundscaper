@@ -66,6 +66,19 @@ test('disabled ancestors and deferred menu availability also gate native prefere
 	assert.equal(invoked, 2);
 });
 
+test('custom action discovery reuses the channel inventory for the current selection', () => {
+	let inventoryReads = 0;
+	const sources = [{ id: 'stereo', channelCount: 2 }];
+	const project = { tracks: [{ id: 'track', type: 'audio', clipIds: ['clip'] }],
+		clips: [{ id: 'clip', sourceId: 'stereo' }], get sources() { inventoryReads++; return sources; } };
+	const menus = [{ id: 'tracks', label: 'Tracks', items: ['track-resample', 'track-swap-channels', 'track-split-stereo-to-lr']
+		.map(id => ({ id, label: id, onClick() {} })) }];
+	const actions = collectCustomToolbarButtonActions(menus, { actionContext: { snapshot: { project, selectedTrackId: 'track' } } });
+	assert.equal(actions.length, 3);
+	assert.ok(actions.every(action => !action.disabled));
+	assert.equal(inventoryReads, 2);
+});
+
 test('concrete dynamic actions keep distinct persistent ids and menu aliases resolve consistently', () => {
 	const menus: readonly CustomToolbarButtonMenuItem[] = [{ id: 'tracks', label: 'Tracks', items: [
 		{ id: 'track-resample?rate=44100', parityActionId: 'track-resample?rate=%1', label: '44100 Hz', onClick: () => undefined },

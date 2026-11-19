@@ -4,7 +4,7 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
 test('the same frequency in either stereo spectrogram channel selects the same band', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'stereo spectrum.wav', duration: 2, channelCount: 2 });
 	await importFiles(editor, [recording]);
 	await clipByName(editor, recording.name).locator('.clip-header').click();

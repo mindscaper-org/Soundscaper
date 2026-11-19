@@ -1,9 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createVisibleVideoTrackPredicate } from './video-track-visibility.js';
+import { projectTrackFolderMediaStateV12 } from './track-folder-media-runtime.ts';
 import { sequenceFrameAtSample } from './sequence-frame-navigation.ts';
 import { proportionalSourceFrame, sourceFrameTimecodeLabel } from './source-properties-model.ts';
 import { normalizeVideoSourceCharacteristicsForConsumer } from './video-source-characteristics-consumer.ts';
+import { browserVideoFrameSeekSeconds } from './video-drawable-interval.ts';
 import { videoFrameToSampleFrame, type RationalRate } from './timeline-time.ts';
+import { indexedUnretimedVideoFrameAtSample } from './video-source-time.ts';
 import { videoBoundaryTime, videoSourceTimingView, type VideoSourceTimingView } from './video-source-timing-view.ts';
 import { resolveVideoSourceTimingViews } from './video-source-timing-views.ts';
 import {
@@ -131,21 +135,17 @@ export function resolveSourceMonitorPoints(
 	return Object.freeze({ sourceIn, sourceOut });
 }
 
-/**
- * Where to put a media element's clock to show one source frame: the middle of
- * that frame's presentation interval, so a decoder rounding either way still
- * lands inside the frame that was asked for.
- */
+/** Seek near the start of the requested source picture's presentation interval. */
 export function sourceFrameToMediaSeconds(frame: number, rate: RationalRate, sourceValue?: unknown): number {
 	const { num, den } = frameRate(rate);
 	const timing = monitorTimingView(sourceValue);
 	if (timing) {
 		const source = record(sourceValue, 'source');
 		const position = clampSourceFrame(frame, Number(source.sourceFrameCount));
-		return (boundarySeconds(timing, position) + boundarySeconds(timing, position + 1)) / 2;
+		return browserVideoFrameSeekSeconds(boundarySeconds(timing, position), boundarySeconds(timing, position + 1));
 	}
 	const position = Math.max(0, Math.trunc(frame));
-	return (position * 2 + 1) * den / (num * 2);
+	return browserVideoFrameSeekSeconds(position * den / num, (position + 1) * den / num);
 }
 
 /** Read a media element's clock back as the source frame it is inside. */
@@ -207,19 +207,20 @@ export function resolveProgramFrame(
 	request: ProgramFrameRequest,
 	bridgeValue?: VideoRetimeProgramOrdinalBridge,
 ): ProgramFrame | null {
-	const project = record(projectValue, 'project');
+	const project = projectTrackFolderMediaStateV12(record(projectValue, 'project'));
 	const sampleRate = positiveSafeInteger(project.sampleRate, 'project.sampleRate');
 	const sequenceId = String(request.sequenceId ?? project.primarySequenceId ?? '');
 	const sequence = arrayOf(project.sequences).find((candidate) => String(candidate.id) === sequenceId);
 	if (!sequence) return null;
 	const rate = frameRate(sequence.rate);
-	const frame = sequenceFrameAtSample(
-		Math.max(0, Math.trunc(safeInteger(request.sample, 'program sample'))),
-		rate,
-		sampleRate,
-	);
+	const timelineSample = Math.max(0, safeInteger(request.sample, 'program sample'));
+	const frame = sequenceFrameAtSample(timelineSample, rate, sampleRate);
 	const trackIdByClipId = new Map<string, string>();
-	for (const track of arrayOf(project.tracks)) {
+	const memberIds = new Set(Array.isArray(sequence.trackIds) ? sequence.trackIds.map(String) : []);
+	const tracks = arrayOf(project.tracks).filter(track => memberIds.size === 0 || memberIds.has(String(track.id)));
+	const visible = createVisibleVideoTrackPredicate(tracks);
+	const visibleTrackIds = new Set(tracks.filter(visible).map(track => String(track.id)));
+	for (const track of tracks) {
 		if (track.type !== 'video') continue;
 		for (const clipId of Array.isArray(track.clipIds) ? track.clipIds : []) {
 			trackIdByClipId.set(String(clipId), String(track.id));
@@ -238,7 +239,7 @@ export function resolveProgramFrame(
 			matched = clip;
 			break;
 		}
-		matched ??= clip;
+		if (trackId !== null && visibleTrackIds.has(trackId)) matched ??= clip;
 	}
 	if (!matched) return null;
 	const trackId = trackIdByClipId.get(String(matched.id));
@@ -258,7 +259,7 @@ export function resolveProgramFrame(
 			project,
 			clip: matched,
 			source,
-			timelineSample: Math.max(0, Math.trunc(request.sample)),
+			timelineSample,
 		})
 		: null;
 	const sourceFrameCount = Number(matched.sourceFrameCount ?? sequenceFrameCount);
@@ -268,6 +269,7 @@ export function resolveProgramFrame(
 		sourceId: String(matched.sourceId),
 		sequenceId,
 		sourceFrame: retimedSourceFrame
+			?? (source && indexedUnretimedVideoFrameAtSample(project, matched, source, timelineSample))
 			?? proportionalSourceFrame(
 				sourceIn, sourceFrameCount,
 				sequenceStartFrame, sequenceFrameCount, frame,

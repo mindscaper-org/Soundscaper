@@ -57,7 +57,7 @@ export function prepareImportedWavMetadata(options: Readonly<Record<string, any>
 			|| 'The BEXT TimeReference cannot be represented at the project sample rate.'));
 	}
 	let projectBext: ReturnType<typeof promoteImportedBextOrigin> | null = null;
-	if (project.metadata?.bext === null) {
+	if (project.metadata?.bext === null && sourceTimeReference !== null) {
 		try {
 			projectBext = promoteImportedBextOrigin(sourceBext, sourceTimeReference,
 				importOptions.destination === 'timeline' && importOptions.timelineStartExplicit ? importOptions.timelineStartFrame : 0);

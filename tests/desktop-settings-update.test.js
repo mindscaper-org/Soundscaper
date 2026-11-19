@@ -5,7 +5,8 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import { DesktopSettingsStore } from '../desktop/settings.js';
-import { ReleaseChecker, compareVersions, selectUpdate } from '../desktop/update-check.js';
+import { ReleaseChecker, selectUpdate } from '../desktop/update-check.ts';
+import { compareVersions } from '../src/common/release/release-version.ts';
 
 test('desktop settings choose an OS locale and persist atomically', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-settings-'));
@@ -27,6 +28,33 @@ test('invalid settings fall back without trusting unknown locale values', async 
 	await writeFile(filePath, '{ broken json');
 	const settings = new DesktopSettingsStore(filePath);
 	assert.equal((await settings.load(['ja-JP'])).locale, 'ja');
+});
+
+test('a newer desktop settings file remains intact at startup and after a requested write', async (context) => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-settings-newer-schema-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const filePath = join(root, 'settings.json');
+	const future = JSON.stringify({ schemaVersion: 2, futureSetting: ['keep this exact value'] });
+	await writeFile(filePath, future);
+	const settings = new DesktopSettingsStore(filePath);
+	assert.equal((await settings.load(['de-DE'])).locale, 'de');
+	assert.equal(await readFile(filePath, 'utf8'), future);
+	await assert.rejects(settings.setLocale('en'), /newer version/u);
+	assert.equal(await readFile(filePath, 'utf8'), future);
+});
+
+test('a manual update check can use the network even when its check timestamp cannot be saved', async () => {
+	let requests = 0;
+	const checker = new ReleaseChecker({
+		currentVersion: '1.0.0',
+		settings: {
+			snapshot: () => ({ updatesEnabled: false, lastUpdateCheck: null }),
+			recordUpdateCheck: async () => { throw new Error('Settings are read-only'); },
+		},
+		fetchImpl: async () => { requests += 1; return Response.json([{ tag_name: 'v2.0.0' }]); },
+	});
+	assert.deepEqual(await checker.check({ manual: true }), { status: 'available', version: '2.0.0', prerelease: false });
+	assert.equal(requests, 1);
 });
 
 test('failed native-audio persistence rolls in-memory authority back', async (context) => {

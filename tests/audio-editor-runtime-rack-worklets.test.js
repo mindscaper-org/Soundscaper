@@ -115,7 +115,7 @@ test('engine uses the sample-accurate delay worklet for playback and offline ren
 		assert.equal(realtime.createdDelays.length, 0);
 		assert.equal(engine.graph.effectNodes.size, 1);
 		assert.equal(engine.configureRackEffect('track', 'track-1', 'delay-1', { feedback: 0.25 }), 1);
-		assert.deepEqual(realtime.workletNodes[0].messages, [{
+		assert.deepEqual(realtime.workletNodes[0].messages, [{ type: 'suspend-idle-effect-processing', enabled: false }, {
 			type: 'configure',
 			params: { time: 0.01, feedback: 0.25, mix: 1 },
 			revision: 1,
@@ -226,6 +226,7 @@ test('parametric EQ worklets load for mixer buses and accept scoped transient up
 		assert.equal(engine.auditionParametricEq('group', 'group-1', 'group-eq', 'band-1'), 8);
 		assert.equal(engine.resetParametricEq('group', 'group-1', 'group-eq'), 9);
 		assert.deepEqual(groupNode.messages, [
+			{ type: 'suspend-idle-effect-processing', enabled: false },
 			{ type: 'configure', params: configuredParams, transitionFrames: 480, revision: 1, sequence: 1 },
 			{ type: 'configure', params: eqParams, revision: 7, sequence: 7 },
 			{ type: 'audition', bandId: 'band-1', revision: 8, sequence: 8 },

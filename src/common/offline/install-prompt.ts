@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { takeEarlyApplicationInstallPrompt } from './install-prompt-preload.ts';
+
 /**
  * The event a Chromium browser fires once a document meets its installability
  * criteria. It is not in the DOM lib, and it is deliberately described here by
@@ -23,6 +25,7 @@ export type InstallPromptOutcome = 'accepted' | 'dismissed' | 'unavailable';
 export interface InstallPromptCapture {
 	/** Whether an unspent prompt is held right now. */
 	available(): boolean;
+	subscribe(listener: () => void): () => void;
 	/** Replays the held prompt from a user gesture and spends it. */
 	prompt(): Promise<InstallPromptOutcome>;
 	/** Detaches the listeners and drops any held prompt. */
@@ -32,6 +35,7 @@ export interface InstallPromptCapture {
 export interface CreateInstallPromptCaptureOptions {
 	readonly source?: InstallPromptEventSource | null;
 	readonly onChange?: (available: boolean) => void;
+	readonly initialOffer?: unknown;
 }
 
 /**
@@ -50,12 +54,14 @@ export function createInstallPromptCapture(
 	const source = options.source === undefined
 		? (globalThis as unknown as InstallPromptEventSource)
 		: options.source;
-	let captured: InstallPromptEvent | null = null;
+	let captured = isInstallPromptEvent(options.initialOffer) ? options.initialOffer : null;
+	const listeners = new Set<() => void>();
+	if (options.onChange) listeners.add(() => { options.onChange?.(captured !== null); });
 	const announce = () => {
-		try {
-			options.onChange?.(captured !== null);
-		} catch {
-			// Availability observers are advisory and cannot own the capture lifecycle.
+		for (const listener of [...listeners]) {
+			try { listener(); } catch {
+				// Availability observers are advisory and cannot own the capture lifecycle.
+			}
 		}
 	};
 	const capture = (event: unknown) => {
@@ -77,6 +83,10 @@ export function createInstallPromptCapture(
 	}
 	return Object.freeze({
 		available: () => captured !== null,
+		subscribe(listener: () => void) {
+			listeners.add(listener);
+			return () => { listeners.delete(listener); };
+		},
 		prompt: async (): Promise<InstallPromptOutcome> => {
 			const event = captured;
 			if (event === null) return 'unavailable';
@@ -87,6 +97,7 @@ export function createInstallPromptCapture(
 		},
 		stop: () => {
 			discard();
+			listeners.clear();
 			if (!listening) return;
 			source?.removeEventListener('beforeinstallprompt', capture);
 			source?.removeEventListener('appinstalled', discard);
@@ -99,12 +110,11 @@ let sharedCapture: InstallPromptCapture | null = null;
 /**
  * The one capture the running editor shares.
  *
- * The listeners attach on first use rather than at import so that importing
- * this module stays free of side effects; the editor reaches it while building
- * its menus, which happens long before a browser judges the app installable.
+ * The browser entry attaches the listeners before loading the editor. The menu
+ * can use the same capture when its workspace becomes ready.
  */
 export function applicationInstallPromptCapture(): InstallPromptCapture {
-	sharedCapture ??= createInstallPromptCapture();
+	sharedCapture ??= createInstallPromptCapture({ initialOffer: takeEarlyApplicationInstallPrompt() });
 	return sharedCapture;
 }
 

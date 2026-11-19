@@ -28,6 +28,7 @@ import {
 	type VideoCompositionDraft,
 	type VideoCompositionSetCommand,
 } from '../video-composition-dialog-model.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface VideoCompositionDialogProps {
 	readonly productId: string;
@@ -215,7 +216,7 @@ function VideoCompositionDialogSession({
 					<div className="audio-editor-field-grid">
 						<NumberField field="opacity" label={label(copy, 'videoCompositionOpacity', 'Opacity (%)')} value={draft.opacityPercent} minimum={0} maximum={100} onChange={(value) => updateText('opacityPercent', value)} />
 						<label className="audio-editor-field" style={COMPOSITION_FIELD_STYLE}>
-							<span>{label(copy, 'videoCompositionBlendMode', 'Blend mode')}</span>
+							<EditorControlLabel>{label(copy, 'videoCompositionBlendMode', 'Blend mode')}</EditorControlLabel>
 							<select data-video-composition-field="blend-mode" value={draft.blendMode} onChange={(event) => {
 								const blendMode = event.currentTarget.value;
 								setDraft((current) => ({ ...current, blendMode }));
@@ -260,7 +261,7 @@ function NumberField({
 	onChange(value: string): void;
 }>) {
 	return <label className="audio-editor-field" style={COMPOSITION_FIELD_STYLE}>
-		<span>{fieldLabel}</span>
+		<EditorControlLabel>{fieldLabel}</EditorControlLabel>
 		<input
 			type="number"
 			data-video-composition-field={field}
@@ -291,7 +292,7 @@ function CheckField({
 			checked={checked}
 			onChange={(event) => onChange(event.currentTarget.checked)}
 		/>
-		<span>{fieldLabel}</span>
+		<EditorControlLabel>{fieldLabel}</EditorControlLabel>
 	</label>;
 }
 

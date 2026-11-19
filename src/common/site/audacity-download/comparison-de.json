@@ -1,0 +1,308 @@
+[
+	[
+		"Funktion",
+		"Soundscaper",
+		"Audacity 4.0.2",
+		"Audacity 3.7.9"
+	],
+	[
+		"**In Audacitys eigenen Kompatibilitätsnotizen genannt**",
+		"",
+		"",
+		""
+	],
+	[
+		"Zeitspuren",
+		"Nein – stattdessen Automatisierungsspuren und Tempokarten",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Notenspuren",
+		"Ja - beta",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Mischpult",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Makros",
+		"Ja – inklusive JS-Skripting",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Skripting-Pipe und die Skriptables-Befehle",
+		"Nein",
+		"Nein",
+		"Ja"
+	],
+	[
+		"VAMP und LADSPA-Plug-in-Hosting",
+		"Ja - nur Desktopversion",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Play-at-Speed",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"**Effekte**",
+		"",
+		"",
+		""
+	],
+	[
+		"Auto Duck",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Effekt zur Geschwindigkeitsänderung",
+		"Ja",
+		"Kein separater Effekt – Tonhöhe und Geschwindigkeit lassen sich am Clip einstellen",
+		"Ja"
+	],
+	[
+		"Effekt zur Tempoveränderung",
+		"Ja",
+		"Kein separater Effekt – Projekttempo und Clip-Stretching sind verfügbar",
+		"Ja"
+	],
+	[
+		"Klassische Filter",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Verzerrung",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Echo",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Phaser",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Wahwah",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Wiederholen",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Legacy-Kompressor",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Echtzeit-Effekt-Rack pro Spur",
+		"Ja – und mehr hinzugefügt",
+		"Ja",
+		"Ja"
+	],
+	[
+		"**Analyzer**",
+		"",
+		"",
+		""
+	],
+	[
+		"Spektrum anzeigen",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Kontrast",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Clipping finden",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"**Aufnahme**",
+		"",
+		"",
+		""
+	],
+	[
+		"Timer-Aufnahme",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Sound-aktivierte Aufnahme",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Punch and Roll",
+		"Ja",
+		"Ja – umbenannt in Lead-in-Aufnahme",
+		"Ja"
+	],
+	[
+		"**Export und Import**",
+		"",
+		"",
+		""
+	],
+	[
+		"Nur die Auswahl exportieren",
+		"Ja",
+		"Ja",
+		"Ja"
+	],
+	[
+		"Rohdaten importieren",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"**Spuren**",
+		"",
+		"",
+		""
+	],
+	[
+		"Mix und Render",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Spuren ausrichten (sieben Befehle)",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Spuren nach Name oder Startzeit sortieren",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Alle Spuren stummschalten und wieder aktivieren",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Pan und Gain-Befehle für die fokussierte Spur",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"**Bearbeitung und Auswahl**",
+		"",
+		"",
+		""
+	],
+	[
+		"Beschriftete Audio-Befehle (schneiden, löschen, aufteilen, zusammenführen nach Beschriftungsbereich)",
+		"Nein",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Auswahl speichern und abrufen, Cursor-Position speichern",
+		"Nein",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Abspielposition zum Anfang oder Ende der Auswahl bewegen",
+		"Ja",
+		"Ja – Tastaturbefehle in den Einstellungen zuweisen",
+		"Ja"
+	],
+	[
+		"Zu vorheriger oder nächster Beschriftung springen",
+		"Nein",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Tastatur-Scrubbing und die Suchen-während-Wiedergabe-Befehle",
+		"Nein",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Vorschau-Wiedergabe (eine Sekunde abspielen, bis zur Auswahl abspielen, Vorschau schneiden)",
+		"Nein",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Spektrale Auswahl, spektrale Löschung und spektrale Verstärkung",
+		"Ja – auch spektrales Zeichnen hinzugefügt",
+		"Ja",
+		"Ja"
+	],
+	[
+		"**Ansicht und Fenster**",
+		"",
+		"",
+		""
+	],
+	[
+		"An Höhe anpassen",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Alle Spuren zusammenfalten und erweitern",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Ansicht zum Anfang oder Ende der Auswahl scrollen (Springen zu)",
+		"Ja",
+		"Nein",
+		"Ja"
+	],
+	[
+		"Das Extra-Menü (Cursor-Sprünge, Befehle für fokussierte Spur)",
+		"Teilweise",
+		"Nein",
+		"Ja"
+	]
+]

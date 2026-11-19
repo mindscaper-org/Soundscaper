@@ -8,7 +8,7 @@
 			"version": "stable-b35605ac",
 			"revision": "b35605ace3ddf7c1a5d67a2eb553f034aef41d55",
 			"tag": null,
-			"url": "https://code.videolan.org/videolan/x264/-/archive/b35605ace3ddf7c1a5d67a2eb553f034aef41d55/x264-b35605ace3ddf7c1a5d67a2eb553f034aef41d55.tar.gz",
+			"url": "https://codeload.github.com/mirror/x264/tar.gz/b35605ace3ddf7c1a5d67a2eb553f034aef41d55",
 			"byteLength": 1040327,
 			"sha256": "cd71a7515b0e9a012e1ac9b1f8415bebcaf6fc97d4db32286642ac4c0fbe24f9",
 			"extractedTree": {
@@ -83,7 +83,7 @@
 			"version": "1.3.1",
 			"revision": "51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf",
 			"tag": "v1.3.1",
-			"url": "https://zlib.net/fossils/zlib-1.3.1.tar.gz",
+			"url": "https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz",
 			"byteLength": 1512791,
 			"sha256": "9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23",
 			"extractedTree": {

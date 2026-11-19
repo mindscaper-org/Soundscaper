@@ -27,6 +27,7 @@ import VideoKeyframeCurveEditor from './VideoKeyframeCurveEditor.tsx';
 import { parseVideoKeyframeNumber as parseNumber, parseVideoKeyframePosition as parseRationalText } from './video-keyframe-exact-input.ts';
 import { videoKeyframeInterpolationKinds } from './video-keyframe-interpolation.ts';
 import { easedVideoKeyframeBezierControls } from './video-keyframe-bezier-controls.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface VideoKeyframeDialogProps {
 	readonly productId: string;
@@ -159,7 +160,7 @@ function VideoKeyframeDialogSession({
 				<fieldset disabled={disabled}>
 					<legend>{label(copy, 'videoKeyframesAddCurve', 'Add curve')}</legend>
 					<label className="audio-editor-field">
-						<span>{label(copy, 'videoKeyframesTarget', 'Target')}</span>
+						<EditorControlLabel>{label(copy, 'videoKeyframesTarget', 'Target')}</EditorControlLabel>
 						<select data-video-keyframe-field="target" value={selected?.key ?? ''} onChange={(event) => {
 							const next = choices.find(({ key }) => key === event.currentTarget.value);
 							setTargetKey(event.currentTarget.value);
@@ -173,7 +174,7 @@ function VideoKeyframeDialogSession({
 						<NumberField hook="start-value" label={label(copy, 'videoKeyframesStartValue', 'Start value')} value={startValue} choice={selected} onChange={setStartValue} />
 						<NumberField hook="end-value" label={label(copy, 'videoKeyframesEndValue', 'End value')} value={endValue} choice={selected} onChange={setEndValue} />
 					</div>
-					<label className="audio-editor-field"><span>{label(copy, 'videoKeyframesInterpolation', 'Interpolation')}</span>
+					<label className="audio-editor-field"><EditorControlLabel>{label(copy, 'videoKeyframesInterpolation', 'Interpolation')}</EditorControlLabel>
 						<select data-video-keyframe-field="interpolation" value={kind} onChange={(event) => setKind(event.currentTarget.value as CurveKind)}>
 							{videoKeyframeInterpolationKinds(selected?.integer ?? false).map((value) => <option key={value} value={value}>{label(copy, `videoKeyframes${titleCase(value)}`, titleCase(value))}</option>)}
 						</select>
@@ -200,7 +201,7 @@ function VideoKeyframeDialogSession({
 				else applyTransfer('clipboard');
 			}}>
 				<legend>{label(copy, 'videoKeyframesTransfer', 'Copy, paste, and presets')}</legend>
-				<label className="audio-editor-field"><span>{label(copy, 'videoKeyframesTransferJson', 'Curve transfer JSON')}</span>
+				<label className="audio-editor-field"><EditorControlLabel>{label(copy, 'videoKeyframesTransferJson', 'Curve transfer JSON')}</EditorControlLabel>
 					<textarea data-video-keyframe-field="transfer" value={transferText} maxLength={262_144} onChange={(event) => setTransferText(event.currentTarget.value)} />
 				</label>
 				<div className="audio-editor-panel-actions">
@@ -219,7 +220,7 @@ function VideoKeyframeDialogSession({
 function ExactField({ hook, label: fieldLabel, value, onChange }: Readonly<{
 	hook: string; label: string; value: string; onChange(value: string): void;
 }>) {
-	return <label className="audio-editor-field"><span>{fieldLabel}</span><input
+	return <label className="audio-editor-field"><EditorControlLabel>{fieldLabel}</EditorControlLabel><input
 		type="text" inputMode="text" data-video-keyframe-field={hook} value={value}
 		onChange={(event) => onChange(event.currentTarget.value)}
 	/></label>;
@@ -229,7 +230,7 @@ function NumberField({ hook, label: fieldLabel, value, choice, onChange }: Reado
 	hook: string; label: string; value: string; choice: VideoKeyframeTargetChoice | null;
 	onChange(value: string): void;
 }>) {
-	return <label className="audio-editor-field"><span>{fieldLabel}</span><input
+	return <label className="audio-editor-field"><EditorControlLabel>{fieldLabel}</EditorControlLabel><input
 		type="number" data-video-keyframe-field={hook} value={value}
 		min={choice?.minimum} max={choice?.maximum} step={choice?.integer ? choice.step : 'any'}
 		onChange={(event) => onChange(event.currentTarget.value)}

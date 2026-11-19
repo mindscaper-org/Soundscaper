@@ -24,8 +24,12 @@ import { collectExtractedSourceTree } from '../native/framescaper-media-host/bui
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
 const EXPECTED_PINS = {
-	'electron-node-api-headers': ['43.8.3', null, 347211,
-		'd23630d0b98161bec7860dcc482187aca380b1e0da264c1ed5efb42bce79d604'],
+	'surge-xt': ['1.3.4', 'f7b97c682ade0b87da85ca5968b63d5c7c98e68d', 319327963,
+		'd4b8f595a0595205ddd63eacadd23a0be33df46affc83afe9eafff7018990d55'],
+	dexed: ['1.1.0', 'fea2f0f0f2c397799f59b27eb11c038cd34b22c5', 42889987,
+		'894a83f89e68ef551d43581b9f0d211fa2f3f9f243d872138ac997c50ead6040'],
+	'electron-node-api-headers': ['45.2.3', null, 350118,
+		'5300f8e7965734f7cc1aec0c89ce8c0b68644129b858fb0a530ebbd9cd4a4284'],
 	juce: ['9.0.1', 'e18f7f506c0b96f2c738a0bcd7fe6467a5005ad8', 23609832,
 		'1c43b675dcf3c99889fed6f68317873048b15449455974e22859275f17b2e69b'],
 	clap: ['1.2.4', '00113aabdccf69c2e27ac269c35b369770e8fa73', 2351103,
@@ -60,6 +64,7 @@ const EXPECTED_PINS = {
 		'9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23'],
 };
 const EXPECTED_LICENSE_SELECTIONS = {
+	'surge-xt': 'GPL-3.0-or-later', dexed: 'GPL-3.0-or-later',
 	'electron-node-api-headers': 'MIT',
 	juce: 'AGPL-3.0-only',
 	clap: 'MIT',
@@ -104,7 +109,7 @@ test('milestone-5 source packet pins and test-enables every native dependency', 
 	assert.deepEqual(requireMilestone5NativeSource(register, 'juce').uses, [
 		'native-audio-backends', 'vst3-host', 'vst2-host', 'audio-unit-host', 'lv2-host', 'ladspa-effect-host',
 	]);
-	assert.equal(requireMilestone5NativeSource(register, 'electron-node-api-headers').version, '43.8.3');
+	assert.equal(requireMilestone5NativeSource(register, 'electron-node-api-headers').version, '45.2.3');
 	assert.equal(requireMilestone5NativeSource(register, 'clap').version, '1.2.4');
 	assert.equal(requireMilestone5NativeSource(register, 'vst3-sdk').version, '3.8.0_build_66');
 	assert.equal(requireMilestone5NativeSource(register, 'asio-sdk').version, '2.3.4');
@@ -144,7 +149,7 @@ test('Soundscaper source audit excludes every deferred Framescaper native input'
 		null,
 	);
 	assert.deepEqual(audit.sources.map(({ id }) => id), [
-		'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+		'surge-xt', 'dexed', 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 		'asio-sdk', 'ladspa-sdk', 'lv2',
 	]);
 	assert.deepEqual(audit.delegatedSources, []);
@@ -279,6 +284,23 @@ test('every pinned archive URL can actually satisfy its byte-exact pin', () => {
 			`${id} is pinned to an on-demand Gitiles archive, whose bytes differ per fetch: ${url}`,
 		);
 	}
+});
+
+test('x264 uses the byte-identical GitHub mirror for unattended downloads', () => {
+	const register = readMilestone5NativeSourceAcquisitions(repositoryRoot);
+	const source = requireMilestone5NativeSource(register, 'x264');
+	assert.equal(source.archive.url, `https://codeload.github.com/mirror/x264/tar.gz/${source.git.commit}`);
+});
+
+test('both zlib provisioners use the official release asset', () => {
+	const register = readMilestone5NativeSourceAcquisitions(repositoryRoot);
+	const source = requireMilestone5NativeSource(register, 'zlib');
+	const delegated = JSON.parse(readFileSync(
+		resolve(repositoryRoot, 'native/framescaper-media-host/build/ffmpeg-9.0.1-external-sources.json'),
+		'utf8',
+	));
+	assert.equal(source.archive.url, `https://github.com/madler/zlib/releases/download/${source.git.tag}/${source.archive.fileName}`);
+	assert.equal(delegated.libraries.find(({ id }) => id === 'zlib').url, source.archive.url);
 });
 
 function sha256(bytes) {

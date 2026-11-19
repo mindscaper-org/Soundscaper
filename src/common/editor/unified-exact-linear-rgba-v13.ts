@@ -11,7 +11,7 @@ import {
 } from './video-preview-render-description.ts';
 import type { UnifiedExactLinearSourceFrame } from './unified-exact-linear-source-frame.ts';
 import type { UnifiedExactRenderRgbaFrameV13 } from './unified-exact-render-finishing-consumers-v13.ts';
-import { compositeNormalLinearPixels } from './unified-exact-linear-normal-composition.ts';
+import { compositeNormalLinearPixels, encodeNormalLinearPixelsOverBackground } from './unified-exact-linear-normal-composition.ts';
 
 export interface UnifiedExactLinearPremultipliedFrameV13 {
 	readonly width: number;
@@ -35,11 +35,17 @@ export function createUnifiedExactLinearPremultipliedFrameV13(
 	const height = dimension(heightValue, 'linear frame height');
 	const rgba = tuple(background, 'linear frame background');
 	const pixels = new Float64Array(width * height * 4);
-	for (let offset = 0; offset < pixels.length; offset += 4) {
-		pixels[offset] = rgba[0] * rgba[3];
-		pixels[offset + 1] = rgba[1] * rgba[3];
-		pixels[offset + 2] = rgba[2] * rgba[3];
-		pixels[offset + 3] = rgba[3];
+	const [red, green, blue, alpha] = rgba;
+	if (alpha !== 0) {
+		const premultipliedRed = red * alpha;
+		const premultipliedGreen = green * alpha;
+		const premultipliedBlue = blue * alpha;
+		for (let offset = 0; offset < pixels.length; offset += 4) {
+			pixels[offset] = premultipliedRed;
+			pixels[offset + 1] = premultipliedGreen;
+			pixels[offset + 2] = premultipliedBlue;
+			pixels[offset + 3] = alpha;
+		}
 	}
 	return Object.freeze({ width, height, pixels });
 }
@@ -241,6 +247,35 @@ export function encodeUnifiedExactLinearFrameV13(
 	return pixels;
 }
 
+/** Encode an ordered composition directly when one normal layer covers a constant backdrop. */
+export function encodeUnifiedExactLinearCompositionV13(
+	width: number,
+	height: number,
+	background: readonly [number, number, number, number],
+	entries: readonly UnifiedExactLinearCompositionEntryV13[],
+	outputSpace: VideoColorOutputSpaceV1,
+	target: Uint8Array<ArrayBuffer>,
+): Uint8Array<ArrayBuffer> {
+	const entry = entries.length === 1 ? entries[0] : undefined;
+	if (entry?.blendMode === 'normal' && ArrayBuffer.isView(target)
+		&& Object.getPrototypeOf(target) === Uint8Array.prototype
+		&& hasOrdinaryFrameFields(entry.frame) && entry.frame.pixels.buffer !== target.buffer) {
+		const frameWidth = dimension(width, 'linear frame width');
+		const frameHeight = dimension(height, 'linear frame height');
+		const backdrop = tuple(background, 'linear frame background');
+		const source = premultipliedFrame(entry.frame, 'linear composite source');
+		assertSameGeometry({ width: frameWidth, height: frameHeight }, source, 'linear composite');
+		if (target.byteLength !== source.pixels.length) {
+			throw new RangeError('A linear encoded target must match its frame geometry.');
+		}
+		encodeNormalLinearPixelsOverBackground(target, source.pixels, backdrop, createManagedSdrLinearByteEncoderV1(outputSpace));
+		return target;
+	}
+	const output = createUnifiedExactLinearPremultipliedFrameV13(width, height, background);
+	for (const { frame, blendMode } of entries) compositeUnifiedExactLinearFrameV13(output, frame, blendMode);
+	return encodeUnifiedExactLinearFrameV13(output, outputSpace, target);
+}
+
 function place(
 	source: UnifiedExactRenderRgbaFrameV13 | UnifiedExactLinearSourceFrame,
 	target: UnifiedExactLinearPremultipliedFrameV13,
@@ -353,12 +388,28 @@ function placeAxisAligned(
 			const presentationOpacity = opacity * (mask === undefined ? 1 : mask[pixel]! / 255);
 			const topLeft = top + left, topRight = top + right;
 			const bottomLeft = bottom + left, bottomRight = bottom + right;
-			const alpha = sampleChannel(pixels, topLeft, topRight, bottomLeft, bottomRight, mixX, mixY, 3, scale)
-				/ scale * presentationOpacity;
+			const alphaTopLeft = pixels[topLeft + 3]!, alphaTopRight = pixels[topRight + 3]!;
+			const alphaBottomLeft = pixels[bottomLeft + 3]!, alphaBottomRight = pixels[bottomRight + 3]!;
 			const offset = pixel * 4;
+			if (alphaTopLeft === scale && alphaTopRight === scale && alphaBottomLeft === scale && alphaBottomRight === scale) {
+				for (let channel = 0; channel < 3; channel += 1) {
+					target.pixels[offset + channel] = bilinearChannel(
+						pixels[topLeft + channel]!, pixels[topRight + channel]!,
+						pixels[bottomLeft + channel]!, pixels[bottomRight + channel]!, mixX, mixY,
+					) / scale * presentationOpacity;
+				}
+				target.pixels[offset + 3] = presentationOpacity;
+				continue;
+			}
+			const alpha = bilinearChannel(alphaTopLeft, alphaTopRight, alphaBottomLeft, alphaBottomRight, mixX, mixY)
+				/ scale * presentationOpacity;
+			const weightTopLeft = alphaTopLeft / scale, weightTopRight = alphaTopRight / scale;
+			const weightBottomLeft = alphaBottomLeft / scale, weightBottomRight = alphaBottomRight / scale;
 			for (let channel = 0; channel < 3; channel += 1) {
-				target.pixels[offset + channel] = sampleChannel(
-					pixels, topLeft, topRight, bottomLeft, bottomRight, mixX, mixY, channel, scale, true,
+				target.pixels[offset + channel] = bilinearChannel(
+					pixels[topLeft + channel]! * weightTopLeft, pixels[topRight + channel]! * weightTopRight,
+					pixels[bottomLeft + channel]! * weightBottomLeft, pixels[bottomRight + channel]! * weightBottomRight,
+					mixX, mixY,
 				) / scale * presentationOpacity;
 			}
 			target.pixels[offset + 3] = alpha;
@@ -384,6 +435,10 @@ function sampleChannel(
 		a *= pixels[topLeft + 3]! / scale; b *= pixels[topRight + 3]! / scale;
 		c *= pixels[bottomLeft + 3]! / scale; d *= pixels[bottomRight + 3]! / scale;
 	}
+	return bilinearChannel(a, b, c, d, mixX, mixY);
+}
+
+function bilinearChannel(a: number, b: number, c: number, d: number, mixX: number, mixY: number): number {
 	const top = a + (b - a) * mixX;
 	const bottom = c + (d - c) * mixX;
 	return top + (bottom - top) * mixY;
@@ -407,10 +462,16 @@ function rgbaFrame(value: unknown, name: string): UnifiedExactRenderRgbaFrameV13
 	const frame = value as Partial<UnifiedExactRenderRgbaFrameV13 | UnifiedExactLinearSourceFrame>;
 	const width = dimension(frame.width, `${name} width`);
 	const height = dimension(frame.height, `${name} height`);
-	if (!(frame.pixels instanceof Uint8Array || frame.pixels instanceof Float32Array) || frame.pixels.length !== width * height * 4) {
+	const pixels = frame.pixels;
+	if (!(pixels instanceof Uint8Array || pixels instanceof Float32Array) || pixels.length !== width * height * 4) {
 		throw new RangeError(`${name} has invalid RGBA geometry.`);
 	}
-	if (frame.pixels instanceof Float32Array) for (const channel of frame.pixels) unit(channel, name);
+	if (pixels instanceof Float32Array) {
+		for (let index = 0; index < pixels.length; index += 1) {
+			const channel = pixels[index]!;
+			if (!(channel >= 0 && channel <= 1)) throw new RangeError(`${name} must be between zero and one.`);
+		}
+	}
 	return frame as UnifiedExactRenderRgbaFrameV13 | UnifiedExactLinearSourceFrame;
 }
 
@@ -429,7 +490,7 @@ function premultipliedFrame(
 }
 
 function assertSameGeometry(
-	left: UnifiedExactLinearPremultipliedFrameV13,
+	left: Pick<UnifiedExactLinearPremultipliedFrameV13, 'width' | 'height'>,
 	right: UnifiedExactLinearPremultipliedFrameV13,
 	name: string,
 ): void {

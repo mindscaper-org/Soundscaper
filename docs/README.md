@@ -34,11 +34,25 @@ qualification plans belong in Git history, not in the maintained documentation s
   bundled, operating-system, and external FFmpeg provider selection.
 - [Realtime effect workers](architecture/realtime-effect-workers.md) records
   the implemented parallel effect-stack execution contract.
+- [MIDI playback](architecture/midi-playback.md) covers demand synthesis,
+  seek-origin caches, instrument engines, and performance/audit commands.
 
 ## Develop and test
 
 - [Development testing](development/testing.md) covers focused checks, CI
   shards, browser setup, and worktree-specific test handoff from agents.
+- [Control-surface implementation plan](development/control-surfaces.md) defines
+  the MCU/HUI work packets, device and automation boundaries, and EUCON
+  feasibility gates for post-1.0 Soundscaper.
+- [CV/gate implementation guide](development/cv-gate.md) defines MIDI-to-CV
+  sequencing, dedicated voltage outputs, calibration, return recording, and
+  hardware qualification for post-1.0 Soundscaper.
+- [Ambisonics implementation guide](development/ambisonics.md) defines first-,
+  second-, and third-order formats, DSP, monitoring, persistence, delivery, and
+  acceptance gates for post-1.0 Soundscaper.
+- [Beat slicing and gap smoothing implementation guide](development/beat-slicing.md)
+  defines rigid slice timing, source-handle repair, coordinated microphone
+  edits, preview/history, and acceptance gates for post-1.0 Soundscaper.
 - [Editor and handbook localization](development/localization.md) explains
   translation ownership, regeneration, and language publication.
 - [Source graphs](development/source-graphs.md) generates focused dependency
@@ -65,6 +79,10 @@ qualification plans belong in Git history, not in the maintained documentation s
   credentials and first-candidate workflow.
 - [Desktop installers](operations/desktop-installers.md) describes the optional
   FFmpeg components, package-manager setup, and Debian recommendations.
+- [Windows enterprise deployment](operations/windows-enterprise-deployment.md)
+  covers MSI deployment, Group Policy restrictions and launch preference presets.
+- [Microsoft Store AppX packaging](operations/microsoft-store-appx.md) covers
+  optional Windows package builds, Store identity, and installed-package qualification.
 - [Build local-model runtimes](operations/local-models/build-runtimes.md),
   [publish local models](operations/local-models/publish.md), and
   [run real-model tests](operations/local-models/nightly-tests.md) cover the
@@ -88,8 +106,32 @@ qualification plans belong in Git history, not in the maintained documentation s
 
 ## Work on product features
 
+- [Speech declipping](features/speech-declipping.md) covers optional VoiceFixer
+  restoration, signal geometry and model admission.
+
+- [Nested subprojects](features/nested-subprojects.md) covers saved-project links,
+  automatic proxy refresh, dependency admission, and portable audio behavior.
+- [Timecode synchronization](features/timecode-synchronization.md) covers MTC/LTC
+  send and receive, transport chasing, routing, and device-session lifetime.
+
+- [Match EQ and voice profiles](features/match-eq.md) covers reference learning,
+  portable profiles, target analysis, audition, and editable corrections.
+- [EBU EAR speaker rendering](features/ebu-ear.md) covers authored ADM speaker
+  export, layouts, admission, worker isolation and source reproducibility.
+- [Automatic phase correction](features/automatic-phase-correction.md) covers
+  fixed stereo alignment, analysis admission, and preview/publication behavior.
+- [Automatic dialogue alignment](features/automatic-dialogue-alignment.md) covers
+  acoustic matching, pitch-preserving rendering, private review and aligned copies.
+- [Automatic microphone-bleed reduction](features/automatic-microphone-bleed-reduction.md)
+  covers joint dialogue analysis and editable, non-destructive clip gain envelopes.
 - [Legacy Cool Edit / Audition SES import](features/legacy-ses-import.md) covers
   binary layouts, media access, and compatibility limits.
+- [Native Pro Tools import](features/pro-tools-import.md) covers PTS/PTF/PTX
+  audio edits, bounded binary parsing, media access, and the reference audit.
+- [Hindenburg session import](features/hindenburg-import.md) covers NHSX audio
+  edits, media access, conversion reports and pinned format evidence.
+- [REAPER project import](features/reaper-import.md) covers RPP audio edits,
+  active takes, media access and explicit conversion limits.
 - [Desktop Blender integration](development/desktop-blender.md) covers track-list
   export, add-on installation, and live audio updates in Blender.
 - [Framescaper capture](features/framescaper-capture.md) covers permission,

@@ -20,7 +20,8 @@ test('Flatpak CI repackages the audited Linux packages for the selected products
 
 test('Flatpak CI installs the current Electron runtime and smokes the installed bundle', async () => {
 	const job = extractJob(await readWorkflow('desktop-preview.yml'), 'flatpak');
-	assert.match(job, /ci-apt-install\.sh flatpak flatpak-builder xvfb xauth dbus-daemon/u);
+	assert.match(job, /Install Flatpak packaging and smoke tools\s+timeout-minutes: 20\s+env:\s+CI_APT_TIMEOUT_SECONDS: '150'/u);
+	assert.match(job, /ci-apt-install\.sh --no-install-recommends\s+flatpak flatpak-builder xvfb xauth dbus-daemon desktop-file-utils libgl1-mesa-dri libglx-mesa0/u);
 	assert.match(job, /apparmor_restrict_unprivileged_userns=0/u);
 	assert.match(job, /flatpak remote-add --user --if-not-exists flathub/u);
 	assert.match(job, /flatpak install --user --noninteractive --arch="\$\{\{ matrix\.target\.flatpak_arch \}\}"/u);

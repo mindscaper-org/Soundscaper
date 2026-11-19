@@ -1,9 +1,40 @@
 # Desktop installers
 
 Soundscaper and Framescaper share the same installation options. Windows uses
-an NSIS setup program and macOS offers a PKG installer alongside the DMG.
+an NSIS setup program, an enterprise MSI, and macOS offers a PKG installer alongside the DMG.
 The download page prefers the PKG for Apple silicon Macs; explicit DMG links
 remain available.
+
+See [Windows enterprise deployment](windows-enterprise-deployment.md) for MSI
+installation, administrator-managed updates, and Group Policy templates.
+
+## Update checks
+
+General preferences includes **Check for updates**, enabled by default. Automatic
+checks run at most once every 24 hours; Help's manual check remains available
+when the preference is off. The update notification offers **Install now** and
+**Install on next launch**. Closing it or choosing **Skip** skips that update
+check without scheduling an installation.
+
+The checker also accepts named calendar release tags such as
+`Soundscaper.2026.Nov.11.a` and `Soundscaper-rc.2026.Nov.11.a` (and the equivalent
+Framescaper names). Comparison orders year, calendar month, numeric day, and
+build letters (`a` through `z`, then `aa`, `ab`, and so on). For an identical
+date and build, stable outranks `rc`, then `beta`, then `alpha`. A preview with a
+newer date or build is offered to a stable installation. Named calendar releases
+succeed the legacy semantic release line; legacy semantic versions retain their
+existing stable/preview filtering. Product identity and draft exclusion apply
+to both formats. Release creation and public package names use calendar versions; native numeric
+package fields are derived as described in the [release process](release.md).
+
+Accepting either installation option downloads the exact product, version and
+architecture's installer from its GitHub release and verifies its size and
+SHA-256 digest. **Install now** opens it immediately; **Install on next launch**
+stores it locally and verifies it again before opening it at the next startup.
+Windows uses the EXE, macOS the PKG, and Linux the Debian package, retaining
+system installation prompts. AppImage launches replace their current AppImage
+atomically and restart through the normal project-close flow. Microsoft Store
+builds continue to use Store updates.
 
 ## Portable settings
 
@@ -21,8 +52,10 @@ the temporary extraction directory. On macOS, the executable is inside
 `Soundscaper.app/Contents/MacOS/` or `Framescaper.app/Contents/MacOS/`.
 
 Portable startup does not import or move the installed profile's settings or
-projects. User-selected external model directories and other external paths
-remain explicit selections. An explicit `--user-data-dir` and diagnostic test
+projects. Portable profiles skip automatic and manual update checks and pending
+installations; their update preference is disabled. User-selected external model
+directories and other external paths remain explicit selections. An explicit
+`--user-data-dir` and diagnostic test
 launches take precedence over automatic portable-folder detection.
 System components can still maintain shared font and GPU-driver caches and
 certificate databases in their normal operating-system locations.
@@ -66,6 +99,23 @@ The Debian package declares `Recommends: ffmpeg` without adding it to `Depends`.
 APT normally installs recommended packages; users can omit them with
 `--no-install-recommends`. The AppImage does not install system dependencies.
 Linux startup discovers and probes existing system FFmpeg.
+
+Soundscaper Linux x64 packages also contain the pinned yabridge VST3 runtime,
+disabled until the user enables Windows plugins in Effects preferences. Wine
+remains an external installation. Startup detects compatible Wine executables;
+the same preference page offers Browse, Rescan and a return to automatic
+detection. Other desktop targets and Framescaper do not bundle this runtime.
+
+Desktop preparation builds yabridge from
+`config/yabridge-native-payload.json` and stages the authenticated result under
+`runtime/native/yabridge/linux-x64/`. Local packaging needs Meson, Ninja, Wine,
+`wine64-tools`, `libwine-dev`, `libxcb1-dev` and `libdbus-1-dev`; CI preparation
+uses the repository's APT installer when the tools are missing. The build uses
+two compilation jobs. Before-pack and installed-resource checks verify the exact
+file inventory. The bundle includes GPL notices, source identities and the
+complete corresponding-source archive, including the pinned Meson dependencies
+and the repository-owned Wine process launcher. Generated binaries stay under
+ignored `.native-build/` and `.desktop-build/` directories.
 
 ## Release validation
 

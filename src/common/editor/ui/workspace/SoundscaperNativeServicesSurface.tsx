@@ -1,3 +1,4 @@
+import { bindNativePluginPresetBridge } from '../../controller/effects/native-plugin-preset-runtime.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 /**
@@ -18,6 +19,9 @@
 
 import { soundscaperPluginScanRuntimeFor } from '../soundscaper-plugin-scan-runtime.ts';
 import { captureNativeProcessingReturnFocus } from './native-processing-return-focus.ts';
+import { juceEffectById } from '../../juce-effects/catalog.ts';
+import { readMidiTrack } from '../../midi-model.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { useParallelStackMenuRefresh } from './parallel-stack-menu-runtime.ts';
 import React, { useEffect, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -69,7 +73,7 @@ export const PENDING_SOUNDSCAPER_NATIVE_SERVICES_SNAPSHOT: SoundscaperNativeServ
 export interface SoundscaperNativeServicesWorkspaceRuntime {
 	readonly snapshot: SoundscaperNativeServicesSnapshot;
 	readonly vampAnalyzerAvailable: boolean;
-	open(surface: SoundscaperNativeServiceSurface): void;
+	open(surface: SoundscaperNativeServiceSurface, stablePluginId?: string): void;
 }
 
 export interface SoundscaperNativeServicesSurfaceHost {
@@ -78,7 +82,7 @@ export interface SoundscaperNativeServicesSurfaceHost {
 	setProcessingBlocked(blocked: boolean): void;
 	setCopy(copy: Readonly<Record<string, string | undefined>> | undefined, locale?: string): void;
 	setVampAnalyzerInput(input: Readonly<SoundscaperVampAnalyzerSurfaceInput> | null): void;
-	open(surface: SoundscaperNativeServiceSurface): void;
+	open(surface: SoundscaperNativeServiceSurface, stablePluginId?: string): void;
 	close(): void;
 	dispose(): Promise<void>;
 }
@@ -106,7 +110,11 @@ export interface SoundscaperNativeServicesSurfaceHostOptions {
 	readonly locale?: string;
 	readonly documentValue?: Document | null;
 	readonly createHostRoot?: (container: HTMLElement) => SoundscaperNativeServicesHostRoot;
-	readonly createRendererBridge?: typeof createSoundscaperNativeRendererBridge;
+	readonly createRendererBridge?: (input: Parameters<typeof createSoundscaperNativeRendererBridge>[0]) => Readonly<{
+		bridge: SoundscaperNativeServicesBridge;
+		restoreProjectNativePlugins: ReturnType<typeof createSoundscaperNativeRendererBridge>['restoreProjectNativePlugins'];
+		dispose: ReturnType<typeof createSoundscaperNativeRendererBridge>['dispose'];
+	}>;
 }
 
 export function createSoundscaperNativeServicesSurfaceHost(
@@ -131,16 +139,30 @@ export function createSoundscaperNativeServicesSurfaceHost(
 		})
 		: null;
 	const bridge = renderer?.bridge ?? options.bridge;
+	const releasePresetBridge = options.controller ? bindNativePluginPresetBridge(options.controller, bridge) : () => undefined;
 	audioHost = options.engine && isSoundscaperAudioHostController(options.controller)
 		? createSoundscaperAudioHostRuntime({ controller: options.controller, bridge, engine: options.engine }) : null;
 	void audioHost?.refresh();
 	const dialogRuntime = createSoundscaperNativeServicesDialogRuntime(bridge);
+	let instrumentDialogRuntime = createSoundscaperNativeServicesDialogRuntime(bridge);
+	let instrumentOwnerKey: string | null = null;
+	const currentInstrumentOwnerKey = (): string => {
+		const project = options.controller?.project as { id?: unknown; tracks?: readonly { id: string }[] } | undefined;
+		const trackId = options.controller?.getSnapshot().selectedTrackId;
+		return JSON.stringify([editorProjectEditSessionKey(options.controller, project?.id), trackId,
+			readMidiTrack(project?.tracks?.find(track => track.id === trackId))?.instrument ?? null]);
+	};
+	let effectDialogRuntime = dialogRuntime;
+	let activeDialogRuntime = dialogRuntime;
+	let requestedJuceEffectId: string | undefined;
+	let openGeneration = 0;
 	let restoredProject: unknown = Symbol('unrestored');
 	let restoredStateKey = '';
 	let restoration: Promise<readonly unknown[]> | null = null;
 	let restorationResult: Promise<readonly unknown[]> | null = null;
 	let disposal: Promise<void> | null = null;
 	const close = (): void => {
+		if (openSurface === 'native-instrument-manage') instrumentOwnerKey = currentInstrumentOwnerKey();
 		openSurface = null;
 		root?.render(null);
 		const restore = returnFocus;
@@ -150,9 +172,11 @@ export function createSoundscaperNativeServicesSurfaceHost(
 	const renderDialog = (surface: SoundscaperNativeServiceSurface): void => {
 		root?.render(<React.Suspense fallback={null}>
 			<SoundscaperNativeServicesDialog
-				bridge={bridge}
+				key={openGeneration}
+				bridge={bridge} controller={options.controller}
 				scanner={soundscaperPluginScanRuntimeFor(options.bridge)}
-				runtime={dialogRuntime}
+				runtime={activeDialogRuntime}
+				requestedJuceEffectId={requestedJuceEffectId}
 				initialSurface={surface}
 				processingBlocked={processingBlocked}
 				copy={copy} locale={locale}
@@ -162,7 +186,7 @@ export function createSoundscaperNativeServicesSurfaceHost(
 		</React.Suspense>);
 	};
 	return Object.freeze({
-		dialogRuntime,
+		get dialogRuntime() { return activeDialogRuntime; },
 		restoreProjectNativePlugins: () => {
 			if (!renderer) return Promise.resolve([]);
 			const project = options.controller?.project;
@@ -197,8 +221,25 @@ export function createSoundscaperNativeServicesSurfaceHost(
 			vampAnalyzerInput = next;
 			if (openSurface === 'native-analyzer-use') renderDialog(openSurface);
 		},
-		open: (surface: SoundscaperNativeServiceSurface) => {
+		open: (surface: SoundscaperNativeServiceSurface, stablePluginId?: string) => {
 			if (!documentValue) return;
+			requestedJuceEffectId = surface === 'native-effect-manage' ? juceEffectById(stablePluginId)?.stablePluginId : undefined;
+			// Each menu insertion gets fresh controls; authored instances stay owned by the renderer.
+			if (surface === 'native-instrument-manage') {
+				const nextOwner = currentInstrumentOwnerKey();
+				if (instrumentOwnerKey !== nextOwner) {
+					const previous = instrumentDialogRuntime, instanceId = previous.getState().pluginInstance?.instanceId;
+					instrumentDialogRuntime = createSoundscaperNativeServicesDialogRuntime(bridge);
+					instrumentOwnerKey = nextOwner;
+					if (instanceId) void previous.perform({ type: 'close-plugin', instanceId }).catch(reportRuntimeReleaseFailure);
+				}
+				activeDialogRuntime = instrumentDialogRuntime;
+			}
+			else {
+				if (requestedJuceEffectId) effectDialogRuntime = createSoundscaperNativeServicesDialogRuntime(bridge);
+				activeDialogRuntime = effectDialogRuntime;
+			}
+			++openGeneration;
 			openSurface = surface;
 			returnFocus = captureNativeProcessingReturnFocus(documentValue);
 			if (!container) {
@@ -225,6 +266,7 @@ export function createSoundscaperNativeServicesSurfaceHost(
 				restorationResult = null;
 				await audioHost?.dispose();
 				await renderer?.dispose();
+				releasePresetBridge();
 			})();
 			disposal = operation;
 			void operation.catch(() => {
@@ -256,6 +298,16 @@ interface OwnedHost {
 }
 
 const HOSTS = new WeakMap<object, OwnedHost>();
+
+/** Scan completion shares the same manager and native instances as the Effect menu. */
+export function openSoundscaperPluginManager(owner: object): void {
+	HOSTS.get(owner)?.host.open('native-effect-manage');
+}
+
+export function openSoundscaperMidiInstrumentSettings(owner: object): void {
+	HOSTS.get(owner)?.host.open('native-instrument-manage');
+}
+
 const EMPTY_SUBSCRIBE = (): (() => void) => () => {};
 const EMPTY_SNAPSHOT = (): null => null;
 
@@ -340,8 +392,8 @@ export function resolveSoundscaperNativeServicesWorkspaceRuntime(input: Readonly
 	return Object.freeze({
 		snapshot: store.getSnapshot() ?? PENDING_SOUNDSCAPER_NATIVE_SERVICES_SNAPSHOT,
 		vampAnalyzerAvailable: vampAnalyzerInput !== null,
-		open: (surface: SoundscaperNativeServiceSurface) => {
-			host.open(surface);
+		open: (surface: SoundscaperNativeServiceSurface, stablePluginId?: string) => {
+			host.open(surface, stablePluginId);
 		},
 	});
 }

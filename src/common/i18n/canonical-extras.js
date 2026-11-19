@@ -2,11 +2,14 @@ import { AUDACITY_EFFECT_COPY_ENTRIES } from './canonical-extras-audacity-effect
 import { AUDACITY_EFFECT_PRESET_COPY_ENTRIES } from './canonical-extras-audacity-presets.js';
 import { STANDARD_EFFECT_COPY_ENTRIES } from './canonical-extras-standard-effects.js';
 import { PROJECT_RECOVERY_COPY_BY_LOCALE } from './editor-project-recovery-copy.ts';
+import { SPATIAL_RENDER_COPY } from './editor-spatial-render-copy.ts';
 import { RECORDING_RECOVERY_COPY } from './editor-recording-recovery-copy.ts';
+import { MATCH_EQ_COPY } from './editor-match-eq-copy.ts';
 // Canonical effect/layout and Audacity parity copy. The exported catalogs are flat.
 const COPY_ENTRIES = Object.freeze([
 	...Object.entries(PROJECT_RECOVERY_COPY_BY_LOCALE.en),
-	...Object.entries(RECORDING_RECOVERY_COPY),
+	...Object.entries(RECORDING_RECOVERY_COPY), ...Object.entries(SPATIAL_RENDER_COPY),
+	...Object.entries(MATCH_EQ_COPY),
 	['effectAdvancedSettings', 'Advanced settings'],
 	['effectAbout', 'About'],
 	['effectAboutTitle', 'About {name}'],
@@ -274,8 +277,6 @@ const COPY_ENTRIES = Object.freeze([
 	["bw64AdmRequired","BW64 export requires ADM. Open Metadata, select ADM, and enable it."],
 	["admDisabledHint","Enable ADM to author a DirectSpeakers bed, from mono through 7.1.4."],
 	["admEnable","Enable ADM"],
-	["binauralRender","Render for headphones"],
-	["binauralRenderHint","The bed and objects are placed by a parametric head model. It carries no measured head-related transfer function, so height is conveyed by timing and shadow rather than by tone."],
 	["videoCanvasSize","Delivery size"],
 	["videoCanvasWidth","Width"],
 	["videoCanvasHeight","Height"],

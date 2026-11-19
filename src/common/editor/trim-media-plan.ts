@@ -317,13 +317,16 @@ export function trimMediaRangesCover(
 export function alignTrimMediaRunsToKeyframes(
 	plan: TrimMediaSourcePlan,
 	keyframes: readonly number[],
+	keepCompleteGroups = false,
 ): readonly TrimMediaRange[] {
 	if (!Array.isArray(keyframes) || keyframes.length === 0) {
 		throw new TypeError('Aligning trim runs requires the source keyframe index.');
 	}
 	return mergeRanges(plan.retained.map((range) => Object.freeze({
 		startFrame: keyframeAtOrBefore(keyframes, range.startFrame),
-		endFrame: range.endFrame,
+		endFrame: keepCompleteGroups
+			? keyframes.find((keyframe) => keyframe >= range.endFrame) ?? plan.frameCount
+			: range.endFrame,
 	})));
 }
 

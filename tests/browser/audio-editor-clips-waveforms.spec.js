@@ -92,7 +92,7 @@ test.describe('audio editor React/design-system workflows', () => {
 
 	test('announces each clip placement in its accessible name', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		await expect(clip).toHaveAttribute(
@@ -104,7 +104,7 @@ test.describe('audio editor React/design-system workflows', () => {
 
 	test('renames an audio clip from its header, F2, and Clip Properties', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const initialClip = clipByName(editor, toneA.name);
 		const clipId = await initialClip.getAttribute('data-clip-id');
@@ -145,7 +145,7 @@ test.describe('audio editor React/design-system workflows', () => {
 
 	test('creates a new track when a clip is dragged into empty space below the tracks', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await expect(editor).toHaveAttribute('data-track-count', '2');
 		const clip = clipByName(editor, toneA.name);
@@ -176,7 +176,7 @@ test.describe('audio editor React/design-system workflows', () => {
 
 	test('deselects a clip when clicking its body instead of its header', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		await clip.locator('.clip-header').click();
@@ -188,7 +188,7 @@ test.describe('audio editor React/design-system workflows', () => {
 
 	test('shows the pitch badge a clip earns from the Alt+Up and Alt+Down shortcuts', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		const timeline = editor.getByRole('region', { name: 'Timeline', exact: true }).first();
@@ -211,7 +211,7 @@ test.describe('audio editor React/design-system workflows', () => {
 
 	test('enables delete menus and shortcuts for a clip-only selection', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		let clip = clipByName(editor, toneA.name);
 		await clip.locator('.clip-header').click();
@@ -243,7 +243,7 @@ test.describe('audio editor React/design-system workflows', () => {
 
 	test('persists independent waveform peak pyramids for stereo channels', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [asymmetricStereoTone]);
 		const peaks = await sourcePeakChannels(page, asymmetricStereoTone.name);
 		expect(peaks.version).toBe(WAVEFORM_PEAKS_VERSION);
@@ -260,7 +260,7 @@ test.describe('audio editor React/design-system workflows', () => {
 
 	test('renders solid Audacity summary columns and connected samples across zoom levels', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		await editor.getByRole('button', { name: 'Zoom out', exact: true }).click();
 		const waveform = clipByName(editor, longTone.name).locator('canvas.clip-body__waveform');
@@ -430,7 +430,7 @@ test.describe('audio editor React/design-system workflows', () => {
 	});
 
 	test('a sustained tone keeps spectrogram color across the clip', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [monoTone]);
 		const clip = clipByName(editor, monoTone.name);
 		const track = clip.locator('xpath=ancestor::div[@data-track-row]');
@@ -453,7 +453,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		for (let frame = 0; frame < 38_400; frame += 1) {
 			if (frame < 15_360 || frame >= 23_040) burst.buffer.writeInt16LE(0, 44 + frame * 2);
 		}
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [burst]);
 		const clip = clipByName(editor, burst.name);
 		const track = clip.locator('xpath=ancestor::div[@data-track-row]');
@@ -483,7 +483,7 @@ test.describe('audio editor React/design-system workflows', () => {
 
 	test('a sustained tone stays colored at sample-depth spectrogram zoom', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [monoTone]);
 		const clip = clipByName(editor, monoTone.name);
 		const track = clip.locator('xpath=ancestor::div[@data-track-row]');
@@ -521,7 +521,7 @@ test.describe('audio editor React/design-system workflows', () => {
 
 	test('renders 3-band and rainbow frequency waveforms from Track visualization', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		const track = clip.locator('xpath=ancestor::div[@data-track-row]');
@@ -541,7 +541,7 @@ test.describe('audio editor React/design-system workflows', () => {
 
 	test('keeps the Audacity waveform canvas intact across viewport overscan', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		const timeline = editor.locator('[data-timeline]');
 		const zoomIn = editor.getByRole('button', { name: 'Zoom in', exact: true });

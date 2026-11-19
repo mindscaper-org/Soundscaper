@@ -30,13 +30,17 @@ function hannWindow(size: number): HannWindow {
 	if (existing) return existing;
 	let sum = 0;
 	const samples = Float64Array.from({ length: size }, (_, index) => {
-		const weight = 0.5 - 0.5 * Math.cos(2 * Math.PI * index / (size - 1));
+		const weight = hannWeight(index, size);
 		sum += weight;
 		return weight;
 	});
 	const window = Object.freeze({ samples, sum });
 	hannWindows.set(size, window);
 	return window;
+}
+
+function hannWeight(index: number, size: number): number {
+	return size < 3 ? 1 : 0.5 - 0.5 * Math.cos(2 * Math.PI * index / (size - 1));
 }
 
 export function amplitudeToDb(amplitude: number): number {
@@ -58,7 +62,11 @@ export function calculateAudioSpectrum(
 	const workspace = acquireWorkspace(requestedSize);
 	const { real, imaginary, powers } = workspace;
 	try {
-	const { samples: window, sum: windowSum } = hannWindow(requestedSize);
+	// Pad the FFT after tapering the observed audio. A full-sized taper would
+	// sample only its quiet leading edge when the selection is much shorter.
+	const observedFrames = Math.max(0, Math.min(requestedSize, Math.floor(frameCount - offset)));
+	const window = observedFrames === requestedSize ? hannWindow(requestedSize) : null;
+	const windowSum = window?.sum ?? (observedFrames < 3 ? Math.max(1, observedFrames) : (observedFrames - 1) / 2);
 	const hop = requestedSize / 2;
 	const completeWindows = Math.max(1, Math.floor((frameCount - offset - requestedSize) / hop) + 1);
 	const finalStart = Math.max(offset, frameCount - requestedSize);
@@ -68,10 +76,10 @@ export function calculateAudioSpectrum(
 		const start = includeEnding && block === completeWindows ? finalStart : offset + block * hop;
 		for (const channel of channels) {
 			const nativeLength = ArrayBuffer.isView(channel) && nativeSampleLength.call(channel) === frameCount;
-			const sourceFrames = Number.isInteger(start) && nativeLength ? Math.min(requestedSize, frameCount - start) : requestedSize;
+			const sourceFrames = Number.isInteger(start) && nativeLength ? Math.min(observedFrames, frameCount - start) : observedFrames;
 			for (let index = 0; index < sourceFrames; index += 1) {
 				const value = channel[start + index] ?? 0;
-				real[index] = (Number.isFinite(value) ? value : 0) * window[index]!;
+				real[index] = (Number.isFinite(value) ? value : 0) * (window?.samples[index] ?? hannWeight(index, observedFrames));
 			}
 			real.fill(0, sourceFrames);
 			imaginary.fill(0);

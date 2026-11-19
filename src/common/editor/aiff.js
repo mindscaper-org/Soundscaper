@@ -1,3 +1,4 @@
+import { resolveAifcPcmCompression } from './aiff-comm-layout.ts';
 import { createPcmStreamSettlement } from './pcm-stream-settlement.ts';
 import { normalizePcmEncoderDither, pcmDitherNoise } from './pcm-dither.js';
 import { createAiffId3Chunk } from './id3-metadata.js';
@@ -9,10 +10,10 @@ const UINT32_MAX = 0xffffffff;
 export const AIFF_MAXIMUM_FILE_BYTES = UINT32_MAX + 8;
 
 /**
- * Encodes aligned planar PCM as AIFF (integer) or AIFF-C (32-bit float).
+ * Encodes aligned planar PCM as AIFF or AIFF-C.
  *
  * @param {ArrayLike<Float32Array> | AudioBuffer} input
- * @param {{sampleRate?: number, bitDepth?: 16|24|32, float?: boolean, sampleFormat?: string, dither?: boolean|string, metadata?: Record<string, *>, markers?: readonly import('./riff-markers.js').RiffMarkerInput[], random?: () => number}} [options]
+ * @param {{sampleRate?: number, bitDepth?: 16|24|32, float?: boolean, sampleFormat?: string, aifcCompression?: string, dither?: boolean|string, metadata?: Record<string, *>, markers?: readonly import('./riff-markers.js').RiffMarkerInput[], random?: () => number}} [options]
  */
 export function encodeAiff(input, options = {}) {
 	const channels = getChannels(input);
@@ -36,7 +37,7 @@ export function createAiffStreamEncoder(options = {}) {
 	const metadataChunk = createAiffId3Chunk(options.metadata);
 	const layout = prepareAiffLayout(options, markerChunk.byteLength + metadataChunk.byteLength);
 	const {
-		sampleRate, channelCount, totalFrames, sampleFormat: format, floatingPoint,
+		sampleRate, channelCount, totalFrames, sampleFormat: format, floatingPoint, littleEndian,
 		bitDepth, bytesPerSample, dataPadByteLength: padBytes,
 		byteLength: totalByteLength,
 	} = layout;
@@ -79,7 +80,7 @@ export function createAiffStreamEncoder(options = {}) {
 		let byteOffset = 0;
 		for (let frame = 0; frame < frameLength; frame += 1) {
 			for (let channel = 0; channel < channelCount; channel += 1) {
-				byteOffset = writeSample(view, byteOffset, sourceChannels[channel][frame], bitDepth, quantizerScale, floatingPoint, dither, random, channel, ditherState);
+				byteOffset = writeSample(view, byteOffset, sourceChannels[channel][frame], bitDepth, quantizerScale, floatingPoint, littleEndian, dither, random, channel, ditherState);
 			}
 		}
 		const frameOffset = writtenFrames;
@@ -135,7 +136,7 @@ export function createAiffStreamEncoder(options = {}) {
  * Inspect the exact AIFF/AIFF-C file layout without allocating PCM or file-sized buffers.
  * An explicit `trailingByteLength` takes precedence over encoded `metadata` and `markers` sizes.
  *
- * @param {{ sampleRate?: number, channelCount?: number, totalFrames?: number, bitDepth?: 16|24|32, float?: boolean, sampleFormat?: string, trailingByteLength?: number, metadata?: Record<string, *>, markers?: readonly import('./riff-markers.js').RiffMarkerInput[] }} [options]
+ * @param {{ sampleRate?: number, channelCount?: number, totalFrames?: number, bitDepth?: 16|24|32, float?: boolean, sampleFormat?: string, aifcCompression?: string, trailingByteLength?: number, metadata?: Record<string, *>, markers?: readonly import('./riff-markers.js').RiffMarkerInput[] }} [options]
  * @returns {{ container: 'aiff'|'aifc', byteLength: number, headerByteLength: number, formSize: number, dataByteLength: number, dataPadByteLength: number, trailingByteLength: number }}
  */
 export function inspectAiffLayout(options = {}) {
@@ -153,7 +154,7 @@ export function inspectAiffLayout(options = {}) {
 
 function createAiffHeaderFromLayout(layout) {
 	const {
-		sampleRate, channelCount, totalFrames, bitDepth, floatingPoint,
+		sampleRate, channelCount, totalFrames, bitDepth, compression,
 		compressionName, commSize, headerByteLength, formSize, dataByteLength,
 	} = layout;
 	const header = new Uint8Array(headerByteLength);
@@ -162,8 +163,8 @@ function createAiffHeaderFromLayout(layout) {
 
 	writeAscii(view, offset, 'FORM'); offset += 4;
 	view.setUint32(offset, formSize, false); offset += 4;
-	writeAscii(view, offset, floatingPoint ? 'AIFC' : 'AIFF'); offset += 4;
-	if (floatingPoint) {
+	writeAscii(view, offset, compression ? 'AIFC' : 'AIFF'); offset += 4;
+	if (compression) {
 		writeAscii(view, offset, 'FVER'); offset += 4;
 		view.setUint32(offset, 4, false); offset += 4;
 		view.setUint32(offset, AIFF_VERSION_1, false); offset += 4;
@@ -174,8 +175,8 @@ function createAiffHeaderFromLayout(layout) {
 	view.setUint32(offset, totalFrames, false); offset += 4;
 	view.setUint16(offset, bitDepth, false); offset += 2;
 	header.set(encodeIeeeExtended80(sampleRate), offset); offset += 10;
-	if (floatingPoint) {
-		writeAscii(view, offset, 'fl32'); offset += 4;
+	if (compression) {
+		writeAscii(view, offset, compression.aifcCompression); offset += 4;
 		header.set(compressionName, offset); offset += compressionName.byteLength;
 	}
 	writeAscii(view, offset, 'SSND'); offset += 4;
@@ -192,6 +193,11 @@ function prepareAiffLayout(options = {}, forcedTrailingByteLength) {
 	const sampleFormat = normalizeAiffSampleFormat(options);
 	const floatingPoint = sampleFormat === 'float32';
 	const bitDepth = Number(sampleFormat.replace(/\D/g, ''));
+	const compressionCode = options.aifcCompression ?? (floatingPoint ? 'fl32' : undefined);
+	const compression = resolveAifcPcmCompression(compressionCode, bitDepth);
+	if (compressionCode !== undefined && compression?.sampleFormat !== sampleFormat) {
+		throw new RangeError('AIFF-C compression does not match the output sample format.');
+	}
 	const bytesPerSample = bitDepth / 8;
 	const dataByteLength = totalFrames * channelCount * bytesPerSample;
 	if (!Number.isSafeInteger(dataByteLength)) {
@@ -202,14 +208,14 @@ function prepareAiffLayout(options = {}, forcedTrailingByteLength) {
 	const trailingByteLength = requestedTrailingByteLength == null
 		? createAiffMarkChunk(options.markers).byteLength + createAiffId3Chunk(options.metadata).byteLength
 		: integerInRange(requestedTrailingByteLength, 0, UINT32_MAX, 0, 'AIFF trailing chunk size');
-	const compressionName = floatingPoint ? pascalString('32-bit floating point') : null;
-	const commSize = floatingPoint ? 18 + 4 + compressionName.byteLength : 18;
-	const headerByteLength = 12 + (floatingPoint ? 12 : 0) + 8 + commSize + 16;
+	const compressionName = compression ? pascalString(floatingPoint ? '32-bit floating point' : '') : null;
+	const commSize = compressionName ? 18 + 4 + compressionName.byteLength : 18;
+	const headerByteLength = 12 + (compression ? 12 : 0) + 8 + commSize + 16;
 	const byteLength = headerByteLength + dataByteLength + dataPadByteLength + trailingByteLength;
 	const formSize = byteLength - 8;
 	if (formSize > UINT32_MAX) throw new RangeError('AIFF output cannot exceed its 32-bit FORM size.');
 	return Object.freeze({
-		container: floatingPoint ? 'aifc' : 'aiff',
+		container: compression ? 'aifc' : 'aiff',
 		byteLength,
 		headerByteLength,
 		formSize,
@@ -221,8 +227,10 @@ function prepareAiffLayout(options = {}, forcedTrailingByteLength) {
 		totalFrames,
 		sampleFormat,
 		floatingPoint,
+		littleEndian: compression?.littleEndian ?? false,
 		bitDepth,
 		bytesPerSample,
+		compression,
 		compressionName,
 		commSize,
 	});
@@ -248,7 +256,7 @@ export function encodeIeeeExtended80(value) {
 	return output;
 }
 
-function writeSample(view, offset, value, bitDepth, scale, floatingPoint, dither, random, channel, ditherState) {
+function writeSample(view, offset, value, bitDepth, scale, floatingPoint, littleEndian, dither, random, channel, ditherState) {
 	if (floatingPoint) {
 		view.setFloat32(offset, Number.isFinite(value) ? value : 0, false);
 		return offset + 4;
@@ -257,16 +265,16 @@ function writeSample(view, offset, value, bitDepth, scale, floatingPoint, dither
 	const noise = pcmDitherNoise(dither, random, channel, ditherState);
 	const quantized = Math.max(-scale, Math.min(scale - 1, Math.round(sample * scale + noise)));
 	if (bitDepth === 16) {
-		view.setInt16(offset, quantized, false);
+		view.setInt16(offset, quantized, littleEndian);
 		return offset + 2;
 	}
 	if (bitDepth === 24) {
-		view.setUint8(offset, (quantized >> 16) & 0xff);
+		view.setUint8(offset + (littleEndian ? 2 : 0), (quantized >> 16) & 0xff);
 		view.setUint8(offset + 1, (quantized >> 8) & 0xff);
-		view.setUint8(offset + 2, quantized & 0xff);
+		view.setUint8(offset + (littleEndian ? 0 : 2), quantized & 0xff);
 		return offset + 3;
 	}
-	view.setInt32(offset, quantized, false);
+	view.setInt32(offset, quantized, littleEndian);
 	return offset + 4;
 }
 

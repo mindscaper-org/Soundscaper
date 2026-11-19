@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, clipByName, closeClipProperties, dockW
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('the existing Source header follows the Clip properties mutation admission', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = clipByName(editor, toneA.name);
 	const track = clip.locator('xpath=ancestor::div[@data-track-row]');

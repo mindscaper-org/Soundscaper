@@ -8,6 +8,7 @@ import type {
 	FramescaperCaptureUiSnapshot,
 	FramescaperCaptureUiSource,
 } from '../framescaper-capture-ui-model.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 const SELECTABLE_SOURCE_ROLES = Object.freeze([
 	'camera', 'microphone', 'display',
@@ -48,11 +49,11 @@ export function FramescaperCaptureSources({
 					<input type="checkbox" checked={selectedRoles.includes(role)}
 						disabled={sourceLocked || !availability.sourceRoles.includes(role)}
 						onChange={(event) => onToggleRole(role, event.currentTarget.checked)} />
-					<span>{sourceRoleLabel(copy, role)}</span>
+					<EditorControlLabel>{sourceRoleLabel(copy, role)}</EditorControlLabel>
 				</label>)}
 				{capture.sources.some(({ role }) => role === 'system-audio') && <label>
 					<input type="checkbox" checked disabled />
-					<span>{copy.captureSystemAudio}</span>
+					<EditorControlLabel>{copy.captureSystemAudio}</EditorControlLabel>
 				</label>}
 			</div>
 			{sourceLocked && <p className="kw-framescaper-capture__hint">{copy.captureSourceLocked}</p>}
@@ -89,7 +90,7 @@ function DisplaySourceSelection({ capture, copy, disabled, canList, onList, onSe
 	const sources = capture.displaySources ?? [];
 	return <div className="kw-framescaper-capture__display-source">
 		<label className="kw-framescaper-capture__select">
-			<span>{copy.captureDisplaySource}</span>
+			<EditorControlLabel>{copy.captureDisplaySource}</EditorControlLabel>
 			<select aria-label={copy.captureDisplaySource} value={capture.selectedDisplaySourceToken ?? ''}
 				disabled={disabled || !sources.length}
 				onChange={(event) => onSelect(event.currentTarget.value)}>
@@ -189,7 +190,7 @@ function DeviceSelection({ source, capture, copy, disabled, onSelect }: Readonly
 	const selected = capture.selectedDeviceIds?.[source.role] ?? source.settings?.deviceId ?? '';
 	const hasSelected = devices.some(({ id }) => id === selected);
 	return <label className="kw-framescaper-capture__select kw-framescaper-capture__device">
-		<span>{label}</span>
+		<EditorControlLabel>{label}</EditorControlLabel>
 		<select aria-label={label} value={selected} disabled={disabled}
 			onChange={(event) => onSelect(source.role as 'camera' | 'microphone', event.currentTarget.value)}>
 			{!hasSelected && <option value="" disabled>
@@ -246,7 +247,7 @@ function SettingSelect({ label, value, disabled, options, onChange }: Readonly<{
 	onChange(value: string): void;
 }>) {
 	return <label className="kw-framescaper-capture__select">
-		<span>{label}</span>
+		<EditorControlLabel>{label}</EditorControlLabel>
 		<select aria-label={label} value={value} disabled={disabled}
 			onChange={(event) => onChange(event.currentTarget.value)}>
 			{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}

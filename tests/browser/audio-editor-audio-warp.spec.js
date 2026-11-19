@@ -207,7 +207,7 @@ test.describe('audio warp and transient workflow', () => {
 		await stubStorageEstimate(page, { usage: 1024 ** 2, quota: 2 * 1024 ** 3 });
 		const editor = await bootEditor(page, '/framescaper/embed/en/');
 		await openAudioWarpArchive(editor, true);
-		await expect(editor).toHaveAttribute('data-project-id', PROJECT_ID, { timeout: 20_000 });
+		await expect(editor).toHaveAttribute('data-project-id', /^opaque-project-/u, { timeout: 20_000 });
 		await expect(editor).toHaveAttribute('data-edit-block-reason', 'read-only');
 		await expect(page.locator('[data-editor-toast="workspace-status-error"]'))
 			.toContainText('This project is read-only.');

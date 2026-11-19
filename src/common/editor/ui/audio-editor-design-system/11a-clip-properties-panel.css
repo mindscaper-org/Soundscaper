@@ -13,6 +13,24 @@
 	gap: 12px;
 }
 
+.audio-editor-clip-effect-rack > summary {
+	padding: 8px;
+	color: var(--text);
+	cursor: pointer;
+}
+
+.audio-editor-clip-effect-rack > fieldset {
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.audio-editor-clip-effect-rack .effects-panel {
+	width: 100%;
+	min-width: 0;
+}
+
 .audio-editor-clip-properties-panel [data-clip-properties-active-clip] {
 	display: flex;
 	flex: 1;

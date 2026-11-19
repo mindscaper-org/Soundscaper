@@ -58,6 +58,7 @@ function harness(editing: Readonly<Record<string, unknown>>, options: Readonly<{
 	const preparedPasteCommits: unknown[] = [];
 	const pastedModes: string[] = [];
 	const pasteAsNewClipValues: boolean[] = [];
+	let clipSearches = 0;
 	const state = {
 		history: {},
 		videoEffectGestures: new Map(),
@@ -76,7 +77,10 @@ function harness(editing: Readonly<Record<string, unknown>>, options: Readonly<{
 			return { schemaVersion: 2 };
 		},
 		editingBlocked: () => false,
-		findClip: (value: typeof project, id: string) => value.clips.find((clip) => clip.id === id) ?? null,
+		findClip: (value: typeof project, id: string) => {
+			clipSearches += 1;
+			return value.clips.find((clip) => clip.id === id) ?? null;
+		},
 		findClipTrack: (value: typeof project, id: string) => value.tracks.find((track) => track.clipIds?.includes(id)) ?? null,
 		findTrack: (value: typeof project, id: string | null) => value.tracks.find((track) => track.id === id) ?? null,
 		garbageCollectSources: () => Promise.resolve(),
@@ -108,15 +112,28 @@ function harness(editing: Readonly<Record<string, unknown>>, options: Readonly<{
 		state,
 	});
 	return {
+		get clipSearches() { return clipSearches; },
 		clipboardDescriptors,
 		commits,
 		handleEdit,
 		pastedModes,
 		pasteAsNewClipValues,
 		preparedPasteCommits,
+		project,
 		state,
 	};
 }
+
+test('trim outside selected clips reuses the project clip index for a track’s full extent', () => {
+	const fixture = harness({}, { selectedClip: true });
+	fixture.project.tracks[0]!.clipIds!.push('clip-tail');
+	fixture.project.clips.push({ id: 'clip-tail', timelineStartFrame: 300, durationFrames: 20, sourceId: 'source-a' });
+	fixture.handleEdit('trim-outside-selection');
+	assert.deepEqual(fixture.commits[0], { type: 'range/delete', options: {
+		trackIds: ['audio-a'], rippleMode: 'none', ranges: [{ startFrame: 0, endFrame: 100 }, { startFrame: 200, endFrame: 320 }],
+	} });
+	assert.equal(fixture.clipSearches, 0);
+});
 
 function committedDelete(value: unknown): DeleteCommand {
 	return value as DeleteCommand;

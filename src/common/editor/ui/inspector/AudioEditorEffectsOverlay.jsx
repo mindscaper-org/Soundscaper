@@ -1,3 +1,6 @@
+import NativePluginEffectHeader from './NativePluginEffectHeader.tsx';
+import { setNativeRackEffectEnabled } from '../../controller/effects/native-plugin-preset-runtime.ts';
+import ClipRackDialogPortal from './ClipRackDialogPortal.tsx';
 import { useCallback, useEffect, useRef, useState } from 'react'; import { publishedCopyFor } from '../../controller/shared/presentation-localization.ts'; import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { EffectsPanel } from '@soundscaper/design-system/EffectsPanel';
@@ -5,13 +8,13 @@ import { audioSelectionEffectDefaults } from '../../effects.js';
 import { unavailableRackEffectTypes } from '../../rack-effect-channel-width.ts';
 import { audioEffectControlTracks } from '../../audio-effect-control-tracks.ts';
 import { serializeAudacityEffectMacro } from '../../effect-macros.js';
-import { AUDIO_EDITOR_SAMPLE_RATE, findTrack } from '../../project.js';
-import RackEffectDialog from './RackEffectDialog.tsx';
+import { AUDIO_EDITOR_SAMPLE_RATE, findClip, findClipTrack, findTrack } from '../../project.js';
+import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { audacityEffectDialogWidth, isAudacityNyquistPort } from '../audacity-port-layouts.ts';
 import { useAudacityEffectOptions } from './audacity-effect-options.ts';
 import { selectAudioEditorEditBlock } from '../edit-blocking.ts';
-import EffectPresetBar from './EffectPresetBar.jsx';
-import { EffectParameterEditor as LazyEffectParameterEditor } from './LazyEffectParameterEditor.jsx';
+import PluginEffectPresetHeader from './PluginEffectPresetHeader.tsx';
+import LazyEffectParameterEditor from './LazyEffectParameterEditor.jsx';
 import EffectPicker from './EffectPicker.jsx';
 import { createAudacityRealtimeEffectShortcutHandler } from './audacity-realtime-effect-shortcut.ts';
 import { nativeRackEffectCommit, supportsLiveRackEffectGesture } from './live-rack-effect-gesture.ts';
@@ -20,9 +23,7 @@ import EffectStackMenu from './EffectStackMenu.tsx';
 import {
 	effectHasEditableSettings,
 	defaultRackEffectReplacement,
-	effectPresetChoices,
 	resolveSupportedEffectType,
-	samePresetParams,
 	safeEffectLabel,
 } from './effect-helpers.ts';
 import { downloadTextFile, macroFileName } from './inspector-helpers.ts';
@@ -58,11 +59,13 @@ export function AudioEditorEffectsOverlay({
 		: scope === 'send'
 			? project?.mixer?.sends?.find((bus) => bus.id === trackId) || null
 			: null;
-	const channel = selectedTrack || selectedBus;
+	const selectedClip = scope === 'clip' && project ? findClip(project, trackId) : null;
+	const channel = selectedTrack || selectedBus || (selectedClip ? { ...selectedClip, name: selectedClip.title || copy.clip } : null);
 	const channelEffects = channel?.effects || EMPTY_EFFECTS;
 	const targetId = scope === 'master' ? null : channel?.id || null;
-	const masterEffects = project?.master?.effects || EMPTY_EFFECTS;
-	const blocked = !snapshot.ready || !project || selectAudioEditorEditBlock(snapshot).blocked;
+	const masterEffects = scope === 'clip' ? EMPTY_EFFECTS : project?.master?.effects || EMPTY_EFFECTS;
+	const blocked = !snapshot.ready || !project || selectAudioEditorEditBlock(snapshot).blocked
+		|| (scope === 'clip' && (!selectedClip || findClipTrack(project, selectedClip.id)?.locked === true));
 	const [picker, setPicker] = useState(null);
 	const [internalSelectedEffect, setInternalSelectedEffect] = useState(null);
 	const selectedEffect = controlledSelectedEffect === undefined
@@ -72,7 +75,6 @@ export function AudioEditorEffectsOverlay({
 		if (onSelectedEffectChange) onSelectedEffectChange(value);
 		else setInternalSelectedEffect(value);
 	}, [onSelectedEffectChange]);
-	const [rackPresetId, setRackPresetId] = useState('');
 	const [message, setMessage] = usePresentationFeedback(copy);
 	const [stackMenu, setStackMenu] = useState(null);
 	const rackRef = useRef(null);
@@ -99,7 +101,6 @@ export function AudioEditorEffectsOverlay({
 		activeOperationRef.current = null;
 		setPicker(null);
 		setSelectedEffect(null);
-		setRackPresetId('');
 		setMessage('');
 		setStackMenu(null);
 		stackMenuTriggerRef.current = null;
@@ -109,9 +110,6 @@ export function AudioEditorEffectsOverlay({
 		const rack = selectedEffect.scope === 'master' ? masterEffects : channelEffects;
 		if (!rack.some((effect) => effect.id === selectedEffect.id)) setSelectedEffect(null);
 	}, [channelEffects, masterEffects, selectedEffect, setSelectedEffect]);
-	useEffect(() => {
-		setRackPresetId('');
-	}, [selectedEffect?.id]);
 
 	useEffect(() => {
 		if (!isOpen) {
@@ -163,7 +161,7 @@ export function AudioEditorEffectsOverlay({
 		}
 		const changes = defaultRackEffectReplacement(type);
 		if (type === 'audacity-auto-duck') {
-			const controlTrack = audioEffectControlTracks(project?.tracks || [], scope === 'track' ? targetId : null)[0];
+			const controlTrack = audioEffectControlTracks(project?.tracks || [], scope === 'clip' ? findClipTrack(project, targetId)?.id : scope === 'track' ? targetId : null)[0];
 			if (!controlTrack) {
 				setMessage({ key: 'autoDuckSecondControlTrack' });
 				return;
@@ -175,23 +173,27 @@ export function AudioEditorEffectsOverlay({
 		});
 	};
 
+	const changeEffectEnabled = (scope, ownerId, effect, enabled) => effect.type === 'native-plugin'
+		? run(ownsOperation => setNativeRackEffectEnabled(controller, scope, ownerId, effect, enabled, ownsOperation))
+		: controller.actions.effects.update(scope, ownerId, effect.id, { enabled });
 	const section = (scope, effects, owner) => ({
 		effectActionsLabel: copy.moreOptions,
 		effects: effects.map((effect) => ({
 			id: effect.id,
 			name: safeEffectLabel(effect, copy),
-			enabled: effect.enabled,
+			enabled: effect.enabled !== false && (effect.type !== 'native-plugin' || effect.bypassed !== true),
 		})),
 		allEnabled: owner?.effectsActive !== false,
 		onToggleAll: (enabled) => {
 			if (blocked) return;
 			if (scope === 'master') controller.actions.mixer.updateMaster({ effectsActive: enabled });
+			else if (scope === 'clip') controller.actions.clip.update(targetId, { effectsActive: enabled });
 			else if (scope === 'track') controller.actions.track.update(targetId, { effectsActive: enabled });
 			else controller.actions.mixer.updateBus(scope, targetId, { effectsActive: enabled });
 		},
 		onEffectToggle: (index, enabled) => {
 			const effect = effects[index];
-			if (!blocked && effect) controller.actions.effects.update(scope, scope === 'master' ? null : targetId, effect.id, { enabled });
+			if (!blocked && effect) void changeEffectEnabled(scope, scope === 'master' ? null : targetId, effect, enabled);
 		},
 		onEffectChange: (index) => {
 			const effect = effects[index];
@@ -202,7 +204,7 @@ export function AudioEditorEffectsOverlay({
 			if (!blocked && effect) controller.actions.effects.reorder(scope, scope === 'master' ? null : targetId, effect.id, toIndex);
 		},
 		onAddEffect: (event) => openPicker(scope, null, event),
-		onContextMenu: (scope === 'track' || scope === 'master') ? (event) => {
+		onContextMenu: (scope === 'clip' || scope === 'track' || scope === 'master') ? (event) => {
 			const rect = event?.currentTarget?.getBoundingClientRect?.();
 			if (event?.currentTarget instanceof HTMLElement) {
 				stackMenuTriggerRef.current = event.currentTarget;
@@ -244,16 +246,6 @@ export function AudioEditorEffectsOverlay({
 	const rackGestureCancel = supportsLiveRackGesture
 		? () => controller.actions.effects.cancelRackEffectGesture?.(effectScope, gestureOwnerId, effect.id)
 		: null;
-	const rackPresets = effect && effect.type !== 'missing'
-		? controller.actions.effects.presets.list(effect.type)
-		: [];
-	const rackPresetChoices = effectPresetChoices(rackPresets, copy.noEffectPreset, copy);
-	const selectedRackPreset = rackPresetChoices.find((choice) => choice.id === rackPresetId);
-	// Edited presets arm Reset and mark the dropdown entry.
-	const rackPresetEdited = Boolean(selectedRackPreset) && !samePresetParams(
-		effect?.params, selectedRackPreset.preset.params,
-	);
-	const rackPresetOptions = rackPresetChoices.map(({ id, label, custom }) => ({ id, label, custom }));
 	const writeRackParams = (params) => run(nativeRackEffectCommit(
 		effect, params, rackGestureBegin, rackGestureCommit, rackGestureCancel,
 	) || (() => controller.actions.effects.update(
@@ -262,35 +254,6 @@ export function AudioEditorEffectsOverlay({
 		effect.id,
 		{ params },
 	)));
-	const selectRackPreset = (id) => {
-		if (!effect || blocked) return;
-		setRackPresetId(id);
-		const choice = rackPresetChoices.find((candidate) => candidate.id === id);
-		if (choice) writeRackParams(choice.preset.params);
-	};
-	const saveRackPreset = (name) => run(async (ownsOperation) => {
-		const saved = await controller.actions.effects.presets.save({
-			...(name === undefined ? { id: rackPresetId } : {}),
-			effectType: effect.type,
-			name: name ?? selectedRackPreset?.preset.name,
-			params: effect.params,
-		});
-		if (ownsOperation() && saved) setRackPresetId(saved.id);
-		return Boolean(saved) && ownsOperation();
-	});
-	const exportRackPreset = () => run(async () => {
-		const encoded = controller.actions.effects.presets.export(rackPresetId);
-		await fileService.saveFile({
-			purpose: 'preset',
-			suggestedName: `${(selectedRackPreset?.preset.name || 'audacity-effect-preset').replace(/[^\p{L}\p{M}\p{N}_-]+/gu, '-')}.json`,
-			mimeType: 'application/json',
-			text: encoded,
-		});
-	});
-	const importRackPreset = (file) => run(async (ownsOperation) => {
-		const encoded = await file.text();
-		if (ownsOperation()) await controller.actions.effects.presets.import(encoded, { effectType: effect.type, sourceName: file.name });
-	});
 	const menuEffects = stackMenu?.scope === 'master' ? masterEffects : channelEffects;
 	const menuTrackId = stackMenu?.scope === 'master' ? null : targetId;
 	const closeStackMenu = () => {
@@ -354,7 +317,7 @@ export function AudioEditorEffectsOverlay({
 						trackSection={channel
 							? { trackName: channel.name, ...section(scope, channelEffects, channel) }
 							: undefined}
-						masterSection={section('master', masterEffects, project?.master)}
+						masterSection={scope === 'clip' ? undefined : section('master', masterEffects, project?.master)}
 					/>
 				</div>
 
@@ -365,9 +328,9 @@ export function AudioEditorEffectsOverlay({
 							<p className="audio-editor-panel-hint" data-effect-empty>{copy.effectRackEmpty}</p>
 						)}
 						{message && <p className="audio-editor-field-error" role="alert">{message}</p>}
-						<MasterGainControl actions={controller.actions.mixer} projectId={projectIdentity}
+						{scope !== 'clip' && <MasterGainControl actions={controller.actions.mixer} projectId={projectIdentity}
 							gain={project?.master?.gain ?? 1} label={copy.masterGain} disabled={blocked || !project}
-							onError={(error) => setMessage(error instanceof Error ? error.message : String(error))} />
+							onError={(error) => setMessage(error instanceof Error ? error.message : String(error))} />}
 					</div>
 				)}
 				<EffectStackMenu
@@ -380,7 +343,8 @@ export function AudioEditorEffectsOverlay({
 				/>
 			</div>}
 			{renderDialogs && effect && (
-				<RackEffectDialog
+				<ClipRackDialogPortal anchor={scope === 'clip' ? rackRef.current : null}>
+				<AudioEditorDialogShell
 					isOpen
 					title={safeEffectLabel(effect, copy)}
 					headerTitle={`${safeEffectLabel(effect, copy).replace(/ \(Audacity\)$/u, '')} - ${effectScope === 'master' ? copy['ui.effectsOverlay.masterEffects'] || copy.master : effectOwner?.name || ''}`}
@@ -392,34 +356,17 @@ export function AudioEditorEffectsOverlay({
 					dataAttributes={{ 'data-effect': effect.id }}
 					headerSlot={effect.type === 'missing' ? null : (
 						<div className="audio-editor-rack-effect-header">
-							<EffectPresetBar
-								onAdvancedSettings={onAdvancedSettings}
-								copy={copy} aboutEffect={effect}
-								disabled={blocked}
-								resetKey={`${projectIdentity ?? ''}:${effect.id}`}
-								automation={{
-									enabled: effect.enabled,
-									onToggle: (enabled) => {
-										if (!blocked) controller.actions.effects.update(effectScope, effectScope === 'master' ? null : targetId, effect.id, { enabled });
-									},
-								}}
-								presets={rackPresetOptions}
-								selectedId={rackPresetId} defaultParams={effect.type.startsWith('audacity-') || isAudacityNyquistPort(effect.type) ? audioSelectionEffectDefaults(effect.type) : null}
-								currentParams={effect.params} onDefault={() => { setRackPresetId(''); writeRackParams(audioSelectionEffectDefaults(effect.type)); }}
-								unsaved={rackPresetEdited}
-								onSelect={selectRackPreset}
-								onSave={() => saveRackPreset()}
-								onSaveAs={(name) => saveRackPreset(name).then((saved) => saved === true)}
-								onReset={() => {
-									if (selectedRackPreset) writeRackParams(selectedRackPreset.preset.params);
-								}}
-								onDelete={() => run(async (ownsOperation) => {
-									await controller.actions.effects.presets.delete(rackPresetId);
-									if (ownsOperation()) setRackPresetId('');
-								})}
-								onImport={importRackPreset}
-								onExport={exportRackPreset}
-							/>
+							{effect.type === 'native-plugin' ? <NativePluginEffectHeader controller={controller} copy={copy}
+								identity={{ instanceId: effect.params.instanceId, ...effect.context }} name={safeEffectLabel(effect, copy)}
+								enabled={effect.enabled !== false && !effect.bypassed} disabled={blocked}
+								onEnabledChange={enabled => changeEffectEnabled(effectScope, gestureOwnerId, effect, enabled)} /> : <PluginEffectPresetHeader
+								controller={controller} copy={copy} aboutEffect={effect} onAdvancedSettings={onAdvancedSettings}
+								effectType={effect.type} name={safeEffectLabel(effect, copy)} resetKey={`${projectIdentity}:${effect.id}`}
+								disabled={blocked} realtime enabled={effect.enabled} fileService={fileService}
+								onEnabledChange={enabled => { if (!blocked) controller.actions.effects.update(effectScope, gestureOwnerId, effect.id, { enabled }); }}
+								currentParams={effect.params} read={() => effect.params} apply={writeRackParams}
+								defaultParams={effect.type.startsWith('audacity-') || isAudacityNyquistPort(effect.type) ? audioSelectionEffectDefaults(effect.type) : undefined}
+							/>}
 						</div>
 					)}
 				>
@@ -431,13 +378,13 @@ export function AudioEditorEffectsOverlay({
 							copy={copy}
 							disabled={blocked}
 							tracks={project?.tracks || []}
-								targetTrackId={effectScope === 'track' ? targetId : null}
+								targetTrackId={effectScope === 'clip' ? findClipTrack(project, targetId)?.id : effectScope === 'track' ? targetId : null}
 								automationRuntime={automationRuntime}
 								automationProject={project}
 								automationStrip={effectScope === 'track' && targetId
 									? { kind: 'track', id: targetId }
 									: null}
-							captureNoiseProfile={controller.actions.effects.captureRackNoiseProfile
+							captureNoiseProfile={scope !== 'clip' && controller.actions.effects.captureRackNoiseProfile
 								? () => run(() => controller.actions.effects.captureRackNoiseProfile(
 									effectScope,
 									effectScope === 'master' ? null : targetId,
@@ -505,7 +452,8 @@ export function AudioEditorEffectsOverlay({
 							))}
 						/>
 					</section>
-				</RackEffectDialog>
+				</AudioEditorDialogShell>
+				</ClipRackDialogPortal>
 			)}
 
 			{renderRack && picker && (

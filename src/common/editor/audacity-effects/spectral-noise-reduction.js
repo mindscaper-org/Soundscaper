@@ -10,6 +10,7 @@
  */
 
 import { fft } from '../pffft.js';
+import { createNoiseReductionGainEnvelope } from './noise-reduction-gain-envelope.ts';
 
 export const NOISE_WINDOW_SIZE = 2_048;
 export const NOISE_STEPS_PER_WINDOW = 4;
@@ -49,73 +50,58 @@ export function prepareNoiseReductionGeometry(params, meanPowers) {
 }
 
 export function reduceNoiseChannel(channel, sampleRate, params, meanPowers, window, attenuation,
-	normalization = noiseReductionNormalization(channel.length, window),
+	normalization = noiseReductionNormalization(window),
 	geometry = prepareNoiseReductionGeometry(params, meanPowers),
 	outputRange = { startFrame: 0, endFrame: channel.length }) {
-	const starts = paddedFrameStarts(channel.length, NOISE_WINDOW_SIZE, NOISE_HOP_SIZE);
+	const padding = NOISE_WINDOW_SIZE - NOISE_HOP_SIZE;
+	const windowCount = Math.ceil(channel.length / NOISE_HOP_SIZE) + NOISE_STEPS_PER_WINDOW - 1;
 	const binCount = meanPowers.length;
 	const workspace = createPowerSpectrumWorkspace(window);
 	const powers = Array.from({ length: NOISE_STEPS_PER_WINDOW + 1 }, () => new Float32Array(binCount));
-	const gains = new Float32Array(starts.length * binCount);
-	const neighborSlots = new Int32Array(powers.length);
+	const neighbors = new Array(powers.length);
+	const { startFrame: outputStart, endFrame: outputEnd } = outputRange;
+	const firstWindow = Math.floor(outputStart / NOISE_HOP_SIZE);
+	const attackBlocks = 1 + Math.floor(0.02 * sampleRate / NOISE_HOP_SIZE);
+	const releaseBlocks = 1 + Math.floor(0.1 * sampleRate / NOISE_HOP_SIZE);
+	const envelope = createNoiseReductionGainEnvelope(windowCount, binCount, attenuation,
+		attenuation ** (1 / releaseBlocks), attenuation ** (1 / attackBlocks), firstWindow);
 	let nextPower = 0;
 
-	for (let frame = 0; frame < starts.length; frame += 1) {
+	for (let frame = 0; frame < windowCount; frame += 1) {
 		const first = Math.max(0, frame - NOISE_STEPS_PER_WINDOW / 2);
-		const last = Math.min(starts.length - 1, frame + NOISE_STEPS_PER_WINDOW / 2);
+		const last = Math.min(windowCount - 1, frame + NOISE_STEPS_PER_WINDOW / 2);
 		while (nextPower <= last) {
-			workspace.read(channel, starts[nextPower], powers[nextPower % powers.length]);
+			workspace.read(channel, nextPower * NOISE_HOP_SIZE - padding, powers[nextPower % powers.length]);
 			nextPower += 1;
 		}
 		const neighborCount = last - first + 1;
-		for (let neighbor = 0; neighbor < neighborCount; neighbor++) neighborSlots[neighbor] = (first + neighbor) % powers.length;
-		const frameOffset = frame * binCount;
+		for (let neighbor = 0; neighbor < neighborCount; neighbor++) neighbors[neighbor] = powers[(first + neighbor) % powers.length];
 		for (let bin = 0; bin < binCount; bin += 1) {
-			let greatest = 0;
-			let secondGreatest = 0;
+			const threshold = geometry.thresholds[bin];
+			let above = 0;
+			// The gate opens as soon as two neighboring windows exceed the threshold.
 			for (let neighbor = 0; neighbor < neighborCount; neighbor += 1) {
-				const power = powers[neighborSlots[neighbor]][bin];
-				if (power >= greatest) {
-					secondGreatest = greatest;
-					greatest = power;
-				} else if (power >= secondGreatest) {
-					secondGreatest = power;
-				}
+				if (neighbors[neighbor][bin] > threshold && ++above === 2) break;
 			}
-			gains[frameOffset + bin] = secondGreatest <= geometry.thresholds[bin] ? attenuation : 1;
+			if (above === 2) envelope.open(frame, bin);
 		}
 	}
 
-	const attackBlocks = 1 + Math.floor(0.02 * sampleRate / NOISE_HOP_SIZE);
-	const releaseBlocks = 1 + Math.floor(0.1 * sampleRate / NOISE_HOP_SIZE);
-	const attackFactor = attenuation ** (1 / attackBlocks);
-	const releaseFactor = attenuation ** (1 / releaseBlocks);
-	for (let bin = 0; bin < binCount; bin += 1) {
-		for (let frame = 1; frame < starts.length; frame += 1) {
-			const index = frame * binCount + bin;
-			gains[index] = Math.max(gains[index], gains[index - binCount] * releaseFactor);
-		}
-		for (let frame = starts.length - 2; frame >= 0; frame -= 1) {
-			const index = frame * binCount + bin;
-			gains[index] = Math.max(gains[index], gains[index + binCount] * attackFactor);
-		}
-	}
-
-	if (geometry.first) {
-		const prefix = new Float64Array(binCount + 1);
-		for (let frame = 0; frame < starts.length; frame++) applyGeometricFrequencySmoothing(gains, frame * binCount, binCount, geometry, prefix);
-	}
-
-	const { startFrame: outputStart, endFrame: outputEnd } = outputRange;
-	const accumulated = new Float64Array(outputEnd - outputStart);
+	const reduced = new Float32Array(outputEnd - outputStart);
+	const accumulated = new Float64Array(NOISE_WINDOW_SIZE);
 	const { real, imaginary } = workspace;
-	for (let frame = 0; frame < starts.length; frame += 1) {
-		const start = starts[frame];
-		if (start + NOISE_WINDOW_SIZE <= outputStart || start >= outputEnd) continue;
+	const prefix = geometry.first ? new Float64Array(binCount + 1) : null;
+	const ringMask = NOISE_WINDOW_SIZE - 1;
+	const phaseMask = NOISE_HOP_SIZE - 1;
+	const lastWindow = Math.ceil(outputEnd / NOISE_HOP_SIZE) + NOISE_STEPS_PER_WINDOW - 1;
+	for (let frame = firstWindow; frame < lastWindow; frame += 1) {
+		const start = frame * NOISE_HOP_SIZE - padding;
+		const gains = envelope.read(frame);
+		if (prefix) applyGeometricFrequencySmoothing(gains, binCount, geometry, prefix);
 		workspace.load(channel, start);
 		fft(real, imaginary, false);
 		for (let bin = 0; bin <= NOISE_WINDOW_SIZE / 2; bin += 1) {
-			const gain = gains[frame * binCount + bin];
+			const gain = gains[bin];
 			real[bin] *= gain;
 			imaginary[bin] *= gain;
 			if (bin > 0 && bin < NOISE_WINDOW_SIZE / 2) {
@@ -127,14 +113,14 @@ export function reduceNoiseChannel(channel, sampleRate, params, meanPowers, wind
 		const firstOutput = Math.max(0, outputStart - start);
 		const endOutput = Math.min(NOISE_WINDOW_SIZE, outputEnd - start);
 		for (let index = firstOutput; index < endOutput; index += 1) {
-			const outputIndex = start + index;
-			accumulated[outputIndex - outputStart] += real[index] * window[index];
+			accumulated[(start + index) & ringMask] += real[index] * window[index];
 		}
-	}
-
-	const reduced = new Float32Array(outputEnd - outputStart);
-	for (let frame = 0; frame < reduced.length; frame += 1) {
-		reduced[frame] = normalization[frame + outputStart] > 1e-12 ? accumulated[frame] / normalization[frame + outputStart] : channel[frame + outputStart];
+		for (let index = Math.max(outputStart, start), end = Math.min(outputEnd, start + NOISE_HOP_SIZE); index < end; index += 1) {
+			const weight = normalization[index & phaseMask];
+			const slot = index & ringMask;
+			reduced[index - outputStart] = weight > 1e-12 ? accumulated[slot] / weight : channel[index];
+			accumulated[slot] = 0;
+		}
 	}
 	if (params.output === 'reduce') return reduced;
 	// Audacity's NRC_LEAVE_RESIDUE multiplies by gain - 1, so its residue
@@ -143,14 +129,14 @@ export function reduceNoiseChannel(channel, sampleRate, params, meanPowers, wind
 	return reduced;
 }
 
-function applyGeometricFrequencySmoothing(gains, offset, binCount, geometry, prefix) {
+function applyGeometricFrequencySmoothing(gains, binCount, geometry, prefix) {
 	for (let bin = 0; bin < binCount; bin += 1) {
-		prefix[bin + 1] = prefix[bin] + Math.log(gains[offset + bin]);
+		prefix[bin + 1] = prefix[bin] + Math.log(gains[bin]);
 	}
 	for (let bin = 0; bin < binCount; bin += 1) {
 		const first = geometry.first[bin];
 		const end = geometry.end[bin];
-		gains[offset + bin] = Math.exp((prefix[end] - prefix[first]) / (end - first));
+		gains[bin] = Math.exp((prefix[end] - prefix[first]) / (end - first));
 	}
 }
 
@@ -185,19 +171,15 @@ export function createPowerSpectrumWorkspace(window) {
 	return workspace;
 }
 
-export function noiseReductionNormalization(frameCount, window) {
-	const normalization = new Float64Array(frameCount);
-	for (const start of paddedFrameStarts(frameCount, window.length, NOISE_HOP_SIZE)) {
-		for (let index = 0; index < window.length; index += 1) {
-			const outputIndex = start + index;
-			if (outputIndex >= 0 && outputIndex < frameCount) normalization[outputIndex] += window[index] * window[index];
+export function noiseReductionNormalization(window) {
+	const normalization = new Float64Array(NOISE_HOP_SIZE);
+	// Padding supplies all overlapping windows at both edges. Add their weights
+	// in chronological window order, so each frame keeps its original rounding.
+	for (let start = window.length - NOISE_HOP_SIZE; start >= 0; start -= NOISE_HOP_SIZE) {
+		for (let phase = 0; phase < NOISE_HOP_SIZE; phase += 1) {
+			const value = window[start + phase];
+			normalization[phase] += value * value;
 		}
 	}
 	return normalization;
-}
-
-function paddedFrameStarts(frameCount, windowSize, hopSize) {
-	const starts = [];
-	for (let start = -(windowSize - hopSize); start < frameCount; start += hopSize) starts.push(start);
-	return starts;
 }

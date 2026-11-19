@@ -2,6 +2,7 @@
 
 import {
 	normalizeEmbeddedExportChapters,
+	mp3ChapterMilliseconds,
 	resolveEmbeddedExportChapters,
 	supportsEmbeddedExportChapters,
 	type EmbeddedExportChapter,
@@ -38,12 +39,7 @@ export function embeddedChapterEncodingFields(
 		|| embeddedChapters.some(({ title }) => new TextEncoder().encode(title).length > 255))) {
 		throw new RangeError('M4A chapter metadata supports at most 255 chapters and 255 UTF-8 bytes per title.');
 	}
-	if (format === 'mp3' && embeddedChapters.some(({ endFrame }) => (
-		BigInt(endFrame) * 1_000n > 0xffff_fffen * BigInt(sampleRate)
-	))) {
-		// ID3 reserves 0xffffffff for an unknown chapter time.
-		throw new RangeError('MP3 chapter times exceed the ID3 millisecond timestamp limit.');
-	}
+	if (format === 'mp3') for (const chapter of embeddedChapters) mp3ChapterMilliseconds(chapter, sampleRate);
 	return Object.freeze({ embeddedChapters });
 }
 

@@ -99,8 +99,9 @@ test.describe('Framescaper v1 audio finishing', () => {
 
 		await chooseFileAction(page, editor, 'Export video');
 		const exportDialog = page.getByRole('dialog', { name: 'Export video', exact: true });
+		await exportDialog.getByRole('checkbox', { name: /^Include effect tails/u }).check();
 		const loudness = exportDialog.getByRole('group', { name: 'Loudness normalization', exact: true })
-			.getByRole('button', { name: 'Loudness normalization', exact: true });
+			.getByRole('button', { name: /^Loudness normalization(?::|$)/u });
 		await expect(loudness).toContainText('None');
 		await loudness.click();
 		const loudnessOptions = page.getByRole('listbox');
@@ -300,6 +301,7 @@ function finishingDeliveryFixture() {
 async function exportFinishingDelivery(page, editor) {
 	await chooseFileAction(page, editor, 'Export video');
 	const dialog = page.getByRole('dialog', { name: 'Export video', exact: true });
+	await dialog.getByRole('checkbox', { name: /^Include effect tails/u }).check();
 	await chooseDropdown(page, dialog.locator('[data-export-field="bitDepth"]'), '24-bit PCM');
 	await chooseDropdown(page, dialog.locator('[data-export-field="loudnessNormalization"]'),
 		'EBU R 128 (-23 LUFS)');

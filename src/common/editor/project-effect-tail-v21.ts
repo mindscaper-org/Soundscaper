@@ -15,11 +15,13 @@ interface EffectRackOwner extends EffectTailGateOwner {
 }
 
 interface EffectTailTrack extends EffectRackOwner {
+	readonly clipIds?: readonly unknown[];
 	readonly id?: unknown;
 	readonly type?: unknown;
 }
 
 interface EffectTailProject extends Readonly<Record<string, unknown>> {
+	readonly clips?: readonly EffectRackOwner[];
 	readonly tracks?: readonly EffectTailTrack[];
 	readonly master?: EffectRackOwner;
 	readonly mixer?: unknown;
@@ -53,7 +55,8 @@ export function projectEffectTailFramesV21(
 		if (options.trackId != null && track.id !== String(options.trackId)) continue;
 		const key = `track:${track.id}`;
 		trackKeys.push(key);
-		nodeTails.set(key, options.rackTail(track));
+		const clipTail = Math.max(0, ...(project.clips ?? []).filter(clip => track.clipIds?.includes(clip.id)).map(options.rackTail));
+		nodeTails.set(key, Math.min(options.maximum, clipTail + options.rackTail(track)));
 	}
 	for (const strip of [...graph.groups, ...graph.sends, ...graph.cues]) {
 		nodeTails.set(`mixer-node:${strip.id}`, options.rackTail(strip));

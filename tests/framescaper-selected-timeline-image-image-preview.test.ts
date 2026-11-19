@@ -9,9 +9,16 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex } from '@noble/hashes/utils.js';
 
 import type { AudioEditorProjectStore } from '../src/common/editor/storage.js';
+import { resizeVideoRgbaNearest } from '../src/common/editor/video-rgba-nearest-resize.ts';
+import { shouldRenderExactProductVideoPreview } from '../src/common/editor/ui/workspace/video-preview-exact-render-policy.ts';
 import type { ProductVideoVisualPreviewSession } from '../src/common/editor/ui/workspace/product-video-visual-preview-runtime.ts';
+import { applyFramescaperProjectCommandTimelineImage } from '../src/framescaper/editor-project-timeline-image-commands.ts';
+import { createFramescaperImageClipIndex } from '../src/framescaper/editor-timeline-image-clip-index.ts';
+import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
 import {
 	assetStore,
 	binScene,
@@ -36,6 +43,26 @@ import {
 } from './helpers/framescaper-timeline-image-preview-fixture.ts';
 
 type Data = Record<string, unknown>;
+
+test('image clip queries preserve layer order, exact ends, and overlapping clips during seeks', () => {
+	const contexts = [
+		{ clip: imageClip('early-end', undefined, { sequenceStartFrame: 2, sequenceFrameCount: 2 }) },
+		{ clip: imageClip('later', undefined, { sequenceStartFrame: 4, sequenceFrameCount: 3 }) },
+		{ clip: imageClip('background', undefined, { sequenceFrameCount: 10 }) },
+	];
+	const clipsAt = createFramescaperImageClipIndex(contexts);
+	for (const [frame, ids] of [[4, ['later', 'background']], [2, ['early-end', 'background']],
+		[10, []], [0, ['background']]] as const) {
+		assert.deepEqual(clipsAt(frame).map(({ clip }) => clip.id), ids);
+	}
+});
+
+test('packed nearest resizing preserves edge and center mapping for unaligned transparent RGBA', () => {
+	const bytes = new Uint8Array([99, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 0, 99]);
+	const frame = { width: 3, height: 1, pixels: bytes.subarray(1, 13) };
+	assert.deepEqual([...resizeVideoRgbaNearest(frame, 2, 1, 0)], [10, 20, 30, 40, 50, 60, 70, 80]);
+	assert.deepEqual([...resizeVideoRgbaNearest(frame, 2, 1, 0.5)], [10, 20, 30, 40, 90, 100, 110, 0]);
+});
 
 test('a timeline image clip resolves into a layer entry carrying its source, drawable and frame address', async () => {
 	const drawables: RecordedDrawableTimelineImage[] = [];
@@ -94,6 +121,22 @@ test('the drawable is presented once per distinct frame index rather than once p
 	assert.deepEqual(drawables[0]?.presented, [37, 74, 37],
 		'only index changes present, with the exact first byte of each seeded frame');
 	session.dispose();
+});
+
+test('preview authenticates the pack and decodes a distant picture only when it is demanded', async () => {
+	const original = imageFixture('image-source', 2, 1, 8);
+	const bytes = original.bytes.slice();
+	bytes[bytes.length - 1]! ^= 0xff;
+	const fixture = { bytes, source: { ...original.source, contentSha256: bytesToHex(sha256(bytes)) } };
+	const drawables: RecordedDrawableTimelineImage[] = [];
+	const session = await openSession({ ...scene({ fixtures: [fixture] }), createImageDrawable: drawableFactory(drawables) });
+	try {
+		assert.equal(entriesOf(session.resolve(0))[0]?.imageFrameIndex, 0);
+		assert.deepEqual(drawables[0]?.presented, [37]);
+		assert.throws(() => session.resolve(7 * SECOND_PACK_FRAME_SAMPLE), /compressed digest/u);
+		assert.deepEqual(drawables[0]?.presented, [37], 'a failed picture is not presented');
+		assert.equal(entriesOf(session.resolve(0))[0]?.imageFrameIndex, 0);
+	} finally { session.dispose(); }
 });
 
 test('two clips sharing one source open it once and still receive independently backed drawables', async () => {
@@ -195,6 +238,23 @@ test('a hidden track, an audio track and an unsoloed sibling all withhold their 
 	soloed.dispose();
 });
 
+test('a still image inside a hidden folder contributes no preview picture', async () => {
+	const project = applyFramescaperProjectCommandTimelineImage(PROFILE, committedProject(IMAGE_FIXTURE), {
+		type: 'batch', commands: [{
+			type: 'track-folder/add', sequenceId: 'main-sequence', folder: { id: 'picture-folder', name: 'Pictures', hidden: true },
+		}, {
+			type: 'track-node/move', sequenceId: 'main-sequence', nodeId: 'video-track', parentFolderId: 'picture-folder', index: 0,
+		}],
+	});
+	const calls: string[] = [];
+	const session = await openSession({ project, store: assetStore([IMAGE_FIXTURE], calls),
+		createInheritedSession: inherited(inheritedLog()),
+	});
+	assert.deepEqual(entriesOf(session.resolve(0)), []);
+	assert.deepEqual(calls, []);
+	session.dispose();
+});
+
 test('more image contexts than the preview bound are refused before any source is opened', async () => {
 	const calls: string[] = [];
 	const clipIds = Array.from({ length: 4_097 }, (_clip, index) => `clip-${index}`);
@@ -250,7 +310,7 @@ test('an inherited layer that claims a different index for a shared track is ref
 	session.dispose();
 });
 
-test('the inherited exact route is offered only while the session composites no image of its own', async () => {
+test('a paused playhead outside an image clip can still evaluate exact effects on the rest of the programme', async () => {
 	const exact = {
 		renderExact: (request: Readonly<{ timelineSample: number }>) => Promise.resolve({
 			frame: previewFrame([{ trackId: 'exact-track', trackIndex: 3, entries: [] }], ['render:exact']),
@@ -264,7 +324,10 @@ test('the inherited exact route is offered only while the session composites no 
 		createInheritedSession: inherited(inheritedLog(), exact),
 	});
 
-	assert.equal(withImage.renderExact, undefined);
+	assert.equal(shouldRenderExactProductVideoPreview(withImage, 'paused', withImage.resolve(0)), false);
+	assert.equal(shouldRenderExactProductVideoPreview(withImage, 'paused', withImage.resolve(960_000)), true);
+	const gap = await withImage.renderExact!({ timelineSample: 960_000, mediaLayers: [] });
+	assert.deepEqual(gap.renderedEffectIds, ['effect-1']);
 	const rendered = await withoutImage.renderExact!({ timelineSample: 96_000, mediaLayers: [] });
 	assert.deepEqual(rendered.layers, [{ sample: 96_000 }]);
 	assert.deepEqual(rendered.renderedEffectIds, ['effect-1']);

@@ -10,6 +10,7 @@ import {
 	createFramescaperImageFramePackV1,
 	FRAMESCAPER_IMAGE_FRAME_PACK_HEADER_BYTES,
 	FRAMESCAPER_IMAGE_FRAME_PACK_INDEX_BYTES,
+	openFramescaperImageFramePackSnapshotV1,
 	openFramescaperImageFramePackV1,
 } from '../src/common/editor/timeline-image-frame-pack-v1.ts';
 import {
@@ -83,6 +84,23 @@ test('reader fails closed on body, section, index, and compressed-frame substitu
 	frameTamper[frameOffset] ^= 0xff;
 	const reader = await open(frameTamper, reboundSource(source, frameTamper));
 	await assert.rejects(reader.readFrame(0), /compressed.*digest|zlib/iu);
+});
+
+test('the snapshot owns its bytes and returns independent checked pictures synchronously', async () => {
+	const input = packFixture();
+	const publication = createFramescaperImageFramePackV1(input);
+	const buffer = new Uint8Array(publication.bytes).buffer;
+	const controller = new AbortController();
+	const reader = await openFramescaperImageFramePackSnapshotV1(sourceFrom(publication), buffer, controller.signal);
+	assert.equal(buffer.byteLength, 0, 'the caller loses its writable backing bytes');
+	const picture = reader.readFrameSync(1);
+	assert.deepEqual(picture, input.frames[1]!.rgba);
+	picture.fill(0);
+	assert.deepEqual(reader.readFrameSync(1), input.frames[1]!.rgba);
+	assert.throws(() => reader.readFrameSync(2), /closed domain/u);
+	const reason = new Error('preview retired');
+	controller.abort(reason);
+	assert.throws(() => reader.readFrameSync(1), error => error === reason);
 });
 
 test('reader refuses short ranges and source summaries that disagree with the authenticated body', async () => {

@@ -4,7 +4,7 @@ import { expect, monoTone, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, importFiles, resolveBrowserProductTestUrl, waitForEditor } from './audio-editor-test-helpers.js';
 
 test('timeline track gain controls announce the current read-only admission', async ({ page, context }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
 	const projectId = await editor.getAttribute('data-project-id');

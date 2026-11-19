@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createMasteringSequenceV23 } from '../src/common/editor/mastering-sequence.ts';
 import { createMasteringSequenceDeliveryPlan } from '../src/common/editor/mastering-sequence-delivery.ts';
-import { renderMasteringSequenceDelivery } from '../src/common/editor/mastering-sequence-render.ts';
+import { createMasteringSequenceOutput, writeMasteringSequenceEntry } from '../src/common/editor/mastering-sequence-render.ts';
 import { createAudioEditorSignalRenderer } from '../src/common/editor/signal-generator-renderer.ts';
 import { createWavStreamEncoder, encodeWav } from '../src/common/editor/wav.js';
 import { createAiffStreamEncoder, encodeAiff } from '../src/common/editor/aiff.js';
@@ -21,14 +21,15 @@ test('mastering copies the unity interior and retains exact fade and signed-zero
 		const plan = createMasteringSequenceDeliveryPlan(createMasteringSequenceV23({
 			id: 'album', sequenceId: 'main', name: 'Album', entries: [{ id: 'entry', annotationId: 'region', gapBeforeFrames: 3, fadeInFrames, fadeOutFrames }],
 		}), [{ id: 'region', name: 'Region', sequenceId: 'main', startFrame: 0, endFrame: 100 }]);
-		const [actual] = renderMasteringSequenceDelivery({ plan, channelCount: 1, segments: [{ entryId: 'entry', channels: [source] }] });
+		const output = createMasteringSequenceOutput(plan.totalFrames, 1);
+		writeMasteringSequenceEntry(output, plan.segments[0]!, [source]);
 		const expected = new Float32Array(103);
 		for (let frame = 0; frame < 100; frame += 1) {
 			let gain = fadeInFrames > 0 && frame < fadeInFrames ? frame / fadeInFrames : 1;
 			if (fadeOutFrames > 0 && 99 - frame < fadeOutFrames) gain = Math.min(gain, (99 - frame) / fadeOutFrames);
 			expected[3 + frame] = source[frame]! * gain;
 		}
-		assert.deepEqual(actual, expected);
+		assert.deepEqual(output[0], expected);
 	}
 	assert.equal(copied, 288, 'only nonoverlapping unity interiors use the bulk-copy path');
 });

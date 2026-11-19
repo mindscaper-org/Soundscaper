@@ -2517,15 +2517,17 @@ notes in source sample frames and optional controller, SysEx, tempo, and
 time-signature data for file interchange. The existing family-v1 project
 identity and media relationships stay authoritative.
 
-Each MIDI clip also references an owned canonical PCM source. Note and
-instrument edits publish a regenerated source and carrier update in one
-history transaction. Existing audio playback, delivery, and readers that retain
-opaque extensions can therefore use the stored audio fallback without
-interpreting MIDI. Save and archive routes retain the editable carrier alongside
-the source; they do not replace it with rendered audio alone. Current readers
-validate owned carrier versions, event ranges, and the complete audio fallback
-before accepting a project. This beta does not introduce MIDI device ports or
-native instrument state.
+Each MIDI clip references an immutable audio source. New note and instrument
+edits publish a versioned score/instrument recipe and carrier update in one
+history transaction; the source reader synthesizes PCM windows on demand off the
+UI thread. Existing physical PCM sources remain readable. Archives materialize
+the source as PCM so readers retaining opaque extensions can use the audio
+fallback without interpreting MIDI; the editable carrier stays alongside it.
+Local storage schema v2 preserves the v1 layout and data while fencing older
+clients before admitting generated recipes. Uncached native-instrument windows
+require the recorded plug-in installation and state; existing stored PCM does
+not. Current readers validate carrier versions, event ranges and source geometry
+before accepting a project.
 
 Destructive audio edits that replace or rewrite a MIDI clip's source retire
 that clip's editable MIDI carrier and retain the resulting waveform as ordinary

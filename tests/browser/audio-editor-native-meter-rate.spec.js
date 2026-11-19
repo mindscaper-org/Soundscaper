@@ -3,6 +3,64 @@
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, waitForEditor } from './audio-editor-test-helpers.js';
 import { installNativeInputPeer } from './helpers/native-input-peer.js';
+import { NATIVE_OUTPUT_PEER_WEBKIT_REASON } from './helpers/native-output-peer.js';
+
+test('WASAPI keeps enough transport frames in flight at higher sample rates', async ({ page, browserName }) => {
+	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
+	await installNativeInputPeer(page, { backend: 'wasapi' });
+	const editor = await bootEditor(page, '/embed/en/');
+	await editor.getByRole('button', { name: 'Audio setup', exact: true }).click();
+	const setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
+	await setup.getByRole('combobox', { name: 'Host', exact: true }).selectOption('wasapi');
+	const rate = setup.getByRole('combobox', { name: 'Recording sample rate', exact: true });
+	const requestedPeriods = sampleRate => page.evaluate(sampleRate => window.__nativeInputPeer.requests
+		.filter(request => request.mode === 'shared' && request.sampleRate === sampleRate)
+		.map(request => [request.direction, request.periodFrames]), sampleRate);
+	await expect.poll(() => requestedPeriods(48_000)).toEqual([['input', 256], ['output', 256]]);
+	await expect(rate).toBeEnabled();
+	await rate.selectOption('96000');
+	await expect.poll(() => requestedPeriods(96_000)).toEqual([['input', 512], ['output', 512]]);
+	await expect(rate).toBeEnabled();
+	await rate.selectOption('192000');
+	await expect.poll(() => requestedPeriods(192_000)).toEqual([['input', 1024], ['output', 1024]]);
+	await expect(rate).toBeEnabled();
+	await expect(editor.getByRole('alert')).toHaveCount(0);
+});
+
+test('a refused ASIO sample rate keeps the live and saved recording rate usable', async ({ page, browserName }) => {
+	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
+	await installNativeInputPeer(page, { backend: 'asio' });
+	await page.addInitScript(() => {
+		const api = window.soundscaperDesktop.v1, open = api.openNativeAudioSession;
+		api.openNativeAudioSession = request => request.sampleRate === 8000
+			? Promise.resolve({ status: 'refused', code: 'format-refused', attempts: [],
+				message: 'The ASIO device does not support the requested sample rate.' }) : open(request);
+	});
+	const editor = await bootEditor(page, '/embed/en/');
+	const setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
+	const rate = setup.getByRole('combobox', { name: 'Recording sample rate', exact: true });
+	await editor.getByRole('button', { name: 'Audio setup', exact: true }).click();
+	await setup.getByRole('combobox', { name: 'Host', exact: true }).selectOption('asio');
+	await expect(rate).toBeEnabled();
+	await expect(rate).toHaveValue('48000');
+	await rate.selectOption('8000');
+	await expect(setup.getByRole('alert')).toBeVisible();
+	await expect(rate).toHaveValue('48000');
+	await expect(setup.getByRole('alert')).toContainText('sample rate');
+	await expect.poll(() => page.evaluate(() => window.__nativeInputPeer.requests.map(request => [request.direction, request.sampleRate])))
+		.toEqual([['input', 48000], ['output', 48000], ['input', 48000], ['output', 48000]]);
+	await page.reload(); await waitForEditor(page);
+	await editor.getByRole('button', { name: 'Audio setup', exact: true }).click();
+	await expect(setup.getByRole('combobox', { name: 'Host', exact: true })).toHaveValue('asio');
+	await expect(rate).toHaveValue('48000');
+	await expect(rate).toBeEnabled();
+	await page.keyboard.press('Escape');
+	await editor.getByRole('button', { name: 'Record onto the active track', exact: true }).click();
+	await expect(editor.getByRole('button', { name: 'Pause recording', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await expect.poll(async () => Number(await editor.getByRole('slider', { name: 'Playhead', exact: true }).getAttribute('aria-valuenow'))).toBeGreaterThan(12_000);
+	await editor.getByRole('button', { name: 'Stop', exact: true }).click();
+	await expect(editor).toHaveAttribute('data-clip-count', '1');
+});
 
 test('idle microphone metering retains its preference and adopts the reconnected native input rate', async ({ page }) => {
 	await installNativeInputPeer(page);

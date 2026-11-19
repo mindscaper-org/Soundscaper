@@ -1,5 +1,6 @@
 // @ts-check
 import react from '@vitejs/plugin-react';
+import { fluidSynthModulePlugin } from './scripts/lib/vite-fluid-synth-module.mjs';
 import { defineConfig } from 'vite';
 
 import { MOTION_LINK_BRIDGE_ENTRY } from './scripts/lib/motion-link-web-routing.mjs';
@@ -112,6 +113,7 @@ export default defineConfig({
 			productId, desktopCodecComposition, repositoryRoot: import.meta.dirname,
 		}),
 		createPffftNodeModuleBrowserShim(),
+		fluidSynthModulePlugin(),
 		createTranslationCatalogBundlePlugin(),
 		react(),
 		assertDesignSystemCssLayered(),
@@ -145,6 +147,7 @@ export default defineConfig({
 				productId, desktopCodecComposition, repositoryRoot: import.meta.dirname,
 			}),
 			createPffftNodeModuleBrowserShim(),
+			fluidSynthModulePlugin(),
 		],
 		rolldownOptions: {
 			output: {
@@ -165,7 +168,7 @@ export default defineConfig({
 				? { input: { index: 'index.html', 'composition-link-bridge': MOTION_LINK_BRIDGE_ENTRY } } : {}),
 			output: {
 				codeSplitting: {
-					groups: chunkGroupsForBuild({ compositionLinkEntry }),
+					groups: chunkGroupsForBuild({ compositionLinkEntry, productId }),
 					minSize: 20_000,
 				},
 				strictExecutionOrder: true,

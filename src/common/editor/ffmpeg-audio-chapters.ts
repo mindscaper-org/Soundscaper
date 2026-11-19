@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import {
-	normalizeEmbeddedExportChapters,
+	mp3ChapterMilliseconds, normalizeEmbeddedExportChapters,
 	serializeEmbeddedExportChapters,
 	supportsEmbeddedExportChapters,
 	type EmbeddedExportChapter,
@@ -39,6 +39,7 @@ export async function execFfmpegAudioWithChapters(
 		throw new TypeError('A chapter export requires the primary audio input first.');
 	}
 	const normalizedChapters = normalizeEmbeddedExportChapters(chapters, settings.sampleRate);
+	if (settings.format === 'mp3') for (const chapter of normalizedChapters) mp3ChapterMilliseconds(chapter, settings.sampleRate);
 	if (settings.format === 'aac-m4a' && normalizedChapters[0]!.startFrame > 0) {
 		throw new RangeError('The FFmpeg M4A chapter track cannot retain a nonzero first chapter start.');
 	}

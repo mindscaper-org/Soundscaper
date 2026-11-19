@@ -71,7 +71,7 @@ registerAudioEditorHooks();
 
 test('opts into a logarithmic dB waveform per track and restores both linear scales', async ({ page }) => {
 	const errors = collectClientErrors(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [quietTone, otherTone]);
 	// Fix the lane heights before comparing rasters: automatic fitting can
 	// resize them while the imported tracks settle into the scrollport.
@@ -123,7 +123,7 @@ test('opts into a logarithmic dB waveform per track and restores both linear sca
 test('keeps logarithmic dB scaling when zooming from summary to connected samples and stems', async ({ page }) => {
 	test.setTimeout(60_000);
 	const errors = collectClientErrors(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [quietTone]);
 	const clip = clipByName(editor, quietTone.name);
 	const track = clip.locator('xpath=ancestor::div[@data-track-row]');

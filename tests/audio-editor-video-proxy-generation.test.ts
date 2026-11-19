@@ -50,7 +50,7 @@ test('a proxy is generated in display geometry, because that is what carries no 
 	assert.ok(videoProxyGenerationFilter().includes('setsar=1'));
 });
 
-test('a proxy is never larger than the original it stands in for', () => {
+test('a proxy clamps the original height while retaining positive even codec dimensions', () => {
 	// The height is clamped inside the filter rather than computed here, because
 	// the generator sees only the bytes: it is handed the original as a Blob and
 	// its identity, never a decoded size. `min` therefore has to survive the
@@ -63,15 +63,15 @@ test('a proxy is never larger than the original it stands in for', () => {
 	// Both dimensions stay even, which yuv420p requires: an odd source height
 	// would otherwise produce an encode the pinned build refuses outright.
 	assert.match(filter, /trunc\(/u);
-	assert.match(filter, /scale=-2:/u);
+	assert.match(filter, /oh\*dar/u);
 });
 
 test('the recipe names itself, so an attachment records which rule produced it', () => {
 	// The recipe id and version are persisted with the attachment. A later
 	// consumer compares them before trusting a body, and a regenerated proxy from
 	// a newer recipe must not silently pass as one an older recipe wrote.
-	assert.equal(VIDEO_PROXY_GENERATION_RECIPE.id, 'framescaper-video-proxy-h264-540-v1');
-	assert.equal(VIDEO_PROXY_GENERATION_RECIPE.version, 1);
+	assert.equal(VIDEO_PROXY_GENERATION_RECIPE.id, 'framescaper-video-proxy-h264-540-v2');
+	assert.equal(VIDEO_PROXY_GENERATION_RECIPE.version, 2);
 	assert.ok(Object.isFrozen(VIDEO_PROXY_GENERATION_RECIPE));
 	// A recipe is an identity and nothing else: the candidate observer captures
 	// exactly these two fields and refuses a record that carries more, so what
@@ -122,4 +122,13 @@ test('the arguments are refused rather than guessed at when a path is missing', 
 	const second = buildVideoProxyGenerationArgs({ inputPath: 'in.mp4', outputPath: 'out.mp4' });
 	assert.deepEqual(first, second);
 	assert.ok(Object.isFrozen(first));
+});
+
+
+test('a verified final frame duration sets the encoder clock without resampling VFR timestamps', () => {
+	const args = buildVideoProxyGenerationArgs({ inputPath: 'in.mp4', outputPath: 'out.mp4', timescale: 1000, finalFrameDurationTicks: 70n });
+	assert.equal(args[args.indexOf('-enc_time_base') + 1], '1/1000');
+	assert.equal(args[args.indexOf('-r') + 1], '100/7');
+	assert.equal(args[args.indexOf('-fps_mode') + 1], 'passthrough');
+	assert.throws(() => buildVideoProxyGenerationArgs({ inputPath: 'in', outputPath: 'out', finalFrameDurationTicks: 70n }), /timescale/u);
 });

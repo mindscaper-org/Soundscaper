@@ -4,28 +4,39 @@ import { expect, test, toneA, captionLabels, readFile } from './audio-editor-tes
 import {
 	bootEditor, chooseDropdown, chooseFileAction, chooseNestedCommandAction,
 	collectClientErrors, disableNativeSavePicker, importFiles, registerAudioEditorHooks,
-	trackNameText, waitForEditor,
+	trackNameText, waitForEditor, waitForProjectActivation,
 } from './audio-editor-test-helpers.js';
 import { createDeterministicAvFixture } from './fixtures/deterministic-av-media.js';
 import { readDawprojectArchive } from '../../src/common/editor/dawproject-archive.ts';
 
 test.describe('label and interchange exporters', () => {
 	registerAudioEditorHooks();
-	for (const fixture of [
-		{
-			name: 'audacity-labels.txt', mimeType: 'text/plain',
-			text: '0.125\t0.750\tTXT intro\n1.000\t1.500\tTXT outro\n',
-			titles: ['TXT intro', 'TXT outro'],
-		},
-		{
-			name: 'browser-labels.vtt', mimeType: 'text/vtt',
-			text: 'WEBVTT\n\nintro\n00:00:00.250 --> 00:00:01.500\nVTT intro\n\noutro\n00:00:02.000 --> 00:00:03.250\nVTT outro\n',
-			titles: ['VTT intro', 'VTT outro'],
-		},
-	]) {
-		test(`${fixture.name} imports through File > Import and survives reload`, async ({ page }) => {
-			const errors = collectClientErrors(page);
-			let editor = await bootEditor(page, '/embed/en/');
+	test('TXT and WebVTT import through File > Import and each survive reload', async ({ page }) => {
+		const caseTimeout = test.info().timeout;
+		test.setTimeout(caseTimeout * 2);
+		const errors = collectClientErrors(page);
+		let editor = await bootEditor(page, '/embed/en/');
+		let first = true;
+		for (const fixture of [
+			{
+				name: 'audacity-labels.txt', mimeType: 'text/plain',
+				text: '0.125\t0.750\tTXT intro\n1.000\t1.500\tTXT outro\n',
+				titles: ['TXT intro', 'TXT outro'],
+			},
+			{
+				name: 'browser-labels.vtt', mimeType: 'text/vtt',
+				text: 'WEBVTT\n\nintro\n00:00:00.250 --> 00:00:01.500\nVTT intro\n\noutro\n00:00:02.000 --> 00:00:03.250\nVTT outro\n',
+				titles: ['VTT intro', 'VTT outro'],
+			},
+		]) await test.step(fixture.name, async () => {
+			if (!first) {
+				const previousId = await editor.getAttribute('data-project-id');
+				await editor.getByRole('button', { name: 'New project', exact: true }).click();
+				await expect(editor).not.toHaveAttribute('data-project-id', previousId);
+				await waitForProjectActivation(editor);
+				await expect(editor.locator('[data-label-id]')).toHaveCount(0);
+			}
+			first = false;
 			const choosingFile = page.waitForEvent('filechooser');
 			await chooseFileAction(page, editor, 'Import');
 			await (await choosingFile).setFiles({
@@ -40,18 +51,20 @@ test.describe('label and interchange exporters', () => {
 			await expect(editor.locator('[data-label-track] [data-label-id]')).toHaveCount(2);
 			await expect(editor.locator('[data-label-track] [data-label-id]')).toContainText(fixture.titles);
 			expect(errors).toEqual([]);
-		});
-	}
+		}, { timeout: caseTimeout });
+	});
 
-	for (const [label, extension] of [
-		['As Audacity TXT', 'txt'], ['As SubRip (SRT)', 'srt'],
-		['As WebVTT', 'vtt'], ['As Podcast 2.0 chapters (JSON)', 'json'],
-	]) {
-		test(`${label} downloads cue text and timing`, async ({ page }) => {
-			await disableNativeSavePicker(page);
-			const errors = collectClientErrors(page);
-			const editor = await bootEditor(page, '/embed/en/');
-			await importFiles(editor, [captionLabels]);
+	test('TXT, SRT, WebVTT and Podcast label exports retain cue text and timing', async ({ page }) => {
+		const caseTimeout = test.info().timeout;
+		test.setTimeout(caseTimeout * 4);
+		const errors = collectClientErrors(page);
+		await disableNativeSavePicker(page);
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [captionLabels]);
+		for (const [label, extension] of [
+			['As Audacity TXT', 'txt'], ['As SubRip (SRT)', 'srt'],
+			['As WebVTT', 'vtt'], ['As Podcast 2.0 chapters (JSON)', 'json'],
+		]) await test.step(label, async () => {
 			await chooseNestedCommandAction(page, editor, 'File', ['Export other', 'Export labels']);
 			const dialog = page.getByRole('dialog', { name: 'Export labels', exact: true });
 			await chooseDropdown(page, dialog.getByRole('group', { name: 'Format', exact: true }), label);
@@ -87,8 +100,8 @@ test.describe('label and interchange exporters', () => {
 			}
 			await expect(dialog).toBeHidden();
 			expect(errors).toEqual([]);
-		});
-	}
+		}, { timeout: caseTimeout });
+	});
 
 	test('DAWproject exports embedded audio and reopens as an editable project', async ({ page }) => {
 		await disableNativeSavePicker(page);
@@ -117,15 +130,16 @@ test.describe('label and interchange exporters', () => {
 		expect(errors).toEqual([]);
 	});
 
-	for (const [label, extension] of [
-		['Export edit list (EDL)', 'edl'], ['Export OpenTimelineIO', 'otio'], ['Export FCPXML', 'fcpxml'],
-	]) {
-		test(`${label} writes the visible video clip and its timing`, async ({ page }) => {
-			test.setTimeout(60000);
-			await disableNativeSavePicker(page);
-			const errors = collectClientErrors(page);
-			const editor = await bootEditor(page, '/framescaper/embed/en/');
-			await importFiles(editor, [createDeterministicAvFixture('interchange.webm')]);
+	test('EDL, OpenTimelineIO and FCPXML write the visible video clip and its timing', async ({ page }) => {
+		const caseTimeout = 60_000;
+		test.setTimeout(caseTimeout * 3);
+		const errors = collectClientErrors(page);
+		await disableNativeSavePicker(page);
+		const editor = await bootEditor(page, '/framescaper/embed/en/');
+		await importFiles(editor, [createDeterministicAvFixture('interchange.webm')]);
+		for (const [label, extension] of [
+			['Export edit list (EDL)', 'edl'], ['Export OpenTimelineIO', 'otio'], ['Export FCPXML', 'fcpxml'],
+		]) await test.step(label, async () => {
 			const downloadPromise = page.waitForEvent('download');
 			await chooseNestedCommandAction(page, editor, 'File', ['Export other', label]);
 			const download = await downloadPromise;
@@ -148,6 +162,6 @@ test.describe('label and interchange exporters', () => {
 				expect(text).toContain('interchange.webm');
 			}
 			expect(errors).toEqual([]);
-		});
-	}
+		}, { timeout: caseTimeout });
+	});
 });

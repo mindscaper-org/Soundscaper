@@ -8,7 +8,7 @@ export const LOCAL_ASSISTANCE_INPUT_ROLES = Object.freeze([
 
 export const LOCAL_ASSISTANCE_OUTPUT_ROLES = Object.freeze([
 	'voice-activity', 'transcript', 'word-alignment', 'speaker-turns', 'enhanced-audio',
-	'separated-audio', 'audio-tags', 'beat-grid', 'embeddings', 'recognized-text',
+	'separated-audio', 'audio-tags', 'beat-grid', 'embeddings', 'recognized-text', 'midi-notes',
 	'shot-boundaries', 'subject-tracks', 'saliency-map', 'editorial-proposal',
 	'synthesized-audio',
 	'keyed-frames',
@@ -39,6 +39,7 @@ export const LOCAL_ASSISTANCE_OPERATION_MEDIA_CONTRACT = Object.freeze({
 	'source-separation': operationMedia(['audio'], [['audio']], ['separated-audio']),
 	'audio-tagging': operationMedia(['audio'], [['audio']], ['audio-tags']),
 	'beat-tracking': operationMedia(['audio'], [['audio']], ['beat-grid']),
+	'music-transcription': operationMedia(['audio'], [['audio']], ['midi-notes']),
 	'text-embedding': operationMedia(['transcript', 'text'], [['transcript', 'text']], ['embeddings']),
 	'image-text-embedding': operationMedia(['frame-pack', 'text'], [['frame-pack', 'text']], ['embeddings']),
 	'optical-character-recognition': operationMedia(['frame-pack'], [['frame-pack']], ['recognized-text']),
@@ -109,6 +110,7 @@ export const LOCAL_ASSISTANCE_OUTPUT_MEDIA_TYPES = Object.freeze({
 	'beat-grid': localAssistanceJsonMediaTypes('beat-grid'),
 	embeddings: Object.freeze(['application/vnd.soundscaper.embedding-matrix-v1']),
 	'recognized-text': localAssistanceJsonMediaTypes('recognized-text'),
+	'midi-notes': localAssistanceJsonMediaTypes('midi-notes'),
 	'shot-boundaries': localAssistanceJsonMediaTypes('shot-boundaries'),
 	'subject-tracks': localAssistanceJsonMediaTypes('subject-tracks'),
 	'saliency-map': localAssistanceJsonMediaTypes('saliency-map'),

@@ -55,8 +55,9 @@ export default function AudacityShortcutImport({ productId, commands, shortcuts,
 	}, [source, shortcuts, commands, productId]);
 	const plan = review?.plan;
 	const cancel = () => {
+		if (busy) captureImportFocus(() => buttonRef.current);
 		sessionRef.current?.cancel();
-		buttonRef.current?.focus();
+		if (!busy) buttonRef.current?.focus();
 	};
 	const commandLabels = new Map(commands.map(command => [command.id, command.label]));
 	const skipLabels = {
@@ -67,6 +68,7 @@ export default function AudacityShortcutImport({ productId, commands, shortcuts,
 	};
 	return <div aria-busy={busy}>
 		<Button ref={buttonRef} variant="secondary" disabled={busy} onClick={() => inputRef.current?.click()}>{labels.importAudacity}</Button>
+		{busy && !source && <Button variant="secondary" onClick={cancel}>{copy.cancel}</Button>}
 		<input ref={inputRef} type="file" accept=".xml,application/xml,text/xml" hidden aria-label={labels.audacityImportFile}
 			onChange={event => {
 				const file = event.currentTarget.files?.[0];

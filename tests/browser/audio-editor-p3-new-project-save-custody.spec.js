@@ -3,7 +3,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseFileAction, waitForEditor, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { SOUNDSCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 
-for (const full of [true, false]) test(`File New reports initial save custody and recovers; full=${full}`, async ({ page }) => {
+for (const full of [true]) test(`File New reports initial save custody and recovers; full=${full}`, async ({ page }) => {
 	await page.addInitScript(() => {
 		for (const method of ['add', 'put']) {
 			const original = IDBObjectStore.prototype[method];

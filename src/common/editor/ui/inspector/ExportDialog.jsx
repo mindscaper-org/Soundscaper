@@ -1,3 +1,4 @@
+import { changeSpatialExportSetting } from '../ear-export-settings.ts';
 import { useEffect, useMemo, useRef, useState } from 'react'; import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
@@ -28,7 +29,7 @@ import { useExportDialogOutput } from '../use-export-dialog-output.ts';
 import { createExportPresetActions } from '../export-preset-actions.js';
 import { projectHasTimelineVideo } from '../timeline-media-presence.ts';
 import { exportSurfaceDialogTitle } from '../export-surface-copy.ts';
-import { videoCaptionDeliveryUnavailable } from '../video-caption-delivery-surface.ts';
+import { framescaperVideoCaptionBurnInAvailable, videoCaptionDeliveryUnavailable } from '../video-caption-delivery-surface.ts';
 import { LabeledDropdown } from './inspector-controls.jsx';
 import ExportChannelMappingDialog from './ExportChannelMappingDialog.tsx';
 import ExportChannelsField from './ExportChannelsField.jsx';
@@ -44,6 +45,7 @@ import { useDesktopExportAvailability } from '../use-desktop-export-availability
 import { desktopCodecMessage } from '../../desktop-codec-presentation.ts';
 import ExportFormatAvailabilityDialog from './ExportFormatAvailabilityDialog.tsx';
 import { useExportDialogSubmission } from './useExportDialogSubmission.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import {
 	constrainExportDialogSampleRate, exportDialogBitRateOptions,
 	exportDialogBitRateSelectionReason, exportDialogCompressionLevels,
@@ -54,21 +56,30 @@ import {
 	exportDialogVorbisQualityOptions, normalizeExportDialogAudioSettings,
 } from '../export-dialog-audio-codec-options.ts';
 import { samePresetParams } from './effect-helpers.ts';
-export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fileService, onClose }) {
+import EditorControlLabel from '../EditorControlLabel.tsx';
+export function ExportDialog({
+	isOpen, controller, snapshot, copy, productId, fileService, onClose,
+	clipExportRequest = /** @type {Readonly<{ projectSession: string, range: import('../../clip-content-range.ts').ClipContentRange }> | null} */ (null),
+}) {
 	const exportProgress = useAudioEditorTelemetrySelector(controller, (telemetry) => telemetry.taskProgress?.kind === 'export' ? telemetry.taskProgress.value : telemetry.exportProgress);
 	const [metadataOpen, setMetadataOpen] = useState(false);
 	const [metadataTab, setMetadataTab] = useState('general');
 	const [mappingOpen, setMappingOpen] = useState(false);
 	const [editingSampleRate, setEditingSampleRate] = useState(false);
 	const projectIdentity = exportDialogProjectIdentity(snapshot.project);
+	const ownsClipRange = (id) => !clipExportRequest || clipExportRequest.projectSession === editorProjectEditSessionKey(controller, id);
+	const clipExportCurrent = ownsClipRange(projectIdentity);
+	const clipRange = clipExportCurrent ? clipExportRequest?.range : null;
+	const selectionProject = useMemo(() => clipRange ? { ...snapshot.project, selection: clipRange } : snapshot.project,
+		[clipRange, snapshot.project]);
 	const settingsProjectIdentity = useRef(projectIdentity);
-	const [settings, setSettings] = useState(() => createExportDialogInitialSettings(snapshot.project));
+	const [settings, setSettings] = useState(() => createExportDialogInitialSettings(snapshot.project, clipRange ? 'selection' : undefined));
 	const [error, setError] = usePresentationFeedback(copy);
 	const [presetId, setPresetId] = useState('');
 	const [presetName, setPresetName] = useState('');
 	const operationOwner = useMemo(
-		() => ({ controller, isOpen, projectIdentity }),
-		[controller, isOpen, projectIdentity],
+		() => ({ controller, isOpen, projectIdentity, clipExportCurrent }),
+		[controller, isOpen, projectIdentity, clipExportCurrent],
 	);
 	const currentOperationOwner = useRef(operationOwner);
 	const submission = useExportDialogSubmission(operationOwner, (cause) => setError(feedbackFailure(cause)));
@@ -91,7 +102,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 		setSettings, setPresetId, setPresetName,
 		isCurrent: () => currentOperationOwner.current === operationOwner,
 	});
-	const hasSelection = Boolean(resolveSelectionRange(snapshot.project));
+	const hasSelection = Boolean(resolveSelectionRange(selectionProject));
 	const hasLoop = Boolean(snapshot.project?.loop?.enabled);
 	const exporting = Boolean(snapshot.exporting);
 	const settingsDisabled = exporting || submission.pending;
@@ -99,15 +110,16 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 	const output = snapshot.export?.output;
 	// The export action admits sources for its chosen delivery, including verified
 	// render fallbacks; an unavailable unused Bin source does not block that output.
-	const blocked = !snapshot.ready || snapshot.importing || snapshot.recording || snapshot.processingEffect || !snapshot.project?.clips?.length;
+	const blocked = !clipExportCurrent || !snapshot.ready || snapshot.importing || snapshot.recording || snapshot.processingEffect || !snapshot.project?.clips?.length;
 	const hasTimelineVideo = projectHasTimelineVideo(snapshot.project);
 	const videoFormat = isVideoExportDialogFormat(settings.format);
 	const captionDeliveryUnavailable = videoCaptionDeliveryUnavailable(
 		productId, snapshot.project,
 	);
-	// Generic video delivery captions from label tracks. Selected Framescaper owns its
-	// explicit caption tracks and sidecar export through the gated menu surface.
-	const labelTracks = (snapshot.project?.tracks || []).filter((track) => track?.type === 'label');
+	const captionBurnInOnly = framescaperVideoCaptionBurnInAvailable(productId, snapshot.project);
+	const captionTracks = captionBurnInOnly
+		? (snapshot.project.videoCaptionTracks ?? []).filter(track => track.sequenceId === snapshot.project.primarySequenceId)
+		: (snapshot.project?.tracks || []).filter(track => track?.type === 'label');
 	const admRequired = settings.format === 'bw64' && settings.adm == null;
 	const admPassthrough = settings.format === 'bw64' && settings.adm?.mode === 'passthrough';
 	// Only an authored programme carries the positions a binaural render places
@@ -178,7 +190,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 			setSettings((current) => ({ ...current, dither: 'none' }));
 		}
 	}, [desktop, hasTimelineVideo, settings.dither, settings.format, settings.sampleFormat]);
-	const set = (name, value) => setSettings((current) => ({ ...current, [name]: value }));
+	const set = (name, value) => setSettings((current) => changeSpatialExportSetting(current, name, value));
 	const setCodec = (name, value) => setSettings((current) => normalizeExportDialogAudioSettings(
 		{ ...current, [name]: value }, desktop, projectChannelCount,
 	));
@@ -230,6 +242,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 	});
 	const metadataAvailable = exportDialogMetadataAvailable(settings.format, desktop);
 	const start = () => submission.start(() => {
+		if (clipExportRequest && !ownsClipRange(controller.getSnapshot().project?.id)) return;
 		setError('');
 		if (desktopFormatRefusal) throw new Error(desktopFormatRefusal);
 		const admittedSettings = normalizeExportDialogAudioSettings(settings, desktop, projectChannelCount);
@@ -239,12 +252,13 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 			: {};
 		const metadata = compactFields(exportDialogMetadataFields(settings, customMetadata));
 		const request = createExportDialogRequest(admittedSettings, {
-			metadata: exportDialogMetadata(admittedSettings.format, desktop, metadata), desktop, captionDeliveryUnavailable, project: snapshot.project,
+			metadata: exportDialogMetadata(admittedSettings.format, desktop, metadata), desktop,
+			captionDeliveryUnavailable, captionBurnInOnly, project: selectionProject,
 			bext: admittedSettings.bext,
 			adm: admittedSettings.adm,
 			channelMapping: videoFormat
 				? undefined
-				: admittedSettings.binaural ? 'preserve' : admittedSettings.channelMapping === 'custom'
+				: admittedSettings.binaural || admittedSettings.earLayout ? 'preserve' : admittedSettings.channelMapping === 'custom'
 					? parseJsonChannelMapping(admittedSettings.channelMatrix, copy.customChannelMapping, copy)
 					: admittedSettings.channelMapping,
 		});
@@ -351,14 +365,17 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 				<div className="audio-editor-export-dialog__content">
 				<section className="audio-editor-export-section">
 					<h3>{copy.exportSection}</h3>
-					<LabeledDropdown label={copy.format} hook="format" value={settings.format} onChange={(format) => { if (format === settings.format) void availability.retry(); setFormat(format); }} disabled={settingsDisabled} options={[
+					<LabeledDropdown label={copy.format} hook="format" value={settings.format} onChange={(format) => {
+						if (format === settings.format) void availability.retry();
+						else setFormat(format);
+					}} disabled={settingsDisabled} options={[
 						...audioFormatDescriptors.map((descriptor) => ({
 							value: descriptor.id,
 							label: descriptor.id === 'custom-ffmpeg'
 								? copy.customFfmpeg
 								: descriptor.id === 'bwf' ? copy.broadcastWav : descriptor.label,
 						})),
-						...(hasTimelineVideo ? VIDEO_EXPORT_DIALOG_FORMATS.map((descriptor) => ({
+						...(hasTimelineVideo ? VIDEO_EXPORT_DIALOG_FORMATS.filter((descriptor) => (!descriptor.desktopOnly || desktop) && (!descriptor.productId || descriptor.productId === (productId || 'soundscaper'))).map((descriptor) => ({
 							value: descriptor.id,
 							label: copy[descriptor.labelKey],
 						})) : []),
@@ -372,8 +389,8 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 					{!videoFormat && (
 						<ExportChannelsField
 							copy={copy}
-							value={settings.binaural ? 'preserve' : settings.channelMapping}
-							disabled={settingsDisabled || settings.format === 'bw64' || settings.binaural}
+							value={settings.binaural || settings.earLayout ? 'preserve' : settings.channelMapping}
+							disabled={settingsDisabled || settings.format === 'bw64' || settings.binaural || Boolean(settings.earLayout)}
 							onChange={(value) => setCodec('channelMapping', value)}
 							onEditMapping={() => setMappingOpen(true)}
 						/>
@@ -401,16 +418,16 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 					{!videoFormat && ['flac', 'wavpack'].includes(settings.format) && (
 						<LabeledDropdown label={copy.quality} hook="quality" value={settings.compressionLevel} onChange={(value) => setCodec('compressionLevel', value)} disabled={settingsDisabled} options={exportDialogCompressionLevels(settings.format, desktop).map((level) => ({ value: String(level), label: `${copy.level} ${level}` }))} />
 					)}
-					{!videoFormat && <label className="audio-editor-field" data-export-field="sampleRate"><span>{copy.sampleRate}</span><input type="number" min="8000" max={maximumAudioSampleRate} step="1" list="audio-editor-export-rates" value={settings.sampleRate} disabled={settingsDisabled || admPassthrough} onFocus={() => setEditingSampleRate(true)} onChange={(event) => set('sampleRate', event.currentTarget.value)} onBlur={() => { setEditingSampleRate(false); setCodec('sampleRate', settings.sampleRate); }} /><datalist id="audio-editor-export-rates">{exportDialogSampleRateSuggestions(maximumAudioSampleRate, snapshot.project?.sampleRate, settings.format, desktop).map((value) => <option key={value} value={value} />)}</datalist></label>}
-					<ExportEmbeddedChaptersField copy={copy} settings={settings} project={snapshot.project} exporting={settingsDisabled} onChange={set} />
+					{!videoFormat && <label className="audio-editor-field" data-export-field="sampleRate"><EditorControlLabel>{copy.sampleRate}</EditorControlLabel><input type="number" min="8000" max={maximumAudioSampleRate} step="1" list="audio-editor-export-rates" value={settings.sampleRate} disabled={settingsDisabled || admPassthrough} onFocus={() => setEditingSampleRate(true)} onChange={(event) => set('sampleRate', event.currentTarget.value)} onBlur={() => { setEditingSampleRate(false); setCodec('sampleRate', settings.sampleRate); }} /><datalist id="audio-editor-export-rates">{exportDialogSampleRateSuggestions(maximumAudioSampleRate, snapshot.project?.sampleRate, settings.format, desktop).map((value) => <option key={value} value={value} />)}</datalist></label>}
+					<ExportEmbeddedChaptersField copy={copy} settings={settings} project={selectionProject} exporting={settingsDisabled} onChange={set} />
 					{videoFormat && (
 						<VideoDeliveryFields
 							copy={copy}
 							disabled={settingsDisabled}
-							labelTracks={labelTracks}
+							labelTracks={captionTracks}
 							settings={settings}
 							onChange={setVideoDeliverySetting}
-							captionDeliveryUnavailable={captionDeliveryUnavailable} productId={productId}
+							captionDeliveryUnavailable={captionDeliveryUnavailable} captionBurnInOnly={captionBurnInOnly}
 						/>
 					)}
 				</section>
@@ -431,9 +448,9 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 						<details className="audio-editor-export-details" open>
 							<summary>{copy.advancedOptions}</summary>
 							<div className="audio-editor-export-section">
-								<label className="audio-editor-field"><span>{copy.customExtension}</span><TextInput value={settings.customExtension} disabled={settingsDisabled} onChange={(value) => set('customExtension', value)} width="100%" /></label>
-								<label className="audio-editor-field"><span>{copy.customMimeType}</span><TextInput value={settings.customMimeType} disabled={settingsDisabled} onChange={(value) => set('customMimeType', value)} width="100%" /></label>
-								<label className="audio-editor-field"><span>{copy.customArguments}</span><TextInput multiline value={settings.customArguments} disabled={settingsDisabled} onChange={(value) => set('customArguments', value)} width="100%" /></label>
+								<label className="audio-editor-field"><EditorControlLabel>{copy.customExtension}</EditorControlLabel><TextInput value={settings.customExtension} disabled={settingsDisabled} onChange={(value) => set('customExtension', value)} width="100%" /></label>
+								<label className="audio-editor-field"><EditorControlLabel>{copy.customMimeType}</EditorControlLabel><TextInput value={settings.customMimeType} disabled={settingsDisabled} onChange={(value) => set('customMimeType', value)} width="100%" /></label>
+								<label className="audio-editor-field"><EditorControlLabel>{copy.customArguments}</EditorControlLabel><TextInput multiline value={settings.customArguments} disabled={settingsDisabled} onChange={(value) => set('customArguments', value)} width="100%" /></label>
 							</div>
 						</details>
 					</>

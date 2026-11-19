@@ -4,7 +4,7 @@ import { expect, monoTone, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, importFiles, resolveBrowserProductTestUrl, waitForEditor } from './audio-editor-test-helpers.js';
 
 test('an open spectral dialog blocks unavailable actions after a normal editing lease change', async ({ page, context }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	await page.keyboard.press('ControlOrMeta+a');
 	await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();

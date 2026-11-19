@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { Button } from '@soundscaper/design-system/Button';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 const RADIO_GROUP_NAME = 'audio-editor-export-channels';
 const RADIO_GROUP_LABEL_ID = 'audio-editor-export-channels-label';
@@ -43,7 +44,7 @@ export default function ExportChannelsField({ copy, value, disabled, onChange, o
 							disabled={disabled}
 							onChange={() => onChange(option.value)}
 						/>
-						<span>{option.label}</span>
+						<EditorControlLabel>{option.label}</EditorControlLabel>
 					</label>
 				))}
 				<span data-export-channel-action="edit-mapping">

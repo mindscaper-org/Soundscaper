@@ -7,6 +7,7 @@ import nativeFixtureSources from './desktop-nightly-tests-native-fixture-inputs.
 import { NIGHTLY_BROWSER_CODEC_INPUTS } from './desktop-nightly-tests-browser-codec-inputs.mjs';
 import { NIGHTLY_MOTION_FIXTURE_INPUTS } from './desktop-nightly-tests-motion-fixture-inputs.mjs';
 import { NIGHTLY_BROWSER_MEDIA_INPUTS } from './desktop-nightly-tests-browser-media-inputs.mjs';
+import { NIGHTLY_BROWSER_SOURCE_INPUTS } from './desktop-nightly-tests-browser-source-inputs.mjs';
 import { NIGHTLY_INTERCHANGE_INPUTS, validateNightlyInterchange } from './desktop-nightly-tests-interchange-inputs.mjs';
 import {
 	assertDirectory,
@@ -50,6 +51,7 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 	{ source: 'desktop/nightly-tests-main.mjs', destination: 'desktop/nightly-tests-main.mjs', kind: 'file', label: 'nightly test launcher' },
 	...['nightly-tests-control', 'nightly-tests-checkpoint-reporter', 'nightly-tests-pause-reports', 'process-tree-termination'].map((name) => ({ source: `desktop/${name}.ts`, destination: `desktop/${name}.ts`, kind: 'file', label: 'nightly test pause and resume' })),
 	{ source: 'desktop/nightly-tests-assistance-host.mjs', destination: 'desktop/nightly-tests-assistance-host.mjs', kind: 'file', label: 'nightly-only real assistance Electron host' },
+	{ source: 'desktop/nightly-tests-editor-host.mjs', destination: 'desktop/nightly-tests-editor-host.mjs', kind: 'file', label: 'nightly-only packaged editor workflow host' },
 	{ source: 'desktop/nightly-tests-assistance.html', destination: 'desktop/nightly-tests-assistance.html', kind: 'file', label: 'isolated assistance diagnostic document' },
 	{ source: 'desktop/nightly-tests-manifest.mjs', destination: 'desktop/nightly-tests-manifest.mjs', kind: 'file', label: 'nightly test manifest reader' },
 	{ source: 'desktop/nightly-tests-progress-window.mjs', destination: 'desktop/nightly-tests-progress-window.mjs', kind: 'file', label: 'visible nightly test progress window' },
@@ -140,18 +142,14 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 		source: `.wrangler/dual-origin-browser/${product}${suffix}`, destination: `sites/${product}${suffix}`,
 		kind: 'directory', label: `verified ${product} browser ${suffix ? 'source maps' : 'site'}`,
 	}))),
-	{ source: 'src', destination: 'src', kind: 'directory', label: 'browser-test source tree' },
-	{ source: 'functions/download/index.ts', destination: 'functions/download/index.ts', kind: 'file', label: 'download-page browser fixture handler' },
-	{ source: 'vendor/audacity-design-system/tokens', destination: 'vendor/audacity-design-system/tokens', kind: 'directory', label: 'design-system tokens used by browser assertions' },
-	{ source: 'vendor/audacity-design-system/components/src/utils/roseus-colormap.ts', destination: 'vendor/audacity-design-system/components/src/utils/roseus-colormap.ts', kind: 'file', label: 'spectrogram painter browser harness colormap' },
-	{ source: 'vendor/audacity-design-system/components/src/Slider/native-range-touch-owner.ts', destination: 'vendor/audacity-design-system/components/src/Slider/native-range-touch-owner.ts', kind: 'file', label: 'native range touch ownership used by browser fixtures' },
-	{ source: 'vendor/audacity-design-system/components/src/Track/track-fade-handle-geometry.ts', destination: 'vendor/audacity-design-system/components/src/Track/track-fade-handle-geometry.ts', kind: 'file', label: 'fade handle geometry used by browser fixtures' },
+	...NIGHTLY_BROWSER_SOURCE_INPUTS,
 	{ source: 'handbook/guides', destination: 'handbook/guides', kind: 'directory', label: 'handbook guide step data the browser suite replays' },
 	{ source: 'handbook/src/content/docs/reference/macro-programs.md', destination: 'handbook/src/content/docs/reference/macro-programs.md', kind: 'file', label: 'macro-program reference the browser suite replays' },
 	{ source: 'tests/browser', destination: 'tests/browser', kind: 'directory', label: 'browser test tree', exclude: new Set(['AGENTS.md', 'handbook']) },
 	{ source: 'tests/electron/local-assistance-models', destination: 'tests/electron/local-assistance-models', kind: 'directory', label: 'real local assistance model tests', exclude: new Set(['AGENTS.md']) },
 	{ source: 'tests/aup3-fixture.js', destination: 'tests/aup3-fixture.js', kind: 'file', label: 'AUP3 browser support fixture' },
 	{ source: 'tests/helpers/aup4-database-harness.js', destination: 'tests/helpers/aup4-database-harness.js', kind: 'file', label: 'Audacity recovery browser SQLite fixture' },
+	{ source: 'tests/helpers/audacity-damaged-overflow-fixture.ts', destination: 'tests/helpers/audacity-damaged-overflow-fixture.ts', kind: 'file', label: 'Audacity recovery browser damaged overflow fixture' },
 	{ source: 'tests/helpers/png-fixture.mjs', destination: 'tests/helpers/png-fixture.mjs', kind: 'file', label: 'timeline image browser support fixture' },
 	{ source: 'tests/helpers/framescaper-ordinary-animation-fixture.ts', destination: 'tests/helpers/framescaper-ordinary-animation-fixture.ts', kind: 'file', label: 'ordinary animated image browser support fixture' },
 	{ source: 'tests/helpers/framescaper-ordinary-high-precision-image-fixture.ts', destination: 'tests/helpers/framescaper-ordinary-high-precision-image-fixture.ts', kind: 'file', label: 'ordinary high-precision PNG browser support fixture' },
@@ -226,7 +224,7 @@ export async function stageDesktopNightlyTests({
 		await pruneFrameworkLinkerStubs(join(temporaryOutput, '.local-browsers'));
 		await pruneUnpackableSymlinks(join(temporaryOutput, '.local-browsers'));
 		await stageLicenses(root, temporaryOutput, runtimePackages);
-		await writeJson(join(temporaryOutput, 'package.json'), nightlyTestsPackage(projectPackage.version));
+		await writeJson(join(temporaryOutput, 'package.json'), nightlyTestsPackage(projectPackage.version, projectPackage.releaseVersion));
 
 		const payloadPaths = [
 			'.local-browsers',
@@ -251,7 +249,7 @@ export async function stageDesktopNightlyTests({
 		const manifest = {
 			schemaVersion: 1,
 			kind: 'soundscaper-desktop-nightly-tests',
-			applicationVersion: projectPackage.version,
+			applicationVersion: projectPackage.releaseVersion ?? projectPackage.version,
 			sourceRevision,
 			target: normalizedTarget,
 			browserRevisions,
@@ -279,6 +277,7 @@ async function validateRequiredInputs(root) {
 	for (const path of ['LICENSE', 'THIRD_PARTY_LICENSES.md']) {
 		await assertRegularFile(join(root, path), `required ${path}`);
 	}
+	for (const name of ['release-version.ts', 'release-packaging.ts']) await assertRegularFile(join(root, 'src/common/release', name), 'calendar release module');
 	await assertRegularFile(
 		join(root, 'LICENSES/Playwright-winldd-MIT.txt'),
 		'required Playwright WinLDD MIT notice',
@@ -462,12 +461,12 @@ async function describePayload(path, manifestPath) {
 	}
 }
 
-function nightlyTestsPackage(version) {
+function nightlyTestsPackage(version, releaseVersion) {
 	return {
 		name: 'soundscaper-nightly-tests',
 		productName: 'Soundscaper Nightly Tests',
 		desktopName: 'org.soundscaper.desktop.nightly-tests',
-		version,
+		version, ...(releaseVersion ? { releaseVersion } : {}),
 		description: 'Portable Soundscaper Playwright browser test runner',
 		main: 'desktop/nightly-tests-main.mjs',
 		type: 'module',

@@ -10,6 +10,7 @@ import {
 	clone as cloneSessionValue,
 	nonEmptyString,
 	normalizeProject,
+	validateProject,
 } from './session-history.js';
 
 export const AUDIO_EDITOR_SESSION_CLIPBOARD_SCHEMA_VERSION = 1;
@@ -51,29 +52,26 @@ export function createAudioEditorSessionClipboard(
 	project: unknown,
 	options: CreateAudioEditorSessionClipboardOptions = {},
 ): AudioEditorSessionClipboard {
-	const normalizedProject = normalizeProject(project) as SessionClipboardProject;
-	const defaultTrackIds = normalizedProject.tracks
-		.filter((track) => track.type !== 'label' && Array.isArray(track.clipIds))
-		.map((track) => track.id as string);
-	const generatedDescriptor = options.descriptor || createClipboardDescriptor(normalizedProject, {
+	const providedDescriptor = options.descriptor;
+	const clipboardProject = (providedDescriptor ? validateProject(project) : normalizeProject(project)) as SessionClipboardProject;
+	const generatedDescriptor = providedDescriptor || createClipboardDescriptor(clipboardProject, {
 		startFrame: options.startFrame,
 		endFrame: options.endFrame,
-		trackIds: options.trackIds || defaultTrackIds,
+		trackIds: options.trackIds || clipboardProject.tracks
+			.filter((track) => track.type !== 'label' && Array.isArray(track.clipIds))
+			.map((track) => track.id as string),
 	});
 	const descriptor = normalizeAudioEditorClipboardDescriptor(generatedDescriptor);
 	const sourceIds = collectAudioEditorClipboardSourceIds(descriptor);
-	const sourceById = new Map(normalizedProject.sources.map((source) => [source.id, source]));
+	const sourceById = new Map(clipboardProject.sources.map((source) => [source.id, source]));
 	const sources = sourceIds.map((sourceId) => {
 		const source = sourceById.get(sourceId);
-		if (!source) {
-			const inputProject = project as DataRecord;
-			throw new ReferenceError(`Clipboard source ${sourceId} is missing from project ${inputProject.id as string}.`);
-		}
+		if (!source) throw new ReferenceError(`Clipboard source ${sourceId} is missing from project ${clipboardProject.id}.`);
 		return clone(source);
 	});
 	return {
 		schemaVersion: AUDIO_EDITOR_SESSION_CLIPBOARD_SCHEMA_VERSION,
-		originProjectId: normalizedProject.id,
+		originProjectId: clipboardProject.id,
 		descriptor,
 		sources,
 	};
@@ -115,6 +113,28 @@ export function normalizeAudioEditorSessionClipboard(value: unknown): AudioEdito
 
 function clone<Value>(value: Value): Value {
 	return cloneSessionValue(value) as Value;
+}
+
+/** Keep the captured clipboard private until a caller reads the snapshot's value. */
+export function deferSessionClipboardSnapshot<Snapshot extends { clipboard: AudioEditorSessionClipboard | null }>(snapshot: Snapshot): Snapshot {
+	let clipboard = snapshot.clipboard;
+	let detached = false;
+	Object.defineProperty(snapshot, 'clipboard', {
+		enumerable: true,
+		configurable: true,
+		get() {
+			if (!detached) {
+				clipboard = clone(clipboard);
+				detached = true;
+			}
+			return clipboard;
+		},
+		set(value: AudioEditorSessionClipboard | null) {
+			clipboard = value;
+			detached = true;
+		},
+	});
+	return snapshot;
 }
 
 /** A detached clipboard view carries destination compatibility without exposing session ownership. */

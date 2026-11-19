@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Dropdown } from '@soundscaper/design-system/Dropdown';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 /**
  * A preferences dropdown with a visible (or screen-reader-only) caption.
@@ -20,11 +21,12 @@ export default function PreferenceDropdownField({
 }) {
 	const wrapperRef = React.useRef(null);
 	React.useEffect(() => {
-		wrapperRef.current?.querySelector('.dropdown__trigger')?.setAttribute('aria-label', label);
-	}, [label]);
+		const trigger = wrapperRef.current?.querySelector('.dropdown__trigger');
+		trigger?.setAttribute('aria-label', `${label}: ${trigger.querySelector('.dropdown__text')?.textContent || ''}`);
+	}, [label, value, options]);
 	return (
 		<div ref={wrapperRef} className="kw-audio-editor-preferences__field" role="group" aria-label={label}>
-			<span className={visuallyHiddenLabel ? 'kw-audio-editor-sr-only' : undefined}>{label}</span>
+			<EditorControlLabel className={visuallyHiddenLabel ? 'kw-audio-editor-sr-only' : undefined}>{label}</EditorControlLabel>
 			<Dropdown options={options} value={value} onChange={onChange} width="100%" disabled={disabled} />
 		</div>
 	);

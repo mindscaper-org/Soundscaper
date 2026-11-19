@@ -42,6 +42,8 @@ const EXPECTED_RUNTIME_PACKAGES = [
 	'axe-core',
 	'esbuild',
 	'fflate',
+	'js-synthesizer',
+	'libadlmidi-js',
 	'mediabunny',
 	'playwright',
 	'playwright-core',
@@ -76,6 +78,8 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'desktop/plugin-scan-results.ts', 'desktop/native-services-queue-status-projection.ts',
 		'vendor/audacity-design-system/components/src/component-copy.ts',
 		'tests/helpers/read-wave-pcm.ts', 'tests/helpers/read-riff-chunks.ts',
+		'tests/helpers/audacity-damaged-overflow-fixture.ts',
+		'functions/download/audacity/index.ts', 'public/download.css', 'public/audacity-download.css',
 	]) {
 		assert.deepEqual(await readFile(join(fixture.outputRoot, source)),
 			await readFile(new URL(`../${source}`, import.meta.url)),
@@ -121,6 +125,7 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 	for (const file of [
 		'ffmpeg-ima-info.wav.base64', 'ffmpeg-long-info.wav.gz.base64', 'ffmpeg-mp3-info.wav.base64',
 		'ffmpeg-pcm-info.wav.base64', 'ffmpeg-short-info.wav.gz.base64',
+		'twolame-0.4.0-sine.mp2.base64',
 		'chromium-audio-only.webm.base64', 'libsndfile-float32.aifc.base64',
 		'libsndfile-utf8-text.aiff.base64', 'libsndfile-zero-based-cues.wav.base64', 'python-uncompressed.aif.base64',
 	]) {
@@ -145,6 +150,8 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'canvaskit-wasm',
 		'esbuild',
 		'fflate',
+		'js-synthesizer',
+		'libadlmidi-js',
 		'mediabunny',
 		'react',
 		'react-dom',
@@ -177,6 +184,7 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'desktop/nightly-tests-main.mjs',
 		...['nightly-tests-control', 'nightly-tests-checkpoint-reporter', 'nightly-tests-pause-reports', 'process-tree-termination'].map((name) => `desktop/${name}.ts`),
 		'desktop/nightly-tests-assistance-host.mjs',
+		'desktop/nightly-tests-editor-host.mjs',
 		'desktop/nightly-tests-assistance.html',
 		'desktop/nightly-tests-manifest.mjs',
 		'desktop/nightly-tests-progress-window.mjs',
@@ -365,6 +373,18 @@ test('nightly test preparation creates the clean-checkout desktop icon and defau
 	assert.deepEqual([...icon.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
 	const splash = await readFile(join(fixture.repositoryRoot, '.desktop-build/icons/nightly-tests-splash.bmp'));
 	assert.equal(splash.toString('ascii', 0, 2), 'BM');
+});
+
+test('nightly staging retains the public calendar name separately from the numeric package version', async (context) => {
+	const fixture = await createFixture(context);
+	const packagePath = join(fixture.repositoryRoot, 'package.json');
+	const metadata = await readJson(packagePath);
+	await writeFile(packagePath, JSON.stringify({ ...metadata, version: '2026.1111.2', releaseVersion: 'Soundscaper-rc.2026.Nov.11.a' }));
+	const result = await stageDesktopNightlyTests(fixture);
+	assert.equal(result.manifest.applicationVersion, 'Soundscaper-rc.2026.Nov.11.a');
+	const packaged = await readJson(join(fixture.outputRoot, 'package.json'));
+	assert.equal(packaged.version, '2026.1111.2');
+	assert.equal(packaged.releaseVersion, 'Soundscaper-rc.2026.Nov.11.a');
 });
 
 test('nightly test staging rejects missing inputs before replacing an existing payload', async (context) => {

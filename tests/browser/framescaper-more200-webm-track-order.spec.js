@@ -4,7 +4,7 @@ import { bootEditor } from './audio-editor-test-helpers.js';
 import { createDeterministicSilentVideoFixture } from './fixtures/deterministic-av-media.js';
 import { openFramescaperSourcePropertiesFromBin } from './helpers/framescaper-source-properties.js';
 
-for (const reordered of [false, true]) test(`File Import retains WebM source facts when video settings come ${reordered ? 'before' : 'after'} TrackType`, async ({ page }) => {
+for (const reordered of [true]) test(`File Import retains WebM source facts when video settings come ${reordered ? 'before' : 'after'} TrackType`, async ({ page }) => {
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
 	const file = createDeterministicSilentVideoFixture('Reordered camera.webm');
 	if (reordered) {

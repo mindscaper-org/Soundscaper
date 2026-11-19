@@ -68,8 +68,8 @@ test('browser preflight refuses embedded chapters for unsupported containers', a
 test('chapter metadata contributes to the streamed file-size warning and refusal removes staging', async () => {
 	const sink = temporarySink();
 	let warnings = 0;
-	await assert.rejects(encodeBrowserAudioFileStreamed(wavFixture(16), 'mp3', {
-		bitRate: 192, embeddedChapters: [{ startFrame: 0, endFrame: 16, title: 'Intro' }], maximumOutputBytes: 8,
+	await assert.rejects(encodeBrowserAudioFileStreamed(wavFixture(48), 'mp3', {
+		bitRate: 192, embeddedChapters: [{ startFrame: 0, endFrame: 48, title: 'Intro' }], maximumOutputBytes: 8,
 		async confirmFileSizeWarning(warning) {
 			warnings++;
 			assert.ok(warning.byteLength > 8);

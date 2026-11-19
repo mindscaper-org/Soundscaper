@@ -11,6 +11,7 @@ import {
 	type NativeMediaCapabilitySnapshotV1,
 } from '../src/common/editor/native-media-capability-snapshot.ts';
 import type { FramescaperNativeServicesLease } from './native-services-database.ts';
+import type { FramescaperExternalDisplayPixelPort } from './external-display-controller.ts';
 import { framescaperClosedNativeCapabilityReportV1 } from './native-media-capability-report.ts';
 import {
 	FramescaperNativeServicesLifecycleV3,
@@ -331,9 +332,11 @@ export class FramescaperNativeServicesControllerV3 {
 		return this.#track(this.#requireLifecycle().setExternalDisplay(request));
 	}
 
-	presentExternalDisplay(value: unknown): FramescaperNativeExternalDisplayProjection {
+	presentExternalDisplay(
+		value: unknown, pixels?: FramescaperExternalDisplayPixelPort,
+	): Promise<FramescaperNativeExternalDisplayProjection> {
 		this.#authorizeCapability(NATIVE_MEDIA_CAPABILITY_IDS.externalDisplay, 'external display');
-		return this.#requireLifecycle().presentExternalDisplay(value);
+		return this.#track(this.#requireLifecycle().presentExternalDisplay(value, pixels));
 	}
 
 	beginShutdown(): void { this.#closing = true; }

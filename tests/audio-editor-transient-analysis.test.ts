@@ -80,6 +80,21 @@ test('channel policy is explicit and cancellation cannot erase linked-channel at
 	assert.deepEqual(mono.transients, []);
 });
 
+test('transient novelty retains only the rolling baseline and the adjacent peak', (t) => {
+	const allocated: number[] = [];
+	const Plane = Float64Array;
+	const original = Object.getOwnPropertyDescriptor(globalThis, 'Float64Array')!;
+	Object.defineProperty(globalThis, 'Float64Array', { ...original, value: class extends Plane {
+		constructor(length: number) { super(length); allocated.push(length); }
+	} });
+	t.after(() => { Object.defineProperty(globalThis, 'Float64Array', original); });
+	const pcm = new Float32Array(257);
+	pcm[251] = 0.7;
+	const result = detectPcmTransients([pcm], { parameters: { ...PARAMETERS, minimumSpacingFrames: 0 } });
+	assert.deepEqual(result.transients, [{ sourceFrame: 251, strength: 1 }]);
+	assert.deepEqual(allocated, [PARAMETERS.baselineWindowHops + 1]);
+});
+
 test('analysis parameters and PCM geometry are closed, bounded, and finite', () => {
 	assert.deepEqual(normalizeTransientAnalysisParameters(PARAMETERS), PARAMETERS);
 	assert.throws(

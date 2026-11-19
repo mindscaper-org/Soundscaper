@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type {
-	MasteringSequenceDeliveryPlan,
 	MasteringSequenceDeliverySegment,
 } from './mastering-sequence-delivery.ts';
 
@@ -20,52 +19,31 @@ import type {
  * region appear twice in one sequence with different fades.
  */
 
-export interface MasteringSequenceRenderedSegment {
-	readonly entryId: string;
-	/** The rendered audio for this entry's region, one array per channel. */
-	readonly channels: readonly Float32Array[];
-}
-
-export interface MasteringSequenceRenderRequest {
-	readonly plan: MasteringSequenceDeliveryPlan;
-	readonly segments: readonly MasteringSequenceRenderedSegment[];
-	readonly channelCount: number;
-}
-
-/** Build the delivered channels: gaps as silence, regions in order, fades applied. */
-export function renderMasteringSequenceDelivery(
-	request: MasteringSequenceRenderRequest,
-): readonly Float32Array[] {
-	const { plan, channelCount } = request;
+export function createMasteringSequenceOutput(totalFrames: number, channelCount: number): readonly Float32Array[] {
 	if (!Number.isSafeInteger(channelCount) || channelCount <= 0) {
 		throw new RangeError('A mastering sequence delivery requires a positive channel count.');
 	}
-	const rendered = new Map(request.segments.map((segment) => [segment.entryId, segment.channels]));
-	const output = Array.from({ length: channelCount }, () => new Float32Array(plan.totalFrames));
+	return Object.freeze(Array.from({ length: channelCount }, () => new Float32Array(totalFrames)));
+}
 
-	for (const segment of plan.segments) {
-		const channels = rendered.get(segment.entryId);
-		if (!channels) {
-			throw new ReferenceError(`Mastering sequence entry ${segment.entryId} was not rendered.`);
-		}
-		const expected = segment.outputEndFrame - segment.outputStartFrame;
-		for (const channel of channels) {
-			if (channel.length === expected) continue;
-			// A short or long segment would slide every later entry, so the
-			// mismatch is refused rather than padded into place.
+export function writeMasteringSequenceEntry(
+	output: readonly Float32Array[],
+	segment: MasteringSequenceDeliverySegment,
+	channels: readonly Float32Array[],
+): void {
+	const expected = segment.outputEndFrame - segment.outputStartFrame;
+	for (const channel of channels) {
+		if (channel.length !== expected) {
 			throw new RangeError(
 				`Mastering sequence entry ${segment.entryId} rendered ${channel.length} frames, not ${expected}.`,
 			);
 		}
-		for (let index = 0; index < channelCount; index += 1) {
-			// Fewer rendered channels than the delivery carries means the render and
-			// the plan disagree; taking the last one would invent a channel map.
-			const source = channels[index];
-			if (!source) throw new RangeError(`Mastering sequence entry ${segment.entryId} is missing a channel.`);
-			writeSegment(output[index], source, segment);
-		}
 	}
-	return Object.freeze(output);
+	for (let index = 0; index < output.length; index += 1) {
+		const source = channels[index];
+		if (!source) throw new RangeError(`Mastering sequence entry ${segment.entryId} is missing a channel.`);
+		writeSegment(output[index], source, segment);
+	}
 }
 
 function writeSegment(

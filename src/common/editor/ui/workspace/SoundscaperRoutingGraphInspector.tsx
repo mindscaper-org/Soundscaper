@@ -34,6 +34,7 @@ import {
 	type RoutingGraphCandidate,
 	type RoutingSelection,
 } from './soundscaper-routing-graph-candidates.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export interface SoundscaperRoutingGraphInspectorProps {
 	readonly project: unknown;
@@ -135,8 +136,8 @@ function NodeInspector(props: SoundscaperRoutingGraphInspectorProps & Readonly<{
 				{ name: routingFormName(data, node.name), channelCount: Number(data.get('channelCount')) },
 			));
 		}}>
-			<label>{copy.name} <RoutingNameInput value={node.name} readOnly={managed} disabled={disabled || managed} /></label>
-			<label>{copy.channels} <input name="channelCount" type="number" min={1} max={32} step={1} defaultValue={node.channelCount} disabled={disabled || managed} /></label>
+			<label><EditorControlLabel>{copy.name} </EditorControlLabel><RoutingNameInput value={node.name} readOnly={managed} disabled={disabled || managed} /></label>
+			<label><EditorControlLabel>{copy.channels} </EditorControlLabel><input name="channelCount" type="number" min={1} max={32} step={1} defaultValue={node.channelCount} disabled={disabled || managed} /></label>
 			<button type="submit" disabled={disabled || managed}>{copy.saveNode}</button>
 		</RoutingInspectorForm>
 		<ConnectionForm
@@ -164,12 +165,12 @@ function OutputInspector(props: SoundscaperRoutingGraphInspectorProps & Readonly
 				channelCount: Number(data.get('channelCount')),
 			}));
 		}}>
-			<label>{copy.name} <RoutingNameInput value={output.name} disabled={disabled} /></label>
-			<label>{copy.role} <select name="role" defaultValue={output.role} disabled={disabled}>
+			<label><EditorControlLabel>{copy.name} </EditorControlLabel><RoutingNameInput value={output.name} disabled={disabled} /></label>
+			<label><EditorControlLabel>{copy.role} </EditorControlLabel><select name="role" defaultValue={output.role} disabled={disabled}>
 				<option value="main">{copy.main}</option><option value="cue">{copy.cue}</option>
 				<option value="control-room">{copy.controlRoom}</option><option value="auxiliary">{copy.auxiliary}</option>
 			</select></label>
-			<label>{copy.channels} <input name="channelCount" type="number" min={1} max={32} step={1} defaultValue={output.channelCount} disabled={disabled} /></label>
+			<label><EditorControlLabel>{copy.channels} </EditorControlLabel><input name="channelCount" type="number" min={1} max={32} step={1} defaultValue={output.channelCount} disabled={disabled} /></label>
 			<button type="submit" disabled={disabled}>{copy.saveOutput}</button>
 		</RoutingInspectorForm>
 	</>;
@@ -194,11 +195,11 @@ function VcaInspector(props: SoundscaperRoutingGraphInspectorProps & Readonly<{ 
 				members: memberOptions.filter(({ value }) => selected.has(value)).map(({ endpoint }) => endpoint),
 			}));
 		}}>
-			<label>{copy.name} <RoutingNameInput value={vca.name} disabled={disabled} /></label>
-			<label>{copy.gain} <input name="gain" type="number" min={0} max={4} step="0.01" defaultValue={vca.gain} disabled={disabled} /></label>
-			<label><input name="mute" type="checkbox" defaultChecked={vca.mute} disabled={disabled} /> {copy.mute}</label>
+			<label><EditorControlLabel>{copy.name} </EditorControlLabel><RoutingNameInput value={vca.name} disabled={disabled} /></label>
+			<label><EditorControlLabel>{copy.gain} </EditorControlLabel><input name="gain" type="number" min={0} max={4} step="0.01" defaultValue={vca.gain} disabled={disabled} /></label>
+			<label><input name="mute" type="checkbox" defaultChecked={vca.mute} disabled={disabled} /> <EditorControlLabel>{copy.mute}</EditorControlLabel></label>
 			<fieldset><legend>{copy.members}</legend>{memberOptions.map(({ value, label }) => <label key={value}>
-				<input name="member" type="checkbox" value={value} defaultChecked={members.has(value)} disabled={disabled} /> {label}
+				<input name="member" type="checkbox" value={value} defaultChecked={members.has(value)} disabled={disabled} /> <EditorControlLabel>{label}</EditorControlLabel>
 			</label>)}</fieldset>
 			<button type="submit" disabled={disabled}>{copy.saveVca}</button>
 		</RoutingInspectorForm>
@@ -337,13 +338,13 @@ function EdgeInspector(props: SoundscaperRoutingGraphInspectorProps & Readonly<{
 				props.onError(reason);
 			}
 		}}>
-			<label>{copy.source} <select name="source" defaultValue={routingEndpointValue(edge.source)} disabled={controlDisabled}>{sources.map(option)}</select></label>
-			<label>{copy.destination} <select name="destination" defaultValue={routingEndpointValue(edge.destination)} disabled={controlDisabled}>{destinations.map(option)}</select></label>
-			<label>{copy.kind} <select name="kind" defaultValue={edge.kind} disabled={controlDisabled || edge.destination.kind === 'effect-sidechain'}>
+			<label><EditorControlLabel>{copy.source} </EditorControlLabel><select name="source" defaultValue={routingEndpointValue(edge.source)} disabled={controlDisabled}>{sources.map(option)}</select></label>
+			<label><EditorControlLabel>{copy.destination} </EditorControlLabel><select name="destination" defaultValue={routingEndpointValue(edge.destination)} disabled={controlDisabled}>{destinations.map(option)}</select></label>
+			<label><EditorControlLabel>{copy.kind} </EditorControlLabel><select name="kind" defaultValue={edge.kind} disabled={controlDisabled || edge.destination.kind === 'effect-sidechain'}>
 				<option value="assignment">{copy.assignment}</option><option value="send">{copy.send}</option>
 				{edge.kind === 'sidechain' && <option value="sidechain">{copy.sidechain}</option>}
 			</select></label>
-			<label>{copy.position} <select name="position" defaultValue={edge.position} disabled={controlDisabled}>
+			<label><EditorControlLabel>{copy.position} </EditorControlLabel><select name="position" defaultValue={edge.position} disabled={controlDisabled}>
 				<option value="pre-fader">{copy.preFader}</option><option value="post-fader">{copy.postFader}</option>
 			</select></label>
 			<RoutingEdgeLevelInput label={copy.levelDb} savedLevel={edge.level} disabled={controlDisabled}
@@ -352,9 +353,9 @@ function EdgeInspector(props: SoundscaperRoutingGraphInspectorProps & Readonly<{
 				onCancel={() => finishLevelGesture('cancel', levelGesture.current.value)}
 				hasActiveGesture={() => levelGesture.current.active || levelGesture.current.pending}
 			/>
-			<label><input name="enabled" type="checkbox" defaultChecked={edge.enabled} disabled={controlDisabled} /> {copy.enabled}</label>
+			<label><input name="enabled" type="checkbox" defaultChecked={edge.enabled} disabled={controlDisabled} /> <EditorControlLabel>{copy.enabled}</EditorControlLabel></label>
 			<fieldset><legend>{copy.channelMap}</legend>{edge.channelMap.map((channel, index) => <label key={index}>
-				{fill(copy.destinationChannel, { index: String(index + 1) })} <select name={`map-${index}`} defaultValue={channel} disabled={controlDisabled}>
+				<EditorControlLabel>{fill(copy.destinationChannel, { index: String(index + 1) })} </EditorControlLabel><select name={`map-${index}`} defaultValue={channel} disabled={controlDisabled}>
 					<option value={-1}>{copy.silence}</option>{Array.from({ length: endpointWidth(project, graph, edge.source) }, (_value, source) => <option key={source} value={source}>{fill(copy.sourceChannel, { index: String(source + 1) })}</option>)}
 				</select>
 				<span><input type="checkbox" name={`remove-map-${index}`} disabled={controlDisabled} /> {copy.removeMapRow}</span>
@@ -390,7 +391,7 @@ function ConnectionForm({ project, graph, copy, source, disabled, onCandidate, o
 			onError(reason);
 		}
 	}}>
-		<label>{copy.connectTo} <select name="destination" disabled={disabled || destinations.length === 0}>{destinations.map(option)}</select></label>
+		<label><EditorControlLabel>{copy.connectTo} </EditorControlLabel><select name="destination" disabled={disabled || destinations.length === 0}>{destinations.map(option)}</select></label>
 		<button type="submit" disabled={disabled || destinations.length === 0}>{copy.addConnection}</button>
 	</form>;
 }

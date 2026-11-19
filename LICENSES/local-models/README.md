@@ -1,5 +1,11 @@
 # Local model license texts
 
+The `voicefixer-*` files retain the original inference-code MIT license,
+checkpoint CC-BY-4.0 terms, the conversion-code Apache-2.0 notice and the
+unmodified ONNX model card. Source URLs and byte identities are pinned in
+`config/voicefixer-model-source.json`; underlying checkpoint attribution remains
+required despite the conversion repository's MIT model-card declaration.
+
 These files retain the complete upstream license texts without edits. The five
 conversion-code licenses were read from the exact authenticated source archives
 in the conversion execution register. Qwen's license was read at its pinned model
@@ -15,6 +21,12 @@ The Kokoro G2P helper and its dependency closure are not included in the model
 files and remain unprovisioned.
 
 Desktop packaging copies this directory into its offline licenses inventory.
+The unmodified `basic-pitch-LICENSE.txt`, `basic-pitch-NOTICE.txt` and
+`basic-pitch-README.md` retain Spotify's Apache-2.0 grant, attributions and model usage guidance at revision
+`fa5997af0a8210982619003269994a1be25eddf3`. Their byte identities are pinned in
+`config/basic-pitch-model-source.json`; catalog inclusion additionally requires
+verified product-asset publication.
+
 Model-specific attribution, weight/code distinctions, artifact modifications,
 and distribution limitations are in
 [THIRD_PARTY_LICENSES.md](../../THIRD_PARTY_LICENSES.md#mirrored-assistance-models).

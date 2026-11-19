@@ -406,7 +406,7 @@ test('the scan job answer fills the inventory on its way past', async (context) 
 
 	assert.equal(await supervisor.runJob({ kind: 'audio-device' }), device);
 	assert.equal(registry.describe().entries.length, 0, 'only a scan job answers with plug-ins');
-	assert.equal(await supervisor.runJob({ kind: 'plugin-scan' }), answer, 'the answer is handed back untouched');
+	assert.equal(await supervisor.runJob({ kind: 'plugin-scan', grant: { format: 'fixture' } }), answer, 'the answer is handed back untouched');
 	assert.deepEqual(registry.describe().entries.map((entry) => entry.name), ['Fixture Reverb']);
 	assert.deepEqual(requests.map((request) => request.kind), ['audio-device', 'plugin-scan']);
 });

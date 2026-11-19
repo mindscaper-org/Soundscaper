@@ -42,3 +42,20 @@ test('ID-only source edits do not read unrelated source names', () => {
 	const project = fixture([source('original', 'Original.wav'), { ...source('unrelated', ''), get name(): string { throw new Error('Unrelated name must stay unread.'); } }]);
 	assert.equal(planClipSpreadsheetEdits(project, [{ clipId: 'clip-0', column: 'source', value: 'original' }]), null);
 });
+
+test('a one-cell edit never formats unrelated clips or columns', () => {
+	const project = fixture(undefined, 100);
+	const precision = Number.prototype.toPrecision;
+	let gainConversions = 0;
+	Number.prototype.toPrecision = function (places?: number) {
+		gainConversions++;
+		return precision.call(this, places);
+	};
+	try {
+		const command = planClipSpreadsheetEdits(project, [{ clipId: 'clip-48', column: 'name', value: 'Changed' }]);
+		assert.deepEqual(command, { type: 'clip/update', clipId: 'clip-48', changes: { title: 'Changed' } });
+		assert.equal(gainConversions, 0);
+	} finally {
+		Number.prototype.toPrecision = precision;
+	}
+});

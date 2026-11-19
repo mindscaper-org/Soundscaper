@@ -14,6 +14,28 @@ import { generatorDtmfDurations } from '../src/common/editor/ui/dialogs/Generato
  */
 const DIALOG_DURATION_MAXIMUM_SECONDS = 24 * 60 * 60;
 
+test('DTMF keeps sample-level timing when the requested tones last one sample each', () => {
+	const sampleRate = 96_000;
+	const sequence = '1'.repeat(96);
+	const timing = generatorDtmfDurations(0.001, 100, sequence.length);
+	assert.equal(timing.toneSeconds, 1 / sampleRate);
+	const result = generateAudioEditorSignal('dtmf', { sampleRate, sequence, durationSeconds: timing.totalSeconds,
+		toneSeconds: timing.toneSeconds, silenceSeconds: timing.silenceSeconds });
+	assert.equal(result.frameCount, 96);
+});
+
+test('a minimum-length DTMF symbol contains a sample of its two tones', () => {
+	const sampleRate = 48_000;
+	const sequence = '1234567890ABCD*#'.repeat(3);
+	const result = generateAudioEditorSignal('dtmf', {
+		sampleRate, sequence, toneSeconds: 1 / sampleRate, silenceSeconds: 0, durationSeconds: 0.001,
+	});
+	assert.equal(result.frameCount, sequence.length);
+	const samples = result.channels[0]!;
+	assert.ok(samples.every((sample: number) => Math.abs(sample) > 0.001));
+	assert.notEqual(samples[0], samples[1]);
+});
+
 test('DTMF generation accepts the per-symbol lengths the generator dialog derives from a long total', () => {
 	const sampleRate = 8_000;
 	// Generate > DTMF with the shipped defaults (sequence '123', duty 200/3 %)

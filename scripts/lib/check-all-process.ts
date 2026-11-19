@@ -24,8 +24,9 @@ export function startLimitedProcess(root: string, id: string, args: readonly str
 } = {}) {
 	if (process.platform !== 'linux') throw new Error('check-all requires Linux, cgroup v2 and a systemd user session to enforce its memory limits.');
 	const unit = `scape-check-${id.replace(/[^a-z0-9-]/giu, '-')}-${randomUUID()}.scope`;
+	const env = options.env ?? process.env;
 	const child = spawn('systemd-run', limitedProcessArguments(root, unit, args, options.memoryBytes), {
-		cwd: root, env: options.env ?? process.env, stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+		cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'], detached: true,
 	});
 	if (options.log) {
 		child.stdout.pipe(options.log, { end: false });
@@ -36,8 +37,8 @@ export function startLimitedProcess(root: string, id: string, args: readonly str
 		stopping ??= (async () => {
 			// Kill the entire scope before stopping it; no graceful-stop timeout can
 			// leave native grandchildren running after Ctrl-C or a failed shard.
-			await controlUnit('kill', ['--signal=SIGKILL', '--kill-whom=all', unit]);
-			await controlUnit('stop', [unit]);
+			await controlUnit('kill', ['--signal=SIGKILL', '--kill-whom=all', unit], env);
+			await controlUnit('stop', [unit], env);
 			if (child.exitCode === null && child.signalCode === null && child.pid) {
 				try { process.kill(-child.pid, 'SIGKILL'); } catch (error) {
 					if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
@@ -60,9 +61,9 @@ export function startLimitedProcess(root: string, id: string, args: readonly str
 	return { completed, stop, unit };
 }
 
-function controlUnit(action: string, args: string[]): Promise<void> {
+function controlUnit(action: string, args: string[], env: NodeJS.ProcessEnv): Promise<void> {
 	return new Promise((resolveControl, reject) => {
-		const child = spawn('systemctl', ['--user', action, ...args], { stdio: 'ignore' });
+		const child = spawn('systemctl', ['--user', action, ...args], { env, stdio: 'ignore' });
 		child.once('error', reject);
 		// Finished transient scopes have already been collected; stopping one
 		// again is harmless and returns a nonzero status.

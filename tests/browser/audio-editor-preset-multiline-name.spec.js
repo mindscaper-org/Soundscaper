@@ -15,7 +15,7 @@ test('editing an admitted multiline delivery preset name retains it in the expor
 	await (await choosing).setFiles({ name: 'room.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ schemaVersion: 1, presets: [
 		{ schemaVersion: 1, id: 'room', label: original, kind: 'audio', format: 'wav', settings: {} },
 	] })) });
-	await dialog.getByRole('button', { name: 'Preset', exact: true }).click();
+	await dialog.getByRole('button', { name: /^Preset(?::|$)/u }).click();
 	await page.getByRole('option', { name: /^Opening\s+Room tone \(custom\)/u }).click();
 	await dialog.getByRole('button', { name: 'Save preset', exact: true }).click();
 	await page.getByRole('menuitem', { name: 'Save as new preset', exact: true }).click();

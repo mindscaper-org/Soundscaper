@@ -14,6 +14,14 @@ export const NO_AUDIO_EXPORT_PROGRESS = Object.freeze({
 	finish: () => false,
 });
 
+/** Cancellation retires the foreground presentation even if an admitted write is still settling. */
+export function setAudioExportCancellation(
+	task: Pick<EditorTaskProgressHandle, 'finish'> & Partial<Pick<EditorTaskProgressHandle, 'setCancellation'>>,
+	cancel: () => void,
+): void {
+	task.setCancellation?.(() => { cancel(); task.finish(); });
+}
+
 /** Final destination writes retain the foreground task's cancellation and progress. */
 export function audioExportPublicationProgress(
 	task: Pick<EditorTaskProgressHandle, 'setPhase' | 'update'>,

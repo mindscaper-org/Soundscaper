@@ -35,5 +35,6 @@ Project files and label files are listed separately in [Project and label files]
 
 | Format | Extension | Codecs / container | Runtime requirement | Products |
 | --- | --- | --- | --- | --- |
+| MOV | .mov | h264 video; aac audio / mov | Desktop only; external FFmpeg runtime required (encoders: libx264, aac; muxers: mov) | Soundscaper |
 | MP4 | .mp4 | h264 video; aac audio / mp4 | FFmpeg runtime required (encoders: libx264, aac; muxers: mp4) | Soundscaper, Framescaper |
 | WebM | .webm | vp9 video; opus audio / webm | FFmpeg runtime required (encoders: libvpx-vp9, libopus; muxers: webm) | Soundscaper, Framescaper |

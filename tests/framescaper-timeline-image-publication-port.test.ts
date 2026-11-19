@@ -61,11 +61,11 @@ function adopting(overrides: Data = {}): Readonly<{ dependencies: never; calls: 
 	return built;
 }
 
-function publish(dependencies: never): Promise<Data> {
+function publish(dependencies: never, body = BODY): Promise<Data> {
 	return createPort(dependencies).publish({
 		project: PROJECT,
 		command: { type: 'timeline-image/publish' },
-		body: BODY,
+		body,
 	} as never) as unknown as Promise<Data>;
 }
 
@@ -134,6 +134,31 @@ test('a superseded compare-and-set is refused rather than retried', async () => 
 		() => publish(dependencies),
 		isStale(/revision was superseded before publication/u),
 	);
+});
+
+test('changing projects while reading the image body prevents a late publication', async () => {
+	let publications = 0;
+	const { dependencies } = adopting({ publishIfCurrent: async () => { publications += 1; return PUBLISHED; } });
+	const controller = (dependencies as unknown as Data).controller as Data;
+	const cancellation = publish(dependencies, { arrayBuffer: async () => {
+		controller.project = { ...PROJECT, id: 'replacement-project' };
+		return BODY.arrayBuffer();
+	} });
+	await assert.rejects(cancellation, isStale(/project changed/u));
+	assert.equal(publications, 0);
+});
+
+test('an image saved during a project switch updates its origin history without switching the user back', async () => {
+	const replacement = { ...PROJECT, id: 'replacement-project' };
+	const { dependencies, calls } = adopting({ publishIfCurrent: async () => {
+		controller.project = replacement;
+		return PUBLISHED;
+	} });
+	const controller = (dependencies as unknown as Data).controller as Data;
+	assert.equal(await publish(dependencies), PUBLISHED);
+	assert.equal(controller.project, replacement);
+	assert.ok(calls.includes('markSaved'));
+	assert.equal(calls.includes('openById:adopt'), false);
 });
 
 test('storage returning a different revision is a hard failure, not a staleness retry', async () => {

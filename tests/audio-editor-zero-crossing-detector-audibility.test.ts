@@ -41,7 +41,8 @@ for (const position of ['pre-fader', 'post-fader'] as const) test(`the edge rend
 		},
 	}, project, ['programme'], { startFrame: 10_007, endFrame: 11_007 }, 480,
 	{ startFrame: 9_527, endFrame: 11_487 });
-	assert.equal(ranges.length, 1, 'wet history remains one continuous capture');
+	assert.deepEqual(ranges.map(({ startFrame, endFrame }) => [startFrame, endFrame]), [[9_527, 11_487]],
+		'wet history and its retained detector require one continuous capture');
 	assert.equal(ranges[0]?.respectMuteSolo, true);
 	assert.equal(ranges[0]?.trackId, undefined);
 	assert.deepEqual(project, before);

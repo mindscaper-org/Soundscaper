@@ -68,7 +68,7 @@ export function createFixture(options: Readonly<{
 		microphoneMetering: false,
 		recordingInputGain: 0,
 		latencyOffsetMs: 0,
-		leadInRecording: false,
+		leadInRecording: false, leadInDurationSeconds: null as number | null,
 		showRms: false,
 		showVerticalRulers: true,
 		scrollViewToPlayhead: true,

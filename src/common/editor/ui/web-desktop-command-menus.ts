@@ -10,6 +10,7 @@ import { resolveSoundscaperNativeServicesCopy } from './soundscaper-native-servi
 import { resolveOriginalFileOverwriteCopy } from '../../i18n/editor-original-file-overwrite-copy.ts';
 import { resolveBlenderCopy } from '../../i18n/editor-blender-copy.ts';
 import { organizeNativePreferences } from './local-processing-menus.ts';
+import { JUCE_EFFECTS, juceEffectLabel } from '../juce-effects/catalog.ts';
 
 const DESKTOP_COMMAND_ICON = iconNameToChar('DESKTOP_MONITOR');
 type Entry = AssistanceMenuEntry;
@@ -44,8 +45,6 @@ function desktopOffers({ productId, copy, locale, organization, onUnavailable }:
 	const services = [
 		...(soundscaper ? [leaf('blender-start-live-sync', blender.startSync),
 			leaf('blender-stop-live-sync', blender.stopSync)] : []),
-		leaf('desktop-use-native-probe-helper', copy.useNativeProbeHelper),
-		leaf('desktop-clear-probe-helper-quarantine', copy.clearProbeHelperQuarantine),
 		leaf('desktop-clear-audio-helper-quarantine', copy.clearAudioHelperQuarantine),
 		leaf('desktop-discover-native-effects', copy.discoverNativeEffects),
 		...(soundscaper ? [leaf('desktop-mcp-connection', copy['ui.desktopMcp.connection'] || 'MCP connection')] : []),
@@ -70,6 +69,8 @@ function desktopOffers({ productId, copy, locale, organization, onUnavailable }:
 		branch('effect', copy.effectMenu, [
 			leaf('ara-clip-editor', copy['ui.ara.clipEditor']),
 			...(soundscaper ? [leaf('native-effect-manage', plugins.pluginManage)] : []),
+			...(soundscaper ? [branch('juce-effects', 'JUCE', JUCE_EFFECTS.map(effect =>
+				leaf(effect.menuId, juceEffectLabel(effect, copy))))] : []),
 			...native.effect,
 		]),
 		branch('analyze', copy.analyzeMenu, soundscaper ? [leaf('native-analyzer-use', plugins.vampAnalyzers)] : []),

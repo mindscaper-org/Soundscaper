@@ -20,7 +20,7 @@ export function ClipFadePresetItems({ edge, hasFade, shape, copy, onSelect }: Re
 		const curve = fadeOverlayGeometry({ timelineStartFrame: 0, durationFrames: 16,
 			[edge === 'in' ? 'fadeInFrames' : 'fadeOutFrames']: 16,
 			[edge === 'in' ? 'fadeInShape' : 'fadeOutShape']: preset.shape }, 0, 16, 1, 1).curves[0]!;
-		return <ContextMenuItem key={preset.id} role="menuitemradio" checked={selectedId === preset.id}
+		return <ContextMenuItem key={preset.id} tooltipKey={`fade-${preset.id}`} role="menuitemradio" checked={selectedId === preset.id}
 			label={copy[LABEL_KEYS[preset.id]] || FALLBACKS[preset.id]} shortcut={String(index + 1)}
 			icon={<svg width="16" height="16" viewBox="0 0 16 100" preserveAspectRatio="none" aria-hidden="true">
 				<path d={curve.path} fill="none" stroke="currentColor" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />

@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { normalizeEmbeddedExportChapters, type EmbeddedExportChapter } from './export-embedded-chapters.ts';
+import { assembleAudioExportBlob } from './audio-export-prefix-blob.ts';
 
 const MAXIMUM_METADATA_BYTES = 16 * 1024 ** 2;
+const METADATA_READ_BYTES = 1024 ** 2;
 const UINT32_MAX = 0xffff_ffff;
 const CONTAINERS = new Set(['moov', 'trak', 'mdia', 'minf', 'stbl']);
 
@@ -69,15 +71,15 @@ export async function embedM4aChapters(
 		replacements.push({ start: box.start, end: box.end, bytes });
 	}
 	replacements.sort((left, right) => left.start - right.start);
-	const parts: BlobPart[] = [];
+	const parts: Blob[] = [];
 	let offset = 0;
 	for (const replacement of replacements) {
-		parts.push(blob.slice(offset, replacement.start), replacement.bytes);
+		parts.push(blob.slice(offset, replacement.start), new Blob([replacement.bytes]));
 		offset = replacement.end;
 	}
 	parts.push(blob.slice(offset));
 	signal?.throwIfAborted();
-	return new Blob(parts, { type: blob.type || 'audio/mp4' });
+	return assembleAudioExportBlob(blob, parts, blob.type || 'audio/mp4');
 }
 
 function neroChapterBox(chapters: readonly EmbeddedExportChapter[], sampleRate: number): Uint8Array<ArrayBuffer> {
@@ -112,9 +114,15 @@ function atom(type: string, body: Uint8Array): Uint8Array<ArrayBuffer> {
 }
 
 async function metadataBytes(blob: Blob, box: Box, signal?: AbortSignal): Promise<Uint8Array<ArrayBuffer>> {
-	if (box.end - box.start > MAXIMUM_METADATA_BYTES) throw new RangeError('M4A movie metadata exceeds its bounded chapter rewrite size.');
-	const bytes = new Uint8Array(await blob.slice(box.start, box.end).arrayBuffer());
-	signal?.throwIfAborted();
+	const length = box.end - box.start;
+	if (length > MAXIMUM_METADATA_BYTES) throw new RangeError('M4A movie metadata exceeds its bounded chapter rewrite size.');
+	const bytes = new Uint8Array(length);
+	for (let offset = 0; offset < length; offset += METADATA_READ_BYTES) {
+		const end = Math.min(length, offset + METADATA_READ_BYTES);
+		const chunk = new Uint8Array(await blob.slice(box.start + offset, box.start + end).arrayBuffer());
+		signal?.throwIfAborted();
+		bytes.set(chunk, offset);
+	}
 	return bytes;
 }
 

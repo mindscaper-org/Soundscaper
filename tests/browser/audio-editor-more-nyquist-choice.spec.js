@@ -11,7 +11,7 @@ test('published HQ-Tone offers its waveform choices and generates the chosen wav
 	test.setTimeout(90_000);
 	await registerNyquistArchivePublication(page, ['HQ-Tone.ny']);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'short.wav', duration: 0.02 })]);
 	let menu = await openNestedCommandMenu(page, editor, 'Effect', ['Nyquist']);
 	await menu.getByRole('menuitem', { name: 'Get effects', exact: true }).click();

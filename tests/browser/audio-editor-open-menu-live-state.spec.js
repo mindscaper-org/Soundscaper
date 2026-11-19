@@ -4,7 +4,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor } from './audio-editor-test-helpers.js';
 import { aacLcAdtsPceFixture } from '../helpers/os-audio-codec-fixtures.ts';
 
-test('an Edit menu opened while importing enables Undo when import finishes', async ({ page }) => {
+test('Edit offers Undo after the blocking import dialog finishes', async ({ page }) => {
 	await page.addInitScript(() => {
 		const decode = BaseAudioContext.prototype.decodeAudioData;
 		BaseAudioContext.prototype.decodeAudioData = function (...args) {
@@ -19,11 +19,13 @@ test('an Edit menu opened while importing enables Undo when import finishes', as
 	await editor.locator('[data-import-input]').setInputFiles({ name: 'Pending.bin', mimeType: 'application/octet-stream', buffer: Buffer.from(aacLcAdtsPceFixture(false)) });
 	try {
 		await expect.poll(() => page.evaluate(() => typeof window.__releaseMenuDecode)).toBe('function');
+		await expect(page.locator('[data-task-progress-dialog]')).toBeVisible();
+		await expect(editor.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
+		await page.evaluate(() => window.__releaseMenuDecode());
+		await expect(page.locator('[data-task-progress-dialog]')).toBeHidden();
 		await editor.getByRole('menubar').getByRole('menuitem', { name: 'Edit', exact: true }).click();
 		const menu = editor.locator('.kw-audio-editor__application-menu[role="menu"]');
 		const undo = menu.getByRole('menuitem', { name: /^Undo(?=\s|$)/u });
-		await expect(undo).toBeDisabled();
-		await page.evaluate(() => window.__releaseMenuDecode());
 		await expect(editor).toHaveAttribute('data-clip-count', '1');
 		await expect(menu).toBeVisible();
 		await expect(undo).toBeEnabled();

@@ -12,7 +12,7 @@ test('export settings normalize formats, codec controls, and project defaults de
 		binaural: false,
 		bitDepth: 24,
 		sampleFormat: 'int24',
-		dither: 'triangular',
+		dither: 'none',
 		bitRate: undefined,
 		quality: undefined,
 		compressionLevel: undefined,
@@ -22,7 +22,8 @@ test('export settings normalize formats, codec controls, and project defaults de
 		extension: undefined,
 		mimeType: undefined,
 		customArguments: undefined,
-		includeTail: true,
+		includeTail: false,
+		renderAsLoop: false,
 		embedLabelChapters: false,
 		measureLoudness: false,
 		loudnessNormalization: null,
@@ -45,6 +46,15 @@ test('export settings normalize formats, codec controls, and project defaults de
 	assert.equal(opus.bitRate, 96);
 	assert.equal(opus.sampleRate, 44_100);
 	assert.equal(opus.includeTail, false);
+});
+
+test('dither, appended tails and loop rendering require an explicit opt in', () => {
+	const settings = normalizeEditorExportSettings({
+		range: 'loop', dither: 'triangular-highpass', includeTail: true, renderAsLoop: true,
+	}, 48_000);
+	assert.equal(settings.dither, 'triangular-highpass');
+	assert.equal(settings.includeTail, true);
+	assert.equal(settings.renderAsLoop, true);
 });
 
 test('unknown values cannot escape the supported export inventory', () => {

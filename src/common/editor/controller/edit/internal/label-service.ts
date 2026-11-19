@@ -18,6 +18,7 @@ import { AUDIO_EDITOR_TIMELINE_ANNOTATION_LIMITS } from '../../../timeline-annot
 import {
 	labelExportFileName,
 	labelMimeType,
+	normalizeProjectSampleRate,
 	stripExtension,
 } from '../../shared/app-helpers.ts';
 import {
@@ -80,7 +81,10 @@ export interface LabelImportOptions {
 	readonly format?: string;
 	readonly name?: unknown;
 	readonly strict?: boolean;
+	readonly openProject?: OpenLabelProject;
 }
+
+export type OpenLabelProject = () => PromiseLike<string> | string;
 
 export interface LabelExportOptions {
 	readonly download?: boolean;
@@ -133,7 +137,7 @@ export interface LabelServiceDependencies {
 
 export interface LabelService {
 	importLabelFile(file: LabelInputFile | null | undefined, options?: LabelImportOptions): Promise<LabelImportResult | null>;
-	importCueFile(file: LabelInputFile | null | undefined, destination: CueImportDestination): Promise<CueImportResult | null>;
+	importCueFile(file: LabelInputFile | null | undefined, destination: CueImportDestination, openProject?: OpenLabelProject): Promise<CueImportResult | null>;
 	exportLabels(options?: LabelExportOptions): Promise<LabelExportResult>;
 }
 
@@ -151,7 +155,7 @@ export function createLabelService(dependencies: LabelServiceDependencies): Read
 		options: LabelImportOptions = {},
 	): Promise<LabelImportResult | null> {
 		dependencies.lifetime.assertActive();
-		if (!file || dependencies.editingBlocked()) return null;
+		if (!file || (!options.openProject && dependencies.editingBlocked())) return null;
 		const ownership = captureOwnership('labels:import');
 		const importing = claimImportBusyState(dependencies.state);
 		dependencies.publish();
@@ -163,16 +167,17 @@ export function createLabelService(dependencies: LabelServiceDependencies): Read
 				filename: file.name,
 				mimeType: file.type,
 				format: options.format,
-				sampleRate: ownership.project.sampleRate,
+				sampleRate: options.openProject ? normalizeProjectSampleRate(undefined) : ownership.project.sampleRate,
 				strict: options.strict,
 				idFactory: () => dependencies.createId('label'),
 			}) as ParsedLabels;
 			if (!parsed.labels.length) throw createLocalizedError(Error, dependencies.copy, 'labelsImportEmpty');
+			const target = options.openProject ? await openDestination(ownership, options.openProject) : ownership;
 			const trackId = dependencies.createId('label-track');
 			const trackName = String(
 				options.name || stripExtension(file.name) || publishedCopyFor(dependencies.copy).labels,
 			).trim();
-			assertOwnership(ownership);
+			assertOwnership(target);
 			dependencies.commit(createAddLabelTrackCommand({
 				id: trackId,
 				name: trackName,
@@ -191,12 +196,13 @@ export function createLabelService(dependencies: LabelServiceDependencies): Read
 	async function importCueFile(
 		file: LabelInputFile | null | undefined,
 		destination: CueImportDestination,
+		openProject?: OpenLabelProject,
 	): Promise<CueImportResult | null> {
 		dependencies.lifetime.assertActive();
 		if (destination !== 'markers' && destination !== 'labels') {
 			throw new RangeError('CUE import destination must be markers or labels.');
 		}
-		if (!file || dependencies.editingBlocked()) return null;
+		if (!file || (!openProject && dependencies.editingBlocked())) return null;
 		const ownership = captureOwnership('cue:import');
 		const importing = claimImportBusyState(dependencies.state);
 		dependencies.publish();
@@ -205,9 +211,10 @@ export function createLabelService(dependencies: LabelServiceDependencies): Read
 			const data = await readLabelFile(file);
 			assertOwnership(ownership);
 			const parsed = parseAudioEditorCueSheet(data, {
-				sampleRate: ownership.project.sampleRate, legacyTextEncoding: 'windows-1252',
+				sampleRate: openProject ? normalizeProjectSampleRate(undefined) : ownership.project.sampleRate, legacyTextEncoding: 'windows-1252',
 			});
 			if (!parsed.cues.length) throw createLocalizedError(Error, dependencies.copy, 'labelsImportEmpty');
+			const target = openProject ? await openDestination(ownership, openProject) : ownership;
 			if (destination === 'labels') {
 				const labels = parsed.cues.map((cue) => ({
 					id: dependencies.createId('label'),
@@ -217,7 +224,7 @@ export function createLabelService(dependencies: LabelServiceDependencies): Read
 					color: 'auto',
 				}));
 				const trackId = dependencies.createId('label-track');
-				assertOwnership(ownership);
+				assertOwnership(target);
 				dependencies.commit(createAddLabelTrackCommand({
 					id: trackId,
 					name: parsed.title.trim() ? parsed.title : stripExtension(file.name).trim() || publishedCopyFor(dependencies.copy).labels,
@@ -226,16 +233,16 @@ export function createLabelService(dependencies: LabelServiceDependencies): Read
 				setLocalizedStatus(dependencies.setStatus, dependencies.copy, "labelsImported", { count: String(labels.length) }, 'success');
 				return Object.freeze({ destination, count: labels.length, trackId });
 			}
-			if (!ownership.project.primarySequenceId || !Array.isArray(ownership.project.timelineAnnotations)) {
+			if (!target.project.primarySequenceId || !Array.isArray(target.project.timelineAnnotations)) {
 				throw new Error('This project does not support timeline markers.');
 			}
-			if (ownership.project.timelineAnnotations.length + parsed.cues.length
+			if (target.project.timelineAnnotations.length + parsed.cues.length
 				> AUDIO_EDITOR_TIMELINE_ANNOTATION_LIMITS.maximumAnnotations) {
 				throw new RangeError('The CUE sheet exceeds the remaining timeline marker capacity.');
 			}
 			const commands = parsed.cues.map((cue) => createAddTimelineAnnotationCommand({
 				id: dependencies.createId('annotation'),
-				sequenceId: ownership.project.primarySequenceId,
+				sequenceId: target.project.primarySequenceId,
 				name: cue.title,
 				color: 'auto',
 				batchId: null,
@@ -244,7 +251,7 @@ export function createLabelService(dependencies: LabelServiceDependencies): Read
 				anchor: 'sample',
 				positionFrame: cue.positionFrame,
 			}));
-			assertOwnership(ownership);
+			assertOwnership(target);
 			dependencies.commit({ type: 'batch', commands });
 			setLocalizedStatus(dependencies.setStatus, dependencies.copy, 'panelMarkers', undefined, 'success', { suffix: `: ${String(commands.length)}` });
 			return Object.freeze({ destination, count: commands.length });
@@ -316,6 +323,15 @@ export function createLabelService(dependencies: LabelServiceDependencies): Read
 		ownership.task.assertCurrent();
 		dependencies.projectGeneration.assertCurrent(ownership.projectToken);
 		if (dependencies.getProject() !== ownership.project) throw new EditorProjectChangedError();
+	}
+
+	async function openDestination(ownership: ReturnType<typeof captureOwnership>, openProject: OpenLabelProject): Promise<ReturnType<typeof captureOwnership>> {
+		assertOwnership(ownership);
+		const id = await openProject();
+		ownership.task.assertCurrent();
+		const project = dependencies.getProject();
+		if (project.id !== id) throw new EditorProjectChangedError();
+		return { project, projectToken: dependencies.projectGeneration.capture(id), task: ownership.task };
 	}
 }
 

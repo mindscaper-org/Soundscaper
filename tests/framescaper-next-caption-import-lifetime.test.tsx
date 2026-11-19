@@ -16,6 +16,59 @@ import { createMemoryProjectStore } from './helpers/memory-project-store.ts';
 
 const SRT = '1\n00:00:00,000 --> 00:00:01,000\nIncoming caption\n';
 
+async function afterCaptionProjectReplacement(draft: 'sidecar' | 'document',
+	check: (values: { format: unknown; text: unknown; document: unknown }) => void) {
+	const dom = installReactTestDom();
+	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const priorAct = globals.IS_REACT_ACT_ENVIRONMENT;
+	globals.IS_REACT_ACT_ENVIRONMENT = true;
+	const root = createRoot(dom.container as unknown as Element);
+	let project = createFramescaperProject(PROFILE, { id: 'draft-owner' });
+	const controller = { actions: { edit: { commit(command: unknown) {
+		project = applyFramescaperProjectCommand(PROFILE, project, command);
+	} } } };
+	const render = () => root.render(<FramescaperFinishingDialog surface="captions" project={project} controller={controller}
+		editingBlocked={false} readOnly={false} run={operation => operation()} onClose={() => undefined}
+		fileService={{ isDesktop: true, chooseFiles: () => [new File(['WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nOutgoing content\n'], 'outgoing.vtt')],
+			openReadDescriptor: value => value }} />);
+	const choose = () => dom.container.querySelectorAll('button').find(node => node.textContent === 'Choose sidecar file');
+	const authoredDocument = () => dom.one('[data-framescaper-finishing-document]');
+	const fields = () => {
+		const authored = authoredDocument();
+		const sidecar = dom.container.querySelectorAll('textarea').find(node => node !== authored);
+		assert.ok(sidecar);
+		return { format: reactProps(dom.container.querySelectorAll('select')[0]!).value,
+			text: reactProps(sidecar).value, document: reactProps(authored).value };
+	};
+	try {
+		await act(async () => { render(); });
+		if (draft === 'sidecar') {
+			assert.ok(choose());
+			await act(async () => { void reactProps(choose()!).onClick({}); await new Promise<void>(resolve => setImmediate(resolve)); });
+			await act(async () => { render(); });
+			assert.equal(fields().format, 'webvtt');
+			assert.match(String(fields().text), /Outgoing content/u);
+		} else {
+			const authored = reactProps(authoredDocument());
+			await act(async () => { authored.onChange({ currentTarget: { value: '[{"id":"unsaved"}]' } }); });
+			assert.match(String(fields().document), /unsaved/u);
+		}
+		project = createFramescaperProject(PROFILE, { id: 'replacement' });
+		await act(async () => { render(); });
+		check(fields());
+	} finally {
+		await act(async () => { root.unmount(); }); dom.restore(); globals.IS_REACT_ACT_ENVIRONMENT = priorAct;
+	}
+}
+
+test('Caption Tracks clears the old sidecar draft when an OS-opened project replaces its owner', async () => {
+	await afterCaptionProjectReplacement('sidecar', ({ format, text }) => assert.deepEqual({ format, text }, { format: 'srt', text: '' }));
+});
+
+test('Caption Tracks reloads its authored document when an OS-opened project has an identical saved document', async () => {
+	await afterCaptionProjectReplacement('document', ({ document }) => assert.equal(document, '[]'));
+});
+
 test('a pending outgoing caption file read cannot block or report into the next project', async () => {
 	const dom = installReactTestDom();
 	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };

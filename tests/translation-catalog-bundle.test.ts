@@ -242,10 +242,15 @@ test('expanded Russian catalog fits a locale chunk while retaining all source te
 	assert.ok(id);
 	const source = await plugin.load.call({ addWatchFile() {} }, id);
 	assert.ok(source);
-	assert.equal(source.includes('scape:translation-locale-text:'), false, 'Locales already under budget retain their existing module graph.');
+	assert.equal(source.includes('scape:translation-locale-text:'), false, 'A locale under budget retains its synchronous module graph.');
 	const { code } = await transform(source, { minify: true, charset: 'utf8' });
 	assert.ok(Buffer.byteLength(code) < 490_000, `Russian locale module is ${Buffer.byteLength(code)} bytes`);
-	assert.deepEqual((await loadBundledModule(plugin, code)).default, catalog);
+	const module = await loadBundledModule(plugin, code, async (dependency) => {
+		const minified = await transform(dependency, { minify: true, charset: 'utf8' });
+		assert.ok(Buffer.byteLength(minified.code) < 490_000, 'Each translated text dependency stays below the chunk ceiling.');
+	});
+	assert.deepEqual(module.default, catalog);
+	for (const [key, value] of Object.entries(catalog)) assert.deepEqual(module[key], value);
 	const sharedId = plugin.resolveId('scape:translation-source-text', undefined);
 	assert.ok(sharedId);
 	const sharedSource = await plugin.load.call({ addWatchFile() {} }, sharedId);

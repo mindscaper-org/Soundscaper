@@ -117,7 +117,7 @@ export function createFramescaperNativeWatchImportClient(
 	async function poll(): Promise<boolean> {
 		const before = exactProject(controller.project);
 		if (!before) return false;
-		if (!await watchImportsAuthorized()) return false;
+		if (!await watchImportsAuthorized() || closing || !sameProject(controller.project, before)) return false;
 		const claimValue = await bridge!.claimWatchImport!({
 			schemaFamily: 'framescaper', schemaVersion: 1,
 			projectId: before.id, projectRevision: before.revision,
@@ -127,12 +127,17 @@ export function createFramescaperNativeWatchImportClient(
 		try { claim = watchClaim(claimValue); } catch (error) { report(error); return false; }
 		let committed: WatchImportProject | null = null;
 		let sourceId: string | null = null;
+		let importStarted = false;
+		let publicationReady = false;
 		try {
 			assertClaimTarget(claim, before);
+			assertWorkCurrent(before);
 			let source: WatchVideoSource;
 			if (claim.existingSourceId === null) {
 				const file = await materializeClaim(claim, before);
+				assertWorkCurrent(before);
 				const previousSourceIds = new Set(before.sources.map((candidate) => String(candidate.id)));
+				importStarted = true;
 				await controller.actions.project.importFiles([file], Object.freeze({
 					destination: claim.binId,
 					...(claim.importMode === 'link' ? {
@@ -143,6 +148,7 @@ export function createFramescaperNativeWatchImportClient(
 				committed = exactRevision(controller.project, before, before.revision + 1);
 				source = newlyImportedSource(committed, claim, previousSourceIds);
 				sourceId = source.id;
+				publicationReady = !claim.generateProxies;
 				await flushExact(committed);
 			} else {
 				source = sourceInSelectedBin(before, claim.existingSourceId, claim.contentSha256);
@@ -155,23 +161,24 @@ export function createFramescaperNativeWatchImportClient(
 				const proxy = framescaperVideoProxyActionRuntimeFor(controller);
 				if (!proxy) throw new Error('The selected authenticated proxy scheduler is unavailable.');
 				const prior = committed ?? before;
+				assertWorkCurrent(prior);
 				await proxy.generate(source.id);
 				committed = exactRevision(controller.project, prior, prior.revision + 1);
 				source = sourceInSelectedBin(committed, source.id, claim.contentSha256);
 				if (!proxyAttached(source, claim.contentSha256)) {
 					throw new Error('Requested proxy generation did not publish an exact attachment.');
 				}
+				publicationReady = true;
 				await flushExact(committed);
 			}
-			committed ??= before;
-			if (committed === before) throw new Error('A watch claim carried no pending baseline work.');
+			if (committed === null) throw new Error('A watch claim carried no pending baseline work.');
 			if (await acknowledge(claim, sourceId, committed.revision, true)) return true;
 			throw new Error('The watch-import completion was not acknowledged.');
 		} catch (error) {
 			report(error);
-			if (committed !== null && sourceId !== null) return retryCommitted(claim, sourceId, committed);
-			if (sameProject(controller.project, before)) {
-				await acknowledge(claim, null, before.revision, false).catch(report);
+			if (publicationReady && committed !== null && sourceId !== null) return retryCommitted(claim, sourceId, committed);
+			if (!importStarted || sourceId !== null || sameProject(controller.project, before)) {
+				await acknowledge(claim, null, claim.projectRevision, false).catch(report);
 			}
 			return false;
 		}
@@ -195,8 +202,8 @@ export function createFramescaperNativeWatchImportClient(
 		claim: WatchImportClaim,
 		before: WatchImportProject,
 	): Promise<Blob> {
-		assertSameProject(controller.project, before);
 		const loaded = await port!.load(claim.locatorId, { expectedRevision: claim.locatorRevision });
+		assertWorkCurrent(before);
 		if (!loaded || loaded.locatorRevision !== claim.locatorRevision) {
 			throw new Error('The watched linked-video locator is unavailable or stale.');
 		}
@@ -204,11 +211,16 @@ export function createFramescaperNativeWatchImportClient(
 		if (await digestMediaContent(file) !== claim.contentSha256) {
 			throw new Error('The watched video digest changed before import.');
 		}
-		assertSameProject(controller.project, before);
 		return file;
 	}
 
+	function assertWorkCurrent(project: WatchImportProject): void {
+		if (closing) throw new Error('The watch import client is closing.');
+		assertSameProject(controller.project, project);
+	}
+
 	async function flushExact(project: WatchImportProject): Promise<void> {
+		assertSameProject(controller.project, project);
 		await controller.actions.project.flush({ forceCurrentSnapshot: true });
 		assertSameProject(controller.project, project);
 	}
@@ -218,7 +230,7 @@ export function createFramescaperNativeWatchImportClient(
 		committedSourceId: string,
 		project: WatchImportProject,
 	): Promise<boolean> {
-		for (let attempt = 0; attempt < 3 && !closing; attempt += 1) {
+		for (let attempt = 0; attempt < 3 && !closing && sameProject(controller.project, project); attempt += 1) {
 			try {
 				await flushExact(project);
 				if (await acknowledge(claim, committedSourceId, project.revision, true)) return true;
@@ -281,7 +293,6 @@ function assertClaimTarget(claim: WatchImportClaim, before: WatchImportProject):
 	if (claim.projectId !== before.id || claim.projectRevision !== before.revision) {
 		throw new Error('A watch-import claim targets a stale selected project.');
 	}
-	assertSameProject(before, before);
 }
 
 function newlyImportedSource(

@@ -6,7 +6,7 @@
 // requested for its audio but keeps the video track the browser insists on
 // pairing with it. Split out of recording.js; no behaviour changes here.
 
-import { acquireSoundscaperNativeAudioCapture } from './soundscaper-native-audio-capture.ts';
+import { acquireSoundscaperNativeAudioCapture, soundscaperNativeAudioCaptureChannelCount } from './soundscaper-native-audio-capture.ts';
 export { requestDisplayInput } from './recording-display-input.ts';
 
 const DISPLAY_REPLACEMENT_SUFFIX = ':replacement';
@@ -84,6 +84,8 @@ export function normalizeRecordingChannelCount(value) {
 }
 
 export function exposedAudioChannelCount(stream) {
+	const nativeChannelCount = stream ? soundscaperNativeAudioCaptureChannelCount(stream) : null;
+	if (nativeChannelCount !== null) return nativeChannelCount;
 	let channelCount = 1;
 	for (const track of stream?.getAudioTracks?.() || []) {
 		channelCount = Math.max(channelCount, normalizeRecordingChannelCount(track.getSettings?.().channelCount));

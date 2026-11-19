@@ -3,7 +3,7 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { bootEditor, clipByName, importFiles, openSourceMonitor } from './audio-editor-test-helpers.js';
 
 for (const key of ['ContextMenu', 'Shift+F10']) test(`Source waveform ${key} exposes its existing marker action at the source playhead`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const file = createWavFixture({ name: 'Source keyboard.wav', frequency: 440, duration: 2, channelCount: 1 });
 	await importFiles(editor, [file]);
 	const panel = await openSourceMonitor(page, editor, clipByName(editor, file.name));

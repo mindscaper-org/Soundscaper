@@ -4,7 +4,7 @@ import { expect, longTone, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
 test('PageUp and PageDown scroll the timeline horizontally and remain available in View', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [longTone]);
 	for (let step = 0; step < 3; step++) await editor.getByRole('button', { name: 'Zoom in', exact: true }).click();
 	const timeline = editor.locator('[data-timeline]');

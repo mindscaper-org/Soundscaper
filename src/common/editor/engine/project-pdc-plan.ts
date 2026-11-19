@@ -4,11 +4,13 @@ import { activeRackEffects } from './project-effects.ts';
 import { effectRackLatencyFrames } from './effect-rack.ts';
 import { DEFAULT_SAMPLE_RATE } from './buffer-math.ts';
 import type { EngineProject } from './types.ts';
+import { projectClipEffectLatencyFrames } from './clip-effect-inputs.ts';
 
 export interface ProjectPdcPlanOptions {
 	readonly trackId?: unknown;
 	readonly includeMaster?: boolean;
 	readonly sampleRate?: number;
+	readonly clipLatencyFrames?: number;
 	readonly fallbackTrackIndexIds?: boolean;
 }
 
@@ -28,17 +30,19 @@ export function compileProjectPdcPlan(
 		trackId: onlyTrackId = null,
 		includeMaster = true,
 		sampleRate = project?.sampleRate || DEFAULT_SAMPLE_RATE,
+		clipLatencyFrames,
 		fallbackTrackIndexIds = false,
 	}: ProjectPdcPlanOptions = {},
 ): ProjectPdcPlan {
 	const trackLatencyFrames = new Map<string, number>();
+	const clipLatency = clipLatencyFrames ?? (project ? projectClipEffectLatencyFrames(project, sampleRate) : 0);
 	let index = 0;
 	for (const track of project?.tracks || []) {
 		if (track.type === 'label' || track.type === 'video') continue;
 		const fallbackId = track.id ?? index;
 		index += 1;
 		if (onlyTrackId != null && String(fallbackTrackIndexIds ? fallbackId : track.id) !== String(onlyTrackId)) continue;
-		trackLatencyFrames.set(String(fallbackId), effectRackLatencyFrames(activeRackEffects(track), sampleRate));
+		trackLatencyFrames.set(String(fallbackId), clipLatency + effectRackLatencyFrames(activeRackEffects(track), sampleRate));
 	}
 	const busLatencyFrames = new Map<string, number>();
 	for (const buses of [project?.mixer?.groups || [], project?.mixer?.sends || []]) {

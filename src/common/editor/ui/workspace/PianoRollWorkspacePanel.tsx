@@ -1,21 +1,24 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { NoteGrid } from '@soundscaper/design-system/PianoRoll/NoteGrid';
 import { PianoKeyboard } from '@soundscaper/design-system/PianoRoll/PianoKeyboard';
 import { PianoRollRuler } from '@soundscaper/design-system/PianoRoll/PianoRollRuler';
 import { PianoRollClipStrip } from '@soundscaper/design-system/PianoRoll/PianoRollClipStrip';
-import { readMidiClip, readMidiTrack, type MidiInstrument, type MidiNote } from '../../midi-model.ts';
+import { readMidiTrack, type MidiInstrument, type MidiNote, type MidiPreviewTarget } from '../../midi-model.ts';
 import { createStableId } from '../../stable-id.js';
 import type { EditorAudioClip, EditorAudioTrack } from '../../types.ts';
 import { resolveMidiCopy } from '../../../i18n/editor-midi-copy.ts';
 import { useElementSize } from '../use-element-size.ts';
 import { createMidiPanelPlayheadProjector, designSystemMidiClip, midiBeatsPerMeasure, midiNoteChanges, midiPanelClipResize, midiPanelSelection, midiPanelDraftNotes, midiPanelNoteDraft, discardMidiPanelDraftNotes, resolveMidiPanelClip, type MidiPanelNoteDrafts, type MidiPanelProject } from './midi-panel-projection.ts';
 import { MidiNoteNumberField } from './MidiNoteNumberField.tsx';
+import { MidiNotePicker } from './MidiNotePicker.tsx';
+import { MidiInstrumentSelect } from './MidiInstrumentSelect.tsx';
 import { createMidiPanelMusicalClock } from './midi-panel-musical-clock.ts';
 import { pianoRollGridMath } from '@soundscaper/design-system/PianoRoll/musical-clock';
 import { secondsToSampleFrame } from '../../timeline-time.ts';
 import './PianoRollWorkspacePanel.css';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface MidiActions {
 	addNote(clipId: string, note: MidiNote): unknown;
@@ -24,7 +27,7 @@ interface MidiActions {
 	deleteNotes(clipId: string, ids: readonly string[]): unknown;
 	resizeClip(clipId: string, changes: ClipChanges): unknown;
 	setInstrument(trackId: string, instrument: MidiInstrument): unknown;
-	previewNote(pitch: number, instrument?: MidiInstrument): unknown;
+	previewNote(pitch: number, instrument?: MidiInstrument, target?: MidiPreviewTarget): unknown;
 }
 
 interface ClipChanges {
@@ -35,6 +38,7 @@ interface ClipChanges {
 
 interface PianoRollController {
 	readonly actions: { readonly midi: MidiActions };
+	getSnapshot?(): { readonly selectedTrackId?: string | null };
 	subscribeTelemetry(listener: () => void): () => void;
 	getTelemetrySnapshot(): { readonly positionFrame: number };
 }
@@ -55,25 +59,27 @@ interface PianoRollWorkspacePanelProps {
 const KEY_PITCHES: Readonly<Record<string, number>> = {
 	a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12,
 };
-const INSTRUMENTS: readonly MidiInstrument[] = ['sine', 'triangle', 'square', 'sawtooth'];
 const SUBDIVISIONS = [1, 2, 4, 8, 16, 32] as const;
 type Subdivision = typeof SUBDIVISIONS[number];
 
 export default function PianoRollWorkspacePanel(props: PianoRollWorkspacePanelProps) {
-	const project = props.snapshot.project, selection = midiPanelSelection(project, props.snapshot.selectedTrackId, props.snapshot.selectedClipId);
+	const { project, selectedTrackId, selectedClipId } = props.snapshot;
+	const tracks = project?.tracks, clips = project?.clips;
+	const selection = useMemo(() => tracks && clips
+		? midiPanelSelection({ tracks, clips }, selectedTrackId, selectedClipId) : null, [tracks, clips, selectedTrackId, selectedClipId]);
 	const persistedClip = selection?.clip;
 	const clip = useMemo(() => project && persistedClip ? resolveMidiPanelClip(project, persistedClip) : null, [project, persistedClip]);
 	if (!selection || !project || !clip) return <p className="kw-audio-editor__panel-empty">{resolveMidiCopy(props.copy).empty}</p>;
-	return <PianoRollEditor key={`${project.id}:${clip.id}`} {...props} project={project} track={selection.track} clip={clip} />;
+	return <PianoRollEditor key={`${project.id}:${clip.id}`} {...props} project={project} track={selection.track} clip={clip} persistedNotes={selection.notes} />;
 }
 
-function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, project, track, clip }: PianoRollWorkspacePanelProps & {
+function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, project, track, clip, persistedNotes }: PianoRollWorkspacePanelProps & {
 	readonly project: MidiPanelProject; readonly track: EditorAudioTrack; readonly clip: EditorAudioClip;
+	readonly persistedNotes: readonly MidiNote[];
 }) {
 	const copy = resolveMidiCopy(inputCopy);
 	const sampleRate = project.sources?.find(source => source.id === clip.sourceId)?.sampleRate ?? project.sampleRate;
-	const persistedNotes = useMemo(() => readMidiClip(clip)?.notes ?? [], [clip]);
-	const instrument = readMidiTrack(track)?.instrument ?? 'sine';
+	const instrument = useMemo(() => readMidiTrack(track)?.instrument ?? 'sine', [track]);
 	const disabled = blocked || snapshot.readOnly === true || track.locked === true;
 	const [panelRef, panelSize] = useElementSize();
 	const [controlsRef, controlsSize] = useElementSize();
@@ -90,6 +96,7 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 	const [hoveredPitch, setHoveredPitch] = useState<number | null>(null);
 	const gesture = useRef(false);
 	const gestureNotes = useRef(new Set<string>());
+	const gesturePreviewNote = useRef<string | undefined>(undefined);
 	const clipDraftRevision = useRef(0);
 	const gestureDraft = useRef<symbol | null>(null);
 	const [gestureRevision, setGestureRevision] = useState(0);
@@ -108,12 +115,12 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 	const gridWidth = Math.max(0, panelSize.width - 104);
 	const gridHeight = Math.max(100, panelSize.height - controlsSize.height - 52);
 	const selectedNotes = useMemo(() => notes.filter(note => selectedIds.has(note.id)), [notes, selectedIds]);
-	const noteOptions = useMemo(() => notes.map(note => <MidiNoteOption key={note.id} note={note} format={copy.noteOption} sampleRate={sampleRate} />), [copy.noteOption, notes, sampleRate]);
 	const activeNote = selectedNotes[0];
 	const retireNoteGesture = useCallback(() => {
 		if (!gesture.current) return;
 		gesture.current = false;
 		gestureNotes.current = new Set();
+		gesturePreviewNote.current = undefined;
 		pendingNotes.current = new Map(); pendingClip.current = null;
 		clipDraftRevision.current += 1;
 		const owner = gestureDraft.current; gestureDraft.current = null;
@@ -126,11 +133,12 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 		if ([...gestureNotes.current].some(id => !remaining.has(id))) retireNoteGesture();
 	}, [persistedNotes, retireNoteGesture]);
 	const beginGesture = (event: ReactMouseEvent<HTMLDivElement>) => {
-		if (disabled) return;
+		if (disabled || event.button !== 0) return;
 		gesture.current = true;
 		gestureDraft.current = Symbol();
 		const target = event.target instanceof Element ? event.target.closest('[data-note-id]') : null;
 		const note = notes[Number(target?.getAttribute('data-note-id')) - 1];
+		gesturePreviewNote.current = note?.id;
 		gestureNotes.current = new Set(note ? selectedIds.has(note.id) ? selectedIds : [note.id] : []);
 	};
 
@@ -145,6 +153,7 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 			if (!gesture.current) return;
 			gesture.current = false;
 			gestureNotes.current = new Set();
+			gesturePreviewNote.current = undefined;
 			const revision = clipDraftRevision.current;
 			const owner = gestureDraft.current; gestureDraft.current = null;
 			const updates = [...pendingNotes.current].map(([id, changes]) => ({ id, changes }));
@@ -169,7 +178,9 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 	}, [clip.id, controller, disabled, run]);
 
 	const edit = (operation: () => unknown) => { if (!disabled) run(operation); };
-	const preview = (pitch: number) => { run(() => controller.actions.midi.previewNote(pitch, instrument)); };
+	const preview = useCallback((pitch: number) => { run(() => controller.actions.midi.previewNote(pitch, instrument,
+		{ clipId: clip.id, noteId: gesture.current ? gesturePreviewNote.current : activeNote?.id })); },
+	[activeNote?.id, clip.id, controller, instrument, run]);
 	const select = (numericIds: readonly number[], additive = false) => {
 		setSelectedIds(previous => new Set([
 			...(additive ? previous : []),
@@ -241,36 +252,35 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 			event.preventDefault(); event.stopPropagation(); preview(Math.min(127, (octave + 1) * 12 + KEY_PITCHES[key]!));
 		}
 	};
+	const sampleAlignedSeconds = (seconds: number, minimumFrames: number) => Math.max(minimumFrames, Math.round(seconds * sampleRate)) / sampleRate;
 
 	return <div ref={panelRef} className="kw-audio-editor__piano-roll" aria-label={copy.pianoRoll} onKeyDown={keyDown}>
 		<div ref={controlsRef} className="kw-audio-editor__piano-roll-controls">
-			<label>{copy.instrument}<select value={instrument} disabled={disabled}
-				onChange={event => { const value = event.currentTarget.value as MidiInstrument; edit(() => controller.actions.midi.setInstrument(track.id, value)); }}>
-				{INSTRUMENTS.map(value => <option key={value} value={value}>{copy[value]}</option>)}
-			</select></label>
-			<label>{copy.snap}<select value={subdivision} onChange={event => setSubdivision(Number(event.currentTarget.value) as Subdivision)}>
+			<MidiInstrumentSelect controller={controller} track={track} instrument={instrument} sampleRate={project.sampleRate}
+				disabled={disabled} copy={copy} setInstrument={value => edit(() => controller.actions.midi.setInstrument(track.id, value))} run={edit} />
+			<label><EditorControlLabel>{copy.snap}</EditorControlLabel><select value={subdivision} onChange={event => setSubdivision(Number(event.currentTarget.value) as Subdivision)}>
 				{SUBDIVISIONS.map(value => <option key={value} value={value}>1/{value * 4}</option>)}
 			</select></label>
-			<label><input type="checkbox" checked={triplet} onChange={event => setTriplet(event.currentTarget.checked)} />{copy.triplets}</label>
-			<label><input type="checkbox" checked={keyboardEnabled} onChange={event => setKeyboardEnabled(event.currentTarget.checked)} />{copy.keyboard}</label>
-			{keyboardEnabled && <label>{copy.octave}<MidiNoteNumberField min={-1} max={8} step={1} value={octave}
+			<label><input type="checkbox" checked={triplet} onChange={event => setTriplet(event.currentTarget.checked)} /><EditorControlLabel>{copy.triplets}</EditorControlLabel></label>
+			<label><input type="checkbox" checked={keyboardEnabled} onChange={event => setKeyboardEnabled(event.currentTarget.checked)} /><EditorControlLabel>{copy.keyboard}</EditorControlLabel></label>
+			{keyboardEnabled && <label><EditorControlLabel>{copy.octave}</EditorControlLabel><MidiNoteNumberField min={-1} max={8} step={1} value={octave}
 				onCommit={setOctave} disabled={false} title={copy.keyboardHint} /></label>}
 			<button type="button" disabled={disabled} onClick={addNote}>{copy.addNote}</button>
 			<button type="button" disabled={disabled || !selectedNotes.length} onClick={deleteSelected}>{copy.deleteNotes}</button>
 			<div className="kw-audio-editor__piano-roll-note-editor" role="group" aria-label={copy.noteEditor}>
-				<label>{copy.selectedNote}<select value={activeNote?.id ?? ''} onChange={event => setSelectedIds(new Set(event.currentTarget.value ? [event.currentTarget.value] : []))}>
-					<option value="">{copy.noSelection}</option>
-					{noteOptions}
-				</select></label>
-				<label>{copy.pitch}<MidiNoteNumberField key={`pitch:${activeNote?.id}`} min={0} max={127} step={1} disabled={disabled || !activeNote} value={activeNote?.pitch ?? ''}
+				<MidiNotePicker notes={notes} activeNote={activeNote} sampleRate={sampleRate} copy={copy}
+					select={id => setSelectedIds(new Set(id ? [id] : []))} />
+				<label><EditorControlLabel>{copy.pitch}</EditorControlLabel><MidiNoteNumberField key={`pitch:${activeNote?.id}`} min={0} max={127} step={1} disabled={disabled || !activeNote} value={activeNote?.pitch ?? ''}
 					onCommit={value => editSelected({ pitch: value })} /></label>
-				<label>{copy.start}<MidiNoteNumberField key={`start:${activeNote?.id}`} min={0} step={0.001} disabled={disabled || !activeNote} value={activeNote ? activeNote.startFrame / sampleRate : ''}
+				<label><EditorControlLabel>{copy.start}</EditorControlLabel><MidiNoteNumberField key={`start:${activeNote?.id}`} min={0} step={0.001} disabled={disabled || !activeNote} value={activeNote ? activeNote.startFrame / sampleRate : ''}
+					normalize={value => sampleAlignedSeconds(value, 0)}
 					onCommit={value => editSelected({ startFrame: Math.round(value * sampleRate) })} /></label>
-				<label>{copy.duration}<MidiNoteNumberField key={`duration:${activeNote?.id}`} min={0} step={0.001} disabled={disabled || !activeNote} value={activeNote ? activeNote.durationFrames / sampleRate : ''}
+				<label><EditorControlLabel>{copy.duration}</EditorControlLabel><MidiNoteNumberField key={`duration:${activeNote?.id}`} min={0} step={0.001} disabled={disabled || !activeNote} value={activeNote ? activeNote.durationFrames / sampleRate : ''}
+					normalize={value => sampleAlignedSeconds(value, 1)}
 					onCommit={value => editSelected({ durationFrames: Math.max(1, Math.round(value * sampleRate)) })} /></label>
-				<label>{copy.velocity}<MidiNoteNumberField key={`velocity:${activeNote?.id}`} min={1} max={127} step={1} disabled={disabled || !activeNote} value={activeNote?.velocity ?? ''}
+				<label><EditorControlLabel>{copy.velocity}</EditorControlLabel><MidiNoteNumberField key={`velocity:${activeNote?.id}`} min={1} max={127} step={1} disabled={disabled || !activeNote} value={activeNote?.velocity ?? ''}
 					onCommit={value => editSelected({ velocity: value })} /></label>
-				<label>{copy.channel}<MidiNoteNumberField key={`channel:${activeNote?.id}`} min={1} max={16} step={1} disabled={disabled || !activeNote} value={activeNote ? activeNote.channel + 1 : ''}
+				<label><EditorControlLabel>{copy.channel}</EditorControlLabel><MidiNoteNumberField key={`channel:${activeNote?.id}`} min={1} max={16} step={1} disabled={disabled || !activeNote} value={activeNote ? activeNote.channel + 1 : ''}
 					onCommit={value => editSelected({ channel: value - 1 })} /></label>
 				<button type="button" disabled={!activeNote} onClick={() => { if (activeNote) preview(activeNote.pitch); }}>{copy.preview}</button>
 			</div>
@@ -302,12 +312,6 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 		</div>
 	</div>;
 }
-
-const MidiNoteOption = memo(function MidiNoteOption({ note, format, sampleRate }: {
-	readonly note: MidiNote; readonly format: string; readonly sampleRate: number;
-}) {
-	return <option value={note.id}>{format.replace('{pitch}', String(note.pitch)).replace('{time}', (note.startFrame / sampleRate).toFixed(3))}</option>;
-});
 
 /** Transport ticks move only the cursor; the note editor keeps its render cadence. */
 function PianoRollPlayhead({ controller, project, clip, sampleRate, pixelsPerSecond, scrollX, width }: {

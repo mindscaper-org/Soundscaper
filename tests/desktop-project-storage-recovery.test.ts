@@ -1,0 +1,327 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { watch } from 'node:fs';
+import { lstat, mkdir, mkdtemp, readdir, readFile, rm, symlink, utimes, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import test from 'node:test';
+import { promisify } from 'node:util';
+import { OriginalFileOverwriteStore } from '../desktop/original-file-overwrite.ts';
+import { exactOriginalFileIdentity } from '../desktop/original-file-identity.ts';
+import { ProjectFileAssociations } from '../desktop/project-file-associations.ts';
+import { openProjectLibraryDirectoryLock, projectLibraryLocationDirectory } from '../desktop/project-library-directory-lock.ts';
+import { TemporaryProjectStorage } from '../desktop/temporary-project-storage.ts';
+import { deferred } from './helpers/async-test-control.ts';
+
+test('failed association persistence does not poison restoration of committed entries', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-association-recovery-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const originalPath = join(root, 'project.sscape');
+	await writeFile(originalPath, 'project');
+	const identity = exactOriginalFileIdentity(await lstat(originalPath, { bigint: true }));
+	const originals = new OriginalFileOverwriteStore({
+		reads: { resolveOriginalFileGrant: async () => ({ path: originalPath, identity }) },
+		targets: { registerPath: () => { throw new Error('No overwrite requested'); } },
+		acceptsFile: () => false, cleanDisplayName: value => value, maximumCount: 10,
+	});
+	context.after(() => originals.dispose());
+	const owner = {};
+	const original = await originals.registerRead('read', { owner });
+	assert.ok(original);
+	const path = join(root, 'associations.json');
+	const files = new ProjectFileAssociations(path, originals);
+	await files.remember('saved', original.id, 'a'.repeat(64), owner);
+	await rm(path);
+	await mkdir(path);
+	await assert.rejects(files.remember('failed', original.id, 'b'.repeat(64), owner));
+	assert.deepEqual((await readdir(root)).filter(name => name.endsWith('.tmp')), []);
+	await rm(path, { recursive: true });
+	assert.equal((await files.restore('saved', owner))?.originalFile?.name, 'project.sscape');
+	assert.equal(await files.restore('failed', owner), null);
+});
+
+test('restoring an unassociated project returns no record even when its ID names an inherited property', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-association-project-id-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const { files, owner, originalId } = await associationFixture(root);
+	await files.remember('project', originalId, 'a'.repeat(64), owner);
+	assert.equal(await files.restore('toString', owner), null);
+});
+
+test('a project association survives restart with a pre-epoch modification timestamp', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-association-timestamp-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const originalPath = join(root, 'project.sscape');
+	await writeFile(originalPath, 'project');
+	await utimes(originalPath, new Date(0), new Date(-1000));
+	if ((await lstat(originalPath, { bigint: true })).mtimeNs >= 0n) {
+		context.skip('The filesystem cannot store a negative modification timestamp');
+		return;
+	}
+	const { files, originals, owner, originalId } = await associationFixture(root, originalPath);
+	const baseline = 'a'.repeat(64);
+	await files.remember('project', originalId, baseline, owner);
+	const restarted = new ProjectFileAssociations(files.filePath, originals);
+	await restarted.load();
+	const restored = await restarted.restore('project', {});
+	assert.equal(restored?.baseline, baseline);
+	assert.equal(restored?.originalFile?.name, 'project.sscape');
+});
+
+async function associationFixture(root: string, path?: string) {
+	const originalPath = path ?? join(root, 'project.sscape');
+	if (!path) await writeFile(originalPath, 'project');
+	const identity = exactOriginalFileIdentity(await lstat(originalPath, { bigint: true }));
+	const originals = new OriginalFileOverwriteStore({
+		reads: { resolveOriginalFileGrant: async () => ({ path: originalPath, identity }) },
+		targets: { registerPath: () => { throw new Error('No overwrite requested'); } },
+		acceptsFile: () => false, cleanDisplayName: value => value, maximumCount: 10,
+	});
+	const owner = {};
+	const original = await originals.registerRead('read', { owner });
+	assert.ok(original);
+	return { files: new ProjectFileAssociations(join(root, 'associations.json'), originals), originals, owner, originalId: original.id };
+}
+
+test('temporary storage rejects nested relocation before persisting an unusable launch choice', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-storage-relocation-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const active = join(root, 'active');
+	const library = join(active, 'Soundscaper', 'project-library', 'v1');
+	await mkdir(library, { recursive: true });
+	const path = join(root, 'settings.json');
+	const storage = new TemporaryProjectStorage(path, active, 'Soundscaper');
+	await storage.prepare();
+	await assert.rejects(storage.select(join(library, 'nested')), /overlap|nested/iu);
+	assert.equal(storage.status().restartRequired, false);
+	await assert.rejects(readFile(path), { code: 'ENOENT' });
+	assert.equal(await new TemporaryProjectStorage(path, active, 'Soundscaper').prepare(), active);
+});
+
+test('temporary storage refuses a directory alias that resolves inside its active library', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-storage-alias-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const active = join(root, 'active');
+	const nested = join(active, 'Soundscaper', 'project-library', 'v1', 'nested');
+	const alias = join(root, 'alias');
+	await mkdir(nested, { recursive: true });
+	await symlink(nested, alias, 'junction');
+	const storage = new TemporaryProjectStorage(join(root, 'settings.json'), active, 'Soundscaper');
+	await storage.prepare();
+	await assert.rejects(storage.select(alias), /overlap|nested/iu);
+	assert.equal(storage.status().restartRequired, false);
+});
+
+test('startup cancels a fresh destination alias without switching the active library', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-storage-pending-alias-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const active = join(root, 'active');
+	const alias = join(root, 'alias');
+	const library = join(active, 'Soundscaper', 'project-library', 'v1');
+	const catalog = join(library, 'library.sqlite3');
+	const settings = join(root, 'settings.json');
+	await mkdir(library, { recursive: true });
+	await writeFile(catalog, 'original catalog');
+	await symlink(active, alias, 'junction');
+	await writeFile(settings, JSON.stringify({ active, selected: alias, moveStarted: false }));
+	const storage = new TemporaryProjectStorage(settings, active, 'Soundscaper');
+	assert.equal(await storage.prepare(), active);
+	assert.deepEqual(storage.status(), { folder: active, selectedFolder: active, restartRequired: false });
+	assert.equal(await readFile(catalog, 'utf8'), 'original catalog');
+	assert.deepEqual(JSON.parse(await readFile(settings, 'utf8')), { active, selected: active, moveStarted: false });
+});
+
+for (const moveStarted of [false, true]) test(`startup preserves both libraries when a pending destination becomes occupied (${moveStarted ? 'started' : 'fresh'})`, async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-storage-late-conflict-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const configuration = join(root, 'settings.json');
+	const active = join(root, 'active'), selected = join(root, 'selected');
+	const library = join('Soundscaper', 'project-library', 'v1');
+	const source = join(active, library, 'library.sqlite3'), destination = join(selected, library, 'library.sqlite3');
+	await mkdir(join(active, library), { recursive: true });
+	await writeFile(source, 'original catalog');
+	await new TemporaryProjectStorage(configuration, active, 'Soundscaper').select(selected);
+	const recorded = JSON.parse(await readFile(configuration, 'utf8')) as object;
+	await writeFile(configuration, JSON.stringify({ ...recorded, moveStarted }));
+	await mkdir(join(selected, library), { recursive: true });
+	await writeFile(destination, 'independent catalog');
+
+	const restarted = new TemporaryProjectStorage(configuration, active, 'Soundscaper');
+	const refused: Error[] = [];
+	const startup = restarted.prepare(error => { refused.push(error); });
+	if (moveStarted) {
+		await assert.rejects(startup, /verification conflict/iu);
+		assert.deepEqual(refused, []);
+		assert.deepEqual(JSON.parse(await readFile(configuration, 'utf8')), { ...recorded, moveStarted: true });
+	} else {
+		assert.equal(await startup, active);
+		assert.equal(refused.length, 1);
+		assert.match(refused[0]!.message, /verification conflict/iu);
+		assert.deepEqual(restarted.status(), { folder: active, selectedFolder: active, restartRequired: false });
+		assert.equal(await new TemporaryProjectStorage(configuration, active, 'Soundscaper').prepare(), active);
+	}
+	assert.equal(await readFile(source, 'utf8'), 'original catalog');
+	assert.equal(await readFile(destination, 'utf8'), 'independent catalog');
+});
+
+for (const selectedFirst of [false, true]) test(`startup defers an unstarted move while the selected folder is in use (selected sorted ${selectedFirst ? 'first' : 'last'})`, async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-storage-busy-destination-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const configuration = join(root, 'settings.json');
+	const active = join(root, selectedFirst ? 'z-active' : 'a-active');
+	const selected = join(root, selectedFirst ? 'a-selected' : 'z-selected');
+	const library = join('Soundscaper', 'project-library', 'v1');
+	const source = join(active, library, 'library.sqlite3'), destination = join(selected, library, 'library.sqlite3');
+	await mkdir(join(active, library), { recursive: true });
+	await writeFile(source, 'current working catalog');
+	await new TemporaryProjectStorage(configuration, active, 'Soundscaper').select(selected);
+	const pending = await readFile(configuration, 'utf8');
+
+	const release = openProjectLibraryDirectoryLock(selected, 'Soundscaper', 'open');
+	try {
+		const restarted = new TemporaryProjectStorage(configuration, active, 'Soundscaper');
+		assert.equal(await restarted.prepare(), active);
+		assert.deepEqual(restarted.status(), { folder: active, selectedFolder: selected, restartRequired: true });
+		assert.equal(await readFile(configuration, 'utf8'), pending);
+		assert.equal(await readFile(source, 'utf8'), 'current working catalog');
+		await assert.rejects(lstat(destination), { code: 'ENOENT' });
+	} finally { release(); }
+
+	assert.equal(await new TemporaryProjectStorage(configuration, active, 'Soundscaper').prepare(), selected);
+	assert.equal(await readFile(destination, 'utf8'), 'current working catalog');
+	await assert.rejects(lstat(source), { code: 'ENOENT' });
+});
+
+test('a recorded library move cannot defer startup while the selected folder is in use', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-storage-busy-move-recovery-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const configuration = join(root, 'settings.json'), active = join(root, 'active'), selected = join(root, 'selected');
+	await new TemporaryProjectStorage(configuration, active, 'Soundscaper').select(selected);
+	const pending = JSON.parse(await readFile(configuration, 'utf8')) as object;
+	const started = JSON.stringify({ ...pending, moveStarted: true });
+	await writeFile(configuration, started);
+	const release = openProjectLibraryDirectoryLock(selected, 'Soundscaper', 'open');
+	try {
+		await assert.rejects(new TemporaryProjectStorage(configuration, active, 'Soundscaper').prepare(), /project library is in use/iu);
+		assert.equal(await readFile(configuration, 'utf8'), started);
+	} finally { release(); }
+});
+
+test('overlapping folder choices persist the last selection through a single writer', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-storage-select-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const active = join(root, 'active');
+	const first = join(root, 'first');
+	const second = join(root, 'second');
+	const path = join(root, 'settings.json');
+	const storage = new TemporaryProjectStorage(path, active, 'Soundscaper');
+	await storage.prepare();
+	await Promise.all([storage.select(first), storage.select(second)]);
+	assert.equal(storage.status().selectedFolder, second);
+	assert.equal(await new TemporaryProjectStorage(path, active, 'Soundscaper').prepare(), second);
+});
+
+test('startup registers a private stage before copying a temporary library into an existing folder', {
+	skip: process.platform !== 'linux' && process.platform !== 'win32',
+}, async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-storage-copy-stage-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const active = join(root, 'active'), selected = join(root, 'selected');
+	const catalogDirectory = join('Soundscaper', 'project-library', 'v1');
+	const source = join(active, catalogDirectory, 'library.sqlite3');
+	const destination = join(selected, catalogDirectory, 'library.sqlite3');
+	const configuration = join(root, 'settings.json');
+	await mkdir(join(active, catalogDirectory), { recursive: true });
+	await writeFile(source, 'active catalog');
+	// A previously existing empty directory forces the move through file copies.
+	await mkdir(join(selected, catalogDirectory), { recursive: true });
+	await new TemporaryProjectStorage(configuration, active, 'Soundscaper').select(selected);
+
+	const location = projectLibraryLocationDirectory(selected, 'Soundscaper');
+	const stageObserved = deferred<boolean>();
+	const watcher = watch(location, (_event, name) => {
+		if (name && /^relocation-[a-f0-9]{32}$/u.test(name)) stageObserved.resolve(true);
+	});
+	watcher.once('error', () => stageObserved.resolve(false));
+	const timeout = setTimeout(() => stageObserved.resolve(false), 2000);
+	try {
+		assert.equal(await new TemporaryProjectStorage(configuration, active, 'Soundscaper').prepare(), selected);
+		assert.equal(await stageObserved.promise, true);
+		assert.equal(await readFile(destination, 'utf8'), 'active catalog');
+		assert.equal((await readdir(location)).some(name => name.startsWith('relocation-')), false);
+	} finally { clearTimeout(timeout); watcher.close(); }
+});
+
+test('Windows startup reopens the current library when a pending selection becomes unwritable', {
+	skip: process.platform !== 'win32',
+}, async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-storage-acl-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const active = join(root, 'active'), selected = join(root, 'selected');
+	const catalogDirectory = join('Soundscaper', 'project-library', 'v1');
+	const configuration = join(root, 'settings.json');
+	const source = join(active, catalogDirectory, 'library.sqlite3');
+	await mkdir(join(active, catalogDirectory), { recursive: true });
+	await writeFile(source, 'active catalog');
+	const storage = () => new TemporaryProjectStorage(configuration, active, 'Soundscaper');
+	await storage().select(selected);
+	const pending = await readFile(configuration, 'utf8');
+
+	try {
+		await setWindowsWriteDenial(selected, true);
+		assert.equal(await storage().prepare(), active);
+		assert.equal(await readFile(configuration, 'utf8'), pending);
+		assert.equal(await readFile(source, 'utf8'), 'active catalog');
+		const started = JSON.stringify({ ...(JSON.parse(pending) as object), moveStarted: true });
+		await writeFile(configuration, started);
+		await assert.rejects(storage().prepare(), /reconnect the selected temporary data folder/iu);
+		await writeFile(configuration, pending);
+	} finally { await setWindowsWriteDenial(selected, false); }
+
+	assert.equal(await storage().prepare(), selected);
+	assert.equal(await readFile(join(selected, catalogDirectory, 'library.sqlite3'), 'utf8'), 'active catalog');
+	assert.deepEqual((await readdir(selected)).sort(), ['.soundscaper-temporary-library', 'Soundscaper']);
+});
+
+async function setWindowsWriteDenial(path: string, deny: boolean): Promise<void> {
+	const systemRoot = process.env.SystemRoot;
+	assert.ok(systemRoot);
+	const powershell = join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+	const update = deny ? '$acl.AddAccessRule($rule)' : '$acl.RemoveAccessRuleSpecific($rule)';
+	await promisify(execFile)(powershell, ['-NoProfile', '-NonInteractive', '-Command', `
+$ErrorActionPreference = 'Stop'
+$path = $env:SCAPE_TEST_STORAGE_ACL_DIRECTORY
+$user = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+$acl = Get-Acl -LiteralPath $path
+$rights = [System.Security.AccessControl.FileSystemRights]::CreateFiles -bor [System.Security.AccessControl.FileSystemRights]::CreateDirectories
+$rule = [System.Security.AccessControl.FileSystemAccessRule]::new($user, $rights, 'ContainerInherit, ObjectInherit', 'None', 'Deny')
+${update}
+Set-Acl -LiteralPath $path -AclObject $acl
+`], { env: { ...process.env, SCAPE_TEST_STORAGE_ACL_DIRECTORY: path }, timeout: 10_000, windowsHide: true });
+}
+
+test('restart clears a registered copy stage after the library source was retired', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-storage-relocation-receipt-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const active = join(root, 'active');
+	const selected = join(root, 'selected');
+	const configuration = join(root, 'settings.json');
+	await new TemporaryProjectStorage(configuration, active, 'Soundscaper').select(selected);
+	const settings = JSON.parse(await readFile(configuration, 'utf8')) as object;
+	const destination = join(selected, 'Soundscaper', 'project-library', 'v1');
+	await mkdir(destination, { recursive: true });
+	const catalog = join(destination, 'library.sqlite3');
+	await writeFile(catalog, 'already published');
+	const copyStage = `relocation-${'a'.repeat(32)}`;
+	const stage = join(projectLibraryLocationDirectory(selected, 'Soundscaper'), copyStage);
+	await mkdir(stage);
+	await writeFile(join(stage, 'b'.repeat(64)), 'already published');
+	await writeFile(configuration, JSON.stringify({ ...settings, moveStarted: true, copyStage }));
+
+	const restarted = new TemporaryProjectStorage(configuration, active, 'Soundscaper');
+	assert.equal(await restarted.prepare(), selected);
+	await assert.rejects(lstat(stage), { code: 'ENOENT' });
+	assert.equal(await readFile(catalog, 'utf8'), 'already published');
+	assert.equal(restarted.status().restartRequired, false);
+});

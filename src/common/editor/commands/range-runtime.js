@@ -253,7 +253,7 @@ export function prepareRangeDeleteCommand(project, options = {}, idFactory = cre
 		expandTracks: rippleMode === 'track',
 	});
 	const geometry = resolveRangeSequenceGeometry(project, trackIds, range);
-	const clipIdSet = new Set(clipIds);
+	const clipIdSet = new Set(clipIds), affected = rippleMode === 'none' ? new Set() : null;
 	const splitClipIds = {};
 	const splitAvLinkIds = {};
 	const videoEffectIds = {};
@@ -263,7 +263,9 @@ export function prepareRangeDeleteCommand(project, options = {}, idFactory = cre
 		for (const clipId of requireTrack(project, trackId).clipIds) {
 			if (!clipIdSet.has(clipId)) continue;
 			const clip = readClip(clipId);
-			if (clip.timelineStartFrame < operationRange.startFrame && clipEndFrame(clip) > operationRange.endFrame) {
+			const end = clipEndFrame(clip);
+			if (clip.timelineStartFrame < operationRange.endFrame && end > operationRange.startFrame) affected?.add(clipId);
+			if (clip.timelineStartFrame < operationRange.startFrame && end > operationRange.endFrame) {
 				setCommandIdentity(splitClipIds, clip.id, idFactory('clip'));
 				const effectIds = prepareVideoEffectIds(clip, idFactory);
 				if (effectIds) setCommandIdentity(videoEffectIds, commandIdentity(splitClipIds, clip.id), effectIds);
@@ -273,7 +275,8 @@ export function prepareRangeDeleteCommand(project, options = {}, idFactory = cre
 			}
 		}
 	}
-	const command = { type, trackIds, clipIds, ...range, splitClipIds, splitAvLinkIds, videoEffectIds };
+	const command = { type, trackIds, clipIds: affected ? clipIds.filter(id => affected.has(id)) : clipIds,
+		...range, splitClipIds, splitAvLinkIds, videoEffectIds };
 	return type === 'range/ripple-delete' && isTimelineAnnotationProjectSchema(project)
 		? {
 			...command,
@@ -300,12 +303,9 @@ export function prepareDisjointRangeDeleteCommand(project, options = {}, idFacto
 			rippleMode: options.rippleMode,
 		}, idFactory);
 		commands.push(command);
-		const commandProject = isRuntimeProjectProjection(working)
-			? working
-			: projectForCommandConsumers(working);
-		working = cloneProject(commandProject);
-		if (isFoundationProjectAuthority(working)) {
-			brandRuntimeProjectProjection(working);
+		if (working === project) {
+			working = cloneProject(isRuntimeProjectProjection(project) ? project : projectForCommandConsumers(project));
+			if (isFoundationProjectAuthority(working)) brandRuntimeProjectProjection(working);
 		}
 		deleteRange(working, command, rangeDeleteRippleMode(command.type));
 		pruneMissingProjectSelections(working);
@@ -522,7 +522,7 @@ export function replaceRange(project, command) {
 	const nextTrackClips = [...replacements, replacement]
 		.sort((first, second) => first.timelineStartFrame - second.timelineStartFrame
 			|| compareCodeUnits(first.id, second.id));
-	validateTrackReplacement(project, track, deletedIds, nextTrackClips);
+	validateTrackReplacement(project, deletedIds, nextTrackClips);
 	project.clips = project.clips.filter((clip) => !deletedIds.has(clip.id));
 	project.clips.push(...nextTrackClips);
 	track.clipIds = nextTrackClips.map((clip) => clip.id);

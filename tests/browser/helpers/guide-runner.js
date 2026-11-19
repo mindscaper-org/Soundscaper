@@ -211,7 +211,7 @@ async function runMarker(page, state, entry) {
 	await expect(panel).toBeVisible();
 	await panel.getByRole('button', { name: 'Add marker at playhead', exact: true }).click();
 	// Complete the panel's scheduled creation focus before moving to the ruler.
-	await expect(panel.getByRole('button', { name: /^Unnamed annotation, Marker, / }).first()).toBeFocused();
+	await expect(panel.getByRole('button', { name: /^Unnamed annotation/ }).first()).toBeFocused();
 	// A new marker is the one still called "Unnamed annotation"; earlier markers
 	// keep the names the guide gave them, wherever on the timeline they sit.
 	const layer = editor.getByRole('listbox', { name: 'Markers and named regions', exact: true });

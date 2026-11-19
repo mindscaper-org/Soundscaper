@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { fetchUpstreamWithDeadline } from '../../_shared/upstream-transfer.ts';
+import { safeUpstreamRetryAfter } from '../../_shared/upstream-retry-after.ts';
 
 import { freesoundDownloadMaximumBytes } from './download-size-warning.ts';
 import {
@@ -451,8 +452,7 @@ function protectedUpstreamError(status: number, headers: Headers, operation: str
 	}
 	if (status === 413) return new OAuthHttpError(413, 'upload_too_large', 'Freesound rejected the upload size.');
 	if (status === 429) {
-		const retry = headers.get('retry-after');
-		const safeRetry = retry !== null && /^\d{1,5}$/u.test(retry) ? retry : null;
+		const safeRetry = safeUpstreamRetryAfter(headers.get('retry-after'), 99_999);
 		return new OAuthHttpError(503, 'upstream_rate_limited', 'Freesound is temporarily rate limited.',
 			safeRetry === null ? undefined : { 'Retry-After': safeRetry });
 	}

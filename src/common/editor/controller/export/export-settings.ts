@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { BextMetadataInput } from '../../broadcast-wave.ts';
+import { isEarLayout, type EarLayout } from '../../ear/layouts.ts';
 import {
 	type LoudnessNormalizationTarget,
 	normalizeLoudnessNormalizationTarget,
@@ -57,11 +58,13 @@ export interface EditorExportSettings {
 	readonly mimeType: unknown;
 	readonly customArguments: unknown;
 	readonly includeTail: boolean;
+	readonly renderAsLoop: boolean;
 	/** Browser MP3/M4A only: include label titles and times in the mixed file. */
 	readonly embedLabelChapters?: boolean;
 	readonly measureLoudness: boolean;
 	/** Render an authored ADM programme to two channels for headphones. */
 	readonly binaural: boolean;
+	readonly earLayout?: EarLayout;
 	/** A preset name or explicit target resolved to numbers, or null when not asked for. */
 	readonly loudnessNormalization: LoudnessNormalizationTarget | null;
 	/**
@@ -93,7 +96,7 @@ export function normalizeEditorExportSettings(
 		format,
 		bitDepth,
 		sampleFormat: value.sampleFormat || (bitDepth === 32 ? 'float32' : `int${bitDepth}`),
-		dither: value.dither ?? (bitDepth < 32 ? 'triangular' : 'none'),
+		dither: value.dither ?? 'none',
 		bitRate: isBitRateFormat(format) ? Number(value.bitRate) || defaultBitRate : undefined,
 		...(format === 'mp3' ? {
 			bitRateMode: typeof value.bitRateMode === 'string' && value.bitRateMode
@@ -116,14 +119,16 @@ export function normalizeEditorExportSettings(
 		...((format === 'bwf' || format === 'bw64') ? {
 			bext: value.bext as BextMetadataInput | null | undefined,
 		} : {}),
-		...(format === 'bw64' ? { adm: value.adm } : {}),
+		...(format === 'bw64' || value.earLayout ? { adm: value.adm } : {}),
 		extension: value.extension,
 		mimeType: value.mimeType,
 		customArguments: value.customArguments,
-		includeTail: value.includeTail !== false,
+		includeTail: value.includeTail === true,
+		renderAsLoop: value.renderAsLoop === true,
 		embedLabelChapters: value.embedLabelChapters === true,
 		measureLoudness: value.measureLoudness === true,
 		binaural: value.binaural === true,
+		...(value.earLayout == null || value.earLayout === '' ? {} : { earLayout: normalizeEarLayout(value.earLayout) }),
 		loudnessNormalization: normalizeLoudnessNormalizationTarget(value.loudnessNormalization),
 		masteringSequenceId: typeof value.masteringSequenceId === 'string' && value.masteringSequenceId !== ''
 			? value.masteringSequenceId
@@ -163,4 +168,9 @@ function normalizeExportRange(value: unknown): EditorExportSettings['range'] {
 		throw new RangeError('Resolved export range must have increasing non-negative safe integer frame bounds.');
 	}
 	return Object.freeze({ startFrame, endFrame });
+}
+
+function normalizeEarLayout(value: unknown): EarLayout {
+	if (!isEarLayout(value)) throw new RangeError('The EBU EAR output layout is unsupported.');
+	return value;
 }

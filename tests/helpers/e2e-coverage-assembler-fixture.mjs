@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
 	mkdirSync,
@@ -23,6 +21,7 @@ import {
 } from '../../scripts/lib/macro-dynamic-coverage.mjs';
 import { packagedExecutableResourceIdentity } from '../../scripts/lib/packaged-executable-resource-identity.mjs';
 import { refreshLocalAssistanceEvidence, rewriteLocalAssistanceLayout, writeLocalAssistanceSessions } from './e2e-coverage-local-assistance-fixture.mjs';
+import { createCommittedRepositoryFixture } from './committed-repository-fixture.ts';
 
 const PRODUCTS = ['framescaper', 'soundscaper'];
 const MACRO_PRELUDE_PATH = 'src/common/editor/macro-script/sandbox-prelude.js';
@@ -38,10 +37,23 @@ const MACRO_WRAPPER_SOURCE = readFileSync(
 	join(import.meta.dirname, '../../', MACRO_FIXED_COVERAGE_SOURCE_PATH),
 	'utf8',
 );
+const sources = new Map(PRODUCTS.map(product => [product, {
+	sourcePath: `src/${product}-entry.js`,
+	source: `export const product = ${JSON.stringify(product)};\n`,
+}]));
+const repositoryFiles = new Map([...sources.values()].map(({ sourcePath, source }) => [sourcePath, source]));
+repositoryFiles.set(MACRO_FIXED_COVERAGE_SOURCE_PATH, MACRO_WRAPPER_SOURCE);
+repositoryFiles.set(MACRO_PRELUDE_PATH, MACRO_PRELUDE_SOURCE);
+for (const path of ['config/ffmpeg-runtime-manifest.json', 'config/ffmpeg-runtime-publication-policy.json']) {
+	repositoryFiles.set(path, readFileSync(join(import.meta.dirname, '../..', path)));
+}
+const repositoryFixture = createCommittedRepositoryFixture(repositoryFiles);
 const workspaces = [];
 
 export function cleanupE2ECoverageAssemblerFixtures() {
 	for (const workspace of workspaces) rmSync(workspace, { recursive: true, force: true });
+	workspaces.length = 0;
+	repositoryFixture.dispose();
 }
 
 export function makeFixture() {
@@ -51,20 +63,7 @@ export function makeFixture() {
 	const runRoot = join(workspace, 'nightly-run');
 	const evidenceRoot = join(runRoot, 'coverage/build-evidence');
 	const outputRoot = join(runRoot, 'coverage/e2e-capture');
-	const sources = new Map();
-	for (const product of PRODUCTS) {
-		const sourcePath = `src/${product}-entry.js`;
-		const source = `export const product = ${JSON.stringify(product)};\n`;
-		write(join(repositoryRoot, sourcePath), source);
-		sources.set(product, { source, sourcePath });
-	}
-	write(join(repositoryRoot, MACRO_FIXED_COVERAGE_SOURCE_PATH), MACRO_WRAPPER_SOURCE);
-	write(join(repositoryRoot, MACRO_PRELUDE_PATH), MACRO_PRELUDE_SOURCE);
-	for (const path of [
-		'config/ffmpeg-runtime-manifest.json',
-		'config/ffmpeg-runtime-publication-policy.json',
-	]) write(join(repositoryRoot, path), readFileSync(join(import.meta.dirname, '../..', path)));
-	const sourceRevision = commitFixtureRepository(repositoryRoot);
+	const sourceRevision = repositoryFixture.copyTo(repositoryRoot);
 	writeJson(join(runRoot, 'run.json'), {
 		schemaVersion: 2,
 		kind: 'soundscaper-desktop-nightly-tests',
@@ -504,29 +503,4 @@ function walk(root) {
 
 export function hash(value) {
 	return createHash('sha256').update(value).digest('hex');
-}
-
-export function commitFixtureRepository(repositoryRoot) {
-	for (const args of [
-		['init', '--quiet'],
-		['config', 'user.name', 'Coverage Fixture'],
-		['config', 'user.email', 'coverage@example.invalid'],
-		['add', 'src', 'config'],
-		['commit', '--quiet', '-m', 'fixture'],
-	]) {
-		const outcome = spawnSync('git', args, {
-			cwd: repositoryRoot,
-			env: {
-				...process.env,
-				GIT_AUTHOR_DATE: '2026-01-01T00:00:00Z',
-				GIT_COMMITTER_DATE: '2026-01-01T00:00:00Z',
-			},
-			encoding: 'utf8',
-		});
-		assert.equal(outcome.status, 0, outcome.stderr);
-	}
-	return spawnSync('git', ['rev-parse', 'HEAD'], {
-		cwd: repositoryRoot,
-		encoding: 'utf8',
-	}).stdout.trim();
 }

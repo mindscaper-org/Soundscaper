@@ -16,7 +16,7 @@ export const NATIVE_DEVICE_IO_CONTROL = Object.freeze({
 	transfer: 'native-device-transfer',
 });
 
-/** Fixed-pool Web Audio <-> native device bridge; main never observes an audio block. */
+/** Credit-bounded Web Audio <-> native device bridge. */
 export class NativeDeviceIoProcessor extends ProcessorBase {
 	constructor(options = {}) {
 		super();
@@ -35,6 +35,7 @@ export class NativeDeviceIoProcessor extends ProcessorBase {
 		this.outputOffset = 0;
 		this.capturePacket = null;
 		this.captureOffset = 0;
+		this.captureEndReason = null;
 		this.outputSequence = 0;
 		this.captureSequence = 0;
 		this.captureReceived = 0;
@@ -52,9 +53,16 @@ export class NativeDeviceIoProcessor extends ProcessorBase {
 	}
 
 	process(inputs, outputs) {
-		if (this.direction !== 'input') this.#write(inputs[0] || []);
-		if (this.direction !== 'output') this.#read(outputs[0] || []);
-		else for (const channel of outputs[0] || []) channel.fill(0);
+		const output = outputs[0] || [];
+		if (this.direction !== 'input') this.#write(inputs[0] || [], output[0]?.length || 0);
+		if (this.direction === 'output') for (const channel of output) channel.fill(0);
+		else {
+			const frames = this.#read(output);
+			if (this.captureEndReason && !this.capturePacket && !this.captureQueue.length) this.#close(this.captureEndReason);
+			const ended = outputs[1]?.[0];
+			// Zero means live. A terminal block carries its valid prefix length plus one.
+			if (ended) ended[0] = this.generation > 0 && !this.portPeer ? frames + 1 : 0;
+		}
 		return true;
 	}
 
@@ -75,7 +83,7 @@ export class NativeDeviceIoProcessor extends ProcessorBase {
 		peer.onmessageerror = () => this.#close('malformed-message');
 		// A helper process dying closes its entangled end; without this listener
 		// the session records and plays silence forever with no loss signal.
-		listenForClose(peer, () => { if (this.portPeer === peer) this.#close('peer-loss'); });
+		listenForClose(peer, () => { if (this.portPeer === peer) this.#endTransfer('peer-loss'); });
 		peer.start?.();
 		if (this.direction !== 'output') {
 			for (let id = 0; id < this.queueCapacity; id += 1) this.#issueCapture(packet(id, this.channelCount, this.periodFrames));
@@ -83,9 +91,10 @@ export class NativeDeviceIoProcessor extends ProcessorBase {
 		this.#post({ type: NATIVE_DEVICE_IO_CONTROL.attached, generation });
 	}
 
-	#write(input) {
-		if (!this.portPeer) return;
-		const frames = input[0]?.length || 0;
+	#write(input, quantumFrames) {
+		if (!this.portPeer || this.captureEndReason) return;
+		// Pause disconnects programme audio while the bound device keeps its clock.
+		const frames = input[0]?.length ?? (this.outputPacket || this.outputFrame > 0 ? quantumFrames : 0);
 		let read = 0;
 		while (read < frames) {
 			if (!this.outputPacket) {
@@ -117,7 +126,7 @@ export class NativeDeviceIoProcessor extends ProcessorBase {
 				protocolVersion: 1, kind: 'audio', generation: this.generation, packetId: block.id,
 				sequence: this.outputSequence, startFrame: this.outputFrame,
 				frameCount: this.periodFrames, channels: block.channels,
-			}, transfer(block.channels));
+			});
 			this.outputSequence += 1;
 			this.outputFrame += this.periodFrames;
 		}
@@ -125,7 +134,7 @@ export class NativeDeviceIoProcessor extends ProcessorBase {
 
 	#read(output) {
 		for (const channel of output) channel.fill(0);
-		if (!this.portPeer) return;
+		if (!this.portPeer) return 0;
 		let written = 0;
 		const frames = output[0]?.length || 0;
 		while (written < frames) {
@@ -133,8 +142,8 @@ export class NativeDeviceIoProcessor extends ProcessorBase {
 				this.capturePacket = this.captureQueue.shift() || null;
 				this.captureOffset = 0;
 				if (!this.capturePacket) {
-					this.#recordTransfer(0, frames - written);
-					return;
+					if (!this.captureEndReason) this.#recordTransfer(0, frames - written);
+					break;
 				}
 			}
 			const count = Math.min(frames - written, this.periodFrames - this.captureOffset);
@@ -146,9 +155,11 @@ export class NativeDeviceIoProcessor extends ProcessorBase {
 			this.capturePacket = null;
 			this.#issueCapture(block);
 		}
+		return written;
 	}
 
 	#message(message) {
+		if (this.captureEndReason) return;
 		if (message?.protocolVersion !== 1 || message.generation !== this.generation) return this.#close('malformed-message');
 		if (message.kind === 'return' && this.direction !== 'input') {
 			const block = this.#adopt(message, this.outputBusy);
@@ -157,7 +168,8 @@ export class NativeDeviceIoProcessor extends ProcessorBase {
 		}
 		if (message.kind === 'audio' && this.direction !== 'output') {
 			const block = this.#adopt(message, this.captureBusy);
-			if (!block || message.sequence !== this.captureReceived) return this.#close('malformed-message');
+			if (!block) return;
+			if (message.sequence !== this.captureReceived) return this.#close('malformed-message');
 			this.captureReceived += 1;
 			this.#scanCalibration(message);
 			this.captureQueue.push(block);
@@ -173,7 +185,7 @@ export class NativeDeviceIoProcessor extends ProcessorBase {
 			? message.framesTransferred : 0;
 		this.#recordTransfer(transferred, Math.max(0, this.periodFrames - transferred));
 		if (message.status !== 'ok' || message.framesTransferred !== this.periodFrames) {
-			this.#close(message.status === 'device-unavailable' ? 'device-loss'
+			this.#endTransfer(message.status === 'device-unavailable' ? 'device-loss'
 				: message.status !== 'ok' ? 'device-fault' : 'short-transfer');
 			return null;
 		}
@@ -186,24 +198,32 @@ export class NativeDeviceIoProcessor extends ProcessorBase {
 	}
 
 	#issueCapture(block) {
-		if (!this.portPeer) return;
+		if (!this.portPeer || this.captureEndReason) return;
 		this.captureBusy.add(block.id);
 		this.#send({
 			protocolVersion: 1, kind: 'capture-credit', generation: this.generation,
 			packetId: block.id, sequence: this.captureSequence, startFrame: this.captureFrame,
 			frameCount: this.periodFrames, channels: block.channels,
-		}, transfer(block.channels));
+		});
 		this.captureSequence += 1;
 		this.captureFrame += this.periodFrames;
 	}
 
-	#send(message, buffers = []) {
-		try { this.portPeer?.postMessage(message, buffers); } catch { this.#close('peer-loss'); }
+	#send(message) {
+		// Electron's utility MessagePortMain receives cloned PCM typed arrays.
+		try { this.portPeer?.postMessage(message); } catch { this.#endTransfer('peer-loss'); }
+	}
+
+	#endTransfer(reason) {
+		// Frames already accepted from the device still belong to this take.
+		if (this.capturePacket || this.captureQueue.length) this.captureEndReason ??= reason;
+		else this.#close(reason);
 	}
 
 	#close(reason) {
 		const peer = this.portPeer;
 		this.portPeer = null;
+		this.captureEndReason = null;
 		this.outputSequence = 0;
 		this.captureSequence = 0;
 		this.captureReceived = 0;
@@ -236,7 +256,7 @@ export class NativeDeviceIoProcessor extends ProcessorBase {
 			return this.#postCalibrationFailure(requestId ?? 1, 'invalid-request');
 		}
 		if (this.direction !== 'duplex') return this.#postCalibrationFailure(requestId, 'duplex-required');
-		if (!this.portPeer) return this.#postCalibrationFailure(requestId, 'not-bound');
+		if (!this.portPeer || this.captureEndReason) return this.#postCalibrationFailure(requestId, 'not-bound');
 		if (this.calibration) return this.#postCalibrationFailure(requestId, 'busy');
 		this.calibration = {
 			requestId, maxFrames, armed: false, quietFrames: 0, injected: false,
@@ -343,7 +363,6 @@ function planes(value, channelCount, frames) {
 		&& new Set(value.map((plane) => plane.buffer)).size === value.length;
 }
 
-function transfer(value) { return value.map((plane) => plane.buffer); }
 function listenForClose(port, listener) {
 	if (typeof port.addEventListener === 'function') port.addEventListener('close', listener);
 	else port.onclose = listener;

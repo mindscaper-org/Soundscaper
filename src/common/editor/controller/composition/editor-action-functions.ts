@@ -29,6 +29,7 @@ import type { createSettingPersistence } from '../preferences/setting-persistenc
 
 /** Action assembly preserves the contracts declared by the owning services. */
 export interface EditorActionFunctions {
+	readonly reduceMicrophoneBleed: ReturnType<typeof createEffectsComposition>['reduceMicrophoneBleed'];
 	readonly readSelectionTargetLocked: ReturnType<typeof createEffectsComposition>['execution']['readSelectionTargetLocked'];
 	readonly setSourceSelection: ReturnType<typeof createEffectsComposition>['sourceEditor']['setSourceSelection'];
 	readonly readSourceSelection: ReturnType<typeof createEffectsComposition>['sourceEditor']['readSourceSelection'];
@@ -228,6 +229,8 @@ export interface EditorActionFunctions {
 	readonly swapTrackChannels: ReturnType<typeof createTrackAudioComposition>['swapTrackChannels'];
 	readonly switchProject: ReturnType<typeof createProjectSwitchService<DocumentProject, DocumentHistory>>['switchProject'];
 	readonly timelineDurationFrames: () => number;
+	readonly punchAgain: ReturnType<typeof createRecordingComposition>['punchAndRoll']['punchAgain'];
+	readonly setLeadInDurationSeconds: ReturnType<typeof createRecordingComposition>['punchAndRoll']['setLeadInDurationSeconds'];
 	readonly toggleLeadInRecording: ReturnType<typeof createRecordingComposition>['session']['toggleLeadInRecording'];
 	readonly toggleMetronome: ReturnType<typeof createTransportComposition>['transport']['toggleMetronome'];
 	readonly togglePinnedPlayhead: ReturnType<typeof createTrackAudioComposition>['selectionView']['togglePinnedPlayhead'];

@@ -50,7 +50,7 @@ function programmeAmplitude(samples) {
 for (const mode of ['leaf', 'folder', 'peer-solo']) test(`Plot spectrum isolates programme across ${mode} audibility`, async ({ page }) => {
 	test.setTimeout(90_000);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/'), fixture = await input(mode);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }), fixture = await input(mode);
 	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'muted.sscape', mimeType: 'application/zip', buffer: fixture.bytes });
 	await expect(editor).toHaveAttribute('data-project-id', fixture.project.id);
 	await waitForProjectActivation(editor);

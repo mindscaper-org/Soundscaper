@@ -13,6 +13,7 @@ import { resolveNyquistArchiveCopy } from '../../../i18n/editor-nyquist-archive-
 import { nyquistArchiveErrorLabel } from './nyquist-archive-error-copy.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { useOperationFocusRecovery } from '../useOperationFocusRecovery.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export default function NyquistGetEffectsDialog({ copy, onClose }) {
 	const archiveCopy = resolveNyquistArchiveCopy(copy);
@@ -92,7 +93,7 @@ export default function NyquistGetEffectsDialog({ copy, onClose }) {
 	>
 		<p>{archiveCopy.description}</p>
 		<label className="kw-audio-editor-dialog__field">
-			<span>{archiveCopy.searchEffects}</span>
+			<EditorControlLabel>{archiveCopy.searchEffects}</EditorControlLabel>
 			<input type="search" value={query} onChange={(event) => setQuery(event.currentTarget.value)} />
 		</label>
 		{error && <><p role="alert">{nyquistArchiveErrorLabel(error.reason, error.operation, archiveCopy)}</p>

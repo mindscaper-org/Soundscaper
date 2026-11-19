@@ -38,6 +38,7 @@ export interface ShellCacheStorage {
 }
 
 export interface ShellServiceWorkerRegistration {
+	readonly scope: string;
 	unregister(): Promise<boolean>;
 }
 
@@ -156,6 +157,7 @@ export async function probeStaleBuild(options: StaleBuildProbeOptions): Promise<
  * gets the reload, which is the step that can actually recover the tab.
  */
 export async function discardStaleBuild(options: DiscardStaleBuildOptions): Promise<void> {
+	const documentUrl = options.documentUrl ?? globalThis.location?.href;
 	const cacheStorage = options.cacheStorage ?? (globalThis.caches as ShellCacheStorage | undefined);
 	if (cacheStorage) {
 		try {
@@ -169,15 +171,16 @@ export async function discardStaleBuild(options: DiscardStaleBuildOptions): Prom
 	}
 	const serviceWorker = options.serviceWorker
 		?? (globalThis.navigator?.serviceWorker as ShellServiceWorkerContainer | undefined);
-	if (serviceWorker && typeof serviceWorker.getRegistrations === 'function') {
+	const shellScope = documentUrl && parseUrl('/', documentUrl)?.href;
+	if (shellScope && serviceWorker && typeof serviceWorker.getRegistrations === 'function') {
 		try {
 			const registrations = await serviceWorker.getRegistrations();
-			await Promise.all(registrations.map((registration) => registration.unregister().catch(() => false)));
+			await Promise.all(registrations.filter(({ scope }) => scope === shellScope)
+				.map((registration) => registration.unregister().catch(() => false)));
 		} catch {
 			// Same reasoning: an unreadable registration cannot be intercepting this tab.
 		}
 	}
-	const documentUrl = options.documentUrl ?? globalThis.location?.href;
 	const fetchImpl = options.fetchImpl ?? (globalThis.fetch as ShellInventoryFetch | undefined);
 	if (documentUrl && typeof fetchImpl === 'function') {
 		try {
@@ -192,14 +195,18 @@ export async function discardStaleBuild(options: DiscardStaleBuildOptions): Prom
 /** The set of asset paths a published `/offline-shell.json` says the origin is serving. */
 function inventoryAssetPaths(audit: unknown): ReadonlySet<string> | null {
 	if (typeof audit !== 'object' || audit === null) return null;
-	const assets = (audit as { assets?: unknown }).assets;
-	if (!Array.isArray(assets) || assets.length === 0) return null;
+	const { schemaVersion, assets } = audit as { schemaVersion?: unknown; assets?: unknown };
+	if (schemaVersion !== 2 || !Array.isArray(assets) || assets.length === 0) return null;
 	const paths = new Set<string>();
-	for (const asset of assets) {
-		const url = typeof asset === 'object' && asset !== null ? (asset as { url?: unknown }).url : undefined;
-		if (typeof url === 'string' && url.startsWith('/')) paths.add(url);
+	for (const asset of assets as readonly unknown[]) {
+		if (typeof asset !== 'object' || asset === null) return null;
+		const { url, byteLength, sha256 } = asset as { url?: unknown; byteLength?: unknown; sha256?: unknown };
+		if (typeof url !== 'string' || !url.startsWith('/') || url.startsWith('//')
+			|| typeof byteLength !== 'number' || !Number.isSafeInteger(byteLength) || byteLength < 0
+			|| typeof sha256 !== 'string' || !/^[a-f\d]{64}$/u.test(sha256) || paths.has(url)) return null;
+		paths.add(url);
 	}
-	return paths.size > 0 ? paths : null;
+	return paths;
 }
 
 function parseUrl(value: string, base?: string): URL | null {

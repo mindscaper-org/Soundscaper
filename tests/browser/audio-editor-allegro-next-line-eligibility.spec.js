@@ -4,7 +4,8 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, disableNativeSavePicker, downloadBytes, importFiles } from './audio-editor-test-helpers.js';
 import { parseMidiFile } from '../../src/common/editor/midi-file.ts';
 
-for (const event of [true, false]) test(`Allegro next interval applies only to an event line: event=${event}`, async ({ page }) => {
+// Node retains both event and non-event cursor advancement through MIDI delivery.
+for (const event of [true]) test(`Allegro next interval applies only to an event line: event=${event}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');
 	const source = event ? '#track 0\nT0 N0.5 V0 -control7r:1.0\nP60 U0.25\n' : '#track 0\nN0.5\nV0 P60 U0.25\n';

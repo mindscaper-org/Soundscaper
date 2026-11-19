@@ -29,7 +29,6 @@ interface SourceBundle {
 test('a duplicate metadata race aborts its lifecycle publication before the next duplicate',
 	async (context) => {
 		const root = await mkdtemp(join(tmpdir(), 'framescaper-duplicate-cleanup-'));
-		context.after(() => rm(root, { recursive: true, force: true }));
 		const handshake = createFramescaperDesktopProjectLibraryHandshake();
 		let advanceMetadataAtMaterialization = false;
 		let failAtCommittedCheckpoint = false;
@@ -55,7 +54,9 @@ test('a duplicate metadata race aborts its lifecycle publication before the next
 				},
 			},
 		});
-		context.after(() => main.close());
+		context.after(async () => {
+			try { await main.close(); } finally { await rm(root, { recursive: true, force: true }); }
+		});
 		raceDatabase = new DatabaseSync(
 			createFramescaperDesktopProjectLibraryPaths(root).databasePath, { timeout: 50 },
 		);

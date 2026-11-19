@@ -9,7 +9,7 @@ test('spectral deletion processes a source selection in its native frequency clo
 	await disableNativeSavePicker(page);
 	const file = createWavFixture({ name: 'native-tone.wav', sampleRate: 24_000, duration: 1,
 		frequency: 1000, channelCount: 1, channelAmplitudes: [0.35] });
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [file]);
 	const clip = clipByName(editor, file.name);
 	await clip.locator('.clip-header').click();

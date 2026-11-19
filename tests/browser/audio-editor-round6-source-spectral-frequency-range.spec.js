@@ -9,7 +9,7 @@ test('the source spectral dialog defaults to its ordinary native recording frequ
 	await disableNativeSavePicker(page);
 	const file = createWavFixture({ name: 'native-tone.wav', sampleRate: 24_000, duration: 1,
 		frequency: 1000, channelCount: 1, channelAmplitudes: [0.35] });
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [file]);
 	const clip = clipByName(editor, file.name);
 	await clip.locator('.clip-header').click();

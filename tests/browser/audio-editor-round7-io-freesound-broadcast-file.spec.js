@@ -24,7 +24,7 @@ test.describe('ordinary Freesound broadcast file upload', () => {
 				await route.fulfill({ status: 201, json: { data: { uploadFilename: 'remote-production-take.wav' } } });
 			} else await route.fulfill({ status: 404, json: {} });
 		});
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await chooseCommandAction(page, editor, 'Window', 'Freesound');
 		const panel = editor.locator('[data-workspace-panel="freesound"]');
 		await expect(panel.getByText('Connected as browser-tester', { exact: true })).toBeVisible();

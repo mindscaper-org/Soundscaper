@@ -5,7 +5,7 @@ import { addRackEffect, bootEditor, chooseCommandAction, chooseNestedCommandActi
 	importFiles } from './audio-editor-test-helpers.js';
 
 test('Noise Reduction captures the selected audio through its group bus rack', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await chooseNestedCommandAction(page, editor, 'Window', ['Mixer']);

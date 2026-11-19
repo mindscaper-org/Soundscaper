@@ -3,10 +3,13 @@
 #ifndef SOUNDSCAPER_JUCE_AUDIO_ADAPTER_H
 #define SOUNDSCAPER_JUCE_AUDIO_ADAPTER_H
 
+#include "audio_frame_ring.h"
 #include "professional_host_api.h"
 
+#include <algorithm>
 #include <memory>
 #include <string>
+#include <string_view>
 
 namespace soundscaper {
 
@@ -16,6 +19,32 @@ public:
 	virtual soundscaper_pro_status read(float **planes, uint32_t channels, uint32_t frames) = 0;
 	virtual soundscaper_pro_status write(const float *const *planes, uint32_t channels, uint32_t frames) = 0;
 };
+
+constexpr uint32_t jucePlaybackStartFrames(std::string_view backend,
+	bool sharedWasapi, uint32_t transportFrames, uint32_t callbackFrames)
+{
+	if (sharedWasapi) return 2u * callbackFrames + transportFrames;
+	// Reserve two periods beyond the first render while Web Audio delivers its next packet burst.
+	return backend == "asio" ? 3u * transportFrames : transportFrames;
+}
+
+// Discard one missed device interval before rendering the next one. Its frame
+// count comes from the device callback, independent of the transport packets.
+inline bool readDeviceOutputPeriod(AudioFrameRing &output, float *const *planes,
+	uint32_t channels, uint32_t frames, bool &missedPrevious)
+{
+	if (missedPrevious && !output.pop(nullptr, 0u, frames)) return false;
+	if (output.pop(planes, channels, frames)) {
+		missedPrevious = false;
+		return true;
+	}
+	if (missedPrevious) return false;
+	missedPrevious = true;
+	for (uint32_t channel = 0; channel < channels; ++channel) {
+		if (planes[channel] != nullptr) std::fill_n(planes[channel], frames, 0.0f);
+	}
+	return true;
+}
 
 soundscaper_pro_status enumerateJuceAudio(
 	const std::string &backend, std::string &json);

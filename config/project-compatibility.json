@@ -84,6 +84,22 @@
 	},
 	"rules": [
 		{
+			"id": "soundscaper-subproject-links",
+			"status": "implemented",
+			"requiredOutcome": "Optional subproject update authority preserves ordinary canonical proxy audio, exact saved child identities, named snapshots, history, and portable source remapping without changing family-v1 identity.",
+			"currentBehavior": "Soundscaper owns metadata.subprojects and the org.soundscaper.capability.subprojects bypassable capability. Links follow committed same-library child documents through bounded acyclic dependency graphs. Each refresh installs a new managed PCM source without changing parent placement or output geometry. Portable archives retain proxy audio and link provenance; editable child projects transfer separately, and a different library cannot follow or open a link until explicit relinking. Missing children retain the installed audio and report update failure. Framescaper does not author or execute subproject links. Native plug-in racks require committed audio before background child rendering.",
+			"evidence": [
+				"src/common/editor/subprojects.ts",
+				"src/common/editor/commands/subproject-runtime.ts",
+				"src/common/editor/controller/document/subproject-actions.ts",
+				"tests/audio-editor-subprojects.test.ts",
+				"tests/audio-editor-subproject-graph.test.ts",
+				"tests/audio-editor-subproject-actions.test.ts",
+				"tests/browser/audio-editor-subprojects.spec.js"
+			],
+			"policyAuthority": "family-v1-active"
+		},
+		{
 			"id": "pre-release-reimport-required",
 			"status": "implemented",
 			"requiredOutcome": "Family-less raw projects, numeric-only identities, pre-release product generations, legacy family-less format-1 archives, and every pre-release format-2 archive fail with the shared typed REIMPORT_REQUIRED error before project traversal, asset reads, or persistence.",

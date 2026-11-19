@@ -36,6 +36,7 @@ interface DuplicateProject extends Readonly<Record<string, unknown>> {
 	readonly tempoMap?: HoldTempoMap;
 	readonly tracks: readonly DuplicateTrack[];
 	readonly trackFolders?: readonly object[];
+	readonly primarySequenceId?: string;
 	readonly sequences?: readonly Readonly<{
 		readonly id: string;
 		readonly trackIds?: readonly string[];
@@ -57,7 +58,10 @@ export interface DuplicateSelectionRuntime {
 	readonly createStableId: (prefix?: string) => string;
 	readonly createClipboardDescriptor: (
 		project: DuplicateProject,
-		options: Readonly<{ startFrame: number; endFrame: number; trackIds: readonly string[]; clipIds?: readonly string[] }>,
+		options: Readonly<{
+			startFrame: number; endFrame: number; trackIds: readonly string[]; clipIds?: readonly string[];
+			includeTimelineAnnotations: false;
+		}>,
 	) => AudioEditorClipboard;
 	readonly prepareTrackDuplicateCarrier?: (
 		project: DuplicateProject,
@@ -87,6 +91,7 @@ export function prepareDuplicateSelectionCommand(
 		startFrame: range.startFrame,
 		endFrame: range.endFrame,
 		trackIds: range.trackIds.filter(id => trackById.get(id)?.type !== 'label'),
+		includeTimelineAnnotations: false,
 		...(range.exactClips ? { clipIds: range.clipIds } : {}),
 	});
 	const requested = new Set([...range.trackIds, ...clipboard.tracks.map((track) => track.sourceTrackId)]);
@@ -164,24 +169,30 @@ function duplicateLabels(runtime: DuplicateSelectionRuntime, project: DuplicateP
 		return [{ ...structuredClone(label), id: runtime.createStableId('label'),
 			startFrame: clippedStart, endFrame: clippedEnd,
 			...(label.anchor === 'musical' ? {
-				startBeat: sampleFrameToBeat(clippedStart, project.tempoMap!, project.sampleRate!),
-				endBeat: sampleFrameToBeat(clippedEnd, project.tempoMap!, project.sampleRate!),
+				...(clippedStart !== startFrame
+					? { startBeat: sampleFrameToBeat(clippedStart, project.tempoMap!, project.sampleRate!) } : {}),
+				...(clippedEnd !== endFrame
+					? { endBeat: sampleFrameToBeat(clippedEnd, project.tempoMap!, project.sampleRate!) } : {}),
 			} : {}),
 		}];
 	});
 }
 
 function duplicatePlacement(project: DuplicateProject, sourceTrackId: string, placements: ReadonlyMap<string, SequenceTrackPlacement> | null) {
-	if (!project.trackFolders?.length && !isSelectedFramescaperProjectSchema(project)) return {};
+	const withFolders = Boolean(project.trackFolders?.length);
+	const framescaper = isSelectedFramescaperProjectSchema(project);
+	if (!withFolders && !framescaper) return {};
+	const forSequence = (sequenceId: string, parentFolderId: string | null) => ({
+		...(framescaper || sequenceId !== project.primarySequenceId ? { sequenceId } : {}),
+		...(withFolders ? { parentFolderId } : {}),
+	});
 	if (placements) {
 		const placement = placements.get(sourceTrackId);
-		return placement ? { sequenceId: placement.sequenceId,
-			...(project.trackFolders?.length ? { parentFolderId: placement.parentFolderId } : {}) } : {};
+		return placement ? forSequence(placement.sequenceId, placement.parentFolderId) : {};
 	}
 	for (const sequence of project.sequences ?? []) {
 		const node = sequence.trackNodes?.find((candidate) => candidate.id === sourceTrackId);
-		if (node || sequence.trackIds?.includes(sourceTrackId)) return { sequenceId: sequence.id,
-			...(project.trackFolders?.length ? { parentFolderId: node?.parentFolderId ?? null } : {}) };
+		if (node || sequence.trackIds?.includes(sourceTrackId)) return forSequence(sequence.id, node?.parentFolderId ?? null);
 	}
 	return {};
 }

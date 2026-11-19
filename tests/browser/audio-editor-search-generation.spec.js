@@ -416,7 +416,7 @@ test.describe('audio editor React/design-system workflows', () => {
 			.locator('[data-timecode-direct-entry]').nth(1).inputValue())).toBeGreaterThan(0.5);
 		await closeWorkspacePanel(editor, 'labels');
 		await timelineLabel.dblclick();
-		await expect(timelineLabel.locator('input')).toHaveValue('Verse');
+		await expect(timelineLabel.getByRole('textbox', { name: 'Edit labels: Verse', exact: true })).toHaveValue('Verse');
 		await page.keyboard.press('Escape');
 
 		await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');

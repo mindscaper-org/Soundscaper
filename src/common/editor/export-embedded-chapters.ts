@@ -24,6 +24,15 @@ export function supportsEmbeddedExportChapters(format: unknown): boolean {
 	return format === 'mp3' || format === 'aac-m4a';
 }
 
+/** Convert once on the ID3 clock so admission and chapter writers agree. */
+export function mp3ChapterMilliseconds(chapter: EmbeddedExportChapter, sampleRate: number): readonly [number, number] {
+	const start = outputFrame(chapter.startFrame, sampleRate, 1_000);
+	const end = outputFrame(chapter.endFrame, sampleRate, 1_000);
+	if (end >= 0xffff_ffff) throw new RangeError('MP3 chapter times exceed the ID3 millisecond timestamp limit.');
+	if (end <= start) throw new RangeError('This MP3 chapter starts and ends in the same millisecond. Lengthen the label or export another format.');
+	return [start, end];
+}
+
 /**
  * Read chapters from every label track and clip them to the project-frame range.
  *

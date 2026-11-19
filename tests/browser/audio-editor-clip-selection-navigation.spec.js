@@ -13,7 +13,7 @@ test.describe('Soundscaper clip-selection navigation menus', () => {
 	registerAudioEditorHooks();
 
 	test('navigates clip and selection boundaries through Select and View only', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 
 		const split = editor.getByRole('button', { name: 'Split tool', exact: true });
@@ -47,7 +47,7 @@ test.describe('Soundscaper clip-selection navigation menus', () => {
 	});
 
 	test('momentary Split Tool overrides the spectral brush while a tap replaces it', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 		await chooseNestedCommandAction(page, editor, 'Select', ['Spectral', 'Spectral brush']);

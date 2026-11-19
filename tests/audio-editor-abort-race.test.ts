@@ -23,6 +23,19 @@ test('an already-aborted lazy read rejects without starting the provider', async
 	assert.equal(reads, 0);
 });
 
+test('a pre-aborted eager race observes the already-started operation failing', async () => {
+	const reason = new Error('The output was cancelled');
+	let observed = false;
+	const started = {
+		then: (...args: Parameters<PromiseLike<string>['then']>) => {
+			observed = true;
+			return Promise.reject<string>(new Error('Late output failure')).then(...args);
+		},
+	} as PromiseLike<string>;
+	await assert.rejects(raceAbortablePromise(started, AbortSignal.abort(reason)), error => error === reason);
+	assert.equal(observed, true);
+});
+
 test('a lazy read turns a synchronous provider failure into a rejection', async () => {
 	const failure = new Error('read failed');
 	const operation = raceAbortableRead(() => { throw failure; });

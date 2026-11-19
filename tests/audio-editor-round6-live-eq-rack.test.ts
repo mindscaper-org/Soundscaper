@@ -40,6 +40,7 @@ for (const type of ['audacity-graphic-eq', 'audacity-filter-curve-eq']) {
 			await engine.play();
 			const node = context.workletNodes.find(candidate => !candidate.readinessProbe);
 			assert.ok(node);
+			assert.deepEqual(node.messages.shift(), { type: 'suspend-idle-effect-processing', enabled: false });
 			const previousGraph = runtime.graph;
 			const next = type === 'audacity-graphic-eq'
 				? { gains: Array<number>(31).fill(1) }

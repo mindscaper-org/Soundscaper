@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { Buffer } from 'node:buffer';
+import { changeWorkingProjectAfterArchiveSave } from './helpers/scape-archive-collision.typecheck.ts';
 import { EDITOR_ENGLISH_COPY } from '../../src/common/i18n/editor-copy-inventory.ts';
 import { expect, test, createWavFixture } from './audio-editor-test-fixtures.js';
 import {
@@ -36,6 +37,7 @@ test('SCAPE Open as copy keeps explicit visualizer audio and its saved visual pr
 	await chooseExportProjectFileAction(page, editor);
 	const bytes = await downloadBytes(await download);
 	const oldId = await editor.getAttribute('data-project-id');
+	await changeWorkingProjectAfterArchiveSave(page, editor);
 	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Visualizer.fscape',
 		mimeType: 'application/vnd.soundscaper.scape+zip', buffer: Buffer.from(bytes) });
 	const collision = page.getByRole('dialog', { name: 'Project already exists', exact: true });

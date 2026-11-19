@@ -11,8 +11,9 @@
  */
 
 import { normalizeRational, type RationalRate } from './timeline-time.ts';
+import { approximatePositiveRational } from './rational-approximation.ts';
 import { readContainerVideoSourceCharacteristics } from './video-container-characteristics.ts';
-import { demuxIsobmffVideoTiming, type VideoTimingDemuxTrack } from './video-timing-demux-isobmff.ts';
+import { demuxIsobmffVideoTiming, hasLeadingIsobmffVideoEdit, type VideoTimingDemuxTrack } from './video-timing-demux-isobmff.ts';
 import { demuxMatroskaVideoTiming } from './video-timing-demux-matroska.ts';
 import {
 	createVideoTimingDemuxReader,
@@ -29,6 +30,7 @@ import type { VideoSourceCharacteristics } from './video-source-characteristics.
 const ISOBMFF_BRANDS = new Set(['ftyp', 'styp', 'moov', 'mdat', 'free', 'skip', 'wide']);
 const MATROSKA_MAGIC = Object.freeze([0x1a, 0x45, 0xdf, 0xa3]);
 const SNIFF_BYTES = 16;
+const MAXIMUM_EDIT_INSPECTION_BYTES = 256 * 1024;
 
 export class VideoTimingDemuxError extends Error {
 	readonly code = 'VIDEO_TIMING_DEMUX_UNSUPPORTED';
@@ -91,6 +93,13 @@ export function createContainerVideoTimingProbe(): VideoTimingProbePort {
 	});
 }
 
+/** Inspect only ISO box headers and the first edit entries, without walking samples. */
+export async function hasDeclaredLeadingVideoEdit(input: Blob, signal?: AbortSignal): Promise<boolean> {
+	const reader = createVideoTimingDemuxReader(input, { ...(signal ? { signal } : {}),
+		maximumTotalBytes: MAXIMUM_EDIT_INSPECTION_BYTES });
+	return isIsobmffHeader(await reader.readAtMost(0, SNIFF_BYTES)) && await hasLeadingIsobmffVideoEdit(reader, signal);
+}
+
 async function demuxContainer(
 	reader: VideoTimingDemuxReader,
 	signal: AbortSignal | undefined,
@@ -99,12 +108,14 @@ async function demuxContainer(
 	if (head.byteLength >= 4 && MATROSKA_MAGIC.every((byte, index) => head[index] === byte)) {
 		return demuxMatroskaVideoTiming(reader, { ...(signal ? { signal } : {}) });
 	}
-	if (head.byteLength >= 8 && ISOBMFF_BRANDS.has(String.fromCharCode(
-		head[4]!, head[5]!, head[6]!, head[7]!,
-	))) {
+	if (isIsobmffHeader(head)) {
 		return demuxIsobmffVideoTiming(reader, { ...(signal ? { signal } : {}) });
 	}
 	return null;
+}
+
+function isIsobmffHeader(head: Uint8Array): boolean {
+	return head.byteLength >= 8 && ISOBMFF_BRANDS.has(String.fromCharCode(head[4]!, head[5]!, head[6]!, head[7]!));
 }
 
 function timingResult(
@@ -143,16 +154,11 @@ function nominalRate(track: VideoTimingDemuxTrack): RationalRate {
 	const divisor = greatestCommonDivisor(numerator, spanTicks);
 	const num = numerator / divisor;
 	const den = spanTicks / divisor;
-	if (num > BigInt(Number.MAX_SAFE_INTEGER) || den > BigInt(Number.MAX_SAFE_INTEGER)) {
-		throw new VideoTimingDemuxError('The container states a video rate that cannot be expressed exactly.');
-	}
 	try {
 		return normalizeRational({ num: Number(num), den: Number(den) });
-	} catch (error) {
-		throw new VideoTimingDemuxError(
-			`The container states a video rate that cannot be expressed exactly: ${
-				error instanceof Error ? error.message : String(error)}`,
-		);
+	} catch {
+		// The nominal rate has a bounded denominator. The presentation index remains exact.
+		return approximatePositiveRational(Number(num) / Number(den));
 	}
 }
 

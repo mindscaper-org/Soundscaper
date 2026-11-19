@@ -17,6 +17,7 @@ const TARGET_COPY = {
 	entireProject: 'Entire project',
 	currentSelection: 'Current selection',
 	loopRegion: 'Loop region',
+	noMaterial: 'Add media to the timeline.',
 	noSelection: 'Make a selection to deliver it.',
 	noLoop: 'Enable the loop to deliver it.',
 	undeliverableSequence: 'Resolve the sequence issues to deliver it.',
@@ -41,7 +42,7 @@ test('every target the project offers is listed, unavailable ones with their rea
 	// "Why can I not deliver the loop" should be answerable from the dialog
 	// rather than from the absence of a row.
 	const options = deliveryBatchTargetOptions({
-		hasSelection: false, hasLoop: false, masteringSequences: SEQUENCES as never,
+		hasMaterial: true, hasSelection: false, hasLoop: false, masteringSequences: SEQUENCES as never,
 	}, TARGET_COPY);
 
 	assert.deepEqual(options.map(({ key }) => key), [
@@ -59,7 +60,7 @@ test('every target the project offers is listed, unavailable ones with their rea
 
 test('a stems batch drops the targets stems cannot express, and says which', () => {
 	const options = deliveryBatchTargetOptions({
-		hasSelection: true, hasLoop: true, masteringSequences: SEQUENCES as never,
+		hasMaterial: true, hasSelection: true, hasLoop: true, masteringSequences: SEQUENCES as never,
 	}, TARGET_COPY);
 
 	assert.deepEqual(selectableDeliveryBatchTargets(options, 'mix').map(({ key }) => key), [
@@ -75,9 +76,18 @@ test('a stems batch drops the targets stems cannot express, and says which', () 
 });
 
 test('a project with no sequences still offers the ordinary ranges', () => {
-	const options = deliveryBatchTargetOptions({ hasSelection: true, hasLoop: false }, TARGET_COPY);
+	const options = deliveryBatchTargetOptions({ hasMaterial: true, hasSelection: true, hasLoop: false }, TARGET_COPY);
 	assert.deepEqual(options.map(({ key }) => key), ['project', 'selection', 'loop']);
 	assert.deepEqual(selectableDeliveryBatchTargets(options, 'mix').map(({ key }) => key), ['project', 'selection']);
+});
+
+test('an empty timeline cannot queue a delivery even with selected ranges or annotations', () => {
+	const options = deliveryBatchTargetOptions({
+		hasMaterial: false, hasSelection: true, hasLoop: true, masteringSequences: SEQUENCES as never,
+	}, TARGET_COPY);
+	assert.deepEqual(selectableDeliveryBatchTargets(options, 'mix'), []);
+	assert.deepEqual(selectableDeliveryBatchTargets(options, 'stems'), []);
+	assert.equal(options[0].reason, TARGET_COPY.noMaterial);
 });
 
 test('the delivery queue is menu-reached and opens its own surface', () => {

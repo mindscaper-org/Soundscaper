@@ -8,6 +8,9 @@ import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/edi
 import { createAudioEditorController, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { MockAudioContext } from './helpers/mock-audio-context.js';
 import { deferred } from './helpers/async-test-control.ts';
+import { createFixture } from './helpers/recording-routing-service-fixture.ts';
+import { createSoundscaperAudioHostRuntime } from '../src/common/editor/ui/soundscaper-audio-host-runtime.ts';
+import type { NativeAudioSessionOpenRequestV1, SoundscaperNativeServicesBridge } from '../src/common/editor/ui/soundscaper-native-services-bridge.ts';
 
 function rate(snapshot: { readonly audioDevices: unknown }): unknown {
 	assert.ok(snapshot.audioDevices && typeof snapshot.audioDevices === 'object');
@@ -72,4 +75,81 @@ test('a current native recording-rate failure remains visible and preserves the 
 	});
 	await assert.rejects(controller.actions.audioDevices.setRecordingSampleRate(96_000), error => error === failure);
 		assert.equal(rate(controller.getSnapshot()), 48_000);
+});
+
+for (const failure of ['refused', 'disconnected', 'storage'] as const) test(`native sample rate change preserves the saved rate after ${failure}`, async () => {
+	let audioContext = new MockAudioContext({ sampleRate: 48_000 }) as unknown as AudioContext;
+	const engine = { async getAudioContext({ sampleRate }: Readonly<{ sampleRate?: number | null }> = {}) {
+		if (sampleRate != null && audioContext.sampleRate !== sampleRate) audioContext = new MockAudioContext({ sampleRate }) as unknown as AudioContext;
+		return audioContext;
+	} };
+	const fixture = createFixture({ getAudioContext: engine.getAudioContext, persistSetting: async (key, value) => {
+		if (failure === 'storage' && key === 'audio-devices' && (value as { recordingSampleRate: number }).recordingSampleRate === 8_000) {
+			throw new Error('Audio preferences could not be saved.');
+		}
+		return value;
+	} });
+	fixture.state.audioHost = 'asio';
+	fixture.state.preferredInputDeviceId = 'native:asio:in:microphone';
+	fixture.state.preferredOutputDeviceId = 'native:asio:out:speakers';
+	const active = new Map<string, NativeAudioSessionOpenRequestV1>();
+	const meterFinishes: string[] = [];
+	let attempt = 0, triedRate = false;
+	const bridge = {
+		nativeAudioHelperAvailability: async () => ({ backends: ['asio'], payload: { status: 'available' } }),
+		setNativeAudioHelperEnabled: async () => true,
+		describeNativeAudioBackend: async () => ({ status: 'described', inventory: { backend: 'asio', status: 'available', detail: '', devices: [
+			{ handle: 'microphone', label: 'Microphone', direction: 'input' }, { handle: 'speakers', label: 'Speakers', direction: 'output' },
+		] } }),
+		openNativeAudioSession: async (request: NativeAudioSessionOpenRequestV1) => {
+			if (request.sampleRate === 8_000) {
+				triedRate = true;
+				if (failure !== 'storage') return { status: 'refused', code: 'format-refused', message: 'Unsupported rate.' };
+			}
+			if (triedRate && failure === 'disconnected' && request.direction === 'input') {
+				return { status: 'refused', code: 'device-unavailable', message: 'Interface disconnected.' };
+			}
+			const sessionId = `session-${++attempt}`;
+			active.set(sessionId, request);
+			return { status: 'opened', sessionId };
+		},
+		bindNativeAudioSession: async () => {},
+		closeNativeAudioSession: async ({ sessionId }: Readonly<{ sessionId: string }>) => active.delete(sessionId),
+	} as unknown as SoundscaperNativeServicesBridge;
+	const runtime = createSoundscaperAudioHostRuntime({ engine, bridge, controller: {
+		getSnapshot: () => ({ audioDevices: { host: fixture.state.audioHost, recordingSampleRate: fixture.state.preferredRecordingSampleRate,
+			preferredInputDeviceId: fixture.state.preferredInputDeviceId, preferredOutputDeviceId: fixture.state.preferredOutputDeviceId,
+			preferredInputChannelCount: fixture.state.preferredInputChannelCount } }), subscribe: () => () => {},
+		actions: {
+			audioDevices: { ...fixture.service, requestAccess: fixture.service.requestInputAccess },
+			recording: { prepareInputReplacement: () => ({ finish: async outcome => {
+				meterFinishes.push(outcome);
+				if (outcome === 'ready' && ![...active.values()].some(request => request.direction === 'input')) {
+					throw new Error('No input available to meter.');
+				}
+			} }) },
+		},
+	} });
+	try {
+		await runtime.refresh();
+		assert.equal(active.size, 2);
+		await runtime.setRecordingSampleRate(8_000);
+		assert.equal(triedRate, true);
+		assert.equal(meterFinishes.at(-1), failure === 'disconnected' ? 'failed' : 'ready');
+		assert.equal(runtime.getSnapshot().failureCode, { refused: 'rate-mismatch', disconnected: 'session-open', storage: 'operation' }[failure]);
+		assert.match(runtime.getSnapshot().error, failure === 'storage' ? /Audio preferences could not be saved/u : /Unsupported rate/u);
+		assert.equal(fixture.state.preferredRecordingSampleRate, 48_000);
+		if (failure !== 'storage') assert.ok(fixture.persistCalls.every(([, value]) => (value as { recordingSampleRate?: number }).recordingSampleRate !== 8_000));
+		assert.equal(audioContext.sampleRate, 48_000);
+		if (failure === 'disconnected') {
+			assert.deepEqual([...active.values()].map(({ direction, sampleRate }) => [direction, sampleRate]), [['output', 48_000]]);
+			assert.match(runtime.getSnapshot().error, /Interface disconnected/u);
+		} else {
+			assert.deepEqual([...active.values()].map(({ direction, sampleRate }) => [direction, sampleRate]), [['input', 48_000], ['output', 48_000]]);
+			await runtime.setRecordingSampleRate(96_000);
+			assert.deepEqual([...active.values()].map(request => request.sampleRate), [96_000, 96_000]);
+			assert.equal(fixture.state.preferredRecordingSampleRate, 96_000);
+			assert.equal(runtime.getSnapshot().failureCode, null);
+		}
+	} finally { await runtime.dispose(); }
 });

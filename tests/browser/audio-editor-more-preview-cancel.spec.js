@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { taskProgressCancel } from './helpers/task-progress.js';
 
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, importFiles } from './audio-editor-test-helpers.js';
@@ -19,12 +20,15 @@ test('Cancel while an effect preview worker is preparing releases the editor imm
 		};
 	});
 	const editor = await bootEditor(page, '/embed/en/');
-	await importFiles(editor, [createWavFixture({ name: 'cancel pending preview.wav', duration: 8 })]);
+	// The worker is held before processing, so a short clip exercises the same cancellation.
+	await importFiles(editor, [createWavFixture({ name: 'cancel pending preview.wav', duration: 0.25 })]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await chooseNestedCommandAction(page, editor, 'Effect', ['Delay and reverb', 'Reverb']);
 	const dialog = page.getByRole('dialog', { name: 'Apply effect', exact: true });
 	await dialog.getByRole('button', { name: 'Preview', exact: true }).click();
 	await expect.poll(() => page.evaluate(() => globalThis.__heldPreviewWorkers.length)).toBe(1);
+	await taskProgressCancel(page).click();
+	await expect(page.locator('[data-task-progress-dialog]')).toBeHidden();
 	await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
 	await expect(dialog).toBeHidden();
 	await expect.poll(() => page.evaluate(() => globalThis.__heldPreviewWorkers[0].__previewTerminated === true)).toBe(true);

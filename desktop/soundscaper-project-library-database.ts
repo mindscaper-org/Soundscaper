@@ -2,6 +2,7 @@
 
 import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
+import { configureDesktopDatabaseJournal } from './desktop-database.ts';
 
 import {
 	DESKTOP_PROJECT_LIBRARY_APPLICATION_ID,
@@ -20,15 +21,12 @@ export function initializeSoundscaperDesktopProjectLibraryDatabase(
 	if (userVersion !== 0 && userVersion !== DESKTOP_PROJECT_LIBRARY_DATABASE_VERSION) {
 		throw new Error('Unsupported Soundscaper desktop baseline database version');
 	}
-	database.exec('PRAGMA synchronous = FULL; PRAGMA trusted_schema = OFF; PRAGMA foreign_keys = ON;');
+	configureDesktopDatabaseJournal(database);
 	const current = applicationId === DESKTOP_PROJECT_LIBRARY_APPLICATION_ID
 		&& userVersion === DESKTOP_PROJECT_LIBRARY_DATABASE_VERSION;
-	const journalMode = database.prepare('PRAGMA journal_mode').get()?.journal_mode;
 	// The identity is committed in the same transaction as the schema. Once both
 	// are current, re-entering that write transaction only contends with the live
 	// writer before startup can report the intentional lease refusal.
-	if (current && journalMode === 'wal') return;
-	database.exec('PRAGMA journal_mode = WAL;');
 	if (current) return;
 	database.exec('BEGIN IMMEDIATE');
 	try {

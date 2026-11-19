@@ -35,3 +35,36 @@ test('MP22: pending library open cannot replace a later File New project', async
 	assert.equal(controller.project?.id, newerProjectId);
 	assert.equal(controller.project?.title, 'Later new project');
 });
+
+test('a library open still checking its write destination cannot replace a later File New project', async context => {
+	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
+	const projectRuntime = createSoundscaperProjectRuntimeSelection();
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: 'stored-project-admission-race' });
+	const saved = createSoundscaperProject({ id: 'awaiting-storage-admission', title: 'Library project' });
+	await store.saveProject(saved);
+	const originalLoad = store.loadProject.bind(store);
+	let reads = 0;
+	let markProbe = (): void => undefined;
+	let finishProbe = (): void => undefined;
+	const probe = new Promise<void>(resolve => { markProbe = resolve; });
+	const release = new Promise<void>(resolve => { finishProbe = resolve; });
+	store.loadProject = async id => {
+		if (id === saved.id && ++reads === 2) { markProbe(); await release; }
+		return originalLoad(id);
+	};
+	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY,
+		projectRuntime, sessionController: projectRuntime.createSessionController(), store,
+		engine: createMemoryEngine() as unknown as Options['engine'],
+		ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'],
+	});
+	context.after(() => controller.dispose());
+	await controller.ready;
+	const libraryOpen = controller.actions.project.openById(saved.id);
+	await probe;
+	await controller.actions.project.create({ title: 'Later File New' });
+	const newerId = controller.project?.id;
+	finishProbe();
+	await libraryOpen;
+	assert.equal(controller.project?.id, newerId);
+	assert.equal(controller.getSnapshot().projectTabs.some(tab => tab.id === saved.id), false);
+});

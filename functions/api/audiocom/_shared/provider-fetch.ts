@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { fetchUpstreamWithDeadline } from '../../_shared/upstream-transfer.ts';
+import { safeUpstreamRetryAfter } from '../../_shared/upstream-retry-after.ts';
 import { invalidateAuthorizedAudiocomSession, type AuthorizedAudiocomSession, type OAuthHandlerDependencies } from './oauth-handlers.ts';
 import { OAuthHttpError, type AudiocomOAuthFunctionContext } from './oauth-http.ts';
 
@@ -24,7 +25,11 @@ export async function checkResponse(response: Response, authorized: AuthorizedAu
 		await invalidateAuthorizedAudiocomSession(authorized, dependencies);
 		throw new OAuthHttpError(401, 'authentication_expired', 'Reconnect the audio provider to continue.');
 	}
-	if (response.status === 429) throw new OAuthHttpError(429, 'rate_limited', 'The audio provider is temporarily rate limited.', { 'Retry-After': '60' });
+	if (response.status === 429) {
+		throw new OAuthHttpError(429, 'rate_limited', 'The audio provider is temporarily rate limited.', {
+			'Retry-After': safeUpstreamRetryAfter(response.headers.get('Retry-After')) ?? '60',
+		});
+	}
 	if ([403, 413, 422].includes(response.status)) throw new OAuthHttpError(response.status, 'upload_rejected', 'The audio provider rejected the request. Check your account limits and audio metadata.');
 	throw new OAuthHttpError(502, 'upstream_error', 'The audio provider could not complete the request.');
 }

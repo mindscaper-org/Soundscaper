@@ -6,7 +6,7 @@ import { openWorkspaceProjectFile } from '../src/common/editor/ui/workspace/open
 import { partitionWorkspaceFiles, WORKSPACE_OPEN_FILE_ACCEPT, WORKSPACE_IMPORT_FILE_ACCEPT } from '../src/common/editor/ui/workspace/workspace-file-routing.js';
 import { importWorkspaceRoutedFiles } from '../src/common/editor/ui/workspace/import-workspace-routed-files.ts';
 
-for (const extension of ['edl', 'otio', 'fcpxml', 'omf', 'omfi']) {
+for (const extension of ['edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf', 'adl', 'adl.zip', 'ardour', 'scraft', 'scraftz', 'ptx', 'ptf', 'pts', 'nhsx', 'rpp']) {
 	test(`${extension} uses shared Open and Import project routing`, async () => {
 		const file = new File(['fixture'], `session.${extension.toUpperCase()}`, { type: 'text/plain' });
 		assert.ok(WORKSPACE_OPEN_FILE_ACCEPT.includes(`.${extension}`));
@@ -32,6 +32,7 @@ test('shared Import supplies selected media to the timeline importer without add
 			importFiles: unexpected,
 			openInterchange: (input: File, options: { mediaFiles?: readonly File[] }) => {
 				assert.equal(input, document); assert.deepEqual(options.mediaFiles, [audio]); opened = true;
+				return { companionFiles: [audio] };
 			},
 		}, labels: { importFile: unexpected } } },
 		files: [document, audio], importOptions: {}, openProjectFile: unexpected,

@@ -71,9 +71,10 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 	const available = Boolean(visual?.available);
 	const pixel = (frame: number) => (frame - startFrame) / (endFrame - startFrame) * width;
 	const sourceAt = (frame: number) => Math.round(clipDisplayFrameToSource(project, clip, source, frame));
-	const frameAt = (clientX: number) => {
+	const frameAt = (clientX: number, clamp = true) => {
 		const rect = waveRef.current?.getBoundingClientRect();
-		return Math.round(Math.max(0, Math.min(range.totalFrames, startFrame + (clientX - (rect?.left ?? 0)) / Math.max(1, rect?.width ?? width) * (endFrame - startFrame))));
+		const frame = Math.round(startFrame + (clientX - (rect?.left ?? 0)) / Math.max(1, rect?.width ?? width) * (endFrame - startFrame));
+		return clamp ? Math.max(0, Math.min(range.totalFrames, frame)) : frame;
 	};
 	const applySelection = (requested: SourceSelection | null) => {
 		const normalized = clipSourceSelection(project, clip, source, requested);
@@ -158,7 +159,7 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 		if (handle?.dataset.clipFadeShapeHandle) kind = handle.dataset.clipFadeShapeHandle === 'in' ? 'shape-in' : 'shape-out';
 		if (event.button !== 0 || event.isPrimary === false || gesture.current || (kind === 'selection' && !event.ctrlKey && !event.metaKey ? previewBlocked : blocked)) return;
 		event.preventDefault(); event.stopPropagation(); (handle ?? waveRef.current)?.focus(); focus();
-		const frame = frameAt(event.clientX);
+		const frame = frameAt(event.clientX, kind !== 'start' && kind !== 'end');
 		if (kind === 'selection' && (event.ctrlKey || event.metaKey)) {
 			if (frame >= range.startFrame && frame <= range.endFrame) run(() => controller.actions.audioWarp.addSourceMarker(clipId, sourceAt(frame)));
 			return;
@@ -196,12 +197,15 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 		const current = gesture.current; if (!current || current.pointerId !== event.pointerId) return;
 		gesture.current = null; setDragFrame(null); setFadePreview(null);
 		releaseSourceFadeCapture(current);
-		const frame = frameAt(event.clientX);
+		const frame = frameAt(event.clientX, current.kind !== 'start' && current.kind !== 'end');
 		if (current.kind === 'selection') {
 			run(() => { applySelection(frame === current.startFrame ? null : { startFrame: Math.min(current.startFrame, frame), endFrame: Math.max(current.startFrame, frame) }); preview.seek(frame); });
 		} else if (current.kind === 'start' || current.kind === 'end') {
-			const sourceFrame = clip.reversed && frame >= range.startFrame && frame <= range.endFrame
-				? clip.sourceStartFrame + (frame - range.startFrame) / clip.durationFrames * clip.sourceDurationFrames : sourceAt(frame);
+			const edgeFrame = current.kind === 'start' ? range.startFrame : range.endFrame;
+			const targetFrame = Math.max(0, Math.min(range.totalFrames, edgeFrame + frame - current.startFrame));
+			if (targetFrame === edgeFrame) return;
+			const sourceFrame = clip.reversed && targetFrame >= range.startFrame && targetFrame <= range.endFrame
+				? clip.sourceStartFrame + (targetFrame - range.startFrame) / clip.durationFrames * clip.sourceDurationFrames : sourceAt(targetFrame);
 			run(() => preview.trim(clipId, clipSourceTrim(clip, source, project.sampleRate, current.kind as 'start' | 'end', sourceFrame, project)));
 		} else if (current.kind === 'marker') {
 			moveMarker(current.pointIndex!, frame);

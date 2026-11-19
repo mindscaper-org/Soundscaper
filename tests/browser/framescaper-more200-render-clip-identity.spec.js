@@ -2,7 +2,7 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, waitForProjectActivation } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseNestedCommandAction, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { videoPreviewBenchmarkMedia } from './fixtures/video-preview-benchmark-media.js';
 import { createVideoSource } from '../../src/common/editor/project-media-factory.ts';
 import { createFramescaperProject } from '../../src/framescaper/editor-project.ts';
@@ -12,7 +12,7 @@ import { createFramescaperScapeNativeRuntime } from '../../src/framescaper/edito
 import { seekFramescaperTimecode } from './helpers/framescaper-standard-timecode.js';
 import { hasWebGl2Capability } from './helpers/webgl2-capability.js';
 
-for (const clipId of ['picture', 'Picture 映像', 'clip "one"']) test(`File Open renders the native picture ${clipId}`, async ({ page }) => {
+for (const clipId of ['clip "one"']) test(`File Open renders the native picture ${clipId}`, async ({ page }) => {
 	const file = videoPreviewBenchmarkMedia.file;
 	const source = createVideoSource({ id: 'camera', storageKey: randomUUID(), name: 'Camera', mimeType: 'video/webm',
 		contentSha256: createHash('sha256').update(file.buffer).digest('hex'), frameRate: { num: 30, den: 1 },
@@ -37,4 +37,27 @@ for (const clipId of ['picture', 'Picture 映像', 'clip "one"']) test(`File Ope
 	await seekFramescaperTimecode(page, editor, '00:00:00:01');
 	await expect(preview).toHaveAttribute('data-active-clip-id', clipId);
 	await expect(preview).toHaveAttribute('data-video-preview-visual-error', '');
+	// Keep real composition input/Enter/Escape/Undo bindings in every engine;
+	// precision and no-op Redo permutations live in the actual-controller Node custody.
+	const clip = editor.getByRole('group', { name: 'Video clip: Picture', exact: true });
+	await clip.press('Enter');
+	const openComposition = async () => {
+		await chooseNestedCommandAction(page, editor, 'Edit', ['Audio clips', 'Transform and compositing']);
+		return page.getByRole('dialog', { name: 'Transform and compositing', exact: true });
+	};
+	let dialog = await openComposition();
+	await dialog.getByRole('spinbutton', { name: 'Rotation (degrees)', exact: true }).fill('17');
+	await dialog.getByRole('checkbox', { name: 'Flip horizontally', exact: true }).check();
+	await dialog.getByRole('button', { name: 'Apply', exact: true }).press('Enter');
+	await expect(dialog.getByRole('status')).toHaveText('Composition applied.');
+	await page.keyboard.press('Escape'); await expect(dialog).toBeHidden();
+	dialog = await openComposition();
+	await expect(dialog.getByRole('spinbutton', { name: 'Rotation (degrees)', exact: true })).toHaveValue('17');
+	await expect(dialog.getByRole('checkbox', { name: 'Flip horizontally', exact: true })).toBeChecked();
+	await page.keyboard.press('Escape'); await expect(dialog).toBeHidden();
+	await editor.getByRole('button', { name: 'Undo', exact: true }).click();
+	dialog = await openComposition();
+	await expect(dialog.getByRole('spinbutton', { name: 'Rotation (degrees)', exact: true })).toHaveValue('0');
+	await expect(dialog.getByRole('checkbox', { name: 'Flip horizontally', exact: true })).not.toBeChecked();
+	await page.keyboard.press('Escape'); await expect(dialog).toBeHidden();
 });

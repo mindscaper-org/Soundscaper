@@ -253,7 +253,7 @@ export function normalizeMediaExportSettings(format, options = {}) {
 		throw new RangeError(`${descriptor.label} supports at most ${descriptor.maximumChannels} output channels.`);
 	}
 	const sampleFormat = normalizeSampleFormat(descriptor, options);
-	const dither = normalizeDither(options.dither, Boolean(sampleFormat && sampleFormat !== 'float32'));
+	const dither = normalizeDither(options.dither);
 	const metadata = normalizeMediaMetadata(options.metadata);
 	const settings = {
 		format: descriptor.id,
@@ -463,8 +463,8 @@ function normalizeSampleFormat(descriptor, options) {
 	return value;
 }
 
-function normalizeDither(value, defaultEnabled) {
-	if (value == null) return defaultEnabled ? 'triangular' : 'none';
+function normalizeDither(value) {
+	if (value == null) return 'none';
 	if (value === true) return 'triangular';
 	if (value === false) return 'none';
 	if (!['none', 'triangular', 'triangular-highpass'].includes(value)) throw new RangeError(`Unsupported dither mode: ${value}.`);

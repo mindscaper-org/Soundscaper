@@ -6,6 +6,7 @@ import type {
 	AssistanceReframeNormalizedBoxV1,
 	AssistanceReframeSubjectV1,
 } from './reframe-planner-v1.ts';
+import { ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION } from './visual-frame-pack-v2.ts';
 
 export const ASSISTANCE_SUBJECT_TRACKING_SCHEMA_VERSION = 1 as const;
 export const ASSISTANCE_SUBJECT_TRACKING_SAMPLES_PER_SECOND = 2 as const;
@@ -118,8 +119,8 @@ export function trackAssistanceSubjectsV1(value: unknown): AssistanceTrackedSubj
 	if (request.schemaVersion !== ASSISTANCE_SUBJECT_TRACKING_SCHEMA_VERSION) {
 		throw new TypeError('The subject tracking schema version is unsupported.');
 	}
-	const width = integer(request.width, 1, 4_096, 'subject tracking width');
-	const height = integer(request.height, 1, 4_096, 'subject tracking height');
+	const width = integer(request.width, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'subject tracking width');
+	const height = integer(request.height, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'subject tracking height');
 	const timescale = integer(request.timescale, 1, MAXIMUM_TIMESCALE,
 		'subject tracking timescale');
 	const frames = normalizeFrames(request.frames);

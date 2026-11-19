@@ -18,6 +18,7 @@ import {
 	workflowClaimFromCustodyV1,
 } from '../src/common/editor/assistance/workflow-custody-v1.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
+import { BASIC_PITCH_MODEL_ID, BASIC_PITCH_MODEL_VERSION, BASIC_PITCH_MODEL_SHA256 } from '../src/common/editor/assistance/basic-pitch-model.ts';
 import { createLocalAssistanceAdvancedWorkflowSessionStore } from
 	'../src/common/editor/ui/local-assistance-advanced-session-store.ts';
 
@@ -27,7 +28,7 @@ const MAXIMUM_OUTPUT_BYTES = 64 * 1024 * 1024;
 const ADVANCED_OPERATIONS = ASSISTANCE_OPERATIONS.filter(
 	(operation): operation is Exclude<AssistanceOperation, 'text-to-speech' | 'video-keying'> => operation !== 'text-to-speech' && operation !== 'video-keying');
 
-test('every one of the 16 Advanced primitives stages one closed valid workflow recipe', async () => {
+test('every inventoried Advanced primitive stages one closed valid workflow recipe', async () => {
 	assert.equal(OPERATION_FIXTURES.size, ADVANCED_OPERATIONS.length);
 	for (const operation of ADVANCED_OPERATIONS) {
 		const fixture = OPERATION_FIXTURES.get(operation)!;
@@ -165,6 +166,7 @@ const OPERATION_FIXTURES = new Map<AssistanceOperation, Fixture>([
 	row('source-separation', 'audio', ['audio'], ['dialogue', 'music', 'effects']),
 	row('audio-tagging', 'audio', ['audio'], ['audio-tags']),
 	row('beat-tracking', 'audio', ['audio'], ['beat-grid']),
+	row('music-transcription', 'audio', ['audio'], ['midi-notes']),
 	row('text-embedding', 'audio', ['transcript'], ['embeddings']),
 	row('image-text-embedding', 'video', ['frame-pack'], ['embeddings']),
 	row('optical-character-recognition', 'video', ['frame-pack'], ['recognized-text']),
@@ -198,7 +200,7 @@ function preparedFor(operation: AssistanceOperation, fixture: Fixture) {
 function preparedInput(role: string, operation: AssistanceOperation, sourceFrame = 0) {
 	if (role === 'audio') {
 		const sampleRate = operation === 'source-separation' || operation === 'dereverberation'
-			? 44_100 : operation === 'speech-enhancement' ? 48_000 : 16_000;
+			? 44_100 : operation === 'music-transcription' ? 22_050 : operation === 'speech-enhancement' ? 48_000 : 16_000;
 		const channels = operation === 'source-separation' || operation === 'speech-enhancement'
 			|| operation === 'dereverberation'
 			? [Float32Array.of(0.1, -0.1), Float32Array.of(-0.1, 0.1)]
@@ -287,6 +289,8 @@ function selectionFence(kind: 'audio' | 'video') {
 }
 
 function model(task: string, ordinal: number) {
+	if (task === 'music-transcription') return Object.freeze({ modelId: BASIC_PITCH_MODEL_ID,
+		version: BASIC_PITCH_MODEL_VERSION, task, artifactSha256s: Object.freeze([BASIC_PITCH_MODEL_SHA256]) });
 	const modelId = task === 'face-detection' ? 'yunet-face-detection-2026may'
 		: task === 'object-detection' ? 'dfine-nano-coco' : `fixture-${task}`;
 	return Object.freeze({ modelId, version: '1.0.0', task,

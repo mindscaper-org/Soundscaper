@@ -19,6 +19,9 @@ const PACKAGE_FIELDS = Object.freeze([
 	'id', 'manifestPath', 'manifestTargetPath', 'targets', 'workflowPath',
 	'packageCommand', 'pipelinePaths',
 ]);
+const PACKAGE_PRODUCER_IDS = Object.freeze([
+	'assistance-sherpa-onnx-node', 'assistance-onnxruntime-node', 'assistance-whisper-cpp', 'assistance-llama-cpp', 'yabridge-vst3',
+].sort());
 const SAFE_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z\d._/-]+$/u;
 const SAFE_TARGET_PATH = /^[A-Za-z\d-]+(?:\.[A-Za-z\d-]+)*$/u;
 const PACKAGE_TARGET_PARTS = Object.freeze({
@@ -53,7 +56,8 @@ export function auditNativePayloadProducers(repositoryRoot) {
 		|| register.schemaVersion !== 1
 		|| JSON.stringify(register.targets) !== JSON.stringify(TARGETS)
 		|| !Array.isArray(register.ciProducers) || register.ciProducers.length !== 4
-		|| !Array.isArray(register.packageProducers) || register.packageProducers.length !== 4) {
+		|| !Array.isArray(register.packageProducers)
+		|| JSON.stringify(register.packageProducers.map(({ id }) => id).sort()) !== JSON.stringify(PACKAGE_PRODUCER_IDS)) {
 		findings.push('Native payload producer register identity or inventory is invalid.');
 	}
 	const ids = [...(register.ciProducers ?? []), ...(register.packageProducers ?? [])]

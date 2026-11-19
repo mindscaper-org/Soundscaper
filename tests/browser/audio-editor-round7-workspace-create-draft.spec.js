@@ -12,7 +12,7 @@ test('a completed workspace save retains the newer name typed while storage is b
 	await preferences.getByRole('tab', { name: /Workspace$/u }).click();
 	const name = preferences.getByRole('textbox', { name: 'Workspace name', exact: true });
 	const create = preferences.getByRole('button', { name: 'Create from current layout', exact: true });
-	const preset = preferences.getByRole('button', { name: 'Workspace preset', exact: true });
+	const preset = preferences.getByRole('button', { name: /^Workspace preset(?::|$)/u });
 	// Healthy ordinary Create clears exactly its unchanged draft after a real
 	// save. The following scenario keeps the same native persistence contract.
 	await name.fill('Healthy layout');
@@ -39,8 +39,8 @@ test('a completed workspace save retains the newer name typed while storage is b
 		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 		preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 		await preferences.getByRole('tab', { name: /Workspace$/u }).click();
-		await preferences.getByRole('button', { name: 'Workspace preset', exact: true }).click();
-		const options = page.getByRole('listbox', { name: 'Workspace preset', exact: true });
+		await preferences.getByRole('button', { name: /^Workspace preset(?::|$)/u }).click();
+		const options = page.getByRole('listbox', { name: /^Workspace preset(?::|$)/u });
 		for (const label of ['Healthy layout', 'First pending layout', 'Next layout']) {
 			await expect(options.getByRole('option', { name: label, exact: true })).toHaveCount(1);
 		}

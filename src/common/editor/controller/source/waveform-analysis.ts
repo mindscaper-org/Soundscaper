@@ -7,6 +7,9 @@ import { createWaveformPeakBuilder } from '../../waveform-peak-builder.ts';
 import { projectUnwarpedClipSourceRange } from '../../audio-clip-source-projection.ts';
 import { abortError, throwIfAborted } from '../shared/app-helpers.ts';
 
+// Avoid worker startup for at most 64 KiB of PCM, counted across all channels.
+const MAXIMUM_LOCAL_WAVEFORM_SAMPLES = 16_384;
+
 export {
 	WAVEFORM_PEAK_CACHE_PREFIX,
 	legacyPeakCacheKey,
@@ -38,7 +41,7 @@ interface StoredPcmChunk {
 }
 
 interface WaveformChunkValue {
-	readonly channels: Float32Array[];
+	readonly channels: readonly Float32Array[];
 	readonly frames?: number;
 }
 
@@ -74,7 +77,7 @@ export interface WaveformPcmProvider {
 	readStorageChunk(
 		chunkIndex: number,
 		context?: WaveformPcmReadOptions,
-	): Promise<WaveformChunkValue | Float32Array[]> | WaveformChunkValue | Float32Array[];
+	): Promise<WaveformChunkValue | readonly Float32Array[]> | WaveformChunkValue | readonly Float32Array[];
 }
 
 export interface WaveformPeakChannel {
@@ -163,7 +166,7 @@ export async function readWaveformPcmWindow(
 			? provider.readStorageChunk(chunkIndex, { signal: options.signal })
 			: provider.readStorageChunk(chunkIndex));
 		throwIfAborted(options.signal);
-		const channels = Array.isArray(value) ? value : value.channels;
+		const channels = 'channels' in value ? value.channels : value;
 		const chunkStart = chunkIndex * provider.chunkFrames;
 		const from = Math.max(range.startFrame, chunkStart) - chunkStart;
 		const to = Math.min(range.endFrame, chunkStart + (channels[0]?.length || 0)) - chunkStart;
@@ -186,7 +189,10 @@ export async function generateStoredWaveformPeaks(
 	options: StoredWaveformAnalysisOptions = {},
 ): Promise<WaveformPeaks> {
 	throwIfAborted(options.signal);
-	if (typeof Worker !== 'function') return generateStoredWaveformPeaksFallback(store, source, options);
+	if (typeof Worker !== 'function'
+		|| source.frameCount * source.channelCount <= MAXIMUM_LOCAL_WAVEFORM_SAMPLES) {
+		return generateStoredWaveformPeaksFallback(store, source, options);
+	}
 	const worker = new Worker(new URL('../../peaks-worker.js', import.meta.url), { type: 'module' });
 	let frames = 0;
 	try {
@@ -283,7 +289,10 @@ export async function generateWaveformPeaks(
 	signal?: AbortSignal,
 ): Promise<WaveformPeaks> {
 	throwIfAborted(signal);
-	if (typeof Worker !== 'function') return generateWaveformPeaksFallback(channels);
+	if (typeof Worker !== 'function'
+		|| (channels[0]?.length || 0) * channels.length <= MAXIMUM_LOCAL_WAVEFORM_SAMPLES) {
+		return generateWaveformPeaksFallback(channels);
+	}
 	const worker = new Worker(new URL('../../peaks-worker.js', import.meta.url), { type: 'module' });
 	try {
 		worker.postMessage({ type: 'start', channelCount: channels.length,

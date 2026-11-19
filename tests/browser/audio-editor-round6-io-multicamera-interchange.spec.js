@@ -7,7 +7,9 @@ import { videoTimingProbeMedia } from './fixtures/video-timing-probe-media.js';
 import { videoSourceGeometryMedia } from './fixtures/video-source-geometry-media.js';
 import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 
-for (const switched of [false, true]) test(`OTIO references the actual ordinary camera output (switched=${switched})`, async ({ page }) => {
+// The neutral/data matrix has actual controller/store/history/Scape/file-report
+// custody in audio-editor-video-report-archive-custody.test.ts. Keep native UI here.
+for (const switched of [true]) test(`OTIO references the actual ordinary camera output (switched=${switched})`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
 	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Project properties']);

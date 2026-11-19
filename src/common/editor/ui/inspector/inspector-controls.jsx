@@ -6,6 +6,7 @@ import { BoundedTextInput } from './BoundedTextInput.tsx';
 import PreferenceCheckbox from '../EditorPreferenceCheckbox.tsx';
 import { cancelDraftEditOnEscape, createDraftBlurCommitGuard, draftBlurShouldCommit } from '../draft-blur-commit.ts';
 import { observeNativeDraftSelection } from './native-draft-selection.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export function CommitField({ label, name, value, type = 'text', min = undefined, max = undefined, step = undefined, disabled, readOnly, multiline, multilineCommitOnEnter = false, hookName = 'clip-field', visuallyHiddenLabel = false, preserveEditedDraft = false, onCommit, onDraftChange = undefined }) {
 	const [draft, setDraft] = useState(String(value ?? ''));
@@ -65,7 +66,7 @@ export function CommitField({ label, name, value, type = 'text', min = undefined
 				});
 			}
 		}}>
-			<span className={visuallyHiddenLabel ? 'kw-audio-editor-sr-only' : undefined}>{label}</span>
+			<EditorControlLabel className={visuallyHiddenLabel ? 'kw-audio-editor-sr-only' : undefined}>{label}</EditorControlLabel>
 			<Input
 				min={min}
 				max={max}
@@ -99,11 +100,12 @@ export function LabeledDropdown({ label, options, value, onChange, disabled, hoo
 		onChange(next);
 	};
 	useEffect(() => {
-		wrapperRef.current?.querySelector('.dropdown__trigger')?.setAttribute('aria-label', label);
-	}, [label]);
+		const trigger = wrapperRef.current?.querySelector('.dropdown__trigger');
+		trigger?.setAttribute('aria-label', `${label}: ${trigger.querySelector('.dropdown__text')?.textContent || ''}`);
+	}, [label, value, options]);
 	return (
 		<div ref={wrapperRef} className="audio-editor-field" role="group" aria-label={label} {...dataHook}>
-			<span>{label}</span>
+			<EditorControlLabel>{label}</EditorControlLabel>
 			<Dropdown options={availableOptions} value={value} onChange={handleChange} disabled={disabled} width="100%" />
 		</div>
 	);

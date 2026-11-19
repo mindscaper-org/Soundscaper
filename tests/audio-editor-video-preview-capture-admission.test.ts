@@ -15,6 +15,7 @@ import {
 	VideoPreviewSourceGeometryTooLargeError,
 	assertVideoPreviewEncodedBytes,
 	planVideoPreviewCapture,
+	planVideoRenderPixelCapture,
 } from '../src/common/editor/video-preview-capture-admission.ts';
 
 const MIB = 1024 * 1024;
@@ -27,6 +28,17 @@ test('video preview capture admission pins its non-raiseable production ceilings
 	assert.equal(VIDEO_PREVIEW_CAPTURE_MAXIMUM_SOURCE_WIDTH, 16_384);
 	assert.equal(VIDEO_PREVIEW_CAPTURE_MAXIMUM_SOURCE_HEIGHT, 16_384);
 	assert.equal(VIDEO_PREVIEW_CAPTURE_MAXIMUM_SOURCE_RGBA_BYTES, 256 * MIB);
+});
+
+test('render readback admits 4K within the existing source budget', () => {
+	const source = { sourceWidth: 3840, sourceHeight: 2160 };
+	const full = planVideoRenderPixelCapture(source);
+	assert.deepEqual([full.outputWidth, full.outputHeight, full.rgbaUsefulBinary.bytes], [3840, 2160, 33_177_600]);
+	assert.equal(full.rgbaUsefulBinary.scope, 'video-render-capture-rgba-useful-binary');
+	const fitted = planVideoRenderPixelCapture(source, { maximumWidth: 1280, maximumHeight: 1080 });
+	assert.deepEqual([fitted.outputWidth, fitted.outputHeight], [1280, 720]);
+	assert.throws(() => planVideoRenderPixelCapture({ sourceWidth: 16_384, sourceHeight: 16_384 }),
+		VideoPreviewSourceGeometryTooLargeError);
 });
 
 test('video preview capture admission reports exact immutable RGBA geometry', () => {

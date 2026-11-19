@@ -92,6 +92,7 @@ export async function createFramescaperSelectedTimelineFilmstripTimelineImage(
 			materializeImages(), inheritedPromise,
 		]);
 		if (inheritedResult.status === 'fulfilled') inheritedOutput = inheritedResult.value;
+		throwIfFramescaperImagePreviewAbortedTimelineImage(options.signal);
 		if (imageResult.status === 'rejected' && inheritedResult.status === 'rejected') {
 			throw new AggregateError(
 				[imageResult.reason, inheritedResult.reason],

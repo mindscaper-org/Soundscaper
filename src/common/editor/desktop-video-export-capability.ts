@@ -3,7 +3,7 @@
 import { desktopCodecMessage, type DesktopCodecCopy } from './desktop-codec-presentation.ts';
 import { videoExportPlanFormat } from './video-export-request-format.ts';
 
-export type DesktopVideoExportFormat = 'mp4' | 'webm';
+export type DesktopVideoExportFormat = 'mp4' | 'webm' | 'mov';
 export type DesktopVideoExportProvider = 'bundled' | 'operating-system' | 'external-ffmpeg' | 'webcodecs';
 
 export interface DesktopVideoExportFormatCapability {
@@ -23,7 +23,7 @@ export interface DesktopVideoExportFileService {
 	readonly getDesktopVideoExportCapabilities?: () => unknown | Promise<unknown>;
 }
 
-const FORMATS = Object.freeze(['mp4', 'webm'] as const);
+const FORMATS = Object.freeze(['mp4', 'webm', 'mov'] as const);
 const PROVIDERS = new Set<DesktopVideoExportProvider>([
 	'bundled', 'operating-system', 'external-ffmpeg',
 ]);
@@ -32,7 +32,7 @@ function unavailableCapability(format: DesktopVideoExportFormat): DesktopVideoEx
 	return Object.freeze({
 		available: false,
 		provider: null,
-		reason: `Desktop ${format === 'mp4' ? 'MP4' : 'WebM'} export needs an execution-verified external FFmpeg provider. Manage or rescan it in Edit > Preferences > General.`,
+		reason: `Desktop ${format === 'mov' ? 'MOV' : format === 'mp4' ? 'MP4' : 'WebM'} export needs an execution-verified external FFmpeg provider. Manage or rescan it in Edit > Preferences > General.`,
 	});
 }
 
@@ -50,7 +50,7 @@ function normalizeFormatCapability(
 	}
 	if (!isRecord(value) || value.available !== true || !PROVIDERS.has(
 		value.provider as DesktopVideoExportProvider,
-	)) return unavailableCapability(format);
+	) || (format === 'mov' && value.provider !== 'external-ffmpeg')) return unavailableCapability(format);
 	return Object.freeze({
 		available: true,
 		provider: value.provider as DesktopVideoExportProvider,
@@ -62,7 +62,7 @@ export function desktopVideoExportCapabilityNotice(
 	formats: Readonly<Record<DesktopVideoExportFormat, DesktopVideoExportFormatCapability>>, copy?: DesktopCodecCopy,
 ): string | null {
 	const unavailable = FORMATS.filter((format) => !formats[format].available)
-		.map((format) => format === 'mp4' ? 'MP4' : 'WebM');
+		.map((format) => format === 'mov' ? 'MOV' : format === 'mp4' ? 'MP4' : 'WebM');
 	if (unavailable.length === 0) return null;
 	if (copy) return desktopCodecMessage('codecVideoUnavailable', copy, { formats: unavailable.join(' / ') });
 	return `Desktop ${unavailable.join(' and ')} export ${unavailable.length === 1 ? 'is' : 'are'} unavailable. Manage or rescan external FFmpeg in Edit > Preferences > General.`;
@@ -81,13 +81,14 @@ export function desktopVideoExportCapabilities(value: unknown): DesktopVideoExpo
 	const formats = Object.freeze({
 		mp4: normalizeFormatCapability('mp4', formatsValue?.mp4),
 		webm: normalizeFormatCapability('webm', formatsValue?.webm),
+		mov: normalizeFormatCapability('mov', formatsValue?.mov),
 	});
 	return Object.freeze({ schemaVersion: 1, formats, notice: desktopVideoExportCapabilityNotice(formats) });
 }
 
 function normalizeFormat(value: unknown): DesktopVideoExportFormat | null {
 	const format = videoExportPlanFormat(value);
-	return format === 'mp4' || format === 'webm' ? format : null;
+	return format === 'mp4' || format === 'webm' || format === 'mov' ? format : null;
 }
 
 export function desktopVideoExportFormatAvailable(
@@ -105,7 +106,7 @@ export function desktopVideoExportFormatReason(
 	const format = normalizeFormat(formatValue);
 	if (format === null) return null;
 	const capability = capabilities?.formats[format] ?? unavailableCapability(format);
-	return capability.available ? null : copy ? desktopCodecMessage('codecVideoUnavailable', copy, { formats: format === 'mp4' ? 'MP4' : 'WebM' }) : capability.reason;
+	return capability.available ? null : copy ? desktopCodecMessage('codecVideoUnavailable', copy, { formats: format === 'mov' ? 'MOV' : format === 'mp4' ? 'MP4' : 'WebM' }) : capability.reason;
 }
 
 export async function resolveDesktopVideoExportCapabilities(

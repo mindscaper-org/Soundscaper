@@ -34,7 +34,7 @@ for (const [title, amplitude, gated, bus] of [
 ]) test(title, async ({ page }, testInfo) => {
 	test.setTimeout(90_000);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone, createWavFixture({ name: 'external-detector.wav', frequency: 660,
 		channelCount: 1, channelAmplitudes: [amplitude] })]);
 	const control = clipByName(editor, 'external-detector.wav');

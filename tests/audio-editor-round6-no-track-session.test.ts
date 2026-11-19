@@ -17,7 +17,7 @@ for (const types of [['audio', 'label'], ['label'], ['video', 'audio']] as const
 		const captured = service.capture();
 		state.selectedTrackId = 'other-project-track';
 		service.restore(project, captured);
-		assert.deepEqual(state, captured);
+		assert.deepEqual(service.capture(), captured);
 		assert.deepEqual(project, original);
 	});
 }

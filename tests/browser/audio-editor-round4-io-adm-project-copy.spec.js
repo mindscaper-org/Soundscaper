@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test, monoTone } from './audio-editor-test-fixtures.js';
+import { changeWorkingProjectAfterArchiveSave } from './helpers/scape-archive-collision.typecheck.ts';
 import {
 	bootEditor, chooseCommandAction, chooseDropdown, chooseExportProjectFileAction, chooseFileAction, chooseNestedCommandAction,
 	closeDialog, closeWorkspacePanel, disableNativeSavePicker, downloadBytes, importFiles,
@@ -11,7 +12,7 @@ for (const mode of ['duplicate', 'archive copy']) {
 	test(`an unchanged ${mode} of a pristine ADM project remains exportable`, async ({ page }) => {
 		test.setTimeout(60_000);
 		await disableNativeSavePicker(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 		const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 		await preferences.getByRole('tab', { name: /Editing$/u }).click();
@@ -65,6 +66,7 @@ async function openArchiveCopy(page, editor) {
 	await chooseExportProjectFileAction(page, editor);
 	const download = await downloading;
 	const archive = await downloadBytes(download);
+	await changeWorkingProjectAfterArchiveSave(page, editor);
 	const opening = page.waitForEvent('filechooser');
 	await chooseFileAction(page, editor, 'Open');
 	await (await opening).setFiles({ name: download.suggestedFilename(), mimeType: 'application/vnd.soundscaper.scape+zip', buffer: Buffer.from(archive) });

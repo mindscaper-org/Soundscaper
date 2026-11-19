@@ -7,7 +7,7 @@ import { normalizeEffectMacroDraft } from '../../src/common/editor/effect-macros
 import { createEffect } from '../../src/common/editor/effects.js';
 
 test('a full saved macro library reports a refused file import and permits retry after removal', async ({ page }) => {
-	await bootEditor(page, '/embed/en/');
+	await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const library = createEffectMacroLibrary({ schemaVersion: 1, defaultsInitialized: true,
 		macros: Array.from({ length: 256 }, (_, index) => normalizeEffectMacroDraft({ id: `saved-${index}`,
 			name: `Saved ${index}`, effects: [createEffect('audacity-invert', { id: `invert-${index}` })] })) });
@@ -24,8 +24,8 @@ test('a full saved macro library reports a refused file import and permits retry
 	}), library);
 	await page.reload();
 	const editor = await waitForEditor(page);
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await expect(manager.locator('[data-macro-list]').getByRole('button')).toHaveCount(256);
 	const importFile = async () => {
 		const choosing = page.waitForEvent('filechooser');

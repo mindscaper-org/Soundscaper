@@ -3,8 +3,9 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { readRiffChunks } from '../helpers/read-riff-chunks.ts';
+import { encodeWav } from '../../src/common/editor/wav.js';
 import {
-	bootEditor, chooseDropdown, disableNativeSavePicker, importFiles, openExportDialog, readDownloadBytes,
+	bootEditor, chooseCommandAction, chooseDropdown, disableNativeSavePicker, importFiles, openExportDialog, readDownloadBytes,
 } from './audio-editor-test-helpers.js';
 
 // The unchanged BWF MetaEdit fixture carries a recorder description and
@@ -14,7 +15,7 @@ const recording = Buffer.from(readFileSync(new URL('../fixtures/bwfmetaedit-ixml
 
 test('WAV and BWF recorder deliveries import together and retain BEXT and complete iXML', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, ['wav', 'bwf'].map(extension => ({
 		name: `production-take.${extension}`, mimeType: 'application/octet-stream', buffer: recording,
 	})));
@@ -33,4 +34,19 @@ test('WAV and BWF recorder deliveries import together and retain BEXT and comple
 	expect(delivered.has('iXML')).toBe(true);
 	expect(new TextDecoder().decode(delivered.get('iXML'))).toBe(new TextDecoder().decode(readRiffChunks(recording).get('iXML')));
 	expect(new TextDecoder().decode(delivered.get('bext').subarray(0, 256))).toContain('Production boom take');
+});
+
+test('a BWF timestamp that overflows rescaling does not prevent the next take establishing an origin', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	const take = (name, sampleRate, timeReference) => ({ name: `${name}.wav`, mimeType: 'audio/wav',
+		buffer: Buffer.from(encodeWav([new Float32Array(480)], { sampleRate, bext: { description: name, timeReference } })) });
+	await importFiles(editor, [take('Unscalable take', 44_100, '18446744073709551615')]);
+	await expect(editor).toHaveAttribute('data-clip-count', '1');
+	await importFiles(editor, [take('Timed take', 48_000, '96000')]);
+	await expect(editor).toHaveAttribute('data-clip-count', '2');
+	await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
+	const panel = editor.locator('[data-workspace-panel="metadata"]');
+	await panel.getByRole('tab', { name: 'BEXT', exact: true }).click();
+	await expect(panel.locator('input[name="description"]')).toHaveValue('Timed take');
+	await expect(panel.locator('input[name="timeReference"]')).toHaveValue('96000');
 });

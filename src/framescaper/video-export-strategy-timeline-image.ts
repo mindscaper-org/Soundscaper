@@ -2,6 +2,7 @@
 import { bindFramescaperVideoFrameConsumer, consumeFramescaperVideoFrames } from './video-export-frame-consumer.ts';
 
 import type { FileSizeWarningConfirmation } from '../common/editor/controller/shared/file-size-warning.ts';
+import { createExportRenderProject } from '../common/editor/controller/export/export-render-project.ts';
 import type { FfmpegOutputSink } from '../common/editor/ffmpeg-output-stream.ts';
 import { resolveVideoExportRange } from '../common/editor/video-export.js';
 import type {
@@ -29,6 +30,7 @@ import {
 import type { FramescaperVideoExportStrategyFinishingDependencies } from './video-export-strategy-finishing.ts';
 import type { FramescaperVideoExportVisualAssetStoreFinishing } from './video-export-visual-execution-finishing.ts';
 import type { FramescaperSelectedOpenFxExecutionNativeMedia } from './selected-native-media-openfx-exact-planes.ts';
+import { framescaperVideoExportPrimarySequence } from './video-export-primary-sequence.ts';
 
 interface ExportAuthorityTimelineImage {
 	readonly canonicalProject: Readonly<Record<string, unknown>>;
@@ -79,9 +81,13 @@ export function createFramescaperVideoExportStrategyTimelineImage(
 		createExportProject(request: ProductVideoExportProjectRequest) {
 			const authority = projectAuthority(profile, request.canonicalProject);
 			foundationAuthorities.set(authority.inheritedProject, authority);
+			const { sequences, subsequences } = authority.canonicalSnapshot;
+			const delivery = sequences.length > 1 && Array.isArray(subsequences) && subsequences.length === 0
+				? { ...request.delivery, project: createExportRenderProject(request.delivery.project) }
+				: request.delivery;
 			const exportProject = delegate.createExportProject({
 				canonicalProject: authority.inheritedProject,
-				delivery: request.delivery,
+				delivery,
 			});
 			exports.set(exportProject, authority);
 			return exportProject;
@@ -175,10 +181,10 @@ function ownedPlanAuthority(
 
 function completeProjectRange(
 	profile: unknown,
-	project: Readonly<Record<string, unknown>>,
+	project: FramescaperProjectTimelineImage,
 ): Readonly<{ readonly startFrame: number; readonly endFrame: number }> {
 	const runtime = framescaperProjectForRuntimeConsumersTimelineImage(profile, project);
-	const range = resolveVideoExportRange(runtime, 'project');
+	const range = resolveVideoExportRange(framescaperVideoExportPrimarySequence(runtime), 'project');
 	if (!Number.isSafeInteger(range.startFrame) || !Number.isSafeInteger(range.endFrame)
 		|| range.startFrame !== 0 || range.endFrame <= 0) {
 		throw new RangeError('The timelineImage image export project range is invalid.');

@@ -96,8 +96,8 @@ export interface AudiocomPreviewAudio {
 	play(): Promise<void>;
 	pause(): void;
 	load(): void;
-	addEventListener(type: 'ended' | 'error', listener: () => void): void;
-	removeEventListener(type: 'ended' | 'error', listener: () => void): void;
+	addEventListener(type: 'ended' | 'error' | 'loadedmetadata', listener: () => void): void;
+	removeEventListener(type: 'ended' | 'error' | 'loadedmetadata', listener: () => void): void;
 	setSinkId?(deviceId: string): Promise<void>;
 }
 

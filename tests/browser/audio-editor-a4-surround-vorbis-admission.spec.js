@@ -4,7 +4,7 @@ import { surroundVorbisFixture, surroundVorbisReference, singlePageSurroundVorbi
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes } from './audio-editor-test-helpers.js';
 
-for (const channelCount of [2, 6]) test(`File Import preserves ${channelCount} channel Vorbis PCM and authored final granule`, async ({ page, browserName }) => {
+for (const channelCount of [2, 6]) test(`File Import preserves ${channelCount} channel Vorbis PCM and authored final granule`, async ({ page }) => {
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	const file = surroundVorbisFixture(channelCount), bytes = new Uint8Array(await file.arrayBuffer());
 	const native = await page.evaluate(async bytes => {
@@ -13,12 +13,11 @@ for (const channelCount of [2, 6]) test(`File Import preserves ${channelCount} c
 	}, [...bytes]);
 	expect(native.channels).toHaveLength(channelCount);
 	expect([4800, 4801]).toContain(native.frames);
-	// A010 also normalizes Firefox's encoded Vorbis planes to canonical speaker order.
+	// Maintained native decoders and canonical stored PCM share the same speaker order.
 	const expected = channelCount === 6 ? surroundVorbisReference() : native.channels.map(channel => channel.slice(0, 4800));
-	const nativePlanes = channelCount === 6 && browserName === 'firefox' ? [0, 2, 1, 5, 3, 4] : Array.from({ length: channelCount }, (_, index) => index);
 	let nativeError = 0;
 	for (let channel = 0; channel < channelCount; channel++) for (let frame = 0; frame < 4800; frame++) {
-		nativeError = Math.max(nativeError, Math.abs(native.channels[nativePlanes[channel]][frame] - expected[channel][frame]));
+		nativeError = Math.max(nativeError, Math.abs(native.channels[channel][frame] - expected[channel][frame]));
 	}
 	expect(nativeError).toBeLessThan(1e-6);
 	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(bytes) });

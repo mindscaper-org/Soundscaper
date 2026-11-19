@@ -24,7 +24,7 @@ import {
 	resolveVideoWebCodecsSupport,
 	type VideoWebCodecsCanvas,
 } from './video-webcodecs-capability.ts';
-import { browserWebCodecsAudioConfiguration } from './browser-webcodecs-audio-profile.ts';
+import { BROWSER_OPUS_WEB_CODECS_SAMPLE_RATE, browserWebCodecsAudioConfiguration } from './browser-webcodecs-audio-profile.ts';
 
 export interface VideoDeliveryEncoderDecision {
 	readonly tier: 'webcodecs' | 'ffmpeg';
@@ -83,6 +83,7 @@ export async function resolveVideoDeliveryEncoderTier(
 	encoder: unknown = (globalThis as Record<string, unknown>).VideoEncoder,
 	audioEncoder: unknown = (globalThis as Record<string, unknown>).AudioEncoder,
 ): Promise<VideoDeliveryEncoderDecision> {
+	if (request.format === 'mov') throw unavailable('MOV export requires desktop external FFmpeg.');
 	if (!request.eligible) {
 		throw unavailable('only a keyed frame delivery can use the browser-native encoder and muxer.');
 	}
@@ -144,7 +145,7 @@ async function assertAudioEncoderSupport(
 	try {
 		supported = (await encoder.isConfigSupported(browserWebCodecsAudioConfiguration(
 			format === 'mp4' ? 'aac' : 'opus',
-			{ sampleRate, channelCount: numberOfChannels, bitrate },
+			{ sampleRate: format === 'webm' ? BROWSER_OPUS_WEB_CODECS_SAMPLE_RATE : sampleRate, channelCount: numberOfChannels, bitrate },
 		))).supported === true;
 	} catch {
 		throw unavailable(`the WebCodecs ${label} audio capability probe was refused.`);

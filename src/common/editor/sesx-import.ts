@@ -53,6 +53,7 @@ export interface SesxTrack {
 	readonly pan: number;
 	readonly mute: boolean;
 	readonly solo: boolean;
+	readonly soloSafe?: boolean;
 	readonly clips: readonly SesxClip[];
 }
 
@@ -161,6 +162,7 @@ function readTrack(element: XmlElement, index: number, sessionChannels: 1 | 2): 
 		pan: controls.pan,
 		mute: controls.mute,
 		solo: parameters ? booleanAttribute(parameters, 'solo') ?? false : false,
+		soloSafe: parameters ? booleanAttribute(parameters, 'soloSafe') ?? false : false,
 		clips: Object.freeze(childElements(element, 'audioClip').map(readClip)),
 	});
 }

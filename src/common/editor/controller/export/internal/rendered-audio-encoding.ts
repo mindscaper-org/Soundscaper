@@ -3,6 +3,8 @@
 import type { BinauralDeliveryPlan } from '../../../binaural-delivery.ts'; import { setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
 import { binauralSourcesForAuthoredAdm } from '../../../binaural-delivery.ts';
 import { renderBinaural } from '../../../binaural-render.ts';
+import type { EarDeliveryPlan } from '../../../ear-delivery.ts';
+import { renderEarInWorker } from './ear-render-worker-client.ts';
 import {
 	type RenderedLoudnessMeasurement,
 	normalizeRenderedLoudness,
@@ -42,8 +44,10 @@ interface RenderedAudioFormatSettings extends Readonly<Record<string, unknown>> 
 }
 
 export interface RenderedAudioEncodingPlan {
+	readonly aifcCompression?: string;
 	readonly bext?: Readonly<Record<string, unknown>>;
 	readonly binaural?: BinauralDeliveryPlan | null;
+	readonly ear?: EarDeliveryPlan | null;
 	readonly cart?: unknown;
 	readonly channelCount?: number;
 	readonly channelMapping: unknown;
@@ -79,6 +83,7 @@ export interface RenderedAudioEncodedOutput extends Readonly<Record<string, unkn
 }
 
 export interface RenderedAudioEncodingRuntime {
+	readonly renderEar?: typeof renderEarInWorker;
 	readonly confirmFileSizeWarning?: FileSizeWarningConfirmation;
 	applyMediaChannelMapping(
 		channels: readonly Float32Array[],
@@ -170,7 +175,9 @@ export async function encodeRenderedAudio(
 		)
 		: null;
 	if (binaural) assertActive();
-	const renderedChannels = binaural ? binaural.channels : programmeChannels;
+	const renderedChannels = plan.ear ? await (runtime.renderEar ?? renderEarInWorker)(plan.ear, programmeChannels, signal)
+		: binaural ? binaural.channels : programmeChannels;
+	if (plan.ear) assertActive();
 	const native = isNativePcmFormat(plan.format);
 	const broadcast = plan.format === 'bwf' || plan.format === 'bw64';
 	// The one neutral point every delivery passes through: no encoder has been
@@ -218,6 +225,7 @@ export async function encodeRenderedAudio(
 			: plan.bext;
 		const nativeOptions = {
 			container: plan.container,
+			aifcCompression: plan.aifcCompression,
 			sampleRate: plan.sampleRate,
 			bitDepth,
 			float: plan.encoding.floatingPoint,

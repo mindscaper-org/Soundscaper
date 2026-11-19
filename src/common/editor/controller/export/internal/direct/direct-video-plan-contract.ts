@@ -14,8 +14,8 @@ export interface VideoFormatDescriptor {
 	readonly audioEncoder: string;
 	readonly container: string;
 	readonly extension: string;
-	readonly id: 'mp4' | 'webm';
-	readonly mimeType: 'video/mp4' | 'video/webm';
+	readonly id: 'mp4' | 'webm' | 'mov';
+	readonly mimeType: 'video/mp4' | 'video/webm' | 'video/quicktime';
 	readonly pixelFormat: string;
 	readonly videoCodec: string;
 	readonly videoEncoder: string;
@@ -57,7 +57,7 @@ export function captureDirectVideoContract(
 		} else if (version !== CANONICAL_VIDEO_EXPORT_PLAN_VERSION
 			|| !Array.isArray(plan.inputs)) return null;
 		const descriptor = getVideoExportFormat(String(plan.format || '')) as VideoFormatDescriptor;
-		if ((descriptor.id !== 'mp4' && descriptor.id !== 'webm')
+		if ((descriptor.id !== 'mp4' && descriptor.id !== 'webm' && descriptor.id !== 'mov')
 			|| plan.format !== descriptor.id
 			|| plan.container !== descriptor.container
 			|| plan.extension !== descriptor.extension

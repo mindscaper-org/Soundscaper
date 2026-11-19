@@ -8,10 +8,9 @@ import { handleDesktopDownloadRequest } from '../functions/download/desktop/inde
 for (const product of ['soundscaper', 'framescaper'] as const) {
 	test(`the desktop download route admits the registered ${product} candidate tag`, async () => {
 		const tag = expectedProductReleaseTag(product);
-		const prefix = product === 'soundscaper' ? 'Soundscaper' : 'Framescaper';
 		const fetchImpl: typeof fetch = async () => Response.json([{
 			tag_name: tag, published_at: '2026-10-20T00:00:00Z', draft: false,
-			assets: [{ name: `${prefix}-candidate.exe`, state: 'uploaded' }],
+			assets: [{ name: `${tag}-win-x64.exe`, state: 'uploaded' }],
 		}]);
 		const response = await handleDesktopDownloadRequest(new Request(`https://${product}.org/download/desktop/`), fetchImpl);
 		assert.equal(response.status, 302);

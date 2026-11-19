@@ -15,6 +15,7 @@ import {
 import { useAudioEditorTelemetrySelector } from '../DesignSystemRuntime.jsx';
 import { createDraftBlurCommitGuard, draftBlurShouldCommit } from '../draft-blur-commit.ts';
 import { handleSequenceFieldKeyDown } from './sequence-timing-field-keyboard.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 const RATE_PRESETS = Object.freeze([
 	{ id: '24000/1001', label: '23.976', rate: { num: 24_000, den: 1_001 } },
@@ -70,7 +71,7 @@ export function SequenceTimingProjectProperties({ project, snapshot, controller,
 	const view = React.useMemo(() => resolveSequenceTimingView(project, activeId), [activeId, project]);
 	return <div data-project-sequence-properties>
 		{sequences.length > 1 && <label className="kw-audio-editor__sequence-selector">
-			<span>{copy.sequenceTiming}</span>
+			<EditorControlLabel>{copy.sequenceTiming}</EditorControlLabel>
 			<select value={activeId} onChange={(event) => setSelectedId(event.currentTarget.value)}>
 				{sequences.map((sequence) => <option key={sequence.id} value={sequence.id}>{sequence.name}</option>)}
 			</select>
@@ -106,7 +107,7 @@ function SequenceTimingEditor({ project, view, disabled, controller, copy, run }
 			<strong>{copy.sequenceTiming}</strong>
 		</header>
 		<label>
-			<span>{copy.sequenceName}</span>
+			<EditorControlLabel>{copy.sequenceName}</EditorControlLabel>
 			<NameInput
 				type={multilineName ? undefined : 'text'}
 				rows={multilineName ? 2 : undefined}
@@ -126,7 +127,7 @@ function SequenceTimingEditor({ project, view, disabled, controller, copy, run }
 			/>
 		</label>
 		<label>
-			<span>{copy.sequenceRate}</span>
+			<EditorControlLabel>{copy.sequenceRate}</EditorControlLabel>
 			<select
 				value={RATE_PRESETS.some((preset) => preset.id === rateId) ? rateId : ''}
 				data-sequence-rate={rateId}
@@ -154,10 +155,10 @@ function SequenceTimingEditor({ project, view, disabled, controller, copy, run }
 				disabled={disabled || !dropFrameAvailable}
 				onChange={(event) => update({ dropFrame: event.currentTarget.checked })}
 			/>
-			<span>{copy.sequenceDropFrame}</span>
+			<EditorControlLabel>{copy.sequenceDropFrame}</EditorControlLabel>
 		</label>
 		<label>
-			<span>{copy.sequenceStartTimecode}</span>
+			<EditorControlLabel>{copy.sequenceStartTimecode}</EditorControlLabel>
 			<input
 				type="text"
 				inputMode="numeric"
@@ -189,7 +190,7 @@ function SequenceTimingEditor({ project, view, disabled, controller, copy, run }
 					event.currentTarget.checked ? 'timecode' : 'hh:mm:ss+milliseconds',
 				))}
 			/>
-			<span>{copy.sequenceTimecodeRuler}</span>
+			<EditorControlLabel>{copy.sequenceTimecodeRuler}</EditorControlLabel>
 		</label>
 	</div>;
 }

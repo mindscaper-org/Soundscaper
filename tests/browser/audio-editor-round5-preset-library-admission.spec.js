@@ -3,7 +3,8 @@
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
-// Covered previews and preset persistence need time across the full Undo/Redo workflow.
+// Node covers canonical preset names through the real dialog/controller/store/Scape pipeline.
+// Browser coverage retains actual visual targets, native controls, keyboard focus and history.
 test.describe.configure({ timeout: 120_000 });
 
 test('saved visual preset removal stays available without a selected generator and supports Undo', async ({ page }) => {
@@ -90,34 +91,4 @@ test('finishing presets apply to a visual occurrence and remain removable with a
 	picker = dialog.getByRole('combobox', { name: 'Saved finishing preset', exact: true });
 	await expect(picker.getByRole('option', { name: 'Delivery finish', exact: true })).toHaveCount(1);
 	await expect(dialog.getByRole('button', { name: 'Apply as fresh presentation', exact: true })).toBeDisabled();
-});
-
-test('saving an accented preset Name preserves its canonical option and history', async ({ page }) => {
-	const editor = await bootEditor(page, '/framescaper/embed/en/');
-	await chooseNestedCommandAction(page, editor, 'Generate', ['Video Generators', 'Add Solid']);
-	await editor.getByRole('group', { name: 'Video clip: Solid', exact: true }).press('Enter');
-	const openPresets = async () => {
-		await chooseNestedCommandAction(page, editor, 'Generate', ['Video Generators', 'Save Visual Preset']);
-		return page.getByRole('dialog', { name: 'Selected Visual Presets', exact: true });
-	};
-	let dialog = await openPresets();
-	await dialog.getByRole('textbox', { name: 'Preset name', exact: true }).fill('Café');
-	await dialog.getByRole('button', { name: 'Save selected generator preset', exact: true }).click();
-	await expect(dialog.getByRole('status')).toHaveText('Selected visual preset saved.', { timeout: 30_000 });
-	await dialog.getByRole('textbox', { name: 'Preset name', exact: true }).fill('Cafe\u0301 review');
-	await dialog.getByRole('button', { name: 'Save selected generator preset', exact: true }).click();
-	await expect(dialog.getByRole('status')).toHaveText('Selected visual preset saved.', { timeout: 30_000 });
-	await expect(dialog.getByRole('combobox', { name: 'Saved visual preset', exact: true })
-		.getByRole('option', { name: 'Café review', exact: true })).toHaveCount(1);
-	await dialog.getByRole('button', { name: 'Close', exact: true }).click();
-	await editor.getByRole('button', { name: 'Undo', exact: true }).click();
-	dialog = await openPresets();
-	let picker = dialog.getByRole('combobox', { name: 'Saved visual preset', exact: true });
-	await expect(picker.getByRole('option', { name: 'Café', exact: true })).toHaveCount(1);
-	await expect(picker.getByRole('option', { name: 'Café review', exact: true })).toHaveCount(0);
-	await dialog.getByRole('button', { name: 'Close', exact: true }).click();
-	await editor.getByRole('button', { name: 'Redo', exact: true }).click();
-	dialog = await openPresets();
-	picker = dialog.getByRole('combobox', { name: 'Saved visual preset', exact: true });
-	await expect(picker.getByRole('option', { name: 'Café review', exact: true })).toHaveCount(1);
 });

@@ -6,7 +6,7 @@ import {
 } from './audio-editor-test-helpers.js';
 
 test('Next clip selects all members of an authored clip group', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const split = editor.getByRole('button', { name: 'Split tool', exact: true });
 	await split.click();

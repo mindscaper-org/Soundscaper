@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { compareCodeUnits } from '../common/editor/code-unit-order.ts';
+import { MIDI_COMPACT_SCORE_FEATURE_ID } from '../common/editor/midi-compact-score.ts';
 import { createEditorProjectFeatureCapabilityProfile } from
 	'../common/editor/project-feature-capability-profile.ts';
 import {
@@ -9,9 +10,9 @@ import {
 } from '../common/editor/project-feature-capabilities.ts';
 
 const AVAILABLE = new Set<ProjectFeatureCapabilityKey>([
-	'project', 'literalJsonKeys', 'projectBin', 'audioImport', 'audioPlayback', 'audioTimelineEditing',
+	'subprojects', 'project', 'literalJsonKeys', 'projectBin', 'audioImport', 'audioPlayback', 'audioTimelineEditing',
 	'audioMixing', 'videoImport', 'videoPlayback', 'videoTimelineEditing', 'videoExport',
-	'audioRecording', 'audioGenerators', 'audioEffects', 'audioSpectralEditing',
+	'audioRecording', 'audioGenerators', 'audioEffects', 'audioClipEffects', 'audioSpectralEditing',
 	'audioAnalysis', 'audioMacros', 'audioSampleEditing', 'musicalTimeline',
 	'timelineAnnotations', 'trackFolders', 'takeComp', 'audioWarp', 'sequenceTiming',
 	'videoTimingAssets', 'sourceCharacteristics', 'audioAutomation', 'audioMixerGraph',
@@ -22,11 +23,12 @@ const AVAILABLE = new Set<ProjectFeatureCapabilityKey>([
 export const SOUNDSCAPER_PROJECT_FEATURE_CAPABILITY_PROFILE =
 	createEditorProjectFeatureCapabilityProfile({
 		owner: 'soundscaper',
-		registrations: Object.entries(PROJECT_FEATURE_CAPABILITY_IDS)
-			.sort(([left], [right]) => compareCodeUnits(left, right))
-			.map(([key, featureId]) => ({
+		registrations: [
+			...Object.entries(PROJECT_FEATURE_CAPABILITY_IDS).map(([key, featureId]) => ({
 				key,
 				featureId,
 				available: AVAILABLE.has(key as ProjectFeatureCapabilityKey),
 			})),
+			{ key: 'midiScore', featureId: MIDI_COMPACT_SCORE_FEATURE_ID, available: true },
+		].sort((left, right) => compareCodeUnits(left.key, right.key)),
 	});

@@ -1,0 +1,11 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+.kw-audio-editor__transcript-panel { display: flex; flex-direction: column; gap: 8px; padding: 12px; min-height: 0; height: 100%; overflow: auto; }
+.kw-audio-editor__transcript-panel p { margin: 0; }
+.kw-audio-editor__transcript-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.kw-audio-editor__transcript-help { opacity: .75; font-size: 12px; }
+.kw-audio-editor__transcript-text { flex: 1; min-height: 48px; padding: 8px; line-height: 1.9; white-space: pre-wrap; cursor: text; user-select: text; }
+.kw-audio-editor__transcript-text [data-transcript-word] { border-radius: 3px; }
+.kw-audio-editor__transcript-text .is-selected { background: var(--highlight-color, #3b6ebd); color: white; }
+.kw-audio-editor__transcript-text:focus-visible { outline: 2px solid var(--highlight-color, #3b6ebd); outline-offset: -2px; }
+.kw-audio-editor__transcript-track { display: block; font-size: 12px; font-weight: 600; opacity: .75; user-select: none; }
+.kw-audio-editor__transcript-text p + p { margin-top: 12px; }

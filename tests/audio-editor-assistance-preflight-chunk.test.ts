@@ -14,6 +14,7 @@ import {
 const REPOSITORY_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const PREFLIGHT_OWNER = 'editor-assistance-model-preflight';
 const PREFLIGHT_MODULES = [
+	'src/common/editor/assistance/speech-enhancement-models.ts',
 	'src/common/editor/assistance/workflow-recipes.ts',
 	'src/common/editor/assistance/workflow-settings-v1.ts',
 	'src/common/editor/controller/assistance/local-assistance-task-models.ts',

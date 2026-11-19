@@ -7,6 +7,7 @@ import { DialogFooter } from '@soundscaper/design-system/Footer';
 import { NumberStepper } from '@soundscaper/design-system/NumberStepper';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { linearToDb } from './inspector-helpers.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface Clip {
 	readonly id: string;
@@ -64,7 +65,7 @@ export default function ClipAudioSettingsMenu({ controller, clip, copy, disabled
 			<form onSubmit={event => { event.preventDefault(); applyGain(); }} onKeyDownCapture={event => {
 				if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
 				event.preventDefault(); event.stopPropagation(); applyGain();
-			}}><label className="kw-audio-editor-dialog__field" data-clip-field={dialog}><span>{valueLabel}</span>
+			}}><label className="kw-audio-editor-dialog__field" data-clip-field={dialog}><EditorControlLabel>{valueLabel}</EditorControlLabel>
 				<NumberStepper value={gain} onChange={value => { if (value !== gain) setValueEdited(true); setGain(value); }} ariaLabel={valueLabel} min={-60} max={maximum} step={1} disabled={disabled} />
 			</label></form>
 		</AudioEditorDialogShell>}

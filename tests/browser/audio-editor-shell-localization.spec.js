@@ -159,7 +159,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		const settingsSection = page.locator('[data-sidebar] .website-sidebar-settings');
 		await expect(workspaceSelect).toBeEnabled();
 		await expect(settingsSection.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
-		await expect(settingsSection.getByRole('button', { name: 'Switch color theme', exact: true })).toBeVisible();
+		await expect(settingsSection.getByRole('button', { name: /^Switch color theme:/u })).toBeVisible();
 		await expect(settingsSection.getByRole('combobox', { name: 'Language', exact: true })).toBeVisible();
 		await expect(settingsSection.getByRole('combobox', { name: 'Workspace', exact: true })).toBeVisible();
 		const [sidebarBounds, settingsBounds] = await Promise.all([
@@ -255,7 +255,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		await page.goto('/en/');
 
 		const sidebar = page.locator('[data-sidebar]');
-		const themeToggle = page.getByRole('button', { name: 'Switch color theme', exact: true });
+		const themeToggle = page.getByRole('button', { name: /^Switch color theme:/u });
 		await expect(themeToggle).toHaveAttribute('aria-pressed', 'true');
 		await expect(themeToggle).toContainText('Dark');
 
@@ -344,7 +344,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		await play.hover();
 		await expect(tooltip).toBeVisible();
 		await expect(tooltip).toHaveAttribute('role', 'tooltip');
-		await expect(tooltip.locator('[data-audio-editor-button-tooltip]')).toHaveText('Play');
+		await expect(tooltip.locator('[data-audio-editor-button-tooltip]')).toHaveText('Play (P)');
 		const theme = await page.locator('html').getAttribute('data-theme');
 		const palette = theme === 'dark' ? darkTheme : lightTheme;
 		await expect(tooltip).toHaveCSS('background-color', cssColor(palette.background.surface.elevated));
@@ -354,12 +354,12 @@ test.describe('audio editor React/design-system workflows', () => {
 				bubbles: true, clientX: rect.x + rect.width / 2, clientY: rect.y + rect.height / 2,
 			}));
 		});
-		await expect(tooltip.locator('[data-audio-editor-button-tooltip]')).toHaveText('Play');
+		await expect(tooltip.locator('[data-audio-editor-button-tooltip]')).toHaveText('Play (P)');
 
 		await editor.locator('[data-action="mixer"] button').hover();
 		await expect(tooltip.locator('[data-audio-editor-button-tooltip]')).toHaveText('Mixer');
 		await fullscreen.hover();
-		await expect(tooltip.locator('[data-audio-editor-button-tooltip]')).toHaveText('Fullscreen');
+		await expect(tooltip.locator('[data-audio-editor-button-tooltip]')).toHaveText('Fullscreen (F11)');
 		expect(await fullscreen.getAttribute('title')).toBeNull();
 
 		await page.mouse.move(0, 0);

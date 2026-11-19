@@ -63,7 +63,7 @@ export function createSoundscaperDesktopMcpPort({
 	return Object.freeze({ dispose: () => { active = false; unsubscribe(); } });
 }
 
-function executeRequest(controller: McpController, operation: string, argsValue: unknown): unknown {
+async function executeRequest(controller: McpController, operation: string, argsValue: unknown): Promise<unknown> {
 	if (operation === 'list_editor_commands') return [...AUDIO_EDITOR_COMMAND_TYPES];
 	const snapshot = controller.getSnapshot();
 	const project = currentProject(snapshot.project);
@@ -96,7 +96,7 @@ function executeRequest(controller: McpController, operation: string, argsValue:
 		if (snapshot.readOnly) throw new Error('The active project is read-only.');
 		const command = snapshotInertEditorCommand(args.command);
 		// The controller owns capability policy, project validation, history and autosave.
-		controller.actions.edit.commit(command);
+		await controller.actions.edit.commit(command);
 		const current = currentProject(controller.getSnapshot().project);
 		if (current.id !== project.id) throw new Error('The active project changed during the command.');
 		return { projectId: current.id, revision: current.revision };

@@ -2,9 +2,7 @@
 import type { FileSizeWarningConfirmation } from '../common/editor/controller/shared/file-size-warning.ts'; import {
 	addUnifiedExactLinearCompositionEntryV13, applyUnifiedExactLinearAdjustmentV13,
 	addUnifiedExactLinearDissolveEntryV13,
-	compositeUnifiedExactLinearFrameV13,
-	createUnifiedExactLinearPremultipliedFrameV13,
-	encodeUnifiedExactLinearFrameV13,
+	encodeUnifiedExactLinearCompositionV13,
 	flattenUnifiedExactLinearCompositionV13,
 	placeUnifiedExactLinearRgbaFrameV13,
 	straightUnifiedExactLinearSourceFrameV13,
@@ -289,9 +287,6 @@ export async function createFramescaperSelectedExactFrameExecutionFinishing(opti
 			for (const adjustment of visual.activeAdjustmentLayers) await applyAdjustment(
 				adjustment, trackFrames, rawVisuals, openFx, width, height, signal,
 			);
-			const output = createUnifiedExactLinearPremultipliedFrameV13(
-				width, height, backgroundLinear(options.plan, finishing),
-			);
 			// Canonical painter order: authored compositingOrder ascending, then
 			// sequence position descending, matching resolveActiveVideoLayers.
 			const ordered = [...options.plan.tracks].flatMap((track) => (
@@ -301,13 +296,9 @@ export async function createFramescaperSelectedExactFrameExecutionFinishing(opti
 				|| right.track.sequenceOrder - left.track.sequenceOrder
 				|| compareText(left.track.trackId, right.track.trackId)
 			));
-			for (const { bucket } of ordered) {
-				for (const { frame, blendMode } of bucket.entries) {
-					compositeUnifiedExactLinearFrameV13(output, frame, blendMode);
-				}
-			}
-			encodeUnifiedExactLinearFrameV13(
-				output, finishing.colorContext.outputSpace, request.target,
+			encodeUnifiedExactLinearCompositionV13(
+				width, height, backgroundLinear(options.plan, finishing), ordered.flatMap(({ bucket }) => bucket.entries),
+				finishing.colorContext.outputSpace, request.target,
 			);
 			throwIfAborted(signal);
 			assertReady(options);
@@ -374,8 +365,8 @@ export async function createFramescaperSelectedExactFrameExecutionFinishing(opti
 				!adjustmentEffects.has(stableId(effect.id, 'Selected finishing media effect ID'))
 			));
 			const { clipId, clip, sourceId, sourceFrame, outerCell } = resolveSelectedFinishingMediaEntry({ clips, sourceIdByNodeId }, entry);
-			const raw = maskCaptures.get(entry) ?? await captureFrame(entry, signal);
-			let frame = checkedFrame(raw, 'Selected finishing captured media frame');
+			let frame = maskCaptures.get(entry) ?? await captureFrame(entry, signal);
+			if (options.captureFrame || effects.length > 0) frame = checkedFrame(frame, 'Selected finishing captured media frame');
 			if (effects.length > 0) frame = checkedFrame(
 				await applyEffects(frame, effects, signal), 'Selected finishing effected media frame',
 			);

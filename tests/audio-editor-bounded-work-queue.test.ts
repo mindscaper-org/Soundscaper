@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createBoundedWorkQueue } from '../src/common/editor/controller/source/internal/bounded-work-queue.ts';
+import { createBoundedWorkQueue } from '../src/common/editor/controller/shared/bounded-work-queue.ts';
 
 void test('bounded work queues prioritize visible jobs and remove cancelled pending work', async () => {
 	const queue = createBoundedWorkQueue(1, 3);

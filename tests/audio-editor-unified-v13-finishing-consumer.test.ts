@@ -8,7 +8,7 @@ import {
 	createUnifiedExactRenderFinishingPreviewConsumerV13,
 } from '../src/common/editor/unified-exact-render-finishing-consumers-v13.ts';
 import { warpApplied } from '../src/common/editor/unified-exact-render-finishing-motion-v13.ts';
-import { analyzeVideoMotionV1 } from '../src/common/editor/video-motion-analysis-v27.ts';
+import { analyzeVideoMotionV1, requireVideoMotionAnalysisBodyV1 } from '../src/common/editor/video-motion-analysis-v27.ts';
 import { createGrayVideoFrameV1 } from '../src/common/editor/video-motion-processing-v27.ts';
 import { createFramescaperProjectUnifiedExactRenderPlanFinishing } from '../src/framescaper/editor-project-unified-render-plan-finishing.ts';
 import { FRAMESCAPER_FINISHING_PROJECT_RUNTIME_PROFILE } from '../src/framescaper/editor-domain-runtime-profile.ts';
@@ -181,6 +181,14 @@ test('similarity stabilization consumes only an authenticated fresh source-domai
 		analysisBodies: new Map([['analysis-1', analysis.bytes]]),
 	});
 	assert.ok(centroidX(stabilized) < centroidX(frame) - 0.5);
+	const admitted = requireVideoMotionAnalysisBodyV1(analysis.reference, analysis.bytes, {
+		inputSha256: SOURCE_SHA, processorStack: trackingStack,
+	});
+	const retained = await consumer.resolveFrame({
+		clipId: 'video-clip', sourceFrame: 1, sequenceFrame: 1, frame,
+		analysisBodies: new Map([['analysis-1', admitted]]),
+	});
+	assert.deepEqual(retained, stabilized);
 	const large = scaledGrayRgba(after, 2);
 	const largeStabilized = await consumer.resolveFrame({
 		clipId: 'video-clip', sourceFrame: 1, sequenceFrame: 1, frame: large,
@@ -400,4 +408,23 @@ test('the V14 professional plan reaches the same finishing resolver', async () =
 		} as never),
 		/unavailable|derived|exact|unsupported/iu,
 	);
+});
+
+test('spatial denoise in the actual preview path yields so a new cancellation can run', async () => {
+	const project = createFramescaperProjectFinishing(PROFILE, {
+		...framescaperV20Options(), videoTransitionsByTrackId: { 'video-track': [] },
+		finishing: finishing({ processors: [{ schemaVersion: 1, id: 'spatial-cancellable',
+			kind: 'spatial-denoise', enabled: true, radius: 16, strength: 1 }], grade: null }),
+	});
+	const plan = createFramescaperProjectUnifiedExactRenderPlanFinishing(PROFILE, project, {
+		...renderAuthority(project, 10), visualFreshnessByModelId: new Map(),
+	});
+	const abort = new AbortController();
+	const timer = setTimeout(() => abort.abort(new DOMException('User cancelled denoise', 'AbortError')), 0);
+	try {
+		await assert.rejects(createUnifiedExactRenderFinishingPreviewConsumerV13(plan).resolveFrame({
+			clipId: 'video-clip', sourceFrame: 0, sequenceFrame: 0,
+			frame: rgba(192, 192, Array.from({ length: 192 * 192 }, (_, index) => index % 256)), signal: abort.signal,
+		}), { name: 'AbortError', message: 'User cancelled denoise' });
+	} finally { clearTimeout(timer); }
 });

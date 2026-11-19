@@ -35,7 +35,7 @@ export default function AudacityDynamicsEffectLayout({
 		</div>
 	) : null;
 	const assigned = limiter
-		? ['thresholdDb', 'makeupTargetDb', 'lookaheadMs', 'kneeWidthDb', 'releaseMs']
+		? ['thresholdDb', 'makeupTargetDb', 'lookaheadMs', 'kneeWidthDb', 'releaseMs', 'limitTruePeaks']
 		: ['attackMs', 'releaseMs', 'lookaheadMs', 'thresholdDb', 'ratio', 'kneeWidthDb', 'makeupGainDb'];
 	return (
 		<div
@@ -51,6 +51,7 @@ export default function AudacityDynamicsEffectLayout({
 				</div>
 				<div className="audio-editor-audacity-dynamics__secondary">
 					{(limiter ? ['lookaheadMs', 'kneeWidthDb', 'releaseMs'] : ['thresholdDb', 'ratio', 'kneeWidthDb', 'makeupGainDb']).map(parameter)}
+					{limiter && parameter('limitTruePeaks')}
 				</div>
 				{!limiter && <CompressionCurve parameters={parameters} copy={copy} />}
 			</div>

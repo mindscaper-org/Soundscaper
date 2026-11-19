@@ -29,7 +29,7 @@ export interface AssistanceRuntimeDistribution {
 }
 
 const VERSIONS: Readonly<Record<AssistanceRuntimeDistributionFamily, string>> = Object.freeze({
-	'sherpa-onnx-node': '1.13.5',
+	'sherpa-onnx-node': '2.0.1',
 	'onnxruntime-node': ASSISTANCE_RUNTIME_FAMILY_DEFINITIONS['onnxruntime-node'].runtimeVersion,
 	'whisper-cpp': ASSISTANCE_RUNTIME_FAMILY_DEFINITIONS['whisper-cpp'].runtimeVersion,
 	'llama-cpp': ASSISTANCE_RUNTIME_FAMILY_DEFINITIONS['llama-cpp'].runtimeVersion,
@@ -86,7 +86,9 @@ export function validateAssistanceRuntimeDistribution(
 			throw new TypeError('The runtime distribution family is invalid.');
 		}
 		const familyId = row.familyId as AssistanceRuntimeDistributionFamily;
-		const version = VERSIONS[familyId];
+		// Immutable diagnostic snapshots retain the previously published Sherpa runtime.
+		const version = familyId === 'sherpa-onnx-node' && row.runtimeVersion === '1.13.5'
+			? '1.13.5' : VERSIONS[familyId];
 		const prefix = familyId === 'sherpa-onnx-node'
 			? `assistance/sherpa-onnx/${version}` : `assistance/${familyId}/${version}`;
 		const installPath = familyId === 'sherpa-onnx-node' ? prefix : `${prefix}/${targetId}`;

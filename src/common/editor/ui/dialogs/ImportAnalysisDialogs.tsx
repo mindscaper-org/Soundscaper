@@ -17,11 +17,14 @@ import { runAwaitedAudioEditorOperation } from '../workspace/audio-editor-worksp
 import { withWebFileLoadLimitContext } from '../../web-file-limit-failure.ts';
 import { regularIntervalDialogDefaults, type RegularIntervalDialogProject } from '../regular-interval-dialog-defaults.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface DialogController {
 	readonly project: RegularIntervalDialogProject | null;
 	readonly actions: Readonly<{
-		readonly project: Readonly<{ importFiles(files: readonly File[], options?: Readonly<{ signal: AbortSignal; sourceProvenance?: SourceProvenanceV1 }>): unknown }>;
+		readonly project: Readonly<{ importFiles(files: readonly File[], options?: Readonly<{
+			signal: AbortSignal; sourceProvenance?: SourceProvenanceV1; fileIndexOffset?: number;
+		}>): unknown }>;
 		readonly timelineAnnotations: Readonly<{ regularInterval(options: RegularIntervalAnnotationOptions): unknown }>;
 	}>;
 }
@@ -124,10 +127,12 @@ export function RawPcmImportDialog({ controller, snapshot, copy, run, onClose, f
 				const wav = await withWebFileLoadLimitContext(() => prepareRawPcmWaveFile(file, { sampleFormat, byteOrder, sampleRate: Number(sampleRate), channelCount: Number(channelCount), offsetBytes: Number(offsetBytes) },
 					{ desktop: fileService?.isDesktop === true, confirmFileSizeWarning, signal: cancellation.signal, assertCurrent: () => { if (!projectIsCurrent()) throw new DOMException('The project changed.', 'AbortError'); } }));
 				if (!projectIsCurrent()) return;
-				await controller.actions.project.importFiles([wav], {
-					signal: cancellation.signal, sourceProvenance: createRawPcmSourceProvenance(file),
+				const result = await controller.actions.project.importFiles([wav], {
+					signal: cancellation.signal, sourceProvenance: createRawPcmSourceProvenance(file), fileIndexOffset: 0,
 				});
-				if (!projectIsCurrent()) return;
+				if (!projectIsCurrent() || !result || typeof result !== 'object') return;
+				const cancelled = 'cancelled' in result && result.cancelled === true;
+				if (!cancelled && (!('importedFileCount' in result) || result.importedFileCount !== 1)) return;
 			} catch (error) {
 				if (!cancellation.signal.aborted) throw error;
 			} finally {
@@ -164,16 +169,17 @@ export function RawPcmImportDialog({ controller, snapshot, copy, run, onClose, f
 			event.preventDefault();
 			importRawPcm();
 		}} aria-busy={busy}>
-			<label className="kw-audio-editor-dialog__field"><span>{copy.rawPcmFile}</span><input required disabled={busy} type="file" accept=".raw,.pcm,application/octet-stream" onChange={(event) => chooseFile(event.currentTarget.files?.[0] ?? null)} /></label>
-			<label className="kw-audio-editor-dialog__field"><span>{copy.rawPcmSampleFormat}</span><select disabled={busy} value={sampleFormat} onChange={(event) => setSampleFormat(event.currentTarget.value as RawPcmSampleFormat)}>
+			<label className="kw-audio-editor-dialog__field"><EditorControlLabel>{copy.rawPcmFile}</EditorControlLabel><input required disabled={busy} type="file" accept=".raw,.pcm,application/octet-stream" onChange={(event) => chooseFile(event.currentTarget.files?.[0] ?? null)} /></label>
+			<label className="kw-audio-editor-dialog__field"><EditorControlLabel>{copy.rawPcmSampleFormat}</EditorControlLabel><select disabled={busy} value={sampleFormat} onChange={(event) => setSampleFormat(event.currentTarget.value as RawPcmSampleFormat)}>
 				<option value="uint8">{copy.rawPcmUint8}</option><option value="int16">{copy.rawPcmInt16}</option><option value="int24">{copy.rawPcmInt24}</option><option value="int32">{copy.rawPcmInt32}</option><option value="float32">{copy.rawPcmFloat32}</option>
 			</select></label>
-			<label className="kw-audio-editor-dialog__field"><span>{copy.rawPcmByteOrder}</span><select disabled={busy || sampleFormat === 'uint8'} value={byteOrder} onChange={(event) => setByteOrder(event.currentTarget.value as RawPcmByteOrder)}>
+			<label className="kw-audio-editor-dialog__field"><EditorControlLabel>{copy.rawPcmByteOrder}</EditorControlLabel><select disabled={busy || sampleFormat === 'uint8'} value={byteOrder} onChange={(event) => setByteOrder(event.currentTarget.value as RawPcmByteOrder)}>
 				<option value="little">{copy.rawPcmLittleEndian}</option><option value="big">{copy.rawPcmBigEndian}</option>
 			</select></label>
 			<NumberField disabled={busy} label={copy.sampleRate} value={sampleRate} minimum={1} maximum={384_000} onChange={setSampleRate} />
 			<NumberField disabled={busy} label={copy.rawPcmChannelCount} value={channelCount} minimum={1} maximum={32} onChange={setChannelCount} />
-			<NumberField disabled={busy} label={copy.rawPcmByteOffset} value={offsetBytes} minimum={0} maximum={Number.MAX_SAFE_INTEGER} onChange={setOffsetBytes} />
+			<NumberField disabled={busy} label={copy.rawPcmByteOffset} value={offsetBytes} minimum={0} maximum={Number.MAX_SAFE_INTEGER}
+				onChange={value => { setOffsetBytes(value); setDetectionMessage(null); }} />
 			{(detecting || detectionMessage) && <p role="status">{detecting ? copy.rawPcmDetecting : detectionMessage}</p>}
 		</form>
 	</AudioEditorDialogShell>;
@@ -238,7 +244,7 @@ export function RegularIntervalAnnotationDialog({ controller, snapshot, copy, ru
 			event.preventDefault();
 			create();
 		}}>
-			<label className="kw-audio-editor-dialog__field"><span>{copy.regularIntervalKind}</span><select value={kind} onChange={(event) => setKind(event.currentTarget.value as 'marker' | 'region')}><option value="marker">{copy.regularIntervalMarker}</option><option value="region">{copy.regularIntervalRegion}</option></select></label>
+			<label className="kw-audio-editor-dialog__field"><EditorControlLabel>{copy.regularIntervalKind}</EditorControlLabel><select value={kind} onChange={(event) => setKind(event.currentTarget.value as 'marker' | 'region')}><option value="marker">{copy.regularIntervalMarker}</option><option value="region">{copy.regularIntervalRegion}</option></select></label>
 			<TimeField name="startFrame" label={copy.regularIntervalStartFrame} value={startFrame} sampleRate={project?.sampleRate}
 				minimum={0} maximum={Math.max(0, endFrame - 1)} onChange={setStartFrame} />
 			<TimeField name="endFrame" label={copy.regularIntervalEndFrame} value={endFrame} sampleRate={project?.sampleRate}
@@ -247,7 +253,7 @@ export function RegularIntervalAnnotationDialog({ controller, snapshot, copy, ru
 				<TimeField name="intervalFrames" label={copy.regularIntervalFrames} value={intervalFrames} sampleRate={project?.sampleRate}
 					minimum={1} maximum={Number.MAX_SAFE_INTEGER} onChange={setIntervalFrames} />
 			</EditorMusicalTimeCodeProvider>
-			<label className="kw-audio-editor-dialog__field"><span>{copy.regularIntervalNamePrefix}</span><input value={namePrefix} onChange={(event) => setNamePrefix(event.currentTarget.value)} /></label>
+			<label className="kw-audio-editor-dialog__field"><EditorControlLabel>{copy.regularIntervalNamePrefix}</EditorControlLabel><input value={namePrefix} onChange={(event) => setNamePrefix(event.currentTarget.value)} /></label>
 		</form>
 	</AudioEditorDialogShell>;
 }
@@ -255,14 +261,14 @@ export function RegularIntervalAnnotationDialog({ controller, snapshot, copy, ru
 function NumberField({ label, value, minimum, maximum, onChange, disabled }: Readonly<{
 	label: string; value: string; minimum: number; maximum: number; onChange(value: string): void; disabled?: boolean;
 }>) {
-	return <label className="kw-audio-editor-dialog__field"><span>{label}</span><input required disabled={disabled} type="number" min={minimum} max={maximum} step={1} value={value} onChange={(event) => onChange(event.currentTarget.value)} /></label>;
+	return <label className="kw-audio-editor-dialog__field"><EditorControlLabel>{label}</EditorControlLabel><input required disabled={disabled} type="number" min={minimum} max={maximum} step={1} value={value} onChange={(event) => onChange(event.currentTarget.value)} /></label>;
 }
 
 function TimeField({ name, label, value, sampleRate = 48_000, minimum, maximum, onChange }: Readonly<{
 	name: string; label: string; value: number; sampleRate?: number; minimum: number; maximum: number;
 	onChange(value: number): void;
 }>) {
-	return <label className="kw-audio-editor-dialog__field"><span>{label}</span>
+	return <label className="kw-audio-editor-dialog__field"><EditorControlLabel>{label}</EditorControlLabel>
 		<AudioEditorTimeCodeInput name={name} label={label} value={value} unit="samples" rate={sampleRate}
 			format="hh:mm:ss+milliseconds" minimum={minimum} maximum={maximum}
 			onChange={onChange} />

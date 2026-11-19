@@ -101,13 +101,14 @@ export function updateTranslationDraft(
 	key: string,
 	translation: string,
 	note?: string,
+	options: Readonly<{ useCurrentBaseline?: boolean }> = {},
 ): TranslationContribution {
 	if (draft.locale !== snapshot.locale) throw new TypeError('Draft language does not match the snapshot.');
 	const baseline = snapshot.entries[key];
 	if (!baseline) throw new ReferenceError(`Unknown translation key: ${key}`);
 	const existing = draft.entries.find((entry) => entry.key === key);
 	// Existing edits keep their original baseline even after the application updates.
-	const original = existing ?? baseline;
+	const original = options.useCurrentBaseline ? baseline : existing ?? baseline;
 	const entries = draft.entries.filter((entry) => entry.key !== key);
 	if (translation !== original.baselineText) entries.push(Object.freeze({
 		key, source: original.source, baselineText: original.baselineText,
@@ -188,9 +189,10 @@ export function mergeTranslationContributions(existing: TranslationContribution,
 	const left = parseTranslationContribution(existing);
 	const right = parseTranslationContribution(incoming);
 	if (left.locale !== right.locale) throw new TypeError('Imported translation language does not match the draft.');
-	const entries = new Map(left.entries.map((entry) => [entry.key, creditTranslationEntry(entry, left.contributor)]));
+	const submitter = right.contributor || left.contributor;
+	const entries = new Map(left.entries.map((entry) => [entry.key, creditTranslationEntry(entry, left.contributor, submitter)]));
 	for (const raw of right.entries) {
-		const entry = creditTranslationEntry(raw, right.contributor);
+		const entry = creditTranslationEntry(raw, right.contributor, submitter);
 		const previous = entries.get(entry.key);
 		if (previous && JSON.stringify(previous) !== JSON.stringify(entry)) throw new TypeError(`Imported translation conflicts with local draft: ${entry.key}`);
 		entries.set(entry.key, entry);
@@ -199,8 +201,8 @@ export function mergeTranslationContributions(existing: TranslationContribution,
 		entries: Object.freeze([...entries.values()].sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0)) });
 }
 
-function creditTranslationEntry(entry: ContributionEntry, fallback?: string): ContributionEntry {
-	const contributor = entry.contributor ?? fallback;
+function creditTranslationEntry(entry: ContributionEntry, fallback: string | undefined, submitter: string | undefined): ContributionEntry {
+	const contributor = entry.contributor ?? fallback ?? (submitter ? '' : undefined);
 	return contributor === undefined ? entry : Object.freeze({ ...entry, contributor });
 }
 

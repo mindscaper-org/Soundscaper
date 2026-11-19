@@ -4,7 +4,7 @@ import { bootEditor, collectClientErrors, importFiles, setDocumentTheme, waitFor
 
 for (const theme of ['light', 'dark']) test(`optional track height toolbar steps every row and persists in ${theme}`, async ({ page }) => {
 	const errors = collectClientErrors(page);
-	let editor = await bootEditor(page, '/embed/en/');
+	let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await setDocumentTheme(page, theme);
 	await importFiles(editor, [toneA, toneB]);
 	const labels = ['Decrease all track heights', 'Increase all track heights', 'Fit tracks to height'];
@@ -35,7 +35,7 @@ for (const theme of ['light', 'dark']) test(`optional track height toolbar steps
 });
 
 test('track visual group keeps per-track height stepping and fitting on the clicked row', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA, toneB]);
 	const rows = editor.locator('[data-track-row]');
 	const first = rows.nth(0);

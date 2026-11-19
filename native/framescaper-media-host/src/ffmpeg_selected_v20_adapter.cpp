@@ -3,6 +3,7 @@
 #include "ffmpeg_selected_v20_adapter.hpp"
 #include "keyed_webm_verifier.hpp"
 #include "ffmpeg_hardware_encode.hpp"
+#include "media_path_utf8.hpp"
 #include "selected_v20_frame_pack.hpp"
 #include "sha256.hpp"
 extern "C" {
@@ -10,7 +11,6 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavutil/audio_fifo.h>
 #include <libavutil/error.h>
-#include <libavutil/imgutils.h>
 #include <libavutil/opt.h>
 #include <libavutil/pixdesc.h>
 #include <libavutil/samplefmt.h>
@@ -178,7 +178,7 @@ struct audio_input final {
 	AVDictionary* options = nullptr;
 	av_dict_set(&options, "protocol_whitelist", stream_fd >= 0 ? "pipe" : "file", 0);
 	av_dict_set(&options, "format_whitelist", "wav", 0);
-	const auto source = stream_fd >= 0 ? "pipe:" + std::to_string(stream_fd) : path.string();
+	const auto source = stream_fd >= 0 ? "pipe:" + std::to_string(stream_fd) : media_path_utf8(path);
 	const AVInputFormat* format = stream_fd >= 0 ? av_find_input_format("wav") : nullptr;
 	auto status = avformat_open_input(&input.format, source.c_str(), format, &options);
 	av_dict_free(&options);

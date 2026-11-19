@@ -16,6 +16,7 @@ for (const format of ['aup3', 'aup4'] as const) test(`NP001: File Save ${format}
 	const client = createFixture().runtime.createAup4Client({});
 	const savedFiles: string[] = [];
 	const fileService = { isDesktop: true,
+		getEnvironment: () => null,
 		chooseSaveTarget: async () => ({ id: 'chosen-destination' }),
 		saveFile: async (request: { suggestedName: string; blob: Blob }) => {
 			savedFiles.push(request.suggestedName);
@@ -29,7 +30,8 @@ for (const format of ['aup3', 'aup4'] as const) test(`NP001: File Save ${format}
 		fileService: fileService as unknown as Options['fileService'] });
 	context.after(async () => { await controller.dispose(); });
 	await controller.ready;
-	const originalId = controller.project?.id;
+	assert.ok(controller.project, controller.getSnapshot().status.message);
+	const originalId = controller.project.id;
 	const saved = await (format === 'aup3' ? controller.actions.project.saveAup3() : controller.actions.project.saveAup4());
 	assert.ok(saved && !('cancelled' in saved));
 	assert.equal(savedFiles.length, 1);

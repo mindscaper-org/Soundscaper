@@ -3,6 +3,14 @@
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clipByName } from './audio-editor-test-helpers.js';
 
+test('an expired OS share tells the user how to retry', async ({ page }) => {
+	const token = 'a'.repeat(32);
+	const editor = await bootEditor(page, `/embed/en/?share=${token}`, { showProjectBin: false });
+	await expect(page).toHaveURL(/\/embed\/en\/$/u);
+	await expect(editor.getByText(/The shared files are no longer available\. Share the files again to retry\./u))
+		.toBeVisible();
+});
+
 for (const failure of ['lookup', 'read']) test(`OS share opens its healthy recordings despite a cache ${failure} failure`, async ({ page }) => {
 	const initialEditor = await bootEditor(page, '/embed/en/');
 	await chooseCommandAction(page, initialEditor, 'Window', 'Project bin');

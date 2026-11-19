@@ -16,6 +16,7 @@ export const PROJECT_FEATURE_CAPABILITY_IDS = Object.freeze({
 	audioRecording: 'org.soundscaper.capability.audio-recording',
 	audioGenerators: 'org.soundscaper.capability.audio-generators',
 	audioEffects: 'org.soundscaper.capability.audio-effects',
+	audioClipEffects: 'org.soundscaper.capability.audio-clip-effects',
 	audioSpectralEditing: 'org.soundscaper.capability.audio-spectral-editing',
 	audioAnalysis: 'org.soundscaper.capability.audio-analysis',
 	audioMacros: 'org.soundscaper.capability.audio-macros',
@@ -34,6 +35,7 @@ export const PROJECT_FEATURE_CAPABILITY_IDS = Object.freeze({
 	multicamera: 'org.soundscaper.capability.multicamera',
 	musicalTimeline: 'org.soundscaper.capability.musical-timeline',
 	nestedSequences: 'org.soundscaper.capability.nested-sequences',
+	subprojects: 'org.soundscaper.capability.subprojects',
 	ofxEffects: 'org.soundscaper.capability.openfx-effects',
 	timelineAnnotations: 'org.soundscaper.capability.timeline-annotations',
 	trackFolders: 'org.soundscaper.capability.track-folders',
@@ -78,6 +80,7 @@ export const PROJECT_FEATURE_AUDIO_CAPABILITY_IDS = Object.freeze([
 	PROJECT_FEATURE_CAPABILITY_IDS.audioRecording,
 	PROJECT_FEATURE_CAPABILITY_IDS.audioGenerators,
 	PROJECT_FEATURE_CAPABILITY_IDS.audioEffects,
+	PROJECT_FEATURE_CAPABILITY_IDS.audioClipEffects,
 	PROJECT_FEATURE_CAPABILITY_IDS.audioSpectralEditing,
 	PROJECT_FEATURE_CAPABILITY_IDS.audioAnalysis,
 	PROJECT_FEATURE_CAPABILITY_IDS.audioMacros,
@@ -124,6 +127,8 @@ export function isProjectFeatureVideoCapabilityId(
 
 /** Maintained rack processors owned by the first-party audio-effects capability. */
 export const PROJECT_FEATURE_AUDIO_EFFECT_TYPES = Object.freeze([
+	'auto-tune',
+	'ai-denoise',
 	'highpass',
 	'lowpass',
 	'eq',
@@ -136,6 +141,7 @@ export const PROJECT_FEATURE_AUDIO_EFFECT_TYPES = Object.freeze([
 	'highpass-filter',
 	'lowpass-filter',
 	'noise-gate',
+	'hum-removal',
 	'notch-filter',
 	'shelf-filter',
 	'tremolo',

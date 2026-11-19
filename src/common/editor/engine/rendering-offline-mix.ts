@@ -10,6 +10,7 @@ import {
 	positiveInteger,
 	sliceAudioBuffer,
 } from './buffer-math.ts';
+import { setOfflineAutoTuneControlWindows } from './auto-tune-control.ts';
 import { scheduleRenderTimeline } from './rendering-timeline.ts';
 import {
 	ensureProjectWorklets,
@@ -129,7 +130,9 @@ export async function renderMix(this: EngineRuntimeHost, {
 		let parametricEqFailure = null;
 		let graph = null;
 		try {
-			await ensureProjectWorklets(context, this.project);
+			await ensureProjectWorklets(context, this.project, { trackId, includeMaster });
+			setOfflineAutoTuneControlWindows(context, this.project, timeline.ranges.map((range, index) =>
+				index ? range : { ...range, startFrame: renderFromFrame }), this.sampleRate);
 			graph = buildProjectGraph(context, context.destination, this.project, {
 				metering: false,
 				respectMuteSolo,

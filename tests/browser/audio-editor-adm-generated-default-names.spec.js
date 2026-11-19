@@ -1,21 +1,27 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { strFromU8, unzipSync } from 'fflate';
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes, waitForProjectActivation } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, chooseExportProjectFileAction, closeWorkspacePanel, disableNativeSavePicker, downloadBytes, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createSoundscaperScapeNativeRuntime } from '../../src/soundscaper/editor-scape-native.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/common/editor/project-media-factory.ts';
 import { createProjectStore } from '../../src/common/editor/storage.js';
 
-for (const mode of ['programme', 'object']) for (const multiline of [false, true]) {
-	test(`ADM ${mode} defaults admit ${multiline ? 'multiline' : 'ordinary'} existing descriptive names`, async ({ page }) => {
-		const name = multiline ? 'Opening\nRoom tone' : 'Opening Room tone';
+// Multiline defaults retain controller/history/PCM/Scape custody coverage in
+// audio-editor-adm-default-name-custody.test.ts; keep both metadata UI routes here.
+test('ADM programme and object defaults admit ordinary existing descriptive names', async ({ page }) => {
+	const caseTimeout = test.info().timeout;
+	test.setTimeout(caseTimeout * 2);
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	for (const mode of ['programme', 'object']) await test.step(`${mode} descriptive name`, async () => {
+		const name = 'Opening Room tone';
 		const title = mode === 'programme' ? name : 'Ordinary programme';
 		const trackName = mode === 'object' ? name : 'Dialogue';
 		const source = createAudioSource({ id: 'source', storageKey: 'source', frameCount: 4800, sampleRate: 48000, channelCount: 1, name: 'Room.wav' });
 		const clip = createAudioClip({ id: 'clip', sourceId: source.id, durationFrames: 4800, sourceDurationFrames: 4800 });
 		const track = createAudioTrack({ id: 'track', name: trackName, clipIds: [clip.id] });
-		const project = createSoundscaperProject({ id: `adm-${mode}-${multiline}`, sampleRate: 48000, metadata: { title }, sources: [source], clips: [clip], tracks: [track],
+		const project = createSoundscaperProject({ id: `adm-${mode}-false`, sampleRate: 48000, metadata: { title }, sources: [source], clips: [clip], tracks: [track],
 			sequences: [{ id: 'main', trackIds: [track.id] }], primarySequenceId: 'main' });
 		expect(project.metadata.title).toBe(title);
 		const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: crypto.randomUUID() });
@@ -25,8 +31,6 @@ for (const mode of ['programme', 'object']) for (const multiline of [false, true
 			await writer.write([new Float32Array(4800).fill(.2)]); await writer.commit();
 			archive = (await createSoundscaperScapeNativeRuntime().exportScapeProject(project, store)).blob;
 		} finally { await store.close(); }
-		await disableNativeSavePicker(page);
-		const editor = await bootEditor(page, '/embed/en/');
 		await editor.locator('[data-aup4-input]').setInputFiles({ name: 'ADM title.sscape', mimeType: 'application/zip', buffer: Buffer.from(await archive.arrayBuffer()) });
 		await expect(editor).toHaveAttribute('data-project-id', project.id); await waitForProjectActivation(editor);
 		await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
@@ -51,5 +55,8 @@ for (const mode of ['programme', 'object']) for (const multiline of [false, true
 			expect(saved.metadata.adm.objects).toHaveLength(1);
 			expect(saved.metadata.adm.objects[0]).toMatchObject({ name: `${trackName.replaceAll('\n', ' ')} — channel 1`, stripId: track.id, sourceChannel: 0 });
 		}
-	});
-}
+		await panel.getByRole('tab', { name: 'General', exact: true }).click();
+		await closeWorkspacePanel(editor, 'metadata');
+		await expect(panel).toBeHidden();
+	}, { timeout: caseTimeout });
+});

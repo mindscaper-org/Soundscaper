@@ -27,6 +27,7 @@ test('external FFmpeg selection and exact probe evidence persist atomically', as
 	const selected = await fixture.settings.setExternalFfmpegSelection(executablePath);
 	assert.deepEqual(selected, {
 		executablePath: resolve(executablePath),
+		source: 'manual',
 		identity: null,
 		capabilities: null,
 	});
@@ -72,18 +73,18 @@ test('changing or clearing the executable invalidates all external FFmpeg probe 
 	);
 
 	assert.deepEqual(await fixture.settings.setExternalFfmpegSelection(second), {
-		executablePath: resolve(second), identity: null, capabilities: null,
+		executablePath: resolve(second), identity: null, capabilities: null, source: 'manual',
 	});
 	await assert.rejects(
 		() => fixture.settings.setExternalFfmpegProbeMetadata(probeMetadata(first)),
 		/currently selected/iu,
 	);
 	assert.deepEqual(fixture.settings.snapshot().externalFfmpegSelection, {
-		executablePath: resolve(second), identity: null, capabilities: null,
+		executablePath: resolve(second), identity: null, capabilities: null, source: 'manual',
 	});
 	await fixture.settings.setExternalFfmpegProbeMetadata(probeMetadata(second));
 	assert.deepEqual(await fixture.settings.clearExternalFfmpegProbeMetadata(second), {
-		executablePath: resolve(second), identity: null, capabilities: null,
+		executablePath: resolve(second), identity: null, capabilities: null, source: 'manual',
 	});
 
 	assert.equal(await fixture.settings.clearExternalFfmpegSelection(), null);
@@ -113,7 +114,7 @@ test('loading corrupt external FFmpeg evidence keeps only independently valid pe
 			schemaVersion: 1, locale: 'en', externalFfmpegSelection: metadata,
 		});
 		assert.deepEqual((await fixture.settings.load(['en'])).externalFfmpegSelection, {
-			executablePath, identity: null, capabilities: null,
+			executablePath, identity: null, capabilities: null, source: 'manual',
 		});
 	}
 	for (const capabilities of [
@@ -126,7 +127,7 @@ test('loading corrupt external FFmpeg evidence keeps only independently valid pe
 			externalFfmpegSelection: { ...metadata, capabilities },
 		});
 		assert.deepEqual((await fixture.settings.load(['en'])).externalFfmpegSelection, {
-			executablePath, identity: metadata.identity, capabilities: null,
+			executablePath, identity: metadata.identity, capabilities: null, source: 'manual',
 		});
 	}
 });

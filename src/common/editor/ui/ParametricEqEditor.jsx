@@ -13,6 +13,7 @@ import {
 	loadParametricEqWasmModule,
 	normalizeParametricEqParams,
 } from '../parametric-eq/index.js';
+import EditorControlLabel from './EditorControlLabel.tsx';
 
 const MIN_FREQUENCY = 10;
 const MAX_FREQUENCY = 24_000;
@@ -439,18 +440,18 @@ export function ParametricEqEditor({
 				}}>{copy.eqAddBand || 'Add band'}</Button>
 				<Button variant="secondary" disabled={disabled || !selectedBand} onClick={() => removeSelected()}>{copy.eqDeleteBand || 'Delete band'}</Button>
 				<Button variant="secondary" disabled={disabled} onClick={reset}>{copy.reset || 'Reset'}</Button>
-				<label><input type="checkbox" checked={showInput} onChange={(event) => setShowInput(event.currentTarget.checked)} /> {copy.eqInputSpectrum || 'Input spectrum'}</label>
-				<label><input type="checkbox" checked={showOutput} onChange={(event) => setShowOutput(event.currentTarget.checked)} /> {copy.eqOutputSpectrum || 'Output spectrum'}</label>
+				<label><input type="checkbox" checked={showInput} onChange={(event) => setShowInput(event.currentTarget.checked)} /> <EditorControlLabel>{copy.eqInputSpectrum || 'Input spectrum'}</EditorControlLabel></label>
+				<label><input type="checkbox" checked={showOutput} onChange={(event) => setShowOutput(event.currentTarget.checked)} /> <EditorControlLabel>{copy.eqOutputSpectrum || 'Output spectrum'}</EditorControlLabel></label>
 			</div>
 
 			{selectedBand && (
 				<section className="audio-editor-parametric-eq__inspector" aria-label={copy.eqSelectedBand || 'Selected band'}>
-					<label><span>{copy.eqBandType || 'Type'}</span><select disabled={disabled} value={selectedBand.type} onChange={(event) => setSelectedValue('type', event.currentTarget.value)}>{Object.entries(PARAMETRIC_EQ_BAND_COPY).map(([value, label]) => <option key={value} value={value}>{copy[`ui.parametricEq.band.${value}`] || label}</option>)}</select></label>
-					<label><span>{copy.effectParamFrequency || 'Frequency'} (Hz)</span><ParametricEqNumericInput disabled={disabled} min={MIN_FREQUENCY} max={MAX_FREQUENCY} step="1" value={selectedBand.frequency} onCommit={(value) => setSelectedValue('frequency', value)} /></label>
-					{bandUsesGain(selectedBand.type) && <label><span>{copy.eqGain || 'Gain'} (dB)</span><ParametricEqNumericInput disabled={disabled} min={MIN_GAIN} max={MAX_GAIN} step="0.1" value={selectedBand.gain} onCommit={(value) => setSelectedValue('gain', value)} /></label>}
-					{bandUsesQ(selectedBand.type) && <label><span>Q</span><ParametricEqNumericInput disabled={disabled} min={MIN_Q} max={MAX_Q} step="0.01" value={selectedBand.q} onCommit={(value) => setSelectedValue('q', value)} /></label>}
-					{bandUsesSlope(selectedBand.type) && <label><span>{copy.eqSlope || 'Slope'}</span><select disabled={disabled} value={selectedBand.slope} onChange={(event) => setSelectedValue('slope', event.currentTarget.value)}>{CUT_SLOPES.map((slope) => <option key={slope} value={slope}>{slope} dB/oct</option>)}</select></label>}
-					<label className="audio-editor-parametric-eq__check"><input disabled={disabled} type="checkbox" checked={selectedBand.enabled} onChange={(event) => setSelectedValue('enabled', event.currentTarget.checked)} /> {copy.eqBandEnabled || 'Band enabled'}</label>
+					<label><EditorControlLabel>{copy.eqBandType || 'Type'}</EditorControlLabel><select disabled={disabled} value={selectedBand.type} onChange={(event) => setSelectedValue('type', event.currentTarget.value)}>{Object.entries(PARAMETRIC_EQ_BAND_COPY).map(([value, label]) => <option key={value} value={value}>{copy[`ui.parametricEq.band.${value}`] || label}</option>)}</select></label>
+					<label><EditorControlLabel>{copy.effectParamFrequency || 'Frequency'} (Hz)</EditorControlLabel><ParametricEqNumericInput disabled={disabled} min={MIN_FREQUENCY} max={MAX_FREQUENCY} step="1" value={selectedBand.frequency} onCommit={(value) => setSelectedValue('frequency', value)} /></label>
+					{bandUsesGain(selectedBand.type) && <label><EditorControlLabel>{copy.eqGain || 'Gain'} (dB)</EditorControlLabel><ParametricEqNumericInput disabled={disabled} min={MIN_GAIN} max={MAX_GAIN} step="0.1" value={selectedBand.gain} onCommit={(value) => setSelectedValue('gain', value)} /></label>}
+					{bandUsesQ(selectedBand.type) && <label><EditorControlLabel>Q</EditorControlLabel><ParametricEqNumericInput disabled={disabled} min={MIN_Q} max={MAX_Q} step="0.01" value={selectedBand.q} onCommit={(value) => setSelectedValue('q', value)} /></label>}
+					{bandUsesSlope(selectedBand.type) && <label><EditorControlLabel>{copy.eqSlope || 'Slope'}</EditorControlLabel><select disabled={disabled} value={selectedBand.slope} onChange={(event) => setSelectedValue('slope', event.currentTarget.value)}>{CUT_SLOPES.map((slope) => <option key={slope} value={slope}>{slope} dB/oct</option>)}</select></label>}
+					<label className="audio-editor-parametric-eq__check"><input disabled={disabled} type="checkbox" checked={selectedBand.enabled} onChange={(event) => setSelectedValue('enabled', event.currentTarget.checked)} /> <EditorControlLabel>{copy.eqBandEnabled || 'Band enabled'}</EditorControlLabel></label>
 					<Button variant="secondary" disabled={disabled} onClick={() => {
 						const next = auditionedId === selectedBand.id ? null : selectedBand.id;
 						setAuditionedId(next);
@@ -460,7 +461,7 @@ export function ParametricEqEditor({
 			)}
 
 			<label className="audio-editor-parametric-eq__output">
-					<span>{copy.eqOutputGain || 'Output gain'} (dB)</span>
+					<EditorControlLabel>{copy.eqOutputGain || 'Output gain'} (dB)</EditorControlLabel>
 					<ParametricEqOutputRange key={authoredEpoch} disabled={disabled} minimum={MIN_GAIN} maximum={MAX_GAIN} value={draft.outputGain}
 						onBegin={beginOutputGain} onValueChange={(value) => {
 						const standalone = !outputGestureRef.current;

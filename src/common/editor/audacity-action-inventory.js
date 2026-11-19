@@ -117,6 +117,12 @@ const nyquistDefinitions = NYQUIST_BUNDLED_PLUGINS.map((plugin) => {
 });
 
 export const AUDACITY_ACTION_DEFINITIONS = [
+	implemented('folder-select', 'Select folder contents', ['Edit > Edit folder contents', 'Folder context'], 'edit.folderSelect', { enableWhen: 'project-opened', source: null, origin: 'local' }),
+	implemented('folder-split', 'Split folder contents', ['Edit > Edit folder contents', 'Folder context'], 'edit.folderSplit', { enableWhen: 'editable-project', source: null, origin: 'local' }),
+	implemented('folder-delete', 'Delete from folder and leave gap', ['Edit > Edit folder contents', 'Folder context'], 'edit.folderDelete', { enableWhen: 'editable-project', source: null, origin: 'local' }),
+	implemented('folder-ripple-cut', 'Cut from folder and close gap', ['Edit > Edit folder contents', 'Folder context'], 'edit.folderRippleCut', { enableWhen: 'editable-project', source: null, origin: 'local' }),
+	implemented('folder-ripple-delete', 'Delete from folder and close gap', ['Edit > Edit folder contents', 'Folder context'], 'edit.folderRippleDelete', { enableWhen: 'editable-project', source: null, origin: 'local' }),
+	implemented('folder-ripple-insert', 'Insert clipboard into folder', ['Edit > Edit folder contents', 'Folder context'], 'edit.folderRippleInsert', { enableWhen: 'clipboard-and-project-writable', source: null, origin: 'local' }),
 	// File and project lifecycle.
 	implemented('file-new', 'New', ['File'], 'project.create', { shortcut: 'Ctrl+N' }),
 	implemented('file-open', 'Open', ['File'], 'project.open', { shortcut: 'Ctrl+O' }),
@@ -396,7 +402,8 @@ export const AUDACITY_ACTION_DEFINITIONS = [
 	implemented('action://effects/open?effectId=%1', 'Open effect', ['Generate', 'Effect', 'Analyze', 'Tools'], 'effects.openById', { enableWhen: 'project-opened', source: UPSTREAM.effects, upstreamAction: 'dynamic ActionQuery effect action' }),
 	implemented('action://effects/realtime-add?effectId=%1', 'Add realtime effect', ['Realtime effect rack'], 'effects.addRealtimeById', { enableWhen: 'audio-track-selected', source: UPSTREAM.effects, upstreamAction: 'dynamic ActionQuery realtime-add action' }),
 	implemented('action://effects/realtime-replace?effectId=%1', 'Replace realtime effect', ['Realtime effect context'], 'effects.replaceRealtimeById', { enableWhen: 'realtime-effect-selected', source: UPSTREAM.effects, upstreamAction: 'dynamic ActionQuery realtime-replace action' }),
-	implemented('manage-macros', 'Macros palette', ['Tools'], 'macros.openPalette', { enableWhen: 'project-opened', source: UPSTREAM.menu }),
+	implemented('macros-palette', 'Macros palette', ['Tools', 'Window'], 'macros.openPalette', { enableWhen: 'project-opened', source: null, origin: 'local' }),
+	implemented('manage-macros', 'Macro manager', ['Tools'], 'macros.openManager', { enableWhen: 'project-opened', source: UPSTREAM.menu }),
 	implemented('effect://builtin/change-pitch', 'Change pitch', ['Effect > Pitch and tempo'], 'effects.changePitch', { enableWhen: 'editable-effect-target', source: UPSTREAM.builtinEffects, upstreamAction: 'dynamic Change Pitch effect action' }),
 	implemented('effect://builtin/change-tempo', 'Change tempo', ['Effect > Pitch and tempo'], 'effects.changeTempo', { enableWhen: 'editable-effect-target', source: 'au3/lib-src/au3-time-and-pitch/StaffPad/TimeAndPitch.cpp', upstreamAction: 'legacy Change Tempo effect adapted to StaffPad' }),
 	implemented('effect://builtin/change-speed-pitch', 'Change speed and pitch', ['Effect > Pitch and tempo'], 'effects.changeSpeedPitch', { enableWhen: 'editable-effect-target', source: 'au3/lib-src/au3-time-and-pitch/StaffPad/TimeAndPitch.cpp', upstreamAction: 'legacy Change Speed and Pitch effect adapted to StaffPad' }),

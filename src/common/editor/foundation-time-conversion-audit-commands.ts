@@ -171,9 +171,8 @@ export const FOUNDATION_TIME_CONVERSION_COMMAND_SITES: readonly FoundationTimeCo
 	{
 		id: 'recording-start-timing',
 		file: 'src/common/editor/controller/recording/internal/recording-start-timing.ts',
-		behavior: 'Both recording paths share the authoritative count-in calculation and enclose the recorder start after projecting its audio-context time.',
+		behavior: 'Both recording paths enclose the recorder start after projecting its audio-context time; the selected lead-in duration remains independent of the retired musical count-in calculation.',
 		conversions: [
-			{ helper: 'countInSampleFrames', policies: ['point'] },
 			{ helper: 'secondsToSampleFrame', policies: ['enclosingEnd'] },
 		],
 	},

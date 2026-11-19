@@ -1,43 +1,21 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 #include "juce_audio_adapter.h"
+#include "audio_frame_ring.h"
+#include "wasapi_channel_inventory.h"
 
 #include <juce_audio_devices/juce_audio_devices.h>
 
 #include <algorithm>
 #include <atomic>
-#include <cctype>
 #include <chrono>
 #include <condition_variable>
 #include <cstring>
 #include <mutex>
 #include <sstream>
-#include <vector>
 
 namespace soundscaper {
 namespace {
-
-std::string lower(std::string value)
-{
-	std::transform(value.begin(), value.end(), value.begin(),
-		[](unsigned char character) { return static_cast<char>(std::tolower(character)); });
-	return value;
-}
-
-bool typeMatches(const juce::String &name, const std::string &backend, bool exclusive)
-{
-	const std::string value = lower(name.toStdString());
-	if (backend == "coreaudio") return value.find("core audio") != std::string::npos;
-	if (backend == "asio") return value.find("asio") != std::string::npos;
-	if (backend == "alsa") return value.find("alsa") != std::string::npos;
-	if (backend == "wasapi") {
-		const bool isWasapi = value.find("windows audio") != std::string::npos
-			|| value.find("wasapi") != std::string::npos;
-		const bool isExclusive = value.find("exclusive") != std::string::npos;
-		return isWasapi && isExclusive == exclusive;
-	}
-	return false;
-}
 
 std::string escaped(const std::string &value)
 {
@@ -57,62 +35,17 @@ void text(char *destination, const std::string &value)
 	destination[length] = '\0';
 }
 
-class PeriodRing {
-public:
-	PeriodRing(uint32_t channels, uint32_t frames, uint32_t periods = 16u)
-		: channelCount(channels), frameCount(frames), capacity(periods),
-		storage(static_cast<size_t>(channels) * frames * periods, 0.0f) {}
-
-	bool push(const float *const *planes, uint32_t availableChannels)
-	{
-		const uint64_t write = writeSequence.load(std::memory_order_relaxed);
-		if (write - readSequence.load(std::memory_order_acquire) >= capacity) return false;
-		float *slot = storage.data() + static_cast<size_t>(write % capacity) * channelCount * frameCount;
-		for (uint32_t channel = 0; channel < channelCount; ++channel) {
-			float *target = slot + static_cast<size_t>(channel) * frameCount;
-			if (channel < availableChannels && planes != nullptr && planes[channel] != nullptr) {
-				std::memcpy(target, planes[channel], static_cast<size_t>(frameCount) * sizeof(float));
-			} else std::fill(target, target + frameCount, 0.0f);
-		}
-		writeSequence.store(write + 1u, std::memory_order_release);
-		return true;
-	}
-
-	bool pop(float *const *planes, uint32_t availableChannels)
-	{
-		const uint64_t read = readSequence.load(std::memory_order_relaxed);
-		if (read == writeSequence.load(std::memory_order_acquire)) return false;
-		const float *slot = storage.data() + static_cast<size_t>(read % capacity) * channelCount * frameCount;
-		for (uint32_t channel = 0; channel < availableChannels; ++channel) {
-			if (planes == nullptr || planes[channel] == nullptr) continue;
-			const float *source = slot + static_cast<size_t>(std::min(channel, channelCount - 1u)) * frameCount;
-			std::memcpy(planes[channel], source, static_cast<size_t>(frameCount) * sizeof(float));
-		}
-		readSequence.store(read + 1u, std::memory_order_release);
-		return true;
-	}
-
-	bool empty() const
-	{
-		return readSequence.load(std::memory_order_acquire) == writeSequence.load(std::memory_order_acquire);
-	}
-
-private:
-	const uint32_t channelCount;
-	const uint32_t frameCount;
-	const uint32_t capacity;
-	std::vector<float> storage;
-	std::atomic<uint64_t> readSequence{0u};
-	std::atomic<uint64_t> writeSequence{0u};
-};
-
 class Session final : public JuceAudioSession, private juce::AudioIODeviceCallback {
 public:
-	Session(std::unique_ptr<juce::AudioIODevice> opened, uint32_t channels, uint32_t frames, uint32_t direction)
-		: device(std::move(opened)), channelCount(channels), frameCount(frames),
-		captureEnabled(direction == 0u || direction == 2u),
-		playbackEnabled(direction == 1u || direction == 2u),
-		input(channels, frames), output(channels, frames) {}
+	Session(std::unique_ptr<juce::AudioIODevice> opened,
+		const soundscaper_pro_audio_request &request, uint32_t callbackFrames, bool useSharedWasapi, bool useAsio, uint32_t startFrames)
+		: device(std::move(opened)), channelCount(request.channel_count), frameCount(request.period_frames),
+		deviceFrames(callbackFrames), sampleRate(request.sample_rate), sharedWasapi(useSharedWasapi), asio(useAsio),
+		playbackStartFrames(startFrames),
+		captureEnabled(request.direction == 0u || request.direction == 2u),
+		playbackEnabled(request.direction == 1u || request.direction == 2u),
+		input(captureEnabled ? channelCount : 0u, queueFrames()),
+		output(playbackEnabled ? channelCount : 0u, queueFrames()) {}
 
 	~Session() override
 	{
@@ -126,11 +59,12 @@ public:
 		start();
 		std::unique_lock<std::mutex> lock(waitMutex);
 		const bool ready = captureReady.wait_for(lock, timeout(), [this] {
-			return !input.empty() || failed.load(std::memory_order_acquire)
+			return input.availableFrames() >= frameCount || failed.load(std::memory_order_acquire)
 				|| stopped.load(std::memory_order_acquire);
 		});
 		if (!ready || failed.load(std::memory_order_acquire) || stopped.load(std::memory_order_acquire)
-			|| !input.pop(planes, channels)) return SOUNDSCAPER_PRO_DEVICE_UNAVAILABLE;
+			|| !input.pop(planes, channels, frames)) return SOUNDSCAPER_PRO_DEVICE_UNAVAILABLE;
+		captureStarted = true;
 		return SOUNDSCAPER_PRO_OK;
 	}
 
@@ -138,8 +72,7 @@ public:
 		const float *const *planes, uint32_t channels, uint32_t frames) override
 	{
 		if (!playbackEnabled || !shape(planes, channels, frames)) return SOUNDSCAPER_PRO_FORMAT_REFUSED;
-		if (!output.push(planes, channels)) return fail();
-		playbackStarted.store(true, std::memory_order_release);
+		if (!output.push(planes, channels, frames)) return fail();
 		start();
 		if (failed.load(std::memory_order_acquire) || stopped.load(std::memory_order_acquire)) {
 			return SOUNDSCAPER_PRO_DEVICE_UNAVAILABLE;
@@ -159,17 +92,25 @@ private:
 		const float *const *inputs, int inputChannels, float *const *outputs,
 		int outputChannels, int frames, const juce::AudioIODeviceCallbackContext &) override
 	{
-		if (frames != static_cast<int>(frameCount)) return audioFault(outputs, outputChannels, frames);
-		if (captureEnabled && !input.push(inputs, static_cast<uint32_t>(std::max(0, inputChannels)))) {
+		if (frames != static_cast<int>(deviceFrames)) return audioFault(outputs, outputChannels, frames);
+		if (captureEnabled && !input.push(inputs, static_cast<uint32_t>(inputChannels), deviceFrames)) {
 			audioFault(outputs, outputChannels, frames);
 			return;
 		}
 		if (captureEnabled) captureReady.notify_one();
-		if (!playbackEnabled || !output.pop(outputs, static_cast<uint32_t>(std::max(0, outputChannels)))) {
-			for (int channel = 0; channel < outputChannels; ++channel) {
-				if (outputs[channel] != nullptr) std::fill(outputs[channel], outputs[channel] + frames, 0.0f);
+		if (playbackEnabled) {
+			playbackStarted = playbackStarted || output.availableFrames() >= playbackStartFrames;
+			if (playbackStarted) {
+				const auto channels = static_cast<uint32_t>(outputChannels);
+				const bool delivered = (asio || sharedWasapi)
+					? readDeviceOutputPeriod(output, outputs, channels, deviceFrames, missedPlaybackPeriod)
+					: output.pop(outputs, channels, deviceFrames);
+				if (delivered) return;
+				failed.store(true, std::memory_order_release);
 			}
-			if (playbackEnabled && playbackStarted.load(std::memory_order_acquire)) failed.store(true, std::memory_order_release);
+		}
+		for (int channel = 0; channel < outputChannels; ++channel) {
+			if (outputs[channel] != nullptr) std::fill_n(outputs[channel], frames, 0.0f);
 		}
 	}
 
@@ -203,25 +144,39 @@ private:
 
 	std::chrono::milliseconds timeout() const
 	{
-		const double milliseconds = 2000.0 * static_cast<double>(frameCount)
-			/ std::max(1.0, device->getCurrentSampleRate());
+		if (sharedWasapi && !captureStarted) return std::chrono::milliseconds(500);
+		const double milliseconds = (sharedWasapi ? 3000.0 : 2000.0)
+			* static_cast<double>(std::max(frameCount, deviceFrames)) / sampleRate;
 		return std::chrono::milliseconds(static_cast<int>(std::clamp(milliseconds, 10.0, 500.0)));
+	}
+
+	uint32_t queueFrames() const
+	{
+		// Leave room for one callback beyond the playback priming threshold.
+		return std::max(16u * frameCount, playbackStartFrames + deviceFrames);
 	}
 
 	std::unique_ptr<juce::AudioIODevice> device;
 	const uint32_t channelCount;
 	const uint32_t frameCount;
+	const uint32_t deviceFrames;
+	const uint32_t sampleRate;
+	const bool sharedWasapi;
+	const bool asio;
+	const uint32_t playbackStartFrames;
 	const bool captureEnabled;
 	const bool playbackEnabled;
-	PeriodRing input;
-	PeriodRing output;
+	AudioFrameRing input;
+	AudioFrameRing output;
 	std::atomic<bool> failed{false};
 	std::atomic<bool> stopped{false};
-	std::atomic<bool> playbackStarted{false};
 	std::mutex startMutex;
 	std::mutex waitMutex;
 	std::condition_variable captureReady;
 	bool started = false;
+	bool playbackStarted = false; // Audio callback thread only.
+	bool missedPlaybackPeriod = false; // Audio callback thread only.
+	bool captureStarted = false; // Helper consumer only.
 };
 
 /**
@@ -232,7 +187,7 @@ private:
  * every other backend's device type as a side effect, which on Linux meant an
  * ALSA query could not be answered without JACK being brought up first.
  */
-std::unique_ptr<juce::AudioIODeviceType> selectedType(const std::string &backend, bool exclusive)
+std::unique_ptr<juce::AudioIODeviceType> selectedType(const std::string &backend, [[maybe_unused]] bool exclusive)
 {
 	std::unique_ptr<juce::AudioIODeviceType> candidate;
 #if JUCE_MAC
@@ -249,7 +204,6 @@ std::unique_ptr<juce::AudioIODeviceType> selectedType(const std::string &backend
 #elif JUCE_LINUX
 	if (backend == "alsa") candidate.reset(juce::AudioIODeviceType::createAudioIODeviceType_ALSA());
 #endif
-	if (candidate == nullptr || !typeMatches(candidate->getTypeName(), backend, exclusive)) return nullptr;
 	return candidate;
 }
 
@@ -266,12 +220,19 @@ soundscaper_pro_status enumerateJuceAudio(const std::string &backend, std::strin
 	output << "[";
 	bool first = true;
 	for (const bool input : { false, true }) {
-		for (const auto &name : type->getDeviceNames(input)) {
+		const auto names = type->getDeviceNames(input);
+		const auto defaultIndex = type->getDefaultDeviceIndex(input);
+		const auto widths = backend == "wasapi" ? wasapiInventoryChannels(names, input) : std::vector<int>{};
+		for (int index = 0; index < names.size(); ++index) {
+			const auto name = escaped(names[index].toStdString());
 			if (!first) output << ",";
 			first = false;
-			output << "{\"handle\":\"" << escaped(name.toStdString())
-				<< "\",\"label\":\"" << escaped(name.toStdString())
-				<< "\",\"direction\":\"" << (input ? "input" : "output") << "\"}";
+			output << "{\"handle\":\"" << name << "\",\"label\":\"" << name
+				<< "\",\"direction\":\"" << (input ? "input" : "output") << "\"";
+			if (index == defaultIndex) output << ",\"isDefault\":true";
+			const auto width = widths.empty() ? 0 : widths[static_cast<std::size_t>(index)];
+			if (width > 0) output << ",\"channelCount\":" << width;
+			output << "}";
 		}
 	}
 	output << "]";
@@ -314,6 +275,15 @@ soundscaper_pro_audio_result openJuceAudio(
 		text(result.detail, "The requested opaque device handle is unavailable.");
 		return result;
 	}
+	if (backend == "asio") {
+		const auto rates = device->getAvailableSampleRates();
+		// JUCE otherwise substitutes its first available rate and retunes the device before returning.
+		if (!rates.isEmpty() && !rates.contains(request.sample_rate)) {
+			result.status = SOUNDSCAPER_PRO_FORMAT_REFUSED;
+			text(result.detail, "The ASIO device does not support the requested sample rate.");
+			return result;
+		}
+	}
 	juce::BigInteger inputs;
 	juce::BigInteger outputs;
 	if (request.direction == 0u || request.direction == 2u) inputs.setRange(0, static_cast<int>(request.channel_count), true);
@@ -324,15 +294,27 @@ soundscaper_pro_audio_result openJuceAudio(
 		text(result.detail, error.toStdString());
 		return result;
 	}
-	if (static_cast<uint32_t>(device->getCurrentSampleRate()) != request.sample_rate
-		|| static_cast<uint32_t>(device->getCurrentBufferSizeSamples()) != request.period_frames) {
+	if ((!inputs.isZero() && device->getActiveInputChannels() != inputs)
+		|| (!outputs.isZero() && device->getActiveOutputChannels() != outputs)) {
+		device->close();
+		result.status = SOUNDSCAPER_PRO_FORMAT_REFUSED;
+		text(result.detail, "The device did not activate the requested audio channels.");
+		return result;
+	}
+	const auto callbackFrames = device->getCurrentBufferSizeSamples();
+	// WASAPI shared mode uses the driver's period. Preserve the helper's exact
+	// packet size by regrouping frames locally, with no change to the sample rate.
+	const bool sharedWasapi = backend == "wasapi" && request.exclusive == 0u;
+	if (device->getCurrentSampleRate() != request.sample_rate || callbackFrames < 1 || callbackFrames > 16384
+		|| (!sharedWasapi && static_cast<uint32_t>(callbackFrames) != request.period_frames)) {
 		device->close();
 		result.status = SOUNDSCAPER_PRO_FORMAT_REFUSED;
 		text(result.detail, "The device substituted a sample rate or period.");
 		return result;
 	}
-	session = std::make_unique<Session>(
-		std::move(device), request.channel_count, request.period_frames, request.direction);
+	const auto deviceFrames = static_cast<uint32_t>(callbackFrames);
+	session = std::make_unique<Session>(std::move(device), request, deviceFrames, sharedWasapi, backend == "asio",
+		jucePlaybackStartFrames(backend, sharedWasapi, request.period_frames, deviceFrames));
 	result.status = SOUNDSCAPER_PRO_OK;
 	result.sample_rate = request.sample_rate;
 	result.period_frames = request.period_frames;

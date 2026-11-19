@@ -208,7 +208,7 @@ function next(overrides: Data = {}): Data {
 	return base({
 		revision: 1, updatedAt: LATER,
 		sources: [{ id: 'image-source', kind: 'image' }],
-		clips: [{ id: 'image-clip', kind: 'image', sourceId: 'image-source' }],
+		clips: [{ id: 'image-clip', kind: 'image', sourceId: 'image-source', sequenceId: 'main' }],
 		tracks: [{ id: 'video-track', type: 'video', clipIds: ['image-clip'], locked: false }],
 		...overrides,
 	});
@@ -297,11 +297,11 @@ test('a fresh timeline track is reconstructed as an empty track added at its exa
 	const commands = stub.commands[0]?.commands as Data[];
 	assert.deepEqual(commands.map(({ type }) => type), ['track/add', 'image-source/set', 'image-clip/set']);
 	assert.deepEqual(commands[0], {
-		type: 'track/add', index: 0, track: { id: 'video-track', type: 'video', clipIds: [], locked: false },
+		type: 'track/add', index: 0, sequenceId: 'main', track: { id: 'video-track', type: 'video', clipIds: [], locked: false },
 	});
 });
 
-test('a fresh timeline track must be single, unlocked, primary-sequenced and own only the fresh clip', async () => {
+test('a fresh timeline track must be single, unlocked, in the clip sequence and own only the fresh clip', async () => {
 	const expected = base({ tracks: [], sequences: [{ id: 'main', trackIds: [] }] });
 	const owned = { id: 'video-track', type: 'video', clipIds: ['image-clip'], locked: false };
 	for (const [project, message] of [
@@ -317,7 +317,7 @@ test('a fresh timeline track must be single, unlocked, primary-sequenced and own
 			tracks: [{ ...owned, clipIds: ['image-clip', 'kept'] }],
 		}), /must be unlocked and own only the fresh image clip/u],
 		[next({ sequences: [{ id: 'main', trackIds: [] }, { id: 'second', trackIds: ['video-track'] }] }),
-			/must belong only to the primary sequence/u],
+			/must belong only to the clip’s sequence/u],
 	] as readonly (readonly [Data, RegExp])[]) {
 		await assert.rejects(() => prepare(expected, project), message);
 	}

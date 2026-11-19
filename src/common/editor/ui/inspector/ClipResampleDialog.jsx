@@ -8,6 +8,7 @@ import { NumberStepper } from '@soundscaper/design-system/NumberStepper';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { MAXIMUM_CLIP_RESAMPLE_RATE, MINIMUM_CLIP_RESAMPLE_RATE, parseClipResampleRate } from './clip-resample-rate.ts';
 import { submitCompletedNumberField } from '../dialogs/completed-number-field-submit.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 /**
  * Ask for the rate one clip should be resampled to.
@@ -47,7 +48,7 @@ export default function ClipResampleDialog({ sampleRate, copy, disabled, onCance
 				apply();
 			}}>
 				<label className="kw-audio-editor-dialog__field" data-clip-resample-field="sampleRate">
-					<span>{copy.sampleRateHz}</span>
+					<EditorControlLabel>{copy.sampleRateHz}</EditorControlLabel>
 					<NumberStepper value={rate} min={MINIMUM_CLIP_RESAMPLE_RATE} max={MAXIMUM_CLIP_RESAMPLE_RATE} step={1_000} width="100%" disabled={disabled} onChange={setRate} />
 				</label>
 				{sampleRateValue === null && <p role="alert">{copy.invalidClipSampleRate}</p>}

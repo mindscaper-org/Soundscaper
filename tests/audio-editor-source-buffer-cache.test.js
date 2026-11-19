@@ -129,6 +129,25 @@ test('lowering maxBytes evicts least-recently-used entries immediately', () => {
 	assert.deepEqual(evicted, [['second', 'resize'], ['third', 'resize'], ['first', 'resize']]);
 });
 
+test('a pressure trim walks the LRU order once even when it evicts many entries', () => {
+	const cache = new SourceBufferCache({ maxBytes: 4_096, estimateBytes: () => 1 });
+	for (let index = 0; index < 4_096; index++) cache.set(index, index);
+	const keys = Map.prototype.keys;
+	let traversals = 0;
+	Map.prototype.keys = function () {
+		if (this === cache) traversals += 1;
+		return keys.call(this);
+	};
+	try {
+		cache.setMaxBytes(8);
+	} finally {
+		Map.prototype.keys = keys;
+	}
+	assert.equal(traversals, 1);
+	assert.equal(cache.byteLength, 8);
+	assert.deepEqual([...cache.keys()], [4_088, 4_089, 4_090, 4_091, 4_092, 4_093, 4_094, 4_095]);
+});
+
 test('invalid budgets and byte estimates fail before mutating the cache', () => {
 	assert.throws(() => new SourceBufferCache({ maxBytes: -1 }), /maxBytes/);
 	assert.throws(() => new SourceBufferCache({ maxBytes: 1.5 }), /maxBytes/);

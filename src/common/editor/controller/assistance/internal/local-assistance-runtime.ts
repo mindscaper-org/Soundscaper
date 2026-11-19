@@ -96,6 +96,7 @@ export function createLocalAssistancePreparationRuntime(
 		throw new Error('The requested Advanced context source is not selected or linked.');
 	};
 	const resultAcceptance = assistanceStore ? createLocalAssistanceResultAcceptance({
+		importMidiDocument: dependencies.importMidiDocument,
 		currentAuthority: () => resolveLocalAssistanceSelectedAudioAuthority({
 			...selectedMediaDependencies,
 			...(assistanceVideoStore ? { videoStore: assistanceVideoStore } : {}),

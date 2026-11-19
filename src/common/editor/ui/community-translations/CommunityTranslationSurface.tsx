@@ -27,6 +27,7 @@ import { communityTranslationMessageKeys, createCommunityTranslationDraftReader 
 import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts';
 import { useAudioEditorThemeVariables } from '../DesignSystemRuntime.jsx';
 import './community-translations.css';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface CommunityTranslationSurfaceProps {
 	readonly port: CommunityTranslationPresentationPort;
@@ -153,8 +154,7 @@ export default function CommunityTranslationSurface({ port, initialLocale, copy:
 	function useCurrentBaseline(): void {
 		if (!loaded || !baseline) return;
 		if (!acceptableTranslation(source, translation)) { setError({ key: 'invalid' }); return; }
-		const rebased = { ...currentDraft(), entries: loaded.draft.entries.filter(({ key }) => key !== selectedKey) };
-		run(() => save(updateTranslationDraft(rebased, loaded.snapshot, selectedKey, translation, note)));
+		run(() => save(updateTranslationDraft(currentDraft(), loaded.snapshot, selectedKey, translation, note, { useCurrentBaseline: true })));
 	}
 	const reviewMessage = assessment?.stale.some(({ key }) => key === selectedKey) ? copy.stale
 		: assessment?.conflicts.some(({ key }) => key === selectedKey) ? copy.conflict
@@ -168,13 +168,13 @@ export default function CommunityTranslationSurface({ port, initialLocale, copy:
 		}}>
 		<header><h2>{copy.title}</h2><button type="button" aria-label={copy.close} onClick={close}>×</button></header>
 		<button type="button" onClick={() => setSide(side === 'right' ? 'left' : 'right')}>{side === 'right' ? copy.moveLeft : copy.moveRight}</button>
-		<label>{copy.language}<select value={locale} onChange={(event) => {
+		<label><EditorControlLabel>{copy.language}</EditorControlLabel><select value={locale} onChange={(event) => {
 			const nextLocale = event.target.value;
 			run(async () => { await contributorRef.current?.flush(); setLocale(nextLocale); setQuery(''); setFilter('all'); setCandidates([]); setPickedObject(null); });
 		}}>{translationLocales.filter(({ locale: tag }) => tag !== 'en').map(({ locale: tag, nativeName }) =>
 			<option key={tag} value={tag}>{nativeName}</option>)}</select></label>
 		<label className="community-translations__preview"><input type="checkbox" checked={preview}
-			onChange={(event) => setPreview(event.target.checked)} />{copy.preview}</label>
+			onChange={(event) => setPreview(event.target.checked)} /><EditorControlLabel>{copy.preview}</EditorControlLabel></label>
 		<button type="button" aria-pressed={picking} onClick={() => { setPicking(!picking); setCandidates([]); setPickedObject(null); setMessage(''); }}>{copy.pick}</button>
 		{picking && <p role="status">{copy.picking}</p>}
 		{candidates.length > 1 && <fieldset><legend>{copy.candidates}</legend><p>{candidates.some(({ isTarget }) => isTarget) ? copy.identified : copy.ambiguous}</p>
@@ -183,23 +183,23 @@ export default function CommunityTranslationSurface({ port, initialLocale, copy:
 				{candidate.key} ({candidate.attribute}) — {loaded?.inventory.english[candidate.key]}
 				{candidate.isTarget && <> — <strong>{copy.clicked}</strong></>}</button>)}
 		</fieldset>}
-		<label>{copy.search}<input ref={searchRef} type="search" value={query} onChange={(event) => { setQuery(event.target.value); setCandidates([]); setPickedObject(null); }} /></label>
-		<label>{copy.filter}<select value={filter} onChange={(event) => { setFilter(event.target.value); setCandidates([]); setPickedObject(null); }}>
+		<label><EditorControlLabel>{copy.search}</EditorControlLabel><input ref={searchRef} type="search" value={query} onChange={(event) => { setQuery(event.target.value); setCandidates([]); setPickedObject(null); }} /></label>
+		<label><EditorControlLabel>{copy.filter}</EditorControlLabel><select value={filter} onChange={(event) => { setFilter(event.target.value); setCandidates([]); setPickedObject(null); }}>
 			<option value="all">{copy.all}</option><option value="changed">{copy.changed}</option>
 			<option value="missing">{copy.missing}</option><option value="review">{copy.review}</option>
 		</select></label>
 		{!loaded && !error && <p role="status">{copy.loading}</p>}
-		{loaded && <><label>{copy.messages} ({keys.length})<select size={6} value={selectedKey}
+		{loaded && <><label><EditorControlLabel>{copy.messages} ({keys.length})</EditorControlLabel><select size={6} value={selectedKey}
 			onChange={(event) => setSelectedKey(event.target.value)}>{displayedKeys.map((key) =>
 				<option key={key} value={key}>{key} — {(loaded.snapshot.entries[key]?.source ?? readDraft(key)?.source ?? '').slice(0, 100)}</option>)}</select></label>
 			{!keys.length && <p>{copy.empty}</p>}
 			{selectedKey && <form onSubmit={(event) => { event.preventDefault(); saveChange(); }}>
-				<label>{copy.key}<input readOnly value={selectedKey} dir="ltr" /></label>
+				<label><EditorControlLabel>{copy.key}</EditorControlLabel><input readOnly value={selectedKey} dir="ltr" /></label>
 				<dl><dt>{copy.owner}</dt><dd>{metadata?.owner ?? ''}</dd><dt>{copy.origin}</dt><dd>{originText}</dd></dl>
-				<label>{copy.source}<textarea readOnly value={source} dir="ltr" rows={2} /></label>
-				<label>{copy.published}<textarea readOnly value={baseline?.baselineText ?? ''} rows={2} /></label>
-				<label>{copy.translation}<textarea value={translation} rows={3} onChange={(event) => setTranslation(event.target.value)} /></label>
-				<label>{copy.note}<textarea value={note} rows={2} onChange={(event) => setNote(event.target.value)} /></label>
+				<label><EditorControlLabel>{copy.source}</EditorControlLabel><textarea readOnly value={source} dir="ltr" rows={2} /></label>
+				<label><EditorControlLabel>{copy.published}</EditorControlLabel><textarea readOnly value={baseline?.baselineText ?? ''} rows={2} /></label>
+				<label><EditorControlLabel>{copy.translation}</EditorControlLabel><textarea value={translation} rows={3} onChange={(event) => setTranslation(event.target.value)} /></label>
+				<label><EditorControlLabel>{copy.note}</EditorControlLabel><textarea value={note} rows={2} onChange={(event) => setNote(event.target.value)} /></label>
 				<p>{copy.validation}</p>
 				{reviewMessage && <p role="alert">{reviewMessage}</p>}
 				<div className="community-translations__actions"><button type="submit" disabled={!baseline}>{copy.save}</button>

@@ -89,6 +89,92 @@ test('video preview capture serializes canvas and encoder work within one extrac
 	fixture.extractor.dispose();
 });
 
+test('decoded pixel capture shares the seek queue and bypasses still encoding', async () => {
+	const fixture = await videoExtractorFixture({ deferEncoding: true });
+	const encoded = fixture.extractor.capture(1);
+	await fixture.waitForEncodeCount(1);
+	const decoded = fixture.extractor.capturePixels(2, { maximumWidth: 64, maximumHeight: 36, alpha: true });
+	await new Promise((resolve) => { setImmediate(resolve); });
+	assert.equal(fixture.drawCount(), 1);
+	fixture.releaseNextEncoding();
+	await encoded;
+	const frame = await decoded;
+	assert.deepEqual(fixture.seeks, [1, 2]);
+	assert.equal(fixture.encodeCount(), 1);
+	assert.deepEqual([frame.timestampSeconds, frame.width, frame.height], [2, 64, 36]);
+	assert.equal(frame.pixels.length, 64 * 36 * 4);
+	assert.deepEqual(frame.pixels.subarray(0, 4), Uint8Array.of(1, 20, 90, 128));
+	frame.pixels[0] = 255;
+	const repeated = await fixture.extractor.capturePixels(2, { maximumWidth: 64, maximumHeight: 36, alpha: true });
+	assert.equal(repeated.pixels[0], 1, 'readback is detached from the next capture');
+	fixture.extractor.dispose();
+});
+
+test('capture reuses the current frame interval and seeks adjacent millisecond frames', async () => {
+	const fixture = await videoExtractorFixture({
+		duration: 0.004,
+		timing: { timescale: 1_000, presentationTicks: [0n, 1n, 2n, 3n], finalFrameDurationTicks: 1n },
+	});
+	try {
+		for (const timestamp of [0.0005, 0.00075, 0.0015, 0.0025, 0.0035]) {
+			await fixture.extractor.capturePixels(timestamp, { maximumWidth: 64, maximumHeight: 36 });
+		}
+		assert.deepEqual(fixture.seeks.map(time => Math.round(time * 1e6)), [250, 1250, 2250, 3250]);
+	} finally { fixture.extractor.dispose(); }
+});
+
+test('an indexed capture seeks early enough to avoid the next decoded frame', async () => {
+	const fixture = await videoExtractorFixture({
+		duration: 0.16,
+		timing: { timescale: 25, presentationTicks: [0n, 1n, 2n, 3n], finalFrameDurationTicks: 1n },
+	});
+	try {
+		for (const timestamp of [0.02, 0.06, 0.10, 0.14]) {
+			const frame = await fixture.extractor.capturePixels(timestamp);
+			assert.equal(frame.timestampSeconds, timestamp);
+		}
+		assert.deepEqual(fixture.seeks.map(time => Math.round(time * 1000)), [10, 50, 90, 130]);
+	} finally { fixture.extractor.dispose(); }
+});
+
+test('a capture inside or beyond a sub-millisecond final frame selects that frame', async () => {
+	const fixture = await videoExtractorFixture({
+		duration: 0.002,
+		timing: { timescale: 2_000, presentationTicks: [0n, 1n, 2n, 3n], finalFrameDurationTicks: 1n },
+	});
+	try {
+		const beforeEnd = await fixture.extractor.capturePixels(0.00175);
+		const beyondEnd = await fixture.extractor.capturePixels(1);
+		assert.equal(beforeEnd.timestampSeconds, 0.00175);
+		assert.equal(beyondEnd.timestampSeconds, 0.0015);
+		assert.deepEqual(fixture.seeks.map(time => Math.round(time * 1e6)), [1625]);
+	} finally { fixture.extractor.dispose(); }
+});
+
+test('capture keeps the authored final picture when native duration rounds to its start', async () => {
+	const fixture = await videoExtractorFixture({
+		duration: .933333,
+		timing: { timescale: 90_000, presentationTicks: [0n, 75_000n, 84_000n], finalFrameDurationTicks: 3_000n },
+	});
+	try {
+		const frame = await fixture.extractor.capturePixels(.95);
+		assert.equal(frame.timestampSeconds, .95);
+		assert.deepEqual(fixture.seeks.map(time => Math.round(time * 1e6)), [941667]);
+	} finally { fixture.extractor.dispose(); }
+});
+
+test('the initial poster seeks inside the first admitted source frame', async () => {
+	const fixture = await videoExtractorFixture({
+		duration: 0.004,
+		timing: { timescale: 1_000, presentationTicks: [0n, 1n, 2n, 3n], finalFrameDurationTicks: 1n },
+	});
+	try {
+		const poster = await fixture.extractor.capture(0, { maximumWidth: 64, maximumHeight: 36 });
+		assert.equal(poster.timestampSeconds, 0);
+		assert.deepEqual(fixture.seeks, [0.00025]);
+	} finally { fixture.extractor.dispose(); }
+});
+
 test('video preview capture fences cancellation before seek and after encoding', async () => {
 	const preAborted = await videoExtractorFixture();
 	const earlyController = new AbortController();
@@ -159,7 +245,7 @@ async function videoExtractorFixture(options = {}) {
 		muted: false,
 		playsInline: false,
 		currentTime: 0,
-		duration: 10,
+		duration: options.duration ?? 10,
 		videoWidth: options.videoWidth ?? 640,
 		videoHeight: options.videoHeight ?? 360,
 		addEventListener(type, listener) {
@@ -190,7 +276,16 @@ async function videoExtractorFixture(options = {}) {
 				const canvas = {
 					width: 0,
 					height: 0,
-					getContext() { return { drawImage() { drawCount += 1; } }; },
+					getContext() {
+						return {
+							drawImage() { drawCount += 1; },
+							getImageData(_x, _y, width, height) {
+								const data = new Uint8ClampedArray(width * height * 4);
+								data.set([1, 20, 90, 128]);
+								return { data };
+							},
+						};
+					},
 					toBlob(callback, mimeType) {
 						const complete = () => callback(new Blob([
 							options.encodedBytes == null ? 'thumbnail' : new Uint8Array(options.encodedBytes),
@@ -213,7 +308,7 @@ async function videoExtractorFixture(options = {}) {
 	};
 	const extractor = await createAudioEditorVideoFrameExtractor(
 		new Blob(['video'], { type: 'video/mp4' }),
-		{ document, urlApi, timeoutMs: 100 },
+		{ document, urlApi, timeoutMs: 100, timing: options.timing },
 	);
 	return {
 		extractor,

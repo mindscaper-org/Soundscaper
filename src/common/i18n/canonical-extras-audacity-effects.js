@@ -125,6 +125,7 @@ export const AUDACITY_EFFECT_COPY_ENTRIES = Object.freeze([
 	["effectParamAudacityLimiterKneeWidthDb","Knee width"],
 	["effectParamAudacityLimiterLookaheadMs","Lookahead"],
 	["effectParamAudacityLimiterReleaseMs","Release"],
+	["effectParamAudacityLimiterLimitTruePeaks","Limit True Peaks"],
 	["effectNameAudacityLoudnessNormalization","Loudness Normalization"],
 	["effectParamAudacityLoudnessNormalizationMode","Normalize"],
 	["effectOptionAudacityLoudnessNormalizationModeLufs","Perceived loudness"],

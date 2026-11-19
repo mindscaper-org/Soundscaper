@@ -7,6 +7,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { NIGHTLY_MOTION_FIXTURE_INPUTS } from '../../scripts/lib/desktop-nightly-tests-motion-fixture-inputs.mjs';
+import { NIGHTLY_BROWSER_MEDIA_INPUTS } from '../../scripts/lib/desktop-nightly-tests-browser-media-inputs.mjs';
 import nativeFixtureSources from '../../scripts/lib/desktop-nightly-tests-native-fixture-inputs.cjs';
 
 const BURN_IN_FONT_FILES = [
@@ -58,6 +59,9 @@ export async function createFixture(context) {
 		['LICENSES/Playwright-winldd-MIT.txt', 'WinLDD MIT fixture\n'],
 		['public/logo/soundscaper.svg', '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" viewBox="0 0 8 4"><path d="M0 0h8v4H0z"/></svg>\n'],
 		['functions/download/index.ts', 'export const fixtureHandler = true;\n'],
+		...await Promise.all(['functions/download/audacity/index.ts', 'public/download.css', 'public/audacity-download.css'].map(async source => [
+			source, await readFile(new URL(`../../${source}`, import.meta.url), 'utf8'),
+		])),
 		['playwright.nightly-tests.config.mjs', 'export default {};\n'],
 		['playwright.nightly-metrics.config.mjs', 'export default {};\n'],
 		['playwright.nightly-dual-origin.config.mjs', 'export default {};\n'],
@@ -76,6 +80,7 @@ export async function createFixture(context) {
 		['desktop/nightly-tests-main.mjs', 'export const launcher = true;\n'],
 		...['nightly-tests-control', 'nightly-tests-checkpoint-reporter', 'nightly-tests-pause-reports', 'process-tree-termination'].map((name) => [`desktop/${name}.ts`, 'export const control = true;\n']),
 		['desktop/nightly-tests-assistance-host.mjs', 'export const assistanceHost = true;\n'],
+		['desktop/nightly-tests-editor-host.mjs', 'export const editorHost = true;\n'],
 		['desktop/nightly-tests-assistance.html', '<!doctype html><title>Model tests</title>\n'],
 		['desktop/nightly-tests-manifest.mjs', 'export const manifest = true;\n'],
 		['desktop/nightly-tests-progress-window.mjs', 'export const progressWindow = true;\n'],
@@ -161,6 +166,7 @@ export async function createFixture(context) {
 		['scripts/lib/packaged-executable-resource-identity.mjs', 'export const packagedExecutableResourceIdentity = true;\n'],
 		['scripts/lib/packaged-webassembly-coverage.mjs', 'export const packagedWebAssemblyCoverage = true;\n'],
 		['scripts/lib/browser-product-site-plan.mjs', 'export const sitePlan = true;\n'],
+		...await Promise.all(['release-version.ts', 'release-packaging.ts'].map(async name => [`src/common/release/${name}`, await readFile(new URL(`../../src/common/release/${name}`, import.meta.url), 'utf8')])),
 		['scripts/lib/product-release-lines.mjs', await readFile(new URL('../../scripts/lib/product-release-lines.mjs', import.meta.url), 'utf8')],
 		['config/product-release-lines.json', await readFile(new URL('../../config/product-release-lines.json', import.meta.url), 'utf8')],
 		['scripts/lib/build-source-map-relocation.mjs', 'export const relocation = true;\n'],
@@ -192,6 +198,7 @@ export async function createFixture(context) {
 		['tests/browser/handbook/handbook.spec.js', 'export const handbook = true;\n'],
 		['tests/aup3-fixture.js', 'export const fixture = true;\n'],
 		['tests/helpers/aup4-database-harness.js', await readFile(new URL('./aup4-database-harness.js', import.meta.url), 'utf8')],
+		['tests/helpers/audacity-damaged-overflow-fixture.ts', await readFile(new URL('./audacity-damaged-overflow-fixture.ts', import.meta.url), 'utf8')],
 		['tests/helpers/png-fixture.mjs', await readFile(new URL('./png-fixture.mjs', import.meta.url), 'utf8')],
 		['tests/helpers/read-wave-pcm.ts', await readFile(new URL('./read-wave-pcm.ts', import.meta.url), 'utf8')],
 		['tests/helpers/read-riff-chunks.ts', await readFile(new URL('./read-riff-chunks.ts', import.meta.url), 'utf8')],
@@ -199,20 +206,9 @@ export async function createFixture(context) {
 		['tests/helpers/framescaper-native-sidecar-fixture.ts', await readFile(new URL('./framescaper-native-sidecar-fixture.ts', import.meta.url), 'utf8')],
 		['tests/helpers/libsndfile-rifx-fixture.ts', await readFile(new URL('./libsndfile-rifx-fixture.ts', import.meta.url), 'utf8')],
 		['tests/fixtures/aup4-native-rich.js', 'export const fixture = true;\n'],
-		['tests/fixtures/bwfmetaedit-cp1252-info.wav.base64', 'ordinary BWF MetaEdit fixture\n'],
-		['tests/fixtures/bwfmetaedit-ixml-clock.wav.base64', await readFile(new URL('../fixtures/bwfmetaedit-ixml-clock.wav.base64', import.meta.url), 'utf8')],
-		['tests/fixtures/bwfmetaedit-mid-side.wav.base64', await readFile(new URL('../fixtures/bwfmetaedit-mid-side.wav.base64', import.meta.url), 'utf8')],
-		['tests/fixtures/bwfmetaedit-file-uid.wav.base64', await readFile(new URL('../fixtures/bwfmetaedit-file-uid.wav.base64', import.meta.url), 'utf8')],
-		['tests/fixtures/ffmpeg-libmp3lame-one-second.mp3.base64', await readFile(new URL('../fixtures/ffmpeg-libmp3lame-one-second.mp3.base64', import.meta.url), 'utf8')],
-		...await Promise.all([
-			'ffmpeg-aac-lc-600s-silence.m4a.gz.base64',
-			'ffmpeg-ima-info.wav.base64',
-			'ffmpeg-long-info.wav.gz.base64', 'ffmpeg-short-info.wav.gz.base64',
-			'ffmpeg-mp3-info.wav.base64', 'ffmpeg-pcm-info.wav.base64',
-			'chromium-audio-only.webm.base64', 'libsndfile-float32.aifc.base64',
-			'libsndfile-comment-whitespace.aiff.base64', 'libsndfile-utf8-text.aiff.base64',
-			'libsndfile-zero-based-cues.wav.base64', 'python-uncompressed.aif.base64', 'sox-comt-comment.aiff.base64',
-		].map(async (file) => [`tests/fixtures/${file}`, await readFile(new URL(`../fixtures/${file}`, import.meta.url), 'utf8')])),
+		...await Promise.all(NIGHTLY_BROWSER_MEDIA_INPUTS.map(async ({ source }) => [
+			source, await readFile(new URL(`../../${source}`, import.meta.url)),
+		])),
 		['src/common/editor/example.ts', 'export const source = true;\n'],
 	]) await writeFixtureFile(repositoryRoot, path, body);
 
@@ -232,6 +228,8 @@ export async function createFixture(context) {
 		['playwright', { dependencies: { 'playwright-core': '1.61.1' }, licenses: ['LICENSE', 'NOTICE', 'ThirdPartyNotices.txt'] }],
 		['playwright-core', { licenses: ['LICENSE', 'NOTICE', 'ThirdPartyNotices.txt'] }],
 		['@zip.js/zip.js', { licenses: ['LICENSE'] }],
+		['js-synthesizer', { licenses: ['LICENSE'] }],
+		['libadlmidi-js', { licenses: ['LICENSE'] }],
 		// esbuild resolves its compiled binary from an optional per-platform
 		// dependency, which the closure walk ignores; staging admits the one the
 		// build host installed instead.

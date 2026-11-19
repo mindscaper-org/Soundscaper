@@ -27,7 +27,7 @@ function changesTopology(command: AudioEditorCommand): boolean {
 		case 'clip/move': return command.trackId !== undefined;
 		case 'clip/transform-many': return command.transforms.some(item => item.trackId !== undefined || item.changes.sourceId !== undefined);
 		case 'clip/overwrite': return command.trackId !== undefined || command.changes?.sourceId !== undefined;
-		case 'clip/update': return command.changes.sourceId !== undefined;
+		case 'clip/update': return command.changes.sourceId !== undefined || command.changes.effectsActive === true;
 		case 'track/update':
 		case 'master/update': return command.changes.effectsActive === true;
 		case 'mixer/bus-update': return command.changes.effectsActive === true || command.changes.channelCount !== undefined;
@@ -58,6 +58,8 @@ function changesTopology(command: AudioEditorCommand): boolean {
 		case 'mixer-graph/set':
 		case 'take-comp/flatten':
 		case 'audio-freeze/commit':
+		case 'track/playlist-create':
+		case 'track/playlist-activate':
 		case 'effect/add': return true;
 		default: return false;
 	}

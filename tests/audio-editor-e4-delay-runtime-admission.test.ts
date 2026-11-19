@@ -34,10 +34,12 @@ for (const [pitchShift, mix] of [[0, 1], [2, 0], [2, 1]] as const) test(`native 
 			assert.equal(engine.getState().state, 'playing');
 			assert.equal(context.workletNodes.length, 1);
 			assert.equal(context.workletNodes[0]?.name, 'kw-standard-effect');
+			assert.deepEqual(context.workletNodes[0]?.messages, [{ type: 'suspend-idle-effect-processing', enabled: false }]);
+			const previousMessages = [...context.workletNodes[0]!.messages];
 			const next = { pitchShift: 2, mix: 1 };
 			assert.equal(engine.configureRackEffect('track', 'track-1', 'delay', next), false, 'native-pitch activation must rebuild its changed compensation');
 			assert.equal(wasmRequests, 0);
-			assert.deepEqual(context.workletNodes[0]?.messages, [], 'the old worklet cannot receive an unavailable native runtime');
+			assert.deepEqual(context.workletNodes[0]?.messages, previousMessages, 'the old worklet cannot receive an unavailable native runtime');
 		}
 	} finally {
 		await engine.dispose(); globalThis.fetch = originalFetch;

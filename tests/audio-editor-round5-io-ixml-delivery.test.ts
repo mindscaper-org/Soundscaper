@@ -47,6 +47,25 @@ test('a selected delivery expresses its slate from the beginning of the delivere
 	assert.match(plan.ixml!.rawXml, /<SYNC_POINT_LOW>36000<\/SYNC_POINT_LOW>/u);
 });
 
+test('broadcast deliveries agree with their own BEXT on the redundant iXML timestamp', () => {
+	const originalReference = '2246400000';
+	const media = productionProject();
+	const xml = sourceIxml.rawXml.replace('</SPEED>', '<TIMESTAMP_SAMPLES_SINCE_MIDNIGHT_HI>0</TIMESTAMP_SAMPLES_SINCE_MIDNIGHT_HI>'
+		+ `<TIMESTAMP_SAMPLES_SINCE_MIDNIGHT_LO>${originalReference}</TIMESTAMP_SAMPLES_SINCE_MIDNIGHT_LO>`
+		+ '<TIMESTAMP_SAMPLE_RATE>48000</TIMESTAMP_SAMPLE_RATE></SPEED>');
+	const project = createSoundscaperProject({ ...media, metadata: { ...media.metadata, ixml: parseIxmlPayload(new TextEncoder().encode(xml)) } });
+	const delivery = createExportPlan(project, { format: 'bwf', mode: 'chapters', chapterSource: 'markers', sampleRate: 96_000,
+		bext: { timeReference: originalReference } });
+	for (const output of delivery.outputs) {
+		const chapter = createExportChapterPlan(delivery, output);
+		const reference = BigInt(chapter.bext!.timeReference);
+		assert.match(chapter.ixml!.rawXml, new RegExp(`<TIMESTAMP_SAMPLES_SINCE_MIDNIGHT_HI>${reference >> 32n}</TIMESTAMP_SAMPLES_SINCE_MIDNIGHT_HI>`, 'u'));
+		assert.match(chapter.ixml!.rawXml, new RegExp(`<TIMESTAMP_SAMPLES_SINCE_MIDNIGHT_LO>${reference & 0xffff_ffffn}</TIMESTAMP_SAMPLES_SINCE_MIDNIGHT_LO>`, 'u'));
+		assert.match(chapter.ixml!.rawXml, /<TIMESTAMP_SAMPLE_RATE>96000<\/TIMESTAMP_SAMPLE_RATE>/u);
+	}
+	assert.equal(project.metadata.ixml?.rawXml, xml);
+});
+
 test('split deliveries carry only their own relative sync points and account for their actual metadata size', () => {
 	const plan = createExportPlan(productionProject(), { format: 'bwf', mode: 'chapters', chapterSource: 'markers', sampleRate: 96_000 });
 	assert.equal(plan.outputs.length, 2);

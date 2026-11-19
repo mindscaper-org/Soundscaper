@@ -2,7 +2,7 @@
 
 import { normalizeVideoGeneratorClipV1, normalizeVideoStillClipV1 } from '../common/editor/video-visual-model-v24.ts';
 import type { VideoGeneratorClipV1, VideoStillClipV1 } from '../common/editor/video-visual-model-v24.ts';
-import { rebaseSequenceVisualFrame } from './editor-sequence-visual-rate-conformance.ts';
+import { rebaseSequenceVisualFrame } from '../common/editor/timeline-visual-placement-time.ts';
 import { sampleFrameToVideoFrame } from '../common/editor/timeline-time.ts';
 import type { AudioEditorCommand } from '../common/editor/commands/protocol.ts';
 import type { FramescaperProjectTimelineImage } from './editor-project-timeline-image.ts';

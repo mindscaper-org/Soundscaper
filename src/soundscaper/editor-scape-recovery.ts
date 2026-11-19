@@ -17,6 +17,8 @@ import type { ProjectRecoveryChange } from '../common/editor/project-recovery-re
 import type { FileSizeWarningOptions } from '../common/editor/controller/shared/file-size-warning.ts';
 import { isProjectOpenRecoveryBlocked } from '../common/editor/controller/document/project-open-recovery.ts';
 import type { ScapeProjectAssetExtension } from '../common/editor/scape-project-asset-extension.ts';
+import { extractScapeAudio, type ScapeAudioSource } from '../common/editor/scape-archive-media.ts';
+import { ScapeAudioChunkBudget } from '../common/editor/scape-expanded-byte-budget.ts';
 import { repairSoundscaperProject } from './editor-project-recovery-repair.ts';
 
 export interface SoundscaperScapeRecoveryOptions extends FileSizeWarningOptions {
@@ -43,6 +45,12 @@ export async function recoverSoundscaperScape<Result>(
 		verifyScapeAssetBytes(encoder.encode(envelope.projectText), envelope.manifest.project, 'project document');
 		const original = parseScapeProjectDocument(envelope.projectText, { currentProjectSchemaFamily: 'soundscaper' });
 		if (classifyProjectSchemaIdentity(original, 'soundscaper').disposition !== 'current') return null;
+		const sources: readonly unknown[] = original && typeof original === 'object'
+			&& 'sources' in original && Array.isArray(original.sources) ? original.sources : [];
+		const audioById = new Map<string, ScapeAudioSource>(sources.flatMap(value =>
+			value && typeof value === 'object' && 'kind' in value && value.kind === 'audio'
+				&& 'id' in value && typeof value.id === 'string' ? [[value.id, value as unknown as ScapeAudioSource]] : []));
+		const audioChunkBudget = new ScapeAudioChunkBudget();
 		const available = new Set<string>();
 		const unavailable = new Set<string>();
 		for (const asset of envelope.manifest.assets) {
@@ -51,14 +59,27 @@ export async function recoverSoundscaperScape<Result>(
 			if (!entry?.getData) throw new Error('The recovery archive contains an unreadable entry.');
 			const digest = createDigest();
 			let size = 0, budgetFailure = false;
+			const bounded = <Args extends unknown[]>(consume: (...args: Args) => void) => (...args: Args): void => {
+				try { consume(...args); } catch (error) { budgetFailure = true; throw error; }
+			};
+			const consumeBytes = bounded((length: number, label: string) => {
+				envelope.expandedByteBudget.consume(length, label);
+				if (length > asset.size - size) throw new RangeError('A recovery asset exceeds its declared size.');
+				size += length;
+			});
 			try {
+				const source = asset.kind === 'audio' ? audioById.get(asset.sourceId) : undefined;
+				if (source) {
+					const extracted = await extractScapeAudio(entry, { write: () => Promise.resolve() }, source, signal,
+						{ consume: consumeBytes }, { consume: bounded((id: string) => { audioChunkBudget.consume(id); }) });
+					verifyScapeExtractedAsset(asset, extracted.digest, extracted.size, asset.entry);
+					available.add(asset.sourceId);
+					continue;
+				}
 				await awaitScapeOperation(entry.getData(new WritableStream<Uint8Array>({ write(bytes) {
 					signal?.throwIfAborted();
-					try {
-						envelope.expandedByteBudget.consume(bytes.byteLength, asset.entry);
-						if (bytes.byteLength > asset.size - size) throw new RangeError('A recovery asset exceeds its declared size.');
-					} catch (error) { budgetFailure = true; throw error; }
-					size += bytes.byteLength; digest.update(bytes);
+					consumeBytes(bytes.byteLength, asset.entry);
+					digest.update(bytes);
 				} }), { signal, strictness: 'strict', checkOverlappingEntry: true }), signal);
 				verifyScapeExtractedAsset(asset, hex(digest.digest()), size, asset.entry);
 				available.add(asset.sourceId);
@@ -69,13 +90,10 @@ export async function recoverSoundscaperScape<Result>(
 			}
 		}
 		for (const id of unavailable) available.delete(id);
-		if (original && typeof original === 'object' && 'sources' in original && Array.isArray(original.sources)) {
-			const sources: readonly unknown[] = original.sources;
-			for (const value of sources) {
-				const key = videoTimingKey(value);
-				if (key && !available.has(key) && value && typeof value === 'object' && 'id' in value && typeof value.id === 'string') {
-					available.delete(value.id);
-				}
+		for (const value of sources) {
+			const key = videoTimingKey(value);
+			if (key && !available.has(key) && value && typeof value === 'object' && 'id' in value && typeof value.id === 'string') {
+				available.delete(value.id);
 			}
 		}
 		const repaired = repairSoundscaperProject(original, available);
@@ -86,8 +104,19 @@ export async function recoverSoundscaperScape<Result>(
 		const projectBytes = encoder.encode(serializeScapeProjectDocument(project));
 		const retained = new Set(repaired.project.sources.map(({ id }) => id));
 		const timingKeys = new Set(repaired.project.sources.map(videoTimingKey).filter((key) => key !== null));
+		const extension = options.projectAssetExtension;
+		const verifiedBodies = new Map(envelope.manifest.assets.filter(asset => extension?.assetKinds.includes(asset.kind))
+			.map(asset => [asset.sourceId, asset]));
+		const store = {
+			getMediaAssetMetadata: (id: string) => verifiedBodies.get(id) ?? null,
+			getNativePluginStateBodyMetadata: (id: string) => {
+				const asset = verifiedBodies.get(id);
+				return asset ? { byteLength: asset.size, sha256: asset.sha256 } : null;
+			},
+		};
+		const extensionEntries = new Set((await extension?.planExportAssets({ project, store, signal }))?.map(asset => asset.entry));
 		const assets = envelope.manifest.assets.filter((asset) => asset.kind === 'video-timing'
-			? timingKeys.has(asset.sourceId) : !mediaKinds.has(asset.kind) || retained.has(asset.sourceId));
+			? timingKeys.has(asset.sourceId) : mediaKinds.has(asset.kind) ? retained.has(asset.sourceId) : extensionEntries.has(asset.entry));
 		const manifest = { ...envelope.manifest, assets,
 			project: { ...envelope.manifest.project, size: projectBytes.byteLength, sha256: digestBytes(projectBytes) } };
 		const names = new Set(assets.map(({ entry }) => entry));

@@ -1,11 +1,11 @@
 import { createWavFixture, expect, longTone, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, clipByName, collectClientErrors, importFiles } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, collectClientErrors, importFiles, waitForProjectActivation } from './audio-editor-test-helpers.js';
 
 const spectralTone = createWavFixture({ name: 'spectral-center-tone.wav', frequency: 512, sampleRate: 8_192, duration: 4, channelCount: 1 });
 
 test('Ctrl and Meta wheel on a waveform ruler change only vertical zoom', async ({ page }) => {
 	const errors = collectClientErrors(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [longTone]);
 	const track = clipByName(editor, longTone.name).locator('xpath=ancestor::div[@data-track-row]');
 	const ruler = track.locator('[data-track-ruler]');
@@ -27,9 +27,37 @@ test('Ctrl and Meta wheel on a waveform ruler change only vertical zoom', async 
 	expect(errors).toEqual([]);
 });
 
+test('project tabs with the same track identity keep independent waveform zoom', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await importFiles(editor, [longTone]);
+	const track = clipByName(editor, longTone.name).locator('xpath=ancestor::div[@data-track-row]');
+	const ruler = track.locator('[data-track-ruler]');
+	const trackId = await track.getAttribute('data-track-id');
+	const zoomIn = async () => {
+		await ruler.hover();
+		await page.keyboard.down('Control');
+		await page.mouse.wheel(0, -120);
+		await page.keyboard.up('Control');
+	};
+	await zoomIn();
+	await expect(ruler).toHaveAttribute('data-ruler-zoom', '1');
+	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Duplicate project']);
+	const copy = editor.getByRole('tab', { name: 'Untitled project copy', exact: true });
+	await expect(copy).toHaveAttribute('aria-selected', 'true');
+	await waitForProjectActivation(editor);
+	await expect(track).toHaveAttribute('data-track-id', trackId);
+	await expect(ruler).toHaveAttribute('data-ruler-zoom', '0');
+	await editor.getByRole('tab', { name: 'Untitled project', exact: true }).click();
+	await waitForProjectActivation(editor);
+	await expect(ruler).toHaveAttribute('data-ruler-zoom', '1');
+	await copy.click();
+	await waitForProjectActivation(editor);
+	await expect(ruler).toHaveAttribute('data-ruler-zoom', '0');
+});
+
 test('spectral center drag snaps to selected audio and keeps bandwidth; the menu accepts an exact center', async ({ page }) => {
 	const errors = collectClientErrors(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [spectralTone]);
 	const track = clipByName(editor, spectralTone.name).locator('xpath=ancestor::div[@data-track-row]');
 	await setSpectrogramPreferences(page, editor);
@@ -105,7 +133,7 @@ async function waveformChecksum(waveform) {
 test('spectral center snapping keeps the audible frequency when a clip is looped', async ({ page }) => {
 	const errors = collectClientErrors(page);
 	await page.setViewportSize({ width: 1920, height: 900 });
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [spectralTone]);
 	const clip = clipByName(editor, spectralTone.name);
 	await clip.locator('.clip-header').click();
@@ -139,6 +167,37 @@ test('spectral center snapping keeps the audible frequency when a clip is looped
 	await page.mouse.up();
 	await expect.poll(async () => Number(await center.getAttribute('aria-valuenow'))).toBeCloseTo(512, 0);
 	expect(errors).toEqual([]);
+});
+
+test('spectral frequency handles advertise valid limits for a sub-hertz selection', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await importFiles(editor, [spectralTone]);
+	const clip = clipByName(editor, spectralTone.name);
+	const track = clip.locator('xpath=ancestor::div[@data-track-row]');
+	await track.getByRole('button', { name: 'Track menu', exact: true }).click();
+	const display = page.locator('.audio-editor-track-menu').getByRole('menuitem', { name: /^Track visualization(?:\s|$)/u });
+	await display.focus();
+	await page.keyboard.press('ArrowRight');
+	await display.getByRole('menu').getByRole('menuitem', { name: 'Spectrogram', exact: true }).click();
+	await clip.focus();
+	await page.keyboard.press('Control+a');
+	await openSpectralDialog(page, editor);
+	const dialog = page.getByRole('dialog', { name: 'Spectral selection', exact: true });
+	await dialog.getByRole('textbox', { name: /^Minimum frequency \(Hz\)/u }).fill('100.25');
+	await dialog.getByRole('textbox', { name: /^Maximum frequency \(Hz\)/u }).fill('100.75');
+	await dialog.getByRole('button', { name: 'Select range', exact: true }).click();
+	const minimum = track.getByRole('slider', { name: 'Spectral selection minimum-frequency handle', exact: true });
+	const maximum = track.getByRole('slider', { name: 'Spectral selection maximum-frequency handle', exact: true });
+	await expect(minimum).toHaveAttribute('aria-valuenow', '100.25');
+	await expect(minimum).toHaveAttribute('aria-valuemax', '100.25');
+	await expect(maximum).toHaveAttribute('aria-valuemin', '100.75');
+	await expect(maximum).toHaveAttribute('aria-valuenow', '100.75');
+	await expect(minimum).toHaveAttribute('aria-valuetext', '100.25 Hz');
+	await expect(maximum).toHaveAttribute('aria-valuetext', '100.75 Hz');
+	await minimum.press('End');
+	await maximum.press('Home');
+	await expect(minimum).toHaveAttribute('aria-valuenow', '100.25');
+	await expect(maximum).toHaveAttribute('aria-valuenow', '100.75');
 });
 
 async function openSpectralDialog(page, editor) {

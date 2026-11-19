@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, clipByName, importFiles, showToolbarButton } from './audio-editor-test-helpers.js';
 
 for (const escapeMagnet of [false, true]) test(`the selection drag preview shows its committed grid bounds${escapeMagnet ? ' after Escape releases a magnet' : ''}`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await showToolbarButton(page, editor, 'Snap');
 	await editor.getByRole('checkbox', { name: 'Snap', exact: true }).click();

@@ -8,6 +8,7 @@ export type BrowserWebCodecsAudioCodec = 'aac' | 'opus';
 
 export const BROWSER_AAC_WEB_CODECS_CODEC = 'mp4a.40.2';
 export const BROWSER_OPUS_WEB_CODECS_CODEC = 'opus';
+export const BROWSER_OPUS_WEB_CODECS_SAMPLE_RATE = 48_000;
 
 export interface BrowserWebCodecsAudioGeometry {
 	readonly sampleRate: number;
@@ -22,7 +23,13 @@ export interface BrowserAudioEncoderProbe {
 export function browserWebCodecsAudioConfiguration(
 	codec: BrowserWebCodecsAudioCodec,
 	geometry: BrowserWebCodecsAudioGeometry,
-): Readonly<Record<string, unknown>> {
+): Readonly<{
+	codec: string;
+	sampleRate: number;
+	numberOfChannels: number;
+	bitrate: number;
+	aac?: Readonly<{ format: 'aac' }>;
+}> {
 	const codecString = browserWebCodecsAudioFullCodecString(codec);
 	return Object.freeze({
 		codec: codecString,

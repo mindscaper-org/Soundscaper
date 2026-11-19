@@ -16,6 +16,7 @@ import { createSoundscaperProfessionalNativeToolchainReceipt, soundscaperProfess
 import { soundscaperProfessionalNativeBuildSelfTestsFixture }
 	from './helpers/soundscaper-professional-native-build-result-fixtures.js';
 import sourceRegister from '../config/milestone-5-native-source-acquisitions.json' with { type: 'json' };
+import { bundledNativePlugins } from '../desktop/bundled-native-plugins.ts';
 
 const MANIFEST = 'config/soundscaper-professional-native-payload-manifest.json';
 
@@ -103,6 +104,10 @@ async function createCandidate(root: string, resultRoot: string, sourceRevision:
 		[join(professionalInstallRoot, 'soundscaper_professional.node'), 'addon'],
 		[join(professionalInstallRoot, 'soundscaper_professional_peer'), 'peer'],
 		[join(professionalInstallRoot, 'soundscaper_delivery_fs'), 'delivery'],
+		[join(professionalInstallRoot, 'runtime/effects/soundscaper_juce_effects.clap'), 'effects'],
+		...bundledNativePlugins('linux-x64').filter(plugin => plugin.classification === 'instrument')
+			.map(plugin => [join(professionalInstallRoot, 'runtime', plugin.binaryPath), plugin.id] as const),
+		[join(professionalInstallRoot, 'runtime/instrument-data/surge-xt/wavetables/Fixture.wt'), 'factory-table'],
 		[join(isolationInstallRoot, 'bin/milestone5-native-isolation-launcher'), 'launcher'],
 		[join(isolationInstallRoot, 'profiles/linux-v1.json'), '{}'],
 		[join(isolationInstallRoot, 'profiles/linux-broker-v1.json'), '{}'],

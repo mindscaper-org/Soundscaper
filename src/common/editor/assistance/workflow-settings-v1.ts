@@ -4,6 +4,7 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
+import { speechEnhancementModel, type SpeechEnhancementModelId } from './speech-enhancement-models.ts';
 
 import {
 	normalizeAssistanceWorkflowId,
@@ -30,6 +31,7 @@ export type AssistanceWorkflowSettingsV1 =
 	| (SettingsBase<'identify-speakers'> & Readonly<{ speakerNames: 'anonymous' }>)
 	| (SettingsBase<'enhance-dialogue'> & Readonly<{
 		placement: 'project-bin' | 'replace-selection';
+		modelId?: SpeechEnhancementModelId;
 	}>)
 	| (SettingsBase<'reduce-reverb'> & Readonly<{
 		placement: 'project-bin' | 'replace-selection';
@@ -141,9 +143,14 @@ export function validateAssistanceWorkflowSettingsV1(
 			literal(row.speakerNames, 'anonymous', 'speaker naming');
 			return Object.freeze({ settingsVersion: 1, workflowId, speakerNames: 'anonymous' });
 		case 'enhance-dialogue':
-			exact(row, ['settingsVersion', 'workflowId', 'placement']);
+			exact(row, ['settingsVersion', 'workflowId', 'placement',
+				...(Object.hasOwn(row, 'modelId') ? ['modelId'] : [])]);
+			if (Object.hasOwn(row, 'modelId') && !speechEnhancementModel(row.modelId)) {
+				throw new TypeError('The enhancement model is unsupported.');
+			}
 			return Object.freeze({ settingsVersion: 1, workflowId,
-				placement: oneOf(row.placement, ['project-bin', 'replace-selection'], 'enhancement placement') });
+				placement: oneOf(row.placement, ['project-bin', 'replace-selection'], 'enhancement placement'),
+				...(Object.hasOwn(row, 'modelId') ? { modelId: row.modelId as SpeechEnhancementModelId } : {}) });
 		case 'reduce-reverb':
 			exact(row, ['settingsVersion', 'workflowId', 'placement']);
 			return Object.freeze({ settingsVersion: 1, workflowId,

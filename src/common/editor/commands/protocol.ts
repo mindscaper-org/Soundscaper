@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { SUBPROJECT_COMMAND_TYPES, type SubprojectCommandPayloads } from './subproject.ts';
 import type { TimelineAnnotationV11 } from '../timeline-annotation.ts';
+import { TRACK_PLAYLIST_COMMAND_TYPES, type TrackPlaylistCommandPayloads } from './track-playlist.ts';
+import { SESSION_SNAPSHOT_COMMAND_TYPES, type SessionSnapshotCommandPayloads } from './session-snapshot.ts';
 import type { VideoClipComposition } from '../video-clip-composition.ts';
 import { AUDIO_PRODUCTION_COMMAND_TYPES, type AudioProductionCommandPayloads } from './audio-production.ts';
 import { MASTERING_SEQUENCE_COMMAND_TYPES, type MasteringSequenceCommandPayloads } from './mastering-sequence.ts';
@@ -30,6 +33,9 @@ import type { VideoKeyframesSetCommandPayload } from './video-keyframes-command-
  * payload map and exactly one domain registry must be updated.
  */
 export const AUDIO_EDITOR_COMMAND_TYPES = [
+	...TRACK_PLAYLIST_COMMAND_TYPES,
+	...SUBPROJECT_COMMAND_TYPES,
+	...SESSION_SNAPSHOT_COMMAND_TYPES,
 	...MIDI_COMMAND_TYPES,
 	'batch',
 	'project/rename',
@@ -426,6 +432,9 @@ type LegacyNonBatchAudioEditorCommandPayloads = {
 };
 
 type NonBatchAudioEditorCommandPayloads = LegacyNonBatchAudioEditorCommandPayloads
+	& TrackPlaylistCommandPayloads
+	& SubprojectCommandPayloads
+	& SessionSnapshotCommandPayloads
 	& MidiCommandPayloads
 	& AudioProductionCommandPayloads
 	& MasteringSequenceCommandPayloads;

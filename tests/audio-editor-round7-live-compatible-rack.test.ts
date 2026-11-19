@@ -31,12 +31,13 @@ for (const [type, change, topology] of [
 			const graph = runtime.graph;
 			assert.equal(engine.configureRackEffect('track', 'track-1', 'continuous-1', change, { revision: 4 }), 4);
 			assert.equal(runtime.graph, graph);
-			assert.deepEqual(node.messages, [{ type: 'params', params: { ...effect.params, ...change }, revision: 4, sequence: 4 }]);
+			assert.deepEqual(node.messages, [{ type: 'suspend-idle-effect-processing', enabled: false },
+				{ type: 'params', params: { ...effect.params, ...change }, revision: 4, sequence: 4 }]);
 			if (topology) {
 				const previous = runtime.project;
 				assert.equal(engine.configureRackEffect('track', 'track-1', 'continuous-1', topology, { revision: 5 }), false);
 				assert.equal(runtime.project, previous);
-				assert.equal(node.messages.length, 1);
+				assert.equal(node.messages.length, 2);
 			}
 		} finally {
 			await engine.dispose();

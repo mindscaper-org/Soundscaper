@@ -36,6 +36,7 @@ export type CaptureProxyScheduler = NonNullable<FramescaperCaptureDerivativeSche
 export interface CaptureProxyCompositionPorts {
 	readonly runtime: VideoProxyCandidateRuntime | null | undefined;
 	readonly helperTimingProbe: VideoProxyCandidateCompositionOptions['helperTimingProbe'];
+	readonly recordPersistedSnapshot?: NonNullable<FramescaperCaptureAppBindingOptions['recordPersistedSnapshot']>;
 	readonly quiesceProjectSaves: ReturnType<typeof createFramescaperCaptureProxySaveQuiescence>;
 	readonly synchronizeActiveProject: ReturnType<typeof createFramescaperCaptureProxyActiveProjectSynchronizer>;
 }
@@ -62,8 +63,10 @@ export function createCaptureComposition<Binding>(
 ) {
 	if (!runtime) return Object.freeze({ binding: null, proxyScheduler: null });
 	const dependencies = getDependencies(runtime);
+	const { recordPersistedSnapshot } = dependencies.app;
 	const proxyScheduler = dependencies.proxy.createScheduler?.({
 		runtime: dependencies.proxy.runtime, helperTimingProbe: dependencies.proxy.helperTimingProbe,
+		...(recordPersistedSnapshot ? { recordPersistedSnapshot } : {}),
 		quiesceProjectSaves: runtime.createProxySaveQuiescence(dependencies.proxy.saves),
 		synchronizeActiveProject: runtime.createProxyActiveProjectSynchronizer(dependencies.proxy.activeProject),
 	}) ?? null;

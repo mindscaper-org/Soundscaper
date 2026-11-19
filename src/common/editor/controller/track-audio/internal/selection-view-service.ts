@@ -437,8 +437,10 @@ export function createSelectionViewService<
 		const generation = ++zeroCrossingGeneration;
 		const projectToken = runtime.captureProject?.();
 		const radius = Math.max(1, Math.round(projectSampleRate() * 0.01));
-		const renderStart = Math.max(0, selection.startFrame - radius);
-		const renderEnd = Math.min(projectDurationFrames(projectAtStart), selection.endFrame + radius);
+		// Each candidate needs its predecessor to detect a sign change. The
+		// render end is exclusive, even though the search radius is inclusive.
+		const renderStart = Math.max(0, selection.startFrame - radius - 1);
+		const renderEnd = Math.min(projectDurationFrames(projectAtStart), selection.endFrame + radius + 1);
 		if (renderEnd <= renderStart) return null;
 		state.analysisProcessing = true;
 		publishDocumentSnapshot();
@@ -489,7 +491,7 @@ export function createSelectionViewService<
 
 	function setZoom(
 		pixelsPerSecond: unknown,
-		options: Readonly<{ allowBelowProjectFit?: boolean }> = {},
+		options: Readonly<{ allowBelowProjectFit?: boolean }> = { allowBelowProjectFit: true },
 	) {
 		const project = getProject();
 		if (!project) return state.pixelsPerSecond;

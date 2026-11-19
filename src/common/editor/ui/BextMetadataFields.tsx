@@ -9,6 +9,7 @@ import {
 	createDraftBlurCommitGuard,
 	draftBlurShouldCommit,
 } from './draft-blur-commit.ts';
+import EditorControlLabel from './EditorControlLabel.tsx';
 
 type BextTextFieldName = 'description' | 'originator' | 'originatorReference'
 	| 'originationDate' | 'originationTime' | 'timeReference' | 'umid' | 'codingHistory';
@@ -73,7 +74,7 @@ function DraftField({
 	};
 	return (
 		<label>
-			<span>{label}</span>
+			<EditorControlLabel>{label}</EditorControlLabel>
 			{multiline ? (
 				<textarea
 					name={name}
@@ -144,7 +145,7 @@ export function BextMetadataFields({ value, copy, disabled = false, onCommit }: 
 	return (
 		<div className="audio-editor-bext-fields" data-bext-metadata-editor>
 			<label>
-				<span>{copy.bextVersion}</span>
+				<EditorControlLabel>{copy.bextVersion}</EditorControlLabel>
 				<input name="version" value="2" readOnly aria-readonly="true" />
 			</label>
 			{textFields.map((field) => (

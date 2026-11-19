@@ -20,7 +20,7 @@ export async function renderLinkedClipAudio(
 	const preview = { ...createAudioPreviewProject({ sampleRate: project.sampleRate, masterChannels: channelCount,
 		sources: [source], tracks: [{ id: 'linked-render', type: 'audio', name: 'Clip', channelCount, clipIds: [clip.id] }],
 		clips: [{ ...clip, anchor: 'sample', musicalStartBeat: null, musicalDurationBeats: null, musicalExtent: 'fixedSamples',
-			timelineStartFrame: 0, gain: 1, inverted: false, envelope: [], fadeInFrames: 0, fadeOutFrames: 0,
+			timelineStartFrame: 0, gain: 1, inverted: false, envelope: [], fadeInFrames: 0, fadeOutFrames: 0, effectsActive: false,
 			groupId: null, avLinkId: null, binItemId: null, pitchCents: 0, linkPitchAndTempo: true,
 			warpMap: clipSourcePreviewWarpMap(project as unknown as ClipSourceTimingProject, clip,
 				{ sampleRate: Number(source.sampleRate), frameCount: Number(source.frameCount) }),

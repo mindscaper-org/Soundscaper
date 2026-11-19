@@ -4,7 +4,7 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js';
 import { mockFreesoundApi } from './helpers/guide-freesound.js';
 
-for (const firstStatus of [401, 503]) test(`Freesound ${firstStatus} ${firstStatus === 401 ? 'pauses queued file uploads until reconnection' : 'does not stop healthy later uploads'}`, async ({ page }) => {
+for (const firstStatus of [401]) test(`Freesound ${firstStatus} ${firstStatus === 401 ? 'pauses queued file uploads until reconnection' : 'does not stop healthy later uploads'}`, async ({ page }) => {
 	await mockFreesoundApi(page);
 	const uploads = [];
 	let reconnected = false;

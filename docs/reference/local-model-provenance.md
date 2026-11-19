@@ -84,7 +84,7 @@ the zero-network alternative.
 
 ## Offered speech and audio models
 
-The current catalog contains 22 published identities. The table states the
+The current catalog contains 25 published identities. The table states the
 maintained decision, not every possible replacement.
 
 | Catalog id | Use | Code / weights | Decision |
@@ -97,6 +97,9 @@ maintained decision, not every possible replacement.
 | `pyannote-segmentation-3.0` | Speaker segmentation | MIT / MIT | Uses the reviewed ungated Sherpa mirror, never the gated upstream URL at install time |
 | `speech-3d-speaker-eres2net` | Speaker embeddings | Apache-2.0 / Apache-2.0 | Forms the admitted diarization pair with pyannote segmentation |
 | `deepfilternet3` | 48 kHz speech enhancement | MIT OR Apache-2.0 / same | Channel-preserving cleanup model |
+| `gtcrn` | Lightweight 16 kHz speech denoise | MIT / MIT | Official streaming ONNX checkpoint, identity-mirrored with Sherpa metadata |
+| `dpdfnet2-48khz` | Full-band speech enhancement | Apache-2.0 / Apache-2.0 | Reviewed 48 kHz HR graph; retains GPU selection and CPU fallback on provider failure |
+| `voxlock` | Target-speaker isolation | Apache-2.0 / Apache-2.0 | Matched enrollment and int8 chunk graphs; one shared voice reference across all selected channels |
 | `tiger-dnr` | Dialogue/Music/Effects separation | MIT / Apache-2.0 | Repository-owned ONNX core with owned spectral processing |
 | `panns-cnn10` | AudioSet reaction and event tagging | MIT / MIT | Pins the official 527-class map and records the lack of separate checkpoint terms |
 | `beat-this-small0` | CPU beat/downbeat baseline | MIT / MIT | Default beat tracker |
@@ -110,7 +113,7 @@ training and jittery native timing make it unsuitable as the sole filler and
 karaoke authority. The planted-filler fixture, not a general reputation claim,
 decides which ASR a filler recipe may use.
 
-GTCRN, RNNoise, low-disk Whisper variants, and a fine-tuned
+RNNoise, low-disk Whisper variants, and a fine-tuned
 highlight classifier are not hidden prerequisites. They are outside the
 current offered set.
 
@@ -177,7 +180,7 @@ Runtime, whisper.cpp, llama.cpp, and Kokoro G2P closures they need; packages
 that omit a closure report typed unavailability rather than borrowing another
 target's evidence or substituting an engine.
 
-`config/local-model-real-test-cases.json` contains 20 cases covering all 22
+`config/local-model-real-test-cases.json` contains 23 cases covering all 25
 published model identities. The generated handbook pages derive their purpose,
 fixture, validation, engine availability, and test explanation from that
 manifest and the catalog. Nightly-with-tests installs through Model Manager and

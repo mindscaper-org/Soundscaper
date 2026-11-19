@@ -6,7 +6,7 @@ import { registerNyquistArchivePublication } from './helpers/nyquist-archive-pub
 
 test('installed Nyquist effects can be removed when the remote catalog is unavailable', async ({ page }) => {
 	await registerNyquistArchivePublication(page, ['HQ-Tone.ny']);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	let menu = await openNestedCommandMenu(page, editor, 'Effect', ['Nyquist']);
 	await menu.getByRole('menuitem', { name: 'Get effects', exact: true }).click();
 	let catalog = page.getByRole('dialog', { name: 'Get effects', exact: true });

@@ -26,7 +26,7 @@ export function renderApplicationMenuItem(item, key, { closeMenu, onActivate = /
 	const labelContent = item.id === 'nyquist-effects'
 		? <span data-nyquist-effect-menu>{item.label}</span> : item.label;
 	const plainLabel = item.disabledReason ? (
-		<span title={item.disabledReason} data-disabled-reason={item.disabledReason}>
+		<span data-disabled-reason={item.disabledReason}>
 			{labelContent}
 			<span className="kw-audio-editor-sr-only"> — {item.disabledReason}</span>
 		</span>
@@ -37,6 +37,7 @@ export function renderApplicationMenuItem(item, key, { closeMenu, onActivate = /
 	return (
 		<ContextMenuItem
 			key={item.id || key}
+			tooltipKey={item.id}
 			label={label}
 			shortcut={item.shortcut}
 			disabled={item.disabled}

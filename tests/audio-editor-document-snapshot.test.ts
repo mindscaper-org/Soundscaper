@@ -11,6 +11,7 @@ import { createCurrentAudioEditorProject } from '../src/common/editor/project-cu
 import { createEditorHistory } from '../src/common/editor/history.js';
 import { DEFAULT_SOUND_ACTIVATION_PREFERENCES } from '../src/common/editor/sound-activation-preferences.ts';
 import { exposeOwnedFields } from '../src/common/editor/controller/shared/owned-state.ts';
+import { recordScapeArchiveManifest } from '../src/common/editor/controller/document/internal/scape/scape-archive-manifest-action.ts';
 
 const SOUND_ACTIVATION_SNAPSHOT = Object.freeze({
 	preferences: DEFAULT_SOUND_ACTIVATION_PREFERENCES,
@@ -28,7 +29,7 @@ const CAPTURE_SNAPSHOT = Object.freeze({
 	monitoring: false, inputGain: 1, elapsedTimeMs: 1_250, metrics: Object.freeze([]),
 });
 
-test('document snapshots expose durability, scheduling, history, and compatibility semantically', () => {
+test('document snapshots expose durability, scheduling, history, and compatibility semantically', async () => {
 	const project: SnapshotProject = {
 		id: 'project',
 		selection: { startFrame: 10, endFrame: 20 },
@@ -50,13 +51,14 @@ test('document snapshots expose durability, scheduling, history, and compatibili
 		lastAudacityEffect: { type: 'audacity-noise-reduction', params: {}, controlTrackId: null },
 		lastAnalysisRequest: { type: 'spectrum', scope: 'master', options: {} },
 		recordingKind: 'take-cycle',
-		archiveManifest: { manifest: { members: [{ id: 'project.json' }] }, unavailable: null },
 		takeCycleRecovery: Object.freeze({
 			kind: 'take-cycle-pending-open-recovery', projectId: 'project',
 			publicationGeneration: 4, recoveryToken: 'recover-4', draftCount: 2,
 			requiresDecision: true,
 		}),
 	});
+	const archive = await recordScapeArchiveManifest({ state }, { projectId: project.id,
+		archive: null, fileName: 'Project.sscape', signal: new AbortController().signal });
 	const snapshot = createEditorDocumentSnapshot({
 		state,
 		product: { id: 'soundscaper' },
@@ -151,12 +153,7 @@ test('document snapshots expose durability, scheduling, history, and compatibili
 	assert.deepEqual(snapshot.timeline.trackChannelHeightRatios, { track: 0.7 });
 	assert.equal(Object.isFrozen(snapshot.timeline.trackChannelHeightRatios), true);
 	assert.equal(snapshot.storage.ephemeral, true);
-	// The File entry that saves the archive's checksums is enabled from this, so a
-	// manifest that never reached the snapshot left that entry disabled for the
-	// whole session with no reason shown.
-	assert.deepEqual(snapshot.archiveManifest, {
-		manifest: { members: [{ id: 'project.json' }] }, unavailable: null,
-	});
+	assert.equal(snapshot.archiveManifest, archive);
 	assert.deepEqual(snapshot.aup4Compatibility, {
 		report: { direction: 'import' }, dismissed: true,
 	});

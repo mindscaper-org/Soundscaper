@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { bindIdleEffectContext } from './idle-effect-host.ts';
 
 import { disposeEngine, disposeEngineResources } from './disposal.ts';
 import { createEngineRealtimeContext, prepareAutomaticRealtimeSampleRate, prepareRealtimeSampleRate } from './realtime-sample-rate.ts';
@@ -305,7 +306,7 @@ async getAudioContext({ resume = true, sampleRate } = {}) {
 		this[ENGINE_ASSERT_ACTIVE]();
 		if (sampleRate !== undefined) await prepareRealtimeSampleRate(this, sampleRate);
 		const context = await this[ENGINE_GET_CONTEXT]();
-		if (sampleRate !== undefined && context.sampleRate !== sampleRate) throw new RangeError(`Audio context cannot capture at ${sampleRate} Hz.`);
+		if (sampleRate != null && context.sampleRate !== sampleRate) throw new RangeError(`Audio context cannot capture at ${sampleRate} Hz.`);
 		this[ENGINE_ASSERT_ACTIVE]();
 		if (resume) await context.resume?.();
 		this[ENGINE_ASSERT_ACTIVE]();
@@ -379,6 +380,7 @@ async [ENGINE_GET_CONTEXT]() {
 			throw new AudioEditorEngineDisposedError();
 		}
 		this.context = context;
+		bindIdleEffectContext(this, context);
 		if (this.project && !isBorrowedRealtimeContext(this, context)) {
 			configureNativeSurroundDestination(context.destination, Number(this.project.masterChannels) || 2);
 		}

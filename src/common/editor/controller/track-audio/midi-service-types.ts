@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import type { MidiInstrument, MidiNote } from '../../midi-model.ts';
+import type { MidiClipData, MidiInstrument, MidiNote, MidiPreviewTarget } from '../../midi-model.ts';
 import type { MidiFileDocument } from '../../midi-file-types.ts';
 import type { ProjectChangedOptions } from '../document/project-mutation-service.ts';
 import type { AudioEditorCommand } from '../../commands/protocol.ts';
@@ -28,10 +28,11 @@ export interface MidiServiceDependencies {
 	readonly trackName: () => string;
 	readonly clipName: () => string;
 	readonly store: Readonly<{
+		writeMidiSource?(id: string, recipe: Readonly<{ data: MidiClipData; instrument: MidiInstrument; sampleRate: number }>, metadata: Readonly<Record<string, unknown>>): Promise<Readonly<Record<string, unknown>>>;
 		beginSourceWrite(id: string, metadata: Readonly<Record<string, unknown>>): Promise<MidiSourceWriter>;
 		deleteSource(id: string): Promise<unknown>;
 	}>;
-	previewNote(pitch: number, instrument: MidiInstrument, signal?: AbortSignal): Promise<void>;
+	previewNote(pitch: number, instrument: MidiInstrument, signal?: AbortSignal, data?: MidiClipData): Promise<void>;
 	saveFile(request: Readonly<Record<string, unknown>>): Promise<unknown> | unknown;
 	publishDeliveryReport?(report: DeliveryReport): void;
 }
@@ -63,7 +64,7 @@ export interface MidiService {
 	deleteNotes(clipId: string, noteIds: readonly string[]): Promise<void>;
 	resizeClip(clipId: string, changes: MidiClipResize): Promise<void>;
 	setInstrument(trackId: string, instrument: MidiInstrument): Promise<void>;
-	previewNote(pitch: number, instrument?: MidiInstrument, signal?: AbortSignal): Promise<void>;
+	previewNote(pitch: number, instrument?: MidiInstrument, signal?: AbortSignal, target?: MidiPreviewTarget): Promise<void>;
 	importDocument(document: MidiFileDocument, options?: Readonly<{ timelineStartFrame?: number; destination?: 'timeline' | 'project-bin'; signal?: AbortSignal }>): Promise<readonly MidiImportedClip[]>;
-	exportFile(format: 'midi' | 'allegro'): Promise<unknown>;
+	exportFile(format: 'midi' | 'allegro', isOriginCurrent?: () => boolean): Promise<unknown>;
 }

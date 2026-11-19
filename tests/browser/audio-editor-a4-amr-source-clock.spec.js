@@ -17,7 +17,9 @@ async function exportFloatWave(page, editor) {
 	return readDownloadBytes(page, link);
 }
 
-for (const format of ['amrwb', 'wav']) test(`native ${format} retains authored16k PCM and extent through File Import, Save and WAV export`, async ({ page, browser }) => {
+// Shared PCM controls run in audio-editor-pcm-source-clock-render.test.ts and
+// audio-editor-pcm-source-clock.spec.js; retain each codec and native fallback.
+for (const format of ['amrwb']) test(`native ${format} retains authored16k PCM and extent through File Import, Save and WAV export`, async ({ page, browser }) => {
 	test.setTimeout(60_000);
 	await page.addInitScript(() => {
 		const Native = globalThis.AudioContext;
@@ -30,13 +32,12 @@ for (const format of ['amrwb', 'wav']) test(`native ${format} retains authored16
 		} });
 	});
 	const { file: original, channels } = nativeAmrwbFixture();
-	const file = format === 'amrwb' ? original : new File([Uint8Array.from(encodeWav(channels, { sampleRate: 16_000, bitDepth: 32, float: true }))], 'Control.wav', { type: 'audio/wav' });
+	const file = original;
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	const native = await page.evaluate(async bytes => {
 		try { const buffer = await new OfflineAudioContext(1, 1, 16_000).decodeAudioData(Uint8Array.from(bytes).buffer);
 			return [0].map(channel => [...buffer.getChannelData(channel)]); } catch { return null; }
 	}, [...new Uint8Array(await file.arrayBuffer())]);
-	if (format === 'wav') expect(native).not.toBeNull();
 	test.skip(format === 'amrwb' && native === null, 'This native platform does not decode AMR-WB; no decoder is added.');
 	expect(native[0]).toHaveLength(4800);
 	let error = 0;

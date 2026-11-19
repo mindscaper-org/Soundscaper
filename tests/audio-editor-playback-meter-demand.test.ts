@@ -25,6 +25,7 @@ test('production sampling reads only demanded strips and resumes newly visible s
 	sampleProductionMeterSessionV21(owner, project, banks, null, demand);
 	assert.equal(visible.reads(), 1);
 	assert.equal(hidden.reads(), 0, 'hidden idle strips must not read or transfer PCM');
+	assert.equal(hidden.sizeReads(), 0, 'hidden analyser banks do not need their channel costs');
 	demand.add(canonicalStripRefKey(hidden.value.strip));
 	sampleProductionMeterSessionV21(owner, project, banks, null, demand);
 	assert.equal(hidden.reads(), 1, 'a newly visible strip is sampled on the next shared tick');
@@ -131,15 +132,15 @@ function samplingHost(banks: ReadonlyMap<string, StripMeterAnalyserBankV21>, tra
 
 function bank(strip: StripRef) {
 	const analyser = countedAnalyser(0.5);
-	return { reads: analyser.reads, value: {
+	return { reads: analyser.reads, sizeReads: analyser.sizeReads, value: {
 		strip, output: {} as AudioNode, channelLabels: ['M'], analysers: [analyser.value],
 	} satisfies StripMeterAnalyserBankV21 };
 }
 
 function countedAnalyser(peak: number) {
-	let reads = 0;
-	return { reads: () => reads, value: {
-		fftSize: 256,
+	let reads = 0, sizeReads = 0;
+	return { reads: () => reads, sizeReads: () => sizeReads, value: {
+		get fftSize() { sizeReads++; return 256; },
 		getFloatTimeDomainData(output: Float32Array): void { reads++; output.fill(peak); },
 	} as unknown as AnalyserNode };
 }

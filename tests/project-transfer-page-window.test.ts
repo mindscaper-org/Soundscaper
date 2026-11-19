@@ -136,11 +136,6 @@ test('re-listing projects cannot replace the selection named by a pending confir
 		const secondListing = new FakeStore([
 			{ id: 'video-new', title: 'Relisted cut', schemaFamily: 'framescaper', schemaVersion: 1 },
 		] as never);
-		const exportingStore = new FakeStore([
-			{ id: 'video-old', title: 'Confirmed cut', schemaFamily: 'framescaper', schemaVersion: 1 },
-			{ id: 'video-new', title: 'Relisted cut', schemaFamily: 'framescaper', schemaVersion: 1 },
-		] as never);
-		const receivingStore = new FakeStore();
 		const runtime = runtimeFor(createFakeArchive());
 		let opened = 0;
 
@@ -152,7 +147,7 @@ test('re-listing projects cannot replace the selection named by a pending confir
 				loadRuntime: async () => runtime,
 				openStore: async () => ({
 					id: 'fake', label: 'Fake',
-					store: [firstListing, secondListing, exportingStore][opened++]!,
+					store: [firstListing, secondListing][opened++]!,
 					close: async () => undefined,
 				}) as never,
 			},
@@ -171,21 +166,12 @@ test('re-listing projects cannot replace the selection named by a pending confir
 		await sender.document.clickButton(/^Yes, send/u);
 		await settle();
 
-		const receiving = receiveTransferArchives({
-			runtime,
-			store: receivingStore,
-			port: createWindowTransferPort({
-				peer: sender, listener: popup, allowedOrigins: [...CONFIGURATION.allowedOrigins],
-				expectedSource: sender,
-			}),
-			sessionId: 'confirmation-listing-race',
-			targetOrigin: SOUNDSCAPER,
-			allowedOrigins: [...CONFIGURATION.allowedOrigins],
-			clock: boundedClock(),
-		});
-		await receiving;
+		assert.match(sender.document.statusText(), /project list changed/u);
+		assert.equal(sender.opened, 0);
+		await sender.document.clickButton(/^Send /u);
 		await settle();
-		assert.deepEqual([...receivingStore.projects.keys()], ['video-old']);
+		assert.match(sender.document.querySelector('[data-transfer-confirm]')?.textContent ?? '', /Relisted cut/u);
+		await sender.document.clickButton('Cancel');
 	});
 });
 
@@ -252,7 +238,7 @@ test('one sender confirmation owns the popup until its run settles and always re
 	await settle();
 	await sender.document.clickButton(/^Send /u);
 	await settle();
-	assert.match(sender.document.statusText(), /already.*confirmation|already.*progress/iu);
+	assert.match(sender.document.statusText(), /Wait for the current project transfer to finish/u);
 	assert.equal(
 		confirmationButtons(sender, /^Yes, send/u).filter(({ disabled }) => !disabled).length,
 		0,

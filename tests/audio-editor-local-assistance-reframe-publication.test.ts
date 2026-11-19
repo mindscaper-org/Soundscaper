@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { planAssistanceReframePathV1 } from '../src/common/editor/assistance/reframe-planner-v1.ts';
 import type { AssistanceWorkflowFenceV1 } from
 	'../src/common/editor/assistance/workflow.ts';
 import { createSetVideoKeyframesCommand } from '../src/common/editor/commands/factories.ts';
@@ -16,6 +17,7 @@ import {
 	registerVideoTimingIndex,
 	unregisterVideoTimingIndex,
 } from '../src/common/editor/video-source-time.ts';
+import { normalizeVideoSourceCharacteristicsV25 } from '../src/common/editor/video-source-professional-characteristics-v25.ts';
 import {
 	createVideoTimingAssetPublication,
 	validateVideoTimingAssetBytes,
@@ -45,7 +47,7 @@ import {
 const PROFILE = FRAMESCAPER_ASSISTANCE_PROJECT_RUNTIME_PROFILE;
 const NOW = '2026-08-26T15:00:00.000Z';
 
-function project(): FramescaperProjectAssistance {
+function project(videoSourceOverrides: Readonly<Record<string, unknown>> = {}): FramescaperProjectAssistance {
 	const options = structuredClone(framescaperV20Options());
 	options.id = 'reframe-project';
 	options.title = 'Reframe project';
@@ -54,6 +56,8 @@ function project(): FramescaperProjectAssistance {
 		startFrame: 0, endFrame: 48_000, trackIds: ['video-track'], clipIds: ['video-clip'],
 		frequencyRange: null, annotationIds: [],
 	};
+	options.sources = records(options.sources).map(source => source.id === 'video-source'
+		? { ...source, ...videoSourceOverrides } : source);
 	const created = createFramescaperProjectAssistance(PROFILE, options as never);
 	const clip = records(created.clips).find(({ id }) => id === 'video-clip')!;
 	return applyFramescaperProjectCommandAssistance(PROFILE, created, createSetVideoKeyframesCommand(
@@ -194,6 +198,28 @@ test('Reframe publishes one ordinary F31 batch, preserves unrelated curves, and 
 
 	session.history = undoFramescaperProjectCommandAssistance(PROFILE, session.history, { now: NOW });
 	assert.deepEqual(session.history.present.clips, initial.clips);
+});
+
+test('Reframe applies the vertical crop reviewed against authored portrait geometry', async () => {
+	const initial = project({ width: 144, height: 192,
+		characteristics: normalizeVideoSourceCharacteristicsV25({ codedWidth: 192, codedHeight: 144,
+			rotationDegrees: 270, pixelAspectRatio: { num: 2, den: 1 } }),
+	});
+	const session = harness(initial);
+	const baseResult = result();
+	const sourceSize = { width: 144, height: 384 };
+	const targetAspect = baseResult.path.targetAspect;
+	const planned = planAssistanceReframePathV1({ sourceSize, targetAspect,
+		samples: baseResult.authority.frames.map(({ sourceFrame }) => ({ sourceFrame, subjects: [], saliency: null })) });
+	const keyframes = planned.map(({ sourceFrame, authority, trackIds, crop }) => ({ sourceFrame, authority, trackIds, crop }));
+	await session.publication.acceptReviewed({ fence: fence(initial), result: { ...baseResult,
+		authority: { ...baseResult.authority, ...sourceSize }, path: { ...baseResult.path, keyframes } } });
+	const clip = records(session.history.present.clips).find(({ id }) => id === 'video-clip')!;
+	const { crop } = clip.videoComposition as { crop: { left: number; right: number; top: number; bottom: number } };
+	assert.equal(session.commits, 1);
+	assert.deepEqual([crop.left, crop.right], [0, 0]);
+	assert.ok(crop.top > 0 && crop.bottom > 0);
+	assert.ok(Math.abs(144 / (384 * (1 - crop.top - crop.bottom)) - 9 / 16) < 1e-6);
 });
 
 test('Reframe revalidates both aggregate and selected-video authority before commit', async () => {

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { normalizeFramescaperImageClipV1, type FramescaperImageClipV1 } from '../common/editor/timeline-image-model.ts';
-import { rebaseSequenceVisualFrame } from './editor-sequence-visual-rate-conformance.ts';
+import { rebaseSequenceVisualFrame } from '../common/editor/timeline-visual-placement-time.ts';
 import { sampleFrameToVideoFrame } from '../common/editor/timeline-time.ts';
 import type { AudioEditorCommand } from '../common/editor/commands/protocol.ts';
 import type { FramescaperProjectTimelineImage } from './editor-project-timeline-image.ts';
@@ -15,12 +15,19 @@ export function prepareTimelineImageMoveCommand(project: FramescaperProjectTimel
 		.map(clip => [clip.id, normalizeFramescaperImageClipV1(clip)]));
 	const owners = new Map<string, string>(project.tracks.flatMap(track => (Array.isArray(track.clipIds)
 		? track.clipIds as readonly string[] : []).map(clipId => [clipId, track.id] as const)));
+	const sequences = new Map(project.sequences.map(sequence => [sequence.id, sequence]));
+	const trackSequences = new Map(project.sequences.flatMap(sequence => sequence.trackIds.map(id => [id, sequence.id] as const)));
 	return visit(command);
 
 	function visit(value: FramescaperProjectCommandTimelineImage): FramescaperProjectCommandTimelineImage {
 		if (value.type === 'batch') {
 			const batch = value as FramescaperProjectCommandBatchTimelineImage;
 			return { ...batch, commands: batch.commands.map(visit) };
+		}
+		if (value.type === 'track/add') {
+			const { track, sequenceId } = value as Extract<AudioEditorCommand, { type: 'track/add' }>;
+			if (typeof track.id === 'string') trackSequences.set(track.id, sequenceId ?? project.primarySequenceId);
+			return value;
 		}
 		if (value.type === 'image-clip/set') {
 			const mutation = value as FramescaperImageClipSetCommandTimelineImage;
@@ -56,10 +63,9 @@ export function prepareTimelineImageMoveCommand(project: FramescaperProjectTimel
 		const owner = owners.get(clipId);
 		if (!owner) throw new ReferenceError('A timeline image move requires a timeline track owner.');
 		const trackId = requestedTrackId ?? owner;
-		const sequence = project.sequences.find(item => item.trackIds.includes(trackId))
-			?? project.sequences.find(item => item.id === expectedClip.sequenceId);
+		const sequence = sequences.get(trackSequences.get(trackId) ?? expectedClip.sequenceId);
 		if (!sequence) throw new ReferenceError('A timeline image move requires its exact sequence clock.');
-		const origin = project.sequences.find(item => item.id === expectedClip.sequenceId);
+		const origin = sequences.get(expectedClip.sequenceId);
 		if (!origin) throw new ReferenceError('A visual move requires its original sequence clock.');
 		const clip: FramescaperImageClipV1 = { ...expectedClip, sequenceId: sequence.id,
 			sequenceFrameCount: Math.max(1, rebaseSequenceVisualFrame(expectedClip.sequenceFrameCount, origin.rate, sequence.rate)),

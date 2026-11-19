@@ -511,7 +511,8 @@ export function createAudacityActionRuntime(controller, options = {}) {
 		},
 		macros: {
 			...controllerActions.macros,
-			openPalette: () => openSurface('macros-palette'),
+			openPalette: () => openPanel('macros-palette'),
+			openManager: () => openSurface('macro-manager'),
 		},
 		generators: {
 			...controllerActions.generators,

@@ -32,6 +32,28 @@ test('prepared byte encoding matches the canonical SDR oracle at every byte and 
 	assert.throws(() => createManagedSdrLinearByteEncoderV1('unsupported' as never), RangeError);
 });
 
+test('nonlinear byte encoding preserves both sides of every quantization boundary', () => {
+	for (const output of ['srgb', 'rec709'] as const) {
+		const encode = createManagedSdrLinearByteEncoderV1(output);
+		const oracle = (value: number) => Math.round(encodeManagedSdrLinearChannelsV1(value, 0, 0, 1, output)[0] * 255);
+		assert.equal(encode(-0), -0);
+		assert.equal(encode(Number.MIN_VALUE), 0);
+		for (let byte = 1; byte <= 255; byte += 1) {
+			let below = 0;
+			let above = 1;
+			// Keep bisecting until no representable input separates the two bytes.
+			while (true) {
+				const midpoint = below + (above - below) / 2;
+				if (midpoint === below || midpoint === above) break;
+				if (oracle(midpoint) < byte) below = midpoint;
+				else above = midpoint;
+			}
+			assert.equal(encode(below), byte - 1);
+			assert.equal(encode(above), byte);
+		}
+	}
+});
+
 test('ungraded lookup reproduces every canonical byte under canvas and file interpretations', () => {
 	for (const decoding of ['canvas-readback', 'file', 'linear'] as const) {
 		for (const transfer of ['srgb', 'bt709'] as const) for (const range of ['full', 'limited'] as const) {

@@ -167,6 +167,35 @@ test('a failed renderer send releases its descriptor before reporting and removi
 	]);
 });
 
+test('renderer retirement retries only shell opens that the retiring document has not claimed', async () => {
+	const retiredOwner = Object.freeze({ name: 'retired' });
+	const currentOwner = Object.freeze({ name: 'current' });
+	const delivered = [];
+	let owner = retiredOwner;
+	const queue = new PendingProjectQueue(async (path) => {
+		const id = `${owner.name}:${path}`;
+		delivered.push(id);
+		queue.trackOffer(id, path, owner);
+		return true;
+	});
+	queue.enqueue('admitted.sscape');
+	queue.enqueue('waiting.sscape');
+	await queue.dispatch();
+	assert.equal(queue.claimOffer('retired:admitted.sscape', currentOwner), false);
+	assert.equal(queue.claimOffer('retired:admitted.sscape', retiredOwner), true);
+	assert.equal(queue.claimOffer('retired:admitted.sscape', retiredOwner), false);
+	queue.enqueue('new.sscape');
+	assert.equal(queue.requeueOffers(retiredOwner), true);
+	assert.equal(queue.claimOffer('retired:waiting.sscape', retiredOwner), false);
+	owner = currentOwner;
+	await queue.dispatch();
+	assert.deepEqual(delivered, [
+		'retired:admitted.sscape', 'retired:waiting.sscape', 'current:waiting.sscape', 'current:new.sscape',
+	]);
+	assert.equal(queue.requeueOffers(retiredOwner), false);
+	assert.equal(queue.claimOffer('current:waiting.sscape', currentOwner), true);
+});
+
 test('a release that did not free capacity does not redispatch the retained queue head', async () => {
 	let attempts = 0;
 	const queue = new PendingProjectQueue(async () => {

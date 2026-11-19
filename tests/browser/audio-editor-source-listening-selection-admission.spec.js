@@ -8,7 +8,7 @@ registerAudioEditorHooks();
 
 test('locking a track preserves source listening-range selection while protecting its media', async ({ page }) => {
 	await page.setViewportSize({ width: 1600, height: 1000 });
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const file = createWavFixture({ name: 'source-listening-range.wav', frequency: 440, duration: 2, channelCount: 1 });
 	await importFiles(editor, [file]);
 	const clip = clipByName(editor, file.name), row = clip.locator('xpath=ancestor::div[@data-track-row]');

@@ -15,7 +15,7 @@ for (const { name, frequency, controls } of [
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [createWavFixture({ name: `${name} bass recording.wav`, frequency,
 			duration: 1, channelCount: 2, channelAmplitudes: [.5, .5] })]);
-		const dry = await exportSamples(page, editor);
+		const dry = await exportSamples(page, editor, { includeTail: true });
 		expect(dry.length).toBe(48_000);
 		expect(Math.max(...dry.slice(43_200, 47_000).map(Math.abs))).toBeGreaterThan(.3);
 		const panel = await openEffectsForTrack(editor, 1);
@@ -27,11 +27,11 @@ for (const { name, frequency, controls } of [
 		await closeDialog(dialog);
 		const slot = panel.getByRole('group', { name, exact: true });
 		await slot.getByRole('button', { name: 'Disable effect', exact: true }).click();
-		const bypassed = await exportSamples(page, editor);
+		const bypassed = await exportSamples(page, editor, { includeTail: true });
 		expect(bypassed.length).toBe(48_000);
 		expect(Math.max(...bypassed.slice(43_200, 47_000).map(Math.abs))).toBeGreaterThan(.3);
 		await slot.getByRole('button', { name: 'Enable effect', exact: true }).click();
-		const wet = await exportSamples(page, editor);
+		const wet = await exportSamples(page, editor, { includeTail: true });
 		expect(wet.length).toBeGreaterThan(48_128);
 		expect(Math.max(...wet.slice(48_000, 48_128).map(Math.abs))).toBeGreaterThan(.1);
 		expect(Math.max(...wet.slice(-128).map(Math.abs))).toBeLessThan(.0001);

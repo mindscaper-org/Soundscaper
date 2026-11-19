@@ -6,7 +6,8 @@ import { videoTimingProbeMedia } from './fixtures/video-timing-probe-media.js';
 
 const camera = videoTimingProbeMedia.find(({ id }) => id === 'cfr-25fps-mp4-v1');
 
-for (const sequenceRate of [25, 30]) test(`FCPXML declares the unchanged 25 fps camera inside a ${sequenceRate} fps sequence`, async ({ page }) => {
+// Both sequence clocks retain actual camera bytes/timing/controller/Scape/file custody in audio-editor-fcpxml-source-archive-custody.test.ts.
+for (const sequenceRate of [30]) test(`FCPXML declares the unchanged 25 fps camera inside a ${sequenceRate} fps sequence`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/framescaper/en/');
 	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Project properties']);

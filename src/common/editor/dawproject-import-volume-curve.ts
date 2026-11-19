@@ -12,16 +12,27 @@ export function dawprojectImportedVolumeCurve(
 	points: readonly DawprojectAutomationPoint[], unit: string | null, maximum: number,
 ): GainPoint[] {
 	const admitted: DawprojectAutomationPoint[] = [];
-	for (const point of points) {
+	for (const point of [...points].sort((left, right) => left.frame - right.frame)) {
 		if (parameterToLinearGain(point.value, unit) === null) continue;
-		const normalized = { ...point, frame: Math.max(0, point.frame) };
-		if (admitted.at(-1)?.frame === normalized.frame) admitted[admitted.length - 1] = normalized;
-		else admitted.push(normalized);
+		if (admitted.at(-1)?.frame === point.frame) admitted[admitted.length - 1] = point;
+		else admitted.push(point);
+	}
+	if (admitted.some(point => !Number.isFinite(point.value))) {
+		return dawprojectImportedVolumeCurve(admitted.map(point => ({ ...point, value: gain(point.value) })), 'linear', maximum);
+	}
+	const previous = admitted.filter(point => point.frame < 0).at(-1);
+	const visible = admitted.filter(point => point.frame >= 0);
+	if (previous && visible[0]?.frame !== 0) {
+		const next = visible[0];
+		const value = previous.interpolation === 'linear' && next
+			? previous.value + (next.value - previous.value) * -previous.frame / (next.frame - previous.frame)
+			: previous.value;
+		visible.unshift({ frame: 0, value, interpolation: previous.interpolation });
 	}
 	const output = new Map<number, number>();
-	for (const [index, left] of admitted.entries()) {
+	for (const [index, left] of visible.entries()) {
 		output.set(left.frame, gain(left.value));
-		const right = admitted[index + 1];
+		const right = visible[index + 1];
 		if (left.interpolation !== 'linear' || !right
 			|| !Number.isFinite(left.value) || !Number.isFinite(right.value)) continue;
 		const valueAt = (frame: number): number => gain(left.value

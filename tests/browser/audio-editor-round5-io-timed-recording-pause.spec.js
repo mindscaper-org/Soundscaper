@@ -6,6 +6,38 @@ import { installOscillatorMicrophone } from './helpers/complex-editing-workflows
 
 test.use({ browserCoverage: false });
 
+for (const paused of [false, true]) test(`timed recording settles when the wall clock jumps past the end (paused=${paused})`, async ({ page }) => {
+	await installOscillatorMicrophone(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	await page.clock.install({ time: new Date('2030-04-01T12:00:00Z') });
+	await editor.getByRole('button', { name: 'Record options', exact: true }).click();
+	await page.getByRole('dialog', { name: 'Record options', exact: true })
+		.getByRole('button', { name: 'Timed recording', exact: true }).click();
+	const dialog = page.getByRole('dialog', { name: 'Set up timed recording', exact: true });
+	const dateTimes = dialog.locator('input[type="datetime-local"]');
+	const [start, end] = await page.evaluate(() => [5_000, 30_000].map(delay => {
+		const date = new Date(Date.now() + delay);
+		return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 19);
+	}));
+	await dateTimes.first().fill(start);
+	await dialog.getByRole('radio', { name: 'End date and time', exact: true }).check();
+	await dateTimes.nth(1).fill(end);
+	await dialog.getByRole('button', { name: 'Schedule recording', exact: true }).click();
+	await expect(dialog).toBeHidden();
+	const active = editor.getByRole('region', { name: 'Recording', exact: true });
+	await expect(active).toBeVisible({ timeout: 10_000 });
+	await expect(editor.locator('[data-clip-id^="recording-preview-"]')).toBeVisible();
+	const record = editor.getByRole('button', { name: 'Pause recording', exact: true });
+	await expect(record).toHaveAttribute('aria-pressed', 'true');
+	if (paused) {
+		await record.click();
+		await expect(editor.getByRole('button', { name: 'Resume recording', exact: true })).toBeVisible();
+	}
+	await page.clock.fastForward(35_000);
+	await expect(active).toBeHidden();
+	await expect(editor).toHaveAttribute('data-clip-count', '1');
+});
+
 test('pausing a timed recording retains the chosen absolute end date', async ({ page }) => {
 	test.setTimeout(60_000);
 	await installOscillatorMicrophone(page);

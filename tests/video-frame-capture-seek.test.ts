@@ -52,6 +52,43 @@ test('a stale presentation during the seek does not release capture', async () =
 	assert.equal(ready, true);
 });
 
+test('a drained seek retries inside the same interval after its only early presentation was rejected', async context => {
+	context.mock.timers.enable({ apis: ['setTimeout'] });
+	const video = new NativeVideo();
+	let ready = false;
+	const pending = seekVideoFrameForCapture(video, .575, { timeoutMs: 1_000, retryTimestamp: .568,
+		isRequestedFrame: mediaTime => mediaTime >= .566 && mediaTime < .6,
+	}).then(() => { ready = true; });
+	video.presentFrame(.675);
+	video.completeSeek();
+	await Promise.resolve();
+	assert.equal(ready, false);
+	context.mock.timers.tick(100);
+	assert.equal(video.currentTime, .568);
+	video.presentFrame(.567);
+	assert.equal(ready, false);
+	video.completeSeek();
+	await pending;
+	assert.equal(ready, true);
+	assertReleased(video);
+});
+
+test('cancelling a drained seek discards its pending exact retry', async context => {
+	context.mock.timers.enable({ apis: ['setTimeout'] });
+	const video = new NativeVideo();
+	const controller = new AbortController();
+	const pending = seekVideoFrameForCapture(video, .575, { timeoutMs: 1_000, retryTimestamp: .568,
+		signal: controller.signal, isRequestedFrame: mediaTime => mediaTime >= .566 && mediaTime < .6,
+	});
+	video.presentFrame(.675);
+	video.completeSeek();
+	controller.abort();
+	await assert.rejects(pending, { name: 'AbortError' });
+	context.mock.timers.tick(1_000);
+	assert.equal(video.currentTime, .575);
+	assertReleased(video, controller.signal);
+});
+
 test('a source frame timestamp during seeking is accepted only inside the requested frame interval', async () => {
 	const video = new NativeVideo(); let ready = false;
 	const pending = seekVideoFrameForCapture(video, .0335, { timeoutMs: 1_000,

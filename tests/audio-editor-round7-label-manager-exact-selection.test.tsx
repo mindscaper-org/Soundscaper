@@ -12,9 +12,10 @@ import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
 for (const endFrame of [9_600, 19_200]) test(`Manage labels selects the exact authored 9600..${endFrame} with Snap`, async context => {
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
+	const engine = createMemoryEngine();
 	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY,
 		store: createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `round7-label-manager-exact-${endFrame}` }),
-		engine: createMemoryEngine() as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'] });
+		engine: engine as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'] });
 	context.after(async () => { await controller.dispose(); });
 	await controller.ready;
 	await controller.actions.generators.generate('tone', { amplitude: .4, channelCount: 1, durationSeconds: .8, frequency: 440 });
@@ -34,10 +35,17 @@ for (const endFrame of [9_600, 19_200]) test(`Manage labels selects the exact au
 			sampleRate={48_000} copy={ENGLISH_COPY} controller={controller} disabled={false} run={(operation: () => unknown) => operation()} />); });
 		const select = dom.container.querySelectorAll('button').at(-1);
 		assert.ok(select);
+		const audioTrack = controller.project!.tracks.find(candidate => candidate.type === 'audio');
+		assert.ok(audioTrack);
+		controller.actions.timeline.selectTrack(audioTrack.id);
 		controller.actions.timeline.clearSelection();
 		await act(async () => { reactProps(select).onClick({ currentTarget: select }); });
 		assert.equal(controller.project!.selection.startFrame, 9_600);
 		assert.equal(controller.project!.selection.endFrame, endFrame);
+		assert.deepEqual(controller.project!.selection.trackIds, [track.id]);
+		assert.equal(controller.getSnapshot().selectedTrackId, track.id);
+		assert.deepEqual(controller.getSnapshot().selectedLabels, [{ trackId: track.id, labelId: label.id }]);
+		if (endFrame > 9_600) assert.equal(engine.getPositionFrames(), 9_600);
 		controller.actions.timeline.setSnap({ enabled: true, unit: 'seconds', mode: 'nearest' });
 		controller.actions.timeline.clearSelection();
 		const media = structuredClone(controller.project!.clips);

@@ -14,6 +14,7 @@ import {
 	parseVideoRetimeExactMapInput,
 	VIDEO_RETIME_EXACT_MAP_INPUT_MAX_LENGTH,
 } from '../video-retime-exact-map-input.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface VideoRetimeActions {
 	retimeConstant(value: unknown): unknown;
@@ -141,7 +142,7 @@ export default function VideoRetimeDialog({
 			</div>
 			<fieldset disabled={disabled}>
 				<legend>{label(copy, 'videoRetimeFreeze', VIDEO_RETIME_ADDITIONAL_COPY.videoRetimeFreeze)}</legend>
-				<label><span>{label(copy, 'videoRetimeSourceFrame', VIDEO_RETIME_ADDITIONAL_COPY.videoRetimeSourceFrame)}</span>
+				<label><EditorControlLabel>{label(copy, 'videoRetimeSourceFrame', VIDEO_RETIME_ADDITIONAL_COPY.videoRetimeSourceFrame)}</EditorControlLabel>
 					<input type="text" inputMode="numeric" value={freezeFrame}
 						onChange={(event) => setFreezeFrame(event.currentTarget.value)} /></label>
 				<button type="button" onClick={() => invokeParsed('retimeFreeze', () => ({
@@ -150,7 +151,7 @@ export default function VideoRetimeDialog({
 			</fieldset>
 			<fieldset disabled={disabled}>
 				<legend>{label(copy, 'videoRetimeRamp', VIDEO_RETIME_ADDITIONAL_COPY.videoRetimeRamp)}</legend>
-				<label><span>{label(copy, 'videoRetimeDirection', VIDEO_RETIME_ADDITIONAL_COPY.videoRetimeDirection)}</span>
+				<label><EditorControlLabel>{label(copy, 'videoRetimeDirection', VIDEO_RETIME_ADDITIONAL_COPY.videoRetimeDirection)}</EditorControlLabel>
 					<select value={direction} onChange={(event) => setDirection(
 						event.currentTarget.value === 'reverse' ? 'reverse' : 'forward',
 					)}>
@@ -174,7 +175,7 @@ export default function VideoRetimeDialog({
 				<legend>{label(copy, 'videoRetimeExactMap', VIDEO_RETIME_ADDITIONAL_COPY.videoRetimeExactMap)}</legend>
 				<p>{label(copy, 'videoRetimeExactMapDescription',
 					VIDEO_RETIME_ADDITIONAL_COPY.videoRetimeExactMapDescription)}</p>
-				<label><span>{label(copy, 'videoRetimeExactMapJson', VIDEO_RETIME_ADDITIONAL_COPY.videoRetimeExactMapJson)}</span>
+				<label><EditorControlLabel>{label(copy, 'videoRetimeExactMapJson', VIDEO_RETIME_ADDITIONAL_COPY.videoRetimeExactMapJson)}</EditorControlLabel>
 					<textarea data-video-retime-exact-map="true" value={exactMapText}
 						maxLength={VIDEO_RETIME_EXACT_MAP_INPUT_MAX_LENGTH}
 						onChange={(event) => setExactMapText(event.currentTarget.value)} /></label>
@@ -193,7 +194,7 @@ function RationalField({ label: fieldLabel, value, onChange }: Readonly<{
 	readonly value: string;
 	readonly onChange: (value: string) => void;
 }>) {
-	return <label><span>{fieldLabel}</span><input type="text" inputMode="numeric" value={value}
+	return <label><EditorControlLabel>{fieldLabel}</EditorControlLabel><input type="text" inputMode="numeric" value={value}
 		onChange={(event) => onChange(event.currentTarget.value)} /></label>;
 }
 

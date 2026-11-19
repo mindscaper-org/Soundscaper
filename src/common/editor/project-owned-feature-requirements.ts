@@ -17,12 +17,17 @@ import {
 import { createDefaultMixerGraphV21, normalizeMixerGraphV21 } from './mixer-graph-v21.ts';
 import { resolveTerminalChannelWidths } from './terminal-channel-widths.ts';
 import { VIDEO_EFFECT_TYPES } from './video-effects.js';
+import { projectHasSubprojectLinks } from './subprojects.ts';
 import { projectHasScapeLiteralKeys, SCAPE_LITERAL_KEYS_REQUIREMENT_ID } from './scape-literal-json-keys.ts';
+import { MIDI_COMPACT_SCORE_FEATURE_ID, MIDI_COMPACT_SCORE_KEY } from './midi-compact-score.ts';
 
 export const PROJECT_OWNED_FEATURE_REQUIREMENT_IDS = Object.freeze({
+	subprojects: 'soundscaper.subprojects',
 	assistanceAssets: 'soundscaper.assistance-assets',
 	literalJsonKeys: SCAPE_LITERAL_KEYS_REQUIREMENT_ID,
+	midiScore: 'soundscaper.midi-score-v1',
 	audioEffects: 'soundscaper.audio-effects',
+	audioClipEffects: 'soundscaper.audio-clip-effects',
 	videoEffects: 'soundscaper.video-effects',
 	musicalTimeline: 'soundscaper.musical-timeline',
 	timelineAnnotations: 'soundscaper.timeline-annotations',
@@ -69,6 +74,8 @@ const OWNED_VIDEO_EFFECT_REQUIREMENT: ProjectFeatureRequirement = Object.freeze(
 	fallback: null,
 });
 const FOUNDATION_REQUIREMENTS = Object.freeze({
+	audioClipEffects: requirement('audioClipEffects', 'Clip audio effects'),
+	subprojects: requirement('subprojects', 'Subprojects'),
 	assistanceAssets: requirement('assistanceAssets', 'Assistance assets'),
 	musicalTimeline: requirement('musicalTimeline', 'Musical timeline'),
 	timelineAnnotations: requirement('timelineAnnotations', 'Timeline markers and regions'),
@@ -90,9 +97,13 @@ const OWNED_ASSISTANCE_FEATURE_REQUIREMENT = foundationOwned(
 	() => true,
 );
 const OWNED_FEATURE_REQUIREMENTS: readonly OwnedFeatureRequirement[] = Object.freeze([
+	foundationOwned(FOUNDATION_REQUIREMENTS.audioClipEffects, project => audioClips(project).some(clip => isRecord(clip) && dataArray(clip, 'effects').length > 0)),
 	foundationOwned(Object.freeze({ id: PROJECT_OWNED_FEATURE_REQUIREMENT_IDS.literalJsonKeys,
 		featureId: PROJECT_FEATURE_CAPABILITY_IDS.literalJsonKeys, displayName: 'Literal JSON metadata keys',
 		disposition: 'bypass', fallback: null }), projectHasScapeLiteralKeys, () => true),
+	foundationOwned(Object.freeze({ id: PROJECT_OWNED_FEATURE_REQUIREMENT_IDS.midiScore,
+		featureId: MIDI_COMPACT_SCORE_FEATURE_ID, displayName: 'Compact MIDI score',
+		disposition: 'bypass', fallback: null }), projectHasCompactMidi, () => true),
 	Object.freeze({
 		requirement: OWNED_AUDIO_EFFECT_REQUIREMENT,
 		conflictMessage: 'The reserved owned audio-effects requirement conflicts with publisher data.',
@@ -104,6 +115,7 @@ const OWNED_FEATURE_REQUIREMENTS: readonly OwnedFeatureRequirement[] = Object.fr
 		projectNeedsRequirement: projectHasMaintainedVideoEffects,
 	}),
 	OWNED_ASSISTANCE_FEATURE_REQUIREMENT,
+	foundationOwned(FOUNDATION_REQUIREMENTS.subprojects, projectHasSubprojectLinks, () => true),
 	foundationOwned(FOUNDATION_REQUIREMENTS.musicalTimeline, projectHasMusicalTimeline),
 	foundationOwned(
 		FOUNDATION_REQUIREMENTS.timelineAnnotations,
@@ -149,7 +161,7 @@ const OWNED_FEATURE_REQUIREMENTS: readonly OwnedFeatureRequirement[] = Object.fr
 ]);
 
 function requirement(
-	key: 'assistanceAssets' | 'musicalTimeline' | 'timelineAnnotations' | 'trackFolders' | 'takeComp' | 'audioWarp'
+	key: 'audioClipEffects' | 'subprojects' | 'assistanceAssets' | 'musicalTimeline' | 'timelineAnnotations' | 'trackFolders' | 'takeComp' | 'audioWarp'
 		| 'audioAutomation' | 'audioMixerGraph' | 'masteringSequences' | 'immersiveAdm' | 'sequenceTiming'
 		| 'videoRetime' | 'videoTimingAssets' | 'sourceCharacteristics',
 	displayName: string,
@@ -254,6 +266,7 @@ function ownedRequirementMatches(
 }
 
 function projectHasMaintainedAudioEffects(project: Readonly<Record<string, unknown>>): boolean {
+	if (audioClips(project).some(clip => isRecord(clip) && rackHasMaintainedAudioEffect(clip))) return true;
 	const tracks = dataArray(project, 'tracks');
 	for (const track of tracks) {
 		if (!isRecord(track)) continue;
@@ -280,6 +293,12 @@ function rackHasMaintainedAudioEffect(owner: RecordValue): boolean {
 		if (typeof type === 'string' && AUDIO_EFFECT_TYPE_SET.has(type)) return true;
 	}
 	return false;
+}
+
+function audioClips(project: RecordValue): readonly unknown[] {
+	const bin = dataProperty(project, 'projectBin');
+	return [...dataArray(project, 'clips'), ...(isRecord(bin) ? dataArray(bin, 'clips') : [])]
+		.filter(clip => isRecord(clip) && dataProperty(clip, 'kind') === 'audio');
 }
 
 function projectHasMaintainedVideoEffects(project: Readonly<Record<string, unknown>>): boolean {
@@ -390,6 +409,30 @@ function projectHasAuthoredMixerGraphV21(project: Readonly<Record<string, unknow
 function projectClips(project: Readonly<Record<string, unknown>>): readonly unknown[] {
 	const bin = dataProperty(project, 'projectBin');
 	return [...dataArray(project, 'clips'), ...(isRecord(bin) ? dataArray(bin, 'clips') : [])];
+}
+
+function projectHasCompactMidi(project: RecordValue): boolean {
+	if (documentHasCompactMidi(project)) return true;
+	const metadata = dataProperty(project, 'metadata');
+	return isRecord(metadata) && dataArray(metadata, 'sessionSnapshots').some(snapshot => {
+		const state = isRecord(snapshot) && dataProperty(snapshot, 'state');
+		return isRecord(state) && documentHasCompactMidi(state);
+	});
+}
+
+function documentHasCompactMidi(project: RecordValue): boolean {
+	if (projectClips(project).some(hasCompactMidi)) return true;
+	const metadata = dataProperty(project, 'metadata');
+	return isRecord(metadata) && dataArray(metadata, 'trackPlaylists').some(collection => isRecord(collection)
+		&& dataArray(collection, 'playlists').some(playlist => {
+			const state = isRecord(playlist) && dataProperty(playlist, 'state');
+			return isRecord(state) && dataArray(state, 'clips').some(hasCompactMidi);
+		}));
+}
+
+function hasCompactMidi(value: unknown): boolean {
+	const extensions = isRecord(value) && dataProperty(value, 'opaqueExtensions');
+	return isRecord(extensions) && Object.hasOwn(extensions, MIDI_COMPACT_SCORE_KEY);
 }
 
 function isDefaultTempo(value: unknown): boolean {

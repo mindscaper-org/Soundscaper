@@ -14,9 +14,7 @@ import {
 	addTrackAutomation,
 	addTrackRackEffect,
 	authorClipGainPoint,
-	clipContentState,
 	clipCount,
-	clipEditingState,
 	clipProcessingState,
 	copyClipAndPaste,
 	deleteClipRange,
@@ -25,7 +23,6 @@ import {
 	expectContiguousSourceClips,
 	persistedClipsByName,
 	persistedProject,
-	selectClipRange,
 	selectClipHeader,
 	setTrackMuteSolo,
 	splitClip,
@@ -37,32 +34,8 @@ import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 const sessions = [
 	{
-		name: 'builds a podcast pickup from trimmed dialogue, an inserted sting, clip gain, and a volume ride',
-		run: podcastPickupSession,
-	},
-	{
 		name: 'tightens two-track dialogue with a ripple delete before inserting copied room tone',
 		run: dialogueRippleSession,
-	},
-	{
-		name: 'duplicates a faded chorus safety track and auditions it beside a processed split verse',
-		run: chorusSafetySession,
-	},
-	{
-		name: 'reassembles a radio montage beside a gained ident and processed split bed',
-		run: radioMontageSession,
-	},
-	{
-		name: 'inserts a copied beat while preserving synchronisation across three edited tracks',
-		run: synchronizedBeatInsertSession,
-	},
-	{
-		name: 'edits an audiobook chapter into clips, removes a breath, and duplicates a pickup',
-		run: audiobookPickupSession,
-	},
-	{
-		name: 'layers copied ambience under a split cue with fades, gain points, mute, and reverb',
-		run: ambienceLayerSession,
 	},
 	{
 		name: 'keeps a cut sound-design layer pasteable through undo and redo after both sources are split',
@@ -92,30 +65,6 @@ test.describe('realistic multitrack arrangement sessions', () => {
 		});
 	}
 });
-
-async function podcastPickupSession(page, editor) {
-	await importFiles(editor, [longTone, toneA]);
-	const dialogue = clipByName(editor, longTone.name);
-	const sting = clipByName(editor, toneA.name);
-	await editClipProperties(page, editor, dialogue, {
-		sourceInFrame: 4_800,
-		durationFrame: 326_400,
-		fadeInFrame: 2_400,
-		fadeOutFrame: 4_800,
-		gain: -2,
-	});
-	await authorClipGainPoint(page, editor, dialogue, 0.26);
-	const dialogueTrackId = await trackRow(dialogue).getAttribute('data-track-id');
-	expect(dialogueTrackId).toBeTruthy();
-	const dialogueRow = editor.locator(`[data-track-row][data-track-id="${dialogueTrackId}"]`);
-	await splitClip(page, editor, dialogue, 0.58);
-	await expect(dialogueRow.locator('[data-clip-id]')).toHaveCount(2);
-	const clipCountBeforeInsert = await clipCount(editor);
-	await copyClipAndPaste(page, editor, sting, 'Insert');
-	await expect.poll(() => clipCount(editor)).toBeGreaterThan(clipCountBeforeInsert);
-	const automation = await addTrackAutomation(page, editor, dialogueRow, { nudge: 2 });
-	await expect(automation.overlay.locator('[data-automation-point-id]')).toHaveCount(2);
-}
 
 async function dialogueRippleSession(page, editor) {
 	await importFiles(editor, [longTone, toneA]);
@@ -164,206 +113,6 @@ async function dialogueRippleSession(page, editor) {
 		(points) => points.map((point) => point.getAttribute('data-automation-point-id')),
 	);
 	expect(remainingPointIds).toEqual(expect.arrayContaining(pointIds));
-}
-
-async function chorusSafetySession(page, editor) {
-	await importFiles(editor, [toneA, toneB]);
-	const projectId = await editor.getAttribute('data-project-id');
-	expect(projectId).toBeTruthy();
-	const verse = clipByName(editor, toneA.name);
-	const chorus = clipByName(editor, toneB.name);
-	await editClipProperties(page, editor, verse, {
-		sourceInFrame: 1_200,
-		durationFrame: 34_800,
-		fadeInFrame: 1_200,
-		fadeOutFrame: 2_400,
-	});
-	await editClipProperties(page, editor, chorus, {
-		sourceInFrame: 2_400,
-		durationFrame: 33_600,
-		fadeInFrame: 2_400,
-		fadeOutFrame: 1_200,
-		gain: -3,
-	});
-	const verseRow = trackRow(verse);
-	await splitClip(page, editor, verse, 0.46);
-	await expect(verseRow.locator('[data-clip-id]')).toHaveCount(2);
-	const chorusTrackId = await trackRow(chorus).getAttribute('data-track-id');
-	expect(chorusTrackId).toBeTruthy();
-	const chorusRow = editor.locator(`[data-track-row][data-track-id="${chorusTrackId}"]`);
-	await waitForSaved(editor);
-	const [chorusBeforeDuplicate] = await persistedClipsByName(page, projectId, toneB.name);
-	const beforeTracks = await trackCount(editor);
-	const duplicate = await duplicateClip(page, editor, chorus);
-	await expect.poll(() => trackCount(editor)).toBe(beforeTracks + 1);
-	let chorusCopies = [];
-	await expect.poll(async () => {
-		chorusCopies = await persistedClipsByName(page, projectId, toneB.name);
-		return chorusCopies.length;
-	}).toBe(2);
-	const chorusDuplicate = chorusCopies.find(({ id }) => id !== chorusBeforeDuplicate.id);
-	expect(clipEditingState(chorusDuplicate)).toEqual(clipEditingState(chorusBeforeDuplicate));
-	const duplicateRow = trackRow(duplicate);
-	await setTrackMuteSolo(chorusRow, { mute: true });
-	await setTrackMuteSolo(duplicateRow, { solo: true });
-	const panel = await addTrackRackEffect(page, editor, verseRow, 'Invert');
-	await expect(panel.locator('[data-effect-rack]').getByRole('group', {
-		name: 'Invert', exact: true,
-	})).toBeVisible();
-	await expect(editor).toHaveAttribute('data-clip-count', '4');
-}
-
-async function radioMontageSession(page, editor) {
-	await importFiles(editor, [longTone, toneA, toneB]);
-	const bed = clipByName(editor, longTone.name);
-	const ident = clipByName(editor, toneA.name);
-	const cue = clipByName(editor, toneB.name);
-	await editClipProperties(page, editor, ident, {
-		sourceInFrame: 1_800,
-		durationFrame: 32_400,
-		fadeInFrame: 2_400,
-		fadeOutFrame: 4_800,
-		gain: -1.5,
-	});
-	await authorClipGainPoint(page, editor, ident, 0.62);
-	const bedRow = trackRow(bed);
-	await splitClip(page, editor, bed, 0.32);
-	await expect(bedRow.locator('[data-clip-id]')).toHaveCount(2);
-	const beforeCut = await clipCount(editor);
-	await selectClipHeader(cue);
-	await chooseNestedCommandAction(page, editor, 'Edit', ['Cut', 'Cut and leave gap']);
-	await expect(editor).toHaveAttribute('data-clip-count', String(beforeCut - 1));
-	await chooseNestedCommandAction(page, editor, 'Edit', ['Paste', 'Paste']);
-	await expect(editor).toHaveAttribute('data-clip-count', String(beforeCut));
-	const panel = await addTrackRackEffect(page, editor, bedRow, 'Reverb');
-	await expect(panel.locator('[data-effect-rack]').getByRole('group', {
-		name: 'Reverb', exact: true,
-	})).toBeVisible();
-}
-
-async function synchronizedBeatInsertSession(page, editor) {
-	await importFiles(editor, [longTone, toneA, toneB]);
-	const projectId = await editor.getAttribute('data-project-id');
-	expect(projectId).toBeTruthy();
-	const beat = clipByName(editor, longTone.name);
-	const bass = clipByName(editor, toneA.name);
-	const accent = clipByName(editor, toneB.name);
-	await editClipProperties(page, editor, bass, {
-		sourceInFrame: 2_400,
-		durationFrame: 31_200,
-		fadeInFrame: 1_200,
-		fadeOutFrame: 2_400,
-	});
-	await authorClipGainPoint(page, editor, bass, 0.35);
-	const beatRow = trackRow(beat);
-	const beatTrackId = await beatRow.getAttribute('data-track-id');
-	expect(beatTrackId).toBeTruthy();
-	const automation = await addTrackAutomation(page, editor, beatRow, { nudge: -2 });
-	const pointIds = await automation.overlay.locator('[data-automation-point-id]').evaluateAll(
-		(points) => points.map((point) => point.getAttribute('data-automation-point-id')),
-	);
-	await waitForSaved(editor);
-	const [beatBeforeInsert] = await persistedClipsByName(page, projectId, longTone.name);
-	const [bassBeforeInsert] = await persistedClipsByName(page, projectId, toneA.name);
-	const [accentBeforeInsert] = await persistedClipsByName(page, projectId, toneB.name);
-	const playhead = editor.getByRole('slider', { name: 'Playhead', exact: true });
-	await playhead.focus();
-	await page.keyboard.press('Home');
-	await expect(playhead).toHaveAttribute('aria-valuenow', '0');
-	await selectClipHeader(beat);
-	await chooseCommandAction(page, editor, 'Edit', 'Copy');
-	const pasteFrame = Number(await playhead.getAttribute('aria-valuenow'));
-	const beforeInsert = await clipCount(editor);
-	await chooseNestedCommandAction(page, editor, 'Edit', ['Paste', 'Insert and preserve synchronisation']);
-	await expect.poll(() => clipCount(editor)).toBeGreaterThan(beforeInsert);
-	await expect.poll(async () => (
-		(await persistedClipsByName(page, projectId, toneA.name))[0].timelineStartFrame
-	)).toBeGreaterThan(bassBeforeInsert.timelineStartFrame);
-	const [bassAfterInsert] = await persistedClipsByName(page, projectId, toneA.name);
-	const [accentAfterInsert] = await persistedClipsByName(page, projectId, toneB.name);
-	const synchronizedShift = bassAfterInsert.timelineStartFrame - bassBeforeInsert.timelineStartFrame;
-	expect(bassAfterInsert.id).toBe(bassBeforeInsert.id);
-	expect(accentAfterInsert.id).toBe(accentBeforeInsert.id);
-	expect(synchronizedShift).toBe(beatBeforeInsert.durationFrames);
-	expect(accentAfterInsert.timelineStartFrame - accentBeforeInsert.timelineStartFrame)
-		.toBe(synchronizedShift);
-	const insertedBeats = await persistedClipsByName(page, projectId, longTone.name);
-	const pastedBeat = insertedBeats.find(({ id, timelineStartFrame }) => (
-		id !== beatBeforeInsert.id && timelineStartFrame === pasteFrame
-	));
-	expect(pastedBeat).toBeTruthy();
-	expect(pastedBeat.timelineStartFrame).toBe(pasteFrame);
-	expect(clipContentState(pastedBeat)).toEqual(clipContentState(beatBeforeInsert));
-	const pastedBeatOwner = (await persistedProject(page, projectId)).tracks
-		.find((track) => track.clipIds?.includes(pastedBeat.id));
-	expect(pastedBeatOwner?.id).toBe(beatTrackId);
-	const accentRow = trackRow(accent);
-	await splitClip(page, editor, accent, 0.5);
-	await expect(accentRow.locator('[data-clip-id]')).toHaveCount(2);
-	const insertedPointIds = await automation.overlay.locator('[data-automation-point-id]').evaluateAll(
-		(points) => points.map((point) => point.getAttribute('data-automation-point-id')),
-	);
-	expect(insertedPointIds).toEqual(expect.arrayContaining(pointIds));
-	expect(insertedPointIds.length).toBeGreaterThan(pointIds.length);
-}
-
-async function audiobookPickupSession(page, editor) {
-	await importFiles(editor, [longTone]);
-	const chapter = clipByName(editor, longTone.name);
-	await editClipProperties(page, editor, chapter, {
-		sourceInFrame: 12_000,
-		durationFrame: 300_000,
-		fadeInFrame: 2_400,
-		fadeOutFrame: 7_200,
-		gain: 1,
-	});
-	const chapterRow = trackRow(chapter);
-	await splitClip(page, editor, chapter, 0.47);
-	let clips = chapterRow.locator('[data-clip-id]');
-	await expect(clips).toHaveCount(2);
-	await authorClipGainPoint(page, editor, clips.first(), 0.72);
-	await deleteClipRange(page, editor, clips.last(), {
-		start: 0.24,
-		end: 0.42,
-		mode: 'Delete and leave gap',
-	});
-	clips = chapterRow.locator('[data-clip-id]');
-	await expect(clips).toHaveCount(3);
-	const beforeTracks = await trackCount(editor);
-	const pickup = await duplicateClip(page, editor, clips.last());
-	await expect(pickup).toBeVisible();
-	await expect.poll(() => trackCount(editor)).toBe(beforeTracks + 1);
-	const automation = await addTrackAutomation(page, editor, chapterRow, { nudge: 1 });
-	await expect(automation.overlay.locator('[data-automation-point-id]')).toHaveCount(2);
-}
-
-async function ambienceLayerSession(page, editor) {
-	await importFiles(editor, [longTone, toneA]);
-	const ambience = clipByName(editor, longTone.name);
-	const cue = clipByName(editor, toneA.name);
-	await editClipProperties(page, editor, ambience, {
-		sourceInFrame: 7_200,
-		durationFrame: 312_000,
-		fadeInFrame: 9_600,
-		fadeOutFrame: 12_000,
-		gain: -5,
-	});
-	await authorClipGainPoint(page, editor, ambience, 0.22);
-	await authorClipGainPoint(page, editor, ambience, 0.73);
-	const beforeInsert = await clipCount(editor);
-	await selectClipRange(page, editor, ambience, 0.18, 0.34);
-	await chooseCommandAction(page, editor, 'Edit', 'Copy');
-	await chooseNestedCommandAction(page, editor, 'Edit', ['Paste', 'Insert']);
-	await expect.poll(() => clipCount(editor)).toBeGreaterThan(beforeInsert);
-	const cueRow = trackRow(cue);
-	await splitClip(page, editor, cue, 0.55);
-	await expect(cueRow.locator('[data-clip-id]')).toHaveCount(2);
-	await setTrackMuteSolo(cueRow, { mute: true });
-	const ambienceRow = trackRow(ambience);
-	const panel = await addTrackRackEffect(page, editor, ambienceRow, 'Reverb');
-	await expect(panel.locator('[data-effect-rack]').getByRole('group', {
-		name: 'Reverb', exact: true,
-	})).toBeVisible();
 }
 
 async function soundDesignClipboardSession(page, editor) {

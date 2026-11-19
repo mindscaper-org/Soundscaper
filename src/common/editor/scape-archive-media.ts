@@ -200,8 +200,8 @@ export async function extractScapeAudio(
 	sourceWriter: ScapeSourceWriter,
 	source: ScapeAudioSource,
 	signal?: AbortSignal,
-	expandedByteBudget?: ScapeExpandedByteBudget,
-	audioChunkBudget = new ScapeAudioChunkBudget(),
+	expandedByteBudget?: Pick<ScapeExpandedByteBudget, 'consume'>,
+	audioChunkBudget: Pick<ScapeAudioChunkBudget, 'consume'> = new ScapeAudioChunkBudget(),
 ): Promise<ScapeExtractedAsset> {
 	if (typeof entry.getData !== 'function') throw new Error(`The Scape archive is missing ${entry.filename}.`);
 	const sourceGeometry = scapeAudioSourceLayout(source);

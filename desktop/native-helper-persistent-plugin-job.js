@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { validatePluginMidiEvents } from '#desktop-runtime/plugin-midi-events';
 import { createAraPluginRpc } from './native-helper-ara-rpc.js';
 
 /** One persistent native plug-in instance controlled only by its admitted port. */
@@ -78,7 +79,9 @@ export function createNativePersistentPluginJobRunner({
 						grant.format,
 						grant.stableId,
 						{ identity: grant.identity, byteLength: grant.binaryBytes,
-							sha256: grant.binarySha256, resourcePolicy },
+							sha256: grant.binarySha256, resourcePolicy,
+						...(grant.linuxWineVst3 ? { linuxWineVst3: true } : {}),
+						...(grant.windowsX86Vst2 ? { windowsX86Vst2: true } : {}) },
 					);
 					if (!current(observedGeneration)) return;
 					const reportedLatencyFrames = await addon.pluginLatencyFrames(instance);
@@ -101,10 +104,14 @@ export function createNativePersistentPluginJobRunner({
 					if (current(observedGeneration)) post(port, answer);
 					return;
 				}
-				if (message.kind === 'process') {
+				if (message.kind === 'process' || message.kind === 'process-midi') {
 					const frameCount = integer(message.frameCount, 1, configuration.maximumFrames, 'frame count');
 					const input = planes(message.input, frameCount, true);
 					const output = planes(message.output, frameCount, false);
+					if (message.kind === 'process-midi') {
+						if (typeof addon.pluginMidiEvents !== 'function') throw fault('unsupported', 'This host has no MIDI instrument adapter.');
+						await addon.pluginMidiEvents(instance, frameCount, validatePluginMidiEvents(message.events, frameCount));
+					}
 					await addon.processPluginBlock(instance, frameCount, input.length === 0 ? null : input, output);
 					if (!current(observedGeneration)) return;
 					const reportedLatencyFrames = await addon.pluginLatencyFrames(instance);
@@ -117,7 +124,12 @@ export function createNativePersistentPluginJobRunner({
 						input,
 						output,
 						reportedLatencyFrames,
-					}, [...input, ...output].map(({ buffer }) => buffer));
+					});
+					return;
+				}
+				if (message.kind === 'topology') {
+					const topology = await addon.pluginAudioTopology(instance);
+					post(port, { protocolVersion: 1, kind: 'topology', requestId: requestId(message.requestId), ...topology });
 					return;
 				}
 				if (message.kind === 'save-state') {
@@ -135,7 +147,7 @@ export function createNativePersistentPluginJobRunner({
 						requestId: requestIdValue,
 						bytes,
 						authentication: Object.freeze({ requestId: requestIdValue, byteLength: bytes.byteLength, sha256, mac }),
-					}, [bytes.buffer]);
+					});
 					return;
 				}
 				if (message.kind === 'load-state') {
@@ -381,6 +393,6 @@ function listen(port, listener) {
 	else port.onmessage = (event) => listener(event?.data);
 }
 
-function post(port, message, transfer = []) {
-	port.postMessage(message, transfer);
+function post(port, message) {
+	port.postMessage(message);
 }

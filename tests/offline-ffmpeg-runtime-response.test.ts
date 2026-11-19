@@ -8,6 +8,7 @@ import {
 	readBoundedResponse,
 	throwIfAborted,
 } from '../src/common/offline/ffmpeg-runtime-response.ts';
+import { deferred } from './helpers/async-test-control.ts';
 
 const ABC_SHA256 = 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad';
 
@@ -132,4 +133,22 @@ test('abort helpers preserve an explicit reason and allow an absent signal', () 
 	assert.throws(() => throwIfAborted(explicit.signal), (error: unknown) => error === reason);
 
 	assert.doesNotThrow(() => throwIfAborted(undefined));
+});
+
+test('aborting a runtime response does not wait for a stalled underlying cancellation', async () => {
+	const cancellation = deferred<void>();
+	let cancelled = false;
+	const response = new Response(new ReadableStream<Uint8Array>({
+		cancel() { cancelled = true; return cancellation.promise; },
+	}));
+	const abort = new AbortController();
+	const reason = new Error('Stop downloading');
+	const outcome = readBoundedResponse(response, {
+		label: 'Runtime pointer', maximumBytes: 16, signal: abort.signal,
+	}).catch((error: unknown) => error);
+	abort.abort(reason);
+	const received = await Promise.race([outcome, new Promise(resolve => setImmediate(resolve, 'pending'))]);
+	cancellation.resolve();
+	assert.equal(received, reason);
+	assert.equal(cancelled, true);
 });

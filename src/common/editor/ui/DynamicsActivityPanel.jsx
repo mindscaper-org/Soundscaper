@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { canonicalCopyValue } from '../../i18n/canonical-extras.js';
 import { DesignCheckbox } from './inspector/inspector-controls.jsx';
 import { drawDynamicsActivityCanvas } from './dynamics-activity-canvas.ts';
+import EditorControlLabel from './EditorControlLabel.tsx';
 
 /**
  * Live picture of what a dynamics effect is doing to the signal.
@@ -150,15 +151,15 @@ export default function DynamicsActivityPanel({ readAnalysis, copy, audacity = f
 			</div>
 			<dl className="audio-editor-audacity-layout__activity-readout">
 				<div>
-					<dt>{canonicalCopyValue('effectActivityInput', copy)}</dt>
+					<dt><EditorControlLabel>{canonicalCopyValue('effectActivityInput', copy)}</EditorControlLabel></dt>
 					<dd data-dynamics-activity-input>{formatDecibels(latest && peakToDecibels(latest.inputPeak))}</dd>
 				</div>
 				<div>
-					<dt>{canonicalCopyValue('effectActivityOutput', copy)}</dt>
+					<dt><EditorControlLabel>{canonicalCopyValue('effectActivityOutput', copy)}</EditorControlLabel></dt>
 					<dd data-dynamics-activity-output>{formatDecibels(latest && peakToDecibels(latest.outputPeak))}</dd>
 				</div>
 				<div>
-					<dt>{canonicalCopyValue('effectActivityReduction', copy)}</dt>
+					<dt><EditorControlLabel>{canonicalCopyValue('effectActivityReduction', copy)}</EditorControlLabel></dt>
 					<dd data-dynamics-activity-reduction>{formatDecibels(reductionDb)}</dd>
 				</div>
 			</dl>

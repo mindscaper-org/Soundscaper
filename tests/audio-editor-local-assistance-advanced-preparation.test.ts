@@ -144,7 +144,7 @@ function preparationFixture(operation: 'speech-enhancement' | 'source-separation
 			mediaType: operation === 'speech-enhancement' ? 'audio/wav' : 'application/json',
 			maximumByteLength: 68 }];
 	const project = Object.freeze({ id: 'project-advanced', schemaFamily: 'soundscaper' as const,
-		schemaVersion: 1, revision: 7,
+		schemaVersion: 1, revision: 7, sampleRate: 48_000,
 		clips: Object.freeze([{ id: 'clip-a', kind: 'audio', sourceId: 'source-a',
 			sequenceId: 'sequence-main', avLinkId: null, reversed: false, speedRatio: 1,
 			timelineStartFrame: 0, sourceStartFrame: 0,

@@ -6,6 +6,22 @@ import { installOscillatorMicrophone } from './helpers/complex-editing-workflows
 
 test.use({ timezoneId: 'Europe/Berlin' });
 
+test('a repeated local start is schedulable while its second occurrence is still ahead', async ({ page }) => {
+	await page.clock.setFixedTime(new Date('2030-10-27T02:45+02:00'));
+	await installOscillatorMicrophone(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	await editor.getByRole('button', { name: 'Record options', exact: true }).click();
+	await page.getByRole('dialog', { name: 'Record options', exact: true })
+		.getByRole('button', { name: 'Timed recording', exact: true }).click();
+	const dialog = page.getByRole('dialog', { name: 'Set up timed recording', exact: true });
+	await dialog.locator('input[type="datetime-local"]').first().fill('2030-10-27T02:30');
+	await dialog.getByRole('button', { name: 'Schedule recording', exact: true }).click();
+	await expect(dialog).toBeHidden();
+	const cancel = editor.getByRole('button', { name: 'Cancel scheduled recording', exact: true });
+	await expect(cancel).toBeVisible();
+	await cancel.click();
+});
+
 test('timed recording preserves its duration after choosing an end inside a repeated hour', async ({ page }) => {
 	const clientErrors = collectClientErrors(page);
 	await installOscillatorMicrophone(page);

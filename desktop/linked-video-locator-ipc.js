@@ -43,7 +43,7 @@ export function registerDesktopLinkedVideoLocatorIpc({
 		const locator = await store.registerPath(path, {
 			kind: 'audio', owner,
 			mimeType: mimeTypeForPath(path),
-			displayName: basename(path),
+			displayName: basename(path).trim(),
 		});
 		try {
 			return linkedAudioLocator(locator);
@@ -80,7 +80,7 @@ export function registerDesktopLinkedVideoLocatorIpc({
 		const locator = await store.registerPath(path, {
 			owner,
 			mimeType: mimeTypeForPath(path),
-			displayName: basename(path),
+			displayName: basename(path).trim(),
 		});
 		try {
 			return linkedVideoLocator(locator);

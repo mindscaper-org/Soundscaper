@@ -5,7 +5,7 @@ import { bootEditor, clipByName, importFiles } from './audio-editor-test-helpers
 import { chooseTrackMenuAction, TRACK_MENU_TRIGGER } from './helpers/track-menu.js';
 
 test('Track menu source and structure commands follow the ordinary track lock', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA, toneB]);
 	const row = clipByName(editor, toneA.name).locator('xpath=ancestor::*[@data-track-row][1]');
 	const open = async () => {
@@ -41,7 +41,7 @@ test('Track menu source and structure commands follow the ordinary track lock', 
 
 
 test('Make stereo menu declines the ordinary locked mono partner', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const other = createWavFixture({ name: 'other-mono.wav', frequency: 660, channelCount: 1 });
 	await importFiles(editor, [monoTone, other]);
 	const row = clipByName(editor, monoTone.name).locator('xpath=ancestor::*[@data-track-row][1]');

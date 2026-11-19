@@ -4,7 +4,7 @@ import { expect, test, monoTone, createWavFixture } from './audio-editor-test-fi
 import { bootEditor, clipByName, importFiles, chooseCommandAction } from './audio-editor-test-helpers.js';
 
 test('zero crossings follow the selected track independently of unselected audio', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const other = createWavFixture({ name: 'unselected-tone.wav', frequency: 197, channelCount: 1 });
 	await importFiles(editor, [monoTone, other]);
 	const clip = clipByName(editor, monoTone.name);

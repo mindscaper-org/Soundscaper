@@ -87,6 +87,28 @@ test('resolver accepts a browser drawable that already applied the admitted disp
 	assert.deepEqual(harness.revoked, ['blob:offline-1']);
 });
 
+test('resolver retains the authored display size for a raster stretched after rotation', async () => {
+	const asset = sourceAsset({
+		decodedWidth: 48, decodedHeight: 64, displayWidth: 48, displayHeight: 128,
+		postRotationAspectWidth: 96,
+	});
+	for (const width of [96, 95]) {
+		const harness = runtimeHarness({ decodedWidth: width, decodedHeight: 64 });
+		const resolver = createVideoKeyframeOfflineHtmlVideoSourceResolver(options(harness, [asset]));
+		try {
+			const pending = Promise.resolve(resolver.resolveSource(entry(), { signal: new AbortController().signal }));
+			if (width === 95) await assert.rejects(pending, /geometry/iu);
+			else {
+				const presentation = await pending;
+				assert.deepEqual([presentation.decodedWidth, presentation.decodedHeight], [96, 64]);
+				assert.deepEqual([presentation.displayWidth, presentation.displayHeight], [48, 128]);
+			}
+		} finally {
+			resolver.dispose();
+		}
+	}
+});
+
 test('resolver waits for current frame data after metadata before exposing a presentation', async () => {
 	const harness = runtimeHarness({ frameData: 'pending' });
 	const resolver = createVideoKeyframeOfflineHtmlVideoSourceResolver(options(harness));
@@ -244,6 +266,7 @@ interface RuntimeHarness {
 
 function runtimeHarness(options: Readonly<{
 	decodedWidth?: number;
+	decodedHeight?: number;
 	frameData?: 'loaded' | 'pending';
 	metadata?: 'loaded' | 'pending';
 	revokeFailures?: number;
@@ -262,7 +285,7 @@ function runtimeHarness(options: Readonly<{
 			assert.equal(name, 'video');
 			const video = new FakeVideo(
 				options.decodedWidth ?? 64,
-				32,
+				options.decodedHeight ?? 32,
 				options.metadata ?? 'loaded',
 				options.frameData ?? 'loaded',
 			);

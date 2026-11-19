@@ -22,7 +22,7 @@ test('Windows registers the exact AppContainer profile before creating its proce
 });
 
 test('Windows constructs the inherited CRT handle table without unaligned stores', () => {
-	assert.match(SOURCE, /handleOffset[\s\S]*std::memcpy\(/u);
+	assert.match(SOURCE, /soundscaper::childCrtDescriptors\(handles, pointerBytes\)/u);
 	assert.doesNotMatch(SOURCE, /reinterpret_cast<intptr_t \*>\(flags \+ count\)/u,
 		'ARM64 cannot admit a pointer aligned only after the variable byte flags');
 });

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { publishedCopyFor } from '../../shared/presentation-localization.ts'; import { setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
+import { publishedCopyFor } from '../../shared/presentation-localization.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
 import { preparePasteCommand as prepareLegacyPasteCommand } from '../../../commands/clipboard-runtime.js';
 import {
 	prepareLinkedSplitCommand as prepareLegacyLinkedSplitCommand,
@@ -148,8 +148,8 @@ export interface ClipboardEditService {
 	setSessionClipboard(descriptor: AudioEditorClipboard): AudioEditorClipboard;
 	prepareSessionClipboard(descriptor: AudioEditorClipboard): () => AudioEditorClipboard;
 	splitAtFrame(frame: unknown, trackIds?: string | readonly string[] | null): unknown;
-	commitSplitAtFrames(frames: readonly unknown[], trackIds?: string | readonly string[] | null): unknown;
-	prepareControllerPaste(mode: ClipboardPasteMode, atFrame?: number, pasteAsNewClip?: boolean): AudioEditorCommand;
+	commitSplitAtFrames(frames: readonly unknown[], trackIds?: string | readonly string[] | null, clipIds?: readonly string[]): unknown;
+	prepareControllerPaste(mode: ClipboardPasteMode, atFrame?: number, pasteAsNewClip?: boolean, scope?: Readonly<{ trackIds: readonly string[] }>): AudioEditorCommand;
 	disjoinSelectedClip(options?: Readonly<{ nativeSilence?: boolean }>): Promise<void>;
 	disjoinLabeledRegions(
 		regions: readonly Readonly<{ startFrame: number; endFrame: number }>[],
@@ -222,10 +222,11 @@ export function createClipboardEditService(
 	function commitSplitAtFrames(
 		requestedFrames: readonly unknown[],
 		trackIds: string | readonly string[] | null = null,
+		clipIds?: readonly string[],
 	): unknown {
 		dependencies.lifetime.assertActive();
 		const project = dependencies.getProject();
-		const targetClipIds = collectSplitTargetClipIds(project, trackIds);
+		const targetClipIds = clipIds ?? collectSplitTargetClipIds(project, trackIds);
 		const frames = [...new Set(requestedFrames.map((frame) => dependencies.normalizeFrame(frame)))].sort((left, right) => right - left);
 		const commands: AudioEditorCommand[] = [];
 		const handledLinks = new Set<string>();
@@ -251,6 +252,7 @@ export function createClipboardEditService(
 	function prepareControllerPaste(
 		mode: ClipboardPasteMode,
 		atFrame = dependencies.getPositionFrames(), pasteAsNewClip = true,
+		scope?: Readonly<{ trackIds: readonly string[] }>,
 	): AudioEditorCommand {
 		dependencies.lifetime.assertActive();
 		const project = dependencies.getProject();
@@ -265,7 +267,8 @@ export function createClipboardEditService(
 				? { type: 'source/add', source: structuredClone(source) } as AudioEditorCommand
 				: createAddSourceCommand(source));
 		let addedTrackCount = 0;
-		const selected = findMediaTrack(project, dependencies.state.selectedTrackId);
+		const scopedTracks = scope ? project.tracks.filter(track => scope.trackIds.includes(track.id)) : project.tracks;
+		const selected = scope ? scopedTracks.find(isMediaTrack) ?? null : findMediaTrack(project, dependencies.state.selectedTrackId);
 		const sequencePlan = createClipboardPasteSequencePlan(project, selected?.id ?? null, clipboard.tracks);
 		/**
 		 * A synthesized paste track joins the folder of the track the paste is
@@ -293,6 +296,7 @@ export function createClipboardEditService(
 			clipboardTrack: AudioEditorClipboard['tracks'][number],
 			laneGroupId: string | null = null,
 		): ClipboardEditMediaTrack => {
+			if (scope) throw createLocalizedError(RangeError, dependencies.copy, 'folderClipboardTracksRequired', undefined, { fallback: 'The clipboard requires more matching tracks than this folder contains.' });
 			const type = clipboardPasteTrackType(clipboardTrack);
 			if (type === 'video' && !hasProjectBinMediaAuthority(project)) {
 				throw new RangeError('Video clipboard tracks require an AudioEditorProjectV4 project.');
@@ -316,7 +320,7 @@ export function createClipboardEditService(
 			return { id: trackId, type, name: clipboardTrack.sourceTrackName, laneGroupId, clipIds: [] };
 		};
 
-		for (const group of planClipboardPasteTargets(project.tracks, selected?.id ?? null, clipboard.tracks ?? [], sequencePlan)) {
+		for (const group of planClipboardPasteTargets(scopedTracks, selected?.id ?? null, clipboard.tracks ?? [], sequencePlan)) {
 			const laneGroupId = group.length === 2 && !group[0]?.target ? dependencies.createId('media-lanes') : null;
 			for (const { clipboardTrack, target } of group) {
 				trackMap[clipboardTrack.sourceTrackId] = (target ?? createTargetTrack(clipboardTrack, laneGroupId)).id;
@@ -326,7 +330,7 @@ export function createClipboardEditService(
 			const sequence = sequencePlan.targetSequenceBySourceTrackId.get(track.sourceTrackId);
 			return typeof track.sourceSequenceId === 'string' && sequence ? [[track.sourceSequenceId, sequence]] : [];
 		}));
-		commands.push(preparePaste(clipboard, project, atFrame, trackMap, mode, pasteAsNewClip, sequenceMap));
+		commands.push(preparePaste(clipboard, project, atFrame, trackMap, mode, pasteAsNewClip, sequenceMap, scope?.trackIds));
 		const command: AudioEditorCommand = commands.length === 1 ? commands[0]! : { type: 'batch', commands };
 		if (!preparedCarrier || !dependencies.prepareEditClipboardPasteCommand) return command;
 		return dependencies.prepareEditClipboardPasteCommand(
@@ -478,10 +482,11 @@ export function createClipboardEditService(
 		atFrame: number,
 		trackMap: Readonly<Record<string, string>>,
 		mode: ClipboardPasteMode, pasteAsNewClip: boolean, sequenceMap: Readonly<Record<string, string>>,
+		rippleTrackIds?: readonly string[],
 	): Extract<AudioEditorCommand, { readonly type: 'clipboard/paste' }> {
 		return prepareLegacyPasteCommand(
 			clipboard,
-			{ project, atFrame, trackMap, mode, pasteAsNewClip, sequenceMap },
+			{ project, atFrame, trackMap, mode, pasteAsNewClip, sequenceMap, rippleTrackIds },
 			dependencies.createId,
 		) as Extract<AudioEditorCommand, { readonly type: 'clipboard/paste' }>;
 	}

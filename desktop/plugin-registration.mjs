@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createDurableFileSystem } from './plugin-durable-file-system.mjs';
+import { WindowsVst2BridgeConsent } from './project-library-runtime/desktop/windows-vst2-bridge-consent.js';
 /** Assembles the plug-in discovery subsystem and registers it on main. */
 
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import { readFileSync, statSync } from 'node:fs';
-import { createHash, randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 
@@ -24,7 +24,13 @@ import {
 } from './project-library-runtime/desktop/plugin-registry.js';
 import { DesktopPluginScanService } from './project-library-runtime/desktop/plugin-scan-service.js';
 import { createPluginScanProgressSupervisor } from './project-library-runtime/desktop/plugin-scan-progress.js';
+import { scanRootLocation, pluginCandidateIdentity } from './project-library-runtime/desktop/plugin-registration-paths.js';
+import { WineVst3Preferences, WINE_VST3_ACTIONS } from './project-library-runtime/desktop/wine-vst3-preferences.js';
+import { changeWineVst3Configuration } from './project-library-runtime/desktop/wine-vst3-revocation.js';
 import { createDefaultPluginDiscoveryConsent } from './project-library-runtime/desktop/plugin-discovery-defaults.js';
+import { bundledJuceEffectsDirectory } from './project-library-runtime/desktop/bundled-juce-effects.js';
+import { createBundledPluginStartup } from './project-library-runtime/desktop/bundled-plugin-startup.js';
+import { authenticatePluginCandidate } from './plugin-candidate-authentication.mjs';
 import { createDesktopNativeAddonHelperSupervisor } from './native-helper-registration.mjs';
 import { productionSoundscaperPluginFormatActivated } from './soundscaper-native-activation-policy.mjs';
 import { createPluginRegistryAllowanceStore } from './plugin-registry-allowance-store.mjs';
@@ -52,24 +58,6 @@ const SCANNER_FAULT_KINDS = new Map([
 	['oversize-plugin', 'oversized-answer'],
 	['identity-change', 'identity-change'],
 ]);
-
-/**
- * Both durable files have to outlive the process, so they are written
- * atomically. A half-written record would be indistinguishable from a machine
- * on which nothing was ever quarantined or consented to, which is the exact
- * state these stores exist to prevent.
- */
-function createDurableFileSystem() {
-	return Object.freeze({
-		readFile: (path) => readFile(path, 'utf8'),
-		writeFile: async (path, contents) => {
-			await mkdir(dirname(path), { recursive: true });
-			const temporary = `${path}.${randomBytes(8).toString('hex')}.tmp`;
-			await writeFile(temporary, contents, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
-			await rename(temporary, path);
-		},
-	});
-}
 
 /**
  * Adapts the durable quarantine onto the port the scan service holds. The
@@ -147,14 +135,19 @@ export function recordScannedPlugins(registry, result, {
  */
 export function observeScannedPlugins(supervisor, registry, {
 	isFormatActivated = () => true, onRecorded = () => undefined,
-	onIdentityChanged = () => undefined,
+	onIdentityChanged = () => undefined, windowsX86Vst2Enabled = () => false, linuxWineVst3Enabled = () => false,
 } = {}) {
 	return Object.freeze({
 		runJob: async (request) => {
 			if (request.kind === 'plugin-scan' && !isFormatActivated(request.grant?.format)) {
 				throw new Error('That plug-in format remains behind its production activation gate.');
 			}
-			const result = await supervisor.runJob(request);
+			let job = request.kind === 'plugin-scan' && request.grant.format === 'vst2' && windowsX86Vst2Enabled()
+				? { ...request, grant: { ...request.grant, windowsX86Vst2: true } } : request;
+			if (request.kind === 'plugin-scan' && request.grant.format === 'vst3' && linuxWineVst3Enabled()) {
+				job = { ...job, grant: { ...job.grant, linuxWineVst3: true } };
+			}
+			const result = await supervisor.runJob(job);
 			if (request.kind === 'plugin-scan') {
 				if (request.signal?.aborted) return result;
 				if (!isFormatActivated(request.grant?.format)) {
@@ -178,20 +171,32 @@ export function registerDesktopPluginDiscovery({
 	createPluginHostHelper = null,
 	openPersistentPluginSession = openNativePersistentPluginSession,
 	vampAnalyzerRuntime = null, vampAnalyzerBackend = null,
+	nativePluginBridgeTarget = process.platform === 'win32' ? `win-${process.arch}` : `${process.platform}-${process.arch}`,
 }) {
+	const durable = createDurableFileSystem();
+	const wine = new WineVst3Preferences({ target: nativePluginBridgeTarget, userDataPath,
+		applicationRoot: dirname(desktopRoot), packaged, resourcesPath, persist: durable.writeFile,
+		chooseExecutable: async () => {
+			const result = await dialog.showOpenDialog({ title: 'Choose Wine executable', properties: ['openFile'] });
+			return result.canceled || result.filePaths.length !== 1 ? null : result.filePaths[0];
+		} });
 	const helper = injectedSupervisor ? null : createDesktopNativeAddonHelperSupervisor({
 		desktopRoot,
 		packaged,
 		resourcesPath,
 		role: 'plugin-scanner',
-		serviceName: 'soundscaper-native-plugin-scanner',
+		serviceName: 'soundscaper-native-plugin-scanner', runtimeContext: () => wine.helperConfiguration(),
 		payloadKind: 'professional',
 	});
 	const progress = createPluginScanProgressSupervisor(injectedSupervisor ?? helper.supervisor);
 	const supervisor = progress.supervisor;
 	const describePayload = injectedDescribePayload ?? helper.describePayload;
-	const durable = createDurableFileSystem();
 	const consentPath = join(userDataPath, CONSENT_FILE);
+	const bridgePath = join(userDataPath, 'windows-vst2-x86-consent-v1.json');
+	let bridgeState;
+	try { bridgeState = JSON.parse(readFileSync(bridgePath, 'utf8')).enabled; } catch { /* use the target's bridge default */ }
+	const bridgeConsent = new WindowsVst2BridgeConsent({ target: nativePluginBridgeTarget,
+		state: bridgeState, persist: (enabled) => durable.writeFile(bridgePath, JSON.stringify({ enabled })) });
 	const quarantine = new DesktopPluginQuarantine({
 		filePath: join(stateDataPath ?? userDataPath, QUARANTINE_FILE),
 		fileSystem: durable,
@@ -205,7 +210,9 @@ export function registerDesktopPluginDiscovery({
 			: dialog.showOpenDialog({ title: pickerTitle(format), properties: ['openDirectory'] }));
 		return result.canceled || result.filePaths.length !== 1 ? null : result.filePaths[0];
 	}, { enabled: settings.snapshot().nativePluginDiscoveryEnabled === true,
-		isFormatActivated: isPluginHostFormatActivated });
+		isFormatActivated: isPluginHostFormatActivated }, bundledJuceEffectsDirectory({
+		applicationRoot: dirname(desktopRoot), packaged, resourcesPath,
+	}));
 	let consentWrites = Promise.resolve();
 	const persistConsent = () => {
 		const contents = JSON.stringify(consent.exportState());
@@ -215,7 +222,9 @@ export function registerDesktopPluginDiscovery({
 		);
 		return consentWrites;
 	};
-	const registry = new DesktopPluginRegistry({ isQuarantined: (digest) => quarantine.isQuarantined(digest) });
+	const registry = new DesktopPluginRegistry({ linuxWineVst3Enabled: () => wine.enabled, isQuarantined: (digest) => quarantine.isQuarantined(digest),
+		isInstallationEnabled: (entry) => entry.architecture !== 'ia32'
+			|| entry.platform === 'win32' && entry.format === 'vst2' && bridgeConsent.enabled });
 	const allowances = createPluginRegistryAllowanceStore({
 		filePath: join(userDataPath, ALLOWANCE_FILE),
 		legacyFilePath: join(userDataPath, LEGACY_ALLOWANCE_FILE), fileSystem: durable,
@@ -233,11 +242,17 @@ export function registerDesktopPluginDiscovery({
 			catch { return null; }
 		},
 	});
-	const service = new DesktopPluginScanService({
-		supervisor: observeScannedPlugins(supervisor, registry, {
-			isFormatActivated: formatIsActive, onRecorded: allowances.observe,
+	let bundled;
+	const observedSupervisor = observeScannedPlugins(supervisor, registry, {
+			isFormatActivated: formatIsActive, onRecorded: (observation, admission) => { allowances.observe(observation, admission); bundled?.observe(observation, admission); }, linuxWineVst3Enabled: () => wine.enabled, windowsX86Vst2Enabled: () => bridgeConsent.enabled,
 			onIdentityChanged: (digest) => scannerQuarantine.quarantine(digest, 'identity-change'),
-		}),
+		});
+	bundled = createBundledPluginStartup({ registry, supervisor: observedSupervisor, quarantine: scannerQuarantine,
+		describePayload, isEnabled: () => settings.snapshot().nativePluginDiscoveryEnabled === true, isFormatActive: formatIsActive,
+		authenticate: authenticatePluginCandidate, preferencesPath: join(userDataPath, 'bundled-native-plugin-defaults-v1.json'),
+		writeFile: (path, contents) => durable.writeFile(path, contents), allowances });
+	const service = new DesktopPluginScanService({
+		supervisor: observedSupervisor,
 		consent: discoveryConsent,
 		quarantine: scannerQuarantine,
 		roots: discoveryRoots,
@@ -256,6 +271,7 @@ export function registerDesktopPluginDiscovery({
 			resourcesPath,
 			role: 'plugin-host',
 			serviceName: `soundscaper-native-plugin-${launch.format}-${launch.binarySha256.slice(0, 12)}`,
+			runtimeContext: () => wine.helperConfiguration(),
 			payloadKind: 'professional',
 		})),
 		openPersistentPluginSession,
@@ -271,14 +287,16 @@ export function registerDesktopPluginDiscovery({
 		describePayload, desktopRoot, packaged, resourcesPath,
 		...(vampAnalyzerRuntime ? { runtime: vampAnalyzerRuntime } : {}),
 		...(vampAnalyzerBackend ? { backend: vampAnalyzerBackend } : {}),
-		effects: Object.freeze({ service, registry, allowances, hosting, isFormatActive: formatIsActive,
+		effects: Object.freeze({ service, registry, allowances, hosting, isFormatActive: formatIsActive, ready: bundled.ready,
+			onInstallationAllowed: bundled.setAllowed,
 			onInstallationRevoked: (id) => ara.withdrawInstallation(id),
 			settleQuarantine: () => scannerQuarantine.settle() }),
 	});
 
 	handle(channels.nativePluginAvailability, async () => Object.freeze({
 		...(await service.availability()),
-		consent: activatedConsentProjection(consent.describe(), formatIsActive),
+		consent: Object.freeze({ ...activatedConsentProjection(consent.describe(), formatIsActive),
+			windowsX86Vst2: bridgeConsent.describe(), linuxWineVst3: await wine.describe() }),
 		quarantine: quarantine.snapshot(),
 	}));
 	handle(channels.nativePluginScanProgress, () => Object.freeze({
@@ -288,8 +306,25 @@ export function registerDesktopPluginDiscovery({
 		void ownerFor(event);
 		const format = String(value?.format || '');
 		const action = String(value?.action || '');
-		if (!formatIsActive(format)) {
+		if (format === 'vst3' && WINE_VST3_ACTIONS.includes(action)) {
+			service.cancelFormat('vst3');
+			await changeWineVst3Configuration(wine, action, registry, hosting?.isolation);
+			return wine.describe();
+		}
+		if (!formatIsActive(format) && !(format === 'vst2' && action === 'disable-x86-vst2')) {
 			throw new Error('That plug-in format remains blocked by production policy and source activation.');
+		}
+		if (format === 'vst2' && ['enable-x86-vst2', 'disable-x86-vst2'].includes(action)) {
+			await bridgeConsent.setEnabled(action === 'enable-x86-vst2');
+			service.cancelFormat(format);
+			for (const entry of registry.describe().entries.filter((entry) => entry.format === 'vst2')) {
+				for (const installation of entry.installations.filter((item) => item.architecture === 'ia32')) {
+					const digest = registry.digestFor(installation.installationId);
+					if (bridgeConsent.enabled) hosting?.isolation.restoreDigest(digest);
+					else hosting?.isolation.revokeDigest(digest);
+				}
+			}
+			return bridgeConsent.describe();
 		}
 		const outcome = await applyConsentAction(consent, {
 			action,
@@ -324,12 +359,14 @@ export function registerDesktopPluginDiscovery({
 		const scannerFault = quarantine.describe(digest)?.scope === 'scanner';
 		const cleared = await quarantine.clear(digest, clearance);
 		if (cleared && scannerFault) service.clearQuarantine();
+		if (cleared) bundled.cancel();
 		// The in-memory hold releases with the durable one, or an explicit
 		// re-enable would leave the digest dead until the editor restarts.
 		const restored = hosting ? hosting.isolation.restoreDigest(digest) : false;
 		return Object.freeze({ cleared: cleared || restored });
 	});
 	handle(channels.nativePluginInstantiate, async (event, value) => {
+		await bundled.ready();
 		await rebindPluginInstallation(allowances, registry, value?.installationId);
 		const runtime = requireHosting(hosting);
 		const owner = ownerFor(event);
@@ -371,14 +408,16 @@ export function registerDesktopPluginDiscovery({
 			hosting?.settleQuarantineWrites(), vamp.settleQuarantineWrites(), ara.settleQuarantineWrites(),
 		]),
 		ready: async () => {
-			await quarantine.load();
+			await Promise.all([quarantine.load(), wine.ready()]);
 			await persistConsent();
+			void bundled.ready().catch(error => console.error('Bundled plug-in startup failed:', error));
 			return Object.freeze([]);
 		},
 		setEnabled: async (enabled) => {
 			const result = await settings.setNativePluginDiscoveryEnabled(enabled === true);
 			if (!result) {
 				service.cancelAll();
+				bundled.cancel();
 				const vampDisabled = vamp.disable();
 				await ara.disable();
 				await hosting?.closeAll();
@@ -397,6 +436,7 @@ export function registerDesktopPluginDiscovery({
 			void hosting?.closeAll();
 			hosting?.service.dispose();
 			service.dispose();
+			bundled.dispose();
 			await vamp.dispose();
 			await ara.dispose();
 		},
@@ -453,16 +493,16 @@ async function applyConsentAction(consent, { action, format, rootId }) {
  * cannot be trusted starts the format table empty rather than refusing to
  * start, exactly as the durable quarantine does.
  */
-function createConsent(filePath, pickDirectory, defaults) {
+function createConsent(filePath, pickDirectory, defaults, bundledEffectsDirectory) {
 	const state = readConsentState(filePath);
-	const options = { pickDirectory, homeDirectory: homedir() };
+	const options = { pickDirectory, homeDirectory: homedir(), bundledEffectsDirectory };
 	if (state === undefined) return createDefaultPluginDiscoveryConsent(options, defaults);
-	if (state === null) return new DesktopPluginConsent({ pickDirectory });
+	if (state === null) return new DesktopPluginConsent(options);
 	try {
 		return new DesktopPluginConsent({ ...options, state });
 	} catch (error) {
 		console.error('The persisted plug-in consent was not admitted; starting with none:', error);
-		return new DesktopPluginConsent({ pickDirectory });
+		return new DesktopPluginConsent(options);
 	}
 }
 
@@ -476,40 +516,6 @@ function readConsentState(filePath) {
 		}
 		return null;
 	}
-}
-
-/**
- * The main-private location one scan runs against. The digest names the
- * root-and-format pair the durable quarantine is keyed by, and the identity is
- * captured here so the grant names the directory main resolved rather than
- * whatever the path happens to point at by the time the helper opens it.
- */
-function scanRootLocation(root) {
-	const identity = fileIdentity(root.path, (entry) => entry.isDirectory());
-	if (!identity) return null;
-	return Object.freeze({
-		path: root.path,
-		identity,
-		scanDigest: createHash('sha256').update(`${root.format}\u0000${root.path}`).digest('hex'),
-	});
-}
-
-function fileIdentity(path, admits = (entry) => entry.isFile()) {
-	let entry;
-	try {
-		entry = statSync(path);
-	} catch {
-		return null;
-	}
-	if (!admits(entry)) return null;
-	const dev = Number(entry.dev);
-	const ino = Number(entry.ino);
-	if (!Number.isSafeInteger(dev) || !Number.isSafeInteger(ino) || dev < 0 || ino < 0) return null;
-	return Object.freeze({ dev, ino });
-}
-
-function pluginCandidateIdentity(path) {
-	return fileIdentity(path, (entry) => entry.isFile() || entry.isDirectory());
 }
 
 function describeError(error) {

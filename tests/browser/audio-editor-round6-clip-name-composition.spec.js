@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
 test('inline clip renaming keeps native composition until ordinary name confirmation', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const original = clipByName(editor, toneA.name);
 	const clipId = await original.getAttribute('data-clip-id');

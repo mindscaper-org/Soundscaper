@@ -408,7 +408,7 @@ function matchesFingerprint(clip: TimePitchClip, fingerprint: ClipFingerprint): 
 function normalizationProcessing(clip: TimePitchClip): string {
 	return JSON.stringify([clip.gain, clip.fadeInFrames, clip.fadeOutFrames, clip.fadeInShape,
 		clip.fadeOutShape, clip.envelope, clip.reversed, clip.inverted, clip.pitchCents,
-		clip.speedRatio, clip.linkPitchAndTempo, clip.preserveFormants, clip.warpMap, readClipLoop(clip)]);
+		clip.speedRatio, clip.linkPitchAndTempo, clip.preserveFormants, clip.warpMap, readClipLoop(clip), clip.effectsActive, clip.effects]);
 }
 
 function timePitchPreparationIndex(project: ClipTransformProject): TimePitchPreparationIndex {

@@ -19,7 +19,7 @@ export async function tryRenderRealtimeDesktopPcmExport(runtime: RealtimeEncoded
 	destination: DirectCompressedDestination | null, assertCurrent: () => void,
 	encodingProgressRange: AudioEncodingProgressRange,
 ) {
-	if (!isDesktopMainAudioCodecRuntime(runtime.ffmpeg) || plan.format === 'flac') return null;
+	if (plan.renderAsLoop || !isDesktopMainAudioCodecRuntime(runtime.ffmpeg) || plan.format === 'flac') return null;
 	const ffmpeg = runtime.ffmpeg as Partial<DesktopAudioCodecRuntime>;
 	if (typeof ffmpeg.preparePcmStream !== 'function') return null;
 	const fence = { current: assertCurrent };

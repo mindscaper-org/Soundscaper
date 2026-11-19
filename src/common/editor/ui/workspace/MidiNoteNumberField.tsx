@@ -10,11 +10,12 @@ interface MidiNoteNumberFieldProps {
 	readonly step: number;
 	readonly disabled: boolean;
 	readonly title?: string;
+	readonly normalize?: (value: number) => number;
 	readonly onCommit: (value: number) => void;
 }
 
 /** Keep an authored number intact while the asynchronous note edit is pending. */
-export function MidiNoteNumberField({ value, min, max, step, disabled, title, onCommit }: MidiNoteNumberFieldProps) {
+export function MidiNoteNumberField({ value, min, max, step, disabled, title, normalize, onCommit }: MidiNoteNumberFieldProps) {
 	const field = useRef<HTMLInputElement>(null);
 	const [draft, setDraft] = useState(String(value));
 	const focused = useRef(false);
@@ -29,7 +30,10 @@ export function MidiNoteNumberField({ value, min, max, step, disabled, title, on
 			const parsed = Number(draft);
 			if (cancelled.current || !draft.trim() || !Number.isFinite(parsed) || parsed < min || (max !== undefined && parsed > max)
 				|| (step === 1 && !Number.isInteger(parsed))) { setDraft(String(value)); return; }
-			if (parsed !== value) onCommit(parsed);
+			const authored = normalize?.(parsed) ?? parsed;
+			if (!Number.isFinite(authored)) { setDraft(String(value)); return; }
+			setDraft(String(authored));
+			if (authored !== value) onCommit(authored);
 		}}
 		onKeyDown={event => {
 			if (event.nativeEvent?.isComposing || event.nativeEvent?.keyCode === 229) return;

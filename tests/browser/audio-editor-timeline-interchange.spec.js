@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseFileAction, chooseNestedCommandAction, disableNativeSavePicker, downloadBytes, importFiles } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseFileAction, chooseNestedCommandAction, clipByName, disableNativeSavePicker, downloadBytes, importFiles } from './audio-editor-test-helpers.js';
 import { createOtioExport } from '../../src/common/editor/otio-export.ts';
 import { encodeWav } from '../../src/common/editor/wav.js';
 import { createDeterministicAvFixture } from './fixtures/deterministic-av-media.js';
@@ -16,6 +16,17 @@ function fixtures() {
 	return [{ name: 'voice.otio', mimeType: 'application/json', buffer: Buffer.from(text) },
 		{ name: 'voice.wav', mimeType: 'audio/wav', buffer: Buffer.from(encodeWav([new Float32Array(48_000).fill(.25)], { sampleRate: 48_000, float: true })) }];
 }
+
+test('a timeline and its media companion can be imported with a separate recording', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	const [timeline, companion] = fixtures();
+	const recording = { ...companion, name: 'Additional take.wav' };
+	await importFiles(editor, [timeline, companion, recording]);
+	await expect(editor.getByRole('tab', { name: 'Interchange voice', exact: true })).toHaveAttribute('aria-selected', 'true');
+	await expect(clipByName(editor, recording.name)).toHaveCount(1);
+	await expect(editor.getByRole('group', { name: /^Phrase clip,/u })).toHaveCount(1);
+	await expect(editor).toHaveAttribute('data-clip-count', '2');
+});
 
 test('shared Import binds OTIO media, Export Other downloads embedded OMF, and shared Open restores it', async ({ page }) => {
 	await disableNativeSavePicker(page);

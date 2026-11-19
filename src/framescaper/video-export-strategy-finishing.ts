@@ -6,14 +6,14 @@ import { snapshotExactExecutionDependencies, type ExactExecutionDependenciesFini
 import { compareCodeUnits } from '../common/editor/code-unit-order.ts';
 import type { FfmpegOutputSink } from '../common/editor/ffmpeg-output-stream.ts';
 import { assertManagedVideoColorRenderAdmissionV1 } from '../common/editor/video-color-management-v27.ts';
-import {
+import { resolveVideoExportRange } from '../common/editor/video-export.js';
+import type {
 	encodeVideoKeyframeVideo,
-	encodeVideoKeyframeVideoToSink,
-	type VideoKeyframeVideoEncoderRequest,
-	type VideoKeyframeVideoEncoderResult,
-	type VideoKeyframeVideoSinkEncoderResult,
+	VideoKeyframeVideoEditorFfmpeg,
+	VideoKeyframeVideoEncoderRequest,
+	VideoKeyframeVideoEncoderResult,
+	VideoKeyframeVideoSinkEncoderResult,
 } from '../common/editor/video-keyframe-video-encoder.ts';
-import { createVisibleVideoTrackPredicate } from '../common/editor/video-track-visibility.js';
 import type {
 	ProductVideoExportEncodedOutput,
 	ProductVideoExportPlan,
@@ -29,6 +29,8 @@ import {
 } from '../common/editor/video-keyframe-export-plan-v7.ts';
 import { framescaperProjectRetimeFoundationFinishing } from './editor-project-finishing-runtime.ts';
 import { runFramescaperFinishingEncode } from './video-export-encode-cleanup.ts';
+import { planFramescaperVideoExportCaptions } from './video-export-caption-plan.ts';
+import { hasVisibleFramescaperExportPicture } from './video-export-picture-availability-finishing.ts';
 import { assertFramescaperProjectFinishingProfile } from './editor-domain-runtime-profile.ts';
 import {
 	validateFramescaperProjectFinishing,
@@ -85,9 +87,21 @@ export interface FramescaperVideoExportStrategyFinishingDependencies
 }
 
 const DEFAULT_PICTURE_ENCODERS = Object.freeze({
-	encodePicture: encodeVideoKeyframeVideo,
-	encodePictureToSink: encodeVideoKeyframeVideoToSink as PictureSinkEncoderFinishing,
+	async encodePicture(editorFfmpeg: VideoKeyframeVideoEditorFfmpeg | null | undefined, request: VideoKeyframeVideoEncoderRequest) {
+		const runtime = await import('../common/editor/video-keyframe-video-encoder.ts');
+		return runtime.encodeVideoKeyframeVideo(editorFfmpeg, request);
+	},
+	async encodePictureToSink<Output>(editorFfmpeg: VideoKeyframeVideoEditorFfmpeg | null | undefined,
+		request: VideoKeyframeVideoEncoderRequest, sink: FfmpegOutputSink<Output>) {
+		const runtime = await import('../common/editor/video-keyframe-video-encoder.ts');
+		return runtime.encodeVideoKeyframeVideoToSink(editorFfmpeg, request, sink);
+	},
 });
+
+// The shared JavaScript resolver also accepts explicit sample range records.
+const exportRange = resolveVideoExportRange as unknown as (
+	project: Readonly<Record<string, unknown>>, request: unknown,
+) => ReturnType<typeof resolveVideoExportRange>;
 
 const DISPOSITIONS = new WeakMap<object, FramescaperVideoExportPictureDispositionFinishing>();
 
@@ -143,26 +157,23 @@ export function createFramescaperVideoExportStrategyFinishing(
 		hasPicture(exportProject: Readonly<Record<string, unknown>>) {
 			const authority = exports.get(exportProject);
 			if (!authority) throw new TypeError('Selected finishing picture authority requires an owned export project.');
-			return hasVisibleVisualPicture(authority.canonicalProject);
+			return hasVisibleFramescaperExportPicture(authority.canonicalProject, ['still', 'generator']);
 		},
 		createPlan(request: ProductVideoExportStrategyPlanRequest) {
 			const authority = currentAuthority(profile, request, exports);
-			if (request.captions != null) {
-				throw new RangeError('Selected finishing caption delivery is sidecar-only through Caption Tracks; video export mux and burn-in are unavailable.');
-			}
-			const plan = hasVisibleVideoPicture(authority.canonicalProject)
+			const project = authority.canonicalProject as unknown as FramescaperProjectFinishing;
+			const selectedRange = request.range === undefined || request.range === 'project'
+				? undefined : exportRange(authority.retimeExportProject, request.range);
+			const plan = hasVisibleFramescaperExportPicture(authority.canonicalProject, ['video'], selectedRange)
 				? delegate.createPlan({
 					...request,
 					canonicalProject: authority.retimeProject,
 					exportProject: authority.retimeExportProject,
-					// finishing captions are accounted and delivered as explicit sidecars;
-					// they are not a keyed picture mux/burn request for the retime core.
 					captions: undefined,
 				})
-				: createFramescaperVideoVisualPlanFinishing(
-					authority.canonicalProject as unknown as FramescaperProjectFinishing, request,
-				);
+				: createFramescaperVideoVisualPlanFinishing(project, request);
 			if (!plan) throw new Error('Selected finishing browser export requires an exact RGBA route.');
+			planFramescaperVideoExportCaptions(project, plan, request.captions);
 			plans.set(plan, authority);
 			timingSources.set(plan, allVideoSourceIds(authority.canonicalProject));
 			return plan;
@@ -400,31 +411,6 @@ function assertSupportedBrowserFinishingState(project: FramescaperProjectFinishi
 	for (const interpretation of project.videoSourceColorInterpretations) {
 		assertManagedVideoColorRenderAdmissionV1(interpretation);
 	}
-}
-
-function hasVisibleVideoPicture(project: Readonly<Record<string, unknown>>): boolean {
-	return hasVisiblePictureKind(project, new Set(['video']));
-}
-
-function hasVisibleVisualPicture(project: Readonly<Record<string, unknown>>): boolean {
-	return hasVisiblePictureKind(project, new Set(['still', 'generator']));
-}
-
-function hasVisiblePictureKind(
-	project: Readonly<Record<string, unknown>>,
-	kinds: ReadonlySet<string>,
-): boolean {
-	const sequences = records(project.sequences, 'finishing picture sequences');
-	const primary = sequences.find(({ id }) => id === project.primarySequenceId);
-	if (!primary) throw new ReferenceError('finishing picture primary sequence is unavailable.');
-	const trackIds = new Set(array(primary.trackIds, 'finishing picture sequence track IDs').map(String));
-	const clips = new Map(records(project.clips, 'finishing picture clips').map((clip) => [String(clip.id), clip]));
-	const tracks = records(project.tracks, 'finishing picture tracks');
-	const visible = createVisibleVideoTrackPredicate(tracks);
-	return tracks.some((track) => trackIds.has(String(track.id)) && visible(track)
-		&& array(track.clipIds, 'finishing picture track clip IDs').some((id) => (
-			kinds.has(String(clips.get(String(id))?.kind))
-		)));
 }
 
 function allVideoSourceIds(projectValue: Readonly<Record<string, unknown>>): readonly string[] {

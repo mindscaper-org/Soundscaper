@@ -4,7 +4,7 @@ import { expect, longTone, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clipByName, importFiles, showToolbarButton } from './audio-editor-test-helpers.js';
 
 test('global item keys from the playhead move the selected clip across successive snap lines', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [longTone]);
 	const clip = clipByName(editor, longTone.name);
 	await clip.locator('.clip-header').click();
@@ -28,7 +28,7 @@ test('global item keys from the playhead move the selected clip across successiv
 });
 
 test('global vertical item keys retain an off-grid clip position while Snap is enabled', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [longTone]);
 	const clip = clipByName(editor, longTone.name);
 	const header = clip.locator('.clip-header');

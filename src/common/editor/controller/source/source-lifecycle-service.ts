@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { raceAbortableRead } from '../../../foundation/abort-race.ts';
+import { isGeneratedMidiSource } from '../../storage/midi-source.ts';
 import { loadOptionalWaveformPeaks, saveOptionalWaveformPeaks } from './internal/optional-waveform-cache.ts';
 import { isUnsupportedNativeAudioBuffer } from '../../source-pcm-contract.ts';
 import { localizedErrorMessage, publishLocalizedStatus } from '../../../i18n/presentation-message.ts';
@@ -177,6 +178,11 @@ export function createSourceLifecycleService<
 				);
 				throwIfSourceLoadAborted(options.signal);
 				if (required) assertRequiredSourceMetadata(source, metadata);
+				if (isGeneratedMidiSource(metadata)) {
+					if (!registerStoredChunkProvider(source, metadata)) throw new Error(`MIDI source ${source.id} has no playable chunk provider.`);
+					sourceBuffers.delete(source.id);
+					continue;
+				}
 				const requiresChunkStream = sourcePcmBytes(source) > SHORT_SOURCE_AUDIO_BUFFER_MAX_BYTES;
 				if (required) {
 					if (requiresChunkStream) {
@@ -284,7 +290,7 @@ export function createSourceLifecycleService<
 				);
 				throwIfSourceLoadAborted(options.signal);
 				assertRequiredSourceMetadata(source, metadata);
-				if (sourcePcmBytes(source) > SHORT_SOURCE_AUDIO_BUFFER_MAX_BYTES) {
+				if (isGeneratedMidiSource(metadata) || sourcePcmBytes(source) > SHORT_SOURCE_AUDIO_BUFFER_MAX_BYTES) {
 					const provider = createStoredChunkProviderCandidate(source, metadata);
 					if (!provider) {
 						throw new Error(`Required rendered fallback source ${source.id} has no playable chunk provider.`);
@@ -367,7 +373,7 @@ export function createSourceLifecycleService<
 				);
 				throwIfSourceLoadAborted(options.signal);
 				assertRequiredSourceMetadata(source, metadata);
-				const useChunkStream = sourcePcmBytes(source) > SHORT_SOURCE_AUDIO_BUFFER_MAX_BYTES;
+				const useChunkStream = isGeneratedMidiSource(metadata) || sourcePcmBytes(source) > SHORT_SOURCE_AUDIO_BUFFER_MAX_BYTES;
 				if (useChunkStream) {
 					if (!registerStoredChunkProvider(source, metadata)) {
 						throw new Error(`Required rendered fallback source ${source.id} has no playable chunk provider.`);

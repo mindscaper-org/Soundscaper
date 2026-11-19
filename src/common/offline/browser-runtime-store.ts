@@ -15,6 +15,7 @@ import {
 	FFMPEG_RUNTIME_PUBLIC_ORIGIN,
 	FFMPEG_RUNTIME_PUBLIC_PREFIX,
 } from './ffmpeg-runtime-public-policy.ts';
+import { readBoundedResponse } from './ffmpeg-runtime-response.ts';
 
 export const BROWSER_FFMPEG_RUNTIME_CACHE_PREFIX = 'soundscaper-ffmpeg-runtime-v1-';
 
@@ -99,23 +100,19 @@ export function createBrowserFfmpegRuntimeStore(
 		const response = await cache.match(stateKey);
 		if (!response) return null;
 		if (!response.ok || response.status !== 200) return null;
-		const declaredLength = response.headers.get('content-length');
-		if (declaredLength !== null && (!/^\d+$/u.test(declaredLength)
-			|| Number(declaredLength) > MAXIMUM_STATE_BYTES)) return null;
-		const bytes = new Uint8Array(await response.arrayBuffer());
-		if (!bytes.byteLength || bytes.byteLength > MAXIMUM_STATE_BYTES) return null;
 		try {
+			const bytes = await readBoundedResponse(response, { label: 'Runtime cache state', maximumBytes: MAXIMUM_STATE_BYTES });
 			return validateState(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)));
 		} catch {
 			return null;
 		}
 	}
 
-	async function isComplete(release: VerifiedRuntimeRelease | null): Promise<boolean> {
+	async function isComplete(release: VerifiedRuntimeRelease | null, existingCache?: RuntimeCache): Promise<boolean> {
 		if (!release) return false;
 		const cacheName = releaseCacheName(release.releaseId);
-		if (!(await cacheStorage.keys()).includes(cacheName)) return false;
-		const cache = await cacheStorage.open(cacheName);
+		if (!existingCache && !(await cacheStorage.keys()).includes(cacheName)) return false;
+		const cache = existingCache ?? await cacheStorage.open(cacheName);
 		for (const file of release.files) {
 			const response = await cache.match(file.url);
 			if (!response || !response.ok || response.status !== 200) return false;
@@ -228,6 +225,7 @@ export function createBrowserFfmpegRuntimeStore(
 								if (!response) throw new Error(`Runtime candidate lost ${file.name} before commit.`);
 								await finalCache.put(file.url, response);
 							}
+							if (!(await isComplete(release, finalCache))) throw new Error('Runtime cache verification failed before commit.');
 							await writeState(cacheStorage, stateKey, Object.freeze({
 								schemaVersion: 1 as const,
 								active: release,

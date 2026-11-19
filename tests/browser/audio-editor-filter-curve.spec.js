@@ -39,7 +39,7 @@ test.describe('Audacity Filter Curve EQ', () => {
 
 	test('displays full-width presets, axis scales and FIR response without overflowing curve text', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const dialog = await openCurve(page, editor);
 		const { graph } = await curveBox(dialog);
@@ -49,7 +49,7 @@ test.describe('Audacity Filter Curve EQ', () => {
 		const contentWidth = await graph.evaluate((element) => element.parentElement.getBoundingClientRect().width);
 		const graphWidth = (await graph.boundingBox()).width;
 		expect(graphWidth / contentWidth).toBeGreaterThan(0.9);
-		await dialog.getByRole('button', { name: 'Preset', exact: true }).click();
+		await dialog.getByRole('button', { name: /^Preset(?::|$)/u }).click();
 		await page.getByRole('option', { name: 'Bass Cut', exact: true }).click();
 		await expect(graph.getByRole('img', { name: 'Actual filter response', exact: true })).toBeVisible();
 		const coordinates = (await curve.getAttribute('points')).split(' ');
@@ -77,7 +77,7 @@ test.describe('Audacity Filter Curve EQ', () => {
 
 	test('adds, drags, cancels and deletes curve points, then applies and undoes the EQ', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const originalSources = await effectSourceMetadata(page);
 		const dialog = await openCurve(page, editor);
@@ -128,7 +128,7 @@ test.describe('Audacity Filter Curve EQ', () => {
 
 	test('persists graphical edits in a realtime rack', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		let editor = await bootEditor(page, '/embed/en/');
+		let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		let panel = await openEffectsForTrack(editor, 1);
 		await addRackEffect(page, panel, 'track', 'Filter Curve EQ');

@@ -26,7 +26,7 @@ test.describe('selection effect dialog coverage', () => {
 	test('previews, applies, and round-trips a custom effect preset', async ({ page }) => {
 		test.setTimeout(120_000);
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 		await chooseNestedCommandAction(page, editor, 'Effect', ['Delay and reverb', 'Reverb']);
@@ -41,7 +41,7 @@ test.describe('selection effect dialog coverage', () => {
 		const roomSize = dialog.locator('[data-effect-param="roomSize"] input');
 		await commitInput(roomSize, '73');
 		await saveAsPreset(page, dialog, 'Coverage room');
-		const preset = dialog.getByRole('button', { name: 'Preset', exact: true });
+		const preset = dialog.getByRole('button', { name: /^Preset(?::|$)/u });
 		await expect(preset).toContainText('Coverage room');
 
 		await commitInput(roomSize, '61');
@@ -83,7 +83,7 @@ test.describe('selection effect dialog coverage', () => {
 
 	test('selects an eligible sidechain control track for Auto Duck', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA, toneB]);
 		await clipByName(editor, toneA.name).click({ position: { x: 30, y: 12 } });
 		await chooseNestedCommandAction(page, editor, 'Effect', ['Volume and compression', 'Auto Duck']);

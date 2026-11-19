@@ -116,6 +116,8 @@ test('owned automation indexing preserves reachable bus mute lanes in authored r
 	] }));
 	const report = reportInterchangeAudioOmissions(sealDeliveryReport(createDeliveryReport({ format: 'otio' })), project);
 	assert.deepEqual(report.items.map(item => [item.scope.id, item.data.automationLanes]), [
+		['bus-lane-report', ['bus-mute']],
 		['a', ['bus-mute', 'gain-a']], ['b', ['gain-b']],
 	]);
+	assert.equal(report.items[0]!.code, 'otio.mix-processing-omitted');
 });

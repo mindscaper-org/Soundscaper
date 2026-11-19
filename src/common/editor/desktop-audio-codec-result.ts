@@ -9,12 +9,14 @@ import type {
 
 export interface DesktopAudioCodecDecodedResult {
 	readonly sampleRate: number;
+	readonly originalSampleRate: number | null;
 	readonly channels: readonly Float32Array[];
 	readonly frameCount: number;
 }
 
 export function projectDesktopAudioDecodeResult(
 	result: DesktopAudioCodecResult,
+	originalSampleRate: number | null,
 ): DesktopAudioCodecDecodedResult {
 	if (result.operation !== 'audio-decode') {
 		throw new Error('The desktop audio bridge returned an encode result for decode.');
@@ -31,6 +33,7 @@ export function projectDesktopAudioDecodeResult(
 	}
 	return Object.freeze({
 		sampleRate: result.metadata.sampleRate,
+		originalSampleRate,
 		channels: Object.freeze(channels),
 		frameCount: result.metadata.frameCount,
 	});

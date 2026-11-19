@@ -16,7 +16,7 @@ function rms(samples, start, end) {
 test('ordinary video import keeps its recorded delayed audio aligned with the picture', async ({ page }, testInfo) => {
 	test.setTimeout(90_000);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const bytes = Buffer.from(await readFile(new URL('./fixtures/ffmpeg-delayed-camera-audio.mp4.base64', import.meta.url), 'utf8'), 'base64');
 	await importFiles(editor, [{ name: 'delayed-camera-audio.mp4', mimeType: 'video/mp4', buffer: bytes }]);
 	await expect(editor).toHaveAttribute('data-clip-count', '2');
@@ -31,7 +31,7 @@ test('ordinary video import keeps its recorded delayed audio aligned with the pi
 test('ordinary aligned camera audio keeps its first and last tone without duplicating encoder priming', async ({ page }) => {
 	test.setTimeout(90_000);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const bytes = Buffer.from(await readFile(new URL('./fixtures/ffmpeg-aligned-camera-audio.mp4.base64', import.meta.url), 'utf8'), 'base64');
 	await importFiles(editor, [{ name: 'aligned-camera-audio.mp4', mimeType: 'video/mp4', buffer: bytes }]);
 	await expect(editor).toHaveAttribute('data-clip-count', '2');

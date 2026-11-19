@@ -31,6 +31,7 @@ test('selected-media assistance loads on first dialog operation and caches its r
 					acceptGuidedWorkflowResult: async (...args: unknown[]) => {
 						calls.push(['guided-accept', ...args]); return { outcome: 'accepted' };
 					},
+					assertCurrentWorkflowFence: async (...args: unknown[]) => { calls.push(['workflow-fence', ...args]); },
 					acceptValidatedResult: async (...args: unknown[]) => { calls.push(['accept', ...args]); },
 					prepareTranscriptCleanup: async (...args: unknown[]) => { calls.push(['cleanup', ...args]); return ['proposal']; },
 					acceptTranscriptCleanup: async (...args: unknown[]) => { calls.push(['cleanup-accept', ...args]); },
@@ -52,6 +53,9 @@ test('selected-media assistance loads on first dialog operation and caches its r
 	assert.equal(await preparation.prepareGuidedWorkflow?.({ guided: true } as never), 'guided-prepared');
 	assert.deepEqual(await preparation.acceptGuidedWorkflowResult?.({ accepted: true } as never),
 		{ outcome: 'accepted' });
+	assert.equal(typeof preparation.assertCurrentWorkflowFence, 'function');
+	const signal = new AbortController().signal;
+	await preparation.assertCurrentWorkflowFence!({ workflow: true } as never, signal);
 	await preparation.acceptValidatedResult?.({ operation: 'speech-recognition' });
 	assert.deepEqual(await preparation.prepareTranscriptCleanup?.({ transcript: true }), ['proposal']);
 	await preparation.acceptTranscriptCleanup?.(['proposal-1']);
@@ -64,6 +68,7 @@ test('selected-media assistance loads on first dialog operation and caches its r
 		['advanced-prepare', { advanced: true }],
 		['guided-prepare', { guided: true }],
 		['guided-accept', { accepted: true }],
+		['workflow-fence', { workflow: true }, signal],
 		['accept', { operation: 'speech-recognition' }],
 		['cleanup', { transcript: true }],
 		['cleanup-accept', ['proposal-1']],

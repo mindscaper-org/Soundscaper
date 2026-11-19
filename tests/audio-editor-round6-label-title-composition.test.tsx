@@ -29,21 +29,23 @@ for (const key of ['Enter', 'Escape']) test(`timeline label keeps native composi
 			left={0} trackHeight={100} pixelsPerSecond={100} sampleRate={48_000} laneRef={{ current: null }}
 			selected={true} editing={true} blocked={false} copy={ENGLISH_COPY} run={(operation: () => unknown) => operation()}
 			onSelect={noop} onEdit={noop} onFinishEdit={() => { finished += 1; }} onRemove={noop} />));
-		const input = dom.one('input');
+		const input = dom.one('textarea');
 		Object.defineProperty(input, 'blur', { configurable: true, value: () => {
 			input.ownerDocument.activeElement = input.ownerDocument.body;
 			reactProps(input).onBlur?.({ currentTarget: input });
 		} });
 		input.value = 'とう';
+		let consumed = false;
 		await act(async () => { reactProps(input).onKeyDown?.({ key, currentTarget: input,
-			nativeEvent: { isComposing: true }, stopPropagation() {} }); });
+			nativeEvent: { isComposing: true }, preventDefault() { consumed = true; }, stopPropagation() { consumed = true; } }); });
+		assert.equal(consumed, false);
 		assert.equal(input.ownerDocument.activeElement, input);
 		assert.equal(input.value, 'とう');
 		assert.deepEqual(commits, []);
 		assert.equal(finished, 0);
 		input.value = '東京の場面';
 		await act(async () => { reactProps(input).onKeyDown?.({ key: 'Enter', currentTarget: input,
-			nativeEvent: { isComposing: false }, stopPropagation() {} }); });
+			nativeEvent: { isComposing: false }, preventDefault() {}, stopPropagation() {} }); });
 		assert.deepEqual(commits, [{ trackId: 'labels', labelId: 'label', changes: { title: '東京の場面' } }]);
 		assert.equal(finished, 1);
 	} finally {

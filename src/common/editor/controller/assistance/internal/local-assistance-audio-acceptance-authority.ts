@@ -7,6 +7,8 @@ import {
 	validateAssistanceSelectionFence,
 	type AssistanceSelectionFence,
 } from '../../../assistance/proposal-session.ts';
+import { projectAssistanceSourceRange } from '../../../assistance/selected-media-identity-timing.ts';
+import { scaleSampleFrame } from '../../../timeline-time.ts';
 
 type DataRecord = Readonly<Record<string, unknown>>;
 
@@ -17,11 +19,14 @@ interface AuthorityCandidate {
 	readonly endFrame?: unknown;
 	readonly sourceStartFrame?: unknown;
 	readonly sourceEndFrame?: unknown;
+	readonly source?: unknown;
+	readonly clip?: unknown;
 }
 
 export interface NormalizedLocalAssistanceAudioAcceptanceAuthority {
 	readonly fence: AssistanceSelectionFence;
 	readonly sampleRate: number;
+	readonly sourceSampleRate: number;
 	readonly timelineStartFrame: number;
 	readonly timelineEndFrame: number;
 	readonly sourceStartFrame: number;
@@ -49,20 +54,72 @@ export function normalizeLocalAssistanceAudioAcceptanceAuthority(
 	const timelineEndFrame = integer(authority.endFrame, 1, 'timeline end');
 	const sourceStartFrame = integer(authority.sourceStartFrame, 0, 'source start');
 	const sourceEndFrame = integer(authority.sourceEndFrame, 1, 'source end');
+	const source = sourceRecord(authority.source);
+	const stored = Array.isArray(project.sources)
+		? (project.sources as unknown[]).map(sourceRecord).filter(candidate => candidate?.id === fence.sourceId) : [];
+	if (Array.isArray(project.sources) && stored.length !== 1
+		|| source && source.id !== fence.sourceId) throw new AssistanceProposalStaleError();
+	const selectedSource = source ?? stored[0];
+	const sourceSampleRate = integer(selectedSource?.sampleRate ?? sampleRate, 1, 'source sample rate');
+	if (selectedSource?.contentSha256 !== undefined && selectedSource.contentSha256 !== fence.sourceSha256
+		|| stored[0] && (stored[0].sampleRate !== selectedSource?.sampleRate
+			|| stored[0].contentSha256 !== selectedSource?.contentSha256)) throw new AssistanceProposalStaleError();
+	const clip = sourceRecord(authority.clip);
 	if (timelineEndFrame <= timelineStartFrame || sourceEndFrame <= sourceStartFrame
-		|| timelineEndFrame - timelineStartFrame !== sourceEndFrame - sourceStartFrame
+		|| selectedSource?.frameCount !== undefined && sourceEndFrame > Number(selectedSource.frameCount)
 		|| sourceStartFrame !== fence.sourceStartFrame || sourceEndFrame !== fence.sourceEndFrame) {
 		throw new AssistanceProposalStaleError();
+	}
+	if (clip && (clip.durationFrames !== undefined || clip.sourceDurationFrames !== undefined)) {
+		const projected = projectAssistanceSourceRange(clip, timelineStartFrame, timelineEndFrame);
+		if (!projected || sourceStartFrame !== projected.startFrame || sourceEndFrame !== projected.endFrame) throw new AssistanceProposalStaleError();
+	} else {
+		const expectedExtent = scaleSampleFrame(timelineEndFrame - timelineStartFrame, sampleRate, sourceSampleRate, 'point');
+		if (Math.abs(sourceEndFrame - sourceStartFrame - expectedExtent) > (sourceSampleRate === sampleRate ? 0 : 1)) {
+			throw new AssistanceProposalStaleError();
+		}
+		if (clip?.timelineStartFrame !== undefined && clip.sourceStartFrame !== undefined) {
+			const timelineStart = integer(clip.timelineStartFrame, 0, 'clip timeline start');
+			const sourceStart = integer(clip.sourceStartFrame, 0, 'clip source start');
+			if (sourceStartFrame !== sourceStart + scaleSampleFrame(timelineStartFrame - timelineStart, sampleRate, sourceSampleRate, 'point')
+				|| sourceEndFrame !== sourceStart + scaleSampleFrame(timelineEndFrame - timelineStart, sampleRate, sourceSampleRate, 'point')) {
+				throw new AssistanceProposalStaleError();
+			}
+		}
 	}
 	return Object.freeze({
 		fence,
 		sampleRate,
+		sourceSampleRate,
 		timelineStartFrame,
 		timelineEndFrame,
 		sourceStartFrame,
 		sourceEndFrame,
 		tracks: Object.freeze([...project.tracks]) as readonly DataRecord[],
 	});
+}
+
+/** Source metadata and transcript/cleanup rows retain their native sample clock. */
+export function localAssistanceSourceFrameToTimelineFrame(
+	sourceFrame: number,
+	authority: Pick<NormalizedLocalAssistanceAudioAcceptanceAuthority,
+		'sampleRate' | 'sourceSampleRate' | 'sourceStartFrame' | 'sourceEndFrame' | 'timelineStartFrame' | 'timelineEndFrame'>,
+	purpose: 'point' | 'enclosingStart' | 'enclosingEnd' = 'point',
+): number {
+	if (!Number.isSafeInteger(sourceFrame) || sourceFrame < authority.sourceStartFrame
+		|| sourceFrame > authority.sourceEndFrame) throw new RangeError('An assistance source row exceeds its selected occurrence.');
+	if (sourceFrame === authority.sourceStartFrame) return authority.timelineStartFrame;
+	if (sourceFrame === authority.sourceEndFrame) return authority.timelineEndFrame;
+	const result = authority.timelineStartFrame + Number(scaleSampleFrame(
+		sourceFrame - authority.sourceStartFrame, authority.sourceEndFrame - authority.sourceStartFrame,
+		authority.timelineEndFrame - authority.timelineStartFrame,
+		purpose === 'enclosingStart' ? 'enclosingStart' : purpose === 'enclosingEnd' ? 'enclosingEnd' : 'point'));
+	if (!Number.isSafeInteger(result)) throw new RangeError('An assistance timeline row exceeds safe timing.');
+	return Math.min(authority.timelineEndFrame, Math.max(authority.timelineStartFrame, result));
+}
+
+function sourceRecord(value: unknown): DataRecord | null {
+	return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as DataRecord : null;
 }
 
 function integer(value: unknown, minimum: number, label: string): number {

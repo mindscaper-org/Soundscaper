@@ -58,6 +58,14 @@
 			"purpose": "XPath engine xmlschema depends on.",
 			"wheel": "elementpath-4.8.0-py3-none-any.whl",
 			"sha256": "5393191f84969bcf8033b05ec4593ef940e58622ea13cefe60ecefbbf09d58d9"
+		},
+		{
+			"name": "pyaaf2",
+			"version": "1.7.1",
+			"license": "MIT",
+			"purpose": "Independent AAF reader/writer and reproducible standard dictionary seed generator; no Python runtime ships in normal products.",
+			"wheel": "pyaaf2-1.7.1-py2.py3-none-any.whl",
+			"sha256": "67870dcce5239f463767f7acedcfab50f0a1e193525e3b6fa0889ebbeb0c55e6"
 		}
 	]
 }

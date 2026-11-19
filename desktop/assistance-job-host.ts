@@ -97,7 +97,10 @@ export function createAssistanceJobHost(options: AssistanceJobHostOptions) {
 					kind: 'assistance-speech',
 					grant: validated.grant,
 					resourcePolicy: { maximumRssBytes: validated.grant.operation === 'recognize'
-						? HELPER_SPEECH_RECOGNITION_MAXIMUM_RSS_BYTES : HELPER_RESOURCE_HARD_LIMITS.maximumRssBytes },
+						? HELPER_SPEECH_RECOGNITION_MAXIMUM_RSS_BYTES : HELPER_RESOURCE_HARD_LIMITS.maximumRssBytes,
+						maximumOutputBytes: validated.grant.operation === 'enhance-speech' ? validated.grant.output.maximumByteLength : 0,
+						maximumScratchBytes: validated.grant.operation === 'enhance-speech'
+							? 2 * validated.grant.output.maximumByteLength + 2 * 1024 ** 2 : 0 },
 					signal: controller.signal,
 					onProgress: (value) => options.onProgress?.(Object.freeze({
 						completed: value ?? 0,

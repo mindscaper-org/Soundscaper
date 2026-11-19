@@ -13,6 +13,42 @@ import { installReactTestDom } from './helpers/react-test-dom.ts';
 
 function LaunchWorkspace(input: LaunchedFileImportsInput): null { useLaunchedFileImports(input); return null; }
 
+test('an OS project launch waits for work already started from the editor', async () => {
+	const dom = installReactTestDom();
+	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const priorAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+	actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+	const { createRoot } = await import('react-dom/client');
+	const root = createRoot(dom.container as unknown as Element);
+	const listeners = new Set<() => void>();
+	const launched: string[] = [];
+	let importing = true;
+	let accept!: Parameters<NonNullable<LaunchedFileImportsInput['subscribe']>>[0];
+	const file = new File(['archive'], 'from-OS.sscape');
+	try {
+		await act(async () => root.render(createElement(LaunchWorkspace, {
+			controller: { ready: Promise.resolve(), getSnapshot: () => ({ importing }),
+				subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; } },
+			claim: () => undefined, collect: () => undefined,
+			subscribe(handler) { accept = handler; return () => undefined; },
+			importFiles: files => { launched.push(...files.map(input => input.name)); },
+			onError: error => assert.fail(String(error)),
+		})));
+		const opening = accept({ files: [file], projects: [file], imports: [] });
+		await act(async () => { await Promise.resolve(); });
+		assert.deepEqual(launched, []);
+		importing = false;
+		for (const listener of [...listeners]) listener();
+		await opening;
+		assert.deepEqual(launched, [file.name]);
+		assert.equal(listeners.size, 0);
+	} finally {
+		await act(async () => root.unmount());
+		actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
+		dom.restore();
+	}
+});
+
 test('separate OS file launches wait for the prior production import instead of losing a file while busy', async () => {
 	const fixture = createFixture();
 	const gate = deferred<void>();

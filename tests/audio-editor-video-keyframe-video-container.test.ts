@@ -3,10 +3,27 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { assertFiniteVideoKeyframeContainer } from '../src/common/editor/video-keyframe-video-container.ts';
+import { assertFiniteVideoKeyframeContainer, repairDoubledWebmOpusCodecDelay } from '../src/common/editor/video-keyframe-video-container.ts';
 
 const EBML_ID = Uint8Array.of(0x1a, 0x45, 0xdf, 0xa3);
 const DOCTYPE = Uint8Array.of(0x42, 0x82, 0x84, 0x77, 0x65, 0x62, 0x6d);
+
+test('repair corrects only the doubled Opus CodecDelay in the generated WebM track', () => {
+	const bytes = opusWebm(13_000_000);
+	const expected = opusWebm(6_500_000);
+	repairDoubledWebmOpusCodecDelay(bytes);
+	assert.deepEqual(bytes, expected, 'all other track fields, offsets, and packet bytes are identical');
+	repairDoubledWebmOpusCodecDelay(bytes);
+	assert.deepEqual(bytes, expected);
+});
+
+test('repair leaves well-formed WebM without doubled Opus delay unchanged', () => {
+	for (const [delay, codec] of [[6_500_000, 'A_OPUS'], [13_000_000, 'A_VORBIS']] as const) {
+		const bytes = opusWebm(delay, codec);
+		repairDoubledWebmOpusCodecDelay(bytes);
+		assert.deepEqual(bytes, opusWebm(delay, codec));
+	}
+});
 
 test('finite WebM validation refuses a noncanonical DocType before reading its payload', () => {
 	const docTypePayload = new Uint8Array(64).fill(0x61);
@@ -57,6 +74,19 @@ function ebmlSize(value: number): Uint8Array {
 		return Uint8Array.of(0x20 | (value >>> 16), (value >>> 8) & 0xff, value & 0xff);
 	}
 	throw new RangeError('Fixture EBML payload is too large.');
+}
+
+function opusWebm(delay: number, codec = 'A_OPUS'): Uint8Array {
+	const bytes = new TextEncoder();
+	const element = (id: readonly number[], payload: Uint8Array): Uint8Array => join(Uint8Array.from(id), ebmlSize(payload.length), payload);
+	const header = join(bytes.encode('OpusHead'), Uint8Array.of(1, 2, 0x38, 1, 0x80, 0xbb, 0, 0, 0, 0, 0));
+	const track = element([0xae], join(
+		element([0x86], bytes.encode(codec)), element([0x63, 0xa2], header),
+		element([0x56, 0xaa], Uint8Array.of(delay >>> 16, delay >>> 8, delay)),
+	));
+	const tracks = element([0x16, 0x54, 0xae, 0x6b], track);
+	const cluster = element([0x1f, 0x43, 0xb6, 0x75], element([0xa3], Uint8Array.of(0x56, 0xaa, 0x83, 0xc6, 0x5d, 0x40)));
+	return join(element([...EBML_ID], DOCTYPE), element([0x18, 0x53, 0x80, 0x67], join(tracks, cluster)));
 }
 
 function join(...parts: readonly Uint8Array[]): Uint8Array {

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 import {
 	computeAudioTrackFreezeDigestsV1,
@@ -17,9 +18,12 @@ import {
 	createAudioTrack,
 } from '../src/common/editor/project-media-factory.ts';
 import { compactProjectSourceMetadata } from '../src/common/editor/retention.js';
+import { encodeWav } from '../src/common/editor/wav.js';
+import { createSoundscaperAudioTrackFreezePlaybackService } from '../src/soundscaper/editor-audio-track-freeze-playback.ts';
 import {
 	soundscaperAudioTrackFreezeRequirementId,
 } from '../src/soundscaper/editor-project-feature-requirements.ts';
+import { createSoundscaperPlaybackProjectService } from '../src/soundscaper/editor-project-playback.ts';
 import {
 	cloneSoundscaperProject,
 	createSoundscaperProject,
@@ -146,16 +150,101 @@ test('an unavailable audio-track-freeze capability projects only the derived fro
 	assert.deepEqual(project.tracks.find(({ id }) => id === 'voice')?.clipIds, ['voice-clip']);
 });
 
-function frozenProject() {
+test('reopening a freeze authenticates legacy model PCM against its original WAV receipt', async () => {
+	const { project, playback, store } = legacyModelFreezeFixture();
+	const reopened = loadSoundscaperProject(structuredClone(project)).project;
+	await playback.prepareProjectForActivation?.(reopened);
+	assert.equal(playback.getFreezeStatus(reopened, 'voice'), 'fresh');
+	assert.deepEqual(playback.projectForPlayback(reopened).requiredAudioSourceIds, ['voice-freeze']);
+	assert.equal(store.sourceReads, 1);
+
+	const withoutReceipt = structuredClone(reopened) as unknown as Record<string, unknown>;
+	sourceRecord(withoutReceipt, 'voice-source').opaqueExtensions = {};
+	await playback.prepareProjectForActivation?.(withoutReceipt);
+	assert.equal(playback.getFreezeStatus(withoutReceipt, 'voice'), 'unknown');
+
+	await playback.prepareProjectForActivation?.(reopened);
+	assert.equal(playback.getFreezeStatus(reopened, 'voice'), 'fresh');
+	store.liveChannels[0]![0] = 0.25;
+	store.generation += 1;
+	await playback.prepareProjectForActivation?.(reopened);
+	assert.equal(playback.getFreezeStatus(reopened, 'voice'), 'unknown');
+	assert.deepEqual(playback.projectForPlayback(reopened).requiredAudioSourceIds, []);
+	playback.dispose();
+});
+
+test('legacy model PCM verification rejects replacement and cancellation during the source read', async () => {
+	const { project, playback, store } = legacyModelFreezeFixture();
+	store.afterLiveRead = () => { store.generation += 1; };
+	await playback.prepareProjectForActivation?.(project);
+	assert.equal(playback.getFreezeStatus(project, 'voice'), 'unknown');
+
+	const abort = new AbortController();
+	store.afterLiveRead = () => { abort.abort(new Error('cancel legacy source verification')); };
+	await assert.rejects(async () => {
+		await playback.prepareProjectForActivation!(project, { signal: abort.signal });
+	}, /cancel legacy source verification/u);
+	assert.equal(playback.getFreezeStatus(project, 'voice'), 'unknown');
+	playback.dispose();
+});
+
+function legacyModelFreezeFixture() {
+	const liveChannels = [new Float32Array(512).fill(0.125), new Float32Array(512).fill(-0.125)];
+	const derivedChannels = [new Float32Array(1_024), new Float32Array(1_024)];
+	const wave = encodeWav(liveChannels, { sampleRate: 48_000, bitDepth: 32, float: true, dither: false });
+	const liveDigest = createHash('sha256').update(wave).digest('hex');
+	const header = Buffer.alloc(4);
+	header.writeUInt32LE(1_024);
+	const derivedDigest = createHash('sha256').update(header).update(Buffer.alloc(1_024 * 2 * 4)).digest('hex');
+	const project = frozenProject({
+		contentSha256: liveDigest, mimeType: 'audio/wav', byteLength: wave.byteLength,
+		opaqueExtensions: { 'org.soundscaper.local-assistance-audio-v1': {
+			version: 1, operation: 'speech-enhancement', slotId: 'enhanced-audio',
+			outputClaim: {
+				claimVersion: 1, claimId: '1'.repeat(40), jobId: '2'.repeat(40),
+				role: 'enhanced-audio', mediaType: 'audio/wav', sha256: liveDigest, byteLength: wave.byteLength,
+			},
+		} },
+	}, derivedDigest);
+	const store = {
+		liveChannels,
+		sourceReads: 0,
+		generation: 1,
+		afterLiveRead(): void { /* Most reads finish without intervention. */ },
+		getSourceMetadata(id: string) {
+			return {
+				id, sourceToken: id === 'pcm:voice-source' ? String(store.generation) : 'rendered',
+				frameCount: id === 'pcm:voice-source' ? 512 : 1_024, channelCount: 2,
+				chunkFrames: 65_536, sampleRate: 48_000,
+			};
+		},
+		async *readSourceChunks(id: string) {
+			if (id === 'pcm:voice-source') {
+				store.sourceReads += 1;
+				yield liveChannels;
+				store.afterLiveRead();
+			} else yield derivedChannels;
+		},
+		openSourceReadSession: () => null,
+	};
+	const playback = createSoundscaperAudioTrackFreezePlaybackService(createSoundscaperPlaybackProjectService(), store);
+	return { project, playback, store };
+}
+
+function frozenProject(
+	liveSourceOptions: Readonly<Record<string, unknown>> = {},
+	derivedDigest = DERIVED_DIGEST,
+) {
 	const liveSource = createAudioSource({
 		id: 'voice-source', name: 'Voice source', storageKey: 'pcm:voice-source',
 		contentSha256: LIVE_DIGEST,
 		frameCount: 512, channelCount: 2, sampleRate: 48_000, originalSampleRate: 48_000,
 		sampleFormat: 'float32', chunkFrames: 65_536,
+		...liveSourceOptions,
 	});
 	const derivedSource = createAudioSource({
 		id: 'voice-freeze', name: 'Voice freeze', storageKey: 'derived:voice-freeze',
-		contentSha256: DERIVED_DIGEST,
+		contentSha256: derivedDigest,
 		frameCount: 1_024, channelCount: 2, sampleRate: 48_000, originalSampleRate: 48_000,
 		sampleFormat: 'float32', chunkFrames: 65_536,
 	});
@@ -197,7 +286,7 @@ function frozenProject() {
 		renderFrameCount: 1_024,
 		track: editableTrack,
 		clips: [clip],
-		sourceContentIdentities: [{ sourceId: liveSource.id, contentSha256: LIVE_DIGEST }],
+		sourceContentIdentities: [{ sourceId: liveSource.id, contentSha256: liveSource.contentSha256 }],
 		automationLanes,
 		tempoMap: null,
 	});

@@ -6,7 +6,7 @@ import { createDeterministicAvFixture } from './fixtures/deterministic-av-media.
 
 for (const editAudio of [false, true]) {
 	test(`${editAudio ? 'audio' : 'video'} clip timing observes its linked locked peer without blocking independent edits`, async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [createDeterministicAvFixture('linked-lock.webm')]);
 		await closeWorkspacePanel(editor, 'video-preview');
 		const audio = editor.getByRole('group', { name: /Audio clip/u }).first();

@@ -1,0 +1,60 @@
+<script>
+	class ComparisonNote extends HTMLElement {
+		#events = new AbortController();
+		#closeTimer: number | undefined;
+
+		connectedCallback() {
+			const trigger = this.querySelector('button');
+			const detail = this.querySelector<HTMLElement>('[role="tooltip"]');
+			if (!trigger || !detail) return;
+			this.#events = new AbortController();
+			const options = { signal: this.#events.signal };
+			const cancelClose = () => window.clearTimeout(this.#closeTimer);
+			const close = () => {
+				cancelClose();
+				if (detail.matches(':popover-open')) detail.hidePopover();
+			};
+			const position = () => {
+				const anchor = trigger.getBoundingClientRect();
+				const box = detail.getBoundingClientRect();
+				const left = Math.max(8, Math.min(anchor.left, window.innerWidth - box.width - 8));
+				const top = anchor.bottom + box.height + 8 < window.innerHeight
+					? anchor.bottom + 8 : Math.max(8, anchor.top - box.height - 8);
+				detail.style.left = `${left}px`;
+				detail.style.top = `${top}px`;
+			};
+			const open = () => {
+				cancelClose();
+				if (!detail.matches(':popover-open')) detail.showPopover();
+				position();
+			};
+			const scheduleClose = () => {
+				cancelClose();
+				this.#closeTimer = window.setTimeout(() => {
+					if (document.activeElement !== trigger && !trigger.matches(':hover') && !detail.matches(':hover')) close();
+				}, 150);
+			};
+			trigger.addEventListener('pointerenter', open, options);
+			trigger.addEventListener('focus', open, options);
+			trigger.addEventListener('click', open, options);
+			trigger.addEventListener('pointerleave', scheduleClose, options);
+			trigger.addEventListener('blur', scheduleClose, options);
+			detail.addEventListener('pointerenter', cancelClose, options);
+			detail.addEventListener('pointerleave', scheduleClose, options);
+			window.addEventListener('resize', close, options);
+			window.addEventListener('scroll', () => {
+				if (!detail.matches(':popover-open')) return;
+				const anchor = trigger.getBoundingClientRect();
+				if (anchor.bottom < 0 || anchor.top > window.innerHeight) close();
+				else position();
+			}, { ...options, capture: true });
+		}
+
+		disconnectedCallback() {
+			this.#events.abort();
+			window.clearTimeout(this.#closeTimer);
+		}
+	}
+
+	customElements.define('comparison-note', ComparisonNote);
+</script>

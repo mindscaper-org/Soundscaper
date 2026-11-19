@@ -162,6 +162,16 @@ test('the nightly package retains every staged browser source-map input', async 
 	);
 });
 
+test('the nightly package carries stylesheets read by the download-page browser mocks', async () => {
+	const filter = await readPackagedPayloadFilter();
+	for (const input of ['public/download.css', 'public/audacity-download.css']) {
+		assert.ok(isStagedInput(input), `NIGHTLY_TEST_PAYLOAD_INPUTS is missing ${input}`);
+		const packaged = packagedPathOf(input);
+		assert.ok(packaged !== null && filter.some(pattern => matchesGlob(packaged, pattern)),
+			`the nightly-tests extraResources filter drops ${input}`);
+	}
+});
+
 test('the nightly test payload satisfies every import its browser specs reach', async () => {
 	const browserTests = [...await collectTestFiles(BROWSER_TESTS),
 		...await collectTestFiles(join(REPOSITORY_ROOT, 'tests/electron/local-assistance-models'))]

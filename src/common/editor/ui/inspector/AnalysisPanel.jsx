@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 import { boundedCanvasDimensions } from '../../design-system-adapters.js';
 import {
 	formatDb,
@@ -110,7 +111,7 @@ function AnalysisContent({ mode, controller, snapshot, copy, fileService }) {
 			<h3>{copy.metering}</h3>
 			<div className="audio-editor-analysis-grid" data-analysis-values>
 				{values.map(([key, label, value]) => (
-					<div key={key}><span>{label}</span><strong data-analysis-value={key}>{value}</strong></div>
+					<div key={key}><EditorControlLabel>{label}</EditorControlLabel><strong data-analysis-value={key}>{value}</strong></div>
 				))}
 			</div>
 			{snapshot.analysisVisuals && (

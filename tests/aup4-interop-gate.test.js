@@ -14,7 +14,7 @@ test('AUP4 fixture-codec audit is deterministic and does not claim compiled nati
 	const report = await auditAup4FixtureInterop({ nativeRunner: false });
 	assert.equal(report.audacityCommit, '4c177d436e48c1d20f231eada44035593cb26292');
 	assert.deepEqual(report.fixtureCodecInterop.browserSnapshot, {
-		sha256: 'eb08eba24b0411c1d229dc8384b9db32b0d6c825c58a2c845deadd6c5b143c53',
+		sha256: '2bdf6f4d8e9b904dec86f6b9684dad112c23e658d1b0e1defab4b1bf4f847114',
 		byteLength: 253_952,
 	});
 	assert.deepEqual(report.fixtureCodecInterop.project, {

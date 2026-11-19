@@ -11,6 +11,8 @@ import {
 import type { ReviewedEffectOfflineOptions } from '../../../reviewed-effects/offline-worker-client.ts';
 import type { SelectionEffectChainStep } from '../../../selection-effect-chain-contract.ts';
 import { createIdleEffectWorkerSlot } from './idle-effect-worker.ts';
+import type { PhaseCorrectionAnalysis } from '../../../first-party-effects/phase-correction/selection.ts';
+import type { MatchEqAnalysis } from '../../../first-party-effects/match-eq/selection.ts';
 
 const DEFAULT_EFFECT_WORKER_TIMEOUT_MS = 120_000;
 const INTRINSIC_TYPED_ARRAY_SET = intrinsicTypedArraySet();
@@ -50,6 +52,8 @@ export interface SelectionEffectWorkerResult extends Readonly<Record<string, unk
 	readonly type?: string;
 	readonly channels?: Float32Array[];
 	readonly profile?: unknown;
+	readonly phaseCorrectionAnalysis?: PhaseCorrectionAnalysis;
+	readonly matchEqAnalysis?: MatchEqAnalysis;
 }
 
 export interface SpectralEditOptions extends Readonly<Record<string, unknown>> {
@@ -181,6 +185,8 @@ export function createSelectionEffectWorkerService(runtime: SelectionEffectWorke
 				runtime.assertProject(projectToken);
 				return { profile };
 			}
+			let phaseCorrectionAnalysis: PhaseCorrectionAnalysis | undefined;
+			let matchEqAnalysis: MatchEqAnalysis | undefined;
 			const channels = request.operation === 'apply-chain'
 				? await (await import('../../../selection-effect-chain.ts')).runSelectionEffectChain(request.steps ?? [], request.channels,
 					request.sampleRate, runtime.applySelectionEffect, options.onProgress ?? runtime.onProgress,
@@ -190,11 +196,13 @@ export function createSelectionEffectWorkerService(runtime: SelectionEffectWorke
 				request.channels,
 				request.sampleRate,
 				request.params,
-				{ ...(request.context || {}), wasmModule: request.wasmModule },
+				{ ...(request.context || {}), wasmModule: request.wasmModule,
+					onMatchEqAnalysis: (analysis: MatchEqAnalysis) => { matchEqAnalysis = analysis; },
+					onPhaseCorrectionAnalysis: (analysis: PhaseCorrectionAnalysis) => { phaseCorrectionAnalysis = analysis; } },
 			);
 			runtime.assertProject(projectToken);
 			throwIfAborted(options.signal);
-			return { channels };
+			return { channels, ...(phaseCorrectionAnalysis ? { phaseCorrectionAnalysis } : {}), ...(matchEqAnalysis ? { matchEqAnalysis } : {}) };
 		}
 
 		selectionOwner?.cancel(new WorkerRequestCancelledError());
@@ -476,6 +484,9 @@ function intrinsicTypedArraySet(): (
 }
 
 function workerReportedError(data: Readonly<Record<string, unknown>>): Error {
+	if (['effectMatchEqReferenceMissing', 'effectMatchEqTooShort', 'effectMatchEqSilent'].includes(String(data.code))) {
+		return createLocalizedError(Error, {}, String(data.code), undefined, { fallback: String(data.message) });
+	}
 	const error = new Error(String(data.message || 'Effect processing failed.')) as Error & { code?: string };
 	error.name = String(data.name || 'Error');
 	if (data.code) error.code = String(data.code);

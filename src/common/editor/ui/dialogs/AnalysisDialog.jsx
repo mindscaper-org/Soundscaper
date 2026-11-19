@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 import { resolveSelectionRange } from '../../selection-range.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
@@ -10,10 +11,16 @@ import { formatLocalizedTemplate } from '../localization-template.ts';
 import { useSpectrumPlotPoints } from './spectrum-plot-points.ts';
 import { resolveAudioEditorColor } from '../timeline/TimelineOverlayComponents.jsx';
 import './analysis-dialog.css';
+import RepeatedSoundDialog from './RepeatedSoundDialog.tsx';
 
 const MODES = Object.freeze({ levels: 'analyzeSelection', spectrum: 'plotSpectrum', clipping: 'findClipping', contrast: 'contrast' });
 
-export default function AnalysisDialog({ mode, requestId = 0, controller, snapshot, copy, fileService, onClose }) {
+export default function AnalysisDialog(props) {
+	return props.mode === 'repeated-sound' || (props.mode === 'repeat' && props.snapshot.lastAnalysisRequest?.type === 'repeated-sound')
+		? <RepeatedSoundDialog {...props} repeat={props.mode === 'repeat'} /> : <ReportAnalysisDialog {...props} />;
+}
+
+function ReportAnalysisDialog({ mode, requestId = 0, controller, snapshot, copy, fileService, onClose }) {
 	const project = snapshot.project;
 	const projectId = project?.id ?? null;
 	const repeatRequest = mode === 'repeat' ? snapshot.lastAnalysisRequest : null;
@@ -22,6 +29,7 @@ export default function AnalysisDialog({ mode, requestId = 0, controller, snapsh
 	const selection = resolveSelectionRange(project, { selectedClipId: snapshot.selectedClipId ?? null });
 	const [payload, setPayload] = useState(null);
 	const [pending, setPending] = useState(false);
+	const [savingReport, setSavingReport] = useState(false);
 	const [error, setError] = useState('');
 	const operationRef = useRef(null);
 	const reportSaveRef = useRef(null);
@@ -53,6 +61,7 @@ export default function AnalysisDialog({ mode, requestId = 0, controller, snapsh
 			&& snapshot.analysisReport?.type === 'contrast' ? snapshot.analysisReport : null;
 		setPayload(savedContrast ? { result: null, report: savedContrast } : null);
 		setPending(false);
+		setSavingReport(false);
 		setError('');
 		if ((analysisMode !== 'contrast' || repeatRequest) && selection && !blocked) {
 			const range = { startFrame: selection.startFrame, endFrame: selection.endFrame };
@@ -74,9 +83,10 @@ export default function AnalysisDialog({ mode, requestId = 0, controller, snapsh
 		perform(() => controller.actions.analysis.contrast(role, 'master'), (report) => ({ result: null, report }));
 	};
 	const exportReport = () => {
-		if (!payload) return;
+		if (!payload || reportSaveRef.current !== null) return;
 		const submission = Symbol('analysis-report-save');
 		reportSaveRef.current = submission;
+		setSavingReport(true);
 		const text = JSON.stringify({
 			schemaVersion: 1,
 			project: { id: project?.id, title: project?.title, sampleRate: project?.sampleRate },
@@ -87,6 +97,11 @@ export default function AnalysisDialog({ mode, requestId = 0, controller, snapsh
 			mimeType: 'application/json', text,
 		})).catch((cause) => {
 			if (reportSaveRef.current === submission) setError(cause instanceof Error ? cause.message : String(cause));
+		}).finally(() => {
+			if (reportSaveRef.current === submission) {
+				reportSaveRef.current = null;
+				setSavingReport(false);
+			}
 		});
 	};
 	return <AudioEditorDialogShell
@@ -112,7 +127,7 @@ export default function AnalysisDialog({ mode, requestId = 0, controller, snapsh
 					<Button disabled={blocked || pending || !selection} onClick={() => captureContrast('foreground')}>{copy.captureContrastForeground}</Button>
 					<Button disabled={blocked || pending || !selection} onClick={() => captureContrast('background')}>{copy.captureContrastBackground}</Button>
 				</>}
-				<Button variant="secondary" disabled={!payload || pending} onClick={exportReport}>{copy.export}</Button>
+				<Button variant="secondary" disabled={!payload || pending || savingReport} onClick={exportReport}>{copy.export}</Button>
 			</div>
 		</div>
 	</AudioEditorDialogShell>;
@@ -132,7 +147,7 @@ function LevelsResult({ result, copy }) {
 	];
 	return <section data-analysis-report="levels"><h3>{copy.metering}</h3>
 		<div className="audio-editor-analysis-grid" data-analysis-values>{values.map(([key, label, value]) =>
-			<div key={key}><span>{label}</span><strong data-analysis-value={key}>{value}</strong></div>)}</div>
+			<div key={key}><EditorControlLabel>{label}</EditorControlLabel><strong data-analysis-value={key}>{value}</strong></div>)}</div>
 	</section>;
 }
 

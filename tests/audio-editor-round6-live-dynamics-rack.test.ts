@@ -38,6 +38,7 @@ for (const type of ['audacity-compressor', 'audacity-limiter']) {
 			await engine.play();
 			const node = context.workletNodes.find(candidate => !candidate.readinessProbe);
 			assert.ok(node);
+			assert.deepEqual(node.messages.shift(), { type: 'suspend-idle-effect-processing', enabled: false });
 			const previousGraph = runtime.graph;
 			const next = { releaseMs: 101 };
 			assert.equal(engine.configureRackEffect('track', 'track-1', 'dynamics-1', next, { revision: 4 }), 4);

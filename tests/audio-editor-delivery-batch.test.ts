@@ -78,6 +78,44 @@ test('stems batches omit a saved mix-only loudness target without changing the p
 	assert.doesNotThrow(() => createExportPlan(project, normalizeEditorExportSettings(stems.members[0]!.settings, project.sampleRate)));
 });
 
+test('a loop rendering preset folds tails only for the queued mixed loop', () => {
+	const project = { ...albumProject(), loop: { enabled: true, startFrame: 1000, endFrame: 48_000 } };
+	const loopPreset = preset('loop', 'wav', { renderAsLoop: true });
+	const mixed = createDeliveryBatch(project, {
+		batchId: 'loop-mixed', presets: [loopPreset], targets: [{ kind: 'project' }, { kind: 'region', id: 'r-one' }, { kind: 'loop' }],
+	});
+	assert.deepEqual(mixed.members.map(member => member.settings.renderAsLoop), [undefined, undefined, true]);
+	for (const member of mixed.members) assert.doesNotThrow(() => createExportPlan(project,
+		normalizeEditorExportSettings(member.settings, project.sampleRate)));
+	const stems = createDeliveryBatch(project, { batchId: 'loop-stems', presets: [loopPreset], targets: [{ kind: 'loop' }], mode: 'stems' });
+	assert.equal(stems.members[0]?.settings.renderAsLoop, undefined);
+	assert.equal(loopPreset.settings.renderAsLoop, true);
+});
+
+test('a queued mastering sequence does not inherit an MP3 preset’s timeline label chapters', () => {
+	const project = albumProject();
+	const mp3 = preset('chaptered', 'mp3', { embedLabelChapters: true });
+	const batch = createDeliveryBatch(project, {
+		batchId: 'chaptered-master', presets: [mp3], targets: [{ kind: 'project' }, { kind: 'mastering-sequence', id: 'album-order' }],
+	});
+	assert.deepEqual(batch.members.map(member => member.settings.embedLabelChapters), [true, undefined]);
+	assert.doesNotThrow(() => createExportPlan(project, normalizeEditorExportSettings(batch.members[1]!.settings, project.sampleRate)));
+	assert.equal(mp3.settings.embedLabelChapters, true);
+});
+
+test('queued stems omit mix-only headphone and EAR rendering settings', () => {
+	const project = albumProject();
+	const spatial = [preset('headphones', 'wav', { binaural: true }), preset('surround', 'wav', { earLayout: '5.1' })];
+	const batch = createDeliveryBatch(project, { batchId: 'spatial-stems', presets: spatial, targets: [{ kind: 'project' }], mode: 'stems' });
+	for (const member of batch.members) {
+		assert.equal(member.settings.binaural, undefined);
+		assert.equal(member.settings.earLayout, undefined);
+		assert.doesNotThrow(() => createExportPlan(project, normalizeEditorExportSettings(member.settings, project.sampleRate)));
+	}
+	assert.equal(spatial[0]?.settings.binaural, true);
+	assert.equal(spatial[1]?.settings.earLayout, '5.1');
+});
+
 test('alternates are a cross product: every preset against every target', () => {
 	const batch = createDeliveryBatch(albumProject(), {
 		batchId: 'batch-1',

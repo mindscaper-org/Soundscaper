@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Knob } from '@soundscaper/design-system/Knob';
 import AudacityParameterKnob from '../AudacityParameterKnob.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 import { AUDIO_EDITOR_SAMPLE_RATE } from '../../project.js';
 import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
@@ -125,7 +126,7 @@ export default function ParameterNumber({
 			role="group"
 			aria-label={label}
 		>
-			<span>{displayLabel}</span>
+			<EditorControlLabel>{displayLabel}</EditorControlLabel>
 			{!timeUnit && knobRange && presentation === 'knob' && <ParameterKnob
 				key={gestureEpoch}
 				value={gestureValue ?? (Number(value) || 0)}

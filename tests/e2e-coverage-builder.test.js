@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { after } from 'node:test';
@@ -14,13 +13,19 @@ import {
 	e2eExecutableCoverageKey,
 	sha256Digest,
 } from '../scripts/lib/e2e-coverage-integrity.mjs';
+import { createCommittedRepositoryFixture } from './helpers/committed-repository-fixture.ts';
+import { copyQualifiedNodeEvidence, readQualifiedNodeEvidenceIndex } from '../scripts/lib/e2e-coverage-node-transport.mjs';
 
 const BROWSER = 'browser-chromium-soundscaper-renderer';
 const MAIN = 'nightly-electron-soundscaper-main';
+const repositoryFixture = createCommittedRepositoryFixture(new Map([
+	['src/browser.js', 'export const browser = true;\n'],
+]));
 const workspaces = [];
 
 after(() => {
 	for (const workspace of workspaces) rmSync(workspace, { recursive: true, force: true });
+	repositoryFixture.dispose();
 });
 
 test('the capture-index builder copies exact evidence and emits a canonical bound contract', () => {
@@ -59,6 +64,33 @@ test('the builder refuses a capture that omits a mandatory surface before writin
 		() => prepareE2ECoverageArtifacts(fixture),
 		/must list every configured surface/u,
 	);
+});
+
+test('a native-only preparation cannot inherit stale qualified Node artifacts from an earlier capture', () => {
+	for (const path of ['node-evidence.json', 'node-evidence/old-receipt.json']) {
+		const fixture = makeFixture();
+		assert.equal(fixture.captureIndex.nodeEvidence, undefined);
+		const marker = join(fixture.artifactRoot, path);
+		write(marker, 'immutable earlier evidence\n');
+		assert.throws(() => prepareE2ECoverageArtifacts(fixture), /fresh.*Node evidence/u);
+		assert.equal(readFileSync(marker, 'utf8'), 'immutable earlier evidence\n');
+		assert.equal(existsSync(join(fixture.artifactRoot, 'inventory.json')), false, 'refuse before preparation writes');
+	}
+});
+
+test('the builder carries each exact Node manifest, receipt and raw preimage into the prepared artifact', () => {
+	const fixture = makeFixture();
+	const input = join(fixture.captureRoot, 'qualified-input');
+	write(join(input, 'manifest.json'), '{"transport":"manifest"}\n');
+	write(join(input, 'captures/7-0.json'), '{"transport":"receipt"}\n');
+	write(join(input, 'raw/coverage-7-1-0.json'), '{"transport":"untouched raw"}\n');
+	fixture.captureIndex.nodeEvidence = copyQualifiedNodeEvidence({ inputRoots: [input], outputRoot: fixture.captureRoot });
+	prepareE2ECoverageArtifacts(fixture);
+	const locator = JSON.parse(readFileSync(join(fixture.artifactRoot, 'node-evidence.json'), 'utf8'));
+	const [prepared] = readQualifiedNodeEvidenceIndex({ root: fixture.artifactRoot, locator });
+	for (const path of ['manifest.json', 'captures/7-0.json', 'raw/coverage-7-1-0.json']) {
+		assert.deepEqual(readFileSync(join(prepared, path)), readFileSync(join(input, path)));
+	}
 });
 
 test('the builder validates retained per-run package and executable provenance', () => {
@@ -101,8 +133,7 @@ function makeFixture() {
 	const repositoryRoot = join(workspace, 'repository');
 	const captureRoot = join(workspace, 'capture');
 	const artifactRoot = join(workspace, 'prepared');
-	write(join(repositoryRoot, 'src/browser.js'), 'export const browser = true;\n');
-	const sourceRevision = commitFixtureRepository(repositoryRoot);
+	const sourceRevision = repositoryFixture.copyTo(repositoryRoot);
 	write(join(captureRoot, 'browser/app.js'), 'globalThis.browser = true;\n');
 	write(join(captureRoot, 'nightly/main.mjs'), 'export const packaged = true;\n');
 	writeProfile(
@@ -208,20 +239,6 @@ function scriptRecord(value) {
 		sourceMapSha256,
 		coverageKey: e2eExecutableCoverageKey({ sha256, sourceMapSha256, sources: script.sources }),
 	};
-}
-
-function commitFixtureRepository(repositoryRoot) {
-	for (const args of [
-		['init', '--quiet'],
-		['config', 'user.name', 'Coverage Fixture'],
-		['config', 'user.email', 'coverage@example.invalid'],
-		['add', 'src'],
-		['commit', '--quiet', '-m', 'fixture'],
-	]) {
-		const outcome = spawnSync('git', args, { cwd: repositoryRoot, encoding: 'utf8' });
-		assert.equal(outcome.status, 0, outcome.stderr);
-	}
-	return spawnSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8' }).stdout.trim();
 }
 
 function writeProfile(path, url) {

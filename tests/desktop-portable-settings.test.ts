@@ -72,6 +72,7 @@ test('an existing Portable Settings directory owns the profile and library on ev
 			}
 			assert.equal(f.storage.renderInputRoot, join(f.portableRoot, 'framescaper-native-render-inputs'));
 			assert.equal(f.storage.xdgEnabled, false);
+			assert.equal(f.storage.portable, true);
 			f.storage.prepareBeforeReady();
 			assert.equal(f.paths.get('sessionData'), f.portableRoot);
 			assert.equal(f.paths.get('logs'), join(f.portableRoot, 'logs'));
@@ -129,6 +130,7 @@ test('missing Portable Settings folders and same-named files keep the normal sto
 		const f = await fixture(t, { entry });
 		assert.equal(f.paths.get('userData'), f.userData);
 		assert.equal(f.storage.configRoot, f.userData);
+		assert.equal(f.storage.portable, false);
 		assert.equal(f.storage.dataRoot, join(f.home, '.local', 'share', 'Soundscaper'));
 		if (entry === 'absent') await assert.rejects(lstat(f.portableRoot), { code: 'ENOENT' });
 		else assert.equal(await readFile(f.portableRoot, 'utf8'), 'not a directory');
@@ -148,6 +150,7 @@ test('explicit profiles and diagnostic launches take precedence over adjacent po
 		assert.equal(f.paths.get('userData'), f.userData);
 		assert.equal(f.storage.configRoot, f.userData);
 		assert.equal(f.storage.projectLibraryAppData, f.appData);
+		assert.equal(f.storage.portable, false);
 	}
 });
 

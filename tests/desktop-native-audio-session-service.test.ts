@@ -9,6 +9,7 @@ import {
 	type NativeAudioBackendAdapter,
 } from '../desktop/native-audio-session-service.ts'
 import { HELPER_SUPERVISOR_MAXIMUM_GATE_HOLDERS } from '../desktop/helper-supervisor.ts'
+import { deferred, settle } from './helpers/async-test-control.ts'
 
 const OWNER = {}
 const TARGET = { postMessage() {} }
@@ -242,6 +243,55 @@ test('renderer audio handles are pathless and owner scoped', async () => {
 	assert.equal(opened.status, 'opened')
 	if (opened.status !== 'opened') return
 	assert.throws(() => lifecycle.status({}, opened.sessionId), /another renderer/iu)
+})
+
+test('renderer cleanup after disabling native audio admits a later reopen', async () => {
+	const closed: string[] = []
+	const lifecycle = service({
+		open: async () => ({ status: 'opened', session: session('alsa', closed) }),
+	})
+	const opened = await lifecycle.open(OWNER, request(['alsa']))
+	assert.equal(opened.status, 'opened')
+	if (opened.status !== 'opened') return
+	await lifecycle.bind(OWNER, { sessionId: opened.sessionId, owner: TARGET, queueCapacity: 8 })
+	await lifecycle.closeAll()
+	assert.equal(await lifecycle.close(OWNER, opened.sessionId), true)
+	assert.throws(() => lifecycle.status(OWNER, opened.sessionId), /not open/iu)
+	assert.deepEqual(closed, ['alsa'])
+
+	const reopened = await lifecycle.open(OWNER, request(['alsa']))
+	assert.equal(reopened.status, 'opened')
+	await lifecycle.closeAll()
+	assert.deepEqual(closed, ['alsa', 'alsa'])
+})
+
+test('renderer cleanup racing disable waits for the same native close', async () => {
+	const closeGate = deferred<void>()
+	let closeCalls = 0, settled = false
+	const lifecycle = service({
+		open: async () => ({ status: 'opened', session: {
+			backend: 'alsa', format: FORMAT,
+			close: () => { closeCalls += 1; return closeGate.promise },
+		} }),
+	})
+	const opened = await lifecycle.open(OWNER, request(['alsa']))
+	assert.equal(opened.status, 'opened')
+	if (opened.status !== 'opened') return
+	const disabling = lifecycle.closeAll()
+	const closing = lifecycle.close(OWNER, opened.sessionId).then(
+		value => { settled = true; return value },
+		(error: unknown) => { settled = true; return error },
+	)
+	try {
+		await assert.rejects(() => lifecycle.close({}, opened.sessionId), /another renderer/iu)
+		await settle()
+		assert.equal(closeCalls, 1)
+		assert.equal(settled, false)
+	} finally {
+		closeGate.resolve()
+		await disabling
+	}
+	assert.equal(await closing, true)
 })
 
 test('audio plane and selected queue bounds accept 32/8 and reject 33 or a different queue', async () => {

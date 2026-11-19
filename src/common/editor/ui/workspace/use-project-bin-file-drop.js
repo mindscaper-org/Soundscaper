@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
 	AUDIO_EDITOR_FREESOUND_RESULT_DRAG_TYPE,
 	parseFreesoundResultDragPayload,
@@ -22,16 +22,18 @@ export function useProjectBinFileDrop({ blocked, onFiles, onFreesoundSound }) {
 	const [dropActive, setDropActive] = useState(false);
 
 	const isImportDrag = (dataTransfer) => {
-		const types = [...(dataTransfer?.types || [])];
-		return types.includes(AUDIO_EDITOR_FREESOUND_RESULT_DRAG_TYPE)
-			|| types.includes('Files') || [...(dataTransfer?.items || [])].some((item) => item.kind === 'file');
+		for (const type of dataTransfer?.types ?? []) {
+			if (type === AUDIO_EDITOR_FREESOUND_RESULT_DRAG_TYPE || type === 'Files') return true;
+		}
+		for (const item of dataTransfer?.items ?? []) if (item.kind === 'file') return true;
+		return false;
 	};
 
-	const resetDropState = (element = null) => {
+	const resetDropState = useCallback((element = null) => {
 		dragDepthRef.current = 0;
 		setDropActive(false);
 		element?.removeAttribute('data-drop-active');
-	};
+	}, []);
 
 	return {
 		dropActive,

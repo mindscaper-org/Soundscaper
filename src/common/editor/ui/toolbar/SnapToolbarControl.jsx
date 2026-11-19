@@ -43,7 +43,7 @@ export default function SnapToolbarControl({ controller, snapshot, copy, run }) 
 	const leaf = (item, closesMenu) => (
 		<ContextMenuItem
 			key={item.id}
-			label={item.label}
+			tooltipKey={item.id} label={item.label}
 			checked={item.checked}
 			disabled={item.disabled}
 			onClick={item.onClick}

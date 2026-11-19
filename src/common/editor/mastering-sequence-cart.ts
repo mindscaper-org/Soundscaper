@@ -16,6 +16,7 @@ export function cartForMasteringSequence(
 	if (input == null) return null;
 	const metadata = normalizeCartMetadata(input);
 	const postTimers: CartTimer[] = [];
+	const lastPosition = new Map<CartTimer, number>();
 	for (const segment of plan.segments) {
 		for (const timer of metadata.postTimers) {
 			if (timer.value < segment.sourceStartFrame || timer.value > segment.sourceEndFrame) continue;
@@ -24,6 +25,8 @@ export function cartForMasteringSequence(
 			// The assembly rounds each region's length independently. A timer on
 			// its exclusive source end belongs to that exact delivered end.
 			const value = Math.min(segment.outputEndFrame, segment.outputStartFrame + relativeFrame);
+			if (lastPosition.get(timer) === value) continue;
+			lastPosition.set(timer, value);
 			postTimers.push({ usage: timer.usage, value });
 		}
 	}

@@ -174,7 +174,7 @@ function createMediabunnySession(request: VideoMediabunnyMuxRequest): VideoMedia
 	const target = new BufferTarget();
 	const format = request.format === 'mp4'
 		? new Mp4OutputFormat({ fastStart: 'in-memory' })
-		: new WebMOutputFormat();
+		: new WebMOutputFormat(request.audio ? { timestampScale: 500_000 } : undefined);
 	const output = new Output({ format, target });
 	const videoSource = new EncodedVideoPacketSource(request.videoCodec === 'h264' ? 'avc' : 'vp9');
 	output.addVideoTrack(videoSource, {
@@ -216,10 +216,15 @@ function createMediabunnySession(request: VideoMediabunnyMuxRequest): VideoMedia
 		closeVideo: () => videoSource.close(),
 		async finalize() {
 			await output.finalize();
-			if (!(target.buffer instanceof ArrayBuffer)) {
+			const bytes = target.buffer;
+			if (!(bytes instanceof ArrayBuffer)) {
 				throw new Error('Mediabunny finalized without a buffer target.');
 			}
-			return target.buffer;
+			if (request.audio?.codec === 'opus') {
+				const { repairDoubledWebmOpusCodecDelay } = await import('./video-keyframe-video-container.ts');
+				repairDoubledWebmOpusCodecDelay(new Uint8Array(bytes));
+			}
+			return bytes;
 		},
 		cancel: () => output.cancel(),
 	});

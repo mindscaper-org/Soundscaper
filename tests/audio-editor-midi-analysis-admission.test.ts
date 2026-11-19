@@ -13,7 +13,8 @@ function fixture({pending=true, sourceReady=true, allowed=true}={}) {
  const requests: {method:string;args:unknown[];revision:number}[]=[];
  const method=(name:string)=>(...args:unknown[])=>{calls++;requests.push({method:name,args,revision:project.revision});return Promise.resolve(null);};
  const service: AnalysisActions={run:method('run'),plotSpectrum:method('spectrum'),findClipping:method('clipping'),
-  captureContrast:method('contrast'),repeatLast:method('repeat'),measureLoudness:method('loudness'),cancel:()=>true};
+  captureContrast:method('contrast'),repeatLast:method('repeat'),measureLoudness:method('loudness'),
+  findRepeatedSound:async(...args:unknown[])=>{await method('repeated')(...args);return {trackId:'labels',sourceTrackId:'voice',matches:[]};},cancel:()=>true};
  const ports={hasPendingEdits:()=>pending,getProject:()=>project,captureTarget:()=>JSON.stringify([project.id,selected]),active:()=>active,
   settled:async()=>{settlements++;await ready.promise;},prepareAudio:async()=>{preparations++;await source.promise;}};
  const restrict=<Args extends unknown[],Result>(operation:(...args:Args)=>Result)=>(...args:Args):Result=>{
@@ -34,16 +35,17 @@ const requests=[
  {action:'contrast',args:['foreground','master'],method:'contrast',invoke:(actions:Actions)=>actions.contrast('foreground','master')},
  {action:'repeatLast',args:[],method:'repeat',invoke:(actions:Actions)=>actions.repeatLast()},
  {action:'measureLoudness',args:[],method:'loudness',invoke:(actions:Actions)=>actions.measureLoudness()},
+ {action:'findRepeatedSound',args:[{similarityThreshold:.9}],method:'repeated',invoke:(actions:Actions)=>actions.findRepeatedSound({similarityThreshold:.9})},
 ];
 for(const {action,args,method,invoke} of requests) {
  test(`pending ${action} waits for owned MIDI before the existing analysis owner begins`,async()=>{
   const f=fixture();
   const operation=invoke(f.actions);await settle();assert.equal(f.calls,0);assert.equal(f.settlements,1);
-  f.publish();assert.equal(await operation,null);assert.deepEqual(f.requests,[{method,args,revision:1}]);
+  f.publish();assert.deepEqual(await operation,action==='findRepeatedSound'?{trackId:'labels',sourceTrackId:'voice',matches:[]}:null);assert.deepEqual(f.requests,[{method,args,revision:1}]);
  });
  test(`idle ${action} keeps normal argument and result forwarding`,async()=>{
   const f=fixture({pending:false});
-  const operation=invoke(f.actions);assert.equal(f.calls,1);assert.equal(f.settlements,0);assert.equal(await operation,null);
+  const operation=invoke(f.actions);assert.equal(f.calls,1);assert.equal(f.settlements,0);assert.deepEqual(await operation,action==='findRepeatedSound'?{trackId:'labels',sourceTrackId:'voice',matches:[]}:null);
  });
 }
 test('unsupported analysis rejects before settling any pending MIDI or creating a task',()=>{

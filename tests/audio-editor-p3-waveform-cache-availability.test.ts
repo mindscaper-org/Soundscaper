@@ -9,16 +9,17 @@ import { encodeWav } from '../src/common/editor/wav.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
+import { assertAudioProjectArchivePcm } from './helpers/audio-project-archive-pcm-custody.ts';
 
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 for (const route of ['open', 'import'] as const) for (const failure of route === 'open' ? ['read', 'write', 'none'] as const : ['write', 'none'] as const) test(`File ${route} keeps durable PCM available when waveform cache ${failure} fails`, { timeout: 10_000 }, async context => {
-	const source = createAudioSource({ id: 'source', name: 'Healthy recording', sampleRate: 48_000, frameCount: 4_800, channelCount: 1 });
-	const clip = createAudioClip({ id: 'clip', sourceId: source.id, timelineStartFrame: 0, durationFrames: 4_800, sourceStartFrame: 0, sourceDurationFrames: 4_800 });
+	const source = createAudioSource({ id: 'source', name: 'Healthy recording', sampleRate: 48_000, frameCount: 24_000, channelCount: 1 });
+	const clip = createAudioClip({ id: 'clip', sourceId: source.id, timelineStartFrame: 0, durationFrames: 24_000, sourceStartFrame: 0, sourceDurationFrames: 24_000 });
 	const project = createSoundscaperProject({ id: context.name, title: 'Healthy recording', sources: [source], clips: [clip],
 		tracks: [createAudioTrack({ id: 'voice', name: 'Voice', clipIds: ['clip'] })] });
 	const rawStore = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
 	const writer = await rawStore.beginSourceWrite(source.storageKey, source);
-	await writer.write([new Float32Array(4_800).fill(.25)]); await writer.commit();
+	await writer.write([new Float32Array(24_000).fill(.25)]); await writer.commit();
 	const archive = await exportScapeProject(project, rawStore); assert.ok(archive.blob instanceof Blob);
 	let cacheCalls = 0;
 	let cacheAttempted!: () => void;
@@ -39,11 +40,12 @@ for (const route of ['open', 'import'] as const) for (const failure of route ===
 	const runtime = createSoundscaperProjectRuntimeSelection();
 	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, store,
 		projectRuntime: runtime, sessionController: runtime.createSessionController(), scapeProjectRuntime: createSoundscaperScapeNativeRuntime(),
+		engineFactory: () => { throw new Error('PCM custody must use the stored recording, not a rendered substitute.'); },
 		engine: createMemoryEngine() as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'] });
 	context.after(async () => { await controller.dispose(); }); await controller.ready;
 	if (route === 'open') await controller.actions.project.openScapeFile(new File([archive.blob], 'Healthy.sscape'), () => 'copy');
 	else {
-		const bytes = Uint8Array.from(encodeWav([new Float32Array(4_800).fill(.25)], { sampleRate: 48_000, bitDepth: 32, float: true }));
+		const bytes = Uint8Array.from(encodeWav([new Float32Array(24_000).fill(.25)], { sampleRate: 48_000, bitDepth: 32, float: true }));
 		await controller.actions.project.importFiles([new File([bytes], 'Healthy.wav', { type: 'audio/wav' })]);
 	}
 	assert.equal(controller.getSnapshot().readOnly, false);
@@ -59,4 +61,9 @@ for (const route of ['open', 'import'] as const) for (const failure of route ===
 	assert.deepEqual(controller.getSnapshot().missingSourceIds, [], 'optional waveform cache failure must not report missing recording bytes');
 	const saved = await controller.actions.project.saveScape({ saveCopy: true, useFileSystemAccess: false });
 	assert.ok(saved && !('cancelled' in saved), 'a healthy project can still be saved');
+	await controller.actions.project.flush();
+	await assertAudioProjectArchivePcm(context, store, controller.project, (_name, channels) => {
+		assert.equal(channels.length, 1); assert.equal(channels[0]?.length, 24_000);
+		for (const sample of channels[0]!) assert.equal(sample, .25, 'every original source sample survives cache faults and fresh Scape reopening');
+	});
 });

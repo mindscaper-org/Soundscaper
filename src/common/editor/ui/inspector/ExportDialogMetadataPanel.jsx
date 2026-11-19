@@ -9,6 +9,7 @@ import AdmMetadataFields from '../AdmMetadataFields.tsx';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import BextMetadataFields from '../BextMetadataFields.tsx';
 import MetadataEditorTabs from '../MetadataEditorTabs.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 const METADATA_FIELDS = Object.freeze(['metadataTitle', 'metadataArtist', 'metadataAlbum', 'metadataTrack', 'metadataYear', 'metadataGenre', 'metadataComments', 'metadataCopyright']);
 
@@ -79,15 +80,15 @@ export default function ExportDialogMetadataPanel({
 								</div>
 								{METADATA_FIELDS.map((name) => (
 									<label className="audio-editor-metadata-table__row" role="row" key={name}>
-										<span role="cell">{copy[name]}</span>
-										<span role="cell"><TextInput multiline={multilineFields.has(name)} value={settings[name]} onChange={(value) => onChange(name, value)} width="100%" /></span>
+										<EditorControlLabel role="cell">{copy[name]}</EditorControlLabel>
+										<EditorControlLabel role="cell"><TextInput multiline={multilineFields.has(name)} value={settings[name]} onChange={(value) => onChange(name, value)} width="100%" /></EditorControlLabel>
 									</label>
 								))}
 							</div>
 							<details className="audio-editor-export-details">
 								<summary>{copy.customMetadata}</summary>
 								<label className="audio-editor-field">
-									<span>{copy.customMetadata}</span>
+									<EditorControlLabel>{copy.customMetadata}</EditorControlLabel>
 									<TextInput multiline value={settings.metadataCustom} onChange={(value) => onChange('metadataCustom', value)} width="100%" />
 								</label>
 							</details>

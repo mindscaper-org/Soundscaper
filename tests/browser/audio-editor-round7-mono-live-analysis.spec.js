@@ -22,6 +22,7 @@ test('live Spectrum survives an ordinarily authored Mono ADM bed', async ({ page
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [createWavFixture({ name: 'mono-programme.wav', frequency: 440,
 		duration: 10, channelCount: 1, channelAmplitudes: [.5] })]);
+	await chooseCommandAction(page, editor, 'Select', 'Select none');
 	await chooseCommandAction(page, editor, 'Analyze', 'Analysis');
 	const analysis = editor.locator('[data-workspace-panel="analysis"]');
 	await analysis.locator('[data-analysis-section="spectrum"] summary').click();

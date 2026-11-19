@@ -15,20 +15,17 @@ function midiFile(order) {
 	]) };
 }
 
-test('File Import refuses a same-tick late sustain press before creating a changed audible fallback', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+// The order/PCM matrix has exact real synthesis/store/archive custody in
+// audio-editor-midi-expression-archive-custody.test.ts. Keep native refusal/retry.
+test('File Import refuses late sustain and recovers with its representable before-release behavior', async ({ page }) => {
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [midiFile('after')]);
 	await expect(page.locator('[data-editor-toast="workspace-error"]')).toContainText('sustain and key-release order');
 	await expect(editor).toHaveAttribute('data-clip-count', '0');
-});
-
-for (const order of ['before', 'later']) test(`MIDI import retains its representable ${order} sustain behavior`, async ({ page }) => {
-	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
-	await importFiles(editor, [midiFile(order)]);
+	await importFiles(editor, [midiFile('before')]);
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
 	const pcm = await exportSamples(page, editor);
 	const peak = pcm.slice(52_800, 60_000).reduce((value, sample) => Math.max(value, Math.abs(sample)), 0);
-	if (order === 'before') expect(peak).toBeGreaterThan(0.05);
-	else expect(peak).toBeLessThan(0.0001);
+	expect(peak).toBeGreaterThan(0.05);
 });

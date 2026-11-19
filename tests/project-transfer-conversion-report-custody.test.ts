@@ -312,16 +312,16 @@ test('download fallback saves the identical JSON sidecar beside its native archi
 	assert.match(described.rows[0].detail, /saved archive.*companion/iu);
 });
 
-test('manual import pairs a bounded sidecar with its archive and exposes it only after recognized import', async () => {
+test('manual import pairs browser-renamed duplicate downloads and exposes reports only after recognized import', async () => {
 	const held = sidecar();
 	const runtime = importRuntime('imported');
 	const result = await importTransferArchiveFiles({
 		runtime,
 		store: importStore(),
 		files: [
-			file(crossProductHandoffReportSidecarFileName('Destination.sscape'),
+			file('Destination.sscape.conversion-report (1).json',
 				encodeCrossProductHandoffReportSidecar(held)),
-			file('Destination.sscape', ARCHIVE),
+			file('Destination (1).sscape', ARCHIVE),
 		],
 	});
 	assert.equal(result.entries[0].outcome, 'imported');

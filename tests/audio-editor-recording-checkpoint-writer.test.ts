@@ -6,7 +6,7 @@ import test from 'node:test';
 import { createRecordingCheckpointWriter } from '../src/common/editor/controller/recording/internal/recording-checkpoint-writer.ts';
 import { createRoutedRecordingFinalization } from '../src/common/editor/controller/recording/internal/routed-recording-finalization.ts';
 import { createLegacyRecordingFinalization } from '../src/common/editor/controller/recording/internal/legacy-recording-finalization.ts';
-import { prepareRecordingPunchSequence } from '../src/common/editor/controller/recording/internal/recording-punch-sequence.js';
+import { prepareRecordingPunchSequence } from '../src/common/editor/controller/recording/internal/recording-punch-sequence.ts';
 import type { RoutedRecordingFinalizationRuntime } from '../src/common/editor/controller/recording/internal/recording-finalization-types.ts';
 import type { RecordingFinalizationSnapshot } from '../src/common/editor/controller/recording/internal/recording-session-service.ts';
 import type { RecordingSourceWriter, RoutedRecordingEntry } from '../src/common/editor/controller/recording/recording-transaction-types.ts';
@@ -355,7 +355,7 @@ test('successive punch commands preserve the untouched right side of an existing
 			punch: { trackId: 'track-1', startFrame: 14, endFrame: 17, sourceId: 'source-2',
 				sourceStartFrame: 0, sourceDurationFrames: 3, clipId: 'recorded-2' } },
 	];
-	const commands = prepareRecordingPunchSequence(project, segments);
+	const commands = prepareRecordingPunchSequence(project, segments, applyEditorCommand);
 	const result = applyEditorCommand(project, {
 		type: 'batch', commands: commands as unknown as AudioEditorCommand[],
 	});

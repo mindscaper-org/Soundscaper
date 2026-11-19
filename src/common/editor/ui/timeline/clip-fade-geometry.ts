@@ -54,9 +54,11 @@ export function fadeShapeField(edge: ClipFadeEdge): 'fadeInShape' | 'fadeOutShap
 
 export function fadeShapeAtPointer(initial: number, startY: number, clientY: number, gainHeight: number, baseGain = MIDPOINT_BASE_GAIN, startGain = baseGain ** initial): number {
 	if (clientY === startY) return initial;
-	const gain = Math.max(0.05, Math.min(0.95, startGain - (clientY - startY) / Math.max(1, gainHeight)));
+	const gain = startGain - (clientY - startY) / Math.max(1, gainHeight);
 	const invertibleBase = Math.max(0.000001, Math.min(0.999999, baseGain));
-	return Math.max(MINIMUM_FADE_SHAPE, Math.min(MAXIMUM_FADE_SHAPE, Math.log(gain) / Math.log(invertibleBase)));
+	if (gain <= invertibleBase ** MAXIMUM_FADE_SHAPE) return MAXIMUM_FADE_SHAPE;
+	if (gain >= invertibleBase ** MINIMUM_FADE_SHAPE) return MINIMUM_FADE_SHAPE;
+	return Math.log(gain) / Math.log(invertibleBase);
 }
 
 export function fadeShapeAtKey(key: string, shift: boolean, current: number): number | null {

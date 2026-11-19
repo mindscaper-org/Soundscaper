@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { readAuthenticatedWindowsPluginArchitecture } from './windows-plugin-architecture.ts';
+import { isBundledFactoryLaunch } from './bundled-plugin-factory-data.ts';
 /** Windows trusted plug-in processes: authenticated host, Job limits, ambient user access. */
 
 import { spawn as nodeSpawn, type ChildProcess } from 'node:child_process';
@@ -18,6 +20,7 @@ import type {
 export interface SupervisedNativePluginEnforcement {
 	readonly kind: 'native-plugin-process-supervised';
 	readonly target: 'win-x64' | 'win-arm64';
+	readonly pluginArchitecture: 'ia32' | 'x64' | 'arm64';
 	readonly pid: number;
 	readonly filesystem: 'user';
 	readonly network: 'user';
@@ -37,6 +40,8 @@ export function isSupervisedNativePluginLaunch(value: unknown): value is Supervi
 export function createNativePluginProcessLauncher(options: Readonly<{
 	target: string;
 	peerExecutable: NativeChildIsolationArtifactDescriptor;
+	peerArchitecture?: 'ia32';
+	factoryData?: NativeChildIsolationLaunchRequest['readOnly'][number];
 	artifacts: Readonly<{
 		launcher: NativeChildIsolationArtifactDescriptor;
 		sandboxProfile: NativeChildIsolationArtifactDescriptor;
@@ -46,12 +51,17 @@ export function createNativePluginProcessLauncher(options: Readonly<{
 	runtimeTarget?: () => string;
 }>) {
 	const { target, peerExecutable: peer, artifacts } = options;
+	if (options.peerArchitecture !== undefined && options.peerArchitecture !== 'ia32') throw new TypeError('Invalid plugin peer architecture.');
 	const spawn = options.spawn ?? nodeSpawn;
 	const runtimeTarget = options.runtimeTarget ?? (() => process.platform === 'win32' ? `win-${process.arch}` : 'unsupported');
 	const verify = async () => {
 		if (runtimeTarget() !== target
 			|| !['win-x64', 'win-arm64'].includes(target)) {
 			throw new Error('Trusted Windows plug-in processes require a matching Windows machine.');
+		}
+		if (options.peerArchitecture === 'ia32' && (target !== 'win-x64'
+			|| await readAuthenticatedWindowsPluginArchitecture(peer.path, peer) !== 'ia32')) {
+			throw new Error('The x86 VST2 peer must be an authenticated PE32 executable on Windows x64.');
 		}
 		const handles: FileHandle[] = [];
 		try {
@@ -66,7 +76,7 @@ export function createNativePluginProcessLauncher(options: Readonly<{
 	};
 	return Object.freeze({
 		pluginFilesystemAccess: 'user' as const,
-		...(target === 'win-x64' ? { vst2LowAddressHeap: true as const } : {}),
+		...(target === 'win-x64' && !options.peerArchitecture ? { vst2LowAddressHeap: true as const } : {}),
 		machineReady: async () => {
 			try { await verify(); return Object.freeze({ status: 'ready' as const, target }); }
 			catch (error) { return Object.freeze({ status: 'unavailable' as const, target,
@@ -79,7 +89,7 @@ export function createNativePluginProcessLauncher(options: Readonly<{
 				throw new Error('Legacy VST2 allocation compatibility requires a trusted Windows x64 process.');
 			}
 			if (request.executable.path !== peer.path || request.executable.sha256 !== peer.sha256
-				|| request.arguments.length !== 0 || request.runtimeClosure?.length
+				|| (request.arguments.length !== 0 && !isBundledFactoryLaunch(request, options.factoryData)) || request.runtimeClosure?.length
 				|| request.extraInput || !request.framedControl
 				|| request.workloadPayload?.sha256 !== peer.sha256) {
 				throw new Error('A trusted plug-in process requires its exact authenticated peer and framed transport.');
@@ -117,6 +127,7 @@ export function createNativePluginProcessLauncher(options: Readonly<{
 				if (!child.pid) throw new Error('The supervised plug-in process has no process identity.');
 				const enforcement = Object.freeze({ kind: 'native-plugin-process-supervised' as const,
 					target: target as 'win-x64' | 'win-arm64', pid: child.pid,
+					pluginArchitecture: options.peerArchitecture ?? (target === 'win-arm64' ? 'arm64' as const : 'x64' as const),
 					allocationRandomization: legacyHeap ? 'low-entropy-for-legacy-vst2' as const : 'system' as const,
 					filesystem: 'user' as const, network: 'user' as const, childProcesses: 'denied' as const });
 				supervised.add(enforcement);

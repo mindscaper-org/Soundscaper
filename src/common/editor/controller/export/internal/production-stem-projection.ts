@@ -5,6 +5,8 @@ import { exportClipMixer } from '../../../export-clip-mixer.ts';
 import { mixerEndpointKeyV21, normalizeMixerGraphV21, type MixerGraphV21 } from '../../../mixer-graph-v21.ts';
 import type { ProjectFeatureRequirementsManifest } from '../../../project-feature-requirements.ts';
 import { projectTransientRenderFeatures } from '../../shared/transient-render-feature-projection.ts';
+import { clipEffectControlTrackIds } from '../../../clip-effect-control-tracks.ts';
+import type { EngineProject } from '../../../engine/types.ts';
 
 interface MutableProductionStemProject {
 	featureRequirements: ProjectFeatureRequirementsManifest;
@@ -20,7 +22,8 @@ export function projectProductionStemSnapshot(value: unknown, trackId: string): 
 	const graph = normalizeMixerGraphV21(project.mixer);
 	const edges = graph.edges.filter(edge => !(edge.destination.kind === 'effect-sidechain'
 		&& edge.destination.strip.kind === 'master'));
-	const isolation = exportClipMixer(normalizeMixerGraphV21({ ...graph, edges }), trackId);
+	const controls = clipEffectControlTrackIds(value as EngineProject, new Set([trackId]));
+	const isolation = exportClipMixer(normalizeMixerGraphV21({ ...graph, edges }), trackId, controls);
 	project.tracks = project.tracks.map(track => ({ ...track, solo: false,
 		mute: track.id === trackId ? false : isolation.detectorStrips.has(mixerEndpointKeyV21({
 			kind: 'track', id: String(track.id),

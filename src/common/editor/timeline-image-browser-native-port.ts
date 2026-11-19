@@ -53,14 +53,15 @@ export const openFramescaperBrowserNativeImageV1: OpenFramescaperBrowserNativeIm
 	cancelled(request.signal);
 	assertBrowserNativeImageResources(request.bytes, request.format);
 	const Decoder = imageDecoderConstructor();
-	if (Decoder && await supported(Decoder, request.mimeType)) {
-		return openImageDecoder(Decoder, request.bytes, request.mimeType, request.format, request.signal,
-			encodedImageAnimationInfo(request.bytes, request.format));
+	const animation = encodedImageAnimationInfo(request.bytes, request.format);
+	if (Decoder && await nativeImageOperation(() => supported(Decoder, request.mimeType), request.signal, () => {})) {
+		return openImageDecoder(Decoder, request.bytes, request.mimeType, request.format, request.signal, animation);
 	}
-	if (encodedImageIsAnimated(request.bytes, request.format)) {
+	const singleGif = request.format === 'gif' && animation?.frameCount === 1 ? animation : null;
+	if (!singleGif && encodedImageIsAnimated(request.bytes, request.format)) {
 		throw new Error('This animated image requires an available browser animation decoder.');
 	}
-	return openStaticBitmap(request.bytes, request.mimeType, request.signal);
+	return openStaticBitmap(request.bytes, request.mimeType, request.signal, singleGif?.firstFrameDurationMicroseconds ?? null);
 };
 
 async function openImageDecoder(
@@ -74,15 +75,21 @@ async function openImageDecoder(
 	const decoder = new Decoder({
 		data: bytes.slice(), type: mimeType, preferAnimation: true, colorSpaceConversion: 'default',
 	});
+	let decoderClosed = false;
+	const closeDecoder = (): void => {
+		if (decoderClosed) return;
+		decoderClosed = true; decoder.close();
+	};
 	try {
-		await decoder.tracks.ready;
+		await nativeImageOperation(() => decoder.tracks.ready, signal, closeDecoder);
 		cancelled(signal);
 		const track = decoder.tracks.selectedTrack;
 		const reportedFrameCount = positiveInteger(track?.frameCount, 'ImageDecoder frame count');
 		// Some decoders count a separate PNG poster as another animation frame.
 		const frameCount = animation?.frameCount ?? reportedFrameCount;
 		assertBrowserNativeImageResources(bytes, format, frameCount);
-		const probe = await decoder.decode({ frameIndex: 0, completeFramesOnly: true });
+		const probe = await nativeImageOperation(() => decoder.decode({ frameIndex: 0, completeFramesOnly: true }),
+			signal, closeDecoder, result => result.image.close());
 		let width: number;
 		let height: number;
 		try {
@@ -97,6 +104,10 @@ async function openImageDecoder(
 		// Keep the probe until admission permits pixel extraction, then consume it.
 		let firstImage: BrowserDecodedImageLike | null = probe.image;
 		let closed = false;
+		const close = (): void => {
+			if (closed) return;
+			closed = true; firstImage?.close(); firstImage = null; closeDecoder();
+		};
 		return Object.freeze({
 			metadata: Object.freeze({
 				width, height, frameCount,
@@ -108,7 +119,8 @@ async function openImageDecoder(
 				cancelled(frameSignal ?? signal);
 				const image = index === 0 && firstImage
 					? firstImage
-					: (await decoder.decode({ frameIndex: index, completeFramesOnly: true })).image;
+					: (await nativeImageOperation(() => decoder.decode({ frameIndex: index, completeFramesOnly: true }),
+						frameSignal ?? signal, close, result => result.image.close())).image;
 				if (image === firstImage) firstImage = null;
 				try {
 					cancelled(frameSignal ?? signal);
@@ -119,16 +131,10 @@ async function openImageDecoder(
 					});
 				} finally { image.close(); }
 			},
-			close() {
-				if (closed) return;
-				closed = true;
-				firstImage?.close();
-				firstImage = null;
-				decoder.close();
-			},
+			close,
 		});
 	} catch (error) {
-		decoder.close();
+		closeDecoder();
 		throw error;
 	}
 }
@@ -137,13 +143,15 @@ async function openStaticBitmap(
 	bytes: Uint8Array,
 	mimeType: string,
 	signal: AbortSignal | undefined,
+	durationMicroseconds: number | null,
 ): Promise<FramescaperBrowserNativeImageDecodeSessionV1> {
 	if (typeof globalThis.createImageBitmap !== 'function') {
 		throw new Error('This browser has no supported native image decoder.');
 	}
-	const bitmap = await globalThis.createImageBitmap(new Blob([bytes.slice()], { type: mimeType }), {
-		imageOrientation: 'from-image', premultiplyAlpha: 'none', colorSpaceConversion: 'default',
-	});
+	const bitmap = await nativeImageOperation(() => globalThis.createImageBitmap(
+		new Blob([bytes.slice()], { type: mimeType }), {
+			imageOrientation: 'from-image', premultiplyAlpha: 'none', colorSpaceConversion: 'default',
+		}), signal, () => undefined, value => value.close());
 	// The bitmap exists before anything can reject, and only the returned session
 	// can close it, so a cancellation landing in this window would orphan a raster
 	// of up to the admitted maximum with no deterministic release. The decoder
@@ -168,7 +176,7 @@ async function openStaticBitmap(
 			if (closed) throw new Error('The browser image bitmap is closed.');
 			if (index !== 0) throw new RangeError('A static browser image has one frame.');
 			cancelled(frameSignal ?? signal);
-			return Object.freeze({ rgba: drawRgba(bitmap, width, height), durationMicroseconds: null });
+			return Object.freeze({ rgba: drawRgba(bitmap, width, height), durationMicroseconds });
 		},
 		close() { if (!closed) { closed = true; bitmap.close(); } },
 	});
@@ -221,4 +229,34 @@ function positiveInteger(value: unknown, name: string): number {
 
 function cancelled(signal: AbortSignal | undefined): void {
 	if (signal?.aborted) throw signal.reason ?? new DOMException('Image decode was cancelled.', 'AbortError');
+}
+
+/** Native decode promises have no signal parameter; close on abort and retire late frames. */
+function nativeImageOperation<Value>(
+	operation: () => PromiseLike<Value>, signal: AbortSignal | undefined, close: () => void,
+	retireLate?: (value: Value) => void,
+): Promise<Value> {
+	return new Promise((resolve, reject) => {
+		let settled = false;
+		const abort = (): void => {
+			if (settled) return;
+			settled = true;
+			try { close(); } catch { /* Preserve the cancellation reason. */ }
+			reject(signal?.reason ?? new DOMException('Image decode was cancelled.', 'AbortError'));
+		};
+		if (signal?.aborted) { abort(); return; }
+		signal?.addEventListener('abort', abort, { once: true });
+		let pending: PromiseLike<Value>;
+		try { pending = operation(); } catch (error) {
+			settled = true; signal?.removeEventListener('abort', abort); reject(error); return;
+		}
+		void Promise.resolve(pending).then(value => {
+			signal?.removeEventListener('abort', abort);
+			if (settled) { retireLate?.(value); return; }
+			settled = true; resolve(value);
+		}, (error: unknown) => {
+			signal?.removeEventListener('abort', abort);
+			if (!settled) { settled = true; reject(error); }
+		}).catch(() => undefined);
+	});
 }

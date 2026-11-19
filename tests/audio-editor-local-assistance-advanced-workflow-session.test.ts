@@ -280,7 +280,7 @@ function advancedFixture(
 		workflow,
 	});
 	const project = Object.freeze({ id: 'project-a', schemaFamily: 'soundscaper' as const,
-		schemaVersion: 1, revision: 2,
+		schemaVersion: 1, revision: 2, sampleRate: 48_000,
 		clips: Object.freeze([{ id: 'clip-a', kind: 'audio', sourceId: 'source-a',
 			sequenceId: 'main', avLinkId: null, reversed: false, speedRatio: 1,
 			pitchCents: 0, stretchToTempo: false, warpMap: null,

@@ -8,7 +8,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 test('a macro Invert operates on the same source-editor selection as the effect menu', async ({ page }) => {
 	test.setTimeout(60_000);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'source-macro.wav', frequency: 1000,
 		duration: 0.8, channelCount: 1, sampleRate: 44_100 });
 	await importFiles(editor, [recording]);
@@ -26,11 +26,11 @@ test('a macro Invert operates on the same source-editor selection as the effect 
 	await expect(editor.locator('[data-status]')).toHaveText('Applied the Audacity effect.', { timeout: 20_000 });
 	const expected = await exportSamples(page, editor);
 	await editor.getByRole('button', { name: 'Undo', exact: true }).click();
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New program', exact: true }).click();
 	await manager.getByRole('textbox', { name: 'Program', exact: true }).fill("await sound.effect('audacity-invert');");
-	await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+	await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 	await expect(manager.locator('[data-macro-script-log]')).toHaveAttribute('data-outcome', 'completed', { timeout: 30_000 });
 	await manager.getByRole('button', { name: 'Close', exact: true }).click();
 	await closeClipProperties(panel);

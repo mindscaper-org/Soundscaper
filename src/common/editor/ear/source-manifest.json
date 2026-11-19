@@ -1,0 +1,170 @@
+{
+	"schemaVersion": 1,
+	"component": "EBU libear",
+	"version": "0.9.0",
+	"revision": "2db69f8fcea0bc5db8a78e14a9c2ae6ed4283c15",
+	"license": "Apache-2.0",
+	"toolchain": {
+		"emscriptenVersion": "3.1.64",
+		"dockerImage": "emscripten/emsdk@sha256:8847dad4171ebc8a53d9ae5cda86a2546ef5b2e68834c14dc1ba2b2962e125cc"
+	},
+	"archives": [
+		{
+			"name": "libear",
+			"url": "https://codeload.github.com/ebu/libear/tar.gz/2db69f8fcea0bc5db8a78e14a9c2ae6ed4283c15",
+			"byteLength": 376421,
+			"sha256": "60da7f28a343266ef83312807d9cee0f2fabd057d1ca2129d339d43999882f9b",
+			"archive": "libear.tar.gz"
+		},
+		{
+			"name": "eigen",
+			"url": "https://gitlab.com/libeigen/eigen/-/archive/3147391d946bb4b6c68edd901f2add6ac1f31f8c/eigen-3147391d946bb4b6c68edd901f2add6ac1f31f8c.tar.gz",
+			"byteLength": 2710482,
+			"sha256": "0c8c490764f9c2a793133491adca0cd073b73e0bde965c68cbe58d91b5ed4261",
+			"archive": "eigen.tar.gz"
+		},
+		{
+			"name": "xsimd",
+			"url": "https://codeload.github.com/xtensor-stack/xsimd/tar.gz/c1247bffa8fc36de7380a5cd42673a3b32f74c97",
+			"byteLength": 253565,
+			"sha256": "464fa383597862826b434ef29682b2a256d8474a2238c05dc7bff3640e6639c1",
+			"archive": "xsimd.tar.gz"
+		},
+		{
+			"name": "boost",
+			"url": "https://archives.boost.io/release/1.92.0/source/boost_1_92_0.tar.bz2",
+			"byteLength": 199030664,
+			"sha256": "5c1d40cb8e19adbf740a4ec2da35b3e58f3f5804b1dce44deb53df72193cbc6c",
+			"archive": "boost.tar.bz2"
+		}
+	],
+	"sourceFiles": [
+		{
+			"path": "native/ear-wasm.cpp",
+			"byteLength": 2139,
+			"sha256": "04c954faee1d17e59125aab33eb34752b91d37e694b8e9005676fbbc596853b2"
+		},
+		{
+			"path": "native/CMakeLists.txt",
+			"byteLength": 875,
+			"sha256": "2adf0351159bb377799a6cc482618461e2d9b2cf791269e91e937f30a0afca58"
+		}
+	],
+	"licenseFiles": [
+		{
+			"path": "licenses/LIBEAR.txt",
+			"byteLength": 11357,
+			"sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+		},
+		{
+			"path": "licenses/XSIMD.txt",
+			"byteLength": 1606,
+			"sha256": "501352acba62cc54e8e3d293754d606f919c9b425b962193c211f9fa29cd9940"
+		},
+		{
+			"path": "licenses/BOOST.txt",
+			"byteLength": 1338,
+			"sha256": "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566"
+		},
+		{
+			"path": "licenses/EIGEN-COPYING.README.txt",
+			"byteLength": 779,
+			"sha256": "c83230b770f17ef1386ea1fd3681271dd98aa93646bdbfb5bff3a1b7050fff9d"
+		},
+		{
+			"path": "licenses/EIGEN-COPYING.BSD.txt",
+			"byteLength": 1517,
+			"sha256": "51928dce36213c5333ba3172e847d735d4c6e9b7ff2722a326c49067155b82eb"
+		},
+		{
+			"path": "licenses/EIGEN-COPYING.GPL.txt",
+			"byteLength": 35147,
+			"sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+		},
+		{
+			"path": "licenses/EIGEN-COPYING.APACHE.txt",
+			"byteLength": 11362,
+			"sha256": "03379001a7b12a2ec997a25554247d985270b353c10d5bafee9ac8d6519820b7"
+		},
+		{
+			"path": "licenses/EIGEN-COPYING.LGPL.txt",
+			"byteLength": 26530,
+			"sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551"
+		},
+		{
+			"path": "licenses/EIGEN-COPYING.MINPACK.txt",
+			"byteLength": 2193,
+			"sha256": "c87b7f8ee88f6195e91743820c00354833583aef091b72e2d4a49c8e28e798a0"
+		},
+		{
+			"path": "licenses/EIGEN-COPYING.MPL2.txt",
+			"byteLength": 16726,
+			"sha256": "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85"
+		},
+		{
+			"path": "../staffpad/licenses/EMSCRIPTEN.txt",
+			"byteLength": 5093,
+			"sha256": "620a78084fc7ca97c0b5dea9abf891f3ffcadfdbf305276f099c9c4e12fc1d86"
+		},
+		{
+			"path": "../staffpad/licenses/COMPILER_RT.txt",
+			"byteLength": 16708,
+			"sha256": "1a8f1058753f1ba890de984e48f0242a3a5c29a6a8f2ed9fd813f36985387e8d"
+		},
+		{
+			"path": "../staffpad/licenses/MUSL.txt",
+			"byteLength": 6204,
+			"sha256": "f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af"
+		},
+		{
+			"path": "../staffpad/licenses/LIBCXX.txt",
+			"byteLength": 16703,
+			"sha256": "539dd7aed86e8a4f12cbdd0e6c50c189c7d74847e4fecc64ce2c6ee3a01da38b"
+		},
+		{
+			"path": "../staffpad/licenses/LIBCXXABI.txt",
+			"byteLength": 16706,
+			"sha256": "e2b35be49f7284a45b7baca8fc7b3ab7440e7902392b2528a457816b5bb2a15c"
+		},
+		{
+			"path": "NOTICE.md",
+			"byteLength": 1981,
+			"sha256": "97aaed78240da384a63fc0981bb1a5e783abab5530fc75134c4a68e886adb272"
+		},
+		{
+			"path": "THIRD_PARTY_NOTICES.txt",
+			"byteLength": 172633,
+			"sha256": "8244340e97f91efe635fc733c31714c8a566cdecdd23a1969fe0a82e6a367b82"
+		}
+	],
+	"wasm": {
+		"path": "ear.wasm",
+		"byteLength": 491426,
+		"sha256": "42b141bfba230d9e1b87119f4600306b4db0785344567b21bdc37c3879d408ff",
+		"initialMemoryBytes": 33554432,
+		"maximumMemoryBytes": 33554432,
+		"imports": [
+			"wasi_snapshot_preview1.fd_close:function",
+			"wasi_snapshot_preview1.fd_write:function",
+			"wasi_snapshot_preview1.fd_seek:function",
+			"wasi_snapshot_preview1.environ_sizes_get:function",
+			"wasi_snapshot_preview1.environ_get:function",
+			"env._tzset_js:function"
+		],
+		"exports": [
+			"memory",
+			"ear_initialize",
+			"__indirect_function_table",
+			"ear_speaker_name",
+			"ear_label_pointer",
+			"ear_pack_pointer",
+			"ear_gains_pointer",
+			"ear_error",
+			"ear_direct",
+			"ear_object",
+			"ear_close",
+			"_initialize",
+			"__trap"
+		]
+	}
+}

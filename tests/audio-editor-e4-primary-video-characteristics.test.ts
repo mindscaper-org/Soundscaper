@@ -26,6 +26,7 @@ test('a genuine single-video file retains exact coded facts', async () => {
 	assert.deepEqual(result, normalizeVideoSourceCharacteristics({
 		backend: 'container', codedWidth: 64, codedHeight: 32, videoCodec: 'h264',
 		pixelAspectRatio: { num: 1, den: 1 }, hasAlpha: false, audioStreams: [],
+		colour: { range: 'limited' },
 	}));
 });
 

@@ -31,7 +31,12 @@ const CATEGORY_LABELS = Object.freeze({
  * rather than guessed from the identifier.
  */
 const LOCAL_EFFECT_CATEGORIES = Object.freeze({
+	'match-eq': 'eq',
+	'automatic-phase-correction': 'repair',
+	'ai-denoise': 'repair',
+	'auto-tune': 'pitch-tempo',
 	deesser: 'repair',
+	'hum-removal': 'repair',
 	'multiband-compressor': 'volume',
 	highpass: 'eq',
 	lowpass: 'eq',
@@ -55,7 +60,9 @@ const LOCAL_EFFECT_CATEGORIES = Object.freeze({
 
 /** Parameters whose value is a structure rather than a scalar or a choice. */
 const STRUCTURED_LOCAL_PARAMETERS = Object.freeze({
+	'match-eq.reference': 'Learned reference spectrum; save as a preset to reuse a personal voice profile',
 	'eq.bands': 'Each band has a type, frequency, gain, Q, and slope',
+	'auto-tune.controlTrackId': 'Optional MIDI control track ID; empty uses the selected key and scale',
 });
 
 const BROWSER_ADAPTATION_NOTES = Object.freeze({
@@ -63,6 +70,11 @@ const BROWSER_ADAPTATION_NOTES = Object.freeze({
 });
 
 const LOCAL_EFFECT_NOTES = Object.freeze({
+	'match-eq': ['Selection-only tonal matching with a saved reference or personal voice profile', 'Each target is analyzed independently; smoothing and bounded boost/cut protect quiet and unsupported frequency bands', 'Original/Matched preview is level compensated; Edit as Filter Curve EQ opens an editable fixed correction'],
+	'automatic-phase-correction': ['Selection-only fixed stereo timing alignment, from 8 kHz to 384 kHz', 'Reference channel, duration and levels are preserved; ambiguous or inconsistent offsets remain unchanged', 'Analyze reports the offset and confidence; Original/Corrected and mono are preview-only controls'],
+	'hum-removal': ['Harmonic notch bank with custom fundamental, harmonic count, notch width and reduction', 'Live controls, zero latency, no timeline automation; selections keep their duration'],
+	'ai-denoise': ['Desktop only; install DPDFNet2 through Model Manager', 'Mono or stereo; automatically resampled to 48 kHz and back', '85.33 ms compensated latency at 48 kHz; other rates include resampler lookahead; requires a passing device speed probe'],
+	'auto-tune': ['Solo voice or melody (65–1500 Hz); chromatic, major or natural minor pitch correction', 'StaffPad formant preservation; fixed rack latency (about 72 ms at 48 kHz), live controls, no timeline automation'],
 	'multi-tap-delay': ['Finite echoes with StaffPad pitch shift; selections also offer changed-speed echoes and optional complete tails'],
 	'noise-gate': ['Lookahead opens the gate before transients; rack and selection timing are compensated', 'Linked or independent channels; optional frequency-selective gating'],
 	vocoder: ['Stereo uses the left channel as voice and the right as carrier; mono uses a synthesized carrier', 'Output keeps the input channel count'],
@@ -246,6 +258,12 @@ export function renderAudioEffectReference(context) {
 		'',
 		inventory,
 		'',
+		'## Hum removal {#hum-removal}',
+		'',
+		'Choose Effect > Noise removal and repair > Hum removal to preview or apply it to selected audio, or add Hum removal to a realtime rack. Set Fundamental frequency to 50 or 60 Hz for mains hum, or a custom value between 20 and 400 Hz. Harmonics includes the fundamental; only notches whose width fits below half the sample rate are used. Notch width is the nominal full-depth notch bandwidth in Hz and stays constant across the harmonic series. Reduction sets the attenuation at each notch center; zero leaves audio unchanged. Use narrow notches and the fewest harmonics that remove the hum to preserve wanted audio.',
+		'',
+		'The same causal filter bank processes selection previews, playback and export with independent channel histories and no added latency. Live parameter changes crossfade over 20 ms without rebuilding the rack; timeline automation is unavailable. Rack playback and export include filter release subject to the existing combined 10-second tail limit. Applying the effect to a selection keeps its duration. The downloadable Nyquist Comb Filter and Hum Remover remain separate selection effects.',
+		'',
 		'## Regular streaming replacements {#regular-streaming-replacements}',
 		'',
 		'Delay, High-pass filter, Low-pass filter, Noise gate, Notch filter, Shelf filter, Tremolo and Vocoder have regular selection effects and realtime rack processors. Choose them from their Effect menu categories, or open a track’s Effects panel and choose them in its rack. Their core controls are shared across both uses; Delay also offers selection-only speed and duration controls. Existing programmatic Nyquist IDs and user plug-ins remain available, and the bundled scripts retain their pinned source and notices.',
@@ -259,6 +277,8 @@ export function renderAudioEffectReference(context) {
 		'Vocoder uses 10 to 240 logarithmically spaced bands from 20 Hz to just below half the sample rate, with the same band-width settings as the bundled Nyquist effect. Distance controls an eighth-order envelope low-pass filter: higher values smooth the voice envelope more slowly. In stereo, the left channel supplies the voice envelope and the right channel supplies the carrier. Mono input uses sine carriers at the band centers, mixed with optional white noise and radar pulses. Both channels preserves the voice on the left and puts vocoded audio on the right; Vocoded audio duplicates the processed signal into the first stereo pair. Additional channels pass through unchanged. The processor normalizes against its largest output peak since playback began, with a bounded gain, then applies Output gain. Unlike Nyquist’s whole-selection normalization, this cannot anticipate later peaks, so the beginning may be louder. The output keeps the input channel count. Rack playback and export include its filter and envelope release, subject to the existing combined 10-second tail limit.',
 		'',
 		'## Why some effects are selection-only',
+		'',
+		'Automatic pitch correction corrects a solo voice or melody instrument in realtime racks or on a selection. Open Effect > Add realtime effects and add Automatic pitch correction to a track or master rack, or open Effect > Distortion and modulation > Automatic pitch correction to preview or apply a selection. Choose a key and scale; Chromatic uses every semitone. Correction amount sets how far notes move toward the scale; Retune speed sets the response time in milliseconds (0 snaps immediately). Mix blends the original and corrected audio. Detection covers 65–1500 Hz and leaves unvoiced windows unshifted. Use isolated vocals or a single melody rather than chords or a full mix. The bundled StaffPad processor preserves formants. Rack controls can change during playback without rebuilding the processor. Timeline automation is unavailable. The fixed processing delay is about 72 ms at 48 kHz, including with zero Mix or Correction amount; playback and export use rack latency compensation. Selection rendering keeps the original duration.',
 		'',
 		'These effects cannot be a realtime insert, because each one needs more of the selection than a live block gives it.',
 		'',

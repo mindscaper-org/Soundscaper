@@ -10,6 +10,7 @@ import type {
 import type { EditorTaskProgressCoordinator } from '../shared/task-progress.ts';
 import type { LocalizedPresentationMessage } from '../../../i18n/presentation-message.ts';
 import type { BlobLike } from '../../storage/media-records.ts';
+import type { ProjectRecoveryChange } from '../../project-recovery-reason.ts';
 import type { PreparedStreamedAudioImport } from '../../browser-streamed-audio-import.ts';
 import type { ScapeProjectInput } from '../../scape-project-input.ts';
 import type { ScapeManifest } from '../../scape-archive-envelope.ts';
@@ -130,6 +131,8 @@ export interface NativeSourceWriter {
 }
 
 export interface NativeProjectStore {
+	writeMidiSource?(sourceId: string, recipe: import('../../storage/midi-source.ts').MidiSourceRecipe,
+		metadata: Readonly<Record<string, unknown>>): Promise<Readonly<Record<string, unknown>>>;
 	getMediaAssetMetadata?(storageKey: string): PromiseLike<Readonly<Record<string, unknown>> | null>;
 	beginMediaAssetWrite?(storageKey: string, metadata: Readonly<Record<string, unknown>>,
 		options: Readonly<{ expectedBytes: number; expectedSha256: string; signal?: AbortSignal }>): PromiseLike<OwnedMediaAssetWriter>;
@@ -208,6 +211,7 @@ export interface NativeSesxReadDescriptor {
 
 export interface NativeProjectFileService extends ProjectFileSavingPort {
 	readonly isDesktop: boolean;
+	protectProjectCopySource?(input: object): Promise<string | null>;
 	externalMediaResolver?(input: object): ExternalMediaResolver;
 	resolveSesxMedia?(request: Readonly<{
 		sessionReadId: string; relativePath: string; mediaRootId?: string;
@@ -227,7 +231,8 @@ export interface NativeProjectFileService extends ProjectFileSavingPort {
 		mimeType: string;
 	}>): Promise<unknown>;
 	prepareSave(request: Readonly<{
-		purpose: 'project' | 'interchange';
+		purpose: 'project' | 'project-copy' | 'interchange';
+		projectCopySourceId?: string;
 		suggestedName: string;
 		mimeType: string;
 		target?: unknown;
@@ -348,6 +353,7 @@ export interface ScapeImportResult extends Readonly<Record<string, unknown>> {
 	/** The project publication already committed; late cancellation cannot undo it. */
 	readonly publicationCommitted?: boolean;
 	readonly collision?: string | null;
+	readonly recoveryChanges?: readonly ProjectRecoveryChange[];
 	readonly reason?: string | null;
 	readonly manifest: NativeScapeManifest;
 }
@@ -370,6 +376,7 @@ export interface NativeAudioBuffer {
 export interface NativeProjectServiceRuntime {
 	readonly onScapeOpened?: (project: NativeProjectDocument, input: object) => NativeAwaitable<void>;
 	readonly onScapeSaved?: (project: NativeProjectDocument, result: NativeSavedFile) => NativeAwaitable<void>;
+	readonly releaseScapeCopyTarget?: (result: NativeSavedFile) => NativeAwaitable<void>;
 	readonly projectForRuntimeConsumers?: InterchangeProductProjection;
 	readonly confirmFileSizeWarning?: FileSizeWarningConfirmation;
 	readonly lifetime: Pick<EditorControllerLifetime, 'assertActive' | 'startTask'>;
@@ -387,9 +394,10 @@ export interface NativeProjectServiceRuntime {
 		adoptSessionRevision?: boolean;
 		replaceSessionHistory?: boolean;
 		save?: boolean;
+		transient?: boolean;
 		preserveScapeOpenRequest?: boolean;
 	}>) => PromiseLike<unknown> | unknown;
-	readonly editingBlocked: () => boolean;
+	readonly editingBlocked: (allowReadOnly?: boolean) => boolean;
 	readonly acquireReplaceProjectWriteAuthority?: (projectId: string) => Promise<ScapeReplaceWriteAuthority>;
 	readonly flushProject: (options?: ProjectFlushOptions) => PromiseLike<unknown> | unknown;
 	readonly hasMissingTimelineSources: (

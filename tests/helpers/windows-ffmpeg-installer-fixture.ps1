@@ -103,6 +103,11 @@ $priorApplicationData = $env:APPDATA
 $priorLocalApplicationData = $env:LOCALAPPDATA
 $script:installationCalls = New-Object 'Collections.Generic.List[string]'
 $script:installationFails = $false
+$script:policyAllowed = $true
+function Assert-FfmpegPolicy($ApplicationName) {
+	if ($ApplicationName -notin @('Soundscaper', 'Framescaper')) { throw 'Unknown policy product' }
+	if (-not $script:policyAllowed) { throw 'Administrator policy prohibits FFmpeg installation' }
+}
 function Install-WinGetIfMissing {
 	$script:installationCalls.Add('winget')
 	return 'Invoke-FakeWinget'
@@ -116,6 +121,13 @@ function Install-FfmpegWithWinGet($Winget, $TargetArchitecture) {
 try {
 	$env:APPDATA = Join-Path $temporary 'interactive-account'
 	$env:LOCALAPPDATA = Join-Path $temporary 'administrator-account'
+	$script:policyAllowed = $false
+	$failed = $false
+	try { Install-OptionalFfmpeg -IsSystem $false -IsAdministrator $false -ApplicationName Soundscaper -TargetArchitecture arm64 }
+	catch { $failed = $true }
+	Assert-Equal $failed $true 'Administrator policy refuses installation'
+	Assert-Equal $script:installationCalls.Count 0 'Administrator policy prevents package-manager network access'
+	$script:policyAllowed = $true
 	foreach ($identity in @(@($true, $false), @($false, $true), @($true, $true))) {
 		$failed = $false
 		try { Install-OptionalFfmpeg -IsSystem $identity[0] -IsAdministrator $identity[1] -ApplicationName Soundscaper -TargetArchitecture arm64 }

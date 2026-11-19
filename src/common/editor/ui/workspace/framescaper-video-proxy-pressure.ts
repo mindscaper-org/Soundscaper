@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useEffect, useRef, type RefObject } from 'react';
+import { resolveVideoPreviewCompositorSize } from '../video-preview-compositor-size.js';
+import type { VideoPreviewResolution } from '../../video-preview-preferences.ts';
 
 export interface FramescaperVideoProxyPressureEntry {
 	readonly clipId: string;
@@ -83,6 +85,7 @@ export function useFramescaperVideoProxyPreviewPressure(options: Readonly<{
 	readonly referenceWidth: number;
 	readonly referenceHeight: number;
 	readonly playing: boolean;
+	readonly previewResolution?: VideoPreviewResolution;
 	readonly run: (operation: () => Promise<void>, options?: Readonly<{ clearError?: boolean }>) => unknown;
 }>): void {
 	const entriesRef = useRef(options.entries);
@@ -99,7 +102,7 @@ export function useFramescaperVideoProxyPreviewPressure(options: Readonly<{
 				entriesRef.current,
 				options.elements.current ?? new Map(),
 				{
-					width: canvas.clientWidth, height: canvas.clientHeight,
+					...resolveVideoPreviewCompositorSize(canvas, { previewResolution: options.previewResolution }),
 					referenceWidth: options.referenceWidth,
 					referenceHeight: options.referenceHeight,
 				},
@@ -115,7 +118,7 @@ export function useFramescaperVideoProxyPreviewPressure(options: Readonly<{
 			if (interval !== null) globalThis.clearInterval(interval);
 		};
 	}, [
-		options.canvas, options.elements, options.playing, options.reporter,
+		options.canvas, options.elements, options.playing, options.reporter, options.previewResolution,
 		options.referenceHeight, options.referenceWidth, options.run, signature,
 	]);
 }

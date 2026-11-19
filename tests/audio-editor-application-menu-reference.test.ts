@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { isDeepStrictEqual } from 'node:util';
 
 import {
 	AUDACITY_ACTION_MANIFEST,
@@ -18,12 +19,13 @@ import {
 import { createAudioClip, createAudioSource, createAudioTrack, createLabel, createLabelTrack } from '../src/common/editor/project-media-factory.ts';
 import { createAudioEditorPreferencesV1 } from '../src/common/editor/preferences.js';
 import { materializeApplicationMenu } from '../src/common/editor/ui/application-menu-materialization.ts';
+import { createMenuTooltipResolver } from '../src/common/editor/ui/menu-tooltip-copy.ts';
 import {
 	APPLICATION_MENU_REFERENCE_BY_ID,
 	APPLICATION_MENU_REFERENCE_ENTRIES,
 } from '../src/common/editor/ui/application-menu-reference.ts';
 import createApplicationMenus from '../src/common/editor/ui/application-menus.js';
-import { createDesktopHostMenuItems } from '../src/common/editor/ui/desktop-host-menu.ts';
+import { richDesktopHost } from './helpers/application-menu-reference-desktop-host.ts';
 import { FRAMESCAPER_CANDIDATE_AUTHORING_SURFACES } from '../src/common/editor/ui/framescaper-candidate-authoring-actions.ts';
 import { FRAMESCAPER_NATIVE_PROJECT_ACTION_SURFACES } from '../src/common/editor/ui/framescaper-native-project-actions.ts';
 import { FRAMESCAPER_NATIVE_SERVICES_LIFECYCLE_METHODS } from '../src/common/editor/ui/framescaper-native-services-lifecycle-bridge.ts';
@@ -34,6 +36,7 @@ import { createFramescaperProject } from '../src/framescaper/editor-project.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { framescaperV20Options } from './helpers/framescaper-model-fixture.ts';
+import { withSecondMicrophoneForMenuReference } from './helpers/microphone-bleed-menu-fixture.ts';
 
 type ProductId = 'soundscaper' | 'framescaper';
 
@@ -98,9 +101,12 @@ test('the supplemental application-menu reference is a unique lookup', () => {
 	assert.deepEqual(Object.keys(APPLICATION_MENU_REFERENCE_BY_ID).sort(), [...ids].sort());
 });
 
-test('application menu labels omit ellipses in both products', () => {
+test('application menu labels omit ellipses and have purpose explanations in both products', () => {
+	const tooltip = createMenuTooltipResolver(APPLICATION_MENU_COPY);
 	const visit = (item: MenuItem): void => {
 		if (item.label) assert.doesNotMatch(item.label, /…|\.{3}/u, item.id ?? 'menu item');
+		if (item.id === 'juce-effect-convolution') assert.equal(tooltip(item.label ?? '', item.id), null);
+		else if (item.label) assert.ok(tooltip(item.label, item.id), `Missing help: ${item.id} (${item.label})`);
 		for (const child of item.items ?? []) visit(child);
 	};
 	for (const product of ['soundscaper', 'framescaper'] as const) {
@@ -125,7 +131,7 @@ test('every runnable application-menu leaf has one truthful handbook reference',
 				// but remain menu-derived actions rendered by NativePreferencesPanel.
 				for (const preference of materialized.nativePreferences ?? []) {
 					const sectionLabel = preference.section === 'audio' ? 'Audio settings'
-						: preference.section === 'media' ? 'Media' : preference.section === 'advanced' ? 'Advanced' : 'Effects';
+						: preference.section === 'advanced' ? 'Advanced' : 'Effects';
 					const controls = preference.id === 'parallel-stack-processing' ? [preference] : preference.items ?? [preference];
 					for (const control of controls) {
 						collectRunnableLeaves(control, ['Edit', 'Preferences', sectionLabel], product,
@@ -153,12 +159,12 @@ test('every runnable application-menu leaf has one truthful handbook reference',
 
 		const observedProducts = uniqueSorted(observed.map(({ product }) => product));
 		const documentedProducts = uniqueSorted(entry.products);
-		if (!sameStrings(observedProducts, documentedProducts)) {
+		if (!isDeepStrictEqual(observedProducts, documentedProducts)) {
 			metadataErrors.push(`${entry.id} products: ${documentedProducts.join('; ')} != ${observedProducts.join('; ')}`);
 		}
 		const observedLocations = uniqueSorted(observed.map(({ location }) => location));
 		const documentedLocations = uniqueSorted(entry.locations);
-		if (!sameStrings(observedLocations, documentedLocations)) {
+		if (!isDeepStrictEqual(observedLocations, documentedLocations)) {
 			metadataErrors.push(`${entry.id} locations: ${documentedLocations.join('; ')} != ${observedLocations.join('; ')}`);
 		}
 
@@ -235,6 +241,7 @@ function richApplicationMenuMatrix(product: ProductId): readonly (readonly MenuI
 	if (product === 'soundscaper') {
 		const editable = richSoundscaperProject();
 		return [
+			applicationMenusForState(product, { project: withSecondMicrophoneForMenuReference(editable), selectedTrackId: 'voice-track', selectedClipId: 'voice-clip' }),
 			applicationMenusForState(product, {
 				project: { ...editable, selection: { startFrame: 0, endFrame: 128, trackIds: ['voice-track'], clipIds: [] } },
 				selectedTrackId: 'voice-track', selectedClipId: 'voice-clip',
@@ -507,28 +514,6 @@ function richActions(freezeStatus: 'none' | 'fresh'): Record<string, unknown> {
 	});
 }
 
-function richDesktopHost(productId: ProductId, productName: string) {
-	const noop = () => undefined;
-	return createDesktopHostMenuItems({
-		copy: ENGLISH_COPY,
-		development: true,
-		platform: 'linux',
-		productId,
-		productName,
-		snapshot: {
-			probeHelperEnabled: true,
-			probeHelperQuarantined: true,
-			audioHelperEnabled: true,
-			audioHelperQuarantined: true,
-			nativeEffectDiscoveryEnabled: true,
-		},
-		applyNativeTierControl: noop,
-		runWindowAction: noop,
-		checkForUpdates: noop,
-		openExternal: noop,
-		openMcpConnection: productId === 'soundscaper' ? noop : undefined,
-	});
-}
 
 function menuLabel(item: MenuItem): string {
 	assert.ok(item.label, `Menu ${String(item.id)} has no label.`);
@@ -537,8 +522,4 @@ function menuLabel(item: MenuItem): string {
 
 function uniqueSorted(values: readonly string[]): string[] {
 	return [...new Set(values)].sort((left, right) => left.localeCompare(right, 'en'));
-}
-
-function sameStrings(left: readonly string[], right: readonly string[]): boolean {
-	return left.length === right.length && left.every((value, index) => value === right[index]);
 }

@@ -13,11 +13,11 @@ test('Stable 1 browser tests exercise the downloaded sites and complete Framesca
 	assert.match(extractJob(workflow, 'source'), /name: soundscaper-stable-1-framescaper-browser-site[\s\S]*?include-hidden-files: true/u);
 });
 
-test('Stable 1 stages the checked site and handbook before running fresh Pages preflight', async () => {
+test('Stable 1 preflights the checked product site without rebuilding the independent handbook', async () => {
 	const source = extractJob(await readWorkflow('soundscaper-stable-1.yml'), 'source');
 	assert.match(source, /npm run check:static/u);
 	assert.doesNotMatch(source, /npm run build:pages/u);
-	assert.match(source, /node scripts\/stage-handbook-build\.mjs/u);
+	assert.doesNotMatch(source, /stage-handbook-build|npm run docs:/u);
 	assert.match(source, /node scripts\/check-cloudflare-assets\.mjs/u);
 	assert.match(source, /node scripts\/preflight-pages-deploy\.mjs/u);
 });

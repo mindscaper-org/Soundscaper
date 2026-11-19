@@ -2,6 +2,7 @@
 
 import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
 import { resolveProductAudioChunkProvider } from './product-audio-source-provider.ts';
+import { isMidiClip } from '../../../midi-model.ts';
 import {
 	audioWarpMinimumSourceSpanPerColumn,
 	audioWarpSourceWindowRange,
@@ -33,6 +34,8 @@ import type {
 	SourceLifecycleWaveformPcmWindow,
 } from './source-lifecycle-types.d.ts';
 
+const MAXIMUM_PCM_CACHE_WINDOWS = 256;
+
 /** Own bounded PCM reads and the ordinary waveform's oversized peak fallback. */
 export function createWaveformPcmWindowRequester<
 	Buffer,
@@ -57,6 +60,9 @@ export function createWaveformPcmWindowRequester<
 		readWaveformPeakWindow, readWaveformPcmWindow,
 		sourceBuffers, sourceChunkProviders, store, waveformPcmWindowContains,
 	} = runtime;
+	// Preserve the capacity of the previous cache filled with maximum-size stereo windows.
+	const maximumPcmBytes = MAXIMUM_WAVEFORM_PCM_WINDOW_ENTRIES * MAXIMUM_WAVEFORM_PCM_WINDOW_FRAMES
+		* 2 * Float32Array.BYTES_PER_ELEMENT;
 
 	async function loadWaveformProvider(projectAtStart: Project, source: SourceLifecycleSource) {
 		const product = await resolveProductAudioChunkProvider(runtime, projectAtStart, source);
@@ -79,6 +85,9 @@ export function createWaveformPcmWindowRequester<
 		const clip = findClip(projectAtStart, clipId);
 		const source = clip ? findSource(projectAtStart, clip.sourceId) : null;
 		if (!clip || !source || source.kind === 'video' || source.kind === 'image') return null;
+		// A zoomed-out waveform would synthesize the entire score just to paint it.
+		// Editable MIDI uses its note carrier; explicit audio processing/export still reads PCM.
+		if (isMidiClip(clip)) return null;
 		const cacheKey = String(clip.id);
 		const requestedRange = resolveWaveformPcmWindowRequest(options, clip.durationFrames);
 		if (!requestedRange) return null;
@@ -175,8 +184,7 @@ export function createWaveformPcmWindowRequester<
 					endFrame: range.endFrame,
 					channels: Object.freeze(channels),
 				});
-				retainWaveformPcmWindow(cacheKey, window);
-				publishDocumentSnapshot();
+				if (retainWaveformPcmWindow(cacheKey, window)) publishDocumentSnapshot();
 				return windowForCaller(window);
 			}
 		}
@@ -201,8 +209,7 @@ export function createWaveformPcmWindowRequester<
 					endFrame: range.endFrame,
 					channels: Object.freeze(channels),
 				});
-				retainWaveformPcmWindow(cacheKey, window);
-				publishDocumentSnapshot();
+				if (retainWaveformPcmWindow(cacheKey, window)) publishDocumentSnapshot();
 				return windowForCaller(window);
 			}).catch((error: unknown) => {
 				if (clipWaveformPcmRequests.get(cacheKey) === request) clipWaveformPcmRequests.delete(cacheKey);
@@ -217,15 +224,24 @@ export function createWaveformPcmWindowRequester<
 		return request.promise;
 	}
 
-	function retainWaveformPcmWindow(cacheKey: string, window: SourceLifecycleWaveformPcmWindow): void {
+	function retainWaveformPcmWindow(cacheKey: string, window: SourceLifecycleWaveformPcmWindow): boolean {
+		const bytes = waveformWindowPcmBytes(window);
+		if (bytes > maximumPcmBytes) return false;
 		clipWaveformPcmWindows.delete(cacheKey);
-		clipWaveformPcmWindows.set(cacheKey, window);
-		while (clipWaveformPcmWindows.size > MAXIMUM_WAVEFORM_PCM_WINDOW_ENTRIES) {
-			const oldestKey = clipWaveformPcmWindows.keys().next().value;
-			if (oldestKey === undefined) break;
-			clipWaveformPcmWindows.delete(oldestKey);
+		let retainedBytes = bytes;
+		for (const retained of clipWaveformPcmWindows.values()) retainedBytes += waveformWindowPcmBytes(retained);
+		for (const [key, retained] of clipWaveformPcmWindows) {
+			if (retainedBytes <= maximumPcmBytes && clipWaveformPcmWindows.size < MAXIMUM_PCM_CACHE_WINDOWS) break;
+			clipWaveformPcmWindows.delete(key);
+			retainedBytes -= waveformWindowPcmBytes(retained);
 		}
+		clipWaveformPcmWindows.set(cacheKey, window);
+		return true;
 	}
 
 	return requestWaveformPcmWindow;
+}
+
+function waveformWindowPcmBytes(window: SourceLifecycleWaveformPcmWindow): number {
+	return window.channels.reduce((bytes, channel) => bytes + channel.byteLength, 0);
 }

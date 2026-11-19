@@ -381,8 +381,9 @@ export class DesktopNativeAudioSessionService {
 	}
 
 	async close(owner: object, sessionId: unknown): Promise<boolean> {
-		const session = this.#ownedSession(owner, sessionId)
-		await this.#closeSession(session)
+		const session = this.#findOwnedSession(owner, sessionId)
+		// Disabling the helper can retire the session before the renderer releases it.
+		if (session) await this.#closeSession(session)
 		return true
 	}
 
@@ -442,24 +443,27 @@ export class DesktopNativeAudioSessionService {
 	}
 
 	#ownedSession(owner: object, value: unknown): SessionEntry {
-		const session = this.#session(value)
-		if (session.owner !== owner) throw new Error('That native audio session belongs to another renderer.')
-		return session
-	}
-
-	#session(value: unknown): SessionEntry {
-		if (typeof value !== 'string' || !SESSION_ID.test(value)) throw new TypeError('A native audio session ID is required.')
-		const session = this.#sessions.get(value)
+		const session = this.#findOwnedSession(owner, value)
 		if (!session || session.closed) throw new Error('That native audio session is not open.')
 		return session
 	}
 
+	#findOwnedSession(owner: object, value: unknown): SessionEntry | undefined {
+		if (typeof value !== 'string' || !SESSION_ID.test(value)) throw new TypeError('A native audio session ID is required.')
+		const session = this.#sessions.get(value)
+		if (session && session.owner !== owner) throw new Error('That native audio session belongs to another renderer.')
+		return session
+	}
+
 	async #closeSession(session: SessionEntry): Promise<void> {
-		if (session.closed) return
+		if (session.closed) return this.#closeAdapter(session)
 		session.closed = true
-		this.#sessions.delete(session.sessionId)
-		this.#revokeRealtime(session)
-		await this.#closeAdapter(session)
+		try {
+			this.#revokeRealtime(session)
+			await this.#closeAdapter(session)
+		} finally {
+			this.#sessions.delete(session.sessionId)
+		}
 	}
 
 	#revokeRealtime(session: SessionEntry): void {

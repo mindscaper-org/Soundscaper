@@ -21,6 +21,7 @@ import type { LocalAssistanceModel } from '../../../../assistance/local-assistan
 import type { LocalAssistanceWorkflowCustodyBridge } from '../../../../assistance/local-assistance-workflow-bridge.ts';
 import type { LocalAssistanceGuidedPreparationUnavailableReason } from
 	'../../../../assistance/local-assistance-preparation.ts';
+import { createLocalAssistancePreparedAudioScope } from '../audio/local-assistance-prepared-audio-scope.ts';
 import { assertSlottedCustodyClaim } from '../local-assistance-slotted-custody-claim.ts';
 import { deriveLocalAssistanceGuidedReviewAuthority } from './local-assistance-guided-review-authority.ts';
 import {
@@ -154,6 +155,12 @@ export function createLocalAssistanceGuidedWorkflowPreparation(
 			throw new TypeError('Guided preparation requires one cancellation signal.');
 		}
 		const token = dependencies.captureProject();
+		const audioScope = createLocalAssistancePreparedAudioScope();
+		const selected = { ...dependencies.selected, prepareSelectedMedia: async (
+			value: Parameters<SelectedPreparationPort['prepareSelectedMedia']>[0],
+		) => audioScope.capture(await dependencies.selected.prepareSelectedMedia(value)) };
+		const scopedDependencies = { ...dependencies, selected };
+		let reviewAudio: Blob | null = null;
 		try {
 			request.signal.throwIfAborted();
 			const project = projectRecord(
@@ -172,7 +179,7 @@ export function createLocalAssistanceGuidedWorkflowPreparation(
 				? await prepareLocalAssistanceGuidedHighlightInputsV1({ project, inventory, settings,
 					signal: request.signal,
 					describeSelectedVideoSourceTime: dependencies.selected.describeSelectedVideoSourceTime,
-					prepareSelectedMedia: dependencies.selected.prepareSelectedMedia,
+					prepareSelectedMedia: selected.prepareSelectedMedia,
 					loadTranscriptBody: dependencies.loadTranscriptBody,
 					loadVisualIndexDerivatives: dependencies.loadVisualIndexDerivatives,
 					loadReframeDerivatives: dependencies.loadReframeDerivatives }) : null;
@@ -191,7 +198,7 @@ export function createLocalAssistanceGuidedWorkflowPreparation(
 					if ((!slot.required && !selectedShotInput && !selectedHighlightInput)
 						|| producedSlots.has(slot.slotId)) continue;
 					const external = await prepareExternalInputs(
-						dependencies, project, inventory, stage, slot.slotId, settings, request.signal,
+						scopedDependencies, project, inventory, stage, slot.slotId, settings, request.signal,
 						highlightInputs,
 					);
 					if (external === null) throw new UnavailableError(externalReason(slot.slotId));
@@ -272,6 +279,7 @@ export function createLocalAssistanceGuidedWorkflowPreparation(
 				workflowId: request.workflowId, recipeVersion: 1,
 				settingsVersion: settings.settingsVersion, settings, fence, stageIds,
 				models, inputs: Object.freeze(inputs), outputs: Object.freeze(outputs) });
+			reviewAudio = reviewAuthority.media.audio?.body ?? null;
 			return Object.freeze({ outcome: 'prepared', workflow, reviewAuthority });
 		} catch (error) {
 			await request.custody.release(request.jobId).catch(() => false);
@@ -280,6 +288,8 @@ export function createLocalAssistanceGuidedWorkflowPreparation(
 				return unavailable(error.reason);
 			}
 			throw error;
+		} finally {
+			await audioScope.release(reviewAudio);
 		}
 	}
 

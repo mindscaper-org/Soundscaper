@@ -40,6 +40,7 @@ export function createWorkspaceApplicationMenus({
 		executeEdit,
 		fileService,
 		importInputRef,
+		installAvailable = null,
 		locale,
 		openDesktopFiles, openProjectFile = undefined,
 		openEffects,
@@ -148,8 +149,10 @@ export function createWorkspaceApplicationMenus({
 			compactLayout,
 			actionRuntime: parityRuntime.actions,
 			actions: {
+				run,
+				openTimecodeSync: () => openSurface('timecode-sync'),
 				openDiagnostics: () => openSurface('local-diagnostics'),
-				installAvailable: () => installPrompt.available(),
+				installAvailable: () => installAvailable ?? installPrompt.available(),
 				installApplication: () => run(() => installPrompt.prompt()),
 				downloadDesktop: fileService.isDesktop ? undefined : () => openExternal(desktopDownloadUrl(productId)),
 				openLocalModels: fileService.isDesktop ? () => openSurface('local-models') : undefined,
@@ -219,6 +222,7 @@ export function createWorkspaceApplicationMenus({
 				openVideoRetime: () => openSurface('video-retime'),
 				openVideoProxy: () => openSurface('video-proxy'),
 				openTakeComp: () => openSurface('take-comp'),
+				openDialogueAlignment: () => openSurface('align-dialogue'),
 				newProject: () => run(() => controller.actions.project.create()),
 				openProjects,
 				openProjectRecovery: () => openSurface('project-recovery'),
@@ -248,11 +252,16 @@ export function createWorkspaceApplicationMenus({
 				exportEdl: () => run(() => controller.actions.export.exportEdl()),
 				exportOtio: () => run(() => controller.actions.export.exportOtio()),
 				exportFcpxml: () => run(() => controller.actions.export.exportFcpxml()),
+				exportAdl: () => run(() => controller.actions.export.exportAdl()),
+				exportAaf: () => run(() => controller.actions.export.exportAaf()),
 				exportOmf: () => run(() => controller.actions.export.exportOmf()),
 				consolidateMedia: () => run(() => controller.actions.media.consolidate()),
 				trimMedia: () => run(() => controller.actions.media.trim()),
 				saveArchiveManifest: () => run(() => controller.actions.media.saveArchiveManifest()),
 				renameProject: () => { setDialogValue(project?.title || ''); setDialog('rename'); },
+				openSessionSnapshots: () => openSurface('session-snapshots'),
+				openSubprojects: () => openSurface('subprojects'),
+				openTrackPlaylists: () => openSurface('track-playlists'),
 				duplicateProject: () => run(() => controller.actions.project.duplicate()),
 				deleteProject: () => setDialog('delete'),
 				clearData: () => setDialog('clear'),
@@ -372,10 +381,12 @@ export function createWorkspaceApplicationMenus({
 					setDialog('resample');
 				},
 				openEffects: () => openEffects(snapshot.selectedTrackId),
-				openMacrosPalette: () => openSurface('macros-palette'),
+				openMacroManager: () => openSurface('macro-manager'),
+				applyMacrosToFiles: fileService.isDesktop && typeof controller.actions.macros?.applyToFiles === 'function' ? () => openSurface('macro-files') : undefined,
 				runMacro: (macro) => run(() => controller.actions.macros.run(macro)),
 				selectionEffectMutationLocked,
 				openSelectionEffect: (type) => {
+					if (type === 'automatic-microphone-bleed-reduction') return openSurface('microphone-bleed');
 					if (selectionEffectMutationLocked(type)) return;
 					return immediateSelectionEffect(type)
 						? run(() => controller.actions.effects.applySelection({ type })) : openSelectionEffect(type);
@@ -404,6 +415,7 @@ export function createWorkspaceApplicationMenus({
 					privacyPolicy: () => openSurface('privacy-policy'),
 					support: () => openExternal(`mailto:team@mindscaper.org?subject=${encodeURIComponent(`${productProfile(productId).name} support`)}`),
 					revertFactorySettings: () => parityRuntime.actions.help.revertFactorySettings(),
+					openCpuProfiling: fileService.isDesktop && fileService.cpuProfiler ? () => openSurface('cpu-profiling') : undefined,
 					toggleStoragePanel: () => parityRuntime.actions.help.toggleStoragePanel(),
 					about: () => setDialog('about'),
 				},

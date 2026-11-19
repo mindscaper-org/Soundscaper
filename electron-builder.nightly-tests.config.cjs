@@ -9,7 +9,7 @@ if (nightlyPackageArch !== undefined && nightlyPackageArch !== 'x64' && nightlyP
 module.exports = {
 	appId: 'org.soundscaper.desktop.nightly-tests',
 	productName: 'Soundscaper Nightly Tests',
-	artifactName: 'Soundscaper-${version}-nightly-with-tests-${os}-${arch}.${ext}',
+	artifactName: `${require('./package.json').releaseVersion ?? 'Soundscaper-${version}'}-nightly-with-tests-\${os}-\${arch}.\${ext}`,
 	compression: 'normal',
 	asar: true,
 	npmRebuild: false,
@@ -107,6 +107,9 @@ module.exports = {
 				'desktop/soak-debug-*.mjs',
 				'evidence/nyquist-plugin-publication/catalog-metadata-ed168a19631ec48d0029dfb5c17d16c339a174c1.json',
 				'functions/download/index.ts',
+				'functions/download/audacity/index.ts',
+				'public/download.css',
+				'public/audacity-download.css',
 				// The guide specs replay handbook step data, which lives outside `tests/`.
 				'handbook/**/*',
 				'sites/**/*',

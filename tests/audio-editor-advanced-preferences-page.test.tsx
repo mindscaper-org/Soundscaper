@@ -10,28 +10,26 @@ import { createAudioEditorPreferencesV1 } from '../src/common/editor/preferences
 import WorkspacePreferencesDialog from '../src/common/editor/ui/dialogs/WorkspacePreferencesDialog.jsx';
 import AdvancedPreferencesPage from '../src/common/editor/ui/dialogs/AdvancedPreferencesPage.tsx';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
-import type { NativePreferenceEntry } from '../src/common/editor/ui/local-processing-menus.ts';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
-function renderPage(initialPage: string, productId = 'soundscaper', nativePreferences: readonly NativePreferenceEntry[] = []): string {
+function renderPage(initialPage: string, productId = 'soundscaper', isDesktop = false): string {
 	return renderToStaticMarkup(<WorkspacePreferencesDialog
 		controller={{ actions: { preferences: {} } }}
 		snapshot={{ preferences: createAudioEditorPreferencesV1() }}
-		copy={ENGLISH_COPY} locale="en" fileService={{ isDesktop: false }} menus={[{ id: 'tools', nativePreferences }]}
+		copy={ENGLISH_COPY} locale="en" fileService={{ isDesktop }} menus={[]}
 		run={() => undefined} initialPage={initialPage} productId={productId}
 		onTogglePanel={() => undefined} onClose={() => undefined}
 	/>);
 }
 
-test('browser Preferences exposes Media whenever menu-derived media controls exist', () => {
+test('Preferences omits Media on both hosts and routes old Media requests to General', () => {
 	for (const productId of ['soundscaper', 'framescaper']) {
-		assert.doesNotMatch(renderPage('general', productId), /aria-controls="dialog-panel-media"/u);
-		const markup = renderPage('media', productId, [{ id: 'desktop-use-native-probe-helper', section: 'media',
-			label: 'Use Native Probe Helper', onClick: () => undefined }]);
-		assert.match(markup, /aria-controls="dialog-panel-media"/u);
-		assert.match(markup, /role="tabpanel"[^>]*aria-label="Media"/u);
-		assert.match(markup, />Use Native Probe Helper</u);
+		for (const isDesktop of [false, true]) {
+			const markup = renderPage('media', productId, isDesktop);
+			assert.doesNotMatch(markup, /aria-controls="dialog-panel-media"/u);
+			assert.match(markup, /role="tabpanel"[^>]*aria-label="General"/u);
+		}
 	}
 });
 
@@ -75,7 +73,7 @@ test('Advanced leaves optimization unchanged until the user chooses a mode in ei
 			assert.ok(group);
 			const trigger = group.querySelector('.dropdown__trigger');
 			assert.ok(trigger);
-			assert.equal(trigger.getAttribute('aria-label'), ENGLISH_COPY.optimizeFor);
+			assert.equal(trigger.getAttribute('aria-label'), `${ENGLISH_COPY.optimizeFor}: ${ENGLISH_COPY.optimizeForMemory}`);
 			assert.ok(trigger.textContent.includes(ENGLISH_COPY.optimizeForMemory));
 			assert.equal(updates.length, productId === 'soundscaper' ? 0 : 1);
 			await act(async () => {
@@ -107,4 +105,36 @@ test('Advanced owns the waveform renderer in both products', () => {
 		assert.match(renderPage('advanced', productId), />Canvas</u);
 		assert.doesNotMatch(renderPage('track-display', productId), /Waveform renderer/u);
 	}
+});
+
+test('Advanced exposes the enabled idle-effect preference in both products', () => {
+	for (const product of ['soundscaper', 'framescaper']) {
+		const markup = renderPage('advanced', product);
+		assert.match(markup, /Suspend idle effect processing/u);
+		assert.match(markup, /aria-checked="true"[^>]*aria-label="Suspend idle effect processing"/u);
+		assert.doesNotMatch(renderPage('general', product), /Suspend idle effect processing/u);
+	}
+});
+test('Advanced offers the 4 GiB effect memory preference only on desktop in both products', () => {
+	for (const productId of ['soundscaper', 'framescaper']) {
+		assert.match(renderPage('advanced', productId, true), /aria-label="Effect memory limit \(GiB\)"[^>]*value="4"/u);
+		assert.doesNotMatch(renderPage('advanced', productId, false), /Effect memory limit/u);
+	}
+});
+
+test('the desktop effect memory preference commits a larger limit through the existing preference action', async () => {
+	const dom = installReactTestDom();
+	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT; actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+	const updates: unknown[] = [];
+	const { createRoot } = await import('react-dom/client'); const root = createRoot(dom.container as unknown as Element);
+	try {
+		await act(async () => root.render(<AdvancedPreferencesPage controller={{ actions: { preferences: { update: changes => { updates.push(changes); } } } }}
+			preferences={createAudioEditorPreferencesV1()} copy={ENGLISH_COPY} fileService={{ isDesktop: true }} run={operation => { void operation(); }} />));
+		const input = dom.container.querySelectorAll('input').find(element => element.getAttribute('aria-label') === 'Effect memory limit (GiB)');
+		assert.ok(input);
+		await act(async () => { reactProps(input).onChange({ currentTarget: { value: '8' } }); });
+		await act(async () => { reactProps(input).onBlur(); });
+		assert.deepEqual(updates, [{ advanced: { effectMemoryLimitGiB: 8 } }]);
+	} finally { await act(async () => root.unmount()); actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct; dom.restore(); }
 });

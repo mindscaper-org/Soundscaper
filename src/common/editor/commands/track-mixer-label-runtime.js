@@ -1,7 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { indexedLaneBlocks, removedClipIds } from './track-mixer-work.ts';
+import { createTrackPlaylistCommandHandlers } from './track-playlist-runtime.ts';
+import { removeTrackPlaylistCollections } from '../track-playlists.ts';
 import { prepareRemovedTrackDuckWork } from './removed-track-duck-work.ts';
+import { retainedClipEffectRacks } from './retained-clip-effect-racks.ts';
+import { retireRemovedMidiControls } from './removed-track-midi-controls.ts';
 import { compareCodeUnits } from '../code-unit-order.ts';
 import { deriveFolderBusOwnershipV13 } from '../folder-bus-v13.ts';
 import { insertTrackNodeV12 } from '../track-hierarchy-mutation-v12.ts';
@@ -107,6 +111,8 @@ export function removeTracksAndDependents(project, trackIds) {
 	const clipIds = removedClipIds(removedTracks);
 	project.clips = project.clips.filter((clip) => !clipIds.has(clip.id));
 	project.tracks = project.tracks.filter((track) => !removedTrackIds.has(String(track.id)));
+	removeTrackPlaylistCollections(project, removedTrackIds);
+	retireRemovedMidiControls(project, removedTrackIds);
 	// A take graph is owned by one track, and the document refuses a group whose
 	// track is gone. Leaving them behind made a cycle-recorded track impossible to
 	// delete at all: the commit failed on the validator rather than on anything the
@@ -142,6 +148,7 @@ function folderBusGuards(project) {
 function disableAutoDuckForRemovedControlTrack(project, controlTrackId) {
 	const racks = [
 		project.master.effects,
+		...retainedClipEffectRacks(project),
 		...project.tracks.filter((track) => Array.isArray(track.effects)).map((track) => track.effects),
 		...(project.mixer?.groups || []).map((bus) => bus.effects),
 		...(project.mixer?.sends || []).map((bus) => bus.effects),
@@ -363,6 +370,7 @@ function updateMixerRoute(project, command) {
 }
 export function createTrackMixerLabelRuntimeHandlers() {
 	return {
+		...createTrackPlaylistCommandHandlers(),
 		'track/add': (project, command) => addTrack(project, command.track, command.index, command),
 		'track/remove': (project, command) => removeTrack(project, command.trackId),
 		'track/update': (project, command) => updateTrack(project, command.trackId, command.changes),

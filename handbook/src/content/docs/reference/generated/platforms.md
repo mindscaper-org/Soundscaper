@@ -26,8 +26,8 @@ The editor runs in a browser and as a desktop application. This page lists what 
 | --- | --- | --- | --- |
 | Linux | arm64 | AppImage; Debian package | Packaged and started in an automated smoke test |
 | Linux | x64 | AppImage; Debian package | Packaged and started in an automated smoke test |
-| Windows | arm64 | Installer; Zip archive | Packaged and started in an automated smoke test |
-| Windows | x64 | Installer; Zip archive | Packaged and started in an automated smoke test |
+| Windows | arm64 | Installer; Zip archive; Enterprise MSI | Packaged and started in an automated smoke test |
+| Windows | x64 | Installer; Zip archive; Enterprise MSI | Packaged and started in an automated smoke test |
 | macOS | arm64 | Disk image | Packaged and started in an automated smoke test |
 
 ## Motionscaper development qualification

@@ -16,11 +16,23 @@ import { isStandardEffect } from './first-party-effects/standard/definition.ts';
 import { standardSelectionEffectPeakBytes } from './first-party-effects/standard/selection-contract.ts';
 import { standardDelaySelectionOutputFrames } from './first-party-effects/standard/delay-selection-contract.ts';
 import { selectionEffectSpectralScratchBytes } from './selection-effect-spectral-context-contract.ts';
+import { autoTuneOutputFrames, autoTunePeakBytes } from './first-party-effects/auto-tune/contract.ts';
+import { phaseCorrectionOutputFrames, phaseCorrectionPeakBytes } from './first-party-effects/phase-correction/contract.ts';
+import { matchEqOutputFrames, matchEqPeakBytes } from './first-party-effects/match-eq/contract.ts';
 
 const FLOAT32_BYTES = Float32Array.BYTES_PER_ELEMENT;
 const MEMORY_ESTIMATE_OVERHEAD_BYTES = 2 * 1024 ** 2;
 
 export function estimateAudioSelectionEffectOutputFrames(type, inputFrames, params = {}, options = {}) {
+	if (type === 'match-eq') { normalizeAudioSelectionEffectParams(type, params); return matchEqOutputFrames(inputFrames); }
+	if (type === 'automatic-phase-correction') {
+		normalizeAudioSelectionEffectParams(type, params);
+		return phaseCorrectionOutputFrames(inputFrames);
+	}
+	if (type === 'auto-tune') {
+		normalizeAudioSelectionEffectParams(type, params);
+		return autoTuneOutputFrames(inputFrames);
+	}
 	if (type === 'multi-tap-delay') return standardDelaySelectionOutputFrames(inputFrames,
 		normalizeAudioSelectionEffectParams(type, params), options.sampleRate ?? 48000);
 	if (type === REVIEWED_UTILITY_GAIN_SELECTION_EFFECT_TYPE) {
@@ -38,6 +50,15 @@ export function estimateAudioSelectionEffectOutputFrames(type, inputFrames, para
 }
 
 export function estimateAudioSelectionEffectPeakBytes(type, inputFrames, params = {}, options = {}) {
+	if (type === 'match-eq') { normalizeAudioSelectionEffectParams(type, params); return matchEqPeakBytes(inputFrames, options); }
+	if (type === 'automatic-phase-correction') {
+		normalizeAudioSelectionEffectParams(type, params);
+		return phaseCorrectionPeakBytes(inputFrames, options);
+	}
+	if (type === 'auto-tune') {
+		normalizeAudioSelectionEffectParams(type, params);
+		return autoTunePeakBytes(inputFrames, options);
+	}
 	if (isStandardEffect(type)) return standardSelectionEffectPeakBytes(type, inputFrames,
 		normalizeAudioSelectionEffectParams(type, params), options);
 	if (type === REVIEWED_UTILITY_GAIN_SELECTION_EFFECT_TYPE) {

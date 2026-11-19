@@ -19,7 +19,7 @@ export function registerProjectSavingIpc(d: Options): void {
 	};
 	register('rememberProjectFile', (owner, value) => {
 		const row = value as { projectId?: unknown; originalId?: unknown; baseline?: unknown };
-		return d.files.remember(text(row.projectId, 256), text(row.originalId, 48), text(row.baseline, 64), owner);
+		return d.files.remember(text(row.projectId, 256), row.originalId === null ? null : text(row.originalId, 48), text(row.baseline, 64), owner);
 	});
 	register('restoreProjectFile', (owner, value) => d.files.restore(text(value, 256), owner));
 	register('temporaryDataStatus', () => d.storage.status());

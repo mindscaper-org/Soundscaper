@@ -1,3 +1,6 @@
+import { AudacityBinaryXmlError, decodeString, encodeString } from './audacity-binary-xml-values.ts';
+export { AudacityBinaryXmlError } from './audacity-binary-xml-values.ts';
+
 const FIELD = Object.freeze({
 	CHAR_SIZE: 0,
 	START_TAG: 1,
@@ -26,14 +29,6 @@ const MAX_BINARY_XML_FIELDS = 5_000_000;
 const MAX_BINARY_XML_DEPTH = 512;
 const MAX_BINARY_XML_NAME_BYTES = 0x7fff;
 
-export class AudacityBinaryXmlError extends Error {
-	constructor(message, code = 'INVALID_BINARY_XML', options) {
-		super(message, options);
-		this.name = 'AudacityBinaryXmlError';
-		this.code = code;
-	}
-}
-
 /**
  * Decode Audacity's typed binary XML without collapsing attribute types,
  * duplicate attributes, blobs, raw records, or name scopes.
@@ -54,6 +49,7 @@ export function decodeAudacityBinaryXml(dictionary, document, options = {}) {
 		fieldCount: 0,
 		maxFields: positiveLimit(options.maxFields, MAX_BINARY_XML_FIELDS),
 		maxDepth: positiveLimit(options.maxDepth, MAX_BINARY_XML_DEPTH),
+		includeOffsets: options.includeOffsets === true,
 	};
 	const dictionaryTokens = decodeTokens(dictionaryBytes, state, { dictionary: true });
 	if (![1, 2, 4].includes(state.charSize)) {
@@ -236,6 +232,7 @@ function decodeTokens(bytes, state, { dictionary }) {
 			continue;
 		}
 		const token = { kind: 'attribute', field, type: FIELD_NAME[field], id, name };
+		if (state.includeOffsets) token.valueOffset = cursor.offset;
 		if (field === FIELD.STRING) {
 			if (!state.charSize) throw new AudacityBinaryXmlError('An Audacity string appears before the character-width field.', 'INVALID_DOCUMENT');
 			token.value = decodeString(cursor.bytes(cursor.i32Length()), state.charSize);
@@ -284,6 +281,7 @@ function buildTree(tokens, maxDepth) {
 			if (!nodes.length) throw new AudacityBinaryXmlError(`${token.kind} appears outside the root element.`, 'INVALID_DOCUMENT');
 			if (token.kind === 'attribute') nodes.at(-1).content.push({
 				kind: 'attribute', name: token.name, type: token.type, value: token.value, ...(token.digits == null ? {} : { digits: token.digits }),
+				...(token.valueOffset == null ? {} : { valueOffset: token.valueOffset }),
 			});
 			else nodes.at(-1).content.push({ kind: token.kind, ...(token.name ? { name: token.name } : {}), value: cloneValue(token.value) });
 		}
@@ -423,41 +421,6 @@ function writeLengthAndBytes(writer, bytes) {
 	if (bytes.byteLength > 0x7fffffff) throw new AudacityBinaryXmlError('Audacity XML value is too large.', 'VALUE_TOO_LARGE');
 	writer.i32(bytes.byteLength);
 	writer.bytes(bytes);
-}
-
-function encodeString(value, charSize) {
-	if (charSize === 1) return new TextEncoder().encode(String(value));
-	const codePoints = [...String(value)].map((character) => character.codePointAt(0));
-	const units = charSize === 2
-		? Array.from(String(value), (character) => character.codePointAt(0)).flatMap((point) => point <= 0xffff
-			? [point]
-			: [0xd800 + ((point - 0x10000) >>> 10), 0xdc00 + ((point - 0x10000) & 0x3ff)])
-		: codePoints;
-	const bytes = new Uint8Array(units.length * charSize);
-	const view = new DataView(bytes.buffer);
-	for (let index = 0; index < units.length; index += 1) {
-		if (charSize === 2) view.setUint16(index * 2, units[index], true);
-		else view.setUint32(index * 4, units[index], true);
-	}
-	return bytes;
-}
-
-function decodeString(bytes, charSize) {
-	if (bytes.byteLength % charSize !== 0) throw new AudacityBinaryXmlError('Audacity string length is not aligned to its character width.', 'INVALID_STRING');
-	try {
-		if (charSize === 1) return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-		if (charSize === 2) return new TextDecoder('utf-16le', { fatal: true }).decode(bytes);
-	} catch (error) {
-		throw new AudacityBinaryXmlError('Audacity binary XML contains invalid Unicode.', 'INVALID_STRING', { cause: error });
-	}
-	let value = '';
-	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-	for (let offset = 0; offset < bytes.byteLength; offset += 4) {
-		const point = view.getUint32(offset, true);
-		if (point > 0x10ffff || (point >= 0xd800 && point <= 0xdfff)) throw new AudacityBinaryXmlError('Audacity UTF-32 data contains an invalid code point.', 'INVALID_STRING');
-		value += String.fromCodePoint(point);
-	}
-	return value;
 }
 
 function requireFinite(value, name) {

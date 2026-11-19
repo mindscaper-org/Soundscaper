@@ -4,7 +4,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
 
 for (const key of ['Enter', 'Escape']) test(`Nyquist numeric ${key} leaves a native composition draft active`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseNestedCommandAction(page, editor, 'Generate', ['Nyquist', 'Risset Drum']);
 	const dialog = page.getByRole('dialog', { name: 'Risset Drum', exact: true });
 	const amplitude = dialog.getByRole('spinbutton', { name: 'Amplitude (0 - 1)', exact: true });

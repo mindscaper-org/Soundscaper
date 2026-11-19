@@ -13,6 +13,7 @@ export interface EditorCommandCapabilities {
 	readonly audioMixerGraph?: boolean;
 	readonly audioTrackFreeze?: boolean;
 	readonly masteringSequences?: boolean;
+	readonly subprojects?: boolean;
 	readonly audioRecording: boolean;
 	readonly audioSpectralEditing: boolean;
 	readonly audioWarp: boolean;
@@ -117,6 +118,7 @@ function assertCommandCapabilities(
 	if (!capabilities.audioTrackFreeze && command.type.startsWith('audio-freeze/')) {
 		unsupported(productName, 'audioTrackFreeze');
 	}
+	if (!capabilities.subprojects && command.type.startsWith('subproject/')) unsupported(productName, 'subprojects');
 	if (!capabilities.masteringSequences && command.type.startsWith('mastering-sequence/')) {
 		unsupported(productName, 'masteringSequences');
 	}

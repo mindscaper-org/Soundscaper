@@ -122,7 +122,7 @@ body[data-editor-skin]:not([data-editor-skin='default'], [data-editor-skin='high
 #kw-audio-editor-design-system[data-editor-skin]:not([data-editor-skin='default'], [data-editor-skin='high-contrast']) .audio-editor-timeline-scroll {
 	background-image: linear-gradient(to right, var(--stage-raised) 0 var(--track-panel-width, 0px),
 		var(--stage-line) var(--track-panel-width, 0px) calc(var(--track-panel-width, 0px) + 1px), transparent 0),
-		linear-gradient(to right, var(--stage-line) 0 1px, var(--stage-raised) 1px), var(--editor-skin-art);
+		linear-gradient(to right, var(--stage-line) 0 1px, var(--stage) 1px), var(--editor-skin-art);
 	background-position: left top, right top, right bottom;
 	background-size: 100% 100%, var(--vertical-ruler-width, 0px) 100%, 960px 600px;
 }
@@ -238,11 +238,20 @@ body[data-editor-skin]:not([data-editor-skin='default'], [data-editor-skin='high
 	}
 }
 
-/* The default light ruler sits on a pale panel. Its inline canvas-text tokens
-   need dark values on the labels themselves to override the inherited ones. */
-html[data-theme='light'] #kw-audio-editor-design-system[data-editor-skin='default'] .audio-editor-vertical-ruler .vertical-ruler__label {
+/* Pale rulers need dark labels; high contrast uses its full-strength text
+   color in both modes. Override the vendor's inherited canvas-text tokens. */
+html[data-theme='light'] #kw-audio-editor-design-system[data-editor-skin='default'] .audio-editor-vertical-ruler .vertical-ruler__label,
+#kw-audio-editor-design-system[data-editor-skin='high-contrast'] .audio-editor-vertical-ruler .vertical-ruler__label {
 	--ruler-text-primary: var(--text);
 	--ruler-text-secondary: var(--text);
+}
+
+#kw-audio-editor-design-system[data-editor-skin='high-contrast'] .vertical-ruler__tick-mark {
+	background-color: var(--text);
+}
+
+#kw-audio-editor-design-system[data-editor-skin='high-contrast'] .audio-editor-video-track-controls {
+	color: var(--text);
 }
 
 /* Ruler labels use the canvas foreground, so their backdrop must stay dark and

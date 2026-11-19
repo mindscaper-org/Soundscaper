@@ -106,7 +106,7 @@ function boundedIdentity(value: unknown, name: string): string {
 	if (typeof value !== 'string' || value.length === 0 || !value.trim()) {
 		throw new TypeError(`${name} must be a non-empty string`);
 	}
-	if (Buffer.byteLength(value, 'utf8') > MAXIMUM_IDENTITY_BYTES) {
+	if (new TextEncoder().encode(value).byteLength > MAXIMUM_IDENTITY_BYTES) {
 		throw new RangeError(`${name} exceeds its byte limit`);
 	}
 	return value;

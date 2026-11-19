@@ -17,16 +17,17 @@ import type { VideoMediabunnyMuxRequest } from '../src/common/editor/video-media
 
 test('direct execution produces complete H.264/AAC MP4 and VP9/Opus WebM profiles', async () => {
 	for (const profile of [
-		{ format: 'mp4', videoCodec: 'h264', audioCodec: 'aac', audioPacketFrames: 1_024 },
-		{ format: 'webm', videoCodec: 'vp9', audioCodec: 'opus', audioPacketFrames: 960 },
+		{ format: 'mp4', videoCodec: 'h264', audioCodec: 'aac', audioPacketFrames: 1_024, inputRate: 48_000 },
+		{ format: 'webm', videoCodec: 'vp9', audioCodec: 'opus', audioPacketFrames: 960, inputRate: 48_000 },
+		{ format: 'webm', videoCodec: 'vp9', audioCodec: 'opus', audioPacketFrames: 960, inputRate: 44_100 },
 	] as const) {
 		const frameSource = createVideoExactPictureExportFrameSource({
-			sampleRate: 48_000,
+			sampleRate: profile.inputRate,
 			startFrame: 0,
-			endFrame: 48_000,
+			endFrame: profile.inputRate,
 			canvas: { width: 4, height: 2, frameRate: 1 },
 		});
-		const audioSource = await admitVideoKeyframeAudioInput(floatWav(48_000, 2, 48_000));
+		const audioSource = await admitVideoKeyframeAudioInput(floatWav(profile.inputRate, 2, profile.inputRate));
 		const workload = admitVideoKeyframeEncoderWorkload({
 			frameSource,
 			format: profile.format,
@@ -58,6 +59,7 @@ test('direct execution produces complete H.264/AAC MP4 and VP9/Opus WebM profile
 
 		assert.equal(harness.muxRequest?.videoCodec, profile.videoCodec);
 		assert.equal(harness.muxRequest?.audio?.codec, profile.audioCodec);
+		assert.equal(harness.muxRequest?.audio?.sampleRate, 48_000);
 		assert.equal(harness.produceRequest?.h264Format, 'avc');
 		assert.equal(harness.videoMetadata, harness.emittedMetadata);
 		assert.equal(harness.audioFrames, 48_000);

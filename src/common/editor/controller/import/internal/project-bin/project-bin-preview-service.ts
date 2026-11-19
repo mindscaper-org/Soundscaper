@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createLocalizedError } from '../../../../../i18n/presentation-message.ts'; import { resolveProjectBinAudioPreviewClip } from './project-bin-runtime.ts';
+import { createLocalizedError } from '../../../../../i18n/presentation-message.ts';
+import { createProjectBinAudioPreviewProject } from './project-bin-preview-project.ts';
 import { hasProjectBinMediaAuthority } from '../../../../project-schema-version.ts';
 
 import type {
@@ -8,7 +9,6 @@ import type {
 	EngineLoadProjectOptions,
 	EngineSourceBufferInput,
 } from '../../../../engine/public-api.ts';
-import { createAudioPreviewProject } from '../../../../engine/audio-preview-project.ts';
 import type { EngineProject, EngineSourceResolver } from '../../../../engine/types.ts';
 import {
 	EDITOR_PROJECT_TASK_SCOPE,
@@ -80,7 +80,9 @@ export function createProjectBinPreviewService(
 ): Readonly<ProjectBinPreviewService> {
 	let previewEngine: ProjectBinPreviewEngine | null = null;
 	let playbackRequested = false;
+	let previewStartFrame = 0;
 	let previewEndFrame = 0;
+	let previewClipIds: readonly string[] = [];
 
 	return Object.freeze({
 		playPauseProjectBinClip,
@@ -102,7 +104,7 @@ export function createProjectBinPreviewService(
 		if (dependencies.previewBlocked?.() && !(active?.clipId === clipId && active.state === 'playing')) {
 			throw new DOMException('Project Bin playback is blocked while the editor is busy.', 'AbortError');
 		}
-		if (active?.clipId === clipId) return toggleActivePreview(active, Boolean(videoClip) && !active.audioSourceId, project, audioClip?.id ?? clipId);
+		if (active?.clipId === clipId) return toggleActivePreview(active, Boolean(videoClip) && !active.audioSourceId, project);
 
 		await stopProjectBinPreview();
 		const projectToken = dependencies.captureProject();
@@ -134,33 +136,15 @@ export function createProjectBinPreviewService(
 			previewEngine ??= createOwnedPreviewEngine();
 			previewEngine.setSourceResolver?.(dependencies.sourceResolver);
 			const previewTrackId = dependencies.createId('project-bin-preview-track');
-			const previewClip = {
-				...resolveProjectBinAudioPreviewClip(project, audioClip),
-				id: audioClip.id,
-				timelineStartFrame: 0,
-				groupId: null,
-				avLinkId: null,
-				binItemId: null,
-			};
-			const previewProject = { ...createAudioPreviewProject({
-				title: 'Project Bin preview',
-				sampleRate: project.sampleRate,
-				sources: [source],
-				clips: [previewClip],
-				tracks: [{
-					type: 'audio',
-					id: previewTrackId,
-					name: previewClip.title,
-					clipIds: [previewClip.id],
-					armed: false,
-				}],
-			}), ...(previewClip.warpMap != null ? { tempoMap: project.tempoMap } : {}) };
-			previewEngine.loadProject(previewProject, dependencies.sourceBuffers, {
+			const audition = createProjectBinAudioPreviewProject(project, audioClip, source, previewTrackId);
+			previewEngine.loadProject(audition.project, dependencies.sourceBuffers, {
 				chunkSources: dependencies.sourceChunkProviders,
 			});
-			previewEndFrame = previewClip.durationFrames;
-			previewEngine.setPlayRange?.({ startFrame: 0, endFrame: previewEndFrame });
-			previewEngine.seek?.(0);
+			previewStartFrame = audition.startFrame;
+			previewEndFrame = audition.endFrame;
+			previewClipIds = audition.clipIds;
+			previewEngine.setPlayRange?.({ startFrame: previewStartFrame, endFrame: previewEndFrame });
+			previewEngine.seek?.(previewStartFrame);
 			const preview = Object.freeze({
 				clipId,
 				binItemId: clip.binItemId || clip.id,
@@ -173,7 +157,7 @@ export function createProjectBinPreviewService(
 			dependencies.setPreview(preview);
 			dependencies.publish();
 			await dependencies.prepareTimePitchCaches?.({ ...project, clips: [...project.clips, ...projectBinClips(project)] },
-				task.signal, { clipIds: [audioClip.id] });
+				task.signal, { clipIds: previewClipIds });
 			assertCurrent(task, projectToken);
 			await previewEngine.play();
 			assertCurrent(task, projectToken);
@@ -194,7 +178,6 @@ export function createProjectBinPreviewService(
 		active: ProjectBinPreview,
 		video: boolean,
 		project: ProjectBinProject,
-		audioClipId: string,
 	): Promise<ProjectBinPreview> {
 		if (active.state === 'playing') {
 			playbackRequested = false;
@@ -218,10 +201,10 @@ export function createProjectBinPreviewService(
 		if (starting !== active) { dependencies.setPreview(starting); dependencies.publish(); }
 		try {
 			await dependencies.prepareTimePitchCaches?.({ ...project, clips: [...project.clips, ...projectBinClips(project)] },
-				task.signal, { clipIds: [audioClipId] });
+				task.signal, { clipIds: previewClipIds });
 			assertCurrent(task, projectToken);
-			previewEngine?.setPlayRange?.({ startFrame: 0, endFrame: previewEndFrame });
-			if (active.state === 'stopped') previewEngine?.seek?.(0);
+			previewEngine?.setPlayRange?.({ startFrame: previewStartFrame, endFrame: previewEndFrame });
+			if (active.state === 'stopped') previewEngine?.seek?.(previewStartFrame);
 			await previewEngine?.play();
 			assertCurrent(task, projectToken);
 			const playing = Object.freeze({ ...active, state: 'playing' as const });

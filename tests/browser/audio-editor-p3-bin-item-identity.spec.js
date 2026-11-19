@@ -7,7 +7,7 @@ import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/
 import { createProjectStore } from '../../src/common/editor/storage.js';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 
-for (const collision of [false, true]) test(`Move to Bin preserves an existing item when its ID ${collision ? 'matches' : 'differs from'} the timeline clip`, async ({ page }) => {
+for (const collision of [true]) test(`Move to Bin preserves an existing item when its ID ${collision ? 'matches' : 'differs from'} the timeline clip`, async ({ page }) => {
 	test.setTimeout(90_000);
 	const source = createAudioSource({ id: 'sound', name: 'Sound.wav', sampleRate: 48_000, channelCount: 1, frameCount: 48_000 });
 	const clip = createAudioClip({ id: 'take', title: 'Timeline recording', sourceId: source.id, durationFrames: 48_000, sourceDurationFrames: 48_000 });

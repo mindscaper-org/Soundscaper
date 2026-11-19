@@ -95,7 +95,7 @@ test('STORE/Zip64 estimate bounds the pinned writer profile and UTF-8 filenames'
 	}
 	const blob = await writer.close(undefined, { zip64: true });
 	assert.ok(blob instanceof Blob);
-	assert.equal(estimate - blob.size, entries.length * 8);
+	assert.equal(estimate - blob.size, entries.length * 80);
 
 	assert.throws(
 		() => maximumScapeStoreArchiveBytes([{ filename: 'x', payloadBytes: -1 }]),

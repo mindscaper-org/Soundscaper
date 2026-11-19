@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { admitAudioExportBlob, prepareAudioExportBlobWithWarning as prepareAudioExportBlob } from '../../../audio-export-output.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
-import { audioExportPublicationProgress, NO_AUDIO_EXPORT_PROGRESS as NO_TASK_PROGRESS } from './audio/audio-export-progress.ts';
+import { audioExportPublicationProgress, setAudioExportCancellation, NO_AUDIO_EXPORT_PROGRESS as NO_TASK_PROGRESS } from './audio/audio-export-progress.ts';
 import { isVideoExportRequestFormat } from '../../../video-export-request-format.ts';
 import { inheritTrackFolderMediaStateProjectionV12 } from '../../../track-folder-media-runtime.ts';
 import { createExportRenderProject, exportReplacementTrackIds } from '../export-render-project.ts';
-import { createBw64RenderProject } from './bw64-render-project.ts';
+import { createSpatialExportRenderProject } from './spatial-render-project.ts';
 import { publishBufferedExport } from './buffered-export-publication.ts';
 import { isOriginalOverwriteSettings } from './overwrite-original-action.ts';
+import { originalOverwriteChannelMapping } from './original-overwrite-channel-mapping.ts';
 import { retirePreviousExportOutput, reportExportOutputFailure } from './retire-export-output.ts';
 import {
 	admitAudioRenderedFallbackExport,
@@ -32,6 +33,7 @@ import { createExportOperationAvailability } from './export-operation-availabili
 import { beginExportTask, handleExportFailure } from './export-task-lifecycle.ts';
 import { createExportSnapshotRenderer } from '../export-snapshot-renderer.ts';
 import type { EditorExportState } from '../export-state.ts';
+import { isCurrentAssertion } from '../../shared/lifecycle.ts';
 import { streamStemArchiveExport } from './archive/streaming-stem-archive-export.ts';
 import { executeDirectStemRenderArchive } from './direct/direct-stem-render-execution.ts';
 import { assertDesktopAudioExportCapability } from './desktop-audio-export-capability.ts';
@@ -136,6 +138,7 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 			return executionOwner === 'persistent' ? PERSISTENT_EXPORT_BUSY : undefined;
 		}
 		const preparationGeneration = state.exportGeneration;
+		const preparationProject = typeof runtime.prepareProjectForExport === 'function' ? projectGeneration.capture() : null;
 		audioExportPreparing = true;
 		exportOwner = executionOwner;
 		try {
@@ -148,12 +151,13 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 		} finally {
 			audioExportPreparing = false;
 		}
-		if (state.exportAbort || state.exportGeneration !== preparationGeneration || state.disposed) {
+		if (state.exportAbort || state.exportGeneration !== preparationGeneration || state.disposed
+			|| (preparationProject && !isCurrentAssertion(() => projectGeneration.assertCurrent(preparationProject)))) {
 			releaseExportOwner(executionOwner);
 			return;
 		}
 		let admission: AudioExportAdmission;
-		const preserveIxmlFileIdentity = isOriginalOverwriteSettings(requestedSettings);
+		const overwriteOriginal = isOriginalOverwriteSettings(requestedSettings);
 		try {
 			admission = admitAudioExportDelivery(runtime, requestedSettings);
 		} catch (error) {
@@ -173,7 +177,7 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 		});
 		const { generation, abort, assertCurrent: assertExportCurrent } = exportOperation;
 		const progressTask = taskProgress?.begin?.('export', copy.rendering, 0, { key: 'rendering' }) || NO_TASK_PROGRESS;
-		progressTask.setCancellation?.(() => { abort.abort(); });
+		setAudioExportCancellation(progressTask, () => { void handleExportAction('cancel', null, null, executionOwner); });
 		let exportProject = createExportRenderProject(deliveredProject, exportReplacementTrackIds(delivery));
 		let exportRenderSources: ExportRenderSources;
 		let pendingCleanup = null;
@@ -199,7 +203,9 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 				});
 			const plan = createExportPlan(exportProject, {
 				...settings,
-				preserveIxmlFileIdentity,
+				preserveIxmlFileIdentity: overwriteOriginal,
+				aifcCompression: overwriteOriginal ? requestedSettings.aifcCompression : undefined,
+				channelMapping: overwriteOriginal ? originalOverwriteChannelMapping(exportProject, settings.channelMapping) : settings.channelMapping,
 				inputChannelCount: exportProject.masterChannels,
 				mobile: state.mobile,
 				livePcmBytes: undefined,
@@ -229,15 +235,9 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 			const plannedReport = createDeliveryReportForPlan(plan, {
 				sampleRate: exportProject.sampleRate,
 			});
-			if (plan.format === 'bw64' && plan.adm) {
-				exportProject = inheritTrackFolderMediaStateProjectionV12(
-					exportProject,
-					createBw64RenderProject(exportProject, {
-						channelCount: plan.channelCount,
-						metadata: plan.adm.metadata,
-					}),
-				);
-			}
+			exportProject = inheritTrackFolderMediaStateProjectionV12(
+				exportProject, createSpatialExportRenderProject(exportProject, plan),
+			);
 			const directStemTemporaryBytes = directStemArchiveTemporaryBytes(plan);
 			const directCompressedTemporaryBytes = directCompressedStagingTemporaryBytes(plan);
 			const stemPreparation = await prepareDirectStemArchiveDestination(

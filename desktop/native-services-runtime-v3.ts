@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { basename } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { openLocalDesktopDatabase } from './desktop-database.ts';
 
 import type { NativeQueueRecordV3 } from '../src/common/editor/native-queue-record-v3.ts';
 import {
@@ -152,7 +152,7 @@ export interface FramescaperNativeServicesRuntimeV3 {
 export function startFramescaperNativeServicesRuntimeV3(
 	options: FramescaperNativeServicesRuntimeV3Options,
 ): FramescaperNativeServicesRuntimeV3 {
-	const database = new DatabaseSync(options.databasePath);
+	const database = openLocalDesktopDatabase(options.databasePath);
 	let lease: FramescaperNativeServicesLeaseCoordinator | null = null;
 	try {
 		const databaseVersion = initializeFramescaperNativeServicesDatabaseV3(database);

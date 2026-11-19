@@ -26,7 +26,7 @@ export function reportInterchangeMidiConversion(report: DeliveryReport, project:
 		severity: 'warning', scope: { kind: 'track', id: String(track.id) },
 		data: { clips: parts.length, notes: parts.reduce((count, part) => count + part.notes.length, 0),
 			events: parts.reduce((count, part) => count + (part.interchange?.events.length ?? 0), 0),
-			...(metadata ? { instrument: metadata.instrument, ...(metadata.program === undefined ? {} : { program: metadata.program }) } : {}) },
+			...(metadata ? { instrument: typeof metadata.instrument === 'string' ? metadata.instrument : metadata.instrument.name, ...(metadata.program === undefined ? {} : { program: metadata.program }) } : {}) },
 		message: omitted
 			? 'The selected EDL track excludes this MIDI track and its audio fallback. Use DAWproject or MIDI export to retain editable notes.'
 			: 'The profile references the synthesized audio fallback; editable MIDI notes, messages and instrument authoring require DAWproject or MIDI export.',

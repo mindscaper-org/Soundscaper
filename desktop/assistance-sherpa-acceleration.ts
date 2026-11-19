@@ -19,6 +19,11 @@ class SherpaNativeExecutionError extends Error {
 	}
 }
 
+/** Only native construction/inference failures permit a fresh provider attempt. */
+export function isSherpaNativeExecutionErrorV1(value: unknown): boolean {
+	return value instanceof SherpaNativeExecutionError;
+}
+
 /** Wrap native construction/inference only; validation and callbacks stay outside. */
 export function callSherpaNativeV1<Value>(operation: () => Value): Value {
 	try { return operation(); }

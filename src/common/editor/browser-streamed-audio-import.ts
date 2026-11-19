@@ -5,6 +5,7 @@ import type { BrowserContainerAudioSample } from './browser-container-audio-deco
 import type { WavPackImportGroupDecoder } from './browser-streamed-wavpack-import.ts';
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from './controller/shared/file-size-warning.ts';
 import { correctRifxAudioImportCodec } from './rifx-audio-import-codec.ts';
+import { ChainedOpusAudioError } from './chained-opus-audio-error.ts';
 
 const MAXIMUM_CHANNELS = 32;
 const MAXIMUM_SAMPLE_FRAMES = 65_536;
@@ -15,6 +16,8 @@ export interface StreamedAudioImportSession {
 	readonly channelCount: number;
 	readonly durationSeconds: number;
 	readonly timelineOrigin: number;
+	/** The format verified by the decoder, when it owns that evidence. */
+	readonly mimeType?: string;
 	/** Encoded packet metadata proved there are no internal gaps. */
 	readonly continuousTimeline?: boolean;
 	/** First encoded timestamp, independent of native decoder startup latency. */
@@ -63,7 +66,7 @@ export async function prepareStreamedAudioImport(
 		throw new RangeError('The compressed audio original has an unsupported byte length.');
 	}
 	if (!options.desktop) await confirmFileSizeWarning(file.size, LARGE_AUDIO_FILE_BYTES, 'Compressed audio import', options);
-	const session = await awaitImportOperation((options.openSession ?? (async (blob, signal) => {
+	const open = options.openSession ?? (async (blob: Blob, signal?: AbortSignal) => {
 		let header = new Uint8Array(await blob.slice(0, 8).arrayBuffer());
 		if (new TextDecoder().decode(header) === 'APETAGEX') {
 			const { leadingApeTagEnd } = await import('./ape-tag-location.ts');
@@ -75,30 +78,44 @@ export async function prepareStreamedAudioImport(
 			return openStreamedWavPackImportSession(blob, signal, options.desktopCodec);
 		}
 		return openBrowserAudioImportSession(blob, signal, options.reviewedFallback !== false, options.desktopCodec);
-	}))(file, options.signal), [options.signal], (abandoned) => abandoned.dispose());
+	});
+	const prepareLink = (blob: Blob, signal?: AbortSignal) => prepareStreamedAudioSession(blob, options.desktop === true, open, signal);
+	try { return await prepareLink(file, options.signal); }
+	catch (error) {
+		if (options.openSession || !(error instanceof ChainedOpusAudioError)) throw error;
+		const { prepareChainedOpusAudioImport } = await import('./browser-chained-opus-import.ts');
+		return awaitImportOperation(prepareChainedOpusAudioImport(file, options.desktop === true, prepareLink, options.signal),
+			[options.signal], abandoned => abandoned.dispose());
+	}
+}
+
+async function prepareStreamedAudioSession(file: Blob, desktop: boolean,
+	open: (file: Blob, signal?: AbortSignal) => Promise<StreamedAudioImportSession>, signal?: AbortSignal,
+): Promise<PreparedStreamedAudioImport> {
+	const session = await awaitImportOperation(open(file, signal), [signal], (abandoned) => abandoned.dispose());
 	let disposed = false;
 	const dispose = (): void => {
 		if (disposed) return;
 		disposed = true;
-		options.signal?.removeEventListener('abort', dispose);
+		signal?.removeEventListener('abort', dispose);
 		session.dispose();
 	};
-	options.signal?.addEventListener('abort', dispose, { once: true });
+	signal?.addEventListener('abort', dispose, { once: true });
 	try {
-		options.signal?.throwIfAborted();
-		const descriptor = admittedDescriptor(session, file.type, options.desktop === true);
+		signal?.throwIfAborted();
+		const descriptor = admittedDescriptor(session, file.type, desktop);
 		return Object.freeze({
 			descriptor, dispose,
 			async stream(settings: StreamedAudioImportStreamOptions) {
 				if (disposed) throw new Error('The compressed audio import decoder is closed.');
 				const assertCurrent = (): void => {
-					options.signal?.throwIfAborted();
+					signal?.throwIfAborted();
 					settings.signal?.throwIfAborted();
 					session.failureSignal?.throwIfAborted();
 					settings.assertCurrent?.();
 				};
 				settings.signal?.addEventListener('abort', dispose, { once: true });
-				try { await streamSession(session, descriptor, settings, assertCurrent, [options.signal, settings.signal, session.failureSignal]); }
+				try { await streamSession(session, descriptor, settings, assertCurrent, [signal, settings.signal, session.failureSignal]); }
 				finally {
 					settings.signal?.removeEventListener('abort', dispose);
 					dispose();
@@ -127,7 +144,7 @@ function admittedDescriptor(session: StreamedAudioImportSession, mimeType: strin
 		throw new RangeError('The compressed audio source frame count is unsupported.');
 	}
 	return Object.freeze({ container: 'compressed-audio', sampleRate: session.sampleRate,
-		channelCount: session.channelCount, frameCount, mimeType: mimeType || 'audio/mpeg' });
+		channelCount: session.channelCount, frameCount, mimeType: session.mimeType ?? (mimeType || 'audio/mpeg') });
 }
 
 async function streamSession(
@@ -223,7 +240,7 @@ function validateSample(sample: BrowserContainerAudioSample, descriptor: Streame
 async function openBrowserAudioImportSession(file: Blob, signal?: AbortSignal, reviewedFallback = true,
 	desktopCodec?: WavPackImportGroupDecoder): Promise<StreamedAudioImportSession> {
 	signal?.throwIfAborted();
-	const { ADTS, ALL_FORMATS, AudioSample, AudioSampleSink, BlobSource, EncodedPacketSink, Input, MP4, QTFF } = await import('mediabunny');
+	const { ADTS, ALL_FORMATS, AudioSample, AudioSampleSink, BlobSource, EncodedPacketSink, Input, MP4, OGG, QTFF } = await import('mediabunny');
 	const { readAacSourceMetadata, validateAacSourceGeometry } = await import('./aac-source-geometry.ts');
 	const aacMetadata = await readAacSourceMetadata(file, signal);
 	signal?.throwIfAborted();
@@ -266,15 +283,20 @@ async function openBrowserAudioImportSession(file: Blob, signal?: AbortSignal, r
 		}
 		// Native support flags do not prove these codecs can produce PCM. Select the
 		// reviewed bounded decoder before publication, without restarting a stream.
+		let reviewedDecoder = false;
 		if (reviewedFallback && (codec === 'flac' || codec === 'vorbis' || codec === 'mp3')) {
 			const config = await track.getDecoderConfig();
 			const { preferReviewedAudioImportDecoder } = await import('./browser-reviewed-streamed-audio-decoders.ts');
-			if (config && preferReviewedAudioImportDecoder(codec, config)) track.getDecoderConfig = () => Promise.resolve(config);
+			if (config && preferReviewedAudioImportDecoder(codec, config)) {
+				reviewedDecoder = true;
+				track.getDecoderConfig = () => Promise.resolve(config);
+			}
 			else if (layerII) throw new Error('The reviewed MPEG LayerII decoder does not support this source configuration.');
 		}
 		if (reviewedFallback && codec === 'opus') {
 			await (await import('./browser-container-opus-decoder.ts')).preferContainerOpusPreSkipDecoder(track, signal, {
-				opusTimestampsIncludePreSkip: [MP4, QTFF].includes(await input.getFormat()),
+				source: file,
+				opusTimestampsIncludePreSkip: [MP4, QTFF, OGG].includes(await input.getFormat()),
 			});
 		}
 		if (reviewedFallback && codec === 'vorbis') {
@@ -329,11 +351,22 @@ async function openBrowserAudioImportSession(file: Blob, signal?: AbortSignal, r
 			const { inspectMp3GaplessGeometry } = await import('./mp3-gapless-import.ts');
 			const gapless = await inspectMp3GaplessGeometry(file);
 			if (gapless) {
-				if (gapless.sampleRate !== sampleRate || Math.abs(Math.round(durationSeconds * sampleRate) - gapless.encodedFrames) > 1) {
+				if (gapless.sampleRate !== sampleRate || Math.abs(Math.round((endTimestamp - timelineOrigin) * sampleRate) - gapless.encodedFrames) > 1) {
 					throw new Error('The MP3 gapless geometry differs from its encoded packet duration.');
 				}
-				origin += gapless.leadingFrames / sampleRate;
+				origin = timelineOrigin + gapless.leadingFrames / sampleRate;
 				durationSeconds = gapless.sourceFrames / sampleRate;
+			}
+		}
+		let vorbisPriming = 0;
+		if (codec === 'vorbis') {
+			vorbisPriming = (await new EncodedPacketSink(track).getFirstPacket({ metadataOnly: true }))?.duration ?? 0;
+			origin = Math.max(0, timelineOrigin + vorbisPriming);
+		} else if (codec === 'opus' && await input.getFormat() === OGG) {
+			const config = await track.getDecoderConfig(), description = config?.description;
+			if (description) {
+				const bytes = ArrayBuffer.isView(description) ? new Uint8Array(description.buffer, description.byteOffset, description.byteLength) : new Uint8Array(description);
+				if (bytes.length >= 19) origin = Math.max(0, timelineOrigin + new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint16(10, true) / 48_000);
 			}
 		}
 		if (codec === 'opus' || codec === 'vorbis') {
@@ -372,7 +405,7 @@ async function openBrowserAudioImportSession(file: Blob, signal?: AbortSignal, r
 		const vorbis = codec === 'vorbis' ? await import('./browser-vorbis-decoder.ts') : null;
 		signal?.throwIfAborted();
 		return Object.freeze({ sampleRate, channelCount, timelineOrigin: origin, durationSeconds, continuousTimeline,
-			samples: () => vorbis ? vorbis.canonicalVorbisSamples(sink.samples(), channelCount) : sink.samples(), dispose: () => input.dispose(),
+			samples: () => vorbis ? vorbis.canonicalVorbisSamples(sink.samples(), channelCount, reviewedDecoder ? 0 : vorbisPriming) : sink.samples(), dispose: () => input.dispose(),
 		});
 	} catch (error) {
 		input.dispose();

@@ -7,6 +7,7 @@ import type {
 	ProjectRepositoryPort,
 	ProjectRevision,
 } from '../common/editor/storage/project-repository.ts';
+import { normalizeFramescaperImageSourceV1 } from '../common/editor/timeline-image-model.ts';
 import {
 	cloneFramescaperProject,
 	loadFramescaperProject,
@@ -15,6 +16,8 @@ import {
 import { assertFramescaperProjectRuntimeProfile } from './editor-project-runtime-profile.ts';
 import { compactFramescaperProjectSourceMetadata } from './editor-project-source-compaction.ts';
 import { clipboardImageAttachmentAuthorized, immutableImageBodyAuthority } from './editor-session-clipboard-image-attachments.ts';
+import { framescaperProxyDetachAuthorized } from './editor-session-video-proxy-detach.ts';
+import { requireStagedTimelineImageBody } from './editor-timeline-image-staged-body.ts';
 
 const REQUIRED_METHODS = Object.freeze([
 	'createIfAbsent', 'createForScapeImportIfAbsent', 'save', 'saveIfCurrent',
@@ -44,8 +47,15 @@ export class FramescaperProjectRepository implements ProjectRepositoryPort {
 
 	async createForScapeImportIfAbsent(projectValue: ProjectDocument): Promise<ProjectDocument | null> {
 		const project = this.#exact(projectValue);
-		assertNoBodyAttachments(project, 'Scape import');
-		return this.#optionalExact(await this.#delegate.createForScapeImportIfAbsent!(this.#publication(project)));
+		assertNoProxyAttachments(project, 'Scape import');
+		const snapshot = this.#publication(project);
+		const images = new Map<string, (row: unknown) => void>();
+		for (const candidate of snapshot.sources) {
+			if (candidate.kind !== 'image') continue;
+			const image = normalizeFramescaperImageSourceV1(candidate);
+			images.set(image.storageKey, row => { requireStagedTimelineImageBody(row, image); });
+		}
+		return this.#optionalExact(await this.#delegate.createForScapeImportIfAbsent!(snapshot, images.size ? images : undefined));
 	}
 
 	async save(
@@ -89,7 +99,7 @@ export class FramescaperProjectRepository implements ProjectRepositoryPort {
 		const expected = this.#exact(expectedValue);
 		const project = this.#exact(projectValue);
 		if (expected.id !== project.id) throw new Error('Framescaper compare-and-swap cannot change project identity.');
-		assertSameBodyAttachments(expected, project, this.#attachmentPort);
+		assertSameBodyAttachments(expected, project, this.#attachmentPort, true);
 		return this.#optionalExact(await this.#delegate.saveIfCurrentAndFenced!(
 			expected, this.#publication(project), writeFence, postCommit,
 		));
@@ -180,6 +190,10 @@ export class FramescaperProjectRepository implements ProjectRepositoryPort {
 		return this.#delegate.deleteExact(this.#exact(projectValue));
 	}
 
+	deleteSnapshot(project: ProjectDocument): Promise<boolean> {
+		return this.#delegate.deleteSnapshot?.(this.#exact(project)) ?? Promise.resolve(false);
+	}
+
 	async delete(projectId: string): Promise<void> { await this.#delegate.delete(projectId); }
 
 	#exact(value: unknown): FramescaperProject & ProjectDocument {
@@ -211,18 +225,27 @@ function assertDelegate(value: unknown): asserts value is ProjectRepositoryPort 
 }
 
 function assertNoBodyAttachments(project: FramescaperProject, operation: string): void {
-	if (proxyAuthority(project).size !== 0) {
-		throw new Error(`A proxy-attached Framescaper ${operation} requires atomic preservation publication.`);
-	}
+	assertNoProxyAttachments(project, operation);
 	if (imageAuthority(project).size !== 0) {
 		throw new Error(`A timeline-image Framescaper ${operation} requires atomic timeline-image publication.`);
 	}
 }
 
-function assertSameBodyAttachments(expected: FramescaperProject, project: FramescaperProject, attachmentPort?: object): void {
+function assertNoProxyAttachments(project: FramescaperProject, operation: string): void {
+	if (proxyAuthority(project).size !== 0) {
+		throw new Error(`A proxy-attached Framescaper ${operation} requires atomic preservation publication.`);
+	}
+}
+
+function assertSameBodyAttachments(
+	expected: FramescaperProject, project: FramescaperProject, attachmentPort?: object, allowProxyHistory = false,
+): void {
 	const before = proxyAuthority(expected);
 	const after = proxyAuthority(project);
-	if (before.size !== after.size || [...before].some(([id, value]) => after.get(id) !== value)) {
+	const authorized = (id: string, value: string) => allowProxyHistory
+		&& framescaperProxyDetachAuthorized(attachmentPort, project.id, id, value);
+	if ([...before].some(([id, value]) => after.has(id) ? after.get(id) !== value : !authorized(id, value))
+		|| [...after].some(([id, value]) => !before.has(id) && !authorized(id, value))) {
 		throw new Error('Ordinary Framescaper save cannot introduce or change a proxy attachment.');
 	}
 	const beforeImages = imageAuthority(expected);

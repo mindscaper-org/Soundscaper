@@ -10,8 +10,11 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, disableNativeSavePicker, openExportDialog,
 	readDownloadBytes, waitForProjectActivation } from './audio-editor-test-helpers.js';
 
-for (const musical of [true, false]) {
-	test(`File Open offers and writes the ${musical ? 'musical' : 'sample'} chapter across a tempo change`, async ({ page }) => {
+test('File Open offers and writes musical and sample chapters across a tempo change', async ({ page }) => {
+	const caseTimeout = test.info().timeout;
+	test.setTimeout(caseTimeout * 2);
+	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
+	for (const musical of [true, false]) await test.step(`${musical ? 'musical' : 'sample'} chapter`, async () => {
 		const source = createAudioSource({ id: 'take', sampleRate: 48_000, frameCount: 192_000, channelCount: 1 });
 		const project = createSoundscaperProject({ id: `chapter-file-${String(musical)}`, sampleRate: 48_000,
 			tempoMap: { mode: 'musical', events: [
@@ -35,7 +38,6 @@ for (const musical of [true, false]) {
 			const archive = await createSoundscaperScapeNativeRuntime().exportScapeProject(project, store);
 			buffer = Buffer.from(await archive.blob.arrayBuffer());
 		} finally { await store.close(); }
-		await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 		await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Chapter.sscape', mimeType: 'application/zip', buffer });
 		await expect(editor).toHaveAttribute('data-project-id', project.id); await waitForProjectActivation(editor);
 		const dialog = await openExportDialog(page, editor);
@@ -43,8 +45,10 @@ for (const musical of [true, false]) {
 		await output.getByRole('button').click();
 		await expect(page.getByRole('option', { name: 'Chapters (split by labels)', exact: true })).toBeEnabled();
 		await page.getByRole('option', { name: 'Chapters (split by labels)', exact: true }).click();
+		const previousDownload = await dialog.locator('[data-export-download]').count() ? await dialog.locator('[data-export-download]').getAttribute('href') : null;
 		await dialog.getByRole('button', { name: 'Export', exact: true }).click();
 		const link = dialog.locator('[data-export-download]'); await expect(link).toBeVisible({ timeout: 30_000 });
+		await expect.poll(() => link.getAttribute('href')).not.toBe(previousDownload);
 		const archive = unzipSync(await readDownloadBytes(page, link));
 		expect(Object.keys(archive)).toEqual(['01-Across-change.wav']);
 		const wav = new Blob([archive['01-Across-change.wav']]);
@@ -56,5 +60,7 @@ for (const musical of [true, false]) {
 			for (const sample of channels[0]) maxError = Math.max(maxError, Math.abs(sample - .25 * Math.SQRT1_2));
 		} });
 		expect(frames).toBe(72_000); expect(maxError).toBeLessThan(.000001);
-	});
-}
+		await dialog.getByRole('button', { name: 'Close', exact: true }).first().click();
+		await expect(dialog).toBeHidden();
+	}, { timeout: caseTimeout });
+});

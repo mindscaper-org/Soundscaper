@@ -10,7 +10,7 @@ import { chooseClipMediaSetting } from './audio-editor-clip-settings-test-helper
 
 test('DAWproject reports the authored polarity inversion it cannot retain', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const properties = await openClipProperties(page, editor, clipByName(editor, monoTone.name));
 	await showClipTimingFields(properties);

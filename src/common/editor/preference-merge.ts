@@ -2,6 +2,18 @@
 
 type PreferenceSection = Readonly<Record<string, unknown>>;
 
+/** Managed launch presets patch every record field; only arrays replace as a unit. */
+export function mergeManagedPreferencePreset(preferences: PreferenceSection, patch: PreferenceSection): PreferenceSection {
+	return Object.fromEntries(Object.entries({ ...preferences, ...patch }).map(([key, value]) => [key,
+		isRecord(preferences[key]) && isRecord(value) ? mergeManagedPreferencePreset(preferences[key], value) : value,
+	]));
+}
+
+function isRecord(value: unknown): value is PreferenceSection {
+	return value !== null && typeof value === 'object' && !Array.isArray(value)
+		&& (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
+}
+
 interface MergeablePreferences extends Readonly<Record<string, unknown>> {
 	readonly workspace?: PreferenceSection & {
 		readonly toolbars?: PreferenceSection;

@@ -9,6 +9,19 @@ export const CLIP_SOURCE_STRETCH_EXTENSION = 'org.soundscaper.clipSourceStretch'
 interface StretchClip extends ClipSourceTimingClip { readonly sourceId?: unknown; readonly opaqueExtensions?: unknown }
 export interface ClipSourceStretchMemory { readonly sourceId: unknown; readonly sourceFrameCount: number; readonly map: Readonly<AudioWarpMap> }
 
+/** Switch a clip to a source on the same sample grid, including hidden stretch anchors. */
+export function remapClipSourceReference(clip: Record<string, unknown>, sourceIds: ReadonlyMap<string, string>): void {
+	if (typeof clip.sourceId !== 'string') return;
+	const id = clip.sourceId;
+	const replacement = sourceIds.get(id);
+	if (replacement === undefined) return;
+	clip.sourceId = replacement;
+	const memory = extensionsOf(clip)[CLIP_SOURCE_STRETCH_EXTENSION] as ClipSourceStretchMemory | undefined;
+	if (memory?.sourceId === id) {
+		clip.opaqueExtensions = { ...extensionsOf(clip), [CLIP_SOURCE_STRETCH_EXTENSION]: { ...memory, sourceId: replacement } };
+	}
+}
+
 /** Keep hidden source anchors in the clip's existing serializable extension envelope. */
 export function clipSourceStretchMemory(project: ClipSourceTimingProject, clip: StretchClip, source: ClipSourceTimingSource) {
 	const extension = extensionsOf(clip)[CLIP_SOURCE_STRETCH_EXTENSION] as ClipSourceStretchMemory | undefined;

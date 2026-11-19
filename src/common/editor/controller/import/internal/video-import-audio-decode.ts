@@ -1,13 +1,17 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
 import {
 	decodeBrowserContainerAudio,
 	type BrowserContainerAudioDecodeOptions,
 } from '../../../browser-container-audio-decode.ts';
-import { secondsToSampleFrame } from '../../../timeline-time.ts';
+import { scaleSampleFrame, secondsToSampleFrame } from '../../../timeline-time.ts';
 import { throwIfAborted } from '../../../video-timing-demux-reader.ts';
 import { readContainerVideoSourceCharacteristics } from '../../../video-container-characteristics.ts';
 import { placeImportedVideoAudio, readVideoContainerAudioTiming } from './video-import-audio-timing.ts';
+import type { VideoAudioWorkload } from './video-import-audio-workload.ts';
+
+const NATIVE_VIDEO_AUDIO_DECODE_TIMEOUT_MS = 15_000;
 
 export type ImportedVideoDecodedAudio = ImportedVideoPlanarAudio | ImportedVideoAudioBuffer;
 
@@ -15,6 +19,7 @@ export interface ImportedVideoPlanarAudio {
 	readonly channels: readonly Float32Array[];
 	readonly numberOfChannels?: never;
 	readonly sampleRate: number;
+	readonly programmeFrameCount?: number;
 }
 
 export interface ImportedVideoAudioBuffer {
@@ -30,9 +35,11 @@ interface ImportedVideoAudioDecodeOptions {
 	readonly nativeContextSampleRate?: number;
 	readonly durationSeconds: number;
 	readonly hasAudio?: boolean;
+	/** Thin archives can require a saved stream index or the original decode policy. */
+	readonly audioProgramme?: number | 'legacy';
 	readonly signal?: AbortSignal;
 	readonly inspectEncodedSampleRate: (encoded: ArrayBuffer) => number | null;
-	readonly decodeNative: (encoded: ArrayBuffer) => Promise<ImportedVideoDecodedAudio>;
+	readonly decodeNative: (encoded: ArrayBuffer, sampleRate?: number) => Promise<ImportedVideoDecodedAudio>;
 	readonly decodeContainerAudio?: (
 		file: Blob,
 		options: BrowserContainerAudioDecodeOptions,
@@ -47,6 +54,7 @@ export interface ImportedVideoAudioDecodeResult {
 	readonly decodedAudio: ImportedVideoDecodedAudio;
 	readonly declaredAudioSampleRate: number | null;
 	readonly programmeFrameCount?: number;
+	readonly selectedAudioStreamIndex?: number;
 }
 
 /** Prefer Web Audio, then the container decoder, before leasing the standalone codec. */
@@ -75,16 +83,32 @@ export async function decodeImportedVideoAudio(
 	assertMinimumVideoAudioWindow(options.durationSeconds, options.projectSampleRate);
 	let audioOffsetSeconds = 0, durationSeconds = options.durationSeconds, audioTrackCount = 0;
 	let nativeTimingShared = true;
+	let packetDecodePreferred = false;
+	let selectedAudioTrack: Awaited<ReturnType<typeof readVideoContainerAudioTiming>>['selectedAudioTrack'];
+	let hybridAacWorkload: VideoAudioWorkload | undefined;
+	let selectedEndSeconds: number | null = null;
 	try {
-		const timing = await readVideoContainerAudioTiming(options.file, options.signal);
+		const timing = await readVideoContainerAudioTiming(options.file, options.signal,
+			options.audioProgramme === 'legacy' ? 'legacy-primary' : 'primary');
 		audioOffsetSeconds = timing.offsetSeconds;
 		audioTrackCount = timing.audioTrackCount;
 		nativeTimingShared = timing.nativeTimingShared;
+		packetDecodePreferred = timing.packetDecodePreferred === true;
+		selectedAudioTrack = timing.selectedAudioTrack;
+		hybridAacWorkload = timing.hybridAacWorkload;
+		if (selectedAudioTrack) selectedEndSeconds = timing.programmeEndSeconds;
 		if (timing.programmeEndSeconds !== null) durationSeconds = Math.max(durationSeconds, timing.programmeEndSeconds);
 	} catch { throwIfAborted(options.signal); }
-	const workloadReader = await createVideoAudioWorkloadReader(options.file, options.signal);
+	if (typeof options.audioProgramme === 'number' && selectedAudioTrack?.streamIndex !== options.audioProgramme) {
+		throw new Error('External audio does not report its recorded container stream.');
+	}
+	const workloadReader = hybridAacWorkload ? null : await createVideoAudioWorkloadReader(options.file, options.signal);
+	const decodeFile = selectedAudioTrack?.file ?? options.file;
 	try {
-		const workload = await workloadReader.read();
+		const workload = hybridAacWorkload ?? await workloadReader?.read(selectedAudioTrack?.ordinal) ?? null;
+		if (selectedAudioTrack && workload?.presentationEndSeconds != null) {
+			selectedEndSeconds = Math.min(selectedEndSeconds ?? Infinity, workload.presentationEndSeconds);
+		}
 		if (workload?.presentationEndSeconds != null) durationSeconds = Math.max(
 			options.durationSeconds, Math.min(durationSeconds, workload.presentationEndSeconds),
 		);
@@ -94,13 +118,13 @@ export async function decodeImportedVideoAudio(
 		const budgetDurationSeconds = workload ? durationSeconds : options.durationSeconds;
 		const nativeRate = options.nativeContextSampleRate ?? options.projectSampleRate;
 		const plan = planVideoAudioWorkload(workload, budgetDurationSeconds, options.projectSampleRate, nativeRate);
-		let nativeWholeFile = nativeTimingShared && plan.nativeWholeFile;
+		let nativeWholeFile = (nativeTimingShared || Boolean(selectedAudioTrack)) && plan.nativeWholeFile && !packetDecodePreferred;
 		// Native engines choose different programmes. Every possible choice must fit
 		// and share its authored endpoint before whole-file decoding is admitted.
-		if (nativeWholeFile && audioTrackCount > 1) {
+		if (nativeWholeFile && audioTrackCount > 1 && !selectedAudioTrack) {
 			nativeWholeFile = audioTrackCount <= 32;
 			for (let index = 0; nativeWholeFile && index < audioTrackCount; index++) {
-				const candidate = await workloadReader.read(index);
+				const candidate = await workloadReader?.read(index);
 				if (!candidate || candidate.presentationEndSeconds == null
 					|| candidate.presentationEndSeconds !== workload?.presentationEndSeconds) {
 					nativeWholeFile = false;
@@ -111,20 +135,24 @@ export async function decodeImportedVideoAudio(
 				} catch { nativeWholeFile = false; }
 			}
 		}
-		let declaredAudioSampleRate: number | null = null;
+		const identity = selectedAudioTrack ? { selectedAudioStreamIndex: selectedAudioTrack.streamIndex } : {};
+		const fitSelectedProgramme = (decoded: ImportedVideoDecodedAudio): ImportedVideoDecodedAudio => trimSelectedProgramme(
+			decoded, selectedEndSeconds, hybridAacWorkload !== undefined,
+		);
+		let declaredAudioSampleRate: number | null = selectedAudioTrack?.sampleRate ?? null;
 		try {
 			// Native decoders select different tracks across engines. Keep their path
 			// only for shared timing; the container sink explicitly selects primary.
 			if (!nativeWholeFile) throw new VideoAudioWholeFileLimitError();
-			if (options.file.size > 32 * 1024 * 1024) throw new RangeError('Use bounded container audio decoding.');
-			const encoded = await options.file.arrayBuffer();
-			declaredAudioSampleRate = audioTrackCount > 1 ? null : options.inspectEncodedSampleRate(encoded);
-			const decodedAudio = await options.decodeNative(encoded);
+			if (decodeFile.size > 32 * 1024 * 1024) throw new RangeError('Use bounded container audio decoding.');
+			const encoded = await decodeFile.arrayBuffer();
+			if (!selectedAudioTrack && audioTrackCount <= 1) declaredAudioSampleRate = options.inspectEncodedSampleRate(encoded);
+			const decodedAudio = await decodeNativeVideoAudio(options, encoded, hybridAacWorkload?.sampleRate);
 			throwIfAborted(options.signal);
 			assertDecodedVideoAudioWorkload(decodedAudio, budgetDurationSeconds, options.projectSampleRate, audioOffsetSeconds);
 			return Object.freeze({
-				decodedAudio: placeImportedVideoAudio(decodedAudio, audioOffsetSeconds, durationSeconds),
-				declaredAudioSampleRate, ...programme,
+				decodedAudio: fitSelectedProgramme(placeImportedVideoAudio(decodedAudio, audioOffsetSeconds, durationSeconds)),
+				declaredAudioSampleRate, ...programme, ...identity,
 			});
 		} catch (error) {
 			throwIfAborted(options.signal);
@@ -132,26 +160,32 @@ export async function decodeImportedVideoAudio(
 			const forbidWholeFileFallback = workload !== null && audioTrackCount <= 1 && nativeWholeFile
 				&& error instanceof VideoAudioWholeFileLimitError;
 			try {
-				const decodedAudio = await (options.decodeContainerAudio ?? decodeBrowserContainerAudio)(options.file, {
+				const decodedAudio = await (options.decodeContainerAudio ?? decodeBrowserContainerAudio)(decodeFile, {
 					signal: options.signal, durationSeconds,
+					...(packetDecodePreferred ? { programmeSampleRate: options.projectSampleRate } : {}),
 				});
 				throwIfAborted(options.signal);
 				assertDecodedVideoAudioWorkload(decodedAudio, budgetDurationSeconds, options.projectSampleRate);
+				if ('programmeFrameCount' in decodedAudio && decodedAudio.programmeFrameCount !== undefined) {
+					programme = { programmeFrameCount: scaleSampleFrame(
+						decodedAudio.programmeFrameCount, decodedAudio.sampleRate, options.projectSampleRate, 'point',
+					) };
+				}
 				return Object.freeze({
-					decodedAudio,
-					declaredAudioSampleRate, ...programme,
+					decodedAudio: fitSelectedProgramme(decodedAudio),
+					declaredAudioSampleRate, ...programme, ...identity,
 				});
 			} catch (error) {
 				throwIfAborted(options.signal);
 				if (workload && (error instanceof VideoAudioOutputLimitError || error instanceof VideoAudioWholeFileLimitError)) throw error;
 				let firstWorkload = workload;
-				if (audioTrackCount > 1) {
+				if (audioTrackCount > 1 && !selectedAudioTrack) {
 					// Both maintained FFmpeg routes explicitly map 0:a:0, independent of
 					// container defaults. Its offset and source extent belong to that track.
 					const first = await readVideoContainerAudioTiming(options.file, options.signal, 'first');
 					audioOffsetSeconds = first.offsetSeconds;
 					durationSeconds = Math.max(options.durationSeconds, first.programmeEndSeconds ?? 0);
-					firstWorkload = await workloadReader.read('first');
+					firstWorkload = await workloadReader?.read('first') ?? null;
 					if (firstWorkload?.presentationEndSeconds != null) durationSeconds = Math.max(
 						options.durationSeconds, Math.min(durationSeconds, firstWorkload.presentationEndSeconds),
 					);
@@ -160,16 +194,42 @@ export async function decodeImportedVideoAudio(
 				assertMinimumVideoAudioWindow(durationSeconds, options.projectSampleRate);
 				if (forbidWholeFileFallback || !planVideoAudioWorkload(firstWorkload, durationSeconds,
 					options.projectSampleRate, nativeRate).ffmpegWholeFile) throw new VideoAudioWholeFileLimitError();
-				const decodedAudio = await options.decodeFfmpeg(options.file, {
+				const decodedAudio = await options.decodeFfmpeg(decodeFile, {
 					sampleRate: options.projectSampleRate, signal: options.signal,
 				});
 				throwIfAborted(options.signal);
 				assertDecodedVideoAudioWorkload(decodedAudio, durationSeconds, options.projectSampleRate, audioOffsetSeconds);
 				return Object.freeze({
-					decodedAudio: placeImportedVideoAudio(decodedAudio, audioOffsetSeconds, durationSeconds),
-					declaredAudioSampleRate, ...programme,
+					decodedAudio: fitSelectedProgramme(placeImportedVideoAudio(decodedAudio, audioOffsetSeconds, durationSeconds)),
+					declaredAudioSampleRate, ...programme, ...identity,
 				});
 			}
 		}
-	} finally { workloadReader.dispose(); }
+	} finally { workloadReader?.dispose(); }
+}
+
+function trimSelectedProgramme(decoded: ImportedVideoDecodedAudio, endSeconds: number | null,
+	requireCompleteProgramme: boolean): ImportedVideoDecodedAudio {
+	if (endSeconds === null) return decoded;
+	const end = secondsToSampleFrame(endSeconds, decoded.sampleRate, 'point');
+	const channels = 'getChannelData' in decoded
+		? Array.from({ length: decoded.numberOfChannels }, (_, index) => decoded.getChannelData(index)) : decoded.channels;
+	if (requireCompleteProgramme && (!channels.length || channels.some(plane => plane.length < end))) {
+		throw new RangeError('The decoder returned an incomplete fragmented AAC programme.');
+	}
+	return { channels: channels.map(plane => plane.subarray(0, end)), sampleRate: decoded.sampleRate };
+}
+
+async function decodeNativeVideoAudio(
+	{ decodeNative, signal }: ImportedVideoAudioDecodeOptions,
+	encoded: ArrayBuffer,
+	sampleRate?: number,
+): Promise<ImportedVideoDecodedAudio> {
+	// Web Audio may never settle. Retire this attempt so the existing fallback can run.
+	const deadline = new AbortController();
+	const timer = setTimeout(() => { deadline.abort(); }, NATIVE_VIDEO_AUDIO_DECODE_TIMEOUT_MS);
+	const scope = signal ? AbortSignal.any([signal, deadline.signal]) : deadline.signal;
+	try {
+		return await raceAbortableRead(() => decodeNative(encoded, sampleRate), scope);
+	} finally { clearTimeout(timer); }
 }

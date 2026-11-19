@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+
+import { displayText, plainRecord, enumValue, booleanValue, boundedText, boundedInteger } from './plugin-registry-validation.ts';
 /**
  * Main-owned plug-in identity, installation, allowance, and compatibility registry.
  * Scan order never selects among installations, changed digests revoke allowance,
@@ -6,11 +8,13 @@
  */
 
 import { createHash } from 'node:crypto';
+import { publicStablePluginId } from './plugin-registry-display.ts';
 
 import {
-	type HelperFileIdentity, type HelperEffectPluginFormat, type HelperPluginHostJobGrant,
+	type HelperEffectPluginFormat, type HelperPluginHostJobGrant,
 	HELPER_EFFECT_PLUGIN_FORMATS, validateHelperJobGrant,
 } from './helper-job-grant.ts';
+import { portableNativeChildFileIdentity, type NativeChildFileIdentity } from './native-child-file-identity.ts';
 import {
 	admitPluginBundleStableIds,
 	installationIdFor,
@@ -53,7 +57,6 @@ export const MAXIMUM_PLUGIN_CHANNELS = 4_096;
 export const MAXIMUM_PLUGIN_OBSERVED_LATENCY_FRAMES = 10_000_000;
 
 const SHA256 = /^[a-f\d]{64}$/u;
-const MAXIMUM_TEXT_LENGTH = 256;
 
 export interface PluginChannelTopology {
 	readonly inputChannels: number;
@@ -67,7 +70,7 @@ export interface PluginScanObservation {
 	readonly name: string; readonly vendor: string; readonly version: string;
 	readonly platform: string; readonly architecture: string;
 	readonly binaryPath: string; readonly binaryBytes: number; readonly binarySha256: string;
-	readonly identity: Readonly<HelperFileIdentity>;
+	readonly identity: Readonly<NativeChildFileIdentity>;
 	readonly classification: PluginClassification;
 	readonly topologies: readonly PluginChannelTopology[];
 	readonly realtimeSupported: boolean; readonly offlineSupported: boolean;
@@ -117,6 +120,7 @@ export interface PluginInstallationView {
 
 export interface PluginEntryView {
 	readonly entryId: string; readonly format: PluginFormat;
+	readonly stablePluginId?: string;
 	readonly name: string; readonly vendor: string;
 	readonly classification: PluginClassification;
 	readonly eligible: boolean; readonly ineligibleReason: PluginIneligibleReason | null;
@@ -149,10 +153,14 @@ export interface DesktopPluginRegistryOptions {
 	 * machine, and it would record and host the binaries the store exists to refuse.
 	 */
 	readonly isQuarantined: (digest: string) => boolean;
+	readonly linuxWineVst3Enabled?: () => boolean;
+	readonly isInstallationEnabled?: (observation: PluginScanObservation) => boolean;
 }
 
 export class DesktopPluginRegistry {
 	readonly #isQuarantined: (digest: string) => boolean;
+	readonly #wineEnabled: () => boolean;
+	readonly #isInstallationEnabled: (observation: PluginScanObservation) => boolean;
 	readonly #entries = new Map<string, Entry>();
 	readonly #installations = new Map<string, [Entry, Installation]>();
 	/** Digest → exact format-native descriptor set. */
@@ -164,6 +172,8 @@ export class DesktopPluginRegistry {
 				'A plug-in registry must be given the durable quarantine it consults.');
 		}
 		this.#isQuarantined = options.isQuarantined;
+		this.#wineEnabled = options.linuxWineVst3Enabled ?? (() => false);
+		this.#isInstallationEnabled = options.isInstallationEnabled ?? (() => true);
 	}
 
 	record(observation: PluginScanObservation): PluginRegistryAdmission {
@@ -174,9 +184,10 @@ export class DesktopPluginRegistry {
 			return rejected('malformed', describeError(error));
 		}
 		const entryId = entryIdFor(admitted.format, admitted.stableId);
+		const unresolved = admitted.compatibility !== 'compatible' && admitted.stableId === `unreadable:${admitted.binarySha256}`;
 		const identityClaim = pluginBundleIdentityClaim(admitted.format, admitted.bundleStableIds);
 		const claimed = this.#identities.get(admitted.binarySha256);
-		if (claimed !== undefined && claimed !== identityClaim) {
+		if (!unresolved && claimed !== undefined && claimed !== identityClaim) {
 			return rejected('identity-change',
 				'That binary previously reported a different plug-in identity and was not recorded.');
 		}
@@ -206,7 +217,13 @@ export class DesktopPluginRegistry {
 		// can leave an identity in the projection with nothing behind it.
 		this.#entries.set(entryId, entry);
 		this.#installations.set(installationId, [entry, entry.installations.get(installationId)!]);
-		this.#identities.set(admitted.binarySha256, identityClaim);
+		if (!unresolved) {
+			this.#identities.set(admitted.binarySha256, identityClaim);
+			const placeholder = this.#entries.get(entryIdFor(admitted.format, `unreadable:${admitted.binarySha256}`));
+			for (const [id, installation] of placeholder?.installations ?? []) {
+				if (id !== installationId && installation.observation.binarySha256 === admitted.binarySha256) this.forget(id);
+			}
+		}
 		return Object.freeze({
 			status: 'recorded' as const,
 			entryId,
@@ -295,11 +312,7 @@ export class DesktopPluginRegistry {
 		});
 	}
 
-	/**
-	 * The only path from the registry to something that can run. It refuses an
-	 * instrument, an installation that is not the active one, and every ineligible
-	 * entry, so no arrangement of public calls hosts a scanned instrument.
-	 */
+	/** Grants only the selected, compatible, explicitly allowed installation. */
 	hostGrantFor(installationId: string): HelperPluginHostJobGrant {
 		const [entry, installation] = this.#locate(installationId);
 		const reason = this.#ineligibleReason(entry);
@@ -313,11 +326,14 @@ export class DesktopPluginRegistry {
 		const { observation } = installation;
 		return validateHelperJobGrant('plugin-host', {
 			binaryPath: observation.binaryPath,
+			...(observation.platform === 'linux' && observation.format === 'vst3' && this.#wineEnabled() ? { linuxWineVst3: true as const } : {}),
 			binaryBytes: observation.binaryBytes,
 			binarySha256: observation.binarySha256,
 			format: observation.format,
 			stableId: observation.stableId,
 			identity: observation.identity,
+			...(observation.platform === 'win32' && observation.architecture === 'ia32'
+				&& observation.format === 'vst2' ? { windowsX86Vst2: true as const } : {}),
 		});
 	}
 
@@ -346,18 +362,15 @@ export class DesktopPluginRegistry {
 	}
 
 	#ineligibleReason(entry: Entry): PluginIneligibleReason | null {
-		// Checked across every installation rather than only the active one: an
-		// identity that is an instrument anywhere is never offered, whatever the
-		// user later selects.
-		if ([...entry.installations.values()].some(({ observation }) => observation.classification === 'instrument')) {
-			return 'instrument-not-offered';
-		}
+		const classifications = new Set([...entry.installations.values()].map(({ observation }) => observation.classification));
+		if (classifications.size !== 1) return 'classification-unknown';
+		if (classifications.has('instrument') && !['vst2', 'vst3', 'lv2'].includes(entry.format)) return 'instrument-not-offered';
 		const active = this.#active(entry);
 		if (!active) return 'identity-collision';
 		if (this.#isQuarantined(active.observation.binarySha256)) return 'quarantined';
 		const { observation } = active;
-		if (observation.classification !== 'effect') return 'classification-unknown';
-		if (observation.compatibility !== 'compatible') return 'incompatible';
+		if (observation.compatibility !== 'compatible' || !this.#isInstallationEnabled(observation)) return 'incompatible';
+		if (observation.classification === 'unknown') return 'classification-unknown';
 		if (!observation.realtimeSupported && !observation.offlineSupported) return 'no-supported-mode';
 		if (!selectPluginHostTopology(observation)) return 'incompatible';
 		if (!active.allowed) return 'allowance-required';
@@ -386,6 +399,7 @@ export class DesktopPluginRegistry {
 		return Object.freeze({
 			entryId: entry.entryId,
 			format: entry.format,
+			...publicStablePluginId(entry.stableId),
 			name: displayText(label.name),
 			vendor: displayText(label.vendor),
 			classification: classifications.size === 1 ? (soleClassification ?? 'unknown') : 'unknown',
@@ -422,7 +436,7 @@ export interface PluginScanEntryContext {
 	readonly format: PluginFormat;
 	readonly platform: string;
 	readonly architecture: string;
-	readonly identity: Readonly<HelperFileIdentity>;
+	readonly identity: Readonly<NativeChildFileIdentity>;
 	readonly bundleStableIds?: readonly string[];
 }
 
@@ -453,13 +467,13 @@ export function pluginObservationFromScanEntry(
 		throw new PluginRegistryError('untranslatable-scan-entry',
 			'A plug-in scan entry named a compatibility result this registry has no verdict for.');
 	}
-	if (entry.channelSupport.length === 0) {
+	if (compatibility === 'compatible' && entry.channelSupport.length === 0) {
 		throw new PluginRegistryError('untranslatable-scan-entry',
 			'A plug-in scan entry that claims no channel layout cannot be recorded as an installation.');
 	}
 	try {
 		return admitObservation({
-			format: context.format, platform: context.platform, architecture: context.architecture,
+			format: context.format, platform: context.platform, architecture: entry.binaryArchitecture ?? context.architecture,
 			identity: context.identity, compatibility,
 			stableId: entry.stableId, name: entry.name, vendor: entry.vendor, version: entry.version,
 			bundleStableIds: context.bundleStableIds ?? [entry.stableId],
@@ -500,12 +514,9 @@ function admitObservation(value: unknown): PluginScanObservation {
 		binaryPath: absolutePath(record.binaryPath),
 		binaryBytes: boundedInteger(record.binaryBytes, 1, Number.MAX_SAFE_INTEGER, 'binary byte length'),
 		binarySha256,
-		identity: Object.freeze({
-			dev: boundedInteger(identity.dev, 0, Number.MAX_SAFE_INTEGER, 'file device'),
-			ino: boundedInteger(identity.ino, 0, Number.MAX_SAFE_INTEGER, 'file inode'),
-		}),
+		identity: portableNativeChildFileIdentity(identity),
 		classification: enumValue(record.classification, PLUGIN_CLASSIFICATIONS, 'plug-in classification'),
-		topologies: admitTopologies(record.topologies),
+		topologies: admitTopologies(record.topologies, record.compatibility !== 'compatible'),
 		realtimeSupported: booleanValue(record.realtimeSupported, 'real-time support'),
 		offlineSupported: booleanValue(record.offlineSupported, 'offline support'),
 		reportedLatencyFrames: record.reportedLatencyFrames === null ? null
@@ -516,9 +527,9 @@ function admitObservation(value: unknown): PluginScanObservation {
 	return Object.freeze(admitted);
 }
 
-function admitTopologies(value: unknown): readonly PluginChannelTopology[] {
-	if (!Array.isArray(value) || value.length === 0 || value.length > MAXIMUM_PLUGIN_TOPOLOGIES) {
-		throw new TypeError(`A plug-in must report between one and ${String(MAXIMUM_PLUGIN_TOPOLOGIES)} channel topologies.`);
+function admitTopologies(value: unknown, unavailable: boolean): readonly PluginChannelTopology[] {
+	if (!Array.isArray(value) || !unavailable && value.length === 0 || value.length > MAXIMUM_PLUGIN_TOPOLOGIES) {
+		throw new TypeError(`A compatible plug-in must report between one and ${String(MAXIMUM_PLUGIN_TOPOLOGIES)} channel topologies.`);
 	}
 	return Object.freeze(value.map((entry) => {
 		const record = plainRecord(entry, 'A plug-in channel topology');
@@ -529,58 +540,9 @@ function admitTopologies(value: unknown): readonly PluginChannelTopology[] {
 	}));
 }
 
-/**
- * Scanner-reported text is authored by the plug-in, so it is bounded at admission
- * and stripped of path separators here, at the renderer boundary. A vendor that
- * names itself after a path still cannot put one into renderer-facing state.
- */
-function displayText(value: string): string {
-	return value.split(/[\\/]/u).join(' ').replace(/\s+/gu, ' ').trim() || '(unnamed)';
-}
-
 function absolutePath(value: unknown): string {
 	if (!isAdmissiblePluginPath(value)) {
 		throw new TypeError('A plug-in binary path must be one absolute, traversal-free path.');
 	}
 	return value;
-}
-
-function plainRecord(value: unknown, label: string): Record<string, unknown> {
-	if (!value || typeof value !== 'object' || Array.isArray(value) || ArrayBuffer.isView(value)) {
-		throw new TypeError(`${label} must be a plain record.`);
-	}
-	return value as Record<string, unknown>;
-}
-
-function enumValue<const Values extends readonly string[]>(
-	value: unknown,
-	values: Values,
-	label: string,
-): Values[number] {
-	if (typeof value !== 'string' || !(values as readonly string[]).includes(value)) {
-		throw new TypeError(`A plug-in scan observation must name a supported ${label}.`);
-	}
-	return value as Values[number];
-}
-
-function booleanValue(value: unknown, label: string): boolean {
-	if (typeof value !== 'boolean') throw new TypeError(`A plug-in ${label} flag must be a boolean.`);
-	return value;
-}
-
-function boundedText(value: unknown, label: string): string {
-	if (typeof value !== 'string'
-		|| value.length === 0
-		|| value.length > MAXIMUM_TEXT_LENGTH
-		|| value.includes('\u0000')) {
-		throw new TypeError(`A plug-in ${label} must be bounded, non-empty text.`);
-	}
-	return value;
-}
-
-function boundedInteger(value: unknown, minimum: number, maximum: number, label: string): number {
-	if (!Number.isSafeInteger(value) || (value as number) < minimum || (value as number) > maximum) {
-		throw new TypeError(`A plug-in ${label} is outside its admitted bounds.`);
-	}
-	return value as number;
 }

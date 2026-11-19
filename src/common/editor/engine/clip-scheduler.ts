@@ -15,6 +15,7 @@ import {
 	chunkChannels,
 	createClipGainChain,
 	createReversedChunkSource,
+	readChunkSourceRange,
 } from './clip-scheduler-chunk-sources.ts';
 import {
 	assertSharedPlaybackStart,
@@ -45,6 +46,7 @@ import type {
 import { scheduleProjectAutomationLanesV21 } from './project-automation-scheduler-v21.ts';
 import type { ScheduledParameterRegistry } from './scheduled-parameter-registry.ts';
 import { createOfflineChunkResampleBuffer } from './offline-chunk-resample.ts';
+import { scheduleAutoTuneControls } from './auto-tune-control.ts';
 
 export interface ChunkStreamHandle {
 	readonly ready: Promise<unknown>;
@@ -181,11 +183,32 @@ export async function scheduleProjectClips({
 		chunkSources,
 		trackInputs,
 		offlineSampleRate: mode === 'offline' ? context.sampleRate : undefined,
+		chunkLoopSampleRate: transportRate === 1 ? context.sampleRate : undefined,
 		fromFrame,
 		toFrame,
 		sampleRate,
 		sourceResolver,
 	});
+	for (const [index, plan] of plans.entries()) {
+		if (!plan.chunkLoopRange || !plan.chunkSource) continue;
+		const { startFrame, endFrame, outputFrames } = plan.chunkLoopRange;
+		const inputFrames = endFrame - startFrame;
+		let buffer: AudioBuffer;
+		if (inputFrames === outputFrames) {
+			const channels = await readChunkSourceRange(plan.chunkSource, startFrame, endFrame, signal);
+			throwIfAborted(signal);
+			buffer = context.createBuffer(channels.length, outputFrames, context.sampleRate);
+			for (const [channel, samples] of channels.entries()) {
+				buffer.getChannelData(channel).set(plan.reversed ? samples.reverse() : samples);
+			}
+		} else {
+			const source = plan.reversed ? createReversedChunkSource(plan.chunkSource) : plan.chunkSource;
+			buffer = await createOfflineChunkResampleBuffer({ context, source, inputFrameCount: inputFrames,
+				inputOffsetFrame: plan.reversed ? source.frameCount - endFrame : startFrame, outputFrameCount: outputFrames, signal });
+		}
+		throwIfAborted(signal);
+		plans[index] = { ...plan, originalBuffer: buffer, chunkSource: null, reversed: false };
+	}
 	const streamed: PreparedLiveChunkPlan[] = [];
 	let loadedChunkFrames = 0;
 	const totalChunkFrames = plans.reduce((total, plan) => (
@@ -275,6 +298,7 @@ export async function scheduleProjectClips({
 		actualContextStartTime = prepareUnstartedPlaybackStart({
 			context, candidate: confirmed, leadSeconds: startLeadSeconds, checkDeadline, allowRebase: canRebase, signal,
 			prepare(startTime) {
+				scheduleAutoTuneControls(project, parameterRegistry, { fromFrame, toFrame, contextStartTime: startTime, sampleRate, contextSampleRate: context.sampleRate || sampleRate, transportRate });
 				scheduleProjectGains({ context, project, gainParams: gains, fromFrame, toFrame, contextStartTime: startTime, sampleRate, transportRate });
 				if (parameterRegistry) scheduleProjectAutomationLanesV21(project, parameterRegistry, {
 					fromFrame, toFrame, contextStartTime: startTime, sampleRate, contextSampleRate: context.sampleRate || sampleRate, transportRate, tempoMap: project.tempoMap,
@@ -377,9 +401,9 @@ async function scheduleOfflineChunkPlan({
 	}
 	const sourceEndFrame = Math.min(
 		provider.frameCount,
-		plan.offsetFrame + requestedInputFrames,
+		roundedStart + roundedInputFrames,
 	);
-	const firstChunk = Math.floor(plan.offsetFrame / provider.chunkFrames);
+	const firstChunk = Math.floor(roundedStart / provider.chunkFrames);
 	const lastChunk = Math.max(firstChunk, Math.ceil(sourceEndFrame / provider.chunkFrames) - 1);
 	for (let chunkIndex = firstChunk; chunkIndex <= lastChunk; chunkIndex += 1) {
 		throwIfAborted(signal);
@@ -387,37 +411,35 @@ async function scheduleOfflineChunkPlan({
 		const channels = chunkChannels(value);
 		const chunkStart = chunkIndex * provider.chunkFrames;
 		const chunkFrames = channels[0]?.length || 0;
-		const rangeStart = Math.max(plan.offsetFrame, chunkStart);
+		const rangeStart = Math.max(roundedStart, chunkStart);
 		const rangeEnd = Math.min(sourceEndFrame, chunkStart + chunkFrames);
 		if (rangeEnd <= rangeStart) continue;
-		// This branch already has exactly one input sample per output frame.
-		const buffer = context.createBuffer(provider.channelCount, chunkFrames, context.sampleRate);
+		const retainedFrames = rangeEnd - rangeStart;
+		// Keep only the samples this source node will play at the output clock.
+		const buffer = context.createBuffer(provider.channelCount, retainedFrames, context.sampleRate);
 		for (let channel = 0; channel < provider.channelCount; channel += 1) {
 			const values = channels[channel];
 			if (!values) throw new Error('A long-source storage chunk has missing channels.');
+			const crop = values.subarray(rangeStart - chunkStart, rangeEnd - chunkStart);
 			if (typeof buffer.copyToChannel === 'function') {
-				const copyValues = values.buffer instanceof ArrayBuffer
-					? values as Float32Array<ArrayBuffer>
-					: new Float32Array(values);
+				const copyValues = crop.buffer instanceof ArrayBuffer
+					? crop as Float32Array<ArrayBuffer>
+					: new Float32Array(crop);
 				buffer.copyToChannel(copyValues, channel);
 			}
-			else buffer.getChannelData(channel).set(values);
+			else buffer.getChannelData(channel).set(crop);
 		}
 		const source = addNode(allNodes, context.createBufferSource());
 		source.buffer = buffer;
 		connect(source, chain.input);
-		const when = clipStartTime + (rangeStart - plan.offsetFrame) / context.sampleRate;
+		const when = clipStartTime + (rangeStart - roundedStart) / context.sampleRate;
 		setParam(source.playbackRate, 1, when);
 		try {
-			source.start(
-				when,
-				(rangeStart - chunkStart) / context.sampleRate,
-				(rangeEnd - rangeStart) / context.sampleRate,
-			);
+			source.start(when);
 			activeSources.add(source);
 		} catch {
 			// Provider errors report corrupt chunks; Web Audio range errors skip only this segment.
 		}
-		onChunkLoaded?.(rangeEnd - rangeStart);
+		onChunkLoaded?.(retainedFrames);
 	}
 }

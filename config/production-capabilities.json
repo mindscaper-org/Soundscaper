@@ -284,6 +284,7 @@
 				"audioRecording": true,
 				"audioGenerators": true,
 				"audioEffects": true,
+				"audioClipEffects": true,
 				"audioSpectralEditing": true,
 				"audioAnalysis": true,
 				"audioMacros": true,
@@ -324,6 +325,7 @@
 				"videoTransitions": false,
 				"sourceCharacteristics": true,
 				"immersiveAdm": true,
+				"subprojects": true,
 				"masteringSequences": true
 			},
 			"projectSchemaIdentity": {
@@ -685,6 +687,7 @@
 				"audioRecording": false,
 				"audioGenerators": false,
 				"audioEffects": false,
+				"audioClipEffects": false,
 				"audioSpectralEditing": false,
 				"audioAnalysis": false,
 				"audioMacros": false,
@@ -725,6 +728,7 @@
 				"videoTransitions": true,
 				"sourceCharacteristics": true,
 				"immersiveAdm": false,
+				"subprojects": false,
 				"masteringSequences": false
 			},
 			"projectSchemaIdentity": {

@@ -15,8 +15,9 @@ import {
 } from './sound-activation/sound-activated-recording-capture-session.ts';
 import { compactSoundActivationSegments } from './sound-activation/sound-activated-recording-chunk.ts';
 import { scaleSampleFrame, secondsToSampleFrame } from '../../../timeline-time.ts';
-import { planRoutedRecordingSources } from './routed-recording-source-plan.ts';
+import { planRoutedRecordingSources, routedRecordingTargetTracks } from './routed-recording-source-plan.ts';
 import { timedRecordingStopFrame } from '../recording-model.ts';
+import { acquireRecordingHardwareInput } from './recording-hardware-admission.ts';
 import { audibleRecordingStartTime, planRecordingStartTiming } from './recording-start-timing.ts';
 import { recordingSourceAlignment } from './recording-source-alignment.ts';
 import { assertRecordingTargetsUnlocked } from '../../../recording-target-admission.ts';
@@ -51,11 +52,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 		const project = runtime.getProject();
 		const timedStartTimeMs = Number(options.timedStartTimeMs);
 		const timedStart = Number.isFinite(timedStartTimeMs);
-		const explicitTrack = options.trackId ? runtime.findTrack(project, options.trackId) : null;
-		if (options.trackId && explicitTrack?.type !== 'audio') throw createLocalizedError(Error, { ['armTrackForRecording']: runtime.messages.armTrack }, 'armTrackForRecording');
-		const armedTracks = explicitTrack
-			? [explicitTrack]
-			: project.tracks.filter((track) => track.type === 'audio' && track.armed);
+		const armedTracks = routedRecordingTargetTracks(project, options);
 		if (!armedTracks.length) throw createLocalizedError(Error, { ['armTrackForRecording']: runtime.messages.armTrack }, 'armTrackForRecording');
 		const plan = planRoutedRecordingSources(
 			armedTracks,
@@ -145,10 +142,10 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 					promise = Promise.reject(createLocalizedError(Error, { ['recordingPreparedInputClosed']: runtime.messages.preparedInputClosed }, 'recordingPreparedInputClosed'));
 				} else if (firstRoute.kind === 'display') promise = runtime.capturePool.acquireDisplay();
 				else {
-					promise = runtime.capturePool.acquireHardware(firstRoute.deviceId, {
-						channelCount: requiredChannels,
+					promise = acquireRecordingHardwareInput(runtime.capturePool, {
+						deviceId: firstRoute.deviceId, channelCount: requiredChannels, signal: scope.signal,
 						sampleRate: runtime.recordingInputSampleRate?.() ?? sampleRate,
-					});
+					}, plan.groups.length === 1 && !timedStart);
 				}
 				return { sourceKey, routes, promise: raceAbortablePromise(promise, scope.signal) };
 			});
@@ -216,13 +213,13 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 			scope.assertCurrent();
 			if (!sourceSessions.length) throw createLocalizedError(Error, { ['recordingNoInputsAvailable']: runtime.messages.noInputsAvailable }, 'recordingNoInputsAvailable');
 			const captureSampleRate = context.sampleRate || sampleRate;
-			const selection = runtime.activeSelection(project);
+			const selection = options.punch ? options.punch.selection : runtime.activeSelection(project);
 			await runtime.preflightStorage(
 				captureSampleRate * routedChannelCount * Float32Array.BYTES_PER_ELEMENT * 60,
 				'recording', scope.signal,
 			);
 			scope.assertCurrent();
-			const requestedStartFrame = selection?.startFrame ?? runtime.engine.getPositionFrames();
+			const requestedStartFrame = options.punch?.startFrame ?? selection?.startFrame ?? runtime.engine.getPositionFrames();
 			for (const session of sourceSessions) {
 				if (session.disconnected) continue;
 				const trackSettings = session.inputTrack?.getSettings?.() || {};
@@ -434,6 +431,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 				contextSampleRate: context.sampleRate,
 				requestedStartFrame,
 				leadInEnabled: state.leadInRecording,
+				leadInDurationSeconds: state.leadInDurationSeconds,
 				createTimedRecordingPastError: () => createLocalizedError(
 					RangeError,
 					{ ['timedRecordingPast']: runtime.messages.timedRecordingPast },
@@ -504,6 +502,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 				if (!recorderArmed) routedRecorder.start();
 				state.recordingPaused = false;
 				publishLocalizedStatus(runtime.setStatus, runtime.messages.recording, { key: 'recording' });
+				if (state.recordingKind === 'ordinary') runtime.rememberPunch?.(requestedStartFrame, selection, entries.map(entry => entry.trackId));
 				runtime.updateTransportState('recording');
 			}
 		} catch (error) {

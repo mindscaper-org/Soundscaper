@@ -5,6 +5,9 @@ const productId = resolveDesktopProductId(process.env.SCAPE_PRODUCT);
 const framescaper = productId === 'framescaper';
 const motionscaper = productId === 'motionscaper';
 const productName = { soundscaper: 'Soundscaper', framescaper: 'Framescaper', motionscaper: 'Motionscaper' }[productId];
+const releaseMetadata = require('./scripts/lib/product-release-lines.mjs').resolveProductDesktopMetadata(productId);
+const releaseName = releaseMetadata.applicationVersion;
+const artifactPrefix = motionscaper ? `${productName}-${releaseName}` : releaseName;
 // Development builds use ad-hoc seals; credentialed release jobs explicitly
 // select a Developer ID identity and require notarization.
 const signing = require('./scripts/lib/desktop-signing-config.cjs').desktopSigningConfig();
@@ -28,7 +31,11 @@ module.exports = {
 	forceCodeSigning: signing.forceCodeSigning,
 	appId: `org.${productId}.desktop`,
 	productName,
-	artifactName: '${productName}-${version}-${os}-${arch}.${ext}',
+	artifactName: `${artifactPrefix}-\${os}-\${arch}.\${ext}`,
+	...(releaseMetadata.packageVersion === undefined ? {} : {
+		buildVersion: releaseMetadata.packageVersion,
+		extraMetadata: { version: releaseMetadata.packageVersion, releaseVersion: releaseName },
+	}),
 	compression: 'maximum',
 	asar: true,
 	// Stock Electron enables proprietary codecs in its Chromium FFmpeg library.
@@ -40,6 +47,7 @@ module.exports = {
 	afterPack: motionscaper ? './scripts/motionscaper-desktop-after-pack.mjs' : './scripts/desktop-after-pack.mjs',
 	afterSign: './scripts/desktop-after-sign.mjs',
 	afterAllArtifactBuild: './scripts/desktop-after-all-artifact-build.mjs',
+	msiProjectCreated: './scripts/desktop-msi-project.mjs',
 	directories: {
 		app: '.desktop-build/app',
 		buildResources: '.desktop-build/icons',
@@ -53,6 +61,7 @@ module.exports = {
 		'!desktop/**/*.test.*',
 	],
 	extraResources: [
+		{ from: 'desktop/policies', to: 'policies', filter: [`${productId}.admx`, `en-US/${productId}.adml`] },
 		{ from: '.desktop-build/renderer', to: 'renderer' },
 		{ from: '.desktop-build/runtime', to: 'runtime' },
 		{ from: 'LICENSE', to: 'licenses/Soundscaper-AGPL-3.0.txt' },
@@ -90,7 +99,16 @@ module.exports = {
 		...(motionscaper ? { signExts: ['!motionscaper-media-host.exe'] } : {}),
 		extraResources: [{ from: 'desktop/installer/windows-ffmpeg-install.ps1', to: 'installer/windows-ffmpeg-install.ps1' }],
 		icon: '.desktop-build/icons/icon.ico',
-		target: ['nsis', 'zip'],
+		target: ['nsis', 'zip', 'msi'],
+	},
+	msi: {
+		perMachine: true,
+		oneClick: true,
+		runAfterFinish: false,
+		createDesktopShortcut: false,
+		createStartMenuShortcut: true,
+		upgradeCode: framescaper ? '1dcfd415-9a4d-5e4d-b5aa-9d9c66854660' : 'dc59358f-8c71-537e-9bdf-f565ac2be491',
+		warningsAsErrors: true,
 	},
 	nsis: {
 		include: 'desktop/installer/windows-ffmpeg.nsh',
@@ -126,8 +144,10 @@ module.exports = {
 		},
 	},
 	dmg: {
+		// DMG titles expand ${arch} to a suffix that already includes its hyphen.
+		title: `${releaseName}\${arch}`,
 		sign: signing.mac.notarize,
-		artifactName: '${productName}-${version}-mac-${arch}.${ext}',
+		artifactName: `${artifactPrefix}-mac-\${arch}.\${ext}`,
 	},
 	linux: {
 		icon: '.desktop-build/icons/linux',
@@ -142,10 +162,10 @@ module.exports = {
 		target: ['AppImage', 'deb'],
 	},
 	appImage: {
-		artifactName: '${productName}-${version}-linux-${arch}.${ext}',
+		artifactName: `${artifactPrefix}-linux-\${arch}.\${ext}`,
 	},
 	deb: {
-		artifactName: '${productName}-${version}-linux-${arch}.${ext}',
+		artifactName: `${artifactPrefix}-linux-\${arch}.\${ext}`,
 		recommends: ['ffmpeg'],
 	},
 	publish: null,

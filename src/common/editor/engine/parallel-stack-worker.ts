@@ -15,6 +15,8 @@ interface PrepareMessage {
 	readonly plan: ParallelStackPlan;
 	readonly workerIndex: number;
 	readonly parametricEqWasmModule?: WebAssembly.Module;
+	readonly idleEffectControl?: SharedArrayBuffer;
+	readonly idleEffectControls?: Readonly<Record<string, SharedArrayBuffer>>;
 	readonly effectMailbox?: SharedParallelStackEffectMailbox;
 }
 
@@ -36,6 +38,8 @@ globalThis.addEventListener('message', (event: MessageEvent<unknown>) => {
 				|| request.plan.tasks.length !== views.geometry.taskCount) throw new RangeError('Parallel worker plan geometry mismatch.');
 			const execute = createParallelStackExecutor(request.plan, workerIndex, {
 				parametricEqWasmModule: request.parametricEqWasmModule,
+				idleEffectControl: request.idleEffectControl,
+				idleEffectControls: request.idleEffectControls,
 			}, request.effectMailbox);
 			scheduler = createParallelStackScheduler(request.shared, request.plan.tasks, workerIndex, execute);
 			globalThis.postMessage({ type: 'ready', generation: views.geometry.generation, workerIndex });
