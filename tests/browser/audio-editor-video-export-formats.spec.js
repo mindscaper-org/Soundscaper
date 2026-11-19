@@ -80,6 +80,7 @@ test.describe('video container exporters', () => {
 		await expect(link).toBeVisible({ timeout: 25_000 });
 		const bytes = await readDownloadBytes(page, link);
 		const input = new Input({ source: new BufferSource(bytes), formats: [WEBM] });
+		let decodedPacketFrames;
 		try {
 			const track = await input.getPrimaryAudioTrack();
 			expect(await track.getCodec()).toBe('opus');
@@ -88,7 +89,7 @@ test.describe('video container exporters', () => {
 			expect(header.toString('ascii', 0, 8)).toBe('OpusHead');
 			const preSkip = header.readUInt16LE(10);
 			const firstTime = await track.getFirstTimestamp();
-			expect(Math.abs(firstTime + preSkip / 48_000)).toBeLessThanOrEqual(.0005 + Number.EPSILON);
+			expect(firstTime).toBe(-preSkip / 48_000);
 			let samples = -preSkip;
 			let index = 0;
 			for await (const packet of new EncodedPacketSink(track).packets()) {
@@ -99,12 +100,15 @@ test.describe('video container exporters', () => {
 			}
 			expect(samples).toBeGreaterThanOrEqual(96_000);
 			expect(samples).toBeLessThan(96_960);
+			decodedPacketFrames = samples;
 		} finally { input.dispose(); }
-		const tailPeak = await page.evaluate(async data => {
+		const { decodedFrames, tailPeak } = await page.evaluate(async data => {
 			const context = new OfflineAudioContext(1, 1, 48000);
 			const audio = await context.decodeAudioData(Uint8Array.from(data).buffer);
-			return audio.getChannelData(0).slice(95_760, 96_000).reduce((peak, sample) => Math.max(peak, Math.abs(sample)), 0);
+			return { decodedFrames: audio.length,
+				tailPeak: audio.getChannelData(0).slice(95_760, 96_000).reduce((peak, sample) => Math.max(peak, Math.abs(sample)), 0) };
 		}, Array.from(bytes));
+		expect(decodedFrames).toBe(decodedPacketFrames);
 		expect(tailPeak).toBeGreaterThan(.05);
 	});
 	for (const [index, variant] of ['classic', 'fragmented', 'hybrid', 'quarter-turned', 'quarter-turned anamorphic'].entries()) {

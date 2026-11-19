@@ -174,7 +174,7 @@ function createMediabunnySession(request: VideoMediabunnyMuxRequest): VideoMedia
 	const target = new BufferTarget();
 	const format = request.format === 'mp4'
 		? new Mp4OutputFormat({ fastStart: 'in-memory' })
-		: new WebMOutputFormat();
+		: new WebMOutputFormat(request.audio ? { timestampScale: 500_000 } : undefined);
 	const output = new Output({ format, target });
 	const videoSource = new EncodedVideoPacketSource(request.videoCodec === 'h264' ? 'avc' : 'vp9');
 	output.addVideoTrack(videoSource, {

@@ -1,5 +1,5 @@
 diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/mediabunny/dist/bundles/mediabunny.cjs
-index 284f1d9cc..27f54c003 100644
+index 284f1d9cc..77939fbf6 100644
 --- a/node_modules/mediabunny/dist/bundles/mediabunny.cjs
 +++ b/node_modules/mediabunny/dist/bundles/mediabunny.cjs
 @@ -431,7 +431,7 @@ var Mediabunny = (() => {
@@ -1361,7 +1361,19 @@ index 284f1d9cc..27f54c003 100644
            if (!adtsFrame) {
              throw new Error("Expected ADTS frame, didn't get one.");
            }
-@@ -37104,8 +37495,8 @@ var Mediabunny = (() => {
+@@ -36632,2 +37023,2 @@ var Mediabunny = (() => {
+-  var MIN_CLUSTER_TIMESTAMP_MS = -(2 ** 15);
+-  var MAX_CLUSTER_TIMESTAMP_MS = 2 ** 15 - 1;
++  var MIN_CLUSTER_TIMESTAMP_TICKS = -(2 ** 15);
++  var MAX_CLUSTER_TIMESTAMP_TICKS = 2 ** 15 - 1;
+@@ -36661,1 +37052,2 @@ var Mediabunny = (() => {
+-    }
++      this.ticksPerMillisecond = format._options.timestampScale === 500000 ? 2 : 1;
++    }
+@@ -36776,1 +37168,1 @@ var Mediabunny = (() => {
+-        { id: 2807729 /* TimestampScale */, data: 1e6 },
++        { id: 2807729 /* TimestampScale */, data: 1e6 / this.ticksPerMillisecond },
+@@ -37104,8 +37496,8 @@ var Mediabunny = (() => {
          if (!(value instanceof AttachedFile)) {
            continue;
          }
@@ -1372,7 +1384,7 @@ index 284f1d9cc..27f54c003 100644
            continue;
          }
          if (images.find((x) => x.mimeType === value.mimeType && uint8ArraysAreEqual(x.data, value.data))) {
-@@ -37118,7 +37509,7 @@ var Mediabunny = (() => {
+@@ -37118,7 +37510,7 @@ var Mediabunny = (() => {
              { id: 18030 /* FileName */, data: new EBMLUnicodeString(value.name ?? "") },
              { id: 18016 /* FileMediaType */, data: value.mimeType ?? "" },
              { id: 18012 /* FileData */, data: value.data },
@@ -1381,7 +1393,7 @@ index 284f1d9cc..27f54c003 100644
            ]
          });
        }
-@@ -37255,7 +37646,7 @@ var Mediabunny = (() => {
+@@ -37255,7 +37647,7 @@ var Mediabunny = (() => {
          if (!packet) {
            throw new Error("No AAC description provided; you must therefore provide a priming packet.");
          }
@@ -1390,7 +1402,7 @@ index 284f1d9cc..27f54c003 100644
          if (!adtsFrame) {
            throw new Error(
              "Couldn't parse ADTS header from the AAC packet. Make sure the packets are in ADTS format (as specified in ISO 13818-7) when not providing a description, or provide a description (must be an AudioSpecificConfig as specified in ISO 14496-3) and ensure the packets are raw AAC data."
-@@ -37356,7 +37747,7 @@ var Mediabunny = (() => {
+@@ -37356,7 +37748,7 @@ var Mediabunny = (() => {
          const trackData = this.getAudioTrackData(track, packet, meta);
          let packetData = packet.data;
          if (trackData.info.requiresAdtsStripping) {
@@ -1399,8 +1411,38 @@ index 284f1d9cc..27f54c003 100644
            if (!adtsFrame) {
              throw new Error("Expected ADTS frame, didn't get one.");
            }
+@@ -37500,1 +37892,1 @@ ${cue.notes ?? ""}`;
+-        shouldCreateNewCluster = keyFrameQueuedEverywhere && msTimestamp > this.currentClusterMaxMsTimestamp && relativeTimestamp2 >= 1e3 * (this.format._options.minimumClusterDuration ?? 1) || relativeTimestamp2 > MAX_CLUSTER_TIMESTAMP_MS;
++        shouldCreateNewCluster = keyFrameQueuedEverywhere && msTimestamp > this.currentClusterMaxMsTimestamp && relativeTimestamp2 >= 1e3 * (this.format._options.minimumClusterDuration ?? 1) || relativeTimestamp2 * this.ticksPerMillisecond > MAX_CLUSTER_TIMESTAMP_TICKS;
+@@ -37506,1 +37898,1 @@ ${cue.notes ?? ""}`;
+-      if (relativeTimestamp < MIN_CLUSTER_TIMESTAMP_MS) {
++      if (relativeTimestamp * this.ticksPerMillisecond < MIN_CLUSTER_TIMESTAMP_TICKS) {
+@@ -37560,1 +37952,1 @@ ${cue.notes ?? ""}`;
+-          { id: 231 /* Timestamp */, data: clusterMsTimestamp },
++          { id: 231 /* Timestamp */, data: clusterMsTimestamp * this.ticksPerMillisecond },
+@@ -37586,1 +37978,1 @@ ${cue.notes ?? ""}`;
+-          { id: 179 /* CueTime */, data: Math.max(0, msTimestamp) },
++          { id: 179 /* CueTime */, data: Math.max(0, msTimestamp) * this.ticksPerMillisecond },
+@@ -37605,1 +37997,1 @@ ${cue.notes ?? ""}`;
+-      view2.setInt16(1, msTimestamp - clusterMsTimestamp, false);
++      view2.setInt16(1, (msTimestamp - clusterMsTimestamp) * this.ticksPerMillisecond, false);
+@@ -37622,1 +38014,1 @@ ${cue.notes ?? ""}`;
+-          data: new EBMLSignedInt(block.previousMsTimestamp - msTimestamp)
++          data: new EBMLSignedInt((block.previousMsTimestamp - msTimestamp) * this.ticksPerMillisecond)
+@@ -37631,1 +38023,1 @@ ${cue.notes ?? ""}`;
+-        msDuration > 0 ? { id: 155 /* BlockDuration */, data: msDuration } : null
++        msDuration > 0 ? { id: 155 /* BlockDuration */, data: msDuration * this.ticksPerMillisecond } : null
+@@ -37668,1 +38060,1 @@ ${cue.notes ?? ""}`;
+-        this.segmentDuration.data = new EBMLFloat64(duration);
++        this.segmentDuration.data = new EBMLFloat64(duration * this.ticksPerMillisecond);
+@@ -40682,1 +41074,4 @@ ${cue.notes ?? ""}`;
+-      if (options.minimumClusterDuration !== void 0 && (!isNumber(options.minimumClusterDuration) || options.minimumClusterDuration < 0)) {
++      if (options.timestampScale !== void 0 && options.timestampScale !== 500000) {
++        throw new TypeError("options.timestampScale, when provided, must be 500,000 nanoseconds.");
++      }
++      if (options.minimumClusterDuration !== void 0 && (!isNumber(options.minimumClusterDuration) || options.minimumClusterDuration < 0)) {
 diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/mediabunny/dist/bundles/mediabunny.mjs
-index 82c6c9d9e..af2d8e3d4 100644
+index 82c6c9d9e..5d561568f 100644
 --- a/node_modules/mediabunny/dist/bundles/mediabunny.mjs
 +++ b/node_modules/mediabunny/dist/bundles/mediabunny.mjs
 @@ -274,7 +274,7 @@ var TextEncoder = typeof globalThis.TextEncoder !== "undefined" ? globalThis.Tex
@@ -2762,7 +2804,19 @@ index 82c6c9d9e..af2d8e3d4 100644
          if (!adtsFrame) {
            throw new Error("Expected ADTS frame, didn't get one.");
          }
-@@ -36947,8 +37338,8 @@ var MatroskaMuxer = class extends Muxer {
+@@ -36475,2 +36866,2 @@ var IsobmffMuxer2 = class extends Muxer {
+-var MIN_CLUSTER_TIMESTAMP_MS = -(2 ** 15);
+-var MAX_CLUSTER_TIMESTAMP_MS = 2 ** 15 - 1;
++var MIN_CLUSTER_TIMESTAMP_TICKS = -(2 ** 15);
++var MAX_CLUSTER_TIMESTAMP_TICKS = 2 ** 15 - 1;
+@@ -36504,1 +36895,2 @@ var MatroskaMuxer = class extends Muxer {
+-  }
++    this.ticksPerMillisecond = format._options.timestampScale === 500000 ? 2 : 1;
++  }
+@@ -36619,1 +37011,1 @@ var MatroskaMuxer = class extends Muxer {
+-      { id: 2807729 /* TimestampScale */, data: 1e6 },
++      { id: 2807729 /* TimestampScale */, data: 1e6 / this.ticksPerMillisecond },
+@@ -36947,8 +37339,8 @@ var MatroskaMuxer = class extends Muxer {
        if (!(value instanceof AttachedFile)) {
          continue;
        }
@@ -2773,7 +2827,7 @@ index 82c6c9d9e..af2d8e3d4 100644
          continue;
        }
        if (images.find((x) => x.mimeType === value.mimeType && uint8ArraysAreEqual(x.data, value.data))) {
-@@ -36961,7 +37352,7 @@ var MatroskaMuxer = class extends Muxer {
+@@ -36961,7 +37353,7 @@ var MatroskaMuxer = class extends Muxer {
            { id: 18030 /* FileName */, data: new EBMLUnicodeString(value.name ?? "") },
            { id: 18016 /* FileMediaType */, data: value.mimeType ?? "" },
            { id: 18012 /* FileData */, data: value.data },
@@ -2782,7 +2836,7 @@ index 82c6c9d9e..af2d8e3d4 100644
          ]
        });
      }
-@@ -37098,7 +37489,7 @@ var MatroskaMuxer = class extends Muxer {
+@@ -37098,7 +37490,7 @@ var MatroskaMuxer = class extends Muxer {
        if (!packet) {
          throw new Error("No AAC description provided; you must therefore provide a priming packet.");
        }
@@ -2791,7 +2845,7 @@ index 82c6c9d9e..af2d8e3d4 100644
        if (!adtsFrame) {
          throw new Error(
            "Couldn't parse ADTS header from the AAC packet. Make sure the packets are in ADTS format (as specified in ISO 13818-7) when not providing a description, or provide a description (must be an AudioSpecificConfig as specified in ISO 14496-3) and ensure the packets are raw AAC data."
-@@ -37199,7 +37590,7 @@ var MatroskaMuxer = class extends Muxer {
+@@ -37199,7 +37591,7 @@ var MatroskaMuxer = class extends Muxer {
        const trackData = this.getAudioTrackData(track, packet, meta);
        let packetData = packet.data;
        if (trackData.info.requiresAdtsStripping) {
@@ -2800,8 +2854,38 @@ index 82c6c9d9e..af2d8e3d4 100644
          if (!adtsFrame) {
            throw new Error("Expected ADTS frame, didn't get one.");
          }
+@@ -37343,1 +37735,1 @@ ${cue.notes ?? ""}`;
+-      shouldCreateNewCluster = keyFrameQueuedEverywhere && msTimestamp > this.currentClusterMaxMsTimestamp && relativeTimestamp2 >= 1e3 * (this.format._options.minimumClusterDuration ?? 1) || relativeTimestamp2 > MAX_CLUSTER_TIMESTAMP_MS;
++      shouldCreateNewCluster = keyFrameQueuedEverywhere && msTimestamp > this.currentClusterMaxMsTimestamp && relativeTimestamp2 >= 1e3 * (this.format._options.minimumClusterDuration ?? 1) || relativeTimestamp2 * this.ticksPerMillisecond > MAX_CLUSTER_TIMESTAMP_TICKS;
+@@ -37349,1 +37741,1 @@ ${cue.notes ?? ""}`;
+-    if (relativeTimestamp < MIN_CLUSTER_TIMESTAMP_MS) {
++    if (relativeTimestamp * this.ticksPerMillisecond < MIN_CLUSTER_TIMESTAMP_TICKS) {
+@@ -37403,1 +37795,1 @@ ${cue.notes ?? ""}`;
+-        { id: 231 /* Timestamp */, data: clusterMsTimestamp },
++        { id: 231 /* Timestamp */, data: clusterMsTimestamp * this.ticksPerMillisecond },
+@@ -37429,1 +37821,1 @@ ${cue.notes ?? ""}`;
+-        { id: 179 /* CueTime */, data: Math.max(0, msTimestamp) },
++        { id: 179 /* CueTime */, data: Math.max(0, msTimestamp) * this.ticksPerMillisecond },
+@@ -37448,1 +37840,1 @@ ${cue.notes ?? ""}`;
+-    view2.setInt16(1, msTimestamp - clusterMsTimestamp, false);
++    view2.setInt16(1, (msTimestamp - clusterMsTimestamp) * this.ticksPerMillisecond, false);
+@@ -37465,1 +37857,1 @@ ${cue.notes ?? ""}`;
+-        data: new EBMLSignedInt(block.previousMsTimestamp - msTimestamp)
++        data: new EBMLSignedInt((block.previousMsTimestamp - msTimestamp) * this.ticksPerMillisecond)
+@@ -37474,1 +37866,1 @@ ${cue.notes ?? ""}`;
+-      msDuration > 0 ? { id: 155 /* BlockDuration */, data: msDuration } : null
++      msDuration > 0 ? { id: 155 /* BlockDuration */, data: msDuration * this.ticksPerMillisecond } : null
+@@ -37511,1 +37903,1 @@ ${cue.notes ?? ""}`;
+-      this.segmentDuration.data = new EBMLFloat64(duration);
++      this.segmentDuration.data = new EBMLFloat64(duration * this.ticksPerMillisecond);
+@@ -40525,1 +40917,4 @@ var MkvOutputFormat2 = class extends OutputFormat {
+-    if (options.minimumClusterDuration !== void 0 && (!isNumber(options.minimumClusterDuration) || options.minimumClusterDuration < 0)) {
++    if (options.timestampScale !== void 0 && options.timestampScale !== 500000) {
++      throw new TypeError("options.timestampScale, when provided, must be 500,000 nanoseconds.");
++    }
++    if (options.minimumClusterDuration !== void 0 && (!isNumber(options.minimumClusterDuration) || options.minimumClusterDuration < 0)) {
 diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs
-index c77d01b05..76bb597f8 100644
+index c77d01b05..e81fc1613 100644
 --- a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs
 +++ b/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs
 @@ -428,7 +428,7 @@ var Mediabunny = (() => {
@@ -4163,7 +4247,19 @@ index c77d01b05..76bb597f8 100644
            if (!adtsFrame) {
              throw new Error("Expected ADTS frame, didn't get one.");
            }
-@@ -37106,8 +37497,8 @@ var Mediabunny = (() => {
+@@ -36634,2 +37025,2 @@ var Mediabunny = (() => {
+-  var MIN_CLUSTER_TIMESTAMP_MS = -(2 ** 15);
+-  var MAX_CLUSTER_TIMESTAMP_MS = 2 ** 15 - 1;
++  var MIN_CLUSTER_TIMESTAMP_TICKS = -(2 ** 15);
++  var MAX_CLUSTER_TIMESTAMP_TICKS = 2 ** 15 - 1;
+@@ -36663,1 +37054,2 @@ var Mediabunny = (() => {
+-    }
++      this.ticksPerMillisecond = format._options.timestampScale === 500000 ? 2 : 1;
++    }
+@@ -36778,1 +37170,1 @@ var Mediabunny = (() => {
+-        { id: 2807729 /* TimestampScale */, data: 1e6 },
++        { id: 2807729 /* TimestampScale */, data: 1e6 / this.ticksPerMillisecond },
+@@ -37106,8 +37498,8 @@ var Mediabunny = (() => {
          if (!(value instanceof AttachedFile)) {
            continue;
          }
@@ -4174,7 +4270,7 @@ index c77d01b05..76bb597f8 100644
            continue;
          }
          if (images.find((x) => x.mimeType === value.mimeType && uint8ArraysAreEqual(x.data, value.data))) {
-@@ -37120,7 +37511,7 @@ var Mediabunny = (() => {
+@@ -37120,7 +37512,7 @@ var Mediabunny = (() => {
              { id: 18030 /* FileName */, data: new EBMLUnicodeString(value.name ?? "") },
              { id: 18016 /* FileMediaType */, data: value.mimeType ?? "" },
              { id: 18012 /* FileData */, data: value.data },
@@ -4183,7 +4279,7 @@ index c77d01b05..76bb597f8 100644
            ]
          });
        }
-@@ -37257,7 +37648,7 @@ var Mediabunny = (() => {
+@@ -37257,7 +37649,7 @@ var Mediabunny = (() => {
          if (!packet) {
            throw new Error("No AAC description provided; you must therefore provide a priming packet.");
          }
@@ -4192,7 +4288,7 @@ index c77d01b05..76bb597f8 100644
          if (!adtsFrame) {
            throw new Error(
              "Couldn't parse ADTS header from the AAC packet. Make sure the packets are in ADTS format (as specified in ISO 13818-7) when not providing a description, or provide a description (must be an AudioSpecificConfig as specified in ISO 14496-3) and ensure the packets are raw AAC data."
-@@ -37358,7 +37749,7 @@ var Mediabunny = (() => {
+@@ -37358,7 +37750,7 @@ var Mediabunny = (() => {
          const trackData = this.getAudioTrackData(track, packet, meta);
          let packetData = packet.data;
          if (trackData.info.requiresAdtsStripping) {
@@ -4201,8 +4297,38 @@ index c77d01b05..76bb597f8 100644
            if (!adtsFrame) {
              throw new Error("Expected ADTS frame, didn't get one.");
            }
+@@ -37502,1 +37894,1 @@ ${cue.notes ?? ""}`;
+-        shouldCreateNewCluster = keyFrameQueuedEverywhere && msTimestamp > this.currentClusterMaxMsTimestamp && relativeTimestamp2 >= 1e3 * (this.format._options.minimumClusterDuration ?? 1) || relativeTimestamp2 > MAX_CLUSTER_TIMESTAMP_MS;
++        shouldCreateNewCluster = keyFrameQueuedEverywhere && msTimestamp > this.currentClusterMaxMsTimestamp && relativeTimestamp2 >= 1e3 * (this.format._options.minimumClusterDuration ?? 1) || relativeTimestamp2 * this.ticksPerMillisecond > MAX_CLUSTER_TIMESTAMP_TICKS;
+@@ -37508,1 +37900,1 @@ ${cue.notes ?? ""}`;
+-      if (relativeTimestamp < MIN_CLUSTER_TIMESTAMP_MS) {
++      if (relativeTimestamp * this.ticksPerMillisecond < MIN_CLUSTER_TIMESTAMP_TICKS) {
+@@ -37562,1 +37954,1 @@ ${cue.notes ?? ""}`;
+-          { id: 231 /* Timestamp */, data: clusterMsTimestamp },
++          { id: 231 /* Timestamp */, data: clusterMsTimestamp * this.ticksPerMillisecond },
+@@ -37588,1 +37980,1 @@ ${cue.notes ?? ""}`;
+-          { id: 179 /* CueTime */, data: Math.max(0, msTimestamp) },
++          { id: 179 /* CueTime */, data: Math.max(0, msTimestamp) * this.ticksPerMillisecond },
+@@ -37607,1 +37999,1 @@ ${cue.notes ?? ""}`;
+-      view2.setInt16(1, msTimestamp - clusterMsTimestamp, false);
++      view2.setInt16(1, (msTimestamp - clusterMsTimestamp) * this.ticksPerMillisecond, false);
+@@ -37624,1 +38016,1 @@ ${cue.notes ?? ""}`;
+-          data: new EBMLSignedInt(block.previousMsTimestamp - msTimestamp)
++          data: new EBMLSignedInt((block.previousMsTimestamp - msTimestamp) * this.ticksPerMillisecond)
+@@ -37633,1 +38025,1 @@ ${cue.notes ?? ""}`;
+-        msDuration > 0 ? { id: 155 /* BlockDuration */, data: msDuration } : null
++        msDuration > 0 ? { id: 155 /* BlockDuration */, data: msDuration * this.ticksPerMillisecond } : null
+@@ -37670,1 +38062,1 @@ ${cue.notes ?? ""}`;
+-        this.segmentDuration.data = new EBMLFloat64(duration);
++        this.segmentDuration.data = new EBMLFloat64(duration * this.ticksPerMillisecond);
+@@ -40684,1 +41076,4 @@ ${cue.notes ?? ""}`;
+-      if (options.minimumClusterDuration !== void 0 && (!isNumber(options.minimumClusterDuration) || options.minimumClusterDuration < 0)) {
++      if (options.timestampScale !== void 0 && options.timestampScale !== 500000) {
++        throw new TypeError("options.timestampScale, when provided, must be 500,000 nanoseconds.");
++      }
++      if (options.minimumClusterDuration !== void 0 && (!isNumber(options.minimumClusterDuration) || options.minimumClusterDuration < 0)) {
 diff --git a/node_modules/mediabunny/dist/mediabunny.d.ts b/node_modules/mediabunny/dist/mediabunny.d.ts
-index 86d102a50..119f26aaf 100644
+index 86d102a50..5156e744d 100644
 --- a/node_modules/mediabunny/dist/mediabunny.d.ts
 +++ b/node_modules/mediabunny/dist/mediabunny.d.ts
 @@ -3430,20 +3430,18 @@ export declare type MetadataTags = {
@@ -4233,7 +4359,13 @@ index 86d102a50..119f26aaf 100644
       * - MPEG-TS: Not supported.
       */
      raw?: Record<string, string | string[] | Uint8Array | Uint8Array[] | RichImageData | AttachedFile | Record<string, string> | null>;
-@@ -5398,6 +5396,8 @@ export declare type VideoSinkDecoderOptions = {
+@@ -3490,1 +3488,4 @@ export declare type MkvOutputFormatOptions = {
+-    /**
++
++    /** Uses 500,000 ns segment ticks for exact half-millisecond codec delays. Packet times retain millisecond rounding. */
++    timestampScale?: 500_000;
++    /**
+@@ -5398,6 +5399,8 @@ export declare type VideoSinkDecoderOptions = {
       * before video frames are output.
       */
      optimizeForLatency?: boolean;
@@ -5330,11 +5462,31 @@ index 0ce440c99..0d45c837b 100644
 +        key = `attachment:${uid}${suffix++ ? '[' + String(suffix - 1) + ']' : ''}`;
 +    Object.defineProperty(raw, key, { value, enumerable: true, configurable: true, writable: true });
 +}
+diff --git a/node_modules/mediabunny/dist/modules/src/matroska/matroska-muxer.d.ts b/node_modules/mediabunny/dist/modules/src/matroska/matroska-muxer.d.ts
+index 907bf4aad..4c9850edf 100644
+--- a/node_modules/mediabunny/dist/modules/src/matroska/matroska-muxer.d.ts
++++ b/node_modules/mediabunny/dist/modules/src/matroska/matroska-muxer.d.ts
+@@ -17,1 +17,2 @@ export declare class MatroskaMuxer extends Muxer {
+-    private trackDatas;
++    private readonly ticksPerMillisecond;
++    private trackDatas;
 diff --git a/node_modules/mediabunny/dist/modules/src/matroska/matroska-muxer.js b/node_modules/mediabunny/dist/modules/src/matroska/matroska-muxer.js
-index a1d23087a..0db727651 100644
+index a1d23087a..7e55ce1d1 100644
 --- a/node_modules/mediabunny/dist/modules/src/matroska/matroska-muxer.js
 +++ b/node_modules/mediabunny/dist/modules/src/matroska/matroska-muxer.js
-@@ -554,8 +554,8 @@ export class MatroskaMuxer extends Muxer {
+@@ -22,2 +22,2 @@ import { Muxer } from '../muxer.js';
+-const MIN_CLUSTER_TIMESTAMP_MS = -(2 ** 15);
+-const MAX_CLUSTER_TIMESTAMP_MS = 2 ** 15 - 1;
++const MIN_CLUSTER_TIMESTAMP_TICKS = -(2 ** 15);
++const MAX_CLUSTER_TIMESTAMP_TICKS = 2 ** 15 - 1;
+@@ -51,1 +51,2 @@ export class MatroskaMuxer extends Muxer {
+-    }
++        this.ticksPerMillisecond = format._options.timestampScale === 500000 ? 2 : 1;
++    }
+@@ -177,1 +178,1 @@ export class MatroskaMuxer extends Muxer {
+-                { id: EBMLId.TimestampScale, data: 1e6 },
++                { id: EBMLId.TimestampScale, data: 1e6 / this.ticksPerMillisecond },
+@@ -554,8 +555,8 @@ export class MatroskaMuxer extends Muxer {
              if (!(value instanceof AttachedFile)) {
                  continue;
              }
@@ -5345,7 +5497,7 @@ index a1d23087a..0db727651 100644
                  continue;
              }
              if (images.find(x => x.mimeType === value.mimeType && uint8ArraysAreEqual(x.data, value.data))) {
-@@ -572,7 +572,7 @@ export class MatroskaMuxer extends Muxer {
+@@ -572,7 +573,7 @@ export class MatroskaMuxer extends Muxer {
                      { id: EBMLId.FileName, data: new EBMLUnicodeString(value.name ?? '') },
                      { id: EBMLId.FileMediaType, data: value.mimeType ?? '' },
                      { id: EBMLId.FileData, data: value.data },
@@ -5354,6 +5506,30 @@ index a1d23087a..0db727651 100644
                  ],
              });
          }
+@@ -986,1 +987,1 @@ export class MatroskaMuxer extends Muxer {
+-                || relativeTimestamp > MAX_CLUSTER_TIMESTAMP_MS;
++                || relativeTimestamp * this.ticksPerMillisecond > MAX_CLUSTER_TIMESTAMP_TICKS;
+@@ -992,1 +993,1 @@ export class MatroskaMuxer extends Muxer {
+-        if (relativeTimestamp < MIN_CLUSTER_TIMESTAMP_MS) {
++        if (relativeTimestamp * this.ticksPerMillisecond < MIN_CLUSTER_TIMESTAMP_TICKS) {
+@@ -1042,1 +1043,1 @@ export class MatroskaMuxer extends Muxer {
+-                { id: EBMLId.Timestamp, data: clusterMsTimestamp },
++                { id: EBMLId.Timestamp, data: clusterMsTimestamp * this.ticksPerMillisecond },
+@@ -1070,1 +1071,1 @@ export class MatroskaMuxer extends Muxer {
+-                    { id: EBMLId.CueTime, data: Math.max(0, msTimestamp) }, // CueTime is unsigned
++                    { id: EBMLId.CueTime, data: Math.max(0, msTimestamp) * this.ticksPerMillisecond }, // CueTime is unsigned
+@@ -1089,1 +1090,1 @@ export class MatroskaMuxer extends Muxer {
+-        view.setInt16(1, msTimestamp - clusterMsTimestamp, false);
++        view.setInt16(1, (msTimestamp - clusterMsTimestamp) * this.ticksPerMillisecond, false);
+@@ -1112,1 +1113,1 @@ export class MatroskaMuxer extends Muxer {
+-                        data: new EBMLSignedInt(block.previousMsTimestamp - msTimestamp),
++                        data: new EBMLSignedInt((block.previousMsTimestamp - msTimestamp) * this.ticksPerMillisecond),
+@@ -1123,1 +1124,1 @@ export class MatroskaMuxer extends Muxer {
+-                msDuration > 0 ? { id: EBMLId.BlockDuration, data: msDuration } : null,
++                msDuration > 0 ? { id: EBMLId.BlockDuration, data: msDuration * this.ticksPerMillisecond } : null,
+@@ -1164,1 +1165,1 @@ export class MatroskaMuxer extends Muxer {
+-            this.segmentDuration.data = new EBMLFloat64(duration);
++            this.segmentDuration.data = new EBMLFloat64(duration * this.ticksPerMillisecond);
 diff --git a/node_modules/mediabunny/dist/modules/src/media-sink.d.ts b/node_modules/mediabunny/dist/modules/src/media-sink.d.ts
 index 056c51cdc..10caf3d8d 100644
 --- a/node_modules/mediabunny/dist/modules/src/media-sink.d.ts
@@ -5757,6 +5933,26 @@ index bf0b088fb..18d6723b9 100644
                  // Try reading an ID3v1 tag at the end of the file
                  let slice = this.reader.requestSlice(this.reader.fileSize - ID3_V1_TAG_SIZE, ID3_V1_TAG_SIZE);
                  if (isThenable(slice))
+diff --git a/node_modules/mediabunny/dist/modules/src/output-format.d.ts b/node_modules/mediabunny/dist/modules/src/output-format.d.ts
+index 5d8fb58a4..dbad7a5f4 100644
+--- a/node_modules/mediabunny/dist/modules/src/output-format.d.ts
++++ b/node_modules/mediabunny/dist/modules/src/output-format.d.ts
+@@ -245,1 +245,4 @@ export type MkvOutputFormatOptions = {
+-    /**
++
++    /** Uses 500,000 ns segment ticks for exact half-millisecond codec delays. Packet times retain millisecond rounding. */
++    timestampScale?: 500_000;
++    /**
+diff --git a/node_modules/mediabunny/dist/modules/src/output-format.js b/node_modules/mediabunny/dist/modules/src/output-format.js
+index ca7494288..ba030e4f8 100644
+--- a/node_modules/mediabunny/dist/modules/src/output-format.js
++++ b/node_modules/mediabunny/dist/modules/src/output-format.js
+@@ -271,1 +271,4 @@ export class MkvOutputFormat extends OutputFormat {
+-        if (options.minimumClusterDuration !== undefined
++        if (options.timestampScale !== undefined && options.timestampScale !== 500000) {
++            throw new TypeError('options.timestampScale, when provided, must be 500,000 nanoseconds.');
++        }
++        if (options.minimumClusterDuration !== undefined
 diff --git a/node_modules/mediabunny/src/codec-data.ts b/node_modules/mediabunny/src/codec-data.ts
 index fd9b10ef0..5ee3e5050 100644
 --- a/node_modules/mediabunny/src/codec-data.ts
@@ -6723,10 +6919,26 @@ index c17ac37b4..49775f4ea 100644
 +	Object.defineProperty(raw, key, { value, enumerable: true, configurable: true, writable: true });
 +}
 diff --git a/node_modules/mediabunny/src/matroska/matroska-muxer.ts b/node_modules/mediabunny/src/matroska/matroska-muxer.ts
-index d9571b8a2..c2dd4f33d 100644
+index d9571b8a2..6cd12605b 100644
 --- a/node_modules/mediabunny/src/matroska/matroska-muxer.ts
 +++ b/node_modules/mediabunny/src/matroska/matroska-muxer.ts
-@@ -722,8 +722,8 @@ export class MatroskaMuxer extends Muxer {
+@@ -80,2 +80,2 @@ import { AttachedFile } from '../metadata';
+-const MIN_CLUSTER_TIMESTAMP_MS = -(2 ** 15);
+-const MAX_CLUSTER_TIMESTAMP_MS = 2 ** 15 - 1;
++const MIN_CLUSTER_TIMESTAMP_TICKS = -(2 ** 15);
++const MAX_CLUSTER_TIMESTAMP_TICKS = 2 ** 15 - 1;
+@@ -155,1 +155,2 @@ export class MatroskaMuxer extends Muxer {
+-
++	private readonly ticksPerMillisecond: number;
++
+@@ -180,1 +181,2 @@ export class MatroskaMuxer extends Muxer {
+-	}
++		this.ticksPerMillisecond = format._options.timestampScale === 500_000 ? 2 : 1;
++	}
+@@ -331,1 +333,1 @@ export class MatroskaMuxer extends Muxer {
+-			{ id: EBMLId.TimestampScale, data: 1e6 },
++			{ id: EBMLId.TimestampScale, data: 1e6 / this.ticksPerMillisecond },
+@@ -722,8 +724,8 @@ export class MatroskaMuxer extends Muxer {
  				continue;
  			}
  
@@ -6737,7 +6949,7 @@ index d9571b8a2..c2dd4f33d 100644
  				continue;
  			}
  
-@@ -742,7 +742,7 @@ export class MatroskaMuxer extends Muxer {
+@@ -742,7 +744,7 @@ export class MatroskaMuxer extends Muxer {
  					{ id: EBMLId.FileName, data: new EBMLUnicodeString(value.name ?? '') },
  					{ id: EBMLId.FileMediaType, data: value.mimeType ?? '' },
  					{ id: EBMLId.FileData, data: value.data },
@@ -6746,6 +6958,30 @@ index d9571b8a2..c2dd4f33d 100644
  				],
  			});
  		}
+@@ -1270,1 +1272,1 @@ export class MatroskaMuxer extends Muxer {
+-			|| relativeTimestamp > MAX_CLUSTER_TIMESTAMP_MS;
++			|| relativeTimestamp * this.ticksPerMillisecond > MAX_CLUSTER_TIMESTAMP_TICKS;
+@@ -1278,1 +1280,1 @@ export class MatroskaMuxer extends Muxer {
+-		if (relativeTimestamp < MIN_CLUSTER_TIMESTAMP_MS) {
++		if (relativeTimestamp * this.ticksPerMillisecond < MIN_CLUSTER_TIMESTAMP_TICKS) {
+@@ -1345,1 +1347,1 @@ export class MatroskaMuxer extends Muxer {
+-				{ id: EBMLId.Timestamp, data: clusterMsTimestamp },
++				{ id: EBMLId.Timestamp, data: clusterMsTimestamp * this.ticksPerMillisecond },
+@@ -1380,1 +1382,1 @@ export class MatroskaMuxer extends Muxer {
+-				{ id: EBMLId.CueTime, data: Math.max(0, msTimestamp) }, // CueTime is unsigned
++				{ id: EBMLId.CueTime, data: Math.max(0, msTimestamp) * this.ticksPerMillisecond }, // CueTime is unsigned
+@@ -1402,1 +1404,1 @@ export class MatroskaMuxer extends Muxer {
+-		view.setInt16(1, msTimestamp - clusterMsTimestamp, false);
++		view.setInt16(1, (msTimestamp - clusterMsTimestamp) * this.ticksPerMillisecond, false);
+@@ -1430,1 +1432,1 @@ export class MatroskaMuxer extends Muxer {
+-						data: new EBMLSignedInt(block.previousMsTimestamp! - msTimestamp),
++						data: new EBMLSignedInt((block.previousMsTimestamp! - msTimestamp) * this.ticksPerMillisecond),
+@@ -1441,1 +1443,1 @@ export class MatroskaMuxer extends Muxer {
+-			msDuration > 0 ? { id: EBMLId.BlockDuration, data: msDuration } : null,
++			msDuration > 0 ? { id: EBMLId.BlockDuration, data: msDuration * this.ticksPerMillisecond } : null,
+@@ -1496,1 +1498,1 @@ export class MatroskaMuxer extends Muxer {
+-			this.segmentDuration!.data = new EBMLFloat64(duration);
++			this.segmentDuration!.data = new EBMLFloat64(duration * this.ticksPerMillisecond);
 diff --git a/node_modules/mediabunny/src/media-sink.ts b/node_modules/mediabunny/src/media-sink.ts
 index 1e88c0b21..82a1f70d6 100644
 --- a/node_modules/mediabunny/src/media-sink.ts
@@ -7102,3 +7338,19 @@ index 3cadd2fdb..ca03964ce 100644
  				// Try reading an ID3v1 tag at the end of the file
  				let slice = this.reader.requestSlice(this.reader.fileSize - ID3_V1_TAG_SIZE, ID3_V1_TAG_SIZE);
  				if (isThenable(slice)) slice = await slice;
+diff --git a/node_modules/mediabunny/src/output-format.ts b/node_modules/mediabunny/src/output-format.ts
+index 64bae2c63..3723232e3 100644
+--- a/node_modules/mediabunny/src/output-format.ts
++++ b/node_modules/mediabunny/src/output-format.ts
+@@ -499,1 +499,4 @@ export type MkvOutputFormatOptions = {
+-	/**
++	/** Uses 500,000 ns segment ticks for exact half-millisecond codec delays. Packet times retain millisecond rounding. */
++	timestampScale?: 500_000;
++
++	/**
+@@ -547,1 +550,4 @@ export class MkvOutputFormat extends OutputFormat {
+-		if (
++		if (options.timestampScale !== undefined && options.timestampScale !== 500_000) {
++			throw new TypeError('options.timestampScale, when provided, must be 500,000 nanoseconds.');
++		}
++		if (
