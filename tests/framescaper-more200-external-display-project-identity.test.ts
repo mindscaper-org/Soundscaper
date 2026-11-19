@@ -20,7 +20,7 @@ for (const id of ['ordinary-project', 'programme:one', 'Programme one', '映像�
 			assert.equal(plan.project.id, project.id);
 			await native.bridge.setExternalDisplay({ displayId: 'display-2' });
 			await framescaperNativeServicesStoreFor(native.bridge).refresh();
-			assert.equal(publishEvaluatedVideoPreviewFrame({ project, timelineFrame: 0,
+			assert.equal(publishEvaluatedVideoPreviewFrame({ project, currentProject: () => project, timelineFrame: 0,
 				compositor: { captureEvaluatedRgba: () => ({ width: 1, height: 1, rgba: Uint8Array.of(255, 0, 0, 255) }) },
 			}, { resolveBridge: () => native.bridge }), true);
 			for (let attempts = 0; attempts < 100 && native.frames.length === 0; attempts++) await setImmediate();
@@ -39,7 +39,7 @@ test('external display still refuses a missing project identity or invalid revis
 		let captures = 0;
 		for (const project of [{ id: '', revision: 0 }, { id: ' \t', revision: 0 }, { id: 'programme', revision: -1 }]) {
 			assert.throws(() => createUnifiedExactRenderPlan({ ...unifiedExactPlanFixture(9), project }));
-			assert.throws(() => publishEvaluatedVideoPreviewFrame({ project, timelineFrame: 0,
+			assert.throws(() => publishEvaluatedVideoPreviewFrame({ project, currentProject: () => project, timelineFrame: 0,
 				compositor: { captureEvaluatedRgba: () => { captures++; return null; } },
 			}, { resolveBridge: () => native.bridge }), /project identity/iu);
 		}
