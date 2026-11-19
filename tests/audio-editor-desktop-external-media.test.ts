@@ -10,6 +10,7 @@ import { digestBytes as digestScapeBytes } from '../src/common/media/bytes.ts';
 import { prepareExternalMediaConsolidation } from '../src/common/editor/controller/document/internal/native-project/consolidate-external-media.ts';
 import { packPlanarFloat32 } from '../src/common/editor/wavpack/index.js';
 import { prepareScapeExport } from '../src/common/editor/scape-export-plan.ts';
+import type { ExternalAudioDecoder } from '../src/common/editor/scape-external-media.ts';
 
 const original = new Blob(['external audio'], { type: 'audio/mpeg' });
 const channels = [new Float32Array([0.25, -0.5, 0.75, 0])];
@@ -86,18 +87,19 @@ test('a thin archive retries video companion audio against the same PCM digest',
 	});
 	try {
 		const exported = await exportScapeProject(project, store, { externalMedia: true });
+		const decodeExternalAudio: ExternalAudioDecoder = async (file, source, _signal, options) => {
+			assert.equal(file, original);
+			assert.equal(source.id, 'external-audio');
+			attempts.push(options?.videoAudioTiming);
+			if (!options) return [new Float32Array(4)];
+			assert.equal(aborted, 1);
+			assert.equal(released, 0);
+			assert.equal(await target.getSourceMetadata('external-audio'), null);
+			return channels;
+		};
 		const result = await importBaselineScapeProject(exported.blob, target, {
 			resolveExternalMedia: async () => ({ file: original, async release() { released++; } }),
-			decodeExternalAudio: async (file, source, _signal, options) => {
-				assert.equal(file, original);
-				assert.equal(source.id, 'external-audio');
-				attempts.push(options?.videoAudioTiming);
-				if (!options) return [new Float32Array(4)];
-				assert.equal(aborted, 1);
-				assert.equal(released, 0);
-				assert.equal(await target.getSourceMetadata('external-audio'), null);
-				return channels;
-			},
+			decodeExternalAudio,
 		});
 		assert.equal(result.project.sources[0]?.id, 'external-audio');
 		assert.equal((await target.getSourceMetadata('external-audio'))?.frameCount, 4);
