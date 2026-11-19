@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+import { extractJob, readWorkflow } from './helpers/workflow-jobs.js';
+
 const ROOT = new URL('../', import.meta.url);
 
 test('reusable professional-native workflow produces five verified build results', async () => {
@@ -71,4 +73,21 @@ test('dispatchable native-build workflow produces results without promotion cont
 	assert.match(source, /workflow_dispatch:/u);
 	assert.match(source, /soundscaper-professional-native-build\.yml/u);
 	assert.doesNotMatch(source, /promot|signing|certificate|secrets: inherit/iu);
+});
+
+test('every professional-native source producer provisions and checks the shared source scope before upload', async () => {
+	for (const [workflow, job] of [
+		['desktop-nightly-tests.yml', 'professional-native-source'],
+		['desktop-preview.yml', 'professional-native-source'],
+		['soundscaper-stable-1.yml', 'professional-source'],
+		['soundscaper-professional-native-build-run.yml', 'source-cache'],
+	]) {
+		const source = extractJob(await readWorkflow(workflow), job);
+		const upload = source.indexOf('uses: actions/upload-artifact@');
+		assert.ok(upload > 0, workflow);
+		const scopeLines = source.slice(0, upload).split('\n').filter(line => line.includes('--soundscaper-professional'));
+		assert.equal(scopeLines.length, 2, workflow);
+		assert.doesNotMatch(scopeLines[0], /--check/u, workflow);
+		assert.match(scopeLines[1], /--check/u, workflow);
+	}
 });

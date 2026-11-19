@@ -18,7 +18,7 @@ test('desktop audit sources follow the selected engineering scope and authentica
 	assert.match(sources, /'--check', '--root', root, \.\.\.selectors/u);
 });
 
-test('Framescaper package audits use the retained cache while native builds and release sources retain their ten-source cache', async () => {
+test('Framescaper package audits use the retained cache while native builds and release sources use the professional cache', async () => {
 	const workflow = await readWorkflow('desktop-preview.yml');
 	const packages = extractJob(workflow, 'package');
 	assert.match(packages, /needs: \[[^\n]*milestone-5-native-audit-source\]/u);
