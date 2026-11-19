@@ -114,6 +114,7 @@ export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	'desktop/main-window-recovery.js',
 	'desktop/external-display-controller.js',
 	'desktop/external-display-frame-port.js',
+	'desktop/framescaper-external-display-preload.js',
 	'desktop/native-media-capability-report.js',
 	'desktop/native-media-execution.js',
 	'desktop/native-media-file-auth.js',

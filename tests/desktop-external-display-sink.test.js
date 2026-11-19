@@ -7,6 +7,7 @@ import test from 'node:test';
 import vm from 'node:vm';
 
 import { waitFor } from './helpers/async-test-control.ts';
+import { loadPreload } from './helpers/framescaper-native-services-preload-fixture.mjs';
 
 test('the dedicated sandbox sink verifies and presents one exact SDR RGBA frame', async () => {
 	const source = await readFile(new URL('../desktop/external-display-sink-preload.cjs', import.meta.url), 'utf8');
@@ -143,4 +144,25 @@ test('Electron loads only the staged sink document and moves frames over a Messa
 	assert.match(source, /new MessageChannelMain\(\)/u);
 	assert.match(source, /webContents\.postMessage\(SINK_CONNECT_CHANNEL/u);
 	assert.doesNotMatch(source, /framescaper-external-display=1|loadURL\(|webContents\.send\(/u);
+});
+
+test('clean-display pixels stay off the main control channel even above 16 MiB', async () => {
+	const display = { displays: [{ displayId: 'display-2', label: 'Client monitor', primary: false,
+		width: 2_048, height: 2_049, hdrCapable: false, colorManaged: true }],
+		activeDisplayId: 'display-2' };
+	const fixture = await loadPreload([display]);
+	const width = 2_048;
+	const height = 2_049;
+	const rgba = new Uint8Array(width * height * 4);
+	rgba[rgba.length - 4] = 0xf3;
+	const sha256 = createHash('sha256').update(rgba).digest('hex');
+	const pending = fixture.bridge.nativeServices.presentExternalDisplay({ sequence: 1,
+		evaluationFingerprint: '78'.repeat(32), width, height, dynamicRange: 'sdr',
+		rgbaSha256: sha256, rgba });
+	await assert.rejects(() => fixture.bridge.nativeServices.presentExternalDisplay({ sequence: 2,
+		evaluationFingerprint: '78'.repeat(32), width: 1, height: 1, dynamicRange: 'sdr',
+		rgbaSha256: sha256, rgba: Uint8Array.of(0, 0, 0, 255) }), /backpressure/iu);
+	await pending;
+	assert.deepEqual(fixture.displayFrames, [{ byteLength: width * height * 4, sha256 }]);
+	assert.equal(rgba.byteLength, 0, 'the preload transfers its private pixel buffer');
 });

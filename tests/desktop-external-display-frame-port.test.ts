@@ -15,7 +15,7 @@ import {
 	type HelperDataPlaneBinding,
 } from '../desktop/helper-data-plane.ts';
 import type { FramescaperNativeServicesControllerV3 } from '../desktop/native-services-controller-v3.ts';
-import { deferred } from './helpers/async-test-control.ts';
+import { deferred, waitFor } from './helpers/async-test-control.ts';
 
 test('the digest-bound render transfer remains in flight until the sink presents the frame', async () => {
 	const handlers = new Map<string, (event: unknown, value?: unknown) => void>();
@@ -87,6 +87,51 @@ test('the digest-bound render transfer remains in flight until the sink presents
 		registration.dispose();
 	}
 	assert.equal(handlers.size, 0);
+});
+
+test('direct frame ingress routes only metadata and a pixel port until the sink acknowledges', async () => {
+	let receive: (event: unknown, value?: unknown) => void = () => assert.fail('No frame listener');
+	let accepted = false;
+	const painted = deferred<void>();
+	const result = deferred<unknown>();
+	const control = new MessageChannel();
+	const pixels = new MessageChannel();
+	const session = {};
+	const projection = { displays: [], activeDisplayId: 'display-2' };
+	const frame = { sequence: 4, evaluationFingerprint: 'cd'.repeat(32),
+		width: 2, height: 1, dynamicRange: 'sdr', rgbaSha256: 'ab'.repeat(32) };
+	const registration = registerFramescaperExternalDisplayFramePort({
+		on: (_channel, listener) => { receive = listener; }, removeListener: () => undefined,
+		authorizeOwner: () => true,
+		controller: {
+			externalDisplays: () => projection, externalDisplaySessionIdentity: () => session,
+			presentExternalDisplay: async (metadata, pixelPort) => {
+				assert.deepEqual(metadata, frame);
+				assert.equal(pixelPort, pixels.port1);
+				accepted = true;
+				await painted.promise;
+				return projection;
+			},
+		},
+	});
+	const packets: unknown[] = [];
+	control.port2.on('message', (message: unknown) => { packets.push(message); result.resolve(message); });
+	try {
+		receive({ ports: [control.port1, pixels.port1] }, { frame });
+		await waitFor(() => accepted || packets.length > 0, 'the direct transfer to reach the sink');
+		assert.equal(accepted, true);
+		assert.deepEqual(packets, [], 'the control port remains pending during a direct frame paint');
+		painted.resolve();
+		assert.deepEqual(await result.promise, { dataPlaneVersion: 1, type: 'result',
+			streamId: frame.rgbaSha256.slice(0, 40), projection });
+	} finally {
+		painted.resolve();
+		registration.dispose();
+		control.port1.close();
+		control.port2.close();
+		pixels.port1.close();
+		pixels.port2.close();
+	}
 });
 
 test('foreign owners and malformed bindings are refused before frame bytes are consumed', async () => {

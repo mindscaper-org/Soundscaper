@@ -482,23 +482,6 @@ test('root, watch, scratch, publication, checkpoint, and display lifecycle stay 
 	assert.throws(() => fixture.bridge.nativeServices.presentExternalDisplay({ sequence: -1 }), /frame|fields|integer/iu);
 });
 
-test('clean-display frames larger than 16 MiB are transferred as sequential bounded chunks', async () => {
-	const display = { displays: [{ displayId: 'display-2', label: 'Client monitor', primary: false,
-		width: 2_048, height: 2_049, hdrCapable: false, colorManaged: true }],
-		activeDisplayId: 'display-2' };
-	const fixture = await loadPreload([display]);
-	const width = 2_048;
-	const height = 2_049;
-	const rgba = new Uint8Array(width * height * 4);
-	await fixture.bridge.nativeServices.presentExternalDisplay({ sequence: 1,
-		evaluationFingerprint: '78'.repeat(32), width, height, dynamicRange: 'sdr',
-		rgbaSha256: createHash('sha256').update(rgba).digest('hex'), rgba });
-	assert.deepEqual(fixture.dataPlaneChunks, [
-		{ sequence: 0, offset: 0, byteLength: 16 * 1024 * 1024 },
-		{ sequence: 1, offset: 16 * 1024 * 1024, byteLength: 2_048 * 4 },
-	]);
-});
-
 function openFxFrameRequest(requestNonce) {
 	return {
 		protocolVersion: 1, ...PROJECT_IDENTITY,

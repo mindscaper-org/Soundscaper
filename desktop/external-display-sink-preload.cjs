@@ -4,10 +4,12 @@
 const { ipcRenderer } = require('electron');
 
 const CONNECT_CHANNEL = 'framescaper:external-display:v1:connect';
+const FRAME_PORT_CHANNEL = 'framescaper:external-display:v1:frame-port';
 const CLOSE_CHANNEL = 'framescaper:external-display:v1:close';
 const FRAME_BYTES_MAXIMUM = 64 * 1024 * 1024;
 const SHA256 = /^[a-f0-9]{64}$/u;
 let port = null;
+let pixelPort = null;
 let lastSequence = -1;
 let canvas = null;
 let chain = Promise.resolve();
@@ -27,6 +29,8 @@ window.addEventListener('keydown', (event) => {
 
 window.addEventListener('pagehide', () => {
 	closing = true;
+	pixelPort?.close();
+	pixelPort = null;
 	port?.close();
 	port = null;
 }, { once: true });
@@ -39,9 +43,7 @@ ipcRenderer.on(CONNECT_CHANNEL, (event, value) => {
 			throw new TypeError('The external-display sink handshake is invalid.');
 		}
 		port = event.ports[0];
-		port.onmessage = (message) => {
-			chain = chain.then(() => present(message.data)).catch(() => requestClose('frame-refused'));
-		};
+		port.onmessage = (message) => enqueueFrame(message.data);
 		port.onmessageerror = () => requestClose('frame-refused');
 		port.onclose = () => { if (!closing) requestClose('port-loss'); };
 		port.start();
@@ -49,6 +51,29 @@ ipcRenderer.on(CONNECT_CHANNEL, (event, value) => {
 		requestClose('frame-refused');
 	}
 });
+
+ipcRenderer.on(FRAME_PORT_CHANNEL, ({ ports }, frame) => {
+	if (!port || closing || pixelPort || ports.length !== 1) {
+		for (const offered of ports) offered.close();
+		requestClose('frame-refused');
+		return;
+	}
+	const offered = ports[0];
+	pixelPort = offered;
+	offered.onmessage = ({ data }) => {
+		if (pixelPort !== offered) return;
+		pixelPort = null;
+		offered.close();
+		enqueueFrame({ ...frame, rgba: data });
+	};
+	offered.onmessageerror = () => requestClose('frame-refused');
+	offered.onclose = () => { if (pixelPort === offered) requestClose('port-loss'); };
+	offered.start();
+});
+
+function enqueueFrame(frame) {
+	chain = chain.then(() => present(frame)).catch(() => requestClose('frame-refused'));
+}
 
 async function present(value) {
 	exactRecord(value, [
@@ -69,6 +94,7 @@ async function present(value) {
 	}
 	const digest = hex(await crypto.subtle.digest('SHA-256', value.rgba));
 	if (digest !== value.rgbaSha256) throw new Error('The external-display sink frame digest is invalid.');
+	if (closing) return;
 	if (!(canvas instanceof HTMLCanvasElement)) throw new Error('The external-display sink canvas is unavailable.');
 	if (canvas.width !== width) canvas.width = width;
 	if (canvas.height !== height) canvas.height = height;
@@ -85,6 +111,8 @@ async function present(value) {
 function requestClose(reason) {
 	if (closing) return;
 	closing = true;
+	pixelPort?.close();
+	pixelPort = null;
 	try { port?.close(); } catch { /* already lost */ }
 	port = null;
 	ipcRenderer.send(CLOSE_CHANNEL, Object.freeze({ reason }));

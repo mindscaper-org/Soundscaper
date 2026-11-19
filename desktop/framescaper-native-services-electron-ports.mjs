@@ -9,6 +9,7 @@ import { BrowserWindow, dialog, ipcMain, MessageChannelMain, screen } from 'elec
 import { SESSION_PARTITION } from './constants.js';
 
 const SINK_CONNECT_CHANNEL = 'framescaper:external-display:v1:connect';
+const SINK_FRAME_PORT_CHANNEL = 'framescaper:external-display:v1:frame-port';
 const SINK_CLOSE_CHANNEL = 'framescaper:external-display:v1:close';
 const FRAME_CHANNEL = 'framescaper:external-display:v1:frame';
 const SINK_FRAME_TIMEOUT_MS = 15_000;
@@ -169,7 +170,7 @@ function createWindow(options, reportError) {
 		close: () => window.close(),
 		isDestroyed: () => window.isDestroyed(),
 		setBounds: (bounds) => window.setBounds(bounds),
-		send: (channel, payload) => {
+		send: (channel, payload, pixels) => {
 			if (channel !== FRAME_CHANNEL || port === null || pending !== null) {
 				throw new Error('The external-display sink is unavailable or applying backpressure.');
 			}
@@ -179,8 +180,11 @@ function createWindow(options, reportError) {
 				window.close();
 			}, SINK_FRAME_TIMEOUT_MS).unref();
 			pending = { sequence: payload.sequence, sha256: payload.rgbaSha256, timeout, resolve, reject };
-			try { port.postMessage(Object.freeze({ version: 1, type: 'frame', ...payload })); }
-			catch (error) { finishFrame(error); }
+			try {
+				const frame = Object.freeze({ version: 1, type: 'frame', ...payload });
+				if (pixels === undefined) port.postMessage(frame);
+				else window.webContents.postMessage(SINK_FRAME_PORT_CHANNEL, frame, [pixels]);
+			} catch (error) { finishFrame(error); }
 			return promise;
 		},
 		onClosed: (listener) => window.once('closed', listener),

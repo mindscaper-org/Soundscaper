@@ -10,6 +10,8 @@ import type { NativeQueueRevalidationV1 } from '../src/common/editor/native-queu
 import type {
 	FramescaperExternalDisplay,
 	FramescaperExternalDisplayFrame,
+	FramescaperExternalDisplayFrameMetadata,
+	FramescaperExternalDisplayPixelPort,
 } from './external-display-controller.ts';
 import {
 	publishVerifiedNativeMediaOutput,
@@ -79,7 +81,10 @@ export interface FramescaperNativeExternalDisplayPort {
 	readonly sessionIdentity: () => object | null;
 	readonly open: (display: FramescaperExternalDisplay) => Promise<void>;
 	readonly stop: () => void;
-	readonly present: (frame: FramescaperExternalDisplayFrame) => void | Promise<void>;
+	readonly present: (
+		frame: FramescaperExternalDisplayFrame | FramescaperExternalDisplayFrameMetadata,
+		pixels?: FramescaperExternalDisplayPixelPort,
+	) => void | Promise<void>;
 	readonly dispose?: () => void;
 }
 
@@ -430,10 +435,12 @@ export class FramescaperNativeServicesLifecycleV3 {
 		return this.externalDisplays();
 	}
 
-	async presentExternalDisplay(value: unknown): Promise<FramescaperNativeExternalDisplayProjection> {
+	async presentExternalDisplay(
+		value: unknown, pixels?: FramescaperExternalDisplayPixelPort,
+	): Promise<FramescaperNativeExternalDisplayProjection> {
 		const external = this.#externalDisplay;
 		if (!external) throw unavailable('present an external-display frame');
-		await external.present(value as FramescaperExternalDisplayFrame);
+		await external.present(value as FramescaperExternalDisplayFrameMetadata, pixels);
 		return this.externalDisplays();
 	}
 }

@@ -230,6 +230,9 @@ export function soundscaperMainSource(sourceValue) {
 export function soundscaperPreloadSource(sourceValue) {
 	let source = textSource(sourceValue, 'desktop preload');
 	source = replaceOnce(source,
+		/import \{ presentFramescaperExternalDisplayFrame \} from '[^']+';\n/u,
+		'', 'clean-display preload import');
+	source = replaceOnce(source,
 		/import \{ createAssistanceKeyedVideoPreloadBridge \} from '[^']+'; ?/u,
 		'', 'keyed-video preload import');
 	source = replaceOnce(source,

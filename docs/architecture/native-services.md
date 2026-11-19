@@ -465,6 +465,12 @@ as the editor. It is a session-only, menu-opened sink, not a second renderer or
 audio route. Display loss closes it; unsupported placement or HDR capability is
 reported rather than guessed.
 
+The sandboxed editor preload offers one control port and one pixel port per
+evaluated frame. Main authorizes the owner and binds the transfer to the active
+display window. The pixel port carries the private RGBA snapshot directly to
+that window. The sink verifies the dimensions and SHA-256 before paint, and
+main returns the acknowledgement only for the current session.
+
 OpenFX discovery and hosting follow the same grant, consent, fingerprint, and
 quarantine model as audio plug-ins, using a dedicated host rather than the media
 helper. Generator, filter, transition, paint, retimer, and general contexts map

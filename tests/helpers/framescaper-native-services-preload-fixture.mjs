@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { webcrypto } from 'node:crypto';
+import { createHash, webcrypto } from 'node:crypto';
 import vm from 'node:vm';
 import { MessageChannel } from 'node:worker_threads';
 import { readDesktopPreloadSource } from './desktop-preload-source.mjs';
@@ -10,6 +10,7 @@ export async function loadPreload(results) {
 	let bridge;
 	const invocations = [];
 	const dataPlaneChunks = [];
+	const displayFrames = [];
 	const bulkPeers = new WeakSet();
 	class PreloadMessageChannel extends MessageChannel {
 		constructor() {
@@ -35,7 +36,19 @@ export async function loadPreload(results) {
 				postMessage(channel, value, ports) {
 					invocations.push([channel, value]);
 					const port = ports[0];
-					if (channel.endsWith(':display:frame-port') || channel.endsWith(':image-sequence:import-port')
+					if (channel.endsWith(':display:frame-port')) {
+						assert.equal(ports.length, 2);
+						assert.deepEqual(Object.keys(value), ['frame']);
+						ports[1].once('message', (pixels) => {
+							displayFrames.push({ byteLength: pixels.byteLength, sha256: createHash('sha256').update(pixels).digest('hex') });
+							port.postMessage({ dataPlaneVersion: 1, type: 'result', streamId: value.frame.rgbaSha256.slice(0, 40),
+								projection: results.shift() });
+							ports[1].close();
+							port.close();
+						});
+						return;
+					}
+					if (channel.endsWith(':image-sequence:import-port')
 						|| channel.endsWith(':render-inputs:port')) bulkPeers.add(port);
 					port.on('message', (message) => {
 						if (message.type === 'chunk') {
@@ -55,5 +68,5 @@ export async function loadPreload(results) {
 			},
 		}),
 	});
-	return { bridge, invocations, dataPlaneChunks };
+	return { bridge, invocations, dataPlaneChunks, displayFrames };
 }
