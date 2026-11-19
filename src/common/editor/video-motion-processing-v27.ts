@@ -232,12 +232,20 @@ export function applySimilarityTransformV1(
 	transformValue: VideoSimilarityTransformV1,
 ): VideoPointV1 {
 	const point = pointValueChecked(pointValue, 'similarity input point');
-	const transform = similarityValue(transformValue, 'similarity transform');
-	const cosine = Math.cos(transform.rotationRadians) * transform.scale;
-	const sine = Math.sin(transform.rotationRadians) * transform.scale;
+	const { cosine, sine, translateX, translateY } = prepareSimilarityAffineCoefficientsV1(transformValue);
 	return Object.freeze({
-		x: cosine * point.x - sine * point.y + transform.translateX,
-		y: sine * point.x + cosine * point.y + transform.translateY,
+		x: cosine * point.x - sine * point.y + translateX,
+		y: sine * point.x + cosine * point.y + translateY,
+	});
+}
+
+export function prepareSimilarityAffineCoefficientsV1(transformValue: VideoSimilarityTransformV1) {
+	const transform = similarityValue(transformValue, 'similarity transform');
+	return Object.freeze({
+		cosine: Math.cos(transform.rotationRadians) * transform.scale,
+		sine: Math.sin(transform.rotationRadians) * transform.scale,
+		translateX: transform.translateX,
+		translateY: transform.translateY,
 	});
 }
 

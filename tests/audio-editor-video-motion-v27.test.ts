@@ -291,29 +291,47 @@ test('temporal denoise admits GPU-first output and computes CPU only after accel
 	assert.deepEqual(invalidGeometry, cpu);
 });
 
-test('CPU temporal denoise resolves each neighbor transform outside the pixel loop', async () => {
-	const current = createGrayVideoFrameV1({ width: 2, height: 2, samples: [1, 1, 1, 1] });
-	const neighbor = createGrayVideoFrameV1({ width: 2, height: 2, samples: [0, 0, 0, 0] });
+test('CPU temporal denoise prepares affine coefficients once and preserves the scalar result', async () => {
+	const current = translatedDot(0, 0);
+	const neighbor = translatedDot(1, -1);
+	const transformToCurrent = {
+		scale: 0.93, rotationRadians: 0.095, translateX: -1.2, translateY: 0.6,
+		inlierCount: 12, meanError: 0.01,
+	};
+	const inverse = resolveStabilizationTransformV1(transformToCurrent, 1);
+	const expected = current.samples.map((original, index) => {
+		const x = index % current.width;
+		const y = Math.floor(index / current.width);
+		const coordinate = applySimilarityTransformV1({ x, y }, inverse);
+		if (coordinate.x < 0 || coordinate.x > neighbor.width - 1
+			|| coordinate.y < 0 || coordinate.y > neighbor.height - 1) return original;
+		const total = original + sampleGrayVideoFrameBilinearV1(neighbor, coordinate.x, coordinate.y);
+		return original + (total / 2 - original) * 0.5;
+	});
 	const originalLog = Math.log;
+	const originalSin = Math.sin;
 	let inverseResolutions = 0;
+	let sines = 0;
 	Math.log = (value: number): number => {
 		inverseResolutions += 1;
 		return originalLog(value);
 	};
+	Math.sin = (value: number): number => {
+		sines += 1;
+		return originalSin(value);
+	};
 	try {
-		await processTemporalDenoiseV1({
-			current,
-			neighbors: [{ frame: neighbor, transformToCurrent: {
-				scale: 1, rotationRadians: 0, translateX: 0, translateY: 0,
-				inlierCount: 4, meanError: 0,
-			} }],
-			strength: 0.5,
+		const output = await processTemporalDenoiseV1({
+			current, neighbors: [{ frame: neighbor, transformToCurrent }], strength: 0.5,
 		});
+		assert.deepEqual(output.samples, expected);
 	} finally {
 		Math.log = originalLog;
+		Math.sin = originalSin;
 	}
 	assert.equal(inverseResolutions, 2,
 		'one validation and one CPU transform resolution are independent of pixel count');
+	assert.equal(sines, 3, 'sine evaluation depends on neighbors and stays independent of pixel count');
 });
 
 test('motion processing observes cancellation', async () => {

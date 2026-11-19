@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import {
-	applySimilarityTransformV1,
 	createGrayVideoFrameV1,
+	prepareSimilarityAffineCoefficientsV1,
 	resolveStabilizationTransformV1,
 	type GrayVideoFrameV1,
 	type VideoSimilarityTransformV1,
@@ -176,22 +176,21 @@ function temporalDenoiseCpu(
 	const samples: number[] = [];
 	const resolvedNeighbors = neighbors.map((neighbor) => ({
 		frame: neighbor.frame,
-		transform: resolveStabilizationTransformV1(neighbor.transformToCurrent, 1),
+		...prepareSimilarityAffineCoefficientsV1(resolveStabilizationTransformV1(neighbor.transformToCurrent, 1)),
 	}));
 	for (let y = 0; y < current.height; y += 1) {
 		throwIfAborted(signal);
 		for (let x = 0; x < current.width; x += 1) {
-			let total = pixel(current, x, y);
+			const original = pixel(current, x, y);
+			let total = original;
 			let count = 1;
-			for (const neighbor of resolvedNeighbors) {
-				const coordinate = applySimilarityTransformV1(
-					{ x, y }, neighbor.transform,
-				);
-				if (!inside(neighbor.frame, coordinate.x, coordinate.y)) continue;
-				total += sampleGrayVideoFrameBilinearV1(neighbor.frame, coordinate.x, coordinate.y);
+			for (const { frame, cosine, sine, translateX, translateY } of resolvedNeighbors) {
+				const neighborX = cosine * x - sine * y + translateX;
+				const neighborY = sine * x + cosine * y + translateY;
+				if (!inside(frame, neighborX, neighborY)) continue;
+				total += sampleGrayVideoFrameBilinearV1(frame, neighborX, neighborY);
 				count += 1;
 			}
-			const original = pixel(current, x, y);
 			samples.push(original + (total / count - original) * strength);
 		}
 	}
