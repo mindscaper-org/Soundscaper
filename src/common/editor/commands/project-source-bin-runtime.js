@@ -36,7 +36,6 @@ import {
 } from './clip-basic-runtime.js';
 import {
 	assertClipSourceBounds,
-	assertClipSpace,
 	assertUnusedClipId,
 	cloneVideoEffectsWithCommandIds,
 	normalizeClipForProject,
@@ -245,7 +244,6 @@ function placeProjectBinClip(project, command) {
 		);
 		const clip = normalizeClipForProject(project, candidate);
 		assertClipSourceBounds(project, clip);
-		assertClipSpace(project, track, clip);
 		project.clips.push(adoptMidiTransferContext(clip, track));
 		track.clipIds.push(clip.id);
 		sortTrack(project, track);

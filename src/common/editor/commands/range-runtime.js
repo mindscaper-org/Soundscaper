@@ -522,7 +522,7 @@ export function replaceRange(project, command) {
 	const nextTrackClips = [...replacements, replacement]
 		.sort((first, second) => first.timelineStartFrame - second.timelineStartFrame
 			|| compareCodeUnits(first.id, second.id));
-	validateTrackReplacement(project, track, deletedIds, nextTrackClips);
+	validateTrackReplacement(project, deletedIds, nextTrackClips);
 	project.clips = project.clips.filter((clip) => !deletedIds.has(clip.id));
 	project.clips.push(...nextTrackClips);
 	track.clipIds = nextTrackClips.map((clip) => clip.id);

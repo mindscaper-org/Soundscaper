@@ -17,7 +17,6 @@ import { collectRelatedClipIds, mergeEditingRanges } from './editing-selection-a
 import { hasCoreEditingProjectAuthority, hasProjectBinMediaAuthority } from '../project-schema-version.ts';
 import {
 	assertClipSourceBounds,
-	assertClipSpace,
 	assertUnusedClipId,
 	envelopeForTrimmedBounds,
 	normalizeClipForProject,
@@ -53,7 +52,6 @@ export function addClip(project, trackId, value) {
 	}
 	assertUnusedClipId(project, clip.id);
 	assertClipSourceBounds(project, clip);
-	assertClipSpace(project, track, clip);
 	project.clips.push(clip);
 	track.clipIds.push(clip.id);
 	sortTrack(project, track);
@@ -110,7 +108,7 @@ function takeGraphClipRemovals(removedByTrack) {
 
 export function updateClip(project, clipId, changes = {}) {
 	const clip = requireClip(project, clipId);
-	const track = requireClipTrack(project, clipId);
+	requireClipTrack(project, clipId);
 	const allowed = clip.kind === 'video'
 		? new Set(['title', 'groupId', 'color'])
 		: new Set([
@@ -135,14 +133,13 @@ export function updateClip(project, clipId, changes = {}) {
 		id: clip.id,
 	});
 	assertClipSourceBounds(project, updated);
-	assertClipSpace(project, track, updated, clip.id);
 	replaceClip(project, updated);
 }
 
 export function replaceClipSource(project, clipId, sourceId) {
 	if (!hasCoreEditingProjectAuthority(project)) throw new RangeError('Immutable sample editing requires an active editing project.');
 	const clip = requireClip(project, clipId);
-	const track = requireClipTrack(project, clipId);
+	requireClipTrack(project, clipId);
 	const source = project.sources.find((candidate) => candidate.id === sourceId);
 	if (!source) throw new ReferenceError(`Unknown source: ${sourceId}.`);
 	if (hasProjectBinMediaAuthority(project) && source.kind !== clip.kind) {
@@ -158,7 +155,6 @@ export function replaceClipSource(project, clipId, sourceId) {
 		id: clip.id,
 	});
 	assertClipSourceBounds(project, updated);
-	assertClipSpace(project, track, updated, clip.id);
 	replaceClip(project, updated);
 }
 
@@ -295,7 +291,6 @@ export function moveClip(project, command) {
 		timelineStartFrame,
 		id: clip.id,
 	});
-	assertClipSpace(project, targetTrack, updated, clip.id);
 	replaceClip(project, updated);
 	if (targetTrack.id !== oldTrack.id) {
 		inheritMidiTrackForTransfer(clip, oldTrack, targetTrack);
