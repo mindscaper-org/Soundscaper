@@ -8,7 +8,7 @@ import { clearDesktopStorageCopyStage } from './desktop-storage-copy-stage.ts';
 import { checkDesktopStorageMigrationDestination, DesktopStorageMigrationPreflightError, migrateDesktopStorageEntries, sameDesktopStorageDirectory } from './desktop-storage-migration.ts';
 import { projectLibraryLocationDirectory, withProjectLibraryRelocation } from './project-library-directory-lock.ts';
 import { fixedProjectLibraryPaths } from './project-library-path-layout.ts';
-import { assertLocalDesktopStorage } from './local-storage-safety.ts';
+import { assertLocalDesktopStorage, UnsupportedDesktopStorageLocationError } from './local-storage-safety.ts';
 
 const FOLDER_ID = /^[a-f0-9]{32}$/u;
 const COPY_STAGE = /^relocation-[a-f0-9]{32}$/u;
@@ -46,7 +46,12 @@ export class TemporaryProjectStorage {
 		const activeRoot = await this.#openActiveFolder();
 		const state = this.#state;
 		if (state.active === state.selected) return state.active;
-		const selectedRoot = await this.#availableFolder(state.selected, state.selectedId);
+		let selectedRoot: string | null;
+		try { selectedRoot = await this.#availableFolder(state.selected, state.selectedId); }
+		catch (error) {
+			if (state.moveStarted || !(error instanceof UnsupportedDesktopStorageLocationError)) throw error;
+			return this.#refuseFolderSelection(error, onSelectionRefused);
+		}
 		if (selectedRoot === null) {
 			if (state.moveStarted) throw new TemporaryProjectStorageUnavailableError('selected');
 			return state.active;
@@ -88,11 +93,9 @@ export class TemporaryProjectStorage {
 			selectedId ??= await this.#rememberFolder(selectedRoot);
 			await this.#persist({ active: state.selected, selected: state.selected, moveStarted: false, activeId: selectedId, selectedId });
 			return this.#state.active;
-		}).catch(async (error: unknown) => {
+		}).catch((error: unknown) => {
 			if (state.moveStarted || !(error instanceof DesktopStorageMigrationPreflightError)) throw error;
-			await this.#resetFolderSelection();
-			onSelectionRefused?.(error);
-			return state.active;
+			return this.#refuseFolderSelection(error, onSelectionRefused);
 		});
 	}
 	status(): Readonly<{ folder: string; selectedFolder: string; restartRequired: boolean }> {
@@ -126,6 +129,11 @@ export class TemporaryProjectStorage {
 	async #cancelAliasedSelection(): Promise<void> {
 		if (this.#state.moveStarted) throw new TemporaryProjectStorageUnavailableError('selected');
 		await this.#resetFolderSelection();
+	}
+	async #refuseFolderSelection(error: Error, report?: (error: Error) => void): Promise<string> {
+		await this.#resetFolderSelection();
+		report?.(error);
+		return this.#state.active;
 	}
 	async #resetFolderSelection(): Promise<void> {
 		const { active, activeId, selected } = this.#state;

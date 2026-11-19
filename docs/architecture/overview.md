@@ -244,8 +244,9 @@ project limit defaults to ten and prunes oldest closed copies under their
 project locks and exact-current deletion. Open projects can exceed the limit.
 The native folder picker checks for existing destination conflicts before saving
 a temporary root selection. The closed library moves on the next startup, with
-another conflict check before migration. If preflight refuses a fresh selection,
-startup cancels the selection, reports the cause, and opens the current library.
+another conflict check before migration. If preflight refuses a fresh
+selection or its location becomes unsupported, startup cancels that choice,
+reports the cause, and opens the current library.
 If the selected directory disappears
 before migration starts, startup continues with the current library. Startup
 requires a disconnected destination to return once the move may have started,

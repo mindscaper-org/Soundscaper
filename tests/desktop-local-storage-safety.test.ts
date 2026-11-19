@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -38,6 +38,30 @@ test('persisted unsafe selections are refused before migration touches either li
 	await assert.rejects(new TemporaryProjectStorage(config, root, 'Soundscaper').prepare(), /local.*unsynced/iu);
 	assert.equal(readFileSync(join(source, 'library.sqlite3'), 'utf8'), 'original evidence');
 	assert.equal(existsSync(selected), false);
+});
+
+test('a fresh temporary folder redirected into sync storage cannot prevent startup with the current library', async t => {
+	const root = home(t), config = join(root, 'settings.json'), active = join(root, 'current');
+	const selected = join(root, 'chosen'), synced = join(root, 'OneDrive', 'working');
+	const catalog = join(active, 'Soundscaper', 'project-library', 'v1', 'library.sqlite3');
+	mkdirSync(join(active, 'Soundscaper', 'project-library', 'v1'), { recursive: true });
+	writeFileSync(catalog, 'original catalog');
+	await new TemporaryProjectStorage(config, active, 'Soundscaper').select(selected);
+	renameSync(selected, join(root, 'previously chosen'));
+	mkdirSync(synced, { recursive: true });
+	writeFileSync(join(synced, 'unrelated.txt'), 'synced data');
+	symlinkSync(synced, selected, 'junction');
+
+	const refused: Error[] = [];
+	const restarted = new TemporaryProjectStorage(config, active, 'Soundscaper');
+	assert.equal(await restarted.prepare(error => refused.push(error)), active);
+	assert.equal(refused.length, 1);
+	assert.match(refused[0]!.message, /local.*unsynced/iu);
+	assert.deepEqual(restarted.status(), { folder: active, selectedFolder: active, restartRequired: false });
+	assert.equal(await new TemporaryProjectStorage(config, active, 'Soundscaper').prepare(), active);
+	assert.equal(readFileSync(catalog, 'utf8'), 'original catalog');
+	assert.deepEqual(readdirSync(synced), ['unrelated.txt']);
+	assert.equal(readFileSync(join(synced, 'unrelated.txt'), 'utf8'), 'synced data');
 });
 
 test('symlinks and provider-configured custom sync roots cannot hide a synchronized destination', t => {

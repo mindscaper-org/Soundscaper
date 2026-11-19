@@ -12,12 +12,18 @@ interface StorageProbe {
 	readonly volumeIsLocal?: (path: string) => boolean;
 }
 
-const STORAGE_ERROR = 'Working databases require local, unsynced storage. Choose a local temporary data folder; save project archives separately for cloud sync or network sharing.';
 const SYNC_COMPONENT = /^(?:onedrive(?:[ -].*)?|dropbox(?:[ (].*)?|google drive|googledrive(?:-.*)?|icloud(?:drive| drive)?|nextcloud|owncloud)$/iu;
+
+export class UnsupportedDesktopStorageLocationError extends Error {
+	constructor() {
+		super('Working databases require local, unsynced storage. Choose a local temporary data folder; save project archives separately for cloud sync or network sharing.');
+		this.name = 'UnsupportedDesktopStorageLocationError';
+	}
+}
 
 /** Check both spellings before any writes and return the physical storage path. */
 export function assertLocalDesktopStorage(path: string, probe: StorageProbe = {}): string {
-	if (/^(?:\\\\|\/\/)/u.test(path)) throw new Error(STORAGE_ERROR);
+	if (/^(?:\\\\|\/\/)/u.test(path)) throw new UnsupportedDesktopStorageLocationError();
 	if (typeof path !== 'string' || path.includes('\0') || !isAbsolute(path)) {
 		throw new TypeError('Working database storage requires an absolute filesystem path.');
 	}
@@ -28,9 +34,9 @@ export function assertLocalDesktopStorage(path: string, probe: StorageProbe = {}
 		const components = candidate.split(/[/\\]/u);
 		if (components.some(component => SYNC_COMPONENT.test(component))
 			|| /[/\\]Library[/\\](?:CloudStorage|Mobile Documents)(?:[/\\]|$)/iu.test(candidate)
-			|| roots.some(root => within(root, candidate))) throw new Error(STORAGE_ERROR);
+			|| roots.some(root => within(root, candidate))) throw new UnsupportedDesktopStorageLocationError();
 	}
-	if (!(probe.volumeIsLocal ?? isLocalDesktopVolume)(existingPath)) throw new Error(STORAGE_ERROR);
+	if (!(probe.volumeIsLocal ?? isLocalDesktopVolume)(existingPath)) throw new UnsupportedDesktopStorageLocationError();
 	return physical;
 }
 
