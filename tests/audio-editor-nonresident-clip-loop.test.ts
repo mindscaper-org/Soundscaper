@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { clipLoopUpdateFields } from '../src/common/editor/audio-clip-loop.ts';
+import { withClipLoop } from '../src/common/editor/audio-clip-loop.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createNodeWebAudioEngineFactory } from './helpers/node-web-audio-engine.ts';
@@ -14,9 +14,9 @@ for (const reversed of [false, true]) test(`nonresident ${reversed ? 'reversed' 
 	const source = createAudioSource({ id: 'source', sampleRate, frameCount, chunkFrames, channelCount: 1 });
 	const track = createAudioTrack({ id: 'track', clipIds: ['clip'] });
 	const clip = createAudioClip({ id: 'clip', sourceId: source.id, sourceStartFrame: start,
-		sourceDurationFrames: period, durationFrames: period, reversed });
-	const project = createSoundscaperProject({ id: 'loop', sampleRate, sources: [source], tracks: [track],
-		clips: [createAudioClip({ ...clip, ...clipLoopUpdateFields(clip, { periodFrames: period, offsetFrames: phase, durationFrames }) })] });
+		sourceDurationFrames: period, durationFrames, reversed,
+		opaqueExtensions: withClipLoop(undefined, { periodFrames: period, offsetFrames: phase }) });
+	const project = createSoundscaperProject({ id: 'loop', sampleRate, sources: [source], tracks: [track], clips: [clip] });
 	const samples = Float32Array.from({ length: frameCount }, (_, index) => ((index * 19 % 251) - 125) / 512);
 	const reads: number[] = [];
 	const { createEngine } = createNodeWebAudioEngineFactory(context);
